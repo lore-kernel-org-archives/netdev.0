@@ -1,818 +1,783 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] forgotten bits of Sangoma drivers removal
-Date: Mon, 14 Apr 2008 21:14:13 +0300
-Message-ID: <20080414181413.GO6695@cs181133002.pp.htv.fi>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH rebased][POWERPC] qe_lib and ucc_geth: switch to the
+	cpm_muram implementation
+Date: Mon, 14 Apr 2008 22:18:10 +0400
+Message-ID: <20080414181810.GA1038@polina.dev.rtsoft.ru>
+References: <20080320173945.GA8446@localhost.localdomain>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Robert P. J. Day" <rpjday@crashcourse.ca>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:57044 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765280AbYDNSPU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 14:15:20 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Scott Wood <scottwood@freescale.com>, linuxppc-dev@ozlabs.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Timur Tabi <timur@freescale.com>, netdev@vger.kernel.org
+To: Kumar Gala <galak@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20080320173945.GA8446@localhost.localdomain>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Robert P. J. Day spotted that my removal of the Sangoma drivers missed a 
-few bits.
+This is very trivial patch. We're transitioning to the cpm_muram_*
+calls. That's it.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Less trivial changes:
+- BD_SC_* defines were defined in the cpm.h and qe.h, so to avoid redefines
+  we remove BD_SC from the qe.h and use cpm.h along with cpm_muram_*
+  prototypes;
+- qe_muram_dump was unused and thus removed;
+- added some code to the cpm_common.c to support legacy QE bindings
+  (data-only node name).
 
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
 
-This patch has been sent on:
-- 31 Mar 2008
-- 25 Feb 2008
+Rebased on top of today's galak/powerpc.git.
 
- Documentation/networking/00-INDEX       |    2 
- Documentation/networking/wan-router.txt |  621 ------------------------
- include/linux/Kbuild                    |    1 
- include/linux/if_wanpipe.h              |  124 ----
- 4 files changed, 748 deletions(-)
+ arch/powerpc/sysdev/Makefile          |    1 +
+ arch/powerpc/sysdev/cpm_common.c      |   16 +++++-
+ arch/powerpc/sysdev/qe_lib/qe.c       |   96 +--------------------------------
+ arch/powerpc/sysdev/qe_lib/ucc_fast.c |    8 ++--
+ arch/powerpc/sysdev/qe_lib/ucc_slow.c |   18 +++---
+ drivers/net/ucc_geth.c                |   96 ++++++++++++++++----------------
+ include/asm-powerpc/cpm.h             |    1 +
+ include/asm-powerpc/qe.h              |   29 +----------
+ 8 files changed, 79 insertions(+), 186 deletions(-)
 
-b448ba4228b3dfaacfa7e043e3aa23579d06d36b diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-index 02e56d4..61ac35a 100644
---- a/Documentation/networking/00-INDEX
-+++ b/Documentation/networking/00-INDEX
-@@ -103,8 +103,6 @@ tuntap.txt
- 	- TUN/TAP device driver, allowing user space Rx/Tx of packets.
- vortex.txt
- 	- info on using 3Com Vortex (3c590, 3c592, 3c595, 3c597) Ethernet cards.
--wan-router.txt
--	- WAN router documentation
- wavelan.txt
- 	- AT&T GIS (nee NCR) WaveLAN card: An Ethernet-like radio transceiver
- x25.txt
-diff --git a/Documentation/networking/wan-router.txt b/Documentation/networking/wan-router.txt
-deleted file mode 100644
-index bc2ab41..0000000
---- a/Documentation/networking/wan-router.txt
-+++ /dev/null
-@@ -1,621 +0,0 @@
--------------------------------------------------------------------------------
--Linux WAN Router Utilities Package
--------------------------------------------------------------------------------
--Version 2.2.1 
--Mar 28, 2001
--Author: Nenad Corbic <ncorbic@sangoma.com>
--Copyright (c) 1995-2001 Sangoma Technologies Inc.
--------------------------------------------------------------------------------
--
--INTRODUCTION
--
--Wide Area Networks (WANs) are used to interconnect Local Area Networks (LANs)
--and/or stand-alone hosts over vast distances with data transfer rates
--significantly higher than those achievable with commonly used dial-up
--connections.
--
--Usually an external device called `WAN router' sitting on your local network
--or connected to your machine's serial port provides physical connection to
--WAN.  Although router's job may be as simple as taking your local network
--traffic, converting it to WAN format and piping it through the WAN link, these
--devices are notoriously expensive, with prices as much as 2 - 5 times higher
--then the price of a typical PC box.
--
--Alternatively, considering robustness and multitasking capabilities of Linux,
--an internal router can be built (most routers use some sort of stripped down
--Unix-like operating system anyway). With a number of relatively inexpensive WAN
--interface cards available on the market, a perfectly usable router can be
--built for less than half a price of an external router.  Yet a Linux box
--acting as a router can still be used for other purposes, such as fire-walling,
--running FTP, WWW or DNS server, etc.
--
--This kernel module introduces the notion of a WAN Link Driver (WLD) to Linux
--operating system and provides generic hardware-independent services for such
--drivers.  Why can existing Linux network device interface not be used for
--this purpose?  Well, it can.  However, there are a few key differences between
--a typical network interface (e.g. Ethernet) and a WAN link.
--
--Many WAN protocols, such as X.25 and frame relay, allow for multiple logical
--connections (known as `virtual circuits' in X.25 terminology) over a single
--physical link.  Each such virtual circuit may (and almost always does) lead
--to a different geographical location and, therefore, different network.  As a
--result, it is the virtual circuit, not the physical link, that represents a
--route and, therefore, a network interface in Linux terms.
--
--To further complicate things, virtual circuits are usually volatile in nature
--(excluding so called `permanent' virtual circuits or PVCs).  With almost no
--time required to set up and tear down a virtual circuit, it is highly desirable
--to implement on-demand connections in order to minimize network charges.  So
--unlike a typical network driver, the WAN driver must be able to handle multiple
--network interfaces and cope as multiple virtual circuits come into existence
--and go away dynamically.
-- 
--Last, but not least, WAN configuration is much more complex than that of say
--Ethernet and may well amount to several dozens of parameters.  Some of them
--are "link-wide"  while others are virtual circuit-specific.  The same holds
--true for WAN statistics which is by far more extensive and extremely useful
--when troubleshooting WAN connections.  Extending the ifconfig utility to suit
--these needs may be possible, but does not seem quite reasonable.  Therefore, a
--WAN configuration utility and corresponding application programmer's interface
--is needed for this purpose.
--
--Most of these problems are taken care of by this module.  Its goal is to
--provide a user with more-or-less standard look and feel for all WAN devices and
--assist a WAN device driver writer by providing common services, such as:
--
-- o User-level interface via /proc file system
-- o Centralized configuration
-- o Device management (setup, shutdown, etc.)
-- o Network interface management (dynamic creation/destruction)
-- o Protocol encapsulation/decapsulation
--
--To ba able to use the Linux WAN Router you will also need a WAN Tools package
--available from
--
--	ftp.sangoma.com/pub/linux/current_wanpipe/wanpipe-X.Y.Z.tgz
--
--where vX.Y.Z represent the wanpipe version number.
--
--For technical questions and/or comments please e-mail to ncorbic@sangoma.com.
--For general inquiries please contact Sangoma Technologies Inc. by
--
--	Hotline:	1-800-388-2475	(USA and Canada, toll free)
--	Phone:		(905) 474-1990  ext: 106
--	Fax:		(905) 474-9223
--	E-mail:		dm@sangoma.com	(David Mandelstam)
--	WWW:		http://www.sangoma.com
--
--
--INSTALLATION
--
--Please read the WanpipeForLinux.pdf manual on how to 
--install the WANPIPE tools and drivers properly. 
--
--
--After installing wanpipe package: /usr/local/wanrouter/doc. 
--On the ftp.sangoma.com : /linux/current_wanpipe/doc
--
--
--COPYRIGHT AND LICENSING INFORMATION
--
--This program is free software; you can redistribute it and/or modify it under
--the terms of the GNU General Public License as published by the Free Software
--Foundation; either version 2, or (at your option) any later version.
--
--This program is distributed in the hope that it will be useful, but WITHOUT
--ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
--FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
--
--You should have received a copy of the GNU General Public License along with
--this program; if not, write to the Free Software Foundation, Inc., 675 Mass
--Ave, Cambridge, MA 02139, USA.
--
--
--
--ACKNOWLEDGEMENTS
--
--This product is based on the WANPIPE(tm) Multiprotocol WAN Router developed
--by Sangoma Technologies Inc. for Linux 2.0.x and 2.2.x.  Success of the WANPIPE
--together with the next major release of Linux kernel in summer 1996 commanded
--adequate changes to the WANPIPE code to take full advantage of new Linux
--features.
--
--Instead of continuing developing proprietary interface tied to Sangoma WAN
--cards, we decided to separate all hardware-independent code into a separate
--module and defined two levels of interfaces - one for user-level applications
--and another for kernel-level WAN drivers.  WANPIPE is now implemented as a
--WAN driver compliant with the WAN Link Driver interface.  Also a general
--purpose WAN configuration utility and a set of shell scripts was developed to 
--support WAN router at the user level.
--
--Many useful ideas concerning hardware-independent interface implementation
--were given by Mike McLagan <mike.mclagan@linux.org> and his implementation
--of the Frame Relay router and drivers for Sangoma cards (dlci/sdla).
--
--With the new implementation of the APIs being incorporated into the WANPIPE,
--a special thank goes to Alan Cox in providing insight into BSD sockets.
--
--Special thanks to all the WANPIPE users who performed field-testing, reported
--bugs and made valuable comments and suggestions that help us to improve this
--product.
--
--
--
--NEW IN THIS RELEASE
--
--	o Updated the WANCFG utility
--		Calls the pppconfig to configure the PPPD
--		for async connections.
--
--	o Added the PPPCONFIG utility
--		Used to configure the PPPD daemon for the
--		WANPIPE Async PPP and standard serial port.
--		The wancfg calls the pppconfig to configure
--		the pppd.
--
--	o Fixed the PCI autodetect feature.  
--		The SLOT 0 was used as an autodetect option
--		however, some high end PC's slot numbers start
--		from 0. 
--
--	o This release has been tested with the new backupd
--	  daemon release.
--	
--
--PRODUCT COMPONENTS AND RELATED FILES
--
--/etc: (or user defined)
--	wanpipe1.conf	default router configuration file
--
--/lib/modules/X.Y.Z/misc:
--	wanrouter.o	router kernel loadable module
--	af_wanpipe.o	wanpipe api socket module
--
--/lib/modules/X.Y.Z/net:
--	sdladrv.o	Sangoma SDLA support module
--	wanpipe.o	Sangoma WANPIPE(tm) driver module
--
--/proc/net/wanrouter
--	Config		reads current router configuration
--	Status		reads current router status
--	{name}		reads WAN driver statistics
--
--/usr/sbin:
--	wanrouter	wanrouter start-up script
--	wanconfig	wanrouter configuration utility
--	sdladump	WANPIPE adapter memory dump utility
--        fpipemon        Monitor for Frame Relay
--        cpipemon        Monitor for Cisco HDLC
--	ppipemon 	Monitor for PPP
--	xpipemon 	Monitor for X25
--	wpkbdmon        WANPIPE keyboard led monitor/debugger
--
--/usr/local/wanrouter:
--	README		this file
--	COPYING		GNU General Public License
--	Setup		installation script
--	Filelist	distribution definition file
--	wanrouter.rc	meta-configuration file 
--			(used by the Setup and wanrouter script)
--
--/usr/local/wanrouter/doc:
--	wanpipeForLinux.pdf 	WAN Router User's Manual
--
--/usr/local/wanrouter/patches:
--	wanrouter-v2213.gz  	patch for Linux kernels 2.2.11 up to 2.2.13.
--	wanrouter-v2214.gz	patch for Linux kernel 2.2.14. 
--	wanrouter-v2215.gz	patch for Linux kernels 2.2.15 to 2.2.17.
--	wanrouter-v2218.gz	patch for Linux kernels 2.2.18 and up.
--	wanrouter-v240.gz	patch for Linux kernel 2.4.0.  
--	wanrouter-v242.gz	patch for Linux kernel 2.4.2 and up.
--	wanrouter-v2034.gz	patch for Linux kernel 2.0.34
--	wanrouter-v2036.gz 	patch for Linux kernel 2.0.36 and up. 
--
--/usr/local/wanrouter/patches/kdrivers:
--	Sources of the latest WANPIPE device drivers.
--	These are used to UPGRADE the linux kernel to the newest
--	version if the kernel source has already been patched with
--	WANPIPE drivers.
--
--/usr/local/wanrouter/samples:
--	interface	sample interface configuration file
--	wanpipe1.cpri 	CHDLC primary port
--     	wanpipe2.csec 	CHDLC secondary port
--     	wanpipe1.fr   	Frame Relay protocol
--     	wanpipe1.ppp  	PPP protocol ) 
--	wanpipe1.asy	CHDLC ASYNC protocol
--	wanpipe1.x25	X25 protocol
--	wanpipe1.stty	Sync TTY driver (Used by Kernel PPPD daemon)
--	wanpipe1.atty	Async TTY driver (Used by Kernel PPPD daemon)
--	wanrouter.rc	sample meta-configuration file
--
--/usr/local/wanrouter/util:
--	*		wan-tools utilities source code
--
--/usr/local/wanrouter/api/x25:
--	*		x25 api sample programs.
--/usr/local/wanrouter/api/chdlc:
--	*		chdlc api sample programs.
--/usr/local/wanrouter/api/fr:
--	*		fr api sample programs.
--/usr/local/wanrouter/config/wancfg:
--	wancfg		WANPIPE GUI configuration program.
--                        Creates wanpipe#.conf files. 
--/usr/local/wanrouter/config/cfgft1:
--	cfgft1		GUI CSU/DSU configuration program.
--
--/usr/include/linux:
--	wanrouter.h	router API definitions
--	wanpipe.h	WANPIPE API definitions
--	sdladrv.h	SDLA support module API definitions
--	sdlasfm.h	SDLA firmware module definitions
--	if_wanpipe.h	WANPIPE Socket definitions
--	sdlapci.h	WANPIPE PCI definitions
--	
--
--/usr/src/linux/net/wanrouter:
--	*		wanrouter source code
--
--/var/log:
--	wanrouter	wanrouter start-up log (created by the Setup script)
--
--/var/lock:  (or /var/lock/subsys for RedHat)
--	wanrouter	wanrouter lock file (created by the Setup script)
--
--/usr/local/wanrouter/firmware:
--	fr514.sfm	Frame relay firmware for Sangoma S508/S514 card
--	cdual514.sfm	Dual Port Cisco HDLC firmware for Sangoma S508/S514 card
--	ppp514.sfm      PPP Firmware for Sangoma S508 and S514 cards
--	x25_508.sfm	X25 Firmware for Sangoma S508 card.
--
--
--REVISION HISTORY
--
--1.0.0	December 31, 1996	Initial version
--
--1.0.1	January 30, 1997	Status and statistics can be read via /proc
--				filesystem entries.
--
--1.0.2   April 30, 1997          Added UDP management via monitors.
--
--1.0.3	June 3, 1997		UDP management for multiple boards using Frame
--				Relay and PPP
--				Enabled continuous transmission of Configure 
--				Request Packet for PPP (for 508 only)
--				Connection Timeout for PPP changed from 900 to 0
--				Flow Control Problem fixed for Frame Relay
--
--1.0.4	July 10, 1997		S508/FT1 monitoring capability in fpipemon and
--				ppipemon utilities.
--				Configurable TTL for UDP packets.
--				Multicast and Broadcast IP source addresses are
--				silently discarded.
--
--1.0.5	July 28, 1997		Configurable T391,T392,N391,N392,N393 for Frame
--				Relay in router.conf.
--				Configurable Memory Address through router.conf 
--				for Frame Relay, PPP and X.25. (commenting this
-- 				out enables auto-detection).
--				Fixed freeing up received buffers using kfree()
-- 				for Frame Relay and X.25.
--				Protect sdla_peek() by calling save_flags(),
--				cli() and restore_flags().
--				Changed number of Trace elements from 32 to 20
--				Added DLCI specific data monitoring in FPIPEMON. 
--2.0.0	Nov 07, 1997		Implemented protection of RACE conditions by 
--				critical flags for FRAME RELAY and PPP.
--				DLCI List interrupt mode implemented.
--				IPX support in FRAME RELAY and PPP.
--				IPX Server Support (MARS)
--				More driver specific stats included in FPIPEMON
--				and PIPEMON.
--
--2.0.1	Nov 28, 1997		Bug Fixes for version 2.0.0.
--				Protection of "enable_irq()" while 
--				"disable_irq()" has been enabled from any other
--				routine (for Frame Relay, PPP and X25).
--				Added additional Stats for Fpipemon and Ppipemon
--				Improved Load Sharing for multiple boards
--
--2.0.2	Dec 09, 1997		Support for PAP and CHAP for ppp has been
--				implemented.
--
--2.0.3	Aug 15, 1998		New release supporting Cisco HDLC, CIR for Frame
--				relay, Dynamic IP assignment for PPP and Inverse
--				Arp support for Frame-relay.  Man Pages are 
--				included for better support and a new utility
--				for configuring FT1 cards.
--
--2.0.4	Dec 09, 1998	        Dual Port support for Cisco HDLC.
--				Support for HDLC (LAPB) API.
--				Supports BiSync Streaming code for S502E 
--				and S503 cards.
--				Support for Streaming HDLC API.
--				Provides a BSD socket interface for 
--				creating applications using BiSync
--   				streaming.        
--
--2.0.5   Aug 04, 1999 		CHDLC initialization bug fix.
--				PPP interrupt driven driver: 
--  				Fix to the PPP line hangup problem.
--				New PPP firmware
--				Added comments to the startup SYSTEM ERROR messages
--				Xpipemon debugging application for the X25 protocol
--				New USER_MANUAL.txt
--				Fixed the odd boundary 4byte writes to the board.
--				BiSync Streaming code has been taken out.  
--				 Available as a patch.
--				Streaming HDLC API has been taken out.  
--				 Available as a patch.                 
--
--2.0.6   Aug 17, 1999		Increased debugging in statup scripts
--				Fixed installation bugs from 2.0.5
--				Kernel patch works for both 2.2.10 and 2.2.11 kernels.
--				There is no functional difference between the two packages         
--
--2.0.7   Aug 26, 1999		o  Merged X25API code into WANPIPE.
--				o  Fixed a memory leak for X25API
--				o  Updated the X25API code for 2.2.X kernels.
--				o  Improved NEM handling.   
--
--2.1.0	Oct 25, 1999		o New code for S514 PCI Card
--				o New CHDLC and Frame Relay drivers
--				o PPP and X25 are not supported in this release    
--
--2.1.1	Nov 30, 1999		o PPP support for S514 PCI Cards
--
--2.1.3   Apr 06, 2000		o Socket based x25api 
--				o Socket based chdlc api
--				o Socket based fr api
--				o Dual Port Receive only CHDLC support.
--				o Asynchronous CHDLC support (Secondary Port)
--				o cfgft1 GUI csu/dsu configurator
--				o wancfg GUI configuration file 
--				  configurator.
--				o Architectural directory changes.
--
--beta-2.1.4 Jul 2000		o Dynamic interface configuration:
--					Network interfaces reflect the state
--					of protocol layer.  If the protocol becomes
--					disconnected, driver will bring down
--					the interface.  Once the protocol reconnects
--					the interface will be brought up. 
--					
--					Note: This option is turned off by default.
--
--				o Dynamic wanrouter setup using 'wanconfig':
--					wanconfig utility can be used to
--					shutdown,restart,start or reconfigure 
--					a virtual circuit dynamically.
--				     
--					Frame Relay:  Each DLCI can be: 
--						      created,stopped,restarted and reconfigured
--						      dynamically using wanconfig.
--					
--						      ex: wanconfig card wanpipe1 dev wp1_fr16 up
--				  
--				o Wanrouter startup via command line arguments:
--					wanconfig also supports wanrouter startup via command line
--					arguments.  Thus, there is no need to create a wanpipe#.conf
--					configuration file.  
--
--				o Socket based x25api update/bug fixes.
--					Added support for LCN numbers greater than 255.
--					Option to pass up modem messages.
--					Provided a PCI IRQ check, so a single S514
--					card is guaranteed to have a non-sharing interrupt.
--
--				o Fixes to the wancfg utility.
--				o New FT1 debugging support via *pipemon utilities.
--				o Frame Relay ARP support Enabled.
--
--beta3-2.1.4 Jul 2000		o X25 M_BIT Problem fix.
--				o Added the Multi-Port PPP
--				  Updated utilities for the Multi-Port PPP.
--
--2.1.4	Aut 2000
--				o In X25API:
--					Maximum packet an application can send
--					to the driver has been extended to 4096 bytes.
--
--					Fixed the x25 startup bug. Enable 
--					communications only after all interfaces
--					come up.  HIGH SVC/PVC is used to calculate
--					the number of channels.
--					Enable protocol only after all interfaces
--					are enabled.
--
--				o Added an extra state to the FT1 config, kernel module.
--				o Updated the pipemon debuggers.
--
--				o Blocked the Multi-Port PPP from running on kernels
--				  2.2.16 or greater, due to syncppp kernel module
--				  change. 
--	  
--beta1-2.1.5 	Nov 15 2000
--				o Fixed the MultiPort PPP Support for kernels 2.2.16 and above.
--				  2.2.X kernels only
--
--				o Secured the driver UDP debugging calls
--					- All illegal network debugging calls are reported to
--					  the log.
--					- Defined a set of allowed commands, all other denied.
--					
--				o Cpipemon
--					- Added set FT1 commands to the cpipemon. Thus CSU/DSU
--					  configuration can be performed using cpipemon.
--					  All systems that cannot run cfgft1 GUI utility should
--					  use cpipemon to configure the on board CSU/DSU.
--
--
--				o Keyboard Led Monitor/Debugger
--					- A new utility /usr/sbin/wpkbdmon uses keyboard leds
--					  to convey operational statistic information of the 
--					  Sangoma WANPIPE cards.
--					NUM_LOCK    = Line State  (On=connected,    Off=disconnected)
--					CAPS_LOCK   = Tx data     (On=transmitting, Off=no tx data)
--					SCROLL_LOCK = Rx data     (On=receiving,    Off=no rx data
--					
--				o Hardware probe on module load and dynamic device allocation
--					- During WANPIPE module load, all Sangoma cards are probed
--					  and found information is printed in the /var/log/messages.
--					- If no cards are found, the module load fails.
--					- Appropriate number of devices are dynamically loaded 
--					  based on the number of Sangoma cards found.
--
--					  Note: The kernel configuration option 
--						CONFIG_WANPIPE_CARDS has been taken out.
--					
--				o Fixed the Frame Relay and Chdlc network interfaces so they are
--				  compatible with libpcap libraries.  Meaning, tcpdump, snort,
--				  ethereal, and all other packet sniffers and debuggers work on
--				  all WANPIPE network interfaces.
--					- Set the network interface encoding type to ARPHRD_PPP.
--					  This tell the sniffers that data obtained from the
--					  network interface is in pure IP format.
--				  Fix for 2.2.X kernels only.
--				
--				o True interface encoding option for Frame Relay and CHDLC
--					- The above fix sets the network interface encoding
--					  type to ARPHRD_PPP, however some customers use
--					  the encoding interface type to determine the
--					  protocol running.  Therefore, the TURE ENCODING
--					  option will set the interface type back to the
--					  original value.  
--
--					  NOTE: If this option is used with Frame Relay and CHDLC
--						libpcap library support will be broken.  
--						i.e. tcpdump will not work.
--					Fix for 2.2.x Kernels only.
--						
--				o Ethernet Bridgind over Frame Relay
--					- The Frame Relay bridging has been developed by 
--					  Kristian Hoffmann and Mark Wells.  
--					- The Linux kernel bridge is used to send ethernet 
--					  data over the frame relay links.
--					For 2.2.X Kernels only.
--
--				o Added extensive 2.0.X support. Most new features of
--				  2.1.5 for protocols Frame Relay, PPP and CHDLC are
--				  supported under 2.0.X kernels. 
--
--beta1-2.2.0 	Dec 30 2000
--				o Updated drivers for 2.4.X kernels.
--				o Updated drivers for SMP support.
--				o X25API is now able to share PCI interrupts.
--				o Took out a general polling routine that was used
--				  only by X25API. 
--				o Added appropriate locks to the dynamic reconfiguration
--				  code.
--				o Fixed a bug in the keyboard debug monitor.
--
--beta2-2.2.0	Jan 8 2001
--				o Patches for 2.4.0 kernel
--				o Patches for 2.2.18 kernel
--				o Minor updates to PPP and CHLDC drivers.
--				  Note: No functional difference.
--
--beta3-2.2.9	Jan 10 2001
--				o I missed the 2.2.18 kernel patches in beta2-2.2.0
--				  release.  They are included in this release.
--
--Stable Release
--2.2.0		Feb 01 2001
--				o Bug fix in wancfg GUI configurator.
--					The edit function didn't work properly.
--
--
--bata1-2.2.1	Feb 09 2001
--			o WANPIPE TTY Driver emulation. 
--			  Two modes of operation Sync and Async.
--				Sync: Using the PPPD daemon, kernel SyncPPP layer
--				      and the Wanpipe sync TTY driver: a PPP protocol 
--				      connection can be established via Sangoma adapter, over
--				      a T1 leased line.
--			
--				      The 2.4.0 kernel PPP layer supports MULTILINK
--				      protocol, that can be used to bundle any number of Sangoma
--				      adapters (T1 lines) into one, under a single IP address.
--				      Thus, efficiently obtaining multiple T1 throughput. 
--
--				      NOTE: The remote side must also implement MULTILINK PPP
--					    protocol.
--
--				Async:Using the PPPD daemon, kernel AsyncPPP layer
--				      and the WANPIPE async TTY driver: a PPP protocol
--				      connection can be established via Sangoma adapter and
--				      a modem, over a telephone line.
--
--				      Thus, the WANPIPE async TTY driver simulates a serial
--				      TTY driver that would normally be used to interface the 
--				      MODEM to the linux kernel.
--				
--			o WANPIPE PPP Backup Utility
--				This utility will monitor the state of the PPP T1 line.
--				In case of failure, a dial up connection will be established
--				via pppd daemon, ether via a serial tty driver (serial port), 
--				or a WANPIPE async TTY driver (in case serial port is unavailable).
--				
--				Furthermore, while in dial up mode, the primary PPP T1 link
--				will be monitored for signs of life.  
--
--				If the PPP T1 link comes back to life, the dial up connection
--				will be shutdown and T1 line re-established.
--			
--
--			o New Setup installation script.
--				Option to UPGRADE device drivers if the kernel source has
--				already been patched with WANPIPE.
--
--				Option to COMPILE WANPIPE modules against the currently 
--				running kernel, thus no need for manual kernel and module
--				re-compilation.
--			
--			o Updates and Bug Fixes to wancfg utility.
--
--bata2-2.2.1	Feb 20 2001
--
--			o Bug fixes to the CHDLC device drivers.
--				The driver had compilation problems under kernels
--				2.2.14 or lower.
--
--			o Bug fixes to the Setup installation script.
--				The device drivers compilation options didn't work
--				properly.
--
--			o Update to the wpbackupd daemon.  
--				Optimized the cross-over times, between the primary
--				link and the backup dialup.
--
--beta3-2.2.1	Mar 02 2001
--			o Patches for 2.4.2 kernel.
--
--			o Bug fixes to util/ make files.
--			o Bug fixes to the Setup installation script.
--
--			o Took out the backupd support and made it into
--			  as separate package.
--			  
--beta4-2.2.1     Mar 12 2001
--
--		o Fix to the Frame Relay Device driver.
--			IPSAC sends a packet of zero length
--			header to the frame relay driver.  The
--			driver tries to push its own 2 byte header
--			into the packet, which causes the driver to
--			crash.
--
--		o Fix the WANPIPE re-configuration code.
--			Bug was found by trying to run  the cfgft1 while the
--			interface was already running.  
--
--		o Updates to cfgft1.
--			Writes a wanpipe#.cfgft1 configuration file
--			once the CSU/DSU is configured. This file can
--			holds the current CSU/DSU configuration.
--
--
--
-->>>>>> END OF README <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
--
--
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index aada32f..441a108 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -233,7 +233,6 @@ unifdef-y += if_pppox.h
- unifdef-y += if_tr.h
- unifdef-y += if_tun.h
- unifdef-y += if_vlan.h
--unifdef-y += if_wanpipe.h
- unifdef-y += igmp.h
- unifdef-y += inet_diag.h
- unifdef-y += in.h
-diff --git a/include/linux/if_wanpipe.h b/include/linux/if_wanpipe.h
-deleted file mode 100644
-index e594ca6..0000000
---- a/include/linux/if_wanpipe.h
-+++ /dev/null
-@@ -1,124 +0,0 @@
--/*****************************************************************************
--* if_wanpipe.h	Header file for the Sangoma AF_WANPIPE Socket 	
--*
--* Author: 	Nenad Corbic 	
--*
--* Copyright:	(c) 2000 Sangoma Technologies Inc.
--*
--*		This program is free software; you can redistribute it and/or
--*		modify it under the terms of the GNU General Public License
--*		as published by the Free Software Foundation; either version
--*		2 of the License, or (at your option) any later version.
--* ============================================================================
--*
--* Jan 28, 2000	Nenad Corbic 	Initial Version
--*
--*****************************************************************************/
--
--#ifndef __LINUX_IF_WAN_PACKET_H
--#define __LINUX_IF_WAN_PACKET_H
--
--struct wan_sockaddr_ll
+diff --git a/arch/powerpc/sysdev/Makefile b/arch/powerpc/sysdev/Makefile
+index 6d386d0..42b44a1 100644
+--- a/arch/powerpc/sysdev/Makefile
++++ b/arch/powerpc/sysdev/Makefile
+@@ -40,6 +40,7 @@ endif
+ ifeq ($(ARCH),powerpc)
+ obj-$(CONFIG_CPM)		+= cpm_common.o
+ obj-$(CONFIG_CPM2)		+= cpm2.o cpm2_pic.o
++obj-$(CONFIG_QUICC_ENGINE)	+= cpm_common.o
+ obj-$(CONFIG_PPC_DCR)		+= dcr.o
+ obj-$(CONFIG_8xx)		+= mpc8xx_pic.o cpm1.o
+ obj-$(CONFIG_UCODE_PATCH)	+= micropatch.o
+diff --git a/arch/powerpc/sysdev/cpm_common.c b/arch/powerpc/sysdev/cpm_common.c
+index cb7df2d..57d78fa 100644
+--- a/arch/powerpc/sysdev/cpm_common.c
++++ b/arch/powerpc/sysdev/cpm_common.c
+@@ -85,9 +85,13 @@ int __init cpm_muram_init(void)
+ 
+ 	np = of_find_compatible_node(NULL, NULL, "fsl,cpm-muram-data");
+ 	if (!np) {
+-		printk(KERN_ERR "Cannot find CPM muram data node");
+-		ret = -ENODEV;
+-		goto out;
++		/* try legacy bindings */
++		np = of_find_node_by_name(NULL, "data-only");
++		if (!np) {
++			printk(KERN_ERR "Cannot find CPM muram data node");
++			ret = -ENODEV;
++			goto out;
++		}
+ 	}
+ 
+ 	muram_pbase = of_translate_address(np, zero);
+@@ -189,6 +193,12 @@ void __iomem *cpm_muram_addr(unsigned long offset)
+ }
+ EXPORT_SYMBOL(cpm_muram_addr);
+ 
++unsigned long cpm_muram_offset(void __iomem *addr)
++{
++	return addr - muram_vbase;
++}
++EXPORT_SYMBOL(cpm_muram_offset);
++
+ /**
+  * cpm_muram_dma - turn a muram virtual address into a DMA address
+  * @offset: virtual address from cpm_muram_addr() to convert
+diff --git a/arch/powerpc/sysdev/qe_lib/qe.c b/arch/powerpc/sysdev/qe_lib/qe.c
+index cff550e..4b48094 100644
+--- a/arch/powerpc/sysdev/qe_lib/qe.c
++++ b/arch/powerpc/sysdev/qe_lib/qe.c
+@@ -35,7 +35,6 @@
+ #include <asm/rheap.h>
+ 
+ static void qe_snums_init(void);
+-static void qe_muram_init(void);
+ static int qe_sdma_init(void);
+ 
+ static DEFINE_SPINLOCK(qe_lock);
+@@ -99,7 +98,7 @@ void qe_reset(void)
+ 		     QE_CR_PROTOCOL_UNSPECIFIED, 0);
+ 
+ 	/* Reclaim the MURAM memory for our use. */
+-	qe_muram_init();
++	cpm_muram_init();
+ 
+ 	if (qe_sdma_init())
+ 		panic("sdma init failed!");
+@@ -314,7 +313,7 @@ static int qe_sdma_init(void)
+ 
+ 	/* allocate 2 internal temporary buffers (512 bytes size each) for
+ 	 * the SDMA */
+- 	sdma_buf_offset = qe_muram_alloc(512 * 2, 4096);
++	sdma_buf_offset = cpm_muram_alloc(512 * 2, 4096);
+ 	if (IS_ERR_VALUE(sdma_buf_offset))
+ 		return -ENOMEM;
+ 
+@@ -325,97 +324,6 @@ static int qe_sdma_init(void)
+ 	return 0;
+ }
+ 
+-/*
+- * muram_alloc / muram_free bits.
+- */
+-static DEFINE_SPINLOCK(qe_muram_lock);
+-
+-/* 16 blocks should be enough to satisfy all requests
+- * until the memory subsystem goes up... */
+-static rh_block_t qe_boot_muram_rh_block[16];
+-static rh_info_t qe_muram_info;
+-
+-static void qe_muram_init(void)
 -{
--	unsigned short	sll_family;
--	unsigned short	sll_protocol;
--	int		sll_ifindex;
--	unsigned short	sll_hatype;
--	unsigned char	sll_pkttype;
--	unsigned char	sll_halen;
--	unsigned char	sll_addr[8];
--	unsigned char   sll_device[14];
--	unsigned char 	sll_card[14];
--};
+-	struct device_node *np;
+-	const u32 *address;
+-	u64 size;
+-	unsigned int flags;
 -
--typedef struct 
+-	/* initialize the info header */
+-	rh_init(&qe_muram_info, 1,
+-		sizeof(qe_boot_muram_rh_block) /
+-		sizeof(qe_boot_muram_rh_block[0]), qe_boot_muram_rh_block);
+-
+-	/* Attach the usable muram area */
+-	/* XXX: This is a subset of the available muram. It
+-	 * varies with the processor and the microcode patches activated.
+-	 */
+-	np = of_find_compatible_node(NULL, NULL, "fsl,qe-muram-data");
+-	if (!np) {
+-		np = of_find_node_by_name(NULL, "data-only");
+-		if (!np) {
+-			WARN_ON(1);
+-			return;
+-		}
+-	}
+-
+-	address = of_get_address(np, 0, &size, &flags);
+-	WARN_ON(!address);
+-
+-	of_node_put(np);
+-	if (address)
+-		rh_attach_region(&qe_muram_info, *address, (int)size);
+-}
+-
+-/* This function returns an index into the MURAM area.
+- */
+-unsigned long qe_muram_alloc(int size, int align)
 -{
--	unsigned char free;
--	unsigned char state_sk;
--	int rcvbuf;
--	int sndbuf;
--	int rmem;
--	int wmem;
--	int sk_count;
--	unsigned char bound;
--	char name[14];
--	unsigned char d_state;
--	unsigned char svc;
--	unsigned short lcn;
--	unsigned char mbox;
--	unsigned char cmd_busy;
--	unsigned char command;
--	unsigned poll;
--	unsigned poll_cnt;
--	int rblock;	
--} wan_debug_hdr_t;
+-	unsigned long start;
+-	unsigned long flags;
 -
--#define MAX_NUM_DEBUG  10
--#define X25_PROT       0x16
--#define PVC_PROT       0x17	
+-	spin_lock_irqsave(&qe_muram_lock, flags);
+-	start = rh_alloc_align(&qe_muram_info, size, align, "QE");
+-	spin_unlock_irqrestore(&qe_muram_lock, flags);
 -
--typedef struct
+-	return start;
+-}
+-EXPORT_SYMBOL(qe_muram_alloc);
+-
+-int qe_muram_free(unsigned long offset)
 -{
--	wan_debug_hdr_t debug[MAX_NUM_DEBUG];
--}wan_debug_t;
+-	int ret;
+-	unsigned long flags;
 -
--#define	SIOC_WANPIPE_GET_CALL_DATA	(SIOCPROTOPRIVATE + 0)
--#define	SIOC_WANPIPE_SET_CALL_DATA	(SIOCPROTOPRIVATE + 1)
--#define SIOC_WANPIPE_ACCEPT_CALL	(SIOCPROTOPRIVATE + 2)
--#define SIOC_WANPIPE_CLEAR_CALL	        (SIOCPROTOPRIVATE + 3)
--#define SIOC_WANPIPE_RESET_CALL	        (SIOCPROTOPRIVATE + 4)
--#define SIOC_WANPIPE_DEBUG	        (SIOCPROTOPRIVATE + 5)
--#define SIOC_WANPIPE_SET_NONBLOCK	(SIOCPROTOPRIVATE + 6)
--#define SIOC_WANPIPE_CHECK_TX		(SIOCPROTOPRIVATE + 7)
--#define SIOC_WANPIPE_SOCK_STATE		(SIOCPROTOPRIVATE + 8)
+-	spin_lock_irqsave(&qe_muram_lock, flags);
+-	ret = rh_free(&qe_muram_info, offset);
+-	spin_unlock_irqrestore(&qe_muram_lock, flags);
 -
--/* Packet types */
+-	return ret;
+-}
+-EXPORT_SYMBOL(qe_muram_free);
 -
--#define WAN_PACKET_HOST		0		/* To us		*/
--#define WAN_PACKET_BROADCAST	1		/* To all		*/
--#define WAN_PACKET_MULTICAST	2		/* To group		*/
--#define WAN_PACKET_OTHERHOST	3		/* To someone else 	*/
--#define WAN_PACKET_OUTGOING		4		/* Outgoing of any type */
--/* These ones are invisible by user level */
--#define WAN_PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
--#define WAN_PACKET_FASTROUTE	6		/* Fastrouted frame	*/
--
--
--/* X25 specific */
--#define WAN_PACKET_DATA 	7
--#define WAN_PACKET_CMD 		8
--#define WAN_PACKET_ASYNC	9
--#define WAN_PACKET_ERR	       10
--
--/* Packet socket options */
--
--#define WAN_PACKET_ADD_MEMBERSHIP		1
--#define WAN_PACKET_DROP_MEMBERSHIP		2
--
--#define WAN_PACKET_MR_MULTICAST	0
--#define WAN_PACKET_MR_PROMISC	1
--#define WAN_PACKET_MR_ALLMULTI	2
--
--#ifdef __KERNEL__
--
--/* Private wanpipe socket structures. */
--struct wanpipe_opt
+-/* not sure if this is ever needed */
+-unsigned long qe_muram_alloc_fixed(unsigned long offset, int size)
 -{
--	void   *mbox;		/* Mail box  */
--	void   *card; 		/* Card bouded to */
--	struct net_device *dev;	/* Bounded device */
--	unsigned short lcn;	/* Binded LCN */
--	unsigned char  svc;	/* 0=pvc, 1=svc */
--	unsigned char  timer;   /* flag for delayed transmit*/	
--	struct timer_list tx_timer;
--	unsigned poll_cnt;
--	unsigned char force;	/* Used to force sock release */
--	atomic_t packet_sent;   
--	unsigned short num; 
--};
+-	unsigned long start;
+-	unsigned long flags;
 -
--#define wp_sk(__sk) ((struct wanpipe_opt *)(__sk)->sk_protinfo)
+-	spin_lock_irqsave(&qe_muram_lock, flags);
+-	start = rh_alloc_fixed(&qe_muram_info, offset, size, "commproc");
+-	spin_unlock_irqrestore(&qe_muram_lock, flags);
 -
--#endif
+-	return start;
+-}
+-EXPORT_SYMBOL(qe_muram_alloc_fixed);
 -
--#endif
-
+-void qe_muram_dump(void)
+-{
+-	rh_dump(&qe_muram_info);
+-}
+-EXPORT_SYMBOL(qe_muram_dump);
+-
+ /* The maximum number of RISCs we support */
+ #define MAX_QE_RISC     2
+ 
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc_fast.c b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
+index bcf88e6..559678d 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc_fast.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
+@@ -267,7 +267,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 
+ 	/* Allocate memory for Tx Virtual Fifo */
+ 	uccf->ucc_fast_tx_virtual_fifo_base_offset =
+-	    qe_muram_alloc(uf_info->utfs, UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
++	    cpm_muram_alloc(uf_info->utfs, UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
+ 	if (IS_ERR_VALUE(uccf->ucc_fast_tx_virtual_fifo_base_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate MURAM for TX FIFO\n",
+ 			__func__);
+@@ -278,7 +278,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 
+ 	/* Allocate memory for Rx Virtual Fifo */
+ 	uccf->ucc_fast_rx_virtual_fifo_base_offset =
+-		qe_muram_alloc(uf_info->urfs +
++		cpm_muram_alloc(uf_info->urfs +
+ 			   UCC_FAST_RECEIVE_VIRTUAL_FIFO_SIZE_FUDGE_FACTOR,
+ 			   UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
+ 	if (IS_ERR_VALUE(uccf->ucc_fast_rx_virtual_fifo_base_offset)) {
+@@ -350,10 +350,10 @@ void ucc_fast_free(struct ucc_fast_private * uccf)
+ 		return;
+ 
+ 	if (uccf->ucc_fast_tx_virtual_fifo_base_offset)
+-		qe_muram_free(uccf->ucc_fast_tx_virtual_fifo_base_offset);
++		cpm_muram_free(uccf->ucc_fast_tx_virtual_fifo_base_offset);
+ 
+ 	if (uccf->ucc_fast_rx_virtual_fifo_base_offset)
+-		qe_muram_free(uccf->ucc_fast_rx_virtual_fifo_base_offset);
++		cpm_muram_free(uccf->ucc_fast_rx_virtual_fifo_base_offset);
+ 
+ 	kfree(uccf);
+ }
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc_slow.c b/arch/powerpc/sysdev/qe_lib/ucc_slow.c
+index a578bc7..49e6949 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc_slow.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc_slow.c
+@@ -187,7 +187,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 
+ 	/* Get PRAM base */
+ 	uccs->us_pram_offset =
+-		qe_muram_alloc(UCC_SLOW_PRAM_SIZE, ALIGNMENT_OF_UCC_SLOW_PRAM);
++		cpm_muram_alloc(UCC_SLOW_PRAM_SIZE, ALIGNMENT_OF_UCC_SLOW_PRAM);
+ 	if (IS_ERR_VALUE(uccs->us_pram_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate MURAM for PRAM", __func__);
+ 		ucc_slow_free(uccs);
+@@ -197,7 +197,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	qe_issue_cmd(QE_ASSIGN_PAGE_TO_DEVICE, id, us_info->protocol,
+ 		     uccs->us_pram_offset);
+ 
+-	uccs->us_pram = qe_muram_addr(uccs->us_pram_offset);
++	uccs->us_pram = cpm_muram_addr(uccs->us_pram_offset);
+ 
+ 	/* Set UCC to slow type */
+ 	ret = ucc_set_type(us_info->ucc_num, UCC_SPEED_TYPE_SLOW);
+@@ -213,7 +213,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 
+ 	/* Allocate BDs. */
+ 	uccs->rx_base_offset =
+-		qe_muram_alloc(us_info->rx_bd_ring_len * sizeof(struct qe_bd),
++		cpm_muram_alloc(us_info->rx_bd_ring_len * sizeof(struct qe_bd),
+ 				QE_ALIGNMENT_OF_BD);
+ 	if (IS_ERR_VALUE(uccs->rx_base_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate %u RX BDs\n", __func__,
+@@ -224,7 +224,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	}
+ 
+ 	uccs->tx_base_offset =
+-		qe_muram_alloc(us_info->tx_bd_ring_len * sizeof(struct qe_bd),
++		cpm_muram_alloc(us_info->tx_bd_ring_len * sizeof(struct qe_bd),
+ 			QE_ALIGNMENT_OF_BD);
+ 	if (IS_ERR_VALUE(uccs->tx_base_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate TX BDs", __func__);
+@@ -234,7 +234,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	}
+ 
+ 	/* Init Tx bds */
+-	bd = uccs->confBd = uccs->tx_bd = qe_muram_addr(uccs->tx_base_offset);
++	bd = uccs->confBd = uccs->tx_bd = cpm_muram_addr(uccs->tx_base_offset);
+ 	for (i = 0; i < us_info->tx_bd_ring_len - 1; i++) {
+ 		/* clear bd buffer */
+ 		out_be32(&bd->buf, 0);
+@@ -247,7 +247,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	out_be32((u32 *) bd, cpu_to_be32(T_W));
+ 
+ 	/* Init Rx bds */
+-	bd = uccs->rx_bd = qe_muram_addr(uccs->rx_base_offset);
++	bd = uccs->rx_bd = cpm_muram_addr(uccs->rx_base_offset);
+ 	for (i = 0; i < us_info->rx_bd_ring_len - 1; i++) {
+ 		/* set bd status and length */
+ 		out_be32((u32*)bd, 0);
+@@ -362,13 +362,13 @@ void ucc_slow_free(struct ucc_slow_private * uccs)
+ 		return;
+ 
+ 	if (uccs->rx_base_offset)
+-		qe_muram_free(uccs->rx_base_offset);
++		cpm_muram_free(uccs->rx_base_offset);
+ 
+ 	if (uccs->tx_base_offset)
+-		qe_muram_free(uccs->tx_base_offset);
++		cpm_muram_free(uccs->tx_base_offset);
+ 
+ 	if (uccs->us_pram) {
+-		qe_muram_free(uccs->us_pram_offset);
++		cpm_muram_free(uccs->us_pram_offset);
+ 		uccs->us_pram = NULL;
+ 	}
+ 
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index ed84182..ba30a25 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -299,7 +299,7 @@ static int fill_init_enet_entries(struct ucc_geth_private *ugeth,
+ 			init_enet_offset = 0;
+ 		else {
+ 			init_enet_offset =
+-			    qe_muram_alloc(thread_size, thread_alignment);
++			    cpm_muram_alloc(thread_size, thread_alignment);
+ 			if (IS_ERR_VALUE(init_enet_offset)) {
+ 				if (netif_msg_ifup(ugeth))
+ 					ugeth_err("fill_init_enet_entries: Can not allocate DPRAM memory.");
+@@ -338,7 +338,7 @@ static int return_init_enet_entries(struct ucc_geth_private *ugeth,
+ 				init_enet_offset =
+ 				    (in_be32(p_start) &
+ 				     ENET_INIT_PARAM_PTR_MASK);
+-				qe_muram_free(init_enet_offset);
++				cpm_muram_free(init_enet_offset);
+ 			}
+ 			*(p_start++) = 0;	/* Just for cosmetics */
+ 		}
+@@ -375,8 +375,8 @@ static int dump_init_enet_entries(struct ucc_geth_private *ugeth,
+ 				ugeth_info("Init enet entry %d:", i);
+ 				ugeth_info("Base address: 0x%08x",
+ 					   (u32)
+-					   qe_muram_addr(init_enet_offset));
+-				mem_disp(qe_muram_addr(init_enet_offset),
++					   cpm_muram_addr(init_enet_offset));
++				mem_disp(cpm_muram_addr(init_enet_offset),
+ 					 thread_size);
+ 			}
+ 			p_start++;
+@@ -1085,11 +1085,11 @@ static void dump_regs(struct ucc_geth_private *ugeth)
+ 			ugeth_info("ucode RX Prefetched BDs:");
+ 			ugeth_info("Base address: 0x%08x",
+ 				   (u32)
+-				   qe_muram_addr(in_be32
++				   cpm_muram_addr(in_be32
+ 						 (&ugeth->p_rx_bd_qs_tbl[i].
+ 						  bdbaseptr)));
+ 			mem_disp((u8 *)
+-				 qe_muram_addr(in_be32
++				 cpm_muram_addr(in_be32
+ 					       (&ugeth->p_rx_bd_qs_tbl[i].
+ 						bdbaseptr)),
+ 				 sizeof(struct ucc_geth_rx_prefetched_bds));
+@@ -2090,47 +2090,47 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 	}
+ 
+ 	if (ugeth->p_thread_data_tx) {
+-		qe_muram_free(ugeth->thread_dat_tx_offset);
++		cpm_muram_free(ugeth->thread_dat_tx_offset);
+ 		ugeth->p_thread_data_tx = NULL;
+ 	}
+ 	if (ugeth->p_thread_data_rx) {
+-		qe_muram_free(ugeth->thread_dat_rx_offset);
++		cpm_muram_free(ugeth->thread_dat_rx_offset);
+ 		ugeth->p_thread_data_rx = NULL;
+ 	}
+ 	if (ugeth->p_exf_glbl_param) {
+-		qe_muram_free(ugeth->exf_glbl_param_offset);
++		cpm_muram_free(ugeth->exf_glbl_param_offset);
+ 		ugeth->p_exf_glbl_param = NULL;
+ 	}
+ 	if (ugeth->p_rx_glbl_pram) {
+-		qe_muram_free(ugeth->rx_glbl_pram_offset);
++		cpm_muram_free(ugeth->rx_glbl_pram_offset);
+ 		ugeth->p_rx_glbl_pram = NULL;
+ 	}
+ 	if (ugeth->p_tx_glbl_pram) {
+-		qe_muram_free(ugeth->tx_glbl_pram_offset);
++		cpm_muram_free(ugeth->tx_glbl_pram_offset);
+ 		ugeth->p_tx_glbl_pram = NULL;
+ 	}
+ 	if (ugeth->p_send_q_mem_reg) {
+-		qe_muram_free(ugeth->send_q_mem_reg_offset);
++		cpm_muram_free(ugeth->send_q_mem_reg_offset);
+ 		ugeth->p_send_q_mem_reg = NULL;
+ 	}
+ 	if (ugeth->p_scheduler) {
+-		qe_muram_free(ugeth->scheduler_offset);
++		cpm_muram_free(ugeth->scheduler_offset);
+ 		ugeth->p_scheduler = NULL;
+ 	}
+ 	if (ugeth->p_tx_fw_statistics_pram) {
+-		qe_muram_free(ugeth->tx_fw_statistics_pram_offset);
++		cpm_muram_free(ugeth->tx_fw_statistics_pram_offset);
+ 		ugeth->p_tx_fw_statistics_pram = NULL;
+ 	}
+ 	if (ugeth->p_rx_fw_statistics_pram) {
+-		qe_muram_free(ugeth->rx_fw_statistics_pram_offset);
++		cpm_muram_free(ugeth->rx_fw_statistics_pram_offset);
+ 		ugeth->p_rx_fw_statistics_pram = NULL;
+ 	}
+ 	if (ugeth->p_rx_irq_coalescing_tbl) {
+-		qe_muram_free(ugeth->rx_irq_coalescing_tbl_offset);
++		cpm_muram_free(ugeth->rx_irq_coalescing_tbl_offset);
+ 		ugeth->p_rx_irq_coalescing_tbl = NULL;
+ 	}
+ 	if (ugeth->p_rx_bd_qs_tbl) {
+-		qe_muram_free(ugeth->rx_bd_qs_tbl_offset);
++		cpm_muram_free(ugeth->rx_bd_qs_tbl_offset);
+ 		ugeth->p_rx_bd_qs_tbl = NULL;
+ 	}
+ 	if (ugeth->p_init_enet_param_shadow) {
+@@ -2171,7 +2171,7 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 				kfree((void *)ugeth->tx_bd_ring_offset[i]);
+ 			else if (ugeth->ug_info->uf_info.bd_mem_part ==
+ 				 MEM_PART_MURAM)
+-				qe_muram_free(ugeth->tx_bd_ring_offset[i]);
++				cpm_muram_free(ugeth->tx_bd_ring_offset[i]);
+ 			ugeth->p_tx_bd_ring[i] = NULL;
+ 		}
+ 	}
+@@ -2201,7 +2201,7 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 				kfree((void *)ugeth->rx_bd_ring_offset[i]);
+ 			else if (ugeth->ug_info->uf_info.bd_mem_part ==
+ 				 MEM_PART_MURAM)
+-				qe_muram_free(ugeth->rx_bd_ring_offset[i]);
++				cpm_muram_free(ugeth->rx_bd_ring_offset[i]);
+ 			ugeth->p_rx_bd_ring[i] = NULL;
+ 		}
+ 	}
+@@ -2610,11 +2610,11 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 					align) & ~(align - 1));
+ 		} else if (uf_info->bd_mem_part == MEM_PART_MURAM) {
+ 			ugeth->tx_bd_ring_offset[j] =
+-			    qe_muram_alloc(length,
++			    cpm_muram_alloc(length,
+ 					   UCC_GETH_TX_BD_RING_ALIGNMENT);
+ 			if (!IS_ERR_VALUE(ugeth->tx_bd_ring_offset[j]))
+ 				ugeth->p_tx_bd_ring[j] =
+-				    (u8 *) qe_muram_addr(ugeth->
++				    (u8 *) cpm_muram_addr(ugeth->
+ 							 tx_bd_ring_offset[j]);
+ 		}
+ 		if (!ugeth->p_tx_bd_ring[j]) {
+@@ -2646,11 +2646,11 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 					align) & ~(align - 1));
+ 		} else if (uf_info->bd_mem_part == MEM_PART_MURAM) {
+ 			ugeth->rx_bd_ring_offset[j] =
+-			    qe_muram_alloc(length,
++			    cpm_muram_alloc(length,
+ 					   UCC_GETH_RX_BD_RING_ALIGNMENT);
+ 			if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
+ 				ugeth->p_rx_bd_ring[j] =
+-				    (u8 *) qe_muram_addr(ugeth->
++				    (u8 *) cpm_muram_addr(ugeth->
+ 							 rx_bd_ring_offset[j]);
+ 		}
+ 		if (!ugeth->p_rx_bd_ring[j]) {
+@@ -2733,7 +2733,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* Tx global PRAM */
+ 	/* Allocate global tx parameter RAM page */
+ 	ugeth->tx_glbl_pram_offset =
+-	    qe_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
++	    cpm_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
+ 			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
+ 	if (IS_ERR_VALUE(ugeth->tx_glbl_pram_offset)) {
+ 		if (netif_msg_ifup(ugeth))
+@@ -2744,7 +2744,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		return -ENOMEM;
+ 	}
+ 	ugeth->p_tx_glbl_pram =
+-	    (struct ucc_geth_tx_global_pram *) qe_muram_addr(ugeth->
++	    (struct ucc_geth_tx_global_pram *) cpm_muram_addr(ugeth->
+ 							tx_glbl_pram_offset);
+ 	/* Zero out p_tx_glbl_pram */
+ 	memset(ugeth->p_tx_glbl_pram, 0, sizeof(struct ucc_geth_tx_global_pram));
+@@ -2754,7 +2754,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* TQPTR */
+ 	/* Size varies with number of Tx threads */
+ 	ugeth->thread_dat_tx_offset =
+-	    qe_muram_alloc(numThreadsTxNumerical *
++	    cpm_muram_alloc(numThreadsTxNumerical *
+ 			   sizeof(struct ucc_geth_thread_data_tx) +
+ 			   32 * (numThreadsTxNumerical == 1),
+ 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+@@ -2768,7 +2768,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	}
+ 
+ 	ugeth->p_thread_data_tx =
+-	    (struct ucc_geth_thread_data_tx *) qe_muram_addr(ugeth->
++	    (struct ucc_geth_thread_data_tx *) cpm_muram_addr(ugeth->
+ 							thread_dat_tx_offset);
+ 	out_be32(&ugeth->p_tx_glbl_pram->tqptr, ugeth->thread_dat_tx_offset);
+ 
+@@ -2784,7 +2784,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* SQPTR */
+ 	/* Size varies with number of Tx queues */
+ 	ugeth->send_q_mem_reg_offset =
+-	    qe_muram_alloc(ug_info->numQueuesTx *
++	    cpm_muram_alloc(ug_info->numQueuesTx *
+ 			   sizeof(struct ucc_geth_send_queue_qd),
+ 			   UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
+ 	if (IS_ERR_VALUE(ugeth->send_q_mem_reg_offset)) {
+@@ -2797,7 +2797,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	}
+ 
+ 	ugeth->p_send_q_mem_reg =
+-	    (struct ucc_geth_send_queue_mem_region *) qe_muram_addr(ugeth->
++	    (struct ucc_geth_send_queue_mem_region *) cpm_muram_addr(ugeth->
+ 			send_q_mem_reg_offset);
+ 	out_be32(&ugeth->p_tx_glbl_pram->sqptr, ugeth->send_q_mem_reg_offset);
+ 
+@@ -2829,7 +2829,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	if (ug_info->numQueuesTx > 1) {
+ 	/* scheduler exists only if more than 1 tx queue */
+ 		ugeth->scheduler_offset =
+-		    qe_muram_alloc(sizeof(struct ucc_geth_scheduler),
++		    cpm_muram_alloc(sizeof(struct ucc_geth_scheduler),
+ 				   UCC_GETH_SCHEDULER_ALIGNMENT);
+ 		if (IS_ERR_VALUE(ugeth->scheduler_offset)) {
+ 			if (netif_msg_ifup(ugeth))
+@@ -2841,7 +2841,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		}
+ 
+ 		ugeth->p_scheduler =
+-		    (struct ucc_geth_scheduler *) qe_muram_addr(ugeth->
++		    (struct ucc_geth_scheduler *) cpm_muram_addr(ugeth->
+ 							   scheduler_offset);
+ 		out_be32(&ugeth->p_tx_glbl_pram->schedulerbasepointer,
+ 			 ugeth->scheduler_offset);
+@@ -2877,7 +2877,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	if (ug_info->
+ 	    statisticsMode & UCC_GETH_STATISTICS_GATHERING_MODE_FIRMWARE_TX) {
+ 		ugeth->tx_fw_statistics_pram_offset =
+-		    qe_muram_alloc(sizeof
++		    cpm_muram_alloc(sizeof
+ 				   (struct ucc_geth_tx_firmware_statistics_pram),
+ 				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
+ 		if (IS_ERR_VALUE(ugeth->tx_fw_statistics_pram_offset)) {
+@@ -2891,7 +2891,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		}
+ 		ugeth->p_tx_fw_statistics_pram =
+ 		    (struct ucc_geth_tx_firmware_statistics_pram *)
+-		    qe_muram_addr(ugeth->tx_fw_statistics_pram_offset);
++		    cpm_muram_addr(ugeth->tx_fw_statistics_pram_offset);
+ 		/* Zero out p_tx_fw_statistics_pram */
+ 		memset(ugeth->p_tx_fw_statistics_pram,
+ 		       0, sizeof(struct ucc_geth_tx_firmware_statistics_pram));
+@@ -2919,7 +2919,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* Rx global PRAM */
+ 	/* Allocate global rx parameter RAM page */
+ 	ugeth->rx_glbl_pram_offset =
+-	    qe_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
++	    cpm_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
+ 			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
+ 	if (IS_ERR_VALUE(ugeth->rx_glbl_pram_offset)) {
+ 		if (netif_msg_ifup(ugeth))
+@@ -2930,7 +2930,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		return -ENOMEM;
+ 	}
+ 	ugeth->p_rx_glbl_pram =
+-	    (struct ucc_geth_rx_global_pram *) qe_muram_addr(ugeth->
++	    (struct ucc_geth_rx_global_pram *) cpm_muram_addr(ugeth->
+ 							rx_glbl_pram_offset);
+ 	/* Zero out p_rx_glbl_pram */
+ 	memset(ugeth->p_rx_glbl_pram, 0, sizeof(struct ucc_geth_rx_global_pram));
+@@ -2940,7 +2940,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* RQPTR */
+ 	/* Size varies with number of Rx threads */
+ 	ugeth->thread_dat_rx_offset =
+-	    qe_muram_alloc(numThreadsRxNumerical *
++	    cpm_muram_alloc(numThreadsRxNumerical *
+ 			   sizeof(struct ucc_geth_thread_data_rx),
+ 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+ 	if (IS_ERR_VALUE(ugeth->thread_dat_rx_offset)) {
+@@ -2953,7 +2953,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	}
+ 
+ 	ugeth->p_thread_data_rx =
+-	    (struct ucc_geth_thread_data_rx *) qe_muram_addr(ugeth->
++	    (struct ucc_geth_thread_data_rx *) cpm_muram_addr(ugeth->
+ 							thread_dat_rx_offset);
+ 	out_be32(&ugeth->p_rx_glbl_pram->rqptr, ugeth->thread_dat_rx_offset);
+ 
+@@ -2964,7 +2964,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	if (ug_info->
+ 	    statisticsMode & UCC_GETH_STATISTICS_GATHERING_MODE_FIRMWARE_RX) {
+ 		ugeth->rx_fw_statistics_pram_offset =
+-		    qe_muram_alloc(sizeof
++		    cpm_muram_alloc(sizeof
+ 				   (struct ucc_geth_rx_firmware_statistics_pram),
+ 				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
+ 		if (IS_ERR_VALUE(ugeth->rx_fw_statistics_pram_offset)) {
+@@ -2977,7 +2977,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		}
+ 		ugeth->p_rx_fw_statistics_pram =
+ 		    (struct ucc_geth_rx_firmware_statistics_pram *)
+-		    qe_muram_addr(ugeth->rx_fw_statistics_pram_offset);
++		    cpm_muram_addr(ugeth->rx_fw_statistics_pram_offset);
+ 		/* Zero out p_rx_fw_statistics_pram */
+ 		memset(ugeth->p_rx_fw_statistics_pram, 0,
+ 		       sizeof(struct ucc_geth_rx_firmware_statistics_pram));
+@@ -2987,7 +2987,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 
+ 	/* Size varies with number of Rx queues */
+ 	ugeth->rx_irq_coalescing_tbl_offset =
+-	    qe_muram_alloc(ug_info->numQueuesRx *
++	    cpm_muram_alloc(ug_info->numQueuesRx *
+ 			   sizeof(struct ucc_geth_rx_interrupt_coalescing_entry)
+ 			   + 4, UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
+ 	if (IS_ERR_VALUE(ugeth->rx_irq_coalescing_tbl_offset)) {
+@@ -3001,7 +3001,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 
+ 	ugeth->p_rx_irq_coalescing_tbl =
+ 	    (struct ucc_geth_rx_interrupt_coalescing_table *)
+-	    qe_muram_addr(ugeth->rx_irq_coalescing_tbl_offset);
++	    cpm_muram_addr(ugeth->rx_irq_coalescing_tbl_offset);
+ 	out_be32(&ugeth->p_rx_glbl_pram->intcoalescingptr,
+ 		 ugeth->rx_irq_coalescing_tbl_offset);
+ 
+@@ -3055,7 +3055,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* RBDQPTR */
+ 	/* Size varies with number of Rx queues */
+ 	ugeth->rx_bd_qs_tbl_offset =
+-	    qe_muram_alloc(ug_info->numQueuesRx *
++	    cpm_muram_alloc(ug_info->numQueuesRx *
+ 			   (sizeof(struct ucc_geth_rx_bd_queues_entry) +
+ 			    sizeof(struct ucc_geth_rx_prefetched_bds)),
+ 			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
+@@ -3069,7 +3069,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	}
+ 
+ 	ugeth->p_rx_bd_qs_tbl =
+-	    (struct ucc_geth_rx_bd_queues_entry *) qe_muram_addr(ugeth->
++	    (struct ucc_geth_rx_bd_queues_entry *) cpm_muram_addr(ugeth->
+ 				    rx_bd_qs_tbl_offset);
+ 	out_be32(&ugeth->p_rx_glbl_pram->rbdqptr, ugeth->rx_bd_qs_tbl_offset);
+ 	/* Zero out p_rx_bd_qs_tbl */
+@@ -3148,7 +3148,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		/* Allocate memory for extended filtering Mode Global
+ 		Parameters */
+ 		ugeth->exf_glbl_param_offset =
+-		    qe_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
++		    cpm_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
+ 		UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
+ 		if (IS_ERR_VALUE(ugeth->exf_glbl_param_offset)) {
+ 			if (netif_msg_ifup(ugeth))
+@@ -3160,7 +3160,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		}
+ 
+ 		ugeth->p_exf_glbl_param =
+-		    (struct ucc_geth_exf_global_pram *) qe_muram_addr(ugeth->
++		    (struct ucc_geth_exf_global_pram *) cpm_muram_addr(ugeth->
+ 				 exf_glbl_param_offset);
+ 		out_be32(&ugeth->p_rx_glbl_pram->exfGlobalParam,
+ 			 ugeth->exf_glbl_param_offset);
+@@ -3297,7 +3297,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	}
+ 
+ 	/* Allocate InitEnet command parameter structure */
+-	init_enet_pram_offset = qe_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
++	init_enet_pram_offset = cpm_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
+ 	if (IS_ERR_VALUE(init_enet_pram_offset)) {
+ 		if (netif_msg_ifup(ugeth))
+ 			ugeth_err
+@@ -3307,7 +3307,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		return -ENOMEM;
+ 	}
+ 	p_init_enet_pram =
+-	    (struct ucc_geth_init_pram *) qe_muram_addr(init_enet_pram_offset);
++	    (struct ucc_geth_init_pram *) cpm_muram_addr(init_enet_pram_offset);
+ 
+ 	/* Copy shadow InitEnet command parameter structure into PRAM */
+ 	p_init_enet_pram->resinit1 = ugeth->p_init_enet_param_shadow->resinit1;
+@@ -3336,7 +3336,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		     init_enet_pram_offset);
+ 
+ 	/* Free InitEnet command parameter */
+-	qe_muram_free(init_enet_pram_offset);
++	cpm_muram_free(init_enet_pram_offset);
+ 
+ 	return 0;
+ }
+diff --git a/include/asm-powerpc/cpm.h b/include/asm-powerpc/cpm.h
+index ede38ff..63a5533 100644
+--- a/include/asm-powerpc/cpm.h
++++ b/include/asm-powerpc/cpm.h
+@@ -96,6 +96,7 @@ unsigned long cpm_muram_alloc(unsigned long size, unsigned long align);
+ int cpm_muram_free(unsigned long offset);
+ unsigned long cpm_muram_alloc_fixed(unsigned long offset, unsigned long size);
+ void __iomem *cpm_muram_addr(unsigned long offset);
++unsigned long cpm_muram_offset(void __iomem *addr);
+ dma_addr_t cpm_muram_dma(void __iomem *addr);
+ int cpm_command(u32 command, u8 opcode);
+ 
+diff --git a/include/asm-powerpc/qe.h b/include/asm-powerpc/qe.h
+index c3be6e2..54864dd 100644
+--- a/include/asm-powerpc/qe.h
++++ b/include/asm-powerpc/qe.h
+@@ -16,6 +16,7 @@
+ #define _ASM_POWERPC_QE_H
+ #ifdef __KERNEL__
+ 
++#include <asm/cpm.h>
+ #include <asm/immap_qe.h>
+ 
+ #define QE_NUM_OF_SNUM	28
+@@ -89,20 +90,6 @@ unsigned int qe_get_brg_clk(void);
+ int qe_setbrg(enum qe_clock brg, unsigned int rate, unsigned int multiplier);
+ int qe_get_snum(void);
+ void qe_put_snum(u8 snum);
+-unsigned long qe_muram_alloc(int size, int align);
+-int qe_muram_free(unsigned long offset);
+-unsigned long qe_muram_alloc_fixed(unsigned long offset, int size);
+-void qe_muram_dump(void);
+-
+-static inline void __iomem *qe_muram_addr(unsigned long offset)
+-{
+-	return (void __iomem *)&qe_immr->muram[offset];
+-}
+-
+-static inline unsigned long qe_muram_offset(void __iomem *addr)
+-{
+-	return addr - (void __iomem *)qe_immr->muram;
+-}
+ 
+ /* Structure that defines QE firmware binary files.
+  *
+@@ -166,20 +153,6 @@ struct qe_bd {
+ #define BD_STATUS_MASK	0xffff0000
+ #define BD_LENGTH_MASK	0x0000ffff
+ 
+-#define BD_SC_EMPTY	0x8000	/* Receive is empty */
+-#define BD_SC_READY	0x8000	/* Transmit is ready */
+-#define BD_SC_WRAP	0x2000	/* Last buffer descriptor */
+-#define BD_SC_INTRPT	0x1000	/* Interrupt on change */
+-#define BD_SC_LAST	0x0800	/* Last buffer in frame */
+-#define BD_SC_CM	0x0200	/* Continous mode */
+-#define BD_SC_ID	0x0100	/* Rec'd too many idles */
+-#define BD_SC_P		0x0100	/* xmt preamble */
+-#define BD_SC_BR	0x0020	/* Break received */
+-#define BD_SC_FR	0x0010	/* Framing error */
+-#define BD_SC_PR	0x0008	/* Parity error */
+-#define BD_SC_OV	0x0002	/* Overrun */
+-#define BD_SC_CD	0x0001	/* ?? */
+-
+ /* Alignment */
+ #define QE_INTR_TABLE_ALIGN	16	/* ??? */
+ #define QE_ALIGNMENT_OF_BD	8
+-- 
+1.5.5
