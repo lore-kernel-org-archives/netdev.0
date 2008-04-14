@@ -1,192 +1,192 @@
-From: Moni Shoua <monis@voltaire.com>
-Subject: Re: [PATCH] net/bonding: Send more than one gratuitous ARP when slave
- takes over
-Date: Mon, 14 Apr 2008 18:25:11 +0300
-Message-ID: <48037757.2070203@voltaire.com>
-References: <47FE2D2D.2040504@voltaire.com>
-Reply-To: monis@voltaire.com
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
+Date: Mon, 14 Apr 2008 10:17:00 -0400
+Message-ID: <1208182620.18883.92.camel@moss-spartans.epoch.ncsc.mil>
+References: <20080404122242.867070732@I-love.SAKURA.ne.jp>
+	 <20080404122408.986477936@I-love.SAKURA.ne.jp>
+	 <200804071140.59247.paul.moore@hp.com> <47FC8052.9070409@nttdata.co.jp>
+	 <20080409131151.GK11962@parisc-linux.org>
+	 <200804112312.HGE69734.LFOOHQOSFFMJtV@I-love.SAKURA.ne.jp>
+	 <20080411143013.GB11962@parisc-linux.org>
+	 <20080413163658.GC7010@sergelap.austin.ibm.com>
+	 <4802BBDC.1030707@crispincowan.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, netdev <netdev@vger.kernel.org>,
-	Olga Stern <olgas@voltaire.com>,
-	Or Gerlitz <ogerlitz@voltaire.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:42507 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761899AbYDNOWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 10:22:25 -0400
-In-Reply-To: <47FE2D2D.2040504@voltaire.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Jay,
-This is a version of the patch with respect to the comments.
-Please note that besides enabling set/get of the value through 
-sysfs, I also made num_grat_arp a per-bond parameter.
-thanks
- MoniS
-
---------------------------------------------------------------
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	paul.moore@hp.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: Crispin Cowan <crispin@crispincowan.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <4802BBDC.1030707@crispincowan.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-With IPoIB, reception of gratuitous ARP by neighboring hosts
-is essential for a successful change of slaves in case of failure.
-Otherwise, they won't learn about the HW address change and need
-to wait a long time until the neighboring system gives up and sends
-an ARP request to learn the new HW address.  This patch decreases
-the chance for a lost of a gratuitous ARP packet by sending it more
-than once. The number retries is configurable and can be set with a module param.
+On Sun, 2008-04-13 at 19:05 -0700, Crispin Cowan wrote:
+> Serge E. Hallyn wrote:
+> > Quoting Matthew Wilcox (matthew@wil.cx):
+> >   
+> >> On Fri, Apr 11, 2008 at 11:12:27PM +0900, Tetsuo Handa wrote:
+> >>     
+> >>> Matthew Wilcox wrote:
+> >>>       
+> >>>> When the rule is put in place, say "No modifications to /etc/passwd",
+> >>>> look up the inode and major:minor of /etc/passwd.  If there's a rename,
+> >>>> look up the new inode number.  If it's mounted elsewhere, it doesn't
+> >>>> matter, they still can't modify it because it has the same
+> >>>> major:minor:inode.
+> >>>>         
+> >>> If write access is denied because of a rule "No modifications to /etc/passwd",
+> >>> a rule "Allow modifications to /tmp/passwd" can no longer be enforced after
+> >>> "mount --bind /etc/ /tmp/" or "mount --bind /etc/passwd /tmp/passwd" or
+> >>> "mv /etc/passwd /tmp/passwd" or "ln /etc/passwd /tmp/passwd" is done.
+> >>>       
+> >> That's a fundamental limitation of pathname-based security though.
+> >> If the same file exists in two places, you have to resolve the question
+> >> of which rule overrides the other.
+> >>     
+> > In the past, Crispin has given clear, concise explanations of a few of
+> > the things pathname based access control in fact excels at.  Crispin,
+> > can you recite those again so we can think constructively about which
+> > (if any) of the currently considered options are or are not sufficient?
+> >
+> > I.e. what would be a motivation for a rule like 'no modifications to
+> > /etc/passwd', and what precisely would and would not be accepted ways to
+> > get around it (and why)?
+> >   
+> As I just posted, a rule of "no mods to /some/pathname" is broken, which 
+> is why AppArmor has no such construct.
+> 
+> Things that pathname-based access control is good at:
+> 
+>     * *System Integrity:* Many of the vital components of a UNIX system
+>       are stored in files with Well Known Names such as /etc/shadow,
+>       /var/www/htdocs/index.html and /home/crispin/.ssh/known_hosts. The
+>       contents of the actual data blocks is less important than the
+>       integrity of what some random process gets when it asks for these
+>       resources by name. Preserving the integrity of what responds to
+>       the Well Known Name is thus easier if you restrict access based on
+>       the name.
 
-Signed-off-by: Moni Shoua <monis@voltaire.com>
----
- drivers/net/bonding/bond_main.c  |   23 ++++++++++++++++++----
- drivers/net/bonding/bond_sysfs.c |   40 +++++++++++++++++++++++++++++++++++++++
- drivers/net/bonding/bonding.h    |    1 
- 3 files changed, 60 insertions(+), 4 deletions(-)
+I think some might argue that the integrity of the data in /etc/shadow
+and your .ssh files is very important, not just their names.  And as
+names are themselves just data contained by directories, the integrity
+of the names is a particular case of the data integrity problem.  And
+ultimately data integrity requires information flow control to preserve.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0f06753..d48edd4 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -88,6 +88,7 @@ #define BOND_LINK_MON_INTERV	0
- #define BOND_LINK_ARP_INTERV	0
- 
- static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
-+static int num_grat_arp = 1;
- static int miimon	= BOND_LINK_MON_INTERV;
- static int updelay	= 0;
- static int downdelay	= 0;
-@@ -104,6 +105,8 @@ struct bond_params bonding_defaults;
- 
- module_param(max_bonds, int, 0);
- MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
-+module_param(num_grat_arp, int, 0644);
-+MODULE_PARM_DESC(num_grat_arp, "Number of gratuitous ARP packets to send on failover event");
- module_param(miimon, int, 0);
- MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
- module_param(updelay, int, 0);
-@@ -1109,14 +1112,18 @@ void bond_change_active_slave(struct bon
- 		if (new_active && bond->params.fail_over_mac)
- 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
- 				new_active->dev->addr_len);
-+		bond->send_grat_arp = bond->params.num_grat_arp;
- 		if (bond->curr_active_slave &&
- 			test_bit(__LINK_STATE_LINKWATCH_PENDING,
- 					&bond->curr_active_slave->dev->state)) {
- 			dprintk("delaying gratuitous arp on %s\n",
- 				bond->curr_active_slave->dev->name);
--			bond->send_grat_arp = 1;
--		} else
--			bond_send_gratuitous_arp(bond);
-+		} else {
-+			if (bond->send_grat_arp > 0) {
-+				bond_send_gratuitous_arp(bond);
-+				bond->send_grat_arp--;
-+			}
-+		}
- 	}
- }
- 
-@@ -2144,7 +2151,7 @@ static int __bond_mii_monitor(struct bon
- 			dprintk("sending delayed gratuitous arp on on %s\n",
- 				bond->curr_active_slave->dev->name);
- 			bond_send_gratuitous_arp(bond);
--			bond->send_grat_arp = 0;
-+			bond->send_grat_arp--;
- 		}
- 	}
- 	read_lock(&bond->curr_slave_lock);
-@@ -4663,6 +4670,13 @@ static int bond_check_params(struct bond
- 		use_carrier = 1;
- 	}
- 
-+	if (num_grat_arp < 0 || num_grat_arp > 255) {
-+		printk(KERN_WARNING DRV_NAME
-+		       ": Warning: num_grat_arp (%d) not in range 0-255 so it "
-+		       "was reset to 1 \n", num_grat_arp);
-+		num_grat_arp = 1;
-+	}
-+
- 	/* reset values for 802.3ad */
- 	if (bond_mode == BOND_MODE_8023AD) {
- 		if (!miimon) {
-@@ -4850,6 +4864,7 @@ static int bond_check_params(struct bond
- 	params->mode = bond_mode;
- 	params->xmit_policy = xmit_hashtype;
- 	params->miimon = miimon;
-+	params->num_grat_arp = num_grat_arp;
- 	params->arp_interval = arp_interval;
- 	params->arp_validate = arp_validate_value;
- 	params->updelay = updelay;
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 979c2d0..474ef02 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -952,6 +952,45 @@ out:
- static DEVICE_ATTR(lacp_rate, S_IRUGO | S_IWUSR, bonding_show_lacp, bonding_store_lacp);
- 
- /*
-+ * Show and set the number of grat ARP to send after a failover event.
-+ */
-+static ssize_t bonding_show_n_grat_arp(struct device *d,
-+				   struct device_attribute *attr,
-+				   char *buf)
-+{
-+	struct bonding *bond = to_bond(d);
-+
-+	return sprintf(buf, "%d\n", bond->params.num_grat_arp);
-+}
-+
-+static ssize_t bonding_store_n_grat_arp(struct device *d,
-+				    struct device_attribute *attr,
-+				    const char *buf, size_t count)
-+{
-+	int new_value, ret = count;
-+	struct bonding *bond = to_bond(d);
-+
-+	if (sscanf(buf, "%d", &new_value) != 1) {
-+		printk(KERN_ERR DRV_NAME
-+		       ": %s: no num_grat_arp value specified.\n",
-+		       bond->dev->name);
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+	if (new_value < 0 || new_value > 255) {
-+		printk(KERN_ERR DRV_NAME
-+		       ": %s: Invalid num_grat_arp value %d not in range 0-255; rejected.\n",
-+		       bond->dev->name, new_value);
-+		ret = -EINVAL;
-+		goto out;
-+	} else {
-+		bond->params.num_grat_arp = new_value;
-+	}
-+out:
-+	return ret;
-+}
-+static DEVICE_ATTR(num_grat_arp, S_IRUGO | S_IWUSR, bonding_show_n_grat_arp, bonding_store_n_grat_arp);
-+/*
-  * Show and set the MII monitor interval.  There are two tricky bits
-  * here.  First, if MII monitoring is activated, then we must disable
-  * ARP monitoring.  Second, if the timer isn't running, we must
-@@ -1388,6 +1427,7 @@ static struct attribute *per_bond_attrs[
- 	&dev_attr_updelay.attr,
- 	&dev_attr_lacp_rate.attr,
- 	&dev_attr_xmit_hash_policy.attr,
-+	&dev_attr_num_grat_arp.attr,
- 	&dev_attr_miimon.attr,
- 	&dev_attr_primary.attr,
- 	&dev_attr_use_carrier.attr,
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index a3c74e2..ffa4813 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -125,6 +125,7 @@ struct bond_params {
- 	int mode;
- 	int xmit_policy;
- 	int miimon;
-+	int num_grat_arp;
- 	int arp_interval;
- 	int arp_validate;
- 	int use_carrier;
+>     * *Dynamic Access Control:* A special case of the above pertains to
+>       files that may or may not exist. If you don't *have* a /etc/hosts
+>       file, it is still important to have a rule that controls whether
+>       it can be created. This is hard to do in label-based systems,
+>       because the file does not exist to put a label on, so you have to
+>       kludge it by either creating the file with zero length and
+>       labeling it, or by creating more complex policy for the parent
+>       /etc directory, and that's hard given the number of uses for /etc
+>       such as /etc/motd. In a name based scheme, you simply don't
+>       provide write permission to "/etc/hosts" unless you mean it, and
+>       it can be enforced even if such a file does not exist.
+
+I'd view this as another example of practical or legacy concerns, as it
+wouldn't pose a problem if either of the following were true:
+- /etc was further partitioned into multiple subdirectories (seemingly
+true in an increasing number of cases, so we seem to be moving in that
+direction regardless) so that inheritance from parent directory would
+suffice, or
+- specific programs were used to create or update the individual files
+(true for some of the files in /etc, and generally helpful for ensuring
+proper data formatting and applying basic sanity checks on the content)
+so that the files created by them could be labeled based on the creating
+domain or via appropriate instrumentation of the programs to set the
+attributes (the latter is not fundamentally different than the situation
+for DAC ownership/mode or ACLs).
+
+Also, note that in the case of SELinux, we do have a solution to the
+above situation, namely restorecond, which leverages the kernel's
+inotify mechanism.
+
+As an example where the name-based schemes have difficulties with
+"dynamic" data, files created at runtime in /tmp and other shared
+directories often have security-irrelevant names, yet protecting them
+from tampering by others can be very relevant to security.  There the
+attribute-based schemes have the advantage.
+
+>     * *Ad Hoc Generalization:* Label-based access control generalizes
+>       policy in that the policy treats all files and resources that
+>       share a label the same. If you want to make a new generalization
+>       that encompasses *part* of the files that share a label, but *not
+>       all* of those files, then you have to "split the label", relabel
+>       the file system, and revise the policy accordingly. Name-based
+>       access control lets you create ad hoc generalizations, so that
+>       *my* policy can grant access to "/var/www/*.pl" without regard to
+>       whatever labels or rules some other policy has applied to the same
+>       directory tree.
+
+We might argue about whether ad hoc policy writing is the best approach.
+Regardless, the corresponding weakness here for the path-based schemes
+is that they force you into writing policy in terms of the filesystem
+layout and names, which may have little or no bearing on the actual
+security characteristics of the files.
+
+>     * *Familiar Interface:* Administrators are accustomed to
+>       administering the box in terms of the names of the files that
+>       matter. A name-based policy is therefore somewhat more familiar
+>       than a policy with label abstractions, where they then have to go
+>       look at the restorecon file to discover what files will/should
+>       have what labels.
+
+restorecon /path/to/file doesn't require the user to deal with anything
+other than a pathname.  The file contexts configuration is entirely
+hidden from the user by that interface.
+
+>     * *Practical Concerns:* Not all file systems support labels, and so
+>       label-based schemes become coarse grained when they run into them.
+>       Name based schemes remain granular when specifying access down
+>       into the internals of such file systems. Legacy Linux file systems
+>       like ext2 don't matter much any more, but persistent file systems
+>       that will never have label support include NFSv3 file systems
+>       (nearly every Network Appliance NAS server out there) and FAT32
+>       file system (most every USB storage device).
+
+At present this is a limitation, although we do support per-mount
+labeling of such filesystems, which is really all we can guarantee in
+terms of protection anyway - anything further is misleading as the
+server or device won't ensure any finer grained separation for us.  But
+labeled NFS support is in progress, and one should never let legacy code
+cripple one's approach.  Making compatibility allowances for legacy code
+is quite reasonable, and is precisely what we do in terms of supporting
+default type transitions, per-mount labels, etc, but that isn't the same
+thing as completely constraining your design to only what is supported
+by existing code.
+
+> A lot of what's going on is the duality of the one:many relationships 
+> between labels and names:
+> 
+>     * Labels: one label represents many files
+>           o this property is why ad hoc generalization fails in label
+>             based systems
+>     * Names: many names can represent a single file
+>           o This property is why deny rules fail in name based systems
+> 
+> Therefore, I am not claiming name-based access controls to be the 
+> ultimate. Rather, there are duals for all of the above that induce 
+> circumstances where label-based systems are superior. Each class of 
+> system has strengths and weaknesses. These are name-based strengths.
+
+The weaknesses from my POV are:
+- no system-wide view of the subjects and objects and thus of the
+policy,
+- no uniform abstraction for handling objects (not everything has a
+pathname), leading to inconsistent or incomplete control,
+- no useful information for runtime objects,
+- forcing policy to be written in terms of individual objects and
+filesystem layout rather than security properties.
+
+-- 
+Stephen Smalley
+National Security Agency
+
