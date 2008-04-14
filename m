@@ -1,71 +1,71 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: udev can't name PS3's network devices correctly
-Date: Mon, 14 Apr 2008 14:52:11 +0200
-Message-ID: <1208177531.2572.26.camel@lov.site>
-References: <ftdb3v$tls$1@ger.gmane.org>
-	 <20080407143805.GA9492@bongo.bofh.it>
-	 <1208167737.31695.32.camel@pmac.infradead.org>
-	 <3ae72650804140503g73f8c281w438defb1c6477ba9@mail.gmail.com>
-	 <1208175549.31695.67.camel@pmac.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Marco d'Itri <md@linux.it>, Harald Hoyer <harald@redhat.com>,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/1 net-2.6.26] [XFRM]: Compilation warnings in xfrm_user.c.
+Date: Mon, 14 Apr 2008 17:03:39 +0400
+Message-ID: <1208178219-18754-1-git-send-email-den@openvz.org>
+Cc: herbert@gondor.apana.org.au, paul.moore@hp.com,
+	netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:62687 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752267AbYDNMwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 08:52:32 -0400
-In-Reply-To: <1208175549.31695.67.camel@pmac.infradead.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:11285 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751876AbYDNNDu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 09:03:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-04-14 at 13:19 +0100, David Woodhouse wrote:
-> On Mon, 2008-04-14 at 14:03 +0200, Kay Sievers wrote:
-> > 
-> > >  One thing I don't understand: Don't we already emit a KERNEL== criterion
-> > >  in the case where there is already a udev rule 'reserving' the name that
-> > >  the kernel used for the current device? Why is that one OK, and why only
-> > >  in that case? This patch just makes it consistent.
-> > 
-> > Yes, we do that in the recent udev versions. We only make sure we keep
-> > the enumeration across the same basename, not across different device
-> > names.
-> 
-> Right, but you _only_ do that when you're asked to create a rule for a
-> device where the kernel's name matches a pre-existing rule.
+When CONFIG_SECURITY_NETWORK_XFRM is undefined the following warnings appears:
+net/xfrm/xfrm_user.c: In function 'xfrm_add_pol_expire':
+net/xfrm/xfrm_user.c:1576: warning: 'ctx' may be used uninitialized in this function
+net/xfrm/xfrm_user.c: In function 'xfrm_get_policy':
+net/xfrm/xfrm_user.c:1340: warning: 'ctx' may be used uninitialized in this function
+(security_xfrm_policy_alloc is noop for the case).
 
-We do it for all new rules, regardless of pre-existing rules with that
-name. It just does not add KERNEL, if some external tool tried to
-overwrite the kernel name, we write a rule for.
+It seems that they are result of the commit
+03e1ad7b5d871d4189b1da3125c2f12d1b5f7d0b
 
-Not sure why Fedora rules are mangling INTERFACE_NAME here:
-  https://bugzilla.redhat.com/show_bug.cgi?id=440568#c4
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/xfrm/xfrm_user.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-> You don't do it consistently --
-
-Right, we will do that, if there are no other issues coming up with the
-general approach of adding KERNEL matches.
-
-> and Marco was objecting to a patch which just made it
-> happen consistently.
-
-Right, I'm just waiting for Marco to comment on this.
-
-> That patch on its own would be sufficient to fix the PS3 and Libertas
-> problems, since the kernel uses a different basename for the logical
-> devices we want to disambiguate. (It would also fix the clash between
-> wlan0 and wmaster0 on mac80211 interfaces).
-
-Sure, that's why we have it in every default rule.
-
-> We probably also want to do the dev_id thing, but maybe not for PS3 and
-> Libertas (since it affects their IPv6 addressing too).
-
-It can just be in all rules, like the ATTR{type} match, right?
-
-Thanks,
-Kay
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index b822b56..1810f56 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1343,14 +1343,14 @@ static int xfrm_get_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		if (err)
+ 			return err;
+ 
++		ctx = NULL;
+ 		if (rt) {
+ 			struct xfrm_user_sec_ctx *uctx = nla_data(rt);
+ 
+ 			err = security_xfrm_policy_alloc(&ctx, uctx);
+ 			if (err)
+ 				return err;
+-		} else
+-			ctx = NULL;
++		}
+ 		xp = xfrm_policy_bysel_ctx(type, p->dir, &p->sel, ctx,
+ 					   delete, &err);
+ 		security_xfrm_policy_free(ctx);
+@@ -1579,14 +1579,14 @@ static int xfrm_add_pol_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		if (err)
+ 			return err;
+ 
++		ctx = NULL;
+ 		if (rt) {
+ 			struct xfrm_user_sec_ctx *uctx = nla_data(rt);
+ 
+ 			err = security_xfrm_policy_alloc(&ctx, uctx);
+ 			if (err)
+ 				return err;
+-		} else
+-			ctx = NULL;
++		}
+ 		xp = xfrm_policy_bysel_ctx(type, p->dir, &p->sel, ctx, 0, &err);
+ 		security_xfrm_policy_free(ctx);
+ 	}
+-- 
+1.5.3.rc5
 
