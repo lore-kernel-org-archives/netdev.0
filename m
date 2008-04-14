@@ -1,97 +1,39 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: RE: RE: A Linux TCP SACK Question
-Date: Mon, 14 Apr 2008 17:47:21 -0500
-Message-ID: <000301c89e81$80124570$6b5ee183@D2GT6T71>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
- <000b01c89699$00e99590$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
- <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
- <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
- <fb8e9e4f102e.47f8ebfd@fnal.gov>
- <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
- <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
- <fbbce0572843.47fb038c@fnal.gov>
- <Pine.LNX.4.64.0804081623500.21784@wrl-59.cs.helsinki.fi>
- <fba201de4228.47fb3b26@fnal.gov>
- <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
-Reply-To: wenji@fnal.gov
+From: Greg KH <greg@kroah.com>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Mon, 14 Apr 2008 16:03:09 -0700
+Message-ID: <20080414230309.GA1672@kroah.com>
+References: <20080414213238.GB28833@kroah.com> <20080414215905.GD16272@one-eyed-alien.net> <200804142342.08116.ajb@spheresystems.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: 'Netdev' <netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthew Dharm <mdharm-usb@one-eyed-alien.net>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Filip Aben <f.aben@option.com>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+To: "Andrew Bird (Sphere Systems)" <ajb@spheresystems.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.fnal.gov ([131.225.111.12]:52323 "EHLO mailgw2.fnal.gov"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761186AbYDNWrd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 18:47:33 -0400
-Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
- by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0JZC0021S7B4TB@mailgw2.fnal.gov> for netdev@vger.kernel.org;
- Mon, 14 Apr 2008 17:47:33 -0500 (CDT)
-Received: from mailgw2.fnal.gov ([131.225.111.12])
- by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008041417473225575 for
- <netdev@vger.kernel.org>; Mon, 14 Apr 2008 17:47:32 -0500
-Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0JZC00I0175HOZ@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Mon, 14 Apr 2008 17:47:33 -0500 (CDT)
-In-reply-to: <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
+Received: from pentafluge.infradead.org ([213.146.154.40]:51774 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752089AbYDNXDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 19:03:19 -0400
+Content-Disposition: inline
+In-Reply-To: <200804142342.08116.ajb@spheresystems.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Ilpo,
+On Mon, Apr 14, 2008 at 11:42:07PM +0100, Andrew Bird (Sphere Systems) wrote:
+> Hi Matthew,
+> 	I'd prefer the keep it as just 'hso' and change the textual description if 
+> necessary. I think module names are just arbitrary, and should not 
+> necessarily reflect the original usage too well, otherwise you end up with a 
+> situation like with the 'option' module. That module is now used for many 
+> devices from differing manufacturers and it doesn't really make much sense to 
+> load the option module to service a device from Novatel, Sierra Wireless or 
+> Huawei.
 
-Could the throughput difference with SACK ON/OFF be due to the following
-code in tcp_ack()?
+Ok, that's fine with me, what should we use for the text in the driver
+and the Kconfig entry?
 
-3120        if (tcp_ack_is_dubious(sk, flag)) {
-3121                /* Advance CWND, if state allows this. */
-3122                if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
-3123                    tcp_may_raise_cwnd(sk, flag))
-3124                        tcp_cong_avoid(sk, ack, prior_in_flight, 0);
-3125                tcp_fastretrans_alert(sk, prior_packets -
-tp->packets_out, flag);
-3126        } else {
-3127                if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
-3128                        tcp_cong_avoid(sk, ack, prior_in_flight, 1);
-3129        }
+thanks,
 
-In my tests, there are actually no packet drops, just severe packet
-reordering in both forward and reverse paths. With good tcp_reordering
-auto-tuning, there are few retransmissions.
-
-(1) With SACK option off, the reorder ACKs will not cause much harm to the
-throughput. As you have pointed out in the email that "The ACK reordering
-should just make the number of duplicate acks smaller because part of them
-get discarded as old ones as a newer cumulative ACK often arrives a bit
-"ahead" of its time making rest smaller sequenced ACKs very close to on-op."
-
-If there are any ACK advancement, tcp_cong_avoid() will be called. 
-
-(2) With the sack option is on. If the ACKs do not advance the left edge of
-the window, those ACKs will go to "old_ack" of "tcp_ack()", no much
-processing except sack-tagging the corresponding packets in the
-retransmission queue. tcp_cong_avoid() will not be called.
-
-However, if the ACKs advance the left edge of the window and these ACKs
-include SACK options, tcp_ack_is_dubious(sk, flag)) would be true. Then the
-calling of tcp_cong_avoid() needs to satisfy the if-condition at line 3122,
-which is stricter than the if-condition at line 3127.
-
-So, the congestion window with SACK on would be smaller than with SACK off. 
-
-If you run tcptrace and xplot on the files I posted, you would see lots ACKs
-will advance the left edge of the window, and include SACK blocks.
-
-Not quite sure, just a guess.
-
-wenji
-
-
+greg k-h
