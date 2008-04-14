@@ -1,109 +1,135 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Tue, 15 Apr 2008 02:20:51 +0300
-Message-ID: <fu0osk$887$1@ger.gmane.org>
-References: <20080414213238.GB28833@kroah.com>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Tue, 15 Apr 2008 01:45:05 +0200
+Message-ID: <200804150145.05571.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <20080414065041.GA4431@gerrit.erg.abdn.ac.uk> <20080414073915.GA9655@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050900060001080505010704"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080414213238.GB28833-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oswiecenia.net ([83.13.108.58]:4275 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754662AbYDNXpm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 19:45:42 -0400
+In-Reply-To: <20080414073915.GA9655@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050900060001080505010704
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Dnia Monday 14 of April 2008, Gerrit Renker napisa=B3:
+> [DCCP] [RFC]: Reworked queueing policy patch set
+>
+> This is a re-worked version of Tomasz's priority-queueing patch set f=
+or
+> DCCP. The essential internals of his patch set have been left untouch=
+ed,
+> in particular the prio/simple algorithms are the same as before.
+>
+> The changes for which I am asking for comments are:
+>
+>   Given that each file has less than 100 lines, it seemed better to p=
+ut
+> them all into one file and export the declarations in dccp.h, the res=
+ult is
+> now:
+>
+>   With less than 150 lines, there is still room for a few more polici=
+es.
+>
+=46or now the files are small but I would expect at least qpolicy_prio.=
+c to grow=20
+a little bit in the future. What comes to mind are get/setsockopts (for=
+=20
+example statistics about packets dropped by qpolicy), and per packet ex=
+piry=20
+times. I didn't look how big the files are but wanted to have clear=20
+separation between specific policies and common code. But if you think =
+that=20
+this organization is better I have no problem with it.
 
-Greg KH wrote:
-> I'd like to see this go into 2.6.26, so any review comments by anyone
-> who wishes to review any portion of this would be greatly apprecited.
+> 2. Let pop() return result
+> --------------------------
+>   * at least for the forseeable future, the underlying queue is
+> sk_write_queue; * an skb can not be on two lists at the same time;
+>   * thus skb_unlink will always be part of implementing pop();
+>   * having pop() return the skb is more versatile (compare Assembler
+> pop()).
+>
+That should be fine...
 
-In attached patch I have rewrote MAC address generation to simple call
-to random_ether_addr instead of some mysterious pointer parsing :)
+>   * makes tx_qlen a socket member of dccp_sock (there was a bug in th=
+e
+>     implementation -- tx_qlen was shared by all sockets using the sam=
+e
+> policy);=20
+Haven't tested it thoroughly but it shouldn't be so. After all qpol_txq=
+len was=20
+part of struct dccp_qpolicy which was in turn part of dccp_sock.
 
-Paulius
+> +/*
+> + * Wrappers for methods provided by policy currently in use
+> + */
+> +void qpolicy_push(struct sock *sk, struct sk_buff *skb, struct msghd=
+r
+> *msg) +{
+> +	struct dccp_packet_info *dcp =3D NULL;
+> +
+> +	if (msg->msg_control !=3D NULL && msg->msg_controllen =3D=3D sizeof=
+(*dcp))
+> +		dcp =3D (struct dccp_packet_info *)msg->msg_control;
+> +
+> +	qpol_table[dccp_sk(sk)->dccps_qpolicy].push(sk, skb, dcp);
+> +}
+> +
+What happens if application is compiled with dccp_packet_info containin=
+g only=20
+one field (priority) and kernel containing two fields (for example prio=
+rity=20
+and later added expiry time)? Wouldn't that implementation make extensi=
+ons to=20
+dccp_packet_info impossible?
 
---------------050900060001080505010704
-Content-Type: text/x-patch;
- name="hso_random.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="hso_random.patch"
+> @@ -501,6 +519,8 @@ struct dccp_sock {
+>  	struct ccid			*dccps_hc_rx_ccid;
+>  	struct ccid			*dccps_hc_tx_ccid;
+>  	struct dccp_options_received	dccps_options_received;
+> +	__u8				dccps_qpolicy;
+> +	__u32				dccps_tx_qlen;
+>  	enum dccp_role			dccps_role:2;
+>  	__u8				dccps_hc_rx_insert_options:1;
+>  	__u8				dccps_hc_tx_insert_options:1;
+I know that currently none of the policies has any per-socket data. But=
+ if it=20
+had were should it go?
 
-diff --git a/ldp/usb-add-option-hso-driver.patch b/ldp/usb-add-option-hso-driver.patch
-index 429f9c9..7360e04 100644
---- a/ldp/usb-add-option-hso-driver.patch
-+++ b/ldp/usb-add-option-hso-driver.patch
-@@ -56,7 +56,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
-  obj-$(CONFIG_USB_NET_DM9601)	+= dm9601.o
- --- /dev/null
- +++ b/drivers/net/usb/hso.c
--@@ -0,0 +1,3349 @@
-+@@ -0,0 +1,3343 @@
- +/******************************************************************************
- + *
- + * Driver for Option High Speed Mobile Devices.
-@@ -1523,7 +1523,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
- +	return 0;
- +}
- +
--+/* Toggles radioon or off ( used by ioctl ) */
-++/* Toggles radio on or off ( used by ioctl ) */
- +static int hso_set_radio(struct hso_device *hso_dev, int enabled)
- +{
- +	if (!hso_dev)
-@@ -2350,7 +2350,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
- +	spin_lock_init(&serial->serial_lock);
- +	serial->num_rx_urbs = num_urbs;
- +
--+	/* RX , allocate urb and initialize */
-++	/* RX, allocate urb and initialize */
- +
- +	/* prepare our RX buffer */
- +	serial->rx_data_length = rx_size;
-@@ -2370,7 +2370,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
- +		}
- +	}
- +
--+	/* TX , allocate urb and initialize */
-++	/* TX, allocate urb and initialize */
- +	serial->tx_urb = usb_alloc_urb(0, GFP_KERNEL);
- +	if (!serial->tx_urb) {
- +		dev_err(dev, "Could not allocate urb?\n");
-@@ -3190,14 +3190,8 @@ Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
- +	unsigned char buffer[13];
- +	unsigned char checkserial[7] = "Serial";
- +
--+	/* we can't fail, therefor we use a default macaddress (constructed
--+	 * from the pointer of our struct) */
--+	mac_addr[0] = 0x00;
--+	mac_addr[1] = 0x03;
--+	mac_addr[2] = (unsigned char)(((unsigned long)odev) & 0xFF);
--+	mac_addr[3] = (unsigned char)((((unsigned long)odev) >> 8) & 0xFF);
--+	mac_addr[4] = (unsigned char)((((unsigned long)odev) >> 16) & 0xFF);
--+	mac_addr[5] = (unsigned char)((((unsigned long)odev) >> 24) & 0xFF);
-++	/* we can't fail, therefor we use a random macaddress */
-++	random_ether_addr(mac_addr);
- +	dummy_mac[0] = 0xFA;
- +	dummy_mac[1] = mac_addr[1];
- +	dummy_mac[2] = mac_addr[2];
-@@ -3233,7 +3227,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
- +		}
- +	} else {
- +		dev_err(&odev->parent->usb->dev, "Attempting to get MAC "
--+			"address failed: using default\n");
-++			"address failed: using random\n");
- +	}
- +
- +	/* Now copy it over to our network device structure */
+> +	case DCCP_SOCKOPT_QPOLICY_ID:
+> +		if (sk->sk_state !=3D DCCP_CLOSED)
+> +			err =3D -EISCONN;
+What about DCCP_LISTENING state?
 
---------------050900060001080505010704--
+> --- a/Documentation/networking/dccp.txt
+> +++ b/Documentation/networking/dccp.txt
+> @@ -45,6 +45,17 @@ http://linux-net.osdl.org/index.php/DCCP
+>
+> +DCCP_SOCKOPT_QPOLICY_TXQLEN sets the maximum TX queue length. This i=
+s
+> relevant only for +those TX dequeueing policies that honour this uppe=
+r
+> bound (currently only the +simple/default policy does this). This soc=
+ket
+> option overrides the default value +of the sysctl
+> /proc/sys/net/dccp/default/tx_qlen.
+>
+In my implementation prio policy did honour DCCP_SOCKOPT_QPOLICY_TXQLEN=
+=20
+setting. At least it was meant to do so.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Having said "ok" here and there or nothing in other points I haven't tr=
+ied=20
+applying this patch nor tested your rework.
+--=20
+Regards,
+Tomasz Grobelny
