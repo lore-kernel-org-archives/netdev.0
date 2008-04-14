@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Mon, 14 Apr 2008 14:09:55 -0700 (PDT)
-Message-ID: <20080414.140955.100207396.davem@davemloft.net>
-References: <20080412115950.1cbb9cfa@core>
-	<m33apqomgf.fsf@maximus.localdomain>
-	<D5C1322C3E673F459512FB59E0DDC32904E2B65F@orsmsx414.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org,
-	jeff@garzik.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: peter.p.waskiewicz.jr@intel.com
+From: Allan Stephens <allan.stephens@windriver.com>
+Subject: [PATCH 3/7 net-2.6.26] [TIPC]: Ignore message padding when receiving stream data
+Date: Mon, 14 Apr 2008 17:16:30 -0400
+Message-ID: <1208207794-2229-4-git-send-email-allan.stephens@windriver.com>
+References: <1208207794-2229-1-git-send-email-allan.stephens@windriver.com>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50235
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754968AbYDNVJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 17:09:54 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32904E2B65F@orsmsx414.amr.corp.intel.com>
+Received: from mail.windriver.com ([147.11.1.11]:55770 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762639AbYDNVSY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 17:18:24 -0400
+In-Reply-To: <1208207794-2229-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Mon, 14 Apr 2008 12:16:55 -0700
+This patch ensures that padding bytes appearing at the end of
+an incoming TIPC message are not returned as valid stream data.
 
-> What I find a bit disturbing is I found my original patchsets I
-> submitted to the list that were committed for this patchset.  My
-> original patches don't have this change in them at all.  :-(
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+---
+ net/tipc/socket.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Ummmm, if you remember we had to put that in because it was the
-only way to get your multiqueue changes to even work.
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index c1a199c..ead22e5 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1027,7 +1027,7 @@ restart:
+ 
+ 	if (!err) {
+ 		buf_crs = (unsigned char *)(TIPC_SKB_CB(buf)->handle);
+-		sz = skb_tail_pointer(buf) - buf_crs;
++		sz = (unsigned char *)msg + msg_size(msg) - buf_crs;
+ 
+ 		needed = (buf_len - sz_copied);
+ 		sz_to_copy = (sz <= needed) ? sz : needed;
+-- 
+1.5.3.2
 
-So don't even act as if that got slipped in behind your back,
-unknowingly.  You were absolutely informed about this.
