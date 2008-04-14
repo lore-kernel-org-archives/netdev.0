@@ -1,84 +1,58 @@
-From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 4/7 net-2.6.26] [TIPC]: Correct "off by 1" error in socket queue limit enforcement
-Date: Mon, 14 Apr 2008 17:16:31 -0400
-Message-ID: <1208207794-2229-5-git-send-email-allan.stephens@windriver.com>
-References: <1208207794-2229-1-git-send-email-allan.stephens@windriver.com>
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/bonding: Send more than one gratuitous ARP when
+ slave takes over
+Date: Mon, 14 Apr 2008 14:40:32 -0700 (PDT)
+Message-ID: <20080414.144032.39791824.davem@davemloft.net>
+References: <47FE2D2D.2040504@voltaire.com>
+	<48037757.2070203@voltaire.com>
+	<D5C1322C3E673F459512FB59E0DDC32904E2B512@orsmsx414.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: monis@voltaire.com, fubar@us.ibm.com, netdev@vger.kernel.org,
+	olgas@voltaire.com, ogerlitz@voltaire.com
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:55778 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762644AbYDNVSZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 17:18:25 -0400
-In-Reply-To: <1208207794-2229-1-git-send-email-allan.stephens@windriver.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56174
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754662AbYDNVkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 17:40:31 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32904E2B512@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a bug that allowed TIPC to queue 1 more message
-than allowed by the socket receive queue threshold limits.  The
-patch also improves the threshold code's logic and naming to help
-prevent this sort of error from recurring in the future.
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Mon, 14 Apr 2008 10:50:17 -0700
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
----
- net/tipc/socket.c |   22 ++++++++++------------
- 1 files changed, 10 insertions(+), 12 deletions(-)
+> Patch looks good to me, however I have a small nitpick below:
+> 
+> > +static ssize_t bonding_store_n_grat_arp(struct device *d,
+> > +				    struct device_attribute *attr,
+> > +				    const char *buf, size_t count)
+> > +{
+> > +	int new_value, ret = count;
+> 
+> Avoid declaring multiple variables on the same line when possible.
+> Write it like this:
+> 
+> 	int new_value;
+> 	int ret = count;
+> 
+> Here's a blurb from the Documentation/CodingStyle document (not gospel,
+> but pretty darn close):
+> 
+> It's also important to comment data, whether they are basic types or
+> derived
+> types.  To this end, use just one data declaration per line (no commas
+> for
+> multiple data declarations).  This leaves you room for a small comment
+> on each
+> item, explaining its use.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index ead22e5..4c83aba 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1079,15 +1079,15 @@ exit:
- }
- 
- /**
-- * queue_overloaded - test if queue overload condition exists
-+ * rx_queue_full - determine if receive queue can accept another message
-+ * @msg: message to be added to queue
-  * @queue_size: current size of queue
-  * @base: nominal maximum size of queue
-- * @msg: message to be added to queue
-  *
-- * Returns 1 if queue is currently overloaded, 0 otherwise
-+ * Returns 1 if queue is unable to accept message, 0 otherwise
-  */
- 
--static int queue_overloaded(u32 queue_size, u32 base, struct tipc_msg *msg)
-+static int rx_queue_full(struct tipc_msg *msg, u32 queue_size, u32 base)
- {
- 	u32 threshold;
- 	u32 imp = msg_importance(msg);
-@@ -1104,7 +1104,7 @@ static int queue_overloaded(u32 queue_size, u32 base, struct tipc_msg *msg)
- 	if (msg_connected(msg))
- 		threshold *= 4;
- 
--	return (queue_size > threshold);
-+	return (queue_size >= threshold);
- }
- 
- /**
-@@ -1189,16 +1189,14 @@ static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf)
- 
- 	/* Reject message if there isn't room to queue it */
- 
--	if (unlikely((u32)atomic_read(&tipc_queue_size) >
--		     OVERLOAD_LIMIT_BASE)) {
--		if (queue_overloaded(atomic_read(&tipc_queue_size),
--				     OVERLOAD_LIMIT_BASE, msg))
-+	recv_q_len = (u32)atomic_read(&tipc_queue_size);
-+	if (unlikely(recv_q_len >= OVERLOAD_LIMIT_BASE)) {
-+		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE))
- 			return TIPC_ERR_OVERLOAD;
- 	}
- 	recv_q_len = skb_queue_len(&tsock->sk.sk_receive_queue);
--	if (unlikely(recv_q_len > (OVERLOAD_LIMIT_BASE / 2))) {
--		if (queue_overloaded(recv_q_len,
--				     OVERLOAD_LIMIT_BASE / 2, msg))
-+	if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
-+		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE / 2))
- 			return TIPC_ERR_OVERLOAD;
- 	}
- 
--- 
-1.5.3.2
+You're telling this person to use more lines, but not telling them to
+add comments, yet that is the reasoning behind the very CodingStyle
+recommendation you are quoting.
 
+I think you're recommendation is gratuitous and in my opinion wrong.
+Splitting up the line adds no value, and makes the function take up
+more lines on the terminal screen.
