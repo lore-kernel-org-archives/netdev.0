@@ -1,97 +1,69 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/4] [SKB]: __skb_append = __skb_queue_after
-Date: Mon, 14 Apr 2008 07:11:09 +0100
-Message-ID: <1208153470-9847-4-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <skbuff_h_small_patchset>
- <1208153470-9847-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1208153470-9847-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1208153470-9847-3-git-send-email-gerrit@erg.abdn.ac.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 10437] New: MSG_ERRQUEUE messages do not pass
+ to connected raw sockets
+Date: Sun, 13 Apr 2008 23:15:44 -0700 (PDT)
+Message-ID: <20080413.231544.83437216.davem@davemloft.net>
+References: <bug-10437-10286@http.bugzilla.kernel.org/>
+	<20080410103444.d7309e1f.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dmitry@butskoy.name, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35085 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754030AbYDNGLY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 02:11:24 -0400
-In-Reply-To: <1208153470-9847-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37120
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752645AbYDNGPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 02:15:42 -0400
+In-Reply-To: <20080410103444.d7309e1f.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This expresses __skb_append in terms of __skb_queue_after, exploiting that
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 10 Apr 2008 10:34:44 -0700
 
-  __skb_append(old, new, list) = __skb_queue_after(list, old, new).
+> Dmitry, I'd suggest that you send the patch via email to
+> netdev@vger.kernel.org and to YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- include/linux/skbuff.h |   12 +++---------
- include/net/tcp.h      |    2 +-
- net/core/skbuff.c      |    2 +-
- net/ipv4/tcp_input.c   |    2 +-
- 4 files changed, 6 insertions(+), 12 deletions(-)
+This person is having trouble emailing things to the lists and elsewhere,
+for whatever reason, and he states this in the bugzilla entry so asking
+him to email a patch somewhere isn't going to help.
 
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -691,6 +691,9 @@ static inline void __skb_queue_after(str
- 	__skb_insert(newsk, prev, prev->next, list);
- }
- 
-+extern void skb_append(struct sk_buff *old, struct sk_buff *newsk,
-+		       struct sk_buff_head *list);
+The code in this area has changed a bit, here is the patch I just checked
+into net-2.6 and which I'll push to Linus for 2.6.25 and will also submit
+for the 2.6.24-stable branch.
+
+commit b45e9189c058bfa495073951ff461ee0eea968be
+Author: David S. Miller <davem@davemloft.net>
+Date:   Sun Apr 13 23:14:15 2008 -0700
+
+    [IPV6]: Fix ipv6 address fetching in raw6_icmp_error().
+    
+    Fixes kernel bugzilla 10437
+    
+    Based almost entirely upon a patch by Dmitry Butskoy.
+    
+    When deciding what raw sockets to deliver the ICMPv6
+    to, we should use the addresses in the ICMPv6 quoted
+    IPV6 header, not the top-level one.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 8897ccf..0a6fbc1 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -372,8 +372,10 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
+ 	read_lock(&raw_v6_hashinfo.lock);
+ 	sk = sk_head(&raw_v6_hashinfo.ht[hash]);
+ 	if (sk != NULL) {
+-		saddr = &ipv6_hdr(skb)->saddr;
+-		daddr = &ipv6_hdr(skb)->daddr;
++		struct ipv6hdr *hdr = (struct ipv6hdr *) skb->data;
 +
- /**
-  *	__skb_queue_head - queue a buffer at the list head
-  *	@list: list to use
-@@ -733,15 +736,6 @@ static inline void __skb_queue_tail(stru
- }
++		saddr = &hdr->saddr;
++		daddr = &hdr->daddr;
+ 		net = skb->dev->nd_net;
  
- /*
-- *	Place a packet after a given packet in a list.
-- */
--extern void	   skb_append(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list);
--static inline void __skb_append(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list)
--{
--	__skb_insert(newsk, old, old->next, list);
--}
--
--/*
-  * remove sk_buff from list. _Must_ be called atomically, and with
-  * the list known..
-  */
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1766,7 +1766,7 @@ void skb_append(struct sk_buff *old, str
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&list->lock, flags);
--	__skb_append(old, newsk, list);
-+	__skb_queue_after(list, old, newsk);
- 	spin_unlock_irqrestore(&list->lock, flags);
- }
- 
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1237,7 +1237,7 @@ static inline void tcp_insert_write_queu
- 						struct sk_buff *buff,
- 						struct sock *sk)
- {
--	__skb_append(skb, buff, &sk->sk_write_queue);
-+	__skb_queue_after(&sk->sk_write_queue, skb, buff);
- }
- 
- /* Insert skb between prev and next on the write queue of sk.  */
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3999,7 +3999,7 @@ drop:
- 		u32 end_seq = TCP_SKB_CB(skb)->end_seq;
- 
- 		if (seq == TCP_SKB_CB(skb1)->end_seq) {
--			__skb_append(skb1, skb, &tp->out_of_order_queue);
-+			__skb_queue_after(&tp->out_of_order_queue, skb1, skb);
- 
- 			if (!tp->rx_opt.num_sacks ||
- 			    tp->selective_acks[0].end_seq != seq)
-
-
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
-
+ 		while ((sk = __raw_v6_lookup(net, sk, nexthdr, saddr, daddr,
