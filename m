@@ -1,85 +1,78 @@
-From: "Kay Sievers" <kay.sievers@vrfy.org>
-Subject: Re: udev can't name PS3's network devices correctly
-Date: Mon, 14 Apr 2008 14:03:37 +0200
-Message-ID: <3ae72650804140503g73f8c281w438defb1c6477ba9@mail.gmail.com>
-References: <ftdb3v$tls$1@ger.gmane.org> <20080407143805.GA9492@bongo.bofh.it>
-	 <1208167737.31695.32.camel@pmac.infradead.org>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: Reporting bugs and bisection
+Date: Mon, 14 Apr 2008 15:08:21 +0300
+Message-ID: <20080414120821.GA4625@cs181133002.pp.htv.fi>
+References: <20080413202118.GA29658@2ka.mipt.ru> <200804132233.50491.rjw@sisk.pl> <20080413205406.GA9190@2ka.mipt.ru> <48028830.6020703@earthlink.net> <alpine.DEB.1.10.0804131546370.9318@asgard> <20080414043939.GA6862@1wt.eu> <20080414053943.GU9785@ZenIV.linux.org.uk> <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <20080414010412.c42dc560.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Marco d'Itri" <md@linux.it>, "Harald Hoyer" <harald@redhat.com>,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
-To: "David Woodhouse" <dwmw2@infradead.org>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <1208167737.31695.32.camel@pmac.infradead.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Al Viro <viro@ZenIV.linux.org.uk>, Willy Tarreau <w@1wt.eu>,
+	david@lang.hm, Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Tilman Schmidt <tilman@imap.cc>,
+	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp6.pp.htv.fi ([213.243.153.40]:33727 "EHLO smtp6.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753823AbYDNMJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 08:09:26 -0400
 Content-Disposition: inline
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080414010412.c42dc560.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 14, 2008 at 12:08 PM, David Woodhouse <dwmw2@infradead.org> wrote:
-> On Mon, 2008-04-07 at 16:38 +0200, Marco d'Itri wrote:
->  > On Apr 07, Harald Hoyer <harald@redhat.com> wrote:
->  >
->  > > So Kazunori Asayama attached a patch to the bugzilla, which modifies
->  > > write_net_rules to take the KERNEL attribute also in account.
->  > >
->  > > What do you think?
->  >
->  > If this were accepted by Kay I would definitely remove it from the
->  > Debian package. It's an ugly hack for a broken device which should not
->  > be generalized.
->
->  Actually it's a generic problem.
+On Mon, Apr 14, 2008 at 01:04:12AM -0700, Andrew Morton wrote:
+>...
+> (And I don't think developers and maintainers _should_ spend time mucking
+> in bug-tracking systems.  They should have helpers who do all the
+> triaging/tracking/routing/closing work for them, and then provide other
+> developers with the results, letting them know what they should be spending
+> time on.  But there's a manpower problem).
+>...
 
-Yeah, unfortunately it is.
+Speaking as the one who was for a few years going again and again 
+through all open bugs in the kernel Bugzilla:
 
-> It also occurs on OLPC, where the
->  libertas wireless device presents two interfaces with the same MAC
->  address -- the 'eth%d' interface for normal 802.11 wireless, and the
->  'msh%d' interface for mesh. This approach fixes that too. Our previous
->  fix for that was 'TEST=="anycast_mask"' and 'TEST=="lbs_rtap"', which
->  are horridly device-specific hacks.
->
->  It isn't _broken_ to have more than one device on the same host with the
->  same MAC address; it's just unusual.
+The manpower problem isn't in handling the bugs in Bugzilla.
 
-Yeah, PS3 even had both interfaces with the same MAC named eth*. :)
-That got changed recently to make it easier for usersapce.
+I'd claim that even if all bugs in the kernel would be reported in the 
+kernel Bugzilla I alone would be able to do all the handling of incoming 
+bugs, bug forwarding and doing all the cleanup stuff like asking 
+submitters whether a bug is still present in the latest kernel.
 
->  One thing I don't understand: Don't we already emit a KERNEL== criterion
->  in the case where there is already a udev rule 'reserving' the name that
->  the kernel used for the current device? Why is that one OK, and why only
->  in that case? This patch just makes it consistent.
+The manpower problem is at the developers and maintainers who could 
+actually debug the problems.
 
-Yes, we do that in the recent udev versions. We only make sure we keep
-the enumeration across the same basename, not across different device
-names.
+One problem are unmaintained areas.
+Do we have anyone who would debug e.g. APM bugs?
+And if I want to be really nasty, I'll ask whether we have anyone who 
+understands our floppy driver...  ;)
 
->  > Unconditionally adding a KERNEL key means that persistent names will
->  > break if a driver changes the base name (e.g. wlan* -> eth*).
->
->  Drivers shouldn't do that. It'll change the name of the device and may
->  confuse userspace :)
+And who would debug problems with old and unmaintained drivers, e.g. 
+some old net or SCSI driver?
 
-It happens sometimes, that a new driver has a new name, but that is
-not neccesarily something we need to cover with the persistent net
-names. The main goal is to provide stable names regardless of
-module-loading/bus-probe/device-enumeration order, not the use of new
-drivers which look different to userspace.
+Note that I do not blame James or Jeff or whoever else for the latter - 
+they might simply not have the time to spend a day or two for debugging 
+some obscure problem on some obscure hardware.
 
->  One alternative approach would be to use dev->dev_id (is that exported
->  in sysfs?). That's what IPv6 addrconf uses in addition to the MAC
->  address to provide a unique address when MAC addresses are shared.
->
->  We could modify the libertas and gelic (and any other affected) drivers
->  to provide a dev_id, make sure it's exported in sysfs, and then use that
->  in the udev rules. Would that make you happy?
->
->  It has implications w.r.t. the autoconfigured IPv6 addresses of those
->  devices, but I think we can cope with those. I'm probably the only
->  person in the world with an IPv6 address for a PS3 listed in DNS anyway.
+And it could happen everywhere that maintainers simply don't have 
+the time to cope with all incoming bug reports.
 
-Sounds good.
+We have many people who write new bugs^Wcode.
+But too few people who review code.
+And too few people willing to maintain the existing code.
 
-Thanks,
-Kay
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
