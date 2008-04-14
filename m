@@ -1,38 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
-Date: Mon, 14 Apr 2008 22:28:52 +0200
-Message-ID: <4803BE84.4040105@trash.net>
-References: <47FFAFFA.7070802@superclick.com> <20080413121031.GA5211@ami.dom.local> <20080414202605.GA6164@ami.dom.local>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: Reporting bugs and bisection
+Date: Mon, 14 Apr 2008 13:38:02 -0700
+Message-ID: <20080414133802.4535e4da.akpm@linux-foundation.org>
+References: <47FEADCB.7070104@rtr.ca>
+	<20080413121831.d89dd424.akpm@linux-foundation.org>
+	<20080413202118.GA29658@2ka.mipt.ru>
+	<200804132233.50491.rjw@sisk.pl>
+	<20080413205406.GA9190@2ka.mipt.ru>
+	<48028830.6020703@earthlink.net>
+	<alpine.DEB.1.10.0804131546370.9318@asgard>
+	<20080414043939.GA6862@1wt.eu>
+	<20080414053943.GU9785@ZenIV.linux.org.uk>
+	<20080413232441.e216a02c.akpm@linux-foundation.org>
+	<4803ACE5.4020502@keyaccess.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Enrico Demarin <enrico@superclick.com>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: viro@ZenIV.linux.org.uk, w@1wt.eu, david@lang.hm,
+	sclark46@earthlink.net, johnpol@2ka.mipt.ru, rjw@sisk.pl,
+	tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
+	davem@davemloft.net, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Rene Herman <rene.herman@keyaccess.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50320 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751921AbYDNUcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 16:32:10 -0400
-In-Reply-To: <20080414202605.GA6164@ami.dom.local>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55857 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751932AbYDNUi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 16:38:56 -0400
+In-Reply-To: <4803ACE5.4020502@keyaccess.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> [NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
->
-> TC_H_MAJ(parentid) for root classes is the same as for ingress, and if
-> ingress qdisc is created qdisc_lookup() returns its pointer (without
-> ingress NULL is returned). After this all qdisc_lookups give the same,
-> and we get endless loop. (I don't know how this could hide for so
-> long - it should trigger with every leaf class deleted if it's qdisc
-> isn't empty.)
->
-> After this fix qdisc_lookup() is omitted both for ingress and root
-> parents, but looking for root is only wasting a little time here...
-> Many thanks to Enrico Demarin for finding a test for catching this
-> bug, which probably bothered quite a lot of admins.
->   
+On Mon, 14 Apr 2008 21:13:41 +0200
+Rene Herman <rene.herman@keyaccess.nl> wrote:
 
-Good catch, I agree that this is the reason for sure.
+> Does that mean you're not going to take patches that align the right end of 
+> lines in comments? :-(
+
+erm, was that ":-(" supposed to be a ":-)"?
+
+I don't like to merge patches which fix typos and spellos and grammaros
+in comments, simply because I'd be buried in the things.  I do take such
+fixes for user-visible text (Documentation/, kerneldoc comments and
+printks).
+
+Right-justification of comments would fall rather a long way below spelling
+fixes.
 
