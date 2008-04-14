@@ -1,39 +1,63 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Reporting bugs and bisection
-Date: Mon, 14 Apr 2008 11:26:24 +0200
-Message-ID: <87d4oswzwf.fsf@basil.nowhere.org>
-References: <47FEADCB.7070104@rtr.ca>
-	<20080413121831.d89dd424.akpm@linux-foundation.org>
-	<20080413202118.GA29658@2ka.mipt.ru> <200804132233.50491.rjw@sisk.pl>
-	<20080413205406.GA9190@2ka.mipt.ru> <48028830.6020703@earthlink.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.26][DCCP]: Fix comment about control sockets.
+Date: Mon, 14 Apr 2008 13:36:19 +0400
+Message-ID: <48032593.3080409@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Willy Tarreau <w@1wt.eu>, Tilman Schmidt <tilman@imap.cc>,
-	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
-	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: sclark46@earthlink.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:17485 "EHLO
-	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750821AbYDNJ1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 05:27:17 -0400
-In-Reply-To: <48028830.6020703@earthlink.net> (Stephen Clark's message of "Sun, 13 Apr 2008 18:24:48 -0400")
+Received: from sacred.ru ([62.205.161.221]:37975 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753222AbYDNJhd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 05:37:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Clark <sclark46@earthlink.net> writes:
+These sockets now have a bit other names and are no longer global.
 
-> I been a linux user and have followed the LKML for a
-> number of years and have yet to see
-> any test plans for any submitted patches.
+Shame on me, I haven't provided a good comment for this when
+sending DCCP netnsization patches.
 
-You haven't looked closely then. While it's not very common there 
-is a non trivial number of patches who describe how they got tested
-in the patch description.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
--Andi
+---
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+ net/dccp/ipv4.c |    2 +-
+ net/dccp/ipv6.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index b997466..d0ed87d 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -32,7 +32,7 @@
+ #include "feat.h"
+ 
+ /*
+- * The dccp_ctl_sk is the global socket data structure used for responding to
++ * The per-net dccp.v4_ctl_sk socket is used for responding to
+  * the Out-of-the-blue (OOTB) packets. A control sock will be created
+  * for this socket at the initialization time.
+  */
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 94e0c94..f8371c7 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -33,7 +33,7 @@
+ #include "ipv6.h"
+ #include "feat.h"
+ 
+-/* dccp_v6_ctl_sk is used for sending RSTs and ACKs */
++/* The per-net dccp.v6_ctl_sk is used for sending RSTs and ACKs */
+ 
+ static struct inet_connection_sock_af_ops dccp_ipv6_mapped;
+ static struct inet_connection_sock_af_ops dccp_ipv6_af_ops;
+-- 
+1.5.3.4
+
