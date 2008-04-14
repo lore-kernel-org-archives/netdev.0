@@ -1,63 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Reporting bugs and bisection
-Date: Mon, 14 Apr 2008 01:30:58 -0700 (PDT)
-Message-ID: <20080414.013058.149905948.davem@davemloft.net>
-References: <20080413232441.e216a02c.akpm@linux-foundation.org>
-	<20080414072328.GW9785@ZenIV.linux.org.uk>
-	<20080414010412.c42dc560.akpm@linux-foundation.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: 2.6.25-rc9: Reported regressions from 2.6.24
+Date: Mon, 14 Apr 2008 12:39:42 +0400
+Message-ID: <4803184E.1050102@openvz.org>
+References: <RR4Oy_oXY2J.A.b0H.A3lAIB@albercik> <480262E9.4030500@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, w@1wt.eu, david@lang.hm,
-	sclark46@earthlink.net, johnpol@2ka.mipt.ru, rjw@sisk.pl,
-	tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
-	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, git@vger.kernel.org,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>, andy@greyhouse.net
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54293
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755466AbYDNIbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 04:31:01 -0400
-In-Reply-To: <20080414010412.c42dc560.akpm@linux-foundation.org>
+Received: from sacred.ru ([62.205.161.221]:54587 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753494AbYDNIkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 04:40:40 -0400
+In-Reply-To: <480262E9.4030500@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Mon, 14 Apr 2008 01:04:12 -0700
-
-> That all sounds good and I expect few would disagree.  But if it is to
-> happen, it clearly won't happen by itself, automatically.  We will need to
-> force it upon ourselves and the means by which we will do that is process
-> changes.  The thing which is being disparaged as "bureaucracy".
+Patrick McHardy wrote:
+> Rafael J. Wysocki wrote:
+>> This message contains a list of some regressions from 2.6.24, for which there
+>> are no fixes in the mainline I know of.  If any of them have been fixed already,
+>> please let me know.
+>>
+>>
+>> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=10323
+>> Subject		: panic using bridging on linus kernel 2.6.25-rc6
+>> Submitter	: Andy Gospodarek <andy@greyhouse.net>
+>> Date		: 2008-03-25 11:40 (20 days old)
 > 
-> The steps to be taken are:
+> This looks like another network-namespace regression.
+> icmp_send() does:
 > 
-> a) agree that we have a problem
- ...
-> I have thus far failed to get us past step a).
+>         net = rt->u.dst.dev->nd_net;
+> 
+> The bridge netfilter code attaches a fake dst_entry to the
+> skb which has dev == NULL when passing it to IPv4 netfilter.
+> 
+> Pavel, do you have a better ideas for fixing this than
+> instantiating a dst_entry in br_netfilter.c for every
+> device (or at least for every namespace)?
 
-A lot of people, myself included, subconsciously don't want to
-get past step a) because the resulting "bureaucracy" or whatever
-you want to call it is perceived to undercut the very thing
-that makes the Linux kernel fun to work on.
+Hm... Why not make this dst entry point to looback device? This would
+allow us to make the dst entry per-namespace and instantiate it with
+the ns's lo.
 
-It's still largely free form, loose, and flexible.  And that's
-a notable accomplishment considering how much things have changed.
-That feeling is why I got involved in the first place, and I know
-it's what gets other new people in and addicted too.
-
-Nobody is "forced" to do anything, and I notice you used the
-word "force" in d) :-)
-
-And I realize this relaxed attitude goes hand in hand with reduced
-quality and occaisionally more bugs.  In many ways, I'm happy with
-that tradeoff at least wrt. how that works out for the subsystems
-I'm responsible for.
-
-We can ask more subsystem tree maintainers to run their trees more
-strictly, review patches more closely, etc.  But, be honest, good luck
-getting that from the guys who do subsystem maintainence in their
-spare time on the weekends.  The remaining cases should know better,
-or simply don't care.
+Thanks,
+Pavel
