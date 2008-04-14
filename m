@@ -1,71 +1,54 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/1 net-2.6.26] [XFRM]: Compilation warnings in xfrm_user.c.
-Date: Mon, 14 Apr 2008 17:03:39 +0400
-Message-ID: <1208178219-18754-1-git-send-email-den@openvz.org>
-Cc: herbert@gondor.apana.org.au, paul.moore@hp.com,
-	netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH net-2.6.26] [IPV6] Return NET_RX_DROP when a packet is dropped in ipv6_rcv().
+Date: Mon, 14 Apr 2008 16:15:54 +0300
+Message-ID: <eb3ff54b0804140615u3dd4549fie83ae6818c33beba@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_Part_22195_930906.1208178954236"
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "=?BIG5?B?WU9TSElGVUpJIEhpZGVha2kgLyCmTsPDrV6p+g==?="
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:11285 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751876AbYDNNDu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 09:03:50 -0400
+Received: from fg-out-1718.google.com ([72.14.220.152]:40779 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758741AbYDNNRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 09:17:08 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1571993fgb.17
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2008 06:15:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_SECURITY_NETWORK_XFRM is undefined the following warnings appears:
-net/xfrm/xfrm_user.c: In function 'xfrm_add_pol_expire':
-net/xfrm/xfrm_user.c:1576: warning: 'ctx' may be used uninitialized in this function
-net/xfrm/xfrm_user.c: In function 'xfrm_get_policy':
-net/xfrm/xfrm_user.c:1340: warning: 'ctx' may be used uninitialized in this function
-(security_xfrm_policy_alloc is noop for the case).
+------=_Part_22195_930906.1208178954236
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-It seems that they are result of the commit
-03e1ad7b5d871d4189b1da3125c2f12d1b5f7d0b
+Hi,
+- The IPv6 handler for receiving packets is ipv6_rcv() in net/ipv6/ip6_input.c.
+It is called by netif_receive_skb() (net/core/dev.c)
+According to the documentation, the return value of netif_receive_skb() should
+be NET_RX_DROP when the packet is dropped; though this return value
+is usually not used (except maybe for congestion), this patch fixes the
+ipv6_rcv() to return NET_RX_DROP when the packet is dropped (note that
+NET_RX_DROP value **is not** 0 but 1; NET_RX_SUCCESS value is in fact	0).
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- net/xfrm/xfrm_user.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index b822b56..1810f56 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1343,14 +1343,14 @@ static int xfrm_get_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		if (err)
- 			return err;
- 
-+		ctx = NULL;
- 		if (rt) {
- 			struct xfrm_user_sec_ctx *uctx = nla_data(rt);
- 
- 			err = security_xfrm_policy_alloc(&ctx, uctx);
- 			if (err)
- 				return err;
--		} else
--			ctx = NULL;
-+		}
- 		xp = xfrm_policy_bysel_ctx(type, p->dir, &p->sel, ctx,
- 					   delete, &err);
- 		security_xfrm_policy_free(ctx);
-@@ -1579,14 +1579,14 @@ static int xfrm_add_pol_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		if (err)
- 			return err;
- 
-+		ctx = NULL;
- 		if (rt) {
- 			struct xfrm_user_sec_ctx *uctx = nla_data(rt);
- 
- 			err = security_xfrm_policy_alloc(&ctx, uctx);
- 			if (err)
- 				return err;
--		} else
--			ctx = NULL;
-+		}
- 		xp = xfrm_policy_bysel_ctx(type, p->dir, &p->sel, ctx, 0, &err);
- 		security_xfrm_policy_free(ctx);
- 	}
--- 
-1.5.3.rc5
+Regards,
+Rami Rosen
 
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+------=_Part_22195_930906.1208178954236
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ff12ht7t0
+Content-Disposition: attachment; filename=patch.txt
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwNl9pbnB1dC5jIGIvbmV0L2lwdjYvaXA2X2lucHV0LmMK
+aW5kZXggNGU1Yzg2MS4uM2NhMDQxYiAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvaXA2X2lucHV0LmMK
+KysrIGIvbmV0L2lwdjYvaXA2X2lucHV0LmMKQEAgLTEzOCw3ICsxMzgsNyBAQCBkcm9wOgogCXJj
+dV9yZWFkX3VubG9jaygpOwogCWtmcmVlX3NrYihza2IpOwogb3V0OgotCXJldHVybiAwOworCXJl
+dHVybiBORVRfUlhfRFJPUDsKIH0KIAogLyoK
+------=_Part_22195_930906.1208178954236--
