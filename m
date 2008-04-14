@@ -1,95 +1,97 @@
-From: Rene Herman <rene.herman@keyaccess.nl>
-Subject: Re: Reporting bugs and bisection
-Date: Tue, 15 Apr 2008 00:18:24 +0200
-Message-ID: <4803D830.7000206@keyaccess.nl>
-References: <47FEADCB.7070104@rtr.ca>	<20080413121831.d89dd424.akpm@linux-foundation.org>	<20080413202118.GA29658@2ka.mipt.ru>	<200804132233.50491.rjw@sisk.pl>	<20080413205406.GA9190@2ka.mipt.ru>	<48028830.6020703@earthlink.net>	<alpine.DEB.1.10.0804131546370.9318@asgard>	<20080414043939.GA6862@1wt.eu>	<20080414053943.GU9785@ZenIV.linux.org.uk>	<20080413232441.e216a02c.akpm@linux-foundation.org>	<4803ACE5.4020502@keyaccess.nl> <20080414133802.4535e4da.akpm@linux-foundation.org>
+From: Wenji Wu <wenji@fnal.gov>
+Subject: RE: RE: A Linux TCP SACK Question
+Date: Mon, 14 Apr 2008 17:47:21 -0500
+Message-ID: <000301c89e81$80124570$6b5ee183@D2GT6T71>
+References: <fc471cb97cfd.47f5520e@fnal.gov>
+ <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
+ <000001c8967c$496efa20$c95ee183@D2GT6T71>
+ <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+ <000b01c89699$00e99590$c95ee183@D2GT6T71>
+ <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
+ <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
+ <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
+ <fb8e9e4f102e.47f8ebfd@fnal.gov>
+ <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
+ <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
+ <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
+ <fbbce0572843.47fb038c@fnal.gov>
+ <Pine.LNX.4.64.0804081623500.21784@wrl-59.cs.helsinki.fi>
+ <fba201de4228.47fb3b26@fnal.gov>
+ <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
+Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, w@1wt.eu, david@lang.hm,
-	sclark46@earthlink.net, johnpol@2ka.mipt.ru, rjw@sisk.pl,
-	tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
-	davem@davemloft.net, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, git@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <git-owner@vger.kernel.org>
-In-Reply-To: <20080414133802.4535e4da.akpm@linux-foundation.org>
-Sender: git-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: 'Netdev' <netdev@vger.kernel.org>
+To: =?iso-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw2.fnal.gov ([131.225.111.12]:52323 "EHLO mailgw2.fnal.gov"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761186AbYDNWrd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 18:47:33 -0400
+Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
+ by mailgw2.fnal.gov
+ (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
+ with SMTP id <0JZC0021S7B4TB@mailgw2.fnal.gov> for netdev@vger.kernel.org;
+ Mon, 14 Apr 2008 17:47:33 -0500 (CDT)
+Received: from mailgw2.fnal.gov ([131.225.111.12])
+ by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008041417473225575 for
+ <netdev@vger.kernel.org>; Mon, 14 Apr 2008 17:47:32 -0500
+Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
+ (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
+ id <0JZC00I0175HOZ@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
+ for netdev@vger.kernel.org; Mon, 14 Apr 2008 17:47:33 -0500 (CDT)
+In-reply-to: <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14-04-08 22:38, Andrew Morton wrote:
+Hi, Ilpo,
 
-> On Mon, 14 Apr 2008 21:13:41 +0200
-> Rene Herman <rene.herman@keyaccess.nl> wrote:
-> 
->> Does that mean you're not going to take patches that align the right end of 
->> lines in comments? :-(
-> 
-> erm, was that ":-(" supposed to be a ":-)"?
+Could the throughput difference with SACK ON/OFF be due to the following
+code in tcp_ack()?
 
-The ":-(" was supposed to add to the implicitly obvious ":-)". That is, was 
-indeed joking (Al mentioned them) but with a slightly serious undertone:
+3120        if (tcp_ack_is_dubious(sk, flag)) {
+3121                /* Advance CWND, if state allows this. */
+3122                if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
+3123                    tcp_may_raise_cwnd(sk, flag))
+3124                        tcp_cong_avoid(sk, ack, prior_in_flight, 0);
+3125                tcp_fastretrans_alert(sk, prior_packets -
+tp->packets_out, flag);
+3126        } else {
+3127                if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
+3128                        tcp_cong_avoid(sk, ack, prior_in_flight, 1);
+3129        }
 
-> I don't like to merge patches which fix typos and spellos and grammaros 
-> in comments, simply because I'd be buried in the things. I do take such 
-> fixes for user-visible text (Documentation/, kerneldoc comments and 
-> printks).
-> 
-> Right-justification of comments would fall rather a long way below
-> spelling fixes.
+In my tests, there are actually no packet drops, just severe packet
+reordering in both forward and reverse paths. With good tcp_reordering
+auto-tuning, there are few retransmissions.
 
-You, particularly, seem to be very good at picking up trivia. I've posted 
-completely trivial patches from time to time for small things I encounter 
-while looking at something else. Things at the "are people going to look 
-funny at me for even bothering or..." level but you picking them up means 
-it's still useful to post, so I sometimes do.
+(1) With SACK option off, the reorder ACKs will not cause much harm to the
+throughput. As you have pointed out in the email that "The ACK reordering
+should just make the number of duplicate acks smaller because part of them
+get discarded as old ones as a newer cumulative ACK often arrives a bit
+"ahead" of its time making rest smaller sequenced ACKs very close to on-op."
 
-Now, in fact, Linux as a _whole_ doesn't seem bad at accepting that kind of 
-small janitorial stuff but I have been noticing some backlash to it as well. 
-I'm not sure it's worse or better than historically, but the "checkpatch 
-syndrome" certainly triggers more of it.
+If there are any ACK advancement, tcp_cong_avoid() will be called. 
 
-Al specifically wanted more new eyes but the way to reward those new eyes is 
-accepting their small changes. Al also specifically doesn't like those small 
-changes when at the level of the automated and semi-brainless checkpatch level.
+(2) With the sack option is on. If the ACKs do not advance the left edge of
+the window, those ACKs will go to "old_ack" of "tcp_ack()", no much
+processing except sack-tagging the corresponding packets in the
+retransmission queue. tcp_cong_avoid() will not be called.
 
-I believe the janitorial work has been over-organized, both through the 
-kernel-janitors and checkpatch since while these are very useful in guiding 
-a newbie in _what_ to do they cause "automated" huge tree-wide trivia storms 
-which people then don't react overly favourable to and the new eyes who did 
-all that work of generating it all dim again...
+However, if the ACKs advance the left edge of the window and these ACKs
+include SACK options, tcp_ack_is_dubious(sk, flag)) would be true. Then the
+calling of tcp_cong_avoid() needs to satisfy the if-condition at line 3122,
+which is stricter than the if-condition at line 3127.
 
-Frankly, the kernel really is fairly complex these days when starting at 0. 
-Much more complex certainly than, say, back in 2.0 or 2.2 days and while 
-Al's scenario of per-subsystem reviews might be good, I don't believe it's 
-very realistic. Companies don't pay to have those done and for newbies it's 
-generally too complex since understanding most parts of the kernel fully, 
-requires understanding most of the rest kernel rather well also.
+So, the congestion window with SACK on would be smaller than with SACK off. 
 
-So you get the really promising newbies? Yeah, that, or you don't get anyone 
-and if some promising newbies are building up 137 part checkpatch inspired 
-patchsets that don't help none.
+If you run tcptrace and xplot on the files I posted, you would see lots ACKs
+will advance the left edge of the window, and include SACK blocks.
 
-So, what am I saying (what _am_ I saying?!?) ...
+Not quite sure, just a guess.
 
-I seemed to observe somewhat of an internal contradiction in Al's message 
-about new eyes and his dislike of the trivial stuff but the contradiction 
-only exists if the dislike wouldn't be limited to these kinds of huge trivia 
-storms. I believe it is, and I furthermore believe that yes, it's 
-over-organization that causes many new eyes to focus on the brainless aspects.
+wenji
 
-Now, do those new eyes have many other options when very few (to none) of 
-the core crowd ever does things like answer question on the kernelnewbies 
-list? From the established names, I only remember ever seeing Greg KH and 
-Adrian Bunk there. And I'm _still_ pissed that noone would or could tell me 
-what was wrong with the legacy CD-ROM driver I and Pekka Enberg were toying 
-around with a while ago. Frankly, I care a whole lot less about a hundred 
-sparse warning fixes.
 
-In short -- the kernel in it's current state is already quite complex and if 
-new eyes are wanted they'll need to be coached more. I'm seeing very little 
-of that.
-
-Rene.
