@@ -1,90 +1,54 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: udev can't name PS3's network devices correctly
-Date: Mon, 14 Apr 2008 14:38:03 +0100
-Message-ID: <1208180283.3005.14.camel@pmac.infradead.org>
-References: <ftdb3v$tls$1@ger.gmane.org>
-	 <20080407143805.GA9492@bongo.bofh.it>
-	 <1208167737.31695.32.camel@pmac.infradead.org>
-	 <20080414125100.GA13564@bongo.bofh.it>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
+Date: Mon, 14 Apr 2008 07:48:58 -0600
+Message-ID: <20080414134858.GV11962@parisc-linux.org>
+References: <20080404122242.867070732@I-love.SAKURA.ne.jp> <20080404122408.986477936@I-love.SAKURA.ne.jp> <200804071140.59247.paul.moore@hp.com> <47FC8052.9070409@nttdata.co.jp> <20080409131151.GK11962@parisc-linux.org> <200804112312.HGE69734.LFOOHQOSFFMJtV@I-love.SAKURA.ne.jp> <20080411143013.GB11962@parisc-linux.org> <4802B63F.2010804@crispincowan.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Harald Hoyer <harald@redhat.com>, linux-hotplug@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marco d'Itri <md@Linux.IT>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:43656 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846AbYDNNih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 09:38:37 -0400
-In-Reply-To: <20080414125100.GA13564@bongo.bofh.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	paul.moore@hp.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: Crispin Cowan <crispin@crispincowan.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4802B63F.2010804@crispincowan.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-04-14 at 14:51 +0200, Marco d'Itri wrote: 
-> On Apr 14, David Woodhouse <dwmw2@infradead.org> wrote:
-> 
-> > Actually it's a generic problem. It also occurs on OLPC, where the
-> > libertas wireless device presents two interfaces with the same MAC
-> And on some Sun systems as well.
-> 
-> > > Unconditionally adding a KERNEL key means that persistent names will
-> > > break if a driver changes the base name (e.g. wlan* -> eth*).
-> > Drivers shouldn't do that. It'll change the name of the device and may
-> But they do...
+On Sun, Apr 13, 2008 at 06:41:19PM -0700, Crispin Cowan wrote:
+> You are discussing a straw-man, because AppArmor (and I think TOMOYO) do 
+> not operate that way.
 
-And when they do, they change the name that userspace sees. Film at 11 :)
+Thanks for clarifying that.  I had to put a straw-man up for discussion
+because nobody else had.  I'll continue this discussion in terms of
+allow-rules.
 
-> > We could modify the libertas and gelic (and any other affected) drivers
-> > to provide a dev_id, make sure it's exported in sysfs, and then use that
-> > in the udev rules. Would that make you happy?
-> Yes, I like not fixing just the symptoms. :-)
+> Rather, it is "can write to /tmp/ntpd/*". You *grant* permissions. You 
+> do *not* throw deny rules.
 
-I wouldn't put it like that. We are looking for some way to tell the
-difference between the two interfaces. If the kernel uses a different
-basename (wlan%d vs. eth%d, or eth%d vs. msh%d), that's a fairly strong
-hint about which is which -- and is fairly reliable to boot.
+So primarily we're concerned here with things that are running as root,
+daemons and the like.  Normal unix file permissions (or ACLs, if you
+must) are adequate to handle anything not running as uid 0.
 
-The dev_id provides _another_ strong hint which helps us tell which
-device is which, but that doesn't mean that using the basename is wrong.
+I don't see what apparmour and tomoya buy us that namespaces can't.
+Maybe a nicer interface, but that's something that a nice userspace
+management interface can handle.
 
-> > It has implications w.r.t. the autoconfigured IPv6 addresses of those
-> > devices,
-> How so?
+Create an empty namespace.  Create /tmp/ntpd in it.  Bind the outside
+/tmp/ntpd onto that directory.  Presto, the equivalent to an allow-rule
+of 'can write to /tmp/ntpd/*'.
 
-The low 64 bits of the autoconfigured IPv6 address are derived from the
-MAC address, so for example a MAC address of 00:50:43:28:0A:FC would
-give you an IPv6 link-local address of fe80::250:43ff:fe28:afc -- and a
-corresponding global address like 2001:8b0:10b:1:250:43ff:fe28:afc.
+The equivalent of 'can read, but not write /home/crispin/.ssh/id_rsa.pub'
+will need r-o bind mounts, which Miklos seems to have become distracted
+from by working on the hooks for TOMOYA.
 
-When you set dev_id to anything other than zero, that 'ff:fe' in the
-middle changes. So with my patches, the mesh device on the same libertas
-hardware becomes fe80::50:4300:128:afc -- using the newly-provided
-dev_id (0x0001) instead of 0xFFFE.
-
-See net/ipv6/addrconf.c for more details. But basically, it means we are
-changing the public IPv6 addresses of the affected machines, just to
-help udev tell the difference between the interfaces -- when in fact, it
-already _could_ tell the difference, due to the kernel's choice of name.
-
-We should do the dev_id thing in sysfs and udev anyway, because there
-are cases where it's the right thing to do (like S390, where I think
-it'll let us drop the existing hack we have, and probably also the Sun
-hardware you mention).
-
-But I don't think we should add dev_id to the gelic and libertas
-drivers. We should just make write_net_rules consistently include the
-KERNEL criterion -- even when $INTERFACE_NAME is set. It does it in all
-other cases anyway, now.
-
-> > > This workaround should be confined to the PS3 install media, there is
-> > > no reason to add it to general-purpose distributions.
-> > Our general-purpose distribution installs and runs on PS3. :)
-> So if PS3 needs special hacks they should be special-cased to only by
-> used on PS3 hardware.
-
-It's not a problem which is limited to PS3.
+Do you have a good example of something that apparmour can protect against
+that namespaces can't?
 
 -- 
-dwmw2
-
+Intel are signing my paycheques ... these opinions are still mine
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
