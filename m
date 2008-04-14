@@ -1,94 +1,76 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: RE: A Linux TCP SACK Question
-Date: Mon, 14 Apr 2008 19:48:26 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804141927060.28474@wrl-59.cs.helsinki.fi>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
- <000b01c89699$00e99590$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
- <000f01c896a1$3022fec0$c95ee183@D2GT6T71> <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
- <fb8e9e4f102e.47f8ebfd@fnal.gov> <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
- <000701c898bf$99fc3f80$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
- <000001c89e4a$019f1330$6b5ee183@D2GT6T71>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH v2.6.26] gianfar: Determine TBIPA value dynamically
+Date: Mon, 14 Apr 2008 11:55:11 -0500
+Message-ID: <FE7FE117-D88D-4109-AAE3-11597C1AD6F1@freescale.com>
+References: <1207870471-3601-1-git-send-email-afleming@freescale.com> <20080411154914.GA19036@windriver.com>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: 'Sangtae Ha' <sangtae.ha@gmail.com>,
-	'John Heffner' <johnwheffner@gmail.com>,
-	'Netdev' <netdev@vger.kernel.org>
-To: Wenji Wu <wenji@fnal.gov>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58180 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754242AbYDNQsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 12:48:30 -0400
-In-Reply-To: <000001c89e4a$019f1330$6b5ee183@D2GT6T71>
+Received: from az33egw01.freescale.net ([192.88.158.102]:47213 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758863AbYDNQzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 12:55:24 -0400
+In-Reply-To: <20080411154914.GA19036@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Apr 2008, Wenji Wu wrote:
 
-> The latest results have been posted to:
-> 
-> https://plone3.fnal.gov/P0/WAN/Members/wenji/tcp_dump_files_sack/
-> 
-> The kernel under test is: Linux-2.6.25-rc9. I have checked with its
-> changelog, which shows that your latest fix is included.
+On Apr 11, 2008, at 10:49, Paul Gortmaker wrote:
 
-Hmm, now there are even less retransmissions (barely some with
-the SACK in the end).
-
-I suppose the reordering detection is good enough to kill them. ...You 
-could perhaps figure that out from MIBs if you would want to.
-
-> In the tests, I vary the tcp_frto (0, 1, and 2) with SACK On/Off.
-
-...I should have said it more clearly last time already that these are 
-not significant with your workload.
-
-> The experiment works as:
-> 
->       Sender --- Router --- Receiver
-> 
-> Iperf is sending from the sender to the receiver. In between there is an
-> emulated router which runs netem. The emulated router has two interfaces,
-> both with netem configured.  One interface emulates the forward path and the
-> other for the reverse path. Both netem interfaces are configured with 1.5ms
-> delay and 0.15ms variance. No packet drops in tests and packet capturing.
-
-...How about this theory:
-
-Forward path reordering causes duplicate ACKs due to old segments. These 
-are threated differently for NewReno and SACK:
-
-NewReno => Sends new data out (limited xmit; it's not limited to two 
-           segments in linux as per RFC, however, RFC doesn't consider
-	   autotuning of DupThresh either)
-SACK =>    No new SACK block discovered. Packets in flight remains the 
-           same, and thus no new segment is sent.
-
-...What do other think?
-
-I guess it should be visible with fwd path reordering alone, though the 
-added distance with reverse path reordering might act as amplifier 
-because NewReno benefits from shorter RTTed packets when fwd path 
-old segment arrived while SACK losses its ability to increase 
-outstanding data...
-
-...A quick look into it with tcptrace's outstanding date plot, it seems 
-that NewReno levels ~100000 and SACK ~68000.
-
-...I think SACK just knows too much? :-/
+> In message: [PATCH v2.6.26] gianfar: Determine TBIPA value dynamically
+> on 10/04/2008 Andy Fleming wrote:
+>
+>> TBIPA needs to be set to a value (on connected MDIO buses) that  
+>> doesn't
+>> conflict with PHYs on the bus.  By hardcoding it to 0x1f, we were  
+>> preventing
+>> boards with PHYs at 0x1f from working properly.  Instead, scan the  
+>> bus when
+>> it comes up, and find an address that doesn't have a PHY on it.   
+>> The TBI PHY
+>> configuration code then trusts that the value in TBIPA is either  
+>> safe, or
+>> doesn't matter (ie - it's not an active bus with other PHYs).
+>>
+>> Signed-off-by: Andy Fleming <afleming@freescale.com>
+>> ---
+>>
+>> I think this should go in, but I'd like to see some testing first.   
+>> I don't
+>> have hardware which is affected by this.  I've only confirmed that  
+>> it doesn't
+>> break current hardware.
+>
+> I've tested on a board with the primary PHY at 0x1f, and it seems OK.
+>
+> I'f I'm understanding this correctly, you are explicitly setting TBIPA
+> to zero, doing a bus walk but excluding zero, and then assigning the
+> found free address, which re-opens zero to be used by a real PHY.
 
 
-> All of these systems are multi-core platforms, with 2G+ CPU. I run
-> TOP to verify, CPUs are idle most of time.
-
-Thanks for adding this for other. I agree with you that this is not
-an cpu horsepower issue.
+Right.  It's a somewhat lazy scan of the bus.  I'm assuming, here,  
+that there will be at least one non-zero address that has no PHY on it.
 
 
--- 
- i.
+>
+>
+> I've made some changes to what you'd sent out, those being:
+> 	-changed the "if (i < 0) return -EBUSY to "i == 0"
+> 	-remove the now unused TBIPA_VALUE define
+> 	-remove the prototypes from gianfar.c now that you've
+> 	 added them into gianfar.h
+> 	-factor out the code to read the PHY ID so we don't have
+> 	 it duplicated in two places.
 
+
+Excellent.  Print it!  :)
+
+Could you send out the two patches as two separate emails, and add my  
+Acked-by: Andy Fleming <afleming@freescale.com> to the first one?  You  
+should also change the subject for the first patch so that it has  
+[PATCH v2.6.26].
+
+Andy
