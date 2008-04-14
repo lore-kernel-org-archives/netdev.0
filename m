@@ -1,70 +1,60 @@
-From: Jakub Narebski <jnareb@gmail.com>
-Subject: Re: Reporting bugs and bisection
-Date: Sun, 13 Apr 2008 17:36:38 -0700 (PDT)
-Message-ID: <m3ve2ls26p.fsf@localhost.localdomain>
-References: <47FEADCB.7070104@rtr.ca>
-	<20080413121831.d89dd424.akpm@linux-foundation.org>
-	<20080413202118.GA29658@2ka.mipt.ru> <200804132233.50491.rjw@sisk.pl>
-	<20080413205406.GA9190@2ka.mipt.ru> <48028830.6020703@earthlink.net>
-	<alpine.DEB.1.10.0804131546370.9318@asgard>
+From: Crispin Cowan <crispin@crispincowan.com>
+Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
+Date: Sun, 13 Apr 2008 18:41:19 -0700
+Message-ID: <4802B63F.2010804@crispincowan.com>
+References: <20080404122242.867070732@I-love.SAKURA.ne.jp> <20080404122408.986477936@I-love.SAKURA.ne.jp> <200804071140.59247.paul.moore@hp.com> <47FC8052.9070409@nttdata.co.jp> <20080409131151.GK11962@parisc-linux.org> <200804112312.HGE69734.LFOOHQOSFFMJtV@I-love.SAKURA.ne.jp> <20080411143013.GB11962@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Clark <sclark46@earthlink.net>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Willy Tarreau <w@1wt.eu>, Tilman Schmidt <tilman@imap.cc>,
-	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
-	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
-	netdev@vger.kernel.org
-To: david@lang.hm
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:53179 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753444AbYDNAgl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 20:36:41 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so1351076fgb.17
-        for <netdev@vger.kernel.org>; Sun, 13 Apr 2008 17:36:39 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.10.0804131546370.9318@asgard>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	paul.moore@hp.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: Matthew Wilcox <matthew@wil.cx>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080411143013.GB11962@parisc-linux.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-david@lang.hm writes:
+Matthew Wilcox wrote:
+> On Fri, Apr 11, 2008 at 11:12:27PM +0900, Tetsuo Handa wrote:
+>   
+>> If write access is denied because of a rule "No modifications to /etc/passwd",
+>> a rule "Allow modifications to /tmp/passwd" can no longer be enforced after
+>> "mount --bind /etc/ /tmp/" or "mount --bind /etc/passwd /tmp/passwd" or
+>> "mv /etc/passwd /tmp/passwd" or "ln /etc/passwd /tmp/passwd" is done.
+>>     
+> That's a fundamental limitation of pathname-based security though.
+> If the same file exists in two places, you have to resolve the question
+> of which rule overrides the other.
+>
+> In my role as a sysadmin, I would consider it a flaw if someone could
+> edit a file I'd marked uneditable -- simply by creating a hard-link to it.
+> If we look at existing systems, such as the immutable bit, those apply to
+> inodes, not to paths, so they can't be evaded.  If a system such as TOMOYA
+> allows evasion this easily, then it doesn't seem like an improvement.
+>   
+You are discussing a straw-man, because AppArmor (and I think TOMOYO) do 
+not operate that way.
 
-> cross-posted to git for the suggestion at the bottom
+It is not, and never has been, "mark /etc/passwd not writable". Please 
+delete this broken concept from the discussion.
 
-[...]
+Rather, it is "can write to /tmp/ntpd/*". You *grant* permissions. You 
+do *not* throw deny rules.
 
-> Elsewhere in this thread someone said that the pre-git way was to do a
-> manual bisect where the developer would send patches backing out
-> specific changes to find the problem. one big difference between that
-> and bisecting the problem is that the manual process was focused on
-> the changes in the area that is suspected of causing the problem,
-> while the git bisect process goes after all changes. this makes it
-> much more likely that the tester will run into unrelated problems
-> along the way.
-> 
-> I wonder if it would be possible to make a variation of git bisect
-> that only looked at a subset of the tree when picking bisect points
-> (if you are looking for a e1000 bug, testing bisect points that
-> haven't changed that driver won't help you for example). If this can
-> be done it would speed up the reporters efforts, but will require more
-> assistance from the developers (who would need to tell the reporters
-> what subtrees to test) so it's a tradeoff of efficiancy vs simplicity.
+So if you grant write access to /tmp/mumble/barf you should expect it to 
+always be accessible, regardless of whether someone creates an alias for it.
 
-Errr... the synopisis of git-bisect contains the following:
+Please re-consider the rest of your analysis, because it doesn't work if 
+there are only "allow" rules and no "deny" rules. You are correct that a 
+pathname-based deny rule is trivially bypassable, that's why there 
+aren't any :)
 
- git bisect start [<bad> [<good>...]] [--] [<paths>...]
-
-so you can limit bisection to commits affecting specified subsystem.
-
-P.S. Unfortunately git currently doesn't deal with directory renames,
-so if there was sime big code restructuring one has to provide all
-historic pathspecs.
+Crispin
 
 -- 
-Jakub Narebski
-Poland
-ShadeHawk on #git
+Crispin Cowan, Ph.D.               http://crispincowan.com/~crispin
+Botnets are the only commercially viable utility computing market
+
