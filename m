@@ -1,60 +1,51 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
-Date: Tue, 15 Apr 2008 20:25:41 +0200
-Message-ID: <20080415182541.GA3708@ami.dom.local>
-References: <20080413121031.GA5211@ami.dom.local> <20080414202605.GA6164@ami.dom.local> <4803BE84.4040105@trash.net> <20080414.151102.169978802.davem@davemloft.net> <20080415053253.GA3920@ff.dom.local> <4804A18C.2060200@trash.net> <20080415130045.GB4993@ff.dom.local> <4804A921.6050509@trash.net> <20080415174144.GA3444@ami.dom.local>
+From: =?UTF-8?B?RsOhYmlvIFNvdXRv?= <fsouto@lasige.di.fc.ul.pt>
+Subject: Re: Netfilter and IPSec
+Date: Tue, 15 Apr 2008 19:45:41 +0100
+Message-ID: <4804F7D5.3000305@lasige.di.fc.ul.pt>
+References: <480423CD.3060707@lasige.di.fc.ul.pt> <alpine.LNX.1.10.0804151322470.13202@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, enrico@superclick.com,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:9689 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751849AbYDOS1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 14:27:24 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so755780ugc.16
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2008 11:27:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080415174144.GA3444@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@computergmbh.de>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.1.10.0804151322470.13202@fbirervta.pbzchgretzou.qr>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 15, 2008 at 07:41:44PM +0200, Jarek Poplawski wrote:
-> On Tue, Apr 15, 2008 at 03:09:53PM +0200, Patrick McHardy wrote:
-> ...
-> > On second thought I agree with you, the behaviour is inconsistent
-> > and FFFF: shouldn't be used as major, otherwise the major doesn't
-> > uniquely identify a qdisc anymore.
-> 
-> Like ingress vs. root handle? I think it's more about additional
-> checks (and good memory).
+Jan Engelhardt wrote:
+>
+>
+> The situation is deliberate, yes. IPsec is done in what you could
+> call the xfrm subsystem, not netfilter. To that end, the only
+> suggestion I could give is that you create a new xfrm policy/state
+> from esp where esp is split into your encryption and signing
+> "targets".
+>
+>  =20
+Thank you for all answers. The major problem I'm facing is the lacking=20
+of documentation on that subsystem.
+=46or example, how to create a policy. And after that?
+My task is a bit easier, because I only need to use AH and not ESP.
+Although a flexible solution would be of value :)
 
-...That's why better discourage...
+The kernel is still a bit unknown to me, so I'm having a bit of trouble=
+=20
+into all the jargon you are using around.
+But the few things I understood are being extremely helpful.
+> It kinda brings me the question why the ipsec transformation is
+> not done with an xtables target instead; that would also give
+> handy access to connection tracking if needed.
+>  =20
+With that I must agree!
 
-> 
-> > diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> > index fc8708a..c486e9d 100644
-> > --- a/net/sched/sch_api.c
-> > +++ b/net/sched/sch_api.c
-> > @@ -386,7 +386,7 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
-> >  	if (n == 0)
-> >  		return;
-> >  	while ((parentid = sch->parent)) {
-> > -		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
-> > +		if (parentid == TC_H_INGRESS)
-> 
-> Maybe like this?:
->  +		if (parentid == TC_H_ROOT || parentid == TC_H_INGRESS)
+--=20
+-----------------------------------------------------------------------=
+-------------------
+=46=C3=A1bio Souto
+LaSIGE , Navigators Group
+Departamento de Inform=C3=A1tica, FC/UL
+Block C6, room 6.3.32, Campo Grande
+1749-016 Lisboa, Portugal
 
-Still wrong! Rather this:
-
-  	while ((parentid = sch->parent)) {
-  		if (parentid == TC_H_ROOT)
-  			return;
-
-  		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
-		if (!sch || sch->parentid == TC_H_INGRESS) {
-			...
-
-Jarek P.
