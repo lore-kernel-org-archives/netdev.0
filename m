@@ -1,55 +1,68 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2/8 net-2.6.26] [NETNS]: Add netns refcnt debug for kernel sockets.
-Date: Tue, 15 Apr 2008 16:37:49 +0400
-Message-ID: <1208263075-28016-2-git-send-email-den@openvz.org>
+Subject: [PATCH 7/8 net-2.6.26] [NETNS]: Add netns refcnt debug to fib rules.
+Date: Tue, 15 Apr 2008 16:37:54 +0400
+Message-ID: <1208263075-28016-7-git-send-email-den@openvz.org>
 References: <1208262959.21529.32.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
 	dlezcano@fr.ibm.com, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:31871 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:7353 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759313AbYDOMiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 08:38:21 -0400
+	id S1755168AbYDOMij (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 08:38:39 -0400
 In-Reply-To: <1208262959.21529.32.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Protocol control sockets and netlink kernel sockets should not prevent the
-namespace stop request. They are initialized and disposed in a special way by
-sk_change_net/sk_release_kernel.
-
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- include/net/sock.h |    2 +-
- net/core/sock.c    |    1 +
- 2 files changed, 2 insertions(+), 1 deletions(-)
+ include/net/fib_rules.h |    1 +
+ net/core/fib_rules.c    |    5 +++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 09255ea..dc42b44 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1314,7 +1314,7 @@ void sock_net_set(struct sock *sk, struct net *net)
- static inline void sk_change_net(struct sock *sk, struct net *net)
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 34349f9..a5c6ccc 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -87,6 +87,7 @@ static inline void fib_rule_get(struct fib_rule *rule)
+ static inline void fib_rule_put_rcu(struct rcu_head *head)
  {
- 	put_net(sock_net(sk));
--	sock_net_set(sk, net);
-+	sock_net_set(sk, hold_net(net));
+ 	struct fib_rule *rule = container_of(head, struct fib_rule, rcu);
++	release_net(rule->fr_net);
+ 	kfree(rule);
  }
  
- extern void sock_enable_timestamp(struct sock *sk);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index f2ccb16..015ec69 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1001,6 +1001,7 @@ void sk_release_kernel(struct sock *sk)
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 540c072..e3e9ab0 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -29,7 +29,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 	r->pref = pref;
+ 	r->table = table;
+ 	r->flags = flags;
+-	r->fr_net = ops->fro_net;
++	r->fr_net = hold_net(ops->fro_net);
  
- 	sock_hold(sk);
- 	sock_release(sk->sk_socket);
-+	release_net(sock_net(sk));
- 	sock_net_set(sk, get_net(&init_net));
- 	sock_put(sk);
- }
+ 	/* The lock is not required here, the list in unreacheable
+ 	 * at the moment this function is called */
+@@ -243,7 +243,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		err = -ENOMEM;
+ 		goto errout;
+ 	}
+-	rule->fr_net = net;
++	rule->fr_net = hold_net(net);
+ 
+ 	if (tb[FRA_PRIORITY])
+ 		rule->pref = nla_get_u32(tb[FRA_PRIORITY]);
+@@ -344,6 +344,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	return 0;
+ 
+ errout_free:
++	release_net(rule->fr_net);
+ 	kfree(rule);
+ errout:
+ 	rules_ops_put(ops);
 -- 
 1.5.3.rc5
 
