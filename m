@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 2/8][IPIP]: Make the fallback tunnel device per-net.
-Date: Tue, 15 Apr 2008 16:29:00 +0400
-Message-ID: <48049F8C.90502@openvz.org>
+Subject: [PATCH net-2.6.26 3/8][IPIP]: Add net/ipip_net argument to some functions.
+Date: Tue, 15 Apr 2008 16:31:40 +0400
+Message-ID: <4804A02C.20505@openvz.org>
 References: <48049E9C.1020207@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,184 +9,183 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:44810 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:42436 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758049AbYDOLyk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 07:54:40 -0400
+	id S1751144AbYDOL5W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 07:57:22 -0400
 In-Reply-To: <48049E9C.1020207@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create on in ipip_init_net(), use it all over the code (the
-proper place to get the net from already exists) and destroy
-in ipip_net_exit().
+The hashes of tunnels will be per-net too, so prepare all the 
+functions that uses them for this change by adding an argument.
+
+Use init_net temporarily in places, where the net does not exist
+explicitly yet.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/ipv4/ipip.c |   67 ++++++++++++++++++++++++++++--------------------------
- 1 files changed, 35 insertions(+), 32 deletions(-)
+ net/ipv4/ipip.c |   44 +++++++++++++++++++++++++-------------------
+ 1 files changed, 25 insertions(+), 19 deletions(-)
 
 diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index e39a4c2..e657a66 100644
+index e657a66..bc4d4cb 100644
 --- a/net/ipv4/ipip.c
 +++ b/net/ipv4/ipip.c
-@@ -123,14 +123,13 @@
+@@ -138,7 +138,8 @@ static struct ip_tunnel **tunnels[4] = { tunnels_wc, tunnels_l, tunnels_r, tunne
  
- static int ipip_net_id;
- struct ipip_net {
-+	struct net_device *fb_tunnel_dev;
- };
+ static DEFINE_RWLOCK(ipip_lock);
  
- static int ipip_fb_tunnel_init(struct net_device *dev);
- static int ipip_tunnel_init(struct net_device *dev);
- static void ipip_tunnel_setup(struct net_device *dev);
- 
--static struct net_device *ipip_fb_tunnel_dev;
--
- static struct ip_tunnel *tunnels_r_l[HASH_SIZE];
- static struct ip_tunnel *tunnels_r[HASH_SIZE];
- static struct ip_tunnel *tunnels_l[HASH_SIZE];
-@@ -257,7 +256,10 @@ failed_free:
- 
- static void ipip_tunnel_uninit(struct net_device *dev)
+-static struct ip_tunnel * ipip_tunnel_lookup(__be32 remote, __be32 local)
++static struct ip_tunnel * ipip_tunnel_lookup(struct net *net,
++		__be32 remote, __be32 local)
  {
--	if (dev == ipip_fb_tunnel_dev) {
-+	struct net *net = dev_net(dev);
+ 	unsigned h0 = HASH(remote);
+ 	unsigned h1 = HASH(local);
+@@ -162,7 +163,8 @@ static struct ip_tunnel * ipip_tunnel_lookup(__be32 remote, __be32 local)
+ 	return NULL;
+ }
+ 
+-static struct ip_tunnel **__ipip_bucket(struct ip_tunnel_parm *parms)
++static struct ip_tunnel **__ipip_bucket(struct ipip_net *ipn,
++		struct ip_tunnel_parm *parms)
+ {
+ 	__be32 remote = parms->iph.daddr;
+ 	__be32 local = parms->iph.saddr;
+@@ -180,16 +182,17 @@ static struct ip_tunnel **__ipip_bucket(struct ip_tunnel_parm *parms)
+ 	return &tunnels[prio][h];
+ }
+ 
+-static inline struct ip_tunnel **ipip_bucket(struct ip_tunnel *t)
++static inline struct ip_tunnel **ipip_bucket(struct ipip_net *ipn,
++		struct ip_tunnel *t)
+ {
+-	return __ipip_bucket(&t->parms);
++	return __ipip_bucket(ipn, &t->parms);
+ }
+ 
+-static void ipip_tunnel_unlink(struct ip_tunnel *t)
++static void ipip_tunnel_unlink(struct ipip_net *ipn, struct ip_tunnel *t)
+ {
+ 	struct ip_tunnel **tp;
+ 
+-	for (tp = ipip_bucket(t); *tp; tp = &(*tp)->next) {
++	for (tp = ipip_bucket(ipn, t); *tp; tp = &(*tp)->next) {
+ 		if (t == *tp) {
+ 			write_lock_bh(&ipip_lock);
+ 			*tp = t->next;
+@@ -199,9 +202,9 @@ static void ipip_tunnel_unlink(struct ip_tunnel *t)
+ 	}
+ }
+ 
+-static void ipip_tunnel_link(struct ip_tunnel *t)
++static void ipip_tunnel_link(struct ipip_net *ipn, struct ip_tunnel *t)
+ {
+-	struct ip_tunnel **tp = ipip_bucket(t);
++	struct ip_tunnel **tp = ipip_bucket(ipn, t);
+ 
+ 	t->next = *tp;
+ 	write_lock_bh(&ipip_lock);
+@@ -209,15 +212,17 @@ static void ipip_tunnel_link(struct ip_tunnel *t)
+ 	write_unlock_bh(&ipip_lock);
+ }
+ 
+-static struct ip_tunnel * ipip_tunnel_locate(struct ip_tunnel_parm *parms, int create)
++static struct ip_tunnel * ipip_tunnel_locate(struct net *net,
++		struct ip_tunnel_parm *parms, int create)
+ {
+ 	__be32 remote = parms->iph.daddr;
+ 	__be32 local = parms->iph.saddr;
+ 	struct ip_tunnel *t, **tp, *nt;
+ 	struct net_device *dev;
+ 	char name[IFNAMSIZ];
 +	struct ipip_net *ipn = net_generic(net, ipip_net_id);
-+
-+	if (dev == ipn->fb_tunnel_dev) {
- 		write_lock_bh(&ipip_lock);
+ 
+-	for (tp = __ipip_bucket(parms); (t = *tp) != NULL; tp = &t->next) {
++	for (tp = __ipip_bucket(ipn, parms); (t = *tp) != NULL; tp = &t->next) {
+ 		if (local == t->parms.iph.saddr && remote == t->parms.iph.daddr)
+ 			return t;
+ 	}
+@@ -246,7 +251,7 @@ static struct ip_tunnel * ipip_tunnel_locate(struct ip_tunnel_parm *parms, int c
+ 		goto failed_free;
+ 
+ 	dev_hold(dev);
+-	ipip_tunnel_link(nt);
++	ipip_tunnel_link(ipn, nt);
+ 	return nt;
+ 
+ failed_free:
+@@ -264,7 +269,7 @@ static void ipip_tunnel_uninit(struct net_device *dev)
  		tunnels_wc[0] = NULL;
  		write_unlock_bh(&ipip_lock);
-@@ -693,11 +695,13 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
- 	int err = 0;
- 	struct ip_tunnel_parm p;
- 	struct ip_tunnel *t;
-+	struct net *net = dev_net(dev);
-+	struct ipip_net *ipn = net_generic(net, ipip_net_id);
+ 	} else
+-		ipip_tunnel_unlink(netdev_priv(dev));
++		ipip_tunnel_unlink(ipn, netdev_priv(dev));
+ 	dev_put(dev);
+ }
  
- 	switch (cmd) {
- 	case SIOCGETTUNNEL:
- 		t = NULL;
--		if (dev == ipip_fb_tunnel_dev) {
-+		if (dev == ipn->fb_tunnel_dev) {
- 			if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p))) {
+@@ -313,7 +318,7 @@ static int ipip_err(struct sk_buff *skb, u32 info)
+ 	err = -ENOENT;
+ 
+ 	read_lock(&ipip_lock);
+-	t = ipip_tunnel_lookup(iph->daddr, iph->saddr);
++	t = ipip_tunnel_lookup(&init_net, iph->daddr, iph->saddr);
+ 	if (t == NULL || t->parms.iph.daddr == 0)
+ 		goto out;
+ 
+@@ -473,7 +478,8 @@ static int ipip_rcv(struct sk_buff *skb)
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 
+ 	read_lock(&ipip_lock);
+-	if ((tunnel = ipip_tunnel_lookup(iph->saddr, iph->daddr)) != NULL) {
++	if ((tunnel = ipip_tunnel_lookup(&init_net,
++					iph->saddr, iph->daddr)) != NULL) {
+ 		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 			read_unlock(&ipip_lock);
+ 			kfree_skb(skb);
+@@ -706,7 +712,7 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
  				err = -EFAULT;
  				break;
-@@ -730,7 +734,7 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 			}
+-			t = ipip_tunnel_locate(&p, 0);
++			t = ipip_tunnel_locate(net, &p, 0);
+ 		}
+ 		if (t == NULL)
+ 			t = netdev_priv(dev);
+@@ -732,7 +738,7 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		if (p.iph.ttl)
+ 			p.iph.frag_off |= htons(IP_DF);
  
- 		t = ipip_tunnel_locate(&p, cmd == SIOCADDTUNNEL);
+-		t = ipip_tunnel_locate(&p, cmd == SIOCADDTUNNEL);
++		t = ipip_tunnel_locate(net, &p, cmd == SIOCADDTUNNEL);
  
--		if (dev != ipip_fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
-+		if (dev != ipn->fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
+ 		if (dev != ipn->fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
  			if (t != NULL) {
- 				if (t->dev != dev) {
- 					err = -EEXIST;
-@@ -776,7 +780,7 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
- 		if (!capable(CAP_NET_ADMIN))
- 			goto done;
- 
--		if (dev == ipip_fb_tunnel_dev) {
-+		if (dev == ipn->fb_tunnel_dev) {
- 			err = -EFAULT;
+@@ -747,12 +753,12 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 					break;
+ 				}
+ 				t = netdev_priv(dev);
+-				ipip_tunnel_unlink(t);
++				ipip_tunnel_unlink(ipn, t);
+ 				t->parms.iph.saddr = p.iph.saddr;
+ 				t->parms.iph.daddr = p.iph.daddr;
+ 				memcpy(dev->dev_addr, &p.iph.saddr, 4);
+ 				memcpy(dev->broadcast, &p.iph.daddr, 4);
+-				ipip_tunnel_link(t);
++				ipip_tunnel_link(ipn, t);
+ 				netdev_state_change(dev);
+ 			}
+ 		}
+@@ -785,7 +791,7 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
  			if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
  				goto done;
-@@ -784,7 +788,7 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
- 			if ((t = ipip_tunnel_locate(&p, 0)) == NULL)
+ 			err = -ENOENT;
+-			if ((t = ipip_tunnel_locate(&p, 0)) == NULL)
++			if ((t = ipip_tunnel_locate(net, &p, 0)) == NULL)
  				goto done;
  			err = -EPERM;
--			if (t->dev == ipip_fb_tunnel_dev)
-+			if (t->dev == ipn->fb_tunnel_dev)
- 				goto done;
- 			dev = t->dev;
- 		}
-@@ -847,7 +851,7 @@ static int ipip_tunnel_init(struct net_device *dev)
- 	return 0;
- }
- 
--static int __init ipip_fb_tunnel_init(struct net_device *dev)
-+static int ipip_fb_tunnel_init(struct net_device *dev)
- {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 	struct iphdr *iph = &tunnel->parms.iph;
-@@ -887,8 +891,26 @@ static int ipip_init_net(struct net *net)
- 	if (err < 0)
- 		goto err_assign;
- 
-+	ipn->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel),
-+					   "tunl0",
-+					   ipip_tunnel_setup);
-+	if (!ipn->fb_tunnel_dev) {
-+		err = -ENOMEM;
-+		goto err_alloc_dev;
-+	}
-+
-+	ipn->fb_tunnel_dev->init = ipip_fb_tunnel_init;
-+	dev_net_set(ipn->fb_tunnel_dev, net);
-+
-+	if ((err = register_netdev(ipn->fb_tunnel_dev)))
-+		goto err_reg_dev;
-+
- 	return 0;
- 
-+err_reg_dev:
-+	free_netdev(ipn->fb_tunnel_dev);
-+err_alloc_dev:
-+	/* nothing */
- err_assign:
- 	kfree(ipn);
- err_alloc:
-@@ -900,6 +922,9 @@ static void ipip_exit_net(struct net *net)
- 	struct ipip_net *ipn;
- 
- 	ipn = net_generic(net, ipip_net_id);
-+	rtnl_lock();
-+	unregister_netdevice(ipn->fb_tunnel_dev);
-+	rtnl_unlock();
- 	kfree(ipn);
- }
- 
-@@ -919,32 +944,11 @@ static int __init ipip_init(void)
- 		return -EAGAIN;
- 	}
- 
--	ipip_fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel),
--					   "tunl0",
--					   ipip_tunnel_setup);
--	if (!ipip_fb_tunnel_dev) {
--		err = -ENOMEM;
--		goto err1;
--	}
--
--	ipip_fb_tunnel_dev->init = ipip_fb_tunnel_init;
--
--	if ((err = register_netdev(ipip_fb_tunnel_dev)))
--		goto err2;
--
- 	err = register_pernet_gen_device(&ipip_net_id, &ipip_net_ops);
- 	if (err)
--		goto err3;
-- out:
-+		xfrm4_tunnel_deregister(&ipip_handler, AF_INET);
-+
- 	return err;
-- err2:
--	free_netdev(ipip_fb_tunnel_dev);
-- err1:
--	xfrm4_tunnel_deregister(&ipip_handler, AF_INET);
--	goto out;
--err3:
--	unregister_netdevice(ipip_fb_tunnel_dev);
--	goto err1;
- }
- 
- static void __exit ipip_destroy_tunnels(void)
-@@ -968,7 +972,6 @@ static void __exit ipip_fini(void)
- 
- 	rtnl_lock();
- 	ipip_destroy_tunnels();
--	unregister_netdevice(ipip_fb_tunnel_dev);
- 	rtnl_unlock();
- 
- 	unregister_pernet_gen_device(ipip_net_id, &ipip_net_ops);
+ 			if (t->dev == ipn->fb_tunnel_dev)
+-- 
+1.5.3.4
+
