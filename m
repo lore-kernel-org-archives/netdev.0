@@ -1,59 +1,111 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
-Date: Tue, 15 Apr 2008 21:29:24 +0200
-Message-ID: <20080415192924.GA3755@ami.dom.local>
-References: <20080413121031.GA5211@ami.dom.local> <20080414202605.GA6164@ami.dom.local> <4803BE84.4040105@trash.net> <20080414.151102.169978802.davem@davemloft.net> <20080415053253.GA3920@ff.dom.local> <4804A18C.2060200@trash.net> <20080415130045.GB4993@ff.dom.local> <4804A921.6050509@trash.net> <20080415174144.GA3444@ami.dom.local> <20080415182541.GA3708@ami.dom.local>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Tue, 15 Apr 2008 21:38:40 +0200
+Message-ID: <200804152138.41077.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804150145.05571.tomasz@grobelny.oswiecenia.net> <20080415151403.GA20735@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, enrico@superclick.com,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:55453 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754217AbYDOTai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 15:30:38 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so609874nfb.21
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2008 12:30:37 -0700 (PDT)
+Received: from oswiecenia.net ([83.13.108.58]:1198 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754958AbYDOTi7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 15:38:59 -0400
+In-Reply-To: <20080415151403.GA20735@gerrit.erg.abdn.ac.uk>
 Content-Disposition: inline
-In-Reply-To: <20080415182541.GA3708@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 15, 2008 at 08:25:41PM +0200, Jarek Poplawski wrote:
-> On Tue, Apr 15, 2008 at 07:41:44PM +0200, Jarek Poplawski wrote:
-> > On Tue, Apr 15, 2008 at 03:09:53PM +0200, Patrick McHardy wrote:
-...
-> > > diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> > > index fc8708a..c486e9d 100644
-> > > --- a/net/sched/sch_api.c
-> > > +++ b/net/sched/sch_api.c
-> > > @@ -386,7 +386,7 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
-> > >  	if (n == 0)
-> > >  		return;
-> > >  	while ((parentid = sch->parent)) {
-> > > -		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
-> > > +		if (parentid == TC_H_INGRESS)
-> > 
-> > Maybe like this?:
-> >  +		if (parentid == TC_H_ROOT || parentid == TC_H_INGRESS)
-> 
-> Still wrong! Rather this:
-> 
->   	while ((parentid = sch->parent)) {
->   		if (parentid == TC_H_ROOT)
->   			return;
+Dnia Tuesday 15 of April 2008, Gerrit Renker napisa=B3:
+> | > @@ -501,6 +519,8 @@ struct dccp_sock {
+> | >  	struct ccid			*dccps_hc_rx_ccid;
+> | >  	struct ccid			*dccps_hc_tx_ccid;
+> | >  	struct dccp_options_received	dccps_options_received;
+> | > +	__u8				dccps_qpolicy;
+> | > +	__u32				dccps_tx_qlen;
+> | >  	enum dccp_role			dccps_role:2;
+> | >  	__u8				dccps_hc_rx_insert_options:1;
+> | >  	__u8				dccps_hc_tx_insert_options:1;
+> |
+> | I know that currently none of the policies has any per-socket data.=
+ But
+> | if it had were should it go?
+>
+> I can't see anything wrong with putting everything into dccp_sock. To=
+ do it
+> well, we could consider inserting documentation such as "this section=
+ is
+> only for queueing policies" (as is done very well for struct tcp_sock=
+).
+>
+Let me remind you your comment made on 18/03/2008 on dccp ml to my firs=
+t=20
+patch:
+ --- START ---=20
+@@ -545,6 +549,8 @@ struct dccp_sock {
+=A0 =A0 =A0 =A0 __u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0dccps_hc_tx_insert_options:1;
+=A0 =A0 =A0 =A0 __u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0dccps_server_timewait:1;
+=A0 =A0 =A0 =A0 struct timer_list =A0 =A0 =A0 =A0 =A0 =A0 =A0 dccps_xmi=
+t_timer;
++ =A0 =A0 =A0 struct queuing_policy =A0 =A0=A0=A0=A0=A0=A0=A0=A0*dccps_=
+policy;
++ =A0 =A0 =A0 void =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0*dccps_policy_data;
+=A0};
 
-...Hmm... it seems to be enough?! (At least with current ingress
-functionality.)
+I think this should be just one field for the policy, and the
+policy_data can be an internal field of `struct queueing_policy'
+(compare with struct ackvec or struct ccid).
+ --- END ---=20
 
-> 
->   		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
-> 		if (!sch || sch->parentid == TC_H_INGRESS) {
-> 			...
+> I see several advantages of this:
+>  * by just storing the u8 of the policy ID, the socket as a whole get=
+s
+> smaller,
+>  * the internals of the function pointer table can be hidden,
+>=20
+That's ok with me.=20
 
-...and here WARN_ON() instead of if (): root is never looked up, so we
-can't get NULL nor ingress here; if we have non-ingress ffff:0000
-we'll get it (and ingress can't co-exist).
+> * when not using nested structs, the elements can be optimised for=20
+> minimal space,
+I have nothing against it. In fact that's what I did in the first try.
 
-Jarek P.
+> | > +	case DCCP_SOCKOPT_QPOLICY_ID:
+> | > +		if (sk->sk_state !=3D DCCP_CLOSED)
+> | > +			err =3D -EISCONN;
+> |
+> | What about DCCP_LISTENING state?
+>
+> There is a problem with allowing this, considering for example:
+> (...)
+Ok, you are right. If before DCCP_LISTENING there is always DCCP_CLOSED=
+ then=20
+there is no need to allow changing qpolicy in DCCP_LISTENING state.
+
+> Please take your time and check through the other parts of the patch =
+as
+> well. I would like to accumulate the issues and then address each of =
+the
+If I didn't mention some parts of the patch you can assume that I'm ok =
+with=20
+them.
+
+> points. And also, do some testing.I haven't had time to write test co=
+de for
+> prio policy -- is there something in your SVN repository?
+>
+Have a look at http://dccp.one.pl/svn/userspace/test/ And I'll also do =
+some=20
+testing of your patch.
+
+One more question (probably more for Arnaldo): is there any timeframe t=
+o push=20
+changes from test tree upstream?
+--=20
+Regards,
+Tomasz Grobelny
