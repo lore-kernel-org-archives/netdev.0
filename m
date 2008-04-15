@@ -1,120 +1,61 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked
-	version of Tomasz's patch set
-Date: Tue, 15 Apr 2008 16:14:03 +0100
-Message-ID: <20080415151403.GA20735@gerrit.erg.abdn.ac.uk>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <20080414065041.GA4431@gerrit.erg.abdn.ac.uk> <20080414073915.GA9655@gerrit.erg.abdn.ac.uk> <200804150145.05571.tomasz@grobelny.oswiecenia.net>
+From: Filip Aben <f.aben@option.com>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Tue, 15 Apr 2008 17:03:09 +0200
+Message-ID: <1208271789.20681.45.camel@FWR-FLAB>
+References: <20080414213238.GB28833@kroah.com>
+	 <200804151525.57340.oliver@neukum.org> <1208268742.20681.29.camel@FWR-FLAB>
+	 <200804151614.47977.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg@kroah.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
+	ajb@spheresystems.co.uk
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:42628 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756045AbYDOPOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 11:14:30 -0400
-Content-Disposition: inline
-In-Reply-To: <200804150145.05571.tomasz@grobelny.oswiecenia.net>
+Received: from mailer1.option.com ([81.246.70.162]:5901 "EHLO
+	mailer1.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760111AbYDOPDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 11:03:10 -0400
+In-Reply-To: <200804151614.47977.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| >   * makes tx_qlen a socket member of dccp_sock (there was a bug in the
-| >     implementation -- tx_qlen was shared by all sockets using the same
-| > policy); 
-| Haven't tested it thoroughly but it shouldn't be so. After all qpol_txqlen was 
-| part of struct dccp_qpolicy which was in turn part of dccp_sock.
-| 
-I have to apologise here -- this was my oversight. The bug I assumed to be there 
-does not exist, since the tx_qlen was indeed part of the socket. Sorry.
 
+On Tue, 2008-04-15 at 16:14 +0200, Oliver Neukum wrote:
+> Am Dienstag, 15. April 2008 16:12:22 schrieb Filip Aben:
+> > 
+> > On Tue, 2008-04-15 at 15:25 +0200, Oliver Neukum wrote:
+> > > Am Montag, 14. April 2008 23:32:39 schrieb Greg KH:
+> > > > Hi all,
+> > > > 
+> > > > Here's a patch that I have cleaned up for context only from Option that
+> > > > is a USB serial / network device all in one.
+> > > > 
+> > > > I'd like to see this go into 2.6.26, so any review comments by anyone
+> > > > who wishes to review any portion of this would be greatly apprecited.
+> > > 
+> > > The driver implements an ioctl to disable autosuspend. This seems
+> > > unnecessary to me, as you can do that via sysfs, too. Is this included
+> > > to work around permission problems? Can somebody explain?
+> > > 
+> > > 	Regards
+> > > 		Oliver
+> > 
+> > This is added to support card firmware upgraders who will need to
+> > disable suspend, even on (embedded) systems that don't have sysfs
+> > mounted.
+> 
+> How do they enable autosuspend without sysfs?
 
-| > +/*
-| > + * Wrappers for methods provided by policy currently in use
-| > + */
-| > +void qpolicy_push(struct sock *sk, struct sk_buff *skb, struct msghdr
-| > *msg) +{
-| > +	struct dccp_packet_info *dcp = NULL;
-| > +
-| > +	if (msg->msg_control != NULL && msg->msg_controllen == sizeof(*dcp))
-| > +		dcp = (struct dccp_packet_info *)msg->msg_control;
-| > +
-| > +	qpol_table[dccp_sk(sk)->dccps_qpolicy].push(sk, skb, dcp);
-| > +}
-| > +
-| What happens if application is compiled with dccp_packet_info containing only 
-| one field (priority) and kernel containing two fields (for example priority 
-| and later added expiry time)? Wouldn't that implementation make extensions to 
-| dccp_packet_info impossible?
-Had not looked at it from this point of view. So you are suggesting
+Good point. No idea. I suppose it's easier to rely on something that
+will always work, rather then making assumptions about suspend based on
+whether sysfs is mounted or not.
 
-	if (msg->msg_control != NULL && msg->msg_controllen >= sizeof(*dcp))
-		dcp = (struct dccp_packet_info *)msg->msg_control;
+( Wasn't there a kernel recently that had autosuspend enabled by
+default ? )
 
-instead? Agreed, point #1 to change in the patch.
+Regards,
 
-
-| 
-| > @@ -501,6 +519,8 @@ struct dccp_sock {
-| >  	struct ccid			*dccps_hc_rx_ccid;
-| >  	struct ccid			*dccps_hc_tx_ccid;
-| >  	struct dccp_options_received	dccps_options_received;
-| > +	__u8				dccps_qpolicy;
-| > +	__u32				dccps_tx_qlen;
-| >  	enum dccp_role			dccps_role:2;
-| >  	__u8				dccps_hc_rx_insert_options:1;
-| >  	__u8				dccps_hc_tx_insert_options:1;
-| I know that currently none of the policies has any per-socket data. But if it 
-| had were should it go?
-| 
-I can't see anything wrong with putting everything into dccp_sock. To do it well, 
-we could consider inserting documentation such as "this section is only for
-queueing policies" (as is done very well for struct tcp_sock).
-
-I see several advantages of this:
- * by just storing the u8 of the policy ID, the socket as a whole gets smaller,
- * when not using nested structs, the elements can be optimised for minimal space,
- * the internals of the function pointer table can be hidden,
- * the socket carries the same information as is passed on via socket options,
-   which simplifies querying.
-
-
-| > +	case DCCP_SOCKOPT_QPOLICY_ID:
-| > +		if (sk->sk_state != DCCP_CLOSED)
-| > +			err = -EISCONN;
-| What about DCCP_LISTENING state?
-| 
-There is a problem with allowing this, considering for example:
- * socket is created, and listen() is called,
- * socket enters with default policy,
- * now user decides to change policy from default ("simple") to "prio",
- * before he can do that, the first packet arrives on the incoming
-   queue, policy is inherited to child socket,
- * so this connection ends up with "simple" policy instead of "prio".
-
-
-| > +DCCP_SOCKOPT_QPOLICY_TXQLEN sets the maximum TX queue length. This is
-| > relevant only for +those TX dequeueing policies that honour this upper
-| > bound (currently only the +simple/default policy does this). This socket
-| > option overrides the default value +of the sysctl
-| > /proc/sys/net/dccp/default/tx_qlen.
-| >
-| In my implementation prio policy did honour DCCP_SOCKOPT_QPOLICY_TXQLEN 
-| setting. At least it was meant to do so.
-| 
-The documentation certainly needs more work, I just sketched something
-but it is not very good. So this is point #2 which needs to change.
-
-Ideally, it would have a little description of what each policy does and
-for which use case it is best suited.
-
-Please take your time and check through the other parts of the patch as
-well. I would like to accumulate the issues and then address each of the
-points. And also, do some testing.I haven't had time to write test code for
-prio policy -- is there something in your SVN repository?
-
-Gerrit
-
-
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
-
+Filip-
