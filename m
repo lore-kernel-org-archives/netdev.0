@@ -1,46 +1,67 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: about bisections
-Date: Wed, 16 Apr 2008 00:48:49 +0200
-Message-ID: <20080415224849.GA14592@elte.hu>
-References: <47FEB062.3020003@rtr.ca> <20080410.173911.179180620.davem@davemloft.net> <20080415215306.GA7437@elte.hu> <20080415.153003.36624305.davem@davemloft.net>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: [PATCH 2/7] ATM cell alignment.
+Date: Wed, 16 Apr 2008 00:41:57 +0100
+Message-ID: <48053D45.40307@andyfurniss.entadsl.com>
+References: <Pine.LNX.4.64.0804092249550.21022@ask.diku.dk> <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk> <4801ED79.5090502@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804140656360.13277@ask.diku.dk>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml@rtr.ca, jesper.juhl@gmail.com, tilman@imap.cc,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org, rjw@sisk.pl,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	corbet@lwn.net, torvalds@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:48224 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751828AbYDOWt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 18:49:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20080415.153003.36624305.davem@davemloft.net>
+Received: from mx1.ukfsn.org ([77.75.108.10]:43833 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752591AbYDOXlk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 19:41:40 -0400
+In-Reply-To: <Pine.LNX.4.64.0804140656360.13277@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jesper Dangaard Brouer wrote:
+> On Sun, 13 Apr 2008, Andy Furniss wrote:
 
-* David Miller <davem@davemloft.net> wrote:
-
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Tue, 15 Apr 2008 23:53:06 +0200
+>> I see overhead is unsigned short. For me using pppoa/vc mux my 
+>> overhead is IP + 10. I am shaping on eth so skb->len is IP+14 hence I 
+>> need a negative overhead.
 > 
-> > but please do _not_ require it from testers and users.
+> I'm not completely sure I understand how you end up with a negative 
+> overhead.  But I guess what you are saying, is that you need to remove 
+> the MAC header from the equation is it has already been added to 
+> skb->len (as you are doing routed and not bridged AAL5 encap).
+
+Yep I think there are only two cases that will hit this one.
+
 > 
-> I don't.  I ask for a bisection when it is appropriate and I think 
-> other avenues will not bear fruit in a reasonable amount of time.
+> That makes a good point for a _seperate_ patch (by you ;-)) where we 
+> change the overhead to be signed.  Or else you can do a userspace TC 
+> patch that abuse the cell_align, as you mentioned below, to express a 
+> negative overhead. (I'm trying to say, lets not mix these things... 
+> please!)
 
-i'm glad i misunderstood you. My impression from reading this thread was 
-that you preferred reporters who do bisection (which is fine so far), to 
-the level of sometimes ignoring reporters who dont (which is not).
+Fair enough, I suppose doing it with overhead could be more dangerous 
+for accidental user misconfiguration than just in TC.
 
-> Thanks for the arbitrary diatribe about my contributions over the 
-> years and accusations that I have some kind of monopoly over the 
-> networking code and fixes to it.  I really appreciate that.
+> 
+> 
+>> Recently built a 2.6.25-rc7 and noticed the cell_align has been added 
+>> and the tables jigged.
+> 
+> Yes, the tables has been aligned to 2^n and avoids underestimation. 
+> Thus, with upto 2^4 (16) the table aligns to 48 bytes (ATM cell payload 
+> size), standard TC uses 2^3. (If I remember correctly you, did comment 
+> on the patch so you must have read it ;-)).
 
-you certainly do have a fair amount of exclusivity in determining the 
-dosage of networking commits. Dont get me wrong, you earned it and you 
-deserve it - not the least because you do it best.
+Hmm did I - was that the post where I wanted overhead to be bigger for 
+ingress shaping - what is it with me and overhead :-)
 
-	Ingo
+> 
+> ps. I'm currently on a roadtrip down the west-coast of USA, so I only 
+> have periodic wifi coverage at different campgrounds...
+
+Have a good holiday.
+
+Andy.
