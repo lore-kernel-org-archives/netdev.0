@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 5/8][SIT]: Make tunnels hashes per-net.
-Date: Tue, 15 Apr 2008 17:34:54 +0400
-Message-ID: <4804AEFE.4020305@openvz.org>
+Subject: [PATCH net-2.6.26 6/8][SIT]: Use proper net in routing calls.
+Date: Tue, 15 Apr 2008 17:36:19 +0400
+Message-ID: <4804AF53.60005@openvz.org>
 References: <4804ACFA.1040003@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,170 +9,68 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:55065 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:55359 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758363AbYDONAh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 09:00:37 -0400
+	id S1760030AbYDONCF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 09:02:05 -0400
 In-Reply-To: <4804ACFA.1040003@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just move all the hashes on the sit_net structure and
-patch the rest of the code appropriately.
+I.e. replace init_net stubs in ip_route_output_key() calls.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/ipv6/sit.c |   45 +++++++++++++++++++++++++--------------------
- 1 files changed, 25 insertions(+), 20 deletions(-)
+ net/ipv6/sit.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index d0c1f2d..f82494b 100644
+index f82494b..7badac6 100644
 --- a/net/ipv6/sit.c
 +++ b/net/ipv6/sit.c
-@@ -70,15 +70,15 @@ static void ipip6_tunnel_setup(struct net_device *dev);
+@@ -527,11 +527,12 @@ out:
+ 	skb_reset_network_header(skb2);
  
- static int sit_net_id;
- struct sit_net {
-+	struct ip_tunnel *tunnels_r_l[HASH_SIZE];
-+	struct ip_tunnel *tunnels_r[HASH_SIZE];
-+	struct ip_tunnel *tunnels_l[HASH_SIZE];
-+	struct ip_tunnel *tunnels_wc[1];
-+	struct ip_tunnel **tunnels[4];
-+
- 	struct net_device *fb_tunnel_dev;
- };
+ 	/* Try to guess incoming interface */
+-	rt6i = rt6_lookup(&init_net, &iph6->saddr, NULL, NULL, 0);
++	rt6i = rt6_lookup(dev_net(skb->dev), &iph6->saddr, NULL, NULL, 0);
+ 	if (rt6i && rt6i->rt6i_dev) {
+ 		skb2->dev = rt6i->rt6i_dev;
  
--static struct ip_tunnel *tunnels_r_l[HASH_SIZE];
--static struct ip_tunnel *tunnels_r[HASH_SIZE];
--static struct ip_tunnel *tunnels_l[HASH_SIZE];
--static struct ip_tunnel *tunnels_wc[1];
--static struct ip_tunnel **tunnels[4] = { tunnels_wc, tunnels_l, tunnels_r, tunnels_r_l };
--
- static DEFINE_RWLOCK(ipip6_lock);
+-		rt6i = rt6_lookup(&init_net, &iph6->daddr, &iph6->saddr, NULL, 0);
++		rt6i = rt6_lookup(dev_net(skb->dev),
++				&iph6->daddr, &iph6->saddr, NULL, 0);
  
- static struct ip_tunnel * ipip6_tunnel_lookup(struct net *net,
-@@ -87,21 +87,22 @@ static struct ip_tunnel * ipip6_tunnel_lookup(struct net *net,
- 	unsigned h0 = HASH(remote);
- 	unsigned h1 = HASH(local);
- 	struct ip_tunnel *t;
-+	struct sit_net *sitn = net_generic(net, sit_net_id);
- 
--	for (t = tunnels_r_l[h0^h1]; t; t = t->next) {
-+	for (t = sitn->tunnels_r_l[h0^h1]; t; t = t->next) {
- 		if (local == t->parms.iph.saddr &&
- 		    remote == t->parms.iph.daddr && (t->dev->flags&IFF_UP))
- 			return t;
- 	}
--	for (t = tunnels_r[h0]; t; t = t->next) {
-+	for (t = sitn->tunnels_r[h0]; t; t = t->next) {
- 		if (remote == t->parms.iph.daddr && (t->dev->flags&IFF_UP))
- 			return t;
- 	}
--	for (t = tunnels_l[h1]; t; t = t->next) {
-+	for (t = sitn->tunnels_l[h1]; t; t = t->next) {
- 		if (local == t->parms.iph.saddr && (t->dev->flags&IFF_UP))
- 			return t;
- 	}
--	if ((t = tunnels_wc[0]) != NULL && (t->dev->flags&IFF_UP))
-+	if ((t = sitn->tunnels_wc[0]) != NULL && (t->dev->flags&IFF_UP))
- 		return t;
- 	return NULL;
- }
-@@ -122,7 +123,7 @@ static struct ip_tunnel **__ipip6_bucket(struct sit_net *sitn,
- 		prio |= 1;
- 		h ^= HASH(local);
- 	}
--	return &tunnels[prio][h];
-+	return &sitn->tunnels[prio][h];
- }
- 
- static inline struct ip_tunnel **ipip6_bucket(struct sit_net *sitn,
-@@ -387,7 +388,7 @@ static void ipip6_tunnel_uninit(struct net_device *dev)
- 
- 	if (dev == sitn->fb_tunnel_dev) {
- 		write_lock_bh(&ipip6_lock);
--		tunnels_wc[0] = NULL;
-+		sitn->tunnels_wc[0] = NULL;
- 		write_unlock_bh(&ipip6_lock);
- 		dev_put(dev);
- 	} else {
-@@ -1050,6 +1051,8 @@ static int ipip6_fb_tunnel_init(struct net_device *dev)
- {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 	struct iphdr *iph = &tunnel->parms.iph;
-+	struct net *net = dev_net(dev);
-+	struct sit_net *sitn = net_generic(net, sit_net_id);
- 
- 	tunnel->dev = dev;
- 	strcpy(tunnel->parms.name, dev->name);
-@@ -1060,7 +1063,7 @@ static int ipip6_fb_tunnel_init(struct net_device *dev)
- 	iph->ttl		= 64;
- 
- 	dev_hold(dev);
--	tunnels_wc[0]		= tunnel;
-+	sitn->tunnels_wc[0]	= tunnel;
- 	return 0;
- }
- 
-@@ -1070,7 +1073,7 @@ static struct xfrm_tunnel sit_handler = {
- 	.priority	=	1,
- };
- 
--static void __exit sit_destroy_tunnels(void)
-+static void sit_destroy_tunnels(struct sit_net *sitn)
- {
- 	int prio;
- 
-@@ -1078,7 +1081,7 @@ static void __exit sit_destroy_tunnels(void)
- 		int h;
- 		for (h = 0; h < HASH_SIZE; h++) {
- 			struct ip_tunnel *t;
--			while ((t = tunnels[prio][h]) != NULL)
-+			while ((t = sitn->tunnels[prio][h]) != NULL)
- 				unregister_netdevice(t->dev);
+ 		if (rt6i && rt6i->rt6i_dev && rt6i->rt6i_dev->type == ARPHRD_SIT) {
+ 			struct ip_tunnel *t = netdev_priv(rt6i->rt6i_dev);
+@@ -701,7 +702,7 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 						.tos = RT_TOS(tos) } },
+ 				    .oif = tunnel->parms.link,
+ 				    .proto = IPPROTO_IPV6 };
+-		if (ip_route_output_key(&init_net, &rt, &fl)) {
++		if (ip_route_output_key(dev_net(dev), &rt, &fl)) {
+ 			tunnel->stat.tx_carrier_errors++;
+ 			goto tx_error_icmp;
  		}
+@@ -830,7 +831,7 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
+ 				    .oif = tunnel->parms.link,
+ 				    .proto = IPPROTO_IPV6 };
+ 		struct rtable *rt;
+-		if (!ip_route_output_key(&init_net, &rt, &fl)) {
++		if (!ip_route_output_key(dev_net(dev), &rt, &fl)) {
+ 			tdev = rt->u.dst.dev;
+ 			ip_rt_put(rt);
+ 		}
+@@ -838,7 +839,7 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
  	}
-@@ -1090,7 +1093,7 @@ static int sit_init_net(struct net *net)
- 	struct sit_net *sitn;
  
- 	err = -ENOMEM;
--	sitn = kmalloc(sizeof(struct sit_net), GFP_KERNEL);
-+	sitn = kzalloc(sizeof(struct sit_net), GFP_KERNEL);
- 	if (sitn == NULL)
- 		goto err_alloc;
+ 	if (!tdev && tunnel->parms.link)
+-		tdev = __dev_get_by_index(&init_net, tunnel->parms.link);
++		tdev = __dev_get_by_index(dev_net(dev), tunnel->parms.link);
  
-@@ -1098,6 +1101,11 @@ static int sit_init_net(struct net *net)
- 	if (err < 0)
- 		goto err_assign;
- 
-+	sitn->tunnels[0] = sitn->tunnels_wc;
-+	sitn->tunnels[1] = sitn->tunnels_l;
-+	sitn->tunnels[2] = sitn->tunnels_r;
-+	sitn->tunnels[3] = sitn->tunnels_r_l;
-+
- 	sitn->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel), "sit0",
- 					   ipip6_tunnel_setup);
- 	if (!sitn->fb_tunnel_dev) {
-@@ -1129,6 +1137,7 @@ static void sit_exit_net(struct net *net)
- 
- 	sitn = net_generic(net, sit_net_id);
- 	rtnl_lock();
-+	sit_destroy_tunnels(sitn);
- 	unregister_netdevice(sitn->fb_tunnel_dev);
- 	rtnl_unlock();
- 	kfree(sitn);
-@@ -1143,10 +1152,6 @@ static void __exit sit_cleanup(void)
- {
- 	xfrm4_tunnel_deregister(&sit_handler, AF_INET6);
- 
--	rtnl_lock();
--	sit_destroy_tunnels();
--	rtnl_unlock();
--
- 	unregister_pernet_gen_device(sit_net_id, &sit_net_ops);
- }
- 
+ 	if (tdev) {
+ 		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
 -- 
 1.5.3.4
 
