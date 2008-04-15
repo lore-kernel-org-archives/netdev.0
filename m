@@ -1,41 +1,146 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
-Date: Tue, 15 Apr 2008 14:37:32 +0200
-Message-ID: <4804A18C.2060200@trash.net>
-References: <20080413121031.GA5211@ami.dom.local> <20080414202605.GA6164@ami.dom.local> <4803BE84.4040105@trash.net> <20080414.151102.169978802.davem@davemloft.net> <20080415053253.GA3920@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, enrico@superclick.com,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/8 net-2.6.26] [NETNS]: Make netns refconting debug like a socket one.
+Date: Tue, 15 Apr 2008 16:37:48 +0400
+Message-ID: <1208263075-28016-1-git-send-email-den@openvz.org>
+References: <1208262959.21529.32.camel@iris.sw.ru>
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
+	dlezcano@fr.ibm.com, "Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35952 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760720AbYDOMhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 08:37:42 -0400
-In-Reply-To: <20080415053253.GA3920@ff.dom.local>
+Received: from mailhub.sw.ru ([195.214.232.25]:46448 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758793AbYDOMiS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 08:38:18 -0400
+In-Reply-To: <1208262959.21529.32.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Mon, Apr 14, 2008 at 03:11:02PM -0700, David Miller wrote:
-> ...
->>> Jarek Poplawski wrote:
-> ...
->>>> After this fix qdisc_lookup() is omitted both for ingress and root
->>>> parents, but looking for root is only wasting a little time here...
-> 
-> ...Actually, there is yet a possibility that somebody uses ffff:
-> handle for a qdisc (not ingress), which could make here a little
-> difference, so this place could be improved for this case (even
-> with something like my earlier debugging patch in this thread,
-> which BTW could be a safety for maybe some other quirks here),
-> but it seems it would be better to discourage using this handle
-> for anything but ingress.
+Make release_net/hold_net noop for performance-hungry people. This is a debug
+staff and should be used in the debug mode only.
 
+Add check for net != NULL in hold/release calls. This will be required
+later on.
 
-I don't think we should do that, it would be preferable to
-compare the entire handle instead of just the major to avoid
-this.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ include/net/net_namespace.h |   44 +++++++++++++++++++++++++++---------------
+ net/core/net_namespace.c    |    4 +++
+ 2 files changed, 30 insertions(+), 16 deletions(-)
+
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index e2aee26..269a681 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -21,9 +21,11 @@ struct net_device;
+ 	atomic_t		count;		/* To decided when the network
+ 						 *  namespace should be freed.
+ 						 */
++#ifdef NETNS_REFCNT_DEBUG
+ 	atomic_t		use_count;	/* To track references we
+ 						 * destroy on demand
+ 						 */
++#endif
+ 	struct list_head	list;		/* list of network namespaces */
+ 	struct work_struct	work;		/* work struct for freeing */
+ 
+@@ -115,17 +119,6 @@ static inline void put_net(struct net *net)
+ 		__put_net(net);
+ }
+ 
+-static inline struct net *hold_net(struct net *net)
+-{
+-	atomic_inc(&net->use_count);
+-	return net;
+-}
+-
+-static inline void release_net(struct net *net)
+-{
+-	atomic_dec(&net->use_count);
+-}
+-
+ static inline
+ int net_eq(const struct net *net1, const struct net *net2)
+ {
+@@ -141,27 +134,46 @@ static inline void put_net(struct net *net)
+ {
+ }
+ 
++static inline struct net *maybe_get_net(struct net *net)
++{
++	return net;
++}
++
++static inline
++int net_eq(const struct net *net1, const struct net *net2)
++{
++	return 1;
++}
++#endif
++
++
++#ifdef NETNS_REFCNT_DEBUG
+ static inline struct net *hold_net(struct net *net)
+ {
++	if (net == NULL)
++		return NULL;
++	atomic_inc(&net->use_count);
+ 	return net;
+ }
+ 
+ static inline void release_net(struct net *net)
+ {
++	if (net == NULL)
++		return;
++	atomic_dec(&net->use_count);
+ }
+-
+-static inline struct net *maybe_get_net(struct net *net)
++#else
++static inline struct net *hold_net(struct net *net)
+ {
+ 	return net;
+ }
+ 
+-static inline
+-int net_eq(const struct net *net1, const struct net *net2)
++static inline void release_net(struct net *net)
+ {
+-	return 1;
+ }
+ #endif
+ 
++
+ #define for_each_net(VAR)				\
+ 	list_for_each_entry(VAR, &net_namespace_list, list)
+ 
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 7b66083..f310ef3 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -30,7 +30,9 @@ static __net_init int setup_net(struct net *net)
+ 	int error;
+ 
+ 	atomic_set(&net->count, 1);
++#ifdef NETNS_REFCNT_DEBUG
+ 	atomic_set(&net->use_count, 0);
++#endif
+ 
+ 	error = 0;
+ 	list_for_each_entry(ops, &pernet_list, list) {
+@@ -70,11 +72,13 @@ static void net_free(struct net *net)
+ 	if (!net)
+ 		return;
+ 
++#ifdef NETNS_REFCNT_DEBUG
+ 	if (unlikely(atomic_read(&net->use_count) != 0)) {
+ 		printk(KERN_EMERG "network namespace not free! Usage: %d\n",
+ 			atomic_read(&net->use_count));
+ 		return;
+ 	}
++#endif
+ 
+ 	kmem_cache_free(net_cachep, net);
+ }
+-- 
+1.5.3.rc5
 
