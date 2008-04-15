@@ -1,84 +1,55 @@
-From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Tue, 15 Apr 2008 18:24:48 +0200
-Message-ID: <1208276688.20681.71.camel@FWR-FLAB>
-References: <20080414213238.GB28833@kroah.com>
-	 <200804151525.57340.oliver@neukum.org> <1208268742.20681.29.camel@FWR-FLAB>
-	 <200804151614.47977.oliver@neukum.org> <1208271789.20681.45.camel@FWR-FLAB>
-	 <20080415153408.GB7996@kroah.com>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] macb: Call phy_disconnect on removing
+Date: Wed, 16 Apr 2008 01:35:20 +0900 (JST)
+Message-ID: <20080416.013520.74752756.anemo@mba.ocn.ne.jp>
+References: <20080410.233007.41197293.anemo@mba.ocn.ne.jp>
+	<48005E6E.3010802@garzik.org>
+	<20080415015331.b6ab8963.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>,
-	ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org
-To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080415153408.GB7996-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jeff@garzik.org, hskinnemoen@atmel.com, netdev@vger.kernel.org,
+	stable@kernel.org
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mba.ocn.ne.jp ([122.1.235.107]:58453 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755410AbYDOQe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 12:34:27 -0400
+In-Reply-To: <20080415015331.b6ab8963.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Tue, 2008-04-15 at 08:34 -0700, Greg KH wrote:
-> On Tue, Apr 15, 2008 at 05:03:09PM +0200, Filip Aben wrote:
-> > 
-> > On Tue, 2008-04-15 at 16:14 +0200, Oliver Neukum wrote:
-> > > Am Dienstag, 15. April 2008 16:12:22 schrieb Filip Aben:
-> > > > 
-> > > > On Tue, 2008-04-15 at 15:25 +0200, Oliver Neukum wrote:
-> > > > > Am Montag, 14. April 2008 23:32:39 schrieb Greg KH:
-> > > > > > Hi all,
-> > > > > > 
-> > > > > > Here's a patch that I have cleaned up for context only from Option that
-> > > > > > is a USB serial / network device all in one.
-> > > > > > 
-> > > > > > I'd like to see this go into 2.6.26, so any review comments by anyone
-> > > > > > who wishes to review any portion of this would be greatly apprecited.
-> > > > > 
-> > > > > The driver implements an ioctl to disable autosuspend. This seems
-> > > > > unnecessary to me, as you can do that via sysfs, too. Is this included
-> > > > > to work around permission problems? Can somebody explain?
-> > > > > 
-> > > > > 	Regards
-> > > > > 		Oliver
-> > > > 
-> > > > This is added to support card firmware upgraders who will need to
-> > > > disable suspend, even on (embedded) systems that don't have sysfs
-> > > > mounted.
-> > > 
-> > > How do they enable autosuspend without sysfs?
-> > 
-> > Good point. No idea. I suppose it's easier to rely on something that
-> > will always work, rather then making assumptions about suspend based on
-> > whether sysfs is mounted or not.
+On Tue, 15 Apr 2008 01:53:31 -0700, Andrew Morton <akpm@linux-foundation.org> wrote:
+> > applied
 > 
-> Like I always like to point out, my _phone_ has sysfs mounted, I really
-> doubt any 2.6 embedded system would not have it mounted these days, it
-> is very useful for things like this.
-> 
-> So I'll go delete that "special" ioctl, that's not a good thing to do,
-> use the common interfaces that all USB devices rely on instead, don't do
-> something different for just one type of USB device.
+> Needed in 2.6.24.x as well, I think?
 
-Fair enough.
+Yes, though I suppose this driver is not widely used as a module.
+CC-ed to stable@kernel.org.
 
-> 
-> I'm also a bit concerned about the special "set radio" ioctl as well.
-> Filip, what uses that ioctl?  If it's really necessary, can't a sysfs
-> file do the same thing?
+commit 84b7901f8d5a17536ef2df7fd628ab865df8fe3a
+Author: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Date:   Thu Apr 10 23:30:07 2008 +0900
 
-Currently I don't think anybody uses it for Linux. I added it because
-our non-Linux drivers had this functionality. It's used for example by
-our connection managers/tools to disable the RF-part when the laptop
-goes to sleep ( but keeps the USB bus powered&suspended ). This is a
-requirement for quite some operators.
-But yes, I suppose the same could be done through sysfs.
+    macb: Call phy_disconnect on removing
+    
+    Call phy_disconnect() on remove routine.  Otherwise the phy timer
+    causes a kernel crash when unloading.
+    
+    Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-Regards,
-
-Filip-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index 1d210ed..10fcea5 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -1257,6 +1257,8 @@ static int __exit macb_remove(struct platform_device *pdev)
+ 
+ 	if (dev) {
+ 		bp = netdev_priv(dev);
++		if (bp->phy_dev)
++			phy_disconnect(bp->phy_dev);
+ 		mdiobus_unregister(&bp->mii_bus);
+ 		kfree(bp->mii_bus.irq);
+ 		unregister_netdev(dev);
