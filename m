@@ -1,106 +1,231 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: Bad network performance over 2Gbps
-Date: Tue, 15 Apr 2008 14:05:43 -0700
-Message-ID: <480518A7.50703@intel.com>
-References: <1208282804.23631.27.camel@localhost> <175f5a0f0804151315x1e192fc7p7dac1e84fd154211@mail.gmail.com> <48051173.5030802@intel.com> <48051734.1000107@redhat.com>
+From: Tomasz Lemiech <szpajder@staszic.waw.pl>
+Subject: [PATCH] [TULIP] Fix for MTU problems with 802.1q tagged frames
+Date: Tue, 15 Apr 2008 23:18:06 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0804152315530.2254@boss.staszic.waw.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "H. Willstrand" <h.willstrand@gmail.com>,
-	Anton Titov <a.titov@host.bg>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Chris Snook <csnook@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: tulip-users@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50298 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753469AbYDOVIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 17:08:09 -0400
-In-Reply-To: <48051734.1000107@redhat.com>
+Received: from boss.staszic.waw.pl ([85.232.234.98]:51408 "EHLO
+	boss.staszic.waw.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932330AbYDOVZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 17:25:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Snook wrote:
-> Kok, Auke wrote:
->> H. Willstrand wrote:
->>> [Changed mail list]
->>>
->>> On Tue, Apr 15, 2008 at 8:06 PM, Anton Titov <a.titov@host.bg> wrote:
->>>> I use Linux for serving a huge amount of static web on few servers.
->>>> When
->>>>  network traffic goes above 2Gbit/sec ksoftirqd/5 (not every time 5,
->>>> but
->>>>  every time just one) starts using exactly 100% CPU time and packet
->>>>  packet loss starts preventing traffic from going up. When the network
->>>>  traffic is lower than 1.9Gbit ksoftirqds use 0% CPU according to top.
->>>>
->>>>  Uplink is 6 gigabit Intel cards bonded together using 802.3ad
->>>> algorithm
->>>>  with xmit_hash_policy set to layer3+4. On the other side is Cisco 2960
->>>>  switch. Machine is with two quad core Intel Xeons @2.33GHz.
->>>>
->>>>  Here goes a screen snapshot of "top" command. The described behavior
->>>>  have nothing to do with 13% io-wait. It happens even if it is 0%
->>>>  io-wait.
->>>>  http://www.titov.net/misc/top-snap.png
->>>>
->>>>  kernel configuration:
->>>>  http://www.titov.net/misc/config.gz
->>>>
->>>>  /proc/interrupts, lspci, dmesg (nothing intresting there), ifconfig,
->>>>  uname -a:
->>>>  http://www.titov.net/misc/misc.txt.gz
->>>>
->>>>  Is it a Linux bug or some hardware limitation?
->>
->> I'm wondering if this is not a classical demonstration of the NAPI-irq
->> trap where
->> after migration all the interrupts from the various cards are migrated
->> to a single
->> CPU, and because of NAPI once they're busy polling won't ever migrate
->> away from
->> that CPU again.
->>
->> Have you looked at `cat /proc/interrupts` before and after this happens?
->>
->> My guess is that your specific situation can benefit from setting
->> smp_affinity and
->> forcing the NIC irq's so that you're at least occupying the load over
->> multiple
->> CPU's (but preferably ones that use the same cache!) will help relieve
->> the situation.
->>
->> alternatively you might even see an improvement by disabling NAPI.
->> depending on
->> the driver that you're using this might be possible.
->>
->> I actually don't know much about bonding and how this affects
->> everything, but my
->> guess is that that's a less important factor in this issue.
->>
->> Cheers,
->>
->> Auke
-> 
-> I'm not sure that spreading IRQs out completely is necessarily a good
-> idea, due to cache line ping-pong.  I suspect you'll get optimal
-> performance by assigning the six IRQs to two cores that share an L2 cache.
-> 
-> Still, I think you're on to something here.  Disabling NAPI and instead
-> tuning the cards' interrupt coalescing settings might allow irqbalance
-> to do a better job than it is currently.
 
-well I posted another reply to him after I looked at the debug output he posted
-and it appeats that the in-kernel irqbalance is the culprit and the 100% softirqd
-is because his interrupts are being balanced across all cores, therefore pretty
-much guaranteeing him full cache misses on every single receive, not to mention
-unneeded migration of tasks.
+This patch fixes MTU problem, which occurs when using 802.1q VLANs.
+We should allow receiving frames of up to 1518 bytes in length,
+instead of 1514.
 
-I definately think we should disable the in-kernel irqbalance option by default :)
+Based on patch written by Ben McKeegan for 2.4.x kernels. It is
+archived at http://www.candelatech.com/~greear/vlan/howto.html#tulip .
+I've adjusted a few things to make it apply on 2.6.x kernels.
 
-as to what the best solution is with 6 adapters is not clear as they're all on the
-same bridge, but hard setting the affinity to two cores that share an L2 seems to
-give the best results quickly.
+Tested on D-Link DFE-570TX quad-fastethernet card.
 
-Cheers,
+Signed-off-by: Tomasz Lemiech <szpajder@staszic.waw.pl>
+---
 
-Auke
+ drivers/net/tulip/interrupt.c |   81 ++++++++++++++++++++------------
+ drivers/net/tulip/tulip.h     |   32 ++++++++++++
+ 2 files changed, 83 insertions(+), 30 deletions(-)
+
+diff -urp a/drivers/net/tulip/interrupt.c b/drivers/net/tulip/interrupt.c
+--- a/drivers/net/tulip/interrupt.c	2008-04-13 14:43:47.000000000 +0200
++++ b/drivers/net/tulip/interrupt.c	2008-04-13 14:51:20.000000000 +0200
+@@ -141,6 +141,7 @@ int tulip_poll(struct napi_struct *napi,
+                /* If we own the next entry, it is a new packet. Send it up. */
+                while ( ! (tp->rx_ring[entry].status & cpu_to_le32(DescOwned))) {
+                        s32 status = le32_to_cpu(tp->rx_ring[entry].status);
++		       short pkt_len;
+ 
+                        if (tp->dirty_rx + RX_RING_SIZE == tp->cur_rx)
+                                break;
+@@ -152,8 +153,28 @@ int tulip_poll(struct napi_struct *napi,
+ 		       if (++work_done >= budget)
+                                goto not_done;
+ 
+-                       if ((status & 0x38008300) != 0x0300) {
+-                               if ((status & 0x38000300) != 0x0300) {
++		/*
++		  Omit the four octet CRC from the length.
++		  (May not be considered valid until we have
++		  checked status for RxLengthOver2047 bits)
++		*/
++		       pkt_len = ((status >> 16) & 0x7ff) - 4;
++
++		/*
++		  Maximum pkt_len is 1518 (1514 + vlan header)
++		  Anything higher than this is always invalid
++		  regardless of RxLengthOver2047 bits
++		*/
++
++		       if ((status & (RxLengthOver2047 |
++				RxDescCRCError |
++				RxDescCollisionSeen |
++				RxDescRunt |
++				RxDescDescErr |
++				RxWholePkt))        != RxWholePkt
++			    || pkt_len > 1518) {
++			       if ((status & (RxLengthOver2047 |
++					RxWholePkt))         != RxWholePkt) {
+                                 /* Ingore earlier buffers. */
+                                        if ((status & 0xffff) != 0x7fff) {
+                                                if (tulip_debug > 1)
+@@ -162,30 +183,21 @@ int tulip_poll(struct napi_struct *napi,
+                                                               dev->name, status);
+                                                tp->stats.rx_length_errors++;
+                                        }
+-                               } else if (status & RxDescFatalErr) {
++                               } else {
+                                 /* There was a fatal error. */
+                                        if (tulip_debug > 2)
+                                                printk(KERN_DEBUG "%s: Receive error, Rx status %8.8x.\n",
+                                                       dev->name, status);
+                                        tp->stats.rx_errors++; /* end of a packet.*/
+-                                       if (status & 0x0890) tp->stats.rx_length_errors++;
++				       if (pkt_len > 1518 ||
++					   status & RxDescRunt) tp->stats.rx_length_errors++;
+                                        if (status & 0x0004) tp->stats.rx_frame_errors++;
+                                        if (status & 0x0002) tp->stats.rx_crc_errors++;
+                                        if (status & 0x0001) tp->stats.rx_fifo_errors++;
+                                }
+                        } else {
+-                               /* Omit the four octet CRC from the length. */
+-                               short pkt_len = ((status >> 16) & 0x7ff) - 4;
+                                struct sk_buff *skb;
+ 
+-#ifndef final_version
+-                               if (pkt_len > 1518) {
+-                                       printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
+-                                              dev->name, pkt_len, pkt_len);
+-                                       pkt_len = 1518;
+-                                       tp->stats.rx_length_errors++;
+-                               }
+-#endif
+                                /* Check if the packet is long enough to accept without copying
+                                   to a minimally-sized skbuff. */
+                                if (pkt_len < tulip_rx_copybreak
+@@ -358,14 +370,35 @@ static int tulip_rx(struct net_device *d
+ 	/* If we own the next entry, it is a new packet. Send it up. */
+ 	while ( ! (tp->rx_ring[entry].status & cpu_to_le32(DescOwned))) {
+ 		s32 status = le32_to_cpu(tp->rx_ring[entry].status);
++		short pkt_len;
+ 
+ 		if (tulip_debug > 5)
+ 			printk(KERN_DEBUG "%s: In tulip_rx(), entry %d %8.8x.\n",
+ 				   dev->name, entry, status);
+ 		if (--rx_work_limit < 0)
+ 			break;
+-		if ((status & 0x38008300) != 0x0300) {
+-			if ((status & 0x38000300) != 0x0300) {
++
++		/*
++		  Omit the four octet CRC from the length.
++		  (May not be considered valid until we have
++		  checked status for RxLengthOver2047 bits)
++		*/
++		pkt_len = ((status >> 16) & 0x7ff) - 4;
++		/*
++		  Maximum pkt_len is 1518 (1514 + vlan header)
++		  Anything higher than this is always invalid
++		  regardless of RxLengthOver2047 bits
++		*/
++
++		if ((status & (RxLengthOver2047 |
++			       RxDescCRCError |
++			       RxDescCollisionSeen |
++			       RxDescRunt |
++			       RxDescDescErr |
++			       RxWholePkt))        != RxWholePkt
++		     || pkt_len > 1518) {
++			if ((status & (RxLengthOver2047 |
++			     RxWholePkt))         != RxWholePkt) {
+ 				/* Ingore earlier buffers. */
+ 				if ((status & 0xffff) != 0x7fff) {
+ 					if (tulip_debug > 1)
+@@ -374,31 +407,21 @@ static int tulip_rx(struct net_device *d
+ 							   dev->name, status);
+ 					tp->stats.rx_length_errors++;
+ 				}
+-			} else if (status & RxDescFatalErr) {
++			} else {
+ 				/* There was a fatal error. */
+ 				if (tulip_debug > 2)
+ 					printk(KERN_DEBUG "%s: Receive error, Rx status %8.8x.\n",
+ 						   dev->name, status);
+ 				tp->stats.rx_errors++; /* end of a packet.*/
+-				if (status & 0x0890) tp->stats.rx_length_errors++;
++				if (pkt_len > 1518 ||
++				    status & RxDescRunt) tp->stats.rx_length_errors++;
+ 				if (status & 0x0004) tp->stats.rx_frame_errors++;
+ 				if (status & 0x0002) tp->stats.rx_crc_errors++;
+ 				if (status & 0x0001) tp->stats.rx_fifo_errors++;
+ 			}
+ 		} else {
+-			/* Omit the four octet CRC from the length. */
+-			short pkt_len = ((status >> 16) & 0x7ff) - 4;
+ 			struct sk_buff *skb;
+ 
+-#ifndef final_version
+-			if (pkt_len > 1518) {
+-				printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
+-					   dev->name, pkt_len, pkt_len);
+-				pkt_len = 1518;
+-				tp->stats.rx_length_errors++;
+-			}
+-#endif
+-
+ 			/* Check if the packet is long enough to accept without copying
+ 			   to a minimally-sized skbuff. */
+ 			if (pkt_len < tulip_rx_copybreak
+diff -urp a/drivers/net/tulip/tulip.h b/drivers/net/tulip/tulip.h
+--- a/drivers/net/tulip/tulip.h	2008-04-13 14:43:47.000000000 +0200
++++ b/drivers/net/tulip/tulip.h	2008-04-13 14:48:29.000000000 +0200
+@@ -200,8 +200,38 @@ enum desc_status_bits {
+ 	DescStartPkt = 0x20000000,
+ 	DescEndRing  = 0x02000000,
+ 	DescUseLink  = 0x01000000,
+-	RxDescFatalErr = 0x008000,
++
++	/*
++	  Error summary flag is logical or of 'CRC Error',
++	  'Collision Seen', 'Frame Too Long', 'Runt' and
++	  'Descriptor Error' flags generated within tulip chip.
++	*/
++	RxDescErrorSummary = 0x8000,
++	RxDescCRCError = 0x0002,
++	RxDescCollisionSeen = 0x0040,
++
++	/*
++	  'Frame Too Long' flag is set if packet length including CRC
++	  exceeds 1518.  However, a full sized VLAN tagged frame is
++	  1522 bytes including CRC.
++
++	  The tulip chip does not block oversized frames, and if this
++	  flag is set on a receive descriptor it does not indicate
++	  the frame has been truncated.  The receive descriptor also
++	  includes the actual length.  Therefore we can safety ignore
++	  this flag and check the length ourselves.
++	*/
++	RxDescFrameTooLong = 0x0080,
++	RxDescRunt = 0x0800,
++	RxDescDescErr = 0x4000,
+ 	RxWholePkt   = 0x00000300,
++	/*
++	  Top three bits of 14 bit frame length (status bits 27-29)
++	    should never be set as that would make frame over 2047 bytes.
++	  The Receive Watchdog flag (bit 4) may indicate the length is
++	    over 2048 and the length field is invalid.
++	*/
++	RxLengthOver2047 = 0x38000010
+ };
+ 
+ 
+
+-- 
+Tomasz Lemiech
+RLU#189399
+TL1942-RIPE
