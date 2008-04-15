@@ -1,177 +1,64 @@
-From: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Tue, 15 Apr 2008 19:53:57 +0200
-Message-ID: <4804EBB5.7000100@hartkopp.net>
-References: <20080414213238.GB28833@kroah.com> <48042F7F.8030608@hartkopp.net> <20080415161158.GE9704@kroah.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 1/3] ixgbe: save and restore pcie/msi state to
+	support EEH	recovery
+Date: Tue, 15 Apr 2008 10:57:46 -0700
+Message-ID: <20080415175745.12506.67349.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
-	Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>,
-	ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org
-To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080415161158.GE9704-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	wendyx@us.ibm.com
+To: jeff@garzik.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Greg KH wrote:
-> On Tue, Apr 15, 2008 at 06:30:55AM +0200, Oliver Hartkopp wrote:
->   
->> Just some obvious things to reduce the source code hopping for the
->> review and to reduce the source code size.
->>
->> Regards,
->> Oliver
->>
->>     
->>> +
->>> +#define DRIVER_VERSION			"1.2"
->>> +#define MOD_AUTHOR			"Option Wireless"
->>> +#define MOD_DESCRIPTION			"USB High Speed Option driver"
->>> +#define MOD_LICENSE			"GPL"
->>> +
->>>   
->>>       
->> Please move the MODULE_OWNER(), MODULE_LICENSE(), etc. macros from the
->> end of this file directly to this point.
->>     
->
-> Does that really matter?
->
->   
+From: Wendy Xiong <wendyx@us.ibm.com>
 
-Not for the compiler :)
+To enable EEH support for pci-express network adapters, pcie/msi state
+needs to be saved and restored for that adapter.
 
-But when you are able to put things together that helps to understand 
-the code much better (at least for me). I'm not a wizard so when it 
-helps me to find code belonging together it probably helps other people 
-also.
+Tested this EEH patch with Intel 10G pci-express ixgbe adapter.
 
+Signed-off-by: Wendy Xiong <wendyx@us.ibm.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
->>> +/*****************************************************************************/
->>> +/* Prototypes                                                                */
->>> +/*****************************************************************************/
->>>   
->>>       
->> This is a real forward declaration hell. Please try to reorder the
->> functions in the code to make this as obsolte as possible.
->>     
->
-> I've already stripped down a lot of them, will work on the remaining
-> ones, I wanted to get the code out for review first.
->
->   
+ drivers/net/ixgbe/ixgbe_main.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Ok.
-
->>> +/*****************************************************************************/
->>> +/* Helping functions                                                         */
->>> +/*****************************************************************************/
->>> +
->>> +/* convert a character representing a hex value to a number */
->>> +static unsigned char hex2dec(unsigned char digit)
->>> +{
->>> +
->>> +	if ((digit >= '0') && (digit <= '9'))
->>> +		return (digit - '0');
->>> +	/* Map all characters to 0-15 */
->>> +	if ((digit >= 'a') && (digit <= 'z'))
->>> +		return (digit - 'a' + 10) % 16;
->>> +	if ((digit >= 'A') && (digit <= 'Z'))
->>> +		return (digit - 'A' + 10) % 16;
->>> +	return 16;
->>> +}
->>> +
->>>   
->>>       
->> Shouldn't this already be somewhere else in the kernel?
->>     
->
-> Do you know where?
->
->   
-
-Hm - i found one by grep after 'hex2' in drivers/net/cxgb3/t3_hw.c :
-
-static unsigned int hex2int(unsigned char c)
-{
-return isdigit(c) ? c - '0' : toupper(c) - 'A' + 10;
-}
-
-But nothing in lib/* ...
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index cb371a8..7b85922 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3431,6 +3431,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	}
+ 
+ 	pci_set_master(pdev);
++	pci_save_state(pdev);
+ 
+ #ifdef CONFIG_NETDEVICES_MULTIQUEUE
+ 	netdev = alloc_etherdev_mq(sizeof(struct ixgbe_adapter), MAX_TX_QUEUES);
+@@ -3721,6 +3722,7 @@ static pci_ers_result_t ixgbe_io_slot_reset(struct pci_dev *pdev)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+ 	pci_set_master(pdev);
++	pci_restore_state(pdev);
+ 
+ 	pci_enable_wake(pdev, PCI_D3hot, 0);
+ 	pci_enable_wake(pdev, PCI_D3cold, 0);
 
 
->>> +
->>> +/* module parameters */
->>> +static int debug;
->>> +static int procfs = 1;
->>> +static int tty_major;
->>> +static int disable_net;
->>> +static int enable_autopm;
->>> +
->>>   
->>>       
->> please move the module_param() stuff and MODULE_PARM_DESC() from the end
->> of the file right to this place.
->>     
->
-> Does it really matter?
->
->   
-
-Same as stated above. If you would put the MODULE_PARM_DESC() right here 
-the formerly defined variables are documented in one go without any /* 
-comments */ and you just know the meaning for the rest of the review.
-
->>> +static int hso_proc_port_info(char *buf, char **start, off_t offset, int count,
->>> +			      int *eof, void *data)
->>> +{
->>> +	int len = 0;
->>> +	struct hso_device *hso_dev = (struct hso_device *)data;
->>> +	char *port_name = NULL;
->>> +
->>> +	D1("count: %d", count);
->>>   
->>>       
->> This debug macro looks like it is from the very beginning of the
->> implementation. Remove it.
->>     
->
-> Why?
->   
-
-Why not? If it is not really needed it should be omitted.
-
-In general i'm a friend of debug-code, but when i touches the mainline 
-kernel IMO one should reconsider if all the debug code remains necessary.
-
->   
->>> +
->>> +static int hso_serial_read_proc(char *page, char **start, off_t off, int count,
->>> +				int *eof, void *data)
->>> +{
->>> +	return 0;
->>> +}
->>> +
->>>   
->>>       
->> ???
->>     
->
-> Already been pointed out that they can be removed.
->   
-
-Sorry. Didn't catch that.
-
-
-Regards,
-Oliver
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-------------------------------------------------------------------------
+This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
+Don't miss this year's exciting event. There's still time to save $100. 
+Use priority code J8TL2D2. 
+http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
