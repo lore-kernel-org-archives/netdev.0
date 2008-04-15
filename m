@@ -1,31 +1,51 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
-Date: Tue, 15 Apr 2008 05:57:38 +0100
-Message-ID: <20080415045738.GE9785@ZenIV.linux.org.uk>
-References: <20080404122242.867070732@I-love.SAKURA.ne.jp> <20080404122408.986477936@I-love.SAKURA.ne.jp> <200804071140.59247.paul.moore@hp.com> <47FC8052.9070409@nttdata.co.jp> <20080409131151.GK11962@parisc-linux.org> <200804112312.HGE69734.LFOOHQOSFFMJtV@I-love.SAKURA.ne.jp> <20080411143013.GB11962@parisc-linux.org> <4802B63F.2010804@crispincowan.com> <20080414134858.GV11962@parisc-linux.org> <48041F46.8030004@crispincowan.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Reporting bugs and bisection
+Date: Tue, 15 Apr 2008 06:55:42 +0200
+Message-ID: <20080415045541.GA611@1wt.eu>
+References: <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au> <20080414.150105.101568769.davem@davemloft.net> <20080414160513.9f57e5ba.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Wilcox <matthew@wil.cx>,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	paul.moore@hp.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: Crispin Cowan <crispin@crispincowan.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
+	viro@ZenIV.linux.org.uk, david@lang.hm, sclark46@earthlink.net,
+	johnpol@2ka.mipt.ru, rjw@sisk.pl, tilman@imap.cc,
+	Valdis.Kletnieks@vt.edu, lkml@rtr.ca, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764342AbYDOFFa@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <48041F46.8030004@crispincowan.com>
-Sender: linux-security-module-owner@vger.kernel.org
+In-Reply-To: <20080414160513.9f57e5ba.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 14, 2008 at 08:21:42PM -0700, Crispin Cowan wrote:
-
-> See above. The major classes of things that namespaces can't do are:
+On Mon, Apr 14, 2008 at 04:05:13PM -0700, Andrew Morton wrote:
+> On Mon, 14 Apr 2008 15:01:05 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
->    * deliberate overlap
+> > From: James Morris <jmorris@namei.org>
+> > Date: Tue, 15 Apr 2008 01:54:00 +1000 (EST)
+> > 
+> > > - Things like "who made the kernel" statistics and related articles ignore 
+> > >   code review.
+> > 
+> > Note the apparent irony in that the person who ends up often on the
+> > top of those lists, Al Viro, is also someone who also does a
+> > significant amount of code review.
+> > 
+> > I think this is no accident.
+> 
+> "who made the kernel" was an interesting and useful exercise, but if you
+> like irony then...
+> 
+> - The way to boost your commit count is to submit buggy patches and to
+>   then fix your own bugs.
+> 
+> - The way to lower your commit count is to fix things in other people's
+>   patches, then fold your fix into the base patch.  I've lost over 1000
+>   commits that way.  Unless they are counting '^    [akpm' as a commit.
 
-How do you think new namespaces are created[1] and how, in your opinion, do
-they look right after that?
+And if Dave speaks about these stats : http://lwn.net/Articles/237768/
+then Al does not even appear in it, which proves your point.
 
-[1] no, "openvz crowd posts a patch revealing yet another offense against
-Occam's Razor" is not the right answer to this question.
+Willy
