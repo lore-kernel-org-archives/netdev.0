@@ -1,64 +1,80 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Reporting bugs and bisection
-Date: Tue, 15 Apr 2008 22:51:49 +0200
-Message-ID: <200804152251.51308.rjw@sisk.pl>
-References: <47FEADCB.7070104@rtr.ca> <517f3f820804150254w491cdf85s28f1d15696db8d96@mail.gmail.com> <4804B5D5.4090404@davidnewall.com>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: Bad network performance over 2Gbps
+Date: Tue, 15 Apr 2008 16:59:32 -0400
+Message-ID: <48051734.1000107@redhat.com>
+References: <1208282804.23631.27.camel@localhost> <175f5a0f0804151315x1e192fc7p7dac1e84fd154211@mail.gmail.com> <48051173.5030802@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
-	James Morris <jmorris@namei.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Willy Tarreau <w@1wt.eu>, david@lang.hm,
-	Stephen Clark <sclark46@earthlink.net>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
-	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
-	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Newall <davidn@davidnewall.com>
+Cc: "H. Willstrand" <h.willstrand@gmail.com>,
+	Anton Titov <a.titov@host.bg>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:52052 "EHLO ogre.sisk.pl"
+Received: from mx1.redhat.com ([66.187.233.31]:52316 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751816AbYDOUvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 16:51:25 -0400
-In-Reply-To: <4804B5D5.4090404@davidnewall.com>
-Content-Disposition: inline
+	id S1765195AbYDOU7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 16:59:38 -0400
+In-Reply-To: <48051173.5030802@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, 15 of April 2008, David Newall wrote:
-> Michael Kerrisk wrote:
-> > On 4/15/08, David Newall <davidn@davidnewall.com> wrote:
-> >   
-> >> James Morris wrote:
-> >>  > I don't know how to solve this, but suspect that encouraging the use of
-> >>  > reviewed-by and also including it in things like analysis of who is
-> >>  > contributing, selection for kernel summit invitations etc. would be a
-> >>  > start.  At least, better than nothing.
-> >>
-> >> Would it be hard to keep count of the number of errors introduced by
-> >>  author and reviewer?
-> >>     
-> >
-> > I've found quite a few errors in kernel-userland APIs, but I'm not
-> > sure that this sort of negative statistic would be helpful -- e.g.,
-> > more productive developers probably also introduce more errors.
+Kok, Auke wrote:
+> H. Willstrand wrote:
+>> [Changed mail list]
+>>
+>> On Tue, Apr 15, 2008 at 8:06 PM, Anton Titov <a.titov@host.bg> wrote:
+>>> I use Linux for serving a huge amount of static web on few servers. When
+>>>  network traffic goes above 2Gbit/sec ksoftirqd/5 (not every time 5, but
+>>>  every time just one) starts using exactly 100% CPU time and packet
+>>>  packet loss starts preventing traffic from going up. When the network
+>>>  traffic is lower than 1.9Gbit ksoftirqds use 0% CPU according to top.
+>>>
+>>>  Uplink is 6 gigabit Intel cards bonded together using 802.3ad algorithm
+>>>  with xmit_hash_policy set to layer3+4. On the other side is Cisco 2960
+>>>  switch. Machine is with two quad core Intel Xeons @2.33GHz.
+>>>
+>>>  Here goes a screen snapshot of "top" command. The described behavior
+>>>  have nothing to do with 13% io-wait. It happens even if it is 0%
+>>>  io-wait.
+>>>  http://www.titov.net/misc/top-snap.png
+>>>
+>>>  kernel configuration:
+>>>  http://www.titov.net/misc/config.gz
+>>>
+>>>  /proc/interrupts, lspci, dmesg (nothing intresting there), ifconfig,
+>>>  uname -a:
+>>>  http://www.titov.net/misc/misc.txt.gz
+>>>
+>>>  Is it a Linux bug or some hardware limitation?
 > 
-> We can already see which developers are more active.  What we can't see
-> is who is careless, which would be useful to know.  It would also be
-> useful to know who is careless in approving changes, because they share
-> responsibility for those changes.  It would be a good thing if this
-> highlighted that some people are behind frequent buggy changes.
+> I'm wondering if this is not a classical demonstration of the NAPI-irq trap where
+> after migration all the interrupts from the various cards are migrated to a single
+> CPU, and because of NAPI once they're busy polling won't ever migrate away from
+> that CPU again.
+> 
+> Have you looked at `cat /proc/interrupts` before and after this happens?
+> 
+> My guess is that your specific situation can benefit from setting smp_affinity and
+> forcing the NIC irq's so that you're at least occupying the load over multiple
+> CPU's (but preferably ones that use the same cache!) will help relieve the situation.
+> 
+> alternatively you might even see an improvement by disabling NAPI. depending on
+> the driver that you're using this might be possible.
+> 
+> I actually don't know much about bonding and how this affects everything, but my
+> guess is that that's a less important factor in this issue.
+> 
+> Cheers,
+> 
+> Auke
 
-Well, even if someone introduces bugs relatively frequently, but then also
-works with the reporters and fixes the bugs timely, it's about okay IMO.
+I'm not sure that spreading IRQs out completely is necessarily a good 
+idea, due to cache line ping-pong.  I suspect you'll get optimal 
+performance by assigning the six IRQs to two cores that share an L2 cache.
 
-The real problem is when patch submitters don't care for their changes any
-more once the patches have been merged.
+Still, I think you're on to something here.  Disabling NAPI and instead 
+tuning the cards' interrupt coalescing settings might allow irqbalance 
+to do a better job than it is currently.
 
-Thanks,
-Rafael
+-- Chris
