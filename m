@@ -1,33 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-2.6.26 10/10][VLAN]: Handle vlan devices net namespace
- changing.
-Date: Tue, 15 Apr 2008 14:30:20 +0200
-Message-ID: <48049FDC.3010506@trash.net>
-References: <4804989F.1060503@openvz.org> <48049D45.5020606@openvz.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH net-2.6.26 5/10][VLAN]: Add a net argument to proc init
+ and cleanup calls.
+Date: Tue, 15 Apr 2008 17:05:30 +0400
+Message-ID: <4804A81A.5070503@openvz.org>
+References: <4804989F.1060503@openvz.org> <48049B01.80403@openvz.org> <48049EE7.1090407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35725 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752344AbYDOMa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 08:30:29 -0400
-In-Reply-To: <48049D45.5020606@openvz.org>
+Received: from sacred.ru ([62.205.161.221]:46544 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751636AbYDOMbV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 08:31:21 -0400
+In-Reply-To: <48049EE7.1090407@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov wrote:
-> When van device is moved to another namespace proc files,
-> related to this device, should also change one.
+>> +++ b/net/8021q/vlan.c
+>> @@ -642,8 +642,14 @@ static int vlan_init_net(struct net *net)
+>>  	if (err < 0)
+>>  		goto err_assign;
+>>  
+>> +	err = vlan_proc_init(net);
+>> +	if (err < 0)
+>> +		goto err_proc;
+>> +
+>>  	return 0;
+>>  
+>> +err_proc:
+>> +	/* nothing */
 > 
-> Use the netdev REGISTER and UNREGISTER event handlers for this.
+> What is going to clean up net_generic_assign above?
+
+This is not required. Net will be just destroyed after this
+function returns.
+
+>> @@ -693,8 +696,6 @@ static int __init vlan_proto_init(void)
+>>  err3:
+>>  	unregister_netdevice_notifier(&vlan_notifier_block);
+>>  err2:
+>> -	vlan_proc_cleanup();
+>> -err1:
+>>  	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
+>>  err0:
+>>  	return err;
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> This could be done nicer, not leaving holes in the numbering.
 
-For patches 8-10 also:
-
-Acked-by: Patrick McHardy <kaber@trash.net>
-
+Well, yes. Bu this patch is large enough without it. Can I make
+this in a separate patch?
