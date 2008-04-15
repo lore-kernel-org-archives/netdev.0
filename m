@@ -1,7 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 8/10][VLAN]: Make the vlan_name_type per-net.
-Date: Tue, 15 Apr 2008 16:15:22 +0400
-Message-ID: <48049C5A.60801@openvz.org>
+Subject: [PATCH net-2.6.26 9/10][VLAN]: Allow vlan devices registration in
+ net namespaces.
+Date: Tue, 15 Apr 2008 16:17:12 +0400
+Message-ID: <48049CC8.7090802@openvz.org>
 References: <4804989F.1060503@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,123 +11,94 @@ Cc: Patrick McHardy <kaber@trash.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:35837 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:36296 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758107AbYDOLlG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 07:41:06 -0400
+	id S1756747AbYDOLmy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 07:42:54 -0400
 In-Reply-To: <4804989F.1060503@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This includes moving one on the struct vlan_net and
-s/vlan_name_type/vn->name_type/ over the code.
+This one is similar to what I've done for TUN - set the proper
+net after device allocation and clean VLANs on net exit (use the
+rtnl_kill_links helper finally).
+
+Plus, drop explicit init_net usage and net != &init_net checks.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/8021q/vlan.c     |   14 +++++++++-----
- net/8021q/vlan.h     |    4 ++--
- net/8021q/vlanproc.c |    7 +++++--
- 3 files changed, 16 insertions(+), 9 deletions(-)
+ net/8021q/vlan.c         |    7 +++----
+ net/8021q/vlan_dev.c     |    3 ---
+ net/8021q/vlan_netlink.c |    2 +-
+ 3 files changed, 4 insertions(+), 8 deletions(-)
 
 diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 541542e..5cacad0 100644
+index 5cacad0..7e9d22e 100644
 --- a/net/8021q/vlan.c
 +++ b/net/8021q/vlan.c
-@@ -52,9 +52,6 @@ static char vlan_version[] = DRV_VERSION;
- static char vlan_copyright[] = "Ben Greear <greearb@candelatech.com>";
- static char vlan_buggyright[] = "David S. Miller <davem@redhat.com>";
+@@ -340,6 +340,7 @@ static int register_vlan_device(struct net_device *real_dev,
+ 	if (new_dev == NULL)
+ 		return -ENOBUFS;
  
--/* Determines interface naming scheme. */
--unsigned short vlan_name_type = VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD;
++	dev_net_set(new_dev, net);
+ 	/* need 4 bytes for extra VLAN header info,
+ 	 * hope the underlying device can handle it.
+ 	 */
+@@ -406,9 +407,6 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 	int i, flgs;
+ 	struct net_device *vlandev;
+ 
+-	if (dev_net(dev) != &init_net)
+-		return NOTIFY_DONE;
 -
- static struct packet_type vlan_packet_type = {
- 	.type = __constant_htons(ETH_P_8021Q),
- 	.func = vlan_skb_recv, /* VLAN receive method */
-@@ -299,6 +296,8 @@ static int register_vlan_device(struct net_device *real_dev,
- 				unsigned short VLAN_ID)
- {
- 	struct net_device *new_dev;
-+	struct net *net = dev_net(real_dev);
-+	struct vlan_net *vn = net_generic(net, vlan_net_id);
- 	char name[IFNAMSIZ];
- 	int err;
+ 	if (is_vlan_dev(dev)) {
+ 		__vlan_device_event(dev, event);
+ 		goto out;
+@@ -534,7 +532,7 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
+ 	case GET_VLAN_REALDEV_NAME_CMD:
+ 	case GET_VLAN_VID_CMD:
+ 		err = -ENODEV;
+-		dev = __dev_get_by_name(&init_net, args.device1);
++		dev = __dev_get_by_name(net, args.device1);
+ 		if (!dev)
+ 			goto out;
  
-@@ -310,7 +309,7 @@ static int register_vlan_device(struct net_device *real_dev,
- 		return err;
+@@ -665,6 +663,7 @@ static void vlan_exit_net(struct net *net)
+ 	struct vlan_net *vn;
  
- 	/* Gotta set up the fields for the device. */
--	switch (vlan_name_type) {
-+	switch (vn->name_type) {
- 	case VLAN_NAME_TYPE_RAW_PLUS_VID:
- 		/* name will look like:	 eth1.0005 */
- 		snprintf(name, IFNAMSIZ, "%s.%.4i", real_dev->name, VLAN_ID);
-@@ -580,7 +579,10 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
- 			break;
- 		if ((args.u.name_type >= 0) &&
- 		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
--			vlan_name_type = args.u.name_type;
-+			struct vlan_net *vn;
-+
-+			vn = net_generic(net, vlan_net_id);
-+			vn->name_type = args.u.name_type;
- 			err = 0;
- 		} else {
- 			err = -EINVAL;
-@@ -642,6 +644,8 @@ static int vlan_init_net(struct net *net)
- 	if (err < 0)
- 		goto err_assign;
+ 	vn = net_generic(net, vlan_net_id);
++	rtnl_kill_links(net, &vlan_link_ops);
+ 	vlan_proc_cleanup(net);
+ 	kfree(vn);
+ }
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 4ae0d7e..c961f08 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -153,9 +153,6 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 	struct net_device_stats *stats;
+ 	unsigned short vlan_TCI;
  
-+	vn->name_type = VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD;
-+
- 	err = vlan_proc_init(net);
- 	if (err < 0)
- 		goto err_proc;
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-index 7258357..5229a72 100644
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
-@@ -3,8 +3,6 @@
- 
- #include <linux/if_vlan.h>
- 
--extern unsigned short vlan_name_type;
+-	if (dev_net(dev) != &init_net)
+-		goto err_free;
 -
- #define VLAN_GRP_HASH_SHIFT	5
- #define VLAN_GRP_HASH_SIZE	(1 << VLAN_GRP_HASH_SHIFT)
- #define VLAN_GRP_HASH_MASK	(VLAN_GRP_HASH_SIZE - 1)
-@@ -59,6 +57,8 @@ struct vlan_net {
- 	struct proc_dir_entry *proc_vlan_dir;
- 	/* /proc/net/vlan/config */
- 	struct proc_dir_entry *proc_vlan_conf;
-+	/* Determines interface naming scheme. */
-+	unsigned short name_type;
- };
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		goto err_free;
+diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+index e32eeb3..c93e69e 100644
+--- a/net/8021q/vlan_netlink.c
++++ b/net/8021q/vlan_netlink.c
+@@ -113,7 +113,7 @@ static int vlan_newlink(struct net_device *dev,
  
- #endif /* !(__BEN_VLAN_802_1Q_INC__) */
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index cc17b72..daad006 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -260,13 +260,16 @@ static void vlan_seq_stop(struct seq_file *seq, void *v)
+ 	if (!tb[IFLA_LINK])
+ 		return -EINVAL;
+-	real_dev = __dev_get_by_index(&init_net, nla_get_u32(tb[IFLA_LINK]));
++	real_dev = __dev_get_by_index(dev_net(dev), nla_get_u32(tb[IFLA_LINK]));
+ 	if (!real_dev)
+ 		return -ENODEV;
  
- static int vlan_seq_show(struct seq_file *seq, void *v)
- {
-+	struct net *net = seq_file_net(seq);
-+	struct vlan_net *vn = net_generic(net, vlan_net_id);
-+
- 	if (v == SEQ_START_TOKEN) {
- 		const char *nmtype = NULL;
- 
- 		seq_puts(seq, "VLAN Dev name	 | VLAN ID\n");
- 
--		if (vlan_name_type < ARRAY_SIZE(vlan_name_type_str))
--		    nmtype =  vlan_name_type_str[vlan_name_type];
-+		if (vn->name_type < ARRAY_SIZE(vlan_name_type_str))
-+		    nmtype =  vlan_name_type_str[vn->name_type];
- 
- 		seq_printf(seq, "Name-Type: %s\n",
- 			   nmtype ? nmtype :  "UNKNOWN");
 -- 
 1.5.3.4
 
