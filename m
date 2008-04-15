@@ -1,43 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [ETHTOOL]: Add support for large eeproms
-Date: Tue, 15 Apr 2008 00:31:53 -0700 (PDT)
-Message-ID: <20080415.003153.30044057.davem@davemloft.net>
-References: <48007CA0.6030002@garzik.org>
-	<20080414180338.GA18335@google.com>
+Subject: Re: [PATCH net-2.6.26 1/2][NETNS]: The net-subsys IDs generator.
+Date: Tue, 15 Apr 2008 00:35:35 -0700 (PDT)
+Message-ID: <20080415.003535.219653076.davem@davemloft.net>
+References: <480083C2.3050007@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, joe@perches.com,
-	nil@google.com, thockin@google.com, matthew@wil.cx
-To: msb@google.com
+Cc: netdev@vger.kernel.org, dlezcano@fr.ibm.com,
+	paulmck@linux.vnet.ibm.com
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41584
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41237
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751850AbYDOHbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 03:31:52 -0400
-In-Reply-To: <20080414180338.GA18335@google.com>
+	by vger.kernel.org with ESMTP id S1752883AbYDOHfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 03:35:33 -0400
+In-Reply-To: <480083C2.3050007@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mandeep Singh Baines <msb@google.com>
-Date: Mon, 14 Apr 2008 11:03:38 -0700
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Sat, 12 Apr 2008 13:41:22 +0400
 
-> Currently, it is not possible to read/write to an eeprom larger than
-> 128k in size because the buffer used for temporarily storing the
-> eeprom contents is allocated using kmalloc. kmalloc can only allocate
-> a maximum of 128k depending on architecture.
+> To make some per-net generic pointers, we need some way to address
+> them, i.e. - IDs. This is simple IDA-based IDs generator for pernet
+> subsystems.
 > 
-> Modified ethtool_get/set_eeprom to only allocate a page of memory and
-> then copy the eeprom a page at a time.
+> Addressing questions about potential checkpoint/restart problems: 
+> these IDs are "lite-offsets" within the net structure and are by no 
+> means supposed to be exported to the userspace.
 > 
-> Updated original patch as per suggestions from Joe Perches.
+> Since it will be used in the nearest future by devices only (tun,
+> vlan, tunnels, bridge, etc), I make it resemble the functionality
+> of register_pernet_device().
 > 
-> Signed-off-by: Mandeep Singh Baines <msb@google.com>
+> The new ids is stored in the *id pointer _before_ calling the init
+> callback to make this id available in this callback.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-This looks fine on the surface.
-
-But I wonder what we can do if we have some EEPROM implementation
-that can only write the whole time at once, and thus will fail
-if you try to do it in pieces?  Do we have such a case?
-
-If so this new code could cause regressions.
+Applied.
