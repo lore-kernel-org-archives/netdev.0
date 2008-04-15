@@ -1,51 +1,35 @@
-From: =?UTF-8?B?RsOhYmlvIFNvdXRv?= <fsouto@lasige.di.fc.ul.pt>
-Subject: Re: Netfilter and IPSec
-Date: Tue, 15 Apr 2008 19:45:41 +0100
-Message-ID: <4804F7D5.3000305@lasige.di.fc.ul.pt>
-References: <480423CD.3060707@lasige.di.fc.ul.pt> <alpine.LNX.1.10.0804151322470.13202@fbirervta.pbzchgretzou.qr>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Tue, 15 Apr 2008 20:46:42 +0200
+Message-ID: <200804152046.44018.oliver@neukum.org>
+References: <20080414213238.GB28833@kroah.com> <1208271789.20681.45.camel@FWR-FLAB> <20080415153408.GB7996@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@computergmbh.de>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.1.10.0804151322470.13202@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Filip Aben <f.aben@option.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
+	ajb@spheresystems.co.uk
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:53020 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753421AbYDOSrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 14:47:11 -0400
+In-Reply-To: <20080415153408.GB7996@kroah.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jan Engelhardt wrote:
->
->
-> The situation is deliberate, yes. IPsec is done in what you could
-> call the xfrm subsystem, not netfilter. To that end, the only
-> suggestion I could give is that you create a new xfrm policy/state
-> from esp where esp is split into your encryption and signing
-> "targets".
->
->  =20
-Thank you for all answers. The major problem I'm facing is the lacking=20
-of documentation on that subsystem.
-=46or example, how to create a policy. And after that?
-My task is a bit easier, because I only need to use AH and not ESP.
-Although a flexible solution would be of value :)
+Am Dienstag, 15. April 2008 17:34:08 schrieb Greg KH:
+> So I'll go delete that "special" ioctl, that's not a good thing to do,
+> use the common interfaces that all USB devices rely on instead, don't do
+> something different for just one type of USB device.
 
-The kernel is still a bit unknown to me, so I'm having a bit of trouble=
-=20
-into all the jargon you are using around.
-But the few things I understood are being extremely helpful.
-> It kinda brings me the question why the ipsec transformation is
-> not done with an xtables target instead; that would also give
-> handy access to connection tracking if needed.
->  =20
-With that I must agree!
+Do you have a new unified patch? I'd work against that, lest we get
+merge troubles.
 
---=20
------------------------------------------------------------------------=
--------------------
-=46=C3=A1bio Souto
-LaSIGE , Navigators Group
-Departamento de Inform=C3=A1tica, FC/UL
-Block C6, room 6.3.32, Campo Grande
-1749-016 Lisboa, Portugal
+	Regards
+		Oliver
 
