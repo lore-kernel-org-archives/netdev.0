@@ -1,207 +1,281 @@
 From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 3/7 net-2.6.26] [TIPC]: Cleanup of TIPC reference table code
-Date: Tue, 15 Apr 2008 15:43:53 -0400
-Message-ID: <1208288637-15304-4-git-send-email-allan.stephens@windriver.com>
+Subject: [PATCH 2/7 net-2.6.26] [TIPC]: Optimized initialization of TIPC reference table
+Date: Tue, 15 Apr 2008 15:43:52 -0400
+Message-ID: <1208288637-15304-3-git-send-email-allan.stephens@windriver.com>
 References: <1208288637-15304-1-git-send-email-allan.stephens@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:46948 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:46943 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756125AbYDOTpx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755963AbYDOTpx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 15 Apr 2008 15:45:53 -0400
 In-Reply-To: <1208288637-15304-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is a largely cosmetic cleanup of the TIPC reference
-table code.  Variable naming has been made more consistent,
-useless #includes have been eliminated, and the object reference
-field in each table entry is no longer implemented using an
-unnecessary structure union.  In addition, error checking has
-been enhanced to detect accidental access to reference table
-entries that are on the free list.
+This patch optimizes the initialization phase of TIPC's reference
+table, so that it initializes table entries on an "as needed" basis.
+(Previously, all entries of the table were initialized, regardless
+of whether they actually ended up being used.)
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 ---
- net/tipc/ref.c |   80 +++++++++++++++++++++++--------------------------------
- 1 files changed, 34 insertions(+), 46 deletions(-)
+ net/tipc/ref.c |  128 ++++++++++++++++++++++++++++++++++----------------------
+ 1 files changed, 78 insertions(+), 50 deletions(-)
 
 diff --git a/net/tipc/ref.c b/net/tipc/ref.c
-index 75cfb8d..b7ef559 100644
+index 9c2eb9b..75cfb8d 100644
 --- a/net/tipc/ref.c
 +++ b/net/tipc/ref.c
-@@ -36,30 +36,18 @@
- 
- #include "core.h"
- #include "ref.h"
--#include "port.h"
--#include "subscr.h"
--#include "name_distr.h"
--#include "name_table.h"
--#include "config.h"
--#include "discover.h"
--#include "bearer.h"
--#include "node.h"
--#include "bcast.h"
- 
- /**
+@@ -50,7 +50,7 @@
   * struct reference - TIPC object reference entry
   * @object: pointer to object associated with reference entry
   * @lock: spinlock controlling access to object
-- * @data: reference value for object (combines instance & array index info)
-+ * @ref: reference value for object (combines instance & array index info)
+- * @data: reference value associated with object (or link to next unused entry)
++ * @data: reference value for object (combines instance & array index info)
   */
  
  struct reference {
- 	void *object;
- 	spinlock_t lock;
--	union {
--		u32 next_plus_upper;
--		u32 reference;
--	} data;
-+	u32 ref;
+@@ -65,31 +65,40 @@ struct reference {
+ /**
+  * struct tipc_ref_table - table of TIPC object reference entries
+  * @entries: pointer to array of reference entries
+- * @index_mask: bitmask for array index portion of reference values
++ * @capacity: array index of first unusable entry
++ * @init_point: array index of first uninitialized entry
+  * @first_free: array index of first unused object reference entry
+  * @last_free: array index of last unused object reference entry
++ * @index_mask: bitmask for array index portion of reference values
++ * @start_mask: initial value for instance value portion of reference values
+  */
+ 
+ struct ref_table {
+ 	struct reference *entries;
+-	u32 index_mask;
++	u32 capacity;
++	u32 init_point;
+ 	u32 first_free;
+ 	u32 last_free;
++	u32 index_mask;
++	u32 start_mask;
  };
  
+ /*
+  * Object reference table consists of 2**N entries.
+  *
+- * A used entry has object ptr != 0, reference == XXXX|own index
+- *				     (XXXX changes each time entry is acquired)
+- * A free entry has object ptr == 0, reference == YYYY|next free index
+- *				     (YYYY is one more than last used XXXX)
++ * State	Object ptr	Reference
++ * -----        ----------      ---------
++ * In use        non-NULL       XXXX|own index
++ *				(XXXX changes each time entry is acquired)
++ * Free            NULL         YYYY|next free index
++ *				(YYYY is one more than last used XXXX)
++ * Uninitialized   NULL         0
+  *
+- * Free list is initially chained from entry (2**N)-1 to entry 1.
+- * Entry 0 is not used to allow index 0 to indicate the end of the free list.
++ * Entry 0 is not used; this allows index 0 to denote the end of the free list.
+  *
+- * Note: Any accidental reference of the form XXXX|0--0 won't match entry 0
+- * because entry 0's reference field has the form XXXX|1--1.
++ * Note that a reference value of 0 does not necessarily indicate that an
++ * entry is uninitialized, since the last entry in the free list could also
++ * have a reference value of 0 (although this is unlikely).
+  */
+ 
+ static struct ref_table tipc_ref_table = { NULL };
+@@ -97,35 +106,33 @@ static struct ref_table tipc_ref_table = { NULL };
+ static DEFINE_RWLOCK(ref_table_lock);
+ 
  /**
-@@ -163,7 +151,7 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
+- * tipc_ref_table_init - create reference table for objects
++ * tipc_ref_table_init - initialize reference table for objects
+  */
+ 
+ int tipc_ref_table_init(u32 requested_size, u32 start)
+ {
+ 	struct reference *table;
+-	u32 sz = 1 << 4;
+-	u32 index_mask;
+-	int i;
++	u32 actual_size;
+ 
+-	while (sz < requested_size) {
+-		sz <<= 1;
+-	}
+-	table = vmalloc(sz * sizeof(*table));
++	/* account for unused entry, then round up size to a power of 2 */
++
++	requested_size++;
++	for (actual_size = 16; actual_size < requested_size; actual_size <<= 1)
++		/* do nothing */ ;
++
++	table = vmalloc(actual_size * sizeof(struct reference));
+ 	if (table == NULL)
+ 		return -ENOMEM;
+ 
+-	write_lock_bh(&ref_table_lock);
+-	index_mask = sz - 1;
+-	for (i = sz - 1; i >= 0; i--) {
+-		table[i].object = NULL;
+-		spin_lock_init(&table[i].lock);
+-		table[i].data.next_plus_upper = (start & ~index_mask) + i - 1;
+-	}
++	memset(table, 0, actual_size * sizeof(struct reference));
+ 	tipc_ref_table.entries = table;
+-	tipc_ref_table.index_mask = index_mask;
+-	tipc_ref_table.first_free = sz - 1;
+-	tipc_ref_table.last_free = 1;
+-	write_unlock_bh(&ref_table_lock);
++	tipc_ref_table.capacity = requested_size;
++	tipc_ref_table.init_point = 1;
++	tipc_ref_table.first_free = 0;
++	tipc_ref_table.last_free = 0;
++	tipc_ref_table.index_mask = actual_size - 1;
++	tipc_ref_table.start_mask = start & ~tipc_ref_table.index_mask;
++
+ 	return TIPC_OK;
+ }
+ 
+@@ -156,7 +163,7 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
  	u32 index;
  	u32 index_mask;
  	u32 next_plus_upper;
--	u32 reference;
-+	u32 ref;
+-	u32 reference = 0;
++	u32 reference;
  
  	if (unlikely(object == NULL)) {
  		err("Attempt to acquire reference to non-existent object\n");
-@@ -183,10 +171,10 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
- 		index_mask = tipc_ref_table.index_mask;
- 		/* take lock in case a previous user of entry still holds it */
- 		spin_lock_bh(&entry->lock);
--		next_plus_upper = entry->data.next_plus_upper;
-+		next_plus_upper = entry->ref;
- 		tipc_ref_table.first_free = next_plus_upper & index_mask;
--		reference = (next_plus_upper & ~index_mask) + index;
--		entry->data.reference = reference;
-+		ref = (next_plus_upper & ~index_mask) + index;
-+		entry->ref = ref;
- 		entry->object = object;
- 		spin_unlock_bh(&entry->lock);
- 		*lock = &entry->lock;
-@@ -195,17 +183,17 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
- 		index = tipc_ref_table.init_point++;
- 		entry = &(tipc_ref_table.entries[index]);
- 		spin_lock_init(&entry->lock);
--		reference = tipc_ref_table.start_mask + index;
--		entry->data.reference = reference;
-+		ref = tipc_ref_table.start_mask + index;
-+		entry->ref = ref;
- 		entry->object = object;
- 		*lock = &entry->lock;
+@@ -167,8 +174,10 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
+ 		return 0;
  	}
- 	else {
--		reference = 0;
-+		ref = 0;
+ 
++	/* take a free entry, if available; otherwise initialize a new entry */
++
+ 	write_lock_bh(&ref_table_lock);
+-	if (tipc_ref_table.first_free) {
++	if (likely(tipc_ref_table.first_free != 0)) {
+ 		index = tipc_ref_table.first_free;
+ 		entry = &(tipc_ref_table.entries[index]);
+ 		index_mask = tipc_ref_table.index_mask;
+@@ -179,11 +188,23 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
+ 		reference = (next_plus_upper & ~index_mask) + index;
+ 		entry->data.reference = reference;
+ 		entry->object = object;
+-		if (lock != NULL)
+-			*lock = &entry->lock;
+ 		spin_unlock_bh(&entry->lock);
++		*lock = &entry->lock;
++	}
++	else if (tipc_ref_table.init_point < tipc_ref_table.capacity) {
++		index = tipc_ref_table.init_point++;
++		entry = &(tipc_ref_table.entries[index]);
++		spin_lock_init(&entry->lock);
++		reference = tipc_ref_table.start_mask + index;
++		entry->data.reference = reference;
++		entry->object = object;
++		*lock = &entry->lock;
++	}
++	else {
++		reference = 0;
  	}
  	write_unlock_bh(&ref_table_lock);
- 
--	return reference;
-+	return ref;
++
+ 	return reference;
  }
  
- /**
-@@ -236,26 +224,25 @@ void tipc_ref_discard(u32 ref)
+@@ -200,41 +221,43 @@ void tipc_ref_discard(u32 ref)
+ 	u32 index;
+ 	u32 index_mask;
+ 
+-	if (!ref) {
+-		err("Attempt to discard reference 0\n");
+-		return;
+-	}
+ 	if (unlikely(tipc_ref_table.entries == NULL)) {
+ 		err("Reference table not found during discard attempt\n");
+ 		return;
+ 	}
+ 
+-	write_lock_bh(&ref_table_lock);
+ 	index_mask = tipc_ref_table.index_mask;
+ 	index = ref & index_mask;
+ 	entry = &(tipc_ref_table.entries[index]);
+ 
++	write_lock_bh(&ref_table_lock);
++
+ 	if (unlikely(entry->object == NULL)) {
  		err("Attempt to discard reference to non-existent object\n");
  		goto exit;
  	}
--	if (unlikely(entry->data.reference != ref)) {
-+	if (unlikely(entry->ref != ref)) {
+-	if (entry->data.reference != ref) {
++	if (unlikely(entry->data.reference != ref)) {
  		err("Attempt to discard non-existent reference\n");
  		goto exit;
  	}
  
- 	/*
--	 * mark entry as unused; increment upper bits of entry's data field
-+	 * mark entry as unused; increment instance part of entry's reference
- 	 * to invalidate any subsequent references
- 	 */
- 
+-	/* mark entry as unused */
++	/*
++	 * mark entry as unused; increment upper bits of entry's data field
++	 * to invalidate any subsequent references
++	 */
++
  	entry->object = NULL;
--	entry->data.next_plus_upper = (ref & ~index_mask) + (index_mask + 1);
-+	entry->ref = (ref & ~index_mask) + (index_mask + 1);
- 
- 	/* append entry to free entry list */
- 
++	entry->data.next_plus_upper = (ref & ~index_mask) + (index_mask + 1);
++
++	/* append entry to free entry list */
++
  	if (tipc_ref_table.first_free == 0)
  		tipc_ref_table.first_free = index;
  	else
--		tipc_ref_table.entries[tipc_ref_table.last_free].
--			data.next_plus_upper |= index;
-+		tipc_ref_table.entries[tipc_ref_table.last_free].ref |= index;
+-		/* next_plus_upper is always XXXX|0--0 for last free entry */
+ 		tipc_ref_table.entries[tipc_ref_table.last_free].
+ 			data.next_plus_upper |= index;
  	tipc_ref_table.last_free = index;
  
+-	/* increment upper bits of entry to invalidate subsequent references */
+-	entry->data.next_plus_upper = (ref & ~index_mask) + (index_mask + 1);
  exit:
-@@ -269,15 +256,16 @@ exit:
- void *tipc_ref_lock(u32 ref)
- {
- 	if (likely(tipc_ref_table.entries != NULL)) {
--		struct reference *r;
--
--		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
--
--		if (likely(r->data.reference != 0)) {
--			spin_lock_bh(&r->lock);
--			if (likely(r->data.reference == ref))
--				return r->object;
--			spin_unlock_bh(&r->lock);
-+		struct reference *entry;
-+
-+		entry = &tipc_ref_table.entries[ref &
-+						tipc_ref_table.index_mask];
-+		if (likely(entry->ref != 0)) {
-+			spin_lock_bh(&entry->lock);
-+			if (likely((entry->ref == ref) &&
-+				   (entry->object != NULL)))
-+				return entry->object;
-+			spin_unlock_bh(&entry->lock);
- 		}
- 	}
- 	return NULL;
-@@ -290,13 +278,12 @@ void *tipc_ref_lock(u32 ref)
- void tipc_ref_unlock(u32 ref)
- {
- 	if (likely(tipc_ref_table.entries != NULL)) {
--		struct reference *r;
--
--		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
-+		struct reference *entry;
+ 	write_unlock_bh(&ref_table_lock);
+ }
+@@ -249,10 +272,13 @@ void *tipc_ref_lock(u32 ref)
+ 		struct reference *r;
  
--		if (likely((r->data.reference == ref) &&
--			   (r->data.reference != 0)))
--			spin_unlock_bh(&r->lock);
-+		entry = &tipc_ref_table.entries[ref &
-+						tipc_ref_table.index_mask];
-+		if (likely((entry->ref == ref) && (entry->object != NULL)))
-+			spin_unlock_bh(&entry->lock);
- 		else
- 			err("tipc_ref_unlock() invoked using "
- 			    "invalid reference\n");
-@@ -310,11 +297,12 @@ void tipc_ref_unlock(u32 ref)
- void *tipc_ref_deref(u32 ref)
- {
- 	if (likely(tipc_ref_table.entries != NULL)) {
--		struct reference *r;
-+		struct reference *entry;
- 
--		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
+ 		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
+-		spin_lock_bh(&r->lock);
 -		if (likely(r->data.reference == ref))
 -			return r->object;
-+		entry = &tipc_ref_table.entries[ref &
-+						tipc_ref_table.index_mask];
-+		if (likely(entry->ref == ref))
-+			return entry->object;
+-		spin_unlock_bh(&r->lock);
++
++		if (likely(r->data.reference != 0)) {
++			spin_lock_bh(&r->lock);
++			if (likely(r->data.reference == ref))
++				return r->object;
++			spin_unlock_bh(&r->lock);
++		}
  	}
  	return NULL;
  }
+@@ -267,11 +293,13 @@ void tipc_ref_unlock(u32 ref)
+ 		struct reference *r;
+ 
+ 		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
+-		if (likely(r->data.reference == ref))
++
++		if (likely((r->data.reference == ref) &&
++			   (r->data.reference != 0)))
+ 			spin_unlock_bh(&r->lock);
+ 		else
+ 			err("tipc_ref_unlock() invoked using "
+-			    "obsolete reference\n");
++			    "invalid reference\n");
+ 	}
+ }
+ 
 -- 
 1.5.3.2
 
