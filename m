@@ -1,85 +1,52 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Tue, 15 Apr 2008 15:55:06 +0200
-Message-ID: <200804151555.06698.oliver@neukum.org>
-References: <20080414213238.GB28833@kroah.com>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: Reporting bugs and bisection
+Date: Tue, 15 Apr 2008 23:34:05 +0930
+Message-ID: <4804B5D5.4090404@davidnewall.com>
+References: <47FEADCB.7070104@rtr.ca> <20080413205406.GA9190@2ka.mipt.ru>	 <48028830.6020703@earthlink.net>	 <alpine.DEB.1.10.0804131546370.9318@asgard>	 <20080414043939.GA6862@1wt.eu>	 <20080414053943.GU9785@ZenIV.linux.org.uk>	 <20080413232441.e216a02c.akpm@linux-foundation.org>	 <20080414072328.GW9785@ZenIV.linux.org.uk>	 <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au>	 <4804765B.2070300@davidnewall.com> <517f3f820804150254w491cdf85s28f1d15696db8d96@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Filip Aben <f.aben@option.com>,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	ajb@spheresystems.co.uk
-To: Greg KH <greg@kroah.com>
+Cc: James Morris <jmorris@namei.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, david@lang.hm,
+	Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Tilman Schmidt <tilman@imap.cc>,
+	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Kerrisk <mtk.manpages@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:33212 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759657AbYDONzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 09:55:33 -0400
-In-Reply-To: <20080414213238.GB28833@kroah.com>
-Content-Disposition: inline
+Received: from eth7959.sa.adsl.internode.on.net ([150.101.82.22]:33110 "EHLO
+	hawking.rebel.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754800AbYDOOEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 10:04:05 -0400
+In-Reply-To: <517f3f820804150254w491cdf85s28f1d15696db8d96@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 14. April 2008 23:32:39 schrieb Greg KH:
-> Hi all,
-> 
-> Here's a patch that I have cleaned up for context only from Option that
-> is a USB serial / network device all in one.
-> 
-> I'd like to see this go into 2.6.26, so any review comments by anyone
-> who wishes to review any portion of this would be greatly apprecited.
+Michael Kerrisk wrote:
+> On 4/15/08, David Newall <davidn@davidnewall.com> wrote:
+>   
+>> James Morris wrote:
+>>  > I don't know how to solve this, but suspect that encouraging the use of
+>>  > reviewed-by and also including it in things like analysis of who is
+>>  > contributing, selection for kernel summit invitations etc. would be a
+>>  > start.  At least, better than nothing.
+>>
+>> Would it be hard to keep count of the number of errors introduced by
+>>  author and reviewer?
+>>     
+>
+> I've found quite a few errors in kernel-userland APIs, but I'm not
+> sure that this sort of negative statistic would be helpful -- e.g.,
+> more productive developers probably also introduce more errors.
 
-This patch removes a creative abuse of in_interrupt(). Locking
-is always done with a mutex now. No need for atomic operations.
-
-Signed-off-by: Oliver Neukum <oneukum@suse.de>
-
----
-
---- linux-2.6.25-rc7-work/drivers/net/usb/hso.c.alt2	2008-04-15 15:21:25.000000000 +0200
-+++ linux-2.6.25-rc7-work/drivers/net/usb/hso.c	2008-04-15 15:29:17.000000000 +0200
-@@ -2201,21 +2201,13 @@ static int hso_stop_serial_device(struct
- 		return -ENODEV;
- 
- 	for (i = 0; i < serial->num_rx_urbs; i++) {
--		if (serial->rx_urb[i]
--		    && (serial->rx_urb[i]->status == -EINPROGRESS)) {
--			if (in_interrupt())
--				usb_unlink_urb(serial->rx_urb[i]);
--			else
-+		if (serial->rx_urb[i])
- 				usb_kill_urb(serial->rx_urb[i]);
--		}
- 	}
- 
--	if (serial->tx_urb && (serial->tx_urb->status == -EINPROGRESS)) {
--		if (in_interrupt())
--			usb_unlink_urb(serial->tx_urb);
--		else
--			usb_kill_urb(serial->rx_urb[i]);
--	}
-+	if (serial->tx_urb)
-+		usb_kill_urb(serial->rx_urb[i]);
-+
- 	if (serial->shared_int) {
- 		spin_lock_bh(&serial->shared_int->shared_int_lock);
- 		if (serial->shared_int->use_count &&
-@@ -2223,12 +2215,8 @@ static int hso_stop_serial_device(struct
- 			struct urb *urb;
- 
- 			urb = serial->shared_int->shared_intr_urb;
--			if ((urb) && (urb->status == -EINPROGRESS)) {
--				if (in_interrupt())
--					usb_unlink_urb(urb);
--				else
--					usb_kill_urb(urb);
--			}
-+			if (urb)
-+				usb_kill_urb(urb);
- 		}
- 		spin_unlock_bh(&serial->shared_int->shared_int_lock);
- 	}
-
+We can already see which developers are more active.  What we can't see
+is who is careless, which would be useful to know.  It would also be
+useful to know who is careless in approving changes, because they share
+responsibility for those changes.  It would be a good thing if this
+highlighted that some people are behind frequent buggy changes.
