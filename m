@@ -1,7 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 2/10][RTNL]: Introduce the rtnl_kill_links helper.
-Date: Tue, 15 Apr 2008 16:03:32 +0400
-Message-ID: <48049994.7050405@openvz.org>
+Subject: [PATCH net-2.6.26 3/10][VLAN]: Tag vlan_group_device with net device,
+ not ifindex.
+Date: Tue, 15 Apr 2008 16:05:13 +0400
+Message-ID: <480499F9.4050808@openvz.org>
 References: <4804989F.1060503@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,87 +11,126 @@ Cc: Patrick McHardy <kaber@trash.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39976 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:59989 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753428AbYDOL3R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 07:29:17 -0400
+	id S1753054AbYDOLaz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 07:30:55 -0400
 In-Reply-To: <4804989F.1060503@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This one is responsible for calling ->dellink on each net
-device found in net to help with vlan net_exit hook in the
-nearest future.
+Currently vlan group is searched using one key - the ifindex.
+We'll have to lookup the vlan_group by two keys - ifindex and
+net. Turning the vlan_group lookup key to struct net_device
+pointer will make this process easier.
+
+Besides, this will eliminate one more place in the networking,
+that assumes that indexes are unique in the kernel.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/net/rtnetlink.h |    1 +
- net/core/rtnetlink.c    |   29 +++++++++++++++++++++--------
- 2 files changed, 22 insertions(+), 8 deletions(-)
+ include/linux/if_vlan.h |    4 +++-
+ net/8021q/vlan.c        |   22 +++++++++++-----------
+ 2 files changed, 14 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 793863e..3c1895e 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -74,6 +74,7 @@ struct rtnl_link_ops {
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index edd55af..15ace02 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -81,7 +81,9 @@ extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
+ #define VLAN_GROUP_ARRAY_PART_LEN     (VLAN_GROUP_ARRAY_LEN/VLAN_GROUP_ARRAY_SPLIT_PARTS)
  
- extern int	__rtnl_link_register(struct rtnl_link_ops *ops);
- extern void	__rtnl_link_unregister(struct rtnl_link_ops *ops);
-+extern void	rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops);
- 
- extern int	rtnl_link_register(struct rtnl_link_ops *ops);
- extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index edc6dbf..bc39e41 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -269,6 +269,26 @@ int rtnl_link_register(struct rtnl_link_ops *ops)
- 
- EXPORT_SYMBOL_GPL(rtnl_link_register);
- 
-+static void __rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
-+{
-+	struct net_device *dev;
-+restart:
-+	for_each_netdev(net, dev) {
-+		if (dev->rtnl_link_ops == ops) {
-+			ops->dellink(dev);
-+			goto restart;
-+		}
-+	}
-+}
-+
-+void rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
-+{
-+	rtnl_lock();
-+	__rtnl_kill_links(net, ops);
-+	rtnl_unlock();
-+}
-+EXPORT_SYMBOL_GPL(rtnl_kill_links);
-+
- /**
-  * __rtnl_link_unregister - Unregister rtnl_link_ops from rtnetlink.
-  * @ops: struct rtnl_link_ops * to unregister
-@@ -277,17 +297,10 @@ EXPORT_SYMBOL_GPL(rtnl_link_register);
-  */
- void __rtnl_link_unregister(struct rtnl_link_ops *ops)
- {
--	struct net_device *dev;
- 	struct net *net;
- 
- 	for_each_net(net) {
--restart:
--		for_each_netdev(net, dev) {
--			if (dev->rtnl_link_ops == ops) {
--				ops->dellink(dev);
--				goto restart;
--			}
--		}
-+		__rtnl_kill_links(net, ops);
- 	}
- 	list_del(&ops->list);
+ struct vlan_group {
+-	int real_dev_ifindex; /* The ifindex of the ethernet(like) device the vlan is attached to. */
++	struct net_device	*real_dev; /* The ethernet(like) device
++					    * the vlan is attached to.
++					    */
+ 	unsigned int		nr_vlans;
+ 	struct hlist_node	hlist;	/* linked list */
+ 	struct net_device **vlan_devices_arrays[VLAN_GROUP_ARRAY_SPLIT_PARTS];
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 5975ec3..cf8d810 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -65,14 +65,14 @@ static inline unsigned int vlan_grp_hashfn(unsigned int idx)
  }
+ 
+ /* Must be invoked with RCU read lock (no preempt) */
+-static struct vlan_group *__vlan_find_group(int real_dev_ifindex)
++static struct vlan_group *__vlan_find_group(struct net_device *real_dev)
+ {
+ 	struct vlan_group *grp;
+ 	struct hlist_node *n;
+-	int hash = vlan_grp_hashfn(real_dev_ifindex);
++	int hash = vlan_grp_hashfn(real_dev->ifindex);
+ 
+ 	hlist_for_each_entry_rcu(grp, n, &vlan_group_hash[hash], hlist) {
+-		if (grp->real_dev_ifindex == real_dev_ifindex)
++		if (grp->real_dev == real_dev)
+ 			return grp;
+ 	}
+ 
+@@ -86,7 +86,7 @@ static struct vlan_group *__vlan_find_group(int real_dev_ifindex)
+ struct net_device *__find_vlan_dev(struct net_device *real_dev,
+ 				   unsigned short VID)
+ {
+-	struct vlan_group *grp = __vlan_find_group(real_dev->ifindex);
++	struct vlan_group *grp = __vlan_find_group(real_dev);
+ 
+ 	if (grp)
+ 		return vlan_group_get_device(grp, VID);
+@@ -103,7 +103,7 @@ static void vlan_group_free(struct vlan_group *grp)
+ 	kfree(grp);
+ }
+ 
+-static struct vlan_group *vlan_group_alloc(int ifindex)
++static struct vlan_group *vlan_group_alloc(struct net_device *real_dev)
+ {
+ 	struct vlan_group *grp;
+ 
+@@ -111,9 +111,9 @@ static struct vlan_group *vlan_group_alloc(int ifindex)
+ 	if (!grp)
+ 		return NULL;
+ 
+-	grp->real_dev_ifindex = ifindex;
++	grp->real_dev = real_dev;
+ 	hlist_add_head_rcu(&grp->hlist,
+-			   &vlan_group_hash[vlan_grp_hashfn(ifindex)]);
++			&vlan_group_hash[vlan_grp_hashfn(real_dev->ifindex)]);
+ 	return grp;
+ }
+ 
+@@ -151,7 +151,7 @@ void unregister_vlan_dev(struct net_device *dev)
+ 
+ 	ASSERT_RTNL();
+ 
+-	grp = __vlan_find_group(real_dev->ifindex);
++	grp = __vlan_find_group(real_dev);
+ 	BUG_ON(!grp);
+ 
+ 	vlan_proc_rem_dev(dev);
+@@ -246,9 +246,9 @@ int register_vlan_dev(struct net_device *dev)
+ 	struct vlan_group *grp, *ngrp = NULL;
+ 	int err;
+ 
+-	grp = __vlan_find_group(real_dev->ifindex);
++	grp = __vlan_find_group(real_dev);
+ 	if (!grp) {
+-		ngrp = grp = vlan_group_alloc(real_dev->ifindex);
++		ngrp = grp = vlan_group_alloc(real_dev);
+ 		if (!grp)
+ 			return -ENOBUFS;
+ 	}
+@@ -412,7 +412,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 		goto out;
+ 	}
+ 
+-	grp = __vlan_find_group(dev->ifindex);
++	grp = __vlan_find_group(dev);
+ 	if (!grp)
+ 		goto out;
+ 
 -- 
 1.5.3.4
 
