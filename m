@@ -1,111 +1,207 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
-Date: Tue, 15 Apr 2008 21:38:40 +0200
-Message-ID: <200804152138.41077.tomasz@grobelny.oswiecenia.net>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804150145.05571.tomasz@grobelny.oswiecenia.net> <20080415151403.GA20735@gerrit.erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+From: Allan Stephens <allan.stephens@windriver.com>
+Subject: [PATCH 3/7 net-2.6.26] [TIPC]: Cleanup of TIPC reference table code
+Date: Tue, 15 Apr 2008 15:43:53 -0400
+Message-ID: <1208288637-15304-4-git-send-email-allan.stephens@windriver.com>
+References: <1208288637-15304-1-git-send-email-allan.stephens@windriver.com>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:1198 "EHLO poczta.oswiecenia.net"
+Received: from mail.windriver.com ([147.11.1.11]:46948 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754958AbYDOTi7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 15:38:59 -0400
-In-Reply-To: <20080415151403.GA20735@gerrit.erg.abdn.ac.uk>
-Content-Disposition: inline
+	id S1756125AbYDOTpx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 15:45:53 -0400
+In-Reply-To: <1208288637-15304-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dnia Tuesday 15 of April 2008, Gerrit Renker napisa=B3:
-> | > @@ -501,6 +519,8 @@ struct dccp_sock {
-> | >  	struct ccid			*dccps_hc_rx_ccid;
-> | >  	struct ccid			*dccps_hc_tx_ccid;
-> | >  	struct dccp_options_received	dccps_options_received;
-> | > +	__u8				dccps_qpolicy;
-> | > +	__u32				dccps_tx_qlen;
-> | >  	enum dccp_role			dccps_role:2;
-> | >  	__u8				dccps_hc_rx_insert_options:1;
-> | >  	__u8				dccps_hc_tx_insert_options:1;
-> |
-> | I know that currently none of the policies has any per-socket data.=
- But
-> | if it had were should it go?
->
-> I can't see anything wrong with putting everything into dccp_sock. To=
- do it
-> well, we could consider inserting documentation such as "this section=
- is
-> only for queueing policies" (as is done very well for struct tcp_sock=
-).
->
-Let me remind you your comment made on 18/03/2008 on dccp ml to my firs=
-t=20
-patch:
- --- START ---=20
-@@ -545,6 +549,8 @@ struct dccp_sock {
-=A0 =A0 =A0 =A0 __u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0dccps_hc_tx_insert_options:1;
-=A0 =A0 =A0 =A0 __u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0dccps_server_timewait:1;
-=A0 =A0 =A0 =A0 struct timer_list =A0 =A0 =A0 =A0 =A0 =A0 =A0 dccps_xmi=
-t_timer;
-+ =A0 =A0 =A0 struct queuing_policy =A0 =A0=A0=A0=A0=A0=A0=A0=A0*dccps_=
-policy;
-+ =A0 =A0 =A0 void =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0*dccps_policy_data;
-=A0};
+This patch is a largely cosmetic cleanup of the TIPC reference
+table code.  Variable naming has been made more consistent,
+useless #includes have been eliminated, and the object reference
+field in each table entry is no longer implemented using an
+unnecessary structure union.  In addition, error checking has
+been enhanced to detect accidental access to reference table
+entries that are on the free list.
 
-I think this should be just one field for the policy, and the
-policy_data can be an internal field of `struct queueing_policy'
-(compare with struct ackvec or struct ccid).
- --- END ---=20
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+---
+ net/tipc/ref.c |   80 +++++++++++++++++++++++--------------------------------
+ 1 files changed, 34 insertions(+), 46 deletions(-)
 
-> I see several advantages of this:
->  * by just storing the u8 of the policy ID, the socket as a whole get=
-s
-> smaller,
->  * the internals of the function pointer table can be hidden,
->=20
-That's ok with me.=20
+diff --git a/net/tipc/ref.c b/net/tipc/ref.c
+index 75cfb8d..b7ef559 100644
+--- a/net/tipc/ref.c
++++ b/net/tipc/ref.c
+@@ -36,30 +36,18 @@
+ 
+ #include "core.h"
+ #include "ref.h"
+-#include "port.h"
+-#include "subscr.h"
+-#include "name_distr.h"
+-#include "name_table.h"
+-#include "config.h"
+-#include "discover.h"
+-#include "bearer.h"
+-#include "node.h"
+-#include "bcast.h"
+ 
+ /**
+  * struct reference - TIPC object reference entry
+  * @object: pointer to object associated with reference entry
+  * @lock: spinlock controlling access to object
+- * @data: reference value for object (combines instance & array index info)
++ * @ref: reference value for object (combines instance & array index info)
+  */
+ 
+ struct reference {
+ 	void *object;
+ 	spinlock_t lock;
+-	union {
+-		u32 next_plus_upper;
+-		u32 reference;
+-	} data;
++	u32 ref;
+ };
+ 
+ /**
+@@ -163,7 +151,7 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
+ 	u32 index;
+ 	u32 index_mask;
+ 	u32 next_plus_upper;
+-	u32 reference;
++	u32 ref;
+ 
+ 	if (unlikely(object == NULL)) {
+ 		err("Attempt to acquire reference to non-existent object\n");
+@@ -183,10 +171,10 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
+ 		index_mask = tipc_ref_table.index_mask;
+ 		/* take lock in case a previous user of entry still holds it */
+ 		spin_lock_bh(&entry->lock);
+-		next_plus_upper = entry->data.next_plus_upper;
++		next_plus_upper = entry->ref;
+ 		tipc_ref_table.first_free = next_plus_upper & index_mask;
+-		reference = (next_plus_upper & ~index_mask) + index;
+-		entry->data.reference = reference;
++		ref = (next_plus_upper & ~index_mask) + index;
++		entry->ref = ref;
+ 		entry->object = object;
+ 		spin_unlock_bh(&entry->lock);
+ 		*lock = &entry->lock;
+@@ -195,17 +183,17 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
+ 		index = tipc_ref_table.init_point++;
+ 		entry = &(tipc_ref_table.entries[index]);
+ 		spin_lock_init(&entry->lock);
+-		reference = tipc_ref_table.start_mask + index;
+-		entry->data.reference = reference;
++		ref = tipc_ref_table.start_mask + index;
++		entry->ref = ref;
+ 		entry->object = object;
+ 		*lock = &entry->lock;
+ 	}
+ 	else {
+-		reference = 0;
++		ref = 0;
+ 	}
+ 	write_unlock_bh(&ref_table_lock);
+ 
+-	return reference;
++	return ref;
+ }
+ 
+ /**
+@@ -236,26 +224,25 @@ void tipc_ref_discard(u32 ref)
+ 		err("Attempt to discard reference to non-existent object\n");
+ 		goto exit;
+ 	}
+-	if (unlikely(entry->data.reference != ref)) {
++	if (unlikely(entry->ref != ref)) {
+ 		err("Attempt to discard non-existent reference\n");
+ 		goto exit;
+ 	}
+ 
+ 	/*
+-	 * mark entry as unused; increment upper bits of entry's data field
++	 * mark entry as unused; increment instance part of entry's reference
+ 	 * to invalidate any subsequent references
+ 	 */
+ 
+ 	entry->object = NULL;
+-	entry->data.next_plus_upper = (ref & ~index_mask) + (index_mask + 1);
++	entry->ref = (ref & ~index_mask) + (index_mask + 1);
+ 
+ 	/* append entry to free entry list */
+ 
+ 	if (tipc_ref_table.first_free == 0)
+ 		tipc_ref_table.first_free = index;
+ 	else
+-		tipc_ref_table.entries[tipc_ref_table.last_free].
+-			data.next_plus_upper |= index;
++		tipc_ref_table.entries[tipc_ref_table.last_free].ref |= index;
+ 	tipc_ref_table.last_free = index;
+ 
+ exit:
+@@ -269,15 +256,16 @@ exit:
+ void *tipc_ref_lock(u32 ref)
+ {
+ 	if (likely(tipc_ref_table.entries != NULL)) {
+-		struct reference *r;
+-
+-		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
+-
+-		if (likely(r->data.reference != 0)) {
+-			spin_lock_bh(&r->lock);
+-			if (likely(r->data.reference == ref))
+-				return r->object;
+-			spin_unlock_bh(&r->lock);
++		struct reference *entry;
++
++		entry = &tipc_ref_table.entries[ref &
++						tipc_ref_table.index_mask];
++		if (likely(entry->ref != 0)) {
++			spin_lock_bh(&entry->lock);
++			if (likely((entry->ref == ref) &&
++				   (entry->object != NULL)))
++				return entry->object;
++			spin_unlock_bh(&entry->lock);
+ 		}
+ 	}
+ 	return NULL;
+@@ -290,13 +278,12 @@ void *tipc_ref_lock(u32 ref)
+ void tipc_ref_unlock(u32 ref)
+ {
+ 	if (likely(tipc_ref_table.entries != NULL)) {
+-		struct reference *r;
+-
+-		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
++		struct reference *entry;
+ 
+-		if (likely((r->data.reference == ref) &&
+-			   (r->data.reference != 0)))
+-			spin_unlock_bh(&r->lock);
++		entry = &tipc_ref_table.entries[ref &
++						tipc_ref_table.index_mask];
++		if (likely((entry->ref == ref) && (entry->object != NULL)))
++			spin_unlock_bh(&entry->lock);
+ 		else
+ 			err("tipc_ref_unlock() invoked using "
+ 			    "invalid reference\n");
+@@ -310,11 +297,12 @@ void tipc_ref_unlock(u32 ref)
+ void *tipc_ref_deref(u32 ref)
+ {
+ 	if (likely(tipc_ref_table.entries != NULL)) {
+-		struct reference *r;
++		struct reference *entry;
+ 
+-		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
+-		if (likely(r->data.reference == ref))
+-			return r->object;
++		entry = &tipc_ref_table.entries[ref &
++						tipc_ref_table.index_mask];
++		if (likely(entry->ref == ref))
++			return entry->object;
+ 	}
+ 	return NULL;
+ }
+-- 
+1.5.3.2
 
-> * when not using nested structs, the elements can be optimised for=20
-> minimal space,
-I have nothing against it. In fact that's what I did in the first try.
-
-> | > +	case DCCP_SOCKOPT_QPOLICY_ID:
-> | > +		if (sk->sk_state !=3D DCCP_CLOSED)
-> | > +			err =3D -EISCONN;
-> |
-> | What about DCCP_LISTENING state?
->
-> There is a problem with allowing this, considering for example:
-> (...)
-Ok, you are right. If before DCCP_LISTENING there is always DCCP_CLOSED=
- then=20
-there is no need to allow changing qpolicy in DCCP_LISTENING state.
-
-> Please take your time and check through the other parts of the patch =
-as
-> well. I would like to accumulate the issues and then address each of =
-the
-If I didn't mention some parts of the patch you can assume that I'm ok =
-with=20
-them.
-
-> points. And also, do some testing.I haven't had time to write test co=
-de for
-> prio policy -- is there something in your SVN repository?
->
-Have a look at http://dccp.one.pl/svn/userspace/test/ And I'll also do =
-some=20
-testing of your patch.
-
-One more question (probably more for Arnaldo): is there any timeframe t=
-o push=20
-changes from test tree upstream?
---=20
-Regards,
-Tomasz Grobelny
