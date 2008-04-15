@@ -1,53 +1,48 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 3/8][SIT]: Use proper net in hash-lookup functions.
-Date: Tue, 15 Apr 2008 17:31:36 +0400
-Message-ID: <4804AE38.1090808@openvz.org>
-References: <4804ACFA.1040003@openvz.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
+Date: Tue, 15 Apr 2008 13:00:45 +0000
+Message-ID: <20080415130045.GB4993@ff.dom.local>
+References: <20080413121031.GA5211@ami.dom.local> <20080414202605.GA6164@ami.dom.local> <4803BE84.4040105@trash.net> <20080414.151102.169978802.davem@davemloft.net> <20080415053253.GA3920@ff.dom.local> <4804A18C.2060200@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, enrico@superclick.com,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:54212 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755294AbYDOM5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 08:57:16 -0400
-In-Reply-To: <4804ACFA.1040003@openvz.org>
+Received: from yw-out-2324.google.com ([74.125.46.31]:61095 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753637AbYDOM6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 08:58:37 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so983071ywb.1
+        for <netdev@vger.kernel.org>; Tue, 15 Apr 2008 05:58:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4804A18C.2060200@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace introduced in the previous patch init_net stubs 
-with the proper net pointer.
+On Tue, Apr 15, 2008 at 02:37:32PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> On Mon, Apr 14, 2008 at 03:11:02PM -0700, David Miller wrote:
+>> ...
+>>>> Jarek Poplawski wrote:
+>> ...
+>>>>> After this fix qdisc_lookup() is omitted both for ingress and root
+>>>>> parents, but looking for root is only wasting a little time here...
+>>
+>> ...Actually, there is yet a possibility that somebody uses ffff:
+>> handle for a qdisc (not ingress), which could make here a little
+>> difference, so this place could be improved for this case (even
+>> with something like my earlier debugging patch in this thread,
+>> which BTW could be a safety for maybe some other quirks here),
+>> but it seems it would be better to discourage using this handle
+>> for anything but ingress.
+>
+>
+> I don't think we should do that, it would be preferable to
+> compare the entire handle instead of just the major to avoid
+> this.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Probably you are right... I guess you could handle this?
 
----
- net/ipv6/sit.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 66cf0be..e85ddcd 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -444,7 +444,7 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
- 	err = -ENOENT;
- 
- 	read_lock(&ipip6_lock);
--	t = ipip6_tunnel_lookup(&init_net, iph->daddr, iph->saddr);
-+	t = ipip6_tunnel_lookup(dev_net(skb->dev), iph->daddr, iph->saddr);
- 	if (t == NULL || t->parms.iph.daddr == 0)
- 		goto out;
- 
-@@ -564,7 +564,7 @@ static int ipip6_rcv(struct sk_buff *skb)
- 	iph = ip_hdr(skb);
- 
- 	read_lock(&ipip6_lock);
--	if ((tunnel = ipip6_tunnel_lookup(&init_net,
-+	if ((tunnel = ipip6_tunnel_lookup(dev_net(skb->dev),
- 					iph->saddr, iph->daddr)) != NULL) {
- 		secpath_reset(skb);
- 		skb->mac_header = skb->network_header;
--- 
-1.5.3.4
-
+Regards,
+Jarek P.
