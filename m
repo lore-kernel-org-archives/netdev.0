@@ -1,37 +1,42 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
-Date: Tue, 15 Apr 2008 05:32:54 +0000
-Message-ID: <20080415053253.GA3920@ff.dom.local>
-References: <20080413121031.GA5211@ami.dom.local> <20080414202605.GA6164@ami.dom.local> <4803BE84.4040105@trash.net> <20080414.151102.169978802.davem@davemloft.net>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: [PATCH 1/1 net-2.6.26] [XFRM]: Compilation warnings in
+	xfrm_user.c.
+Date: Tue, 15 Apr 2008 09:48:52 +0400
+Message-ID: <1208238532.21529.14.camel@iris.sw.ru>
+References: <1208178219-18754-1-git-send-email-den@openvz.org>
+	 <20080414.144839.258760879.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, enrico@superclick.com, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, paul.moore@hp.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:27323 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753783AbYDOFaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 01:30:16 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so1858315fgb.17
-        for <netdev@vger.kernel.org>; Mon, 14 Apr 2008 22:30:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080414.151102.169978802.davem@davemloft.net>
+Received: from mailhub.sw.ru ([195.214.232.25]:22654 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754276AbYDOFsz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 01:48:55 -0400
+In-Reply-To: <20080414.144839.258760879.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 14, 2008 at 03:11:02PM -0700, David Miller wrote:
-...
-> > Jarek Poplawski wrote:
-...
-> > > After this fix qdisc_lookup() is omitted both for ingress and root
-> > > parents, but looking for root is only wasting a little time here...
+On Mon, 2008-04-14 at 14:48 -0700, David Miller wrote:
+> From: "Denis V. Lunev" <den@openvz.org>
+> Date: Mon, 14 Apr 2008 17:03:39 +0400
+> 
+> > When CONFIG_SECURITY_NETWORK_XFRM is undefined the following warnings appears:
+> > net/xfrm/xfrm_user.c: In function 'xfrm_add_pol_expire':
+> > net/xfrm/xfrm_user.c:1576: warning: 'ctx' may be used uninitialized in this function
+> > net/xfrm/xfrm_user.c: In function 'xfrm_get_policy':
+> > net/xfrm/xfrm_user.c:1340: warning: 'ctx' may be used uninitialized in this function
+> > (security_xfrm_policy_alloc is noop for the case).
+> > 
+> > It seems that they are result of the commit
+> > 03e1ad7b5d871d4189b1da3125c2f12d1b5f7d0b
+> 
+> Needs commit header-line text reference after commit ID, which I've
+> added.  I think I've mentioned this issue to you on several occaisions
+> already :-/
 
-...Actually, there is yet a possibility that somebody uses ffff:
-handle for a qdisc (not ingress), which could make here a little
-difference, so this place could be improved for this case (even
-with something like my earlier debugging patch in this thread,
-which BTW could be a safety for maybe some other quirks here),
-but it seems it would be better to discourage using this handle
-for anything but ingress.
+got it again. Thank you.
 
-Jarek P.
