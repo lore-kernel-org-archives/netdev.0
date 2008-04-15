@@ -1,131 +1,85 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 6/7][IP6TUNNEL]: Use proper net instead of init_net
- stubs.
-Date: Tue, 15 Apr 2008 18:08:24 +0400
-Message-ID: <4804B6D8.6010202@openvz.org>
-References: <4804B478.3040606@openvz.org>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Tue, 15 Apr 2008 15:55:06 +0200
+Message-ID: <200804151555.06698.oliver@neukum.org>
+References: <20080414213238.GB28833@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Filip Aben <f.aben@option.com>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
+	ajb@spheresystems.co.uk
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:51826 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753693AbYDONeE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 09:34:04 -0400
-In-Reply-To: <4804B478.3040606@openvz.org>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:33212 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759657AbYDONzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 09:55:33 -0400
+In-Reply-To: <20080414213238.GB28833@kroah.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All the ip_route_output_key(), dev_get_by_...() and ipv6_chk_addr()
-calls are now stubbed with init_net.
+Am Montag, 14. April 2008 23:32:39 schrieb Greg KH:
+> Hi all,
+> 
+> Here's a patch that I have cleaned up for context only from Option that
+> is a USB serial / network device all in one.
+> 
+> I'd like to see this go into 2.6.26, so any review comments by anyone
+> who wishes to review any portion of this would be greatly apprecited.
 
-Fortunately, all the places already have where to get the proper
-net from.
+This patch removes a creative abuse of in_interrupt(). Locking
+is always done with a mutex now. No need for atomic operations.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
 ---
- net/ipv6/ip6_tunnel.c |   26 +++++++++++++++-----------
- 1 files changed, 15 insertions(+), 11 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 7d2aa6e..d9b2721 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -543,7 +543,7 @@ ip4ip6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	fl.fl4_dst = eiph->saddr;
- 	fl.fl4_tos = RT_TOS(eiph->tos);
- 	fl.proto = IPPROTO_IPIP;
--	if (ip_route_output_key(&init_net, &rt, &fl))
-+	if (ip_route_output_key(dev_net(skb->dev), &rt, &fl))
- 		goto out;
+--- linux-2.6.25-rc7-work/drivers/net/usb/hso.c.alt2	2008-04-15 15:21:25.000000000 +0200
++++ linux-2.6.25-rc7-work/drivers/net/usb/hso.c	2008-04-15 15:29:17.000000000 +0200
+@@ -2201,21 +2201,13 @@ static int hso_stop_serial_device(struct
+ 		return -ENODEV;
  
- 	skb2->dev = rt->u.dst.dev;
-@@ -555,7 +555,7 @@ ip4ip6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		fl.fl4_dst = eiph->daddr;
- 		fl.fl4_src = eiph->saddr;
- 		fl.fl4_tos = eiph->tos;
--		if (ip_route_output_key(&init_net, &rt, &fl) ||
-+		if (ip_route_output_key(dev_net(skb->dev), &rt, &fl) ||
- 		    rt->u.dst.dev->type != ARPHRD_TUNNEL) {
- 			ip_rt_put(rt);
- 			goto out;
-@@ -612,7 +612,8 @@ ip6ip6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		skb_reset_network_header(skb2);
+ 	for (i = 0; i < serial->num_rx_urbs; i++) {
+-		if (serial->rx_urb[i]
+-		    && (serial->rx_urb[i]->status == -EINPROGRESS)) {
+-			if (in_interrupt())
+-				usb_unlink_urb(serial->rx_urb[i]);
+-			else
++		if (serial->rx_urb[i])
+ 				usb_kill_urb(serial->rx_urb[i]);
+-		}
+ 	}
  
- 		/* Try to guess incoming interface */
--		rt = rt6_lookup(&init_net, &ipv6_hdr(skb2)->saddr, NULL, 0, 0);
-+		rt = rt6_lookup(dev_net(skb->dev), &ipv6_hdr(skb2)->saddr,
-+				NULL, 0, 0);
+-	if (serial->tx_urb && (serial->tx_urb->status == -EINPROGRESS)) {
+-		if (in_interrupt())
+-			usb_unlink_urb(serial->tx_urb);
+-		else
+-			usb_kill_urb(serial->rx_urb[i]);
+-	}
++	if (serial->tx_urb)
++		usb_kill_urb(serial->rx_urb[i]);
++
+ 	if (serial->shared_int) {
+ 		spin_lock_bh(&serial->shared_int->shared_int_lock);
+ 		if (serial->shared_int->use_count &&
+@@ -2223,12 +2215,8 @@ static int hso_stop_serial_device(struct
+ 			struct urb *urb;
  
- 		if (rt && rt->rt6i_dev)
- 			skb2->dev = rt->rt6i_dev;
-@@ -656,16 +657,17 @@ static inline int ip6_tnl_rcv_ctl(struct ip6_tnl *t)
- {
- 	struct ip6_tnl_parm *p = &t->parms;
- 	int ret = 0;
-+	struct net *net = dev_net(t->dev);
- 
- 	if (p->flags & IP6_TNL_F_CAP_RCV) {
- 		struct net_device *ldev = NULL;
- 
- 		if (p->link)
--			ldev = dev_get_by_index(&init_net, p->link);
-+			ldev = dev_get_by_index(net, p->link);
- 
- 		if ((ipv6_addr_is_multicast(&p->laddr) ||
--		     likely(ipv6_chk_addr(&init_net, &p->laddr, ldev, 0))) &&
--		    likely(!ipv6_chk_addr(&init_net, &p->raddr, NULL, 0)))
-+		     likely(ipv6_chk_addr(net, &p->laddr, ldev, 0))) &&
-+		    likely(!ipv6_chk_addr(net, &p->raddr, NULL, 0)))
- 			ret = 1;
- 
- 		if (ldev)
-@@ -793,19 +795,20 @@ static inline int ip6_tnl_xmit_ctl(struct ip6_tnl *t)
- {
- 	struct ip6_tnl_parm *p = &t->parms;
- 	int ret = 0;
-+	struct net *net = dev_net(t->dev);
- 
- 	if (p->flags & IP6_TNL_F_CAP_XMIT) {
- 		struct net_device *ldev = NULL;
- 
- 		if (p->link)
--			ldev = dev_get_by_index(&init_net, p->link);
-+			ldev = dev_get_by_index(net, p->link);
- 
--		if (unlikely(!ipv6_chk_addr(&init_net, &p->laddr, ldev, 0)))
-+		if (unlikely(!ipv6_chk_addr(net, &p->laddr, ldev, 0)))
- 			printk(KERN_WARNING
- 			       "%s xmit: Local address not yet configured!\n",
- 			       p->name);
- 		else if (!ipv6_addr_is_multicast(&p->raddr) &&
--			 unlikely(ipv6_chk_addr(&init_net, &p->raddr, NULL, 0)))
-+			 unlikely(ipv6_chk_addr(net, &p->raddr, NULL, 0)))
- 			printk(KERN_WARNING
- 			       "%s xmit: Routing loop! "
- 			       "Remote address found on this node!\n",
-@@ -858,7 +861,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
- 	if ((dst = ip6_tnl_dst_check(t)) != NULL)
- 		dst_hold(dst);
- 	else {
--		dst = ip6_route_output(&init_net, NULL, fl);
-+		dst = ip6_route_output(dev_net(dev), NULL, fl);
- 
- 		if (dst->error || xfrm_lookup(&dst, fl, NULL, 0) < 0)
- 			goto tx_err_link_failure;
-@@ -1123,7 +1126,8 @@ static void ip6_tnl_link_config(struct ip6_tnl *t)
- 		int strict = (ipv6_addr_type(&p->raddr) &
- 			      (IPV6_ADDR_MULTICAST|IPV6_ADDR_LINKLOCAL));
- 
--		struct rt6_info *rt = rt6_lookup(&init_net, &p->raddr, &p->laddr,
-+		struct rt6_info *rt = rt6_lookup(dev_net(dev),
-+						 &p->raddr, &p->laddr,
- 						 p->link, strict);
- 
- 		if (rt == NULL)
--- 
-1.5.3.4
+ 			urb = serial->shared_int->shared_intr_urb;
+-			if ((urb) && (urb->status == -EINPROGRESS)) {
+-				if (in_interrupt())
+-					usb_unlink_urb(urb);
+-				else
+-					usb_kill_urb(urb);
+-			}
++			if (urb)
++				usb_kill_urb(urb);
+ 		}
+ 		spin_unlock_bh(&serial->shared_int->shared_int_lock);
+ 	}
 
