@@ -1,107 +1,46 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Wed, 16 Apr 2008 01:49:10 +0300
-Message-ID: <480530E6.8020700@teltonika.lt>
-References: <20080414213238.GB28833@kroah.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: about bisections
+Date: Wed, 16 Apr 2008 00:48:49 +0200
+Message-ID: <20080415224849.GA14592@elte.hu>
+References: <47FEB062.3020003@rtr.ca> <20080410.173911.179180620.davem@davemloft.net> <20080415215306.GA7437@elte.hu> <20080415.153003.36624305.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080100040801010303060208"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080414213238.GB28833-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lkml@rtr.ca, jesper.juhl@gmail.com, tilman@imap.cc,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org, rjw@sisk.pl,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	corbet@lwn.net, torvalds@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:48224 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751828AbYDOWt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 18:49:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20080415.153003.36624305.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080100040801010303060208
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Reworked MAC address generation from USB serial number
-Now it is very similar to the one done in the cdc_ether.c
+* David Miller <davem@davemloft.net> wrote:
 
-Filip: Does the dummy MAC address have to start with 0xFA?
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Tue, 15 Apr 2008 23:53:06 +0200
+> 
+> > but please do _not_ require it from testers and users.
+> 
+> I don't.  I ask for a bisection when it is appropriate and I think 
+> other avenues will not bear fruit in a reasonable amount of time.
 
---------------080100040801010303060208
-Content-Type: text/x-patch;
- name="hso_mac_gen.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="hso_mac_gen.patch"
+i'm glad i misunderstood you. My impression from reading this thread was 
+that you preferred reporters who do bisection (which is fine so far), to 
+the level of sometimes ignoring reporters who dont (which is not).
 
---- linux-2.6-hso/drivers/net/usb/hso.c	2008-04-15 23:56:33.000000000 +0300
-+++ linux-2.6-hso-my/drivers/net/usb/hso.c	2008-04-16 01:22:56.000000000 +0300
-@@ -345,7 +345,6 @@ static int hso_get_activity(struct hso_d
- /* convert a character representing a hex value to a number */
- static unsigned char hex2dec(unsigned char digit)
- {
--
- 	if ((digit >= '0') && (digit <= '9'))
- 		return (digit - '0');
- 	/* Map all characters to 0-15 */
-@@ -353,7 +352,7 @@ static unsigned char hex2dec(unsigned ch
- 		return (digit - 'a' + 10) % 16;
- 	if ((digit >= 'A') && (digit <= 'Z'))
- 		return (digit - 'A' + 10) % 16;
--	return 16;
-+	return 0;
- }
- 
- #define SIOCSETRADIO   (SIOCDEVPRIVATE+4)
-@@ -3032,7 +3031,6 @@ static void set_ethernet_addr(struct hso
- 	int i = 0;
- 	int len = 0;
- 	unsigned char buffer[13];
--	unsigned char checkserial[7] = "Serial";
- 
- 	/* we can't fail, therefor we use a random macaddress */
- 	random_ether_addr(mac_addr);
-@@ -3048,26 +3046,11 @@ static void set_ethernet_addr(struct hso
- 	len = usb_string(odev->parent->usb,
- 			 odev->parent->usb->descriptor.iSerialNumber,
- 			 buffer, 13);
--	if (len != 12) {
--		/* some devices don't have the serial filled in, checking ... */
--		for (i = 0; i < 6; i++) {
--			if (buffer[i] != checkserial[i]) {
--				/* Fill in the mac_addr */
--				for (i = 2; i < 6; i++) {
--					if ((16 == buffer[2 * i]) ||
--					    (16 == buffer[2 * i + 1])) {
--						dev_err(&odev->parent->usb->dev,
--							"Bad value in MAC "
--							"address i:%d\n", i);
--					} else {
--						mac_addr[i] =
--						    (hex2dec(buffer[2 * i]) <<
--						     4) + hex2dec(buffer[2 * i +
--									 1]);
--					}
--				}
--				break;
--			}
-+	if (len != 12 && strcmp("Serial", buffer)) {
-+		/* Fill in the mac_addr */
-+		for (i = 1; i < 6; i++) {
-+			mac_addr[i] = (hex2dec(buffer[2 * i]) << 4) +
-+				       hex2dec(buffer[2 * i + 1]);
- 		}
- 	} else {
- 		dev_err(&odev->parent->usb->dev, "Attempting to get MAC "
-@@ -3236,7 +3219,7 @@ module_param(debug, int, S_IRUGO | S_IWU
- MODULE_PARM_DESC(tty_major, "Set the major tty number");
- module_param(tty_major, int, S_IRUGO | S_IWUSR);
- 
--/* set the major tty number (eg: insmod hso.ko tty_major=245) */
-+/* disable network interface (eg: insmod hso.ko disable_net=1) */
- MODULE_PARM_DESC(disable_net, "Disable the network interface");
- module_param(disable_net, int, S_IRUGO | S_IWUSR);
- 
+> Thanks for the arbitrary diatribe about my contributions over the 
+> years and accusations that I have some kind of monopoly over the 
+> networking code and fixes to it.  I really appreciate that.
 
---------------080100040801010303060208--
+you certainly do have a fair amount of exclusivity in determining the 
+dosage of networking commits. Dont get me wrong, you earned it and you 
+deserve it - not the least because you do it best.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Ingo
