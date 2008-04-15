@@ -1,167 +1,178 @@
-From: "Toshiharu Harada" <haradats@gmail.com>
-Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
-Date: Tue, 15 Apr 2008 06:00:32 -0700
-Message-ID: <9d732d950804150600t64cfc1c6qdabdca83f74ff346@mail.gmail.com>
-References: <20080404122242.867070732@I-love.SAKURA.ne.jp>
-	 <20080404122408.986477936@I-love.SAKURA.ne.jp>
-	 <200804071140.59247.paul.moore@hp.com>
-	 <47FC8052.9070409@nttdata.co.jp>
-	 <20080409131151.GK11962@parisc-linux.org>
-	 <200804112312.HGE69734.LFOOHQOSFFMJtV@I-love.SAKURA.ne.jp>
-	 <20080411143013.GB11962@parisc-linux.org>
-	 <20080413163658.GC7010@sergelap.austin.ibm.com>
-	 <4802BBDC.1030707@crispincowan.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.26 5/8][SIT]: Make tunnels hashes per-net.
+Date: Tue, 15 Apr 2008 17:34:54 +0400
+Message-ID: <4804AEFE.4020305@openvz.org>
+References: <4804ACFA.1040003@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	"Matthew Wilcox" <matthew@wil.cx>,
-	"Tetsuo Handa" <penguin-kernel@i-love.sakura.ne.jp>,
-	paul.moore@hp.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: "Crispin Cowan" <crispin@crispincowan.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <4802BBDC.1030707@crispincowan.com>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:55065 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758363AbYDONAh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 09:00:37 -0400
+In-Reply-To: <4804ACFA.1040003@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Serge E. Hallyn wrote:
->> Quoting Matthew Wilcox (matthew@wil.cx):
->>
->>> On Fri, Apr 11, 2008 at 11:12:27PM +0900, Tetsuo Handa wrote:
->>>
->>>> Matthew Wilcox wrote:
->>>>
->>>>> When the rule is put in place, say "No modifications to /etc/passwd",
->>>>> look up the inode and major:minor of /etc/passwd.  If there's a
->>>>> rename,
->>>>> look up the new inode number.  If it's mounted elsewhere, it doesn't
->>>>> matter, they still can't modify it because it has the same
->>>>> major:minor:inode.
->>>>>
->>>> If write access is denied because of a rule "No modifications to
->>>> /etc/passwd",
->>>> a rule "Allow modifications to /tmp/passwd" can no longer be
->>>> enforced after
->>>> "mount --bind /etc/ /tmp/" or "mount --bind /etc/passwd /tmp/passwd" or
->>>> "mv /etc/passwd /tmp/passwd" or "ln /etc/passwd /tmp/passwd" is done.
->>>>
->>> That's a fundamental limitation of pathname-based security though.
->>> If the same file exists in two places, you have to resolve the question
->>> of which rule overrides the other.
->>>
->> In the past, Crispin has given clear, concise explanations of a few of
->> the things pathname based access control in fact excels at.  Crispin,
->> can you recite those again so we can think constructively about which
->> (if any) of the currently considered options are or are not sufficient?
->>
->> I.e. what would be a motivation for a rule like 'no modifications to
->> /etc/passwd', and what precisely would and would not be accepted ways to
->> get around it (and why)?
->>
-> As I just posted, a rule of "no mods to /some/pathname" is broken, which
-> is why AppArmor has no such construct.
+Just move all the hashes on the sit_net structure and
+patch the rest of the code appropriately.
 
-Traditional "talking by examples" is a good way and works in general,
-but not always right for this case (I mean "label or path" discussion.
-Yes, I've learned this from AppArmor thread. :)
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-> Things that pathname-based access control is good at:
->
->    * *System Integrity:* Many of the vital components of a UNIX system
->      are stored in files with Well Known Names such as /etc/shadow,
->      /var/www/htdocs/index.html and /home/crispin/.ssh/known_hosts. The
->      contents of the actual data blocks is less important than the
->      integrity of what some random process gets when it asks for these
->      resources by name. Preserving the integrity of what responds to
->      the Well Known Name is thus easier if you restrict access based on
->      the name.
->    * *Dynamic Access Control:* A special case of the above pertains to
->      files that may or may not exist. If you don't *have* a /etc/hosts
->      file, it is still important to have a rule that controls whether
->      it can be created. This is hard to do in label-based systems,
->      because the file does not exist to put a label on, so you have to
->      kludge it by either creating the file with zero length and
->      labeling it, or by creating more complex policy for the parent
->      /etc directory, and that's hard given the number of uses for /etc
->      such as /etc/motd. In a name based scheme, you simply don't
->      provide write permission to "/etc/hosts" unless you mean it, and
->      it can be enforced even if such a file does not exist.
->    * *Ad Hoc Generalization:* Label-based access control generalizes
->      policy in that the policy treats all files and resources that
->      share a label the same. If you want to make a new generalization
->      that encompasses *part* of the files that share a label, but *not
->      all* of those files, then you have to "split the label", relabel
->      the file system, and revise the policy accordingly. Name-based
->      access control lets you create ad hoc generalizations, so that
->      *my* policy can grant access to "/var/www/*.pl" without regard to
->      whatever labels or rules some other policy has applied to the same
->      directory tree.
->    * *Familiar Interface:* Administrators are accustomed to
->      administering the box in terms of the names of the files that
->      matter. A name-based policy is therefore somewhat more familiar
->      than a policy with label abstractions, where they then have to go
->      look at the restorecon file to discover what files will/should
->      have what labels.
->    * *Practical Concerns:* Not all file systems support labels, and so
->      label-based schemes become coarse grained when they run into them.
->      Name based schemes remain granular when specifying access down
->      into the internals of such file systems. Legacy Linux file systems
->      like ext2 don't matter much any more, but persistent file systems
->      that will never have label support include NFSv3 file systems
->      (nearly every Network Appliance NAS server out there) and FAT32
->      file system (most every USB storage device).
->
-> A lot of what's going on is the duality of the one:many relationships
-> between labels and names:
->
->    * Labels: one label represents many files
->          o this property is why ad hoc generalization fails in label
->            based systems
->    * Names: many names can represent a single file
->          o This property is why deny rules fail in name based systems
->
-> Therefore, I am not claiming name-based access controls to be the
-> ultimate. Rather, there are duals for all of the above that induce
-> circumstances where label-based systems are superior. Each class of
-> system has strengths and weaknesses. These are name-based strengths.
+---
+ net/ipv6/sit.c |   45 +++++++++++++++++++++++++--------------------
+ 1 files changed, 25 insertions(+), 20 deletions(-)
 
-Agreed and I personally would love to stay discussions in this layer
-forgetting existing implementations, including my own project of
-TOMOYO Linux. The above summary of labels and names are very important,
-but I would like to "raise" the layer of discussion.
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index d0c1f2d..f82494b 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -70,15 +70,15 @@ static void ipip6_tunnel_setup(struct net_device *dev);
+ 
+ static int sit_net_id;
+ struct sit_net {
++	struct ip_tunnel *tunnels_r_l[HASH_SIZE];
++	struct ip_tunnel *tunnels_r[HASH_SIZE];
++	struct ip_tunnel *tunnels_l[HASH_SIZE];
++	struct ip_tunnel *tunnels_wc[1];
++	struct ip_tunnel **tunnels[4];
++
+ 	struct net_device *fb_tunnel_dev;
+ };
+ 
+-static struct ip_tunnel *tunnels_r_l[HASH_SIZE];
+-static struct ip_tunnel *tunnels_r[HASH_SIZE];
+-static struct ip_tunnel *tunnels_l[HASH_SIZE];
+-static struct ip_tunnel *tunnels_wc[1];
+-static struct ip_tunnel **tunnels[4] = { tunnels_wc, tunnels_l, tunnels_r, tunnels_r_l };
+-
+ static DEFINE_RWLOCK(ipip6_lock);
+ 
+ static struct ip_tunnel * ipip6_tunnel_lookup(struct net *net,
+@@ -87,21 +87,22 @@ static struct ip_tunnel * ipip6_tunnel_lookup(struct net *net,
+ 	unsigned h0 = HASH(remote);
+ 	unsigned h1 = HASH(local);
+ 	struct ip_tunnel *t;
++	struct sit_net *sitn = net_generic(net, sit_net_id);
+ 
+-	for (t = tunnels_r_l[h0^h1]; t; t = t->next) {
++	for (t = sitn->tunnels_r_l[h0^h1]; t; t = t->next) {
+ 		if (local == t->parms.iph.saddr &&
+ 		    remote == t->parms.iph.daddr && (t->dev->flags&IFF_UP))
+ 			return t;
+ 	}
+-	for (t = tunnels_r[h0]; t; t = t->next) {
++	for (t = sitn->tunnels_r[h0]; t; t = t->next) {
+ 		if (remote == t->parms.iph.daddr && (t->dev->flags&IFF_UP))
+ 			return t;
+ 	}
+-	for (t = tunnels_l[h1]; t; t = t->next) {
++	for (t = sitn->tunnels_l[h1]; t; t = t->next) {
+ 		if (local == t->parms.iph.saddr && (t->dev->flags&IFF_UP))
+ 			return t;
+ 	}
+-	if ((t = tunnels_wc[0]) != NULL && (t->dev->flags&IFF_UP))
++	if ((t = sitn->tunnels_wc[0]) != NULL && (t->dev->flags&IFF_UP))
+ 		return t;
+ 	return NULL;
+ }
+@@ -122,7 +123,7 @@ static struct ip_tunnel **__ipip6_bucket(struct sit_net *sitn,
+ 		prio |= 1;
+ 		h ^= HASH(local);
+ 	}
+-	return &tunnels[prio][h];
++	return &sitn->tunnels[prio][h];
+ }
+ 
+ static inline struct ip_tunnel **ipip6_bucket(struct sit_net *sitn,
+@@ -387,7 +388,7 @@ static void ipip6_tunnel_uninit(struct net_device *dev)
+ 
+ 	if (dev == sitn->fb_tunnel_dev) {
+ 		write_lock_bh(&ipip6_lock);
+-		tunnels_wc[0] = NULL;
++		sitn->tunnels_wc[0] = NULL;
+ 		write_unlock_bh(&ipip6_lock);
+ 		dev_put(dev);
+ 	} else {
+@@ -1050,6 +1051,8 @@ static int ipip6_fb_tunnel_init(struct net_device *dev)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	struct iphdr *iph = &tunnel->parms.iph;
++	struct net *net = dev_net(dev);
++	struct sit_net *sitn = net_generic(net, sit_net_id);
+ 
+ 	tunnel->dev = dev;
+ 	strcpy(tunnel->parms.name, dev->name);
+@@ -1060,7 +1063,7 @@ static int ipip6_fb_tunnel_init(struct net_device *dev)
+ 	iph->ttl		= 64;
+ 
+ 	dev_hold(dev);
+-	tunnels_wc[0]		= tunnel;
++	sitn->tunnels_wc[0]	= tunnel;
+ 	return 0;
+ }
+ 
+@@ -1070,7 +1073,7 @@ static struct xfrm_tunnel sit_handler = {
+ 	.priority	=	1,
+ };
+ 
+-static void __exit sit_destroy_tunnels(void)
++static void sit_destroy_tunnels(struct sit_net *sitn)
+ {
+ 	int prio;
+ 
+@@ -1078,7 +1081,7 @@ static void __exit sit_destroy_tunnels(void)
+ 		int h;
+ 		for (h = 0; h < HASH_SIZE; h++) {
+ 			struct ip_tunnel *t;
+-			while ((t = tunnels[prio][h]) != NULL)
++			while ((t = sitn->tunnels[prio][h]) != NULL)
+ 				unregister_netdevice(t->dev);
+ 		}
+ 	}
+@@ -1090,7 +1093,7 @@ static int sit_init_net(struct net *net)
+ 	struct sit_net *sitn;
+ 
+ 	err = -ENOMEM;
+-	sitn = kmalloc(sizeof(struct sit_net), GFP_KERNEL);
++	sitn = kzalloc(sizeof(struct sit_net), GFP_KERNEL);
+ 	if (sitn == NULL)
+ 		goto err_alloc;
+ 
+@@ -1098,6 +1101,11 @@ static int sit_init_net(struct net *net)
+ 	if (err < 0)
+ 		goto err_assign;
+ 
++	sitn->tunnels[0] = sitn->tunnels_wc;
++	sitn->tunnels[1] = sitn->tunnels_l;
++	sitn->tunnels[2] = sitn->tunnels_r;
++	sitn->tunnels[3] = sitn->tunnels_r_l;
++
+ 	sitn->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel), "sit0",
+ 					   ipip6_tunnel_setup);
+ 	if (!sitn->fb_tunnel_dev) {
+@@ -1129,6 +1137,7 @@ static void sit_exit_net(struct net *net)
+ 
+ 	sitn = net_generic(net, sit_net_id);
+ 	rtnl_lock();
++	sit_destroy_tunnels(sitn);
+ 	unregister_netdevice(sitn->fb_tunnel_dev);
+ 	rtnl_unlock();
+ 	kfree(sitn);
+@@ -1143,10 +1152,6 @@ static void __exit sit_cleanup(void)
+ {
+ 	xfrm4_tunnel_deregister(&sit_handler, AF_INET6);
+ 
+-	rtnl_lock();
+-	sit_destroy_tunnels();
+-	rtnl_unlock();
+-
+ 	unregister_pernet_gen_device(sit_net_id, &sit_net_ops);
+ }
+ 
+-- 
+1.5.3.4
 
-The essence of MAC is limiting and restricting.
-My version of the MAC *issues* are as follows:
-
-- how to distinguish good(necessary) and bad(unnecessary) accesses
-- how to describe the rule (the most important result is a policy language)
-- how to keep Linux kernel aware of the rule and keep it safely
-- how to administrate the whole picture (with human error in mind)
-
-The first one belongs to a human responsible part and the
-remainders belong to implementations. Let me note, label vs. names
-issue resides in the implementation layer.
-
-How to describe rules imply "what is the natural way for human
-administrators" while keeping the Linux kernel implies
-"what is the most solid and trusted way for Linux".
->From the fact is Linux works with names and inodes, I'm pretty sure
-we will end up with some sort of hybrid system.
-
->From the above point of view, the option 2 which Stephen
-kindly showed quite *practical* to me, because it allows
-loose connection of the "namespace" and "inode". (If your
-initial is not S.S, my PNG diagram posted on April 10 might help
-to understand what I wrote here)
-
-
-BTW I'm attending the ELC2008. Hope to see and talk in peace
-with some of related people. :)
-
-Regards,
-Toshiharu Harada
-NTT DATA CORPORATION
