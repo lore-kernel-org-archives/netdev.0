@@ -1,110 +1,88 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
-Date: Mon, 14 Apr 2008 17:12:07 -0700
-Message-ID: <20080415001207.GA11852@localdomain>
-References: <47BA0984.2070306@cybernetics.com>
- <1203381120.13495.78.camel@dell>
- <20080218.163554.74130592.davem@davemloft.net>
- <1203383046.13495.87.camel@dell> <47BB00EC.3010607@cybernetics.com>
- <1203448265.13495.95.camel@dell> <47BB54C2.6090501@cybernetics.com>
- <20080220034515.GC22703@gondor.apana.org.au>
- <47BC44E2.9060301@cybernetics.com>
+From: "John Heffner" <johnwheffner@gmail.com>
+Subject: Re: RE: A Linux TCP SACK Question
+Date: Mon, 14 Apr 2008 17:48:51 -0700
+Message-ID: <1e41a3230804141748v2bf1f32bsc80307c9390c222@mail.gmail.com>
+References: <fc471cb97cfd.47f5520e@fnal.gov> <fb8e9e4f102e.47f8ebfd@fnal.gov>
+	 <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
+	 <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
+	 <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
+	 <fbbce0572843.47fb038c@fnal.gov>
+	 <Pine.LNX.4.64.0804081623500.21784@wrl-59.cs.helsinki.fi>
+	 <fba201de4228.47fb3b26@fnal.gov>
+	 <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
+	 <000301c89e81$80124570$6b5ee183@D2GT6T71>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, gregkh@suse.de,
-	linux-kernel@vger.kernel.org
-To: "Tony Battersby" <tonyb@cybernetics.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762521AbYDOAKs@vger.kernel.org>
-In-Reply-To: <47BC44E2.9060301@cybernetics.com>
+Cc: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>
+To: wenji@fnal.gov
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.179]:2518 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757645AbYDOAs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 20:48:56 -0400
+Received: by wa-out-1112.google.com with SMTP id m16so2754057waf.23
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2008 17:48:55 -0700 (PDT)
+In-Reply-To: <000301c89e81$80124570$6b5ee183@D2GT6T71>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tony.  Sorry for the radio silence.
+On Mon, Apr 14, 2008 at 3:47 PM, Wenji Wu <wenji@fnal.gov> wrote:
+> Hi, Ilpo,
+>
+>  Could the throughput difference with SACK ON/OFF be due to the following
+>  code in tcp_ack()?
+>
+>  3120        if (tcp_ack_is_dubious(sk, flag)) {
+>  3121                /* Advance CWND, if state allows this. */
+>  3122                if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
+>  3123                    tcp_may_raise_cwnd(sk, flag))
+>  3124                        tcp_cong_avoid(sk, ack, prior_in_flight, 0);
+>  3125                tcp_fastretrans_alert(sk, prior_packets -
+>  tp->packets_out, flag);
+>  3126        } else {
+>  3127                if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
+>  3128                        tcp_cong_avoid(sk, ack, prior_in_flight, 1);
+>  3129        }
+>
+>  In my tests, there are actually no packet drops, just severe packet
+>  reordering in both forward and reverse paths. With good tcp_reordering
+>  auto-tuning, there are few retransmissions.
+>
+>  (1) With SACK option off, the reorder ACKs will not cause much harm to the
+>  throughput. As you have pointed out in the email that "The ACK reordering
+>
+> should just make the number of duplicate acks smaller because part of them
+>  get discarded as old ones as a newer cumulative ACK often arrives a bit
+>  "ahead" of its time making rest smaller sequenced ACKs very close to on-op."
+>
+>  If there are any ACK advancement, tcp_cong_avoid() will be called.
+>
+>  (2) With the sack option is on. If the ACKs do not advance the left edge of
+>  the window, those ACKs will go to "old_ack" of "tcp_ack()", no much
+>  processing except sack-tagging the corresponding packets in the
+>  retransmission queue. tcp_cong_avoid() will not be called.
+>
+>  However, if the ACKs advance the left edge of the window and these ACKs
+>  include SACK options, tcp_ack_is_dubious(sk, flag)) would be true. Then the
+>  calling of tcp_cong_avoid() needs to satisfy the if-condition at line 3122,
+>  which is stricter than the if-condition at line 3127.
+>
+>  So, the congestion window with SACK on would be smaller than with SACK off.
+>
+>  If you run tcptrace and xplot on the files I posted, you would see lots ACKs
+>  will advance the left edge of the window, and include SACK blocks.
+>
+>  Not quite sure, just a guess.
 
-Michael and I have discussed this problem a bit.  Another possibility is
-that the chip may be having difficulty with non-dword aligned TX buffers.
-Since we already know the RX side has the same problem, it isn't so
-far-fetched to think that perhaps it can affect the TX side too.  Can
-you give the following patch a try and see if the corruption still
-happens?
+I had considered this, but it would seem that tcp_may_raise_cwnd() in
+this case *should* return true, right?
 
+Sill the mystery remains as to why *both* are going so slowly.  You
+mentioned you're using a web100 kernel.  What are the final values of
+all the variables for the connections (grab with readall)?
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 96043c5..810c711 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4135,11 +4135,20 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
- 				       u32 last_plus_one, u32 *start,
- 				       u32 base_flags, u32 mss)
- {
--	struct sk_buff *new_skb = skb_copy(skb, GFP_ATOMIC);
-+	struct sk_buff *new_skb;
- 	dma_addr_t new_addr = 0;
- 	u32 entry = *start;
- 	int i, ret = 0;
- 
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701)
-+		new_skb = skb_copy(skb, GFP_ATOMIC);
-+	else {
-+		int more_headroom = 4 - (skb->mac_header & 3);
-+
-+		new_skb = skb_copy_expand(skb, skb_headroom(skb) + more_headroom,
-+					  skb_tailroom(skb), GFP_ATOMIC);
-+	}
-+
- 	if (!new_skb) {
- 		ret = -1;
- 	} else {
-@@ -4465,6 +4474,10 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
- 	if (tg3_4g_overflow_test(mapping, len))
- 		would_hit_hwbug = 1;
- 
-+	/* Force the 5701 into the double copy path. */
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)
-+		would_hit_hwbug = 1;
-+
- 	tg3_set_txd(tp, entry, mapping, len, base_flags,
- 		    (skb_shinfo(skb)->nr_frags == 0) | (mss << 1));
- 
-
-
-On Wed, Feb 20, 2008 at 10:18:58AM -0500, Tony Battersby wrote:
-> Herbert Xu wrote:
-> > On Tue, Feb 19, 2008 at 05:14:26PM -0500, Tony Battersby wrote:
-> >   
-> >> Update: when I revert Herbert's patch in addition to applying your
-> >> patch, the iSCSI performance goes back up to 115 MB/s again in both
-> >> directions.  So it looks like turning off SG for TX didn't itself cause
-> >> the performance drop, but rather that the performance drop is just
-> >> another manifestation of whatever bug is causing the data corruption.
-> >>     
-> >
-> > Interesting.  So the workload that regressed is mostly RX with a
-> > little TX traffic? Can you try to reproduce this with something
-> > like netperf to eliminate other variables?
-> >
-> > This is all very puzzling since the patch in question shouldn't
-> > change an RX load at all.
-> >
-> > Thanks,
-> >   
-> We have established that the slowdown was caused by TCP checksum errors
-> and retransmits.  I assume that the slowdown in my test was due to the
-> light TX rather than the heavy RX.  I am no TCP protocol expert, but
-> perhaps heavy TX (such as iperf) might not be affected as much because
-> the wire stays busy while waiting for the retransmit, whereas with my
-> light TX iSCSI load, the wire goes idle while waiting for the retransmit
-> because the iSCSI state machine is stalled.
-> 
-> Tony
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+  -John
