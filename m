@@ -1,120 +1,64 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked
-	version of Tomasz's patch set
-Date: Tue, 15 Apr 2008 17:04:07 -0300
-Message-ID: <20080415200407.GD5025@ghostprotocols.net>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804150145.05571.tomasz@grobelny.oswiecenia.net> <20080415151403.GA20735@gerrit.erg.abdn.ac.uk> <200804152138.41077.tomasz@grobelny.oswiecenia.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Reporting bugs and bisection
+Date: Tue, 15 Apr 2008 22:51:49 +0200
+Message-ID: <200804152251.51308.rjw@sisk.pl>
+References: <47FEADCB.7070104@rtr.ca> <517f3f820804150254w491cdf85s28f1d15696db8d96@mail.gmail.com> <4804B5D5.4090404@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
+	James Morris <jmorris@namei.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, david@lang.hm,
+	Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
+	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
+	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Newall <davidn@davidnewall.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:36486 "EHLO mx1.redhat.com"
+Received: from ogre.sisk.pl ([217.79.144.158]:52052 "EHLO ogre.sisk.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751234AbYDOUsh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 16:48:37 -0400
+	id S1751816AbYDOUvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 16:51:25 -0400
+In-Reply-To: <4804B5D5.4090404@davidnewall.com>
 Content-Disposition: inline
-In-Reply-To: <200804152138.41077.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Apr 15, 2008 at 09:38:40PM +0200, Tomasz Grobelny escreveu:
-> Dnia Tuesday 15 of April 2008, Gerrit Renker napisa=C5=82:
-> > | > @@ -501,6 +519,8 @@ struct dccp_sock {
-> > | >  	struct ccid			*dccps_hc_rx_ccid;
-> > | >  	struct ccid			*dccps_hc_tx_ccid;
-> > | >  	struct dccp_options_received	dccps_options_received;
-> > | > +	__u8				dccps_qpolicy;
-> > | > +	__u32				dccps_tx_qlen;
-> > | >  	enum dccp_role			dccps_role:2;
-> > | >  	__u8				dccps_hc_rx_insert_options:1;
-> > | >  	__u8				dccps_hc_tx_insert_options:1;
-> > |
-> > | I know that currently none of the policies has any per-socket dat=
-a. But
-> > | if it had were should it go?
+On Tuesday, 15 of April 2008, David Newall wrote:
+> Michael Kerrisk wrote:
+> > On 4/15/08, David Newall <davidn@davidnewall.com> wrote:
+> >   
+> >> James Morris wrote:
+> >>  > I don't know how to solve this, but suspect that encouraging the use of
+> >>  > reviewed-by and also including it in things like analysis of who is
+> >>  > contributing, selection for kernel summit invitations etc. would be a
+> >>  > start.  At least, better than nothing.
+> >>
+> >> Would it be hard to keep count of the number of errors introduced by
+> >>  author and reviewer?
+> >>     
 > >
-> > I can't see anything wrong with putting everything into dccp_sock. =
-To do it
-> > well, we could consider inserting documentation such as "this secti=
-on is
-> > only for queueing policies" (as is done very well for struct tcp_so=
-ck).
-> >
-> Let me remind you your comment made on 18/03/2008 on dccp ml to my fi=
-rst=20
-> patch:
->  --- START ---=20
-> @@ -545,6 +549,8 @@ struct dccp_sock {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 __u8 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0dccps_hc_tx_=
-insert_options:1;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 __u8 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0dccps_server=
-_timewait:1;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct timer_list =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 dccps_xmit_timer;
-> + =C2=A0 =C2=A0 =C2=A0 struct queuing_policy =C2=A0 =C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0*dccps_policy;
-> + =C2=A0 =C2=A0 =C2=A0 void =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*dccps_policy_d=
-ata;
-> =C2=A0};
->=20
-> I think this should be just one field for the policy, and the
-> policy_data can be an internal field of `struct queueing_policy'
-> (compare with struct ackvec or struct ccid).
->  --- END ---=20
->=20
-> > I see several advantages of this:
-> >  * by just storing the u8 of the policy ID, the socket as a whole g=
-ets
-> > smaller,
-> >  * the internals of the function pointer table can be hidden,
-> >=20
-> That's ok with me.=20
->=20
-> > * when not using nested structs, the elements can be optimised for=20
-> > minimal space,
-> I have nothing against it. In fact that's what I did in the first try=
-=2E
->=20
-> > | > +	case DCCP_SOCKOPT_QPOLICY_ID:
-> > | > +		if (sk->sk_state !=3D DCCP_CLOSED)
-> > | > +			err =3D -EISCONN;
-> > |
-> > | What about DCCP_LISTENING state?
-> >
-> > There is a problem with allowing this, considering for example:
-> > (...)
-> Ok, you are right. If before DCCP_LISTENING there is always DCCP_CLOS=
-ED then=20
-> there is no need to allow changing qpolicy in DCCP_LISTENING state.
->=20
-> > Please take your time and check through the other parts of the patc=
-h as
-> > well. I would like to accumulate the issues and then address each o=
-f the
-> If I didn't mention some parts of the patch you can assume that I'm o=
-k with=20
-> them.
->=20
-> > points. And also, do some testing.I haven't had time to write test =
-code for
-> > prio policy -- is there something in your SVN repository?
-> >
-> Have a look at http://dccp.one.pl/svn/userspace/test/ And I'll also d=
-o some=20
-> testing of your patch.
->=20
-> One more question (probably more for Arnaldo): is there any timeframe=
- to push=20
-> changes from test tree upstream?
+> > I've found quite a few errors in kernel-userland APIs, but I'm not
+> > sure that this sort of negative statistic would be helpful -- e.g.,
+> > more productive developers probably also introduce more errors.
+> 
+> We can already see which developers are more active.  What we can't see
+> is who is careless, which would be useful to know.  It would also be
+> useful to know who is careless in approving changes, because they share
+> responsibility for those changes.  It would be a good thing if this
+> highlighted that some people are behind frequent buggy changes.
 
-Not at this moment, I'm not managing to dedicate time for another round
-of reviewing of what is in Gerrit's tree :-(
+Well, even if someone introduces bugs relatively frequently, but then also
+works with the reporters and fixes the bugs timely, it's about okay IMO.
 
-- Arnaldo
+The real problem is when patch submitters don't care for their changes any
+more once the patches have been merged.
+
+Thanks,
+Rafael
