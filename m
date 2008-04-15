@@ -1,42 +1,84 @@
-From: Tony Battersby <tonyb@cybernetics.com>
-Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
-Date: Tue, 15 Apr 2008 11:39:27 -0400
-Message-ID: <4804CC2F.6030403@cybernetics.com>
-References: <47BA0984.2070306@cybernetics.com> <1203381120.13495.78.camel@dell> <20080218.163554.74130592.davem@davemloft.net> <1203383046.13495.87.camel@dell> <47BB00EC.3010607@cybernetics.com> <1203448265.13495.95.camel@dell> <47BB54C2.6090501@cybernetics.com> <20080220034515.GC22703@gondor.apana.org.au> <47BC44E2.9060301@cybernetics.com> <20080415001207.GA11852@localdomain>
+From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Tue, 15 Apr 2008 18:24:48 +0200
+Message-ID: <1208276688.20681.71.camel@FWR-FLAB>
+References: <20080414213238.GB28833@kroah.com>
+	 <200804151525.57340.oliver@neukum.org> <1208268742.20681.29.camel@FWR-FLAB>
+	 <200804151614.47977.oliver@neukum.org> <1208271789.20681.45.camel@FWR-FLAB>
+	 <20080415153408.GB7996@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, gregkh@suse.de,
-	linux-kernel@vger.kernel.org
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host64.cybernetics.com ([70.169.137.4]:4582 "EHLO
-	mail.cybernetics.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750958AbYDOQGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 12:06:47 -0400
-In-Reply-To: <20080415001207.GA11852@localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>,
+	ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org
+To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080415153408.GB7996-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Matt Carlson wrote:
-> Hi Tony.  Sorry for the radio silence.
->
-> Michael and I have discussed this problem a bit.  Another possibility is
-> that the chip may be having difficulty with non-dword aligned TX buffers.
-> Since we already know the RX side has the same problem, it isn't so
-> far-fetched to think that perhaps it can affect the TX side too.  Can
-> you give the following patch a try and see if the corruption still
-> happens?
->
->   
 
-Thanks, your patch fixes the problem (tested on 2.6.24.4).  However, I
-had to change "(skb->mac_header & 3)" in your patch to "((long)
-skb->mac_header & 3)" since mac_header is a pointer rather than an int
-on 32-bit systems.
+On Tue, 2008-04-15 at 08:34 -0700, Greg KH wrote:
+> On Tue, Apr 15, 2008 at 05:03:09PM +0200, Filip Aben wrote:
+> > 
+> > On Tue, 2008-04-15 at 16:14 +0200, Oliver Neukum wrote:
+> > > Am Dienstag, 15. April 2008 16:12:22 schrieb Filip Aben:
+> > > > 
+> > > > On Tue, 2008-04-15 at 15:25 +0200, Oliver Neukum wrote:
+> > > > > Am Montag, 14. April 2008 23:32:39 schrieb Greg KH:
+> > > > > > Hi all,
+> > > > > > 
+> > > > > > Here's a patch that I have cleaned up for context only from Option that
+> > > > > > is a USB serial / network device all in one.
+> > > > > > 
+> > > > > > I'd like to see this go into 2.6.26, so any review comments by anyone
+> > > > > > who wishes to review any portion of this would be greatly apprecited.
+> > > > > 
+> > > > > The driver implements an ioctl to disable autosuspend. This seems
+> > > > > unnecessary to me, as you can do that via sysfs, too. Is this included
+> > > > > to work around permission problems? Can somebody explain?
+> > > > > 
+> > > > > 	Regards
+> > > > > 		Oliver
+> > > > 
+> > > > This is added to support card firmware upgraders who will need to
+> > > > disable suspend, even on (embedded) systems that don't have sysfs
+> > > > mounted.
+> > > 
+> > > How do they enable autosuspend without sysfs?
+> > 
+> > Good point. No idea. I suppose it's easier to rely on something that
+> > will always work, rather then making assumptions about suspend based on
+> > whether sysfs is mounted or not.
+> 
+> Like I always like to point out, my _phone_ has sysfs mounted, I really
+> doubt any 2.6 embedded system would not have it mounted these days, it
+> is very useful for things like this.
+> 
+> So I'll go delete that "special" ioctl, that's not a good thing to do,
+> use the common interfaces that all USB devices rely on instead, don't do
+> something different for just one type of USB device.
 
-Tested-by: Tony Battersby <tonyb@cybernetics.com>
+Fair enough.
 
+> 
+> I'm also a bit concerned about the special "set radio" ioctl as well.
+> Filip, what uses that ioctl?  If it's really necessary, can't a sysfs
+> file do the same thing?
+
+Currently I don't think anybody uses it for Linux. I added it because
+our non-Linux drivers had this functionality. It's used for example by
+our connection managers/tools to disable the RF-part when the laptop
+goes to sleep ( but keeps the USB bus powered&suspended ). This is a
+requirement for quite some operators.
+But yes, I suppose the same could be done through sysfs.
+
+Regards,
+
+Filip-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
