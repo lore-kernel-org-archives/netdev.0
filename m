@@ -1,62 +1,66 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: RE: RE: A Linux TCP SACK Question
-Date: Tue, 15 Apr 2008 12:55:24 -0500
-Message-ID: <001b01c89f21$e41ecca0$6b5ee183@D2GT6T71>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
- <fbbce0572843.47fb038c@fnal.gov>
- <Pine.LNX.4.64.0804081623500.21784@wrl-59.cs.helsinki.fi>
- <fba201de4228.47fb3b26@fnal.gov>
- <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
- <000301c89e81$80124570$6b5ee183@D2GT6T71>
- <1e41a3230804141748v2bf1f32bsc80307c9390c222@mail.gmail.com>
- <fcb2d79550b4.480493e2@fnal.gov>
- <1e41a3230804151001gc9fa670p511b16bb01e0bc93@mail.gmail.com>
-Reply-To: wenji@fnal.gov
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Tue, 15 Apr 2008 20:01:58 +0200
+Message-ID: <200804152001.58528.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <20080415151403.GA20735@gerrit.erg.abdn.ac.uk> <20080415152113.GB20735@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: =?iso-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>,
-	'Netdev' <netdev@vger.kernel.org>
-To: 'John Heffner' <johnwheffner@gmail.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.fnal.gov ([131.225.111.12]:40415 "EHLO mailgw2.fnal.gov"
+Received: from oswiecenia.net ([83.13.108.58]:2345 "EHLO poczta.oswiecenia.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751442AbYDOSDV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 14:03:21 -0400
-Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
- by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0JZD00F3LNP35B@mailgw2.fnal.gov> for netdev@vger.kernel.org;
- Tue, 15 Apr 2008 12:55:34 -0500 (CDT)
-Received: from mailgw1.fnal.gov ([131.225.111.11])
- by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008041512553307959 for
- <netdev@vger.kernel.org>; Tue, 15 Apr 2008 12:55:33 -0500
-Received: from conversion-daemon.mailgw1.fnal.gov by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0JZD00101OE8D0@mailgw1.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Tue, 15 Apr 2008 12:55:33 -0500 (CDT)
-In-reply-to: <1e41a3230804151001gc9fa670p511b16bb01e0bc93@mail.gmail.com>
+	id S1751984AbYDOSCO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 14:02:14 -0400
+In-Reply-To: <20080415152113.GB20735@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dnia Tuesday 15 of April 2008, Gerrit Renker napisa=B3:
+> | | What happens if application is compiled with dccp_packet_info
+> | | containing only one field (priority) and kernel containing two fi=
+elds
+> | | (for example priority and later added expiry time)? Wouldn't that
+> | | implementation make extensions to dccp_packet_info impossible?
+> |
+> | Had not looked at it from this point of view. So you are suggesting
+> |
+> | 	if (msg->msg_control !=3D NULL && msg->msg_controllen >=3D sizeof(=
+*dcp))
+> | 		dcp =3D (struct dccp_packet_info *)msg->msg_control;
+> |
+> | instead? Agreed, point #1 to change in the patch.
+>
+> No, the above is nonsense. If the application uses an earlier version=
+ of
+> the API, then it needs to be recompiled, there is no way it could pre=
+tend
+> to have an adequate size.
+>
+That would effectively stop development of any policy. And it's not abo=
+ut=20
+pretending the structure has different size, it's just about using only=
+ the=20
+data that is provided by the application (even though it may be incompl=
+ete).
 
+> So my take is that still the '=3D=3D' is correct. But maybe this is a=
+ known
+> problem?
+>
+I can't see a problem with copying smaller struct to bigger one. It wou=
+ld work=20
+like that:
+1. set default values for in-kernel structure,
+2. copy min(msg_control, sizeof(struct dccp_packet_info)) bytes from us=
+erspace=20
+structure to the kernel one.
 
->We can see that in both cases you are getting throttled by
->tcp_moderate_cwnd (X_OtherReductionsCM).  I'm not sure offhand why
->it's reaching this code - I would have thought that the high
->tp->reordering would prevent this.  Ilpo, do you have any insights?
-
->It's not all that surprising that packets_in_flight is a higher value
->with newreno than sack, which would explain the higher window with
->newreno.
-
->Wenji, the web100 kernel has a sysctl - WAD_MaxBurst.  I suspect it
->may make a significant difference if you set this to a large value.
-
-It is surprising! When I increase WAD_MaxBurst (Patched with Web100) from 3
-to 20, the throughput in both cases (SACK ON/OFF) will saturate the 1Gbps
-Link!!!
-
-
+In that sense the code above is in fact wrong but the idea alone should=
+ be ok.
+--=20
+Regards,
+Tomasz Grobelny
