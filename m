@@ -1,25 +1,46 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 0/10][VLAN]: Make VLAN devices work in net namespaces.
-Date: Tue, 15 Apr 2008 15:59:27 +0400
-Message-ID: <4804989F.1060503@openvz.org>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: Netfilter and IPSec
+Date: Tue, 15 Apr 2008 13:26:48 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0804151322470.13202@fbirervta.pbzchgretzou.qr>
+References: <480423CD.3060707@lasige.di.fc.ul.pt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org
+To: =?UTF-8?Q?F=C3=A1bio_Souto?= <fsouto@lasige.di.fc.ul.pt>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:36350 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757597AbYDOLZO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 07:25:14 -0400
+Received: from sovereign.computergmbh.de ([85.214.69.204]:44239 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757978AbYDOL0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 07:26:49 -0400
+In-Reply-To: <480423CD.3060707@lasige.di.fc.ul.pt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set does not intersect with the TUN one at all, since
-they both use generic net pointers.
 
-It also includes some changes in RTNL code to facilitate
-VLAN netnsization and a bit more VLAN cleanups.
+On Tuesday 2008-04-15 05:41, F=C3=A1bio Souto wrote:
+>
+> I'm trying to find out some alternatives for a task I have been
+> assigned. Basically, I want to sign IPSec packets on another
+> machine. The idea is when I receive an IPSec packet, I delegate the
+> cryptographic signature generation to another machine, and I
+> receive the signed packet.
+>
+> I'm currently studying several alternatives for doing this, and
+> even tried a socket-based approach, by changing some kernel
+> modules, which has failed. It would require a huge remake of kernel
+> code; this task is made even harder due to lack of documentation.
+>
+> So I was wondering if anyone knew if with netfilter is possible to
+> achieve this. Any other suggestions/hints would be extremely
+> valued.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+The situation is deliberate, yes. IPsec is done in what you could
+call the xfrm subsystem, not netfilter. To that end, the only
+suggestion I could give is that you create a new xfrm policy/state
+from esp where esp is split into your encryption and signing
+"targets".
+
+It kinda brings me the question why the ipsec transformation is
+not done with an xtables target instead; that would also give
+handy access to connection tracking if needed.
