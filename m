@@ -1,54 +1,37 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: Reporting bugs and bisection
-Date: Tue, 15 Apr 2008 01:25:33 -0400
-Message-ID: <20080415012533.832db7ed.billfink@mindspring.com>
-References: <20080413232441.e216a02c.akpm@linux-foundation.org>
-	<20080414072328.GW9785@ZenIV.linux.org.uk>
-	<20080414010412.c42dc560.akpm@linux-foundation.org>
-	<20080414.013058.149905948.davem@davemloft.net>
-	<878wzgwyyw.fsf@basil.nowhere.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
+Date: Tue, 15 Apr 2008 05:32:54 +0000
+Message-ID: <20080415053253.GA3920@ff.dom.local>
+References: <20080413121031.GA5211@ami.dom.local> <20080414202605.GA6164@ami.dom.local> <4803BE84.4040105@trash.net> <20080414.151102.169978802.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	viro@ZenIV.linux.org.uk, w@1wt.eu, david@lang.hm,
-	sclark46@earthlink.net, johnpol@2ka.mipt.ru, rjw@sisk.pl,
-	tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
-	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, git@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <git-owner@vger.kernel.org>
-In-Reply-To: <878wzgwyyw.fsf@basil.nowhere.org>
-Sender: git-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, enrico@superclick.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.154]:27323 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753783AbYDOFaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 01:30:16 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1858315fgb.17
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2008 22:30:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080414.151102.169978802.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Apr 2008, Andi Kleen wrote:
+On Mon, Apr 14, 2008 at 03:11:02PM -0700, David Miller wrote:
+...
+> > Jarek Poplawski wrote:
+...
+> > > After this fix qdisc_lookup() is omitted both for ingress and root
+> > > parents, but looking for root is only wasting a little time here...
 
-> David Miller <davem@davemloft.net> writes:
-> >
-> > It's still largely free form, loose, and flexible. 
-> 
-> I think Al's point was that we need far more "free form, loose and
-> flexible" work for reviewing code. As in people going over trees and
-> just checking it for anything suspicious and going over existing code
-> and checking it for anything suspicious and going also over mailing
-> list patch posts. And also maintainers who appreciate such review.
-> 
-> And checking it for anything suspicious does not mean running
-> only checkpatch.pl or even just sparse, but actually reading it
-> and trying to make sense of it.
+...Actually, there is yet a possibility that somebody uses ffff:
+handle for a qdisc (not ingress), which could make here a little
+difference, so this place could be improved for this case (even
+with something like my earlier debugging patch in this thread,
+which BTW could be a safety for maybe some other quirks here),
+but it seems it would be better to discourage using this handle
+for anything but ingress.
 
-If you really want to get more such review, then it would be very
-useful when someone asks about some obtuse portion of kernel code
-or makes a suggested improvement, that the reviewer then not be
-flamed as being dense for not understanding the code or some kernel
-coding concept.  It would be much better to treat it as an oppurtunity
-to educate rather than belittle, thus eventually enlarging the base
-of people who can assist with various aspects of kernel development.
-For what's supposed to be an open, engaging community, and which
-generally is, there sometimes seems to be some level of dismissal
-of newcomers (not sure it's intended that way but nevertheless it
-can tend to discourage newcomers from getting more involved).
-
-						-Bill
+Jarek P.
