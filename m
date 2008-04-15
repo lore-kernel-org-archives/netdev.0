@@ -1,74 +1,58 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Work WAS(Re: Reporting bugs and bisection
-Date: Tue, 15 Apr 2008 09:18:36 -0400
-Message-ID: <1208265516.4419.125.camel@localhost>
-References: <20080413232441.e216a02c.akpm@linux-foundation.org>
-	 <20080414072328.GW9785@ZenIV.linux.org.uk>
-	 <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au>
-	 <20080414.150105.101568769.davem@davemloft.net>
-	 <20080414160513.9f57e5ba.akpm@linux-foundation.org>
-	 <20080415045541.GA611@1wt.eu>
-Reply-To: hadi@cyberus.ca
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: Why MLDv2 Report packet is freed ?
+Date: Tue, 15 Apr 2008 16:23:33 +0300
+Message-ID: <d0383f90804150623r2eb071fau200a67c6ce65a7e0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, jmorris@namei.org,
-	viro@ZenIV.linux.org.uk, david@lang.hm, sclark46@earthlink.net,
-	johnpol@2ka.mipt.ru, rjw@sisk.pl, tilman@imap.cc,
-	Valdis.Kletnieks@vt.edu, lkml@rtr.ca, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, git@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764952AbYDONTB@vger.kernel.org>
-In-Reply-To: <20080415045541.GA611@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:44328 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756943AbYDONXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 09:23:35 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1993260fgb.17
+        for <netdev@vger.kernel.org>; Tue, 15 Apr 2008 06:23:33 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-15-04 at 06:55 +0200, Willy Tarreau wrote:
+Hello,
 
-> And if Dave speaks about these stats : http://lwn.net/Articles/237768/
-> then Al does not even appear in it, which proves your point.
+I have a question about the multicast routing support and pim6sd in
+this latest tree;
 
-Stats such as those above, while useful, are flawed.
-IMO James Morris has (probably more than anybody else) hit on the core
-issue. To extend his view: theres more than just code review that
-deserves respect. Testing is one. Commenting, not necessarily on code,
-but on architecture is another. Documenting. Yes, running sparse or even
-Lindent or checkpatch.
-In the old/current Linux thinking (pun intended) work equates to
-churning code. That thought process derives from Linus actually then
-propagates down stream to other folks.
-I think the Linus approach is still excellent - but its definition of
-"work" is no longer valid. Work must include all these other things
-and visible credit is important if the revolution is to continue.
+I tried to run pim6sd daemon on a kernel with the latest updates from
+the git tree;
+and I had also a host with the latest updates from the git tree.
+(The  pim6sd is taken from yoshifuji mcast-tools git tree.0
 
-If you look at it from a software engineering or production resource
-management, the Linux development model has gotta be one of the most
-inefficient[1] - with a reward system geared to developers mostly.
-If you want to look it from an investment of time (ROI perspective),
-developers get way too much credit riding on everybody elses back.
-Why should Mark Lord report another bug to us?
-Put yourself in his shoes:
-- he is a clever guy who has already worked around the bug. So a proper
-fix is only a convinience for him.
-- Blessed as he was - he got to do more and more work after reporting.
-- he got slapped for claiming he had to go and get lunch and therefore
-didnt have time to do more bisect for a bug that wasnt just unique to
-his setup.
-- he spent a gazillion electrons responding to people and justifying his
-stance
-- he got no credit for his time whatsoever when the bug was fixed (he
-wont be showing up on lwn list).
+When a host joins a multicast group  a
+Multicast Listener Report V2 (MLDV2) is sent. It is of type 143,
+which is ICMPV6_MLD2_REPORT. I can see it with a sniffer on the router machine
+running pim6sd.
 
-I think perspective and credit for peoples time needs to change.
+The destination of the MLDv2 report is ff02::16.
 
-cheers,
-jamal
+Now, I don't understand something here:
+I had looked at icmpv6_rcv() in net/ipv6/icmp.c.
 
-[1] With current momentum, theres an infinite resources of developers
-and testers and documenters in Linux, i.e
-resource management is only valid as a metric if you had finite
-resources. So the point i am making is moot - but I do strongly believe
-the momentum will dampen if current trend of defining work continues.
+I see that when the type of the ICMP packet is ICMPV6_MLD2_REPORT it
+is dropped (calling kfree_skb()).
+
+shouldn't it be handled and passed onward so that it will
+eventually reach the pim6sd daemon ? or is this
+only implemented currently for MLDV1 ?
+
+I want to add that I saw on the machine running pim6sd that
+this packet does not reach accept_mld6(). (I added some printing there).
+
+This does not change also with "phyint eth0 mld_version 2" to pim6sd.conf;
+
+Two last notes:
+- I had mc_forwarding and forwarding set for IPv6 on the router machine.
+- pim6stat shows possible MLD version = 1 on all interfaces (also after
+  restarting pim6sd with mld_version 2).
+
+Regards,
+IB
