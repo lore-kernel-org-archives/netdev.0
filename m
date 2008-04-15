@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 9/10][VLAN]: Allow vlan devices registration in
- net namespaces.
-Date: Tue, 15 Apr 2008 16:17:12 +0400
-Message-ID: <48049CC8.7090802@openvz.org>
+Subject: [PATCH net-2.6.26 10/10][VLAN]: Handle vlan devices net namespace
+ changing.
+Date: Tue, 15 Apr 2008 16:19:17 +0400
+Message-ID: <48049D45.5020606@openvz.org>
 References: <4804989F.1060503@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -11,93 +11,62 @@ Cc: Patrick McHardy <kaber@trash.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:36296 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:36749 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756747AbYDOLmy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 07:42:54 -0400
+	id S1753428AbYDOLpC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 07:45:02 -0400
 In-Reply-To: <4804989F.1060503@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This one is similar to what I've done for TUN - set the proper
-net after device allocation and clean VLANs on net exit (use the
-rtnl_kill_links helper finally).
+When van device is moved to another namespace proc files,
+related to this device, should also change one.
 
-Plus, drop explicit init_net usage and net != &init_net checks.
+Use the netdev REGISTER and UNREGISTER event handlers for this.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/8021q/vlan.c         |    7 +++----
- net/8021q/vlan_dev.c     |    3 ---
- net/8021q/vlan_netlink.c |    2 +-
- 3 files changed, 4 insertions(+), 8 deletions(-)
+ net/8021q/vlan.c |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
 
 diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 5cacad0..7e9d22e 100644
+index 7e9d22e..2a739ad 100644
 --- a/net/8021q/vlan.c
 +++ b/net/8021q/vlan.c
-@@ -340,6 +340,7 @@ static int register_vlan_device(struct net_device *real_dev,
- 	if (new_dev == NULL)
- 		return -ENOBUFS;
+@@ -154,8 +154,6 @@ void unregister_vlan_dev(struct net_device *dev)
+ 	grp = __vlan_find_group(real_dev);
+ 	BUG_ON(!grp);
  
-+	dev_net_set(new_dev, net);
- 	/* need 4 bytes for extra VLAN header info,
- 	 * hope the underlying device can handle it.
+-	vlan_proc_rem_dev(dev);
+-
+ 	/* Take it out of our own structures, but be sure to interlock with
+ 	 * HW accelerating devices or SW vlan input packet processing.
  	 */
-@@ -406,9 +407,6 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 	int i, flgs;
- 	struct net_device *vlandev;
+@@ -278,9 +276,6 @@ int register_vlan_dev(struct net_device *dev)
+ 	if (real_dev->features & NETIF_F_HW_VLAN_FILTER)
+ 		real_dev->vlan_rx_add_vid(real_dev, vlan_id);
  
--	if (dev_net(dev) != &init_net)
--		return NOTIFY_DONE;
--
- 	if (is_vlan_dev(dev)) {
- 		__vlan_device_event(dev, event);
- 		goto out;
-@@ -534,7 +532,7 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
- 	case GET_VLAN_REALDEV_NAME_CMD:
- 	case GET_VLAN_VID_CMD:
- 		err = -ENODEV;
--		dev = __dev_get_by_name(&init_net, args.device1);
-+		dev = __dev_get_by_name(net, args.device1);
- 		if (!dev)
- 			goto out;
+-	if (vlan_proc_add_dev(dev) < 0)
+-		pr_warning("8021q: failed to add proc entry for %s\n",
+-			   dev->name);
+ 	return 0;
  
-@@ -665,6 +663,7 @@ static void vlan_exit_net(struct net *net)
- 	struct vlan_net *vn;
- 
- 	vn = net_generic(net, vlan_net_id);
-+	rtnl_kill_links(net, &vlan_link_ops);
- 	vlan_proc_cleanup(net);
- 	kfree(vn);
+ out_free_group:
+@@ -396,6 +391,14 @@ static void __vlan_device_event(struct net_device *dev, unsigned long event)
+ 			pr_warning("8021q: failed to change proc name for %s\n",
+ 					dev->name);
+ 		break;
++	case NETDEV_REGISTER:
++		if (vlan_proc_add_dev(dev) < 0)
++			pr_warning("8021q: failed to add proc entry for %s\n",
++					dev->name);
++		break;
++	case NETDEV_UNREGISTER:
++		vlan_proc_rem_dev(dev);
++		break;
+ 	}
  }
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 4ae0d7e..c961f08 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -153,9 +153,6 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
- 	struct net_device_stats *stats;
- 	unsigned short vlan_TCI;
- 
--	if (dev_net(dev) != &init_net)
--		goto err_free;
--
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (skb == NULL)
- 		goto err_free;
-diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
-index e32eeb3..c93e69e 100644
---- a/net/8021q/vlan_netlink.c
-+++ b/net/8021q/vlan_netlink.c
-@@ -113,7 +113,7 @@ static int vlan_newlink(struct net_device *dev,
- 
- 	if (!tb[IFLA_LINK])
- 		return -EINVAL;
--	real_dev = __dev_get_by_index(&init_net, nla_get_u32(tb[IFLA_LINK]));
-+	real_dev = __dev_get_by_index(dev_net(dev), nla_get_u32(tb[IFLA_LINK]));
- 	if (!real_dev)
- 		return -ENODEV;
  
 -- 
 1.5.3.4
