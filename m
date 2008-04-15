@@ -1,41 +1,118 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Tue, 15 Apr 2008 15:25:55 +0200
-Message-ID: <200804151525.57340.oliver@neukum.org>
-References: <20080414213238.GB28833@kroah.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.26 1/7][IP6TUNNEL]: Introduce empty ip6_tnl_net structure
+ and net ops.
+Date: Tue, 15 Apr 2008 17:59:21 +0400
+Message-ID: <4804B4B9.10604@openvz.org>
+References: <4804B478.3040606@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
-	Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>,
-	ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org
-To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080414213238.GB28833-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:53615 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757126AbYDONZC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 09:25:02 -0400
+In-Reply-To: <4804B478.3040606@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 14. April 2008 23:32:39 schrieb Greg KH:
-> Hi all,
-> 
-> Here's a patch that I have cleaned up for context only from Option that
-> is a USB serial / network device all in one.
-> 
-> I'd like to see this go into 2.6.26, so any review comments by anyone
-> who wishes to review any portion of this would be greatly apprecited.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-The driver implements an ioctl to disable autosuspend. This seems
-unnecessary to me, as you can do that via sysfs, too. Is this included
-to work around permission problems? Can somebody explain?
+---
+ net/ipv6/ip6_tunnel.c |   49 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 49 insertions(+), 0 deletions(-)
 
-	Regards
-		Oliver
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 61517fe..2365eb0 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -52,6 +52,8 @@
+ #include <net/xfrm.h>
+ #include <net/dsfield.h>
+ #include <net/inet_ecn.h>
++#include <net/net_namespace.h>
++#include <net/netns/generic.h>
+ 
+ MODULE_AUTHOR("Ville Nuorvala");
+ MODULE_DESCRIPTION("IPv6 tunneling device");
+@@ -78,6 +80,10 @@ static int ip6_fb_tnl_dev_init(struct net_device *dev);
+ static int ip6_tnl_dev_init(struct net_device *dev);
+ static void ip6_tnl_dev_setup(struct net_device *dev);
+ 
++static int ip6_tnl_net_id;
++struct ip6_tnl_net {
++};
++
+ /* the IPv6 tunnel fallback device */
+ static struct net_device *ip6_fb_tnl_dev;
+ 
+@@ -1384,6 +1390,41 @@ static struct xfrm6_tunnel ip6ip6_handler = {
+ 	.priority	=	1,
+ };
+ 
++static int ip6_tnl_init_net(struct net *net)
++{
++	int err;
++	struct ip6_tnl_net *ip6n;
++
++	err = -ENOMEM;
++	ip6n = kmalloc(sizeof(struct ip6_tnl_net), GFP_KERNEL);
++	if (ip6n == NULL)
++		goto err_alloc;
++
++	err = net_assign_generic(net, ip6_tnl_net_id, ip6n);
++	if (err < 0)
++		goto err_assign;
++
++	return 0;
++
++err_assign:
++	kfree(ip6n);
++err_alloc:
++	return err;
++}
++
++static void ip6_tnl_exit_net(struct net *net)
++{
++	struct ip6_tnl_net *ip6n;
++
++	ip6n = net_generic(net, ip6_tnl_net_id);
++	kfree(ip6n);
++}
++
++static struct pernet_operations ip6_tnl_net_ops = {
++	.init = ip6_tnl_init_net,
++	.exit = ip6_tnl_exit_net,
++};
++
+ /**
+  * ip6_tunnel_init - register protocol and reserve needed resources
+  *
+@@ -1418,7 +1459,13 @@ static int __init ip6_tunnel_init(void)
+ 		free_netdev(ip6_fb_tnl_dev);
+ 		goto fail;
+ 	}
++
++	err = register_pernet_gen_device(&ip6_tnl_net_id, &ip6_tnl_net_ops);
++	if (err < 0)
++		goto err_pernet;
+ 	return 0;
++err_pernet:
++	unregister_netdevice(ip6_fb_tnl_dev);
+ fail:
+ 	xfrm6_tunnel_deregister(&ip6ip6_handler, AF_INET6);
+ unreg_ip4ip6:
+@@ -1456,6 +1503,8 @@ static void __exit ip6_tunnel_cleanup(void)
+ 	rtnl_lock();
+ 	ip6_tnl_destroy_tunnels();
+ 	rtnl_unlock();
++
++	unregister_pernet_gen_device(ip6_tnl_net_id, &ip6_tnl_net_ops);
+ }
+ 
+ module_init(ip6_tunnel_init);
+-- 
+1.5.3.4
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
