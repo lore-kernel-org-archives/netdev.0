@@ -1,72 +1,183 @@
 From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 6/7 net-2.6.26] [TIPC]: Force linearization of non-linear sk_buffs
-Date: Tue, 15 Apr 2008 15:43:56 -0400
-Message-ID: <1208288637-15304-7-git-send-email-allan.stephens@windriver.com>
+Subject: [PATCH 7/7 net-2.6.26] [TIPC]: Enhance validation of format on incoming messages
+Date: Tue, 15 Apr 2008 15:43:57 -0400
+Message-ID: <1208288637-15304-8-git-send-email-allan.stephens@windriver.com>
 References: <1208288637-15304-1-git-send-email-allan.stephens@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:46963 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:46969 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756655AbYDOTpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 15:45:55 -0400
+	id S1756824AbYDOTp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 15:45:56 -0400
 In-Reply-To: <1208288637-15304-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows TIPC to process incoming messages that are
-stored in a fragmented sk_buff, by forcing the linearization
-of any such messages it receives.
-
-Note: This is an interim solution to allow TIPC to operate with
-Ethernet devices that generate non-linear buffers (such as the
-gianfar driver), until such time as the rest of TIPC is enhanced
-to handle sk_buffs with multiple data areas.
+This patch ensures that TIPC properly handles incoming messages
+that have incorrect or unexpected formats.  Most significantly,
+it now ensures that each sl_buff has at least as much data as
+the message header indicates it should, and that the entire
+message header is stored contiguously; this prevents TIPC from
+accidentally accessing memory that is not part of the sk_buff.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 ---
- net/tipc/core.h |   12 ++++++++++++
- net/tipc/link.c |    6 ++++++
- 2 files changed, 18 insertions(+), 0 deletions(-)
+ net/tipc/link.c |   89 +++++++++++++++++++++++++++++++++++++++++++++++-------
+ 1 files changed, 77 insertions(+), 12 deletions(-)
 
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index b3c9df3..325404f 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -337,4 +337,16 @@ static inline void buf_discard(struct sk_buff *skb)
- 	kfree_skb(skb);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 0873793..2a26a16 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1785,6 +1785,56 @@ static struct sk_buff *link_insert_deferred_queue(struct link *l_ptr,
+ 	return buf;
  }
  
 +/**
-+ * buf_linearize - convert a TIPC message buffer into a single contiguous piece
-+ * @skb: message buffer
++ * link_recv_buf_validate - validate basic format of received message
 + *
-+ * Returns 0 on success.
++ * This routine ensures a TIPC message has an acceptable header, and at least
++ * as much data as the header indicates it should.  The routine also ensures
++ * that the entire message header is stored in the main fragment of the message
++ * buffer, to simplify future access to message header fields.
++ *
++ * Note: Having extra info present in the message header or data areas is OK.
++ * TIPC will ignore the excess, under the assumption that it is optional info
++ * introduced by a later release of the protocol.
 + */
 +
-+static inline int buf_linearize(struct sk_buff *skb)
++static int link_recv_buf_validate(struct sk_buff *buf)
 +{
-+	return skb_linearize(skb);
++	static u32 min_data_hdr_size[8] = {
++		SHORT_H_SIZE, MCAST_H_SIZE, LONG_H_SIZE, DIR_MSG_H_SIZE,
++		MAX_H_SIZE, MAX_H_SIZE, MAX_H_SIZE, MAX_H_SIZE
++		};
++
++	struct tipc_msg *msg;
++	u32 tipc_hdr[2];
++	u32 size;
++	u32 hdr_size;
++	u32 min_hdr_size;
++
++	if (unlikely(buf->len < MIN_H_SIZE))
++		return 0;
++
++	msg = skb_header_pointer(buf, 0, sizeof(tipc_hdr), tipc_hdr);
++	if (msg == NULL)
++		return 0;
++
++	if (unlikely(msg_version(msg) != TIPC_VERSION))
++		return 0;
++
++	size = msg_size(msg);
++	hdr_size = msg_hdr_sz(msg);
++	min_hdr_size = msg_isdata(msg) ?
++		min_data_hdr_size[msg_type(msg)] : INT_H_SIZE;
++
++	if (unlikely((hdr_size < min_hdr_size) ||
++		     (size < hdr_size) ||
++		     (buf->len < size) ||
++		     (size - hdr_size > TIPC_MAX_USER_MSG_SIZE)))
++		return 0;
++
++	return pskb_may_pull(buf, hdr_size);
 +}
 +
- #endif
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index a42f434..0873793 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1811,6 +1811,12 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
- #endif
- 			msg_dbg(msg,"<REC<");
+ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ {
+ 	read_lock_bh(&tipc_net_lock);
+@@ -1794,9 +1844,9 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ 		struct link *l_ptr;
+ 		struct sk_buff *crs;
+ 		struct sk_buff *buf = head;
+-		struct tipc_msg *msg = buf_msg(buf);
+-		u32 seq_no = msg_seqno(msg);
+-		u32 ackd = msg_ack(msg);
++		struct tipc_msg *msg;
++		u32 seq_no;
++		u32 ackd;
+ 		u32 released = 0;
+ 		int type;
  
-+		/* Ensure message data is a single contiguous unit */
+@@ -1804,12 +1854,11 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ 		TIPC_SKB_CB(buf)->handle = b_ptr;
+ 
+ 		head = head->next;
+-		if (unlikely(msg_version(msg) != TIPC_VERSION))
 +
-+		if (unlikely(buf_linearize(buf))) {
-+			goto cont;
-+		}
++		/* Ensure message is well-formed */
++
++		if (unlikely(!link_recv_buf_validate(buf)))
+ 			goto cont;
+-#if 0
+-		if (msg_user(msg) != LINK_PROTOCOL)
+-#endif
+-			msg_dbg(msg,"<REC<");
+ 
+ 		/* Ensure message data is a single contiguous unit */
+ 
+@@ -1817,6 +1866,10 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ 			goto cont;
+ 		}
+ 
++		/* Handle arrival of a non-unicast link message */
++
++		msg = buf_msg(buf);
 +
  		if (unlikely(msg_non_seq(msg))) {
  			link_recv_non_seq(buf);
  			continue;
+@@ -1826,19 +1879,26 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ 			     (msg_destnode(msg) != tipc_own_addr)))
+ 			goto cont;
+ 
++		/* Locate unicast link endpoint that should handle message */
++
+ 		n_ptr = tipc_node_find(msg_prevnode(msg));
+ 		if (unlikely(!n_ptr))
+ 			goto cont;
+-
+ 		tipc_node_lock(n_ptr);
++
+ 		l_ptr = n_ptr->links[b_ptr->identity];
+ 		if (unlikely(!l_ptr)) {
+ 			tipc_node_unlock(n_ptr);
+ 			goto cont;
+ 		}
+-		/*
+-		 * Release acked messages
+-		 */
++
++		/* Validate message sequence number info */
++
++		seq_no = msg_seqno(msg);
++		ackd = msg_ack(msg);
++
++		/* Release acked messages */
++
+ 		if (less(n_ptr->bclink.acked, msg_bcast_ack(msg))) {
+ 			if (tipc_node_is_up(n_ptr) && n_ptr->bclink.supported)
+ 				tipc_bclink_acknowledge(n_ptr, msg_bcast_ack(msg));
+@@ -1857,6 +1917,9 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ 			l_ptr->first_out = crs;
+ 			l_ptr->out_queue_size -= released;
+ 		}
++
++		/* Try sending any messages link endpoint has pending */
++
+ 		if (unlikely(l_ptr->next_out))
+ 			tipc_link_push_queue(l_ptr);
+ 		if (unlikely(!list_empty(&l_ptr->waiting_ports)))
+@@ -1866,6 +1929,8 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ 			tipc_link_send_proto_msg(l_ptr, STATE_MSG, 0, 0, 0, 0, 0);
+ 		}
+ 
++		/* Now (finally!) process the incoming message */
++
+ protocol_check:
+ 		if (likely(link_working_working(l_ptr))) {
+ 			if (likely(seq_no == mod(l_ptr->next_in_no))) {
 -- 
 1.5.3.2
 
