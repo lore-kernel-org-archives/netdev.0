@@ -1,215 +1,251 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Tue, 15 Apr 2008 06:30:55 +0200
-Message-ID: <48042F7F.8030608@hartkopp.net>
-References: <20080414213238.GB28833@kroah.com>
+From: Crispin Cowan <crispin@crispincowan.com>
+Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
+Date: Mon, 14 Apr 2008 21:59:52 -0700
+Message-ID: <48043648.1000502@crispincowan.com>
+References: <20080404122242.867070732@I-love.SAKURA.ne.jp>	 <20080404122408.986477936@I-love.SAKURA.ne.jp>	 <200804071140.59247.paul.moore@hp.com> <47FC8052.9070409@nttdata.co.jp>	 <20080409131151.GK11962@parisc-linux.org>	 <200804112312.HGE69734.LFOOHQOSFFMJtV@I-love.SAKURA.ne.jp>	 <20080411143013.GB11962@parisc-linux.org>	 <20080413163658.GC7010@sergelap.austin.ibm.com>	 <4802BBDC.1030707@crispincowan.com> <1208182620.18883.92.camel@moss-spartans.epoch.ncsc.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Filip Aben <f.aben@option.com>,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	ajb@spheresystems.co.uk
-To: Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:42724 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475AbYDOEbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 00:31:33 -0400
-In-Reply-To: <20080414213238.GB28833@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	paul.moore@hp.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762940AbYDOE4o@vger.kernel.org>
+In-Reply-To: <1208182620.18883.92.camel@moss-spartans.epoch.ncsc.mil>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just some obvious things to reduce the source code hopping for the
-review and to reduce the source code size.
-
-Regards,
-Oliver
-
-> +
-> +#define DRIVER_VERSION			"1.2"
-> +#define MOD_AUTHOR			"Option Wireless"
-> +#define MOD_DESCRIPTION			"USB High Speed Option driver"
-> +#define MOD_LICENSE			"GPL"
-> +
+Stephen Smalley wrote:
+> On Sun, 2008-04-13 at 19:05 -0700, Crispin Cowan wrote:
 >   
+>> Things that pathname-based access control is good at:
+>>
+>>     * *System Integrity:* Many of the vital components of a UNIX system
+>>       are stored in files with Well Known Names such as /etc/shadow,
+>>       /var/www/htdocs/index.html and /home/crispin/.ssh/known_hosts. The
+>>       contents of the actual data blocks is less important than the
+>>       integrity of what some random process gets when it asks for these
+>>       resources by name. Preserving the integrity of what responds to
+>>       the Well Known Name is thus easier if you restrict access based on
+>>       the name.
+>>     
+> I think some might argue that the integrity of the data in /etc/shadow
+> and your .ssh files is very important, not just their names.
+I understand how the confidentiality of secrets like the contents of 
+/etc/shadow and your .ssh files is important, but how can the integrity 
+of these data objects be important? Back them up if you care ...
 
-Please move the MODULE_OWNER(), MODULE_LICENSE(), etc. macros from the
-end of this file directly to this point.
+>   And as
+> names are themselves just data contained by directories, the integrity
+> of the names is a particular case of the data integrity problem.
+That's just access control for the containing directory, and/or access 
+control to the raw partition, which is also  controlled by name-based 
+access control to /dev
 
-
-> +/*****************************************************************************/
-> +/* Prototypes                                                                */
-> +/*****************************************************************************/
-> +/* Network interface functions */
-> +static int hso_net_open(struct net_device *net);
-> +static int hso_net_close(struct net_device *net);
-> +static int hso_net_start_xmit(struct sk_buff *skb, struct net_device *net);
-> +static int hso_net_ioctl(struct net_device *net, struct ifreq *rq, int cmd);
-> +static struct net_device_stats *hso_net_get_stats(struct net_device *net);
-> +static void hso_net_tx_timeout(struct net_device *net);
-> +static void hso_net_set_multicast(struct net_device *net);
-> +static void read_bulk_callback(struct urb *urb);
-> +static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
-> +			unsigned int count, unsigned char is_eop);
-> +static void write_bulk_callback(struct urb *urb);
-> +/* Serial driver functions */
-> +static int hso_serial_tiocmset(struct tty_struct *tty, struct file *file,
-> +			       unsigned int set, unsigned int clear);
-> +static void ctrl_callback(struct urb *urb);
-> +static void put_rxbuf_data(struct urb *urb, struct hso_serial *serial);
-> +static void hso_std_serial_read_bulk_callback(struct urb *urb);
-> +static void hso_std_serial_write_bulk_callback(struct urb *urb);
-> +static void _hso_serial_set_termios(struct tty_struct *tty,
-> +				    struct ktermios *old);
-> +static void hso_kick_transmit(struct hso_serial *serial);
-> +/* Base driver functions */
-> +static int hso_probe(struct usb_interface *interface,
-> +		     const struct usb_device_id *id);
-> +static void hso_disconnect(struct usb_interface *interface);
-> +/* Helper functions */
-> +static int hso_mux_submit_intr_urb(struct hso_shared_int *mux_int,
-> +				   struct usb_device *usb, gfp_t gfp);
-> +static void hso_net_init(struct net_device *net);
-> +static void set_ethernet_addr(struct hso_net *odev);
-> +static struct hso_serial *get_serial_by_index(unsigned index);
-> +static struct hso_serial *get_serial_by_shared_int_and_type(
-> +					struct hso_shared_int *shared_int,
-> +					int mux);
-> +static int get_free_serial_index(void);
-> +static void set_serial_by_index(unsigned index, struct hso_serial *serial);
-> +static int remove_net_device(struct hso_device *hso_dev);
-> +static int add_net_device(struct hso_device *hso_dev);
-> +static void log_usb_status(int status, const char *function);
-> +static struct usb_endpoint_descriptor *hso_get_ep(struct usb_interface *intf,
-> +						  int type, int dir);
-> +static int hso_get_mux_ports(struct usb_interface *intf, unsigned char *ports);
-> +static void hso_free_interface(struct usb_interface *intf);
-> +static int hso_start_serial_device(struct hso_device *hso_dev);
-> +static int hso_stop_serial_device(struct hso_device *hso_dev);
-> +static int hso_start_net_device(struct hso_device *hso_dev);
-> +static void hso_free_shared_int(struct hso_shared_int *shared_int);
-> +static int hso_stop_net_device(struct hso_device *hso_dev);
-> +static void hso_serial_ref_free(struct kref *ref);
-> +static int hso_suspend(struct usb_interface *iface, pm_message_t message);
-> +static int hso_resume(struct usb_interface *iface);
-> +static void async_get_intf(struct work_struct *data);
-> +static void async_put_intf(struct work_struct *data);
-> +static int hso_put_activity(struct hso_device *hso_dev);
-> +static int hso_get_activity(struct hso_device *hso_dev);
-> +
+>   And
+> ultimately data integrity requires information flow control to preserve.
 >   
+You've argued that before, and I've never been convinced. Rather, it 
+looked a lot like a stretched definition trying really hard to turn 
+integrity into an information flow problem.The most information flow 
+that I will buy in the integrity problem is taint analysis of software 
+inputs; that software should validate inputs before acting on it.
 
-This is a real forward declaration hell. Please try to reorder the
-functions in the code to make this as obsolte as possible.
-
-> +/*****************************************************************************/
-> +/* Helping functions                                                         */
-> +/*****************************************************************************/
-> +
-> +/* convert a character representing a hex value to a number */
-> +static unsigned char hex2dec(unsigned char digit)
-> +{
-> +
-> +	if ((digit >= '0') && (digit <= '9'))
-> +		return (digit - '0');
-> +	/* Map all characters to 0-15 */
-> +	if ((digit >= 'a') && (digit <= 'z'))
-> +		return (digit - 'a' + 10) % 16;
-> +	if ((digit >= 'A') && (digit <= 'Z'))
-> +		return (digit - 'A' + 10) % 16;
-> +	return 16;
-> +}
-> +
+>>     * *Dynamic Access Control:* A special case of the above pertains to
+>>       files that may or may not exist. If you don't *have* a /etc/hosts
+>>       file, it is still important to have a rule that controls whether
+>>       it can be created. This is hard to do in label-based systems,
+>>       because the file does not exist to put a label on, so you have to
+>>       kludge it by either creating the file with zero length and
+>>       labeling it, or by creating more complex policy for the parent
+>>       /etc directory, and that's hard given the number of uses for /etc
+>>       such as /etc/motd. In a name based scheme, you simply don't
+>>       provide write permission to "/etc/hosts" unless you mean it, and
+>>       it can be enforced even if such a file does not exist.
+>>     
+> I'd view this as another example of practical or legacy concerns, as it
+> wouldn't pose a problem if either of the following were true:
+> - /etc was further partitioned into multiple subdirectories (seemingly
+> true in an increasing number of cases, so we seem to be moving in that
+> direction regardless) so that inheritance from parent directory would
+> suffice, or
 >   
+If you want to move this particular benefit to the "practical" bucket, I 
+have no issue with that. It is a core part of the name-based argument 
+that it is a practical solution for system administrators who     
+experience the system through names.
 
-Shouldn't this already be somewhere else in the kernel?
-
-> +
-> +/* module parameters */
-> +static int debug;
-> +static int procfs = 1;
-> +static int tty_major;
-> +static int disable_net;
-> +static int enable_autopm;
-> +
+> - specific programs were used to create or update the individual files
+> (true for some of the files in /etc, and generally helpful for ensuring
+> proper data formatting and applying basic sanity checks on the content)
+> so that the files created by them could be labeled based on the creating
+> domain or via appropriate instrumentation of the programs to set the
+> attributes (the latter is not fundamentally different than the situation
+> for DAC ownership/mode or ACLs).
 >   
+Security architecture for a clean&pure architecture are an interesting 
+problem, but certainly are not the LSM problem.
 
-please move the module_param() stuff and MODULE_PARM_DESC() from the end
-of the file right to this place.
-
-> +static int hso_proc_port_info(char *buf, char **start, off_t offset, int count,
-> +			      int *eof, void *data)
-> +{
-> +	int len = 0;
-> +	struct hso_device *hso_dev = (struct hso_device *)data;
-> +	char *port_name = NULL;
-> +
-> +	D1("count: %d", count);
+> Also, note that in the case of SELinux, we do have a solution to the
+> above situation, namely restorecond, which leverages the kernel's
+> inotify mechanism.
 >   
+IMHO that is a slow and racy solution. If one applied the kind of 
+standards that AppArmor is being asked to pass to restorecond, it would 
+have a tough time too.
 
-This debug macro looks like it is from the very beginning of the
-implementation. Remove it.
+> As an example where the name-based schemes have difficulties with
+> "dynamic" data, files created at runtime in /tmp and other shared
+> directories often have security-irrelevant names,
+Presumably you mean that the name is not meaningfully predictable with 
+respect tot he application. Yes, sometimes this is a problem, and 
+AppArmor doesn't presently deal with it well.
 
-> +
-> +static void hso_serial_throttle(struct tty_struct *tty)
-> +{
-> +	D1(" ");
-> +}
-> +
-> +static void hso_serial_unthrottle(struct tty_struct *tty)
-> +{
-> +	D1(" ");
-> +}
-> +
-> +static void hso_serial_break(struct tty_struct *tty, int break_state)
-> +{
-> +	D1(" ");
-> +}
-> +
-> +static int hso_serial_read_proc(char *page, char **start, off_t off, int count,
-> +				int *eof, void *data)
-> +{
-> +	return 0;
-> +}
-> +
+>  yet protecting them
+> from tampering by others can be very relevant to security.  There the
+> attribute-based schemes have the advantage.
 >   
+John Johansen has some designs he has been working on to let an AA 
+profile require a UID match as well as a name match. To the extent that 
+file ownership is a kind of label, this is a small step towards a hybrid 
+model that leverages the strengths of both name and label based access 
+controls.
 
-???
-> +static void hso_serial_hangup(struct tty_struct *tty)
-> +{
-> +	D1("hang up");
-> +}
-> +
+>>     * *Ad Hoc Generalization:* Label-based access control generalizes
+>>       policy in that the policy treats all files and resources that
+>>       share a label the same. If you want to make a new generalization
+>>       that encompasses *part* of the files that share a label, but *not
+>>       all* of those files, then you have to "split the label", relabel
+>>       the file system, and revise the policy accordingly. Name-based
+>>       access control lets you create ad hoc generalizations, so that
+>>       *my* policy can grant access to "/var/www/*.pl" without regard to
+>>       whatever labels or rules some other policy has applied to the same
+>>       directory tree.
+>>     
+> We might argue about whether ad hoc policy writing is the best approach.
+>   
+Another way of saying "ad hoc policy writing" is "incremental policy 
+development."
+
+If you can anticipate everything you need in your data center and get it 
+right ahead of time, then you don't need ad hoc policy. If circumstances 
+change on you and you need to adapt, then your policy is necessarily ad hoc.
+
+> Regardless, the corresponding weakness here for the path-based schemes
+> is that they force you into writing policy in terms of the filesystem
+> layout and names, which may have little or no bearing on the actual
+> security characteristics of the files.
+>   
+I assert that the pathname has a strong correspondence to the integrity 
+sensitivity of the file, and a weaker correspondence to the 
+confidentiality sensitivity of the file, e.g. a backup copy of your 
+actual /etc/shadow file is still sensitive if it gets disclosed to 
+someone intent on password cracking.
+
+This is not a severe problem for AppArmor in practice because of the 
+default-deny nature of the policy: only grant read access to the files 
+you intend to allow to be read. It is fairly difficult to accidentally 
+disclose a file in an AppArmor policy unless you engage in really sloppy 
+practice like dropping copies of sensitive files in publicly readable 
+places like /tmp
+
+>>     * *Familiar Interface:* Administrators are accustomed to
+>>       administering the box in terms of the names of the files that
+>>       matter. A name-based policy is therefore somewhat more familiar
+>>       than a policy with label abstractions, where they then have to go
+>>       look at the restorecon file to discover what files will/should
+>>       have what labels.
+>>     
+> restorecon /path/to/file doesn't require the user to deal with anything
+> other than a pathname.
+Yes it does. To understand your security policy, you have to understand 
+both the SELinux policy about labels & types and which are allowed to 
+access each other, and also the restorecon specification that determines 
+what labels will be applied to which files.
+
+>>     * *Practical Concerns:* Not all file systems support labels, and so
+>>       label-based schemes become coarse grained when they run into them.
+>>       Name based schemes remain granular when specifying access down
+>>       into the internals of such file systems. Legacy Linux file systems
+>>       like ext2 don't matter much any more, but persistent file systems
+>>       that will never have label support include NFSv3 file systems
+>>       (nearly every Network Appliance NAS server out there) and FAT32
+>>       file system (most every USB storage device).
+>>     
+> At present this is a limitation, although we do support per-mount
+> labeling of such filesystems, which is really all we can guarantee in
+> terms of protection anyway
+That's what I meant by granular: you get access to the whole NFS mount, 
+or none of it.
+
+>  - anything further is misleading as the
+> server or device won't ensure any finer grained separation for us.
+I don't understand this issue. The enforcement here is t contain the 
+program executing on the NFS *client* to permit it to only mangle the 
+parts of the NFS mount that you want it to mangle. That the server won't 
+enforce anything for you is irrelevant when the threat is the confined 
+application.
+
+>> A lot of what's going on is the duality of the one:many relationships 
+>> between labels and names:
+>>
+>>     * Labels: one label represents many files
+>>           o this property is why ad hoc generalization fails in label
+>>             based systems
+>>     * Names: many names can represent a single file
+>>           o This property is why deny rules fail in name based systems
+>>
+>> Therefore, I am not claiming name-based access controls to be the 
+>> ultimate. Rather, there are duals for all of the above that induce 
+>> circumstances where label-based systems are superior. Each class of 
+>> system has strengths and weaknesses. These are name-based strengths.
+>>     
 >
+> The weaknesses from my POV are:
+> - no system-wide view of the subjects and objects and thus of the
+> policy,
 >   
+... and no *requirement* to construct a system-wide consistent view of 
+security policy.
 
-Should all these functions be removed (and therefor not set in
-hso_serial_ops) ??
-
-> +
-> +/* Base driver functions */
-> +
-> +/* operations setup of the serial interface */
-> +static struct tty_operations hso_serial_ops = {
-> +	.open = hso_serial_open,
-> +	.close = hso_serial_close,
-> +	.write = hso_serial_write,
-> +	.write_room = hso_serial_write_room,
-> +	.ioctl = hso_serial_ioctl,
-> +	.set_termios = hso_serial_set_termios,
-> +	.throttle = hso_serial_throttle,
-> +	.unthrottle = hso_serial_unthrottle,
-> +	.break_ctl = hso_serial_break,
-> +	.chars_in_buffer = hso_serial_chars_in_buffer,
-> +	.read_proc = hso_serial_read_proc,
-> +	.hangup = hso_serial_hangup,
-> +	.tiocmget = hso_serial_tiocmget,
-> +	.tiocmset = hso_serial_tiocmset,
-> +};
-> +
+> - no uniform abstraction for handling objects (not everything has a
+> pathname), leading to inconsistent or incomplete control,
 >   
+*Strawman* argument: AppArmor doesn't try to apply pathnames to 
+everything, just the file system. The "uniform abstraction" is to 
+specify security policy in the native terms of the resource being 
+mediated. Files are named as /path/to/some/files/*.html and network 
+resources are named in terms of ports and network addresses reminiscent 
+of firewall rules.
 
+In contrast, SELinux *does* apply the labeled model to everything. That 
+has the strength that you are dealing with the same abstraction all the 
+time, and the weakness that the mapping from the label abstraction to 
+the stuff that admins and users have to actually deal with is arcane.
 
+> - forcing policy to be written in terms of individual objects and
+> filesystem layout rather than security properties.
+>   
+Name-based access control makes the overt assumption that the name of an 
+object corresponds to its security properties. If your data layout does 
+*not* make such an assumption, then you have some very strange data 
+layout putting highly sensitive objects next to non-sensitive objects.
 
+Note also that the SELinux restorecon mechanism also makes the 
+assumption that path names correspond to security properties: in fact, 
+that is precisely its function, to take a path name and use it to apply 
+a security property (a label). Naturally I have no objection to 
+inferring a security property from the path name :) I just object to the 
+racy way that restorecon does it, combined with the complaint that 
+AppArmor is wrong for doing exactly the same thing in a different way.
+
+Crispin
+
+-- 
+Crispin Cowan, Ph.D.               http://crispincowan.com/~crispin
+The Olympic Games: Symbolizing oppression and corruption for over a
+hundred years
