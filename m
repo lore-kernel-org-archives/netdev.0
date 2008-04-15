@@ -1,42 +1,33 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 8/8][GRE]: Allow for IPPROTO_GRE protocol in namespaces.
-Date: Tue, 15 Apr 2008 17:03:04 +0400
-Message-ID: <4804A788.50208@openvz.org>
-References: <4804A374.9040505@openvz.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-2.6.26 10/10][VLAN]: Handle vlan devices net namespace
+ changing.
+Date: Tue, 15 Apr 2008 14:30:20 +0200
+Message-ID: <48049FDC.3010506@trash.net>
+References: <4804989F.1060503@openvz.org> <48049D45.5020606@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:43892 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752458AbYDOM2q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 08:28:46 -0400
-In-Reply-To: <4804A374.9040505@openvz.org>
+Received: from stinky.trash.net ([213.144.137.162]:35725 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752344AbYDOMa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 08:30:29 -0400
+In-Reply-To: <48049D45.5020606@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This one was also disabled by default for sanity.
+Pavel Emelyanov wrote:
+> When van device is moved to another namespace proc files,
+> related to this device, should also change one.
+> 
+> Use the netdev REGISTER and UNREGISTER event handlers for this.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+For patches 8-10 also:
 
----
- net/ipv4/ip_gre.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 7ff5262..2ada033 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1297,6 +1297,7 @@ static int ipgre_fb_tunnel_init(struct net_device *dev)
- static struct net_protocol ipgre_protocol = {
- 	.handler	=	ipgre_rcv,
- 	.err_handler	=	ipgre_err,
-+	.netns_ok	=	1,
- };
- 
- static void ipgre_destroy_tunnels(struct ipgre_net *ign)
--- 
-1.5.3.4
+Acked-by: Patrick McHardy <kaber@trash.net>
 
