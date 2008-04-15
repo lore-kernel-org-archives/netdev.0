@@ -1,70 +1,50 @@
-From: Mandeep Singh Baines <msb@google.com>
-Subject: Re: [PATCH] [ETHTOOL]: Add support for large eeproms
-Date: Tue, 15 Apr 2008 10:39:31 -0700
-Message-ID: <20080415173931.GA1000@google.com>
-References: <48007CA0.6030002@garzik.org> <20080414180338.GA18335@google.com> <20080415.003153.30044057.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
+Date: Tue, 15 Apr 2008 19:41:44 +0200
+Message-ID: <20080415174144.GA3444@ami.dom.local>
+References: <20080413121031.GA5211@ami.dom.local> <20080414202605.GA6164@ami.dom.local> <4803BE84.4040105@trash.net> <20080414.151102.169978802.davem@davemloft.net> <20080415053253.GA3920@ff.dom.local> <4804A18C.2060200@trash.net> <20080415130045.GB4993@ff.dom.local> <4804A921.6050509@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org, joe@perches.com,
-	nil@google.com, thockin@google.com, matthew@wil.cx
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, enrico@superclick.com,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:8284 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751146AbYDORkE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 13:40:04 -0400
-Received: from zps38.corp.google.com (zps38.corp.google.com [172.25.146.38])
-	by smtp-out.google.com with ESMTP id m3FHdq09005763
-	for <netdev@vger.kernel.org>; Tue, 15 Apr 2008 18:39:53 +0100
-Received: from nf-out-0910.google.com (nfdb21.prod.google.com [10.48.129.21])
-	by zps38.corp.google.com with ESMTP id m3FHdJ8I022539
-	for <netdev@vger.kernel.org>; Tue, 15 Apr 2008 10:39:51 -0700
-Received: by nf-out-0910.google.com with SMTP id b21so608886nfd.1
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2008 10:39:51 -0700 (PDT)
+Received: from nf-out-0910.google.com ([64.233.182.184]:64976 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbYDORnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 13:43:49 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so581112nfb.21
+        for <netdev@vger.kernel.org>; Tue, 15 Apr 2008 10:43:46 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20080415.003153.30044057.davem@davemloft.net>
+In-Reply-To: <4804A921.6050509@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller (davem@davemloft.net) wrote:
-> From: Mandeep Singh Baines <msb@google.com>
-> Date: Mon, 14 Apr 2008 11:03:38 -0700
-> 
-> > Currently, it is not possible to read/write to an eeprom larger than
-> > 128k in size because the buffer used for temporarily storing the
-> > eeprom contents is allocated using kmalloc. kmalloc can only allocate
-> > a maximum of 128k depending on architecture.
-> > 
-> > Modified ethtool_get/set_eeprom to only allocate a page of memory and
-> > then copy the eeprom a page at a time.
-> > 
-> > Updated original patch as per suggestions from Joe Perches.
-> > 
-> > Signed-off-by: Mandeep Singh Baines <msb@google.com>
-> 
-> This looks fine on the surface.
-> 
-> But I wonder what we can do if we have some EEPROM implementation
-> that can only write the whole time at once, and thus will fail
-> if you try to do it in pieces?  Do we have such a case?
-> 
+On Tue, Apr 15, 2008 at 03:09:53PM +0200, Patrick McHardy wrote:
+...
+> On second thought I agree with you, the behaviour is inconsistent
+> and FFFF: shouldn't be used as major, otherwise the major doesn't
+> uniquely identify a qdisc anymore.
 
-I suspect such a case does not exist but can't say for certain. Currently,
-the only user-space application I'm aware of which makes use of the set_eeprom
-ioctl interface is ethtool. It currently only supports single byte writes.
-Hence, any device which supports set_eeprom will likely also support
-single byte writing.
+Like ingress vs. root handle? I think it's more about additional
+checks (and good memory).
 
-To test my changes, I had to modify the ethtool application to support writing
-an arbitrary number of bytes to eeprom. This makes it possible to update an
-eeprom from a binary file. To do so, I use ethtool as follows:
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index fc8708a..c486e9d 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -386,7 +386,7 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+>  	if (n == 0)
+>  		return;
+>  	while ((parentid = sch->parent)) {
+> -		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
+> +		if (parentid == TC_H_INGRESS)
 
-# ethtool -E eth1 < eeprom.bin
+Maybe like this?:
+ +		if (parentid == TC_H_ROOT || parentid == TC_H_INGRESS)
 
-I plan on sending my ethtool changes to the maintainers once this patch
-is accepted.
+>  			return;
+>  
+>  		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
 
-> If so this new code could cause regressions.
-
-An alternative would be to vmalloc the entire size to avoid the potential
-regression.
+Jarek P.
