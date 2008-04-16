@@ -1,82 +1,55 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked
-	version of Tomasz's patch set
-Date: Wed, 16 Apr 2008 07:20:23 +0100
-Message-ID: <20080416062023.GA4278@gerrit.erg.abdn.ac.uk>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <20080415151403.GA20735@gerrit.erg.abdn.ac.uk> <20080415152113.GB20735@gerrit.erg.abdn.ac.uk> <200804152001.58528.tomasz@grobelny.oswiecenia.net>
+From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Subject: [PATCH] SCTP: Initialize partial_bytes_acked to 0, when all of the
+ data is acked.
+Date: Wed, 16 Apr 2008 14:55:06 +0800
+Message-ID: <4805A2CA.7030808@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	lksctp-dev <lksctp-developers@lists.sourceforge.net>,
+	linux-sctp@vger.kernel.org
+To: vladislav <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33832 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750977AbYDPGUw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 02:20:52 -0400
-Content-Disposition: inline
-In-Reply-To: <200804152001.58528.tomasz@grobelny.oswiecenia.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:63791 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752329AbYDPG4H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 02:56:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > | | What happens if application is compiled with dccp_packet_info
-| > | | containing only one field (priority) and kernel containing two fields
-| > | | (for example priority and later added expiry time)? Wouldn't that
-| > | | implementation make extensions to dccp_packet_info impossible?
-| > |
-| > | Had not looked at it from this point of view. So you are suggesting
-| > |
-| > | 	if (msg->msg_control != NULL && msg->msg_controllen >= sizeof(*dcp))
-| > | 		dcp = (struct dccp_packet_info *)msg->msg_control;
-| > |
-| > | instead? Agreed, point #1 to change in the patch.
-| >
-| > No, the above is nonsense. If the application uses an earlier version of
-| > the API, then it needs to be recompiled, there is no way it could pretend
-| > to have an adequate size.
-| >
-| That would effectively stop development of any policy. And it's not about 
-| pretending the structure has different size, it's just about using only the 
-| data that is provided by the application (even though it may be incomplete).
-| 
-| > So my take is that still the '==' is correct. But maybe this is a known
-| > problem?
-| >
-| I can't see a problem with copying smaller struct to bigger one. It would work 
-| like that:
-| 1. set default values for in-kernel structure,
-| 2. copy min(msg_control, sizeof(struct dccp_packet_info)) bytes from userspace 
-| structure to the kernel one.
-| 
-| In that sense the code above is in fact wrong but the idea alone should be ok.
-| -- 
-There is a more serious problem here: apparently no one tried to compile
-the `qpolicy' subtree since the changes on Monday. It fails with the
-BUILD_BUG_ON.
+Vlad,
+According to RFC4960 7.2.2, 
+When all of the data transmitted by the sender has
+been acknowledged by the recerver, partial_bytes_acked is initialized to 0.
 
-I tried yesterday evening and found that there is not even a possibility
-of adding a single field to struct dccp_skb_cb: with the addition of the
-inet{,6}_skb_parm, the struct has reached its maximum size of 48 bytes
-(try printk("%u", sizeof(struct dccp_skb_cb));).
+This patch conforms to rfc requirement. 
+Without this fix, cwnd might be error incremented.
 
-There is a solution to this, will post a revised patch shortly.
+Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+---
+ net/sctp/outqueue.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-With regard to your point above: I think there is a way of keeping the
-framework open without bending over backwards to ensure the binary
-compatibility.
-
-My question for you in this regard: which policy can you think of whose
-priorities/preferences can not be mapped into an unsigned 32-bit
-integer? I think that such a number is sufficiently expressive enough
-to cater for a wide range of policies. It can be interpreted as
- * symbolic value (enum)
- * ascii string (similar to DCCP service code)
- * millisecond timeout (with room for up to 7 weeks)
- * microsecond timeout (with room for up to 1.19 hours)
- * priority values (the large range 0..2^32-1 can be partitioned)
- * ... ?
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index c071446..cf79485 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -1544,6 +1544,9 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+ 						  bytes_acked);
+ 
+ 			transport->flight_size -= bytes_acked;
++			if (transport->flight_size == 0) {
++				transport->partial_bytes_acked = 0;
++			}
+ 			q->outstanding_bytes -= bytes_acked;
+ 		} else {
+ 			/* RFC 2960 6.1, sctpimpguide-06 2.15.2
+-- 
+1.5.3
 
 
 
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
+
 
