@@ -1,61 +1,62 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH v2.6.26 0/2] Dynamic TBIPA for gianfar
-Date: Wed, 16 Apr 2008 09:14:58 -0400
-Message-ID: <4805FBD2.6010101@windriver.com>
-References: <1208276601-16964-1-git-send-email-paul.gortmaker@windriver.com> <18437.18289.944128.351533@cargo.ozlabs.ibm.com> <7d1d9c250804151857x65cf14cfxe6dc5696505631c7@mail.gmail.com> <6C6E8854-3F7A-4661-A5F3-B7CA8676A11A@kernel.crashing.org>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Wed, 16 Apr 2008 16:11:57 +0300
+Message-ID: <4805FB1D.4070304@teltonika.lt>
+References: <20080414213238.GB28833@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@gmail.com>,
-	Paul Mackerras <paulus@samba.org>,
-	"linuxppc-dev@ozlabs.org list" <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61543 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754824AbYDPNO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 09:14:57 -0400
-In-Reply-To: <6C6E8854-3F7A-4661-A5F3-B7CA8676A11A@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080414213238.GB28833-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Kumar Gala wrote:
->
-> On Apr 15, 2008, at 8:57 PM, Paul Gortmaker wrote:
->> On Tue, Apr 15, 2008 at 8:25 PM, Paul Mackerras <paulus@samba.org> 
->> wrote:
->>> Paul Gortmaker writes:
->>>
->>>> This is the resend of the two patches as per Andy's request for 
->>>> v2.6.26
->>>> that allow boards with a PHY at the end of the bus to function, by 
->>>> having
->>>> the TBIPA set dynamically.  The 1st patch factors out some of the PHY
->>>> probe code so it can be recycled by the TBIPA probe, and the second 
->>>> patch
->>>> implements the dynamic probe itself.
->>>
->>> I notice that these two patches only touch drivers/net and
->>> include/linux.  If you want these to go upstream into Linus' tree, you
->>> will need to send them to Jeff Garzik and the netdev list.  Posting
->>> them to the linuxppc-dev list is fine for getting them reviewed but
->>> isn't a path to upstream.
->>
->> Yep, they have already been sent to Jeff/netdev earlier today as well.
->> I'd inadvertently left them off the CC but Andy reminded me already.
->>
->> Thanks,
->> Paul.
->
-> these should get an Ack by Andy before going in to any tree.
+With the latest patch I always get BUG when closing my serial terminal
+application. I have two different modems (GTM378 and GTM380) plugged at 
+USB hub. Here is the dump:
 
-Andy has already done that, so I think we should be good to go.
+BUG: sleeping function called from invalid context at 
+drivers/usb/core/urb.c:542
+in_atomic():1, irqs_disabled():0
+Pid: 30031, comm: gtkterm Not tainted 2.6.24.4-64.fc8 #1
 
-http://ozlabs.org/pipermail/linuxppc-dev/2008-April/054572.html
+Call Trace:
+  [<ffffffff811b5e40>] usb_kill_urb+0x1a/0xf1
+  [<ffffffff81268512>] mutex_lock+0x1e/0x2f
+  [<ffffffff810ab2a2>] fasync_helper+0x4a/0xcd
+  [<ffffffff88308f57>] :hso:hso_stop_serial_device+0x85/0x99
+  [<ffffffff8830971f>] :hso:hso_serial_close+0xea/0x110
+  [<ffffffff8117bf26>] release_dev+0x212/0x618
+  [<ffffffff8108ec31>] free_pages_and_swap_cache+0x73/0x8f
+  [<ffffffff8117c33d>] tty_release+0x11/0x1a
+  [<ffffffff810a152c>] __fput+0xc2/0x18f
+  [<ffffffff8109ed3f>] filp_close+0x5d/0x65
+  [<ffffffff8109ff0f>] sys_close+0x8d/0xca
+  [<ffffffff8100c005>] tracesys+0xd5/0xda
 
-Paul.
+BUG: scheduling while atomic: gtkterm/30031/0x10000100
+Pid: 30031, comm: gtkterm Not tainted 2.6.24.4-64.fc8 #1
 
->
-> - k
+Call Trace:
+  [<ffffffff812677a2>] schedule+0x91/0x706
+  [<ffffffff81032f45>] __cond_resched+0x2d/0x55
+  [<ffffffff81267f0f>] cond_resched+0x2e/0x39
+  [<ffffffff811b5e45>] usb_kill_urb+0x1f/0xf1
+  [<ffffffff81268512>] mutex_lock+0x1e/0x2f
+  [<ffffffff810ab2a2>] fasync_helper+0x4a/0xcd
+  [<ffffffff88308f57>] :hso:hso_stop_serial_device+0x85/0x99
+  [<ffffffff8830971f>] :hso:hso_serial_close+0xea/0x110
+  [<ffffffff8117bf26>] release_dev+0x212/0x618
+  [<ffffffff8108ec31>] free_pages_and_swap_cache+0x73/0x8f
+  [<ffffffff8117c33d>] tty_release+0x11/0x1a
+  [<ffffffff810a152c>] __fput+0xc2/0x18f
+  [<ffffffff8109ed3f>] filp_close+0x5d/0x65
+  [<ffffffff8109ff0f>] sys_close+0x8d/0xca
+  [<ffffffff8100c005>] tracesys+0xd5/0xda
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
