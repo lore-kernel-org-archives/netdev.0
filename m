@@ -1,37 +1,50 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Wed, 16 Apr 2008 15:12:06 +0300
-Message-ID: <4805ED16.3080104@teltonika.lt>
-References: <20080414213238.GB28833@kroah.com> <4805C469.7050408@teltonika.lt> <4805E8E1.3090200@teltonika.lt> <200804161403.20955.oliver@neukum.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Reporting bugs and bisection
+Date: Wed, 16 Apr 2008 14:13:04 +0200
+Message-ID: <200804161413.05869.rjw@sisk.pl>
+References: <47FEADCB.7070104@rtr.ca> <480565D3.6000100@davidnewall.com> <20080416042920.GB25188@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200804161403.20955.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
+	James Morris <jmorris@namei.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>, david@lang.hm,
+	Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
+	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
+	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
+	netdev@vger.kernel.org, Andi Kleen <andi@firstfloor.org>
+To: Willy Tarreau <w@1wt.eu>, David Newall <davidn@davidnewall.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:56031 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758246AbYDPMMx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 08:12:53 -0400
+In-Reply-To: <20080416042920.GB25188@1wt.eu>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum wrote:
-> Am Mittwoch, 16. April 2008 13:54:09 schrieb Paulius Zaleckas:
+On Wednesday, 16 of April 2008, Willy Tarreau wrote:
+> On Wed, Apr 16, 2008 at 12:04:59PM +0930, David Newall wrote:
+> > Rafael J. Wysocki wrote:
+> > > Well, even if someone introduces bugs relatively frequently, but then also
+> > > works with the reporters and fixes the bugs timely, it's about okay IMO.
+> > >   
+> > This really is not okay.  Even if bugs are fixed a version or two later,
+> > the impact those bugs have on users makes the system look bad and drives
+> > them away.  We do not, I believe, want Linux to top the list for "most
+> > bugs".  It's unprofessional, unreliable and quite undesirable.
 > 
->> Incremental patch. Converted ethtool ioctl to ethtool_ops.
-> 
-> You were faster. We need to coordinate. Which changes are you doing now?
-> 
+> that's what -rc are for, and it's unprofessional to use them in production :-)
 
-Actually I am tuning my newly added hso_get_drvinfo...
-Instead of writing to tmp buffer to write directly to fw_version.
+Exactly.
 
-Should I post incremental patch or replacement?
+And BTW, by saying "timely" I meant "in -rc" or "before the next major release".
 
-I always get crash when closing serial terminal application. I will
-post dump in couple minutes.
-
-Paulius
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Rafael
