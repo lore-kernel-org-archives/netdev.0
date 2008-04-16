@@ -1,46 +1,115 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.26 2/2] Do not allocate unneeded memory for
- dev->priv alignment.
-Date: Wed, 16 Apr 2008 02:17:06 -0700 (PDT)
-Message-ID: <20080416.021706.250552589.davem@davemloft.net>
-References: <47FA5D62.5040806@gmail.com>
-	<47FB2FF3.90104@openvz.org>
-	<20080408092253.GA4048@ff.dom.local>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Wed, 16 Apr 2008 12:18:33 +0300
+Message-ID: <4805C469.7050408@teltonika.lt>
+References: <20080414213238.GB28833@kroah.com> <480530E6.8020700@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------090404050601080905020808"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <480530E6.8020700-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------090404050601080905020808
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, shemminger@vyatta.com,
-	kaber@trash.net
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50828
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754460AbYDPJRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 05:17:05 -0400
-In-Reply-To: <20080408092253.GA4048@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 8 Apr 2008 09:22:53 +0000
-
-> On Tue, Apr 08, 2008 at 12:42:27PM +0400, Pavel Emelyanov wrote:
-> > Hmm, AFAIC, the net_device alignment is done earlier, while this one
-> > makes sense in case the priv pointer alignment.
+Paulius Zaleckas wrote:
+> Reworked MAC address generation from USB serial number
+> Now it is very similar to the one done in the cdc_ether.c
 > 
-> Hmm, one NETDEV_ALIGN_CONST is later used just for net_device alignment,
-> and you could not fit this struct after "~NETDEV_ALIGN_CONST" without
-> adding anything. So you should probably skip "~NETDEV_ALIGN_CONST" in
-> this no priv case too?
+> Filip: Does the dummy MAC address have to start with 0xFA?
+> 
 
-The Linux NETDEV Patch Robot has determined that these other
-NETDEV_ALIGN_CONST instances need to be retained, therefore
-Pavel's patch will be applied to net-2.6.26.
+Hopefully fixed last bug in MAC address generation.
+Patch against latest Greg unified patch.
+Don't use my previous patch.
 
-*beep* *beep*
+--------------090404050601080905020808
+Content-Type: text/x-patch;
+ name="hso_mac_gen_2.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hso_mac_gen_2.patch"
 
-Thank you for your valuable feedback.
+--- linux-2.6-hso/drivers/net/usb/hso.c	2008-04-16 10:58:01.000000000 +0300
++++ linux-2.6-hso-my/drivers/net/usb/hso.c	2008-04-16 12:06:19.000000000 +0300
+@@ -315,7 +315,6 @@ static int hso_get_activity(struct hso_d
+ /* convert a character representing a hex value to a number */
+ static unsigned char hex2dec(unsigned char digit)
+ {
+-
+ 	if ((digit >= '0') && (digit <= '9'))
+ 		return (digit - '0');
+ 	/* Map all characters to 0-15 */
+@@ -323,7 +322,7 @@ static unsigned char hex2dec(unsigned ch
+ 		return (digit - 'a' + 10) % 16;
+ 	if ((digit >= 'A') && (digit <= 'Z'))
+ 		return (digit - 'A' + 10) % 16;
+-	return 16;
++	return 0;
+ }
+ 
+ #define SIOCSETRADIO   (SIOCDEVPRIVATE+4)
+@@ -2308,7 +2307,6 @@ static void set_ethernet_addr(struct hso
+ 	int i = 0;
+ 	int len = 0;
+ 	unsigned char buffer[13];
+-	unsigned char checkserial[7] = "Serial";
+ 
+ 	/* we can't fail, therefor we use a random macaddress */
+ 	random_ether_addr(mac_addr);
+@@ -2324,27 +2322,14 @@ static void set_ethernet_addr(struct hso
+ 	len = usb_string(odev->parent->usb,
+ 			 odev->parent->usb->descriptor.iSerialNumber,
+ 			 buffer, 13);
+-	if (len != 12) {
+-		/* some devices don't have the serial filled in, checking ... */
++	if (len != 12 && strcmp("Serial", buffer)) {
++		/* Fill in the mac_addr */
+ 		for (i = 0; i < 6; i++) {
+-			if (buffer[i] != checkserial[i]) {
+-				/* Fill in the mac_addr */
+-				for (i = 2; i < 6; i++) {
+-					if ((16 == buffer[2 * i]) ||
+-					    (16 == buffer[2 * i + 1])) {
+-						dev_err(&odev->parent->usb->dev,
+-							"Bad value in MAC "
+-							"address i:%d\n", i);
+-					} else {
+-						mac_addr[i] =
+-						    (hex2dec(buffer[2 * i]) <<
+-						     4) + hex2dec(buffer[2 * i +
+-									 1]);
+-					}
+-				}
+-				break;
+-			}
++			mac_addr[i] = (hex2dec(buffer[2 * i]) << 4) +
++				       hex2dec(buffer[2 * i + 1]);
+ 		}
++		mac_addr[0] &= 0xfe;	/* clear multicast bit */
++		mac_addr[0] |= 0x02;	/* set local assignment bit (IEEE802) */
+ 	} else {
+ 		dev_err(&odev->parent->usb->dev, "Attempting to get MAC "
+ 			"address failed: using random\n");
+@@ -3200,7 +3185,7 @@ module_param(debug, int, S_IRUGO | S_IWU
+ MODULE_PARM_DESC(tty_major, "Set the major tty number");
+ module_param(tty_major, int, S_IRUGO | S_IWUSR);
+ 
+-/* set the major tty number (eg: insmod hso.ko tty_major=245) */
++/* disable network interface (eg: insmod hso.ko disable_net=1) */
+ MODULE_PARM_DESC(disable_net, "Disable the network interface");
+ module_param(disable_net, int, S_IRUGO | S_IWUSR);
+ 
 
-*beep* *beep*
+--------------090404050601080905020808--
 
-Keep hacking.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
