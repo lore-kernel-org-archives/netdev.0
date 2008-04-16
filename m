@@ -1,269 +1,31 @@
 From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 1/3 net-2.6.26] [TIPC]: Remove inlining of reference table locking routines
-Date: Wed, 16 Apr 2008 14:27:24 -0400
-Message-ID: <1208370446-12065-2-git-send-email-allan.stephens@windriver.com>
-References: <1208370446-12065-1-git-send-email-allan.stephens@windriver.com>
+Subject: [PATCH 0/3 net-2.6.26] [TIPC]: Reference table enhancements <REVISED>
+Date: Wed, 16 Apr 2008 14:27:23 -0400
+Message-ID: <1208370446-12065-1-git-send-email-allan.stephens@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:51874 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:51868 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750887AbYDPS30 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750859AbYDPS30 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 16 Apr 2008 14:29:26 -0400
-In-Reply-To: <1208370446-12065-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts the TIPC reference table locking routines
-into non-inlined routines, since they are mainly called from
-non-performance critical areas of TIPC and the added code
-footprint incurred through inlining can no longer be justified.
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
----
- net/tipc/ref.c |   91 +++++++++++++++++++++++++++++++++++++++++++++++++++++--
- net/tipc/ref.h |   89 ++----------------------------------------------------
- 2 files changed, 91 insertions(+), 89 deletions(-)
+This patch set contains 3 sets of enhancements to TIPC's object
+reference table. Please see each individual patch for further description.
 
-diff --git a/net/tipc/ref.c b/net/tipc/ref.c
-index c38744c..d0b240e 100644
---- a/net/tipc/ref.c
-+++ b/net/tipc/ref.c
-@@ -2,7 +2,7 @@
-  * net/tipc/ref.c: TIPC object registry code
-  *
-  * Copyright (c) 1991-2006, Ericsson AB
-- * Copyright (c) 2004-2005, Wind River Systems
-+ * Copyright (c) 2004-2007, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -46,6 +46,37 @@
- #include "node.h"
- #include "bcast.h"
- 
-+/**
-+ * struct reference - TIPC object reference entry
-+ * @object: pointer to object associated with reference entry
-+ * @lock: spinlock controlling access to object
-+ * @data: reference value associated with object (or link to next unused entry)
-+ */
-+
-+struct reference {
-+	void *object;
-+	spinlock_t lock;
-+	union {
-+		u32 next_plus_upper;
-+		u32 reference;
-+	} data;
-+};
-+
-+/**
-+ * struct tipc_ref_table - table of TIPC object reference entries
-+ * @entries: pointer to array of reference entries
-+ * @index_mask: bitmask for array index portion of reference values
-+ * @first_free: array index of first unused object reference entry
-+ * @last_free: array index of last unused object reference entry
-+ */
-+
-+struct ref_table {
-+	struct reference *entries;
-+	u32 index_mask;
-+	u32 first_free;
-+	u32 last_free;
-+};
-+
- /*
-  * Object reference table consists of 2**N entries.
-  *
-@@ -61,7 +92,7 @@
-  * because entry 0's reference field has the form XXXX|1--1.
-  */
- 
--struct ref_table tipc_ref_table = { NULL };
-+static struct ref_table tipc_ref_table = { NULL };
- 
- static DEFINE_RWLOCK(ref_table_lock);
- 
-@@ -198,8 +229,8 @@ void tipc_ref_discard(u32 ref)
- 		tipc_ref_table.first_free = index;
- 	else
- 		/* next_plus_upper is always XXXX|0--0 for last free entry */
--		tipc_ref_table.entries[tipc_ref_table.last_free].data.next_plus_upper
--			|= index;
-+		tipc_ref_table.entries[tipc_ref_table.last_free].
-+			data.next_plus_upper |= index;
- 	tipc_ref_table.last_free = index;
- 
- 	/* increment upper bits of entry to invalidate subsequent references */
-@@ -208,3 +239,55 @@ exit:
- 	write_unlock_bh(&ref_table_lock);
- }
- 
-+/**
-+ * tipc_ref_lock - lock referenced object and return pointer to it
-+ */
-+
-+void *tipc_ref_lock(u32 ref)
-+{
-+	if (likely(tipc_ref_table.entries)) {
-+		struct reference *r;
-+
-+		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
-+		spin_lock_bh(&r->lock);
-+		if (likely(r->data.reference == ref))
-+			return r->object;
-+		spin_unlock_bh(&r->lock);
-+	}
-+	return NULL;
-+}
-+
-+/**
-+ * tipc_ref_unlock - unlock referenced object
-+ */
-+
-+void tipc_ref_unlock(u32 ref)
-+{
-+	if (likely(tipc_ref_table.entries)) {
-+		struct reference *r;
-+
-+		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
-+		if (likely(r->data.reference == ref))
-+			spin_unlock_bh(&r->lock);
-+		else
-+			err("tipc_ref_unlock() invoked using "
-+			    "obsolete reference\n");
-+	}
-+}
-+
-+/**
-+ * tipc_ref_deref - return pointer referenced object (without locking it)
-+ */
-+
-+void *tipc_ref_deref(u32 ref)
-+{
-+	if (likely(tipc_ref_table.entries)) {
-+		struct reference *r;
-+
-+		r = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
-+		if (likely(r->data.reference == ref))
-+			return r->object;
-+	}
-+	return NULL;
-+}
-+
-diff --git a/net/tipc/ref.h b/net/tipc/ref.h
-index 38f3a7f..7e3798e 100644
---- a/net/tipc/ref.h
-+++ b/net/tipc/ref.h
-@@ -2,7 +2,7 @@
-  * net/tipc/ref.h: Include file for TIPC object registry code
-  *
-  * Copyright (c) 1991-2006, Ericsson AB
-- * Copyright (c) 2005, Wind River Systems
-+ * Copyright (c) 2005-2006, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -37,95 +37,14 @@
- #ifndef _TIPC_REF_H
- #define _TIPC_REF_H
- 
--/**
-- * struct reference - TIPC object reference entry
-- * @object: pointer to object associated with reference entry
-- * @lock: spinlock controlling access to object
-- * @data: reference value associated with object (or link to next unused entry)
-- */
--
--struct reference {
--	void *object;
--	spinlock_t lock;
--	union {
--		u32 next_plus_upper;
--		u32 reference;
--	} data;
--};
--
--/**
-- * struct tipc_ref_table - table of TIPC object reference entries
-- * @entries: pointer to array of reference entries
-- * @index_mask: bitmask for array index portion of reference values
-- * @first_free: array index of first unused object reference entry
-- * @last_free: array index of last unused object reference entry
-- */
--
--struct ref_table {
--	struct reference *entries;
--	u32 index_mask;
--	u32 first_free;
--	u32 last_free;
--};
--
--extern struct ref_table tipc_ref_table;
--
- int tipc_ref_table_init(u32 requested_size, u32 start);
- void tipc_ref_table_stop(void);
- 
- u32 tipc_ref_acquire(void *object, spinlock_t **lock);
- void tipc_ref_discard(u32 ref);
- 
--
--/**
-- * tipc_ref_lock - lock referenced object and return pointer to it
-- */
--
--static inline void *tipc_ref_lock(u32 ref)
--{
--	if (likely(tipc_ref_table.entries)) {
--		struct reference *r =
--			&tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
--
--		spin_lock_bh(&r->lock);
--		if (likely(r->data.reference == ref))
--			return r->object;
--		spin_unlock_bh(&r->lock);
--	}
--	return NULL;
--}
--
--/**
-- * tipc_ref_unlock - unlock referenced object
-- */
--
--static inline void tipc_ref_unlock(u32 ref)
--{
--	if (likely(tipc_ref_table.entries)) {
--		struct reference *r =
--			&tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
--
--		if (likely(r->data.reference == ref))
--			spin_unlock_bh(&r->lock);
--		else
--			err("tipc_ref_unlock() invoked using obsolete reference\n");
--	}
--}
--
--/**
-- * tipc_ref_deref - return pointer referenced object (without locking it)
-- */
--
--static inline void *tipc_ref_deref(u32 ref)
--{
--	if (likely(tipc_ref_table.entries)) {
--		struct reference *r =
--			&tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
--
--		if (likely(r->data.reference == ref))
--			return r->object;
--	}
--	return NULL;
--}
-+void *tipc_ref_lock(u32 ref);
-+void tipc_ref_unlock(u32 ref);
-+void *tipc_ref_deref(u32 ref);
- 
- #endif
--- 
-1.5.3.2
+Summary:
 
+ net/tipc/ref.c |  211 +++++++++++++++++++++++++++++++++++++++++---------------
+ net/tipc/ref.h |   89 +-----------------------
+ 2 files changed, 159 insertions(+), 141 deletions(-)
+
+Allan Stephens (3):
+      [TIPC]: Remove inlining of reference table locking routines
+      [TIPC]: Optimized initialization of TIPC reference table
+      [TIPC]: Cleanup of TIPC reference table code
+
+Thanks,
+Al
