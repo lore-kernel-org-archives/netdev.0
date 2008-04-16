@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.26 0/3][TUN]: Make TUN devices work in net
- namespaces (v2).
-Date: Wed, 16 Apr 2008 00:50:06 -0700 (PDT)
-Message-ID: <20080416.005006.238811415.davem@davemloft.net>
-References: <48049666.7040204@openvz.org>
+Subject: Re: [PATCH net-2.6.26 0/10][VLAN]: Make VLAN devices work in net
+ namespaces.
+Date: Wed, 16 Apr 2008 01:02:05 -0700 (PDT)
+Message-ID: <20080416.010205.264384895.davem@davemloft.net>
+References: <4804989F.1060503@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maxk@qualcomm.com, netdev@vger.kernel.org
+Cc: kaber@trash.net, netdev@vger.kernel.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36188
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38913
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756613AbYDPHuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 03:50:05 -0400
-In-Reply-To: <48049666.7040204@openvz.org>
+	by vger.kernel.org with ESMTP id S1752298AbYDPICE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 04:02:04 -0400
+In-Reply-To: <4804989F.1060503@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 15 Apr 2008 15:49:58 +0400
+Date: Tue, 15 Apr 2008 15:59:27 +0400
 
-> Change from v1:
-> * reworked to use generic net pointers.
+> This set does not intersect with the TUN one at all, since
+> they both use generic net pointers.
 > 
-> The first version was Acked-by Maxim.
+> It also includes some changes in RTNL code to facilitate
+> VLAN netnsization and a bit more VLAN cleanups.
 > 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-All applied, thanks Pavel.
+All applied and pushed out to net-2.6.26, thanks Pavel.
