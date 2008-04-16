@@ -1,124 +1,57 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 1/2] tg3: 5701 DMA corruption fix
-Date: Wed, 16 Apr 2008 15:27:41 -0700
-Message-ID: <20080416222741.GA20272@localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	andy@greyhouse.net, "Tony Battersby" <tonyb@cybernetics.com>
-To: davem@davemloft.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 11/13] hamachi: use netdev_alloc_skb
+Date: Wed, 16 Apr 2008 16:37:38 -0700
+Message-ID: <20080416233757.774016318@vyatta.com>
+References: <20080416233727.732025083@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3382 "EHLO mms2.broadcom.com"
+Received: from suva.vyatta.com ([69.59.150.140]:43781 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753566AbYDPWZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 18:25:58 -0400
-Content-Disposition: inline
+	id S1751904AbYDPXt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 19:49:27 -0400
+Content-Disposition: inline; filename=hamachi
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu's commit fb93134dfc2a6e6fbedc7c270a31da03fce88db9, entitled
-"[TCP]: Fix size calculation in sk_stream_alloc_pskb", has triggered a
-bug in the 5701 where the 5701 DMA engine will corrupt outgoing
-packets.  This problem only happens when the starting address of the
-packet matches a certain range of offsets and only when the 5701 is
-placed downstream of a particular Intel bridge.
+Use netdev_alloc_skb. This sets skb->dev and allows arch specific
+allocation.
 
-This patch detects the problematic bridge and if present, readjusts the
-starting address of the packet data to a dword aligned boundary.
+Remove dead code and dead comments.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 96043c5..b6637f0 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4135,11 +4135,21 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
- 				       u32 last_plus_one, u32 *start,
- 				       u32 base_flags, u32 mss)
- {
--	struct sk_buff *new_skb = skb_copy(skb, GFP_ATOMIC);
-+	struct sk_buff *new_skb;
- 	dma_addr_t new_addr = 0;
- 	u32 entry = *start;
- 	int i, ret = 0;
- 
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701)
-+		new_skb = skb_copy(skb, GFP_ATOMIC);
-+	else {
-+		int more_headroom = 4 - ((unsigned long)skb->data & 3);
-+
-+		new_skb = skb_copy_expand(skb,
-+					  skb_headroom(skb) + more_headroom,
-+					  skb_tailroom(skb), GFP_ATOMIC);
-+	}
-+
- 	if (!new_skb) {
- 		ret = -1;
- 	} else {
-@@ -4462,7 +4472,9 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
- 
- 	would_hit_hwbug = 0;
- 
--	if (tg3_4g_overflow_test(mapping, len))
-+	if (tp->tg3_flags3 & TG3_FLG3_5701_DMA_BUG)
-+		would_hit_hwbug = 1;
-+	else if (tg3_4g_overflow_test(mapping, len))
- 		would_hit_hwbug = 1;
- 
- 	tg3_set_txd(tp, entry, mapping, len, base_flags,
-@@ -11339,6 +11351,38 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		}
+--- a/drivers/net/hamachi.c	2008-04-07 08:48:24.000000000 -0700
++++ b/drivers/net/hamachi.c	2008-04-07 08:50:14.000000000 -0700
+@@ -1140,11 +1140,11 @@ static void hamachi_tx_timeout(struct ne
  	}
- 
-+	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)) {
-+		static struct tg3_dev_id {
-+			u32	vendor;
-+			u32	device;
-+		} bridge_chipsets[] = {
-+			{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_PXH_0 },
-+			{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_PXH_1 },
-+			{ },
-+		};
-+		struct tg3_dev_id *pci_id = &bridge_chipsets[0];
-+		struct pci_dev *bridge = NULL;
+ 	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb = dev_alloc_skb(hmp->rx_buf_sz);
++		struct sk_buff *skb = netdev_alloc_skb(dev, hmp->rx_buf_sz);
+ 		hmp->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
+-		skb->dev = dev;         /* Mark as being used by this device. */
 +
-+		while (pci_id->vendor != 0) {
-+			bridge = pci_get_device(pci_id->vendor,
-+						pci_id->device,
-+						bridge);
-+			if (!bridge) {
-+				pci_id++;
-+				continue;
-+			}
-+			if (bridge->subordinate &&
-+			    (bridge->subordinate->number <=
-+			     tp->pdev->bus->number) &&
-+			    (bridge->subordinate->subordinate >=
-+			     tp->pdev->bus->number)) {
-+				tp->tg3_flags3 |= TG3_FLG3_5701_DMA_BUG;
-+				pci_dev_put(bridge);
-+				break;
-+			}
-+		}
-+	}
-+
- 	/* The EPB bridge inside 5714, 5715, and 5780 cannot support
- 	 * DMA addresses > 40-bit. This bridge may have other additional
- 	 * 57xx devices behind it in some 4-port NIC designs for example.
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index c1075a7..c688c3a 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2476,6 +2476,7 @@ struct tg3 {
- #define TG3_FLG3_NO_NVRAM_ADDR_TRANS	0x00000001
- #define TG3_FLG3_ENABLE_APE		0x00000002
- #define TG3_FLG3_5761_5784_AX_FIXES	0x00000004
-+#define TG3_FLG3_5701_DMA_BUG		0x00000008
+ 		skb_reserve(skb, 2); /* 16 byte align the IP header. */
+                 hmp->rx_ring[i].addr = cpu_to_leXX(pci_map_single(hmp->pci_dev,
+ 			skb->data, hmp->rx_buf_sz, PCI_DMA_FROMDEVICE));
+@@ -1178,14 +1178,6 @@ static void hamachi_init_ring(struct net
+ 	hmp->cur_rx = hmp->cur_tx = 0;
+ 	hmp->dirty_rx = hmp->dirty_tx = 0;
  
- 	struct timer_list		timer;
- 	u16				timer_counter;
+-#if 0
+-	/* This is wrong.  I'm not sure what the original plan was, but this
+-	 * is wrong.  An MTU of 1 gets you a buffer of 1536, while an MTU
+-	 * of 1501 gets a buffer of 1533? -KDU
+-	 */
+-	hmp->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
+-#endif
+-	/* My attempt at a reasonable correction */
+ 	/* +26 gets the maximum ethernet encapsulation, +7 & ~7 because the
+ 	 * card needs room to do 8 byte alignment, +2 so we can reserve
+ 	 * the first 2 bytes, and +16 gets room for the status word from the
 
+-- 
 
