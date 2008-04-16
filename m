@@ -1,64 +1,116 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH v2.6.26 0/2] Dynamic TBIPA for gianfar
-Date: Wed, 16 Apr 2008 08:31:10 -0500
-Message-ID: <6C1D456C-0E5B-4D1A-8162-C91BFB7D2821@kernel.crashing.org>
-References: <1208276601-16964-1-git-send-email-paul.gortmaker@windriver.com> <18437.18289.944128.351533@cargo.ozlabs.ibm.com> <7d1d9c250804151857x65cf14cfxe6dc5696505631c7@mail.gmail.com> <6C6E8854-3F7A-4661-A5F3-B7CA8676A11A@kernel.crashing.org> <4805FBD2.6010101@windriver.com>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Wed, 16 Apr 2008 15:43:21 +0200
+Message-ID: <200804161543.23584.oliver@neukum.org>
+References: <20080414213238.GB28833@kroah.com> <200804161403.20955.oliver@neukum.org> <4805ED16.3080104@teltonika.lt>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@gmail.com>,
-	Paul Mackerras <paulus@samba.org>,
-	"linuxppc-dev@ozlabs.org list" <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:50075 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758740AbYDPNbV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 09:31:21 -0400
-In-Reply-To: <4805FBD2.6010101@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4805ED16.3080104-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Am Mittwoch, 16. April 2008 14:12:06 schrieb Paulius Zaleckas:
+> I always get crash when closing serial terminal application. I will
+> post dump in couple minutes.
 
-On Apr 16, 2008, at 8:14 AM, Paul Gortmaker wrote:
-> Kumar Gala wrote:
->>
->> On Apr 15, 2008, at 8:57 PM, Paul Gortmaker wrote:
->>> On Tue, Apr 15, 2008 at 8:25 PM, Paul Mackerras <paulus@samba.org>  
->>> wrote:
->>>> Paul Gortmaker writes:
->>>>
->>>>> This is the resend of the two patches as per Andy's request for  
->>>>> v2.6.26
->>>>> that allow boards with a PHY at the end of the bus to function,  
->>>>> by having
->>>>> the TBIPA set dynamically.  The 1st patch factors out some of  
->>>>> the PHY
->>>>> probe code so it can be recycled by the TBIPA probe, and the  
->>>>> second patch
->>>>> implements the dynamic probe itself.
->>>>
->>>> I notice that these two patches only touch drivers/net and
->>>> include/linux.  If you want these to go upstream into Linus'  
->>>> tree, you
->>>> will need to send them to Jeff Garzik and the netdev list.  Posting
->>>> them to the linuxppc-dev list is fine for getting them reviewed but
->>>> isn't a path to upstream.
->>>
->>> Yep, they have already been sent to Jeff/netdev earlier today as  
->>> well.
->>> I'd inadvertently left them off the CC but Andy reminded me already.
->>>
->>> Thanks,
->>> Paul.
->>
->> these should get an Ack by Andy before going in to any tree.
->
-> Andy has already done that, so I think we should be good to go.
->
-> http://ozlabs.org/pipermail/linuxppc-dev/2008-April/054572.html
+Does this fix it?
 
-Cool.  I'm guessing these will go via jeff's tree for 2.6.26?
+	Regards
+		Oliver
 
-- k
+Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+
+---
+
+--- linux-2.6.25-hso/drivers/net/usb/hso.c.alt3	2008-04-16 14:01:22.000000000 +0200
++++ linux-2.6.25-hso/drivers/net/usb/hso.c	2008-04-16 15:39:24.000000000 +0200
+@@ -156,7 +156,7 @@ struct hso_shared_int {
+ 	struct usb_device *usb;
+ 	int use_count;
+ 	int ref_count;
+-	spinlock_t shared_int_lock;
++	struct mutex shared_int_lock;
+ };
+ 
+ struct hso_net {
+@@ -2040,14 +2040,14 @@ static int hso_start_serial_device(struc
+ 			}
+ 		}
+ 	} else {
+-		spin_lock_bh(&serial->shared_int->shared_int_lock);
++		mutex_lock(&serial->shared_int->shared_int_lock);
+ 		if (!serial->shared_int->use_count) {
+ 			result =
+ 			    hso_mux_submit_intr_urb(serial->shared_int,
+-						    hso_dev->usb, GFP_ATOMIC);
++						    hso_dev->usb, flags);
+ 		}
+ 		serial->shared_int->use_count++;
+-		spin_unlock_bh(&serial->shared_int->shared_int_lock);
++		mutex_unlock(&serial->shared_int->shared_int_lock);
+ 	}
+ 
+ 	return result;
+@@ -2070,7 +2070,7 @@ static int hso_stop_serial_device(struct
+ 		usb_kill_urb(serial->rx_urb[i]);
+ 
+ 	if (serial->shared_int) {
+-		spin_lock_bh(&serial->shared_int->shared_int_lock);
++		mutex_lock(&serial->shared_int->shared_int_lock);
+ 		if (serial->shared_int->use_count &&
+ 		    (--serial->shared_int->use_count == 0)) {
+ 			struct urb *urb;
+@@ -2079,7 +2079,7 @@ static int hso_stop_serial_device(struct
+ 			if (urb)
+ 				usb_kill_urb(urb);
+ 		}
+-		spin_unlock_bh(&serial->shared_int->shared_int_lock);
++		mutex_unlock(&serial->shared_int->shared_int_lock);
+ 	}
+ 
+ 	return 0;
+@@ -2352,10 +2352,10 @@ static void hso_free_serial_device(struc
+ 	hso_serial_common_free(serial);
+ 
+ 	if (serial->shared_int) {
+-		spin_lock_bh(&serial->shared_int->shared_int_lock);
++		mutex_lock(&serial->shared_int->shared_int_lock);
+ 		if (--serial->shared_int->ref_count == 0)
+ 			hso_free_shared_int(serial->shared_int);
+-		spin_unlock_bh(&serial->shared_int->shared_int_lock);
++		mutex_unlock(&serial->shared_int->shared_int_lock);
+ 	}
+ 	kfree(serial);
+ 	hso_free_device(hso_dev);
+@@ -2468,9 +2468,9 @@ struct hso_device *hso_create_mux_serial
+ 	serial->write_data = hso_mux_serial_write_data;
+ 
+ 	serial->shared_int = mux;
+-	spin_lock_bh(&serial->shared_int->shared_int_lock);
++	mutex_lock(&serial->shared_int->shared_int_lock);
+ 	serial->shared_int->ref_count++;
+-	spin_unlock_bh(&serial->shared_int->shared_int_lock);
++	mutex_unlock(&serial->shared_int->shared_int_lock);
+ 
+ 	/* and record this serial */
+ 	set_serial_by_index(serial->minor, serial);
+@@ -2535,7 +2535,7 @@ struct hso_shared_int *hso_create_shared
+ 		goto exit;
+ 	}
+ 
+-	spin_lock_init(&mux->shared_int_lock);
++	mutex_init(&mux->shared_int_lock);
+ 
+ 	return mux;
+ 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
