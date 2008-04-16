@@ -1,60 +1,50 @@
-From: Moni Shoua <monis@Voltaire.COM>
-Subject: Re: Bonding patches for 2.6.26
-Date: Wed, 16 Apr 2008 18:20:39 +0300
-Message-ID: <48061947.205@Voltaire.COM>
-References: <47FE27B1.5040107@voltaire.com> <47FE20BB.6000604@voltaire.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
+Date: Wed, 16 Apr 2008 08:40:25 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC002AABC73@nt-irva-0751.brcm.ad.broadcom.com>
+References: <20080415.203108.55491723.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@voltaire.com>,
-	Olga Stern <olgas@voltaire.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:53947 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757944AbYDPPU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 11:20:57 -0400
-In-Reply-To: <47FE20BB.6000604@voltaire.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	gregkh@suse.de, linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>, tonyb@cybernetics.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933147AbYDPPlL@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20080415.203108.55491723.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Moni Shoua wrote:
-> Moni Shoua wrote:
->   
->> Hi Jay,
->> I'd like to present 2 more patches for bonding which I'd like to applied in 2.6.26
->>
->> Comments will be appreciated.
->>
->> thanks 
->>  MoniS 
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>     
-> Hi.
-> Sorry for the inconvenience but the 2 patches are in separated threads.
-> Please look for them. They should be just above this one.
->
-> thanks
->   
-Hi Jay,
-What is the status of my 2 patches from your point of view? I think I
-refereed to all  comments and that they are ready to be applied.
+David Miller wrote:
 
-Thanks
-MoniS
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->   
+> Matt, skb->mac_header is either a pointer or an integer offset
+> depending upon whether we are building 32-bit or 64-bit.
+> 
+> Testing skb->mac_header is therefore wrong, because it's an
+> offset from a pointer in the 64-bit case and therefore it's
+> alignment does not indicate correctly the actual final alignment
+> of skb->head + skb->max_header.
+> 
+> Therefore you should test skb_mac_header(skb) and cast it with
+> (unsigned long).
 
+Isn't it better to test for skb->data?  That's where we tell
+the hardware to start transmitting.
 
+> 
+> Please respin this fix with that correction so I can apply it
+> and get this bug fixed, thanks!
+> 
+> 
+
+We think that this problem is unique in Tony's environment because
+of the PCIE-to-PCI bridge that he is using.  We therefore want to
+test for that bridge and apply the workaround only when it's present.
+We've never seen this problem in the last 6 or 7 years during the
+lifetime of the 5701.
+
+We'll try to get this done ASAP.
+
+Thanks.
