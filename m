@@ -1,39 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: gianfar: rx buffer management
-Date: Wed, 16 Apr 2008 15:10:58 -0700
-Message-ID: <20080416151058.26ceaf42@extreme>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH 2/2] tg3: Update version to 3.91
+Date: Wed, 16 Apr 2008 15:27:49 -0700
+Message-ID: <20080416222749.GB20272@localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>, Andy@mail.vyatta.com,
-	"Fleming <afleming"@freescale.com,
-	Becky Bruce <bgill@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
+	andy@greyhouse.net, "Tony Battersby" <tonyb@cybernetics.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:53208 "EHLO mail.vyatta.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1977 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752772AbYDPWLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 18:11:04 -0400
+	id S1752897AbYDPWZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 18:25:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was looking at all drivers to update them to use netdev_alloc_skb
-and noticed this turd in the gianfar.c driver:
+This patch updates the version number to 3.91.
 
-struct sk_buff * gfar_new_skb(struct net_device *dev, struct rxbd8 *bdp)
-{
-	unsigned int alignamount;
-	struct gfar_private *priv = netdev_priv(dev);
-	struct sk_buff *skb = NULL;
-	unsigned int timeout = SKB_ALLOC_TIMEOUT;
-
-	/* We have to allocate the skb, so keep trying till we succeed */
-	while ((!skb) && timeout--)
-		skb = dev_alloc_skb(priv->rx_buffer_size + RXBUF_ALIGNMENT);
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 
-Trying a million times in softirq is not going to work. Please change to use
-a more sane strategy. Probably the simples would be to allocate a new skb
-before processing the current buffer and if that fails, just drop the current
-rx packet and reuse the skb.
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 52a44c6..0241c3f 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -64,8 +64,8 @@
+ 
+ #define DRV_MODULE_NAME		"tg3"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"3.90"
+-#define DRV_MODULE_RELDATE	"April 12, 2008"
++#define DRV_MODULE_VERSION	"3.91"
++#define DRV_MODULE_RELDATE	"April 16, 2008"
+ 
+ #define TG3_DEF_MAC_MODE	0
+ #define TG3_DEF_RX_MODE		0
+
+
