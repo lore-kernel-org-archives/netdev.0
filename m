@@ -1,75 +1,58 @@
-From: "Sverre Rabbelier" <alturin@gmail.com>
-Subject: Re: Reporting bugs and bisection
-Date: Wed, 16 Apr 2008 23:05:17 +0200
-Message-ID: <bd6139dc0804161405j28470914u488568b565b68a0b@mail.gmail.com>
-References: <20080414043939.GA6862@1wt.eu>
-	 <20080413232441.e216a02c.akpm@linux-foundation.org>
-	 <20080414072328.GW9785@ZenIV.linux.org.uk>
-	 <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au>
-	 <4804765B.2070300@davidnewall.com>
-	 <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com>
-	 <20080416132634.GA545@cs181133002.pp.htv.fi>
-	 <bd6139dc0804161239h17e79c70ta5e938619e5743c9@mail.gmail.com>
-	 <20080416201606.GS1677@cs181133002.pp.htv.fi>
-	 <20080416205333.GT1677@cs181133002.pp.htv.fi>
-Reply-To: sverre@rabbelier.nl
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Subject: [PATCH][netlabel] Don't risk NULL ptr deref in netlbl_unlabel_staticlist_gen()
+ if ifindex not found
+Date: Wed, 16 Apr 2008 23:08:58 +0200 (CEST)
+Message-ID: <alpine.LNX.1.00.0804162304220.9837@dragon.funnycrock.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: git@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	"James Morris" <jmorris@namei.org>,
-	"Al Viro" <viro@zeniv.linux.org.uk>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Willy Tarreau" <w@1wt.eu>, david@lang.hm,
-	"Stephen Clark" <sclark46@earthlink.net>,
-	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Tilman Schmidt" <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
-	"Mark Lord" <lkml@rtr.ca>, "David Miller" <davem@davemloft.net>,
-	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	netdev@vger.kernel.org, "David Newall" <davidn@davidnewall.com>
-To: "Adrian Bunk" <bunk@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765482AbYDPVFf@vger.kernel.org>
-In-Reply-To: <20080416205333.GT1677@cs181133002.pp.htv.fi>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Jesper Juhl <jesper.juhl@gmail.com>
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.152]:11856 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761910AbYDPVJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 17:09:02 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so2562625fgb.17
+        for <netdev@vger.kernel.org>; Wed, 16 Apr 2008 14:09:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 16, 2008 at 10:53 PM, Adrian Bunk <bunk@kernel.org> wrote:
->  To avoid any misunderstandings:
->
->  This is not in any way meant against you personally.
+Hi,
 
-Thanks for pointing it out, I wasn't quite sure, but assumed that :).
+dev_get_by_index() may return NULL if nothing is found. In 
+net/netlabel/netlabel_unlabeled.c::netlbl_unlabel_staticlist_gen() the 
+function is called, but the return value is never checked. If it returns 
+NULL then we'll deref a NULL pointer on the very next line.
+I checked the callers, and I don't think this can actually happen today, 
+but code changes over time and in the future it might happen and it does 
+no harm to be defensive and check for the failure, so that if/when it 
+happens we'll fail gracefully instead of crashing.
 
->  But saying things like " X% of your commits introduced bugs" is not a
->  friendly thing, and wrong data could be quite hurting.
+Please consider the patch below for inclusion.
 
-Yes, it could be, and I agree that conclusions shouldn't be based on
-the details, but on the bigger picture. Also, I think it should (at
-first) be used mainly as an indicator, of where attention might be
-required. I mean, if it points out that one contributor almost always
-commits buggy code, you don't have to present them with those
-statistics right away. Instead you can ask the program where it bases
-it's conclusions on, and research them yourself. If it does indeed
-turn out that they are slacking that much you have good ground to have
-a talk with them.
 
->  Especially in the open source world where much motivation comes from
->  people being proud of their work.
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+---
 
-Yes, that is very true, I very much agree with that, but on the other
-hand it might also point out contributors that are particularly
-skillful in a certain section that was previously not noted. As with
-all statistics, it's up to interpretation, misinterpreting statistics
-could -always- have bad effects.
+ netlabel_unlabeled.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
->  Even correct data can do harm.
->
->  And bad data can have really bad effects.
+diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
+index 4478f2f..6af9457 100644
+--- a/net/netlabel/netlabel_unlabeled.c
++++ b/net/netlabel/netlabel_unlabeled.c
+@@ -1339,6 +1339,10 @@ static int netlbl_unlabel_staticlist_gen(u32 cmd,
+ 
+ 	if (iface->ifindex > 0) {
+ 		dev = dev_get_by_index(&init_net, iface->ifindex);
++		if (!dev) {
++			ret_val = -ENODEV;
++			goto list_cb_failure;
++		}
+ 		ret_val = nla_put_string(cb_arg->skb,
+ 					 NLBL_UNLABEL_A_IFACE, dev->name);
+ 		dev_put(dev);
 
-True, both, but as said, if properly interpreted it could be very useful.
 
-Cheers,
-
-Sverre Rabbelier
