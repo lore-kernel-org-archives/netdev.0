@@ -1,63 +1,57 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH]: net/bonding: Enable to change device type before enslaving
-Date: Wed, 16 Apr 2008 12:27:46 -0700
-Message-ID: <11141.1208374066@death>
-References: <47FE2DBF.7080803@voltaire.com> <21771.1207860504@death> <48021410.5040806@voltaire.com>
-Cc: netdev <netdev@vger.kernel.org>, Olga Stern <olgas@voltaire.com>,
-	Or Gerlitz <ogerlitz@voltaire.com>
-To: Moni Shoua <monis@voltaire.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:43517 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751144AbYDPT1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 15:27:50 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3GJTsos011547
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2008 15:29:54 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3GJRmhE389374
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2008 15:27:48 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3GJRm1B027225
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2008 15:27:48 -0400
-In-reply-to: <48021410.5040806@voltaire.com> 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Sverre Rabbelier" <alturin@gmail.com>
+Subject: Re: Reporting bugs and bisection
+Date: Wed, 16 Apr 2008 21:43:47 +0200
+Message-ID: <bd6139dc0804161243i5e5c973aia0cf2d5ec19079fa@mail.gmail.com>
+References: <20080413205406.GA9190@2ka.mipt.ru> <20080414043939.GA6862@1wt.eu>
+	 <20080414053943.GU9785@ZenIV.linux.org.uk>
+	 <20080413232441.e216a02c.akpm@linux-foundation.org>
+	 <20080414072328.GW9785@ZenIV.linux.org.uk>
+	 <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au>
+	 <4804765B.2070300@davidnewall.com>
+	 <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com>
+	 <20080416132634.GA545@cs181133002.pp.htv.fi>
+	 <20080416120247.c665859c.akpm@linux-foundation.org>
+Reply-To: sverre@rabbelier.nl
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Adrian Bunk" <bunk@kernel.org>, git@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jmorris@namei.org,
+	viro@zeniv.linux.org.uk, w@1wt.eu, david@lang.hm,
+	sclark46@earthlink.net, johnpol@2ka.mipt.ru, rjw@sisk.pl,
+	tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
+	davem@davemloft.net, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org,
+	davidn@davidnewall.com
+To: "Andrew Morton" <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757376AbYDPToL@vger.kernel.org>
+In-Reply-To: <20080416120247.c665859c.akpm@linux-foundation.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Moni Shoua <monis@voltaire.com> wrote:
+On Wed, Apr 16, 2008 at 9:02 PM, Andrew Morton
+<akpm@linux-foundation.org> wrote:
+>  Sounds like an interesting project.
 
->> 	Does this mean that the automatic selection on first enslavement
->> is no longer needed, and all setting of the type for IB devices must
->> occur prior to first enslavement?
->> 
->> 	Or is this more of a special case for some devices, and the
->> automatic selection is still correct for most cases?
->> 
->
->I think that the later is closer to the truth. 
->The goal is to modify the bonding module to work with IPoIB slaves but
->with as small as possible changes to what already exists.
->
->In details, the bonding net device device gets its type by
->ether_setup(), which runs for all types of slaves and I don't see a way
->to change that.  However, bonding master for IPoIB slaves requires a
->different device type setting before it comes up for some OSs (redhat 4
->for instance). On other OSs I don't see the problem and I guess that
->this is because master becomes up only after it has slaves.
+Thank you :).
 
-	If I'm reading the above correctly, then this type selection is
-only needed for Red Hat 4 (or, really, versions of bonding prior to when
-the bonding master started to set its carrier state based upon the state
-of the slaves), correct?
+>  Well yes.  One outcome of the project would be to tell us what changes we'd
+>  need to make to our processes to make such data gathering more effective.
 
-	If that's the case, then is this patch is fixing a problem that
-doesn't exist in the mainline?  If this isn't a problem with the current
-driver (where "current" here seems to be bonding 3.0.3 and later, which
-is about two years old), I don't see why it should go into the mainline.
+I defenitly agree here, the command's reliability could be increased
+by always specifying bugfixes in a certain way. 'fixed-bug:' for
+example should be very recognizable.
 
-	Am I misunderstanding something?
+>  Of course, we may not actually implement such changes.  That would depend
+>  upon how useful the output is to us.
 
-	-J
+Ah yes, free will and whatnot. Then again, everybody already does
+'signed-off-by:', if there's an easy command in git to mark a bugfix,
+it would increase the odds of people using it. Perhaps something like
+'git commit -b 10256" which would then automagically append a
+predefined message to the commit users would feel more inclined?
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Cheers,
+
+Sverre Rabbelier
