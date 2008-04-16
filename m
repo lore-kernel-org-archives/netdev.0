@@ -1,65 +1,32 @@
-From: david@lang.hm
-Subject: Re: Reporting bugs and bisection
-Date: Tue, 15 Apr 2008 20:53:27 -0700 (PDT)
-Message-ID: <alpine.DEB.1.10.0804152042320.15483@asgard>
-References: <47FEADCB.7070104@rtr.ca> <517f3f820804150254w491cdf85s28f1d15696db8d96@mail.gmail.com> <4804B5D5.4090404@davidnewall.com> <200804152251.51308.rjw@sisk.pl> <480565D3.6000100@davidnewall.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.26] [TCP]: Remove superflushious skb ==
+ write_queue_tail() check
+Date: Tue, 15 Apr 2008 20:37:32 -0700 (PDT)
+Message-ID: <20080415.203732.193684222.davem@davemloft.net>
+References: <Pine.LNX.4.64.0804151206010.17123@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	James Morris <jmorris@namei.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Willy Tarreau <w@1wt.eu>,
-	Stephen Clark <sclark46@earthlink.net>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
-	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
-	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Newall <davidn@davidnewall.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.lang.hm ([64.81.33.126]:49333 "EHLO bifrost.lang.hm"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754435AbYDPDs4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 23:48:56 -0400
-In-Reply-To: <480565D3.6000100@davidnewall.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57450
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752939AbYDPDhb convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 23:37:31 -0400
+In-Reply-To: <Pine.LNX.4.64.0804151206010.17123@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Apr 2008, David Newall wrote:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 15 Apr 2008 12:06:47 +0300 (EEST)
 
-> Rafael J. Wysocki wrote:
->> Well, even if someone introduces bugs relatively frequently, but then also
->> works with the reporters and fixes the bugs timely, it's about okay IMO.
->>
-> This really is not okay.  Even if bugs are fixed a version or two later,
-> the impact those bugs have on users makes the system look bad and drives
-> them away.  We do not, I believe, want Linux to top the list for "most
-> bugs".  It's unprofessional, unreliable and quite undesirable.
+>=20
+> Needed can only be more strict than what was checked by the
+> earlier common case check for non-tail skbs, thus
+> cwnd_len <=3D needed will never match in that case anyway.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-timely frequently means the code was merged in -rc1/2 and was fixed before 
-the final release of the same version.
-
-given the huge variety of hardware and workloads, it's just too easy for 
-there to be cases where any trade-off you make (code size, performance, 
-memory usage, common case definitions) can turn around and bite you. In 
-addition frequently hardware doesn't work quite the way the design specs 
-say that it should (completely ignoring the fact that many drivers are 
-reverse engineered). what's most important is that when a case shows up it 
-gets addressed promptly
-
-I'd rather have a developer/maintainer who introduces and fixed 100 bug, 
-but fixes them promptly, as opposed to one who only introduces one bug, 
-but refuses to consider fixing the code 'because they don't make mistakes 
-like that' (usadly a common attitude from people who produce very 
-good code much of the time)
-
-best of all is a developer/maintainer who writes very good code and is 
-willing to accept the fact that they make mistakes and fixes the code 
-promptly, but those people are extremely rare, and usually they emerge 
-from the pool of people who make more mistakes and fix them promptly, 
-which is an added reason I'm more tolerant of that group.
-
-David Lang
+Applied to net-2.6.26, thanks Ilpo.
