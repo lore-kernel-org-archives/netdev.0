@@ -1,65 +1,64 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: Reporting bugs and bisection
-Date: Wed, 16 Apr 2008 16:26:34 +0300
-Message-ID: <20080416132634.GA545@cs181133002.pp.htv.fi>
-References: <20080413205406.GA9190@2ka.mipt.ru> <48028830.6020703@earthlink.net> <alpine.DEB.1.10.0804131546370.9318@asgard> <20080414043939.GA6862@1wt.eu> <20080414053943.GU9785@ZenIV.linux.org.uk> <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au> <4804765B.2070300@davidnewall.com> <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: git@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Willy Tarreau <w@1wt.eu>, david@lang.hm,
-	Stephen Clark <sclark46@earthlink.net>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Tilman Schmidt <tilman@imap.cc>,
-	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
-	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org,
-	David Newall <davidn@davidnewall.com>
-To: sverre@rabbelier.nl
-Return-path: <git-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com>
-Sender: git-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH v2.6.26 0/2] Dynamic TBIPA for gianfar
+Date: Wed, 16 Apr 2008 08:31:10 -0500
+Message-ID: <6C1D456C-0E5B-4D1A-8162-C91BFB7D2821@kernel.crashing.org>
+References: <1208276601-16964-1-git-send-email-paul.gortmaker@windriver.com> <18437.18289.944128.351533@cargo.ozlabs.ibm.com> <7d1d9c250804151857x65cf14cfxe6dc5696505631c7@mail.gmail.com> <6C6E8854-3F7A-4661-A5F3-B7CA8676A11A@kernel.crashing.org> <4805FBD2.6010101@windriver.com>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: Paul Gortmaker <paul.gortmaker@gmail.com>,
+	Paul Mackerras <paulus@samba.org>,
+	"linuxppc-dev@ozlabs.org list" <linuxppc-dev@ozlabs.org>,
+	netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:50075 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758740AbYDPNbV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 09:31:21 -0400
+In-Reply-To: <4805FBD2.6010101@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 16, 2008 at 02:15:22PM +0200, Sverre Rabbelier wrote:
-> I'm not subscribed to the kernel mailing list, so please include me in
-> the cc if you don't reply to the git list (which I am subscribed to).
-> 
-> Git is participating in Google Summer of Code this year and I've
-> proposed to write a 'git statistics' command. This command would allow
-> the user to gather data about a repository, ranging from "how active
-> is dev x" to "what did x work on in the last 3 weeks". It's main
-> feature however, would be an algorithm that ranks commits as being
-> either 'buggy', 'bugfix' or 'enhancement'. (There are several clues
-> that can aid in determining this, a commit msg along the lines of
-> "fixes ..." being the most obvious.)
->...
 
-At least with the data we have currently in git it's impossible to 
-figure that out automatically.
+On Apr 16, 2008, at 8:14 AM, Paul Gortmaker wrote:
+> Kumar Gala wrote:
+>>
+>> On Apr 15, 2008, at 8:57 PM, Paul Gortmaker wrote:
+>>> On Tue, Apr 15, 2008 at 8:25 PM, Paul Mackerras <paulus@samba.org>  
+>>> wrote:
+>>>> Paul Gortmaker writes:
+>>>>
+>>>>> This is the resend of the two patches as per Andy's request for  
+>>>>> v2.6.26
+>>>>> that allow boards with a PHY at the end of the bus to function,  
+>>>>> by having
+>>>>> the TBIPA set dynamically.  The 1st patch factors out some of  
+>>>>> the PHY
+>>>>> probe code so it can be recycled by the TBIPA probe, and the  
+>>>>> second patch
+>>>>> implements the dynamic probe itself.
+>>>>
+>>>> I notice that these two patches only touch drivers/net and
+>>>> include/linux.  If you want these to go upstream into Linus'  
+>>>> tree, you
+>>>> will need to send them to Jeff Garzik and the netdev list.  Posting
+>>>> them to the linuxppc-dev list is fine for getting them reviewed but
+>>>> isn't a path to upstream.
+>>>
+>>> Yep, they have already been sent to Jeff/netdev earlier today as  
+>>> well.
+>>> I'd inadvertently left them off the CC but Andy reminded me already.
+>>>
+>>> Thanks,
+>>> Paul.
+>>
+>> these should get an Ack by Andy before going in to any tree.
+>
+> Andy has already done that, so I think we should be good to go.
+>
+> http://ozlabs.org/pipermail/linuxppc-dev/2008-April/054572.html
 
-E.g. if you look at commit f743d04dcfbeda7439b78802d35305781999aa11 
-(ide/legacy/q40ide.c: add MODULE_LICENSE), how could you determine 
-automatically that it is a bugfix, and the commit that introduced
-the bug?
+Cool.  I'm guessing these will go via jeff's tree for 2.6.26?
 
-You can always get some data, but if you want to get usable statistics 
-you need explicit tags in the commits, not some algorithm that tries 
-to guess.
-
-> Cheers,
-> 
-> Sverre Rabbelier
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+- k
