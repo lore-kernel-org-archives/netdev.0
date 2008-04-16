@@ -1,62 +1,65 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Wed, 16 Apr 2008 16:11:57 +0300
-Message-ID: <4805FB1D.4070304@teltonika.lt>
-References: <20080414213238.GB28833@kroah.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: Reporting bugs and bisection
+Date: Wed, 16 Apr 2008 16:26:34 +0300
+Message-ID: <20080416132634.GA545@cs181133002.pp.htv.fi>
+References: <20080413205406.GA9190@2ka.mipt.ru> <48028830.6020703@earthlink.net> <alpine.DEB.1.10.0804131546370.9318@asgard> <20080414043939.GA6862@1wt.eu> <20080414053943.GU9785@ZenIV.linux.org.uk> <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au> <4804765B.2070300@davidnewall.com> <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080414213238.GB28833-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Cc: git@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, david@lang.hm,
+	Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Tilman Schmidt <tilman@imap.cc>,
+	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org,
+	David Newall <davidn@davidnewall.com>
+To: sverre@rabbelier.nl
+Return-path: <git-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com>
+Sender: git-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the latest patch I always get BUG when closing my serial terminal
-application. I have two different modems (GTM378 and GTM380) plugged at 
-USB hub. Here is the dump:
+On Wed, Apr 16, 2008 at 02:15:22PM +0200, Sverre Rabbelier wrote:
+> I'm not subscribed to the kernel mailing list, so please include me in
+> the cc if you don't reply to the git list (which I am subscribed to).
+> 
+> Git is participating in Google Summer of Code this year and I've
+> proposed to write a 'git statistics' command. This command would allow
+> the user to gather data about a repository, ranging from "how active
+> is dev x" to "what did x work on in the last 3 weeks". It's main
+> feature however, would be an algorithm that ranks commits as being
+> either 'buggy', 'bugfix' or 'enhancement'. (There are several clues
+> that can aid in determining this, a commit msg along the lines of
+> "fixes ..." being the most obvious.)
+>...
 
-BUG: sleeping function called from invalid context at 
-drivers/usb/core/urb.c:542
-in_atomic():1, irqs_disabled():0
-Pid: 30031, comm: gtkterm Not tainted 2.6.24.4-64.fc8 #1
+At least with the data we have currently in git it's impossible to 
+figure that out automatically.
 
-Call Trace:
-  [<ffffffff811b5e40>] usb_kill_urb+0x1a/0xf1
-  [<ffffffff81268512>] mutex_lock+0x1e/0x2f
-  [<ffffffff810ab2a2>] fasync_helper+0x4a/0xcd
-  [<ffffffff88308f57>] :hso:hso_stop_serial_device+0x85/0x99
-  [<ffffffff8830971f>] :hso:hso_serial_close+0xea/0x110
-  [<ffffffff8117bf26>] release_dev+0x212/0x618
-  [<ffffffff8108ec31>] free_pages_and_swap_cache+0x73/0x8f
-  [<ffffffff8117c33d>] tty_release+0x11/0x1a
-  [<ffffffff810a152c>] __fput+0xc2/0x18f
-  [<ffffffff8109ed3f>] filp_close+0x5d/0x65
-  [<ffffffff8109ff0f>] sys_close+0x8d/0xca
-  [<ffffffff8100c005>] tracesys+0xd5/0xda
+E.g. if you look at commit f743d04dcfbeda7439b78802d35305781999aa11 
+(ide/legacy/q40ide.c: add MODULE_LICENSE), how could you determine 
+automatically that it is a bugfix, and the commit that introduced
+the bug?
 
-BUG: scheduling while atomic: gtkterm/30031/0x10000100
-Pid: 30031, comm: gtkterm Not tainted 2.6.24.4-64.fc8 #1
+You can always get some data, but if you want to get usable statistics 
+you need explicit tags in the commits, not some algorithm that tries 
+to guess.
 
-Call Trace:
-  [<ffffffff812677a2>] schedule+0x91/0x706
-  [<ffffffff81032f45>] __cond_resched+0x2d/0x55
-  [<ffffffff81267f0f>] cond_resched+0x2e/0x39
-  [<ffffffff811b5e45>] usb_kill_urb+0x1f/0xf1
-  [<ffffffff81268512>] mutex_lock+0x1e/0x2f
-  [<ffffffff810ab2a2>] fasync_helper+0x4a/0xcd
-  [<ffffffff88308f57>] :hso:hso_stop_serial_device+0x85/0x99
-  [<ffffffff8830971f>] :hso:hso_serial_close+0xea/0x110
-  [<ffffffff8117bf26>] release_dev+0x212/0x618
-  [<ffffffff8108ec31>] free_pages_and_swap_cache+0x73/0x8f
-  [<ffffffff8117c33d>] tty_release+0x11/0x1a
-  [<ffffffff810a152c>] __fput+0xc2/0x18f
-  [<ffffffff8109ed3f>] filp_close+0x5d/0x65
-  [<ffffffff8109ff0f>] sys_close+0x8d/0xca
-  [<ffffffff8100c005>] tracesys+0xd5/0xda
+> Cheers,
+> 
+> Sverre Rabbelier
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
