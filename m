@@ -1,34 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7 net-2.6.26] [TIPC]: Enhance validation of format on
- incoming messages
-Date: Tue, 15 Apr 2008 19:05:03 -0700 (PDT)
-Message-ID: <20080415.190503.168600922.davem@davemloft.net>
-References: <1208288637-15304-1-git-send-email-allan.stephens@windriver.com>
-	<1208288637-15304-8-git-send-email-allan.stephens@windriver.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Reporting bugs and bisection
+Date: Wed, 16 Apr 2008 06:29:20 +0200
+Message-ID: <20080416042920.GB25188@1wt.eu>
+References: <47FEADCB.7070104@rtr.ca> <517f3f820804150254w491cdf85s28f1d15696db8d96@mail.gmail.com> <4804B5D5.4090404@davidnewall.com> <200804152251.51308.rjw@sisk.pl> <480565D3.6000100@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: allan.stephens@windriver.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	James Morris <jmorris@namei.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>, david@lang.hm,
+	Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
+	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
+	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Newall <davidn@davidnewall.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53069
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753789AbYDPCFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 22:05:01 -0400
-In-Reply-To: <1208288637-15304-8-git-send-email-allan.stephens@windriver.com>
+Received: from 1wt.eu ([62.212.114.60]:3139 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750850AbYDPEop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 00:44:45 -0400
+Content-Disposition: inline
+In-Reply-To: <480565D3.6000100@davidnewall.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Allan Stephens <allan.stephens@windriver.com>
-Date: Tue, 15 Apr 2008 15:43:57 -0400
+On Wed, Apr 16, 2008 at 12:04:59PM +0930, David Newall wrote:
+> Rafael J. Wysocki wrote:
+> > Well, even if someone introduces bugs relatively frequently, but then also
+> > works with the reporters and fixes the bugs timely, it's about okay IMO.
+> >   
+> This really is not okay.  Even if bugs are fixed a version or two later,
+> the impact those bugs have on users makes the system look bad and drives
+> them away.  We do not, I believe, want Linux to top the list for "most
+> bugs".  It's unprofessional, unreliable and quite undesirable.
 
-> This patch ensures that TIPC properly handles incoming messages
-> that have incorrect or unexpected formats.  Most significantly,
-> it now ensures that each sl_buff has at least as much data as
-> the message header indicates it should, and that the entire
-> message header is stored contiguously; this prevents TIPC from
-> accidentally accessing memory that is not part of the sk_buff.
-> 
-> Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+that's what -rc are for, and it's unprofessional to use them in production :-)
 
-Applied, thanks.
