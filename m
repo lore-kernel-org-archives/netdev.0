@@ -1,71 +1,79 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH][netlabel] Don't risk NULL ptr deref in netlbl_unlabel_staticlist_gen() if ifindex not found
-Date: Wed, 16 Apr 2008 17:21:33 -0400
-Message-ID: <200804161721.33749.paul.moore@hp.com>
-References: <alpine.LNX.1.00.0804162304220.9837@dragon.funnycrock.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: Reporting bugs and bisection
+Date: Thu, 17 Apr 2008 00:25:54 +0300
+Message-ID: <20080416212554.GV1677@cs181133002.pp.htv.fi>
+References: <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au> <4804765B.2070300@davidnewall.com> <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com> <20080416132634.GA545@cs181133002.pp.htv.fi> <bd6139dc0804161239h17e79c70ta5e938619e5743c9@mail.gmail.com> <20080416201606.GS1677@cs181133002.pp.htv.fi> <20080416205333.GT1677@cs181133002.pp.htv.fi> <bd6139dc0804161405j28470914u488568b565b68a0b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Jesper Juhl <jesper.juhl@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: git@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, david@lang.hm,
+	Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Tilman Schmidt <tilman@imap.cc>,
+	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org,
+	David Newall <davidn@davidnewall.com>
+To: sverre@rabbelier.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:23185 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752061AbYDPVVl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 17:21:41 -0400
-In-Reply-To: <alpine.LNX.1.00.0804162304220.9837@dragon.funnycrock.com>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:36858 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752591AbYDPV0B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 17:26:01 -0400
 Content-Disposition: inline
+In-Reply-To: <bd6139dc0804161405j28470914u488568b565b68a0b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 16 April 2008 5:08:58 pm Jesper Juhl wrote:
-> Hi,
->
-> dev_get_by_index() may return NULL if nothing is found. In
-> net/netlabel/netlabel_unlabeled.c::netlbl_unlabel_staticlist_gen()
-> the function is called, but the return value is never checked. If it
-> returns NULL then we'll deref a NULL pointer on the very next line.
-> I checked the callers, and I don't think this can actually happen
-> today, but code changes over time and in the future it might happen
-> and it does no harm to be defensive and check for the failure, so
-> that if/when it happens we'll fail gracefully instead of crashing.
->
-> Please consider the patch below for inclusion.
->
->
-> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+On Wed, Apr 16, 2008 at 11:05:17PM +0200, Sverre Rabbelier wrote:
+> On Wed, Apr 16, 2008 at 10:53 PM, Adrian Bunk <bunk@kernel.org> wrote:
+> >  To avoid any misunderstandings:
+> >
+> >  This is not in any way meant against you personally.
+> 
+> Thanks for pointing it out, I wasn't quite sure, but assumed that :).
 
-I agree we should check for NULL here.  I checked the return of 
-dev_get_by_index() in the rest of the file I must have just forgotten 
-to check it here.
+Sorry, I was a bit overreacting since I see too often people putting 
+some data into some statistics or graph and drawing conclusins without 
+paying attention to whether their data allows these conclusions at all.
 
-Thanks for finding this and fixing it.
+> >  But saying things like " X% of your commits introduced bugs" is not a
+> >  friendly thing, and wrong data could be quite hurting.
+> 
+> Yes, it could be, and I agree that conclusions shouldn't be based on
+> the details, but on the bigger picture. Also, I think it should (at
+> first) be used mainly as an indicator, of where attention might be
+> required. I mean, if it points out that one contributor almost always
+> commits buggy code,
 
-Acked-by: Paul Moore <paul.moore@hp.com>
+I would assume that in all projects the main maintainers already have an 
+impression of how good the quality of the patches of each main 
+contributor is.
 
->
->  netlabel_unlabeled.c |    4 ++++
->  1 file changed, 4 insertions(+)
->
-> diff --git a/net/netlabel/netlabel_unlabeled.c
-> b/net/netlabel/netlabel_unlabeled.c index 4478f2f..6af9457 100644
-> --- a/net/netlabel/netlabel_unlabeled.c
-> +++ b/net/netlabel/netlabel_unlabeled.c
-> @@ -1339,6 +1339,10 @@ static int netlbl_unlabel_staticlist_gen(u32
-> cmd,
->
->  	if (iface->ifindex > 0) {
->  		dev = dev_get_by_index(&init_net, iface->ifindex);
-> +		if (!dev) {
-> +			ret_val = -ENODEV;
-> +			goto list_cb_failure;
-> +		}
->  		ret_val = nla_put_string(cb_arg->skb,
->  					 NLBL_UNLABEL_A_IFACE, dev->name);
->  		dev_put(dev);
+In much more complex ways than a number could express.
+
+> you don't have to present them with those
+> statistics right away. Instead you can ask the program where it bases
+> it's conclusions on, and research them yourself.
+
+Sooner or later someone will run the program for the Linux kernel, 
+write a paper about the results, and publish his research somewhere.
+
+>...
+> Cheers,
+> 
+> Sverre Rabbelier
+
+cu
+Adrian
 
 -- 
-paul moore
-linux @ hp
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
