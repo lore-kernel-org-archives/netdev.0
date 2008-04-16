@@ -1,35 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.26 1/2] Shrink size of net_device by filling
- alignment holes in it.
-Date: Wed, 16 Apr 2008 02:12:35 -0700 (PDT)
-Message-ID: <20080416.021235.111507104.davem@davemloft.net>
-References: <47FA5717.4070901@cosmosbay.com>
-	<20080407174745.GE15681@ghostprotocols.net>
-	<47FB2FAE.3080008@openvz.org>
+Subject: Re: [PATCH net-2.6.26 2/2] Do not allocate unneeded memory for
+ dev->priv alignment.
+Date: Wed, 16 Apr 2008 02:17:06 -0700 (PDT)
+Message-ID: <20080416.021706.250552589.davem@davemloft.net>
+References: <47FA5D62.5040806@gmail.com>
+	<47FB2FF3.90104@openvz.org>
+	<20080408092253.GA4048@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, dada1@cosmosbay.com, netdev@vger.kernel.org,
-	shemminger@vyatta.com, kaber@trash.net
-To: xemul@openvz.org
+Cc: xemul@openvz.org, netdev@vger.kernel.org, shemminger@vyatta.com,
+	kaber@trash.net
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50820
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50828
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751354AbYDPJMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 05:12:34 -0400
-In-Reply-To: <47FB2FAE.3080008@openvz.org>
+	by vger.kernel.org with ESMTP id S1754460AbYDPJRF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 05:17:05 -0400
+In-Reply-To: <20080408092253.GA4048@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 08 Apr 2008 12:41:18 +0400
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 8 Apr 2008 09:22:53 +0000
 
-> Ok, here are the results (summary):
- ...
-> So, does it worth trying to push them to Dave? :)
+> On Tue, Apr 08, 2008 at 12:42:27PM +0400, Pavel Emelyanov wrote:
+> > Hmm, AFAIC, the net_device alignment is done earlier, while this one
+> > makes sense in case the priv pointer alignment.
+> 
+> Hmm, one NETDEV_ALIGN_CONST is later used just for net_device alignment,
+> and you could not fit this struct after "~NETDEV_ALIGN_CONST" without
+> adding anything. So you should probably skip "~NETDEV_ALIGN_CONST" in
+> this no priv case too?
 
-I think if you can at least make it such that it stays
-the same in all of the stated situations, I'm happy to
-apply this.
+The Linux NETDEV Patch Robot has determined that these other
+NETDEV_ALIGN_CONST instances need to be retained, therefore
+Pavel's patch will be applied to net-2.6.26.
 
-Get creative with the rearrangement :-)
+*beep* *beep*
+
+Thank you for your valuable feedback.
+
+*beep* *beep*
+
+Keep hacking.
