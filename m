@@ -1,208 +1,83 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: remove special ioctl from hso driver, replace by rfkill
-Date: Wed, 16 Apr 2008 14:28:17 +0200
-Message-ID: <200804161428.18066.oliver@neukum.org>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: Reporting bugs and bisection
+Date: Wed, 16 Apr 2008 08:41:38 -0400
+Message-ID: <4805F402.1020603@earthlink.net>
+References: <47FEADCB.7070104@rtr.ca> <517f3f820804150254w491cdf85s28f1d15696db8d96@mail.gmail.com> <4804B5D5.4090404@davidnewall.com> <200804152251.51308.rjw@sisk.pl> <480565D3.6000100@davidnewall.com> <alpine.DEB.1.10.0804152042320.15483@asgard>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:42768 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751440AbYDPMX4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 08:23:56 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Newall <davidn@davidnewall.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	James Morris <jmorris@namei.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
+	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
+	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: david@lang.hm
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762870AbYDPMmq@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.0804152042320.15483@asgard>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+david@lang.hm wrote:
+> On Wed, 16 Apr 2008, David Newall wrote:
+> 
+>> Rafael J. Wysocki wrote:
+>>> Well, even if someone introduces bugs relatively frequently, but then 
+>>> also
+>>> works with the reporters and fixes the bugs timely, it's about okay IMO.
+>>>
+>> This really is not okay.  Even if bugs are fixed a version or two later,
+>> the impact those bugs have on users makes the system look bad and drives
+>> them away.  We do not, I believe, want Linux to top the list for "most
+>> bugs".  It's unprofessional, unreliable and quite undesirable.
+> 
+> timely frequently means the code was merged in -rc1/2 and was fixed 
+> before the final release of the same version.
+> 
+> given the huge variety of hardware and workloads, it's just too easy for 
+> there to be cases where any trade-off you make (code size, performance, 
+> memory usage, common case definitions) can turn around and bite you. In 
+> addition frequently hardware doesn't work quite the way the design specs 
+> say that it should (completely ignoring the fact that many drivers are 
+> reverse engineered). what's most important is that when a case shows up 
+> it gets addressed promptly
+> 
+> I'd rather have a developer/maintainer who introduces and fixed 100 bug, 
+> but fixes them promptly, as opposed to one who only introduces one bug, 
+> but refuses to consider fixing the code 'because they don't make 
+> mistakes like that' (usadly a common attitude from people who produce 
+> very good code much of the time)
+> 
+> best of all is a developer/maintainer who writes very good code and is 
+> willing to accept the fact that they make mistakes and fixes the code 
+> promptly, but those people are extremely rare, and usually they emerge 
+> from the pool of people who make more mistakes and fix them promptly, 
+> which is an added reason I'm more tolerant of that group.
+> 
+> David Lang
+> 
+Having been a Linux user since the late 90's the problem I see is that
+developers decide to re-design stuff that is already working and then things
+that used to work don't work anymore.
 
-could you test this patch?
-It does away with the one off serial ioctl replacing it with a standard
-mechanism.
+Libata is a good example. I had an older laptop that eventually got working
+again - but the old ide stuff wasn't studied enough to find out what had to be
+brought forward and supported in libata.
 
-	Regards
-		Oliver
+Regards,
+Steve
+-- 
 
----
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
 
---- linux-2.6.25-hso/drivers/net/usb/hso.c.alt2	2008-04-16 07:24:18.000000000 +0200
-+++ linux-2.6.25-hso/drivers/net/usb/hso.c	2008-04-16 14:01:22.000000000 +0200
-@@ -57,6 +58,7 @@
- #include <linux/tty_driver.h>
- #include <linux/tty_flip.h>
- #include <linux/kmod.h>
-+#include <linux/rfkill.h>
- #include <linux/ip.h>
- #include <linux/proc_fs.h>
- #include <linux/uaccess.h>
-@@ -102,7 +104,6 @@
- #define HSO_SERIAL_FLAG_THROTTLED	0
- #define HSO_SERIAL_FLAG_TX_SENT		1
- #define HSO_SERIAL_FLAG_RX_SENT		2
--#define HSO_SERIAL_USB_GONE		3
- 
- #define HSO_SERIAL_MAGIC		0x48534f31
- 
-@@ -241,11 +242,13 @@ struct hso_device {
- 
- 	u8 is_active;
- 	u8 suspend_disabled;
-+	u8 usb_gone;
- 	struct work_struct async_get_intf;
- 	struct work_struct async_put_intf;
- 
- 	struct usb_device *usb;
- 	struct usb_interface *interface;
-+	struct rfkill *rfkill;
- 
- 	struct device *dev;
- 	struct kref ref;                                                       */
-@@ -1238,7 +1216,7 @@ static void hso_serial_close(struct tty_
- 	}
- 
- 	mutex_lock(&serial->parent->mutex);
--	usb_gone = test_bit(HSO_SERIAL_USB_GONE, &serial->flags);
-+	usb_gone = serial->parent->usb_gone;
- 
- 	if (!usb_gone)
- 		usb_autopm_get_interface(serial->parent->interface);
-@@ -1407,43 +1385,6 @@ static int hso_serial_tiocmset(struct tt
- 			       USB_CTRL_SET_TIMEOUT);
- }
- 
--/* Toggles radio on or off ( used by ioctl ) */
--static int hso_set_radio(struct hso_device *hso_dev, int enabled)
--{
--	if (!hso_dev)
--		return -ENODEV;
--
--	return usb_control_msg(hso_dev->usb, usb_rcvctrlpipe(hso_dev->usb, 0),
--			       enabled ? 0x82 : 0x81, 0x40, 0, 0, NULL, 0,
--			       USB_CTRL_SET_TIMEOUT);
--}
--
--/* ioctl not supported */
--static int hso_serial_ioctl(struct tty_struct *tty, struct file *file,
--			    unsigned int cmd, unsigned long arg)
--{
--	struct hso_serial *serial = get_serial_by_tty(tty);
--	int ret = 0;
--	D4("IOCTL cmd: %d, arg: %ld", cmd, arg);
--
--	if (!serial)
--		return -ENODEV;
--
--	switch (cmd) {
--	case SIOCSETRADIO:
--		if (arg)
--			hso_set_radio(serial->parent, 1);
--		else
--			hso_set_radio(serial->parent, 0);
--		ret = 0;
--		break;
--	default:
--		ret = -ENOIOCTLCMD;
--		break;
--	}
--	return ret;
--}
--
- /* starts a transmit */
- static void hso_kick_transmit(struct hso_serial *serial)
- {
-@@ -1871,7 +1812,6 @@ static struct tty_operations hso_serial_
- 	.close = hso_serial_close,
- 	.write = hso_serial_write,
- 	.write_room = hso_serial_write_room,
--	.ioctl = hso_serial_ioctl,
- 	.set_termios = hso_serial_set_termios,
- 	.chars_in_buffer = hso_serial_chars_in_buffer,
- 	.tiocmget = hso_serial_tiocmget,
-@@ -2669,12 +2610,30 @@ static int hso_get_config_data(struct us
- 	return result;
- }
- 
-+static int hso_radio_toggle(void *data, enum rfkill_state state)
-+{
-+	struct hso_device *hso_dev = data;
-+	int enabled = (state == RFKILL_STATE_ON);
-+	int rv;
-+
-+	mutex_lock(&hso_dev->mutex);
-+	if (hso_dev->usb_gone)
-+		rv = 0;
-+	else
-+		rv = usb_control_msg(hso_dev->usb, usb_rcvctrlpipe(hso_dev->usb, 0),
-+				       enabled ? 0x82 : 0x81, 0x40, 0, 0, NULL, 0,
-+				       USB_CTRL_SET_TIMEOUT);
-+	mutex_unlock(&hso_dev->mutex);
-+	return rv;
-+}
-+
- /* called once for each interface upon device insertion */
- static int hso_probe(struct usb_interface *interface,
- 		     const struct usb_device_id *id)
- {
- 	int mux, i, if_num, port_spec;
- 	unsigned char port_mask;
-+	char *rfkn;
- 	struct hso_device *hso_dev = NULL;
- 	struct hso_shared_int *shared_int = NULL;
- 	struct hso_device *tmp_dev = NULL;
-@@ -2747,6 +2706,27 @@ static int hso_probe(struct usb_interfac
- 		goto exit;
- 	}
- 
-+	hso_dev->rfkill = rfkill_allocate(&interface_to_usbdev(interface)->dev,
-+				RFKILL_TYPE_WLAN);
-+	if (!hso_dev->rfkill)
-+		goto exit;
-+	rfkn = kzalloc(20, GFP_KERNEL);
-+	if (!rfkn) {
-+		rfkill_free(hso_dev->rfkill);
-+		goto exit;
-+	}
-+	snprintf(rfkn, 20, "hso-%d", if_num);
-+	hso_dev->rfkill->name = rfkn;
-+	hso_dev->rfkill->state = RFKILL_STATE_ON;
-+	hso_dev->rfkill->data = hso_dev;
-+	hso_dev->rfkill->toggle_radio = hso_radio_toggle;
-+	if (rfkill_register(hso_dev->rfkill) < 0) {
-+		kfree(rfkn);
-+		hso_dev->rfkill->name = NULL;
-+		rfkill_free(hso_dev->rfkill);
-+		goto exit;
-+	}
-+
- 	usb_driver_claim_interface(&hso_driver, interface, hso_dev);
- 
- 	/* save our data pointer in this device */
-@@ -2768,8 +2748,16 @@ exit:
- /* device removed, cleaning up */
- static void hso_disconnect(struct usb_interface *interface)
- {
-+	struct hso_device *hso_dev = usb_get_intfdata(interface);
-+
- 	hso_free_interface(interface);
- 
-+	if (hso_dev) {
-+		cancel_work_sync(&hso_dev->async_put_intf);
-+		cancel_work_sync(&hso_dev->async_get_intf);
-+		rfkill_unregister(hso_dev->rfkill);
-+	}
-+
- 	/* remove reference of our private data */
- 	usb_set_intfdata(interface, NULL);
- 
-@@ -2909,7 +2897,7 @@ static void hso_free_interface(struct us
- 			if (hso_dev->tty)
- 				tty_hangup(hso_dev->tty);
- 			mutex_lock(&hso_dev->parent->mutex);
--			set_bit(HSO_SERIAL_USB_GONE, &hso_dev->flags);
-+			hso_dev->parent->usb_gone = 1;
- 			mutex_unlock(&hso_dev->parent->mutex);
- 			kref_put(&serial_table[i]->ref, hso_serial_ref_free);
- 		}
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
