@@ -1,39 +1,28 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: question on rfkill_suspend
-Date: Wed, 16 Apr 2008 10:17:02 +0200
-Message-ID: <200804161017.04844.oliver@neukum.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.26 0/8][SIT]: Make SIT tunnel work in net
+ namespaces.
+Date: Wed, 16 Apr 2008 01:19:10 -0700 (PDT)
+Message-ID: <20080416.011910.73177819.davem@davemloft.net>
+References: <4804ACFA.1040003@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, IvDoorn@gmail.com
+Cc: netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:57874 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752375AbYDPIRe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 04:17:34 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44800
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753071AbYDPITJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 04:19:09 -0400
+In-Reply-To: <4804ACFA.1040003@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 15 Apr 2008 17:26:18 +0400
 
-it seems like rfkill does not guarantee that it won't talk to suspended
-devices. Is that true? Should request that arrive for suspended devices
-be ignored or postponed?
+> ipv4 tunnels are done - time to virtualize ipv6 tunnels.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-	Regards
-		Oliver
-
-#ifdef CONFIG_PM
-static int rfkill_suspend(struct device *dev, pm_message_t state)
-{
-	struct rfkill *rfkill = to_rfkill(dev);
-
-	if (dev->power.power_state.event != state.event) {
-		if (state.event & PM_EVENT_SLEEP) {
-			mutex_lock(&rfkill->mutex);
-
-			if (rfkill->state == RFKILL_STATE_ON)
-				rfkill->toggle_radio(rfkill->data,
-						     RFKILL_STATE_OFF);
+Applied and pushed to net-2.6.26
