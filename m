@@ -1,38 +1,179 @@
-From: Jakub Narebski <jnareb@gmail.com>
-Subject: Re: Reporting bugs and bisection
-Date: Wed, 16 Apr 2008 22:55:24 +0200
-Message-ID: <fu5p3i$96n$1@ger.gmane.org>
-References: <48028830.6020703@earthlink.net> <alpine.DEB.1.10.0804131546370.9318@asgard> <20080414043939.GA6862@1wt.eu> <20080414053943.GU9785@ZenIV.linux.org.uk> <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au> <4804765B.2070300@davidnewall.com> <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com> <20080416132634.GA545@cs181133002.pp.htv.fi> <20080416200408.GA7764@1wt.eu>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6.26 2008-04-16
+Date: Wed, 16 Apr 2008 16:44:17 -0400
+Message-ID: <20080416204417.GA3127@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: git@vger.kernel.org
-Return-path: <git-owner@vger.kernel.org>
-Sender: git-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:3468 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752589AbYDPU7e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 16:59:34 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Willy Tarreau wrote:
+Dave,
 
-> Note to contributors: it's very handy when patches comes with a prope=
-rly
-> formated subject. Try to put one of the following words between brack=
-ets
-> to indicate the importance of the patch followed by a short descripti=
-on:
->=20
-> [MINOR] =A0 =A0minor fix, very low risk of impact
-> [MEDIUM] =A0 medium risk, may cause unexpected regressions of low imp=
-ortance or
-> =A0 =A0 =A0 =A0 =A0 =A0which may quickly be discovered
+Another week and still another 40 patches...  The biggest piece of this
+is iwlwifi updates, but mac80211 and other drivers are represented as
+well.  At least some of these are bugfixes for problems already in
+net-2.6.26.
 
-[...]
+Let me know if there are problems!
 
-And git-am strips such prefixes because of [PATCH] and [PATCH n/m] whic=
-h
-should be stripped.
+Thanks,
 
---=20
-Jakub Narebski
-Warsaw, Poland
-ShadeHawk on #git
+John
+
+---
+
+Individual patches are available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6.26/
+
+---
+
+The following changes since commit dd9e0dda66ba38a2ddd1405ac279894260dc5c36:
+  John Heffner (1):
+        [TCP]: Increase the max_burst threshold from 3 to tp->reordering.
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.26.git master
+
+Abhijeet Kolekar (1):
+      iwlwifi: replace sprintf with scnprintf for debugfs output
+
+Alexey Dobriyan (1):
+      proc: switch /proc/driver/ray_cs/ray_cs to seq_file interface
+
+Emmanuel Grumbach (8):
+      iwlwifi: add default WEP key host command
+      iwlwifi: default WEP HW encryption
+      iwlwifi: add 1X HW WEP support
+      iwlwifi: maintain uCode key table state
+      iwlwifi: moves security functions to iwl-sta.c
+      iwlwifi: remove the statistics work
+      iwlwifi: Fix TKIP update key and get_free_ucode_key
+      iwlwifi: Use HW acceleration decryption by default
+
+Holger Schurig (2):
+      libertas: convert libertas driver to use an event/cmdresp queue
+      libertas: un-garbage various command structs
+
+Ivo van Doorn (1):
+      rt2x00: Only free skb when beacon_update fails
+
+Johannes Berg (6):
+      mac80211: fix key hwaccel race
+      mac80211: further RCU fixes
+      mac80211: fix spinlock recursion
+      mac80211: fix key todo list order
+      mac80211: allow WDS mode
+      mac80211: rework scanning to account for probe response/beacon difference
+
+John W. Linville (1):
+      mlme.c: fixup some merge damage
+
+Michael Buesch (2):
+      ssb-pcicore: Remove b44 TPS flag workaround
+      b43: Add fastpath to b43_mac_suspend()
+
+Mohamed Abbas (1):
+      iwlwifi: fix unload warning and error
+
+Nick Kossifidis (2):
+      ath5k: Add RF2425 initvals
+      ath5k: Misc fixes/cleanups
+
+Reinette Chatre (4):
+      mac80211: no BSS changes to driver from beacons processed during scanning
+      iwl4965: make iwl4965_send_rxon_assoc asynchronous
+      iwlwifi: make Makefile more concise
+      iwlwifi: perform bss_info_changed post association work right away
+
+Ron Rindjunsky (2):
+      iwlwifi: move HW device registration
+      iwlwifi: arrange max number of Tx queues
+
+Stefano Brivio (1):
+      b43legacy: fix TBTT and PU timings
+
+Tomas Winkler (8):
+      iwlwifi: generalize iwlwifi init flow
+      iwlwifi: Fix byte count table for fragmented packets
+      iwlwifi: move shared pointers to iwl_priv
+      iwlwifi: hw_setting cleanup
+      iwlwifi: support different num of tx and rx antennas
+      iwlwifi: move the creation of LQ host command to iwlcore
+      iwlwifi: introduce host commands callbacks
+      iwlwifi: move rxon associated command to hcmd
+
+ drivers/net/wireless/ath5k/ath5k.h               |   11 +-
+ drivers/net/wireless/ath5k/base.c                |   14 +-
+ drivers/net/wireless/ath5k/hw.c                  |  152 +++++-
+ drivers/net/wireless/ath5k/initvals.c            |  234 +++++++++
+ drivers/net/wireless/ath5k/phy.c                 |  123 +++++-
+ drivers/net/wireless/ath5k/regdom.c              |  121 -----
+ drivers/net/wireless/ath5k/regdom.h              |  500 -------------------
+ drivers/net/wireless/b43/main.c                  |    7 +
+ drivers/net/wireless/b43legacy/b43legacy.h       |    3 +
+ drivers/net/wireless/b43legacy/main.c            |   34 ++-
+ drivers/net/wireless/iwlwifi/Kconfig             |    2 +-
+ drivers/net/wireless/iwlwifi/Makefile            |   29 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-hw.h       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945.h          |    2 +
+ drivers/net/wireless/iwlwifi/iwl-4965-commands.h |   50 ++-
+ drivers/net/wireless/iwlwifi/iwl-4965-hw.h       |   22 +-
+ drivers/net/wireless/iwlwifi/iwl-4965-rs.c       |   65 +---
+ drivers/net/wireless/iwlwifi/iwl-4965.c          |  373 ++++++++++----
+ drivers/net/wireless/iwlwifi/iwl-4965.h          |   41 +-
+ drivers/net/wireless/iwlwifi/iwl-core.c          |   13 +
+ drivers/net/wireless/iwlwifi/iwl-core.h          |   32 ++-
+ drivers/net/wireless/iwlwifi/iwl-debugfs.c       |   73 ++--
+ drivers/net/wireless/iwlwifi/iwl-hcmd.c          |    1 +
+ drivers/net/wireless/iwlwifi/iwl-rfkill.c        |    3 +
+ drivers/net/wireless/iwlwifi/iwl-rfkill.h        |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-sta.c           |  355 +++++++++++++
+ drivers/net/wireless/iwlwifi/iwl-sta.h           |   49 ++
+ drivers/net/wireless/iwlwifi/iwl3945-base.c      |    6 +-
+ drivers/net/wireless/iwlwifi/iwl4965-base.c      |  575 ++++++----------------
+ drivers/net/wireless/libertas/cmd.c              |   32 +-
+ drivers/net/wireless/libertas/cmdresp.c          |   23 +-
+ drivers/net/wireless/libertas/debugfs.c          |    1 -
+ drivers/net/wireless/libertas/decl.h             |   10 +-
+ drivers/net/wireless/libertas/defs.h             |    2 -
+ drivers/net/wireless/libertas/dev.h              |   27 +-
+ drivers/net/wireless/libertas/if_cs.c            |  244 ++++------
+ drivers/net/wireless/libertas/if_sdio.c          |   65 +--
+ drivers/net/wireless/libertas/if_usb.c           |   71 +--
+ drivers/net/wireless/libertas/if_usb.h           |    2 -
+ drivers/net/wireless/libertas/main.c             |  158 ++++---
+ drivers/net/wireless/libertas/rx.c               |    4 +-
+ drivers/net/wireless/libertas/tx.c               |   20 +-
+ drivers/net/wireless/ray_cs.c                    |   73 ++--
+ drivers/net/wireless/rt2x00/rt2x00dev.c          |    6 +-
+ drivers/ssb/driver_pcicore.c                     |   12 +-
+ include/net/mac80211.h                           |    3 +-
+ net/mac80211/cfg.c                               |   22 +-
+ net/mac80211/ieee80211_i.h                       |   12 +-
+ net/mac80211/key.c                               |  101 +++--
+ net/mac80211/key.h                               |   11 +-
+ net/mac80211/main.c                              |    2 +
+ net/mac80211/mlme.c                              |  144 ++++--
+ net/mac80211/wext.c                              |    8 +
+ 53 files changed, 2077 insertions(+), 1870 deletions(-)
+ delete mode 100644 drivers/net/wireless/ath5k/regdom.c
+ delete mode 100644 drivers/net/wireless/ath5k/regdom.h
+ create mode 100644 drivers/net/wireless/iwlwifi/iwl-sta.c
+ create mode 100644 drivers/net/wireless/iwlwifi/iwl-sta.h
+
+Omnibus patch available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6.26-2008-04-16.patch.gz
+-- 
+John W. Linville
+linville@tuxdriver.com
