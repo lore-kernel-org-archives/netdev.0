@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2008-04-15
-Date: Tue, 15 Apr 2008 19:20:42 -0700 (PDT)
-Message-ID: <20080415.192042.119702071.davem@davemloft.net>
-References: <20080415193857.GA16625@tuxdriver.com>
+Subject: Re: [PATCH net-2.6.26] CAN: use hrtimers in can-bcm protocol
+Date: Tue, 15 Apr 2008 19:09:41 -0700 (PDT)
+Message-ID: <20080415.190941.202291143.davem@davemloft.net>
+References: <4805102A.8030707@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760410AbYDPCUy@vger.kernel.org>
-In-Reply-To: <20080415193857.GA16625@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tglx@linutronix.de, kaber@trash.net, urs@isnogud.escape.de,
+	netdev@vger.kernel.org
+To: oliver@hartkopp.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44499
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753891AbYDPCJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2008 22:09:39 -0400
+In-Reply-To: <4805102A.8030707@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 15 Apr 2008 15:38:57 -0400
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Date: Tue, 15 Apr 2008 22:29:30 +0200
 
-> This set looks bigger than it really is...three of the patches deal
-> with a subtle API change for the SSB bus to do DMA correctly on
-> architectures with complex DMA requirements.  The changes in those
-> patches amount to applying the same one-line change in dozens of
-> places across three drivers (b44, b43, and b43legacy).
+> Make use of hrtimers to support high resolution capabilities, when 
+> provided by the system clocksource.
 > 
-> Also included are a number of MAINTAINERS updates.  I guess everyone
-> forgets about these until the release nears.
+> The conversion to hrtimers additionally discovered and solved an 
+> unlikely race condition that has been reproduced under (unrealistic) 
+> massive receive load, which can only be produced on vcan software devices.
 > 
-> Finally there are a few minor fixes, like the rfkill fix to only toggle
-> state for the correct device type rather than all devices on a system,
-> the rtl8187 priv->vif fix, the gelic IE overrun fix, and the mac80211
-> fix to limit log SPAM.
-> 
-> Please let me know if there are problems!  Hopefully this will be the
-> last round before 2.6.25...(famous last words...)
+> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
 
-Pulled, thanks John.
+Applied, thanks Oliver.
