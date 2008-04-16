@@ -1,40 +1,30 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: remove special ioctl from hso driver, replace by rfkill
-Date: Wed, 16 Apr 2008 15:53:14 +0200
-Message-ID: <200804161553.14879.oliver@neukum.org>
-References: <200804161428.18066.oliver@neukum.org> <4805F9DB.5030004@teltonika.lt>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Wed, 16 Apr 2008 16:55:02 +0300
+Message-ID: <48060536.60005@teltonika.lt>
+References: <20080414213238.GB28833@kroah.com> <200804161403.20955.oliver@neukum.org> <4805ED16.3080104@teltonika.lt> <200804161543.23584.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4805F9DB.5030004-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Content-Disposition: inline
+In-Reply-To: <200804161543.23584.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am Mittwoch, 16. April 2008 15:06:35 schrieb Paulius Zaleckas:
-> Oliver Neukum wrote:
-> > Hi,
-> > 
-> > could you test this patch?
-> > It does away with the one off serial ioctl replacing it with a standard
-> > mechanism.
-> > 
+Oliver Neukum wrote:
+> Am Mittwoch, 16. April 2008 14:12:06 schrieb Paulius Zaleckas:
+>> I always get crash when closing serial terminal application. I will
+>> post dump in couple minutes.
 > 
-> Can you describe me how can I test it? I am pretty new to rfkill :)
+> Does this fix it?
+> 
 
-So am I.
+Yes, it does! Thank you.
 
-> By looking at rfkill documentation I got impression that it will work
-> only on laptop... and I am using desktop PC.
+Paulius
 
-Indeed. it seems like you need a key. Can you enquire on the kernel list?
-
-	Regards
-		Oliver
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
