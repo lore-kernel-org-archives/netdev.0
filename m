@@ -1,64 +1,92 @@
-From: "Ray Lee" <ray-lk@madrabbit.org>
-Subject: Re: Reporting bugs and bisection
-Date: Thu, 17 Apr 2008 14:01:55 -0700
-Message-ID: <2c0942db0804171401r2696884bq22540deaab40ef9b@mail.gmail.com>
-References: <47FEADCB.7070104@rtr.ca>
-	 <9a8748490804161417n4ad6c1den54ccd302831a66c6@mail.gmail.com>
-	 <48078323.4010109@davidnewall.com> <200804172109.35027.rjw@sisk.pl>
-	 <2c0942db0804171235o49238b99u6cdbd3e5c8d6ebb7@mail.gmail.com>
-	 <20080417201657.GF27459@ZenIV.linux.org.uk>
-	 <2c0942db0804171338p7bc7d9f2u8079c2f8c8998e76@mail.gmail.com>
-	 <20080417205301.GG27459@ZenIV.linux.org.uk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Pull request for 'upstream-jeff' branch
+Date: Thu, 17 Apr 2008 22:44:18 +0200
+Message-ID: <20080417204418.GA26332@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	"David Newall" <davidn@davidnewall.com>,
-	"Jesper Juhl" <jesper.juhl@gmail.com>, sverre@rabbelier.nl,
-	git@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	"James Morris" <jmorris@namei.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Willy Tarreau" <w@1wt.eu>, david@lang.hm,
-	"Stephen Clark" <sclark46@earthlink.net>,
-	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Tilman Schmidt" <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
-	"Mark Lord" <lkml@rtr.ca>, "David Miller" <davem@davemloft.net>,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org
-To: "Al Viro" <viro@zeniv.linux.org.uk>
-Return-path: <git-owner@vger.kernel.org>
-In-Reply-To: <20080417205301.GG27459@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ivan Vecera <ivecera@redhat.com>,
+	Roel Kluin <12o3l@tiscali.nl>, akpm@linux-foundation.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:52594 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753748AbYDQVCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 17:02:45 -0400
 Content-Disposition: inline
-Sender: git-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 17, 2008 at 1:53 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Thu, Apr 17, 2008 at 01:38:18PM -0700, Ray Lee wrote:
->  > >         And frankly, that's the only thing that matters anyway; I suspect
->  > >  I'd do rather well by proposed criteria, but you know what?  I don't give
->  > >  a flying f*ck through the rolling doughnut for self-appointed PHBs and
->  > >  their idea of performance reviews.
->  >
->  > (Geez, conflate the issue much?) No one is saying you should. But
->  > also, I haven't seen anyone saying it'd be used for performance
->  > reviews other than you.
->
->
-> || If there are individuals at whom a finger needs to be pointed, this
->  || system will highlight them, and fingers will (and should) be pointed.
->  || Contributors of poor-quality code need to be weeded-out.
->
->  in this thread (From: David Newall).
+Please pull from branch 'upstream-jeff' in repository
 
-Ah, I failed reading comprehension, yet again. Well, sounds like you
-have a beef to take up with David, then. That's still not an argument
-against trying to gather statistics and to see if they're worth
-anything.
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git upstream-jeff
 
->  > <shrug> Shame and Guilt, two major motivators of human behavior, it's
->  > true. But, one last time, *you're* the one saying the stats would be
->  > used for finger pointing at people.
->
->  Not really.  Unless you are trying to imply that David is my sock puppet, that
->  is...
+to get the changes below.
 
-Momentarily amusing to think so, but no :-).
+Distance from 'master' (4b119e21d0c66c22e8ca03df05d9de623d0eb50f)
+-----------------------------------------------------------------
+
+21e197f231343201368338603cb0909a13961bac
+cee60c377de6d9d10f0a2876794149bd79a15020
+
+Diffstat
+--------
+
+ drivers/net/r8169.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+Shortlog
+--------
+
+Ivan Vecera (1):
+      r8169: fix oops in r8169_get_mac_version
+
+Roel Kluin (1):
+      r8169: fix past rtl_chip_info array size for unknown chipsets
+
+Patch
+-----
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 3acfeea..6572425 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1617,6 +1617,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	tp = netdev_priv(dev);
+ 	tp->dev = dev;
++	tp->pci_dev = pdev;
+ 	tp->msg_enable = netif_msg_init(debug.msg_enable, R8169_MSG_DEFAULT);
+ 
+ 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
+@@ -1705,18 +1706,18 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	rtl8169_print_mac_version(tp);
+ 
+-	for (i = ARRAY_SIZE(rtl_chip_info) - 1; i >= 0; i--) {
++	for (i = 0; i < ARRAY_SIZE(rtl_chip_info); i++) {
+ 		if (tp->mac_version == rtl_chip_info[i].mac_version)
+ 			break;
+ 	}
+-	if (i < 0) {
++	if (i == ARRAY_SIZE(rtl_chip_info)) {
+ 		/* Unknown chip: assume array element #0, original RTL-8169 */
+ 		if (netif_msg_probe(tp)) {
+ 			dev_printk(KERN_DEBUG, &pdev->dev,
+ 				"unknown chip version, assuming %s\n",
+ 				rtl_chip_info[0].name);
+ 		}
+-		i++;
++		i = 0;
+ 	}
+ 	tp->chipset = i;
+ 
+@@ -1777,7 +1778,6 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ #endif
+ 
+ 	tp->intr_mask = 0xffff;
+-	tp->pci_dev = pdev;
+ 	tp->mmio_addr = ioaddr;
+ 	tp->align = cfg->align;
+ 	tp->hw_start = cfg->hw_start;
+-- 
+Ueimor
