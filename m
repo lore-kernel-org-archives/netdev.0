@@ -1,84 +1,50 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: Reporting bugs and bisection
-Date: Thu, 17 Apr 2008 09:50:13 -0400
-Message-ID: <20080417135013.GA2017@fieldses.org>
-References: <20080414043939.GA6862@1wt.eu> <20080414053943.GU9785@ZenIV.linux.org.uk> <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au> <4804765B.2070300@davidnewall.com> <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com> <20080416132634.GA545@cs181133002.pp.htv.fi> <20080416120247.c665859c.akpm@linux-foundation.org> <20080416195503.GR1677@cs181133002.pp.htv.fi>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 10/13] ixp2000: use netdev_alloc_skb
+Date: Thu, 17 Apr 2008 15:53:38 +0200
+Message-ID: <20080417135338.GA17761@xi.wantstofly.org>
+References: <20080416233727.732025083@vyatta.com> <20080416233757.698199646@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, sverre@rabbelier.nl,
-	git@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jmorris@namei.org, viro@zeniv.linux.org.uk, w@1wt.eu,
-	david@lang.hm, sclark46@earthlink.net, johnpol@2ka.mipt.ru,
-	rjw@sisk.pl, tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
-	davem@davemloft.net, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org,
-	davidn@davidnewall.com
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760119AbYDQNwt@vger.kernel.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:48448 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753839AbYDQNxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 09:53:41 -0400
 Content-Disposition: inline
-In-Reply-To: <20080416195503.GR1677@cs181133002.pp.htv.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080416233757.698199646@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 16, 2008 at 10:55:03PM +0300, Adrian Bunk wrote:
-> On Wed, Apr 16, 2008 at 12:02:47PM -0700, Andrew Morton wrote:
-> > On Wed, 16 Apr 2008 16:26:34 +0300
-> > Adrian Bunk <bunk@kernel.org> wrote:
-> > 
-> > > On Wed, Apr 16, 2008 at 02:15:22PM +0200, Sverre Rabbelier wrote:
-> > > > I'm not subscribed to the kernel mailing list, so please include me in
-> > > > the cc if you don't reply to the git list (which I am subscribed to).
-> > > > 
-> > > > Git is participating in Google Summer of Code this year and I've
-> > > > proposed to write a 'git statistics' command. This command would allow
-> > > > the user to gather data about a repository, ranging from "how active
-> > > > is dev x" to "what did x work on in the last 3 weeks". It's main
-> > > > feature however, would be an algorithm that ranks commits as being
-> > > > either 'buggy', 'bugfix' or 'enhancement'. (There are several clues
-> > > > that can aid in determining this, a commit msg along the lines of
-> > > > "fixes ..." being the most obvious.)
-> > > >...
-> > 
-> > Sounds like an interesting project.
-> > 
-> > > At least with the data we have currently in git it's impossible to 
-> > > figure that out automatically.
-> > > 
-> > > E.g. if you look at commit f743d04dcfbeda7439b78802d35305781999aa11 
-> > > (ide/legacy/q40ide.c: add MODULE_LICENSE), how could you determine 
-> > > automatically that it is a bugfix, and the commit that introduced
-> > > the bug?
-> > > 
-> > > You can always get some data, but if you want to get usable statistics 
-> > > you need explicit tags in the commits, not some algorithm that tries 
-> > > to guess.
-> > 
-> > Well yes.  One outcome of the project would be to tell us what changes we'd
-> > need to make to our processes to make such data gathering more effective.
-> > 
-> > Of course, we may not actually implement such changes.  That would depend
-> > upon how useful the output is to us.
+On Wed, Apr 16, 2008 at 04:37:37PM -0700, Stephen Hemminger wrote:
+
+> Use netdev_alloc_skb. This sets skb->dev and allows arch specific
+> allocation.
 > 
-> That you can add this information through tags is clear, but according
-> to his SoC application that's not what he wants to do.
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+No objections, I guess..
+
+
+> --- a/drivers/net/ixp2000/ixpdev.c	2008-04-07 10:36:16.000000000 -0700
+> +++ b/drivers/net/ixp2000/ixpdev.c	2008-04-07 12:43:41.000000000 -0700
+> @@ -108,14 +108,14 @@ static int ixpdev_rx(struct net_device *
+>  		if (unlikely(!netif_running(nds[desc->channel])))
+>  			goto err;
+>  
+> -		skb = dev_alloc_skb(desc->pkt_length + 2);
+> +		skb = netdev_alloc_skb(dev, desc->pkt_length + 2);
+>  		if (likely(skb != NULL)) {
+>  			skb_reserve(skb, 2);
+>  			skb_copy_to_linear_data(skb, buf, desc->pkt_length);
+>  			skb_put(skb, desc->pkt_length);
+>  			skb->protocol = eth_type_trans(skb, nds[desc->channel]);
+>  
+> -			skb->dev->last_rx = jiffies;
+> +			dev->last_rx = jiffies;
+>  
+>  			netif_receive_skb(skb);
+>  		}
 > 
-> According to his application he wants to determine automatically whether 
-> a commit was a fix or whether a commit introduced a bug by doing stuff 
-> like tracking whether a changed line was modified again shortly after a 
-> commit.
-> 
-> This plan of him will simply not result in accurate numbers.
-
-They won't be completely accurate, but who knows, maybe they'd turn out
-to have a higher rate of accuracy than we'd expect.  (I assume you could
-do a closer manual study of a small random sample of the results to
-estimate the accuracy.)  Seems worth a try.
-
-> Sure, you will get some numbers, but if anyone would e.g. wrongly accuse 
-> me that 2% of my commits last year introduced bugs I would get 
-> ***really*** angry.
-
-It's just an experiment; reasonable people won't take it as the final
-word.
-
---b.
+> -- 
