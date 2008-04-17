@@ -1,42 +1,142 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH] genetlink: export genl_unregister_mc_group()
-Date: Thu, 17 Apr 2008 12:54:01 -0700
-Message-ID: <200804171254.01950.inaky@linux.intel.com>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Thu, 17 Apr 2008 22:03:07 +0200
+Message-ID: <200804172203.07758.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804152001.58528.tomasz@grobelny.oswiecenia.net> <20080416062023.GA4278@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>,
-	Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:21357 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753905AbYDQT6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 15:58:06 -0400
+Received: from oswiecenia.net ([83.13.108.58]:3417 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752849AbYDQUDd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 16:03:33 -0400
+In-Reply-To: <20080416062023.GA4278@gerrit.erg.abdn.ac.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add an EXPORT_SYMBOL() to genl_unregister_mc_group(), to allow
-unregistering groups on the run. 
+Dnia Wednesday 16 of April 2008, Gerrit Renker napisa=B3:
+> | > | | What happens if application is compiled with dccp_packet_info
+> | > | | containing only one field (priority) and kernel containing tw=
+o
+> | > | | fields (for example priority and later added expiry time)? Wo=
+uldn't
+> | > | | that implementation make extensions to dccp_packet_info impos=
+sible?
+> | > |
+> | > | Had not looked at it from this point of view. So you are sugges=
+ting
+> | > |
+> | > | 	if (msg->msg_control !=3D NULL && msg->msg_controllen >=3D siz=
+eof(*dcp))
+> | > | 		dcp =3D (struct dccp_packet_info *)msg->msg_control;
+> | > |
+> | > | instead? Agreed, point #1 to change in the patch.
+> | >
+> | > No, the above is nonsense. If the application uses an earlier ver=
+sion
+> | > of the API, then it needs to be recompiled, there is no way it co=
+uld
+> | > pretend to have an adequate size.
+> |
+> | That would effectively stop development of any policy. And it's not=
+ about
+> | pretending the structure has different size, it's just about using =
+only
+> | the data that is provided by the application (even though it may be
+> | incomplete).
+> |
+> | > So my take is that still the '=3D=3D' is correct. But maybe this =
+is a known
+> | > problem?
+> |
+> | I can't see a problem with copying smaller struct to bigger one. It=
+ would
+> | work like that:
+> | 1. set default values for in-kernel structure,
+> | 2. copy min(msg_control, sizeof(struct dccp_packet_info)) bytes fro=
+m
+> | userspace structure to the kernel one.
+> |
+> | In that sense the code above is in fact wrong but the idea alone sh=
+ould
+> | be ok. --
+>
+> There is a more serious problem here: apparently no one tried to comp=
+ile
+> the `qpolicy' subtree since the changes on Monday. It fails with the
+> BUILD_BUG_ON.
+>
+> I tried yesterday evening and found that there is not even a possibil=
+ity
+> of adding a single field to struct dccp_skb_cb: with the addition of =
+the
+> inet{,6}_skb_parm, the struct has reached its maximum size of 48 byte=
+s
+> (try printk("%u", sizeof(struct dccp_skb_cb));).
+>
+> There is a solution to this, will post a revised patch shortly.
+>
+What you proposed in the patch should work ok for qpolicies for now. Bu=
+t=20
+sooner or later the need to add a field to struct dccp_skb_cb will aris=
+e. So=20
+maybe we should think about it now...
+Other possibility apart from what you proposed in the patch is creating=
+ struct=20
+dccp_skb_cb_ext, move to it some fields from struct dccp_skb_cb and in =
+struct=20
+add a pointer to this new struct dccp_skb_cb_ext. Ok, maybe it is not t=
+he=20
+prettiest idea but in case somebody needs yet another additional field =
+in=20
+struct dccp_skb_cb_ext it would be nice to have an idea how to do it.
 
-Cleanup is currently done when unregistering a family, but there is
-no way to unregister a single multicast group due to that function not
-being exported. Seems to be a mistake as it is documented as for
-external consumption.
+> With regard to your point above: I think there is a way of keeping th=
+e
+> framework open without bending over backwards to ensure the binary
+> compatibility.
+>
+While we are developing in the test tree compatibility is not important=
+ at=20
+all. But real world needs compatibility, especially if it's not that=20
+expensive. Otherwise people will get weird behaviour without any messag=
+es=20
+indicating what is wrong. And it's certainly not how code should be wri=
+tten.=20
+It can't be that binary package of VLC (or any other streaming server) =
+cannot=20
+use newer kernel version because we added a new field.
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-
----
-diff -r ec7efeb20531 net/netlink/genetlink.c
---- a/net/netlink/genetlink.c	Tue Feb 12 09:49:05 2008 -0800
-+++ b/net/netlink/genetlink.c	Thu Apr 17 12:50:29 2008 -0700
-@@ -225,6 +225,7 @@ void genl_unregister_mc_group(struct gen
- 	__genl_unregister_mc_group(family, grp);
- 	genl_unlock();
- }
-+EXPORT_SYMBOL(genl_unregister_mc_group);
- 
- static void genl_unregister_mc_groups(struct genl_family *family)
- {
+> My question for you in this regard: which policy can you think of who=
+se
+> priorities/preferences can not be mapped into an unsigned 32-bit
+> integer? I think that such a number is sufficiently expressive enough
+> to cater for a wide range of policies. It can be interpreted as
+>  * symbolic value (enum)
+>  * ascii string (similar to DCCP service code)
+>  * millisecond timeout (with room for up to 7 weeks)
+>  * microsecond timeout (with room for up to 1.19 hours)
+>  * priority values (the large range 0..2^32-1 can be partitioned)
+>  * ... ?
+>
+Putting any of those values in an integer is pretty straightforward. Bu=
+t when=20
+you want to put both timeout and priority things get messy. Would it be=
+=20
+possible at least to use structure like that:
+struct dccp_packet_info
+{
+	s8	priority;
+	u16	timeout_mantissa:10;
+	u16	timeout_exponent:6;
+}
+? That would still fit in 32-bit integer (so could be stored in=20
+skb->priority), but would provide a much cleaner interface.
+--=20
+Regards,
+Tomasz Grobelny
