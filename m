@@ -1,93 +1,120 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH] Re: Bad network performance over 2Gbps
-Date: Thu, 17 Apr 2008 10:37:58 -0700
-Message-ID: <48078AF6.2020003@intel.com>
-References: <1208282804.23631.27.camel@localhost>	 <175f5a0f0804151315x1e192fc7p7dac1e84fd154211@mail.gmail.com>	 <48051173.5030802@intel.com>  <48051734.1000107@redhat.com> <1208426550.6049.10.camel@localhost>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute2 v2.6.25
+Date: Thu, 17 Apr 2008 10:38:58 -0700
+Message-ID: <20080417103858.0075236b@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Anton Titov <a.titov@host.bg>, Chris Snook <csnook@redhat.com>,
-	"H. Willstrand" <h.willstrand@gmail.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:28112 "EHLO mga02.intel.com"
+Received: from mail.vyatta.com ([216.93.170.194]:51881 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755671AbYDQRjE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Apr 2008 13:39:04 -0400
-In-Reply-To: <1208426550.6049.10.camel@localhost>
+	id S1756420AbYDQRjE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 13:39:04 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 1C4844F8030
+	for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 10:39:03 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 8Ap2b6yb+1ts for <netdev@vger.kernel.org>;
+	Thu, 17 Apr 2008 10:39:00 -0700 (PDT)
+Received: from extreme (97-115-70-231.ptld.qwest.net [97.115.70.231])
+	by mail.vyatta.com (Postfix) with ESMTP id 8EFC54F8051
+	for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 10:39:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Titov wrote:
-> On Tue, 2008-04-15 at 16:59 -0400, Chris Snook wrote:
->> Still, I think you're on to something here.  Disabling NAPI and instead 
->> tuning the cards' interrupt coalescing settings might allow irqbalance 
->> to do a better job than it is currently.
-> 
-> Disabling NAPI allowed me to push as much as 3.5Gbit out of the same
-> server with ~ 20% of time CPUs doing software interrupts.
+New version of iproute2 utilities that includes bug fixes and
+support for all the new features in kernel 2.6.25.
 
-yes, I really don't see this is such an amazing discovery - the in-kernel
-irqbalance code is totally wrong for network interrupts (and probably for most
-interrupts).
+Source: (note old developer.osdl.org address works as well)
+	http://devresources.linux-foundation.org/dev/iproute2/download/iproute=
+2-2.6.25.tar.bz2
 
-on your system with 6 network interrupts it blows chunks and it's not NAPI that is
-the issue - NAPI will work just fine on it's own. By disabling NAPI and reverting
-to the in-driver irq moderation code you've effectively put the in-kernel
-irqbalance code to the sideline and this is what makes it work again.
+Git tree:
+	git://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
-It's not the right solution.
+Changelog:
 
-We keep seing this exact issue pop up everywhere - especially with e1000(e)
-datacenter users - this code _has_ to go or be fixed. Since there is a perfectly
-viable solution, I strongly suggest disabling it.
+Andreas Henriksson (3):
+      iproute2: revert syntax help text mistake.
+      iproute2: add synonyms for ip rule options to ip(8) manpage.
+      iproute2: fix ip manpage typo (syntax error)
 
-This is not the first time I've sent this patch out in some form...
+Bj=C3=B6rn Steinbrink (1):
+      ss: Fix return value checks for net_*_open
 
-Auke
+Jesper Dangaard Brouer (7):
+      In police, fix uninitialized "overhead" variable.
+      TBF overhead parameter parsing.
+      CBQ use matches() function instead of strcmp().
+      CBQ, implement overhead parameter parsing.
+      CBQ, doc usage of overhead parameter.
+      police, implement overhead parameter parsing.
+      ATM cell alignment.
 
+Marcela Maslanova (2):
+      I found out when I was writing manual page, that options ALGO_NAM=
+E and
+      man ip.8 miss xfrm option
 
----
-[X86] IRQBALANCE: Mark as BROKEN and disable by default
+Mike Frysinger (1):
+      Do not strip binaries with `install`
 
-The IRQBALANCE option causes interrupts to bounce all around on SMP systems
-quickly burying the CPU in migration cost and cache misses. Mainly affected are
-network interrupts and this results in one CPU pegged in softirqd completely.
+PJ Waskiewicz (1):
+      Update various classifiers' help output for expected CLASSID synt=
+ax
 
-Disable this option and provide documentation to a better solution (userspace
-irqbalance daemon does overall the best job to begin with and only manual setting
-of smp_affinity will beat it).
+Patrick McHardy (4):
+      Add support for SFQ xstats
+      Add flow classifier support
+      cls_flow: add vlan-tag support
+      Fix classifier help
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Stephen Hemminger (33):
+      Merge header file changes from net-2.6.25
+      Fix breakage from netfilter/ip_tables header change.
+      rlim qdisc support
+      netem potential dist table overflow
+      Update header files from net-2.6.25
+      Revert "TC action parsing bug fix"
+      fix typo in ip batch error message
+      vlan meta tag match
+      libnetlink: don't spin forever on receive error
+      remove extra newline from perror() calls
+      poll for errors after rtnl_send
+      whitespace typo in tc_common.h
+      fix problem caused by rtnl_send checks
+      harmonize headers with upcoming 2.6.25
+      Change where vlan option shows up in help
+      ignore emacs backup files
+      fix typos in help message for meta match
+      reharmonize headers with pre-freeze 2.6.25
+      add support for matching AOE and CAN ether types
+      Protocol field on tc_filter is required
+      minor typo fixes
+      add include/linux/hdlc/ioctl.h
+      Revert "rlim qdisc support"
+      break excessively long lines
+      get rid of warning from misnamed prototype
+      decode the output of u32 matches
+      missing dport in f_u32 output
+      Add default value to /etc/iproute2/rt_dsfield
+      revert earlier mistake ALGO_NAME is okay
+      Update address of FSF in license
+      IP link state show enhancements
+      Update kernel headers to 2.6.25-rc7
+      Update version
 
----
+Templin, Fred L (1):
+      iproute2-2.6.23: RFC4214 Support (v2.5)
 
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 6c70fed..956aa22 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -1026,13 +1026,17 @@ config EFI
-   	platforms.
+Varun Chandramohan (1):
+      Add missing prefix bit length for addrlabel
 
- config IRQBALANCE
--	def_bool y
-+	def_bool n
- 	prompt "Enable kernel irq balancing"
--	depends on X86_32 && SMP && X86_IO_APIC
-+	depends on X86_32 && SMP && X86_IO_APIC && BROKEN
- 	help
- 	  The default yes will allow the kernel to do irq load balancing.
- 	  Saying no will keep the kernel from doing irq load balancing.
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E (3):
+      Add addrlabel sub-command.
+      Add more aliases for tunnel subcommand.
+      Add missing description about ISATAP and IPv6 tunnels in ip(8) ma=
+npage.
 
-+	  This option is known to cause performance issues on SMP
-+	  systems. The preferred method is to use the userspace
-+	  'irqbalance' daemon instead. See http://irqbalance.org/.
-+
- config SECCOMP
- 	def_bool y
- 	prompt "Enable seccomp to safely compute untrusted bytecode"
