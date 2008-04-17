@@ -1,41 +1,28 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Wake on LAN doesn't work with r8169
-Date: Thu, 17 Apr 2008 23:02:09 +0200
-Message-ID: <20080417210209.GA22452@electric-eye.fr.zoreil.com>
-References: <20080417163721.GA2442@xanadu.blop.info>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] SCTP: Initialize partial_bytes_acked to 0, when all of
+ the data is acked.
+Date: Thu, 17 Apr 2008 14:22:38 -0700 (PDT)
+Message-ID: <20080417.142238.250302376.davem@davemloft.net>
+References: <4805A2CA.7030808@cn.fujitsu.com>
+	<4807B318.2000307@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Lucas Nussbaum <lucas.nussbaum@imag.fr>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: guijianfeng@cn.fujitsu.com, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net, linux-sctp@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46069 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752137AbYDQVVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 17:21:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20080417163721.GA2442@xanadu.blop.info>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50117
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752764AbYDQVWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 17:22:36 -0400
+In-Reply-To: <4807B318.2000307@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lucas Nussbaum <lucas.nussbaum@imag.fr> :
-[...]
-> If I modify my shutdown script to leave the interface up, WOL works.
-> This is inconvenient, because most cards have the opposite behaviour
-> (WOL usually works when the interface is put down).
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Thu, 17 Apr 2008 16:29:12 -0400
 
-You have a point (assuming ethtool is used to enable WOL).
+> Loose the braces, otherwise looks good.
 
-> Since the driver explicitely mentions WOL in the suspend/resume code, I
-> tried that too, but couldn't get the system to wake up using WOL. (has
-> this been confirmed to work?)
-> 
-> The r8168 driver from Realtek has the same behaviour.
-> 
-> Any clues?
-
-It has been confirmed to work, see:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=9512
-
--- 
-Ueimor
+I took care of this an applied to net-2.6.26, thanks.
