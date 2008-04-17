@@ -1,139 +1,92 @@
-From: "Rami Rosen" <roszenrami@gmail.com>
-Subject: Re: Why MLDv2 Report packet is freed ?
-Date: Thu, 17 Apr 2008 13:11:49 +0300
-Message-ID: <b25312890804170311s4f48b268te444ab08f49937cb@mail.gmail.com>
-References: <d0383f90804150623r2eb071fau200a67c6ce65a7e0@mail.gmail.com>
-	 <20080415.234844.99535411.yoshfuji@linux-ipv6.org>
-	 <d0383f90804160450x31e1577en60d4a6cca29a00ca@mail.gmail.com>
-	 <48063F53.4030102@hp.com>
-	 <d0383f90804162249t64072de4kf97248f42e66c0ed@mail.gmail.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Thu, 17 Apr 2008 14:15:06 +0200
+Message-ID: <200804171415.07777.oliver@neukum.org>
+References: <20080414213238.GB28833@kroah.com> <200804152046.44018.oliver@neukum.org> <20080415190030.GB27608@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Brian Haley" <brian.haley@hp.com>,
-	"=?BIG5?B?WU9TSElGVUpJIEhpZGVha2kgLyCmTsPDrV6p+g==?="
-	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
-To: "Ian Brown" <ianbrn@gmail.com>
+Cc: Filip Aben <f.aben@option.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
+	ajb@spheresystems.co.uk
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.185]:23966 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758030AbYDQKLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 06:11:50 -0400
-Received: by fk-out-0910.google.com with SMTP id 19so4795fkr.5
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 03:11:49 -0700 (PDT)
-In-Reply-To: <d0383f90804162249t64072de4kf97248f42e66c0ed@mail.gmail.com>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:35923 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752621AbYDQMGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 08:06:06 -0400
+In-Reply-To: <20080415190030.GB27608@kroah.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Am Dienstag, 15. April 2008 21:00:30 schrieb Greg KH:
+> On Tue, Apr 15, 2008 at 08:46:42PM +0200, Oliver Neukum wrote:
+> > Am Dienstag, 15. April 2008 17:34:08 schrieb Greg KH:
+> > > So I'll go delete that "special" ioctl, that's not a good thing to do,
+> > > use the common interfaces that all USB devices rely on instead, don't do
+> > > something different for just one type of USB device.
+> > 
+> > Do you have a new unified patch? I'd work against that, lest we get
+> > merge troubles.
+> 
+> Good idea :)
+> 
+> Here it is.
 
-What happens here is this:
+Another one.
 
->Second, when MLDV2 report reaches ip6_mc_input(),
->the ICMPv6 header has a type of ICMPV6_MLD2_REPORT; and it is a router
->alert. This causes a call to ip6_input() and **not** ip6_mr_input().
->This cause it to be handled by the ICMPv6 handler, which is icmpv6_rcv().
->I am absolutely sure about it, as I added some printk() in these
-kernel methods.
->I see that I reach the icmpv6_rcv() and the packet is dropped.
+As autosuspend is by default disabled, it makes no sense to have a module
+parameter disabling it. Just don't enable it.
 
-All this is correct. But **before** it reaches the icmpv6_rcv(), what
-happens is this:
-The ip6_input() method calls ip6_input_finish(), which calls
-raw6_local_deliver(). The skb is cloned in ipv6_raw_deliver().
-Eventually, rawv6_rcv_skb() delivers the packet to
-user space by calling sock_queue_rcv_skb(). (see net/ipv6/raw.c).
-Subsequently, it continues to icmpv6_rcv() and frees the packet since its
-type is ICMPV6_MLD2_REPORT.
+	Regards
+		Oliver
 
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
+---
 
->The sock_queue_rcv_skb() method in p6mr_cache_report() is NOT called
->in this case -
->simply because we don't get there, since ip6_mc_input() in this case
+--- linux-2.6.25hso/drivers/net/usb/hso.c.alt	2008-04-17 14:00:09.000000000 +0200
++++ linux-2.6.25hso/drivers/net/usb/hso.c	2008-04-17 14:01:43.000000000 +0200
+@@ -400,7 +400,6 @@ static int debug;
+ static int procfs = 1;
+ static int tty_major;
+ static int disable_net;
+-static int enable_autopm;
+ 
+ /* driver info */
+ static const char driver_name[] = "hso";
+@@ -555,9 +554,6 @@ static int hso_proc_options(char *buf, c
+ 	len +=
+ 	    snprintf(buf + len, count - len, "tty_major: 0x%02x\n", tty_major);
+ 	len +=
+-	    snprintf(buf + len, count - len, "enable_autopm: 0x%02x\n",
+-		     enable_autopm);
+-	len +=
+ 	    snprintf(buf + len, count - len, "disable_net: 0x%02x\n",
+ 		     disable_net);
+ 	return len;
+@@ -2718,11 +2714,6 @@ static int hso_probe(struct usb_interfac
+ 	/* save our data pointer in this device */
+ 	usb_set_intfdata(interface, hso_dev);
+ 
+-	if (enable_autopm == 0) {
+-		usb_autopm_get_interface(hso_dev->interface);
+-		hso_dev->suspend_disabled = 1;
+-	}
+-
+ 	/* done */
+ 	return 0;
+ 
+@@ -3213,8 +3204,3 @@ module_param(tty_major, int, S_IRUGO | S
+ /* set the major tty number (eg: insmod hso.ko tty_major=245) */
+ MODULE_PARM_DESC(disable_net, "Disable the network interface");
+ module_param(disable_net, int, S_IRUGO | S_IWUSR);
+-
+-/* enable autosuspend (default disabled) (eg: insmod hso.ko enable_autopm=1) */
+-MODULE_PARM_DESC(enable_autopm,
+-		 "Enable the auto power managment (autosuspend)");
+-module_param(enable_autopm, int, S_IRUGO | S_IWUSR);
 
-True. The packet is passed to the pim6sd user space daemon by the
-rawv6_rcv_skb()
-, as mentioned above.
-In this implementation, the sock_queue_rcv_skb() in p6mr_cache_report()
-is not for MLDv2 REPORT messages, but for other type of messages.
-
-Regards,
-Rami Rosen
-
-
-
-
-
-On Thu, Apr 17, 2008 at 8:49 AM, Ian Brown <ianbrn@gmail.com> wrote:
-> Hello,
->
->  First, I have multicast routing enabled:
->  /proc/sys/net/ipv6/conf/*/mc_forwarding is 1 and
->  CONFIG_IPV6_MROUTE=y when building the kernel.
->
->  Second, when MLDV2 report reaches ip6_mc_input(),
->  the ICMPv6 header has a type of ICMPV6_MLD2_REPORT; and it is a router
->  alert. This causes a call to ip6_input() and **not** ip6_mr_input().
->  This casue it to be handled by the ICMPv6 handler, which is icmpv6_rcv().
->  I am absolutely sure about it, as I added some printk() in these kernel methods.
->  I see that I reach the icmpv6_rcv() and the packet is dropped.
->  The sock_queue_rcv_skb() method in p6mr_cache_report() is NOT called
->  in this case -
->  simply because we don't get there, since ip6_mc_input() in this case
->  does **not**
->  call ip6_mr_input() ; it does call ip6_mr_input() in other cases.
->
->  Moreover, I added printing in the accept_mld6() method of the pim6sd
->  daemon, which is the
->  handler for these packets, and I do not get there.
->
->  Could it be that this is a bug ?
->
->  Any ideas ?
->
->  IB
->
->
->
->
->
->
->
->  On Wed, Apr 16, 2008 at 9:02 PM, Brian Haley <brian.haley@hp.com> wrote:
->  > Ian Brown wrote:
->  >  > Hello,
->  >  >
->  >  > I am sorry, I tried to delve into the code and I not sure I can figure out this
->  >  > point.
->  >  >> MLD packets are handled in other place.
->  >  >
->  >  > Can anybody please try to elaborate on this point: how
->  >  > are MLD packets handled ? Shouldn't MLD packets be
->  >  > handled by pim6sd daemon?
->  >
->  >  Yes.
->  >
->  >
->  >  > I see handlers for accepting MLD (v1 and v2)
->  >  > in pim6sd daemon;
->  >  > And in case MLD packets  should be handled by pim6sd  - shouldn't the kernel
->  >  > pass these MLD packets to the pim6sd daemon (by calling sock_queue_rcv_skb()
->  >  > in ip6mr.c) ? As far as I can understand, these MLD packets are
->  >  > dropped in icmpv6_rcv()
->  >
->  >  From what I can tell, ip6_mc_input() makes a copy if multicast routing
->  >  is enabled.  Those copies eventually get to ip6mr_cache_report() which
->  >  delivers them to user-space (there's even a reference to pim6sd in
->  >  net/ipv6/ip6mr.c).
->  >
->  >  Have you seen them not get delivered?
->  >
->  >  -Brian
->  >
->  --
->  To unsubscribe from this list: send the line "unsubscribe netdev" in
->  the body of a message to majordomo@vger.kernel.org
->  More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
