@@ -1,42 +1,41 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
-Date: Thu, 17 Apr 2008 17:24:40 -0400
-Message-ID: <1208467480.15888.50.camel@localhost>
-References: <20080417103858.0075236b@extreme>
-	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>
-	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>
-Reply-To: hadi@cyberus.ca
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] genetlink: export genl_unregister_mc_group()
+Date: Thu, 17 Apr 2008 14:26:09 -0700 (PDT)
+Message-ID: <20080417.142609.207619557.davem@davemloft.net>
+References: <200804171254.01950.inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: tgraf@suug.ch, johannes@sipsolutions.net, netdev@vger.kernel.org
+To: inaky@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.251]:49171 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751440AbYDQVYo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 17:24:44 -0400
-Received: by an-out-0708.google.com with SMTP id d31so60093and.103
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 14:24:43 -0700 (PDT)
-In-Reply-To: <20080417140837.1e92b449@extreme>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50127
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755870AbYDQV0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 17:26:07 -0400
+In-Reply-To: <200804171254.01950.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-17-04 at 14:08 -0700, Stephen Hemminger wrote:
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Date: Thu, 17 Apr 2008 12:54:01 -0700
 
-> By that logic no program output would ever change. 
+> Add an EXPORT_SYMBOL() to genl_unregister_mc_group(), to allow
+> unregistering groups on the run. 
+> 
+> Cleanup is currently done when unregistering a family, but there is
+> no way to unregister a single multicast group due to that function not
+> being exported. Seems to be a mistake as it is documented as for
+> external consumption.
+> 
+> Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 
+We export functions with in-tree modular users.
 
-Ok, come on now Stephen;-> You dont think theres consequences to
-changing output for a program that had the same exact output for like 10
-years? If you dont believe me, try changing the output of programs like
-ifconfig, route etc which people are all the time scripting around and
-see how loud they scream. I see this in the same way.
+The only reason that genl_register_mc_group() is exported is because
+there are in-tree modular users, ACPI and the NL80211 wireless code.
 
-Note: I am not arguing against changing output - it could be done if
-there was some discussion which resulted in enough warning. We give i
-think a years warning for ABI changes.
+Please add this export when code you are writing that needs this
+is merged into the tree.
 
-cheers,
-jamal
-
+Thank you.
