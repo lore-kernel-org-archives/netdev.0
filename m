@@ -1,155 +1,126 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH RFC] net/core: API to create/destroy /sys/class/net entries
-Date: Wed, 16 Apr 2008 18:06:26 -0700
-Message-ID: <14079.1208394386@death>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 06/13] sis190: use netdev_alloc_skb
+Date: Thu, 17 Apr 2008 09:04:55 +0800
+Message-ID: <4806A237.2060601@cn.fujitsu.com>
+References: <20080416233727.732025083@vyatta.com> <20080416233757.391517921@vyatta.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:42437 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753983AbYDQBGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 21:06:33 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3H16S97015999
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2008 21:06:28 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3H16Svo205060
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2008 19:06:28 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3H16RVA021527
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2008 19:06:28 -0600
+Received: from cn.fujitsu.com ([222.73.24.84]:61456 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751140AbYDQBGU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 21:06:20 -0400
+In-Reply-To: <20080416233757.391517921@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Stephen Hemminger said the following on 2008-4-17 7:37:
+> Use netdev_alloc_skb. This sets skb->dev and allows arch specific
+> allocation. 
+> 
+> Compile tested only.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> --- a/drivers/net/sis190.c	2008-04-16 15:21:05.000000000 -0700
+> +++ b/drivers/net/sis190.c	2008-04-16 16:31:30.000000000 -0700
+> @@ -480,30 +480,28 @@ static inline void sis190_make_unusable_
+>  	desc->status = 0x0;
+>  }
+>  
+> -static int sis190_alloc_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
+> -			       struct RxDesc *desc, u32 rx_buf_sz)
+> +static struct sk_buff *sis190_alloc_rx_skb(struct pci_dev *pdev,
+> +					   struct net_device *dev,
+> +					   struct RxDesc *desc, u32 rx_buf_sz)
+>  {
+>  	struct sk_buff *skb;
+>  	dma_addr_t mapping;
+>  	int ret = 0;
+>  
 
-	Some background: 
+ret no longer be used.
 
-	Bonding creates a file in sysfs, /sys/class/net/bonding_masters,
-which is used to create and destroy bonding devices.  Currently, when
-bonding is loaded, it does some poking through the device structure of
-the first bonding device to find the net_class, and then uses that
-pointer to create the file (by calling class_create_file).
+> -	skb = dev_alloc_skb(rx_buf_sz);
+> +	skb = netdev_alloc_skb(dev, rx_buf_sz);
+>  	if (!skb)
+>  		goto err_out;
+>  
+> -	*sk_buff = skb;
+> -
+>  	mapping = pci_map_single(pdev, skb->data, rx_buf_sz,
+>  				 PCI_DMA_FROMDEVICE);
+>  
+>  	sis190_map_to_asic(desc, mapping, rx_buf_sz);
+> -out:
+> -	return ret;
+> +	return skb;
+>  
+>  err_out:
+>  	ret = -ENOMEM;
 
-	Now, I'm working on a patch to permit bonding to load and not
-create any devices initially (at the request of a user).  Without the
-initial bonding device, there's nothing to backtrack to find the
-net_class, and so there's no good way to create the bonding_masters
-file, and therefore no way to create any bonding devices.
+ret no longer be used.
 
-	I'm attaching the relevant portion of a work-in-progress patch
-below to get some input on the best way to create the bonding_masters
-file.
+>  	sis190_make_unusable_by_asic(desc);
+> -	goto out;
+> +	return NULL;
+>  }
+>  
+>  static u32 sis190_rx_fill(struct sis190_private *tp, struct net_device *dev,
+> @@ -512,30 +510,32 @@ static u32 sis190_rx_fill(struct sis190_
+>  	u32 cur;
+>  
+>  	for (cur = start; cur < end; cur++) {
+> -		int ret, i = cur % NUM_RX_DESC;
+> +		int i = cur % NUM_RX_DESC;
+>  
+>  		if (tp->Rx_skbuff[i])
+>  			continue;
+>  
+> -		ret = sis190_alloc_rx_skb(tp->pci_dev, tp->Rx_skbuff + i,
+> -					  tp->RxDescRing + i, tp->rx_buf_sz);
+> -		if (ret < 0)
+> +		tp->Rx_skbuff[i] = sis190_alloc_rx_skb(tp->pci_dev, dev,
+> +						       tp->RxDescRing + i,
+> +						       tp->rx_buf_sz);
+> +		if (!tp->Rx_skbuff[i])
+>  			break;
+>  	}
+>  	return cur - start;
+>  }
+>  
+> -static inline int sis190_try_rx_copy(struct sk_buff **sk_buff, int pkt_size,
+> -				     struct RxDesc *desc, int rx_buf_sz)
+> +static int sis190_try_rx_copy(struct net_device *dev,
+> +			      struct sk_buff **sk_buff, int pkt_size,
+> +			      struct RxDesc *desc, int rx_buf_sz)
+>  {
+> -	int ret = -1;
+> +	int ret = 01;
+>  
+>  	if (pkt_size < rx_copybreak) {
+>  		struct sk_buff *skb;
+>  
+> -		skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
+> +		skb = netdev_alloc_skb(dev, pkt_size + 2);
+>  		if (skb) {
+> -			skb_reserve(skb, NET_IP_ALIGN);
+> +			skb_reserve(skb, 2);
+>  			skb_copy_to_linear_data(skb, sk_buff[0]->data, pkt_size);
+>  			*sk_buff = skb;
+>  			sis190_give_to_asic(desc, rx_buf_sz);
+> @@ -610,7 +610,7 @@ static int sis190_rx_interrupt(struct ne
+>  				le32_to_cpu(desc->addr), tp->rx_buf_sz,
+>  				PCI_DMA_FROMDEVICE);
+>  
+> -			if (sis190_try_rx_copy(&skb, pkt_size, desc,
+> +			if (sis190_try_rx_copy(dev, &skb, pkt_size, desc,
+>  					       tp->rx_buf_sz)) {
+>  				pci_action = pci_unmap_single;
+>  				tp->Rx_skbuff[entry] = NULL;
+> 
 
-	The patch below creates an API in net/core/net-sysfs.c to create
-and destroy files within net_class.  Is this the best way to do this, or
-would it be preferrable to simply export net_class?
-
-	Comments, please.  This feels cleaner overall to me, but I'd
-like some feedback.
-
-	-J
-
-
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 979c2d0..b54ab1d 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -52,7 +52,6 @@ extern struct bond_parm_tbl xmit_hashtype_tbl[];
- extern struct bond_parm_tbl arp_validate_tbl[];
- 
- static int expected_refcount = -1;
--static struct class *netdev_class;
- /*--------------------------- Data Structures -----------------------------*/
- 
- /* Bonding sysfs lock.  Why can't we just use the subsystem lock?
-@@ -1412,19 +1411,9 @@ static struct attribute_group bonding_group = {
-  */
- int bond_create_sysfs(void)
- {
--	int ret = 0;
--	struct bonding *firstbond;
--
--	/* get the netdev class pointer */
--	firstbond = container_of(bond_dev_list.next, struct bonding, bond_list);
--	if (!firstbond)
--		return -ENODEV;
-+	int ret;
- 
--	netdev_class = firstbond->dev->dev.class;
--	if (!netdev_class)
--		return -ENODEV;
--
--	ret = class_create_file(netdev_class, &class_attr_bonding_masters);
-+	ret = netdev_class_create_file(&class_attr_bonding_masters);
- 	/*
- 	 * Permit multiple loads of the module by ignoring failures to
- 	 * create the bonding_masters sysfs file.  Bonding devices
-@@ -1436,10 +1425,8 @@ int bond_create_sysfs(void)
- 	 * initscripts/sysconfig, which load bonding multiple times to
- 	 * configure multiple bonding devices.
- 	 */
--	if (ret == -EEXIST) {
--		netdev_class = NULL;
-+	if (ret == -EEXIST)
- 		return 0;
--	}
- 
- 	return ret;
- 
-@@ -1450,8 +1437,7 @@ int bond_create_sysfs(void)
-  */
- void bond_destroy_sysfs(void)
- {
--	if (netdev_class)
--		class_remove_file(netdev_class, &class_attr_bonding_masters);
-+	netdev_class_remove_file(&class_attr_bonding_masters);
- }
- 
- /*
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7c1d446..85adc92 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1485,6 +1485,11 @@ extern void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos);
- extern void dev_seq_stop(struct seq_file *seq, void *v);
- #endif
- 
-+#ifdef CONFIG_SYSFS
-+extern int netdev_class_create_file(struct class_attribute *class_attr);
-+extern void netdev_class_remove_file(struct class_attribute *class_attr);
-+#endif /* CONFIG_SYSFS */
-+
- extern void linkwatch_run_queue(void);
- 
- extern int netdev_compute_features(unsigned long all, unsigned long one);
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 7635d3f..3ab1dab 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -468,6 +468,21 @@ int netdev_register_kobject(struct net_device *net)
- 	return device_add(dev);
- }
- 
-+#ifdef CONFIG_SYSFS
-+int netdev_class_create_file(struct class_attribute *class_attr)
-+{
-+	return class_create_file(&net_class, class_attr);
-+}
-+
-+void netdev_class_remove_file(struct class_attribute *class_attr)
-+{
-+	class_remove_file(&net_class, class_attr);
-+}
-+
-+EXPORT_SYMBOL(netdev_class_create_file);
-+EXPORT_SYMBOL(netdev_class_remove_file);
-+#endif /* CONFIG_SYSFS */
-+
- int netdev_kobject_init(void)
- {
- 	return class_register(&net_class);
-
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
