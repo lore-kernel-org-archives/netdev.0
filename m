@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][INET 1/2]: Drop the inet_inherit_port() call.
-Date: Thu, 17 Apr 2008 19:59:38 +0400
-Message-ID: <480773EA.2000302@openvz.org>
+Subject: [PATCH 2/2][INET]: Uninline the __inet_inherit_port call.
+Date: Thu, 17 Apr 2008 20:02:06 +0400
+Message-ID: <4807747E.3020109@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -9,76 +9,78 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:43983 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:44426 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751910AbYDQQBo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Apr 2008 12:01:44 -0400
+	id S1755120AbYDQQDy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Apr 2008 12:03:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As I can see from the code, two places (tcp_v6_syn_recv_sock and
-dccp_v6_request_recv_sock) that call this one already run with
-BHs disabled, so it's safe to call __inet_inherit_port there.
+This deblats ~200 bytes when ipv6 and dccp are 'y'.
 
-Besides (in case I missed smth with code review) the calltrace
-tcp_v6_syn_recv_sock
- `- tcp_v4_syn_recv_sock
-     `- __inet_inherit_port
-and the similar for DCCP are valid, but assumes BHs to be disabled.
+Besides, this will ease compilation issues for patches
+I'm working on to make inet hash tables more scalable 
+wrt net namespaces.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/net/inet_hashtables.h |    7 -------
- net/dccp/ipv6.c               |    2 +-
- net/ipv6/tcp_ipv6.c           |    2 +-
- 3 files changed, 2 insertions(+), 9 deletions(-)
+ include/net/inet_hashtables.h |   14 +-------------
+ net/ipv4/inet_hashtables.c    |   16 ++++++++++++++++
+ 2 files changed, 17 insertions(+), 13 deletions(-)
 
 diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 5525227..5ec91d8 100644
+index 5ec91d8..735b926 100644
 --- a/include/net/inet_hashtables.h
 +++ b/include/net/inet_hashtables.h
-@@ -235,13 +235,6 @@ static inline void __inet_inherit_port(struct sock *sk, struct sock *child)
- 	spin_unlock(&head->lock);
+@@ -221,19 +221,7 @@ static inline int inet_sk_listen_hashfn(const struct sock *sk)
  }
  
--static inline void inet_inherit_port(struct sock *sk, struct sock *child)
+ /* Caller must disable local BH processing. */
+-static inline void __inet_inherit_port(struct sock *sk, struct sock *child)
 -{
--	local_bh_disable();
--	__inet_inherit_port(sk, child);
--	local_bh_enable();
--}
+-	struct inet_hashinfo *table = sk->sk_prot->h.hashinfo;
+-	const int bhash = inet_bhashfn(inet_sk(child)->num, table->bhash_size);
+-	struct inet_bind_hashbucket *head = &table->bhash[bhash];
+-	struct inet_bind_bucket *tb;
 -
+-	spin_lock(&head->lock);
+-	tb = inet_csk(sk)->icsk_bind_hash;
+-	sk_add_bind_node(child, &tb->owners);
+-	inet_csk(child)->icsk_bind_hash = tb;
+-	spin_unlock(&head->lock);
+-}
++extern void __inet_inherit_port(struct sock *sk, struct sock *child);
+ 
  extern void inet_put_port(struct sock *sk);
  
- extern void inet_listen_wlock(struct inet_hashinfo *hashinfo);
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index f8371c7..9b1129b 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -625,7 +625,7 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
- 	newinet->daddr = newinet->saddr = newinet->rcv_saddr = LOOPBACK4_IPV6;
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 1612184..2023d37 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -92,6 +92,22 @@ void inet_put_port(struct sock *sk)
  
- 	__inet6_hash(newsk);
--	inet_inherit_port(sk, newsk);
-+	__inet_inherit_port(sk, newsk);
+ EXPORT_SYMBOL(inet_put_port);
  
- 	return newsk;
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 231c4dd..715965f 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1534,7 +1534,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- #endif
- 
- 	__inet6_hash(newsk);
--	inet_inherit_port(sk, newsk);
-+	__inet_inherit_port(sk, newsk);
- 
- 	return newsk;
- 
++void __inet_inherit_port(struct sock *sk, struct sock *child)
++{
++	struct inet_hashinfo *table = sk->sk_prot->h.hashinfo;
++	const int bhash = inet_bhashfn(inet_sk(child)->num, table->bhash_size);
++	struct inet_bind_hashbucket *head = &table->bhash[bhash];
++	struct inet_bind_bucket *tb;
++
++	spin_lock(&head->lock);
++	tb = inet_csk(sk)->icsk_bind_hash;
++	sk_add_bind_node(child, &tb->owners);
++	inet_csk(child)->icsk_bind_hash = tb;
++	spin_unlock(&head->lock);
++}
++
++EXPORT_SYMBOL_GPL(__inet_inherit_port);
++
+ /*
+  * This lock without WQ_FLAG_EXCLUSIVE is good on UP and it can be very bad on SMP.
+  * Look, when several writers sleep and reader wakes them up, all but one
 -- 
 1.5.3.4
-
 
