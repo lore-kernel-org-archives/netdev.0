@@ -1,28 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] SCTP: Initialize partial_bytes_acked to 0, when all of
- the data is acked.
-Date: Thu, 17 Apr 2008 14:22:38 -0700 (PDT)
-Message-ID: <20080417.142238.250302376.davem@davemloft.net>
-References: <4805A2CA.7030808@cn.fujitsu.com>
-	<4807B318.2000307@hp.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
+Date: Thu, 17 Apr 2008 17:24:40 -0400
+Message-ID: <1208467480.15888.50.camel@localhost>
+References: <20080417103858.0075236b@extreme>
+	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>
+	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: guijianfeng@cn.fujitsu.com, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net, linux-sctp@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50117
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752764AbYDQVWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 17:22:36 -0400
-In-Reply-To: <4807B318.2000307@hp.com>
+Received: from an-out-0708.google.com ([209.85.132.251]:49171 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440AbYDQVYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 17:24:44 -0400
+Received: by an-out-0708.google.com with SMTP id d31so60093and.103
+        for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 14:24:43 -0700 (PDT)
+In-Reply-To: <20080417140837.1e92b449@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Thu, 17 Apr 2008 16:29:12 -0400
+On Thu, 2008-17-04 at 14:08 -0700, Stephen Hemminger wrote:
 
-> Loose the braces, otherwise looks good.
+> By that logic no program output would ever change. 
 
-I took care of this an applied to net-2.6.26, thanks.
+
+Ok, come on now Stephen;-> You dont think theres consequences to
+changing output for a program that had the same exact output for like 10
+years? If you dont believe me, try changing the output of programs like
+ifconfig, route etc which people are all the time scripting around and
+see how loud they scream. I see this in the same way.
+
+Note: I am not arguing against changing output - it could be done if
+there was some discussion which resulted in enough warning. We give i
+think a years warning for ABI changes.
+
+cheers,
+jamal
+
