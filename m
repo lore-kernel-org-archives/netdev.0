@@ -1,44 +1,50 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH 06/13] sis190: use netdev_alloc_skb
-Date: Thu, 17 Apr 2008 10:16:26 +0800
-Message-ID: <4806B2FA.8020805@cn.fujitsu.com>
-References: <20080416233727.732025083@vyatta.com> <20080416233757.391517921@vyatta.com>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: [PATCH 02/13] atl1: use netdev_alloc_skb
+Date: Wed, 16 Apr 2008 21:33:34 -0500
+Message-ID: <20080416213334.52592c83@osprey.hogchain.net>
+References: <20080416233727.732025083@vyatta.com>
+	<20080416233757.090004281@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, Chris Snook <csnook@redhat.com>,
+	netdev@vger.kernel.org, <atl1-devel@lists.sourceforge.net>
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52879 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751325AbYDQCRu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 22:17:50 -0400
-In-Reply-To: <20080416233757.391517921@vyatta.com>
+Received: from fmailhost02.isp.att.net ([207.115.11.52]:52575 "EHLO
+	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750815AbYDQCdj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2008 22:33:39 -0400
+In-Reply-To: <20080416233757.090004281@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger said the following on 2008-4-17 7:37:
-> +static int sis190_try_rx_copy(struct net_device *dev,
-> +			      struct sk_buff **sk_buff, int pkt_size,
-> +			      struct RxDesc *desc, int rx_buf_sz)
->  {
-> -	int ret = -1;
-> +	int ret = 01;
->
+On Wed, 16 Apr 2008 16:37:29 -0700
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-why not : ret = 1
-  
->  	if (pkt_size < rx_copybreak) {
->  		struct sk_buff *skb;
+> Use netdev_alloc_skb for rx buffer allocation. This sets skb->dev
+> and can be overriden for NUMA machines.
+> 
+> Compile tested only!
+
+Works fine.
+
+Acked-by: Jay Cliburn <jacliburn@bellsouth.net>
+
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> --- a/drivers/net/atlx/atl1.c	2008-04-16 14:42:38.000000000
+> -0700 +++ b/drivers/net/atlx/atl1.c	2008-04-16
+> 14:44:18.000000000 -0700 @@ -1742,7 +1742,8 @@ static u16
+> atl1_alloc_rx_buffers(struct 
+>  		rfd_desc = ATL1_RFD_DESC(rfd_ring, rfd_next_to_use);
 >  
-> -		skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
-> +		skb = netdev_alloc_skb(dev, pkt_size + 2);
->  		if (skb) {
-> -			skb_reserve(skb, NET_IP_ALIGN);
-> +			skb_reserve(skb, 2);
-
-why?
-[PATCH 02/13] atl1: use netdev_alloc_skb
-using NET_IP_ALIGN, not 2.
-
+> -		skb = dev_alloc_skb(adapter->rx_buffer_len +
+> NET_IP_ALIGN);
+> +		skb = netdev_alloc_skb(adapter->netdev,
+> +				       adapter->rx_buffer_len +
+> NET_IP_ALIGN); if (unlikely(!skb)) {
+>  			/* Better luck next round */
+>  			adapter->net_stats.rx_dropped++;
+> 
