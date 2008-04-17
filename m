@@ -1,43 +1,35 @@
-From: Lucas Nussbaum <lucas.nussbaum@imag.fr>
-Subject: Wake on LAN doesn't work with r8169
-Date: Thu, 17 Apr 2008 18:37:21 +0200
-Message-ID: <20080417163721.GA2442@xanadu.blop.info>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [patch 00/66] 2.6.24-stable review
+Date: Thu, 17 Apr 2008 20:33:13 +0300
+Message-ID: <20080417173313.GA1962@cs181133002.pp.htv.fi>
+References: <822014.72375.qm@web50211.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xanadu.blop.info ([80.248.208.235]:39393 "EHLO xanadu.blop.info"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757740AbYDQRME (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Apr 2008 13:12:04 -0400
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+	netdev@vger.kernel.org
+To: Alex Davis <alex14641@yahoo.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932274AbYDQRdi@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <822014.72375.qm@web50211.mail.re2.yahoo.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Apr 17, 2008 at 08:05:56AM -0700, Alex Davis wrote:
+> Apologies to anyone who receives this message twice.
+> 
+> Is the patch referenced in http://lkml.org/lkml/2008/4/10/409 necessary 
+> for stable? 
 
-I'm trying to get Wake on LAN to work with this device:
-01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 01)
+It's a 2.6.25-rc regression fixed in 2.6.25.
 
-If I run "ifconfig eth0 down", or let my shutdown scripts put down the
-interface, WOL won't work.
-If I modify my shutdown script to leave the interface up, WOL works.
-This is inconvenient, because most cards have the opposite behaviour
-(WOL usually works when the interface is put down).
+> I code, therefore I am
 
-Since the driver explicitely mentions WOL in the suspend/resume code, I
-tried that too, but couldn't get the system to wake up using WOL. (has
-this been confirmed to work?)
+cu
+Adrian
 
-The r8168 driver from Realtek has the same behaviour.
-
-Any clues?
-
-Thank you,
 -- 
-| Lucas Nussbaum                        PhD student |
-| lucas.nussbaum@imag.fr        LIG / Projet MESCAL |
-| jabber: lucas@nussbaum.fr    +33 (0)6 64 71 41 65 |
-| homepage:        http://www-id.imag.fr/~nussbaum/ |
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
