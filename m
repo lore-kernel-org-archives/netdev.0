@@ -1,48 +1,84 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: Reporting bugs and bisection
-Date: Thu, 17 Apr 2008 18:26:33 +0300
-Message-ID: <20080417152633.GA12951@cs181133002.pp.htv.fi>
-References: <20080414053943.GU9785@ZenIV.linux.org.uk> <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au> <4804765B.2070300@davidnewall.com> <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com> <20080416132634.GA545@cs181133002.pp.htv.fi> <20080416120247.c665859c.akpm@linux-foundation.org> <20080416195503.GR1677@cs181133002.pp.htv.fi> <20080417135013.GA2017@fieldses.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][INET 1/2]: Drop the inet_inherit_port() call.
+Date: Thu, 17 Apr 2008 19:59:38 +0400
+Message-ID: <480773EA.2000302@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Andrew Morton <akpm@linux-foundation.org>, sverre@rabbelier.nl,
-	git@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jmorris@namei.org, viro@zeniv.linux.org.uk, w@1wt.eu,
-	david@lang.hm, sclark46@earthlink.net, johnpol@2ka.mipt.ru,
-	rjw@sisk.pl, tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
-	davem@davemloft.net, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org,
-	davidn@davidnewall.com
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <git-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080417135013.GA2017@fieldses.org>
-Sender: git-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:43983 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751910AbYDQQBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Apr 2008 12:01:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 17, 2008 at 09:50:13AM -0400, J. Bruce Fields wrote:
-> On Wed, Apr 16, 2008 at 10:55:03PM +0300, Adrian Bunk wrote:
->...
-> > Sure, you will get some numbers, but if anyone would e.g. wrongly accuse 
-> > me that 2% of my commits last year introduced bugs I would get 
-> > ***really*** angry.
-> 
-> It's just an experiment; reasonable people won't take it as the final
-> word.
+As I can see from the code, two places (tcp_v6_syn_recv_sock and
+dccp_v6_request_recv_sock) that call this one already run with
+BHs disabled, so it's safe to call __inet_inherit_port there.
 
-Take e.g. [1] as an example how git statistics about the Linux kernel 
-are already used to "prove" things that aren't true.
+Besides (in case I missed smth with code review) the calltrace
+tcp_v6_syn_recv_sock
+ `- tcp_v4_syn_recv_sock
+     `- __inet_inherit_port
+and the similar for DCCP are valid, but assumes BHs to be disabled.
 
-> --b.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-cu
-Adrian
+---
+ include/net/inet_hashtables.h |    7 -------
+ net/dccp/ipv6.c               |    2 +-
+ net/ipv6/tcp_ipv6.c           |    2 +-
+ 3 files changed, 2 insertions(+), 9 deletions(-)
 
-[1] http://digitalvampire.org/blog/index.php/2008/04/11/lies-d-oh-forget-it/
-
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index 5525227..5ec91d8 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -235,13 +235,6 @@ static inline void __inet_inherit_port(struct sock *sk, struct sock *child)
+ 	spin_unlock(&head->lock);
+ }
+ 
+-static inline void inet_inherit_port(struct sock *sk, struct sock *child)
+-{
+-	local_bh_disable();
+-	__inet_inherit_port(sk, child);
+-	local_bh_enable();
+-}
+-
+ extern void inet_put_port(struct sock *sk);
+ 
+ extern void inet_listen_wlock(struct inet_hashinfo *hashinfo);
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index f8371c7..9b1129b 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -625,7 +625,7 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
+ 	newinet->daddr = newinet->saddr = newinet->rcv_saddr = LOOPBACK4_IPV6;
+ 
+ 	__inet6_hash(newsk);
+-	inet_inherit_port(sk, newsk);
++	__inet_inherit_port(sk, newsk);
+ 
+ 	return newsk;
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 231c4dd..715965f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1534,7 +1534,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ #endif
+ 
+ 	__inet6_hash(newsk);
+-	inet_inherit_port(sk, newsk);
++	__inet_inherit_port(sk, newsk);
+ 
+ 	return newsk;
+ 
 -- 
+1.5.3.4
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+
