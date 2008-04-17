@@ -1,39 +1,84 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: catch signed nla_len() retval in tcf_simp_init()
-Date: Thu, 17 Apr 2008 09:36:13 -0400
-Message-ID: <1208439373.4420.38.camel@localhost>
-References: <4806C501.20300@tiscali.nl>
-	 <20080416.213712.78410382.davem@davemloft.net> <4806D847.2030806@trash.net>
-	 <1208437113.4420.34.camel@localhost>  <48074C4E.6060400@trash.net>
-Reply-To: hadi@cyberus.ca
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: Reporting bugs and bisection
+Date: Thu, 17 Apr 2008 09:50:13 -0400
+Message-ID: <20080417135013.GA2017@fieldses.org>
+References: <20080414043939.GA6862@1wt.eu> <20080414053943.GU9785@ZenIV.linux.org.uk> <20080413232441.e216a02c.akpm@linux-foundation.org> <20080414072328.GW9785@ZenIV.linux.org.uk> <Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au> <4804765B.2070300@davidnewall.com> <bd6139dc0804160515s64a36748v49556c56d475dda4@mail.gmail.com> <20080416132634.GA545@cs181133002.pp.htv.fi> <20080416120247.c665859c.akpm@linux-foundation.org> <20080416195503.GR1677@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, 12o3l@tiscali.nl,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.248]:41649 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753357AbYDQNgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 09:36:18 -0400
-Received: by an-out-0708.google.com with SMTP id d31so16402and.103
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 06:36:17 -0700 (PDT)
-In-Reply-To: <48074C4E.6060400@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, sverre@rabbelier.nl,
+	git@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, viro@zeniv.linux.org.uk, w@1wt.eu,
+	david@lang.hm, sclark46@earthlink.net, johnpol@2ka.mipt.ru,
+	rjw@sisk.pl, tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
+	davem@davemloft.net, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org,
+	davidn@davidnewall.com
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760119AbYDQNwt@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080416195503.GR1677@cs181133002.pp.htv.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Apr 16, 2008 at 10:55:03PM +0300, Adrian Bunk wrote:
+> On Wed, Apr 16, 2008 at 12:02:47PM -0700, Andrew Morton wrote:
+> > On Wed, 16 Apr 2008 16:26:34 +0300
+> > Adrian Bunk <bunk@kernel.org> wrote:
+> > 
+> > > On Wed, Apr 16, 2008 at 02:15:22PM +0200, Sverre Rabbelier wrote:
+> > > > I'm not subscribed to the kernel mailing list, so please include me in
+> > > > the cc if you don't reply to the git list (which I am subscribed to).
+> > > > 
+> > > > Git is participating in Google Summer of Code this year and I've
+> > > > proposed to write a 'git statistics' command. This command would allow
+> > > > the user to gather data about a repository, ranging from "how active
+> > > > is dev x" to "what did x work on in the last 3 weeks". It's main
+> > > > feature however, would be an algorithm that ranks commits as being
+> > > > either 'buggy', 'bugfix' or 'enhancement'. (There are several clues
+> > > > that can aid in determining this, a commit msg along the lines of
+> > > > "fixes ..." being the most obvious.)
+> > > >...
+> > 
+> > Sounds like an interesting project.
+> > 
+> > > At least with the data we have currently in git it's impossible to 
+> > > figure that out automatically.
+> > > 
+> > > E.g. if you look at commit f743d04dcfbeda7439b78802d35305781999aa11 
+> > > (ide/legacy/q40ide.c: add MODULE_LICENSE), how could you determine 
+> > > automatically that it is a bugfix, and the commit that introduced
+> > > the bug?
+> > > 
+> > > You can always get some data, but if you want to get usable statistics 
+> > > you need explicit tags in the commits, not some algorithm that tries 
+> > > to guess.
+> > 
+> > Well yes.  One outcome of the project would be to tell us what changes we'd
+> > need to make to our processes to make such data gathering more effective.
+> > 
+> > Of course, we may not actually implement such changes.  That would depend
+> > upon how useful the output is to us.
+> 
+> That you can add this information through tags is clear, but according
+> to his SoC application that's not what he wants to do.
+> 
+> According to his application he wants to determine automatically whether 
+> a commit was a fix or whether a commit introduced a bug by doing stuff 
+> like tracking whether a changed line was modified again shortly after a 
+> commit.
+> 
+> This plan of him will simply not result in accurate numbers.
 
-On Thu, 2008-17-04 at 15:10 +0200, Patrick McHardy wrote:
+They won't be completely accurate, but who knows, maybe they'd turn out
+to have a higher rate of accuracy than we'd expect.  (I assume you could
+do a closer manual study of a small random sample of the results to
+estimate the accuracy.)  Seems worth a try.
 
-> Basic validity checks are always performed. But I agree, better
-> to provide a good example.
+> Sure, you will get some numbers, but if anyone would e.g. wrongly accuse 
+> me that 2% of my commits last year introduced bugs I would get 
+> ***really*** angry.
 
-Thanks Patrick. 
-I just noticed the iproute2 piece is missing - probably sitting
-somewhere in my old laptop if i can find it.
-Roel, you wanna take a crack at that too?
+It's just an experiment; reasonable people won't take it as the final
+word.
 
-cheers,
-jamal
-
+--b.
