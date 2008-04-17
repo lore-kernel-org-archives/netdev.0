@@ -1,56 +1,36 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] SCTP: Initialize partial_bytes_acked to 0, when all of
- the data is acked.
-Date: Thu, 17 Apr 2008 16:29:12 -0400
-Message-ID: <4807B318.2000307@hp.com>
-References: <4805A2CA.7030808@cn.fujitsu.com>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Thu, 17 Apr 2008 22:20:05 +0200
+Message-ID: <200804172220.05438.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804152138.41077.tomasz@grobelny.oswiecenia.net> <20080415200407.GD5025@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	lksctp-dev <lksctp-developers@lists.sourceforge.net>,
-	linux-sctp@vger.kernel.org
-To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:43656 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752398AbYDQU3P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 16:29:15 -0400
-In-Reply-To: <4805A2CA.7030808@cn.fujitsu.com>
+Received: from oswiecenia.net ([83.13.108.58]:2384 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753323AbYDQUUs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 16:20:48 -0400
+In-Reply-To: <20080415200407.GD5025@ghostprotocols.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gui Jianfeng wrote:
-> Vlad,
-> According to RFC4960 7.2.2, 
-> When all of the data transmitted by the sender has
-> been acknowledged by the recerver, partial_bytes_acked is initialized to 0.
-> 
-> This patch conforms to rfc requirement. 
-> Without this fix, cwnd might be error incremented.
-> 
-> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-> ---
->  net/sctp/outqueue.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index c071446..cf79485 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -1544,6 +1544,9 @@ static void sctp_check_transmitted(struct sctp_outq *q,
->  						  bytes_acked);
->  
->  			transport->flight_size -= bytes_acked;
-> +			if (transport->flight_size == 0) {
-> +				transport->partial_bytes_acked = 0;
-> +			}
->  			q->outstanding_bytes -= bytes_acked;
->  		} else {
->  			/* RFC 2960 6.1, sctpimpguide-06 2.15.2
-
-Loose the braces, otherwise looks good.
-
--vlad
-
+Dnia Tuesday 15 of April 2008, Arnaldo Carvalho de Melo napisa=C5=82:
+> > One more question (probably more for Arnaldo): is there any timefra=
+me to
+> > push changes from test tree upstream?
+>
+> Not at this moment, I'm not managing to dedicate time for another rou=
+nd
+> of reviewing of what is in Gerrit's tree :-(
+>
+That's quite unfortunate because pushing patches that make use of new k=
+ernel=20
+features to other projects would be hard if not impossible...
+--=20
+Regards,
+Tomasz Grobelny
