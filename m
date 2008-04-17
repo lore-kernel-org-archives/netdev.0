@@ -1,51 +1,56 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: Reporting bugs and bisection
-Date: Thu, 17 Apr 2008 21:16:57 +0100
-Message-ID: <20080417201657.GF27459@ZenIV.linux.org.uk>
-References: <47FEADCB.7070104@rtr.ca> <9a8748490804161417n4ad6c1den54ccd302831a66c6@mail.gmail.com> <48078323.4010109@davidnewall.com> <200804172109.35027.rjw@sisk.pl> <2c0942db0804171235o49238b99u6cdbd3e5c8d6ebb7@mail.gmail.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] SCTP: Initialize partial_bytes_acked to 0, when all of
+ the data is acked.
+Date: Thu, 17 Apr 2008 16:29:12 -0400
+Message-ID: <4807B318.2000307@hp.com>
+References: <4805A2CA.7030808@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Newall <davidn@davidnewall.com>,
-	Jesper Juhl <jesper.juhl@gmail.com>, sverre@rabbelier.nl,
-	git@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Willy Tarreau <w@1wt.eu>, david@lang.hm,
-	Stephen Clark <sclark46@earthlink.net>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
-	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org
-To: Ray Lee <ray-lk@madrabbit.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755642AbYDQUR2@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2c0942db0804171235o49238b99u6cdbd3e5c8d6ebb7@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	lksctp-dev <lksctp-developers@lists.sourceforge.net>,
+	linux-sctp@vger.kernel.org
+To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:43656 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752398AbYDQU3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 16:29:15 -0400
+In-Reply-To: <4805A2CA.7030808@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 17, 2008 at 12:35:12PM -0700, Ray Lee wrote:
-> On Thu, Apr 17, 2008 at 12:09 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> >  > Finger-pointing, in these extreme cases, gives incentive to improve
-> >  > quality.  It's a positive thing.
-> >
-> >  Sorry, but I have to disagree.  Negative finger-pointing is never a good thing.
+Gui Jianfeng wrote:
+> Vlad,
+> According to RFC4960 7.2.2, 
+> When all of the data transmitted by the sender has
+> been acknowledged by the recerver, partial_bytes_acked is initialized to 0.
 > 
-> Correct, but let's be careful here. The original suggestion was,
-> effectively, to get better metrics on the quality of contributions.
+> This patch conforms to rfc requirement. 
+> Without this fix, cwnd might be error incremented.
+> 
+> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+> ---
+>  net/sctp/outqueue.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index c071446..cf79485 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -1544,6 +1544,9 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>  						  bytes_acked);
+>  
+>  			transport->flight_size -= bytes_acked;
+> +			if (transport->flight_size == 0) {
+> +				transport->partial_bytes_acked = 0;
+> +			}
+>  			q->outstanding_bytes -= bytes_acked;
+>  		} else {
+>  			/* RFC 2960 6.1, sctpimpguide-06 2.15.2
 
-	There already is one: reputation with people working on the tree,
-be it actively modifying/reviewing/bug hunting/etc.  _We_ _already_ _know_;
-generally one gets a decent idea of what to expect pretty soon.
+Loose the braces, otherwise looks good.
 
-	And frankly, that's the only thing that matters anyway; I suspect
-I'd do rather well by proposed criteria, but you know what?  I don't give
-a flying f*ck through the rolling doughnut for self-appointed PHBs and
-their idea of performance reviews.
+-vlad
 
-	Think of it as a modified Turing test: convince me that you are
-not a script piped through an Eng.Lit. wanker or an MBA, then I might care
-for your opinion.
-
-	Al, who never had problems with pointing fingers and laughing, but
-likes an informed human brain to be the source of it...
