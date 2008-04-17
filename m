@@ -1,99 +1,44 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] RESEND 8390: Split 8390 support into a pausing and a
- non pausing driver core
-Date: Wed, 16 Apr 2008 20:46:25 -0400
-Message-ID: <48069DE1.7080301@garzik.org>
-References: <20080119155817.326ee5e0@lxorguk.ukuu.org.uk>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] natsemi: fix MMIO for PPC 44x platforms
+Date: Wed, 16 Apr 2008 20:53:59 -0400
+Message-ID: <48069FA7.5060207@pobox.com>
+References: <200804122058.31075.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>, akpm@osdl.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50604 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38357 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752669AbYDQAqf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 20:46:35 -0400
-In-Reply-To: <20080119155817.326ee5e0@lxorguk.ukuu.org.uk>
+	id S1751152AbYDQAyE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 20:54:04 -0400
+In-Reply-To: <200804122058.31075.sshtylyov@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Cox wrote:
-> +++ linux-2.6.24-rc8-mm1/drivers/net/8390p.c	2008-01-19 15:00:41.000000000 +0000
-> @@ -0,0 +1,66 @@
-> +/* 8390 core for ISA devices needing bus delays */
-> +
-> +static const char version[] =
-> +    "8390p.c:v1.10cvs 9/23/94 Donald Becker (becker@cesdis.gsfc.nasa.gov)\n";
-> +
-> +#define ei_inb(_p)	inb(_p)
-> +#define ei_outb(_v,_p)	outb(_v,_p)
-> +#define ei_inb_p(_p)	inb_p(_p)
-> +#define ei_outb_p(_v,_p) outb_p(_v,_p)
-> +
-> +#include "lib8390.c"
-> +
-> +int eip_open(struct net_device *dev)
-> +{
-> +	return __ei_open(dev);
-> +}
-> +
-> +int eip_close(struct net_device *dev)
-> +{
-> +	return __ei_close(dev);
-> +}
-> +
-> +irqreturn_t eip_interrupt(int irq, void *dev_id)
-> +{
-> +	return __ei_interrupt(irq, dev_id);
-> +}
-> +
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +void eip_poll(struct net_device *dev)
-> +{
-> +	__ei_poll(dev);
-> +}
-> +#endif
-> +
-> +struct net_device *__alloc_eip_netdev(int size)
-> +{
-> +	return ____alloc_ei_netdev(size);
-> +}
-> +
-> +void NS8390p_init(struct net_device *dev, int startp)
-> +{
-> +	return __NS8390_init(dev, startp);
-> +}
-> +
-> +EXPORT_SYMBOL(eip_open);
-> +EXPORT_SYMBOL(eip_close);
-> +EXPORT_SYMBOL(eip_interrupt);
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +EXPORT_SYMBOL(eip_poll);
-> +#endif
-> +EXPORT_SYMBOL(NS8390p_init);
-> +EXPORT_SYMBOL(__alloc_eip_netdev);
-> +
-> +#if defined(MODULE)
-> +
-> +int init_module(void)
-> +{
-> +	return 0;
-> +}
-> +
-> +void cleanup_module(void)
-> +{
-> +}
-> +
-> +#endif /* MODULE */
-> +MODULE_LICENSE("GPL");
+Sergei Shtylyov wrote:
+> The driver stores the PCI resource address into 'unsigned long' variable before
+> calling ioremap()  on it. This warrants a kernel oops when the registers are
+> accessed on PPC 44x platforms which (being 32-bit) have PCI memory space mapped
+> beyond 4 GB.
+> 
+> The arch/ppc/ kernel has a fixup in ioremap() that creates an illusion of the
+> PCI memory resources are mapped below 4 GB, but arch/powerpc/ code got rid of
+> this trick, having instead CONFIG_RESOURCES_64BIT enabled.
+> 
+> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> 
+> ---
+> Reposting the patch with the typecast, log, and summary corrected.
+> This is the same issue as the one that has been recently addressed by commits
+> 3c34ac36ac1084e571ef9b6fb1d6a5b10ccc1fd0 (e1000: Fix for 32 bits platforms with
+> 64 bits resources) and c976816b6e901341ec3c4653147316c15549a1c4 (siimage: fix
+> kernel oops on PPC 44x).  The patch has only been compile tested though...
+> 
+>  drivers/net/natsemi.c |   10 ++++++----
+>  1 files changed, 6 insertions(+), 4 deletions(-)
 
-Now that this has seen a bit of testing, and accumulated some fix 
-patches in -mm, can I get a roll-up of all those into a single patch?
-
-Looks OK to me.  My one minor comment is that I would think the 
-init_module() would be superfluous?
-
-	Jeff
+applied
 
 
