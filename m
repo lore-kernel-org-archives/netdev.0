@@ -1,54 +1,48 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/6] tc35815: Statistics cleanup
-Date: Wed, 16 Apr 2008 20:54:11 -0400
-Message-ID: <48069FB3.1070404@garzik.org>
-References: <20080411.002412.03977557.anemo@mba.ocn.ne.jp>	<48007A41.2000803@garzik.org> <20080413.001146.25909265.anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] PHY: add BCM5464 support to broadcom PHY driver
+Date: Wed, 16 Apr 2008 20:54:26 -0400
+Message-ID: <48069FC2.60900@garzik.org>
+References: <1207752406-4624-1-git-send-email-paul.gortmaker@windriver.com> <20080409150412.GA4912@windriver.com> <48007C3F.5050505@garzik.org> <20080415033538.GA14095@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Fleming <afleming@freescale.com>, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Cc: netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57516 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:57532 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752315AbYDQAyU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2008 20:54:20 -0400
-In-Reply-To: <20080413.001146.25909265.anemo@mba.ocn.ne.jp>
+	id S1752883AbYDQAy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2008 20:54:29 -0400
+In-Reply-To: <20080415033538.GA14095@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Atsushi Nemoto wrote:
-> On Sat, 12 Apr 2008 05:00:49 -0400, Jeff Garzik <jeff@garzik.org> wrote:
->> applied 1-6
+Paul Gortmaker wrote:
+> In message: Re: [PATCH] PHY: add BCM5464 support to broadcom PHY driver
+> on 12/04/2008 Jeff Garzik wrote:
 > 
-> Thanks.
+>> doesn't seem to apply...  can you please regenerate against  
+>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.26.git ?
 > 
-> Could you apply this too, or hopufully fold into Andy Fleming's "phy:
-> Change mii_bus id field to a string" patch (commit c69fedae) ?
+> No problem.  The already queued BCM 5481 and this overlapped. It should
+> be good to go now.
 > 
-> ------------------------------------------------------
-> Subject: [PATCH] tc35815: build fix
-> 
-> Fix build failure caused by Andy Fleming's "phy: Change mii_bus id
-> field to a string" patch.
-> 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> P.
 > ---
-> diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-> index 744f11f..10e4e85 100644
-> --- a/drivers/net/tc35815.c
-> +++ b/drivers/net/tc35815.c
-> @@ -766,7 +766,8 @@ static int tc_mii_init(struct net_device *dev)
->  	lp->mii_bus.name = "tc35815_mii_bus";
->  	lp->mii_bus.read = tc_mdio_read;
->  	lp->mii_bus.write = tc_mdio_write;
-> -	lp->mii_bus.id = (lp->pci_dev->bus->number << 8) | lp->pci_dev->devfn;
-> +	snprintf(lp->mii_bus.id, MII_BUS_ID_SIZE, "%x",
-> +		 (lp->pci_dev->bus->number << 8) | lp->pci_dev->devfn);
->  	lp->mii_bus.priv = dev;
->  	lp->mii_bus.dev = &lp->pci_dev->dev;
->  	lp->mii_bus.irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
+> 
+>  From f01cb20f9d5c4f6cc9040c0a5ec13409396e64d5 Mon Sep 17 00:00:00 2001
+> From: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Date: Mon, 14 Apr 2008 23:27:12 -0400
+> Subject: [PATCH] PHY: add BCM5464 support to broadcom PHY driver
+> 
+> The BCM5464 can be used with the current broadcom PHY driver
+> by just adding the appropriate chip ID and using the existing
+> support within.
+> 
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> ---
+>  drivers/net/phy/broadcom.c |   20 ++++++++++++++++++++
+>  1 files changed, 20 insertions(+), 0 deletions(-)
 
 applied
 
