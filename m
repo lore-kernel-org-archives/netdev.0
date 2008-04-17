@@ -1,142 +1,51 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
-Date: Thu, 17 Apr 2008 22:03:07 +0200
-Message-ID: <200804172203.07758.tomasz@grobelny.oswiecenia.net>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804152001.58528.tomasz@grobelny.oswiecenia.net> <20080416062023.GA4278@gerrit.erg.abdn.ac.uk>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: Reporting bugs and bisection
+Date: Thu, 17 Apr 2008 21:16:57 +0100
+Message-ID: <20080417201657.GF27459@ZenIV.linux.org.uk>
+References: <47FEADCB.7070104@rtr.ca> <9a8748490804161417n4ad6c1den54ccd302831a66c6@mail.gmail.com> <48078323.4010109@davidnewall.com> <200804172109.35027.rjw@sisk.pl> <2c0942db0804171235o49238b99u6cdbd3e5c8d6ebb7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:3417 "EHLO poczta.oswiecenia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752849AbYDQUDd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 16:03:33 -0400
-In-Reply-To: <20080416062023.GA4278@gerrit.erg.abdn.ac.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Newall <davidn@davidnewall.com>,
+	Jesper Juhl <jesper.juhl@gmail.com>, sverre@rabbelier.nl,
+	git@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, david@lang.hm,
+	Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
+	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org
+To: Ray Lee <ray-lk@madrabbit.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755642AbYDQUR2@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <2c0942db0804171235o49238b99u6cdbd3e5c8d6ebb7@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dnia Wednesday 16 of April 2008, Gerrit Renker napisa=B3:
-> | > | | What happens if application is compiled with dccp_packet_info
-> | > | | containing only one field (priority) and kernel containing tw=
-o
-> | > | | fields (for example priority and later added expiry time)? Wo=
-uldn't
-> | > | | that implementation make extensions to dccp_packet_info impos=
-sible?
-> | > |
-> | > | Had not looked at it from this point of view. So you are sugges=
-ting
-> | > |
-> | > | 	if (msg->msg_control !=3D NULL && msg->msg_controllen >=3D siz=
-eof(*dcp))
-> | > | 		dcp =3D (struct dccp_packet_info *)msg->msg_control;
-> | > |
-> | > | instead? Agreed, point #1 to change in the patch.
-> | >
-> | > No, the above is nonsense. If the application uses an earlier ver=
-sion
-> | > of the API, then it needs to be recompiled, there is no way it co=
-uld
-> | > pretend to have an adequate size.
-> |
-> | That would effectively stop development of any policy. And it's not=
- about
-> | pretending the structure has different size, it's just about using =
-only
-> | the data that is provided by the application (even though it may be
-> | incomplete).
-> |
-> | > So my take is that still the '=3D=3D' is correct. But maybe this =
-is a known
-> | > problem?
-> |
-> | I can't see a problem with copying smaller struct to bigger one. It=
- would
-> | work like that:
-> | 1. set default values for in-kernel structure,
-> | 2. copy min(msg_control, sizeof(struct dccp_packet_info)) bytes fro=
-m
-> | userspace structure to the kernel one.
-> |
-> | In that sense the code above is in fact wrong but the idea alone sh=
-ould
-> | be ok. --
->
-> There is a more serious problem here: apparently no one tried to comp=
-ile
-> the `qpolicy' subtree since the changes on Monday. It fails with the
-> BUILD_BUG_ON.
->
-> I tried yesterday evening and found that there is not even a possibil=
-ity
-> of adding a single field to struct dccp_skb_cb: with the addition of =
-the
-> inet{,6}_skb_parm, the struct has reached its maximum size of 48 byte=
-s
-> (try printk("%u", sizeof(struct dccp_skb_cb));).
->
-> There is a solution to this, will post a revised patch shortly.
->
-What you proposed in the patch should work ok for qpolicies for now. Bu=
-t=20
-sooner or later the need to add a field to struct dccp_skb_cb will aris=
-e. So=20
-maybe we should think about it now...
-Other possibility apart from what you proposed in the patch is creating=
- struct=20
-dccp_skb_cb_ext, move to it some fields from struct dccp_skb_cb and in =
-struct=20
-add a pointer to this new struct dccp_skb_cb_ext. Ok, maybe it is not t=
-he=20
-prettiest idea but in case somebody needs yet another additional field =
-in=20
-struct dccp_skb_cb_ext it would be nice to have an idea how to do it.
+On Thu, Apr 17, 2008 at 12:35:12PM -0700, Ray Lee wrote:
+> On Thu, Apr 17, 2008 at 12:09 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> >  > Finger-pointing, in these extreme cases, gives incentive to improve
+> >  > quality.  It's a positive thing.
+> >
+> >  Sorry, but I have to disagree.  Negative finger-pointing is never a good thing.
+> 
+> Correct, but let's be careful here. The original suggestion was,
+> effectively, to get better metrics on the quality of contributions.
 
-> With regard to your point above: I think there is a way of keeping th=
-e
-> framework open without bending over backwards to ensure the binary
-> compatibility.
->
-While we are developing in the test tree compatibility is not important=
- at=20
-all. But real world needs compatibility, especially if it's not that=20
-expensive. Otherwise people will get weird behaviour without any messag=
-es=20
-indicating what is wrong. And it's certainly not how code should be wri=
-tten.=20
-It can't be that binary package of VLC (or any other streaming server) =
-cannot=20
-use newer kernel version because we added a new field.
+	There already is one: reputation with people working on the tree,
+be it actively modifying/reviewing/bug hunting/etc.  _We_ _already_ _know_;
+generally one gets a decent idea of what to expect pretty soon.
 
-> My question for you in this regard: which policy can you think of who=
-se
-> priorities/preferences can not be mapped into an unsigned 32-bit
-> integer? I think that such a number is sufficiently expressive enough
-> to cater for a wide range of policies. It can be interpreted as
->  * symbolic value (enum)
->  * ascii string (similar to DCCP service code)
->  * millisecond timeout (with room for up to 7 weeks)
->  * microsecond timeout (with room for up to 1.19 hours)
->  * priority values (the large range 0..2^32-1 can be partitioned)
->  * ... ?
->
-Putting any of those values in an integer is pretty straightforward. Bu=
-t when=20
-you want to put both timeout and priority things get messy. Would it be=
-=20
-possible at least to use structure like that:
-struct dccp_packet_info
-{
-	s8	priority;
-	u16	timeout_mantissa:10;
-	u16	timeout_exponent:6;
-}
-? That would still fit in 32-bit integer (so could be stored in=20
-skb->priority), but would provide a much cleaner interface.
---=20
-Regards,
-Tomasz Grobelny
+	And frankly, that's the only thing that matters anyway; I suspect
+I'd do rather well by proposed criteria, but you know what?  I don't give
+a flying f*ck through the rolling doughnut for self-appointed PHBs and
+their idea of performance reviews.
+
+	Think of it as a modified Turing test: convince me that you are
+not a script piped through an Eng.Lit. wanker or an MBA, then I might care
+for your opinion.
+
+	Al, who never had problems with pointing fingers and laughing, but
+likes an informed human brain to be the source of it...
