@@ -1,111 +1,99 @@
-From: jamal <hadi@cyberus.ca>
-Subject: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
-Date: Thu, 17 Apr 2008 16:35:39 -0400
-Message-ID: <1208464539.15888.22.camel@localhost>
-References: <20080417103858.0075236b@extreme>
-Reply-To: hadi@cyberus.ca
+From: "Ray Lee" <ray-lk@madrabbit.org>
+Subject: Re: Reporting bugs and bisection
+Date: Thu, 17 Apr 2008 13:38:18 -0700
+Message-ID: <2c0942db0804171338p7bc7d9f2u8079c2f8c8998e76@mail.gmail.com>
+References: <47FEADCB.7070104@rtr.ca>
+	 <9a8748490804161417n4ad6c1den54ccd302831a66c6@mail.gmail.com>
+	 <48078323.4010109@davidnewall.com> <200804172109.35027.rjw@sisk.pl>
+	 <2c0942db0804171235o49238b99u6cdbd3e5c8d6ebb7@mail.gmail.com>
+	 <20080417201657.GF27459@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-ZkFvm5F/89inNSZmZqH2"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	"David Newall" <davidn@davidnewall.com>,
+	"Jesper Juhl" <jesper.juhl@gmail.com>, sverre@rabbelier.nl,
+	git@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
+	"James Morris" <jmorris@namei.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Willy Tarreau" <w@1wt.eu>, david@lang.hm,
+	"Stephen Clark" <sclark46@earthlink.net>,
+	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"Tilman Schmidt" <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
+	"Mark Lord" <lkml@rtr.ca>, "David Miller" <davem@davemloft.net>,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org, netdev@vger.kernel.org
+To: "Al Viro" <viro@zeniv.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.245]:65250 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752398AbYDQUfn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 16:35:43 -0400
-Received: by hs-out-0708.google.com with SMTP id 4so178813hsl.5
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 13:35:42 -0700 (PDT)
-In-Reply-To: <20080417103858.0075236b@extreme>
+Received: from rv-out-0708.google.com ([209.85.198.244]:1833 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753486AbYDQUiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 16:38:19 -0400
+Received: by rv-out-0506.google.com with SMTP id k29so116890rvb.1
+        for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 13:38:18 -0700 (PDT)
+In-Reply-To: <20080417201657.GF27459@ZenIV.linux.org.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Apr 17, 2008 at 1:16 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> On Thu, Apr 17, 2008 at 12:35:12PM -0700, Ray Lee wrote:
+>  > On Thu, Apr 17, 2008 at 12:09 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+>  > >  > Finger-pointing, in these extreme cases, gives incentive to improve
+>  > >  > quality.  It's a positive thing.
+>  > >
+>  > >  Sorry, but I have to disagree.  Negative finger-pointing is never a good thing.
+>  >
+>  > Correct, but let's be careful here. The original suggestion was,
+>  > effectively, to get better metrics on the quality of contributions.
+>
+>         There already is one: reputation with people working on the tree,
+>  be it actively modifying/reviewing/bug hunting/etc.  _We_ _already_ _know_;
 
---=-ZkFvm5F/89inNSZmZqH2
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Sigh. No, you already know. I don't. This is not a rhetorical point.
+I've just bid out another project that'd involve getting linux running
+on another embedded hardware platform. If that happens, I get to spend
+paid time to work on the kernel, and as a by-product spend more time
+looking at patches and code coming across the list.
 
+So, where would it be best to spend my time? Or anyone else's?
 
-Quick test:
-My u32 scripts broke. It seems that i need to pass -raw to get same
-output as before; i am sure this will break anyone else depending on old
-output.
-I have introduced a "cooked" mode instead to output new format.
+>  generally one gets a decent idea of what to expect pretty soon.
+>
+>         And frankly, that's the only thing that matters anyway; I suspect
+>  I'd do rather well by proposed criteria, but you know what?  I don't give
+>  a flying f*ck through the rolling doughnut for self-appointed PHBs and
+>  their idea of performance reviews.
 
-cheers,
-jamal
+(Geez, conflate the issue much?) No one is saying you should. But
+also, I haven't seen anyone saying it'd be used for performance
+reviews other than you.
 
+>         Think of it as a modified Turing test: convince me that you are
+>  not a script piped through an Eng.Lit. wanker or an MBA, then I might care
+>  for your opinion.
 
---=-ZkFvm5F/89inNSZmZqH2
-Content-Disposition: attachment; filename=u32_p
-Content-Type: text/plain; name=u32_p; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+<shrug> Shockingly enough, I actually don't care. I'm just trying to
+scratch my own itch, which is figure out where in the kernel (if
+anywhere!) it'd be best to donate my time.
 
-[TC] Restore old output of u32 on output
+And your point is likely about the metrics, and yes, they'll be
+computer generated. So? Perhaps they'll be crap. Who knows until we
+look at them and match them up with what everyone already knows? If,
+by some one in a thousand chance, they turn out to be good and useful,
+then it'll either be a one-off eye-opener, or perhaps something useful
+more than once.
 
-My scripts broke because of the new change that beautifies output.
-Restore old output as default and have user enter -cooked if they
-want beautified output...
+Who knows? And to the larger point, why put effort into stopping
+someone else from finding out?
 
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+>         Al, who never had problems with pointing fingers and laughing, but
+>  likes an informed human brain to be the source of it...
 
----
-commit d37302089fbc4c4b5374372e587331ab431b6ae3
-tree 05403c85aa727ae9ae939ce8978c4b43b0c478b6
-parent 727d468e54bd903b91536e28435a43f73b023222
-author Jamal Hadi Salim <hadi@cyberus.ca> Thu, 17 Apr 2008 16:32:46 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Thu, 17 Apr 2008 16:32:46 -0400
+<shrug> Shame and Guilt, two major motivators of human behavior, it's
+true. But, one last time, *you're* the one saying the stats would be
+used for finger pointing at people. Perhaps, instead, the stats will
+show that we should all collectively point our fingers at some random
+area in the tree, where everyone, despite their track record, ends up
+making mistakes.
 
- include/utils.h |    1 +
- tc/f_u32.c      |    2 +-
- tc/tc.c         |    3 +++
- 3 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/include/utils.h b/include/utils.h
-index 5daed6b..3a7312c 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -13,6 +13,7 @@ extern int preferred_family;
- extern int show_stats;
- extern int show_details;
- extern int show_raw;
-+extern int show_cooked;
- extern int resolve_hosts;
- extern int oneline;
- extern int timestamp;
-diff --git a/tc/f_u32.c b/tc/f_u32.c
-index 7e4d56c..db492fe 100644
---- a/tc/f_u32.c
-+++ b/tc/f_u32.c
-@@ -793,7 +793,7 @@ static void show_key(FILE *f, const struct tc_u32_key *key)
- {
- 	char abuf[256];
- 
--	if (show_raw)
-+	if (!show_cooked)
- 		goto raw;
- 
- 	switch (key->off) {
-diff --git a/tc/tc.c b/tc/tc.c
-index 6126c71..06058fb 100644
---- a/tc/tc.c
-+++ b/tc/tc.c
-@@ -33,6 +33,7 @@
- int show_stats = 0;
- int show_details = 0;
- int show_raw = 0;
-+int show_cooked = 0;
- int resolve_hosts = 0;
- int use_iec = 0;
- int force = 0;
-@@ -273,6 +274,8 @@ int main(int argc, char **argv)
- 			++show_details;
- 		} else if (matches(argv[1], "-raw") == 0) {
- 			++show_raw;
-+		} else if (matches(argv[1], "-cooked") == 0) {
-+			++show_cooked;
- 		} else if (matches(argv[1], "-Version") == 0) {
- 			printf("tc utility, iproute2-ss%s\n", SNAPSHOT);
- 			return 0;
-
---=-ZkFvm5F/89inNSZmZqH2--
-
+Let the kid find out, that's all I'm saying.
