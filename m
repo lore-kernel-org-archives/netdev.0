@@ -1,66 +1,406 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [patch 1/3] hci_usb: do not initialize static variables to 0
-Date: Fri, 18 Apr 2008 23:04:57 +0200
-Message-ID: <A7F393C1-AEAC-4BC5-B7A4-A9CC78179CDF@holtmann.org>
-References: <200804182046.m3IKkp7P014625@imap1.linux-foundation.org>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: hidave.darkstar@gmail.com, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, pavel@ucw.cz, pavel@suse.cz
-To: akpm@linux-foundation.org
+From: akpm@linux-foundation.org
+Subject: [patch 7/9] net drivers: fix platform driver hotplug/coldplug
+Date: Fri, 18 Apr 2008 13:50:44 -0700
+Message-ID: <200804182050.m3IKoi47014840@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	kay.sievers@vrfy.org, andrew@sanpeople.com, ben-linux@fluff.org,
+	bryan.wu@analog.com, dale@farnsworth.org,
+	dbrownell@users.sourceforge.net, ralf@linux-mips.org,
+	scottwood@freescale.com, vitb@kernel.crashing.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:45601 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762864AbYDRVFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 17:05:03 -0400
-In-Reply-To: <200804182046.m3IKkp7P014625@imap1.linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58303 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757621AbYDRUwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 16:52:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Kay Sievers <kay.sievers@vrfy.org>
 
-> hci_usb: do not initialize static variables to 0.
->
-> Signed-off-by: Pavel Machek <pavel@suse.cz>
-> Cc: Marcel Holtmann <marcel@holtmann.org>
-> Cc: Dave Young <hidave.darkstar@gmail.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
->
-> drivers/bluetooth/hci_usb.c |   14 +++++++-------
-> 1 file changed, 7 insertions(+), 7 deletions(-)
->
-> diff -puN drivers/bluetooth/hci_usb.c~hci_usb-do-not-initialize- 
-> static-variables-to-0 drivers/bluetooth/hci_usb.c
-> --- a/drivers/bluetooth/hci_usb.c~hci_usb-do-not-initialize-static- 
-> variables-to-0
-> +++ a/drivers/bluetooth/hci_usb.c
-> @@ -62,13 +62,13 @@
-> #define URB_ZERO_PACKET 0
-> #endif
->
-> -static int ignore = 0;
-> -static int ignore_dga = 0;
-> -static int ignore_csr = 0;
-> -static int ignore_sniffer = 0;
-> -static int disable_scofix = 0;
-> -static int force_scofix = 0;
-> -static int reset = 0;
-> +static int ignore;
-> +static int ignore_dga;
-> +static int ignore_csr;
-> +static int ignore_sniffer;
-> +static int disable_scofix;
-> +static int force_scofix;
-> +static int reset;
+Since 43cc71eed1250755986da4c0f9898f9a635cb3bf, the platform modalias is
+prefixed with "platform:".  Add MODULE_ALIAS() to the hotpluggable network
+platform drivers, to re-enable auto loading.
 
-I know that some people don't like to do it and I agree, but in case  
-of module parameters, I prefer to have them clearly indicate what the  
-default value is. It is a lot easier to read for other people looking  
-at the code. So that one is a NAK from my side.
+NOTE: didn't change drivers/net/fs_enet/fs_enet-main.c "old binding" support. 
+That looks problematic in the first place (it even uses the ancient "struct
+device_driver" binding scheme for platform_bus!) and I suspect it will vanish
+soonish when arch/powerpc rules the world.  Also, drivers/net/ne.c would have
+needed more thought to sort out.
 
-Regards
+[akpm@linux-foundation.org: fix sgiseeq.c]
+[dbrownell@users.sourceforge.net: more drivers, registration fixes]
+Signed-off-by: Kay Sievers <kay.sievers@vrfy.org>
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Scott Wood <scottwood@freescale.com>
+Cc: Vitaly Bordug <vitb@kernel.crashing.org>
+Cc: Dale Farnsworth <dale@farnsworth.org>
+Cc: Ben Dooks <ben-linux@fluff.org>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Andrew Victor <andrew@sanpeople.com>
+Cc: Bryan Wu <bryan.wu@analog.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-Marcel
+ drivers/net/arm/at91_ether.c  |    1 +
+ drivers/net/arm/ep93xx_eth.c  |    2 ++
+ drivers/net/ax88796.c         |    1 +
+ drivers/net/bfin_mac.c        |    7 +++++--
+ drivers/net/cpmac.c           |    2 ++
+ drivers/net/dm9000.c          |    1 +
+ drivers/net/gianfar.c         |    4 ++++
+ drivers/net/irda/ali-ircc.c   |    2 ++
+ drivers/net/irda/pxaficp_ir.c |    2 ++
+ drivers/net/irda/sa1100_ir.c  |    2 ++
+ drivers/net/jazzsonic.c       |    2 ++
+ drivers/net/macb.c            |    2 ++
+ drivers/net/meth.c            |    2 ++
+ drivers/net/mv643xx_eth.c     |    5 ++++-
+ drivers/net/netx-eth.c        |    2 +-
+ drivers/net/sgiseeq.c         |    4 +++-
+ drivers/net/smc911x.c         |    2 ++
+ drivers/net/smc91x.c          |    2 ++
+ drivers/net/sni_82596.c       |    2 ++
+ drivers/net/tsi108_eth.c      |    2 ++
+ 20 files changed, 44 insertions(+), 5 deletions(-)
 
+diff -puN drivers/net/arm/at91_ether.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/arm/at91_ether.c
+--- a/drivers/net/arm/at91_ether.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/arm/at91_ether.c
+@@ -1246,3 +1246,4 @@ module_exit(at91ether_exit)
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("AT91RM9200 EMAC Ethernet driver");
+ MODULE_AUTHOR("Andrew Victor");
++MODULE_ALIAS("platform:" DRV_NAME);
+diff -puN drivers/net/arm/ep93xx_eth.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/arm/ep93xx_eth.c
+--- a/drivers/net/arm/ep93xx_eth.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/arm/ep93xx_eth.c
+@@ -897,6 +897,7 @@ static struct platform_driver ep93xx_eth
+ 	.remove		= ep93xx_eth_remove,
+ 	.driver		= {
+ 		.name	= "ep93xx-eth",
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+@@ -914,3 +915,4 @@ static void __exit ep93xx_eth_cleanup_mo
+ module_init(ep93xx_eth_init_module);
+ module_exit(ep93xx_eth_cleanup_module);
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:ep93xx-eth");
+diff -puN drivers/net/ax88796.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/ax88796.c
+--- a/drivers/net/ax88796.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/ax88796.c
+@@ -1005,3 +1005,4 @@ module_exit(axdrv_exit);
+ MODULE_DESCRIPTION("AX88796 10/100 Ethernet platform driver");
+ MODULE_AUTHOR("Ben Dooks, <ben@simtec.co.uk>");
+ MODULE_LICENSE("GPL v2");
++MODULE_ALIAS("platform:ax88796");
+diff -puN drivers/net/bfin_mac.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/bfin_mac.c
+--- a/drivers/net/bfin_mac.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/bfin_mac.c
+@@ -47,6 +47,7 @@
+ MODULE_AUTHOR(DRV_AUTHOR);
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION(DRV_DESC);
++MODULE_ALIAS("platform:bfin_mac");
+ 
+ #if defined(CONFIG_BFIN_MAC_USE_L1)
+ # define bfin_mac_alloc(dma_handle, size)  l1_data_sram_zalloc(size)
+@@ -1089,8 +1090,9 @@ static struct platform_driver bfin_mac_d
+ 	.resume = bfin_mac_resume,
+ 	.suspend = bfin_mac_suspend,
+ 	.driver = {
+-		   .name = DRV_NAME,
+-		   },
++		.name = DRV_NAME,
++		.owner	= THIS_MODULE,
++	},
+ };
+ 
+ static int __init bfin_mac_init(void)
+@@ -1106,3 +1108,4 @@ static void __exit bfin_mac_cleanup(void
+ }
+ 
+ module_exit(bfin_mac_cleanup);
++
+diff -puN drivers/net/cpmac.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/cpmac.c
+--- a/drivers/net/cpmac.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/cpmac.c
+@@ -42,6 +42,7 @@
+ MODULE_AUTHOR("Eugene Konev <ejka@imfi.kspu.ru>");
+ MODULE_DESCRIPTION("TI AR7 ethernet driver (CPMAC)");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:cpmac");
+ 
+ static int debug_level = 8;
+ static int dumb_switch;
+@@ -1105,6 +1106,7 @@ static int __devexit cpmac_remove(struct
+ 
+ static struct platform_driver cpmac_driver = {
+ 	.driver.name = "cpmac",
++	.driver.owner = THIS_MODULE,
+ 	.probe = cpmac_probe,
+ 	.remove = __devexit_p(cpmac_remove),
+ };
+diff -puN drivers/net/dm9000.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/dm9000.c
+--- a/drivers/net/dm9000.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/dm9000.c
+@@ -1418,3 +1418,4 @@ module_exit(dm9000_cleanup);
+ MODULE_AUTHOR("Sascha Hauer, Ben Dooks");
+ MODULE_DESCRIPTION("Davicom DM9000 network driver");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:dm9000");
+diff -puN drivers/net/gianfar.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/gianfar.c
+--- a/drivers/net/gianfar.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/gianfar.c
+@@ -1973,12 +1973,16 @@ static irqreturn_t gfar_error(int irq, v
+ 	return IRQ_HANDLED;
+ }
+ 
++/* work with hotplug and coldplug */
++MODULE_ALIAS("platform:fsl-gianfar");
++
+ /* Structure for a device driver */
+ static struct platform_driver gfar_driver = {
+ 	.probe = gfar_probe,
+ 	.remove = gfar_remove,
+ 	.driver	= {
+ 		.name = "fsl-gianfar",
++		.owner = THIS_MODULE,
+ 	},
+ };
+ 
+diff -puN drivers/net/irda/ali-ircc.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/irda/ali-ircc.c
+--- a/drivers/net/irda/ali-ircc.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/irda/ali-ircc.c
+@@ -60,6 +60,7 @@ static struct platform_driver ali_ircc_d
+ 	.resume		= ali_ircc_resume,
+ 	.driver		= {
+ 		.name	= ALI_IRCC_DRIVER_NAME,
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+@@ -2256,6 +2257,7 @@ static void FIR2SIR(int iobase)
+ MODULE_AUTHOR("Benjamin Kong <benjamin_kong@ali.com.tw>");
+ MODULE_DESCRIPTION("ALi FIR Controller Driver");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:" ALI_IRCC_DRIVER_NAME);
+ 
+ 
+ module_param_array(io, int, NULL, 0);
+diff -puN drivers/net/irda/pxaficp_ir.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/irda/pxaficp_ir.c
+--- a/drivers/net/irda/pxaficp_ir.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/irda/pxaficp_ir.c
+@@ -908,6 +908,7 @@ static int pxa_irda_remove(struct platfo
+ static struct platform_driver pxa_ir_driver = {
+ 	.driver         = {
+ 		.name   = "pxa2xx-ir",
++		.owner	= THIS_MODULE,
+ 	},
+ 	.probe		= pxa_irda_probe,
+ 	.remove		= pxa_irda_remove,
+@@ -929,3 +930,4 @@ module_init(pxa_irda_init);
+ module_exit(pxa_irda_exit);
+ 
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:pxa2xx-ir");
+diff -puN drivers/net/irda/sa1100_ir.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/irda/sa1100_ir.c
+--- a/drivers/net/irda/sa1100_ir.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/irda/sa1100_ir.c
+@@ -1008,6 +1008,7 @@ static struct platform_driver sa1100ir_d
+ 	.resume		= sa1100_irda_resume,
+ 	.driver		= {
+ 		.name	= "sa11x0-ir",
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+@@ -1041,3 +1042,4 @@ MODULE_LICENSE("GPL");
+ MODULE_PARM_DESC(power_level, "IrDA power level, 1 (low) to 3 (high)");
+ MODULE_PARM_DESC(tx_lpm, "Enable transmitter low power (1.6us) mode");
+ MODULE_PARM_DESC(max_rate, "Maximum baud rate (4000000, 115200, 57600, 38400, 19200, 9600)");
++MODULE_ALIAS("platform:sa11x0-ir");
+diff -puN drivers/net/jazzsonic.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/jazzsonic.c
+--- a/drivers/net/jazzsonic.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/jazzsonic.c
+@@ -249,6 +249,7 @@ out:
+ MODULE_DESCRIPTION("Jazz SONIC ethernet driver");
+ module_param(sonic_debug, int, 0);
+ MODULE_PARM_DESC(sonic_debug, "jazzsonic debug level (1-4)");
++MODULE_ALIAS("platform:jazzsonic");
+ 
+ #include "sonic.c"
+ 
+@@ -271,6 +272,7 @@ static struct platform_driver jazz_sonic
+ 	.remove	= __devexit_p(jazz_sonic_device_remove),
+ 	.driver	= {
+ 		.name	= jazz_sonic_string,
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+diff -puN drivers/net/macb.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/macb.c
+--- a/drivers/net/macb.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/macb.c
+@@ -1281,6 +1281,7 @@ static struct platform_driver macb_drive
+ 	.remove		= __exit_p(macb_remove),
+ 	.driver		= {
+ 		.name		= "macb",
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+@@ -1300,3 +1301,4 @@ module_exit(macb_exit);
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("Atmel MACB Ethernet driver");
+ MODULE_AUTHOR("Haavard Skinnemoen <hskinnemoen@atmel.com>");
++MODULE_ALIAS("platform:macb");
+diff -puN drivers/net/meth.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/meth.c
+--- a/drivers/net/meth.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/meth.c
+@@ -830,6 +830,7 @@ static struct platform_driver meth_drive
+ 	.remove	= __devexit_p(meth_remove),
+ 	.driver = {
+ 		.name	= "meth",
++		.owner	= THIS_MODULE,
+ 	}
+ };
+ 
+@@ -855,3 +856,4 @@ module_exit(meth_exit_module);
+ MODULE_AUTHOR("Ilya Volynets <ilya@theIlya.com>");
+ MODULE_DESCRIPTION("SGI O2 Builtin Fast Ethernet driver");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:meth");
+diff -puN drivers/net/mv643xx_eth.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/mv643xx_eth.c
+--- a/drivers/net/mv643xx_eth.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/mv643xx_eth.c
+@@ -2049,6 +2049,7 @@ static struct platform_driver mv643xx_et
+ 	.shutdown = mv643xx_eth_shutdown,
+ 	.driver = {
+ 		.name = MV643XX_ETH_NAME,
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+@@ -2057,6 +2058,7 @@ static struct platform_driver mv643xx_et
+ 	.remove = mv643xx_eth_shared_remove,
+ 	.driver = {
+ 		.name = MV643XX_ETH_SHARED_NAME,
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+@@ -2104,7 +2106,8 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR(	"Rabeeh Khoury, Assaf Hoffman, Matthew Dharm, Manish Lachwani"
+ 		" and Dale Farnsworth");
+ MODULE_DESCRIPTION("Ethernet driver for Marvell MV643XX");
+-MODULE_ALIAS("platform:mv643xx_eth");
++MODULE_ALIAS("platform:" MV643XX_ETH_NAME);
++MODULE_ALIAS("platform:" MV643XX_ETH_SHARED_NAME);
+ 
+ /*
+  * The second part is the low level driver of the gigE ethernet ports.
+diff -puN drivers/net/netx-eth.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/netx-eth.c
+--- a/drivers/net/netx-eth.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/netx-eth.c
+@@ -502,4 +502,4 @@ module_exit(netx_eth_cleanup);
+ 
+ MODULE_AUTHOR("Sascha Hauer, Pengutronix");
+ MODULE_LICENSE("GPL");
+-
++MODULE_ALIAS("platform:" CARDNAME);
+diff -puN drivers/net/sgiseeq.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/sgiseeq.c
+--- a/drivers/net/sgiseeq.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/sgiseeq.c
+@@ -825,7 +825,8 @@ static struct platform_driver sgiseeq_dr
+ 	.probe	= sgiseeq_probe,
+ 	.remove	= __devexit_p(sgiseeq_remove),
+ 	.driver = {
+-		.name	= "sgiseeq"
++		.name	= "sgiseeq",
++		.owner	= THIS_MODULE,
+ 	}
+ };
+ 
+@@ -850,3 +851,4 @@ module_exit(sgiseeq_module_exit);
+ MODULE_DESCRIPTION("SGI Seeq 8003 driver");
+ MODULE_AUTHOR("Linux/MIPS Mailing List <linux-mips@linux-mips.org>");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:sgiseeq");
+diff -puN drivers/net/smc911x.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/smc911x.c
+--- a/drivers/net/smc911x.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/smc911x.c
+@@ -92,6 +92,7 @@ module_param(tx_fifo_kb, int, 0400);
+ MODULE_PARM_DESC(tx_fifo_kb,"transmit FIFO size in KB (1<x<15)(default=8)");
+ 
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:smc911x");
+ 
+ /*
+  * The internal workings of the driver.  If you are changing anything
+@@ -2262,6 +2263,7 @@ static struct platform_driver smc911x_dr
+ 	.resume	 = smc911x_drv_resume,
+ 	.driver	 = {
+ 		.name	 = CARDNAME,
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+diff -puN drivers/net/smc91x.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/smc91x.c
+--- a/drivers/net/smc91x.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/smc91x.c
+@@ -132,6 +132,7 @@ module_param(watchdog, int, 0400);
+ MODULE_PARM_DESC(watchdog, "transmit timeout in milliseconds");
+ 
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:smc91x");
+ 
+ /*
+  * The internal workings of the driver.  If you are changing anything
+@@ -2308,6 +2309,7 @@ static struct platform_driver smc_driver
+ 	.resume		= smc_drv_resume,
+ 	.driver		= {
+ 		.name	= CARDNAME,
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+diff -puN drivers/net/sni_82596.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/sni_82596.c
+--- a/drivers/net/sni_82596.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/sni_82596.c
+@@ -44,6 +44,7 @@ static const char sni_82596_string[] = "
+ MODULE_AUTHOR("Thomas Bogendoerfer");
+ MODULE_DESCRIPTION("i82596 driver");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:snirm_82596");
+ module_param(i596_debug, int, 0);
+ MODULE_PARM_DESC(i596_debug, "82596 debug mask");
+ 
+@@ -166,6 +167,7 @@ static struct platform_driver sni_82596_
+ 	.remove	= __devexit_p(sni_82596_driver_remove),
+ 	.driver	= {
+ 		.name	= sni_82596_string,
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+diff -puN drivers/net/tsi108_eth.c~net-drivers-fix-platform-driver-hotplug-coldplug drivers/net/tsi108_eth.c
+--- a/drivers/net/tsi108_eth.c~net-drivers-fix-platform-driver-hotplug-coldplug
++++ a/drivers/net/tsi108_eth.c
+@@ -162,6 +162,7 @@ static struct platform_driver tsi_eth_dr
+ 	.remove = tsi108_ether_remove,
+ 	.driver	= {
+ 		.name = "tsi-ethernet",
++		.owner = THIS_MODULE,
+ 	},
+ };
+ 
+@@ -1729,3 +1730,4 @@ module_exit(tsi108_ether_exit);
+ MODULE_AUTHOR("Tundra Semiconductor Corporation");
+ MODULE_DESCRIPTION("Tsi108 Gigabit Ethernet driver");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:tsi-ethernet");
+_
