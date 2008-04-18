@@ -1,41 +1,40 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Fri, 18 Apr 2008 08:51:04 +0200
-Message-ID: <200804180851.05289.oliver@neukum.org>
-References: <20080414213238.GB28833@kroah.com> <200804171632.12972.oliver@neukum.org> <4807C56F.5060804@teltonika.lt>
+From: David Miller <davem@davemloft.net>
+Subject: Re: A Linux TCP SACK Question
+Date: Thu, 17 Apr 2008 23:52:57 -0700 (PDT)
+Message-ID: <20080417.235257.06267707.davem@davemloft.net>
+References: <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
+	<20080416.023551.70464279.davem@davemloft.net>
+	<000201c89fd1$308edf30$6b5ee183@D2GT6T71>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4807C56F.5060804-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ilpo.jarvinen@helsinki.fi, johnwheffner@gmail.com,
+	netdev@vger.kernel.org
+To: wenji@fnal.gov
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40494
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754762AbYDRGw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 02:52:56 -0400
+In-Reply-To: <000201c89fd1$308edf30$6b5ee183@D2GT6T71>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Donnerstag, 17. April 2008 23:47:27 schrieb Paulius Zaleckas:
-> Oliver Neukum wrote:
-> > can you test this one as well. The method used to determine whether
-> > a device is asleep is racy. This introduces a private test.
+From: Wenji Wu <wenji@fnal.gov>
+Date: Wed, 16 Apr 2008 09:50:19 -0500
+
+> >I've added John's patch to net-2.6.26
 > 
-> Stupid question :) How to test it? How can I force it to suspend?
-> I have never used any suspend on my PC :)
+> I just tried with John's patch. It works, saturating the 1Gbps in my test. 
+> 
+> Without the patch, the throughput is around 180Mbps with SACK On, 250Mbps
+> with SACK off.
+> 
+> The same test environment described in my previous emails.
 
-This is runtime power management. It can save energy on any computer.
-You compile your kernel with CONFIG_USB_SUSPEND and to see something
-in syslog with CONFIG_USB_DEBUG.
-Plug in the device, locate its sysfs directory, cd into it and do
-echo "auto" >power/level
+After this patch cooks for a couple more days I'll submit it
+to -stable.
 
-After a few seconds of idleness the device and the hub it's connected to
-(if it's the only device at that hub) should suspend. You'll get a message
-about it in the kernel log.
+Thanks for your report and all of your testing Wenji.
 
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks John for the patch.
