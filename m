@@ -1,120 +1,123 @@
-From: Laurent Pinchart <laurentp@cse-semaphore.com>
-Subject: Re: [RFC fs_enet: Convert MII bitbang driver to use GPIO lib
-Date: Fri, 18 Apr 2008 13:34:29 +0200
-Message-ID: <200804181334.34229.laurentp@cse-semaphore.com>
-References: <200804161640.42693.laurentp@cse-semaphore.com>
-	<20080416160540.GB442@polina.dev.rtsoft.ru>
-	<200804161809.40805.laurentp@cse-semaphore.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 5/5] tun: vringfd xmit support.
+Date: Fri, 18 Apr 2008 04:31:20 -0700
+Message-ID: <20080418043120.ff78eab5.akpm@linux-foundation.org>
+References: <200804181433.48488.rusty@rustcorp.com.au>
+	<200804181441.10499.rusty@rustcorp.com.au>
+	<200804181442.17251.rusty@rustcorp.com.au>
+	<200804181443.24812.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0221171533=="
-Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org
-To: linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <200804161809.40805.laurentp@cse-semaphore.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Mime-version: 1.0
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Max Krasnyansky <maxk@qualcomm.com>,
+        virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <200804181443.24812.rusty@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
---===============0221171533==
-Content-Type: multipart/signed;
-  boundary="nextPart3467580.lIyNInjBNs";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
+On Fri, 18 Apr 2008 14:43:24 +1000 Rusty Russell <rusty@rustcorp.com.au> wrote:
 
---nextPart3467580.lIyNInjBNs
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-On Wednesday 16 April 2008 18:09, Laurent Pinchart wrote:
-> On Wednesday 16 April 2008 18:05, Anton Vorontsov wrote:
-> > On Wed, Apr 16, 2008 at 04:40:42PM +0200, Laurent Pinchart wrote:
-> > > This patch converts the MII bitband driver to use GPIO lib for GPIO
-> > > access. The driver can now handle MDC and MDIO on different GPIO bank=
-s.
-> > >=20
-> > > The patch depends on Anton Vorontsov GPIO lib support scheduled for
-> > > 2.6.26. It is by no means complete, I just would like to get some
-> > > feedback on the approach. I'll resubmit it when the CPM2 GPIO support
-> > > patches will be available in the powerpc git tree.
-> >=20
-> > Cool! By the way, maybe it is worth splitting it into completely separa=
-te
-> > driver, e.g. net/mdio_gpio.c?
->=20
-> Splitting it into a completely separate driver makes sense.
+> This patch modifies tun to allow a vringfd to specify the send
+> buffer.  The user does a write to push out packets from the buffer.
+> 
+> Again we use the 'struct virtio_net_hdr' to allow userspace to send
+> GSO packets.  In this case, it can hint how much to copy, and the
+> other pages will be made into skb fragments.
+> 
+> 
+> ...
 >
-> > Plus, keep in mind that somebody will eventually want this cool stuff w=
-ith
-> > platform_device bindings in addition. :-)=20
->=20
-> I'm sure that person will be happy to implement platform_device bindings =
-:-)
+> +/* We don't consolidate consecutive iovecs, so huge iovecs can break here.
+> + * Users will learn not to do that. */
+> +static int get_user_skb_frags(const struct iovec *iv, size_t len,
+> +			      struct skb_frag_struct *f)
+> +{
+> +	unsigned int i, j, num_pg = 0;
+> +	int err;
+> +	struct page *pages[MAX_SKB_FRAGS];
+> +
+> +	down_read(&current->mm->mmap_sem);
+> +	while (len) {
+> +		int n, npages;
+> +		unsigned long base, len;
+> +		base = (unsigned long)iv->iov_base;
+> +		len = (unsigned long)iv->iov_len;
+> +
+> +		if (len == 0) {
+> +			iv++;
+> +			continue;
+> +		}
+> +
+> +		/* How many pages will this take? */
+> +		npages = 1 + (base + len - 1)/PAGE_SIZE - base/PAGE_SIZE;
 
-I had a first try at moving mdio gpio code into a separate driver.
+Brain hurts.  I hope you got that right.
 
-Very little code is OF-independant, so the driver should probably be called=
-=20
-mdio_of_gpio.c or mdio_ofgpio.c.
+> +		if (unlikely(num_pg + npages > MAX_SKB_FRAGS)) {
+> +			err = -ENOSPC;
+> +			goto fail;
+> +		}
+> +		n = get_user_pages(current, current->mm, base, npages,
+> +				   0, 0, pages, NULL);
 
-Scott Wood was concerned in=20
-http://patchwork.ozlabs.org/linuxppc/patch?id=3D17490 that the gpio lib mig=
-ht=20
-be an unnecessary burden for memory-constraint platforms. Should we keep tw=
-o=20
-mdio bitbang drivers, one with direct access to the ports and one using gpi=
-o=20
-lib ? The later solves the concurrent access issues present in the current=
-=20
-fs_enet mdio bitbang driber.
+What is the maximum numbet of pages which an unpriviliged user can
+concurrently pin with this code?
 
-I'll submit a patch for whichever solution gets selected (modifying the=20
-current fs enet mdio bitbang driver to use the gpio lib, or creating a new=
-=20
-driver).
+> +		if (unlikely(n < 0)) {
+> +			err = n;
+> +			goto fail;
+> +		}
+> +
+> +		/* Transfer pages to the frag array */
+> +		for (j = 0; j < n; j++) {
+> +			f[num_pg].page = pages[j];
+> +			if (j == 0) {
+> +				f[num_pg].page_offset = offset_in_page(base);
+> +				f[num_pg].size = min(len, PAGE_SIZE -
+> +						     f[num_pg].page_offset);
+> +			} else {
+> +				f[num_pg].page_offset = 0;
+> +				f[num_pg].size = min(len, PAGE_SIZE);
+> +			}
+> +			len -= f[num_pg].size;
+> +			base += f[num_pg].size;
+> +			num_pg++;
+> +		}
 
-=2D-=20
-Laurent Pinchart
-CSE Semaphore Belgium
+This loop is a fancy way of doing
 
-Chaussee de Bruxelles, 732A
-B-1410 Waterloo
-Belgium
+		num_pg = n;
 
-T +32 (2) 387 42 59
-=46 +32 (2) 387 42 75
+> +		if (unlikely(n != npages)) {
+> +			err = -EFAULT;
+> +			goto fail;
+> +		}
 
---nextPart3467580.lIyNInjBNs
-Content-Type: application/pgp-signature
+why not do this immediately after running get_user_pages()?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
+> +	}
+> +	up_read(&current->mm->mmap_sem);
+> +	return num_pg;
+> +
+> +fail:
+> +	for (i = 0; i < num_pg; i++)
+> +		put_page(f[i].page);
 
-iD8DBQBICIdK8y9gWxC9vpcRAr7PAKCIt21AmihWsIvGxygiqEfJMkDGCQCghddh
-uM+IR/Bns8ILK7Inc/RBgzc=
-=7Vam
------END PGP SIGNATURE-----
+release_pages() could be a tad more efficient, but it's only error-path.
 
---nextPart3467580.lIyNInjBNs--
-
---===============0221171533==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-dev
---===============0221171533==--
+> +	up_read(&current->mm->mmap_sem);
+> +	return err;
+> +}
+> +
+>  
