@@ -1,40 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: A Linux TCP SACK Question
-Date: Thu, 17 Apr 2008 23:52:57 -0700 (PDT)
-Message-ID: <20080417.235257.06267707.davem@davemloft.net>
-References: <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
-	<20080416.023551.70464279.davem@davemloft.net>
-	<000201c89fd1$308edf30$6b5ee183@D2GT6T71>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, johnwheffner@gmail.com,
-	netdev@vger.kernel.org
-To: wenji@fnal.gov
+From: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
+Subject: [PATCH] DM9000: improved/fixed dev_dbg() messages
+Date: Fri, 18 Apr 2008 12:02:16 +0200
+Message-ID: <1208512936-5897-3-git-send-email-enrico.scholz@sigma-chemnitz.de>
+Cc: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40494
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754762AbYDRGw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 02:52:56 -0400
-In-Reply-To: <000201c89fd1$308edf30$6b5ee183@D2GT6T71>
+Received: from mail.cvg.de ([62.153.82.30]:54234 "EHLO mail.cvg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754660AbYDRKOy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Apr 2008 06:14:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wenji Wu <wenji@fnal.gov>
-Date: Wed, 16 Apr 2008 09:50:19 -0500
+There was a missing newline in a dev_dbg() message.  Values read
+from/written into PHY registers might be for interest too, so I added
+new dbg messages there.
 
-> >I've added John's patch to net-2.6.26
-> 
-> I just tried with John's patch. It works, saturating the 1Gbps in my test. 
-> 
-> Without the patch, the throughput is around 180Mbps with SACK On, 250Mbps
-> with SACK off.
-> 
-> The same test environment described in my previous emails.
+Signed-off-by: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
+---
+ drivers/net/dm9000.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-After this patch cooks for a couple more days I'll submit it
-to -stable.
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index 7bc16d2..e4af7a9 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -525,7 +525,7 @@ dm9000_probe(struct platform_device *pdev)
+ 
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+-	dev_dbg(&pdev->dev, "dm9000_probe()");
++	dev_dbg(&pdev->dev, "dm9000_probe()\n");
+ 
+ 	/* setup board info structure */
+ 	db = (struct board_info *) ndev->priv;
+@@ -1292,6 +1292,8 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+ 	spin_unlock_irqrestore(&db->lock,flags);
+ 
+ 	mutex_unlock(&db->addr_lock);
++
++	dm9000_dbg(db, 5, "phy_read[%02x] -> %04x\n", reg, ret);
+ 	return ret;
+ }
+ 
+@@ -1305,6 +1307,7 @@ dm9000_phy_write(struct net_device *dev, int phyaddr_unused, int reg, int value)
+ 	unsigned long flags;
+ 	unsigned long reg_save;
+ 
++	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
+ 	mutex_lock(&db->addr_lock);
+ 
+ 	spin_lock_irqsave(&db->lock,flags);
+-- 
+1.5.4.1
 
-Thanks for your report and all of your testing Wenji.
-
-Thanks John for the patch.
