@@ -1,58 +1,46 @@
-From: "Nelson A. de Oliveira" <naoliv@gmail.com>
-Subject: Re: [Bugme-new] [Bug 10473] New: Infinite loop "b44: eth0: powering down PHY"
-Date: Fri, 18 Apr 2008 12:23:06 -0300
-Message-ID: <9bfa9ae0804180823o1c3213ccj6ac1ab19b0b5cb94@mail.gmail.com>
-References: <bug-10473-10286@http.bugzilla.kernel.org/>
-	 <20080417171215.f7fbba3b.akpm@linux-foundation.org>
-	 <200804181606.34853.mb@bu3sch.de>
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: Re: [PATCH] DM9000: platform dependent fill_ether_addr method
+Date: Fri, 18 Apr 2008 16:21:14 +0100
+Message-ID: <20080418152114.GI15407@fluff.org.uk>
+References: <1208512936-5897-1-git-send-email-enrico.scholz@sigma-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	"Gary Zambrano" <zambrano@broadcom.com>
-To: "Michael Buesch" <mb@bu3sch.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:19699 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752526AbYDRPXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 11:23:11 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so411880ywb.1
-        for <netdev@vger.kernel.org>; Fri, 18 Apr 2008 08:23:06 -0700 (PDT)
-In-Reply-To: <200804181606.34853.mb@bu3sch.de>
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:65194 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751774AbYDRPVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 11:21:17 -0400
 Content-Disposition: inline
+In-Reply-To: <1208512936-5897-1-git-send-email-enrico.scholz@sigma-chemnitz.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Fri, Apr 18, 2008 at 12:02:14PM +0200, Enrico Scholz wrote:
+> This patch adds a fill_ether_addr() method to the DM9000 platform data
+> which can be used to fill in the MAC address in a platform specific manner
+> (e.g. calculate it out of the serial number).
+> 
+> This method will be called only, when MAC was not set previously (e.g. by
+> bootloader) or can be read out of the EEPROM.
 
-On Fri, Apr 18, 2008 at 11:06 AM, Michael Buesch <mb@bu3sch.de> wrote:
->  > > While booting the new 2.6.25 Kernel, it enters an infinite looping displaying
->  > > "b44: eth0: powering down PHY".
->  > > The system isn't freezed as magick SysRq keys works, but it just stay
->  > > displaying those messages. I am unable to dump any information using SysRq,
->  > > however (as the b44(...) messages are too fast).
->  > >
->  > > I will attach lspci output and my .config
->  > >
->  >
->  > Apparently a regression.
->
->  Can you add a dump_stack() call to the b44_halt() function and post the resulting logs?
+I belive this has come up on the list a number of times before, and
+the general answer is that either the bootloader is at fault for not
+initialising the chip, the manufacturer should have shoved an EEPROM
+on for configuration. The general answer is that the driver should not
+be making up for the fault of the system.
 
-What I get is:
+I'm not sure if you can pass the mac via a commandline argument, that
+is something you'll have to research for yourself.
+ 
+> Having a valid MAC address in early bootstage is necessary e.g. for booting
+> from network.
 
-Pid: 4, comm: ksoftirqd/0 Tainted: GF 2.6.25-naoliv1 #2
-[<f8992420>] [<b0231ffd>] [<b02380b9>] [<b011ed60>] [<b01060f2>]
-[<b011f059>] [<b011efe1>] [<b01297c8>] [<b0129790>] [<b010473f>]
+No, you can load an initramfs to set the mac via ethtool and then
+continue with the boot.
+ 
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
 
-Something is saying to me that this won't help too much and that
-probably I need to enable something related with debug (what do I need
-to enable, please?)
-
-BTW, is it a way to "pause" the messages after dump_stack()?
-
-Thank you!
-
-Best regards,
-Nelson
+  'a smiley only costs 4 bytes'
