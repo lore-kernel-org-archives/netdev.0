@@ -1,63 +1,54 @@
-From: Eus <eus@member.fsf.org>
-Subject: Memory alignment issue in a network protocol header
-Date: Thu, 17 Apr 2008 20:08:41 -0700 (PDT)
-Message-ID: <695248.45047.qm@web37605.mail.mud.yahoo.com>
-Reply-To: eus@member.fsf.org
+From: "Li Yang" <LeoLi@freescale.com>
+Subject: RE: [PATCH v2][POWERPC] qe_lib and ucc_geth: switch to the cpm_muram implementation
+Date: Fri, 18 Apr 2008 11:29:12 +0800
+Message-ID: <989B956029373F45A0B8AF029708189002007624@zch01exm26.fsl.freescale.net>
+References: <20080416182214.GA20056@polina.dev.rtsoft.ru> <989B956029373F45A0B8AF02970818900200750D@zch01exm26.fsl.freescale.net> <20080417141043.GA21793@ld0162-tx32.am.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Linux Networking Mailing List <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <avorontsov@ru.mvista.com>,
+	"Kumar Gala" <galak@kernel.crashing.org>,
+	<linuxppc-dev@ozlabs.org>, "Jeff Garzik" <jgarzik@pobox.com>,
+	"Tabi Timur" <timur@freescale.com>, <netdev@vger.kernel.org>
+To: "Wood Scott" <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web37605.mail.mud.yahoo.com ([209.191.87.88]:42073 "HELO
-	web37605.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753138AbYDRDIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 23:08:43 -0400
+Received: from az33egw02.freescale.net ([192.88.158.103]:36326 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754288AbYDRD3Y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 23:29:24 -0400
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m3I3TGjC015353
+	for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 20:29:16 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m3I3TErO017061
+	for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 22:29:15 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20080417141043.GA21793@ld0162-tx32.am.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ho!
+> -----Original Message-----
+> From: Wood Scott 
+> Sent: Thursday, April 17, 2008 10:11 PM
+> To: Li Yang
+> Cc: avorontsov@ru.mvista.com; Kumar Gala; 
+> linuxppc-dev@ozlabs.org; Jeff Garzik; Tabi Timur; 
+> netdev@vger.kernel.org
+> Subject: Re: [PATCH v2][POWERPC] qe_lib and ucc_geth: switch 
+> to the cpm_muram implementation
+> 
+> On Wed, Apr 16, 2008 at 08:38:19PM -0700, Li Yang wrote:
+> > It is a good thing to unify the CPM dpram operation and QE muram 
+> > operation.  But I'm having concerns about the naming as CPM is an 
+> > obsolete block.  Can we change to use the new name QE instead?
+> 
+> And then change it again when marketing decides that CPM4 
+> will be called something other than QE2? :-P
 
-I am implementing a networking protocol (http://sourceforge.net/projects/atn).
-This networking protocol has the following header:
+It's a good point. :)  Technically they are quite similar.  But they are
+not so well known as Pentium to x86.  The change will cause confusion
+especially when both of the terms of CPM and QE are used in one file.  I
+agree with Kumar's suggestion that we keep both names.
 
-struct clnphdr {
-	__u8 cnf_proto_id;
-	__u8 cnf_hdr_len;
-	__u8 cnf_vers;
-	__u8 cnf_ttl;
-	__u8 cnf_flag;
-	__be16 cnf_seglen;
-	__u8 cnf_cksum_msb;
-	__u8 cnf_cksum_lsb;
-	__u8 dest_len;
-	__u8 dest_addr[20];
-	__u8 src_len;
-	__u8 src_addr[20];
-	__u8 next_part[0];
-};
-
-Because of 4-byte memory alignment in i386, there will be 1-byte padding in
-`cnf_seglen'.
-
-This alignment prevents me from doing:
-        struct clnphdr clnph = (struct clnphdr *) skb->nh.raw;
-because ntohs(clnph->cnf_seglen) will return the wrong result.
-
-The wrong result will occur because in `skb->nh.raw' the data is packed (no
-hole).
-
-The easiest solution will be to put __attribute__((packed)) in the definition of
-struct clnphdr, but this will incur performance penalty, won't this?
-
-So, how should I handle this problem in the proper way as to permit portability
-to 64-bit machines as well?
-
-Thank you very much.
-
-Best regards,
-Eus
-
-
-      ____________________________________________________________________________________
-Be a better friend, newshound, and 
-know-it-all with Yahoo! Mobile.  Try it now.  http://mobile.yahoo.com/;_ylt=Ahu06i62sR8HDtDypao8Wcj9tAcJ
+- Leo
