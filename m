@@ -1,71 +1,52 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [Bugme-new] [Bug 10473] New: Infinite loop "b44: eth0: powering down PHY"
-Date: Fri, 18 Apr 2008 16:06:34 +0200
-Message-ID: <200804181606.34853.mb@bu3sch.de>
-References: <bug-10473-10286@http.bugzilla.kernel.org/> <20080417171215.f7fbba3b.akpm@linux-foundation.org>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: remove special ioctl from hso driver, replace by rfkill
+Date: Fri, 18 Apr 2008 16:56:27 +0300
+Message-ID: <4808A88B.4010703@teltonika.lt>
+References: <200804161428.18066.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	naoliv@gmail.com, Gary Zambrano <zambrano@broadcom.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:51356 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbYDROG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 10:06:58 -0400
-In-Reply-To: <20080417171215.f7fbba3b.akpm@linux-foundation.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200804161428.18066.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-CCed Gary (the b44 maintainer).
-Not sure why I am actually CCed :)
-
-
-On Friday 18 April 2008 02:12:15 Andrew Morton wrote:
+Oliver Neukum wrote:
+> Hi,
 > 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
+> could you test this patch?
+> It does away with the one off serial ioctl replacing it with a standard
+> mechanism.
 > 
-> On Thu, 17 Apr 2008 17:08:27 -0700 (PDT)
-> bugme-daemon@bugzilla.kernel.org wrote:
-> 
-> > http://bugzilla.kernel.org/show_bug.cgi?id=10473
-> > 
-> >            Summary: Infinite loop "b44: eth0: powering down PHY"
-> >            Product: Drivers
-> >            Version: 2.5
-> >      KernelVersion: 2.6.25
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: high
-> >           Priority: P1
-> >          Component: Network
-> >         AssignedTo: jgarzik@pobox.com
-> >         ReportedBy: naoliv@gmail.com
-> > 
-> > 
-> > Latest working kernel version: 2.6.24.4 (from Debian)
-> > Earliest failing kernel version: 2.6.25 (vanilla)
-> > Distribution: Debian
-> > Problem Description:
-> > 
-> > While booting the new 2.6.25 Kernel, it enters an infinite looping displaying
-> > "b44: eth0: powering down PHY".
-> > The system isn't freezed as magick SysRq keys works, but it just stay
-> > displaying those messages. I am unable to dump any information using SysRq,
-> > however (as the b44(...) messages are too fast).
-> > 
-> > I will attach lspci output and my .config
-> > 
-> 
-> Apparently a regression.
+> 	Regards
+> 		Oliver
 
-Can you add a dump_stack() call to the b44_halt() function and post the resulting logs?
+I have tested rfkill and it realy works, but there is two problems:
 
--- 
-Greetings Michael.
+- LED on the device doesn't indicate rf state... Maybe Filip knows
+   some usb command to control it?
+
+- driver creates multiple rfkill entries on sysfs... This is because
+   option device has multi endpoints (probe is called twice with GTM380):
+
+T:  Bus=01 Lev=03 Prnt=05 Port=00 Cnt=01 Dev#=  7 Spd=12  MxCh= 0
+D:  Ver= 1.10 Cls=ff(vend.) Sub=ff Prot=ff MxPS=64 #Cfgs=  1
+P:  Vendor=0af0 ProdID=7211 Rev= 0.00
+S:  Manufacturer=Option N.V.
+S:  Product=Globetrotter HSUPA Modem
+S:  SerialNumber=Serial Number
+C:* #Ifs= 2 Cfg#= 1 Atr=80 MxPwr=500mA
+I:* If#= 0 Alt= 0 #EPs= 3 Cls=ff(vend.) Sub=ff Prot=ff Driver=hso
+E:  Ad=83(I) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+E:  Ad=03(O) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+E:  Ad=85(I) Atr=03(Int.) MxPS=  16 Ivl=128ms
+I:* If#= 1 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=ff Prot=ff Driver=hso
+E:  Ad=84(I) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+E:  Ad=04(O) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
