@@ -1,44 +1,48 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: remove special ioctl from hso driver, replace by rfkill
-Date: Fri, 18 Apr 2008 09:25:13 -0700
-Message-ID: <20080418162513.GA6704@kroah.com>
-References: <200804161428.18066.oliver@neukum.org> <4808A88B.4010703@teltonika.lt>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
+Date: Fri, 18 Apr 2008 17:58:48 +0200
+Message-ID: <m33apjp32f.fsf@maximus.localdomain>
+References: <m3prtzsszg.fsf@maximus.localdomain>
+	<m3tzj92xq6.fsf@maximus.localdomain>
+	<m33aqedg0a.fsf@maximus.localdomain>
+	<m37if4oz1g.fsf@maximus.localdomain>
+	<20080411221448.22b69ff5.akpm@linux-foundation.org>
+	<m3prsva3y7.fsf@maximus.localdomain> <20080412115950.1cbb9cfa@core>
+	<m33apqomgf.fsf@maximus.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:37724 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753330AbYDRQZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 12:25:34 -0400
-Content-Disposition: inline
-In-Reply-To: <4808A88B.4010703@teltonika.lt>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755409AbYDRP7J@vger.kernel.org>
+In-Reply-To: <m33apqomgf.fsf@maximus.localdomain> (Krzysztof Halasa's message of "Sat\, 12 Apr 2008 22\:19\:28 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 18, 2008 at 04:56:27PM +0300, Paulius Zaleckas wrote:
-> Oliver Neukum wrote:
->> Hi,
->> could you test this patch?
->> It does away with the one off serial ioctl replacing it with a standard
->> mechanism.
->> 	Regards
->> 		Oliver
+Update:
+
+> Yes, I could add another dirty "interface fix" to the HDLC + syncppp
+> combo (hdlc_ppp), but I don't really see a sense, especially that I
+> have the new implementation ready and working (my time resources are
+> currently quite limited and if I have to choose between adding another
+> glue fix and writing a better PPP replacement I pick the latter).
 >
-> I have tested rfkill and it realy works, but there is two problems:
 >
-> - LED on the device doesn't indicate rf state... Maybe Filip knows
->   some usb command to control it?
->
-> - driver creates multiple rfkill entries on sysfs... This is because
->   option device has multi endpoints (probe is called twice with GTM380):
+> My original post: http://lkml.org/lkml/2008/3/12/277
 
-You mean "multiple interfaces" :)
+David doesn't want the new PPP, insisting that I fix existing
+hdlc_ppp.c + syncppp.c combo instead, and that there are related bugs
+in drivers using syncppp.c alone (not hdlc_ppp) which I have to fix as
+well.
 
-And that's correct, for this device, that is the way it was created, so
-either rfkill entry should work to shut off the radio...
+Unfortunately I'm unable to do that. Even if I could add another
+workaround to hdlc_ppp to make it work with syncppp.c again, I can't
+fix the other drivers (if they are indeed broken) because of lack of
+hardware, and I can't really make significant changes to syncppp.c
+(to make them available to all drivers) because that could and would
+break those drivers.
 
-thanks,
-
-greg k-h
+Comments?
+-- 
+Krzysztof Halasa
