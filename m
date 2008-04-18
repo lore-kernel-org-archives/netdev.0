@@ -1,52 +1,50 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: remove special ioctl from hso driver, replace by rfkill
-Date: Fri, 18 Apr 2008 16:56:27 +0300
-Message-ID: <4808A88B.4010703@teltonika.lt>
-References: <200804161428.18066.oliver@neukum.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
+Date: Fri, 18 Apr 2008 08:45:27 -0400
+Message-ID: <1208522727.4422.79.camel@localhost>
+References: <20080417103858.0075236b@extreme>
+	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>
+	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>
+	 <1208467480.15888.50.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200804161428.18066.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.250]:48438 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753058AbYDRMpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 08:45:39 -0400
+Received: by an-out-0708.google.com with SMTP id d31so141726and.103
+        for <netdev@vger.kernel.org>; Fri, 18 Apr 2008 05:45:38 -0700 (PDT)
+In-Reply-To: <1208467480.15888.50.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum wrote:
-> Hi,
-> 
-> could you test this patch?
-> It does away with the one off serial ioctl replacing it with a standard
-> mechanism.
-> 
-> 	Regards
-> 		Oliver
 
-I have tested rfkill and it realy works, but there is two problems:
+Scanning that region of u32 that changed:
+show_key() certainly assumes IPv4 (it will fail if we filter on IPV6,
+ARP etc). I think this is even more reason to do the cooked variant as
+the non-default.
+Let me know if you are ok with changing that and i will invest time
+"cooking" patches ;-> 
 
-- LED on the device doesn't indicate rf state... Maybe Filip knows
-   some usb command to control it?
+BTW, speaking of scripts and command line output changes (and to
+emphasize my earlier comments):
+A lot of people managing router configuration out there in the wild do
+write parsers that depend on how output looks like (typically a
+send/expect interaction)[1]. They invest time in writting such scripts.
+In an old job at one point, a customer was adamant they wouldnt buy our
+new super-dupper device merely because we changed the command output by
+iirc removing a ":" in one of them. Theyd have to rewrite things and go
+through whole regression testing.
 
-- driver creates multiple rfkill entries on sysfs... This is because
-   option device has multi endpoints (probe is called twice with GTM380):
+cheers,
+jamal
+[1] Contrary to popular theory that provider use SNMP to do router
+config (as found out by some study related to the IETF). Things are
+changing a little with newer protocols showing up at the IETF to address
+these sort of issues.
 
-T:  Bus=01 Lev=03 Prnt=05 Port=00 Cnt=01 Dev#=  7 Spd=12  MxCh= 0
-D:  Ver= 1.10 Cls=ff(vend.) Sub=ff Prot=ff MxPS=64 #Cfgs=  1
-P:  Vendor=0af0 ProdID=7211 Rev= 0.00
-S:  Manufacturer=Option N.V.
-S:  Product=Globetrotter HSUPA Modem
-S:  SerialNumber=Serial Number
-C:* #Ifs= 2 Cfg#= 1 Atr=80 MxPwr=500mA
-I:* If#= 0 Alt= 0 #EPs= 3 Cls=ff(vend.) Sub=ff Prot=ff Driver=hso
-E:  Ad=83(I) Atr=02(Bulk) MxPS=  64 Ivl=0ms
-E:  Ad=03(O) Atr=02(Bulk) MxPS=  64 Ivl=0ms
-E:  Ad=85(I) Atr=03(Int.) MxPS=  16 Ivl=128ms
-I:* If#= 1 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=ff Prot=ff Driver=hso
-E:  Ad=84(I) Atr=02(Bulk) MxPS=  64 Ivl=0ms
-E:  Ad=04(O) Atr=02(Bulk) MxPS=  64 Ivl=0ms
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
