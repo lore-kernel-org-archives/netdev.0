@@ -1,68 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] tg3: 5701 DMA corruption fix
-Date: Thu, 17 Apr 2008 23:26:12 -0700 (PDT)
-Message-ID: <20080417.232612.04456205.davem@davemloft.net>
-References: <20080416222741.GA20272@localdomain>
+Subject: Re: [PATCH RFC] net/core: API to create/destroy /sys/class/net
+ entries
+Date: Thu, 17 Apr 2008 23:36:44 -0700 (PDT)
+Message-ID: <20080417.233644.19783833.davem@davemloft.net>
+References: <14079.1208394386@death>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, andy@greyhouse.net,
-	tonyb@cybernetics.com
-To: mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44224
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55259
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752363AbYDRG0K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 02:26:10 -0400
-In-Reply-To: <20080416222741.GA20272@localdomain>
+	by vger.kernel.org with ESMTP id S1752363AbYDRGgq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 02:36:46 -0400
+In-Reply-To: <14079.1208394386@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Wed, 16 Apr 2008 15:27:41 -0700
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Wed, 16 Apr 2008 18:06:26 -0700
 
-> +		while (pci_id->vendor != 0) {
-> +			bridge = pci_get_device(pci_id->vendor,
-> +						pci_id->device,
-> +						bridge);
-> +			if (!bridge) {
-> +				pci_id++;
-> +				continue;
-> +			}
-> +			if (bridge->subordinate &&
-> +			    (bridge->subordinate->number <=
-> +			     tp->pdev->bus->number) &&
-> +			    (bridge->subordinate->subordinate >=
-> +			     tp->pdev->bus->number)) {
-> +				tp->tg3_flags3 |= TG3_FLG3_5701_DMA_BUG;
-> +				pci_dev_put(bridge);
-> +				break;
-> +			}
-> +		}
-> +	}
+> 	Bonding creates a file in sysfs, /sys/class/net/bonding_masters,
+> which is used to create and destroy bonding devices.  Currently, when
+> bonding is loaded, it does some poking through the device structure of
+> the first bonding device to find the net_class, and then uses that
+> pointer to create the file (by calling class_create_file).
 
-This code block will leak bridge device objects when the table
-comparison check fails.
+As Stephen stated this was a horrible decision, that directory is for
+network device instances, that's why the class variable is called
+"netdev_class" not "dump_all_yer_networking_shit_here_class"
 
-Probably the best thing to do is seperate the boolean check
-from the other operations:
+The only saving grace is that bonding creates a file, not a
+directory, so "scan for all directories under /sys/class/net/"
+schemes still work.
 
-	bool match = false;
- ...
-	if (bridge->subordinate &&
-	    (bridge->subordinate->number <=
-	     tp->pdev->bus->number) &&
-	    (bridge->subordinate->subordinate >=
-	     tp->pdev->bus->number))
-		match = true;
+Water under the bridge I suppose, and we're stuck with this.
 
-	pci_dev_put_bridge(bridge);
+I guess your proposal is the best, as if we export netdev_class
+people can do other funky, undesirable, things with it.
 
-	if (match) {
-		tp->tg3_flags |= TG3_FLG3_5701_DMA_BUG;
-		pci_dev_put(bridge);
-	}
-
-Please fix this up, and combine the version bump into this patch.
-
-Thank you!
+Please submit the final version of your patch, I'll apply it.
