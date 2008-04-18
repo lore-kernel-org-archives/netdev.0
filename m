@@ -1,59 +1,143 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10473] New: Infinite loop "b44: eth0: powering
- down PHY"
-Date: Thu, 17 Apr 2008 17:12:15 -0700
-Message-ID: <20080417171215.f7fbba3b.akpm@linux-foundation.org>
-References: <bug-10473-10286@http.bugzilla.kernel.org/>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: [PATCH 4/5] [E1000]: [VLAN] Turn off the HW vlan filter if promisc
+Date: Fri, 18 Apr 2008 10:54:13 +0900
+Message-ID: <b25c3fa70804171854s7b056da1u89e9b758c494a07@mail.gmail.com>
+References: <20080411135851.GD8137@tp64> <4807C03E.7060705@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, naoliv@gmail.com
-To: netdev@vger.kernel.org, Michael Buesch <mb@bu3sch.de>
+Cc: kaber@trash.net, jeff@garzik.org, netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33280 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752226AbYDRANI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 20:13:08 -0400
-In-Reply-To: <bug-10473-10286@http.bugzilla.kernel.org/>
+Received: from po-out-1718.google.com ([72.14.252.152]:12216 "EHLO
+	po-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752661AbYDRByO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2008 21:54:14 -0400
+Received: by po-out-1718.google.com with SMTP id a23so157145poh.1
+        for <netdev@vger.kernel.org>; Thu, 17 Apr 2008 18:54:13 -0700 (PDT)
+In-Reply-To: <4807C03E.7060705@intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2008/4/18, Kok, Auke <auke-jan.h.kok@intel.com>:
+> Joonwoo Park wrote:
+> > If the netdev goes into mode promiscuous, receive all of the packets on
+> > the wire without HW filtering, those packets will be processed as type
+> > PACKET_OTHERHOST.
+> >
+> > Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+>
+>
+> this is a repost afaics with the same idea as previous.
+>
+> I however can't make sense out of what the consensus was in the discussion that
+> previously took place.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Auke,
+Thanks for your response
 
-On Thu, 17 Apr 2008 17:08:27 -0700 (PDT)
-bugme-daemon@bugzilla.kernel.org wrote:
+Please take a look at
+http://thread.gmane.org/gmane.linux.network/88488
+I agreed with Patrick's opinion.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10473
-> 
->            Summary: Infinite loop "b44: eth0: powering down PHY"
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.25
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: naoliv@gmail.com
-> 
-> 
-> Latest working kernel version: 2.6.24.4 (from Debian)
-> Earliest failing kernel version: 2.6.25 (vanilla)
-> Distribution: Debian
-> Problem Description:
-> 
-> While booting the new 2.6.25 Kernel, it enters an infinite looping displaying
-> "b44: eth0: powering down PHY".
-> The system isn't freezed as magick SysRq keys works, but it just stay
-> displaying those messages. I am unable to dump any information using SysRq,
-> however (as the b44(...) messages are too fast).
-> 
-> I will attach lspci output and my .config
-> 
+>
+> My techical objection against this patch is that it removes flexibility from the
+> admin to display only the particular vlan traffic. With this patch there is no
+> longer a way to sniff just one vlan and forget about the other traffic.
 
-Apparently a regression.
+No, the admin configured promisc flag on the netdev. It means that the
+admin would like to see all the packets on the wire not one particular
+vlan traffic I think.
+If admin would like to sniff one vlan, he or she should configure promisc.
+This patch dose nothing for non-promisc.
+
+>
+> My logistical objection against this patch is that it adjusts only one/two drivers
+> to do something, but I don't see anything consistently in all the drivers at all
+> that suggest that this is the right thing to do at all. Either a mandate or
+> something suggesting that all drivers that do vlan filtering *should* do something
+>  specific in promiscuous mode.
+
+It's true. We need to fix all the netdev which is VLAN_HW_FILTER capable IMHO.
+However I couldn't make patches for all of them since I don't have those HW :(
+
+>
+> Either it should be clear that all drivers should do the same thing (and you
+> should then adjust all the drivers and not just the one or two that you use, and
+> preferably in the stack if possible) or we leave this as is for all the drivers.
+
+I'll try to adjust all the drivers or push it to other driver
+maintainers if people does like this patchset.
+
+>
+> I think we should prevent wild growth like e.g. module parameters like
+> `vlan_tag_strip` in s2io (NO_STRIP_IN_PROMISC)... !
+
+I don't think so :), we don't need NO_STRIP if I worked correctly.
+The patches 1,2 is the work for passing vlan tag to sniffers without
+no stripping.
+
+Thanks,
+Joonwoo
+
+>
+> so I don't think this is a good idea.
+>
+> Auke
+>
+>
+> > ---
+> >  drivers/net/e1000/e1000_main.c |   19 ++++++++++++++-----
+> >  1 files changed, 14 insertions(+), 5 deletions(-)
+> >
+> > diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> > index 0991648..61965c2 100644
+> > --- a/drivers/net/e1000/e1000_main.c
+> > +++ b/drivers/net/e1000/e1000_main.c
+> > @@ -2495,7 +2495,7 @@ e1000_set_rx_mode(struct net_device *netdev)
+> >       struct e1000_hw *hw = &adapter->hw;
+> >       struct dev_addr_list *uc_ptr;
+> >       struct dev_addr_list *mc_ptr;
+> > -     uint32_t rctl;
+> > +     uint32_t rctl, ctrl;
+> >       uint32_t hash_value;
+> >       int i, rar_entries = E1000_RAR_ENTRIES;
+> >       int mta_reg_count = (hw->mac_type == e1000_ich8lan) ?
+> > @@ -2512,13 +2512,19 @@ e1000_set_rx_mode(struct net_device *netdev)
+> >       /* Check for Promiscuous and All Multicast modes */
+> >
+> >       rctl = E1000_READ_REG(hw, RCTL);
+> > +     ctrl = E1000_READ_REG(hw, CTRL);
+> >
+> >       if (netdev->flags & IFF_PROMISC) {
+> >               rctl |= (E1000_RCTL_UPE | E1000_RCTL_MPE);
+> > -     } else if (netdev->flags & IFF_ALLMULTI) {
+> > -             rctl |= E1000_RCTL_MPE;
+> > +             rctl &= ~E1000_RCTL_VFE;
+> >       } else {
+> > -             rctl &= ~E1000_RCTL_MPE;
+> > +             if (ctrl & E1000_CTRL_VME &&
+> > +                 adapter->hw.mac_type != e1000_ich8lan)
+> > +                     rctl |= E1000_RCTL_VFE;
+> > +             if (netdev->flags & IFF_ALLMULTI)
+> > +                     rctl |= E1000_RCTL_MPE;
+> > +             else
+> > +                     rctl &= ~E1000_RCTL_MPE;
+> >       }
+> >
+> >       uc_ptr = NULL;
+> > @@ -5013,7 +5019,10 @@ e1000_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+> >               if (adapter->hw.mac_type != e1000_ich8lan) {
+> >                       /* enable VLAN receive filtering */
+> >                       rctl = E1000_READ_REG(&adapter->hw, RCTL);
+> > -                     rctl |= E1000_RCTL_VFE;
+> > +                     if (netdev->flags & IFF_PROMISC)
+> > +                             rctl &= ~E1000_RCTL_VFE;
+> > +                     else
+> > +                             rctl |= E1000_RCTL_VFE;
+> >                       rctl &= ~E1000_RCTL_CFIEN;
+> >                       E1000_WRITE_REG(&adapter->hw, RCTL, rctl);
+> >                       e1000_update_mng_vlan(adapter);
+>
+>
