@@ -1,61 +1,82 @@
 From: akpm@linux-foundation.org
-Subject: [patch 8/9] smc911x: test after postfix decrement fails in smc911x_{reset,drop_pkt}
-Date: Fri, 18 Apr 2008 13:50:48 -0700
-Message-ID: <200804182050.m3IKonMV014845@imap1.linux-foundation.org>
+Subject: [patch 1/9] forcedeth: power down phy when interface is down
+Date: Fri, 18 Apr 2008 13:50:36 -0700
+Message-ID: <200804182050.m3IKoa8Z014821@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	12o3l@tiscali.nl, jacmet@sunsite.dk
+	eswierk@arastra.com, aabdulla@nvidia.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48689 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46498 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756684AbYDRUve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 16:51:34 -0400
+	by vger.kernel.org with ESMTP id S1753635AbYDRUvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 16:51:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <12o3l@tiscali.nl>
+From: "Ed Swierk" <eswierk@arastra.com>
 
-When timeout reaches 0 the postfix decrement still subtracts, so the test
-fails.
+Bring the physical link down when the interface is down by placing the PHY
+in power-down state, unless WOL is enabled.  This mirrors the behavior of
+other drivers including e1000 and tg3.
 
-[akpm@linux-foundation.org: coding-style fixes]
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+Without the patch, ifconfig down leaves the physical link up, which confuses
+datacenter users who expect the link lights both on the NIC and the switch to
+go out when they bring an interface down.
+
+Furthermore, even though the phy is powered on, autonegotiation stops working,
+so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
+interface goes down, and become gigabit when it comes up again.
+
+Ayaz said:
+
+  I would not include this patch until further testing is performed.  NVIDIA
+  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
+  have adverse affects on certain phys.
+
+Signed-off-by: Ed Swierk <eswierk@arastra.com>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/smc911x.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/forcedeth.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/smc911x.c~smc911x-test-after-postfix-decrement-fails-in-smc911x_resetdrop_pkt drivers/net/smc911x.c
---- a/drivers/net/smc911x.c~smc911x-test-after-postfix-decrement-fails-in-smc911x_resetdrop_pkt
-+++ a/drivers/net/smc911x.c
-@@ -244,7 +244,7 @@ static void smc911x_reset(struct net_dev
- 		do {
- 			udelay(10);
- 			reg = SMC_GET_PMT_CTRL() & PMT_CTRL_READY_;
--		} while ( timeout-- && !reg);
-+		} while (--timeout && !reg);
- 		if (timeout == 0) {
- 			PRINTK("%s: smc911x_reset timeout waiting for PM restore\n", dev->name);
- 			return;
-@@ -268,7 +268,7 @@ static void smc911x_reset(struct net_dev
- 				resets++;
- 				break;
- 			}
--		} while ( timeout-- && (reg & HW_CFG_SRST_));
-+		} while (--timeout && (reg & HW_CFG_SRST_));
+diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
++++ a/drivers/net/forcedeth.c
+@@ -1344,9 +1344,9 @@ static int phy_init(struct net_device *d
+ 	/* some phys clear out pause advertisment on reset, set it back */
+ 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+ 
+-	/* restart auto negotiation */
++	/* restart auto negotiation, power down phy */
+ 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+-	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
+ 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+ 		return PHY_ERROR;
  	}
- 	if (timeout == 0) {
- 		PRINTK("%s: smc911x_reset timeout waiting for reset\n", dev->name);
-@@ -414,7 +414,7 @@ static inline void smc911x_drop_pkt(stru
- 		do {
- 			udelay(10);
- 			reg = SMC_GET_RX_DP_CTRL() & RX_DP_CTRL_FFWD_BUSY_;
--		} while ( timeout-- && reg);
-+		} while (--timeout && reg);
- 		if (timeout == 0) {
- 			PRINTK("%s: timeout waiting for RX fast forward\n", dev->name);
- 		}
+@@ -4931,6 +4931,10 @@ static int nv_open(struct net_device *de
+ 
+ 	dprintk(KERN_DEBUG "nv_open: begin\n");
+ 
++	/* power up phy */
++	mii_rw(dev, np->phyaddr, MII_BMCR,
++	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -5114,6 +5118,10 @@ static int nv_close(struct net_device *d
+ 	if (np->wolenabled) {
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
++	} else {
++		/* power down phy */
++		mii_rw(dev, np->phyaddr, MII_BMCR,
++		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
+ 	}
+ 
+ 	/* FIXME: power down nic */
 _
