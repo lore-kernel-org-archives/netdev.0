@@ -1,91 +1,76 @@
-From: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Subject: [patch 2/3] hci_usb: remove code obfuscation
-Date: Fri, 18 Apr 2008 13:46:53 -0700
-Message-ID: <200804182046.m3IKks86014628@imap1.linux-foundation.org>
-Cc: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org,
-	pavel-AlSwsSmVLrQ@public.gmane.org
-To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Nelson A. de Oliveira" <naoliv@gmail.com>
+Subject: Re: [Bugme-new] [Bug 10473] New: Infinite loop "b44: eth0: powering down PHY"
+Date: Fri, 18 Apr 2008 14:43:57 -0300
+Message-ID: <9bfa9ae0804181043v60b7c92boef1c025ce04cfe37@mail.gmail.com>
+References: <bug-10473-10286@http.bugzilla.kernel.org/>
+	 <200804181732.48546.mb@bu3sch.de>
+	 <9bfa9ae0804181012l451687d8o7e6ce1f5213ff716@mail.gmail.com>
+	 <200804181919.17456.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	"Gary Zambrano" <zambrano@broadcom.com>
+To: "Michael Buesch" <mb@bu3sch.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.29]:19497 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757359AbYDRRoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 13:44:14 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so449484ywb.1
+        for <netdev@vger.kernel.org>; Fri, 18 Apr 2008 10:43:57 -0700 (PDT)
+In-Reply-To: <200804181919.17456.mb@bu3sch.de>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Hi!
 
-_urb_free is an alias for kfree... making code longer & harder to
-read. Remove it.
+On Fri, Apr 18, 2008 at 2:19 PM, Michael Buesch <mb@bu3sch.de> wrote:
+> On Friday 18 April 2008 19:12:34 Nelson A. de Oliveira wrote:
+>  > Anything else that I can do to help, please?
+>
+>  Please apply this patch and send me the messages.
 
-Signed-off-by: Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
----
+b44_poll: istat = 0x00000400
 
- drivers/bluetooth/hci_usb.c |   10 +++++-----
- drivers/bluetooth/hci_usb.h |    5 -----
- 2 files changed, 5 insertions(+), 10 deletions(-)
+b44: eth0: powering down PHY
 
-diff -puN drivers/bluetooth/hci_usb.c~hci_usb-remove-code-obfuscation drivers/bluetooth/hci_usb.c
---- a/drivers/bluetooth/hci_usb.c~hci_usb-remove-code-obfuscation
-+++ a/drivers/bluetooth/hci_usb.c
-@@ -265,7 +265,7 @@ static int hci_usb_intr_rx_submit(struct
- 		BT_ERR("%s intr rx submit failed urb %p err %d",
- 				husb->hdev->name, urb, err);
- 		_urb_unlink(_urb);
--		_urb_free(_urb);
-+		kfree(_urb);
- 		kfree(buf);
- 	}
- 	return err;
-@@ -302,7 +302,7 @@ static int hci_usb_bulk_rx_submit(struct
- 		BT_ERR("%s bulk rx submit failed urb %p err %d",
- 				husb->hdev->name, urb, err);
- 		_urb_unlink(_urb);
--		_urb_free(_urb);
-+		kfree(_urb);
- 		kfree(buf);
- 	}
- 	return err;
-@@ -353,7 +353,7 @@ static int hci_usb_isoc_rx_submit(struct
- 		BT_ERR("%s isoc rx submit failed urb %p err %d",
- 				husb->hdev->name, urb, err);
- 		_urb_unlink(_urb);
--		_urb_free(_urb);
-+		kfree(_urb);
- 		kfree(buf);
- 	}
- 	return err;
-@@ -431,7 +431,7 @@ static void hci_usb_unlink_urbs(struct h
- 					husb->hdev->name, _urb, _urb->type, urb);
- 			kfree(urb->setup_packet);
- 			kfree(urb->transfer_buffer);
--			_urb_free(_urb);
-+			kfree(_urb);
- 		}
- 	}
- }
-@@ -490,7 +490,7 @@ static inline int hci_usb_send_ctrl(stru
- 
- 		dr = kmalloc(sizeof(*dr), GFP_ATOMIC);
- 		if (!dr) {
--			_urb_free(_urb);
-+			kfree(_urb);
- 			return -ENOMEM;
- 		}
- 	} else
-diff -puN drivers/bluetooth/hci_usb.h~hci_usb-remove-code-obfuscation drivers/bluetooth/hci_usb.h
---- a/drivers/bluetooth/hci_usb.h~hci_usb-remove-code-obfuscation
-+++ a/drivers/bluetooth/hci_usb.h
-@@ -60,11 +60,6 @@ struct _urb {
- 	struct urb        urb;
- };
- 
--static inline void _urb_free(struct _urb *_urb)
--{
--	kfree(_urb);
--}
--
- static inline void _urb_queue_init(struct _urb_queue *q)
- {
- 	INIT_LIST_HEAD(&q->head);
-_
+
+Pid: 0, comm: swapper Not tainted 2.6.25-naoliv1 #4
+
+[<f899df84>] b44_halt+0x68/0x7f [b44]
+
+[<f88f4440>] b44_poll+0x378/0x415 [b44]
+
+[<b010453b>] common_interrupt+0x23/0x28
+
+[<b02393ad>] net_rx_action+0x63/0x131
+
+[<b011ee60>] __do_softirq+0x5a/0xa5
+
+[<b01061e2>] do_softirq+0x52/0x84
+
+[<b013d666>] handle_fasteoi_irq+0x0/0xad
+
+[<b011ed3e>] irq_exit+0x35/0x76
+
+[<b01062ad>] do_IRQ+0x99/0xb0
+
+[<b010453b>] common_interrupt+0x23/0x28
+
+[<f886700b>] acpi_idle_enter_bm+0x28c/0x2fd6 [processor]
+
+[<b022602b>] cpuidle_idle_call+0x55/0x86
+
+[<b0225fd6>] cpuidle_idle_call+0x0/0x86
+
+[<b01028d3>] cpu_idle+0x8c/0xbc
+
+I have increased the delay now.  This is the first message that
+appears. It seems that after some time it starts to display the other
+lines from my last email (Pid 4, comm: ksoftirqd/0 ...).
+
+Best regards,
+Nelson
