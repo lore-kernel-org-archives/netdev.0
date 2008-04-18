@@ -1,155 +1,215 @@
 From: akpm@linux-foundation.org
-Subject: [patch 5/9] sundance: set carrier status on link change events
-Date: Fri, 18 Apr 2008 13:50:40 -0700
-Message-ID: <200804182050.m3IKoh2c014833@imap1.linux-foundation.org>
+Subject: [patch 3/9] sc92031: use net_device stats
+Date: Fri, 18 Apr 2008 13:50:38 -0700
+Message-ID: <200804182050.m3IKodFN014827@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	dbn.lists@gmail.com
+	shemminger@vyatta.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44891 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38925 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756174AbYDRUvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 16:51:16 -0400
+	by vger.kernel.org with ESMTP id S1756344AbYDRUvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 16:51:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Nicholson <dbn.lists@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
 
-Check if the link is available when a changed interrupt has been received and
-set the carrier status appropriately.  The code is copied nearly verbatim from
-the dl2k module.  The link status could be used in more places in the driver,
-but this is enough to get the carrier status reported to userspace.  Fixes
-kernel bug #7487:
+Statistics structure is available for use in net_device structure.  Compile
+tested only.
 
-    http://bugzilla.kernel.org/show_bug.cgi?id=7487
-
-[akpm@linux-foundation.org: coding-style fixes]
-Signed-off-by: Dan Nicholson <dbn.lists@gmail.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/sundance.c |   95 +++++++++++++++++++++++++--------------
- 1 file changed, 62 insertions(+), 33 deletions(-)
+ drivers/net/sc92031.c |   70 +++++++++++++++++++---------------------
+ 1 file changed, 34 insertions(+), 36 deletions(-)
 
-diff -puN drivers/net/sundance.c~sundance-set-carrier-status-on-link-change-events drivers/net/sundance.c
---- a/drivers/net/sundance.c~sundance-set-carrier-status-on-link-change-events
-+++ a/drivers/net/sundance.c
-@@ -409,6 +409,7 @@ static int  change_mtu(struct net_device
- static int  eeprom_read(void __iomem *ioaddr, int location);
- static int  mdio_read(struct net_device *dev, int phy_id, int location);
- static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
-+static int  mdio_wait_link(struct net_device *dev, int wait);
- static int  netdev_open(struct net_device *dev);
- static void check_duplex(struct net_device *dev);
- static void netdev_timer(unsigned long data);
-@@ -785,6 +786,24 @@ static void mdio_write(struct net_device
- 	return;
+diff -puN drivers/net/sc92031.c~sc92031-use-net_device-stats drivers/net/sc92031.c
+--- a/drivers/net/sc92031.c~sc92031-use-net_device-stats
++++ a/drivers/net/sc92031.c
+@@ -311,7 +311,6 @@ struct sc92031_priv {
+ 
+ 	/* for dev->get_stats */
+ 	long			rx_value;
+-	struct net_device_stats	stats;
+ };
+ 
+ /* I don't know which registers can be safely read; however, I can guess
+@@ -421,7 +420,7 @@ static void _sc92031_tx_clear(struct net
+ 
+ 	while (priv->tx_head - priv->tx_tail > 0) {
+ 		priv->tx_tail++;
+-		priv->stats.tx_dropped++;
++		dev->stats.tx_dropped++;
+ 	}
+ 	priv->tx_head = priv->tx_tail = 0;
+ }
+@@ -676,27 +675,27 @@ static void _sc92031_tx_tasklet(struct n
+ 		priv->tx_tail++;
+ 
+ 		if (tx_status & TxStatOK) {
+-			priv->stats.tx_bytes += tx_status & 0x1fff;
+-			priv->stats.tx_packets++;
++			dev->stats.tx_bytes += tx_status & 0x1fff;
++			dev->stats.tx_packets++;
+ 			/* Note: TxCarrierLost is always asserted at 100mbps. */
+-			priv->stats.collisions += (tx_status >> 22) & 0xf;
++			dev->stats.collisions += (tx_status >> 22) & 0xf;
+ 		}
+ 
+ 		if (tx_status & (TxOutOfWindow | TxAborted)) {
+-			priv->stats.tx_errors++;
++			dev->stats.tx_errors++;
+ 
+ 			if (tx_status & TxAborted)
+-				priv->stats.tx_aborted_errors++;
++				dev->stats.tx_aborted_errors++;
+ 
+ 			if (tx_status & TxCarrierLost)
+-				priv->stats.tx_carrier_errors++;
++				dev->stats.tx_carrier_errors++;
+ 
+ 			if (tx_status & TxOutOfWindow)
+-				priv->stats.tx_window_errors++;
++				dev->stats.tx_window_errors++;
+ 		}
+ 
+ 		if (tx_status & TxUnderrun)
+-			priv->stats.tx_fifo_errors++;
++			dev->stats.tx_fifo_errors++;
+ 	}
+ 
+ 	if (priv->tx_tail != old_tx_tail)
+@@ -704,27 +703,29 @@ static void _sc92031_tx_tasklet(struct n
+ 			netif_wake_queue(dev);
  }
  
-+static int mdio_wait_link(struct net_device *dev, int wait)
-+{
-+	int bmsr;
-+	int phy_id;
-+	struct netdev_private *np;
-+
-+	np = netdev_priv(dev);
-+	phy_id = np->phys[0];
-+
-+	do {
-+		bmsr = mdio_read(dev, phy_id, MII_BMSR);
-+		if (bmsr & 0x0004)
-+			return 0;
-+		mdelay(1);
-+	} while (--wait > 0);
-+	return -1;
-+}
-+
- static int netdev_open(struct net_device *dev)
+-static void _sc92031_rx_tasklet_error(u32 rx_status,
+-		struct sc92031_priv *priv, unsigned rx_size)
++static void _sc92031_rx_tasklet_error(struct net_device *dev,
++				      u32 rx_status, unsigned rx_size)
  {
- 	struct netdev_private *np = netdev_priv(dev);
-@@ -1393,41 +1412,51 @@ static void netdev_error(struct net_devi
- 	int speed;
- 
- 	if (intr_status & LinkChange) {
--		if (np->an_enable) {
--			mii_advertise = mdio_read (dev, np->phys[0], MII_ADVERTISE);
--			mii_lpa= mdio_read (dev, np->phys[0], MII_LPA);
--			mii_advertise &= mii_lpa;
--			printk (KERN_INFO "%s: Link changed: ", dev->name);
--			if (mii_advertise & ADVERTISE_100FULL) {
--				np->speed = 100;
--				printk ("100Mbps, full duplex\n");
--			} else if (mii_advertise & ADVERTISE_100HALF) {
--				np->speed = 100;
--				printk ("100Mbps, half duplex\n");
--			} else if (mii_advertise & ADVERTISE_10FULL) {
--				np->speed = 10;
--				printk ("10Mbps, full duplex\n");
--			} else if (mii_advertise & ADVERTISE_10HALF) {
--				np->speed = 10;
--				printk ("10Mbps, half duplex\n");
--			} else
--				printk ("\n");
-+		if (mdio_wait_link(dev, 10) == 0) {
-+			printk(KERN_INFO "%s: Link up\n", dev->name);
-+			if (np->an_enable) {
-+				mii_advertise = mdio_read(dev, np->phys[0],
-+							   MII_ADVERTISE);
-+				mii_lpa = mdio_read(dev, np->phys[0], MII_LPA);
-+				mii_advertise &= mii_lpa;
-+				printk(KERN_INFO "%s: Link changed: ",
-+					dev->name);
-+				if (mii_advertise & ADVERTISE_100FULL) {
-+					np->speed = 100;
-+					printk("100Mbps, full duplex\n");
-+				} else if (mii_advertise & ADVERTISE_100HALF) {
-+					np->speed = 100;
-+					printk("100Mbps, half duplex\n");
-+				} else if (mii_advertise & ADVERTISE_10FULL) {
-+					np->speed = 10;
-+					printk("10Mbps, full duplex\n");
-+				} else if (mii_advertise & ADVERTISE_10HALF) {
-+					np->speed = 10;
-+					printk("10Mbps, half duplex\n");
-+				} else
-+					printk("\n");
- 
-+			} else {
-+				mii_ctl = mdio_read(dev, np->phys[0], MII_BMCR);
-+				speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
-+				np->speed = speed;
-+				printk(KERN_INFO "%s: Link changed: %dMbps ,",
-+					dev->name, speed);
-+				printk("%s duplex.\n",
-+					(mii_ctl & BMCR_FULLDPLX) ?
-+						"full" : "half");
-+			}
-+			check_duplex(dev);
-+			if (np->flowctrl && np->mii_if.full_duplex) {
-+				iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
-+					ioaddr + MulticastFilter1+2);
-+				iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
-+					ioaddr + MACCtrl0);
-+			}
-+			netif_carrier_on(dev);
- 		} else {
--			mii_ctl = mdio_read (dev, np->phys[0], MII_BMCR);
--			speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
--			np->speed = speed;
--			printk (KERN_INFO "%s: Link changed: %dMbps ,",
--				dev->name, speed);
--			printk ("%s duplex.\n", (mii_ctl & BMCR_FULLDPLX) ?
--				"full" : "half");
--		}
--		check_duplex (dev);
--		if (np->flowctrl && np->mii_if.full_duplex) {
--			iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
--				ioaddr + MulticastFilter1+2);
--			iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
--				ioaddr + MACCtrl0);
-+			printk(KERN_INFO "%s: Link down\n", dev->name);
-+			netif_carrier_off(dev);
- 		}
+ 	if(rx_size > (MAX_ETH_FRAME_SIZE + 4) || rx_size < 16) {
+-		priv->stats.rx_errors++;
+-		priv->stats.rx_length_errors++;
++		dev->stats.rx_errors++;
++		dev->stats.rx_length_errors++;
  	}
- 	if (intr_status & StatsMax) {
+ 
+ 	if (!(rx_status & RxStatesOK)) {
+-		priv->stats.rx_errors++;
++		dev->stats.rx_errors++;
+ 
+ 		if (rx_status & (RxHugeFrame | RxSmallFrame))
+-			priv->stats.rx_length_errors++;
++			dev->stats.rx_length_errors++;
+ 
+ 		if (rx_status & RxBadAlign)
+-			priv->stats.rx_frame_errors++;
++			dev->stats.rx_frame_errors++;
+ 
+ 		if (!(rx_status & RxCRCOK))
+-			priv->stats.rx_crc_errors++;
+-	} else
++			dev->stats.rx_crc_errors++;
++	} else {
++		struct sc92031_priv *priv = netdev_priv(dev);
+ 		priv->rx_loss++;
++	}
+ }
+ 
+ static void _sc92031_rx_tasklet(struct net_device *dev)
+@@ -783,7 +784,7 @@ static void _sc92031_rx_tasklet(struct n
+ 				|| rx_size > (MAX_ETH_FRAME_SIZE + 4)
+ 				|| rx_size < 16
+ 				|| !(rx_status & RxStatesOK))) {
+-			_sc92031_rx_tasklet_error(rx_status, priv, rx_size);
++			_sc92031_rx_tasklet_error(dev, rx_status, rx_size);
+ 			break;
+ 		}
+ 
+@@ -818,11 +819,11 @@ static void _sc92031_rx_tasklet(struct n
+ 		dev->last_rx = jiffies;
+ 		netif_rx(skb);
+ 
+-		priv->stats.rx_bytes += pkt_size;
+-		priv->stats.rx_packets++;
++		dev->stats.rx_bytes += pkt_size;
++		dev->stats.rx_packets++;
+ 
+ 		if (rx_status & Rx_Multicast)
+-			priv->stats.multicast++;
++			dev->stats.multicast++;
+ 
+ 	next:
+ 		rx_ring_offset = (rx_ring_offset + rx_size_align) % RX_BUF_LEN;
+@@ -835,13 +836,11 @@ static void _sc92031_rx_tasklet(struct n
+ 
+ static void _sc92031_link_tasklet(struct net_device *dev)
+ {
+-	struct sc92031_priv *priv = netdev_priv(dev);
+-
+ 	if (_sc92031_check_media(dev))
+ 		netif_wake_queue(dev);
+ 	else {
+ 		netif_stop_queue(dev);
+-		priv->stats.tx_carrier_errors++;
++		dev->stats.tx_carrier_errors++;
+ 	}
+ }
+ 
+@@ -866,11 +865,11 @@ static void sc92031_tasklet(unsigned lon
+ 		_sc92031_rx_tasklet(dev);
+ 
+ 	if (intr_status & RxOverflow)
+-		priv->stats.rx_errors++;
++		dev->stats.rx_errors++;
+ 
+ 	if (intr_status & TimeOut) {
+-		priv->stats.rx_errors++;
+-		priv->stats.rx_length_errors++;
++		dev->stats.rx_errors++;
++		dev->stats.rx_length_errors++;
+ 	}
+ 
+ 	if (intr_status & (LinkFail | LinkOK))
+@@ -936,15 +935,14 @@ static struct net_device_stats *sc92031_
+ 
+ 		if (temp == 0xffff) {
+ 			priv->rx_value += temp;
+-			priv->stats.rx_fifo_errors = priv->rx_value;
+-		} else {
+-			priv->stats.rx_fifo_errors = temp + priv->rx_value;
+-		}
++			dev->stats.rx_fifo_errors = priv->rx_value;
++		} else
++			dev->stats.rx_fifo_errors = temp + priv->rx_value;
+ 
+ 		spin_unlock_bh(&priv->lock);
+ 	}
+ 
+-	return &priv->stats;
++	return &dev->stats;
+ }
+ 
+ static int sc92031_start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -959,7 +957,7 @@ static int sc92031_start_xmit(struct sk_
+ 
+ 	if (unlikely(skb->len > TX_BUF_SIZE)) {
+ 		err = -EMSGSIZE;
+-		priv->stats.tx_dropped++;
++		dev->stats.tx_dropped++;
+ 		goto out;
+ 	}
+ 
+@@ -967,7 +965,7 @@ static int sc92031_start_xmit(struct sk_
+ 
+ 	if (unlikely(!netif_carrier_ok(dev))) {
+ 		err = -ENOLINK;
+-		priv->stats.tx_dropped++;
++		dev->stats.tx_dropped++;
+ 		goto out_unlock;
+ 	}
+ 
 _
