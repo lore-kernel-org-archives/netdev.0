@@ -1,40 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
-Date: Fri, 18 Apr 2008 20:08:16 -0400
-Message-ID: <1208563696.4450.43.camel@localhost>
-References: <20080417103858.0075236b@extreme>
-	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>
-	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>
-	 <1208467480.15888.50.camel@localhost> <1208522727.4422.79.camel@localhost>
-	 <4808AEBF.7040504@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [for 2.6.26] ISDN cleanups, ok for upstream?
+Date: Fri, 18 Apr 2008 16:41:13 -0700
+Message-ID: <20080418164113.6863213d.akpm@linux-foundation.org>
+References: <20080418225355.GA30189@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: kkeil@suse.de, isdn4linux@listserv.isdn4linux.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:54155 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752663AbYDSAIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 20:08:21 -0400
-Received: by an-out-0708.google.com with SMTP id d31so206082and.103
-        for <netdev@vger.kernel.org>; Fri, 18 Apr 2008 17:08:20 -0700 (PDT)
-In-Reply-To: <4808AEBF.7040504@trash.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33947 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751677AbYDRXlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 19:41:25 -0400
+In-Reply-To: <20080418225355.GA30189@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-18-04 at 16:22 +0200, Patrick McHardy wrote:
+On Fri, 18 Apr 2008 18:53:55 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
 
-> 
-> Yes, that sucks (ran into the same problem with iproute in a
-> previous job). I added the ENV dump format to libnl a couple
-> of years ago (NAME=val), should be easy to add a set of simple
-> tools to get the information and export it in the environment.
+> I don't know the current state of
+> akpm's pull of jgarzik/misc-2.6.git#ALL.
 
-Can you explain this a little? Would these variables define what
-the command line parameters look like before invoking?
+oops.  It seems that I disabled it quite a long time ago.   I'll resurrect
+it.
 
-cheers,
-jamal
+> The 'isdn-cleanups' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/misc-2.6.git isdn-cleanups
+
+That merges cleanly against the small number of isdn patches which are
+pending in -mm, so we're OK from that POV.
 
