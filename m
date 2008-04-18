@@ -1,43 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] net/core: API to create/destroy /sys/class/net
- entries
-Date: Thu, 17 Apr 2008 23:36:44 -0700 (PDT)
-Message-ID: <20080417.233644.19783833.davem@davemloft.net>
-References: <14079.1208394386@death>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Fri, 18 Apr 2008 08:51:04 +0200
+Message-ID: <200804180851.05289.oliver@neukum.org>
+References: <20080414213238.GB28833@kroah.com> <200804171632.12972.oliver@neukum.org> <4807C56F.5060804@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55259
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752363AbYDRGgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 02:36:46 -0400
-In-Reply-To: <14079.1208394386@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4807C56F.5060804-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Wed, 16 Apr 2008 18:06:26 -0700
+Am Donnerstag, 17. April 2008 23:47:27 schrieb Paulius Zaleckas:
+> Oliver Neukum wrote:
+> > can you test this one as well. The method used to determine whether
+> > a device is asleep is racy. This introduces a private test.
+> 
+> Stupid question :) How to test it? How can I force it to suspend?
+> I have never used any suspend on my PC :)
 
-> 	Bonding creates a file in sysfs, /sys/class/net/bonding_masters,
-> which is used to create and destroy bonding devices.  Currently, when
-> bonding is loaded, it does some poking through the device structure of
-> the first bonding device to find the net_class, and then uses that
-> pointer to create the file (by calling class_create_file).
+This is runtime power management. It can save energy on any computer.
+You compile your kernel with CONFIG_USB_SUSPEND and to see something
+in syslog with CONFIG_USB_DEBUG.
+Plug in the device, locate its sysfs directory, cd into it and do
+echo "auto" >power/level
 
-As Stephen stated this was a horrible decision, that directory is for
-network device instances, that's why the class variable is called
-"netdev_class" not "dump_all_yer_networking_shit_here_class"
+After a few seconds of idleness the device and the hub it's connected to
+(if it's the only device at that hub) should suspend. You'll get a message
+about it in the kernel log.
 
-The only saving grace is that bonding creates a file, not a
-directory, so "scan for all directories under /sys/class/net/"
-schemes still work.
-
-Water under the bridge I suppose, and we're stuck with this.
-
-I guess your proposal is the best, as if we export netdev_class
-people can do other funky, undesirable, things with it.
-
-Please submit the final version of your patch, I'll apply it.
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
