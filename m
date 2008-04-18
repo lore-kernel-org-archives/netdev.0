@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] tg3: 5701 DMA corruption fix
-Date: Fri, 18 Apr 2008 14:57:46 -0700 (PDT)
-Message-ID: <20080418.145746.248076404.davem@davemloft.net>
-References: <20080416222741.GA20272@localdomain>
-	<20080417.232612.04456205.davem@davemloft.net>
-	<1208540735.16633.102.camel@dell>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [patch 3/3] hci_usb.h: fix hard-to-trigger race
+Date: Fri, 18 Apr 2008 14:21:53 -0700
+Message-ID: <20080418142153.4e0eb83b.akpm@linux-foundation.org>
+References: <200804182046.m3IKksxT014631@imap1.linux-foundation.org>
+	<55DEC459-2D49-4366-88CC-21E9CA6783DC@holtmann.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org, andy@greyhouse.net,
-	tonyb@cybernetics.com
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44909
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750985AbYDRV5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 17:57:45 -0400
-In-Reply-To: <1208540735.16633.102.camel@dell>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org, pavel-AlSwsSmVLrQ@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <55DEC459-2D49-4366-88CC-21E9CA6783DC-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Fri, 18 Apr 2008 10:45:35 -0700
+On Fri, 18 Apr 2008 23:10:12 +0200
+Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> wrote:
 
-> I think it is ok, because when we call pci_get_device() next time, we'll
-> pass in the old bridge so that it can find the next one.  pci_get_device
-> () will automatically decrement the reference count on the old bridge.
+> Hi Andrew,
+> 
+> > From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+> >
+> > If someone tries to _urb_unlink while _urb_queue_head is running,  
+> > he'll see
+> > _urb->queue == NULL and fail to do any locking.  Prevent that from  
+> > happening
+> > by strategically placed barriers.
+> 
+> let me repeat this, the hci_usb driver is not worth fixing. Doing our  
+> own URB handling is a bad idea. The btusb driver should fix all of  
+> this. Only exception is that it is missing all the quirks, but that  
+> was me being lazy.
+> 
 
-You're absolutely correct.
-
-I still would appreciate the version bump being combined with
-the bug fix patch, could someone please do that?
-
-Thanks!
+ok...  But as long as the old code is buildable and installable, we should
+fix bugs in it?
