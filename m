@@ -1,215 +1,83 @@
 From: akpm@linux-foundation.org
-Subject: [patch 3/9] sc92031: use net_device stats
-Date: Fri, 18 Apr 2008 13:50:38 -0700
-Message-ID: <200804182050.m3IKodFN014827@imap1.linux-foundation.org>
+Subject: [patch 1/2] smsc-ircc2: wrap PNP probe code in #ifdef CONFIG_PNP
+Date: Fri, 18 Apr 2008 13:47:33 -0700
+Message-ID: <200804182047.m3IKlXQq014653@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	shemminger@vyatta.com
-To: jeff@garzik.org
+	bjorn.helgaas@hp.com, kamalesh@linux.vnet.ibm.com,
+	sfr@canb.auug.org.au
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38925 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46389 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756344AbYDRUvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 16:51:18 -0400
+	by vger.kernel.org with ESMTP id S1753216AbYDRUuA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 16:50:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Statistics structure is available for use in net_device structure.  Compile
-tested only.
+Wrap PNP probe code in #ifdef CONFIG_PNP.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Without this change, we'll have unresolved references to pnp_get_resource()
+function when CONFIG_PNP=n.  (This is a new interface that's not in mainline
+yet.)
+
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Cc: Samuel Ortiz <samuel@sortiz.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/sc92031.c |   70 +++++++++++++++++++---------------------
- 1 file changed, 34 insertions(+), 36 deletions(-)
+ drivers/net/irda/smsc-ircc2.c |   14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/sc92031.c~sc92031-use-net_device-stats drivers/net/sc92031.c
---- a/drivers/net/sc92031.c~sc92031-use-net_device-stats
-+++ a/drivers/net/sc92031.c
-@@ -311,7 +311,6 @@ struct sc92031_priv {
+diff -puN drivers/net/irda/smsc-ircc2.c~smsc-ircc2-wrap-pnp-probe-code-in-ifdef-config_pnp drivers/net/irda/smsc-ircc2.c
+--- a/drivers/net/irda/smsc-ircc2.c~smsc-ircc2-wrap-pnp-probe-code-in-ifdef-config_pnp
++++ a/drivers/net/irda/smsc-ircc2.c
+@@ -79,9 +79,13 @@ MODULE_AUTHOR("Daniele Peri <peri@csai.u
+ MODULE_DESCRIPTION("SMC IrCC SIR/FIR controller driver");
+ MODULE_LICENSE("GPL");
  
- 	/* for dev->get_stats */
- 	long			rx_value;
--	struct net_device_stats	stats;
++#ifdef CONFIG_PNP
+ static int smsc_nopnp = 1;
+ module_param_named(nopnp, smsc_nopnp, bool, 0);
+ MODULE_PARM_DESC(nopnp, "Do not use PNP to detect controller settings, defaults to true");
++#else
++#define smsc_nopnp 1
++#endif
+ 
+ #define DMA_INVAL 255
+ static int ircc_dma = DMA_INVAL;
+@@ -366,6 +370,10 @@ static inline void register_bank(int iob
+                iobase + IRCC_MASTER);
+ }
+ 
++static int pnp_driver_registered;
++
++#ifdef CONFIG_PNP
++
+ /* PNP hotplug support */
+ static const struct pnp_device_id smsc_ircc_pnp_table[] = {
+ 	{ .id = "SMCf010", .driver_data = 0 },
+@@ -374,8 +382,6 @@ static const struct pnp_device_id smsc_i
+ };
+ MODULE_DEVICE_TABLE(pnp, smsc_ircc_pnp_table);
+ 
+-static int pnp_driver_registered;
+-
+ static int __init smsc_ircc_pnp_probe(struct pnp_dev *dev,
+ 				      const struct pnp_device_id *dev_id)
+ {
+@@ -403,6 +409,10 @@ static struct pnp_driver smsc_ircc_pnp_d
+ 	.probe		= smsc_ircc_pnp_probe,
  };
  
- /* I don't know which registers can be safely read; however, I can guess
-@@ -421,7 +420,7 @@ static void _sc92031_tx_clear(struct net
++#else
++static struct pnp_driver smsc_ircc_pnp_driver;
++#endif
++
  
- 	while (priv->tx_head - priv->tx_tail > 0) {
- 		priv->tx_tail++;
--		priv->stats.tx_dropped++;
-+		dev->stats.tx_dropped++;
- 	}
- 	priv->tx_head = priv->tx_tail = 0;
- }
-@@ -676,27 +675,27 @@ static void _sc92031_tx_tasklet(struct n
- 		priv->tx_tail++;
- 
- 		if (tx_status & TxStatOK) {
--			priv->stats.tx_bytes += tx_status & 0x1fff;
--			priv->stats.tx_packets++;
-+			dev->stats.tx_bytes += tx_status & 0x1fff;
-+			dev->stats.tx_packets++;
- 			/* Note: TxCarrierLost is always asserted at 100mbps. */
--			priv->stats.collisions += (tx_status >> 22) & 0xf;
-+			dev->stats.collisions += (tx_status >> 22) & 0xf;
- 		}
- 
- 		if (tx_status & (TxOutOfWindow | TxAborted)) {
--			priv->stats.tx_errors++;
-+			dev->stats.tx_errors++;
- 
- 			if (tx_status & TxAborted)
--				priv->stats.tx_aborted_errors++;
-+				dev->stats.tx_aborted_errors++;
- 
- 			if (tx_status & TxCarrierLost)
--				priv->stats.tx_carrier_errors++;
-+				dev->stats.tx_carrier_errors++;
- 
- 			if (tx_status & TxOutOfWindow)
--				priv->stats.tx_window_errors++;
-+				dev->stats.tx_window_errors++;
- 		}
- 
- 		if (tx_status & TxUnderrun)
--			priv->stats.tx_fifo_errors++;
-+			dev->stats.tx_fifo_errors++;
- 	}
- 
- 	if (priv->tx_tail != old_tx_tail)
-@@ -704,27 +703,29 @@ static void _sc92031_tx_tasklet(struct n
- 			netif_wake_queue(dev);
- }
- 
--static void _sc92031_rx_tasklet_error(u32 rx_status,
--		struct sc92031_priv *priv, unsigned rx_size)
-+static void _sc92031_rx_tasklet_error(struct net_device *dev,
-+				      u32 rx_status, unsigned rx_size)
- {
- 	if(rx_size > (MAX_ETH_FRAME_SIZE + 4) || rx_size < 16) {
--		priv->stats.rx_errors++;
--		priv->stats.rx_length_errors++;
-+		dev->stats.rx_errors++;
-+		dev->stats.rx_length_errors++;
- 	}
- 
- 	if (!(rx_status & RxStatesOK)) {
--		priv->stats.rx_errors++;
-+		dev->stats.rx_errors++;
- 
- 		if (rx_status & (RxHugeFrame | RxSmallFrame))
--			priv->stats.rx_length_errors++;
-+			dev->stats.rx_length_errors++;
- 
- 		if (rx_status & RxBadAlign)
--			priv->stats.rx_frame_errors++;
-+			dev->stats.rx_frame_errors++;
- 
- 		if (!(rx_status & RxCRCOK))
--			priv->stats.rx_crc_errors++;
--	} else
-+			dev->stats.rx_crc_errors++;
-+	} else {
-+		struct sc92031_priv *priv = netdev_priv(dev);
- 		priv->rx_loss++;
-+	}
- }
- 
- static void _sc92031_rx_tasklet(struct net_device *dev)
-@@ -783,7 +784,7 @@ static void _sc92031_rx_tasklet(struct n
- 				|| rx_size > (MAX_ETH_FRAME_SIZE + 4)
- 				|| rx_size < 16
- 				|| !(rx_status & RxStatesOK))) {
--			_sc92031_rx_tasklet_error(rx_status, priv, rx_size);
-+			_sc92031_rx_tasklet_error(dev, rx_status, rx_size);
- 			break;
- 		}
- 
-@@ -818,11 +819,11 @@ static void _sc92031_rx_tasklet(struct n
- 		dev->last_rx = jiffies;
- 		netif_rx(skb);
- 
--		priv->stats.rx_bytes += pkt_size;
--		priv->stats.rx_packets++;
-+		dev->stats.rx_bytes += pkt_size;
-+		dev->stats.rx_packets++;
- 
- 		if (rx_status & Rx_Multicast)
--			priv->stats.multicast++;
-+			dev->stats.multicast++;
- 
- 	next:
- 		rx_ring_offset = (rx_ring_offset + rx_size_align) % RX_BUF_LEN;
-@@ -835,13 +836,11 @@ static void _sc92031_rx_tasklet(struct n
- 
- static void _sc92031_link_tasklet(struct net_device *dev)
- {
--	struct sc92031_priv *priv = netdev_priv(dev);
--
- 	if (_sc92031_check_media(dev))
- 		netif_wake_queue(dev);
- 	else {
- 		netif_stop_queue(dev);
--		priv->stats.tx_carrier_errors++;
-+		dev->stats.tx_carrier_errors++;
- 	}
- }
- 
-@@ -866,11 +865,11 @@ static void sc92031_tasklet(unsigned lon
- 		_sc92031_rx_tasklet(dev);
- 
- 	if (intr_status & RxOverflow)
--		priv->stats.rx_errors++;
-+		dev->stats.rx_errors++;
- 
- 	if (intr_status & TimeOut) {
--		priv->stats.rx_errors++;
--		priv->stats.rx_length_errors++;
-+		dev->stats.rx_errors++;
-+		dev->stats.rx_length_errors++;
- 	}
- 
- 	if (intr_status & (LinkFail | LinkOK))
-@@ -936,15 +935,14 @@ static struct net_device_stats *sc92031_
- 
- 		if (temp == 0xffff) {
- 			priv->rx_value += temp;
--			priv->stats.rx_fifo_errors = priv->rx_value;
--		} else {
--			priv->stats.rx_fifo_errors = temp + priv->rx_value;
--		}
-+			dev->stats.rx_fifo_errors = priv->rx_value;
-+		} else
-+			dev->stats.rx_fifo_errors = temp + priv->rx_value;
- 
- 		spin_unlock_bh(&priv->lock);
- 	}
- 
--	return &priv->stats;
-+	return &dev->stats;
- }
- 
- static int sc92031_start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -959,7 +957,7 @@ static int sc92031_start_xmit(struct sk_
- 
- 	if (unlikely(skb->len > TX_BUF_SIZE)) {
- 		err = -EMSGSIZE;
--		priv->stats.tx_dropped++;
-+		dev->stats.tx_dropped++;
- 		goto out;
- 	}
- 
-@@ -967,7 +965,7 @@ static int sc92031_start_xmit(struct sk_
- 
- 	if (unlikely(!netif_carrier_ok(dev))) {
- 		err = -ENOLINK;
--		priv->stats.tx_dropped++;
-+		dev->stats.tx_dropped++;
- 		goto out_unlock;
- 	}
- 
+ /*******************************************************************************
+  *
 _
