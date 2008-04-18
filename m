@@ -1,35 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
-Date: Fri, 18 Apr 2008 16:22:55 +0200
-Message-ID: <4808AEBF.7040504@trash.net>
-References: <20080417103858.0075236b@extreme>	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>	 <1208467480.15888.50.camel@localhost> <1208522727.4422.79.camel@localhost>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [Bugme-new] [Bug 10473] New: Infinite loop "b44: eth0: powering down PHY"
+Date: Fri, 18 Apr 2008 16:06:34 +0200
+Message-ID: <200804181606.34853.mb@bu3sch.de>
+References: <bug-10473-10286@http.bugzilla.kernel.org/> <20080417171215.f7fbba3b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	naoliv@gmail.com, Gary Zambrano <zambrano@broadcom.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60563 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066AbYDROXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 10:23:00 -0400
-In-Reply-To: <1208522727.4422.79.camel@localhost>
+Received: from vs166246.vserver.de ([62.75.166.246]:51356 "EHLO
+	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151AbYDROG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 10:06:58 -0400
+In-Reply-To: <20080417171215.f7fbba3b.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal wrote
-> BTW, speaking of scripts and command line output changes (and to
-> emphasize my earlier comments):
-> A lot of people managing router configuration out there in the wild do
-> write parsers that depend on how output looks like (typically a
-> send/expect interaction)[1]. They invest time in writting such scripts.
-> In an old job at one point, a customer was adamant they wouldnt buy our
-> new super-dupper device merely because we changed the command output by
-> iirc removing a ":" in one of them. Theyd have to rewrite things and go
-> through whole regression testing.
+CCed Gary (the b44 maintainer).
+Not sure why I am actually CCed :)
 
 
-Yes, that sucks (ran into the same problem with iproute in a
-previous job). I added the ENV dump format to libnl a couple
-of years ago (NAME=val), should be easy to add a set of simple
-tools to get the information and export it in the environment.
+On Friday 18 April 2008 02:12:15 Andrew Morton wrote:
+> 
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Thu, 17 Apr 2008 17:08:27 -0700 (PDT)
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=10473
+> > 
+> >            Summary: Infinite loop "b44: eth0: powering down PHY"
+> >            Product: Drivers
+> >            Version: 2.5
+> >      KernelVersion: 2.6.25
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: high
+> >           Priority: P1
+> >          Component: Network
+> >         AssignedTo: jgarzik@pobox.com
+> >         ReportedBy: naoliv@gmail.com
+> > 
+> > 
+> > Latest working kernel version: 2.6.24.4 (from Debian)
+> > Earliest failing kernel version: 2.6.25 (vanilla)
+> > Distribution: Debian
+> > Problem Description:
+> > 
+> > While booting the new 2.6.25 Kernel, it enters an infinite looping displaying
+> > "b44: eth0: powering down PHY".
+> > The system isn't freezed as magick SysRq keys works, but it just stay
+> > displaying those messages. I am unable to dump any information using SysRq,
+> > however (as the b44(...) messages are too fast).
+> > 
+> > I will attach lspci output and my .config
+> > 
+> 
+> Apparently a regression.
+
+Can you add a dump_stack() call to the b44_halt() function and post the resulting logs?
+
+-- 
+Greetings Michael.
