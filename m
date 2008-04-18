@@ -1,62 +1,47 @@
-From: Alexey Dobriyan <adobriyan@parallels.com>
-Subject: [PATCH] Fix and allocate less memory for ->priv'less netdevices
-Date: Fri, 18 Apr 2008 19:10:29 +0400
-Message-ID: <200804181910.30178.adobriyan@parallels.com>
+From: "Ray Lee" <ray-lk@madrabbit.org>
+Subject: Re: [PATCH 5/5] tun: vringfd xmit support.
+Date: Fri, 18 Apr 2008 07:25:27 -0700
+Message-ID: <2c0942db0804180725h88fa7d1mb8e85e5a8b0aede6@mail.gmail.com>
+References: <200804181433.48488.rusty@rustcorp.com.au>
+	<200804181441.10499.rusty@rustcorp.com.au>
+	<200804181442.17251.rusty@rustcorp.com.au>
+	<200804181443.24812.rusty@rustcorp.com.au>
+	<6bc632150804180446u29e5dae9h986e1d255e584d21@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:28972 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750836AbYDRPKr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Apr 2008 11:10:47 -0400
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Max Krasnyansky <maxk@qualcomm.com>,
+        virtualization@lists.linux-foundation.org
+To: "pradeep singh rautela" <rautelap@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <6bc632150804180446u29e5dae9h986e1d255e584d21@mail.gmail.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch effectively reverts commit d0498d9ae1a5cebac363e38907266d5cd2eedf89
-aka "[NET]: Do not allocate unneeded memory for dev->priv alignment."
-It was found to be buggy because of final unconditional += NETDEV_ALIGN_CONST
-removal.
+On Fri, Apr 18, 2008 at 4:46 AM, pradeep singh rautela
+<rautelap@gmail.com> wrote:
+>
+> On Fri, Apr 18, 2008 at 10:13 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
+>  >  +               /* How many pages will this take? */
+>  >  +               npages = 1 + (base + len - 1)/PAGE_SIZE - base/PAGE_SIZE;
+>
+>  Hi Rusty,
+>  A trivial suggestion, how about
+>           npages = 1+(len -1)/PAGE_SIZE ?
 
-For example, for sizeof(struct net_device) being 2048 bytes, "alloc_size"
-was also 2048 bytes, but allocator with debugging options turned on started
-giving out !32-byte aligned memory resulting in redzones overwrites.
+That's not the same. In particular, his version accounts for the
+fractional page at the beginning, while yours doesn't.
 
-Patch does small optimization in ->priv'less case: bumping size to next
-32-byte boundary was always done to ensure ->priv will also be aligned.
-But, no ->priv, no need to do that.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
----
-
- net/core/dev.c |   15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
-
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3996,12 +3996,15 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 
- 	BUG_ON(strlen(name) >= sizeof(dev->name));
- 
--	/* ensure 32-byte alignment of both the device and private area */
--	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
--		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
--		     ~NETDEV_ALIGN_CONST;
--	if (sizeof_priv)
--		alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
-+	alloc_size = sizeof(struct net_device) +
-+		     sizeof(struct net_device_subqueue) * (queue_count - 1);
-+	if (sizeof_priv) {
-+		/* ensure 32-byte alignment of private area */
-+		alloc_size = (alloc_size + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
-+		alloc_size += sizeof_priv;
-+	}
-+	/* ensure 32-byte alignment of whole construct */
-+	alloc_size += NETDEV_ALIGN_CONST;
- 
- 	p = kzalloc(alloc_size, GFP_KERNEL);
- 	if (!p) {
+While it's tempting to use algebra to simplify things, it's not safe
+to do so when the expression involves division over the integers. The
+only care-free integer math in a computer is subtraction and ++.
