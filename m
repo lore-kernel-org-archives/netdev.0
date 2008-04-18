@@ -1,157 +1,92 @@
-From: Mark Asselstine <mark.asselstine@windriver.com>
-Subject: [PATCH] Removal of debug code containing deprecated calls to cli()/sti()
-Date: Fri, 18 Apr 2008 10:51:02 -0400
-Message-ID: <1208530262-8555-1-git-send-email-mark.asselstine@windriver.com>
-Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org, asselsm@gmail.com,
-	Mark Asselstine <mark.asselstine@windriver.com>
-To: kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:37647 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754019AbYDROvJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Apr 2008 10:51:09 -0400
-In-Reply-To: <>
-References: <>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/5] /dev/vring: simple userspace-kernel ringbuffer
+	interface.
+Date: Sat, 19 Apr 2008 00:32:39 +1000
+Message-ID: <200804190032.39626.rusty@rustcorp.com.au>
+References: <200804181433.48488.rusty@rustcorp.com.au>
+	<200804181439.49051.rusty@rustcorp.com.au>
+	<20080418041846.db15150b.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Max Krasnyansky <maxk@qualcomm.com>,
+        virtualization@lists.linux-foundation.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20080418041846.db15150b.akpm@linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Code within NS_DEBUG_SPINLOCKS contained deprecated cli()/sti() function calls.
-NS_DEBUG_SPINLOCKS and the associated code seems to be of little use these days
-so the strategy of removing this code rather then updating it to use spinlocks
-has been taken.
+On Friday 18 April 2008 21:18:46 Andrew Morton wrote:
+> > +	/* Must be a power of two, and limit indices to a u16. */
+> > +	if (!num_descs || (num_descs & (num_descs-1)) || num_descs > 65536)
+>
+> We have an is_power_of_2().
 
-Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
----
- drivers/atm/nicstar.c |   72 -------------------------------------------------
- drivers/atm/nicstar.h |   12 --------
- 2 files changed, 0 insertions(+), 84 deletions(-)
+Thanks, fixed.
 
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 0c205b0..230ccc5 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -125,84 +125,12 @@
- #define ATM_SKB(s) (&(s)->atm)
- #endif
- 
--   /* Spinlock debugging stuff */
--#ifdef NS_DEBUG_SPINLOCKS /* See nicstar.h */
--#define ns_grab_int_lock(card,flags) \
-- do { \
--    unsigned long nsdsf, nsdsf2; \
--    local_irq_save(flags); \
--    save_flags(nsdsf); cli();\
--    if (nsdsf & (1<<9)) printk ("nicstar.c: ints %sabled -> enabled.\n", \
--                                (flags)&(1<<9)?"en":"dis"); \
--    if (spin_is_locked(&(card)->int_lock) && \
--        (card)->cpu_int == smp_processor_id()) { \
--       printk("nicstar.c: line %d (cpu %d) int_lock already locked at line %d (cpu %d)\n", \
--              __LINE__, smp_processor_id(), (card)->has_int_lock, \
--              (card)->cpu_int); \
--       printk("nicstar.c: ints were %sabled.\n", ((flags)&(1<<9)?"en":"dis")); \
--    } \
--    if (spin_is_locked(&(card)->res_lock) && \
--        (card)->cpu_res == smp_processor_id()) { \
--       printk("nicstar.c: line %d (cpu %d) res_lock locked at line %d (cpu %d)(trying int)\n", \
--              __LINE__, smp_processor_id(), (card)->has_res_lock, \
--              (card)->cpu_res); \
--       printk("nicstar.c: ints were %sabled.\n", ((flags)&(1<<9)?"en":"dis")); \
--    } \
--    spin_lock_irq(&(card)->int_lock); \
--    (card)->has_int_lock = __LINE__; \
--    (card)->cpu_int = smp_processor_id(); \
--    restore_flags(nsdsf); } while (0)
--#define ns_grab_res_lock(card,flags) \
-- do { \
--    unsigned long nsdsf, nsdsf2; \
--    local_irq_save(flags); \
--    save_flags(nsdsf); cli();\
--    if (nsdsf & (1<<9)) printk ("nicstar.c: ints %sabled -> enabled.\n", \
--                                (flags)&(1<<9)?"en":"dis"); \
--    if (spin_is_locked(&(card)->res_lock) && \
--        (card)->cpu_res == smp_processor_id()) { \
--       printk("nicstar.c: line %d (cpu %d) res_lock already locked at line %d (cpu %d)\n", \
--              __LINE__, smp_processor_id(), (card)->has_res_lock, \
--              (card)->cpu_res); \
--       printk("nicstar.c: ints were %sabled.\n", ((flags)&(1<<9)?"en":"dis")); \
--    } \
--    spin_lock_irq(&(card)->res_lock); \
--    (card)->has_res_lock = __LINE__; \
--    (card)->cpu_res = smp_processor_id(); \
--    restore_flags(nsdsf); } while (0)
--#define ns_grab_scq_lock(card,scq,flags) \
-- do { \
--    unsigned long nsdsf, nsdsf2; \
--    local_irq_save(flags); \
--    save_flags(nsdsf); cli();\
--    if (nsdsf & (1<<9)) printk ("nicstar.c: ints %sabled -> enabled.\n", \
--                                (flags)&(1<<9)?"en":"dis"); \
--    if (spin_is_locked(&(scq)->lock) && \
--        (scq)->cpu_lock == smp_processor_id()) { \
--       printk("nicstar.c: line %d (cpu %d) this scq_lock already locked at line %d (cpu %d)\n", \
--              __LINE__, smp_processor_id(), (scq)->has_lock, \
--              (scq)->cpu_lock); \
--       printk("nicstar.c: ints were %sabled.\n", ((flags)&(1<<9)?"en":"dis")); \
--    } \
--    if (spin_is_locked(&(card)->res_lock) && \
--        (card)->cpu_res == smp_processor_id()) { \
--       printk("nicstar.c: line %d (cpu %d) res_lock locked at line %d (cpu %d)(trying scq)\n", \
--              __LINE__, smp_processor_id(), (card)->has_res_lock, \
--              (card)->cpu_res); \
--       printk("nicstar.c: ints were %sabled.\n", ((flags)&(1<<9)?"en":"dis")); \
--    } \
--    spin_lock_irq(&(scq)->lock); \
--    (scq)->has_lock = __LINE__; \
--    (scq)->cpu_lock = smp_processor_id(); \
--    restore_flags(nsdsf); } while (0)
--#else /* !NS_DEBUG_SPINLOCKS */
- #define ns_grab_int_lock(card,flags) \
-         spin_lock_irqsave(&(card)->int_lock,(flags))
- #define ns_grab_res_lock(card,flags) \
-         spin_lock_irqsave(&(card)->res_lock,(flags))
- #define ns_grab_scq_lock(card,scq,flags) \
-         spin_lock_irqsave(&(scq)->lock,flags)
--#endif /* NS_DEBUG_SPINLOCKS */
- 
- 
- /* Function declarations ******************************************************/
-diff --git a/drivers/atm/nicstar.h b/drivers/atm/nicstar.h
-index 5997bcb..6010e3d 100644
---- a/drivers/atm/nicstar.h
-+++ b/drivers/atm/nicstar.h
-@@ -28,8 +28,6 @@
- 
- /* Options ********************************************************************/
- 
--#undef NS_DEBUG_SPINLOCKS
--
- #define NS_MAX_CARDS 4		/* Maximum number of NICStAR based cards
- 				   controlled by the device driver. Must
-                                    be <= 5 */
-@@ -721,10 +719,6 @@ typedef struct scq_info
-    wait_queue_head_t scqfull_waitq;
-    volatile char full;			/* SCQ full indicator */
-    spinlock_t lock;			/* SCQ spinlock */
--#ifdef NS_DEBUG_SPINLOCKS
--   volatile long has_lock;
--   volatile int cpu_lock;
--#endif /* NS_DEBUG_SPINLOCKS */
- } scq_info;
- 
- 
-@@ -810,12 +804,6 @@ typedef struct ns_dev
-    unsigned intcnt;			/* Interrupt counter */
-    spinlock_t int_lock;		/* Interrupt lock */
-    spinlock_t res_lock;		/* Card resource lock */
--#ifdef NS_DEBUG_SPINLOCKS
--   volatile long has_int_lock;
--   volatile int cpu_int;
--   volatile long has_res_lock;
--   volatile int cpu_res;
--#endif /* NS_DEBUG_SPINLOCKS */
- } ns_dev;
- 
- 
--- 
-1.5.4.3
+> > + * vring_get - check out a vring file descriptor
+> > + * @filp: the file structure to attach to (eg. from fget()).
+> > + *
+> > + * Userspace opens /dev/vring and mmaps it, then hands that fd to the
+> > + * kernel subsystem it wants to communicate with.  That subsystem uses
+> > + * this routine and vring_set_ops() to attach to it.
+> > + *
+> > + * This simply checks that it really is a vring fd (otherwise it
+> > + * returns NULL), the other routine checks that it's not already
+> > + * attached.
+> > + */
+>
+> hm, I don't understand the big picture here yet.
+>
+> Isn't this kinda-sorta like what a relayfs file does?  The oprofile
+> buffers?  etc?  Nothing in common at all, no hope?
 
+An excellent question, but I thought the modern kernel etiquette was to only 
+comment on whitespace and formatting, and call it "review"? :)
+
+Yes, kinda-sorta in that it's a ring buffer.  No, in that it's bidir and 
+consumption can be out-of-order (kind of important for I/O buffers).
+
+But the reason I'm not proposing it as a syscall is that I'm not convinced 
+it's the One True Solution which everyone should be using.  Time will tell: 
+it's clearly not tied to tun and it's been generically useful for virtual 
+I/O, but history has not been kind to new userspace interfaces.
+
+> > +	mutex_unlock(&vr->lock);
+> > +	local_irq_enable();
+>
+> what's this doing here?
+
+Snot from previous version.  Removed.
+
+> > +void vring_unset_ops(struct vring_info *vr)
+> > +{
+> > +	BUG_ON(!vr->ops);
+> > +	mutex_lock(&vr->lock);
+> > +	vr->ops = NULL;
+> > +	mutex_unlock(&vr->lock);
+> > +}
+> > +EXPORT_SYMBOL_GPL(vring_unset_ops);
+>
+> Isn't this just vring_set_ops(vr, NULL, NULL)?
+
+Yes, except I like the clarity and the BUG_ON.
+
+> ponders #include <copyright.h>
+
+"#include <copyright-gpl2-plus>" for me, just to add more inclement weather to 
+that teacup...
+
+Thanks,
+Rusty.
