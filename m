@@ -1,47 +1,31 @@
-From: "Ray Lee" <ray-lk@madrabbit.org>
-Subject: Re: [PATCH 5/5] tun: vringfd xmit support.
-Date: Fri, 18 Apr 2008 07:25:27 -0700
-Message-ID: <2c0942db0804180725h88fa7d1mb8e85e5a8b0aede6@mail.gmail.com>
-References: <200804181433.48488.rusty@rustcorp.com.au>
-	<200804181441.10499.rusty@rustcorp.com.au>
-	<200804181442.17251.rusty@rustcorp.com.au>
-	<200804181443.24812.rusty@rustcorp.com.au>
-	<6bc632150804180446u29e5dae9h986e1d255e584d21@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Max Krasnyansky <maxk@qualcomm.com>,
-        virtualization@lists.linux-foundation.org
-To: "pradeep singh rautela" <rautelap@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <6bc632150804180446u29e5dae9h986e1d255e584d21@mail.gmail.com>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH] Removal of debug code containing deprecated calls to cli()/sti()
+Date: Fri, 18 Apr 2008 10:55:45 -0400
+Message-ID: <200804181455.m3IEtje2032231@cmf.nrl.navy.mil>
+References: <1208530262-8555-1-git-send-email-mark.asselstine@windriver.com>
+Reply-To: chas3@users.sourceforge.net
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	asselsm@gmail.com
+To: Mark Asselstine <mark.asselstine@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:36971 "EHLO
+	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbYDRO4W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 10:56:22 -0400
+In-reply-to: <1208530262-8555-1-git-send-email-mark.asselstine@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 18, 2008 at 4:46 AM, pradeep singh rautela
-<rautelap@gmail.com> wrote:
->
-> On Fri, Apr 18, 2008 at 10:13 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
->  >  +               /* How many pages will this take? */
->  >  +               npages = 1 + (base + len - 1)/PAGE_SIZE - base/PAGE_SIZE;
->
->  Hi Rusty,
->  A trivial suggestion, how about
->           npages = 1+(len -1)/PAGE_SIZE ?
+In message <1208530262-8555-1-git-send-email-mark.asselstine@windriver.com>,Mar
+k Asselstine writes:
+>-#else /* !NS_DEBUG_SPINLOCKS */
+> #define ns_grab_int_lock(card,flags) \
+>         spin_lock_irqsave(&(card)->int_lock,(flags))
+> #define ns_grab_res_lock(card,flags) \
+>         spin_lock_irqsave(&(card)->res_lock,(flags))
+> #define ns_grab_scq_lock(card,scq,flags) \
+>         spin_lock_irqsave(&(scq)->lock,flags)
+>-#endif /* NS_DEBUG_SPINLOCKS */
 
-That's not the same. In particular, his version accounts for the
-fractional page at the beginning, while yours doesn't.
-
-While it's tempting to use algebra to simplify things, it's not safe
-to do so when the expression involves division over the integers. The
-only care-free integer math in a computer is subtraction and ++.
+this patch should probably go one step farther and just remove these
+spin_lock wrappers as well.  most people consider this bad form.
