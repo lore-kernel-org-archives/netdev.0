@@ -1,37 +1,36 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [PATCH] genetlink: export genl_unregister_mc_group()
-Date: Thu, 17 Apr 2008 22:52:24 -0700
-Message-ID: <200804172252.24829.inaky@linux.intel.com>
-References: <200804171254.01950.inaky@linux.intel.com> <20080417.142609.207619557.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][INET 1/2]: Drop the inet_inherit_port() call.
+Date: Thu, 17 Apr 2008 23:17:52 -0700 (PDT)
+Message-ID: <20080417.231752.178453811.davem@davemloft.net>
+References: <480773EA.2000302@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, johannes@sipsolutions.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, acme@redhat.com
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:27273 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753401AbYDRFwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 01:52:30 -0400
-In-Reply-To: <20080417.142609.207619557.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56016
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753401AbYDRGRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 02:17:54 -0400
+In-Reply-To: <480773EA.2000302@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 17 April 2008, David Miller wrote:
-> > Add an EXPORT_SYMBOL() to genl_unregister_mc_group(), to allow
-> > unregistering groups on the run. 
-> > ..
-> We export functions with in-tree modular users.
-> 
-> The only reason that genl_register_mc_group() is exported is because
-> there are in-tree modular users, ACPI and the NL80211 wireless code.
-> 
-> Please add this export when code you are writing that needs this
-> is merged into the tree.
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Thu, 17 Apr 2008 19:59:38 +0400
 
-Sure, 
+> As I can see from the code, two places (tcp_v6_syn_recv_sock and
+> dccp_v6_request_recv_sock) that call this one already run with
+> BHs disabled, so it's safe to call __inet_inherit_port there.
+> 
+> Besides (in case I missed smth with code review) the calltrace
+> tcp_v6_syn_recv_sock
+>  `- tcp_v4_syn_recv_sock
+>      `- __inet_inherit_port
+> and the similar for DCCP are valid, but assumes BHs to be disabled.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
--- 
-Inaky
+I agree with you analysis, all of these sites have BH disabled,
+patch applied.
