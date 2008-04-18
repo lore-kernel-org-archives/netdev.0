@@ -1,48 +1,54 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Fri, 18 Apr 2008 17:58:48 +0200
-Message-ID: <m33apjp32f.fsf@maximus.localdomain>
-References: <m3prtzsszg.fsf@maximus.localdomain>
-	<m3tzj92xq6.fsf@maximus.localdomain>
-	<m33aqedg0a.fsf@maximus.localdomain>
-	<m37if4oz1g.fsf@maximus.localdomain>
-	<20080411221448.22b69ff5.akpm@linux-foundation.org>
-	<m3prsva3y7.fsf@maximus.localdomain> <20080412115950.1cbb9cfa@core>
-	<m33apqomgf.fsf@maximus.localdomain>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [Bugme-new] [Bug 10473] New: Infinite loop "b44: eth0: powering down PHY"
+Date: Fri, 18 Apr 2008 17:32:48 +0200
+Message-ID: <200804181732.48546.mb@bu3sch.de>
+References: <bug-10473-10286@http.bugzilla.kernel.org/> <200804181606.34853.mb@bu3sch.de> <9bfa9ae0804180823o1c3213ccj6ac1ab19b0b5cb94@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755409AbYDRP7J@vger.kernel.org>
-In-Reply-To: <m33apqomgf.fsf@maximus.localdomain> (Krzysztof Halasa's message of "Sat\, 12 Apr 2008 22\:19\:28 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	"Gary Zambrano" <zambrano@broadcom.com>
+To: "Nelson A. de Oliveira" <naoliv@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vs166246.vserver.de ([62.75.166.246]:33217 "EHLO
+	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbYDRPdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 11:33:12 -0400
+In-Reply-To: <9bfa9ae0804180823o1c3213ccj6ac1ab19b0b5cb94@mail.gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Update:
+On Friday 18 April 2008 17:23:06 Nelson A. de Oliveira wrote:
+> Hi!
+> 
+> On Fri, Apr 18, 2008 at 11:06 AM, Michael Buesch <mb@bu3sch.de> wrote:
+> >  > > While booting the new 2.6.25 Kernel, it enters an infinite looping displaying
+> >  > > "b44: eth0: powering down PHY".
+> >  > > The system isn't freezed as magick SysRq keys works, but it just stay
+> >  > > displaying those messages. I am unable to dump any information using SysRq,
+> >  > > however (as the b44(...) messages are too fast).
+> >  > >
+> >  > > I will attach lspci output and my .config
+> >  > >
+> >  >
+> >  > Apparently a regression.
+> >
+> >  Can you add a dump_stack() call to the b44_halt() function and post the resulting logs?
+> 
+> What I get is:
+> 
+> Pid: 4, comm: ksoftirqd/0 Tainted: GF 2.6.25-naoliv1 #2
+> [<f8992420>] [<b0231ffd>] [<b02380b9>] [<b011ed60>] [<b01060f2>]
+> [<b011f059>] [<b011efe1>] [<b01297c8>] [<b0129790>] [<b010473f>]
 
-> Yes, I could add another dirty "interface fix" to the HDLC + syncppp
-> combo (hdlc_ppp), but I don't really see a sense, especially that I
-> have the new implementation ready and working (my time resources are
-> currently quite limited and if I have to choose between adding another
-> glue fix and writing a better PPP replacement I pick the latter).
->
->
-> My original post: http://lkml.org/lkml/2008/3/12/277
+Ehm, please enable CONFIG_KALLSYMS.
 
-David doesn't want the new PPP, insisting that I fix existing
-hdlc_ppp.c + syncppp.c combo instead, and that there are related bugs
-in drivers using syncppp.c alone (not hdlc_ppp) which I have to fix as
-well.
+> BTW, is it a way to "pause" the messages after dump_stack()?
 
-Unfortunately I'm unable to do that. Even if I could add another
-workaround to hdlc_ppp to make it work with syncppp.c again, I can't
-fix the other drivers (if they are indeed broken) because of lack of
-hardware, and I can't really make significant changes to syncppp.c
-(to make them available to all drivers) because that could and would
-break those drivers.
+mdelay(1000) will delay one second. But it will kill the system, basically.
 
-Comments?
 -- 
-Krzysztof Halasa
+Greetings Michael.
