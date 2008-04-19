@@ -1,70 +1,71 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] net: add destructor for skb data (rewritten)
-Date: Sun, 20 Apr 2008 02:20:39 +1000
-Message-ID: <200804200220.39985.rusty@rustcorp.com.au>
-References: <200804181421.25828.rusty@rustcorp.com.au> <20080419.023524.75551453.davem@davemloft.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [patch 1/3] hci_usb: do not initialize static variables to 0
+Date: Sat, 19 Apr 2008 18:12:45 +0200
+Message-ID: <20080419161245.GA1577@elf.ucw.cz>
+References: <200804182046.m3IKkp7P014625@imap1.linux-foundation.org> <A7F393C1-AEAC-4BC5-B7A4-A9CC78179CDF@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maxk@qualcomm.com,
-	herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, hidave.darkstar@gmail.com,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:60492 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752627AbYDSQUo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Apr 2008 12:20:44 -0400
-In-Reply-To: <20080419.023524.75551453.davem@davemloft.net>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:37847 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752434AbYDSQME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 12:12:04 -0400
 Content-Disposition: inline
+In-Reply-To: <A7F393C1-AEAC-4BC5-B7A4-A9CC78179CDF@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 19 April 2008 19:35:24 David Miller wrote:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Fri, 18 Apr 2008 14:21:25 +1000
+On Fri 2008-04-18 23:04:57, Marcel Holtmann wrote:
+> Hi Andrew,
 >
-> > If we want to notify something when an skb is truly finished (such as
-> > for tun vringfd support), we need a destructor on the data.
-> >
-> > This turns out to be slightly non-trivial as fragments from one skb
-> > get copied to another skb: if the first skb has a destructor (or its
-> > parent does) we need to keep a reference to it and destroy it only
-> > when (all the) children are destroyed.  We add an 'orig' pointer to
-> > the skb_shared_info to do this.
-> >
-> > But there's currently no way to get from the shinfo to the head (to
-> > kfree it), so we add a 'len' field.  A better alternative to this
-> > might be to move the skb_shared_info to before the head of the skb data.
-> >
-> > Note that the destructor is responsible for calling kfree: for the tun
-> > device, this is critical since the destructor can be called from any
-> > context and it has to do a copy_to_user, so it queues the skb.
-> >
-> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+>> hci_usb: do not initialize static variables to 0.
+>>
+>> Signed-off-by: Pavel Machek <pavel@suse.cz>
+>> Cc: Marcel Holtmann <marcel@holtmann.org>
+>> Cc: Dave Young <hidave.darkstar@gmail.com>
+>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+>> ---
+>>
+>> drivers/bluetooth/hci_usb.c |   14 +++++++-------
+>> 1 file changed, 7 insertions(+), 7 deletions(-)
+>>
+>> diff -puN 
+>> drivers/bluetooth/hci_usb.c~hci_usb-do-not-initialize-static-variables-to-0 
+>> drivers/bluetooth/hci_usb.c
+>> --- 
+>> a/drivers/bluetooth/hci_usb.c~hci_usb-do-not-initialize-static-variables-to-0
+>> +++ a/drivers/bluetooth/hci_usb.c
+>> @@ -62,13 +62,13 @@
+>> #define URB_ZERO_PACKET 0
+>> #endif
+>>
+>> -static int ignore = 0;
+>> -static int ignore_dga = 0;
+>> -static int ignore_csr = 0;
+>> -static int ignore_sniffer = 0;
+>> -static int disable_scofix = 0;
+>> -static int force_scofix = 0;
+>> -static int reset = 0;
+>> +static int ignore;
+>> +static int ignore_dga;
+>> +static int ignore_csr;
+>> +static int ignore_sniffer;
+>> +static int disable_scofix;
+>> +static int force_scofix;
+>> +static int reset;
 >
-> I'm mostly ambivalent but I will say I'm not happy about all of this
-> extra state you're adding even though it's "only" to the SKB data
-> shared-info struct and not sk_buff properly.
+> I know that some people don't like to do it and I agree, but in case of 
+> module parameters, I prefer to have them clearly indicate what the default 
+> value is. It is a lot easier to read for other people looking at the code. 
+> So that one is a NAK from my side.
 
-Me neither.  Moving the shared_info to the front of the data would reduce it 
-to two fields for me (removing len and destructor arg), but I held off for 
-now because this is a lesser change and possible for 2.6.26.
+According to you noone should read this one, anyway :-)... and this
+wastes space in vmlinux.
+									Pavel	
 
-> Does this handle SKB frags of arbitrary depth?  SKB's can be nested to
-> arbitrary depths via the frag mechanism.
-
-It doesn't matter in this case.  It's the skb creator who sets the destructor, 
-and wants it called when all pages in shinfo->frags[] are done with.  If it 
-wanted to also include the frag_list in this lifetime, it would simply 
-set ->orig on those skbs's shinfo to point back to the head shinfo, and 
-adjust dataref accordingly.
-
-As long as the anyone referencing a frags page from an skb into another sets 
-the orig ptr & bumps dataref, this will work.  If someone kept a reference to 
-a page and then freed the skb it game from, we're already broken.
-
-You could think of it as a 'struct request' for networking.  Or not.
-
-Cheers,
-Rusty.
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
