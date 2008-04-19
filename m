@@ -1,40 +1,62 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 5/5] tun: vringfd xmit support.
-Date: Sun, 20 Apr 2008 00:41:43 +1000
-Message-ID: <200804200041.43969.rusty@rustcorp.com.au>
-References: <200804181433.48488.rusty@rustcorp.com.au> <200804190115.15983.rusty@rustcorp.com.au> <20080418120634.986e30f1.akpm@linux-foundation.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] net: add destructor for skb data (rewritten)
+Date: Sat, 19 Apr 2008 13:46:01 +0400
+Message-ID: <20080419094600.GA11682@2ka.mipt.ru>
+References: <200804181421.25828.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Max Krasnyansky <maxk@qualcomm.com>,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:50394 "EHLO ozlabs.org"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:37400 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750776AbYDSOno (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Apr 2008 10:43:44 -0400
-In-Reply-To: <20080418120634.986e30f1.akpm@linux-foundation.org>
+	id S1752922AbYDSJq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Apr 2008 05:46:57 -0400
 Content-Disposition: inline
+In-Reply-To: <200804181421.25828.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 19 April 2008 05:06:34 Andrew Morton wrote:
-> On Sat, 19 Apr 2008 01:15:15 +1000 Rusty Russell <rusty@rustcorp.com.au> 
-wrote:
-> > > What is the maximum numbet of pages which an unpriviliged user can
-> > > concurrently pin with this code?
-> >
-> > Since only root can open the tun device, it's currently OK.  The old code
-> > kmalloced and copied: is there some mm-fu reason why pinning userspace
-> > memory is worse?
->
-> We generally try to avoid it - it allows users to dos the box.
+On Fri, Apr 18, 2008 at 02:21:25PM +1000, Rusty Russell (rusty@rustcorp.com.au) wrote:
+> If we want to notify something when an skb is truly finished (such as
+> for tun vringfd support), we need a destructor on the data.
 
-My question is: is pinning a page worse than allocating a (kernel) page in 
-some way?
+Can we put its invokation before pages are freed?
 
-Cheers,
-Rusty.
+> +static void shinfo_put(struct skb_shared_info *shinfo, bool nohdr)
+> +{
+> +	struct skb_shared_info *orig;
+> +
+> +	do {
+> +		if (atomic_sub_return(nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+> +				      &shinfo->dataref))
+> +			return;
+> +
+> +		if (shinfo->nr_frags) {
+> +			int i;
+> +			for (i = 0; i < shinfo->nr_frags; i++)
+> +				put_page(shinfo->frags[i].page);
+> +		}
+> +
+> +		if (shinfo->frag_list)
+> +			skb_drop_list(&shinfo->frag_list);
+> +
+> +		orig = shinfo->orig;
+> +		if (shinfo->destructor)
+> +			shinfo->destructor(shinfo);
+
+If it is first, we can process handle pages inside destructor, otherwise
+they can be out of our control.
+
+> +		else
+> +			kfree(skb_shinfo_to_head(shinfo));
+> +
+> +		/* We hold a payload reference to our parent. */
+> +		nohdr = true;
+> +	} while ((shinfo = orig) != NULL);
+> +}
+
+-- 
+	Evgeniy Polyakov
