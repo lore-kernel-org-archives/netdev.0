@@ -1,48 +1,60 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/5] /dev/vring: simple userspace-kernel ringbuffer
-	interface.
-Date: Sun, 20 Apr 2008 02:45:59 +1000
-Message-ID: <200804200246.00282.rusty@rustcorp.com.au>
-References: <200804181433.48488.rusty@rustcorp.com.au>
-	<200804200205.31508.rusty@rustcorp.com.au>
-	<20080419163322.GA17089@2ka.mipt.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.25-git2 fails build (nf_nat_proto_sctp.ko)
+Date: Sat, 19 Apr 2008 19:10:38 +0200
+Message-ID: <480A278E.60507@trash.net>
+References: <200804191329.m3JDTS0m023459@clem.clem-digital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Max Krasnyansky <maxk@qualcomm.com>,
-        virtualization@lists.linux-foundation.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20080419163322.GA17089@2ka.mipt.ru>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/mixed;
+ boundary="------------010001000407090703000105"
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Pete Clements <clem@clem.clem-digital.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <200804191329.m3JDTS0m023459@clem.clem-digital.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 20 April 2008 02:33:22 Evgeniy Polyakov wrote:
-> On Sun, Apr 20, 2008 at 02:05:31AM +1000, Rusty Russell 
-(rusty@rustcorp.com.au) wrote:
-> > There are two reasons not to grab the lock.  It turns out that if we
-> > tried to lock here, we'd deadlock, since the callbacks are called under
-> > the lock. Secondly, it's possible to implement an atomic
-> > vring_used_buffer variant, which could fail: this would avoid using the
-> > thread most of the time.
->
-> Yep, I decided that too. But it limits its usage to tun only or any
-> other system where only single thread picks up results, so no generic
-> userspace ring buffers?
+This is a multi-part message in MIME format.
+--------------010001000407090703000105
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I don't think so, it just externalizes the locking.  The mutex protects the 
-attaching and detaching of the ops structure, some other lock or code 
-protects simultenous kernel ring accesses.
+Pete Clements wrote:
+> Root device is (3, 1)
+> Setup is 11288 bytes (padded to 11776 bytes).
+> System is 1162 kB
+> CRC 695701be
+> Kernel: arch/x86/boot/bzImage is ready  (#4)
+>   Building modules, stage 2.
+>   MODPOST 132 modules
+> ERROR: "crc32c_le" [net/ipv4/netfilter/nf_nat_proto_sctp.ko] undefined!
 
-Cheers,
-Rusty.
+
+Sorry about that. We need to select LIBCRC32C.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+--------------010001000407090703000105
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 0c95cd5..2767841 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -259,6 +259,7 @@ config NF_NAT_PROTO_SCTP
+ 	tristate
+ 	default NF_NAT && NF_CT_PROTO_SCTP
+ 	depends on NF_NAT && NF_CT_PROTO_SCTP
++	select LIBCRC32C
+ 
+ config NF_NAT_FTP
+ 	tristate
+
+--------------010001000407090703000105--
