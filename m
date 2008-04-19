@@ -1,69 +1,48 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [patch 2/3] hci_usb: remove code obfuscation
-Date: Sat, 19 Apr 2008 19:43:42 +0200
-Message-ID: <15B7927A-D74F-450D-A6A4-0204FAD455F6@holtmann.org>
-References: <200804182046.m3IKks86014628@imap1.linux-foundation.org> <9BEB490E-DE8A-4018-9696-E5074CC638AC@holtmann.org> <20080418223430.GA13847@elf.ucw.cz> <6A7ADC8A-E229-4EC6-9C75-00359946037F@holtmann.org> <20080419161456.GB1577@elf.ucw.cz>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 5/5] tun: vringfd xmit support.
+Date: Sat, 19 Apr 2008 10:51:48 -0700
+Message-ID: <20080419105148.1bed4fee.akpm@linux-foundation.org>
+References: <200804181433.48488.rusty@rustcorp.com.au>
+	<200804190115.15983.rusty@rustcorp.com.au>
+	<20080418120634.986e30f1.akpm@linux-foundation.org>
+	<200804200041.43969.rusty@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, hidave.darkstar@gmail.com,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
+Cc: netdev@vger.kernel.org, maxk@qualcomm.com,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:40188 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755246AbYDSRnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 13:43:46 -0400
-In-Reply-To: <20080419161456.GB1577@elf.ucw.cz>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:53065 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752212AbYDSRvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 13:51:41 -0400
+In-Reply-To: <200804200041.43969.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pavel,
+> On Sun, 20 Apr 2008 00:41:43 +1000 Rusty Russell <rusty@rustcorp.com.au> wrote:
+> On Saturday 19 April 2008 05:06:34 Andrew Morton wrote:
+> > On Sat, 19 Apr 2008 01:15:15 +1000 Rusty Russell <rusty@rustcorp.com.au> 
+> wrote:
+> > > > What is the maximum numbet of pages which an unpriviliged user can
+> > > > concurrently pin with this code?
+> > >
+> > > Since only root can open the tun device, it's currently OK.  The old code
+> > > kmalloced and copied: is there some mm-fu reason why pinning userspace
+> > > memory is worse?
+> >
+> > We generally try to avoid it - it allows users to dos the box.
+> 
+> My question is: is pinning a page worse than allocating a (kernel) page in 
+> some way?
+> 
 
->>>>> _urb_free is an alias for kfree... making code longer & harder to
->>>>> read. Remove it.
->>>>
->>>> our own URB handling here is broken anyway. It was a bad idea  
->>>> when we did
->>>> it, but at that time the USB susbsystem was not in that good  
->>>> shape that
->>>> it
->>>> is today. So I would say leave this code as it is and concentrate  
->>>> on the
->>>> new btusb driver, but if it helps anybody I am happy to ACK this  
->>>> one.
->>>
->>> It currently corrupts memory (use after free) during suspend, and  
->>> I'm
->>> trying to get that fixed. It is 90% reproducible.
->>
->> that is good, because I can't reproduce it with any of my system.  
->> Don't ask
->> me why. I really simply works. So if you figure it out, it would be  
->> great.
->
-> There needs to be some load on the usb. I use
-> rsync-over-bt-over-gprs/umts.
+I guess pinning is not as bad as straight-out allocating.
 
-you told me before and I believe you. This driver is not in its best  
-shape. Weird thing is that I never got it re-produced. If you find the  
-real cause. That would be great.
+Pinning is limited to the size of the program's VM.  Pinning
+it at least pining something which is accounted and is exposed
+to admin tools.
 
->>> It could be easily fixed by just not freeing the urbs during
->>> disconnect (introducing very very slow memory leak). Would that be
->>> acceptable?
->>
->> I don't think so.
->>
->> Have you ever tried btusb driver? That code is a lot cleaner and it  
->> uses
->> USB anchors for the queued URBs (no home grown broken URB queues).
->
-> I wish I knew about  this one earlier. Yes, it seems to work for me.
-
-Does this mean you are not fixing hci_usb anymore ;)
-
-Regards
-
-Marcel
-
+But they're both pretty similar in effect and risk.
