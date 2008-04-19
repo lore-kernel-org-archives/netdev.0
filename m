@@ -1,33 +1,35 @@
-From: corbet@lwn.net (Jonathan Corbet)
-Subject: Re: [PATCH 2/5] /dev/vring: simple userspace-kernel ringbuffer interface.
-Date: Sat, 19 Apr 2008 09:02:04 -0600
-Message-ID: <8793.1208617324@vena.lwn.net>
-References: <20080418115959.6b8fdfa7.akpm@linux-foundation.org>
-Cc: netdev@vger.kernel.org, Max Krasnyansky <maxk@qualcomm.com>,
-	virtualization@lists.linux-foundation.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761788AbYDSPCV@vger.kernel.org>
-In-reply-to: Your message of "Fri, 18 Apr 2008 11:59:59 PDT."
-             <20080418115959.6b8fdfa7.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Bodo Eggert <7eggert@gmx.de>
+Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
+Date: Sat, 19 Apr 2008 17:05:06 +0200
+Message-ID: <E1JnEcl-0000xc-D9__34428.1591861092$1208627224$gmane$org@be1.7eggert.dyndns.org>
+References: <aiXVe-Yn-7@gated-at.bofh.it> <ajGfA-7rt-9@gated-at.bofh.it> <ajGfA-7rt-11@gated-at.bofh.it> <ajGfA-7rt-13@gated-at.bofh.it> <ajGfA-7rt-15@gated-at.bofh.it> <ajGfA-7rt-7@gated-at.bofh.it>
+Reply-To: 7eggert@gmx.de
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7Bit
+To: Kok@vger.kernel.org, Auke <auke-jan.h.kok@intel.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Linux Kernel Mailing List <
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.188]:53028 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754530AbYDSPFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 11:05:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> So I think it would be good to plonk the proposed interface on the table
-> and have a poke at it.  Is it compat-safe?  Is it extensible in a
-> backward-compatible fashion?  Are there future-safe changes we should make
-> to it?  Can Michael Kerrisk understand, review and document it?  etc.
+Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+
+> [X86] IRQBALANCE: Mark as BROKEN and disable by default
 > 
-> You know what I'm saying ;)  What is the proposed interface?
+> The IRQBALANCE option causes interrupts to bounce all around on SMP systems
+> quickly burying the CPU in migration cost and cache misses. Mainly affected
+> are network interrupts and this results in one CPU pegged in softirqd
+> completely.
 
-So, I'm not Michael, but I *did* make an attempt to document this
-interface - user and kernel sides - so that it could be more easily
-understood:
+If this is the problem, maybe it would help to only balance the IRQs each
+e.g. ten seconds? Unfortunately I have no SMP system to try it out.
 
-	http://lwn.net/Articles/276856/
 
-That was the previous posting, but a quick look suggests it hasn't
-changed *that* much in this round.
-
-jon
