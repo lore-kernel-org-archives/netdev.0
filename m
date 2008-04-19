@@ -1,62 +1,33 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] net: add destructor for skb data (rewritten)
-Date: Sat, 19 Apr 2008 13:46:01 +0400
-Message-ID: <20080419094600.GA11682@2ka.mipt.ru>
-References: <200804181421.25828.rusty@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: corbet@lwn.net (Jonathan Corbet)
+Subject: Re: [PATCH 2/5] /dev/vring: simple userspace-kernel ringbuffer interface.
+Date: Sat, 19 Apr 2008 09:02:04 -0600
+Message-ID: <8793.1208617324@vena.lwn.net>
+References: <20080418115959.6b8fdfa7.akpm@linux-foundation.org>
 Cc: netdev@vger.kernel.org, Max Krasnyansky <maxk@qualcomm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37400 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752922AbYDSJq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Apr 2008 05:46:57 -0400
-Content-Disposition: inline
-In-Reply-To: <200804181421.25828.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	virtualization@lists.linux-foundation.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761788AbYDSPCV@vger.kernel.org>
+In-reply-to: Your message of "Fri, 18 Apr 2008 11:59:59 PDT."
+             <20080418115959.6b8fdfa7.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 18, 2008 at 02:21:25PM +1000, Rusty Russell (rusty@rustcorp.com.au) wrote:
-> If we want to notify something when an skb is truly finished (such as
-> for tun vringfd support), we need a destructor on the data.
+> So I think it would be good to plonk the proposed interface on the table
+> and have a poke at it.  Is it compat-safe?  Is it extensible in a
+> backward-compatible fashion?  Are there future-safe changes we should make
+> to it?  Can Michael Kerrisk understand, review and document it?  etc.
+> 
+> You know what I'm saying ;)  What is the proposed interface?
 
-Can we put its invokation before pages are freed?
+So, I'm not Michael, but I *did* make an attempt to document this
+interface - user and kernel sides - so that it could be more easily
+understood:
 
-> +static void shinfo_put(struct skb_shared_info *shinfo, bool nohdr)
-> +{
-> +	struct skb_shared_info *orig;
-> +
-> +	do {
-> +		if (atomic_sub_return(nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
-> +				      &shinfo->dataref))
-> +			return;
-> +
-> +		if (shinfo->nr_frags) {
-> +			int i;
-> +			for (i = 0; i < shinfo->nr_frags; i++)
-> +				put_page(shinfo->frags[i].page);
-> +		}
-> +
-> +		if (shinfo->frag_list)
-> +			skb_drop_list(&shinfo->frag_list);
-> +
-> +		orig = shinfo->orig;
-> +		if (shinfo->destructor)
-> +			shinfo->destructor(shinfo);
+	http://lwn.net/Articles/276856/
 
-If it is first, we can process handle pages inside destructor, otherwise
-they can be out of our control.
+That was the previous posting, but a quick look suggests it hasn't
+changed *that* much in this round.
 
-> +		else
-> +			kfree(skb_shinfo_to_head(shinfo));
-> +
-> +		/* We hold a payload reference to our parent. */
-> +		nohdr = true;
-> +	} while ((shinfo = orig) != NULL);
-> +}
-
--- 
-	Evgeniy Polyakov
+jon
