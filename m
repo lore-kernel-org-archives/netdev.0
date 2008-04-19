@@ -1,55 +1,81 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [patch 2/3] hci_usb: remove code obfuscation
-Date: Sat, 19 Apr 2008 18:14:56 +0200
-Message-ID: <20080419161456.GB1577@elf.ucw.cz>
-References: <200804182046.m3IKks86014628@imap1.linux-foundation.org> <9BEB490E-DE8A-4018-9696-E5074CC638AC@holtmann.org> <20080418223430.GA13847@elf.ucw.cz> <6A7ADC8A-E229-4EC6-9C75-00359946037F@holtmann.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [bug] build failure in net/netfilter/nf_conntrack_sip.c, on latest
+ -git
+Date: Sat, 19 Apr 2008 18:38:41 +0200
+Message-ID: <480A2011.3080507@trash.net>
+References: <20080419100034.GA9475@elte.hu> <20080419.030736.168169087.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, hidave.darkstar@gmail.com,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:34745 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753281AbYDSQOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 12:14:20 -0400
-Content-Disposition: inline
-In-Reply-To: <6A7ADC8A-E229-4EC6-9C75-00359946037F@holtmann.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------030704000000000509070200"
+Cc: mingo@elte.hu, linux-kernel@vger.kernel.org,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762147AbYDSQmw@vger.kernel.org>
+In-Reply-To: <20080419.030736.168169087.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+This is a multi-part message in MIME format.
+--------------030704000000000509070200
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
->>>> _urb_free is an alias for kfree... making code longer & harder to
->>>> read. Remove it.
->>>
->>> our own URB handling here is broken anyway. It was a bad idea when we did
->>> it, but at that time the USB susbsystem was not in that good shape that 
->>> it
->>> is today. So I would say leave this code as it is and concentrate on the
->>> new btusb driver, but if it helps anybody I am happy to ACK this one.
+David Miller wrote:
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Sat, 19 Apr 2008 12:00:35 +0200
+>
+> [ netfilter-devel and netdev added to CC: ]
+>
+>   
+>> randconfig testing found a netfilter build failure in latest -git:
 >>
->> It currently corrupts memory (use after free) during suspend, and I'm
->> trying to get that fixed. It is 90% reproducible.
+>>   net/netfilter/nf_conntrack_sip.c: In function 'set_expected_rtp_rtcp':
+>>   net/netfilter/nf_conntrack_sip.c:786: error: 'struct nf_conntrack_expect' has no member named 'saved_ip'
+>>
+>>   http://redhat.com/~mingo/misc/config-Sat_Apr_19_11_37_02_CEST_2008.bad
+>>
+>> disabling CONFIG_NF_CONNTRACK_SIP works it around.
+>>     
 >
-> that is good, because I can't reproduce it with any of my system. Don't ask 
-> me why. I really simply works. So if you figure it out, it would be great.
-
-There needs to be some load on the usb. I use
-rsync-over-bt-over-gprs/umts.
-
->> It could be easily fixed by just not freeing the urbs during
->> disconnect (introducing very very slow memory leak). Would that be
->> acceptable?
+> I think this will fix it.
 >
-> I don't think so.
->
-> Have you ever tried btusb driver? That code is a lot cleaner and it uses 
-> USB anchors for the queued URBs (no home grown broken URB queues).
+> Patrick, is this how we should do it?
 
-I wish I knew about  this one earlier. Yes, it seems to work for me.
+No, the SIP helper is also useful without NAT. This patch adds
+an ifdef around the RTP call optimization for NATed clients.
 
-								Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+
+
+--------------030704000000000509070200
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 65b3ba5..9f49000 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -781,7 +781,7 @@ static int set_expected_rtp_rtcp(struct sk_buff *skb,
+ 		    nfct_help(exp->master)->helper != nfct_help(ct)->helper ||
+ 		    exp->class != class)
+ 			break;
+-
++#ifdef CONFIG_NF_NAT_NEEDED
+ 		if (exp->tuple.src.l3num == AF_INET && !direct_rtp &&
+ 		    (exp->saved_ip != exp->tuple.dst.u3.ip ||
+ 		     exp->saved_proto.udp.port != exp->tuple.dst.u.udp.port) &&
+@@ -791,6 +791,7 @@ static int set_expected_rtp_rtcp(struct sk_buff *skb,
+ 			tuple.dst.u.udp.port	= exp->saved_proto.udp.port;
+ 			direct_rtp = 1;
+ 		} else
++#endif
+ 			skip_expect = 1;
+ 	} while (!skip_expect);
+ 	rcu_read_unlock();
+
+--------------030704000000000509070200--
