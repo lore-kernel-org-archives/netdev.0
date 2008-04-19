@@ -1,91 +1,67 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [patch] document hci_usb as broken
-Date: Sat, 19 Apr 2008 19:40:18 +0200
-Message-ID: <D3ACF6D0-E21F-4680-9CB1-1FE762C532AE@holtmann.org>
-References: <200804182046.m3IKksxT014631@imap1.linux-foundation.org> <55DEC459-2D49-4366-88CC-21E9CA6783DC@holtmann.org> <20080418142153.4e0eb83b.akpm@linux-foundation.org> <84989B1A-CC23-4E81-B2E2-06E5FA01612E@holtmann.org> <20080419164628.GA2214@elf.ucw.cz>
+Subject: Re: [patch 2/3] hci_usb: remove code obfuscation
+Date: Sat, 19 Apr 2008 19:43:42 +0200
+Message-ID: <15B7927A-D74F-450D-A6A4-0204FAD455F6@holtmann.org>
+References: <200804182046.m3IKks86014628@imap1.linux-foundation.org> <9BEB490E-DE8A-4018-9696-E5074CC638AC@holtmann.org> <20080418223430.GA13847@elf.ucw.cz> <6A7ADC8A-E229-4EC6-9C75-00359946037F@holtmann.org> <20080419161456.GB1577@elf.ucw.cz>
 Mime-Version: 1.0 (Apple Message framework v919.2)
 Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	hidave.darkstar@gmail.com, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: akpm@linux-foundation.org, hidave.darkstar@gmail.com,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
 To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:40183 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:40188 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753736AbYDSRkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 13:40:24 -0400
-In-Reply-To: <20080419164628.GA2214@elf.ucw.cz>
+	with ESMTP id S1755246AbYDSRnq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 13:43:46 -0400
+In-Reply-To: <20080419161456.GB1577@elf.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi Pavel,
 
->>> ok...  But as long as the old code is buildable and installable,  
->>> we should
->>> fix bugs in it?
+>>>>> _urb_free is an alias for kfree... making code longer & harder to
+>>>>> read. Remove it.
+>>>>
+>>>> our own URB handling here is broken anyway. It was a bad idea  
+>>>> when we did
+>>>> it, but at that time the USB susbsystem was not in that good  
+>>>> shape that
+>>>> it
+>>>> is today. So I would say leave this code as it is and concentrate  
+>>>> on the
+>>>> new btusb driver, but if it helps anybody I am happy to ACK this  
+>>>> one.
+>>>
+>>> It currently corrupts memory (use after free) during suspend, and  
+>>> I'm
+>>> trying to get that fixed. It is 90% reproducible.
 >>
->> I am okay with it and happy to accept any fixes, but to be quite  
->> honest,
->> that this driver still works is in some cases pure luck. Doing the  
->> URB
->> handling by ourself is really simply plain work. No excuses here  
->> and parts
->> of it is my fault. I know that. Hence I started a new  
->> implementation from
->> scratch.
+>> that is good, because I can't reproduce it with any of my system.  
+>> Don't ask
+>> me why. I really simply works. So if you figure it out, it would be  
+>> great.
 >
-> Ok, so I guess this is good idea... (I'd prefer previous race patch to
-> still be applied; but driver is broken even with that fix...)
->
-> I thought about adding && BROKEN to Kconfig...
->
-> ---
->
-> hci_usb is fatally broken, document it as such.
->
-> Signed-off-by: Pavel Machek <pavel@suse.cz>
->
-> diff --git a/drivers/bluetooth/Kconfig b/drivers/bluetooth/Kconfig
-> index 075598e..20d9279 100644
-> --- a/drivers/bluetooth/Kconfig
-> +++ b/drivers/bluetooth/Kconfig
-> @@ -3,13 +3,16 @@ menu "Bluetooth device drivers"
-> 	depends on BT
->
-> config BT_HCIUSB
-> -	tristate "HCI USB driver"
-> +	tristate "HCI USB driver (dangerous, use alternate driver below)"
-> 	depends on USB
-> 	help
-> 	  Bluetooth HCI USB driver.
-> 	  This driver is required if you want to use Bluetooth devices with
-> 	  USB interface.
->
-> +	  Unfortunately, locking in this driver is fatally broken; it will
-> +	  corrupt memory on surprise disconnect and during resume.
-> +
-> 	  Say Y here to compile support for Bluetooth USB devices into the
-> 	  kernel or say M to compile it as module (hci_usb).
+> There needs to be some load on the usb. I use
+> rsync-over-bt-over-gprs/umts.
 
-this would be fine with me. Acked-by: Marcel Holtmann <marcel@holtmann.org 
- >
+you told me before and I believe you. This driver is not in its best  
+shape. Weird thing is that I never got it re-produced. If you find the  
+real cause. That would be great.
 
-> diff --git a/drivers/bluetooth/hci_usb.c b/drivers/bluetooth/hci_usb.c
-> index 192522e..6cc96b4 100644
-> --- a/drivers/bluetooth/hci_usb.c
-> +++ b/drivers/bluetooth/hci_usb.c
-> @@ -1,8 +1,22 @@
-> -/*
-> +/*
-> +
-> +    This driver has fatally broken locking.
-> +
-> +    DO NOT USE.
-> +
-> +    See btusb.c for cleaner / shorter / actually working driver.
+>>> It could be easily fixed by just not freeing the urbs during
+>>> disconnect (introducing very very slow memory leak). Would that be
+>>> acceptable?
+>>
+>> I don't think so.
+>>
+>> Have you ever tried btusb driver? That code is a lot cleaner and it  
+>> uses
+>> USB anchors for the queued URBs (no home grown broken URB queues).
+>
+> I wish I knew about  this one earlier. Yes, it seems to work for me.
 
-NAK to this hunk. Not needed. The Kconfig help is enough.
+Does this mean you are not fixing hci_usb anymore ;)
 
 Regards
 
