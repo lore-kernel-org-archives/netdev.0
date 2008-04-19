@@ -1,98 +1,39 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: [patch] document hci_usb as broken
-Date: Sat, 19 Apr 2008 18:49:47 +0200
-Message-ID: <20080419164628.GA2214@elf.ucw.cz>
-References: <200804182046.m3IKksxT014631@imap1.linux-foundation.org> <55DEC459-2D49-4366-88CC-21E9CA6783DC@holtmann.org> <20080418142153.4e0eb83b.akpm@linux-foundation.org> <84989B1A-CC23-4E81-B2E2-06E5FA01612E@holtmann.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 2/5] /dev/vring: simple userspace-kernel ringbuffer interface.
+Date: Sat, 19 Apr 2008 20:33:22 +0400
+Message-ID: <20080419163322.GA17089@2ka.mipt.ru>
+References: <200804181433.48488.rusty@rustcorp.com.au> <200804181439.49051.rusty@rustcorp.com.au> <20080419102214.GA21952@2ka.mipt.ru> <200804200205.31508.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	hidave.darkstar@gmail.com, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Cc: netdev@vger.kernel.org, Max Krasnyansky <maxk@qualcomm.com>,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:37011 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754251AbYDSQtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 12:49:20 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:49764 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752129AbYDSQeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Apr 2008 12:34:19 -0400
 Content-Disposition: inline
-In-Reply-To: <84989B1A-CC23-4E81-B2E2-06E5FA01612E@holtmann.org>
+In-Reply-To: <200804200205.31508.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Sun, Apr 20, 2008 at 02:05:31AM +1000, Rusty Russell (rusty@rustcorp.com.au) wrote:
+> > Should this whole function and vring_used_buffer() be protected with
+> > vr->lock mutex?
+> 
+> No; it's up to the caller to make sure that they are serialized.  In the case 
+> of tun that happens naturally.
+> 
+> There are two reasons not to grab the lock.  It turns out that if we tried to 
+> lock here, we'd deadlock, since the callbacks are called under the lock.  
+> Secondly, it's possible to implement an atomic vring_used_buffer variant, 
+> which could fail: this would avoid using the thread most of the time.
 
->> ok...  But as long as the old code is buildable and installable, we should
->> fix bugs in it?
->
-> I am okay with it and happy to accept any fixes, but to be quite honest, 
-> that this driver still works is in some cases pure luck. Doing the URB 
-> handling by ourself is really simply plain work. No excuses here and parts 
-> of it is my fault. I know that. Hence I started a new implementation from 
-> scratch.
-
-Ok, so I guess this is good idea... (I'd prefer previous race patch to
-still be applied; but driver is broken even with that fix...)
-
-I thought about adding && BROKEN to Kconfig...
-
----
-
-hci_usb is fatally broken, document it as such.
-
-Signed-off-by: Pavel Machek <pavel@suse.cz>
-
-diff --git a/drivers/bluetooth/Kconfig b/drivers/bluetooth/Kconfig
-index 075598e..20d9279 100644
---- a/drivers/bluetooth/Kconfig
-+++ b/drivers/bluetooth/Kconfig
-@@ -3,13 +3,16 @@ menu "Bluetooth device drivers"
- 	depends on BT
- 
- config BT_HCIUSB
--	tristate "HCI USB driver"
-+	tristate "HCI USB driver (dangerous, use alternate driver below)"
- 	depends on USB
- 	help
- 	  Bluetooth HCI USB driver.
- 	  This driver is required if you want to use Bluetooth devices with
- 	  USB interface.
- 
-+	  Unfortunately, locking in this driver is fatally broken; it will
-+	  corrupt memory on surprise disconnect and during resume.
-+
- 	  Say Y here to compile support for Bluetooth USB devices into the
- 	  kernel or say M to compile it as module (hci_usb).
- 
-diff --git a/drivers/bluetooth/hci_usb.c b/drivers/bluetooth/hci_usb.c
-index 192522e..6cc96b4 100644
---- a/drivers/bluetooth/hci_usb.c
-+++ b/drivers/bluetooth/hci_usb.c
-@@ -1,8 +1,22 @@
--/* 
-+/*
-+
-+    This driver has fatally broken locking.
-+
-+    DO NOT USE.
-+
-+    See btusb.c for cleaner / shorter / actually working driver.
-+
-+
-+
-+
-+
-+
-+
-+
-+ 
-    HCI USB driver for Linux Bluetooth protocol stack (BlueZ)
-    Copyright (C) 2000-2001 Qualcomm Incorporated
-    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
--
-    Copyright (C) 2003 Maxim Krasnyansky <maxk@qualcomm.com>
- 
-    This program is free software; you can redistribute it and/or modify
+Yep, I decided that too. But it limits its usage to tun only or any
+other system where only single thread picks up results, so no generic
+userspace ring buffers?
 
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+	Evgeniy Polyakov
