@@ -1,58 +1,47 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/5] /dev/vring: simple userspace-kernel ringbuffer
-	interface.
-Date: Sun, 20 Apr 2008 02:05:31 +1000
-Message-ID: <200804200205.31508.rusty@rustcorp.com.au>
-References: <200804181433.48488.rusty@rustcorp.com.au>
-	<200804181439.49051.rusty@rustcorp.com.au>
-	<20080419102214.GA21952@2ka.mipt.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
+Date: Sat, 19 Apr 2008 18:45:35 +0200
+Message-ID: <480A21AF.1040405@trash.net>
+References: <20080417103858.0075236b@extreme>	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>	 <1208467480.15888.50.camel@localhost> <1208522727.4422.79.camel@localhost>	 <4808AEBF.7040504@trash.net> <1208563696.4450.43.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Max Krasnyansky <maxk@qualcomm.com>,
-        virtualization@lists.linux-foundation.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20080419102214.GA21952@2ka.mipt.ru>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:55471 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755195AbYDSQt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 12:49:27 -0400
+In-Reply-To: <1208563696.4450.43.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 19 April 2008 20:22:15 Evgeniy Polyakov wrote:
-> Hi.
+jamal wrote:
+> On Fri, 2008-18-04 at 16:22 +0200, Patrick McHardy wrote:
 >
-> On Fri, Apr 18, 2008 at 02:39:48PM +1000, Rusty Russell 
-(rusty@rustcorp.com.au) wrote:
-> > +int vring_get_buffer(struct vring_info *vr,
-> > +		     struct iovec *in_iov,
-> > +		     unsigned int *num_in, unsigned long *in_len,
-> > +		     struct iovec *out_iov,
-> > +		     unsigned int *num_out, unsigned long *out_len)
-> > +{
-> > +	unsigned int i, in = 0, out = 0;
-> > +	unsigned long dummy;
-> > +	u16 avail, last_avail, head;
-> > +	struct vring_desc d;
+>   
+>> Yes, that sucks (ran into the same problem with iproute in a
+>> previous job). I added the ENV dump format to libnl a couple
+>> of years ago (NAME=val), should be easy to add a set of simple
+>> tools to get the information and export it in the environment.
+>>     
 >
-> Should this whole function and vring_used_buffer() be protected with
-> vr->lock mutex?
+> Can you explain this a little? Would these variables define what
+> the command line parameters look like before invoking?
 
-No; it's up to the caller to make sure that they are serialized.  In the case 
-of tun that happens naturally.
+I imagine something like this:
 
-There are two reasons not to grab the lock.  It turns out that if we tried to 
-lock here, we'd deadlock, since the callbacks are called under the lock.  
-Secondly, it's possible to implement an atomic vring_used_buffer variant, 
-which could fail: this would avoid using the thread most of the time.
+# nl-link-dump env eth0
 
-Hope that helps,
-Rusty.
+LINK_NAME=eth0
+LINK_IFINDEX=2
+LINK_LLADDR=.....
+LINK_OPERSTATE=...
+
+and so on. You could then do something like this:
+
+export $(nl-link-dump env eth0)
+
+and use $LINK_... in your scripts.
+
