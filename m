@@ -1,35 +1,48 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
-Date: Sat, 19 Apr 2008 17:05:06 +0200
-Message-ID: <E1JnEcl-0000xc-D9__34428.1591861092$1208627224$gmane$org@be1.7eggert.dyndns.org>
-References: <aiXVe-Yn-7@gated-at.bofh.it> <ajGfA-7rt-9@gated-at.bofh.it> <ajGfA-7rt-11@gated-at.bofh.it> <ajGfA-7rt-13@gated-at.bofh.it> <ajGfA-7rt-15@gated-at.bofh.it> <ajGfA-7rt-7@gated-at.bofh.it>
-Reply-To: 7eggert@gmx.de
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/5] /dev/vring: simple userspace-kernel ringbuffer
+	interface.
+Date: Sun, 20 Apr 2008 02:45:59 +1000
+Message-ID: <200804200246.00282.rusty@rustcorp.com.au>
+References: <200804181433.48488.rusty@rustcorp.com.au>
+	<200804200205.31508.rusty@rustcorp.com.au>
+	<20080419163322.GA17089@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7Bit
-To: Kok@vger.kernel.org, Auke <auke-jan.h.kok@intel.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Linux Kernel Mailing List <
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:53028 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754530AbYDSPFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 11:05:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Max Krasnyansky <maxk@qualcomm.com>,
+        virtualization@lists.linux-foundation.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20080419163322.GA17089@2ka.mipt.ru>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+On Sunday 20 April 2008 02:33:22 Evgeniy Polyakov wrote:
+> On Sun, Apr 20, 2008 at 02:05:31AM +1000, Rusty Russell 
+(rusty@rustcorp.com.au) wrote:
+> > There are two reasons not to grab the lock.  It turns out that if we
+> > tried to lock here, we'd deadlock, since the callbacks are called under
+> > the lock. Secondly, it's possible to implement an atomic
+> > vring_used_buffer variant, which could fail: this would avoid using the
+> > thread most of the time.
+>
+> Yep, I decided that too. But it limits its usage to tun only or any
+> other system where only single thread picks up results, so no generic
+> userspace ring buffers?
 
-> [X86] IRQBALANCE: Mark as BROKEN and disable by default
-> 
-> The IRQBALANCE option causes interrupts to bounce all around on SMP systems
-> quickly burying the CPU in migration cost and cache misses. Mainly affected
-> are network interrupts and this results in one CPU pegged in softirqd
-> completely.
+I don't think so, it just externalizes the locking.  The mutex protects the 
+attaching and detaching of the ops structure, some other lock or code 
+protects simultenous kernel ring accesses.
 
-If this is the problem, maybe it would help to only balance the IRQs each
-e.g. ten seconds? Unfortunately I have no SMP system to try it out.
-
-
+Cheers,
+Rusty.
