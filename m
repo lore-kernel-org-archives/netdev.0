@@ -1,48 +1,71 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 5/5] tun: vringfd xmit support.
-Date: Sat, 19 Apr 2008 10:51:48 -0700
-Message-ID: <20080419105148.1bed4fee.akpm@linux-foundation.org>
-References: <200804181433.48488.rusty@rustcorp.com.au>
-	<200804190115.15983.rusty@rustcorp.com.au>
-	<20080418120634.986e30f1.akpm@linux-foundation.org>
-	<200804200041.43969.rusty@rustcorp.com.au>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [patch] document hci_usb as broken
+Date: Sat, 19 Apr 2008 19:57:40 +0200
+Message-ID: <20080419175739.GA13774@elf.ucw.cz>
+References: <200804182046.m3IKksxT014631@imap1.linux-foundation.org> <55DEC459-2D49-4366-88CC-21E9CA6783DC@holtmann.org> <20080418142153.4e0eb83b.akpm@linux-foundation.org> <84989B1A-CC23-4E81-B2E2-06E5FA01612E@holtmann.org> <20080419164628.GA2214@elf.ucw.cz> <D3ACF6D0-E21F-4680-9CB1-1FE762C532AE@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maxk@qualcomm.com,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	hidave.darkstar@gmail.com, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53065 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752212AbYDSRvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 13:51:41 -0400
-In-Reply-To: <200804200041.43969.rusty@rustcorp.com.au>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:53541 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755436AbYDSR45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 13:56:57 -0400
+Content-Disposition: inline
+In-Reply-To: <D3ACF6D0-E21F-4680-9CB1-1FE762C532AE@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Sun, 20 Apr 2008 00:41:43 +1000 Rusty Russell <rusty@rustcorp.com.au> wrote:
-> On Saturday 19 April 2008 05:06:34 Andrew Morton wrote:
-> > On Sat, 19 Apr 2008 01:15:15 +1000 Rusty Russell <rusty@rustcorp.com.au> 
-> wrote:
-> > > > What is the maximum numbet of pages which an unpriviliged user can
-> > > > concurrently pin with this code?
-> > >
-> > > Since only root can open the tun device, it's currently OK.  The old code
-> > > kmalloced and copied: is there some mm-fu reason why pinning userspace
-> > > memory is worse?
-> >
-> > We generally try to avoid it - it allows users to dos the box.
-> 
-> My question is: is pinning a page worse than allocating a (kernel) page in 
-> some way?
-> 
+Hi!
 
-I guess pinning is not as bad as straight-out allocating.
+>> index 075598e..20d9279 100644
+>> --- a/drivers/bluetooth/Kconfig
+>> +++ b/drivers/bluetooth/Kconfig
+>> @@ -3,13 +3,16 @@ menu "Bluetooth device drivers"
+>> 	depends on BT
+>>
+>> config BT_HCIUSB
+>> -	tristate "HCI USB driver"
+>> +	tristate "HCI USB driver (dangerous, use alternate driver below)"
+>> 	depends on USB
+>> 	help
+>> 	  Bluetooth HCI USB driver.
+>> 	  This driver is required if you want to use Bluetooth devices with
+>> 	  USB interface.
+>>
+>> +	  Unfortunately, locking in this driver is fatally broken; it will
+>> +	  corrupt memory on surprise disconnect and during resume.
+>> +
+>> 	  Say Y here to compile support for Bluetooth USB devices into the
+>> 	  kernel or say M to compile it as module (hci_usb).
+>
+> this would be fine with me. Acked-by: Marcel Holtmann <marcel@holtmann.org>
+>
+>> diff --git a/drivers/bluetooth/hci_usb.c b/drivers/bluetooth/hci_usb.c
+>> index 192522e..6cc96b4 100644
+>> --- a/drivers/bluetooth/hci_usb.c
+>> +++ b/drivers/bluetooth/hci_usb.c
+>> @@ -1,8 +1,22 @@
+>> -/*
+>> +/*
+>> +
+>> +    This driver has fatally broken locking.
+>> +
+>> +    DO NOT USE.
+>> +
+>> +    See btusb.c for cleaner / shorter / actually working driver.
+>
+> NAK to this hunk. Not needed. The Kconfig help is enough.
 
-Pinning is limited to the size of the program's VM.  Pinning
-it at least pining something which is accounted and is exposed
-to admin tools.
+Developers trying to debug hci_usb problems will nor see the help
+text, since they probably have it enabled in their .config already and
+will not be asked again...
 
-But they're both pretty similar in effect and risk.
+								Pavel
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
