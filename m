@@ -1,48 +1,40 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [patch 3/3] hci_usb.h: fix hard-to-trigger race
-Date: Sat, 19 Apr 2008 03:25:01 +0200
-Message-ID: <84989B1A-CC23-4E81-B2E2-06E5FA01612E@holtmann.org>
-References: <200804182046.m3IKksxT014631@imap1.linux-foundation.org> <55DEC459-2D49-4366-88CC-21E9CA6783DC@holtmann.org> <20080418142153.4e0eb83b.akpm@linux-foundation.org>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: jamal <hadi@cyberus.ca>
+Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
+Date: Fri, 18 Apr 2008 20:08:16 -0400
+Message-ID: <1208563696.4450.43.camel@localhost>
+References: <20080417103858.0075236b@extreme>
+	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>
+	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>
+	 <1208467480.15888.50.camel@localhost> <1208522727.4422.79.camel@localhost>
+	 <4808AEBF.7040504@trash.net>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hidave.darkstar@gmail.com, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, pavel@ucw.cz, pavel@suse.cz
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:34692 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbYDSBZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 21:25:06 -0400
-In-Reply-To: <20080418142153.4e0eb83b.akpm@linux-foundation.org>
+Received: from an-out-0708.google.com ([209.85.132.247]:54155 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752663AbYDSAIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2008 20:08:21 -0400
+Received: by an-out-0708.google.com with SMTP id d31so206082and.103
+        for <netdev@vger.kernel.org>; Fri, 18 Apr 2008 17:08:20 -0700 (PDT)
+In-Reply-To: <4808AEBF.7040504@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Fri, 2008-18-04 at 16:22 +0200, Patrick McHardy wrote:
 
->>> If someone tries to _urb_unlink while _urb_queue_head is running,
->>> he'll see
->>> _urb->queue == NULL and fail to do any locking.  Prevent that from
->>> happening
->>> by strategically placed barriers.
->>
->> let me repeat this, the hci_usb driver is not worth fixing. Doing our
->> own URB handling is a bad idea. The btusb driver should fix all of
->> this. Only exception is that it is missing all the quirks, but that
->> was me being lazy.
->>
->
-> ok...  But as long as the old code is buildable and installable, we  
-> should
-> fix bugs in it?
+> 
+> Yes, that sucks (ran into the same problem with iproute in a
+> previous job). I added the ENV dump format to libnl a couple
+> of years ago (NAME=val), should be easy to add a set of simple
+> tools to get the information and export it in the environment.
 
-I am okay with it and happy to accept any fixes, but to be quite  
-honest, that this driver still works is in some cases pure luck. Doing  
-the URB handling by ourself is really simply plain work. No excuses  
-here and parts of it is my fault. I know that. Hence I started a new  
-implementation from scratch.
+Can you explain this a little? Would these variables define what
+the command line parameters look like before invoking?
 
-Regards
-
-Marcel
+cheers,
+jamal
 
