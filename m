@@ -1,43 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [build bug] drivers/built-in.o: In function
- `rt2x00leds_resume': : undefined reference to `led_classdev_resume'
-Date: Sun, 20 Apr 2008 03:01:41 -0700 (PDT)
-Message-ID: <20080420.030141.07052649.davem@davemloft.net>
-References: <20080420.020557.231970202.davem@davemloft.net>
-	<200804201131.01504.IvDoorn@gmail.com>
-	<20080420.024704.02026708.davem@davemloft.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: atl1 64-bit => 32-bit DMA borkage (reproducible, bisected)
+Date: Sun, 20 Apr 2008 15:14:53 +0400
+Message-ID: <20080420111453.GA4902@martell.zuzino.mipt.ru>
+References: <20080410203354.f0a6f464.akpm@linux-foundation.org> <20080413204422.GA5136@martell.zuzino.mipt.ru> <84144f020804140901p1c076fd2q73e3effe7cd96da3@mail.gmail.com> <Pine.LNX.4.64.0804141050550.6296@schroedinger.engr.sgi.com> <20080414183221.GA5234@martell.zuzino.mipt.ru> <20080414195613.GA4772@martell.zuzino.mipt.ru> <Pine.LNX.4.64.0804141301580.7803@schroedinger.engr.sgi.com> <20080419111719.GA6724@martell.zuzino.mipt.ru> <20080419144535.GA4814@martell.zuzino.mipt.ru> <20080419215444.2d4623f5@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, linville@tuxdriver.com, tomas.winkler@intel.com,
-	linux-kernel@vger.kernel.org, kaber@trash.net,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl
-To: ivdoorn@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080420.024704.02026708.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Luca Tettamanti <kronos.it@gmail.com>,
+	Chris Snook <csnook@redhat.com>, Jeff Garzik <jeff@garzik.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Christoph Lameter <clameter@sgi.com>, torvalds@osdl.org
+To: Jay Cliburn <jacliburn@bellsouth.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.174]:13770 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753690AbYDTKTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 06:19:33 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so431901ugc.16
+        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 03:19:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080419215444.2d4623f5@osprey.hogchain.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 20 Apr 2008 02:47:04 -0700 (PDT)
+On Sat, Apr 19, 2008 at 09:54:44PM -0500, Jay Cliburn wrote:
+> On Sat, 19 Apr 2008 18:45:35 +0400
+> Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> 
+> > OK, nailed it.
+> > 
+> > It's commit 5f08e46b621a769e52a9545a23ab1d5fb2aec1d4 aka "atl1:
+> > disable broken 64-bit DMA".
+> > 
+> > With this commit in tree, I can reproduce either
+> > a) kmalloc-2048 corruption after initscripts shutdown eth0
+> > 	http://marc.info/?l=linux-kernel&m=120820360221261&w=2
+> > 
+> > b) or oopses at filp_close() first reported long ago
+> > 	(sorry, can't find that email)
+> > 
+> > c) or hard hang after initscripts shutdown eth0 with even SysRq not
+> > working. http://marc.info/?l=linux-kernel&m=120795046008115&w=2
+> > 
+> > I have two boxes one with atl1, 4G RAM with 2G remapped after 4G
+> > boundary, another with r8169 connected with just ethernet cable. NICs
+> > agree on 1Gbps speed.
+> > 
+> > So, it's enough to scp 200 MB git archive and immediately start
+> > rebooting sequence for horrors described above to appear. It's not
+> > 100% reproducible but more like 90%.
+> 
+> Do I understand correctly that these failures occur only while the
+> network interface is going down?
 
-> I think NEW_LEDS can be completely eliminated.
+Yep. During up or running there were no problems with this card.
 
-Actually, more accurately, I propose removing the HAS_IOMEM
-restriction.
-
-This allows LEDS infrastructure to be select'd by drivers safely.
-
-diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
-index 859814f..91d36d0 100644
---- a/drivers/leds/Kconfig
-+++ b/drivers/leds/Kconfig
-@@ -1,6 +1,5 @@
- menuconfig NEW_LEDS
- 	bool "LED Support"
--	depends on HAS_IOMEM
- 	help
- 	  Say Y to enable Linux LED support.  This allows control of supported
- 	  LEDs from both userspace and optionally, by kernel events (triggers).
