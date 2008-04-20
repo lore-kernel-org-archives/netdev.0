@@ -1,62 +1,70 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: atl1 64-bit => 32-bit DMA borkage (reproducible, bisected)
-Date: Sat, 19 Apr 2008 21:54:44 -0500
-Message-ID: <20080419215444.2d4623f5@osprey.hogchain.net>
-References: <20080410203354.f0a6f464.akpm@linux-foundation.org>
-	<20080413204422.GA5136@martell.zuzino.mipt.ru>
-	<84144f020804140901p1c076fd2q73e3effe7cd96da3@mail.gmail.com>
-	<Pine.LNX.4.64.0804141050550.6296@schroedinger.engr.sgi.com>
-	<20080414183221.GA5234@martell.zuzino.mipt.ru>
-	<20080414195613.GA4772@martell.zuzino.mipt.ru>
-	<Pine.LNX.4.64.0804141301580.7803@schroedinger.engr.sgi.com>
-	<20080419111719.GA6724@martell.zuzino.mipt.ru>
-	<20080419144535.GA4814@martell.zuzino.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Sat, 19 Apr 2008 21:38:42 -0700 (PDT)
+Message-ID: <20080419.213842.12435812.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Luca Tettamanti <kronos.it@gmail.com>,
-	Chris Snook <csnook@redhat.com>, Jeff Garzik <jeff@garzik.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Christoph Lameter <clameter@sgi.com>, torvalds@osdl.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost04.isp.att.net ([207.115.11.54]:44312 "EHLO
-	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751370AbYDTC7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 22:59:49 -0400
-In-Reply-To: <20080419144535.GA4814@martell.zuzino.mipt.ru>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39257
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750856AbYDTEil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 00:38:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 19 Apr 2008 18:45:35 +0400
-Alexey Dobriyan <adobriyan@gmail.com> wrote:
 
-> OK, nailed it.
-> 
-> It's commit 5f08e46b621a769e52a9545a23ab1d5fb2aec1d4 aka "atl1:
-> disable broken 64-bit DMA".
-> 
-> With this commit in tree, I can reproduce either
-> a) kmalloc-2048 corruption after initscripts shutdown eth0
-> 	http://marc.info/?l=linux-kernel&m=120820360221261&w=2
-> 
-> b) or oopses at filp_close() first reported long ago
-> 	(sorry, can't find that email)
-> 
-> c) or hard hang after initscripts shutdown eth0 with even SysRq not
-> working. http://marc.info/?l=linux-kernel&m=120795046008115&w=2
-> 
-> I have two boxes one with atl1, 4G RAM with 2G remapped after 4G
-> boundary, another with r8169 connected with just ethernet cable. NICs
-> agree on 1Gbps speed.
-> 
-> So, it's enough to scp 200 MB git archive and immediately start
-> rebooting sequence for horrors described above to appear. It's not
-> 100% reproducible but more like 90%.
+This fixes various small bits of build fallout, integrates some ATM
+and hci_usb bluetooth cleanup/fixup patches that came in via Andrew, a
+ROSE locking bug fix, and a tg3 driver DMA data corruption fix.
 
-Do I understand correctly that these failures occur only while the
-network interface is going down?
+Please pull, thanks a lot!
 
-Jay
+The following changes since commit 3925e6fc1f774048404fdd910b0345b06c699eb4:
+  Linus Torvalds (1):
+        Merge branch 'for-linus' of git://git.kernel.org/.../jmorris/security-testing-2.6
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Bernard Pidoux (1):
+      rose: Socket lock was not released before returning to user space
+
+David S. Miller (1):
+      iwlwifi: Fix unconditional access to station->tidp[].agg.
+
+Julia Lawall (2):
+      drivers/atm: use time_before, time_before_eq, etc
+      drivers/net/appletalk: use time_before, time_before_eq, etc
+
+Mark Asselstine (1):
+      atm nicstar: Removal of debug code containing deprecated calls to cli()/sti()
+
+Matt Carlson (1):
+      tg3: 5701 DMA corruption fix
+
+Patrick McHardy (2):
+      netfilter: Fix SCTP nat build.
+      netfilter: Fix SIP conntrack build with NAT disabled.
+
+Pavel Machek (2):
+      hci_usb: do not initialize static variables to 0
+      hci_usb: remove code obfuscation
+
+ drivers/atm/iphase.c                       |    7 +-
+ drivers/atm/nicstar.c                      |  117 +++++-----------------------
+ drivers/atm/nicstar.h                      |   12 ---
+ drivers/bluetooth/hci_usb.c                |   24 +++---
+ drivers/bluetooth/hci_usb.h                |    5 -
+ drivers/net/appletalk/cops.c               |    3 +-
+ drivers/net/tg3.c                          |   52 +++++++++++-
+ drivers/net/tg3.h                          |    1 +
+ drivers/net/wireless/iwlwifi/iwl-debugfs.c |   18 +++--
+ net/ipv4/netfilter/Kconfig                 |    1 +
+ net/netfilter/nf_conntrack_sip.c           |    3 +-
+ net/rose/af_rose.c                         |    6 +-
+ 12 files changed, 105 insertions(+), 144 deletions(-)
