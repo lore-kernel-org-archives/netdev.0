@@ -1,80 +1,64 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: atl1 64-bit => 32-bit DMA borkage (reproducible, bisected)
-Date: Mon, 21 Apr 2008 00:55:00 +0400
-Message-ID: <20080420205500.GA4762@martell.zuzino.mipt.ru>
-References: <20080414183221.GA5234@martell.zuzino.mipt.ru> <20080414195613.GA4772@martell.zuzino.mipt.ru> <Pine.LNX.4.64.0804141301580.7803@schroedinger.engr.sgi.com> <20080419111719.GA6724@martell.zuzino.mipt.ru> <20080419144535.GA4814@martell.zuzino.mipt.ru> <20080419215444.2d4623f5@osprey.hogchain.net> <20080420111453.GA4902@martell.zuzino.mipt.ru> <20080420060607.2b1be48b@osprey.hogchain.net> <20080420122631.GA4761@martell.zuzino.mipt.ru> <20080420133704.63f5cc10@osprey.hogchain.net>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Sun, 20 Apr 2008 22:12:12 +0200
+Message-ID: <200804202212.12283.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804192242.33632.tomasz@grobelny.oswiecenia.net> <20080420165742.GA12221@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Luca Tettamanti <kronos.it@gmail.com>,
-	Chris Snook <csnook@redhat.com>, Jeff Garzik <jeff@garzik.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Christoph Lameter <clameter@sgi.com>, torvalds@osdl.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:2312 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756157AbYDTT7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 15:59:42 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so1488056fgb.17
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 12:59:40 -0700 (PDT)
+Received: from oswiecenia.net ([83.13.108.58]:4090 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756451AbYDTUM7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 16:12:59 -0400
+In-Reply-To: <20080420165742.GA12221@ghostprotocols.net>
 Content-Disposition: inline
-In-Reply-To: <20080420133704.63f5cc10@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 20, 2008 at 01:37:04PM -0500, Jay Cliburn wrote:
-> On Sun, 20 Apr 2008 16:26:31 +0400
-> Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> 
-> > On Sun, Apr 20, 2008 at 06:06:07AM -0500, Jay Cliburn wrote:
-> > > On Sun, 20 Apr 2008 15:14:53 +0400
-> > > Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> > > 
-> > > > On Sat, Apr 19, 2008 at 09:54:44PM -0500, Jay Cliburn wrote:
-> > > > > On Sat, 19 Apr 2008 18:45:35 +0400
-> > > > > Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> [...]
-> > > > > > So, it's enough to scp 200 MB git archive and immediately
-> > > > > > start rebooting sequence for horrors described above to
-> > > > > > appear. It's not 100% reproducible but more like 90%.
-> > > > > 
-> > > > > Do I understand correctly that these failures occur only while
-> > > > > the network interface is going down?
-> > > > 
-> > > > Yep. During up or running there were no problems with this card.
-> > > > 
-> > > 
-> > > One more question:  Does it happen whether or not you're using atl1
-> > > as a netconsole?
-> > 
-> > Without netconsole bugs happens too.
-> > 
-> 
-> I can't duplicate this error, but it's probably because my machine
-> doesn't have 4GB of memory.
-> 
-> I have one report in Febroary 2008 of another user encountering strange
-> oopses in 2.6.23.12 and 2.6.24 whenever he downed the interface.  I
-> suspect your experience is a repeat of that.
-> 
-> Just to be clear, you transfer about 200MB to the NIC (Rx direction),
-> then immediately reboot, right?
-
-Yup!
-
-> Can you duplicate the problem if you
-> simply ifconfig down instead of rebooting after the transfer?  
-
-Aha, ifconfig down is enough. Here is how reproducer looks like now:
-
-	./sync-linux-linus && ssh core2 "sudo /sbin/ifconfig eth0 down"
-
-where first script is basically scp(1).
-
-Also, booting with 1G or 2G of RAM (mem=1024m) makes issue go away.
-
-printk at dev_close() time shows that NETIF_F_HIGHDMA was not somehow
-enabled.
-
+Dnia Sunday 20 of April 2008, Arnaldo Carvalho de Melo napisa=C5=82:
+> Em Sat, Apr 19, 2008 at 10:42:32PM +0200, Tomasz Grobelny escreveu:
+> > > When the patch failed to compile I thought about those alternativ=
+es.
+> > > Trying to extend the dccp_skb_cb over and above what is in there =
+will
+> > > be messy, since the IPv4/v6 parameters are required by other
+> > > subsystems.
+> >
+> > If inet{,6}_skb_parm is used only outside DCCP code then why at all
+> > should it be placed in struct dccp_skb_cb taking up quite a lot of
+> > valuable space? Why not put it directly in struct sk_buff? Especial=
+ly
+> > that it is present in struct udp_skb_cb, struct tcp_skb_cb as well.
+>
+> Because all this is used in skb->cb[], a scratchpad for protocols to
+> use, we can go back to what we had before, that is to not reserve use
+> for inet6?_skb_parm but be sure to zero it before passing it to IP, a=
+s
+> we don't want IP to be confused with things being non zero there. The=
+n
+> we can use all its space.
+>
+Several questions regarding this case:
+1. What about SCTP? It doesn't have inet6?_skb_parm in it's structure t=
+hat is=20
+stored in skb->cb. So does it contain a potential bug (that is to be fi=
+xed)=20
+or is it not needed there or what?
+2. If the sole purpose of this change was to keep skb->cb zeroed then i=
+t=20
+doesn't seem to me like the right solution. Wasting about 20 bytes inst=
+ead of=20
+zeroing them when needed I would consider at least weird. I understand =
+that=20
+TCP and UDP may have enough space left but it just turned out that DCCP=
+=20
+doesn't.
+3. If it's IP layer that needs zeroes then why not clear skb->cb in IP =
+layer?
+--=20
+Regards,
+Tomasz Grobelny
