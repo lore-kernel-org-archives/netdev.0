@@ -1,94 +1,181 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [PATCH 2/3] [TC/FILTERS] Expose the filter protocol
-Date: Sun, 20 Apr 2008 10:47:48 -0400
-Message-ID: <1208702868.12249.54.camel@localhost>
+Subject: [PATCH 3/3] [TC/U32] Infrastructure for pretty printing
+Date: Sun, 20 Apr 2008 10:49:24 -0400
+Message-ID: <1208702964.12249.57.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-vmGxH8m/62oUJhW/PUvR"
+Content-Type: multipart/mixed; boundary="=-2tTEBBY0108quZrDuJ47"
 Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.250]:53687 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.246]:56348 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753541AbYDTOrx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 10:47:53 -0400
-Received: by an-out-0708.google.com with SMTP id d31so383784and.103
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 07:47:52 -0700 (PDT)
+	with ESMTP id S1753587AbYDTOt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 10:49:27 -0400
+Received: by an-out-0708.google.com with SMTP id d31so383968and.103
+        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 07:49:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-vmGxH8m/62oUJhW/PUvR
+--=-2tTEBBY0108quZrDuJ47
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-
-makes protocol accessible ..
+And last for now ..
 
 cheers,
 jamal
 
---=-vmGxH8m/62oUJhW/PUvR
-Content-Disposition: attachment; filename=0002-TC-FILTERS-Expose-the-filter-protocol.txt
-Content-Type: text/plain; name=0002-TC-FILTERS-Expose-the-filter-protocol.txt; charset=us-ascii
+--=-2tTEBBY0108quZrDuJ47
+Content-Disposition: attachment; filename=0003-TC-U32-Infrastructure-for-pretty-printing.txt
+Content-Type: text/plain; name=0003-TC-U32-Infrastructure-for-pretty-printing.txt; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-[PATCH 2/3] [TC/FILTERS] Expose the filter protocol
+[PATCH 3/3] [TC/U32] Infrastructure for pretty printing
 
-Expose the filter protocol so it can be used by underlying
-classifiers when they need it.
+This patch makes it easy to add pretty printers of different protocols.
+For starters it makes use of ipv4 and raw printers.
+Add more later ...
 
 Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 ---
- tc/tc_filter.c |    9 +++++----
- tc/tc_util.h   |    1 +
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ tc/f_u32.c |   57 +++++++++++++++++++++++++++++++++++++++++++--------------
+ 1 files changed, 43 insertions(+), 14 deletions(-)
 
-diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-index 6701f9a..db44dec 100644
---- a/tc/tc_filter.c
-+++ b/tc/tc_filter.c
-@@ -175,6 +175,7 @@ static __u32 filter_parent;
- static int filter_ifindex;
- static __u32 filter_prio;
- static __u32 filter_protocol;
-+__u16 f_proto = 0;
+diff --git a/tc/f_u32.c b/tc/f_u32.c
+index db492fe..7ead576 100644
+--- a/tc/f_u32.c
++++ b/tc/f_u32.c
+@@ -21,6 +21,7 @@
+ #include <arpa/inet.h>
+ #include <string.h>
+ #include <linux/if.h>
++#include <linux/if_ether.h>
  
- int print_filter(const struct sockaddr_nl *who,
- 			struct nlmsghdr *n,
-@@ -221,13 +222,13 @@ int print_filter(const struct sockaddr_nl *who,
- 		}
- 	}
- 	if (t->tcm_info) {
--		__u32 protocol = TC_H_MIN(t->tcm_info);
-+		f_proto = TC_H_MIN(t->tcm_info);
- 		__u32 prio = TC_H_MAJ(t->tcm_info)>>16;
--		if (!filter_protocol || filter_protocol != protocol) {
--			if (protocol) {
-+		if (!filter_protocol || filter_protocol != f_proto) {
-+			if (f_proto) {
- 				SPRINT_BUF(b1);
- 				fprintf(fp, "protocol %s ",
--					ll_proto_n2a(protocol, b1, sizeof(b1)));
-+					ll_proto_n2a(f_proto, b1, sizeof(b1)));
- 			}
- 		}
- 		if (!filter_prio || filter_prio != prio) {
-diff --git a/tc/tc_util.h b/tc/tc_util.h
-index 301b5c7..796da54 100644
---- a/tc/tc_util.h
-+++ b/tc/tc_util.h
-@@ -19,6 +19,7 @@ struct qdisc_util
- 	int	(*print_copt)(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
- };
+ #include "utils.h"
+ #include "tc_util.h"
+@@ -789,27 +790,24 @@ static int parse_hashkey(int *argc_p, char ***argv_p, struct tc_u32_sel *sel)
+ 	return 0;
+ }
  
-+extern __u16 f_proto;
- struct filter_util
+-static void show_key(FILE *f, const struct tc_u32_key *key)
++static void print_ipv4(FILE *f, const struct tc_u32_key *key)
  {
- 	struct filter_util *next;
+ 	char abuf[256];
+ 
+-	if (!show_cooked)
+-		goto raw;
+-
+ 	switch (key->off) {
+ 	case 0:
+ 		switch (ntohl(key->mask)) {
+ 		case 0x0f000000:
+-			fprintf(f, "\n ihl %u", ntohl(key->val) >> 24);
++			fprintf(f, "\n  match IP ihl %u", ntohl(key->val) >> 24);
+ 			return;
+ 		case 0x00ff0000:
+-			fprintf(f, "\n dsfield %#x", ntohl(key->val) >> 16);
++			fprintf(f, "\n  match IP dsfield %#x", ntohl(key->val) >> 16);
+ 			return;
+ 		}
+ 		break;
+ 	case 8:
+ 		if (ntohl(key->mask) == 0x00ff0000) {
+-			fprintf(f, "\n protocol %u", ntohl(key->val) >> 16);
++			fprintf(f, "\n  match IP protocol %d", ntohl(key->val) >> 16);
+ 			return;
+ 		}
+ 		break;
+@@ -818,7 +816,7 @@ static void show_key(FILE *f, const struct tc_u32_key *key)
+ 			int bits = mask2bits(key->mask);
+ 			if (bits >= 0) {
+ 				fprintf(f, "\n  %s %s/%d", 
+-					key->off == 12 ? "src" : "dst",
++					key->off == 12 ? "match IP src" : "match IP dst",
+ 					inet_ntop(AF_INET, &key->val,
+ 						  abuf, sizeof(abuf)),
+ 					bits);
+@@ -830,23 +828,26 @@ static void show_key(FILE *f, const struct tc_u32_key *key)
+ 	case 20:
+ 		switch (ntohl(key->mask)) {
+ 		case 0x0000ffff:
+-			fprintf(f, "\n  sport %u", 
++			fprintf(f, "\n  match sport %u",
+ 				ntohl(key->val) & 0xffff);
+ 			return;
+ 		case 0xffff0000:
+-			fprintf(f, "\n  dport %u", 
++			fprintf(f, "\n  match dport %u",
+ 				ntohl(key->val) >> 16);
+ 			return;
+ 		case 0xffffffff:
+-			fprintf(f, "\n  sport %u, dport %u", 
++			fprintf(f, "\n  match sport %u, match dport %u",
+ 				ntohl(key->val) & 0xffff,
+ 				ntohl(key->val) >> 16);
+ 
+ 			return;
+ 		}
++		/* XXX: Default print_raw */
+ 	}
++}
+ 
+-raw:
++static void print_raw(FILE *f, const struct tc_u32_key *key)
++{
+ 	fprintf(f, "\n  match %08x/%08x at %s%d",
+ 		(unsigned int)ntohl(key->val),
+ 		(unsigned int)ntohl(key->mask),
+@@ -854,7 +855,35 @@ raw:
+ 		key->off);
+ }
+ 
+-static int u32_parse_opt(struct filter_util *qu, char *handle, 
++static struct {
++	__u16 proto;
++	__u16 pad;
++	void (*pprinter)(FILE *f, const struct tc_u32_key *key);
++	} u32_pprinters[] = {
++		{0, 0, print_raw},
++		{ETH_P_IP, 0, print_ipv4},
++};
++
++static void show_keys(FILE *f, const struct tc_u32_key *key)
++{
++	int i = 0;
++
++	if (!show_cooked)
++		goto show_k;
++
++	for (i = 0; i < sizeof(u32_pprinters) / sizeof(u32_pprinters[0]); i++) {
++		if (u32_pprinters[i].proto == ntohs(f_proto)) {
++show_k:
++			u32_pprinters[i].pprinter(f, key);
++			return;
++		}
++	}
++
++	i = 0;
++	goto show_k;
++}
++
++static int u32_parse_opt(struct filter_util *qu, char *handle,
+ 			 int argc, char **argv, struct nlmsghdr *n)
+ {
+ 	struct {
+@@ -1129,7 +1158,7 @@ static int u32_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt,
+ 		if (sel->nkeys) {
+ 			int i;
+ 			for (i=0; i<sel->nkeys; i++) {
+-				show_key(f, sel->keys + i);
++				show_keys(f, sel->keys + i);
+ 				if (show_stats && NULL != pf)
+ 					fprintf(f, " (success %llu ) ",
+ 						(unsigned long long) pf->kcnts[i]);
 -- 
 1.4.4.1.gaed4
 
 
---=-vmGxH8m/62oUJhW/PUvR--
+--=-2tTEBBY0108quZrDuJ47--
 
