@@ -1,45 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Expose netdevice dev_id through sysfs
-Date: Sat, 19 Apr 2008 22:32:41 -0700 (PDT)
-Message-ID: <20080419.223241.252348841.davem@davemloft.net>
-References: <1208176322.31695.73.camel@pmac.infradead.org>
-	<20080419.183341.46125500.davem@davemloft.net>
-	<200804200921.09072.arvidjaar@mail.ru>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH] RAW6: Do not allow set IPV6_CHECKSUM for ICMPv6 socket
+Date: Sun, 20 Apr 2008 15:18:52 +0800
+Message-ID: <480AEE5C.4090402@cn.fujitsu.com>
+References: <480878CE.5040904@cn.fujitsu.com> <20080418.040949.87112742.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-hotplug@vger.kernel.org, dwmw2@infradead.org,
-	kay.sievers@vrfy.org, md@linux.it, harald@redhat.com,
-	netdev@vger.kernel.org, schwidefsky@de.ibm.com
-To: arvidjaar@mail.ru
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37605
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750933AbYDTFcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 01:32:39 -0400
-In-Reply-To: <200804200921.09072.arvidjaar@mail.ru>
+Received: from cn.fujitsu.com ([222.73.24.84]:62239 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751303AbYDTHUh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Apr 2008 03:20:37 -0400
+In-Reply-To: <20080418.040949.87112742.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Borzenkov <arvidjaar@mail.ru>
-Date: Sun, 20 Apr 2008 09:21:03 +0400
+David Miller said the following on 2008-4-18 19:09:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Fri, 18 Apr 2008 18:32:46 +0800
+> 
+>> As RFC3542 mentions: An attempt to set IPV6_CHECKSUM for an
+>> ICMPv6 socket will fail.
+>> Add a check for that in do_rawv6_setsockopt().
+>>
+>> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> 
+> Enforcing these kinds of things we've allowed for so many years is
+> rather pointless, especially if it breaks real applications.  Which I
+> believe it does in this case.  The standards simply do not matter.
+> 
+> I seem to recall that traceroute6 in iputils does exactly this.
+> 
 
-> On Sparc system we also have global device tree which provides unique
-> and persistent reference to every device. Solaris has no problems with
-> having same MAC for all interfaces.
+Enforcing this can forbid disabling checksum for icmpv6 socket.
+The real applications, such as ping6 & traceroute6, are just doing
+what is default in kernel.
+Why not remove the RFC-breaking code from applications?
 
-SunOS/Solaris names devices geographically on the I/O bus.  So if you
-move the card from one slot to another, it's a different device and
-you have to change your configuration, which is pretty bogus.
+See the source:
+kernel->rawv6_init_sk()
+---
+	case IPPROTO_ICMPV6:
+		rp->checksum = 1;
+		rp->offset   = 2;
+		break;
+---
 
-At least under Linux the identity follows the MAC address, which I
-definitely see as a superior behavior.
+ping6->main()
+---
+	csum_offset = 2;
+	sz_opt = sizeof(int);
 
-The only problem is handling the multiple devices with same MAC case.
+	err = setsockopt(icmp_sock, SOL_RAW, IPV6_CHECKSUM, &csum_offset, sz_opt);
+	if (err < 0) {
+		perror("setsockopt(RAW_CHECKSUM)");
+		exit(2);
+	}
+---
 
-> What is exactly wrong with using device topology path? This should
-> exist on any system, it is unique and it is persistent.
+traceroute6->main()
+---
+	on = 2;
+	if (setsockopt(icmp_sock, SOL_RAW, IPV6_CHECKSUM, &on, sizeof(on)) < 0) {
+		perror("setsockopt(RAW_CHECKSUM)");
+		exit(2);
+	}
+---
 
-Because if you move the device to a different PCI slot it should
-still show up as the same device, using the MAC address as the key.
-The Solaris behavior isn't so intelligent.
+
