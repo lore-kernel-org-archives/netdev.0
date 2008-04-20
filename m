@@ -1,51 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH][IPROUTE2] Fixup u32 pretty printing
-Date: Sun, 20 Apr 2008 11:00:08 -0400
-Message-ID: <1208703608.12249.62.camel@localhost>
-References: <1208702635.12249.48.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/2] korina: fix misplaced return statement
+Date: Sun, 20 Apr 2008 18:05:31 +0200
+Message-ID: <20080420160531.GA26599@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.240]:8473 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628AbYDTPAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 11:00:12 -0400
-Received: by an-out-0708.google.com with SMTP id d31so384843and.103
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 08:00:11 -0700 (PDT)
-In-Reply-To: <1208702635.12249.48.camel@localhost>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43147 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752821AbYDTQXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 12:23:45 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-20-04 at 10:43 -0400, jamal wrote:
+The driver takes the error unwind path without condition.
 
-> --------
-> hadi@lilsol:~$ tc -c filter ls dev lo parent ffff:
-> 
-> filter protocol ip pref 9 u32 fh 801::802 order 2050 key ht 801 bkt 0
-> flowid 1:16
->   match IP src 10.0.0.2/32
->   match IP protocol 6
->   match sport 53
-> 
-> hadi@lilsol:~$ tc -c filter ls dev lo parent ffff:
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/korina.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Above,  cutnpaste mistake, should be:
- "tc filter ls dev lo parent ffff:"
-
-i.e the original way of dumping filters...
-
-> 
-> filter protocol ip pref 9 u32 fh 801::802 order 2050 key ht 801 bkt 0
-> flowid 1:16
->   match 0a000002/ffffffff at 12
->   match 00060000/00ff0000 at 8
->   match 00000035/0000ffff at 20
-> --------
-
-cheers,
-jamal
+diff --git a/drivers/net/korina.c b/drivers/net/korina.c
+index 1d24a73..305be62 100644
+--- a/drivers/net/korina.c
++++ b/drivers/net/korina.c
+@@ -1031,6 +1031,8 @@ static int korina_open(struct net_device *dev)
+ 		    dev->name, lp->und_irq);
+ 		goto err_free_ovr_irq;
+ 	}
++out:
++	return ret;
+ 
+ err_free_ovr_irq:
+ 	free_irq(lp->ovr_irq, dev);
+@@ -1041,8 +1043,6 @@ err_free_rx_irq:
+ err_release:
+ 	korina_free_ring(dev);
+ 	goto out;
+-out:
+-	return ret;
+ }
+ 
+ static int korina_close(struct net_device *dev)
+-- 
+1.5.3.3
 
