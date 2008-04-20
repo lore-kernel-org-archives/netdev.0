@@ -1,11 +1,11 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [build bug] drivers/built-in.o: In function
  `rt2x00leds_resume': : undefined reference to `led_classdev_resume'
-Date: Sun, 20 Apr 2008 02:47:04 -0700 (PDT)
-Message-ID: <20080420.024704.02026708.davem@davemloft.net>
-References: <20080420081302.GA11954@elte.hu>
-	<20080420.020557.231970202.davem@davemloft.net>
+Date: Sun, 20 Apr 2008 03:01:41 -0700 (PDT)
+Message-ID: <20080420.030141.07052649.davem@davemloft.net>
+References: <20080420.020557.231970202.davem@davemloft.net>
 	<200804201131.01504.IvDoorn@gmail.com>
+	<20080420.024704.02026708.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -16,34 +16,28 @@ Cc: mingo@elte.hu, linville@tuxdriver.com, tomas.winkler@intel.com,
 	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl
 To: ivdoorn@gmail.com
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <200804201131.01504.IvDoorn@gmail.com>
+In-Reply-To: <20080420.024704.02026708.davem@davemloft.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Date: Sun, 20 Apr 2008 11:31:00 +0200
+From: David Miller <davem@davemloft.net>
+Date: Sun, 20 Apr 2008 02:47:04 -0700 (PDT)
 
-> Not sure about it, but doesn't LEDS_CLASS depend on NEW_LEDS ?
-> Which would make selecting LEDS_CLASS broken when NEW_LEDS isn't enabled?
+> I think NEW_LEDS can be completely eliminated.
 
-True, what an awful dependency chain.
+Actually, more accurately, I propose removing the HAS_IOMEM
+restriction.
 
-NEW_LEDS requires HAS_IOMEM.  This is to handle platforms like
-S390 and UM.
+This allows LEDS infrastructure to be select'd by drivers safely.
 
-But I think this protection is overboard.  Specific drivers
-might need IOMEM functionality, but the basic infrastructure
-does not.
-
-All of the core infrastrucure and generic LEDS facilities, including
-NEW_LEDS, LEDS_CLASS, and LEDS_TRIGGERS, don't need the IOMEM
-protection.
-
-And neither do the LED device drivers, they already each have a
-depenency for a specific platform.
-
-You could even imagine a hypervisor based LED driver that a platform
-like S390, which does not enable HAS_IOMEM, might want to support
-under this infrastructure.
-
-I think NEW_LEDS can be completely eliminated.
+diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
+index 859814f..91d36d0 100644
+--- a/drivers/leds/Kconfig
++++ b/drivers/leds/Kconfig
+@@ -1,6 +1,5 @@
+ menuconfig NEW_LEDS
+ 	bool "LED Support"
+-	depends on HAS_IOMEM
+ 	help
+ 	  Say Y to enable Linux LED support.  This allows control of supported
+ 	  LEDs from both userspace and optionally, by kernel events (triggers).
