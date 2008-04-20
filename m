@@ -1,37 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Expose netdevice dev_id through sysfs
-Date: Sun, 20 Apr 2008 04:14:39 -0700 (PDT)
-Message-ID: <20080420.041439.117533456.davem@davemloft.net>
-References: <1208688644.9212.407.camel@pmac.infradead.org>
-	<20080420.035515.12616544.davem@davemloft.net>
-	<1208689966.9212.428.camel@pmac.infradead.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kay.sievers@vrfy.org, md@linux.it, harald@redhat.com,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com
-To: dwmw2@infradead.org
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <1208689966.9212.428.camel@pmac.infradead.org>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: David Woodhouse <dwmw2@infradead.org>
-Date: Sun, 20 Apr 2008 12:12:46 +0100
+Subject: [PATCH] Expose netdevice dev_id through sysfs
+Date: Sun, 20 Apr 2008 12:22:52 +0100
+Message-ID: <1208690572.9212.433.camel@pmac.infradead.org>
+References: <ftdb3v$tls$1@ger.gmane.org>
+	 <20080407143805.GA9492@bongo.bofh.it>
+	 <1208167737.31695.32.camel@pmac.infradead.org>
+	 <1208171478.31695.58.camel@pmac.infradead.org>
+	 <3ae72650804140455l4bb2afc2i4c54e58f3be1f931@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:33328 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101AbYDTLWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 07:22:54 -0400
+In-Reply-To: <3ae72650804140455l4bb2afc2i4c54e58f3be1f931@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The reason I still submitted it, after realising that Marco's objections
-> to letting udev rely on the 'KERNEL==' match were bogus, is because I
-> think it does still help on S390 -- it lets us remove the special case
-> hack there.
-> 
-> I don't think it's actually _broken_ on S390 at the moment; just a bit
-> icky. That was sufficient motivation to still submit the patch :)
+Expose dev_id to userspace, because it helps to disambiguate between
+interfaces where the MAC address is unique.
 
-Fair enough.
+This should allow us to simplify the handling of persistent naming for
+S390 network devices in udev -- because it can depend on a simple
+attribute of the device like the other match criteria, rather than 
+having a special case for SUBSYSTEMS=="ccwgroup".
 
-Why don't you do the following?  Respin the patch with some
-added verbiage in the changelog entry based upon what we've
-discussed here and I'll apply the patch.
+Signed-off-by: David Woodhouse <dwmw2@infradead.org>
 
-Thanks.
+--- ./linux-2.6.24.ppc/net/core/net-sysfs.c~	2008-04-13 13:38:24.000000000 +0100
++++ ./linux-2.6.24.ppc/net/core/net-sysfs.c	2008-04-14 10:58:32.000000000 +0100
+@@ -87,6 +87,7 @@ static ssize_t netdev_store(struct devic
+ 	return ret;
+ }
+ 
++NETDEVICE_SHOW(dev_id, fmt_hex);
+ NETDEVICE_SHOW(addr_len, fmt_dec);
+ NETDEVICE_SHOW(iflink, fmt_dec);
+ NETDEVICE_SHOW(ifindex, fmt_dec);
+@@ -210,6 +211,7 @@ static ssize_t store_tx_queue_len(struct
+ 
+ static struct device_attribute net_class_attributes[] = {
+ 	__ATTR(addr_len, S_IRUGO, show_addr_len, NULL),
++	__ATTR(dev_id, S_IRUGO, show_dev_id, NULL),
+ 	__ATTR(iflink, S_IRUGO, show_iflink, NULL),
+ 	__ATTR(ifindex, S_IRUGO, show_ifindex, NULL),
+ 	__ATTR(features, S_IRUGO, show_features, NULL),
+
+
+-- 
+dwmw2
+
