@@ -1,117 +1,117 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [build bug] drivers/built-in.o: In function `rt2x00leds_resume': : undefined reference to `led_classdev_resume'
-Date: Sun, 20 Apr 2008 11:31:00 +0200
-Message-ID: <200804201131.01504.IvDoorn@gmail.com>
-References: <20080420081302.GA11954@elte.hu> <20080420.020557.231970202.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] RAW6: Do not allow set IPV6_CHECKSUM for ICMPv6 socket
+Date: Sun, 20 Apr 2008 18:38:35 +0900 (JST)
+Message-ID: <20080420.183835.02139171.yoshfuji@linux-ipv6.org>
+References: <480AEE5C.4090402@cn.fujitsu.com>
+	<20080420.003328.45324753.davem@davemloft.net>
+	<480B0A59.7000408@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, linville@tuxdriver.com, tomas.winkler@intel.com,
-	linux-kernel@vger.kernel.org, kaber@trash.net,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: wangchen@cn.fujitsu.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:63818 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753098AbYDTJYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 05:24:51 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so424888ugc.16
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 02:24:49 -0700 (PDT)
-In-Reply-To: <20080420.020557.231970202.davem@davemloft.net>
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33874 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753371AbYDTJgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 05:36:42 -0400
+In-Reply-To: <480B0A59.7000408@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 20 April 2008, David Miller wrote:
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Sun, 20 Apr 2008 10:13:02 +0200
-> 
-> >   drivers/built-in.o: In function `rt2x00leds_resume':
-> >   : undefined reference to `led_classdev_resume'
-> >   drivers/built-in.o: In function `rt2x00leds_resume':
-> >   : undefined reference to `led_classdev_resume'
-> >   [...]
+In article <480B0A59.7000408@cn.fujitsu.com> (at Sun, 20 Apr 2008 17:18:17 +0800), Wang Chen <wangchen@cn.fujitsu.com> says:
+
+> David Miller said the following on 2008-4-20 15:33:
+> > From: Wang Chen <wangchen@cn.fujitsu.com>
+> > Date: Sun, 20 Apr 2008 15:18:52 +0800
 > > 
-> > config:
+> >> Why not remove the RFC-breaking code from applications?
 > > 
-> >   http://redhat.com/~mingo/misc/config-Sun_Apr_20_09_43_01_CEST_2008.bad
+> > Because once applications exist and are deployed we cannot break them
+> > with careless kernel changes.  A user should not get a broken
+> > traceroute6 binary just because he upgrades his kernel, that's
+> > a bug.
+> > 
+> > The RFC is not a set of laws that must be followed under all
+> > circumstances.  In this case it is worse to break applications on
+> > people's systems than be compliant to some standard.
+> > 
 > 
-> Thanks for your report.
+> Yes. I agree with you that the RFC is not a law and we don't want to
+> break applications by changing kernel.
 > 
-> This is a similar case to the iwlwifi build failure you reported
-> earlier today (where the leds infrastructure knob is modular but the
-> driver using the interfaces is built-in).  Therefore, it likely should
-> use select too.
+> So, how about the following approach which don't break iputils.
 > 
-> This should fix it:
+> ---
+> As RFC3542 mentions: An attempt to set IPV6_CHECKSUM for an ICMPv6 socket
+> will fail. But there are some legacy applications which set the option to
+> enable IPV6_CHECKSUM for ICMPv6 socket.
+> To forbid disabling checksum for ICMPv6 socket, add a check for that in
+> do_rawv6_setsockopt().
 > 
-> rt2x00: Select LEDS_CLASS instead of using 'depends'.
-> 
-> Based upon a build failure reported by Ingo Molnar.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/drivers/net/wireless/rt2x00/Kconfig b/drivers/net/wireless/rt2x00/Kconfig
-> index a1e3938..ab1029e 100644
-> --- a/drivers/net/wireless/rt2x00/Kconfig
-> +++ b/drivers/net/wireless/rt2x00/Kconfig
-> @@ -60,7 +60,8 @@ config RT2400PCI_RFKILL
->  
->  config RT2400PCI_LEDS
->  	bool "RT2400 leds support"
-> -	depends on RT2400PCI && LEDS_CLASS
-> +	depends on RT2400PCI
-> +	select LEDS_CLASS
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-Not sure about it, but doesn't LEDS_CLASS depend on NEW_LEDS ?
-Which would make selecting LEDS_CLASS broken when NEW_LEDS isn't enabled?
+NAK.
 
->  	select RT2X00_LIB_LEDS
->  	---help---
->  	  This adds support for led triggers provided my mac80211.
-> @@ -86,7 +87,8 @@ config RT2500PCI_RFKILL
->  
->  config RT2500PCI_LEDS
->  	bool "RT2500 leds support"
-> -	depends on RT2500PCI && LEDS_CLASS
-> +	depends on RT2500PCI
-> +	select LEDS_CLASS
->  	select RT2X00_LIB_LEDS
->  	---help---
->  	  This adds support for led triggers provided my mac80211.
-> @@ -114,7 +116,8 @@ config RT61PCI_RFKILL
->  
->  config RT61PCI_LEDS
->  	bool "RT61 leds support"
-> -	depends on RT61PCI && LEDS_CLASS
-> +	depends on RT61PCI
-> +	select LEDS_CLASS
->  	select RT2X00_LIB_LEDS
->  	---help---
->  	  This adds support for led triggers provided my mac80211.
-> @@ -130,7 +133,8 @@ config RT2500USB
->  
->  config RT2500USB_LEDS
->  	bool "RT2500 leds support"
-> -	depends on RT2500USB && LEDS_CLASS
-> +	depends on RT2500USB
-> +	select LEDS_CLASS
->  	select RT2X00_LIB_LEDS
->  	---help---
->  	  This adds support for led triggers provided my mac80211.
-> @@ -148,7 +152,8 @@ config RT73USB
->  
->  config RT73USB_LEDS
->  	bool "RT73 leds support"
-> -	depends on RT73USB && LEDS_CLASS
-> +	depends on RT73USB
-> +	select LEDS_CLASS
->  	select RT2X00_LIB_LEDS
->  	---help---
->  	  This adds support for led triggers provided my mac80211.
-> 
+I have another approach.
 
-Ivo
+RFC3542 only tells about IPPROTO_IPV6-level IPV6_CHECKSUM option only
+while ping6 and traceroute6 use IPPROTO_RAW-level IPV6_CHECKSUM
+option.  Just disallow setting those on IPPROTO_IPV6 level.
+
+----
+>From 28024cad925091176166a3f4468ad622d18ef41c Mon Sep 17 00:00:00 2001
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Sat, 19 Apr 2008 20:53:44 +0900
+Subject: [PATCH] [IPV6] RAW: Disallow IPPROTO_IPV6-level IPV6_CHECKSUM socket option on ICMPv6 sockets.
+
+RFC3542 tells that IPV6_CHECKSUM socket option in the IPPROTO_IPV6
+level is not allowed on ICMPv6 sockets.
+IPPROTO_RAW level IPV6_CHECKSUM socket option (a Linux extension)
+is still allowed.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/raw.c |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 0a6fbc1..9ad9aca 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -994,6 +994,19 @@ static int do_rawv6_setsockopt(struct sock *sk, int level, int optname,
+ 
+ 	switch (optname) {
+ 		case IPV6_CHECKSUM:
++			if (inet_sk(sk)->num == IPPROTO_ICMPV6 &&
++			    level == IPPROTO_IPV6) {
++				/*
++				 * RFC3542 tells that IPV6_CHECKSUM socket
++				 * option in the IPPROTO_IPV6 level is not
++				 * allowed on ICMPv6 sockets.
++				 * If you want to set it, use IPPROTO_RAW
++				 * level IPV6_CHECKSUM socket option
++				 * (Linux extension).
++				 */
++				return -EINVAL;
++			}
++
+ 			/* You may get strange result with a positive odd offset;
+ 			   RFC2292bis agrees with me. */
+ 			if (val > 0 && (val&1))
+@@ -1069,6 +1082,11 @@ static int do_rawv6_getsockopt(struct sock *sk, int level, int optname,
+ 
+ 	switch (optname) {
+ 	case IPV6_CHECKSUM:
++		/*
++		 * We allow getsockopt() for IPPROTO_IPV6-level
++		 * IPV6_CHECKSUM socket option on ICMPv6 sockets
++		 * since RFC3542 is silent about it.
++		 */
+ 		if (rp->checksum == 0)
+ 			val = -1;
+ 		else
+-- 
+1.4.4.4
+
