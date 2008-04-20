@@ -1,70 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sat, 19 Apr 2008 21:38:42 -0700 (PDT)
-Message-ID: <20080419.213842.12435812.davem@davemloft.net>
+From: Andrey Borzenkov <arvidjaar@mail.ru>
+Subject: Re: [PATCH] Expose netdevice dev_id through sysfs
+Date: Sun, 20 Apr 2008 09:21:03 +0400
+Message-ID: <200804200921.09072.arvidjaar@mail.ru>
+References: <1208171478.31695.58.camel@pmac.infradead.org> <1208176322.31695.73.camel@pmac.infradead.org> <20080419.183341.46125500.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart1786829.yDRibfeeRA";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39257
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750856AbYDTEil (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 00:38:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, dwmw2@infradead.org,
+	kay.sievers@vrfy.org, md@linux.it, harald@redhat.com,
+	netdev@vger.kernel.org, schwidefsky@de.ibm.com
+To: linux-hotplug@vger.kernel.org
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <20080419.183341.46125500.davem@davemloft.net>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+--nextPart1786829.yDRibfeeRA
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-This fixes various small bits of build fallout, integrates some ATM
-and hci_usb bluetooth cleanup/fixup patches that came in via Andrew, a
-ROSE locking bug fix, and a tg3 driver DMA data corruption fix.
+On Sunday 20 April 2008, David Miller wrote:
+> We're trying to provide uniqueness amongst all devices in the system
+> that are using the same MAC address.
+>=20
+> On a Sparc system, for example, ethernet chips driven by several
+> different drivers can end up with the same MAC address, as the
+> system IDPROM specified ethernet MAC is what will be used by
+> default.
+>=20
 
-Please pull, thanks a lot!
+On Sparc system we also have global device tree which provides unique
+and persistent reference to every device. Solaris has no problems with
+having same MAC for all interfaces.
 
-The following changes since commit 3925e6fc1f774048404fdd910b0345b06c699eb4:
-  Linus Torvalds (1):
-        Merge branch 'for-linus' of git://git.kernel.org/.../jmorris/security-testing-2.6
+> So we need some global scheme.  And this dev_id value would need to be
+> persistent.  As best as I can tell, such things aren't available.
 
-are available in the git repository at:
+What is exactly wrong with using device topology path? This should exist
+on any system, it is unique and it is persistent.
 
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+> Sure we could do something silly like use the device I/O physical
+> address, but that would defeat the whole purpose of making device
+> identification agnostic to I/O bus geography.  I could move the
+> card to a different slot and it would have a different dev_id.
+>=20
 
-Bernard Pidoux (1):
-      rose: Socket lock was not released before returning to user space
+Sure; a card in different slot *is* a different device. And when broken
+card is replaced in the same slot for all practical purposes it *is* the
+same device even if MAC has changed.
 
-David S. Miller (1):
-      iwlwifi: Fix unconditional access to station->tidp[].agg.
+Nobody makes cable labels like "card with MAC xxx"; every cable label has
+something like "shelf 2; PCI slot 3; port 1".
 
-Julia Lawall (2):
-      drivers/atm: use time_before, time_before_eq, etc
-      drivers/net/appletalk: use time_before, time_before_eq, etc
+--nextPart1786829.yDRibfeeRA
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-Mark Asselstine (1):
-      atm nicstar: Removal of debug code containing deprecated calls to cli()/sti()
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-Matt Carlson (1):
-      tg3: 5701 DMA corruption fix
+iEYEABECAAYFAkgK0sEACgkQR6LMutpd94xB6wCfRdsiPq27Tah12z5YKw9vmjvE
+V5cAmgJrRQzJPXLiQV15yIJe37WJSBA9
+=GDW9
+-----END PGP SIGNATURE-----
 
-Patrick McHardy (2):
-      netfilter: Fix SCTP nat build.
-      netfilter: Fix SIP conntrack build with NAT disabled.
-
-Pavel Machek (2):
-      hci_usb: do not initialize static variables to 0
-      hci_usb: remove code obfuscation
-
- drivers/atm/iphase.c                       |    7 +-
- drivers/atm/nicstar.c                      |  117 +++++-----------------------
- drivers/atm/nicstar.h                      |   12 ---
- drivers/bluetooth/hci_usb.c                |   24 +++---
- drivers/bluetooth/hci_usb.h                |    5 -
- drivers/net/appletalk/cops.c               |    3 +-
- drivers/net/tg3.c                          |   52 +++++++++++-
- drivers/net/tg3.h                          |    1 +
- drivers/net/wireless/iwlwifi/iwl-debugfs.c |   18 +++--
- net/ipv4/netfilter/Kconfig                 |    1 +
- net/netfilter/nf_conntrack_sip.c           |    3 +-
- net/rose/af_rose.c                         |    6 +-
- 12 files changed, 105 insertions(+), 144 deletions(-)
+--nextPart1786829.yDRibfeeRA--
