@@ -1,56 +1,47 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [build bug] drivers/built-in.o: In function `rt2x00leds_resume': :
-	undefined reference to `led_classdev_resume'
-Date: Sun, 20 Apr 2008 10:13:02 +0200
-Message-ID: <20080420081302.GA11954@elte.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [build bug] drivers/built-in.o: In function
+ `rt2x00leds_resume': : undefined reference to `led_classdev_resume'
+Date: Sun, 20 Apr 2008 01:54:04 -0700 (PDT)
+Message-ID: <20080420.015404.86827224.davem@davemloft.net>
+References: <20080420081302.GA11954@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, kaber@trash.net,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, tomas.winkler@intel.com,
+	linux-kernel@vger.kernel.org, kaber@trash.net,
 	torvalds@linux-foundation.org, akpm@linux-foundation.org,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Mohamed Abbas <mabbas@linux.intel.com>,
-	Ian Schram <ischram@telenet.be>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Ivo van Doorn <ivdoorn@gmail.com>
-To: David Miller <davem@davemloft.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Tomas Winkler <tomas.winkler@intel.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl,
+	ivdoorn@gmail.com
+To: mingo@elte.hu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57340
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752093AbYDTIyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 04:54:04 -0400
+In-Reply-To: <20080420081302.GA11954@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Ingo Molnar <mingo@elte.hu>
+Date: Sun, 20 Apr 2008 10:13:02 +0200
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+> Really, your practice of removing networking commits and pull
+> requests from lkml does not result in a stellar quality track
+> record.
 
-> a third -git build failure triggered in last night's x86.git 
-> build/boot testing:
+Ingo I started posting them the way you asked me to today.
+Because everyone must do as Ingo says or else he'll berate
+them on the list every day.
 
-and after i restarted last night's QA run, within a few iterations a 
-fourth build failure popped up:
+So please, just drop it already.  You got what you wanted.
 
-  drivers/built-in.o: In function `rt2x00leds_resume':
-  : undefined reference to `led_classdev_resume'
-  drivers/built-in.o: In function `rt2x00leds_resume':
-  : undefined reference to `led_classdev_resume'
-  [...]
+FWIW, all of the patches in question were posted to netdev and
+linux-wireless.  And I already explained my original logic for not
+posting the huge networking merge pull request, it's too damn large
+(128K or so) to be useful at all and will result in tons of bounces
+(which I have to process btw)
 
-config:
+But even with all that, I'm doing it now Ingo, just to make you quiet.
 
-  http://redhat.com/~mingo/misc/config-Sun_Apr_20_09_43_01_CEST_2008.bad
-
-suspected commit is: a2e1d52a32 "rt2x00: Remove MAC80211_LEDS 
-dependency".
-
-so far the -git track record: 4 networking build failures 1 SCSI build 
-failure. (and i'm not picking these bugs nor am i trying to pick any 
-fight here - randconfig does)
-
-... and i think a little bit of grumpiness might be in order now: none 
-of these commits were announced on lkml, so i have to hijack this thread 
-again. As exciting as reporting bugs might seem from the outside, i'm 
-supposed to find x86 and scheduler bugs, not networking bugs. Really, 
-your practice of removing networking commits and pull requests from lkml 
-does not result in a stellar quality track record.
-
-	Ingo
+So just LEAVE ME ALONE already!
