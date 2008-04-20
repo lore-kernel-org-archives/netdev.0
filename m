@@ -1,69 +1,57 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: atl1 64-bit => 32-bit DMA borkage (reproducible, bisected)
-Date: Sun, 20 Apr 2008 16:26:31 +0400
-Message-ID: <20080420122631.GA4761@martell.zuzino.mipt.ru>
-References: <84144f020804140901p1c076fd2q73e3effe7cd96da3@mail.gmail.com> <Pine.LNX.4.64.0804141050550.6296@schroedinger.engr.sgi.com> <20080414183221.GA5234@martell.zuzino.mipt.ru> <20080414195613.GA4772@martell.zuzino.mipt.ru> <Pine.LNX.4.64.0804141301580.7803@schroedinger.engr.sgi.com> <20080419111719.GA6724@martell.zuzino.mipt.ru> <20080419144535.GA4814@martell.zuzino.mipt.ru> <20080419215444.2d4623f5@osprey.hogchain.net> <20080420111453.GA4902@martell.zuzino.mipt.ru> <20080420060607.2b1be48b@osprey.hogchain.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
+Date: Sun, 20 Apr 2008 07:48:48 -0400
+Message-ID: <1208692128.12249.26.camel@localhost>
+References: <20080417103858.0075236b@extreme>
+	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>
+	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>
+	 <1208467480.15888.50.camel@localhost> <1208522727.4422.79.camel@localhost>
+	 <4808AEBF.7040504@trash.net> <1208563696.4450.43.camel@localhost>
+	 <480A21AF.1040405@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Luca Tettamanti <kronos.it@gmail.com>,
-	Chris Snook <csnook@redhat.com>, Jeff Garzik <jeff@garzik.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Christoph Lameter <clameter@sgi.com>, torvalds@osdl.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.191]:54788 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782AbYDTLbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 07:31:12 -0400
-Received: by fk-out-0910.google.com with SMTP id 19so1698117fkr.5
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 04:31:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080420060607.2b1be48b@osprey.hogchain.net>
+Received: from an-out-0708.google.com ([209.85.132.248]:12784 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbYDTLsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 07:48:53 -0400
+Received: by an-out-0708.google.com with SMTP id d31so369501and.103
+        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 04:48:52 -0700 (PDT)
+In-Reply-To: <480A21AF.1040405@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 20, 2008 at 06:06:07AM -0500, Jay Cliburn wrote:
-> On Sun, 20 Apr 2008 15:14:53 +0400
-> Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> 
-> > On Sat, Apr 19, 2008 at 09:54:44PM -0500, Jay Cliburn wrote:
-> > > On Sat, 19 Apr 2008 18:45:35 +0400
-> > > Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> > > 
-> > > > OK, nailed it.
-> > > > 
-> > > > It's commit 5f08e46b621a769e52a9545a23ab1d5fb2aec1d4 aka "atl1:
-> > > > disable broken 64-bit DMA".
-> > > > 
-> > > > With this commit in tree, I can reproduce either
-> > > > a) kmalloc-2048 corruption after initscripts shutdown eth0
-> > > > 	http://marc.info/?l=linux-kernel&m=120820360221261&w=2
-> > > > 
-> > > > b) or oopses at filp_close() first reported long ago
-> > > > 	(sorry, can't find that email)
-> > > > 
-> > > > c) or hard hang after initscripts shutdown eth0 with even SysRq
-> > > > not working.
-> > > > http://marc.info/?l=linux-kernel&m=120795046008115&w=2
-> > > > 
-> > > > I have two boxes one with atl1, 4G RAM with 2G remapped after 4G
-> > > > boundary, another with r8169 connected with just ethernet cable.
-> > > > NICs agree on 1Gbps speed.
-> > > > 
-> > > > So, it's enough to scp 200 MB git archive and immediately start
-> > > > rebooting sequence for horrors described above to appear. It's not
-> > > > 100% reproducible but more like 90%.
-> > > 
-> > > Do I understand correctly that these failures occur only while the
-> > > network interface is going down?
-> > 
-> > Yep. During up or running there were no problems with this card.
-> > 
-> 
-> One more question:  Does it happen whether or not you're using atl1 as
-> a netconsole?
+On Sat, 2008-19-04 at 18:45 +0200, Patrick McHardy wrote:
 
-Without netconsole bugs happens too.
+> I imagine something like this:
+> 
+> # nl-link-dump env eth0
+> 
+> LINK_NAME=eth0
+> LINK_IFINDEX=2
+> LINK_LLADDR=.....
+> LINK_OPERSTATE=...
+> 
+> and so on. You could then do something like this:
+> 
+> export $(nl-link-dump env eth0)
+> 
+> and use $LINK_... in your scripts.
+> 
+
+Clever. That would certainly help in portability; i will take a closer
+look on what you did for libnl and see how well it applies for iproute2.
+
+Stephen, I have some cycles today - I am going to assume no-response
+from you implies ok on the change i sent earlier - so i will work on
+adding additional changes on top of the one i sent earlier to fixup the
+pretty printing (which is not as serious a regression IMO as breakage of
+the output).
+
+cheers,
+jamal
 
