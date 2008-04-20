@@ -1,58 +1,99 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [PATCH][IPROUTE2] Fixup u32 pretty printing
-Date: Sun, 20 Apr 2008 10:43:55 -0400
-Message-ID: <1208702635.12249.48.camel@localhost>
+Subject: [PATCH 1/3] [TC/U32] Restore old output of u32
+Date: Sun, 20 Apr 2008 10:45:44 -0400
+Message-ID: <1208702744.12249.51.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="=-Iro1/DzynwtPyEyN4D9J"
 Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.232]:58832 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbYDTOn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 10:43:59 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so966785wxd.4
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 07:43:57 -0700 (PDT)
+Received: from hs-out-0708.google.com ([64.233.178.251]:22659 "EHLO
+	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753174AbYDTOpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 10:45:47 -0400
+Received: by hs-out-0708.google.com with SMTP id 4so604455hsl.5
+        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 07:45:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen,
 
-I am going to re-send the original patch i sent (my git skills are
-limited) along with two others for a total of 3. 
+--=-Iro1/DzynwtPyEyN4D9J
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-With these patches:
 
-1) the default output stays as it was before and only when the user
-adds a -cooked does the new pretty printing take effect. Example:
-
---------
-hadi@lilsol:~$ tc -c filter ls dev lo parent ffff:
-
-filter protocol ip pref 9 u32 fh 801::802 order 2050 key ht 801 bkt 0
-flowid 1:16
-  match IP src 10.0.0.2/32
-  match IP protocol 6
-  match sport 53
-
-hadi@lilsol:~$ tc -c filter ls dev lo parent ffff:
-
-filter protocol ip pref 9 u32 fh 801::802 order 2050 key ht 801 bkt 0
-flowid 1:16
-  match 0a000002/ffffffff at 12
-  match 00060000/00ff0000 at 8
-  match 00000035/0000ffff at 20
---------
-
-2) A new infrastructure within u32 classifier to add more pretty
-printers is added and used for raw and ipv4.
-
-I have at least two more patches lined up, but will wait for the
-application of these 3 patches or any discussion of these three first
-before submitting.
+This is a repeat of the first one i sent already..
 
 cheers,
 jamal
+
+--=-Iro1/DzynwtPyEyN4D9J
+Content-Disposition: attachment; filename=0001-TC-U32-Restore-old-output-of-u32.txt
+Content-Type: text/plain; name=0001-TC-U32-Restore-old-output-of-u32.txt; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+[PATCH 1/3] [TC/U32] Restore old output of u32
+My scripts broke because of the new change that beautifies output.
+Restore old output as default and have user enter -cooked if they
+want beautified output...
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+---
+ include/utils.h |    1 +
+ tc/f_u32.c      |    2 +-
+ tc/tc.c         |    3 +++
+ 3 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/include/utils.h b/include/utils.h
+index 5daed6b..3a7312c 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -13,6 +13,7 @@ extern int preferred_family;
+ extern int show_stats;
+ extern int show_details;
+ extern int show_raw;
++extern int show_cooked;
+ extern int resolve_hosts;
+ extern int oneline;
+ extern int timestamp;
+diff --git a/tc/f_u32.c b/tc/f_u32.c
+index 7e4d56c..db492fe 100644
+--- a/tc/f_u32.c
++++ b/tc/f_u32.c
+@@ -793,7 +793,7 @@ static void show_key(FILE *f, const struct tc_u32_key *key)
+ {
+ 	char abuf[256];
+ 
+-	if (show_raw)
++	if (!show_cooked)
+ 		goto raw;
+ 
+ 	switch (key->off) {
+diff --git a/tc/tc.c b/tc/tc.c
+index 6126c71..06058fb 100644
+--- a/tc/tc.c
++++ b/tc/tc.c
+@@ -33,6 +33,7 @@
+ int show_stats = 0;
+ int show_details = 0;
+ int show_raw = 0;
++int show_cooked = 0;
+ int resolve_hosts = 0;
+ int use_iec = 0;
+ int force = 0;
+@@ -273,6 +274,8 @@ int main(int argc, char **argv)
+ 			++show_details;
+ 		} else if (matches(argv[1], "-raw") == 0) {
+ 			++show_raw;
++		} else if (matches(argv[1], "-cooked") == 0) {
++			++show_cooked;
+ 		} else if (matches(argv[1], "-Version") == 0) {
+ 			printf("tc utility, iproute2-ss%s\n", SNAPSHOT);
+ 			return 0;
+-- 
+1.4.4.1.gaed4
+
+
+--=-Iro1/DzynwtPyEyN4D9J--
 
