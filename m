@@ -1,45 +1,38 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH] Removing dead code in /drivers/net/wan/hdlc_fr.c
-Date: Sun, 20 Apr 2008 19:15:51 +0200
-Message-ID: <m3lk385tx4.fsf@maximus.localdomain>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] skbuff: fix missing kernel-doc notation
+Date: Sun, 20 Apr 2008 10:51:01 -0700
+Message-ID: <20080420105101.d07438f8.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, torvalds <torvalds@linux-foundation.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:39551 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754319AbYDTRPx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 13:15:53 -0400
+Received: from agminet01.oracle.com ([141.146.126.228]:36122 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754795AbYDTRv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 13:51:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: C=E9dric Augonnet <Cedric.Augonnet@ens-lyon.fr>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Removing dead code in /drivers/net/wan/hdlc_fr.c
-   =20
-The local variable "prefix" is never used anymore, and the content of
-this string appears a bit later, directly in a call to "alloc_netdev"
-after doing exactly the same if/else test. So there seems to be no
-point keeping those 4 lines anymore.
-   =20
-Signed-off-by: C=E9dric Augonnet <cedric.augonnet@ens-lyon.org>
-Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
+Add kernel-doc notation for ndisc_nodetype:
 
-diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
-index c4ab032..520bb0b 100644
---- a/drivers/net/wan/hdlc_fr.c
-+++ b/drivers/net/wan/hdlc_fr.c
-@@ -1090,10 +1090,6 @@ static int fr_add_pvc(struct net_device *frad, u=
-nsigned int dlci, int type)
- 	pvc_device *pvc =3D NULL;
- 	struct net_device *dev;
- 	int result, used;
--	char * prefix =3D "pvc%d";
--
--	if (type =3D=3D ARPHRD_ETHER)
--		prefix =3D "pvceth%d";
-=20
- 	if ((pvc =3D add_pvc(frad, dlci)) =3D=3D NULL) {
- 		printk(KERN_WARNING "%s: Memory squeeze on fr_add_pvc()\n",
+Warning(linux-2.6.25-git2//include/linux/skbuff.h:340): No description found for parameter 'ndisc_nodetype'
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ include/linux/skbuff.h |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-2.6.25-git2.orig/include/linux/skbuff.h
++++ linux-2.6.25-git2/include/linux/skbuff.h
+@@ -242,6 +242,7 @@ typedef unsigned char *sk_buff_data_t;
+  *	@queue_mapping: Queue mapping for multiqueue devices
+  *	@tc_index: Traffic control index
+  *	@tc_verd: traffic control verdict
++ *	@ndisc_nodetype: router type (from link layer)
+  *	@dma_cookie: a cookie to one of several possible DMA operations
+  *		done by skb DMA functions
+  *	@secmark: security marking
