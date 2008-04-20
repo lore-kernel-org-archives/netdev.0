@@ -1,56 +1,69 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH] Expose netdevice dev_id through sysfs
-Date: Sun, 20 Apr 2008 12:22:52 +0100
-Message-ID: <1208690572.9212.433.camel@pmac.infradead.org>
-References: <ftdb3v$tls$1@ger.gmane.org>
-	 <20080407143805.GA9492@bongo.bofh.it>
-	 <1208167737.31695.32.camel@pmac.infradead.org>
-	 <1208171478.31695.58.camel@pmac.infradead.org>
-	 <3ae72650804140455l4bb2afc2i4c54e58f3be1f931@mail.gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: atl1 64-bit => 32-bit DMA borkage (reproducible, bisected)
+Date: Sun, 20 Apr 2008 16:26:31 +0400
+Message-ID: <20080420122631.GA4761@martell.zuzino.mipt.ru>
+References: <84144f020804140901p1c076fd2q73e3effe7cd96da3@mail.gmail.com> <Pine.LNX.4.64.0804141050550.6296@schroedinger.engr.sgi.com> <20080414183221.GA5234@martell.zuzino.mipt.ru> <20080414195613.GA4772@martell.zuzino.mipt.ru> <Pine.LNX.4.64.0804141301580.7803@schroedinger.engr.sgi.com> <20080419111719.GA6724@martell.zuzino.mipt.ru> <20080419144535.GA4814@martell.zuzino.mipt.ru> <20080419215444.2d4623f5@osprey.hogchain.net> <20080420111453.GA4902@martell.zuzino.mipt.ru> <20080420060607.2b1be48b@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Luca Tettamanti <kronos.it@gmail.com>,
+	Chris Snook <csnook@redhat.com>, Jeff Garzik <jeff@garzik.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Christoph Lameter <clameter@sgi.com>, torvalds@osdl.org
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:33328 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbYDTLWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 07:22:54 -0400
-In-Reply-To: <3ae72650804140455l4bb2afc2i4c54e58f3be1f931@mail.gmail.com>
+Received: from fk-out-0910.google.com ([209.85.128.191]:54788 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752782AbYDTLbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 07:31:12 -0400
+Received: by fk-out-0910.google.com with SMTP id 19so1698117fkr.5
+        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 04:31:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080420060607.2b1be48b@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Expose dev_id to userspace, because it helps to disambiguate between
-interfaces where the MAC address is unique.
+On Sun, Apr 20, 2008 at 06:06:07AM -0500, Jay Cliburn wrote:
+> On Sun, 20 Apr 2008 15:14:53 +0400
+> Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> 
+> > On Sat, Apr 19, 2008 at 09:54:44PM -0500, Jay Cliburn wrote:
+> > > On Sat, 19 Apr 2008 18:45:35 +0400
+> > > Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> > > 
+> > > > OK, nailed it.
+> > > > 
+> > > > It's commit 5f08e46b621a769e52a9545a23ab1d5fb2aec1d4 aka "atl1:
+> > > > disable broken 64-bit DMA".
+> > > > 
+> > > > With this commit in tree, I can reproduce either
+> > > > a) kmalloc-2048 corruption after initscripts shutdown eth0
+> > > > 	http://marc.info/?l=linux-kernel&m=120820360221261&w=2
+> > > > 
+> > > > b) or oopses at filp_close() first reported long ago
+> > > > 	(sorry, can't find that email)
+> > > > 
+> > > > c) or hard hang after initscripts shutdown eth0 with even SysRq
+> > > > not working.
+> > > > http://marc.info/?l=linux-kernel&m=120795046008115&w=2
+> > > > 
+> > > > I have two boxes one with atl1, 4G RAM with 2G remapped after 4G
+> > > > boundary, another with r8169 connected with just ethernet cable.
+> > > > NICs agree on 1Gbps speed.
+> > > > 
+> > > > So, it's enough to scp 200 MB git archive and immediately start
+> > > > rebooting sequence for horrors described above to appear. It's not
+> > > > 100% reproducible but more like 90%.
+> > > 
+> > > Do I understand correctly that these failures occur only while the
+> > > network interface is going down?
+> > 
+> > Yep. During up or running there were no problems with this card.
+> > 
+> 
+> One more question:  Does it happen whether or not you're using atl1 as
+> a netconsole?
 
-This should allow us to simplify the handling of persistent naming for
-S390 network devices in udev -- because it can depend on a simple
-attribute of the device like the other match criteria, rather than 
-having a special case for SUBSYSTEMS=="ccwgroup".
-
-Signed-off-by: David Woodhouse <dwmw2@infradead.org>
-
---- ./linux-2.6.24.ppc/net/core/net-sysfs.c~	2008-04-13 13:38:24.000000000 +0100
-+++ ./linux-2.6.24.ppc/net/core/net-sysfs.c	2008-04-14 10:58:32.000000000 +0100
-@@ -87,6 +87,7 @@ static ssize_t netdev_store(struct devic
- 	return ret;
- }
- 
-+NETDEVICE_SHOW(dev_id, fmt_hex);
- NETDEVICE_SHOW(addr_len, fmt_dec);
- NETDEVICE_SHOW(iflink, fmt_dec);
- NETDEVICE_SHOW(ifindex, fmt_dec);
-@@ -210,6 +211,7 @@ static ssize_t store_tx_queue_len(struct
- 
- static struct device_attribute net_class_attributes[] = {
- 	__ATTR(addr_len, S_IRUGO, show_addr_len, NULL),
-+	__ATTR(dev_id, S_IRUGO, show_dev_id, NULL),
- 	__ATTR(iflink, S_IRUGO, show_iflink, NULL),
- 	__ATTR(ifindex, S_IRUGO, show_ifindex, NULL),
- 	__ATTR(features, S_IRUGO, show_features, NULL),
-
-
--- 
-dwmw2
+Without netconsole bugs happens too.
 
