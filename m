@@ -1,99 +1,94 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [PATCH 1/3] [TC/U32] Restore old output of u32
-Date: Sun, 20 Apr 2008 10:45:44 -0400
-Message-ID: <1208702744.12249.51.camel@localhost>
+Subject: [PATCH 2/3] [TC/FILTERS] Expose the filter protocol
+Date: Sun, 20 Apr 2008 10:47:48 -0400
+Message-ID: <1208702868.12249.54.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-Iro1/DzynwtPyEyN4D9J"
+Content-Type: multipart/mixed; boundary="=-vmGxH8m/62oUJhW/PUvR"
 Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.251]:22659 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753174AbYDTOpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 10:45:47 -0400
-Received: by hs-out-0708.google.com with SMTP id 4so604455hsl.5
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 07:45:46 -0700 (PDT)
+Received: from an-out-0708.google.com ([209.85.132.250]:53687 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753541AbYDTOrx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 10:47:53 -0400
+Received: by an-out-0708.google.com with SMTP id d31so383784and.103
+        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 07:47:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-Iro1/DzynwtPyEyN4D9J
+--=-vmGxH8m/62oUJhW/PUvR
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
 
-This is a repeat of the first one i sent already..
+makes protocol accessible ..
 
 cheers,
 jamal
 
---=-Iro1/DzynwtPyEyN4D9J
-Content-Disposition: attachment; filename=0001-TC-U32-Restore-old-output-of-u32.txt
-Content-Type: text/plain; name=0001-TC-U32-Restore-old-output-of-u32.txt; charset=us-ascii
+--=-vmGxH8m/62oUJhW/PUvR
+Content-Disposition: attachment; filename=0002-TC-FILTERS-Expose-the-filter-protocol.txt
+Content-Type: text/plain; name=0002-TC-FILTERS-Expose-the-filter-protocol.txt; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-[PATCH 1/3] [TC/U32] Restore old output of u32
-My scripts broke because of the new change that beautifies output.
-Restore old output as default and have user enter -cooked if they
-want beautified output...
+[PATCH 2/3] [TC/FILTERS] Expose the filter protocol
+
+Expose the filter protocol so it can be used by underlying
+classifiers when they need it.
 
 Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 ---
- include/utils.h |    1 +
- tc/f_u32.c      |    2 +-
- tc/tc.c         |    3 +++
- 3 files changed, 5 insertions(+), 1 deletions(-)
+ tc/tc_filter.c |    9 +++++----
+ tc/tc_util.h   |    1 +
+ 2 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index 5daed6b..3a7312c 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -13,6 +13,7 @@ extern int preferred_family;
- extern int show_stats;
- extern int show_details;
- extern int show_raw;
-+extern int show_cooked;
- extern int resolve_hosts;
- extern int oneline;
- extern int timestamp;
-diff --git a/tc/f_u32.c b/tc/f_u32.c
-index 7e4d56c..db492fe 100644
---- a/tc/f_u32.c
-+++ b/tc/f_u32.c
-@@ -793,7 +793,7 @@ static void show_key(FILE *f, const struct tc_u32_key *key)
+diff --git a/tc/tc_filter.c b/tc/tc_filter.c
+index 6701f9a..db44dec 100644
+--- a/tc/tc_filter.c
++++ b/tc/tc_filter.c
+@@ -175,6 +175,7 @@ static __u32 filter_parent;
+ static int filter_ifindex;
+ static __u32 filter_prio;
+ static __u32 filter_protocol;
++__u16 f_proto = 0;
+ 
+ int print_filter(const struct sockaddr_nl *who,
+ 			struct nlmsghdr *n,
+@@ -221,13 +222,13 @@ int print_filter(const struct sockaddr_nl *who,
+ 		}
+ 	}
+ 	if (t->tcm_info) {
+-		__u32 protocol = TC_H_MIN(t->tcm_info);
++		f_proto = TC_H_MIN(t->tcm_info);
+ 		__u32 prio = TC_H_MAJ(t->tcm_info)>>16;
+-		if (!filter_protocol || filter_protocol != protocol) {
+-			if (protocol) {
++		if (!filter_protocol || filter_protocol != f_proto) {
++			if (f_proto) {
+ 				SPRINT_BUF(b1);
+ 				fprintf(fp, "protocol %s ",
+-					ll_proto_n2a(protocol, b1, sizeof(b1)));
++					ll_proto_n2a(f_proto, b1, sizeof(b1)));
+ 			}
+ 		}
+ 		if (!filter_prio || filter_prio != prio) {
+diff --git a/tc/tc_util.h b/tc/tc_util.h
+index 301b5c7..796da54 100644
+--- a/tc/tc_util.h
++++ b/tc/tc_util.h
+@@ -19,6 +19,7 @@ struct qdisc_util
+ 	int	(*print_copt)(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
+ };
+ 
++extern __u16 f_proto;
+ struct filter_util
  {
- 	char abuf[256];
- 
--	if (show_raw)
-+	if (!show_cooked)
- 		goto raw;
- 
- 	switch (key->off) {
-diff --git a/tc/tc.c b/tc/tc.c
-index 6126c71..06058fb 100644
---- a/tc/tc.c
-+++ b/tc/tc.c
-@@ -33,6 +33,7 @@
- int show_stats = 0;
- int show_details = 0;
- int show_raw = 0;
-+int show_cooked = 0;
- int resolve_hosts = 0;
- int use_iec = 0;
- int force = 0;
-@@ -273,6 +274,8 @@ int main(int argc, char **argv)
- 			++show_details;
- 		} else if (matches(argv[1], "-raw") == 0) {
- 			++show_raw;
-+		} else if (matches(argv[1], "-cooked") == 0) {
-+			++show_cooked;
- 		} else if (matches(argv[1], "-Version") == 0) {
- 			printf("tc utility, iproute2-ss%s\n", SNAPSHOT);
- 			return 0;
+ 	struct filter_util *next;
 -- 
 1.4.4.1.gaed4
 
 
---=-Iro1/DzynwtPyEyN4D9J--
+--=-vmGxH8m/62oUJhW/PUvR--
 
