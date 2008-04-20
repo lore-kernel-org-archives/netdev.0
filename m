@@ -1,145 +1,80 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2/2] korina: misc cleanup
-Date: Sun, 20 Apr 2008 18:06:13 +0200
-Message-ID: <20080420160613.GB26599@electric-eye.fr.zoreil.com>
-References: <20080420160531.GA26599@electric-eye.fr.zoreil.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked
+	version of Tomasz's patch set
+Date: Sun, 20 Apr 2008 13:57:42 -0300
+Message-ID: <20080420165742.GA12221@ghostprotocols.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804172203.07758.tomasz@grobelny.oswiecenia.net> <20080418101336.GA13526@gerrit.erg.abdn.ac.uk> <200804192242.33632.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Florian Fainelli <florian.fainelli@telecomint.eu>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43160 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753587AbYDTQYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 12:24:25 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:44903 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754164AbYDTQ5t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Apr 2008 12:57:49 -0400
 Content-Disposition: inline
-In-Reply-To: <20080420160531.GA26599@electric-eye.fr.zoreil.com>
+In-Reply-To: <200804192242.33632.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- useless initialization (korina_ope / korina_restart)
-- use a single variable for the status code in korina_probe
-  and propagate the error status code from below
-- useless checks in korina_remove : the variables are
-  necessarily set when korina_probe succeeds
+Em Sat, Apr 19, 2008 at 10:42:32PM +0200, Tomasz Grobelny escreveu:
+> Dnia Friday 18 of April 2008, Gerrit Renker napisa=C5=82:
+> > | > There is a more serious problem here: apparently no one tried t=
+o
+> > | > compile the `qpolicy' subtree since the changes on Monday. It f=
+ails
+> > | > with the BUILD_BUG_ON.
+> > | >
+> > | > I tried yesterday evening and found that there is not even a
+> > | > possibility of adding a single field to struct dccp_skb_cb: wit=
+h the
+> > | > addition of the inet{,6}_skb_parm, the struct has reached its m=
+aximum
+> > | > size of 48 bytes (try printk("%u", sizeof(struct dccp_skb_cb));=
+).
+> > | >
+> > | > There is a solution to this, will post a revised patch shortly.
+> > |
+> > | What you proposed in the patch should work ok for qpolicies for n=
+ow. But
+> > | sooner or later the need to add a field to struct dccp_skb_cb wil=
+l arise.
+> > | So maybe we should think about it now...
+> > | Other possibility apart from what you proposed in the patch is cr=
+eating
+> > | struct dccp_skb_cb_ext, move to it some fields from struct dccp_s=
+kb_cb
+> > | and in struct add a pointer to this new struct dccp_skb_cb_ext. O=
+k, maybe
+> > | it is not the prettiest idea but in case somebody needs yet anoth=
+er
+> > | additional field in struct dccp_skb_cb_ext it would be nice to ha=
+ve an
+> > | idea how to do it.
+> >
+> > When the patch failed to compile I thought about those alternatives=
+=2E
+> > Trying to extend the dccp_skb_cb over and above what is in there wi=
+ll be
+> > messy, since the IPv4/v6 parameters are required by other subsystem=
+s.
+> >
+> If inet{,6}_skb_parm is used only outside DCCP code then why at all s=
+hould it=20
+> be placed in struct dccp_skb_cb taking up quite a lot of valuable spa=
+ce? Why=20
+> not put it directly in struct sk_buff? Especially that it is present =
+in=20
+> struct udp_skb_cb, struct tcp_skb_cb as well.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/korina.c |   35 ++++++++++++++++-------------------
- 1 files changed, 16 insertions(+), 19 deletions(-)
+Because all this is used in skb->cb[], a scratchpad for protocols to
+use, we can go back to what we had before, that is to not reserve use
+for inet6?_skb_parm but be sure to zero it before passing it to IP, as
+we don't want IP to be confused with things being non zero there. Then
+we can use all its space.
 
-diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index 305be62..e185763 100644
---- a/drivers/net/korina.c
-+++ b/drivers/net/korina.c
-@@ -883,7 +883,7 @@ static int korina_init(struct net_device *dev)
- static int korina_restart(struct net_device *dev)
- {
- 	struct korina_private *lp = netdev_priv(dev);
--	int ret = 0;
-+	int ret;
- 
- 	/*
- 	 * Disable interrupts
-@@ -987,7 +987,7 @@ static void korina_poll_controller(struct net_device *dev)
- static int korina_open(struct net_device *dev)
- {
- 	struct korina_private *lp = netdev_priv(dev);
--	int ret = 0;
-+	int ret;
- 
- 	/* Initialize */
- 	ret = korina_init(dev);
-@@ -1082,7 +1082,7 @@ static int korina_probe(struct platform_device *pdev)
- 	struct korina_private *lp;
- 	struct net_device *dev;
- 	struct resource *r;
--	int retval, err;
-+	int rc;
- 
- 	dev = alloc_etherdev(sizeof(struct korina_private));
- 	if (!dev) {
-@@ -1106,7 +1106,7 @@ static int korina_probe(struct platform_device *pdev)
- 	lp->eth_regs = ioremap_nocache(r->start, r->end - r->start);
- 	if (!lp->eth_regs) {
- 		printk(KERN_ERR DRV_NAME "cannot remap registers\n");
--		retval = -ENXIO;
-+		rc = -ENXIO;
- 		goto probe_err_out;
- 	}
- 
-@@ -1114,7 +1114,7 @@ static int korina_probe(struct platform_device *pdev)
- 	lp->rx_dma_regs = ioremap_nocache(r->start, r->end - r->start);
- 	if (!lp->rx_dma_regs) {
- 		printk(KERN_ERR DRV_NAME "cannot remap Rx DMA registers\n");
--		retval = -ENXIO;
-+		rc = -ENXIO;
- 		goto probe_err_dma_rx;
- 	}
- 
-@@ -1122,14 +1122,14 @@ static int korina_probe(struct platform_device *pdev)
- 	lp->tx_dma_regs = ioremap_nocache(r->start, r->end - r->start);
- 	if (!lp->tx_dma_regs) {
- 		printk(KERN_ERR DRV_NAME "cannot remap Tx DMA registers\n");
--		retval = -ENXIO;
-+		rc = -ENXIO;
- 		goto probe_err_dma_tx;
- 	}
- 
- 	lp->td_ring = kmalloc(TD_RING_SIZE + RD_RING_SIZE, GFP_KERNEL);
- 	if (!lp->td_ring) {
- 		printk(KERN_ERR DRV_NAME "cannot allocate descriptors\n");
--		retval = -ENOMEM;
-+		rc = -ENXIO;
- 		goto probe_err_td_ring;
- 	}
- 
-@@ -1166,14 +1166,14 @@ static int korina_probe(struct platform_device *pdev)
- 	lp->mii_if.phy_id_mask = 0x1f;
- 	lp->mii_if.reg_num_mask = 0x1f;
- 
--	err = register_netdev(dev);
--	if (err) {
-+	rc = register_netdev(dev);
-+	if (rc < 0) {
- 		printk(KERN_ERR DRV_NAME
--			": cannot register net device %d\n", err);
--		retval = -EINVAL;
-+			": cannot register net device %d\n", rc);
- 		goto probe_err_register;
- 	}
--	return 0;
-+out:
-+	return rc;
- 
- probe_err_register:
- 	kfree(lp->td_ring);
-@@ -1185,7 +1185,7 @@ probe_err_dma_rx:
- 	iounmap(lp->eth_regs);
- probe_err_out:
- 	free_netdev(dev);
--	return retval;
-+	goto out;
- }
- 
- static int korina_remove(struct platform_device *pdev)
-@@ -1193,12 +1193,9 @@ static int korina_remove(struct platform_device *pdev)
- 	struct korina_device *bif = platform_get_drvdata(pdev);
- 	struct korina_private *lp = netdev_priv(bif->dev);
- 
--	if (lp->eth_regs)
--		iounmap(lp->eth_regs);
--	if (lp->rx_dma_regs)
--		iounmap(lp->rx_dma_regs);
--	if (lp->tx_dma_regs)
--		iounmap(lp->tx_dma_regs);
-+	iounmap(lp->eth_regs);
-+	iounmap(lp->rx_dma_regs);
-+	iounmap(lp->tx_dma_regs);
- 
- 	platform_set_drvdata(pdev, NULL);
- 	unregister_netdev(bif->dev);
--- 
-1.5.3.3
-
+- Arnaldo
