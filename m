@@ -1,28 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [patch 1/3] hci_usb: do not initialize static variables to 0
-Date: Sat, 19 Apr 2008 18:14:14 -0700 (PDT)
-Message-ID: <20080419.181414.174853322.davem@davemloft.net>
-References: <200804182046.m3IKkp7P014625@imap1.linux-foundation.org>
-	<A7F393C1-AEAC-4BC5-B7A4-A9CC78179CDF@holtmann.org>
-	<20080419161245.GA1577@elf.ucw.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 2/3] drivers/atm: use time_before, time_before_eq, etc
+Date: Sat, 19 Apr 2008 18:15:15 -0700 (PDT)
+Message-ID: <20080419.181515.20270158.davem@davemloft.net>
+References: <200804182046.m3IKkBpr014619@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: pavel-+ZI9xUNit7I@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080419161245.GA1577-I/5MKhXcvmPrBKCeMvbIDA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, julia@diku.dk
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53060
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751774AbYDTBPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2008 21:15:13 -0400
+In-Reply-To: <200804182046.m3IKkBpr014619@imap1.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Date: Sat, 19 Apr 2008 18:12:45 +0200
+From: akpm@linux-foundation.org
+Date: Fri, 18 Apr 2008 13:46:10 -0700
 
-> According to you noone should read this one, anyway :-)... and this
-> wastes space in vmlinux.
+> The functions time_before, time_before_eq, time_after, and time_after_eq
+> are more robust for comparing jiffies against other values.
+> 
+> A simplified version of the semantic patch making this change is as follows:
+> (http://www.emn.fr/x-info/coccinelle/)
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-This is getting rediculious :-)
-
-I've applied this patch.
+Applied, thanks.
