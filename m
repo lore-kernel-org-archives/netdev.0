@@ -1,53 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [for 2.6.26] ISDN cleanups, ok for upstream?
-Date: Sun, 20 Apr 2008 18:20:01 -0400
-Message-ID: <480BC191.6030905@garzik.org>
-References: <20080418225355.GA30189@havoc.gtf.org> <20080418164113.6863213d.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10487] New: NIC (forcedeth) doesn't work with
+ suspend (S3)
+Date: Sun, 20 Apr 2008 15:21:35 -0700
+Message-ID: <20080420152135.d2c45887.akpm@linux-foundation.org>
+References: <bug-10487-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kkeil@suse.de, isdn4linux@listserv.isdn4linux.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>
+To: fragabr@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50422 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750796AbYDTWUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Apr 2008 18:20:09 -0400
-In-Reply-To: <20080418164113.6863213d.akpm@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49841 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752842AbYDTWVW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 18:21:22 -0400
+In-Reply-To: <bug-10487-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> On Fri, 18 Apr 2008 18:53:55 -0400
-> Jeff Garzik <jeff@garzik.org> wrote:
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+
+> On Sun, 20 Apr 2008 00:06:07 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=10487
 > 
->> I don't know the current state of
->> akpm's pull of jgarzik/misc-2.6.git#ALL.
+>            Summary: NIC (forcedeth) doesn't work with suspend (S3)
+>            Product: Power Management
+>            Version: 2.5
+>      KernelVersion: 2.6.25
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Hibernation/Suspend
+>         AssignedTo: power-management_other@kernel-bugs.osdl.org
+>         ReportedBy: fragabr@gmail.com
 > 
-> oops.  It seems that I disabled it quite a long time ago.   I'll resurrect
-> it.
-
-Thanks!  Though note that it will be temporary empty, after 
-isdn-cleanups is sent upstream.
-
-If it's not too much trouble, I would appreciate you continuing to poll 
-misc-2.6.git#ALL, even if it comes up empty.  That tree (and branch) 
-acts as an outlet for miscellaneous jgarzik stuff that may go upstream 
-"vaguely soonish maybe"  :)
-
-
->> The 'isdn-cleanups' branch of
->> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/misc-2.6.git isdn-cleanups
 > 
-> That merges cleanly against the small number of isdn patches which are
-> pending in -mm, so we're OK from that POV.
+> Latest working kernel version: 2.6.25
 
-Thanks for checking.
+No, that's not right.  Please tell us the latest version of the kernel
+which worked OK.
 
-Regards,
-
-	Jeff
-
+> Earliest failing kernel version: all
+> Distribution: Linux from scratch
+> Hardware Environment: Athlon64 x2 (x86-64), Asus M2N-E
+> Software Environment: 
+> Problem Description:
+> 
+> When I use s2ram to suspend to ram, everything works, except the network
+> (forcedeth) that doesn't come back from suspend. So I have to reboot the
+> machine.
+> 
+> Steps to reproduce:
+> 
+> 1) s2ram
+> 
+> 2) then wake up from suspend
+> 
+> 3) network isn't working anymore
+> 
+> 
 
