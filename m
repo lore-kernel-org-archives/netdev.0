@@ -1,37 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tx-checksumming for an Intel Corporation 82540EP Gigabit Ethernet Controller (Mobile)
-Date: Mon, 21 Apr 2008 12:50:34 +0800
-Message-ID: <20080421045034.GA7550@gondor.apana.org.au>
-References: <47EB8C5C.7060007@isomerica.net> <E1Jnn9e-0001tP-00@gondolin.me.apana.org.au> <20080420.212451.10825959.davem@davemloft.net>
+From: Jason Uhlenkott <juhlenko@akamai.com>
+Subject: [RFC 0/4] net: enable timestamps on a per-socket basis
+Date: Sun, 20 Apr 2008 22:34:02 -0700
+Message-ID: <20080421053402.GB23476@48M1231.sanmateo.corp.akamai.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dpn@isomerica.net, toralf.foerster@gmx.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46346 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751229AbYDUEul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 00:50:41 -0400
+Received: from prod-mail-xrelay03.akamai.com ([72.247.150.167]:57112 "EHLO
+	prod-mail-xrelay03.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750776AbYDUFkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 01:40:01 -0400
 Content-Disposition: inline
-In-Reply-To: <20080420.212451.10825959.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 20, 2008 at 09:24:51PM -0700, David Miller wrote:
->
-> But every time we say this they keep coming back at us that they can't
-> change the tcpdump raw dump file format that's been used for
-> centuries, and naturally it was designed without any extensibility in
-> mind so there's nowhere to store the checksum indication.
+Currently, if anyone enables the SOCK_TIMESTAMP flag on any socket
+(via the SO_TIMESTAMP socket option or the SIOCGSTAMP ioctl), we start
+recording timestamps for *every* packet coming into the system.  We do
+this because timestamps are recorded very early by the net core,
+before the upper protocol layers have a chance to look up the
+socket(s) associated with each incoming packet.
 
-They could always fix up the checksums if it has to be written
-out.  Alternatively it could notice that the checksum is exactly
-that of the pseudo-header and flag it differently versus just any
-checksum error.
+A number of common apps enable timestamps, including ping, tcpdump,
+and named.  named probably has the biggest impact -- most people don't
+leave ping running all the time, and expect that leaving tcpdump
+running will cost a bit of performance, but it's unfortunate that the
+mere presence of a local caching nameserver has a global negative
+effect on incoming packet overhead.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+This patchset creates a mechanism for protocols to opt in to handling
+timestamps at a higher layer, and uses this mechanism to implement
+per-socket SOCK_TIMESTAMP support for several common protocols.
