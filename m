@@ -1,12 +1,14 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
-Date: Mon, 21 Apr 2008 09:38:49 -0700
-Message-ID: <480CC319.5020500@intel.com>
-References: <1208282804.23631.27.camel@localhost> <175f5a0f0804151315x1e192fc7p7dac1e84fd154211@mail.gmail.com> <48051173.5030802@intel.com> <48051734.1000107@redhat.com> <1208426550.6049.10.camel@localhost> <48078AF6.2020003@intel.com> <20080421131937.GA4685@ucw.cz>
+Date: Mon, 21 Apr 2008 09:42:00 -0700
+Message-ID: <480CC3D8.3040700@hp.com>
+References: <aiXVe-Yn-7@gated-at.bofh.it> <ajGfA-7rt-9@gated-at.bofh.it>	<ajGfA-7rt-11@gated-at.bofh.it> <ajGfA-7rt-13@gated-at.bofh.it>	<ajGfA-7rt-15@gated-at.bofh.it> <ajGfA-7rt-7@gated-at.bofh.it> <E1JnEcl-0000xc-D9@be1.7eggert.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
+Cc: Kok@vger.kernel.org, Auke <auke-jan.h.kok@intel.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
 	"H. Peter Anvin" <hpa@zytor.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Anton Titov <a.titov@host.bg>, Chris Snook <csnook@redhat.com>,
@@ -14,67 +16,34 @@ Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>
-To: Pavel Machek <pavel@ucw.cz>
+To: 7eggert@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10870 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753369AbYDUQkG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 12:40:06 -0400
-In-Reply-To: <20080421131937.GA4685@ucw.cz>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:31131 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754811AbYDUQmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 12:42:07 -0400
+In-Reply-To: <E1JnEcl-0000xc-D9@be1.7eggert.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Machek wrote:
-> Hi!
+Bodo Eggert wrote:
+> Kok, Auke <auke-jan.h.kok@intel.com> wrote:
 > 
->> [X86] IRQBALANCE: Mark as BROKEN and disable by default
->>
->> The IRQBALANCE option causes interrupts to bounce all around on SMP systems
->> quickly burying the CPU in migration cost and cache misses. Mainly affected are
->> network interrupts and this results in one CPU pegged in softirqd completely.
->>
->> Disable this option and provide documentation to a better solution (userspace
->> irqbalance daemon does overall the best job to begin with and only manual setting
->> of smp_affinity will beat it).
->>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->>
->> ---
->>
->> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
->> index 6c70fed..956aa22 100644
->> --- a/arch/x86/Kconfig
->> +++ b/arch/x86/Kconfig
->> @@ -1026,13 +1026,17 @@ config EFI
->>    	platforms.
->>
->>  config IRQBALANCE
->> -	def_bool y
->> +	def_bool n
 > 
-> ACK.
->>  	prompt "Enable kernel irq balancing"
->> -	depends on X86_32 && SMP && X86_IO_APIC
->> +	depends on X86_32 && SMP && X86_IO_APIC && BROKEN
+>>[X86] IRQBALANCE: Mark as BROKEN and disable by default
+>>
+>>The IRQBALANCE option causes interrupts to bounce all around on SMP systems
+>>quickly burying the CPU in migration cost and cache misses. Mainly affected
+>>are network interrupts and this results in one CPU pegged in softirqd
+>>completely.
 > 
-> This is wrong. irqbalance works, there's nothing wrong with it; but it
-> has nasty sideffects.
+> 
+> If this is the problem, maybe it would help to only balance the IRQs each
+> e.g. ten seconds? Unfortunately I have no SMP system to try it out.
 
-ok, I'm fine with taking that part out of the patch.
+Be it kernel or user space, for consistent benchmark results it needs to 
+be able to be turned-off without turning the code.  That leaves me in 
+agreement with Stephen that if it must exist, the user space one would 
+be preferable.  It can be easily terminated with extreme prejudice.
 
-Ingo, want me to send an updated patch?
-
-
-> 
->>  	help
->>  	  The default yes will allow the kernel to do irq load balancing.
->>  	  Saying no will keep the kernel from doing irq load balancing.
->>
->> +	  This option is known to cause performance issues on SMP
->> +	  systems. The preferred method is to use the userspace
->> +	  'irqbalance' daemon instead. See http://irqbalance.org/.
->> +
-> 
-> ACK.
-> 
-
+rick jones
