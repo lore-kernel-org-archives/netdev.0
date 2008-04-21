@@ -1,49 +1,46 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
-Date: Mon, 21 Apr 2008 09:42:00 -0700
-Message-ID: <480CC3D8.3040700@hp.com>
-References: <aiXVe-Yn-7@gated-at.bofh.it> <ajGfA-7rt-9@gated-at.bofh.it>	<ajGfA-7rt-11@gated-at.bofh.it> <ajGfA-7rt-13@gated-at.bofh.it>	<ajGfA-7rt-15@gated-at.bofh.it> <ajGfA-7rt-7@gated-at.bofh.it> <E1JnEcl-0000xc-D9@be1.7eggert.dyndns.org>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [RFC: 2.6 patch] remove ieee80211_wx_{get,set}_auth()
+Date: Mon, 21 Apr 2008 12:53:12 -0400
+Message-ID: <1208796792.30994.16.camel@localhost.localdomain>
+References: <20080421084834.GP26897@cs181133002.pp.htv.fi>
+	 (sfid-20080421_094928_883145_7CB9F947)  <1208769074.26186.53.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Kok@vger.kernel.org, Auke <auke-jan.h.kok@intel.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Anton Titov <a.titov@host.bg>, Chris Snook <csnook@redhat.com>,
-	"H. Willstrand" <h.willstrand@gmail.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: 7eggert@gmx.de
+Cc: Adrian Bunk <bunk@kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:31131 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754811AbYDUQmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 12:42:07 -0400
-In-Reply-To: <E1JnEcl-0000xc-D9@be1.7eggert.dyndns.org>
+Received: from mx1.redhat.com ([66.187.233.31]:54867 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754233AbYDUQ5T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 12:57:19 -0400
+In-Reply-To: <1208769074.26186.53.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bodo Eggert wrote:
-> Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+On Mon, 2008-04-21 at 11:11 +0200, Johannes Berg wrote:
+> On Mon, 2008-04-21 at 11:48 +0300, Adrian Bunk wrote:
+> > After the bcm43xx removal ieee80211_wx_{get,set}_auth() were no longer 
+> > used.
+> > 
+> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> > 
+> > ---
+> > 
+> >  include/net/ieee80211.h      |    8 ---
+> >  net/ieee80211/ieee80211_wx.c |   89 -----------------------------------
+> >  2 files changed, 97 deletions(-)
 > 
-> 
->>[X86] IRQBALANCE: Mark as BROKEN and disable by default
->>
->>The IRQBALANCE option causes interrupts to bounce all around on SMP systems
->>quickly burying the CPU in migration cost and cache misses. Mainly affected
->>are network interrupts and this results in one CPU pegged in softirqd
->>completely.
-> 
-> 
-> If this is the problem, maybe it would help to only balance the IRQs each
-> e.g. ten seconds? Unfortunately I have no SMP system to try it out.
+> Interesting. I thought those would have been in softmac, removal sounds
+> fine to me but I don't use the ieee80211 stack.
 
-Be it kernel or user space, for consistent benchmark results it needs to 
-be able to be turned-off without turning the code.  That leaves me in 
-agreement with Stephen that if it must exist, the user space one would 
-be preferable.  It can be easily terminated with extreme prejudice.
+The only other two users of ieee80211 are ipw2100 and ipw2200, and they
+both appear to implement the SIOCxIWAUTH calls privately.  So I think
+these can go to the function slaughterhouse.  If somebody wants to unify
+them later it would be better to start fresh anyway.
 
-rick jones
+Dan
+
+
