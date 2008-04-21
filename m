@@ -1,51 +1,42 @@
-From: Mark Asselstine <mark.asselstine@windriver.com>
-Subject: [PATCH] Remove unneeded and deprecated cli()/sti() calls.
-Date: Mon, 21 Apr 2008 15:49:10 -0400
-Message-ID: <1208807350-10618-1-git-send-email-mark.asselstine@windriver.com>
-Cc: netdev@vger.kernel.org, asselsm@gmail.com, klaus.kudielka@ieee.org,
-	linux-hams@vger.kernel.org,
-	Mark Asselstine <mark.asselstine@windriver.com>
-To: kernel-janitors@vger.kernel.org
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: ISDN testing
+Date: Mon, 21 Apr 2008 21:48:24 +0200
+Message-ID: <878wz76lbr.fsf@basil.nowhere.org>
+References: <20080420223959.GA17998@havoc.gtf.org>
+	<200804210205.38891.elendil@planet.nl> <480BF15D.2090100@garzik.org>
+	<200804211536.57655.elendil@planet.nl> <480CE960.4050000@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Frans Pop <elendil@planet.nl>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:37399 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751248AbYDUTtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 15:49:16 -0400
-In-Reply-To: <>
-References: <>
+Received: from smtp-out03.alice-dsl.net ([88.44.63.5]:20852 "EHLO
+	smtp-out03.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753076AbYDUTti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 15:49:38 -0400
+In-Reply-To: <480CE960.4050000@garzik.org> (Jeff Garzik's message of "Mon, 21 Apr 2008 15:22:08 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These cli()/sti() calls are made in start_timer() and are therefor
-redundant since the register_lock is now used to protect register
-io from within scc_isr() and write_scc() (where all calls to
-start_timer() originate).
+Jeff Garzik <jeff@garzik.org> writes:
+>
+> Yeah, that's what my patchset does -- splits the "hisax" driver into
+> multiple smaller drivers.  Thus, "modprobe hisax" produces the results
+> that you are seeing.
 
-Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
----
- drivers/net/hamradio/dmascc.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+That will break a lot of user's setup.
 
-diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
-index e04bf99..0b94833 100644
---- a/drivers/net/hamradio/dmascc.c
-+++ b/drivers/net/hamradio/dmascc.c
-@@ -1083,15 +1083,12 @@ static void start_timer(struct scc_priv *priv, int t, int r15)
- 	if (t == 0) {
- 		tm_isr(priv);
- 	} else if (t > 0) {
--		save_flags(flags);
--		cli();
- 		outb(t & 0xFF, priv->tmr_cnt);
- 		outb((t >> 8) & 0xFF, priv->tmr_cnt);
- 		if (priv->type != TYPE_TWIN) {
- 			write_scc(priv, R15, r15 | CTSIE);
- 			priv->rr0 |= CTS;
- 		}
--		restore_flags(flags);
- 	}
- }
+> You'll need to determine which newly-created kernel module applies to
+> your hardware.  Let me know if you need help with that.  The new
+> drivers should be in
+> /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/ provided that you
+> enabled them in the kernel configuration.
+
+One way to avoid that issue would be to continue having a dummy
+"hisax" module that just depends on all the other drivers with 
+a symbol reference.
  
--- 
-1.5.4.3
+That could be optional with some compat CONFIG.
 
+-Andi
