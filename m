@@ -1,90 +1,75 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC 0/4] net: enable timestamps on a per-socket basis
-Date: Mon, 21 Apr 2008 13:43:31 +0200
-Message-ID: <480C7DE3.5020301@firstfloor.org>
-References: <20080421053402.GB23476@48M1231.sanmateo.corp.akamai.com>	<20080420.230356.238029889.davem@davemloft.net>	<87y7777ahj.fsf@basil.nowhere.org> <20080421.035939.37324583.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version
+ of Tomasz's patch set
+Date: Mon, 21 Apr 2008 13:45:20 +0200
+Message-ID: <480C7E50.3050508@trash.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804192242.33632.tomasz@grobelny.oswiecenia.net> <20080420165742.GA12221@ghostprotocols.net> <200804202212.12283.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: juhlenko@akamai.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:49363 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754221AbYDULnd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 07:43:33 -0400
-In-Reply-To: <20080421.035939.37324583.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:38228 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755440AbYDULp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 07:45:26 -0400
+In-Reply-To: <200804202212.12283.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Mon, 21 Apr 2008 12:44:56 +0200
-> 
->> David Miller <davem@davemloft.net> writes:
+Tomasz Grobelny wrote:
+> Dnia Sunday 20 of April 2008, Arnaldo Carvalho de Melo napisa=C5=82:
+>> Em Sat, Apr 19, 2008 at 10:42:32PM +0200, Tomasz Grobelny escreveu:
+>>>> When the patch failed to compile I thought about those alternative=
+s.
+>>>> Trying to extend the dccp_skb_cb over and above what is in there w=
+ill
+>>>> be messy, since the IPv4/v6 parameters are required by other
+>>>> subsystems.
+>>> If inet{,6}_skb_parm is used only outside DCCP code then why at all
+>>> should it be placed in struct dccp_skb_cb taking up quite a lot of
+>>> valuable space? Why not put it directly in struct sk_buff? Especial=
+ly
+>>> that it is present in struct udp_skb_cb, struct tcp_skb_cb as well.
+>> Because all this is used in skb->cb[], a scratchpad for protocols to
+>> use, we can go back to what we had before, that is to not reserve us=
+e
+>> for inet6?_skb_parm but be sure to zero it before passing it to IP, =
+as
+>> we don't want IP to be confused with things being non zero there. Th=
+en
+>> we can use all its space.
 >>
->>> Moving the timestamp up to a higher level takes away some of the
->>> frequent use cases of timestamps, which is to detect things like the
->>> fact that it is taking a long time for packets to get from the
->>> top-level packet receive down to the actual protocol processing.
->> Is that really a frequent use case? It sounds more like a specialized
->> debugging situation. Most users are not network stack hackers :)
-> 
-> Ask a financial service industry shop what the implications of
-> inaccurate transaction timestamps can be.  It possible for it to be
-> measured in the millions if not billions of euros.
+> Several questions regarding this case:
+> 1. What about SCTP? It doesn't have inet6?_skb_parm in it's structure=
+ that is=20
+> stored in skb->cb. So does it contain a potential bug (that is to be =
+fixed)=20
+> or is it not needed there or what?
 
-Are you sure they don't just need end2end timestamps as in from sendmsg
-to recvmsg()? Imagine the packet is stuck for some time in the
-kernel for whatever reason and you only process it later in user space
-wouldn't you consider that older time stamp "inaccurate" too? I would,
-unless I was debugging the network stack.
+Judging by a quick grep, SCTP only uses the CB on input and
+appears to be fine.
 
-It is hard to imagine they really care about excluding one set of queues
-(kernel queue) and not other queues (nic rx/tx queues, switch queues
-etc.) for their time stamps as you imply.
+> 2. If the sole purpose of this change was to keep skb->cb zeroed then=
+ it=20
+> doesn't seem to me like the right solution. Wasting about 20 bytes in=
+stead of=20
+> zeroing them when needed I would consider at least weird. I understan=
+d that=20
+> TCP and UDP may have enough space left but it just turned out that DC=
+CP=20
+> doesn't.
 
->> But if you are willing to give away some of the guarantees of standard
->> gettimeofday (like global non monotonicity between CPUs) then you
->> could actually still use TSC even on those systems. And I don't
->> think global non monotonicity is really needed for a packet
->> time stamp ...
-> 
-> So if tcpdump gets resceduled on another cpu, or the multiqueue flow
-> hashing algorithm changes, the appearance of the ordering of packets
-> changes.
+It was the safest solution that late in a release. It also
+avoids to memset the cb unnecessarily. If the room is not
+enough anymore, its easy to go back to using memset.
 
-If that is the problem you could always cut off some lower bits in the
-time stamp and put a sequence counter in there. Ok not serious. It would
-probably still work for most people though.
+> 3. If it's IP layer that needs zeroes then why not clear skb->cb in I=
+P layer?
 
-> No thanks.
-> 
-> Nobody wants half-working timestamps. 
-
-I'm not so sure. When I was still working on this I had some
-conversation with various application people about this, and when
-prodded they generally were supportive of the relaxed time stamp idea
-when presented with the alternatives (either slow timers or relaxed timers)
-
-Very few applications really need the full time stamp guarantees.
-For your debugging example relaxed time stamps would work great I would
-think.
-
-But yes as always when changing some existing semantics it is hard to be
-sure it won't be a problem for somebody. The only really safe way
-is to use different interfaces but that circumvents Jason's idea
-of fixing the existing binaries.
-
-> That's why it's such an
-> enormous issue that x86 screwed this up so badly for such a long
-> period of time.
-
-Well pretty much all older CPUs (x86 and non x86) with aggressive power
-saving have broken internal timers. the one usually comes with the
-other.  Only recently have hardware people learned to avoid that.
-
--Andi
-
-
+That would certainly work, but it adds unnecessary costs for
+the other protocols that don't need this.
