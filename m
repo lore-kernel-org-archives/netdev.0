@@ -1,53 +1,29 @@
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Subject: [PATCH] make use of before macro in tcp_input.c (fwd)
-Date: Mon, 21 Apr 2008 22:14:28 +0200 (CEST)
-Message-ID: <alpine.LNX.1.00.0804212214230.1777@dragon.funnycrock.com>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
+Date: Mon, 21 Apr 2008 13:17:23 -0700
+Message-ID: <200804211317.23971.david-b@pacbell.net>
+References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt> <480CB8C2.9090902@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	trivial@kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:29808 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753909AbYDUUO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 16:14:26 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so1878781fgb.17
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 13:14:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <480CB8C2.9090902-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Monday 21 April 2008, Paulius Zaleckas wrote:
+> 
+> Incremental patch.
+> - Remove multicasting
 
-David; I was about to put this in the trivial tree, but I think it should 
-probably be merged via the net tree instead.
+Is it really a good idea to remove the ability to
+use DHCP over these links?
 
-The change looks sane to me.
-
-
-/Jesper Juhl
-
-
----------- Forwarded message ----------
-Date: Mon, 03 Mar 2008 22:38:26 +0100
-From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-To: trivial@kernel.org
-Subject: [PATCH] make use of before macro in tcp_input.c
-
-Make use of tcp before macro.
-
-Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 19c449f..e08d616 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2265,7 +2265,7 @@ static inline int tcp_packet_delayed(struct tcp_sock *tp)
- {
-    return !tp->retrans_stamp ||
-        (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
--        (__s32)(tp->rx_opt.rcv_tsecr - tp->retrans_stamp) < 0);
-+        before(tp->rx_opt.rcv_tsecr, tp->retrans_stamp));
- }
-
- /* Undo procedures. */
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
