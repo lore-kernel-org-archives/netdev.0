@@ -1,32 +1,51 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH] 2.6.25 typhoon_resume - remove call to start_queue
-Date: Mon, 21 Apr 2008 10:35:24 -0400
-Message-ID: <1208788524.5295.6.camel@lap75545.ornl.gov>
-References: <20080421044415.GB15080@colo.lackof.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][NETNS]: Remove empty ->init callback.
+Date: Mon, 21 Apr 2008 19:04:00 +0400
+Message-ID: <480CACE0.4070109@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lap75545.ornl.gov ([160.91.210.54]:35889 "EHLO
-	lap75545.ornl.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245AbYDUO5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 10:57:18 -0400
-In-Reply-To: <20080421044415.GB15080@colo.lackof.org>
+Received: from sacred.ru ([62.205.161.221]:57478 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752640AbYDUPFi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 11:05:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The netns start-stop engine can happily live with any of
+init or exit callbacks set to NULL.
 
-On Sun, 2008-04-20 at 22:44 -0600, Grant Grundler wrote:
-> While trying to fix http://bugzilla.kernel.org/show_bug.cgi?id=8952
-> I looked at a few other drivers to figure out what drivers _should_
-> be doing for suspend/resume. I noticed typhoon driver is likely doing
-> more than it needs to.  Patch below is untested since I don't have the HW.
+Isn't it too late to merge this one?
 
-I'm sure I copied this from another driver, but its been so long...
-I won't be in a position to test it for a few days, but I agree it
-shouldn't add break anything, so
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Acked-by: Dave Dillow <dave@thedillows.org>
+---
 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8a0fd40..e591e09 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4338,12 +4338,6 @@ int unregister_inet6addr_notifier(struct notifier_block *nb)
+ 
+ EXPORT_SYMBOL(unregister_inet6addr_notifier);
+ 
+-
+-static int addrconf_net_init(struct net *net)
+-{
+-	return 0;
+-}
+-
+ static void addrconf_net_exit(struct net *net)
+ {
+ 	struct net_device *dev;
+@@ -4360,7 +4354,6 @@ static void addrconf_net_exit(struct net *net)
+ }
+ 
+ static struct pernet_operations addrconf_net_ops = {
+-	.init = addrconf_net_init,
+ 	.exit = addrconf_net_exit,
+ };
+ 
