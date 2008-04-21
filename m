@@ -1,37 +1,60 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [Bugme-new] [Bug 10487] New: NIC (forcedeth) doesn't work with
- suspend (S3)
-Date: Sun, 20 Apr 2008 20:16:18 -0300
-Message-ID: <20080420201618.0c9c10a0@tux>
-References: <bug-10487-10286@http.bugzilla.kernel.org/>
-	<20080420152135.d2c45887.akpm@linux-foundation.org>
+From: Frans Pop <elendil@planet.nl>
+Subject: ISDN testing (was: [git patches] ISDN cleanups (modularization prep))
+Date: Mon, 21 Apr 2008 02:05:38 +0200
+Message-ID: <200804210205.38891.elendil@planet.nl>
+References: <20080420223959.GA17998@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	isdn4linux@listserv.isdn4linux.de
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.249]:59979 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753183AbYDTXQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 19:16:25 -0400
-Received: by an-out-0708.google.com with SMTP id d31so423957and.103
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2008 16:16:25 -0700 (PDT)
-In-Reply-To: <20080420152135.d2c45887.akpm@linux-foundation.org>
+Received: from hpsmtp-eml17.kpnxchange.com ([213.75.38.117]:25886 "EHLO
+	hpsmtp-eml17.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753183AbYDUAFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2008 20:05:42 -0400
+In-reply-To: <20080420223959.GA17998@havoc.gtf.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 20 Apr 2008 15:21:35 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+(Dropping private CCs.)
 
-> No, that's not right.  Please tell us the latest version of the kernel
-> which worked OK.
+Jeff Garzik wrote:
+> - "isn't ISDN dead?"  Apparently, no it's not :)
+> 
+> - "don't waste your time, drop these drivers and get mISDN into the
+>   kernel instead" -- based on discussion it does sound like mISDN should
+>   get into the kernel.  Until these drivers are dropped, however, my
+>   patches remain appropriate.
+> 
+> And in case people are curious, #isdn-pci isn't ready for upstream yet
+> for two main reasons: (1) two drivers remain unconverted, and (2) none
+> of the changes have been tested, even once.
 
-	No versions worked. Since I acquired this motherboard (Asus
-M2N-E), I couldn't suspend because of the NIC.
+I have three different ISDN cards. However, since I've had ADSL since about 
+3 years (on top of ISDN), I don't actually use it anymore.
 
-	Is there any test I can do to help you figure it out what's
-happening? Thanks.
+I could be persuaded to do some testing though, or to donate some or all of 
+my cards for that purpose.
 
--- 
+For testing I'd at least need somewhere to connect to, preferably in NL.
+I have no idea if I could still connect to my previous provider using ISDN. 
+The account was transferred to a different provider about 2 years ago, but 
+the mail accounts with the old provider are still active.
+
+The cards I have are:
+- Teles 16.3 ISA -- worked way back when with Debian Woody
+- ITK ix1-micro 2.1 ISA
+- Eicon Diva 2.01 PCI
+
+I also have a test box I can put them in :-)
+
+Looks like I can still at least successfully load the hisax driver with 
+2.6.18 for the Teles card. For the last two I'm not sure if I ever had them 
+working with Linux (or even if I tried).
+
+Cheers,
+FJP
