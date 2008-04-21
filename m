@@ -1,233 +1,150 @@
-From: Don Fry <pcnet32@verizon.net>
-Subject: [PATCH 2.6.25] pcnet32:  delete non NAPI code from driver.
-Date: Mon, 21 Apr 2008 10:41:35 -0700
-Message-ID: <1208799695.3619.1.camel@Linux.home>
+From: "Nelson A. de Oliveira" <naoliv@gmail.com>
+Subject: Re: [Bugme-new] [Bug 10473] New: Infinite loop "b44: eth0: powering down PHY"
+Date: Mon, 21 Apr 2008 15:14:44 -0300
+Message-ID: <9bfa9ae0804211114h365be96ey3c763acfac63acb0@mail.gmail.com>
+References: <bug-10473-10286@http.bugzilla.kernel.org/>
+	 <200804182018.52753.mb@bu3sch.de>
+	 <9bfa9ae0804181202o601e7e86p135547ce802db88d@mail.gmail.com>
+	 <200804182119.16195.mb@bu3sch.de>
+	 <9bfa9ae0804181338q4a53fffdhe1833441794aed7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	"Gary Zambrano" <zambrano@broadcom.com>
+To: "Michael Buesch" <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms042pub.verizon.net ([206.46.252.42]:52149 "EHLO
-	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753933AbYDUSFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 14:05:13 -0400
-Received: from [192.168.1.3] ([72.90.101.98])
- by vms042.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
- 3 2006)) with ESMTPA id <0JZO0082NSVYIIS0@vms042.mailsrvcs.net> for
- netdev@vger.kernel.org; Mon, 21 Apr 2008 13:04:47 -0500 (CDT)
+Received: from ti-out-0910.google.com ([209.85.142.186]:20818 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754933AbYDUSOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 14:14:48 -0400
+Received: by ti-out-0910.google.com with SMTP id 28so415307tif.23
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 11:14:46 -0700 (PDT)
+In-Reply-To: <9bfa9ae0804181338q4a53fffdhe1833441794aed7@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Delete the non-napi code from the driver and Kconfig.
-Tested x86_64.  Apply at next open opportunity.
+Hi!
 
-Signed-off-by: Don Fry <pcnet32@verizon.net>
---- linux-2.6.25/drivers/net/orig.pcnet32.c	2008-04-16
-19:49:44.000000000 -0700
-+++ linux-2.6.25/drivers/net/pcnet32.c	2008-04-21 08:24:55.000000000
--0700
-@@ -22,12 +22,8 @@
+I have tried to do a bisect here (thank you Jike Song for the link).
+Marked 2.6.20 as good and master as bad. On the first test, I've got this:
 
-*************************************************************************/
- 
- #define DRV_NAME	"pcnet32"
--#ifdef CONFIG_PCNET32_NAPI
--#define DRV_VERSION	"1.34-NAPI"
--#else
--#define DRV_VERSION	"1.34"
--#endif
--#define DRV_RELDATE	"14.Aug.2007"
-+#define DRV_VERSION	"1.35"
-+#define DRV_RELDATE	"21.Apr.2008"
- #define PFX		DRV_NAME ": "
- 
- static const char *const version =
-@@ -445,30 +441,24 @@ static struct pcnet32_access pcnet32_dwi
- 
- static void pcnet32_netif_stop(struct net_device *dev)
- {
--#ifdef CONFIG_PCNET32_NAPI
- 	struct pcnet32_private *lp = netdev_priv(dev);
--#endif
-+
- 	dev->trans_start = jiffies;
--#ifdef CONFIG_PCNET32_NAPI
- 	napi_disable(&lp->napi);
--#endif
- 	netif_tx_disable(dev);
- }
- 
- static void pcnet32_netif_start(struct net_device *dev)
- {
--#ifdef CONFIG_PCNET32_NAPI
- 	struct pcnet32_private *lp = netdev_priv(dev);
- 	ulong ioaddr = dev->base_addr;
- 	u16 val;
--#endif
-+
- 	netif_wake_queue(dev);
--#ifdef CONFIG_PCNET32_NAPI
- 	val = lp->a.read_csr(ioaddr, CSR3);
- 	val &= 0x00ff;
- 	lp->a.write_csr(ioaddr, CSR3, val);
- 	napi_enable(&lp->napi);
--#endif
- }
- 
- /*
-@@ -911,11 +901,7 @@ static int pcnet32_loopback_test(struct 
- 	rc = 1;			/* default to fail */
- 
- 	if (netif_running(dev))
--#ifdef CONFIG_PCNET32_NAPI
- 		pcnet32_netif_stop(dev);
--#else
--		pcnet32_close(dev);
--#endif
- 
- 	spin_lock_irqsave(&lp->lock, flags);
- 	lp->a.write_csr(ioaddr, CSR0, CSR0_STOP);	/* stop the chip */
-@@ -1046,7 +1032,6 @@ static int pcnet32_loopback_test(struct 
- 	x = a->read_bcr(ioaddr, 32);	/* reset internal loopback */
- 	a->write_bcr(ioaddr, 32, (x & ~0x0002));
- 
--#ifdef CONFIG_PCNET32_NAPI
- 	if (netif_running(dev)) {
- 		pcnet32_netif_start(dev);
- 		pcnet32_restart(dev, CSR0_NORMAL);
-@@ -1055,16 +1040,6 @@ static int pcnet32_loopback_test(struct 
- 		lp->a.write_bcr(ioaddr, 20, 4);	/* return to 16bit mode */
- 	}
- 	spin_unlock_irqrestore(&lp->lock, flags);
--#else
--	if (netif_running(dev)) {
--		spin_unlock_irqrestore(&lp->lock, flags);
--		pcnet32_open(dev);
--	} else {
--		pcnet32_purge_rx_ring(dev);
--		lp->a.write_bcr(ioaddr, 20, 4);	/* return to 16bit mode */
--		spin_unlock_irqrestore(&lp->lock, flags);
--	}
--#endif
- 
- 	return (rc);
- }				/* end pcnet32_loopback_test  */
-@@ -1270,11 +1245,7 @@ static void pcnet32_rx_entry(struct net_
- 	}
- 	dev->stats.rx_bytes += skb->len;
- 	skb->protocol = eth_type_trans(skb, dev);
--#ifdef CONFIG_PCNET32_NAPI
- 	netif_receive_skb(skb);
--#else
--	netif_rx(skb);
--#endif
- 	dev->last_rx = jiffies;
- 	dev->stats.rx_packets++;
- 	return;
-@@ -1403,7 +1374,6 @@ static int pcnet32_tx(struct net_device 
- 	return must_restart;
- }
- 
--#ifdef CONFIG_PCNET32_NAPI
- static int pcnet32_poll(struct napi_struct *napi, int budget)
- {
- 	struct pcnet32_private *lp = container_of(napi, struct
-pcnet32_private, napi);
-@@ -1442,7 +1412,6 @@ static int pcnet32_poll(struct napi_stru
- 	}
- 	return work_done;
- }
--#endif
- 
- #define PCNET32_REGS_PER_PHY	32
- #define PCNET32_MAX_PHYS	32
-@@ -1864,9 +1833,7 @@ pcnet32_probe1(unsigned long ioaddr, int
- 	/* napi.weight is used in both the napi and non-napi cases */
- 	lp->napi.weight = lp->rx_ring_size / 2;
- 
--#ifdef CONFIG_PCNET32_NAPI
- 	netif_napi_add(dev, &lp->napi, pcnet32_poll, lp->rx_ring_size / 2);
--#endif
- 
- 	if (fdx && !(lp->options & PCNET32_PORT_ASEL) &&
- 	    ((cards_found >= MAX_UNITS) || full_duplex[cards_found]))
-@@ -2297,9 +2264,7 @@ static int pcnet32_open(struct net_devic
- 		goto err_free_ring;
- 	}
- 
--#ifdef CONFIG_PCNET32_NAPI
- 	napi_enable(&lp->napi);
--#endif
- 
- 	/* Re-initialize the PCNET32, and start it when done. */
- 	lp->a.write_csr(ioaddr, 1, (lp->init_dma_addr & 0xffff));
-@@ -2623,7 +2588,6 @@ pcnet32_interrupt(int irq, void *dev_id)
- 				       dev->name, csr0);
- 			/* unlike for the lance, there is no restart needed */
- 		}
--#ifdef CONFIG_PCNET32_NAPI
- 		if (netif_rx_schedule_prep(dev, &lp->napi)) {
- 			u16 val;
- 			/* set interrupt masks */
-@@ -2634,24 +2598,9 @@ pcnet32_interrupt(int irq, void *dev_id)
- 			__netif_rx_schedule(dev, &lp->napi);
- 			break;
- 		}
--#else
--		pcnet32_rx(dev, lp->napi.weight);
--		if (pcnet32_tx(dev)) {
--			/* reset the chip to clear the error condition, then restart */
--			lp->a.reset(ioaddr);
--			lp->a.write_csr(ioaddr, CSR4, 0x0915); /* auto tx pad */
--			pcnet32_restart(dev, CSR0_START);
--			netif_wake_queue(dev);
--		}
--#endif
- 		csr0 = lp->a.read_csr(ioaddr, CSR0);
- 	}
- 
--#ifndef CONFIG_PCNET32_NAPI
--	/* Set interrupt enable. */
--	lp->a.write_csr(ioaddr, CSR0, CSR0_INTEN);
--#endif
--
- 	if (netif_msg_intr(lp))
- 		printk(KERN_DEBUG "%s: exiting interrupt, csr0=%#4.4x.\n",
- 		       dev->name, lp->a.read_csr(ioaddr, CSR0));
-@@ -2670,9 +2619,7 @@ static int pcnet32_close(struct net_devi
- 	del_timer_sync(&lp->watchdog_timer);
- 
- 	netif_stop_queue(dev);
--#ifdef CONFIG_PCNET32_NAPI
- 	napi_disable(&lp->napi);
--#endif
- 
- 	spin_lock_irqsave(&lp->lock, flags);
- 
---- linux-2.6.25/drivers/net/orig.Kconfig	2008-04-16 19:49:44.000000000
--0700
-+++ linux-2.6.25/drivers/net/Kconfig	2008-04-21 08:27:19.000000000 -0700
-@@ -1266,20 +1266,6 @@ config PCNET32
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called pcnet32.
- 
--config PCNET32_NAPI
--	bool "Use RX polling (NAPI)"
--	depends on PCNET32
--	help
--	  NAPI is a new driver API designed to reduce CPU and interrupt load
--	  when the driver is receiving lots of packets from the card. It is
--	  still somewhat experimental and thus not yet enabled by default.
--
--	  If your estimated Rx load is 10kpps or more, or if the card will be
--	  deployed on potentially unfriendly networks (e.g. in a firewall),
--	  then say Y here.
--
--	  If in doubt, say N.
--
- config AMD8111_ETH
- 	tristate "AMD 8111 (new PCI lance) support"
- 	depends on NET_PCI && PCI
+(...)
+BUG: unable to handle kernel NULL pointer dereference at virtual
+address 00000000
+ printing eip:
+b01b6265
+*pde = 00000000
+Oops: 0000 [#1]
+PREEMPT SMP
+Modules linked in: b44(F) mousedev(F) iwl3945(F) ehci_hcd(F)
+mac80211(F) snd_hda_intel(F) thermal(F) i2c_i801(F) ac(F) ssb(F)
+snd_pcm(F) snd_timer(F) uhci_hcd(F) psmouse(F) evdev(F) battery(F)
+button(F) processor(F) mii(F) usbcore(F) snd(F) snd_page_alloc(F)
+sg(F) sr_mod(F) cdrom(F)
+CPU:    0
+EIP:    0060:[<b01b6265>]    Tainted: GF       VLI
+EFLAGS: 00010246   (2.6.23-naoliv1 #1)
+EIP is at strlen+0x8/0x11
+eax: 00000000   ebx: f7429000   ecx: ffffffff   edx: f76b6cb0
+esi: 00000000   edi: 00000000   ebp: 00000000   esp: f76b6ca0
+ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
+Process modprobe (pid: 692, ti=f76b6000 task=f76c6000 task.ti=f76b6000)
+Stack: f75a2000 b01b3254 f785f200 b02d3e5b b02cb0da f7856200 b01b324a f7426688
+       b02cb0da f7856200 f88f61f0 b0310c8c f785f200 f88f8e28 b0207d4e f74266a8
+       f88f8d9c f7426600 f7426600 00000000 f7453400 b0206d8b f7426688 b02c4e14
+Call Trace:
+ [<b01b3254>] kobject_uevent_env+0x276/0x383
+ [<b01b324a>] kobject_uevent_env+0x26c/0x383
+ [<b0207d4e>] bus_add_device+0xad/0xdc
+ [<b0206d8b>] device_add+0x2a0/0x45e
+ [<f88f36f1>] ssb_attach_queued_buses+0x1a2/0x297 [ssb]
+ [<f88f3b2f>] ssb_bus_register+0x120/0x185 [ssb]
+ [<f88f4ac2>] ssb_pci_get_invariants+0x0/0x281 [ssb]
+ [<f88f3bf3>] ssb_bus_pcibus_register+0x24/0x47 [ssb]
+ [<b01bb856>] pci_set_master+0x54/0x58
+ [<f88f52b1>] ssb_pcihost_probe+0x5e/0x89 [ssb]
+ [<b01bd0ff>] pci_device_probe+0x36/0x55
+ [<b020857e>] driver_probe_device+0xc5/0x148
+ [<b02890a5>] klist_next+0x58/0x6d
+ [<b02086dc>] __driver_attach+0x49/0x7f
+ [<b0207ba8>] bus_for_each_dev+0x35/0x57
+ [<b02083f2>] driver_attach+0x16/0x18
+ [<b0208693>] __driver_attach+0x0/0x7f
+ [<b0207e56>] bus_add_driver+0x6d/0x17d
+ [<b01bd249>] __pci_register_driver+0x55/0x81
+ [<f881d01f>] b44_init+0x1f/0x48 [b44]
+ [<b013cdcc>] sys_init_module+0x1545/0x1619
+ [<b0103e9a>] sysenter_past_esp+0x5f/0x85
+ =======================
+Code: f0 48 5e c3 56 89 d1 89 c6 83 ec 04 31 d2 89 c8 88 c4 ac 38 e0
+75 03 8d 56 ff 84 c0 75 f4 5e 89 d0 5e c3 57 83 c9 ff 89 c7 31 c0 <f2>
+ae f7 d1 49 5f 89 c8 c3 57 89 c7 89 d0 31 d2 85 c9 74 0c f2
+EIP: [<b01b6265>] strlen+0x8/0x11 SS:ESP 0068:f76b6ca0
+hub 1-2:1.0: hub_port_status failed (err = -71)
+hub 1-2:1.0: hub_port_status failed (err = -71)
+hub 1-2:1.0: hub_port_status failed (err = -71)
+hub 1-2:1.0: hub_port_status failed (err = -71)
+Clocksource tsc unstable (delta = -162081422 ns)
+usb 5-2: new high speed USB device using ehci_hcd and address 2
+usb 5-2: configuration #1 chosen from 1 choice
+hub 5-2:1.0: USB hub found
+hub 5-2:1.0: 4 ports detected
+sysfs: duplicate filename 'bInterfaceNumber' can not be created
+WARNING: at fs/sysfs/dir.c:425 sysfs_add_one()
+ [<b018bebc>] sysfs_add_one+0x54/0xb8
+ [<b018ba00>] sysfs_add_file+0x42/0x6a
+ [<b018d115>] sysfs_create_group+0x84/0xe7
+ [<b0206f3f>] device_add+0x454/0x45e
+ [<f88ca72a>] usb_create_sysfs_intf_files+0x24/0x98 [usbcore]
+ [<f88c7295>] usb_set_configuration+0x48f/0x4a9 [usbcore]
+ [<f88cdcdb>] generic_probe+0x50/0x91 [usbcore]
+ [<f88c8784>] usb_probe_device+0x32/0x37 [usbcore]
+ [<b020857e>] driver_probe_device+0xc5/0x148
+ [<b02890a5>] klist_next+0x58/0x6d
+ [<b0207aa8>] bus_for_each_drv+0x35/0x5c
+ [<b020867f>] device_attach+0x5e/0x72
+ [<b0208601>] __device_attach+0x0/0x5
+ [<b0207a24>] bus_attach_device+0x26/0x75
+ [<b0206d92>] device_add+0x2a7/0x45e
+ [<f88c2c1a>] usb_new_device+0x4d/0x8a [usbcore]
+ [<f88c3746>] hub_thread+0x702/0xa8f [usbcore]
+ [<b012fd84>] autoremove_wake_function+0x0/0x33
+ [<f88c3044>] hub_thread+0x0/0xa8f [usbcore]
+ [<b012fcb7>] kthread+0x38/0x5d
+ [<b012fc7f>] kthread+0x0/0x5d
+ [<b0104abb>] kernel_thread_helper+0x7/0x10
+ =======================
+(...)
 
+This one is probably 2.6.23.
+After some time the system continued to boot, but without network interface.
+So marked it as bad.
+The newer bisect failed to compile. Marked it bad. Bisect again,
+failed, again, failed :-(
+My git-bisect log is:
 
+git-bisect start
+# good: [62d0cfcb27cf755cebdc93ca95dabc83608007cd] Linux 2.6.20
+git-bisect good 62d0cfcb27cf755cebdc93ca95dabc83608007cd
+# bad: [3925e6fc1f774048404fdd910b0345b06c699eb4] Merge branch
+'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/security-testing-2.6
+git-bisect bad 3925e6fc1f774048404fdd910b0345b06c699eb4
+# bad: [3749c66c67fb5c257771815c186bc32290cacf44] Merge branch
+'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/avi/kvm
+git-bisect bad 3749c66c67fb5c257771815c186bc32290cacf44
+# bad: [b11115c15351faba978ce1b9e75068e77f6ef48d] serial_core.h:
+include <linux/sysrq.h>
+git-bisect bad b11115c15351faba978ce1b9e75068e77f6ef48d
+# bad: [1936502d00ae6c2aa3931c42f6cf54afaba094f2] [NET_SCHED] qdisc:
+avoid transmit softirq on watchdog wakeup
+git-bisect bad 1936502d00ae6c2aa3931c42f6cf54afaba094f2
+
+What else can I do, please?
+
+Thank you very much!
+
+Best regards,
+Nelson
