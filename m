@@ -1,62 +1,56 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
-Date: Mon, 21 Apr 2008 23:08:46 +0200 (CEST)
-Message-ID: <alpine.LSU.0.999.0804212306330.15107@be1.lrz>
-References: <aiXVe-Yn-7@gated-at.bofh.it> <ajGfA-7rt-9@gated-at.bofh.it>
- <ajGfA-7rt-11@gated-at.bofh.it> <ajGfA-7rt-13@gated-at.bofh.it>
- <ajGfA-7rt-15@gated-at.bofh.it> <ajGfA-7rt-7@gated-at.bofh.it>
- <E1JnEcl-0000xc-D9@be1.7eggert.dyndns.org> <480CC3D8.3040700@hp.com>
- <alpine.LSU.0.999.0804212141050.4235@be1.lrz> <480CF2C0.9050208@hp.com>
+From: speedy <speedy@3d-io.com>
+Subject: [BUG REPORT, 2.6.22] e1000: detected tx unit hang
+Date: Mon, 21 Apr 2008 22:52:27 +0200
+Message-ID: <1071646044.20080421225227@3d-io.com>
+Reply-To: speedy <speedy@3d-io.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Bodo Eggert <7eggert@gmx.de>, Kok@vger.kernel.org,
-	Auke <auke-jan.h.kok@intel.com>, Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Anton Titov <a.titov@host.bg>, Chris Snook <csnook@redhat.com>,
-	"H. Willstrand" <h.willstrand@gmail.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.177]:52978 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755208AbYDUVJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 17:09:08 -0400
-In-Reply-To: <480CF2C0.9050208@hp.com>
+Received: from vwp1316.webpack.hosteurope.de ([87.230.105.72]:60067 "EHLO
+	vwp1316.webpack.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752009AbYDUVR7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 17:17:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Apr 2008, Rick Jones wrote:
-> Bodo Eggert wrote:
-> > On Mon, 21 Apr 2008, Rick Jones wrote:
+Hello Linux crew,
 
-> > > Be it kernel or user space, for consistent benchmark results it needs to
-> > > be
-> > > able to be turned-off without turning the code.  That leaves me in
-> > > agreement
-> > > with Stephen that if it must exist, the user space one would be
-> > > preferable.
-> > > It can be easily terminated with extreme prejudice.
-> > 
-> > 
-> > I agree that having a full-featured userspace balancer daemon with lots of
-> > intelligence will be theoretically better, but if you can have a simple
-> > daemon doing OK on many machines for less than the userspace daemon's
-> > kernel stack, why not?
-> 
-> Perhaps my judgement is too colored by benchmark(et)ing, and desires to have
-> repeatable results on things like neperf, but I very much like to know where
-> my interrupts are going and don't like them moving around. That is why I am
-> not particularly fond of either flavor of irq balancing.
-> 
-> That being the case, whatever is out there aught to be able to be disabled on
-> a running system without having to roll bits or reboot.
+        I've just switched the
 
-Adding a "module" parameter to disable it should be cheap, isn't it?
+        Ethernet controller: Intel Corporation 82545GM Gigabit Ethernet Controller (rev 01)
+
+        netword card to an NForce 2 based motherboard and after a day
+        of work it got stuck with "detected tx unit hang" messages
+        showing in the console.
+
+        The card worked flawlessly under load in a different computer
+        for two years now, under the same/similar Ubuntu operating system.
+
+        Unfortunaltly, the EEPROM fix from
+
+        http://e1000.sourceforge.net/doku.php?id=known_issues&DokuWiki=9502f399bc8cae1528c5e85d2bc423f6
+
+        from is not working/applicable:
+
+        root@backupserver:~# ./fixeep-82573-dspd.sh eth1
+        No appropriate hardware found for this fixup
+        root@backupserver:~#
+
+        /var/log/messages:  http://87.230.23.147/messages.txt
+        /proc/interrupts: http://87.230.23.147/proc_interrupts.txt
+        lspci -vv: http://87.230.23.147/lspcivv.txt
+
+
+        If more info is needed, let me know.
+
+        Thanks!
+
+        ps. I don't follow the lists so please keep me in CC:
+
 -- 
-Top 100 things you don't want the sysadmin to say:
-34. The network's down, but we're working on it. Come back after diner.
-    (Usually said at 2200 the night before thesis deadline... )
+Best regards,
+ speedy                          mailto:speedy@3d-io.com
+
