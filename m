@@ -1,59 +1,60 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [build bug] nf_nat_proto_sctp.c:(.text+0x6d173): undefined
-	reference to `crc32c_le'
-Date: Mon, 21 Apr 2008 11:44:02 +0300
-Message-ID: <20080421084402.GF26897@cs181133002.pp.htv.fi>
-References: <20080421062244.GA862@elte.hu> <20080420.235354.104901823.davem@davemloft.net>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: remove special ioctl from hso driver, replace by rfkill
+Date: Mon, 21 Apr 2008 11:47:20 +0300
+Message-ID: <480C5498.70309@teltonika.lt>
+References: <200804161428.18066.oliver@neukum.org> <4808A88B.4010703@teltonika.lt> <20080418162513.GA6704@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: mingo@elte.hu, linville@tuxdriver.com, tomas.winkler@intel.com,
-	linux-kernel@vger.kernel.org, kaber@trash.net,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:32810 "EHLO smtp4.pp.htv.fi"
+Received: from main.gmane.org ([80.91.229.2]:50282 "EHLO ciao.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753966AbYDUIop (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 04:44:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20080420.235354.104901823.davem@davemloft.net>
+	id S1752994AbYDUIsJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 04:48:09 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Jnrh2-0008Rs-4w
+	for netdev@vger.kernel.org; Mon, 21 Apr 2008 08:48:08 +0000
+Received: from 82-135-208-232.static.zebra.lt ([82.135.208.232])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 08:48:08 +0000
+Received: from paulius.zaleckas by 82-135-208-232.static.zebra.lt with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 08:48:08 +0000
+In-Reply-To: <20080418162513.GA6704@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 20, 2008 at 11:53:54PM -0700, David Miller wrote:
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Mon, 21 Apr 2008 08:22:44 +0200
+Greg KH wrote:
+> On Fri, Apr 18, 2008 at 04:56:27PM +0300, Paulius Zaleckas wrote:
+>> Oliver Neukum wrote:
+>>> Hi,
+>>> could you test this patch?
+>>> It does away with the one off serial ioctl replacing it with a standard
+>>> mechanism.
+>>> 	Regards
+>>> 		Oliver
+>> I have tested rfkill and it realy works, but there is two problems:
+>>
+>> - LED on the device doesn't indicate rf state... Maybe Filip knows
+>>   some usb command to control it?
+>>
+>> - driver creates multiple rfkill entries on sysfs... This is because
+>>   option device has multi endpoints (probe is called twice with GTM380):
 > 
-> >   net/built-in.o: In function `sctp_manip_pkt':
-> >   nf_nat_proto_sctp.c:(.text+0x6d173): undefined reference to `crc32c_le'
-> >   nf_nat_proto_sctp.c:(.text+0x6d180): undefined reference to `crc32c_le'
-> >   nf_nat_proto_sctp.c:(.text+0x6d196): undefined reference to `crc32c_le'
-> >   nf_nat_proto_sctp.c:(.text+0x6d1c6): undefined reference to `crc32c_le'
-> > 
-> >   http://redhat.com/~mingo/misc/config-Mon_Apr_21_01_52_14_CEST_2008.bad
-> 
-> Thanks for your report Ingo.
-> 
-> Patrick, I'm not so sure how to fix this, or even what's wrong.
-> 
-> NF_NAT_PROTO_SCTP does a proper select on LIBCRC32C, but somehow
-> NF_NAT_PROTO_SCTP=y and LIBCRC32C=m.
->...
+> You mean "multiple interfaces" :)
 
-You added the select on Saturday after Pete Clements reported the same 
-issue.
+Yes, I think I meant it :)
 
-The select is not yet in Linus' tree.
+> And that's correct, for this device, that is the way it was created, so
+> either rfkill entry should work to shut off the radio...
 
-cu
-Adrian
+Yes, both of them work, but there is a problem...
+If you change state for one them, then another one remains not updated.
+Also it doesn't make sense to have two rfkill entries for one device.
+Maybe it should be created only with network device?
 
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Paulius
 
