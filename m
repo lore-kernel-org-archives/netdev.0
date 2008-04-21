@@ -1,42 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tx-checksumming for an Intel Corporation 82540EP Gigabit
- Ethernet Controller (Mobile)
-Date: Sun, 20 Apr 2008 21:24:51 -0700 (PDT)
-Message-ID: <20080420.212451.10825959.davem@davemloft.net>
-References: <47EB8C5C.7060007@isomerica.net>
-	<E1Jnn9e-0001tP-00@gondolin.me.apana.org.au>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: [PATCH] 2.6.25 typhoon_resume - remove call to start_queue
+Date: Sun, 20 Apr 2008 22:44:15 -0600
+Message-ID: <20080421044415.GB15080@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dpn@isomerica.net, toralf.foerster@gmx.de, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com, David Dillow <dave@thedillows.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50681
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750792AbYDUEYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 00:24:49 -0400
-In-Reply-To: <E1Jnn9e-0001tP-00@gondolin.me.apana.org.au>
+Received: from colo.lackof.org ([198.49.126.79]:36564 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751061AbYDUEo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 00:44:27 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 21 Apr 2008 11:57:22 +0800
+Jeff,
 
-> Daniel Noe <dpn@isomerica.net> wrote:
-> >
-> > 2) Tell Wireshark not to verify the checksums.  See 
-> > http://wiki.wireshark.org/TCP_Checksum_Verification.  This works if you 
-> > don't really care about the checksums and are looking at other things. 
-> > If you suspect incorrect checksums, you can always turn off checksum 
-> > offloading manually.
-> 
-> Better yet fix Wireshark to use the info that the kernel supplies
-> and ignore checksums only on those packets generated locally for
-> hardware offload.
+While trying to fix http://bugzilla.kernel.org/show_bug.cgi?id=8952
+I looked at a few other drivers to figure out what drivers _should_
+be doing for suspend/resume. I noticed typhoon driver is likely doing
+more than it needs to.  Patch below is untested since I don't have the HW.
 
-True.
+Suspend/resume code across NIC drivers is fairly inconsistent.
+And I couldn't find any documentation on what the canonical sequence
+NICs need to do for suspend or resume.  Is there any?
 
-But every time we say this they keep coming back at us that they can't
-change the tcpdump raw dump file format that's been used for
-centuries, and naturally it was designed without any extensibility in
-mind so there's nowhere to store the checksum indication.
+Barring contrary advice, I'm going model the tulip suspend/resume
+fixes after tg3.c since a number of "modern" (< 5 years old) laptops
+have that and I'm silly enough to assume it works.
+
+thanks,
+grant
+
+---
+Comments/code in netif_device_attach() suggest it is restarting the queue.
+Thus, typhoon_resume() doesn't need to call start_queue().
+
+Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+
+diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+index 333961b..c0dd25b 100644
+--- a/drivers/net/typhoon.c
++++ b/drivers/net/typhoon.c
+@@ -2183,7 +2183,6 @@ typhoon_resume(struct pci_dev *pdev)
+ 	}
+ 
+ 	netif_device_attach(dev);
+-	netif_start_queue(dev);
+ 	return 0;
+ 
+ reset:
