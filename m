@@ -1,57 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 3/3] [TC/U32] Infrastructure for pretty printing
-Date: Mon, 21 Apr 2008 09:58:55 -0400
-Message-ID: <1208786335.12249.194.camel@localhost>
-References: <1208702964.12249.57.camel@localhost>
-	 <480C8006.3060708@trash.net> <1208784237.12249.181.camel@localhost>
-	 <480C96D3.5050809@trash.net>
-Reply-To: hadi@cyberus.ca
+From: gerrit@erg.abdn.ac.uk
+Subject: Re: [PATCH] [DCCP]: Convert do_gettimeofday() to getnstimeofday().
+Date: Mon, 21 Apr 2008 15:03:50 +0100 (BST)
+Message-ID: <1538.84.55.217.198.1208786630.squirrel@84.55.217.198>
+References: <20080421.162227.63020853.yoshfuji@linux-ipv6.org>
+    <20080421.023503.242108516.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.180]:5389 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754764AbYDUN7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 09:59:24 -0400
-Received: by ik-out-1112.google.com with SMTP id c28so144025ika.5
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 06:59:22 -0700 (PDT)
-In-Reply-To: <480C96D3.5050809@trash.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52704 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754798AbYDUOEB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 10:04:01 -0400
+In-Reply-To: <20080421.023503.242108516.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-21-04 at 15:29 +0200, Patrick McHardy wrote:
+> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+> Date: Mon, 21 Apr 2008 16:22:27 +0900 (JST)
+>
+>> What do_gettimeofday() does is to call getnstimeofday() and
+>> to convert the result from timespec{} to timeval{}.
+>> We do not always need timeval{} and we can convert timespec{}
+>> when we really need (to print).
+>>
+>> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>
+> This looks good too, but I'll be polite and wait for any
+> DCCP maintainer ACKs :-)
+>
+This mirrors a patch which is currently in the test tree and does the
+update to timespec, apart from a few other changes. It is a good idea,
+since that in turn mirrors tcp_probe.c
+Hope Arnado will in some future have time to look at some of the test tree
+patches, in any case this patch does not harm.
 
-> Something like that. But it used to already work the
-> way I described, at least for all parts where I tested
-> it so far (IIRC routes/rules/addresses/qdiscs/classes/filters).
 
-ok, missed that - i dont recall ever using it like that. But i will test
-and make sure it works. Now i get more of what you are saying with the
-env variables.
 
-> Yes, the first part needs to be stripped (filter/qdisc/class/...).
-> I usually do something like
-> 
-> "ip link/route/addr del <paste dump without first word here>".
-> 
-> Similar for tc.
-
-Ok, just tried it on my laptop; u32 (and maybe the rest of the filters)
-doesnt work in this mode. Essentially inputting is of the form
-"match u{8,16,32} value mask" and output is of form "match
-32bitval/32bitmask"
-I think it should be easier to do with cooked mode and i will look into
-it.
-
-> It would be nice to dump it in a format that can be piped
-> into batch mode without further changes, so it would have
-> to insert "add" between "filter" and "protocol".
-
-An additional processing may be needed in the save script.
-
-cheers,
-jamal
+The University of Aberdeen is a charity registered in Scotland, No SC013683.
 
