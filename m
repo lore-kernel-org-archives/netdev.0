@@ -1,87 +1,76 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [IPV4]: Convert do_gettimeofday() to getnstimeofday().
-Date: Mon, 21 Apr 2008 16:22:21 +0900 (JST)
-Message-ID: <20080421.162221.11408096.yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [DCCP]: Convert do_gettimeofday() to getnstimeofday().
+Date: Mon, 21 Apr 2008 16:22:27 +0900 (JST)
+Message-ID: <20080421.162227.63020853.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:34215 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:34220 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257AbYDUHU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 03:20:28 -0400
+	with ESMTP id S1752373AbYDUHUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 03:20:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 What do_gettimeofday() does is to call getnstimeofday() and
 to convert the result from timespec{} to timeval{}.
-After that, these callers convert the result again to msec.
-Use getnstimeofday() and convert the units at once.
+We do not always need timeval{} and we can convert timespec{}
+when we really need (to print).
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
 ---
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index f064031..0e8ed5d 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -847,7 +847,7 @@ static void icmp_echo(struct sk_buff *skb)
-  */
- static void icmp_timestamp(struct sk_buff *skb)
+diff --git a/net/dccp/probe.c b/net/dccp/probe.c
+index 7053bb8..6e1df62 100644
+--- a/net/dccp/probe.c
++++ b/net/dccp/probe.c
+@@ -46,29 +46,24 @@ struct {
+ 	struct kfifo	  *fifo;
+ 	spinlock_t	  lock;
+ 	wait_queue_head_t wait;
+-	struct timeval	  tstart;
++	struct timespec	  tstart;
+ } dccpw;
+ 
+ static void printl(const char *fmt, ...)
  {
--	struct timeval tv;
-+	struct timespec tv;
- 	struct icmp_bxm icmp_param;
- 	/*
- 	 *	Too short.
-@@ -858,9 +858,9 @@ static void icmp_timestamp(struct sk_buff *skb)
- 	/*
- 	 *	Fill in the current time as ms since midnight UT:
- 	 */
--	do_gettimeofday(&tv);
--	icmp_param.data.times[1] = htonl((tv.tv_sec % 86400) * 1000 +
--					 tv.tv_usec / 1000);
-+	getnstimeofday(&tv);
-+	icmp_param.data.times[1] = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC +
-+					 tv.tv_nsec / NSEC_PER_MSEC);
- 	icmp_param.data.times[2] = icmp_param.data.times[1];
- 	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
- 		BUG();
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index d107543..005e548 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -55,10 +55,10 @@ void ip_options_build(struct sk_buff * skb, struct ip_options * opt,
- 		if (opt->ts_needaddr)
- 			ip_rt_get_source(iph+opt->ts+iph[opt->ts+2]-9, rt);
- 		if (opt->ts_needtime) {
--			struct timeval tv;
-+			struct timespec tv;
- 			__be32 midtime;
--			do_gettimeofday(&tv);
--			midtime = htonl((tv.tv_sec % 86400) * 1000 + tv.tv_usec / 1000);
-+			getnstimeofday(&tv);
-+			midtime = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC);
- 			memcpy(iph+opt->ts+iph[opt->ts+2]-5, &midtime, 4);
- 		}
- 		return;
-@@ -406,10 +406,10 @@ int ip_options_compile(struct net *net,
- 					break;
- 				}
- 				if (timeptr) {
--					struct timeval tv;
-+					struct timespec tv;
- 					__be32  midtime;
--					do_gettimeofday(&tv);
--					midtime = htonl((tv.tv_sec % 86400) * 1000 + tv.tv_usec / 1000);
-+					getnstimeofday(&tv);
-+					midtime = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC);
- 					memcpy(timeptr, &midtime, sizeof(__be32));
- 					opt->is_changed = 1;
- 				}
+ 	va_list args;
+ 	int len;
+-	struct timeval now;
++	struct timespec now;
+ 	char tbuf[256];
+ 
+ 	va_start(args, fmt);
+-	do_gettimeofday(&now);
++	getnstimeofday(&now);
+ 
+-	now.tv_sec -= dccpw.tstart.tv_sec;
+-	now.tv_usec -= dccpw.tstart.tv_usec;
+-	if (now.tv_usec < 0) {
+-		--now.tv_sec;
+-		now.tv_usec += 1000000;
+-	}
++	now = timespec_sub(now, dccpw.tstart);
+ 
+ 	len = sprintf(tbuf, "%lu.%06lu ",
+ 		      (unsigned long) now.tv_sec,
+-		      (unsigned long) now.tv_usec);
++		      (unsigned long) now.tv_nsec / NSEC_PER_USEC);
+ 	len += vscnprintf(tbuf+len, sizeof(tbuf)-len, fmt, args);
+ 	va_end(args);
+ 
+@@ -119,7 +114,7 @@ static struct jprobe dccp_send_probe = {
+ static int dccpprobe_open(struct inode *inode, struct file *file)
+ {
+ 	kfifo_reset(dccpw.fifo);
+-	do_gettimeofday(&dccpw.tstart);
++	getnstimeofday(&dccpw.tstart);
+ 	return 0;
+ }
+ 
 
 -- 
 YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
