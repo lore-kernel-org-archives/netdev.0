@@ -1,43 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [6/6] [VIRTIO] net: Allow receiving SG packets
-Date: Mon, 21 Apr 2008 13:04:18 -0700 (PDT)
-Message-ID: <20080421.130418.01258045.davem@davemloft.net>
-References: <20080418032142.GD18071@gondor.apana.org.au>
-	<20080418032427.GE18071@gondor.apana.org.au>
-	<200804220506.16887.rusty@rustcorp.com.au>
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Subject: [PATCH] make use of before macro in tcp_input.c (fwd)
+Date: Mon, 21 Apr 2008 22:14:28 +0200 (CEST)
+Message-ID: <alpine.LNX.1.00.0804212214230.1777@dragon.funnycrock.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org,
-	herbert@gondor.apana.org.au, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org
-To: rusty@rustcorp.com.au
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	trivial@kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43686
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755875AbYDUUEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 16:04:16 -0400
-In-Reply-To: <200804220506.16887.rusty@rustcorp.com.au>
+Received: from fg-out-1718.google.com ([72.14.220.152]:29808 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753909AbYDUUO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 16:14:26 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1878781fgb.17
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 13:14:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Tue, 22 Apr 2008 05:06:16 +1000
 
-> I'm not sure what the right number is here.  Say worst case is header which 
-> goes over a page boundary then MAX_SKB_FRAGS in the skb, but for some reason 
-> that already has a +2:
-> 
-> /* To allow 64K frame to be packed as single skb without frag_list */
-> #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
-> 
-> Unless someone explains, I'll change the xmit sg to 2+MAX_SKB_FRAGS as well.
+David; I was about to put this in the trivial tree, but I think it should 
+probably be merged via the net tree instead.
 
-MAX_SKB_FRAGS + 1 is what you ought to need.
+The change looks sane to me.
 
-MAX_SKB_FRAGS is only accounting for the skb frag pages.
-If you want to know how many segments skb->data might
-consume as well, you have to add one.
 
-skb->data is linear, therefore it's not possible to need
-more than one scatterlist entry for it.
+/Jesper Juhl
+
+
+---------- Forwarded message ----------
+Date: Mon, 03 Mar 2008 22:38:26 +0100
+From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+To: trivial@kernel.org
+Subject: [PATCH] make use of before macro in tcp_input.c
+
+Make use of tcp before macro.
+
+Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 19c449f..e08d616 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2265,7 +2265,7 @@ static inline int tcp_packet_delayed(struct tcp_sock *tp)
+ {
+    return !tp->retrans_stamp ||
+        (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
+-        (__s32)(tp->rx_opt.rcv_tsecr - tp->retrans_stamp) < 0);
++        before(tp->rx_opt.rcv_tsecr, tp->retrans_stamp));
+ }
+
+ /* Undo procedures. */
