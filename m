@@ -1,73 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: ISDN testing
-Date: Sun, 20 Apr 2008 21:43:57 -0400
-Message-ID: <480BF15D.2090100@garzik.org>
-References: <20080420223959.GA17998@havoc.gtf.org> <200804210205.38891.elendil@planet.nl>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: New GIT net tree naming...
+Date: Mon, 21 Apr 2008 11:45:50 +1000
+Message-ID: <20080421114550.3ef9ea40.sfr@canb.auug.org.au>
+References: <20080419.173510.257216556.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	isdn4linux@listserv.isdn4linux.de
-To: Frans Pop <elendil@planet.nl>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__21_Apr_2008_11_45_50_+1000_gy2qnfALGfvK=F/3"
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43107 "EHLO mail.dvmed.net"
+Received: from chilli.pcug.org.au ([203.10.76.44]:60585 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752631AbYDUBoA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Apr 2008 21:44:00 -0400
-In-Reply-To: <200804210205.38891.elendil@planet.nl>
+	id S1753988AbYDUBqA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Apr 2008 21:46:00 -0400
+In-Reply-To: <20080419.173510.257216556.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Frans Pop wrote:
-> (Dropping private CCs.)
-> 
-> Jeff Garzik wrote:
->> - "isn't ISDN dead?"  Apparently, no it's not :)
->>
->> - "don't waste your time, drop these drivers and get mISDN into the
->>   kernel instead" -- based on discussion it does sound like mISDN should
->>   get into the kernel.  Until these drivers are dropped, however, my
->>   patches remain appropriate.
->>
->> And in case people are curious, #isdn-pci isn't ready for upstream yet
->> for two main reasons: (1) two drivers remain unconverted, and (2) none
->> of the changes have been tested, even once.
-> 
-> I have three different ISDN cards. However, since I've had ADSL since about 
-> 3 years (on top of ISDN), I don't actually use it anymore.
-> 
-> I could be persuaded to do some testing though, or to donate some or all of 
-> my cards for that purpose.
-> 
-> For testing I'd at least need somewhere to connect to, preferably in NL.
-> I have no idea if I could still connect to my previous provider using ISDN. 
-> The account was transferred to a different provider about 2 years ago, but 
-> the mail accounts with the old provider are still active.
-> 
-> The cards I have are:
-> - Teles 16.3 ISA -- worked way back when with Debian Woody
-> - ITK ix1-micro 2.1 ISA
-> - Eicon Diva 2.01 PCI
-> 
-> I also have a test box I can put them in :-)
-> 
-> Looks like I can still at least successfully load the hisax driver with 
-> 2.6.18 for the Teles card. For the last two I'm not sure if I ever had them 
-> working with Linux (or even if I tried).
+--Signature=_Mon__21_Apr_2008_11_45_50_+1000_gy2qnfALGfvK=F/3
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Honestly, a module-load test on real hardware can give us some useful 
-information, even if it's not connected to anything.
+Hi Dave,
 
-My changes are primarily in the probe-the-hardware area, so successfully 
-making it past that new code would indeed be a useful data point.
+On Sat, 19 Apr 2008 17:35:10 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> Based upon feedback from Andrew and others I'm now starting
+> to use a new naming scheme for my GIT trees:
+>=20
+> For changes against Linus's current tree:
+>=20
+>    master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
 
-Check out the kernel found in 'isdn-pci' branch of
-git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/misc-2.6.git
+I have added this as net-current in the linux-next tree.  It will be
+merged early after Linus' tree.
 
-Any help is certainly appreciated!
+> For development meant to be merged in the next merge
+> window we have:
+>=20
+>    master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git
 
-	Jeff
+And updated my URL for the net tree.
 
+> Andrew/Stephen, let me know if this works for you.  This way
+> the tree names will never change.
 
+That is very nice, thanks.
 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Mon__21_Apr_2008_11_45_50_+1000_gy2qnfALGfvK=F/3
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFIC/HUTgG2atn1QN8RAvFvAJ9sL5FOKZjP2CwRNh57fsKvW6CuJACffOj6
+5DDZAqfcHiIPib4DmmWD6o0=
+=89CK
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__21_Apr_2008_11_45_50_+1000_gy2qnfALGfvK=F/3--
