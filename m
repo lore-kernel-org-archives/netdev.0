@@ -1,53 +1,39 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [2.6 patch] make icmp_sk_init() static
-Date: Mon, 21 Apr 2008 12:44:09 +0300
-Message-ID: <20080421094409.GK26897@cs181133002.pp.htv.fi>
-References: <20080421084845.GR26897@cs181133002.pp.htv.fi> <20080421.023226.237529768.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: poor network loopback performance and scalability
+Date: Mon, 21 Apr 2008 18:19:08 +0800
+Message-ID: <20080421101908.GC9295@gondor.apana.org.au>
+References: <E1JnmdQ-0001qO-00@gondolin.me.apana.org.au> <20080420.203810.183610437.davem@davemloft.net> <20080421081103.GA31328@elte.hu> <20080421.011623.67335122.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: den@openvz.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mingo@elte.hu, dada1@cosmosbay.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, a.p.zijlstra@chello.nl
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:33710 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751505AbYDUJoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 05:44:37 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753041AbYDUKTf@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20080421.023226.237529768.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20080421.011623.67335122.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 21, 2008 at 02:32:26AM -0700, David Miller wrote:
-> From: Adrian Bunk <bunk@kernel.org>
->...
-> BTW, I noticed that some of your patches get posted like
-> this:
-> 
-> > d163a44e24881d5e960bf9bdc1819ba8ccd15555 diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> > index f064031..fee171e 100644
-> 
-> with the commit ID newline missing, so that the diff specification
-> shares the same line as the commit ID.
-> 
-> Oddly some of your patch postings do not have this missing newline.
-> 
-> Any idea what causes this?  Just curious :-)
+On Mon, Apr 21, 2008 at 01:16:23AM -0700, David Miller wrote:
+>
+> What's being discussed is having the top of the transmit call path
+> getting a socket "buffer" pointer, that it can feed back into the
+> packet input path directly.  Loopback would return buffer pointers
+> from ->hard_start_xmit() instead of passing them netif_rx().  The top
+> of the transmit call path, upon getting a non-NULL buffer returned,
+> would pass it to netif_receive_skb().
 
-I'm using git mainly as a diff generation tool doing
-  cg-commit < /dev/null; git-show --pretty=oneline > /tmp/patch-somename
+Yes this will definitely reduce the per-packet cost.  The other
+low-hanging fruit is to raise the loopback MTU to just below 64K.
+I belive the current value is a legacy from the days when we didn't
+support skb page frags so everything had to be physically contiguous.
 
-This "commit ID newline missing" seems to be the effect of the 
---pretty=oneline.
+Longer term we could look at generating packets > 64K on lo, for
+IPv6 anyway.
 
-Not sure why some postings do have the newline.
-
-cu
-Adrian
-
+Cheers,
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
