@@ -1,43 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: New GIT net tree naming...
-Date: Mon, 21 Apr 2008 01:17:16 -0700 (PDT)
-Message-ID: <20080421.011716.171281475.davem@davemloft.net>
-References: <d0383f90804210053w538c20dfp6495072632320abe@mail.gmail.com>
-	<20080421.170026.131839483.yoshfuji@linux-ipv6.org>
-	<d0383f90804210113l5a9b41adra9a0125869917f3a@mail.gmail.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [build bug] nf_nat_proto_sctp.c:(.text+0x6d173): undefined
+	reference to `crc32c_le'
+Date: Mon, 21 Apr 2008 11:44:02 +0300
+Message-ID: <20080421084402.GF26897@cs181133002.pp.htv.fi>
+References: <20080421062244.GA862@elte.hu> <20080420.235354.104901823.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: ianbrn@gmail.com
+Content-Type: text/plain; charset=utf-8
+Cc: mingo@elte.hu, linville@tuxdriver.com, tomas.winkler@intel.com,
+	linux-kernel@vger.kernel.org, kaber@trash.net,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59204
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751593AbYDUIRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 04:17:14 -0400
-In-Reply-To: <d0383f90804210113l5a9b41adra9a0125869917f3a@mail.gmail.com>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:32810 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753966AbYDUIop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 04:44:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20080420.235354.104901823.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ian Brown" <ianbrn@gmail.com>
-Date: Mon, 21 Apr 2008 11:13:47 +0300
+On Sun, Apr 20, 2008 at 11:53:54PM -0700, David Miller wrote:
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Mon, 21 Apr 2008 08:22:44 +0200
+> 
+> >   net/built-in.o: In function `sctp_manip_pkt':
+> >   nf_nat_proto_sctp.c:(.text+0x6d173): undefined reference to `crc32c_le'
+> >   nf_nat_proto_sctp.c:(.text+0x6d180): undefined reference to `crc32c_le'
+> >   nf_nat_proto_sctp.c:(.text+0x6d196): undefined reference to `crc32c_le'
+> >   nf_nat_proto_sctp.c:(.text+0x6d1c6): undefined reference to `crc32c_le'
+> > 
+> >   http://redhat.com/~mingo/misc/config-Mon_Apr_21_01_52_14_CEST_2008.bad
+> 
+> Thanks for your report Ingo.
+> 
+> Patrick, I'm not so sure how to fix this, or even what's wrong.
+> 
+> NF_NAT_PROTO_SCTP does a proper select on LIBCRC32C, but somehow
+> NF_NAT_PROTO_SCTP=y and LIBCRC32C=m.
+>...
 
-> Thanks.
-> 
-> >  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-> >  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
-> 
-> OK , these URL worked for me.
-> 
-> last question:
-> 
-> Do I understand correctly - patches sent for this mailing list from
-> now on are for davem/net-2.6.git tree and not for the
-> davem/net-next-2.6.git ? or they can be for both, and we can
-> understand from the patch title to which git tree they are ?
+You added the select on Saturday after Pete Clements reported the same 
+issue.
 
-We're only accepting bug fixes now and they will go into
-davem/net-2.6.git
+The select is not yet in Linus' tree.
 
-After some time I'll start accepting feature and other non-bugfix
-changes, and those will go into davem/net-next-2.6.git
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
