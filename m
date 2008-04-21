@@ -1,54 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 0/4] net: enable timestamps on a per-socket basis
-Date: Mon, 21 Apr 2008 03:59:39 -0700 (PDT)
-Message-ID: <20080421.035939.37324583.davem@davemloft.net>
-References: <20080421053402.GB23476@48M1231.sanmateo.corp.akamai.com>
-	<20080420.230356.238029889.davem@davemloft.net>
-	<87y7777ahj.fsf@basil.nowhere.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [build bug] nf_nat_proto_sctp.c:(.text+0x6d173): undefined reference
+ to `crc32c_le'
+Date: Mon, 21 Apr 2008 13:18:22 +0200
+Message-ID: <480C77FE.2040107@trash.net>
+References: <20080421062244.GA862@elte.hu>	<20080420.235354.104901823.davem@davemloft.net>	<20080421084402.GF26897@cs181133002.pp.htv.fi> <20080421.015906.239470094.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: juhlenko@akamai.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org
-To: andi@firstfloor.org
+Cc: bunk@kernel.org, mingo@elte.hu, linville@tuxdriver.com,
+	tomas.winkler@intel.com, linux-kernel@vger.kernel.org,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48888
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754325AbYDUK7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 06:59:42 -0400
-In-Reply-To: <87y7777ahj.fsf@basil.nowhere.org>
+Received: from stinky.trash.net ([213.144.137.162]:37636 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754448AbYDULSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 07:18:30 -0400
+In-Reply-To: <20080421.015906.239470094.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Mon, 21 Apr 2008 12:44:56 +0200
-
-> David Miller <davem@davemloft.net> writes:
+David Miller wrote:
+> From: Adrian Bunk <bunk@kernel.org>
+> Date: Mon, 21 Apr 2008 11:44:02 +0300
 > 
-> > Moving the timestamp up to a higher level takes away some of the
-> > frequent use cases of timestamps, which is to detect things like the
-> > fact that it is taking a long time for packets to get from the
-> > top-level packet receive down to the actual protocol processing.
+>> On Sun, Apr 20, 2008 at 11:53:54PM -0700, David Miller wrote:
+>>> From: Ingo Molnar <mingo@elte.hu>
+>>> Date: Mon, 21 Apr 2008 08:22:44 +0200
+>>>
+>>>>   net/built-in.o: In function `sctp_manip_pkt':
+>>>>   nf_nat_proto_sctp.c:(.text+0x6d173): undefined reference to `crc32c_le'
+>>>>   nf_nat_proto_sctp.c:(.text+0x6d180): undefined reference to `crc32c_le'
+>>>>   nf_nat_proto_sctp.c:(.text+0x6d196): undefined reference to `crc32c_le'
+>>>>   nf_nat_proto_sctp.c:(.text+0x6d1c6): undefined reference to `crc32c_le'
+>>>>
+>>>>   http://redhat.com/~mingo/misc/config-Mon_Apr_21_01_52_14_CEST_2008.bad
+>>> Thanks for your report Ingo.
+>>>
+>>> Patrick, I'm not so sure how to fix this, or even what's wrong.
+>>>
+>>> NF_NAT_PROTO_SCTP does a proper select on LIBCRC32C, but somehow
+>>> NF_NAT_PROTO_SCTP=y and LIBCRC32C=m.
+>>> ...
+>> You added the select on Saturday after Pete Clements reported the same 
+>> issue.
+>>
+>> The select is not yet in Linus' tree.
 > 
-> Is that really a frequent use case? It sounds more like a specialized
-> debugging situation. Most users are not network stack hackers :)
+> Thanks for catching that Adrian.
 
-Ask a financial service industry shop what the implications of
-inaccurate transaction timestamps can be.  It possible for it to be
-measured in the millions if not billions of euros.
+I've verified that Saturday's patch results in a correct looking
+config, with
 
-> But if you are willing to give away some of the guarantees of standard
-> gettimeofday (like global non monotonicity between CPUs) then you
-> could actually still use TSC even on those systems. And I don't
-> think global non monotonicity is really needed for a packet
-> time stamp ...
+CONFIG_NF_NAT_PROTO_SCTP=y
+CONFIG_LIBCRC32C=y
 
-So if tcpdump gets resceduled on another cpu, or the multiqueue flow
-hashing algorithm changes, the appearance of the ordering of packets
-changes.
-
-No thanks.
-
-Nobody wants half-working timestamps.  That's why it's such an
-enormous issue that x86 screwed this up so badly for such a long
-period of time.
