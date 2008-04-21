@@ -1,62 +1,61 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
-Date: Mon, 21 Apr 2008 10:21:59 -0400
-Message-ID: <1208787720.12249.207.camel@localhost>
-References: <20080417103858.0075236b@extreme>
-	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>
-	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>
-	 <1208467480.15888.50.camel@localhost> <1208522727.4422.79.camel@localhost>
-	 <4808AEBF.7040504@trash.net> <1208563696.4450.43.camel@localhost>
-	 <480A21AF.1040405@trash.net> <1208692128.12249.26.camel@localhost>
-	 <480C7F68.7090105@trash.net> <1208783227.12249.172.camel@localhost>
-	 <480C992C.6050406@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/5] e1000e: Allow TSO to trickle down to VLAN device
+Date: Mon, 21 Apr 2008 16:24:25 +0200
+Message-ID: <480CA399.50708@trash.net>
+References: <20080414170557.23286.71580.stgit@localhost.localdomain> <20080414170609.23286.42880.stgit@localhost.localdomain> <4803903B.1020100@trash.net> <4807C516.90308@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: Patrick McHardy <kaber@trash.net>
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:1853 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758637AbYDUOWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 10:22:19 -0400
-Received: by wa-out-1112.google.com with SMTP id m16so3145188waf.23
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 07:22:17 -0700 (PDT)
-In-Reply-To: <480C992C.6050406@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:42076 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756220AbYDUOYc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 10:24:32 -0400
+In-Reply-To: <4807C516.90308@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-21-04 at 15:39 +0200, Patrick McHardy wrote:
-
+Kok, Auke wrote:
+> Patrick McHardy wrote:
+>> Auke Kok wrote:
+>>> Fix TSO over VLAN's by propagating settings to our VLAN devices.
+>>>   
+>> What exactly is this supposed to fix? If this simply wants
+>> to propagate feature changes, I think it should use
+>> netdev_feat_change and handle that within the VLAN code.
 > 
-> Yes, that would be nice, the iproute netlink infrastructure is really
-> lagging behind. 
+> I asked PJ and got this reply:
+> 
+> //
+> VLAN devices didn't get the parent's feature flags on creation.  I went
+> to fix this in the kernel, people pushed back that some devices couldn't
+> support both VLAN tag insertion offload and TSO, so I didn't push the
+> issue.  I worked around the issue by copying the flags in the driver.
+> The downside is when we turn off TSO using ethtool, we need to remove
+> TSO from all VLAN devices, since the hardware segmenter is no longer
+> available if the parent device doesn't have it enabled as a feature.  We
+> were seeing stack-based panics with gso_segment(), which was corrected
+> by removing the TSO flag from all VLAN devices.
+> 
+> I can't seem to find netdev_feat_change anywhere in the kernel, or
+> variants of that name, so I'm not sure what Patrick is pointing us at.
+> 
+> -PJ
+> //
 
-Agreed.
+That was a typo, I meant netdev_features_change(), which is invoked
+by dev_ethtool() and calls the netdev notifier with NETDEV_FEAT_CHANGE,
+on which the VLAN code could react. I wasn't aware of the TSO + VLAN
+acceleration problems you've mentioned, do you have a pointer to more
+information about this?
 
-> I'm not sure which way would be preferrable, build
-> something new on top of libnl without disturbing existing users or
-> gradually port iproute on top of libnl, probably starting with the
-> netlink infrastructure.
-
-I would say build something new would be the proper way to go. Maintain
-output of ip/tc/ifconfig/route and phase them out slowly.
-
-> Yes, its a bit overwhelming at the beginning because of all
-> those knobs, but the simple things are actually real easy :)
-
-The majority of new users out there may not have the same challenges i
-had:
-I wanted to do some simple things in a short period; i knew how to use
-libnetlink - i thought the mapping would be easy to follow from
-libnetlink to libnl; after a few hours, rather than investing more time
-i found it easier to update things on top of libnetlink.
-People who are totaly starting may find it easier to learn libnl first.
-I certainly do plan to poke fingers at libnl - i just happen to have
-something that works.
-
-cheers,
-jamal
+In any case I would prefer to avoid having drivers mess with VLAN
+device flags. How about adding a device flag indicating that the
+driver supports TSO + VLAN acceleration and using the
+NETDEV_FEAT_CHANGE notification inside the VLAN code do adjust
+the device's flags properly?
 
