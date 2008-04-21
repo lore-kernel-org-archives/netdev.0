@@ -1,124 +1,112 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [ PATCH 1/1 2.6.25-rc9] bnx2: Add EEH support in bnx2x
- driver
-Date: Mon, 21 Apr 2008 17:14:56 -0700
-Message-ID: <1208823296.16633.230.camel@dell>
-References: <1208812834.24768.40.camel@wendyx.austin.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [PATCH 2/2] drivers/net: Fix synchronize_irq() bugs, redundancies
+Date: Mon, 21 Apr 2008 19:35:37 -0400
+Message-ID: <20080421233537.GA5223@havoc.gtf.org>
+References: <20080421233419.GA4923@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
-	davem@davemloft.net
-To: "wendy xiong" <wendyx@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3029 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753267AbYDUXL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 19:11:26 -0400
-In-Reply-To: <1208812834.24768.40.camel@wendyx.austin.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759586AbYDUXfy@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080421233419.GA4923@havoc.gtf.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-04-21 at 16:20 -0500, wendy xiong wrote:
+free_irq() calls synchronize_irq() for you, so there is no need for
+drivers to manually do the same thing (again).  Thus, calls where
+sync-irq immediately precedes free-irq can be simplified.
 
-> 
-> diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/drivers/net/bnx2.c
-> --- linux-2.6.25-rc9.orig/drivers/net/bnx2.c    2008-04-18 22:12:53.000000000 -0500
-> +++ linux-2.6.25-rc9.eeh/drivers/net/bnx2.c     2008-04-18 22:28:42.000000000 -0500
-> @@ -7108,6 +7108,7 @@ bnx2_init_board(struct pci_dev *pdev, st
->         }
-> 
->         pci_set_master(pdev);
-> +       pci_save_state(pdev);
-> 
->         bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
->         if (bp->pm_cap == 0) {
-> @@ -7617,6 +7618,85 @@ bnx2_resume(struct pci_dev *pdev)
->         return 0;
->  }
-> 
-> +/**
-> + * bnx2_io_error_detected - called when PCI error is detected
-> + * @pdev: Pointer to PCI device
-> + * @state: The current pci connection state
-> + *
-> + * This function is called after a PCI bus error affecting
-> + * this device has been detected.
-> + */
-> +static pci_ers_result_t bnx2_io_error_detected(struct pci_dev *pdev,
-> +                                               pci_channel_state_t state)
-> +{
-> +       struct net_device *dev = pci_get_drvdata(pdev);
-> +       struct bnx2 *bp = netdev_priv(dev);
+Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+---
+ drivers/net/8139cp.c       |    1 -
+ drivers/net/8139too.c      |    1 -
+ drivers/net/dl2k.c         |    2 +-
+ drivers/net/pci-skeleton.c |    1 -
+ drivers/net/tsi108_eth.c   |    1 -
+ drivers/net/typhoon.c      |    3 ---
+ 6 files changed, 1 insertion(+), 8 deletions(-)
 
-I think it is better to add rtnl_lock() here to prevent racing with
-other functions such as ethtool and close that can be resetting the
-chip.  The same should be done in the other 2 functions below.
-
-> +
-> +       netif_device_detach(dev);
-> +
-> +       if (netif_running(dev)) {
-> +               bnx2_netif_stop(bp);
-> +               del_timer_sync(&bp->timer);
-> +               bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
-> +       }
-> +
-> +       pci_disable_device(pdev);
-> +
-
-Add rtnl_unlock() here.
-
-> +       /* Request a slot slot reset. */
-> +       return PCI_ERS_RESULT_NEED_RESET;
-> +}
-> +
-> +/**
-> + * bnx2_io_slot_reset - called after the pci bus has been reset.
-> + * @pdev: Pointer to PCI device
-> + *
-> + * Restart the card from scratch, as if from a cold-boot.
-> + */
-> +static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
-> +{
-> +       struct net_device *dev = pci_get_drvdata(pdev);
-> +       struct bnx2 *bp = netdev_priv(dev);
-> +
-> +       if (pci_enable_device(pdev)) {
-> +               dev_err(&pdev->dev,
-> +                       "Cannot re-enable PCI device after reset.\n");
-> +               return PCI_ERS_RESULT_DISCONNECT;
-> +       }
-> +       pci_set_master(pdev);
-> +       pci_restore_state(pdev);
-> +
-> +       if (netif_running(dev)) {
-> +               bnx2_set_power_state(bp, PCI_D0);
-> +               bnx2_init_nic(bp);
-> +       }
-> +
-> +       return PCI_ERS_RESULT_RECOVERED;
-> +}
-> +
-> +/**
-> + * bnx2_io_resume - called when traffic can start flowing again.
-> + * @pdev: Pointer to PCI device
-> + *
-> + * This callback is called when the error recovery driver tells us that
-> + * its OK to resume normal operation.
-> + */
-> +static void bnx2_io_resume(struct pci_dev *pdev)
-> +{
-> +       struct net_device *dev = pci_get_drvdata(pdev);
-> +       struct bnx2 *bp = netdev_priv(dev);
-> +
-> +       if (netif_running(dev))
-> +               bnx2_netif_start(bp);
-> +
-> +       netif_device_attach(dev);
-
-Shouldn't we attach first before netif_start?
-
-Thanks.
-
-
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index a453eda..b92cc15 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -1214,7 +1214,6 @@ static int cp_close (struct net_device *dev)
+ 
+ 	spin_unlock_irqrestore(&cp->lock, flags);
+ 
+-	synchronize_irq(dev->irq);
+ 	free_irq(dev->irq, dev);
+ 
+ 	cp_free_rings(cp);
+diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+index 53bd903..fbdf831 100644
+--- a/drivers/net/8139too.c
++++ b/drivers/net/8139too.c
+@@ -2232,7 +2232,6 @@ static int rtl8139_close (struct net_device *dev)
+ 
+ 	spin_unlock_irqrestore (&tp->lock, flags);
+ 
+-	synchronize_irq (dev->irq);	/* racy, but that's ok here */
+ 	free_irq (dev->irq, dev);
+ 
+ 	rtl8139_tx_clear (tp);
+diff --git a/drivers/net/dl2k.c b/drivers/net/dl2k.c
+index e233d04..05f606d 100644
+--- a/drivers/net/dl2k.c
++++ b/drivers/net/dl2k.c
+@@ -1753,7 +1753,7 @@ rio_close (struct net_device *dev)
+ 
+ 	/* Stop Tx and Rx logics */
+ 	writel (TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl);
+-	synchronize_irq (dev->irq);
++
+ 	free_irq (dev->irq, dev);
+ 	del_timer_sync (&np->timer);
+ 
+diff --git a/drivers/net/pci-skeleton.c b/drivers/net/pci-skeleton.c
+index fffc49b..53451c3 100644
+--- a/drivers/net/pci-skeleton.c
++++ b/drivers/net/pci-skeleton.c
+@@ -1739,7 +1739,6 @@ static int netdrv_close (struct net_device *dev)
+ 
+ 	spin_unlock_irqrestore (&tp->lock, flags);
+ 
+-	synchronize_irq (dev->irq);
+ 	free_irq (dev->irq, dev);
+ 
+ 	netdrv_tx_clear (dev);
+diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
+index 6f33f84..e75dd88 100644
+--- a/drivers/net/tsi108_eth.c
++++ b/drivers/net/tsi108_eth.c
+@@ -1434,7 +1434,6 @@ static int tsi108_close(struct net_device *dev)
+ 		dev_kfree_skb(skb);
+ 	}
+ 
+-	synchronize_irq(data->irq_num);
+ 	free_irq(data->irq_num, dev);
+ 
+ 	/* Discard the RX ring. */
+diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+index 333961b..7d2a4c6 100644
+--- a/drivers/net/typhoon.c
++++ b/drivers/net/typhoon.c
+@@ -334,8 +334,6 @@ enum state_values {
+ #define TYPHOON_RESET_TIMEOUT_NOSLEEP	((6 * 1000000) / TYPHOON_UDELAY)
+ #define TYPHOON_WAIT_TIMEOUT		((1000000 / 2) / TYPHOON_UDELAY)
+ 
+-#define typhoon_synchronize_irq(x) synchronize_irq(x)
+-
+ #if defined(NETIF_F_TSO)
+ #define skb_tso_size(x)		(skb_shinfo(x)->gso_size)
+ #define TSO_NUM_DESCRIPTORS	2
+@@ -2143,7 +2141,6 @@ typhoon_close(struct net_device *dev)
+ 		printk(KERN_ERR "%s: unable to stop runtime\n", dev->name);
+ 
+ 	/* Make sure there is no irq handler running on a different CPU. */
+-	typhoon_synchronize_irq(dev->irq);
+ 	free_irq(dev->irq, dev);
+ 
+ 	typhoon_free_rx_rings(tp);
