@@ -1,65 +1,51 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Mon, 21 Apr 2008 20:31:09 +0100
-Message-ID: <480CEB7D.8070702@katalix.com>
-References: <20080412115950.1cbb9cfa@core>	<m33apqomgf.fsf@maximus.localdomain>	<m33apjp32f.fsf@maximus.localdomain>	<20080418.153256.253949503.davem@davemloft.net> <m3ve2b9qe8.fsf@maximus.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alan@lxorguk.ukuu.org.uk,
-	akpm@linux-foundation.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+From: Mark Asselstine <mark.asselstine@windriver.com>
+Subject: [PATCH] Remove unneeded and deprecated cli()/sti() calls.
+Date: Mon, 21 Apr 2008 15:49:10 -0400
+Message-ID: <1208807350-10618-1-git-send-email-mark.asselstine@windriver.com>
+Cc: netdev@vger.kernel.org, asselsm@gmail.com, klaus.kudielka@ieee.org,
+	linux-hams@vger.kernel.org,
+	Mark Asselstine <mark.asselstine@windriver.com>
+To: kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:45794 "EHLO s36.avahost.net"
+Received: from mail.windriver.com ([147.11.1.11]:37399 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755085AbYDUTbY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 15:31:24 -0400
-In-Reply-To: <m3ve2b9qe8.fsf@maximus.localdomain>
+	id S1751248AbYDUTtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 15:49:16 -0400
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa wrote:
-> David Miller <davem@davemloft.net> writes:
-> 
->> I'll fix it properly because I know you won't do the work.
-> 
-> Great to read that.
-> 
-> Just few friendly after all notes so that you don't waste your time
-> learning that yourself:
-> - my patch didn't give us a third PPP implementation, we already have
->   three: generic PPP, syncppp and PPP for ISDN :-)
-> - of those, both generic PPP and (I think) ISDN PPP are in a good
->   shape
-> - generic PPP is specialized for dial-up async devices and has the
->   required features (in kernel and in userspace pppd) - auth,
->   multi-line, compression etc. It's a "lets give /dev/ttyS* a network
->   device" implementation.
+These cli()/sti() calls are made in start_timer() and are therefor
+redundant since the register_lock is now used to protect register
+io from within scc_isr() and write_scc() (where all calls to
+start_timer() originate).
 
-Generic ppp isn't specialized at all, and it isn't limited to async 
-serial devices. PPPoE, PPPoATM and L2TP use it.
+Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
+---
+ drivers/net/hamradio/dmascc.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-> - ISDN PPP does for ISDN cards basically the same as generic PPP does
->   for terminals. They are completely different from syncppp as the
->   needs are completely different. Fixed-line PPP must be small and
->   fast, and self-contained.
-
-<snip>
-
-> That's why I came to an idea that leaving syncppp and the old drivers
-> in their current bit-rotting state which nobody can really fix, and
-> using another (fourth, and third when syncppp eventually dies) PPP
-> implementation is the only way out of this situation.
-
-Can you elaborate on why the code that uses syncppp can't use the 
-generic ppp code together with a userspace ppp control protocol 
-implementation like pppd?
-
-
+diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
+index e04bf99..0b94833 100644
+--- a/drivers/net/hamradio/dmascc.c
++++ b/drivers/net/hamradio/dmascc.c
+@@ -1083,15 +1083,12 @@ static void start_timer(struct scc_priv *priv, int t, int r15)
+ 	if (t == 0) {
+ 		tm_isr(priv);
+ 	} else if (t > 0) {
+-		save_flags(flags);
+-		cli();
+ 		outb(t & 0xFF, priv->tmr_cnt);
+ 		outb((t >> 8) & 0xFF, priv->tmr_cnt);
+ 		if (priv->type != TYPE_TWIN) {
+ 			write_scc(priv, R15, r15 | CTSIE);
+ 			priv->rr0 |= CTS;
+ 		}
+-		restore_flags(flags);
+ 	}
+ }
+ 
 -- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+1.5.4.3
 
