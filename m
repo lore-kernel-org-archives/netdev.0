@@ -1,38 +1,32 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][NETFILTER]: Net namespace leak when reading /proc/net/xxx_tables_names.
-Date: Mon, 21 Apr 2008 18:52:05 +0400
-Message-ID: <480CAA15.6060003@openvz.org>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH] 2.6.25 typhoon_resume - remove call to start_queue
+Date: Mon, 21 Apr 2008 10:35:24 -0400
+Message-ID: <1208788524.5295.6.camel@lap75545.ornl.gov>
+References: <20080421044415.GB15080@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Alexey Dobriyan <adobriyan@openvz.org>
-To: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58062 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753570AbYDUOx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 10:53:56 -0400
+Received: from lap75545.ornl.gov ([160.91.210.54]:35889 "EHLO
+	lap75545.ornl.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbYDUO5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 10:57:18 -0400
+In-Reply-To: <20080421044415.GB15080@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The seq_open_net() call should be accompanied with seq_release_net() one.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+On Sun, 2008-04-20 at 22:44 -0600, Grant Grundler wrote:
+> While trying to fix http://bugzilla.kernel.org/show_bug.cgi?id=8952
+> I looked at a few other drivers to figure out what drivers _should_
+> be doing for suspend/resume. I noticed typhoon driver is likely doing
+> more than it needs to.  Patch below is untested since I don't have the HW.
 
----
+I'm sure I copied this from another driver, but its been so long...
+I won't be in a position to test it for a few days, but I agree it
+shouldn't add break anything, so
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index f52f7f8..11b22ab 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -787,7 +787,7 @@ static const struct file_operations xt_table_ops = {
- 	.open	 = xt_table_open,
- 	.read	 = seq_read,
- 	.llseek	 = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_net,
- };
- 
- static void *xt_match_seq_start(struct seq_file *seq, loff_t *pos)
+Acked-by: Dave Dillow <dave@thedillows.org>
+
