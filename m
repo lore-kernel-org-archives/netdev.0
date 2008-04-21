@@ -1,77 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [DCCP]: Convert do_gettimeofday() to getnstimeofday().
-Date: Mon, 21 Apr 2008 16:22:27 +0900 (JST)
-Message-ID: <20080421.162227.63020853.yoshfuji@linux-ipv6.org>
+From: Jason Uhlenkott <juhlenko@akamai.com>
+Subject: Re: [RFC 0/4] net: enable timestamps on a per-socket basis
+Date: Mon, 21 Apr 2008 00:28:45 -0700
+Message-ID: <20080421072845.GC23476@48M1231.sanmateo.corp.akamai.com>
+References: <20080421053402.GB23476@48M1231.sanmateo.corp.akamai.com> <20080420.230356.238029889.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:34220 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373AbYDUHUc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 03:20:32 -0400
+Received: from prod-mail-xrelay03.akamai.com ([72.247.150.167]:58536 "EHLO
+	prod-mail-xrelay03.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751438AbYDUH2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 03:28:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20080420.230356.238029889.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-What do_gettimeofday() does is to call getnstimeofday() and
-to convert the result from timespec{} to timeval{}.
-We do not always need timeval{} and we can convert timespec{}
-when we really need (to print).
+On Sun, Apr 20, 2008 at 23:03:56 -0700, David Miller wrote:
+> Moving the timestamp up to a higher level takes away some of the
+> frequent use cases of timestamps, which is to detect things like the
+> fact that it is taking a long time for packets to get from the
+> top-level packet receive down to the actual protocol processing.
+> 
+> With your patch, it can't be used that way any more.
+> 
+> In fact, people are desiring timestamps which are _closer_ to when the
+> device actually receives the frame rather than further away.
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
-diff --git a/net/dccp/probe.c b/net/dccp/probe.c
-index 7053bb8..6e1df62 100644
---- a/net/dccp/probe.c
-+++ b/net/dccp/probe.c
-@@ -46,29 +46,24 @@ struct {
- 	struct kfifo	  *fifo;
- 	spinlock_t	  lock;
- 	wait_queue_head_t wait;
--	struct timeval	  tstart;
-+	struct timespec	  tstart;
- } dccpw;
- 
- static void printl(const char *fmt, ...)
- {
- 	va_list args;
- 	int len;
--	struct timeval now;
-+	struct timespec now;
- 	char tbuf[256];
- 
- 	va_start(args, fmt);
--	do_gettimeofday(&now);
-+	getnstimeofday(&now);
- 
--	now.tv_sec -= dccpw.tstart.tv_sec;
--	now.tv_usec -= dccpw.tstart.tv_usec;
--	if (now.tv_usec < 0) {
--		--now.tv_sec;
--		now.tv_usec += 1000000;
--	}
-+	now = timespec_sub(now, dccpw.tstart);
- 
- 	len = sprintf(tbuf, "%lu.%06lu ",
- 		      (unsigned long) now.tv_sec,
--		      (unsigned long) now.tv_usec);
-+		      (unsigned long) now.tv_nsec / NSEC_PER_USEC);
- 	len += vscnprintf(tbuf+len, sizeof(tbuf)-len, fmt, args);
- 	va_end(args);
- 
-@@ -119,7 +114,7 @@ static struct jprobe dccp_send_probe = {
- static int dccpprobe_open(struct inode *inode, struct file *file)
- {
- 	kfifo_reset(dccpw.fifo);
--	do_gettimeofday(&dccpw.tstart);
-+	getnstimeofday(&dccpw.tstart);
- 	return 0;
- }
- 
+Fair enough.
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+It's too bad that SO_TIMESTAMP has a scope of impact which really has
+nothing to do with a socket, though.  It almost seems like it should
+have been an interface flag instead of a socket option.
