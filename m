@@ -1,33 +1,63 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
-Date: Mon, 21 Apr 2008 10:16:02 +0200
-Message-ID: <200804211016.02819.oliver@neukum.org>
-References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: poor network loopback performance and scalability
+Date: Mon, 21 Apr 2008 10:11:03 +0200
+Message-ID: <20080421081103.GA31328@elte.hu>
+References: <20080331113602.GA13526@elte.hu> <E1JnmdQ-0001qO-00@gondolin.me.apana.org.au> <20080420.203810.183610437.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, dada1@cosmosbay.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	a.p.zijlstra@chello.nl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:38743 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753386AbYDUIIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 04:08:51 -0400
-In-Reply-To: <480BE815.2000409@teltonika.lt>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:33759 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753312AbYDUIL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 04:11:29 -0400
 Content-Disposition: inline
+In-Reply-To: <20080420.203810.183610437.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QW0gTW9udGFnLCAyMS4gQXByaWwgMjAwOCAwMzowNDoyMSBzY2hyaWViIFBhdWxpdXMgWmFsZWNr
-YXM6Cj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoG9kZXYtPm1vZGVfZmxhZ3MgPSBV
-U0JfQ0RDX1BBQ0tFVF9UWVBFX0FMTF9NVUxUSUNBU1QgfAo+IC3CoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCDCoCBVU0JfQ0RDX1BB
-Q0tFVF9UWVBFX0RJUkVDVEVEIHwKPiAtwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgwqAgVVNCX0NEQ19QQUNLRVRfVFlQRV9CUk9B
-RENBU1QgfAo+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoCDCoCBVU0JfQ0RDX1BBQ0tFVF9UWVBFX01VTFRJQ0FTVDsKCkhpLAoK
-YmVmb3JlIHlvdSByaXAgb3V0IHRoZSBtdWx0aWNhc3Qgc3R1ZmYsIGRvIHlvdSBoYXZlIGFuIGlk
-ZWEgd2h5IGl0IHdhcwppbmNsdWRlZCBpbiB0aGUgZmlyc3QgcGxhY2U/IElzIHRoZSBkZXZpY2Ug
-Y2FwYWJsZSBvZiBvcGVyYXRpbmcgaW4gYQpyZWFsIG5ldHdvcmsgdG9wb2xvZ3kgd2hlcmUgbXVs
-dGljYXN0IHdvdWxkIG1ha2Ugc2Vuc2U/CgoJUmVnYXJkcwoJCU9saXZlcgoK
+
+* David Miller <davem@davemloft.net> wrote:
+
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Mon, 21 Apr 2008 11:24:04 +0800
+> 
+> > Ingo Molnar <mingo@elte.hu> wrote:
+> > > 
+> > >   # ifconfig lo mtu 1048576
+> > 
+> > Chiming in late here, but 1048576 can't possibly work with IP which 
+> > uses a 16-bit quantity as the length header.  In fact a quick test 
+> > seems to indicate that an 1048576 mtu doesn't generate anything 
+> > bigger than the default 16K mtu.
+> 
+> Right.
+> 
+> To move things forward, we should look into doing something similar to 
+> what Al Viro suggested, which would be to return an SKB pointer from 
+> the transmit path and call back into netif_receive_skb() using that.
+
+yep, basically the sk_peer trick that AF_UNIX is already using.
+
+it just seems rather more tricky in the 'real skb' localhost case 
+because there's no real established trust path we can pass this coupling 
+of the two sockets over. Netfilter might affect it and deny a localhost 
+connection. Lifetime rules seem rather tricky as well: either end of the 
+localhost connection can go away independently so a refcount to the 
+socket has to be kept. skb->sk might be something to use, but it looks 
+like a dangerous complication and it would burden the fastpath with an 
+extra sk reference inc/dec.
+
+... so i'm not implying that any of this is an easy topic to solve (to 
+me at least :). But fact is that database connections over localhost are 
+very common on web apps and it is very convenient as well. I use it 
+myself - AF_UNIX transport is often non-existing in apps and libraries 
+or is often just an afterthought with limitations - apps tend to 
+gravitate towards a single API. So i dont think "use AF_UNIX" is an 
+acceptable answer in this case. I believe we should try to make 
+localhost transport comparably fast to AF_UNIX.
+
+	Ingo
