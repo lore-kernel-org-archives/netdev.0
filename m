@@ -1,45 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 0/4] net: enable timestamps on a per-socket basis
-Date: Sun, 20 Apr 2008 23:03:56 -0700 (PDT)
-Message-ID: <20080420.230356.238029889.davem@davemloft.net>
-References: <20080421053402.GB23476@48M1231.sanmateo.corp.akamai.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: [build bug] nf_nat_proto_sctp.c:(.text+0x6d173): undefined
+	reference to `crc32c_le'
+Date: Mon, 21 Apr 2008 08:22:44 +0200
+Message-ID: <20080421062244.GA862@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
-To: juhlenko@akamai.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, kaber@trash.net,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Mohamed Abbas <mabbas@linux.intel.com>,
+	Ian Schram <ischram@telenet.be>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: David Miller <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Tomas Winkler <tomas.winkler@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56261
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751611AbYDUGDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 02:03:54 -0400
-In-Reply-To: <20080421053402.GB23476@48M1231.sanmateo.corp.akamai.com>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:60928 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754505AbYDUGXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 02:23:34 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Uhlenkott <juhlenko@akamai.com>
-Date: Sun, 20 Apr 2008 22:34:02 -0700
 
-> This patchset creates a mechanism for protocols to opt in to handling
-> timestamps at a higher layer, and uses this mechanism to implement
-> per-socket SOCK_TIMESTAMP support for several common protocols.
+> and after i restarted last night's QA run, within a few iterations a 
+> fourth build failure popped up:
 
-Moving the timestamp up to a higher level takes away some of the
-frequent use cases of timestamps, which is to detect things like the
-fact that it is taking a long time for packets to get from the
-top-level packet receive down to the actual protocol processing.
+and here's a fifth build failure in the networking code, triggered in 
+our testing:
 
-With your patch, it can't be used that way any more.
+  net/built-in.o: In function `sctp_manip_pkt':
+  nf_nat_proto_sctp.c:(.text+0x6d173): undefined reference to `crc32c_le'
+  nf_nat_proto_sctp.c:(.text+0x6d180): undefined reference to `crc32c_le'
+  nf_nat_proto_sctp.c:(.text+0x6d196): undefined reference to `crc32c_le'
+  nf_nat_proto_sctp.c:(.text+0x6d1c6): undefined reference to `crc32c_le'
 
-In fact, people are desiring timestamps which are _closer_ to when the
-device actually receives the frame rather than further away.
+  http://redhat.com/~mingo/misc/config-Mon_Apr_21_01_52_14_CEST_2008.bad
 
-I understand the reasons why this change is desirable from a
-performance standpoint, but we really can't do this, sorry.
-
-It's probably more tenable to do the work necessary get get named to
-not enable timestamps by default.  It if really wants packet data
-timestamps, it can do a gettimeofday() call right after recvmsg() as
-gettimeofday() is merely a function call into the VSYSCALL page on
-most platforms.
-
+	Ingo
