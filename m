@@ -1,51 +1,29 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][NETNS]: Remove empty ->init callback.
-Date: Mon, 21 Apr 2008 19:04:00 +0400
-Message-ID: <480CACE0.4070109@openvz.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][NETFILTER]: Net namespace leak when reading /proc/net/xxx_tables_names.
+Date: Mon, 21 Apr 2008 17:09:41 +0200
+Message-ID: <480CAE35.5050301@trash.net>
+References: <480CAA15.6060003@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Alexey Dobriyan <adobriyan@openvz.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:57478 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752640AbYDUPFi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 11:05:38 -0400
+Received: from stinky.trash.net ([213.144.137.162]:43140 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbYDUPJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 11:09:47 -0400
+In-Reply-To: <480CAA15.6060003@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The netns start-stop engine can happily live with any of
-init or exit callbacks set to NULL.
+Pavel Emelyanov wrote:
+> The seq_open_net() call should be accompanied with seq_release_net() one.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Isn't it too late to merge this one?
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8a0fd40..e591e09 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4338,12 +4338,6 @@ int unregister_inet6addr_notifier(struct notifier_block *nb)
- 
- EXPORT_SYMBOL(unregister_inet6addr_notifier);
- 
--
--static int addrconf_net_init(struct net *net)
--{
--	return 0;
--}
--
- static void addrconf_net_exit(struct net *net)
- {
- 	struct net_device *dev;
-@@ -4360,7 +4354,6 @@ static void addrconf_net_exit(struct net *net)
- }
- 
- static struct pernet_operations addrconf_net_ops = {
--	.init = addrconf_net_init,
- 	.exit = addrconf_net_exit,
- };
- 
+Applied, thanks.
