@@ -1,92 +1,121 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Mon, 21 Apr 2008 17:30:39 +0200
-Message-ID: <m3ve2b9qe8.fsf@maximus.localdomain>
-References: <20080412115950.1cbb9cfa@core>
-	<m33apqomgf.fsf@maximus.localdomain>
-	<m33apjp32f.fsf@maximus.localdomain>
-	<20080418.153256.253949503.davem@davemloft.net>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
+Date: Mon, 21 Apr 2008 18:54:42 +0300
+Message-ID: <480CB8C2.9090902@teltonika.lt>
+References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org,
-	jeff@garzik.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759635AbYDUPay@vger.kernel.org>
-In-Reply-To: <20080418.153256.253949503.davem@davemloft.net> (David Miller's message of "Fri\, 18 Apr 2008 15\:32\:56 -0700 \(PDT\)")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------030606070702080706060207"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <480BE815.2000409-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+This is a multi-part message in MIME format.
+--------------030606070702080706060207
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> I'll fix it properly because I know you won't do the work.
+Incremental patch.
+- Remove multicasting
 
-Great to read that.
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
 
-Just few friendly after all notes so that you don't waste your time
-learning that yourself:
-- my patch didn't give us a third PPP implementation, we already have
-  three: generic PPP, syncppp and PPP for ISDN :-)
-- of those, both generic PPP and (I think) ISDN PPP are in a good
-  shape
-- generic PPP is specialized for dial-up async devices and has the
-  required features (in kernel and in userspace pppd) - auth,
-  multi-line, compression etc. It's a "lets give /dev/ttyS* a network
-  device" implementation.
-- ISDN PPP does for ISDN cards basically the same as generic PPP does
-  for terminals. They are completely different from syncppp as the
-  needs are completely different. Fixed-line PPP must be small and
-  fast, and self-contained.
+--------------030606070702080706060207
+Content-Type: text/x-patch;
+ name="hso_remove_multicast.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hso_remove_multicast.patch"
 
-
-Now syncppp.c and sync serial (HDLC) cards. We basically have three
-categories of hardware:
-- mostly old ISA cards (cosa, cyclom-2x, z85230, s502/s508, personally
-  I have c101 and n2 for tests, and PCI wanxl400). I think Alan
-  maintains Zilog drivers, other "old" drivers are not maintained at
-  all. They use syncppp.c directly (except c101, n2 and wanxl using
-  generic HDLC).
-  The list was longer but few drivers have been removed recently.
-
-- cards with in-kernel obsolete drivers and users encouraged to use
-  manufacturers' driver - lmc.
-
-- a bit more modern PCI cards such as pc300, pci200syn, synclinks,
-  dscc4, farsync, some off-tree ones. They use generic HDLC.
-
-- I have offered to port any remaining old driver to generic HDLC if
-  I'm sent a hardware sample. Synclink, dscc4 and farsync have been
-  ported by other people.
-
-I would be surprised to find that the "old" drivers are still
-functional. Nevertheless syncppp.c is functional (though marginally)
-and I think there are no bugs related to dev->priv and netdev_priv()
-for those drivers.
-
-The real problem with old drivers is the lack of hardware. Personally
-I suspect they may have 0 users worldwide.
-
-
-Syncppp.c is the problem for newer cards:
-- the support has been broken recently due to netdev_priv() changes
-  (could be band-aided).
-- it's missing IPv6 and adding it is not trivial
-- it's not RFC/STD-compliant at all, i.e. breaks many "MUST" rules and
-  doesn't work with some other compliant implementations, and fixing
-  that would be a real PITA,
-- the code is really hard to parse/understand/maintain, it looks a bit
-  like it was written in some other language and then "compiled" into
-  C machine code :-)
-- the lack of hardware makes doing significant changes to the drivers
-  and syncppp almost impossible, without breaking them (if they aren't
-  already broken).
-
-
-That's why I came to an idea that leaving syncppp and the old drivers
-in their current bit-rotting state which nobody can really fix, and
-using another (fourth, and third when syncppp eventually dies) PPP
-implementation is the only way out of this situation.
-
-HTH.
--- 
-Krzysztof Halasa
+--- linux-2.6-hso-my/drivers/net/usb/hso.c.orig	2008-04-21 18:41:47.000000000 +0300
++++ linux-2.6-hso-my/drivers/net/usb/hso.c	2008-04-21 18:45:43.000000000 +0300
+@@ -174,7 +174,6 @@ struct hso_net {
+ 	struct iphdr rx_ip_hdr;
+ 	struct ethhdr dummy_eth_head;
+ 
+-	__u16 wNumberMCFilters;
+ 	unsigned long flags;
+ };
+ 
+@@ -870,49 +869,6 @@ static void hso_net_tx_timeout(struct ne
+ 	odev->stats.tx_errors++;
+ }
+ 
+-/* setup the multicast filters */
+-static void hso_net_set_multicast(struct net_device *net)
+-{
+-	struct hso_net *odev = netdev_priv(net);
+-	int i = 0;
+-	__u8 *buf = NULL;
+-
+-	/* Tell the kernel to stop sending us frames while we get this all set
+-	 * up. */
+-	netif_stop_queue(net);
+-
+-	/* Note: do not reorder, GCC is clever about common statements. */
+-	if (net->flags & IFF_PROMISC) {
+-		/* Unconditionally log net taps. */
+-		D1("%s: Promiscuous mode enabled", net->name);
+-	} else if (net->mc_count > odev->wNumberMCFilters) {
+-		/* Too many to filter perfectly -- accept all multicasts. */
+-		D1("%s: too many MC filters for hardware, using allmulti",
+-		   net->name);
+-	} else if (net->flags & IFF_ALLMULTI) {
+-		/* Filter in software */
+-		D1("%s: using allmulti", net->name);
+-	} else {
+-		/* do multicast filtering in hardware */
+-		struct dev_mc_list *mclist;
+-		D1("%s: set multicast filters", net->name);
+-		buf = kmalloc(6 * net->mc_count, GFP_ATOMIC);
+-		if (!buf) {
+-			dev_err(&net->dev, "No memory to allocate?");
+-			goto exit;
+-		}
+-		for (i = 0, mclist = net->mc_list; mclist && i < net->mc_count;
+-		     i++, mclist = mclist->next) {
+-			memcpy(&mclist->dmi_addr, &buf[i * 6], 6);
+-		}
+-		kfree(buf);
+-	}
+-
+-exit:
+-	/* Tell the kernel to start giving frames to us again. */
+-	netif_wake_queue(net);
+-}
+-
+ /* make a real packet from the received USB buffer */
+ static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
+ 			unsigned int count, unsigned char is_eop)
+@@ -2071,7 +2027,6 @@ static int hso_serial_common_create(stru
+ exit:
+ 	hso_serial_common_free(serial);
+ 	return -1;
+-
+ }
+ 
+ /* Frees a general hso device */
+@@ -2167,15 +2122,12 @@ static void hso_net_init(struct net_devi
+ 	net->get_stats = hso_net_get_stats;
+ 	net->tx_timeout = hso_net_tx_timeout;
+ 	net->watchdog_timeo = HSO_NET_TX_TIMEOUT;
+-	net->set_multicast_list = hso_net_set_multicast;
+ 	net->flags |= IFF_NOARP;
+ 	net->mtu = DEFAULT_MTU - 14;
+ 	net->tx_queue_len = 10;
+ 	SET_ETHTOOL_OPS(net, &ops);
+ 	hso_net->skb_rx_buf = NULL;
+ 	hso_net->rx_parse_state = WAIT_IP;
+-	/* always use all multi, no lists of multicasts */
+-	hso_net->wNumberMCFilters = 0;
+ 
+ 	/* and initialize the semaphore */
+ 	spin_lock_init(&hso_net->net_lock);
+@@ -3084,7 +3036,6 @@ static void __exit hso_exit(void)
+ 		remove_proc_entry("devices", hso_proc_dir);
+ 		remove_proc_entry(driver_name, NULL);
+ 	}
+--------------030606070702080706060207--
