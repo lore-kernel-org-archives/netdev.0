@@ -1,29 +1,27 @@
-From: David Miller <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: New GIT net tree naming...
-Date: Mon, 21 Apr 2008 00:56:32 -0700 (PDT)
-Message-ID: <20080421.005632.222665335.davem@davemloft.net>
+Date: Mon, 21 Apr 2008 17:00:26 +0900 (JST)
+Message-ID: <20080421.170026.131839483.yoshfuji@linux-ipv6.org>
 References: <20080419.173510.257216556.davem@davemloft.net>
 	<d0383f90804210053w538c20dfp6495072632320abe@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
 To: ianbrn@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60596
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752831AbYDUH4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 03:56:30 -0400
+Received: from yue.linux-ipv6.org ([203.178.140.15]:34260 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752640AbYDUH6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 03:58:31 -0400
 In-Reply-To: <d0383f90804210053w538c20dfp6495072632320abe@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ian Brown" <ianbrn@gmail.com>
-Date: Mon, 21 Apr 2008 10:53:16 +0300
+In article <d0383f90804210053w538c20dfp6495072632320abe@mail.gmail.com> (at Mon, 21 Apr 2008 10:53:16 +0300), "Ian Brown" <ianbrn@gmail.com> says:
 
-> Sorry for my ignorance, but what is the password that I need to enter
-> when prompted to ?
-> 
 > when running:
 > git-clone master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
 > Initialized empty Git repository in /work/src/master/.git/
@@ -34,13 +32,9 @@ Date: Mon, 21 Apr 2008 10:53:16 +0300
 > master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git
 > tree.
 
-The URL I posted works for people who have kernel.org accounts.
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
 
-Others, such as yourself, need to transform that URL into the
-public form, for example:
+I'd not recommend to run git as root, BTW.
 
-	git://.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-
-and:
-
-	git://.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+--yoshfuji
