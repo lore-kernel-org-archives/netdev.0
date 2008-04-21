@@ -1,47 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: poor network loopback performance and scalability
-Date: Mon, 21 Apr 2008 01:16:23 -0700 (PDT)
-Message-ID: <20080421.011623.67335122.davem@davemloft.net>
-References: <E1JnmdQ-0001qO-00@gondolin.me.apana.org.au>
-	<20080420.203810.183610437.davem@davemloft.net>
-	<20080421081103.GA31328@elte.hu>
+Subject: Re: New GIT net tree naming...
+Date: Mon, 21 Apr 2008 01:17:16 -0700 (PDT)
+Message-ID: <20080421.011716.171281475.davem@davemloft.net>
+References: <d0383f90804210053w538c20dfp6495072632320abe@mail.gmail.com>
+	<20080421.170026.131839483.yoshfuji@linux-ipv6.org>
+	<d0383f90804210113l5a9b41adra9a0125869917f3a@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, dada1@cosmosbay.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	a.p.zijlstra@chello.nl
-To: mingo@elte.hu
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: ianbrn@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41269
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59204
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751587AbYDUIQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 04:16:21 -0400
-In-Reply-To: <20080421081103.GA31328@elte.hu>
+	by vger.kernel.org with ESMTP id S1751593AbYDUIRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 04:17:14 -0400
+In-Reply-To: <d0383f90804210113l5a9b41adra9a0125869917f3a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Mon, 21 Apr 2008 10:11:03 +0200
+From: "Ian Brown" <ianbrn@gmail.com>
+Date: Mon, 21 Apr 2008 11:13:47 +0300
 
+> Thanks.
 > 
-> * David Miller <davem@davemloft.net> wrote:
+> >  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+> >  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
 > 
-> > To move things forward, we should look into doing something similar to 
-> > what Al Viro suggested, which would be to return an SKB pointer from 
-> > the transmit path and call back into netif_receive_skb() using that.
+> OK , these URL worked for me.
 > 
-> yep, basically the sk_peer trick that AF_UNIX is already using.
+> last question:
+> 
+> Do I understand correctly - patches sent for this mailing list from
+> now on are for davem/net-2.6.git tree and not for the
+> davem/net-next-2.6.git ? or they can be for both, and we can
+> understand from the patch title to which git tree they are ?
 
-Please read again, that isn't the suggestion being discussed.
+We're only accepting bug fixes now and they will go into
+davem/net-2.6.git
 
-What's being discussed is having the top of the transmit call path
-getting a socket "buffer" pointer, that it can feed back into the
-packet input path directly.  Loopback would return buffer pointers
-from ->hard_start_xmit() instead of passing them netif_rx().  The top
-of the transmit call path, upon getting a non-NULL buffer returned,
-would pass it to netif_receive_skb().
-
-We're not talking about sockets, although that is another idea (which
-I'm working on a patch for, and I have a mechanism for what you refer
-to as "path validation").
+After some time I'll start accepting feature and other non-bugfix
+changes, and those will go into davem/net-next-2.6.git
