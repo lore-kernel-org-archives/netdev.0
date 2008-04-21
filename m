@@ -1,73 +1,69 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: ISDN testing
-Date: Mon, 21 Apr 2008 15:36:56 +0200
-Message-ID: <200804211536.57655.elendil@planet.nl>
-References: <20080420223959.GA17998@havoc.gtf.org> <200804210205.38891.elendil@planet.nl> <480BF15D.2090100@garzik.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: PATCH WAS( Re: [ANNOUNCE] iproute2 v2.6.25
+Date: Mon, 21 Apr 2008 15:39:56 +0200
+Message-ID: <480C992C.6050406@trash.net>
+References: <20080417103858.0075236b@extreme>	 <1208464539.15888.22.camel@localhost> <20080417134656.761748d4@extreme>	 <1208465951.15888.33.camel@localhost>  <20080417140837.1e92b449@extreme>	 <1208467480.15888.50.camel@localhost> <1208522727.4422.79.camel@localhost>	 <4808AEBF.7040504@trash.net> <1208563696.4450.43.camel@localhost>	 <480A21AF.1040405@trash.net> <1208692128.12249.26.camel@localhost>	 <480C7F68.7090105@trash.net> <1208783227.12249.172.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	isdn4linux@listserv.isdn4linux.de
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hpsmtp-eml18.kpnxchange.com ([213.75.38.118]:36781 "EHLO
-	hpsmtp-eml18.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758176AbYDUNhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 09:37:04 -0400
-In-Reply-To: <480BF15D.2090100@garzik.org>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:40805 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755246AbYDUNkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 09:40:01 -0400
+In-Reply-To: <1208783227.12249.172.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 21 April 2008, Jeff Garzik wrote:
-> Frans Pop wrote:
-> > The cards I have are:
-> > - Teles 16.3 ISA -- worked way back when with Debian Woody
-> > - ITK ix1-micro 2.1 ISA
-> > - Eicon Diva 2.01 PCI
->
-> Honestly, a module-load test on real hardware can give us some useful
-> information, even if it's not connected to anything.
->
-> My changes are primarily in the probe-the-hardware area, so successfully
-> making it past that new code would indeed be a useful data point.
->
-> Check out the kernel found in 'isdn-pci' branch of
-> git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/misc-2.6.git
+jamal wrote:
+> On Mon, 2008-21-04 at 13:50 +0200, Patrick McHardy wrote:
+> 
+> 
+>> I just noticed the libnl example code already supports this:
+>>
+>> $ ./nl-link-dump env dev eth0
+>> LINK_NAME=eth0
+>> LINK_IFINDEX=2
+>> LINK_FAMILY=unspec
+>> LINK_TYPE=ether
+>> ...
+>>
+>> I wouldn't duplicate it for iproute, but rather complete the
+>> libnl support (I think some object types are still missing
+>> ENV dump format support) and tell people to use that for
+>> scripting.
+> 
+> Sounds sensible.
+> It would be useful to probably port iproute2 to use libnl. Or something
+> new that provides iproute2 input/output.
 
-Turns out all 3 cards are supported by the same basic driver: hisax, so
-I can only test for the one driver. The Eicon Diva uses an additional
-module though: hisaxdiva.
 
-I've put the last 2 cards in one machine and (after some fiddling with
-jumpers and interrupts and IO ports :-) both are detected perfectly with
-2.6.24 when hisax is modprobed.
+Yes, that would be nice, the iproute netlink infrastructure is really
+lagging behind. I'm not sure which way would be preferrable, build
+something new on top of libnl without disturbing existing users or
+gradually port iproute on top of libnl, probably starting with the
+netlink infrastructure.
 
-Advantage of using the two cards is that it covers both PCI and ISA.
-The PCI card gets configured automagically, while the ISA card requires
-module parameters for io/irq.
+> on libnl (CC Thomas):
+> I havent looked at libnl in a long time; it is certainly the right
+> direction forward - my main contention with it (which i mentioned to
+> Thomas) is it has too many knobs/hooks. Last conversation we had he told
+> me it is optional for me to use all those knobs. For a geek that may not
+> be sufficient answer: if you give me a swiss army knife i need to know
+> what everything does ;->
+ >
+> Once you go that path network code that provides callbacks in more than
+> send/recv as well as statefulness (like caching runtime objects which
+> libnl did when i looked) then you no longer pass the smell-test for
+> "library" - you are into "framework" domain[1] - which requires more
+> steep knowledge of the framework to bypass mechanisms provided to you
+> that you dont like. I tried to port some app back then from libnetlink
+> to libnl and found it to be extra curve-climbing and abandoned it; i
+> will revisit at some point.
 
-I've compiled a kernel based on your 'isdn-pci' branch, and it boots fine.
+Yes, its a bit overwhelming at the beginning because of all
+those knobs, but the simple things are actually real easy :)
 
-But when I tried to modprobe hisax, I got:
-# modprobe hisax
-FATAL: Module hisax not found.
-
-Cause seems to be:
-# depmod -a
-WARNING: Module /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/hisaxdiva.ko 
-ignored, due to loop
-WARNING: Module /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/libhisax.ko 
-ignored, due to loop
-WARNING: Loop 
-detected: /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/hisax.ko needs 
-libhisax.ko which needs hisax.ko again!
-WARNING: Module /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/hisax.ko 
-ignored, due to loop
-
-If needed I can also try with vanilla 2.6.25 to get a bit more current
-baseline test than I now have with 2.6.24.
-
-Cheers,
-FJP
