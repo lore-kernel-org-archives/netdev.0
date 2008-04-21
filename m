@@ -1,42 +1,59 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: ISDN testing
-Date: Mon, 21 Apr 2008 21:48:24 +0200
-Message-ID: <878wz76lbr.fsf@basil.nowhere.org>
-References: <20080420223959.GA17998@havoc.gtf.org>
-	<200804210205.38891.elendil@planet.nl> <480BF15D.2090100@garzik.org>
-	<200804211536.57655.elendil@planet.nl> <480CE960.4050000@garzik.org>
+From: Bodo Eggert <7eggert@gmx.de>
+Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
+Date: Mon, 21 Apr 2008 21:52:00 +0200 (CEST)
+Message-ID: <alpine.LSU.0.999.0804212141050.4235@be1.lrz>
+References: <aiXVe-Yn-7@gated-at.bofh.it> <ajGfA-7rt-9@gated-at.bofh.it>
+ <ajGfA-7rt-11@gated-at.bofh.it> <ajGfA-7rt-13@gated-at.bofh.it>
+ <ajGfA-7rt-15@gated-at.bofh.it> <ajGfA-7rt-7@gated-at.bofh.it>
+ <E1JnEcl-0000xc-D9@be1.7eggert.dyndns.org> <480CC3D8.3040700@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frans Pop <elendil@planet.nl>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: 7eggert@gmx.de, Kok@vger.kernel.org,
+	Auke <auke-jan.h.kok@intel.com>, Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Anton Titov <a.titov@host.bg>, Chris Snook <csnook@redhat.com>,
+	"H. Willstrand" <h.willstrand@gmail.com>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out03.alice-dsl.net ([88.44.63.5]:20852 "EHLO
-	smtp-out03.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753076AbYDUTti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 15:49:38 -0400
-In-Reply-To: <480CE960.4050000@garzik.org> (Jeff Garzik's message of "Mon, 21 Apr 2008 15:22:08 -0400")
+Received: from moutng.kundenserver.de ([212.227.126.174]:51727 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754505AbYDUTxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 15:53:15 -0400
+In-Reply-To: <480CC3D8.3040700@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik <jeff@garzik.org> writes:
->
-> Yeah, that's what my patchset does -- splits the "hisax" driver into
-> multiple smaller drivers.  Thus, "modprobe hisax" produces the results
-> that you are seeing.
+On Mon, 21 Apr 2008, Rick Jones wrote:
+> Bodo Eggert wrote:
+> > Kok, Auke <auke-jan.h.kok@intel.com> wrote:
 
-That will break a lot of user's setup.
+> > > [X86] IRQBALANCE: Mark as BROKEN and disable by default
+> > > 
+> > > The IRQBALANCE option causes interrupts to bounce all around on SMP
+> > > systems
+> > > quickly burying the CPU in migration cost and cache misses. Mainly
+> > > affected
+> > > are network interrupts and this results in one CPU pegged in softirqd
+> > > completely.
+> > 
+> > 
+> > If this is the problem, maybe it would help to only balance the IRQs each
+> > e.g. ten seconds? Unfortunately I have no SMP system to try it out.
+> 
+> Be it kernel or user space, for consistent benchmark results it needs to be
+> able to be turned-off without turning the code.  That leaves me in agreement
+> with Stephen that if it must exist, the user space one would be preferable.
+> It can be easily terminated with extreme prejudice.
 
-> You'll need to determine which newly-created kernel module applies to
-> your hardware.  Let me know if you need help with that.  The new
-> drivers should be in
-> /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/ provided that you
-> enabled them in the kernel configuration.
-
-One way to avoid that issue would be to continue having a dummy
-"hisax" module that just depends on all the other drivers with 
-a symbol reference.
- 
-That could be optional with some compat CONFIG.
-
--Andi
+I agree that having a full-featured userspace balancer daemon with lots of 
+intelligence will be theoretically better, but if you can have a simple
+daemon doing OK on many machines for less than the userspace daemon's
+kernel stack, why not?
+-- 
+Funny quotes:
+31. Why do "overlook" and "oversee" mean opposite things?
