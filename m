@@ -1,59 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [build bug] nf_nat_proto_sctp.c:(.text+0x6d173): undefined reference
- to `crc32c_le'
-Date: Mon, 21 Apr 2008 13:18:22 +0200
-Message-ID: <480C77FE.2040107@trash.net>
-References: <20080421062244.GA862@elte.hu>	<20080420.235354.104901823.davem@davemloft.net>	<20080421084402.GF26897@cs181133002.pp.htv.fi> <20080421.015906.239470094.davem@davemloft.net>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [RFC] Patch to option HSO driver to the kernel
+Date: Mon, 21 Apr 2008 13:45:11 +0200
+Message-ID: <200804211345.12850.oliver@neukum.org>
+References: <20080414213238.GB28833@kroah.com> <200804171632.12972.oliver@neukum.org> <4808BBC5.5070800@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, mingo@elte.hu, linville@tuxdriver.com,
-	tomas.winkler@intel.com, linux-kernel@vger.kernel.org,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37636 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754448AbYDULSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 07:18:30 -0400
-In-Reply-To: <20080421.015906.239470094.davem@davemloft.net>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:59221 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754992AbYDULh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 07:37:56 -0400
+In-Reply-To: <4808BBC5.5070800@teltonika.lt>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Adrian Bunk <bunk@kernel.org>
-> Date: Mon, 21 Apr 2008 11:44:02 +0300
+Am Freitag, 18. April 2008 17:18:29 schrieb Paulius Zaleckas:
 > 
->> On Sun, Apr 20, 2008 at 11:53:54PM -0700, David Miller wrote:
->>> From: Ingo Molnar <mingo@elte.hu>
->>> Date: Mon, 21 Apr 2008 08:22:44 +0200
->>>
->>>>   net/built-in.o: In function `sctp_manip_pkt':
->>>>   nf_nat_proto_sctp.c:(.text+0x6d173): undefined reference to `crc32c_le'
->>>>   nf_nat_proto_sctp.c:(.text+0x6d180): undefined reference to `crc32c_le'
->>>>   nf_nat_proto_sctp.c:(.text+0x6d196): undefined reference to `crc32c_le'
->>>>   nf_nat_proto_sctp.c:(.text+0x6d1c6): undefined reference to `crc32c_le'
->>>>
->>>>   http://redhat.com/~mingo/misc/config-Mon_Apr_21_01_52_14_CEST_2008.bad
->>> Thanks for your report Ingo.
->>>
->>> Patrick, I'm not so sure how to fix this, or even what's wrong.
->>>
->>> NF_NAT_PROTO_SCTP does a proper select on LIBCRC32C, but somehow
->>> NF_NAT_PROTO_SCTP=y and LIBCRC32C=m.
->>> ...
->> You added the select on Saturday after Pete Clements reported the same 
->> issue.
->>
->> The select is not yet in Linus' tree.
+> Oliver Neukum wrote:
+> > 
+> > Hi,
+> > 
+> > can you test this one as well. The method used to determine whether
+> > a device is asleep is racy. This introduces a private test.
+> > 
+> > 	Regards
+> > 		Oliver
 > 
-> Thanks for catching that Adrian.
+> By setting level "auto" it didn't suspend...
+> When I tried to set "suspend" to the level I got crash:
 
-I've verified that Saturday's patch results in a correct looking
-config, with
+Does this fix it?
 
-CONFIG_NF_NAT_PROTO_SCTP=y
-CONFIG_LIBCRC32C=y
+	Regards
+		Oliver
 
+---
+
+--- linux-2.6.25hso/drivers/net/usb/hso.c.alt3	2008-04-21 13:24:47.000000000 +0200
++++ linux-2.6.25hso/drivers/net/usb/hso.c	2008-04-21 13:25:18.000000000 +0200
+@@ -2052,7 +2052,7 @@
+ 	}
+ 
+ 	if (serial->tx_urb)
+-		usb_kill_urb(serial->rx_urb[i]);
++		usb_kill_urb(serial->tx_urb);
+ 
+ 	if (serial->shared_int) {
+ 		mutex_lock(&serial->shared_int->shared_int_lock);
