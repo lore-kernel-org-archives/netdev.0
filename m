@@ -1,46 +1,43 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
-Date: Mon, 21 Apr 2008 13:02:08 -0700
-Message-ID: <480CF2C0.9050208@hp.com>
-References: <aiXVe-Yn-7@gated-at.bofh.it> <ajGfA-7rt-9@gated-at.bofh.it>	<ajGfA-7rt-11@gated-at.bofh.it> <ajGfA-7rt-13@gated-at.bofh.it>	<ajGfA-7rt-15@gated-at.bofh.it> <ajGfA-7rt-7@gated-at.bofh.it>	<E1JnEcl-0000xc-D9@be1.7eggert.dyndns.org> <480CC3D8.3040700@hp.com> <alpine.LSU.0.999.0804212141050.4235@be1.lrz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [6/6] [VIRTIO] net: Allow receiving SG packets
+Date: Mon, 21 Apr 2008 13:04:18 -0700 (PDT)
+Message-ID: <20080421.130418.01258045.davem@davemloft.net>
+References: <20080418032142.GD18071@gondor.apana.org.au>
+	<20080418032427.GE18071@gondor.apana.org.au>
+	<200804220506.16887.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Kok@vger.kernel.org, Auke <auke-jan.h.kok@intel.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Anton Titov <a.titov@host.bg>, Chris Snook <csnook@redhat.com>,
-	"H. Willstrand" <h.willstrand@gmail.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Bodo Eggert <7eggert@gmx.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761784AbYDUUCb@vger.kernel.org>
-In-Reply-To: <alpine.LSU.0.999.0804212141050.4235@be1.lrz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: virtualization@lists.linux-foundation.org,
+	herbert@gondor.apana.org.au, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org
+To: rusty@rustcorp.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43686
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755875AbYDUUEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 16:04:16 -0400
+In-Reply-To: <200804220506.16887.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bodo Eggert wrote:
-> On Mon, 21 Apr 2008, Rick Jones wrote:
->>Be it kernel or user space, for consistent benchmark results it needs to be
->>able to be turned-off without turning the code.  That leaves me in agreement
->>with Stephen that if it must exist, the user space one would be preferable.
->>It can be easily terminated with extreme prejudice.
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Tue, 22 Apr 2008 05:06:16 +1000
+
+> I'm not sure what the right number is here.  Say worst case is header which 
+> goes over a page boundary then MAX_SKB_FRAGS in the skb, but for some reason 
+> that already has a +2:
 > 
+> /* To allow 64K frame to be packed as single skb without frag_list */
+> #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
 > 
-> I agree that having a full-featured userspace balancer daemon with lots of 
-> intelligence will be theoretically better, but if you can have a simple
-> daemon doing OK on many machines for less than the userspace daemon's
-> kernel stack, why not?
+> Unless someone explains, I'll change the xmit sg to 2+MAX_SKB_FRAGS as well.
 
-Perhaps my judgement is too colored by benchmark(et)ing, and desires to 
-have repeatable results on things like neperf, but I very much like to 
-know where my interrupts are going and don't like them moving around. 
-That is why I am not particularly fond of either flavor of irq balancing.
+MAX_SKB_FRAGS + 1 is what you ought to need.
 
-That being the case, whatever is out there aught to be able to be 
-disabled on a running system without having to roll bits or reboot.
+MAX_SKB_FRAGS is only accounting for the skb frag pages.
+If you want to know how many segments skb->data might
+consume as well, you have to add one.
 
-rick jones
+skb->data is linear, therefore it's not possible to need
+more than one scatterlist entry for it.
