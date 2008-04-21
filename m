@@ -1,52 +1,53 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
-Date: Mon, 21 Apr 2008 12:34:39 +0300
-Message-ID: <480C5FAF.1050408@teltonika.lt>
-References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt> <200804211016.02819.oliver@neukum.org>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [2.6 patch] make icmp_sk_init() static
+Date: Mon, 21 Apr 2008 12:44:09 +0300
+Message-ID: <20080421094409.GK26897@cs181133002.pp.htv.fi>
+References: <20080421084845.GR26897@cs181133002.pp.htv.fi> <20080421.023226.237529768.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: den@openvz.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:39723 "EHLO ciao.gmane.org"
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:33710 "EHLO smtp5.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755781AbYDUJfd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 05:35:33 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1JnsQq-00024H-4V
-	for netdev@vger.kernel.org; Mon, 21 Apr 2008 09:35:28 +0000
-Received: from 82-135-208-232.static.zebra.lt ([82.135.208.232])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 09:35:28 +0000
-Received: from paulius.zaleckas by 82-135-208-232.static.zebra.lt with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 09:35:28 +0000
-In-Reply-To: <200804211016.02819.oliver@neukum.org>
+	id S1751505AbYDUJoh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 05:44:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20080421.023226.237529768.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum wrote:
-> Am Montag, 21. April 2008 03:04:21 schrieb Paulius Zaleckas:
->> -               odev->mode_flags = USB_CDC_PACKET_TYPE_ALL_MULTICAST |
->> -                                  USB_CDC_PACKET_TYPE_DIRECTED |
->> -                                  USB_CDC_PACKET_TYPE_BROADCAST |
->> -                                  USB_CDC_PACKET_TYPE_MULTICAST;
+On Mon, Apr 21, 2008 at 02:32:26AM -0700, David Miller wrote:
+> From: Adrian Bunk <bunk@kernel.org>
+>...
+> BTW, I noticed that some of your patches get posted like
+> this:
 > 
-> Hi,
+> > d163a44e24881d5e960bf9bdc1819ba8ccd15555 diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> > index f064031..fee171e 100644
 > 
-> before you rip out the multicast stuff, do you have an idea why it was
-> included in the first place? Is the device capable of operating in a
-> real network topology where multicast would make sense?
+> with the commit ID newline missing, so that the diff specification
+> shares the same line as the commit ID.
+> 
+> Oddly some of your patch postings do not have this missing newline.
+> 
+> Any idea what causes this?  Just curious :-)
 
-It was there from the oldest version (0.6) I have, but in the dead code
-as it is now. There was also a comment:
-/* FIXME AJB, work out what we need to do with multicast */
-It was addressed to Andrew Bird (added to CC)
+I'm using git mainly as a diff generation tool doing
+  cg-commit < /dev/null; git-show --pretty=oneline > /tmp/patch-somename
 
-IMO it doesn't make sense to do multicasting since actually it is
-point-to-point and not ethernet traffic.
-Currently I am studying if it is possible to convert current pseudo
-ethernet interface to point-to-point one.
+This "commit ID newline missing" seems to be the effect of the 
+--pretty=oneline.
+
+Not sure why some postings do have the newline.
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
