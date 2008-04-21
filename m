@@ -1,70 +1,41 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug] build failure in net/netfilter/nf_conntrack_sip.c, on
-	latest -git
-Date: Mon, 21 Apr 2008 15:39:53 +0200
-Message-ID: <20080421133953.GJ9554@elte.hu>
-References: <20080419100034.GA9475@elte.hu> <20080419.030337.244502148.davem@davemloft.net> <20080419103942.GA13599@elte.hu> <480C4CE8.6020202@garzik.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH] [DCCP]: Convert do_gettimeofday() to getnstimeofday().
+Date: Mon, 21 Apr 2008 10:48:44 -0300
+Message-ID: <20080421134844.GC12221@ghostprotocols.net>
+References: <20080421.162227.63020853.yoshfuji@linux-ipv6.org> <20080421.023503.242108516.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	kaber@trash.net, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, NetDev <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:45965 "EHLO mx2.mail.elte.hu"
+Received: from mx1.redhat.com ([66.187.233.31]:42681 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759161AbYDUNkO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 09:40:14 -0400
+	id S1753423AbYDUNsv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 09:48:51 -0400
 Content-Disposition: inline
-In-Reply-To: <480C4CE8.6020202@garzik.org>
+In-Reply-To: <20080421.023503.242108516.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Em Mon, Apr 21, 2008 at 02:35:03AM -0700, David Miller escreveu:
+> From: YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <yoshf=
+uji@linux-ipv6.org>
+> Date: Mon, 21 Apr 2008 16:22:27 +0900 (JST)
+>=20
+> > What do_gettimeofday() does is to call getnstimeofday() and
+> > to convert the result from timespec{} to timeval{}.
+> > We do not always need timeval{} and we can convert timespec{}
+> > when we really need (to print).
+> >=20
+> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>=20
+> This looks good too, but I'll be polite and wait for any
+> DCCP maintainer ACKs :-)
 
-* Jeff Garzik <jeff@garzik.org> wrote:
+Thanks everybody:
 
->> But in this case i first did an unsuccessful full-text search on 
->> lkml, then i also opened up netdev and did a full text search there 
->> too to find the originator pull request or the patches but the search 
->> turned up nothing. As the number of subsystems increases, i suspect 
->> you agree with me that this does not scale very well for bug 
->> reporters, correct?
->
-> Well, 'git log [$file]' is even more scalable and precise, if 
-> committer (as well as author) info and patch flow info is what a 
-> tester or bug reporter seeks.
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-but the only information i had at that point was that 'something in that 
-recent appearance of a large group of networking commits introduced the 
-problem'. There was no commit log entry of even the merge.
-
-> But it sounds like you are making an assumption about development 
-> /style/, then complaining when reality doesn't match that assumption.
-
-no. I simply failed to put this (trivial) bugreport into some sort of 
-existing context of discussion, and made a brief and neutral(-looking) 
-comment about that. Under no other development style could i have done 
-that because the context was simply missing from the mailing lists.
-
-I did not intend this to be a big deal comment. It was literally just 
-this single side-question:
-
-||  disabling CONFIG_NF_CONNTRACK_SIP works it around.
-||
-||  btw., i found no thread to reply to on lkml or elsewhere - arent all 
-||  git pull requests supposed to be Cc:-ed to lkml, with shortlog 
-||  included?
-
-I was seriously surprised that large pull requests and shortlogs dont go 
-to lkml. Perhaps some sort of negative sentiment was perceived in that 
-single sentence of mine? If yes, how should i have expressed this 
-comment otherwise?
-
-and i mean, lost context of discussion happens all the time and i do it 
-too - recently Andrew complained that ftrace commits were not on lkml 
-and he was complaining rightfully. We dont notice it unless people 
-mention it.
-
-[ later on the tone of the discussion degenerated indeed. ]
-
-	Ingo
+- Arnaldo
