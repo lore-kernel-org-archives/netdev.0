@@ -1,42 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: kernel BUG at /usr/src/linux-2.6.25/kernel/workqueue.c:224!
-	(r8169?)
-Date: Mon, 21 Apr 2008 22:34:58 +0200
-Message-ID: <20080421203458.GA2931@electric-eye.fr.zoreil.com>
-References: <76366b180804201548g309ae6cci286ed6552f3cb71e@mail.gmail.com> <76366b180804202016l19ac362cyb814781449f81e9a@mail.gmail.com>
+From: Bodo Eggert <7eggert@gmx.de>
+Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
+Date: Mon, 21 Apr 2008 23:08:46 +0200 (CEST)
+Message-ID: <alpine.LSU.0.999.0804212306330.15107@be1.lrz>
+References: <aiXVe-Yn-7@gated-at.bofh.it> <ajGfA-7rt-9@gated-at.bofh.it>
+ <ajGfA-7rt-11@gated-at.bofh.it> <ajGfA-7rt-13@gated-at.bofh.it>
+ <ajGfA-7rt-15@gated-at.bofh.it> <ajGfA-7rt-7@gated-at.bofh.it>
+ <E1JnEcl-0000xc-D9@be1.7eggert.dyndns.org> <480CC3D8.3040700@hp.com>
+ <alpine.LSU.0.999.0804212141050.4235@be1.lrz> <480CF2C0.9050208@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Andrew Paprocki <andrew@ishiboo.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755451AbYDUUxW@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <76366b180804202016l19ac362cyb814781449f81e9a@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Bodo Eggert <7eggert@gmx.de>, Kok@vger.kernel.org,
+	Auke <auke-jan.h.kok@intel.com>, Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Anton Titov <a.titov@host.bg>, Chris Snook <csnook@redhat.com>,
+	"H. Willstrand" <h.willstrand@gmail.com>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.177]:52978 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755208AbYDUVJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 17:09:08 -0400
+In-Reply-To: <480CF2C0.9050208@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Paprocki <andrew@ishiboo.com> :
-> I just received a similar bug on workqueue.c:223 while I was not doing
-> anything with the card. These bugs seem to have increased with
-> frequency when running under 2.6.25. It used to take me some time to
-> cause a problem to appear under 2.6.24, but under 2.6.25 they appear
-> very readily. I was actually not touching the machine at all when this
-> appeared on the console:
+On Mon, 21 Apr 2008, Rick Jones wrote:
+> Bodo Eggert wrote:
+> > On Mon, 21 Apr 2008, Rick Jones wrote:
 
-Does the patch below decrease the frequency of the bug ?
+> > > Be it kernel or user space, for consistent benchmark results it needs to
+> > > be
+> > > able to be turned-off without turning the code.  That leaves me in
+> > > agreement
+> > > with Stephen that if it must exist, the user space one would be
+> > > preferable.
+> > > It can be easily terminated with extreme prejudice.
+> > 
+> > 
+> > I agree that having a full-featured userspace balancer daemon with lots of
+> > intelligence will be theoretically better, but if you can have a simple
+> > daemon doing OK on many machines for less than the userspace daemon's
+> > kernel stack, why not?
+> 
+> Perhaps my judgement is too colored by benchmark(et)ing, and desires to have
+> repeatable results on things like neperf, but I very much like to know where
+> my interrupts are going and don't like them moving around. That is why I am
+> not particularly fond of either flavor of irq balancing.
+> 
+> That being the case, whatever is out there aught to be able to be disabled on
+> a running system without having to roll bits or reboot.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 3acfeea..6ee9db1 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2398,8 +2398,6 @@ static void rtl8169_wait_for_quiescence(struct net_device *dev)
- 	rtl8169_irq_mask_and_ack(ioaddr);
- 
- #ifdef CONFIG_R8169_NAPI
--	tp->intr_mask = 0xffff;
--	RTL_W16(IntrMask, tp->intr_event);
- 	napi_enable(&tp->napi);
- #endif
- }
-
+Adding a "module" parameter to disable it should be cheap, isn't it?
 -- 
-Ueimor
+Top 100 things you don't want the sysadmin to say:
+34. The network's down, but we're working on it. Come back after diner.
+    (Usually said at 2200 the night before thesis deadline... )
