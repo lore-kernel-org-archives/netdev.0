@@ -1,53 +1,37 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: [PATCH] 2.6.25 typhoon_resume - remove call to start_queue
-Date: Sun, 20 Apr 2008 22:44:15 -0600
-Message-ID: <20080421044415.GB15080@colo.lackof.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: tx-checksumming for an Intel Corporation 82540EP Gigabit Ethernet Controller (Mobile)
+Date: Mon, 21 Apr 2008 12:50:34 +0800
+Message-ID: <20080421045034.GA7550@gondor.apana.org.au>
+References: <47EB8C5C.7060007@isomerica.net> <E1Jnn9e-0001tP-00@gondolin.me.apana.org.au> <20080420.212451.10825959.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com, David Dillow <dave@thedillows.org>
+Cc: dpn@isomerica.net, toralf.foerster@gmx.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:36564 "EHLO colo.lackof.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751061AbYDUEo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 00:44:27 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:46346 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751229AbYDUEul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 00:50:41 -0400
 Content-Disposition: inline
+In-Reply-To: <20080420.212451.10825959.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff,
+On Sun, Apr 20, 2008 at 09:24:51PM -0700, David Miller wrote:
+>
+> But every time we say this they keep coming back at us that they can't
+> change the tcpdump raw dump file format that's been used for
+> centuries, and naturally it was designed without any extensibility in
+> mind so there's nowhere to store the checksum indication.
 
-While trying to fix http://bugzilla.kernel.org/show_bug.cgi?id=8952
-I looked at a few other drivers to figure out what drivers _should_
-be doing for suspend/resume. I noticed typhoon driver is likely doing
-more than it needs to.  Patch below is untested since I don't have the HW.
+They could always fix up the checksums if it has to be written
+out.  Alternatively it could notice that the checksum is exactly
+that of the pseudo-header and flag it differently versus just any
+checksum error.
 
-Suspend/resume code across NIC drivers is fairly inconsistent.
-And I couldn't find any documentation on what the canonical sequence
-NICs need to do for suspend or resume.  Is there any?
-
-Barring contrary advice, I'm going model the tulip suspend/resume
-fixes after tg3.c since a number of "modern" (< 5 years old) laptops
-have that and I'm silly enough to assume it works.
-
-thanks,
-grant
-
----
-Comments/code in netif_device_attach() suggest it is restarting the queue.
-Thus, typhoon_resume() doesn't need to call start_queue().
-
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
-
-diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
-index 333961b..c0dd25b 100644
---- a/drivers/net/typhoon.c
-+++ b/drivers/net/typhoon.c
-@@ -2183,7 +2183,6 @@ typhoon_resume(struct pci_dev *pdev)
- 	}
- 
- 	netif_device_attach(dev);
--	netif_start_queue(dev);
- 	return 0;
- 
- reset:
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
