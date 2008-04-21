@@ -1,56 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NETNS]: Don't initialize err variable twice.
-Date: Mon, 21 Apr 2008 14:26:11 -0700 (PDT)
-Message-ID: <20080421.142611.218552151.davem@davemloft.net>
-References: <480C91A9.4030004@openvz.org>
+Subject: Re: [PATCH] [DCCP]: Convert do_gettimeofday() to getnstimeofday().
+Date: Mon, 21 Apr 2008 14:28:57 -0700 (PDT)
+Message-ID: <20080421.142857.234288906.davem@davemloft.net>
+References: <20080421.162227.63020853.yoshfuji@linux-ipv6.org>
+	<20080421.023503.242108516.davem@davemloft.net>
+	<20080421134844.GC12221@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48969
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52503
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752814AbYDUV0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 17:26:09 -0400
-In-Reply-To: <480C91A9.4030004@openvz.org>
+	by vger.kernel.org with ESMTP id S1751945AbYDUV2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 17:28:55 -0400
+In-Reply-To: <20080421134844.GC12221@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 21 Apr 2008 17:07:53 +0400
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Mon, 21 Apr 2008 10:48:44 -0300
 
-> The ip6_route_net_init() performs some unneeded actions.
+> Em Mon, Apr 21, 2008 at 02:35:03AM -0700, David Miller escreveu:
+> > From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+> > Date: Mon, 21 Apr 2008 16:22:27 +0900 (JST)
+> > 
+> > > What do_gettimeofday() does is to call getnstimeofday() and
+> > > to convert the result from timespec{} to timeval{}.
+> > > We do not always need timeval{} and we can convert timespec{}
+> > > when we really need (to print).
+> > > 
+> > > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> > 
+> > This looks good too, but I'll be polite and wait for any
+> > DCCP maintainer ACKs :-)
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Thanks everybody:
+> 
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Applied, except that I put the initialization with the
-variable declaration to save screen real-estate when
-people look at this code :-)  Like so:
-
-commit 633d424bf33dab99e77b36210fbd1b996e7823df
-Author: Pavel Emelyanov <xemul@openvz.org>
-Date:   Mon Apr 21 14:25:23 2008 -0700
-
-    [NETNS]: Don't initialize err variable twice.
-    
-    The ip6_route_net_init() performs some unneeded actions.
-    
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 1f42bc9..a493ad9 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2614,9 +2614,8 @@ struct ctl_table *ipv6_route_sysctl_init(struct net *net)
- 
- static int ip6_route_net_init(struct net *net)
- {
--	int ret = 0;
-+	int ret = -ENOMEM;
- 
--	ret = -ENOMEM;
- 	net->ipv6.ip6_dst_ops = kmemdup(&ip6_dst_ops_template,
- 					sizeof(*net->ipv6.ip6_dst_ops),
- 					GFP_KERNEL);
+Thanks for reviewing, patch applied.
