@@ -1,35 +1,62 @@
-From: Jason Uhlenkott <juhlenko@akamai.com>
-Subject: Re: [RFC 0/4] net: enable timestamps on a per-socket basis
-Date: Mon, 21 Apr 2008 00:28:45 -0700
-Message-ID: <20080421072845.GC23476@48M1231.sanmateo.corp.akamai.com>
-References: <20080421053402.GB23476@48M1231.sanmateo.corp.akamai.com> <20080420.230356.238029889.davem@davemloft.net>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: Re: New GIT net tree naming...
+Date: Mon, 21 Apr 2008 10:53:16 +0300
+Message-ID: <d0383f90804210053w538c20dfp6495072632320abe@mail.gmail.com>
+References: <20080419.173510.257216556.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay03.akamai.com ([72.247.150.167]:58536 "EHLO
-	prod-mail-xrelay03.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751438AbYDUH2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 03:28:46 -0400
+Received: from fg-out-1718.google.com ([72.14.220.153]:46690 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752458AbYDUHxS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 03:53:18 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1673457fgb.17
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2008 00:53:17 -0700 (PDT)
+In-Reply-To: <20080419.173510.257216556.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20080420.230356.238029889.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 20, 2008 at 23:03:56 -0700, David Miller wrote:
-> Moving the timestamp up to a higher level takes away some of the
-> frequent use cases of timestamps, which is to detect things like the
-> fact that it is taking a long time for packets to get from the
-> top-level packet receive down to the actual protocol processing.
-> 
-> With your patch, it can't be used that way any more.
-> 
-> In fact, people are desiring timestamps which are _closer_ to when the
-> device actually receives the frame rather than further away.
+Hello
+Sorry for my ignorance, but what is the password that I need to enter
+when prompted to ?
 
-Fair enough.
+when running:
+git-clone master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+Initialized empty Git repository in /work/src/master/.git/
+I get:
+root@master.kernel.org's password:
 
-It's too bad that SO_TIMESTAMP has a scope of impact which really has
-nothing to do with a socket, though.  It almost seems like it should
-have been an interface flag instead of a socket option.
+The same is for the
+master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+tree.
+
+Regards,
+Ian
+
+
+
+On Sun, Apr 20, 2008 at 3:35 AM, David Miller <davem@davemloft.net> wrote:
+>
+>  Based upon feedback from Andrew and others I'm now starting
+>  to use a new naming scheme for my GIT trees:
+>
+>  For changes against Linus's current tree:
+>
+>    master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+>
+>  For development meant to be merged in the next merge
+>  window we have:
+>
+>    master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+>
+>  Andrew/Stephen, let me know if this works for you.  This way
+>  the tree names will never change.
+>  --
+>  To unsubscribe from this list: send the line "unsubscribe netdev" in
+>  the body of a message to majordomo@vger.kernel.org
+>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
