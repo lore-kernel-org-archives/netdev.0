@@ -1,53 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [bug] build failure in net/netfilter/nf_conntrack_sip.c, on	latest -git
-Date: Tue, 22 Apr 2008 10:20:44 +0800
-Message-ID: <E1Jo87g-0004HT-00@gondolin.me.apana.org.au>
-References: <20080421133953.GJ9554@elte.hu>
-Cc: jeff@garzik.org, davem@davemloft.net, linux-kernel@vger.kernel.org,
-	kaber@trash.net, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org
-To: mingo@elte.hu (Ingo Molnar)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] [DCCP]: Convert do_gettimeofday() to getnstimeofday().
+Date: Tue, 22 Apr 2008 11:40:42 +0900 (JST)
+Message-ID: <20080422.114042.70459573.yoshfuji@linux-ipv6.org>
+References: <20080421.023503.242108516.davem@davemloft.net>
+	<20080421134844.GC12221@ghostprotocols.net>
+	<20080421.142857.234288906.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: acme@redhat.com, netdev@vger.kernel.org, dccp@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58048 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756106AbYDVCVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 22:21:12 -0400
-In-Reply-To: <20080421133953.GJ9554@elte.hu>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:34322 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754537AbYDVCis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2008 22:38:48 -0400
+In-Reply-To: <20080421.142857.234288906.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar <mingo@elte.hu> wrote:
->
-> but the only information i had at that point was that 'something in that 
-> recent appearance of a large group of networking commits introduced the 
-> problem'. There was no commit log entry of even the merge.
+In article <20080421.142857.234288906.davem@davemloft.net> (at Mon, 21 Apr 2008 14:28:57 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-It is human nature to blame someone/something when things go wrong.
-It just happens that the lack of a merge request was the first you
-tacked onto in this case :)
+> Thanks for reviewing, patch applied.
 
-I don't think we can seriously argue that had there been a merge
-request on lkml that these build issues would have somehow gone
-away or resolved any sooner than they have been.  The fact is
-with or without the merge request you would have realised that
-network bug reports == davem :)
+Sorry I have just realized set_normalized_timespec() (used in timespec_sub())
+is not exported, and link will fail because of it...
 
-> no. I simply failed to put this (trivial) bugreport into some sort of 
-> existing context of discussion, and made a brief and neutral(-looking) 
-> comment about that. Under no other development style could i have done 
-> that because the context was simply missing from the mailing lists.
+What should I/we do?  Send the patch to LKML as well?
 
-Unfortunately the email medium tends to make what one thinks of as
-a neutral and balanced critique appear anything but to the recipient.
-And I must say that in this case your messages did have that
-appearance.
+---
 
-My only suggestion is for us to all move on to something a little
-bit more useful than letting off steam.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+diff --git a/kernel/time.c b/kernel/time.c
+index a5ec013..35d373a 100644
+--- a/kernel/time.c
++++ b/kernel/time.c
+@@ -379,6 +379,7 @@ void set_normalized_timespec(struct time
+ 	ts->tv_sec = sec;
+ 	ts->tv_nsec = nsec;
+ }
++EXPORT_SYMBOL(set_normalized_timespec);
+ 
+ /**
+  * ns_to_timespec - Convert nanoseconds to timespec
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--yoshfuji
