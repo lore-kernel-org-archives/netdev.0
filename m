@@ -1,160 +1,138 @@
-From: wendy xiong <wendyx@us.ibm.com>
-Subject: Re: [ PATCH 1/1 2.6.25-rc9] bnx2: Add EEH support in bnx2x driver
-Date: Tue, 22 Apr 2008 14:44:01 -0500
-Message-ID: <1208893442.7339.17.camel@wendyx.austin.ibm.com>
-References: <1208812834.24768.40.camel@wendyx.austin.ibm.com>
-	 <1208823296.16633.230.camel@dell>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Tue, 22 Apr 2008 22:30:25 +0200
+Message-ID: <200804222230.25743.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804192242.33632.tomasz@grobelny.oswiecenia.net> <20080422173050.GC6039@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
-	davem@davemloft.net
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:57910 "EHLO e2.ny.us.ibm.com"
+Received: from oswiecenia.net ([83.13.108.58]:2845 "EHLO poczta.oswiecenia.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755266AbYDVToE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2008 15:44:04 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3MJi3K2017340
-	for <netdev@vger.kernel.org>; Tue, 22 Apr 2008 15:44:03 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3MJi3Ag245832
-	for <netdev@vger.kernel.org>; Tue, 22 Apr 2008 15:44:03 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3MJi3si007745
-	for <netdev@vger.kernel.org>; Tue, 22 Apr 2008 15:44:03 -0400
-In-Reply-To: <1208823296.16633.230.camel@dell>
+	id S1750956AbYDVUat convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2008 16:30:49 -0400
+In-Reply-To: <20080422173050.GC6039@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Michael Chan,
+Dnia Tuesday 22 of April 2008, Gerrit Renker napisa=B3:
+> | > | While we are developing in the test tree compatibility is not
+> | > | important at all. But real world needs compatibility, especiall=
+y if
+> | > | it's not that expensive. Otherwise people will get weird behavi=
+our
+> | > | without any messages indicating what is wrong. And it's certain=
+ly not
+> | > | how code should be written. It can't be that binary package of =
+VLC
+> | > | (or any other streaming server) cannot use newer kernel version
+> | > | because we added a new field.
+> | >
+> | > True, but we need to get something working first. There is no poi=
+nt
+> | > exporting an API which only works half.
+> |
+> | You can never assume that the API is feature complete. Even if it "=
+works
+> | half" at the beginning (which is I guess quite normal) it should be=
+ easy
+> | to make it "work full" without breaking compatibility when it's not
+> | necessary.
+>
+> No I don't agree. Things that work half are worse than constant failu=
+res,
+> since it is never clear when they will fail next. But maybe you didn'=
+t mean
+> that.
+>
+I mean that what we are currently discussing (only priorities) is in it=
+self=20
+useful ("works half"). Adding more features (expiry times) would be a n=
+ice=20
+but non essential feature ("work full").
 
-Thanks for your comments!
+(a bit of reordering)
+> So we can reduce this to the other question "is 32 bit enough for pri=
+ority
+> information".
+>
+That is an important question. But I'm afraid the answer is no (even th=
+ough I=20
+thought otherwise when writing previous mail). When we want to add pack=
+et=20
+expiry times we will need a field for timestamp. Which is quite big (64=
+=20
+bits?). But note that it is only needed for in-kernel implemetation.=20
+Userspace can write this information on as low as 16 bits. This leads m=
+e to=20
+conclusions stated below.
 
->I think it is better to add rtnl_lock() here to prevent racing with
-> other functions such as ethtool and close that can be resetting the
-> chip.  The same should be done in the other 2 functions below.
+> | > Semantically there is no restriction of what the u32 number repre=
+sents.
+> | > And it is a large space. I don't think that a larger size is requ=
+ired.
+> |
+> | Ok, for now 32 bits are enough and I can't think of the need to use=
+ more
+> | bits. I wouldn't be so sure about future though. But ok, if it turn=
+s up
+> | that we need more space in the future then we will see, there is no=
+ need
+> | to worry about it now. We can indeed assume 32 bits for now.
+>
+> So it only remains to see whether to use a field in dccp_skb_cb, or t=
+o
+> use skb->priority. I think the latter has advantages, since this fiel=
+d
+> is only set/used for the SO_PRIORITY field (in socket(7)).
+>
+I think we should distingish two things:
+1. How do we pass data along with each packet from userspace to kernels=
+pace.
+2. How do we store data in in-kernel skb for internal use.
+I'm afraid there was no such separation in my patches and mixing those =
+two=20
+things causes a lots misunderstandings.
 
-Yes. Most of network interface functions called by net/core/dev.c layer
-which hold rtnl_lock()/rtcl_unlock(). We may need to add
-rtnl_lock()/rtnl_unlcok() in those callback functions.
+Ad 1. In this case we need not care about sizes etc. Clean and extensib=
+le=20
+interface is very important. We can also have very different priority d=
+ata=20
+representantion from what is later stored in skb.
+Ad 2. In this case sizes do matter. We can use whichever fields we want=
+=2E In=20
+particular we need not keep all the data passed from userspace applicat=
+ion in=20
+one chunk but we can distribute it among arbitrary skb fields.
 
->Shouldn't we attach first before netif_start?
+So this could look like that:
+Userspace application fills in a structure:
+struct dccp_packet_info {
+	s8 priority; //as it is now
+	u16 expire_after; //up to 65s with 1ms accuracy
+}
+and passes it to sendmsg(..., struct dccp_packet_info pktinfo), which p=
+asses=20
+it to qpolicy_push which passes it to qpolicy_prio_push which does the =
+tricky=20
+stuff with CMSG and does:
+skb->priority=3Dpktinfo->priority;
+skb->tstamp=3Dnow()+pktinfo->expire_after;
+(possibly other things that could potentially store data in dccp_skb_cb=
+)
 
->From my understanding, network interface function dev->open will call
-device driver's open function to initialize internal data structures and
-enable interrupt, then driver starts the receive queue by calling
-netif_start_queue.
+This would allow us to:
+1. Use existing skb fields in a clean way. I mean according to their na=
+mes=20
+(priority, tstamp).
+2. Have a clean userspace interface not affected by internal kernel=20
+implementation details.
 
-Looks bnx2_netif_start() enables hardware interrupt and receive polling
-interrupt. So I think we can do netif_device_attach after
-bnx2_netif_start() according to dev->open route concept.
-
-Thanks,
-Wendy
-On Mon, 2008-04-21 at 17:14 -0700, Michael Chan wrote:
-> On Mon, 2008-04-21 at 16:20 -0500, wendy xiong wrote:
-> 
-> > 
-> > diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/drivers/net/bnx2.c
-> > --- linux-2.6.25-rc9.orig/drivers/net/bnx2.c    2008-04-18 22:12:53.000000000 -0500
-> > +++ linux-2.6.25-rc9.eeh/drivers/net/bnx2.c     2008-04-18 22:28:42.000000000 -0500
-> > @@ -7108,6 +7108,7 @@ bnx2_init_board(struct pci_dev *pdev, st
-> >         }
-> > 
-> >         pci_set_master(pdev);
-> > +       pci_save_state(pdev);
-> > 
-> >         bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
-> >         if (bp->pm_cap == 0) {
-> > @@ -7617,6 +7618,85 @@ bnx2_resume(struct pci_dev *pdev)
-> >         return 0;
-> >  }
-> > 
-> > +/**
-> > + * bnx2_io_error_detected - called when PCI error is detected
-> > + * @pdev: Pointer to PCI device
-> > + * @state: The current pci connection state
-> > + *
-> > + * This function is called after a PCI bus error affecting
-> > + * this device has been detected.
-> > + */
-> > +static pci_ers_result_t bnx2_io_error_detected(struct pci_dev *pdev,
-> > +                                               pci_channel_state_t state)
-> > +{
-> > +       struct net_device *dev = pci_get_drvdata(pdev);
-> > +       struct bnx2 *bp = netdev_priv(dev);
-> 
-> I think it is better to add rtnl_lock() here to prevent racing with
-> other functions such as ethtool and close that can be resetting the
-> chip.  The same should be done in the other 2 functions below.
-> 
-> > +
-> > +       netif_device_detach(dev);
-> > +
-> > +       if (netif_running(dev)) {
-> > +               bnx2_netif_stop(bp);
-> > +               del_timer_sync(&bp->timer);
-> > +               bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
-> > +       }
-> > +
-> > +       pci_disable_device(pdev);
-> > +
-> 
-> Add rtnl_unlock() here.
-> 
-> > +       /* Request a slot slot reset. */
-> > +       return PCI_ERS_RESULT_NEED_RESET;
-> > +}
-> > +
-> > +/**
-> > + * bnx2_io_slot_reset - called after the pci bus has been reset.
-> > + * @pdev: Pointer to PCI device
-> > + *
-> > + * Restart the card from scratch, as if from a cold-boot.
-> > + */
-> > +static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
-> > +{
-> > +       struct net_device *dev = pci_get_drvdata(pdev);
-> > +       struct bnx2 *bp = netdev_priv(dev);
-> > +
-> > +       if (pci_enable_device(pdev)) {
-> > +               dev_err(&pdev->dev,
-> > +                       "Cannot re-enable PCI device after reset.\n");
-> > +               return PCI_ERS_RESULT_DISCONNECT;
-> > +       }
-> > +       pci_set_master(pdev);
-> > +       pci_restore_state(pdev);
-> > +
-> > +       if (netif_running(dev)) {
-> > +               bnx2_set_power_state(bp, PCI_D0);
-> > +               bnx2_init_nic(bp);
-> > +       }
-> > +
-> > +       return PCI_ERS_RESULT_RECOVERED;
-> > +}
-> > +
-> > +/**
-> > + * bnx2_io_resume - called when traffic can start flowing again.
-> > + * @pdev: Pointer to PCI device
-> > + *
-> > + * This callback is called when the error recovery driver tells us that
-> > + * its OK to resume normal operation.
-> > + */
-> > +static void bnx2_io_resume(struct pci_dev *pdev)
-> > +{
-> > +       struct net_device *dev = pci_get_drvdata(pdev);
-> > +       struct bnx2 *bp = netdev_priv(dev);
-> > +
-> > +       if (netif_running(dev))
-> > +               bnx2_netif_start(bp);
-> > +
-> > +       netif_device_attach(dev);
-> 
-> Shouldn't we attach first before netif_start?
-> 
-> Thanks.
-> 
-> 
-
+What do you think of such decoupling?
+--=20
+Regards,
+Tomasz Grobelny
