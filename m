@@ -1,62 +1,44 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 2/6] ibm_newemac: Add support for 460EX/GT-type MAL rx-channel handling
-Date: Tue, 22 Apr 2008 10:46:42 +1000
-Message-ID: <20080422004758.DB022DE1C0@ozlabs.org>
+Subject: [PATCH 4/6] ibm_newemac Use status property for unused/unwired EMACs
+Date: Tue, 22 Apr 2008 10:46:44 +1000
+Message-ID: <20080422004801.E6272DE2DD@ozlabs.org>
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
 To: <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43405 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:43486 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755650AbYDVAsA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 20:48:00 -0400
+	id S1755612AbYDVAsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 20:48:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Roese <sr@denx.de>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
 
-On some 4xx PPC's (e.g. 460EX/GT), the rx channel number is a multiple
-of 8 (e.g. 8 for EMAC1, 16 for EMAC2), but enabling in MAL_RXCASR needs
-the divided by 8 value for the bitmask.
+Convert ibm_newemac to use the of_device_is_available function when checking
+for unused/unwired EMACs.  We leave the current check for an "unused" property
+to maintain backwards compatibility for older device trees.  Newer device
+trees should simply use the standard "status" property in the EMAC node.
 
-Signed-off-by: Stefan Roese <sr@denx.de>
+Signed-off-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-
 ---
- drivers/net/ibm_newemac/mal.c |   16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
 
-diff --git a/drivers/net/ibm_newemac/mal.c b/drivers/net/ibm_newemac/mal.c
-index 6869f08..fb9c9eb 100644
---- a/drivers/net/ibm_newemac/mal.c
-+++ b/drivers/net/ibm_newemac/mal.c
-@@ -136,6 +136,14 @@ void mal_enable_rx_channel(struct mal_instance *mal, int channel)
- {
- 	unsigned long flags;
- 
-+	/*
-+	 * On some 4xx PPC's (e.g. 460EX/GT), the rx channel is a multiple
-+	 * of 8, but enabling in MAL_RXCASR needs the divided by 8 value
-+	 * for the bitmask
-+	 */
-+	if (!(channel % 8))
-+		channel >>= 3;
-+
- 	spin_lock_irqsave(&mal->lock, flags);
- 
- 	MAL_DBG(mal, "enable_rx(%d)" NL, channel);
-@@ -148,6 +156,14 @@ void mal_enable_rx_channel(struct mal_instance *mal, int channel)
- 
- void mal_disable_rx_channel(struct mal_instance *mal, int channel)
- {
-+	/*
-+	 * On some 4xx PPC's (e.g. 460EX/GT), the rx channel is a multiple
-+	 * of 8, but enabling in MAL_RXCASR needs the divided by 8 value
-+	 * for the bitmask
-+	 */
-+	if (!(channel % 8))
-+		channel >>= 3;
-+
- 	set_mal_dcrn(mal, MAL_RXCARR, MAL_CHAN_MASK(channel));
- 
- 	MAL_DBG(mal, "disable_rx(%d)" NL, channel);
+ drivers/net/ibm_newemac/core.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
+--- linux-work.orig/drivers/net/ibm_newemac/core.c	2008-04-22 10:42:42.000000000 +1000
++++ linux-work/drivers/net/ibm_newemac/core.c	2008-04-22 10:43:01.000000000 +1000
+@@ -2562,8 +2562,11 @@ static int __devinit emac_probe(struct o
+ 	struct device_node **blist = NULL;
+ 	int err, i;
+ 
+-	/* Skip unused/unwired EMACS */
+-	if (of_get_property(np, "unused", NULL))
++	/* Skip unused/unwired EMACS.  We leave the check for an unused
++	 * property here for now, but new flat device trees should set a
++	 * status property to "disabled" instead.
++	 */
++	if (of_get_property(np, "unused", NULL) || !of_device_is_available(np))
+ 		return -ENODEV;
+ 
+ 	/* Find ourselves in the bootlist if we are there */
