@@ -1,112 +1,52 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [PATCH 2/2] drivers/net: Fix synchronize_irq() bugs, redundancies
-Date: Mon, 21 Apr 2008 19:35:37 -0400
-Message-ID: <20080421233537.GA5223@havoc.gtf.org>
-References: <20080421233419.GA4923@havoc.gtf.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH 1/6] ibm_newemac: Fix problem with jumbo frame support and
+	EMAC V4.patch
+Date: Tue, 22 Apr 2008 10:46:42 +1000
+Message-ID: <20080422004758.1A823DE19B@ozlabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759586AbYDUXfy@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080421233419.GA4923@havoc.gtf.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: <jgarzik@pobox.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-free_irq() calls synchronize_irq() for you, so there is no need for
-drivers to manually do the same thing (again).  Thus, calls where
-sync-irq immediately precedes free-irq can be simplified.
+From: Stefan Roese <sr@denx.de>
 
-Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+This fixes the jumbo frame support on EMAC V4 systems. Now the correct
+bit is set depending on the EMAC version configured.
+
+Tested on Kilauea (405EX) and Canyonlands (460EX).
+
+Signed-off-by: Stefan Roese <sr@denx.de>
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+
 ---
- drivers/net/8139cp.c       |    1 -
- drivers/net/8139too.c      |    1 -
- drivers/net/dl2k.c         |    2 +-
- drivers/net/pci-skeleton.c |    1 -
- drivers/net/tsi108_eth.c   |    1 -
- drivers/net/typhoon.c      |    3 ---
- 6 files changed, 1 insertion(+), 8 deletions(-)
+ drivers/net/ibm_newemac/core.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-index a453eda..b92cc15 100644
---- a/drivers/net/8139cp.c
-+++ b/drivers/net/8139cp.c
-@@ -1214,7 +1214,6 @@ static int cp_close (struct net_device *dev)
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index 0789802..486901f 100644
+--- a/drivers/net/ibm_newemac/core.c
++++ b/drivers/net/ibm_newemac/core.c
+@@ -524,7 +524,10 @@ static int emac_configure(struct emac_instance *dev)
+ 		rx_size = dev->rx_fifo_size_gige;
  
- 	spin_unlock_irqrestore(&cp->lock, flags);
- 
--	synchronize_irq(dev->irq);
- 	free_irq(dev->irq, dev);
- 
- 	cp_free_rings(cp);
-diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-index 53bd903..fbdf831 100644
---- a/drivers/net/8139too.c
-+++ b/drivers/net/8139too.c
-@@ -2232,7 +2232,6 @@ static int rtl8139_close (struct net_device *dev)
- 
- 	spin_unlock_irqrestore (&tp->lock, flags);
- 
--	synchronize_irq (dev->irq);	/* racy, but that's ok here */
- 	free_irq (dev->irq, dev);
- 
- 	rtl8139_tx_clear (tp);
-diff --git a/drivers/net/dl2k.c b/drivers/net/dl2k.c
-index e233d04..05f606d 100644
---- a/drivers/net/dl2k.c
-+++ b/drivers/net/dl2k.c
-@@ -1753,7 +1753,7 @@ rio_close (struct net_device *dev)
- 
- 	/* Stop Tx and Rx logics */
- 	writel (TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl);
--	synchronize_irq (dev->irq);
-+
- 	free_irq (dev->irq, dev);
- 	del_timer_sync (&np->timer);
- 
-diff --git a/drivers/net/pci-skeleton.c b/drivers/net/pci-skeleton.c
-index fffc49b..53451c3 100644
---- a/drivers/net/pci-skeleton.c
-+++ b/drivers/net/pci-skeleton.c
-@@ -1739,7 +1739,6 @@ static int netdrv_close (struct net_device *dev)
- 
- 	spin_unlock_irqrestore (&tp->lock, flags);
- 
--	synchronize_irq (dev->irq);
- 	free_irq (dev->irq, dev);
- 
- 	netdrv_tx_clear (dev);
-diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
-index 6f33f84..e75dd88 100644
---- a/drivers/net/tsi108_eth.c
-+++ b/drivers/net/tsi108_eth.c
-@@ -1434,7 +1434,6 @@ static int tsi108_close(struct net_device *dev)
- 		dev_kfree_skb(skb);
- 	}
- 
--	synchronize_irq(data->irq_num);
- 	free_irq(data->irq_num, dev);
- 
- 	/* Discard the RX ring. */
-diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
-index 333961b..7d2a4c6 100644
---- a/drivers/net/typhoon.c
-+++ b/drivers/net/typhoon.c
-@@ -334,8 +334,6 @@ enum state_values {
- #define TYPHOON_RESET_TIMEOUT_NOSLEEP	((6 * 1000000) / TYPHOON_UDELAY)
- #define TYPHOON_WAIT_TIMEOUT		((1000000 / 2) / TYPHOON_UDELAY)
- 
--#define typhoon_synchronize_irq(x) synchronize_irq(x)
--
- #if defined(NETIF_F_TSO)
- #define skb_tso_size(x)		(skb_shinfo(x)->gso_size)
- #define TSO_NUM_DESCRIPTORS	2
-@@ -2143,7 +2141,6 @@ typhoon_close(struct net_device *dev)
- 		printk(KERN_ERR "%s: unable to stop runtime\n", dev->name);
- 
- 	/* Make sure there is no irq handler running on a different CPU. */
--	typhoon_synchronize_irq(dev->irq);
- 	free_irq(dev->irq, dev);
- 
- 	typhoon_free_rx_rings(tp);
+ 		if (dev->ndev->mtu > ETH_DATA_LEN) {
+-			mr1 |= EMAC_MR1_JPSM;
++			if (emac_has_feature(dev, EMAC_FTR_EMAC4))
++				mr1 |= EMAC4_MR1_JPSM;
++			else
++				mr1 |= EMAC_MR1_JPSM;
+ 			dev->stop_timeout = STOP_TIMEOUT_1000_JUMBO;
+ 		} else
+ 			dev->stop_timeout = STOP_TIMEOUT_1000;
