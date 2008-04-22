@@ -1,54 +1,51 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 3/5] e1000e: Allow TSO to trickle down to VLAN device
-Date: Tue, 22 Apr 2008 00:46:12 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32904EE4BD3@orsmsx414.amr.corp.intel.com>
-References: <20080414170557.23286.71580.stgit@localhost.localdomain> <20080414170609.23286.42880.stgit@localhost.localdomain> <4803903B.1020100@trash.net> <4807C516.90308@intel.com> <480CA399.50708@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPSEC]: Fix catch-22 with algorithm IDs above 31
+Date: Tue, 22 Apr 2008 00:47:27 -0700 (PDT)
+Message-ID: <20080422.004727.92629784.davem@davemloft.net>
+References: <20080422074304.GA18385@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>,
-	<e1000-devel@lists.sourceforge.net>
-To: "Patrick McHardy" <kaber@trash.net>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, latten@us.ibm.com,
+	tchicks@us.ibm.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:30000 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755776AbYDVHqL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2008 03:46:11 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <480CA399.50708@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59056
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756209AbYDVHrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2008 03:47:25 -0400
+In-Reply-To: <20080422074304.GA18385@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> That was a typo, I meant netdev_features_change(), which is invoked
-> by dev_ethtool() and calls the netdev notifier with
-NETDEV_FEAT_CHANGE,
-> on which the VLAN code could react. I wasn't aware of the TSO + VLAN
-> acceleration problems you've mentioned, do you have a pointer to more
-> information about this?
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 22 Apr 2008 15:43:04 +0800
 
-This was a conversation I had late last year on the list regarding TSO
-and Tx checksum offload not getting turned on for VLAN devices, since
-the VLAN device creation code doesn't copy those device feature flags.
-I had proposed sending a patch, and the statement was made that some
-devices might not support both of those hardware features at the same
-time.  I'll try to dig up those mails.
+> [IPSEC]: Fix catch-22 with algorithm IDs above 31
+> 
+> As it stands it's impossible to use any authentication algorithms
+> with an ID above 31 portably.  It just happens to work on x86 but
+> fails miserably on ppc64.
+> 
+> The reason is that we're using a bit mask to check the algorithm
+> ID but the mask is only 32 bits wide.
+> 
+> After looking at how this is used in the field, I have concluded
+> that in the long term we should phase out state matching by IDs
+> because this is made superfluous by the reqid feature.  For current
+> applications, the best solution IMHO is to allow all algorithms when
+> the bit masks are all ~0.
+> 
+> The following patch does exactly that.
+> 
+> This bug was identified by IBM when testing on the ppc64 platform
+> using the NULL authentication algorithm which has an ID of 251.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> In any case I would prefer to avoid having drivers mess with VLAN
-> device flags. How about adding a device flag indicating that the
-> driver supports TSO + VLAN acceleration and using the
-> NETDEV_FEAT_CHANGE notification inside the VLAN code do adjust
-> the device's flags properly?
+Applied, and I'll queue up for -stable, thanks Herbert!
 
-I hear you loud and clear.  I wanted to do this the "right" way in the
-drivers if I couldn't do it in the kernel, and your suggestions sound
-like the right way.  Let me take the suggestions here and respin this
-part of the code, since I have this change in e1000, e1000e, igb, and
-ixgbe, and want it to be correct.
+> diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
 
-Thanks Patrick for the feedback here.  Hopefully I'll soon have
-something for Auke to resend.
-
-Cheers,
--PJ Waskiewicz
+Please update your GIT index :-)
