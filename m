@@ -1,79 +1,74 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] Re: Bad network performance over 2Gbps
-Date: Tue, 22 Apr 2008 01:07:35 -0400
-Message-ID: <20080422010735.8f01efc9.billfink@mindspring.com>
-References: <1208282804.23631.27.camel@localhost>
-	<175f5a0f0804151315x1e192fc7p7dac1e84fd154211@mail.gmail.com>
-	<48051173.5030802@intel.com>
-	<48051734.1000107@redhat.com>
-	<1208426550.6049.10.camel@localhost>
-	<48078AF6.2020003@intel.com>
+From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
+Date: Tue, 22 Apr 2008 08:29:07 +0200
+Message-ID: <480D85B3.1020608@option.com>
+References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt> <200804211016.02819.oliver@neukum.org> <480C5FAF.1050408@teltonika.lt> <20080421184157.106603602C8@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <480D0F5B.9010808@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Anton Titov <a.titov@host.bg>, Chris Snook <csnook@redhat.com>,
-	"H. Willstrand" <h.willstrand@gmail.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:60492 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751786AbYDVFHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2008 01:07:50 -0400
-In-Reply-To: <48078AF6.2020003@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <480D0F5B.9010808-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Apr 2008, Kok, Auke wrote:
+Paulius Zaleckas schreef:
+> David Brownell wrote:
+>>> From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+>>> Date: Mon, 21 Apr 2008 12:34:39 +0300
+>>>
+>>> IMO it doesn't make sense to do multicasting since actually it is
+>>> point-to-point and not ethernet traffic.
+>>> Currently I am studying if it is possible to convert current pseudo
+>>> ethernet interface to point-to-point one.
+>>
+>> For the record:  when I looked at that issue with respect to USB
+>> network connections for handheld devices, one issue seemed to be
+>> weak support for managing (lots of) point-to-point links.
+>>
+>> The example that sticks in my memory is that of routing.  Setting
+>> up a point to point link between a handheld and a PC required
+>> the PC to act as an IP router.  Managing lots of desktop routers
+>> in any large configuration seemed to be a losing game ... and
+>> one that many network administrators would refuse to play.  And
+>> that's in addition to the lack of a dynamic IP address assignment
+>> solution for lots of point-to-point links.
+>>
+>> The alternative was to set up the links like Ethernet, then bridge
+>> them.  That's a *much* more manageable solution, even though I still
+>> don't know of any distro that makes bridge setup work as easily as
+>> Windows does (sigh).  Bridging properly requires the ability to handle
+>> multicast and broadcast packets ... and once you've got that then
+>> DHCP, zeroconf, and other automatic network configuration schemes
+>> work easily.
+>>
+>> QED ... that's why the "usbnet" framework doesn't try to use the
+>> point-to-point framework, instead allows N-casting.
+>>
+>> - Dave
+> 
+> I would agree with you, but... To make this interface work you have to
+> send AT command with APN and optionally with PAP/CHAP username and 
+> password.
+> Then you call AT command witch initiates PPP with basestation and begins
+> to send/receive traffic on this pseudo ethernet interface... Actually it
+> still needs one more AT command to get your IP and DNS addresses.
+> Then you do: ifconfig hso0 xxx.xxx.xxx.xxx netmask 255.255.255.255 up
+> And then you have to write DNS addresses (got through AT interface) to
+> the /etc/resolv.conf. Now you have a working internet connection!
+> 
+> So... I don't see any chance to do multicasting or broadcasting here...
+> IMO the only way to distribute this kind of connection to local network
+> is to do NAT'ing :( Am I wrong?
+> 
+> P.S. Pseudo ethernet means that it receives bare IP packet from USB device,
+> adds dummy ethernet header and sends it for further processing to kernel.
 
-> [X86] IRQBALANCE: Mark as BROKEN and disable by default
-> 
-> The IRQBALANCE option causes interrupts to bounce all around on SMP systems
-> quickly burying the CPU in migration cost and cache misses. Mainly affected are
-> network interrupts and this results in one CPU pegged in softirqd completely.
-> 
-> Disable this option and provide documentation to a better solution (userspace
-> irqbalance daemon does overall the best job to begin with and only manual setting
-> of smp_affinity will beat it).
-> 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 
-> ---
-> 
-> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-> index 6c70fed..956aa22 100644
-> --- a/arch/x86/Kconfig
-> +++ b/arch/x86/Kconfig
-> @@ -1026,13 +1026,17 @@ config EFI
->    	platforms.
-> 
->  config IRQBALANCE
-> -	def_bool y
-> +	def_bool n
->  	prompt "Enable kernel irq balancing"
-> -	depends on X86_32 && SMP && X86_IO_APIC
-> +	depends on X86_32 && SMP && X86_IO_APIC && BROKEN
->  	help
->  	  The default yes will allow the kernel to do irq load balancing.
->  	  Saying no will keep the kernel from doing irq load balancing.
+Correct. And we don't support DHCP.
 
-Since you're changing the default setting, shouldn't the above be
-changed to:
-
- 	  Saying yes will allow the kernel to do irq load balancing.
- 	  The default no will keep the kernel from doing irq load balancing.
-
-> +	  This option is known to cause performance issues on SMP
-> +	  systems. The preferred method is to use the userspace
-> +	  'irqbalance' daemon instead. See http://irqbalance.org/.
-> +
->  config SECCOMP
->  	def_bool y
->  	prompt "Enable seccomp to safely compute untrusted bytecode"
-
-						-Bill
+Filip-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
