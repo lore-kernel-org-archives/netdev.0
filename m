@@ -1,56 +1,34 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [RFC fs_enet: Convert MII bitbang driver to use GPIO lib
-Date: Tue, 22 Apr 2008 10:36:52 -0500
-Message-ID: <20080422153652.GF15474@ld0162-tx32.am.freescale.net>
-References: <200804161640.42693.laurentp@cse-semaphore.com> <200804221055.09038.laurentp@cse-semaphore.com> <20080422150844.GA15474@ld0162-tx32.am.freescale.net> <200804221721.51461.laurentp@cse-semaphore.com>
+From: "=?UTF-8?Q?Rui_Tiago_Ca=C3=A7=C3=A3o_Matos?=" <rmatos@av.it.pt>
+Subject: Re: [PATCH] Add tcindex classifier
+Date: Tue, 22 Apr 2008 16:42:51 +0100
+Message-ID: <eae3b3410804220842i3525a932w465e14299dd6b2f1@mail.gmail.com>
+References: <-1382474018225740310@unknownmsgid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, avorontsov@ru.mvista.com,
-	netdev@vger.kernel.org
-To: Laurent Pinchart <laurentp@cse-semaphore.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: "Rui T. Matos" <rmatos@hng.av.it.pt>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:53806 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756063AbYDVPhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2008 11:37:03 -0400
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by de01egw02.freescale.net (8.12.11/de01egw02) with ESMTP id m3MFarjM010686
-	for <netdev@vger.kernel.org>; Tue, 22 Apr 2008 08:36:53 -0700 (MST)
-Received: from ld0162-tx32.am.freescale.net (ld0162-tx32.am.freescale.net [10.82.19.112])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id m3MFaqU1029401
-	for <netdev@vger.kernel.org>; Tue, 22 Apr 2008 10:36:52 -0500 (CDT)
+Received: from wx-out-0506.google.com ([66.249.82.234]:52991 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764315AbYDVPmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2008 11:42:53 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1838954wxd.4
+        for <netdev@vger.kernel.org>; Tue, 22 Apr 2008 08:42:52 -0700 (PDT)
+In-Reply-To: <-1382474018225740310@unknownmsgid>
 Content-Disposition: inline
-In-Reply-To: <200804221721.51461.laurentp@cse-semaphore.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 22, 2008 at 05:21:49PM +0200, Laurent Pinchart wrote:
-> As the openfirmware + gpio + mdio driver might benefit non-powerpc platforms, 
-> I plan to create a new driver (probably drivers/net/phy/mdio-ofgpio.c) that 
-> mostly ports drivers/net/fs_enet/mii-bitbang.c to the gpiolib (this replaces 
-> around 90% of the code).
-> 
-> If both drivers/net/fs_enet/mii-bitbang.c and drivers/net/phy/mdio-ofgpio.c 
-> must live together, 
+[ That email should have had this text ]
 
-The only reason I can see for that would be if the gpiolib version
-doesn't work on arch/ppc -- but that's not going to be a problem for very
-much longer.
+This is a request for comments patch to add support for the tcindex
+classifier to libnl.
 
-> I'll have a problem in drivers/net/fs_enet/fs_enet-main.c. The net
-> device probing code searches the device tree for an associated PHY, and
-> creates a PHY id from the PHY node. As the id will be generated from
-> different bus ids in the two mdio drivers (the bus number is the
-> register address for drivers/net/fs_enet/mii-bitbang.c, and is the gpio
-> index for drivers/net/phy/mdio-ofgpio.c), things will break.
-> 
-> Any idea regarding how to get rid of that fs_enet/mii-bitbang hardcoded 
-> dependency ?
+It lacks support for the police and action attributes and the dump callbacks
+aren't implementend since I don't know what to output exactly on each one.
 
-If mii-bitbang is only used on arch/ppc, then #ifdef CONFIG_PPC_MERGE
-should do it.
+Please comment.
 
-It'd be nice to be able to give phylib an OF node rather than a string,
-though...
-
--Scott
+Thanks,
+Rui
