@@ -1,51 +1,103 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPSEC]: Fix catch-22 with algorithm IDs above 31
-Date: Tue, 22 Apr 2008 00:47:27 -0700 (PDT)
-Message-ID: <20080422.004727.92629784.davem@davemloft.net>
-References: <20080422074304.GA18385@gondor.apana.org.au>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
+Date: Tue, 22 Apr 2008 11:33:14 +0300
+Message-ID: <480DA2CA.8090705@teltonika.lt>
+References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt> <480CB8C2.9090902@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------080205030002080400070903"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <480CB8C2.9090902-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------080205030002080400070903
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, latten@us.ibm.com,
-	tchicks@us.ibm.com
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59056
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756209AbYDVHrZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2008 03:47:25 -0400
-In-Reply-To: <20080422074304.GA18385@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 22 Apr 2008 15:43:04 +0800
+Incremental patch.
+- use net_device_stats from dev->stats
 
-> [IPSEC]: Fix catch-22 with algorithm IDs above 31
-> 
-> As it stands it's impossible to use any authentication algorithms
-> with an ID above 31 portably.  It just happens to work on x86 but
-> fails miserably on ppc64.
-> 
-> The reason is that we're using a bit mask to check the algorithm
-> ID but the mask is only 32 bits wide.
-> 
-> After looking at how this is used in the field, I have concluded
-> that in the long term we should phase out state matching by IDs
-> because this is made superfluous by the reqid feature.  For current
-> applications, the best solution IMHO is to allow all algorithms when
-> the bit masks are all ~0.
-> 
-> The following patch does exactly that.
-> 
-> This bug was identified by IBM when testing on the ppc64 platform
-> using the NULL authentication algorithm which has an ID of 251.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+--------------080205030002080400070903
+Content-Type: text/x-patch;
+ name="hso_net_stats.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hso_net_stats.patch"
 
-Applied, and I'll queue up for -stable, thanks Herbert!
+--- linux-2.6-hso-my/drivers/net/usb/hso.c.orig	2008-04-21 18:45:43.000000000 +0300
++++ linux-2.6-hso-my/drivers/net/usb/hso.c	2008-04-22 11:16:01.000000000 +0300
+@@ -152,7 +152,6 @@ struct hso_shared_int {
+ 
+ struct hso_net {
+ 	struct hso_device *parent;
+-	struct net_device_stats stats;
+ 	struct net_device *net;
+ 
+ 	struct usb_endpoint_descriptor *in_endp;
+@@ -712,7 +711,7 @@ static int hso_net_open(struct net_devic
+ 		return -ENODEV;
+ 	}
+ 	/* reset read counter. */
+-	odev->stats.rx_packets = 0;
++	odev->net->stats.rx_packets = 0;
+ 	odev->skb_tx_buf = NULL;
+ 
+ 	/* setup environment */
+@@ -817,11 +816,11 @@ static int hso_net_start_xmit(struct sk_
+ 	if (result) {
+ 		dev_warn(&odev->parent->interface->dev,
+ 			"failed mux_bulk_tx_urb %d", result);
+-		odev->stats.tx_errors++;
++		odev->net->stats.tx_errors++;
+ 		netif_start_queue(net);
+ 	} else {
+-		odev->stats.tx_packets++;
+-		odev->stats.tx_bytes += skb->len;
++		odev->net->stats.tx_packets++;
++		odev->net->stats.tx_bytes += skb->len;
+ 		/* And tell the kernel when the last transmit started. */
+ 		net->trans_start = jiffies;
+ 	}
+@@ -846,7 +845,7 @@ static struct ethtool_ops ops = {
+ 
+ static struct net_device_stats *hso_net_get_stats(struct net_device *net)
+ {
+-	return &((struct hso_net *)netdev_priv(net))->stats;
++	return &net->stats;
+ }
+ 
+ /* called when a packet did not ack after watchdogtimeout */
+@@ -866,7 +865,7 @@ static void hso_net_tx_timeout(struct ne
+ 		usb_unlink_urb(odev->mux_bulk_tx_urb);
+ 
+ 	/* Update statistics */
+-	odev->stats.tx_errors++;
++	odev->net->stats.tx_errors++;
+ }
+ 
+ /* make a real packet from the received USB buffer */
+@@ -991,11 +990,11 @@ static void packetizeRx(struct hso_net *
+ 				odev->skb_rx_buf = NULL;
+ 
+ 				/* update out statistics */
+-				odev->stats.rx_packets++;
++				odev->net->stats.rx_packets++;
+ 
+ 				/* Hmmm, wonder if we have received the IP len
+ 				 * or the ETH len. */
+-				odev->stats.rx_bytes += odev->rx_buf_size;
++				odev->net->stats.rx_bytes += odev->rx_buf_size;
+ 
+ 				odev->rx_buf_size = 0;
+ 				odev->rx_buf_missing = sizeof(struct iphdr);
 
-> diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+--------------080205030002080400070903--
 
-Please update your GIT index :-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
