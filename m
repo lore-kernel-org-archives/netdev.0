@@ -1,384 +1,325 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
-Date: Tue, 22 Apr 2008 16:50:48 +0300
-Message-ID: <480DED38.3080900@teltonika.lt>
-References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt> <480CB8C2.9090902@teltonika.lt> <480DA2CA.8090705@teltonika.lt>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [RFC PATCH net-2.6.26 (Plan B)] [TCP]: Lower stack usage in tcp4_seq_show().
+Date: Tue, 22 Apr 2008 18:35:42 +0400
+Message-ID: <480DF7BE.5030803@openvz.org>
+References: <20080415.193355.36907928.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040201080402070707010600"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <480DA2CA.8090705-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------040201080402070707010600
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:36561 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755427AbYDVOh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2008 10:37:27 -0400
+In-Reply-To: <20080415.193355.36907928.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Incremental patch.
-- remove not needed variable initializations
-- remove hso_net_get_stats, because by default identical
-   internal_stats function from net/core/dev.c is used.
-- remove not needed memset(hso_net, 0, sizeof(*hso_net)),
-   because memory is allocated with kzalloc
+YOSHIFUJI Hideaki wrote:
+> tcp4_seq_show() eats about 250 bytes.  By using buffer in seq_file
+> directly, it will be reduced around 100 bytes.
+> 
+> One drawback is higher usage of slab for IPv6 but the format
+> will not change with this patch.
+> 
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
---------------040201080402070707010600
-Content-Type: text/x-patch;
- name="hso_not_needed.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="hso_not_needed.patch"
+Plan C: we can follow the Al Viro's proposal about %n like in this patch.
+The same applies to udp, fib (the /proc/net/route file), rt_cache and 
+sctp debug. This is minus ~150-200 bytes for each.
 
---- linux-2.6-hso-my/drivers/net/usb/hso.c.orig	2008-04-22 11:16:01.000000000 +0300
-+++ linux-2.6-hso-my/drivers/net/usb/hso.c	2008-04-22 16:37:31.000000000 +0300
-@@ -547,7 +547,7 @@ static struct hso_serial *get_serial_by_
- 
- static struct hso_serial *get_serial_by_index(unsigned index)
+How do you think?
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 02088de..2e2fc33 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -1003,7 +1003,7 @@ static unsigned fib_flag_trans(int type, __be32 mask, struct fib_info *fi)
+ static int fib_seq_show(struct seq_file *seq, void *v)
  {
--	struct hso_serial *serial = NULL;
-+	struct hso_serial *serial;
- 	unsigned long flags;
- 
- 	if (!serial_table[index])
-@@ -561,7 +561,7 @@ static struct hso_serial *get_serial_by_
- 
- static int get_free_serial_index(void)
- {
--	int index = 0;
-+	int index;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&serial_table_lock, flags);
-@@ -591,7 +591,7 @@ static void set_serial_by_index(unsigned
- /* log a meaningfull explanation of an USB status */
- static void log_usb_status(int status, const char *function)
- {
--	char *explanation = NULL;
-+	char *explanation;
- 
- 	switch (status) {
- 	case -ENODEV:
-@@ -630,10 +630,9 @@ static void log_usb_status(int status, c
- static int hso_proc_options(char *buf, char **start, off_t offset, int count,
- 			    int *eof, void *data)
- {
--	int len = 0;
+ 	struct fib_iter_state *iter;
+-	char bf[128];
 +	int len;
- 	/* get the module parameters */
--	len +=
--	    snprintf(buf + len, count - len, "Version: %s\n", DRIVER_VERSION);
-+	len = snprintf(buf, count, "Version: %s\n", DRIVER_VERSION);
- 	len += snprintf(buf + len, count - len, "debug: 0x%02x\n", debug);
- 	len += snprintf(buf + len, count - len, "procfs: 0x%02x\n", procfs);
- 	len +=
-@@ -647,9 +646,9 @@ static int hso_proc_options(char *buf, c
- static int hso_proc_port_info(char *buf, char **start, off_t offset, int count,
- 			      int *eof, void *data)
- {
--	int len = 0;
-+	int len;
- 	struct hso_device *hso_dev = (struct hso_device *)data;
--	char *port_name = NULL;
-+	char *port_name;
+ 	__be32 prefix, mask;
+ 	unsigned flags;
+ 	struct fib_node *f;
+@@ -1025,18 +1025,19 @@ static int fib_seq_show(struct seq_file *seq, void *v)
+ 	mask	= FZ_MASK(iter->zone);
+ 	flags	= fib_flag_trans(fa->fa_type, mask, fi);
+ 	if (fi)
+-		snprintf(bf, sizeof(bf),
+-			 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
++		seq_printf(seq,
++			 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u%n",
+ 			 fi->fib_dev ? fi->fib_dev->name : "*", prefix,
+ 			 fi->fib_nh->nh_gw, flags, 0, 0, fi->fib_priority,
+ 			 mask, (fi->fib_advmss ? fi->fib_advmss + 40 : 0),
+ 			 fi->fib_window,
+-			 fi->fib_rtt >> 3);
++			 fi->fib_rtt >> 3, &len);
+ 	else
+-		snprintf(bf, sizeof(bf),
+-			 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
+-			 prefix, 0, flags, 0, 0, 0, mask, 0, 0, 0);
+-	seq_printf(seq, "%-127s\n", bf);
++		seq_printf(seq,
++			 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u%n",
++			 prefix, 0, flags, 0, 0, 0, mask, 0, 0, 0, &len);
++
++	seq_printf(seq, "%*s\n", 127 - len, "");
+ out:
+ 	return 0;
+ }
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index ea294ff..4b02d14 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -2602,15 +2602,16 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
+ 		list_for_each_entry_rcu(fa, &li->falh, fa_list) {
+ 			const struct fib_info *fi = fa->fa_info;
+ 			unsigned flags = fib_flag_trans(fa->fa_type, mask, fi);
+-			char bf[128];
++			int len;
  
- 	D1("count: %d", count);
+ 			if (fa->fa_type == RTN_BROADCAST
+ 			    || fa->fa_type == RTN_MULTICAST)
+ 				continue;
  
-@@ -689,7 +688,7 @@ static int hso_proc_port_info(char *buf,
- 		break;
+ 			if (fi)
+-				snprintf(bf, sizeof(bf),
+-					 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
++				seq_printf(seq,
++					 "%s\t%08X\t%08X\t%04X\t%d\t%u\t"
++					 "%d\t%08X\t%d\t%u\t%u%n",
+ 					 fi->fib_dev ? fi->fib_dev->name : "*",
+ 					 prefix,
+ 					 fi->fib_nh->nh_gw, flags, 0, 0,
+@@ -2619,14 +2620,15 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
+ 					 (fi->fib_advmss ?
+ 					  fi->fib_advmss + 40 : 0),
+ 					 fi->fib_window,
+-					 fi->fib_rtt >> 3);
++					 fi->fib_rtt >> 3, &len);
+ 			else
+-				snprintf(bf, sizeof(bf),
+-					 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
++				seq_printf(seq,
++					 "*\t%08X\t%08X\t%04X\t%d\t%u\t"
++					 "%d\t%08X\t%d\t%u\t%u%n",
+ 					 prefix, 0, flags, 0, 0, 0,
+-					 mask, 0, 0, 0);
++					 mask, 0, 0, 0, &len);
+ 
+-			seq_printf(seq, "%-127s\n", bf);
++			seq_printf(seq, "%*s\n", 127 - len, "");
+ 		}
  	}
  
--	len += snprintf(buf + len, count - len, "%s\n", port_name);
-+	len = snprintf(buf, count, "%s\n", port_name);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 780e948..ce25a13 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -367,10 +367,10 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
+ 			   "HHUptod\tSpecDst");
+ 	else {
+ 		struct rtable *r = v;
+-		char temp[256];
++		int len;
  
- 	/* return the device id to the user, for use in scripts for autopm */
- 	len +=
-@@ -782,7 +781,7 @@ static void write_bulk_callback(struct u
- static int hso_net_start_xmit(struct sk_buff *skb, struct net_device *net)
+-		sprintf(temp, "%s\t%08lX\t%08lX\t%8X\t%d\t%u\t%d\t"
+-			      "%08lX\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X",
++		seq_printf(seq, "%s\t%08lX\t%08lX\t%8X\t%d\t%u\t%d\t"
++			      "%08lX\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
+ 			r->u.dst.dev ? r->u.dst.dev->name : "*",
+ 			(unsigned long)r->rt_dst, (unsigned long)r->rt_gateway,
+ 			r->rt_flags, atomic_read(&r->u.dst.__refcnt),
+@@ -384,8 +384,9 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
+ 			r->u.dst.hh ? atomic_read(&r->u.dst.hh->hh_refcnt) : -1,
+ 			r->u.dst.hh ? (r->u.dst.hh->hh_output ==
+ 				       dev_queue_xmit) : 0,
+-			r->rt_spec_dst);
+-		seq_printf(seq, "%-127s\n", temp);
++			r->rt_spec_dst, &len);
++
++		seq_printf(seq, "%*s\n", 127 - len, "");
+ 	}
+ 	return 0;
+ }
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 7766151..0e9bc12 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2255,13 +2255,13 @@ void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
+ }
+ 
+ static void get_openreq4(struct sock *sk, struct request_sock *req,
+-			 char *tmpbuf, int i, int uid)
++			 struct seq_file *f, int i, int uid, int *len)
  {
- 	struct hso_net *odev = netdev_priv(net);
--	int result = 0;
-+	int result;
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+ 	int ttd = req->expires - jiffies;
  
- 	/* Tell the kernel, "No more frames 'til we are done with this one." */
- 	netif_stop_queue(net);
-@@ -843,11 +842,6 @@ static struct ethtool_ops ops = {
- 	.get_link = ethtool_op_get_link
- };
+-	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %u %d %p",
++	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
++		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %u %d %p%n",
+ 		i,
+ 		ireq->loc_addr,
+ 		ntohs(inet_sk(sk)->sport),
+@@ -2276,10 +2276,11 @@ static void get_openreq4(struct sock *sk, struct request_sock *req,
+ 		0,  /* non standard timer */
+ 		0, /* open_requests have no inode */
+ 		atomic_read(&sk->sk_refcnt),
+-		req);
++		req,
++		len);
+ }
  
--static struct net_device_stats *hso_net_get_stats(struct net_device *net)
--{
--	return &net->stats;
--}
--
- /* called when a packet did not ack after watchdogtimeout */
- static void hso_net_tx_timeout(struct net_device *net)
+-static void get_tcp4_sock(struct sock *sk, char *tmpbuf, int i)
++static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
  {
-@@ -872,11 +866,11 @@ static void hso_net_tx_timeout(struct ne
- static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
- 			unsigned int count, unsigned char is_eop)
+ 	int timer_active;
+ 	unsigned long timer_expires;
+@@ -2305,8 +2306,8 @@ static void get_tcp4_sock(struct sock *sk, char *tmpbuf, int i)
+ 		timer_expires = jiffies;
+ 	}
+ 
+-	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
+-			"%08X %5d %8d %lu %d %p %u %u %u %u %d",
++	seq_printf(f, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
++			"%08X %5d %8d %lu %d %p %u %u %u %u %d%n",
+ 		i, src, srcp, dest, destp, sk->sk_state,
+ 		tp->write_seq - tp->snd_una,
+ 		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
+@@ -2322,11 +2323,12 @@ static void get_tcp4_sock(struct sock *sk, char *tmpbuf, int i)
+ 		icsk->icsk_ack.ato,
+ 		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
+ 		tp->snd_cwnd,
+-		tp->snd_ssthresh >= 0xFFFF ? -1 : tp->snd_ssthresh);
++		tp->snd_ssthresh >= 0xFFFF ? -1 : tp->snd_ssthresh,
++		len);
+ }
+ 
+ static void get_timewait4_sock(struct inet_timewait_sock *tw,
+-			       char *tmpbuf, int i)
++			       struct seq_file *f, int i, int *len)
  {
--	unsigned short temp_bytes = 0;
-+	unsigned short temp_bytes;
- 	unsigned short buffer_offset = 0;
--	unsigned short frame_len = 0;
--	unsigned char *tmp_rx_buf = NULL;
--	struct ethhdr *eth_head = NULL;
-+	unsigned short frame_len;
-+	unsigned char *tmp_rx_buf;
-+	struct ethhdr *eth_head;
+ 	__be32 dest, src;
+ 	__u16 destp, srcp;
+@@ -2340,11 +2342,11 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
+ 	destp = ntohs(tw->tw_dport);
+ 	srcp  = ntohs(tw->tw_sport);
  
- 	/* log if needed */
- 	D1("Rx %d bytes", count);
-@@ -1027,8 +1021,8 @@ static void packetizeRx(struct hso_net *
- static void read_bulk_callback(struct urb *urb)
+-	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %p",
++	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
++		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %p%n",
+ 		i, src, srcp, dest, destp, tw->tw_substate, 0, 0,
+ 		3, jiffies_to_clock_t(ttd), 0, 0, 0, 0,
+-		atomic_read(&tw->tw_refcnt), tw);
++		atomic_read(&tw->tw_refcnt), tw, len);
+ }
+ 
+ #define TMPSZ 150
+@@ -2352,7 +2354,7 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
+ static int tcp4_seq_show(struct seq_file *seq, void *v)
  {
- 	struct hso_net *odev = urb->context;
--	struct net_device *net = NULL;
--	int result = 0;
-+	struct net_device *net;
-+	int result;
- 	int status = urb->status;
+ 	struct tcp_iter_state* st;
+-	char tmpbuf[TMPSZ + 1];
++	int len;
  
- 	/* is al ok?  (Filip: Who's Al ?) */
-@@ -1248,7 +1242,7 @@ static int hso_serial_write(struct tty_s
- 			    int count)
+ 	if (v == SEQ_START_TOKEN) {
+ 		seq_printf(seq, "%-*s\n", TMPSZ - 1,
+@@ -2366,16 +2368,16 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
+ 	switch (st->state) {
+ 	case TCP_SEQ_STATE_LISTENING:
+ 	case TCP_SEQ_STATE_ESTABLISHED:
+-		get_tcp4_sock(v, tmpbuf, st->num);
++		get_tcp4_sock(v, seq, st->num, &len);
+ 		break;
+ 	case TCP_SEQ_STATE_OPENREQ:
+-		get_openreq4(st->syn_wait_sk, v, tmpbuf, st->num, st->uid);
++		get_openreq4(st->syn_wait_sk, v, seq, st->num, st->uid, &len);
+ 		break;
+ 	case TCP_SEQ_STATE_TIME_WAIT:
+-		get_timewait4_sock(v, tmpbuf, st->num);
++		get_timewait4_sock(v, seq, st->num, &len);
+ 		break;
+ 	}
+-	seq_printf(seq, "%-*s\n", TMPSZ - 1, tmpbuf);
++	seq_printf(seq, "%*s\n", TMPSZ - 1 - len, "");
+ out:
+ 	return 0;
+ }
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index b053ac7..1f535e3 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1619,7 +1619,8 @@ void udp_proc_unregister(struct net *net, struct udp_seq_afinfo *afinfo)
+ }
+ 
+ /* ------------------------------------------------------------------------ */
+-static void udp4_format_sock(struct sock *sp, char *tmpbuf, int bucket)
++static void udp4_format_sock(struct sock *sp, struct seq_file *f,
++		int bucket, int *len)
  {
- 	struct hso_serial *serial = get_serial_by_tty(tty);
--	int space = 0, tx_bytes = 0;
-+	int space, tx_bytes;
- 	unsigned long flags;
+ 	struct inet_sock *inet = inet_sk(sp);
+ 	__be32 dest = inet->daddr;
+@@ -1627,13 +1628,13 @@ static void udp4_format_sock(struct sock *sp, char *tmpbuf, int bucket)
+ 	__u16 destp	  = ntohs(inet->dport);
+ 	__u16 srcp	  = ntohs(inet->sport);
  
- 	/* sanity check */
-@@ -1281,7 +1275,7 @@ out:
- static int hso_serial_write_room(struct tty_struct *tty)
+-	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
++	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
++		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p%n",
+ 		bucket, src, srcp, dest, destp, sp->sk_state,
+ 		atomic_read(&sp->sk_wmem_alloc),
+ 		atomic_read(&sp->sk_rmem_alloc),
+ 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+-		atomic_read(&sp->sk_refcnt), sp);
++		atomic_read(&sp->sk_refcnt), sp, len);
+ }
+ 
+ int udp4_seq_show(struct seq_file *seq, void *v)
+@@ -1644,11 +1645,11 @@ int udp4_seq_show(struct seq_file *seq, void *v)
+ 			   "rx_queue tr tm->when retrnsmt   uid  timeout "
+ 			   "inode");
+ 	else {
+-		char tmpbuf[129];
+ 		struct udp_iter_state *state = seq->private;
++		int len;
+ 
+-		udp4_format_sock(v, tmpbuf, state->bucket);
+-		seq_printf(seq, "%-127s\n", tmpbuf);
++		udp4_format_sock(v, seq, state->bucket, &len);
++		seq_printf(seq, "%*s\n", 127 - len ,"");
+ 	}
+ 	return 0;
+ }
+diff --git a/net/sctp/objcnt.c b/net/sctp/objcnt.c
+index cfeb07e..f73ec0e 100644
+--- a/net/sctp/objcnt.c
++++ b/net/sctp/objcnt.c
+@@ -83,13 +83,12 @@ static sctp_dbg_objcnt_entry_t sctp_dbg_objcnt[] = {
+  */
+ static int sctp_objcnt_seq_show(struct seq_file *seq, void *v)
  {
- 	struct hso_serial *serial = get_serial_by_tty(tty);
--	int room = 0;
-+	int room;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&serial->serial_lock, flags);
-@@ -1316,7 +1310,7 @@ static void hso_serial_set_termios(struc
- static int hso_serial_chars_in_buffer(struct tty_struct *tty)
- {
- 	struct hso_serial *serial = get_serial_by_tty(tty);
--	int chars = 0;
-+	int chars;
- 	unsigned long flags;
- 
- 	/* sanity check */
-@@ -1332,7 +1326,7 @@ static int hso_serial_chars_in_buffer(st
- 
- static int hso_serial_tiocmget(struct tty_struct *tty, struct file *file)
- {
--	unsigned int value = 0;
-+	unsigned int value;
- 	struct hso_serial *serial = get_serial_by_tty(tty);
- 	unsigned long flags;
- 
-@@ -1392,7 +1386,7 @@ static int hso_serial_tiocmset(struct tt
- /* starts a transmit */
- static void hso_kick_transmit(struct hso_serial *serial)
- {
--	u8 *temp = NULL;
-+	u8 *temp;
- 	unsigned long flags;
- 	int res;
- 
-@@ -1430,8 +1424,8 @@ static int mux_device_request(struct hso
- 			      struct usb_ctrlrequest *ctrl_req,
- 			      u8 *ctrl_urb_data, u32 size)
- {
--	int result = 0;
--	int pipe = -1;
-+	int result;
-+	int pipe;
- 
- 	/* Sanity check */
- 	if (!serial || !ctrl_urb || !ctrl_req) {
-@@ -1512,10 +1506,10 @@ static int hso_mux_serial_read(struct hs
- static void intr_callback(struct urb *urb)
- {
- 	struct hso_shared_int *shared_int = urb->context;
--	struct hso_serial *serial = NULL;
--	unsigned char *port_req = NULL;
-+	struct hso_serial *serial;
-+	unsigned char *port_req;
- 	int status = urb->status;
--	int i = 0;
-+	int i;
- 
- 	usb_mark_last_busy(urb->dev);
- 
-@@ -1602,7 +1596,7 @@ static void hso_std_serial_write_bulk_ca
- static int hso_std_serial_write_data(struct hso_serial *serial)
- {
- 	int count = serial->tx_data_count;
--	int result = 0;
-+	int result;
- 
- 	usb_fill_bulk_urb(serial->tx_urb,
- 			  serial->parent->usb,
-@@ -1626,7 +1620,7 @@ static int hso_std_serial_write_data(str
- static void ctrl_callback(struct urb *urb)
- {
- 	struct hso_serial *serial = urb->context;
--	struct usb_ctrlrequest *req = NULL;
-+	struct usb_ctrlrequest *req;
- 	int status = urb->status;
- 
- 	/* sanity check */
-@@ -1692,7 +1686,7 @@ static void put_rxbuf_data(struct urb *u
- static void hso_std_serial_read_bulk_callback(struct urb *urb)
- {
- 	struct hso_serial *serial = urb->context;
--	int result = 0;
-+	int result;
- 	int status = urb->status;
- 
- 	/* sanity check */
-@@ -1758,7 +1752,7 @@ static void hso_std_serial_read_bulk_cal
- 
- static void hso_log_port(struct hso_device *hso_dev)
- {
--	char *port_type = NULL;
-+	char *port_type;
- 	char port_dev[20];
- 
- 	switch (hso_dev->port_spec & HSO_PORT_MASK) {
-@@ -1958,7 +1952,7 @@ static void hso_serial_common_free(struc
- static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
- 				    int rx_size, int tx_size)
- {
--	struct device *dev = NULL;
-+	struct device *dev;
- 	int minor;
- 	int i;
- 
-@@ -2107,8 +2101,6 @@ static void hso_net_init(struct net_devi
- {
- 	struct hso_net *hso_net = netdev_priv(net);
- 
--	/* initialize to zero */
--	memset(hso_net, 0, sizeof(*hso_net));
- 	D1("sizeof hso_net is %d", (int)sizeof(*hso_net));
- 
- 	/* most of the setup is done by standard function */
-@@ -2118,7 +2110,6 @@ static void hso_net_init(struct net_devi
- 	net->open = hso_net_open;
- 	net->stop = hso_net_close;
- 	net->hard_start_xmit = hso_net_start_xmit;
--	net->get_stats = hso_net_get_stats;
- 	net->tx_timeout = hso_net_tx_timeout;
- 	net->watchdog_timeo = HSO_NET_TX_TIMEOUT;
- 	net->flags |= IFF_NOARP;
-@@ -2137,8 +2128,7 @@ static void set_ethernet_addr(struct hso
- {
- 	unsigned char mac_addr[6];
- 	unsigned char dummy_mac[6];
--	int i = 0;
--	int len = 0;
+-	int i;
+-	char temp[128];
 +	int i, len;
- 	unsigned char buffer[13];
  
- 	/* we can't fail, therefor we use a random macaddress */
-@@ -2197,9 +2187,9 @@ static int add_net_device(struct hso_dev
- static struct hso_device *hso_create_net_device(struct usb_interface *interface)
- {
- 	int result, i;
--	struct net_device *net = NULL;
--	struct hso_net *hso_net = NULL;
--	struct hso_device *hso_dev = NULL;
-+	struct net_device *net;
-+	struct hso_net *hso_net;
-+	struct hso_device *hso_dev;
+ 	i = (int)*(loff_t *)v;
+-	sprintf(temp, "%s: %d", sctp_dbg_objcnt[i].label,
+-				atomic_read(sctp_dbg_objcnt[i].counter));
+-	seq_printf(seq, "%-127s\n", temp);
++	seq_printf(seq, "%s: %d%n", sctp_dbg_objcnt[i].label,
++				atomic_read(sctp_dbg_objcnt[i].counter), &len);
++	seq_printf(seq, "%*s\n", 127 - len, "");
+ 	return 0;
+ }
  
- 	hso_dev = hso_create_device(interface, HSO_INTF_MUX | HSO_PORT_NETWORK);
- 	if (!hso_dev)
-@@ -2319,8 +2309,8 @@ static void hso_free_serial_device(struc
- static struct hso_device *hso_create_bulk_serial_device(
- 			struct usb_interface *interface, int port)
- {
--	struct hso_device *hso_dev = NULL;
--	struct hso_serial *serial = NULL;
-+	struct hso_device *hso_dev;
-+	struct hso_serial *serial;
- 	char device_name[20];
- 	int num_urbs;
- 
-@@ -2391,12 +2381,12 @@ struct hso_device *hso_create_mux_serial
- 						int port,
- 						struct hso_shared_int *mux)
- {
--	struct hso_device *hso_dev = NULL;
--	struct hso_serial *serial = NULL;
-+	struct hso_device *hso_dev;
-+	struct hso_serial *serial;
- 	char device_name[20];
--	int port_spec = 0;
-+	int port_spec;
- 
--	port_spec |= HSO_INTF_MUX;
-+	port_spec = HSO_INTF_MUX;
- 	port_spec &= ~HSO_PORT_MASK;
- 
- 	port_spec |= hso_mux_to_port(port);
-@@ -2506,7 +2496,7 @@ static int hso_get_config_data(struct us
- 	struct usb_device *usbdev = interface_to_usbdev(interface);
- 	u8 config_data[17];
- 	u32 if_num = interface->altsetting->desc.bInterfaceNumber;
--	s32 result = 0;
-+	s32 result;
- 
- 	if (usb_control_msg(usbdev, usb_rcvctrlpipe(usbdev, 0),
- 			    0x86, 0xC0, 0, 0, config_data, 17,
-@@ -2588,8 +2578,8 @@ static int hso_probe(struct usb_interfac
- 	int mux, i, if_num, port_spec;
- 	unsigned char port_mask;
- 	char *rfkn;
--	struct hso_device *hso_dev = NULL;
--	struct hso_shared_int *shared_int = NULL;
-+	struct hso_device *hso_dev;
-+	struct hso_shared_int *shared_int;
- 	struct hso_device *tmp_dev = NULL;
- 
- 	if_num = interface->altsetting->desc.bInterfaceNumber;
-@@ -2760,7 +2750,7 @@ static int hso_put_activity(struct hso_d
- /* called by kernel when we need to suspend device */
- static int hso_suspend(struct usb_interface *iface, pm_message_t message)
- {
--	int i, result = 0;
-+	int i, result;
- 
- 	/* Stop all serial ports */
- 	for (i = 0; i < HSO_SERIAL_TTY_MINORS; i++) {
-@@ -2872,7 +2862,7 @@ static struct usb_endpoint_descriptor *h
- {
- 	int i;
- 	struct usb_host_interface *iface = intf->cur_altsetting;
--	struct usb_endpoint_descriptor *endp = NULL;
-+	struct usb_endpoint_descriptor *endp;
- 
- 	for (i = 0; i < iface->desc.bNumEndpoints; i++) {
- 		endp = &iface->endpoint[i].desc;
-@@ -2951,8 +2941,8 @@ static struct usb_driver hso_driver = {
- 
- static int __init hso_init(void)
- {
--	int i = 0;
--	int result = 0;
-+	int i;
-+	int result;
- 
- 	/* put it in the log */
- 	printk(KERN_INFO "hso: %s\n", version);
-
---------------040201080402070707010600--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
