@@ -1,43 +1,77 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
-Date: Tue, 22 Apr 2008 10:52:49 +0200
-Message-ID: <200804221052.50023.oliver@neukum.org>
-References: <20080417214719.GF17664@kroah.com> <20080421184157.106603602C8@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <480D0F5B.9010808@teltonika.lt>
+From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Subject: Re: [RFC fs_enet: Convert MII bitbang driver to use GPIO lib
+Date: Tue, 22 Apr 2008 10:55:06 +0200
+Message-ID: <200804221055.09038.laurentp@cse-semaphore.com>
+References: <200804161640.42693.laurentp@cse-semaphore.com> <200804181334.34229.laurentp@cse-semaphore.com> <20080421175627.GD4134@ld0162-tx32.am.freescale.net>
 Mime-Version: 1.0
+Content-Type: multipart/signed;
+  boundary="nextPart40300019.yNJIJPMb30";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, avorontsov@ru.mvista.com,
+	netdev@vger.kernel.org
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:46802 "EHLO
+	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754392AbYDVIzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2008 04:55:12 -0400
+In-Reply-To: <20080421175627.GD4134@ld0162-tx32.am.freescale.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--nextPart40300019.yNJIJPMb30
 Content-Type: text/plain;
   charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <480D0F5B.9010808-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-Am Dienstag, 22. April 2008 00:04:11 schrieb Paulius Zaleckas:
-> I would agree with you, but... To make this interface work you have to
-> send AT command with APN and optionally with PAP/CHAP username and password.
-> Then you call AT command witch initiates PPP with basestation and begins
-> to send/receive traffic on this pseudo ethernet interface... Actually it
-> still needs one more AT command to get your IP and DNS addresses.
-> Then you do: ifconfig hso0 xxx.xxx.xxx.xxx netmask 255.255.255.255 up
-> And then you have to write DNS addresses (got through AT interface) to
-> the /etc/resolv.conf. Now you have a working internet connection!
-> 
-> So... I don't see any chance to do multicasting or broadcasting here...
-> IMO the only way to distribute this kind of connection to local network
-> is to do NAT'ing :( Am I wrong?
+On Monday 21 April 2008 19:56, Scott Wood wrote:
+> On Fri, Apr 18, 2008 at 01:34:29PM +0200, Laurent Pinchart wrote:
+> > Scott Wood was concerned in=20
+> > http://patchwork.ozlabs.org/linuxppc/patch?id=3D17490 that the gpio lib
+> > might be an unnecessary burden for memory-constraint platforms. Should =
+we
+> > keep two mdio bitbang drivers, one with direct access to the ports and =
+one
+> > using gpio lib ? The later solves the concurrent access issues present =
+in
+> > the current fs_enet mdio bitbang driber.
+>=20
+> The memory-constrained platform I had in mind was 8xx, which doesn't use
+> bitbanged MDIO.  It might nice to keep the gpiolib bit separate to avoid
+> situations such as ep8248e where mdiobb would be the only thing requiring
+> a gpiolib binding, though -- but it shouldn't be two separate bitbang
+> drivers, just the existing bitbang driver plus some glue code that binds
+> it to gpiolib.
 
-But what in this setup would prevent the other end of the connection
-from sending packets to a multicast address down the link? If that
-can happen, the questions remains, can the device filter these packets
-in hardware?
+I would be fine with that if the glue code wasn't 90% of the whole driver.=
+=20
+There is really little (not to say nothing) that can be shared between the=
+=20
+two drivers.
 
-	Regards
-		Oliver
+=2D-=20
+Laurent Pinchart
+CSE Semaphore Belgium
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Chaussee de Bruxelles, 732A
+B-1410 Waterloo
+Belgium
+
+T +32 (2) 387 42 59
+=46 +32 (2) 387 42 75
+
+--nextPart40300019.yNJIJPMb30
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBIDafs8y9gWxC9vpcRAkEQAJ9wSZJN1wqlcE8dLMjvr0FGya5eXwCgl0iF
+3/44XV0J1k3E+u7X+5FVJF4=
+=5N8a
+-----END PGP SIGNATURE-----
+
+--nextPart40300019.yNJIJPMb30--
