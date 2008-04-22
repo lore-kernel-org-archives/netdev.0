@@ -1,25 +1,24 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 5/6] ibm_newemac: PowerPC 440GX EMAC PHY clock workaround
-Date: Tue, 22 Apr 2008 10:46:46 +1000
-Message-ID: <20080422004803.7F497DE2C5@ozlabs.org>
+Subject: [PATCH 6/6] ibm_newemac: PowerPC 440EP/440GR EMAC PHY clock workaround
+Date: Tue, 22 Apr 2008 10:46:48 +1000
+Message-ID: <20080422004804.F3288DE254@ozlabs.org>
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
 To: <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43527 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:43577 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761120AbYDVAsG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2008 20:48:06 -0400
+	id S1761130AbYDVAsI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2008 20:48:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Valentine Barshak <vbarshak@ru.mvista.com>
 
-The PowerPC 440GX Taishan board fails to reset EMAC3 (reset timeout error)
-if there's no link. Because of that it fails to find PHY chip. The older ibm_emac
-driver had a workaround for that: the EMAC_CLK_INTERNAL/EMAC_CLK_EXTERNAL macros,
-which toggle the Ethernet Clock Select bit in the SDR0_MFR register. This patch
-does the same for "ibm,emac-440gx" compatible chips. The workaround forces
-clock on -all- EMACs, so we select clock under global emac_phy_map_lock.
+This patch adds ibm_newemac PHY clock workaround for 440EP/440GR EMAC
+attached to a PHY which doesn't generate RX clock if there is no link.
+The code is based on the previous ibm_emac driver stuff. The 440EP/440GR
+allows controlling each EMAC clock separately as opposed to global clock
+selection for 440GX.
 
 BenH: Made that #ifdef CONFIG_PPC_DCR_NATIVE for now as dcri_* stuff doesn't
 exist for MMIO type DCRs like Cell. Some future rework & improvements of the
@@ -29,26 +28,85 @@ Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
 ---
- drivers/net/ibm_newemac/core.c |   18 +++++++++++++++++-
- drivers/net/ibm_newemac/core.h |    8 ++++++--
- 2 files changed, 23 insertions(+), 3 deletions(-)
+ drivers/net/ibm_newemac/core.c |   43 ++++++++++++++++++++++++++++++++++++++++-
+ drivers/net/ibm_newemac/core.h |    6 ++++-
+ 2 files changed, 47 insertions(+), 2 deletions(-)
 
---- linux-work.orig/drivers/net/ibm_newemac/core.c	2008-04-22 10:11:59.000000000 +1000
-+++ linux-work/drivers/net/ibm_newemac/core.c	2008-04-22 10:31:18.000000000 +1000
-@@ -43,6 +43,8 @@
- #include <asm/io.h>
- #include <asm/dma.h>
- #include <asm/uaccess.h>
-+#include <asm/dcr.h>
-+#include <asm/dcr-regs.h>
+--- linux-work.orig/drivers/net/ibm_newemac/core.c	2008-04-22 10:31:18.000000000 +1000
++++ linux-work/drivers/net/ibm_newemac/core.c	2008-04-22 10:38:49.000000000 +1000
+@@ -129,10 +129,35 @@ static struct device_node *emac_boot_lis
+ static inline void emac_report_timeout_error(struct emac_instance *dev,
+ 					     const char *error)
+ {
+-	if (net_ratelimit())
++	if (emac_has_feature(dev, EMAC_FTR_440GX_PHY_CLK_FIX |
++				  EMAC_FTR_440EP_PHY_CLK_FIX))
++		DBG(dev, "%s" NL, error);
++	else if (net_ratelimit())
+ 		printk(KERN_ERR "%s: %s\n", dev->ndev->name, error);
+ }
  
- #include "core.h"
++/* EMAC PHY clock workaround:
++ * 440EP/440GR has more sane SDR0_MFR register implementation than 440GX,
++ * which allows controlling each EMAC clock
++ */
++static inline void emac_rx_clk_tx(struct emac_instance *dev)
++{
++#ifdef CONFIG_PPC_DCR_NATIVE
++	if (emac_has_feature(dev, EMAC_FTR_440EP_PHY_CLK_FIX))
++		dcri_clrset(SDR0, SDR0_MFR,
++			    0, SDR0_MFR_ECS >> dev->cell_index);
++#endif
++}
++
++static inline void emac_rx_clk_default(struct emac_instance *dev)
++{
++#ifdef CONFIG_PPC_DCR_NATIVE
++	if (emac_has_feature(dev, EMAC_FTR_440EP_PHY_CLK_FIX))
++		dcri_clrset(SDR0, SDR0_MFR,
++			    SDR0_MFR_ECS >> dev->cell_index, 0);
++#endif
++}
++
+ /* PHY polling intervals */
+ #define PHY_POLL_LINK_ON	HZ
+ #define PHY_POLL_LINK_OFF	(HZ / 5)
+@@ -1099,9 +1124,11 @@ static int emac_open(struct net_device *
+ 		int link_poll_interval;
+ 		if (dev->phy.def->ops->poll_link(&dev->phy)) {
+ 			dev->phy.def->ops->read_link(&dev->phy);
++			emac_rx_clk_default(dev);
+ 			netif_carrier_on(dev->ndev);
+ 			link_poll_interval = PHY_POLL_LINK_ON;
+ 		} else {
++			emac_rx_clk_tx(dev);
+ 			netif_carrier_off(dev->ndev);
+ 			link_poll_interval = PHY_POLL_LINK_OFF;
+ 		}
+@@ -1179,6 +1206,7 @@ static void emac_link_timer(struct work_
  
-@@ -2333,6 +2335,11 @@ static int __devinit emac_init_phy(struc
- 	dev->phy.mdio_read = emac_mdio_read;
- 	dev->phy.mdio_write = emac_mdio_write;
+ 	if (dev->phy.def->ops->poll_link(&dev->phy)) {
+ 		if (!netif_carrier_ok(dev->ndev)) {
++			emac_rx_clk_default(dev);
+ 			/* Get new link parameters */
+ 			dev->phy.def->ops->read_link(&dev->phy);
  
-+	/* Enable internal clock source */
+@@ -1191,6 +1219,7 @@ static void emac_link_timer(struct work_
+ 		link_poll_interval = PHY_POLL_LINK_ON;
+ 	} else {
+ 		if (netif_carrier_ok(dev->ndev)) {
++			emac_rx_clk_tx(dev);
+ 			netif_carrier_off(dev->ndev);
+ 			netif_tx_disable(dev->ndev);
+ 			emac_reinitialize(dev);
+@@ -2340,6 +2369,14 @@ static int __devinit emac_init_phy(struc
+ 	if (emac_has_feature(dev, EMAC_FTR_440GX_PHY_CLK_FIX))
+ 		dcri_clrset(SDR0, SDR0_MFR, 0, SDR0_MFR_ECS);
+ #endif
++	/* PHY clock workaround */
++	emac_rx_clk_tx(dev);
++
++	/* Enable internal clock source on 440GX*/
 +#ifdef CONFIG_PPC_DCR_NATIVE
 +	if (emac_has_feature(dev, EMAC_FTR_440GX_PHY_CLK_FIX))
 +		dcri_clrset(SDR0, SDR0_MFR, 0, SDR0_MFR_ECS);
@@ -56,55 +114,38 @@ Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
  	/* Configure EMAC with defaults so we can at least use MDIO
  	 * This is needed mostly for 440GX
  	 */
-@@ -2365,6 +2372,12 @@ static int __devinit emac_init_phy(struc
- 			if (!emac_mii_phy_probe(&dev->phy, i))
- 				break;
- 		}
-+
-+	/* Enable external clock source */
-+#ifdef CONFIG_PPC_DCR_NATIVE
-+	if (emac_has_feature(dev, EMAC_FTR_440GX_PHY_CLK_FIX))
-+		dcri_clrset(SDR0, SDR0_MFR, SDR0_MFR_ECS, 0);
-+#endif
- 	mutex_unlock(&emac_phy_map_lock);
- 	if (i == 0x20) {
- 		printk(KERN_WARNING "%s: can't find PHY!\n", np->full_name);
-@@ -2490,8 +2503,11 @@ static int __devinit emac_init_config(st
+@@ -2507,6 +2544,10 @@ static int __devinit emac_init_config(st
+ 		dev->features |= EMAC_FTR_EMAC4;
+ 		if (of_device_is_compatible(np, "ibm,emac-440gx"))
+ 			dev->features |= EMAC_FTR_440GX_PHY_CLK_FIX;
++	} else {
++		if (of_device_is_compatible(np, "ibm,emac-440ep") ||
++		    of_device_is_compatible(np, "ibm,emac-440gr"))
++			dev->features |= EMAC_FTR_440EP_PHY_CLK_FIX;
  	}
  
- 	/* Check EMAC version */
--	if (of_device_is_compatible(np, "ibm,emac4"))
-+	if (of_device_is_compatible(np, "ibm,emac4")) {
- 		dev->features |= EMAC_FTR_EMAC4;
-+		if (of_device_is_compatible(np, "ibm,emac-440gx"))
-+			dev->features |= EMAC_FTR_440GX_PHY_CLK_FIX;
-+	}
- 
  	/* Fixup some feature bits based on the device tree */
- 	if (of_get_property(np, "has-inverted-stacr-oc", NULL))
 Index: linux-work/drivers/net/ibm_newemac/core.h
 ===================================================================
---- linux-work.orig/drivers/net/ibm_newemac/core.h	2008-04-22 10:06:31.000000000 +1000
-+++ linux-work/drivers/net/ibm_newemac/core.h	2008-04-22 10:30:03.000000000 +1000
-@@ -301,6 +301,10 @@ struct emac_instance {
-  * Set if we have new type STACR with STAOPC
+--- linux-work.orig/drivers/net/ibm_newemac/core.h	2008-04-22 10:30:03.000000000 +1000
++++ linux-work/drivers/net/ibm_newemac/core.h	2008-04-22 10:33:12.000000000 +1000
+@@ -305,6 +305,10 @@ struct emac_instance {
+  * Set if we need phy clock workaround for 440gx
   */
- #define EMAC_FTR_HAS_NEW_STACR		0x00000040
+ #define EMAC_FTR_440GX_PHY_CLK_FIX	0x00000080
 +/*
-+ * Set if we need phy clock workaround for 440gx
++ * Set if we need phy clock workaround for 440ep or 440gr
 + */
-+#define EMAC_FTR_440GX_PHY_CLK_FIX	0x00000080
++#define EMAC_FTR_440EP_PHY_CLK_FIX	0x00000100
  
  
  /* Right now, we don't quite handle the always/possible masks on the
-@@ -312,8 +316,8 @@ enum {
- 
- 	EMAC_FTRS_POSSIBLE	=
- #ifdef CONFIG_IBM_NEW_EMAC_EMAC4
--	    EMAC_FTR_EMAC4	| EMAC_FTR_HAS_NEW_STACR	|
--	    EMAC_FTR_STACR_OC_INVERT	|
-+	    EMAC_FTR_EMAC4 | EMAC_FTR_HAS_NEW_STACR |
-+	    EMAC_FTR_STACR_OC_INVERT | EMAC_FTR_440GX_PHY_CLK_FIX |
+@@ -328,7 +332,7 @@ enum {
+ #ifdef CONFIG_IBM_NEW_EMAC_RGMII
+ 	    EMAC_FTR_HAS_RGMII	|
  #endif
- #ifdef CONFIG_IBM_NEW_EMAC_TAH
- 	    EMAC_FTR_HAS_TAH	|
+-	    0,
++	EMAC_FTR_440EP_PHY_CLK_FIX,
+ };
+ 
+ static inline int emac_has_feature(struct emac_instance *dev,
