@@ -1,325 +1,45 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [RFC PATCH net-2.6.26 (Plan B)] [TCP]: Lower stack usage in tcp4_seq_show().
-Date: Tue, 22 Apr 2008 18:35:42 +0400
-Message-ID: <480DF7BE.5030803@openvz.org>
-References: <20080415.193355.36907928.yoshfuji@linux-ipv6.org>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [RFC fs_enet: Convert MII bitbang driver to use GPIO lib
+Date: Tue, 22 Apr 2008 10:08:44 -0500
+Message-ID: <20080422150844.GA15474@ld0162-tx32.am.freescale.net>
+References: <200804161640.42693.laurentp@cse-semaphore.com>
+	<200804181334.34229.laurentp@cse-semaphore.com>
+	<20080421175627.GD4134@ld0162-tx32.am.freescale.net>
+	<200804221055.09038.laurentp@cse-semaphore.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:36561 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755427AbYDVOh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2008 10:37:27 -0400
-In-Reply-To: <20080415.193355.36907928.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Laurent Pinchart <laurentp@cse-semaphore.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <200804221055.09038.laurentp@cse-semaphore.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki wrote:
-> tcp4_seq_show() eats about 250 bytes.  By using buffer in seq_file
-> directly, it will be reduced around 100 bytes.
+On Tue, Apr 22, 2008 at 10:55:06AM +0200, Laurent Pinchart wrote:
+> On Monday 21 April 2008 19:56, Scott Wood wrote:
+> > The memory-constrained platform I had in mind was 8xx, which doesn't use
+> > bitbanged MDIO.  It might nice to keep the gpiolib bit separate to avoid
+> > situations such as ep8248e where mdiobb would be the only thing requiring
+> > a gpiolib binding, though -- but it shouldn't be two separate bitbang
+> > drivers, just the existing bitbang driver plus some glue code that binds
+> > it to gpiolib.
 > 
-> One drawback is higher usage of slab for IPv6 but the format
-> will not change with this patch.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> I would be fine with that if the glue code wasn't 90% of the whole driver. 
+> There is really little (not to say nothing) that can be shared between the 
+> two drivers.
 
-Plan C: we can follow the Al Viro's proposal about %n like in this patch.
-The same applies to udp, fib (the /proc/net/route file), rt_cache and 
-sctp debug. This is minus ~150-200 bytes for each.
+I think we're thinking of a different pair of drivers...  I thought you
+were talking about duplicating drivers/net/phy/mdio-bitbang.c, not
+drivers/net/fs_enet/mii-bitbang.c.
 
-How do you think?
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 02088de..2e2fc33 100644
---- a/net/ipv4/fib_hash.c
-+++ b/net/ipv4/fib_hash.c
-@@ -1003,7 +1003,7 @@ static unsigned fib_flag_trans(int type, __be32 mask, struct fib_info *fi)
- static int fib_seq_show(struct seq_file *seq, void *v)
- {
- 	struct fib_iter_state *iter;
--	char bf[128];
-+	int len;
- 	__be32 prefix, mask;
- 	unsigned flags;
- 	struct fib_node *f;
-@@ -1025,18 +1025,19 @@ static int fib_seq_show(struct seq_file *seq, void *v)
- 	mask	= FZ_MASK(iter->zone);
- 	flags	= fib_flag_trans(fa->fa_type, mask, fi);
- 	if (fi)
--		snprintf(bf, sizeof(bf),
--			 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
-+		seq_printf(seq,
-+			 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u%n",
- 			 fi->fib_dev ? fi->fib_dev->name : "*", prefix,
- 			 fi->fib_nh->nh_gw, flags, 0, 0, fi->fib_priority,
- 			 mask, (fi->fib_advmss ? fi->fib_advmss + 40 : 0),
- 			 fi->fib_window,
--			 fi->fib_rtt >> 3);
-+			 fi->fib_rtt >> 3, &len);
- 	else
--		snprintf(bf, sizeof(bf),
--			 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
--			 prefix, 0, flags, 0, 0, 0, mask, 0, 0, 0);
--	seq_printf(seq, "%-127s\n", bf);
-+		seq_printf(seq,
-+			 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u%n",
-+			 prefix, 0, flags, 0, 0, 0, mask, 0, 0, 0, &len);
-+
-+	seq_printf(seq, "%*s\n", 127 - len, "");
- out:
- 	return 0;
- }
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index ea294ff..4b02d14 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -2602,15 +2602,16 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
- 		list_for_each_entry_rcu(fa, &li->falh, fa_list) {
- 			const struct fib_info *fi = fa->fa_info;
- 			unsigned flags = fib_flag_trans(fa->fa_type, mask, fi);
--			char bf[128];
-+			int len;
- 
- 			if (fa->fa_type == RTN_BROADCAST
- 			    || fa->fa_type == RTN_MULTICAST)
- 				continue;
- 
- 			if (fi)
--				snprintf(bf, sizeof(bf),
--					 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
-+				seq_printf(seq,
-+					 "%s\t%08X\t%08X\t%04X\t%d\t%u\t"
-+					 "%d\t%08X\t%d\t%u\t%u%n",
- 					 fi->fib_dev ? fi->fib_dev->name : "*",
- 					 prefix,
- 					 fi->fib_nh->nh_gw, flags, 0, 0,
-@@ -2619,14 +2620,15 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
- 					 (fi->fib_advmss ?
- 					  fi->fib_advmss + 40 : 0),
- 					 fi->fib_window,
--					 fi->fib_rtt >> 3);
-+					 fi->fib_rtt >> 3, &len);
- 			else
--				snprintf(bf, sizeof(bf),
--					 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
-+				seq_printf(seq,
-+					 "*\t%08X\t%08X\t%04X\t%d\t%u\t"
-+					 "%d\t%08X\t%d\t%u\t%u%n",
- 					 prefix, 0, flags, 0, 0, 0,
--					 mask, 0, 0, 0);
-+					 mask, 0, 0, 0, &len);
- 
--			seq_printf(seq, "%-127s\n", bf);
-+			seq_printf(seq, "%*s\n", 127 - len, "");
- 		}
- 	}
- 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 780e948..ce25a13 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -367,10 +367,10 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
- 			   "HHUptod\tSpecDst");
- 	else {
- 		struct rtable *r = v;
--		char temp[256];
-+		int len;
- 
--		sprintf(temp, "%s\t%08lX\t%08lX\t%8X\t%d\t%u\t%d\t"
--			      "%08lX\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X",
-+		seq_printf(seq, "%s\t%08lX\t%08lX\t%8X\t%d\t%u\t%d\t"
-+			      "%08lX\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
- 			r->u.dst.dev ? r->u.dst.dev->name : "*",
- 			(unsigned long)r->rt_dst, (unsigned long)r->rt_gateway,
- 			r->rt_flags, atomic_read(&r->u.dst.__refcnt),
-@@ -384,8 +384,9 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
- 			r->u.dst.hh ? atomic_read(&r->u.dst.hh->hh_refcnt) : -1,
- 			r->u.dst.hh ? (r->u.dst.hh->hh_output ==
- 				       dev_queue_xmit) : 0,
--			r->rt_spec_dst);
--		seq_printf(seq, "%-127s\n", temp);
-+			r->rt_spec_dst, &len);
-+
-+		seq_printf(seq, "%*s\n", 127 - len, "");
- 	}
- 	return 0;
- }
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 7766151..0e9bc12 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2255,13 +2255,13 @@ void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
- }
- 
- static void get_openreq4(struct sock *sk, struct request_sock *req,
--			 char *tmpbuf, int i, int uid)
-+			 struct seq_file *f, int i, int uid, int *len)
- {
- 	const struct inet_request_sock *ireq = inet_rsk(req);
- 	int ttd = req->expires - jiffies;
- 
--	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
--		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %u %d %p",
-+	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
-+		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %u %d %p%n",
- 		i,
- 		ireq->loc_addr,
- 		ntohs(inet_sk(sk)->sport),
-@@ -2276,10 +2276,11 @@ static void get_openreq4(struct sock *sk, struct request_sock *req,
- 		0,  /* non standard timer */
- 		0, /* open_requests have no inode */
- 		atomic_read(&sk->sk_refcnt),
--		req);
-+		req,
-+		len);
- }
- 
--static void get_tcp4_sock(struct sock *sk, char *tmpbuf, int i)
-+static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
- {
- 	int timer_active;
- 	unsigned long timer_expires;
-@@ -2305,8 +2306,8 @@ static void get_tcp4_sock(struct sock *sk, char *tmpbuf, int i)
- 		timer_expires = jiffies;
- 	}
- 
--	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
--			"%08X %5d %8d %lu %d %p %u %u %u %u %d",
-+	seq_printf(f, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
-+			"%08X %5d %8d %lu %d %p %u %u %u %u %d%n",
- 		i, src, srcp, dest, destp, sk->sk_state,
- 		tp->write_seq - tp->snd_una,
- 		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
-@@ -2322,11 +2323,12 @@ static void get_tcp4_sock(struct sock *sk, char *tmpbuf, int i)
- 		icsk->icsk_ack.ato,
- 		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
- 		tp->snd_cwnd,
--		tp->snd_ssthresh >= 0xFFFF ? -1 : tp->snd_ssthresh);
-+		tp->snd_ssthresh >= 0xFFFF ? -1 : tp->snd_ssthresh,
-+		len);
- }
- 
- static void get_timewait4_sock(struct inet_timewait_sock *tw,
--			       char *tmpbuf, int i)
-+			       struct seq_file *f, int i, int *len)
- {
- 	__be32 dest, src;
- 	__u16 destp, srcp;
-@@ -2340,11 +2342,11 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
- 	destp = ntohs(tw->tw_dport);
- 	srcp  = ntohs(tw->tw_sport);
- 
--	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
--		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %p",
-+	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
-+		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %p%n",
- 		i, src, srcp, dest, destp, tw->tw_substate, 0, 0,
- 		3, jiffies_to_clock_t(ttd), 0, 0, 0, 0,
--		atomic_read(&tw->tw_refcnt), tw);
-+		atomic_read(&tw->tw_refcnt), tw, len);
- }
- 
- #define TMPSZ 150
-@@ -2352,7 +2354,7 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
- static int tcp4_seq_show(struct seq_file *seq, void *v)
- {
- 	struct tcp_iter_state* st;
--	char tmpbuf[TMPSZ + 1];
-+	int len;
- 
- 	if (v == SEQ_START_TOKEN) {
- 		seq_printf(seq, "%-*s\n", TMPSZ - 1,
-@@ -2366,16 +2368,16 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
- 	switch (st->state) {
- 	case TCP_SEQ_STATE_LISTENING:
- 	case TCP_SEQ_STATE_ESTABLISHED:
--		get_tcp4_sock(v, tmpbuf, st->num);
-+		get_tcp4_sock(v, seq, st->num, &len);
- 		break;
- 	case TCP_SEQ_STATE_OPENREQ:
--		get_openreq4(st->syn_wait_sk, v, tmpbuf, st->num, st->uid);
-+		get_openreq4(st->syn_wait_sk, v, seq, st->num, st->uid, &len);
- 		break;
- 	case TCP_SEQ_STATE_TIME_WAIT:
--		get_timewait4_sock(v, tmpbuf, st->num);
-+		get_timewait4_sock(v, seq, st->num, &len);
- 		break;
- 	}
--	seq_printf(seq, "%-*s\n", TMPSZ - 1, tmpbuf);
-+	seq_printf(seq, "%*s\n", TMPSZ - 1 - len, "");
- out:
- 	return 0;
- }
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b053ac7..1f535e3 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1619,7 +1619,8 @@ void udp_proc_unregister(struct net *net, struct udp_seq_afinfo *afinfo)
- }
- 
- /* ------------------------------------------------------------------------ */
--static void udp4_format_sock(struct sock *sp, char *tmpbuf, int bucket)
-+static void udp4_format_sock(struct sock *sp, struct seq_file *f,
-+		int bucket, int *len)
- {
- 	struct inet_sock *inet = inet_sk(sp);
- 	__be32 dest = inet->daddr;
-@@ -1627,13 +1628,13 @@ static void udp4_format_sock(struct sock *sp, char *tmpbuf, int bucket)
- 	__u16 destp	  = ntohs(inet->dport);
- 	__u16 srcp	  = ntohs(inet->sport);
- 
--	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
--		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
-+	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
-+		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p%n",
- 		bucket, src, srcp, dest, destp, sp->sk_state,
- 		atomic_read(&sp->sk_wmem_alloc),
- 		atomic_read(&sp->sk_rmem_alloc),
- 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
--		atomic_read(&sp->sk_refcnt), sp);
-+		atomic_read(&sp->sk_refcnt), sp, len);
- }
- 
- int udp4_seq_show(struct seq_file *seq, void *v)
-@@ -1644,11 +1645,11 @@ int udp4_seq_show(struct seq_file *seq, void *v)
- 			   "rx_queue tr tm->when retrnsmt   uid  timeout "
- 			   "inode");
- 	else {
--		char tmpbuf[129];
- 		struct udp_iter_state *state = seq->private;
-+		int len;
- 
--		udp4_format_sock(v, tmpbuf, state->bucket);
--		seq_printf(seq, "%-127s\n", tmpbuf);
-+		udp4_format_sock(v, seq, state->bucket, &len);
-+		seq_printf(seq, "%*s\n", 127 - len ,"");
- 	}
- 	return 0;
- }
-diff --git a/net/sctp/objcnt.c b/net/sctp/objcnt.c
-index cfeb07e..f73ec0e 100644
---- a/net/sctp/objcnt.c
-+++ b/net/sctp/objcnt.c
-@@ -83,13 +83,12 @@ static sctp_dbg_objcnt_entry_t sctp_dbg_objcnt[] = {
-  */
- static int sctp_objcnt_seq_show(struct seq_file *seq, void *v)
- {
--	int i;
--	char temp[128];
-+	int i, len;
- 
- 	i = (int)*(loff_t *)v;
--	sprintf(temp, "%s: %d", sctp_dbg_objcnt[i].label,
--				atomic_read(sctp_dbg_objcnt[i].counter));
--	seq_printf(seq, "%-127s\n", temp);
-+	seq_printf(seq, "%s: %d%n", sctp_dbg_objcnt[i].label,
-+				atomic_read(sctp_dbg_objcnt[i].counter), &len);
-+	seq_printf(seq, "%*s\n", 127 - len, "");
- 	return 0;
- }
- 
+-Scott
