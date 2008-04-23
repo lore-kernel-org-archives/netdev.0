@@ -1,46 +1,36 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: Phy read timeout in ibm_new_emac driver
-Date: Wed, 23 Apr 2008 15:18:48 +1000
-Message-ID: <1208927928.9060.18.camel@pasglop>
-References: <6a6049b80804160349q42120b4bs1c0db49ea5ad055d@mail.gmail.com>
-	 <1208347791.6958.279.camel@pasglop>
-	 <200804230706.32641.super.firetwister@gmail.com>
-Reply-To: benh@kernel.crashing.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: LRO/GSO interaction when packets are forwarded
+Date: Wed, 23 Apr 2008 06:00:18 +0000
+Message-ID: <20080423060018.GA3946@ff.dom.local>
+References: <20080422160130.0b84959a@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ppc-dev <linuxppc-dev@ozlabs.org>
-To: Markus Brunner <super.firetwister@googlemail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Kieran Mansley <kmansley@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:36276 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751373AbYDWFS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2008 01:18:59 -0400
-In-Reply-To: <200804230706.32641.super.firetwister@gmail.com>
+Received: from fg-out-1718.google.com ([72.14.220.155]:41824 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751752AbYDWF50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 01:57:26 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so2476591fgb.17
+        for <netdev@vger.kernel.org>; Tue, 22 Apr 2008 22:57:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080422160130.0b84959a@speedy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 23-04-2008 01:01, Stephen Hemminger wrote:
+...
+>>>> First off, no hardware should ever do LRO on non-local packets. If the
+>>>> hardware isn't smart enough to do this, I guess the bridge code to have
+>>>> an API to turn it off. IP should also turn it off if ip_forwarding
+>>>> is enabled on that device.
 
-On Wed, 2008-04-23 at 07:06 +0200, Markus Brunner wrote:
-> On Wednesday 16 April 2008, Benjamin Herrenschmidt wrote:
-> 
-> > Somebody knows off hand what the standard says the timeout should be ?
-> 
-> Anyone?
-> 
-> I didn't find any documentation on the standard, but I had a look at other 
-> drivers. 
-> au1000_eth.c waits 20 ms (20 * 1ms) in mdio_read.
-> bfin_mac.c waits 500 * 1us in mdio_poll. 
-> In both functions the last delay before the timeout is useless, like in 
-> new_emac. Not nice, but timeouts shouldn't occur anyway.
-> 
-> new emac probably doesn't wait long enough, but 20ms seems to be a bit too 
-> long.
+Could you explain this more? (I can't see any obvious reason why
+forwarding between local networks should differ here from bridging?)
 
-I just send Jeff a patch doubling the timeouts.
-
-Cheers,
-Ben.
-
-
+Thanks,
+Jarek P.
