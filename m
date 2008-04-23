@@ -1,192 +1,157 @@
 From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Subject: [PATCH 2.6.26 1/5]S2io: Removed receive buffer replenishment tasklet
-Date: Wed, 23 Apr 2008 13:29:42 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10804231329010.10279-100000@guinness>
+Subject: [PATCH 2.6.26 2/5]S2io: Removed rx_lock and put_lock
+Date: Wed, 23 Apr 2008 13:31:33 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10804231331000.10279-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: support@neterion.com
 To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:39415 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:39444 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752298AbYDWR3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 13:29:44 -0400
+	with ESMTP id S1753249AbYDWRbf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 13:31:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Removed receive buffer replenishment tasklet s2io_tasklet and instead 
-  allocating the receive buffers in either the interrupt handler (no napi) 
-  or the napi handler (napi enabled).
+- Removed rx_lock and put_lock as the buffer replenishment and receive completion 
+  is handled serially.
 
 Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
 Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 ---
-diff -Nurp 2-0-26-19/drivers/net/s2io.c 2-0-26-21-1/drivers/net/s2io.c
---- 2-0-26-19/drivers/net/s2io.c	2008-04-09 21:06:13.000000000 +0530
-+++ 2-0-26-21-1/drivers/net/s2io.c	2008-04-09 21:06:59.000000000 +0530
-@@ -117,20 +117,6 @@ static inline int RXD_IS_UP2DT(struct Rx
- 
- #define LINK_IS_UP(val64) (!(val64 & (ADAPTER_STATUS_RMAC_REMOTE_FAULT | \
- 				      ADAPTER_STATUS_RMAC_LOCAL_FAULT)))
--#define TASKLET_IN_USE test_and_set_bit(0, (&sp->tasklet_status))
--#define PANIC	1
--#define LOW	2
--static inline int rx_buffer_level(struct s2io_nic * sp, int rxb_size, int ring)
--{
--	struct mac_info *mac_control;
--
--	mac_control = &sp->mac_control;
--	if (rxb_size <= rxd_count[sp->rxd_mode])
--		return PANIC;
--	else if ((mac_control->rings[ring].pkt_cnt - rxb_size) > 16)
--		return  LOW;
--	return 0;
--}
- 
- static inline int is_s2io_card_up(const struct s2io_nic * sp)
+diff -Nurp 2-0-26-21-1/drivers/net/s2io.c 2-0-26-21-2/drivers/net/s2io.c
+--- 2-0-26-21-1/drivers/net/s2io.c	2008-04-09 21:06:59.000000000 +0530
++++ 2-0-26-21-2/drivers/net/s2io.c	2008-04-09 21:08:07.000000000 +0530
+@@ -2530,7 +2530,6 @@ static int fill_rx_buffers(struct s2io_n
+ 	struct config_param *config;
+ 	u64 tmp;
+ 	struct buffAdd *ba;
+-	unsigned long flags;
+ 	struct RxD_t *first_rxdp = NULL;
+ 	u64 Buffer0_ptr = 0, Buffer1_ptr = 0;
+ 	struct RxD1 *rxdp1;
+@@ -2578,15 +2577,7 @@ static int fill_rx_buffers(struct s2io_n
+ 			DBG_PRINT(INTR_DBG, "%s: Next block at: %p\n",
+ 				  dev->name, rxdp);
+ 		}
+-		if(!napi) {
+-			spin_lock_irqsave(&nic->put_lock, flags);
+-			mac_control->rings[ring_no].put_pos =
+-			(block_no * (rxd_count[nic->rxd_mode] + 1)) + off;
+-			spin_unlock_irqrestore(&nic->put_lock, flags);
+-		} else {
+-			mac_control->rings[ring_no].put_pos =
+-			(block_no * (rxd_count[nic->rxd_mode] + 1)) + off;
+-		}
++
+ 		if ((rxdp->Control_1 & RXD_OWN_XENA) &&
+ 			((nic->rxd_mode == RXD_MODE_3B) &&
+ 				(rxdp->Control_2 & s2BIT(0)))) {
+@@ -2964,7 +2955,7 @@ static void rx_intr_handler(struct ring_
  {
-@@ -4105,7 +4091,6 @@ static int s2io_close(struct net_device 
- 			do_s2io_delete_unicast_mc(sp, tmp64);
+ 	struct s2io_nic *nic = ring_data->nic;
+ 	struct net_device *dev = (struct net_device *) nic->dev;
+-	int get_block, put_block, put_offset;
++	int get_block, put_block;
+ 	struct rx_curr_get_info get_info, put_info;
+ 	struct RxD_t *rxdp;
+ 	struct sk_buff *skb;
+@@ -2973,19 +2964,11 @@ static void rx_intr_handler(struct ring_
+ 	struct RxD1* rxdp1;
+ 	struct RxD3* rxdp3;
+ 
+-	spin_lock(&nic->rx_lock);
+-
+ 	get_info = ring_data->rx_curr_get_info;
+ 	get_block = get_info.block_index;
+ 	memcpy(&put_info, &ring_data->rx_curr_put_info, sizeof(put_info));
+ 	put_block = put_info.block_index;
+ 	rxdp = ring_data->rx_blocks[get_block].rxds[get_info.offset].virt_addr;
+-	if (!napi) {
+-		spin_lock(&nic->put_lock);
+-		put_offset = ring_data->put_pos;
+-		spin_unlock(&nic->put_lock);
+-	} else
+-		put_offset = ring_data->put_pos;
+ 
+ 	while (RXD_IS_UP2DT(rxdp)) {
+ 		/*
+@@ -3002,7 +2985,6 @@ static void rx_intr_handler(struct ring_
+ 			DBG_PRINT(ERR_DBG, "%s: The skb is ",
+ 				  dev->name);
+ 			DBG_PRINT(ERR_DBG, "Null in Rx Intr\n");
+-			spin_unlock(&nic->rx_lock);
+ 			return;
+ 		}
+ 		if (nic->rxd_mode == RXD_MODE_1) {
+@@ -3058,8 +3040,6 @@ static void rx_intr_handler(struct ring_
+ 			}
+ 		}
  	}
- 
--	/* Reset card, kill tasklet and free Tx and Rx buffers. */
- 	s2io_card_down(sp);
- 
- 	return 0;
-@@ -4370,29 +4355,9 @@ s2io_alarm_handle(unsigned long data)
- 
- static int s2io_chk_rx_buffers(struct s2io_nic *sp, int rng_n)
- {
--	int rxb_size, level;
 -
--	if (!sp->lro) {
--		rxb_size = atomic_read(&sp->rx_bufs_left[rng_n]);
--		level = rx_buffer_level(sp, rxb_size, rng_n);
--
--		if ((level == PANIC) && (!TASKLET_IN_USE)) {
--			int ret;
--			DBG_PRINT(INTR_DBG, "%s: Rx BD hit ", __FUNCTION__);
--			DBG_PRINT(INTR_DBG, "PANIC levels\n");
--			if ((ret = fill_rx_buffers(sp, rng_n)) == -ENOMEM) {
--				DBG_PRINT(INFO_DBG, "Out of memory in %s",
--					  __FUNCTION__);
--				clear_bit(0, (&sp->tasklet_status));
--				return -1;
--			}
--			clear_bit(0, (&sp->tasklet_status));
--		} else if (level == LOW)
--			tasklet_schedule(&sp->task);
--
--	} else if (fill_rx_buffers(sp, rng_n) == -ENOMEM) {
--			DBG_PRINT(INFO_DBG, "%s:Out of memory", sp->dev->name);
--			DBG_PRINT(INFO_DBG, " in Rx Intr!!\n");
-+	if (fill_rx_buffers(sp, rng_n) == -ENOMEM) {
-+		DBG_PRINT(INFO_DBG, "%s:Out of memory", sp->dev->name);
-+		DBG_PRINT(INFO_DBG, " in Rx Intr!!\n");
- 	}
- 	return 0;
- }
-@@ -6770,49 +6735,6 @@ static int s2io_change_mtu(struct net_de
+-	spin_unlock(&nic->rx_lock);
  }
  
  /**
-- *  s2io_tasklet - Bottom half of the ISR.
-- *  @dev_adr : address of the device structure in dma_addr_t format.
-- *  Description:
-- *  This is the tasklet or the bottom half of the ISR. This is
-- *  an extension of the ISR which is scheduled by the scheduler to be run
-- *  when the load on the CPU is low. All low priority tasks of the ISR can
-- *  be pushed into the tasklet. For now the tasklet is used only to
-- *  replenish the Rx buffers in the Rx buffer descriptors.
-- *  Return value:
-- *  void.
-- */
--
--static void s2io_tasklet(unsigned long dev_addr)
--{
--	struct net_device *dev = (struct net_device *) dev_addr;
--	struct s2io_nic *sp = dev->priv;
--	int i, ret;
--	struct mac_info *mac_control;
--	struct config_param *config;
--
--	mac_control = &sp->mac_control;
--	config = &sp->config;
--
--	if (!TASKLET_IN_USE) {
--		for (i = 0; i < config->rx_ring_num; i++) {
--			ret = fill_rx_buffers(sp, i);
--			if (ret == -ENOMEM) {
--				DBG_PRINT(INFO_DBG, "%s: Out of ",
--					  dev->name);
--				DBG_PRINT(INFO_DBG, "memory in tasklet\n");
--				break;
--			} else if (ret == -EFILL) {
--				DBG_PRINT(INFO_DBG,
--					  "%s: Rx Ring %d is full\n",
--					  dev->name, i);
--				break;
--			}
--		}
--		clear_bit(0, (&sp->tasklet_status));
--	}
--}
--
--/**
-  * s2io_set_link - Set the LInk status
-  * @data: long pointer to device private structue
-  * Description: Sets the link status for the adapter
-@@ -7186,9 +7108,6 @@ static void do_s2io_card_down(struct s2i
+@@ -7083,7 +7063,6 @@ static void do_s2io_card_down(struct s2i
+ {
+ 	int cnt = 0;
+ 	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+-	unsigned long flags;
+ 	register u64 val64 = 0;
+ 	struct config_param *config;
+ 	config = &sp->config;
+@@ -7142,9 +7121,7 @@ static void do_s2io_card_down(struct s2i
+ 	free_tx_buffers(sp);
  
- 	s2io_rem_isr(sp);
+ 	/* Free all Rx buffers */
+-	spin_lock_irqsave(&sp->rx_lock, flags);
+ 	free_rx_buffers(sp);
+-	spin_unlock_irqrestore(&sp->rx_lock, flags);
  
--	/* Kill tasklet. */
--	tasklet_kill(&sp->task);
+ 	clear_bit(__S2IO_STATE_LINK_TASK, &(sp->state));
+ }
+@@ -8044,10 +8021,6 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	for (i = 0; i < sp->config.tx_fifo_num; i++)
+ 		spin_lock_init(&mac_control->fifos[i].tx_lock);
+ 
+-	if (!napi)
+-		spin_lock_init(&sp->put_lock);
+-	spin_lock_init(&sp->rx_lock);
 -
- 	/* Check if the device is Quiescent and then Reset the NIC */
- 	while(do_io) {
- 		/* As per the HW requirement we need to replenish the
-@@ -7314,9 +7233,6 @@ static int s2io_card_up(struct s2io_nic 
- 
- 	S2IO_TIMER_CONF(sp->alarm_timer, s2io_alarm_handle, sp, (HZ/2));
- 
--	/* Enable tasklet for the device */
--	tasklet_init(&sp->task, s2io_tasklet, (unsigned long) dev);
--
- 	/*  Enable select interrupts */
- 	en_dis_err_alarms(sp, ENA_ALL_INTRS, ENABLE_INTRS);
- 	if (sp->config.intr_type != INTA)
-@@ -8119,10 +8035,9 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	s2io_reset(sp);
- 
  	/*
--	 * Initialize the tasklet status and link state flags
-+	 * Initialize link state flags
- 	 * and the card state parameter
+ 	 * SXE-002: Configure link and activity LED to init state
+ 	 * on driver load.
+diff -Nurp 2-0-26-21-1/drivers/net/s2io.h 2-0-26-21-2/drivers/net/s2io.h
+--- 2-0-26-21-1/drivers/net/s2io.h	2008-04-09 21:07:06.000000000 +0530
++++ 2-0-26-21-2/drivers/net/s2io.h	2008-04-09 21:08:17.000000000 +0530
+@@ -703,9 +703,6 @@ struct ring_info {
  	 */
--	sp->tasklet_status = 0;
- 	sp->state = 0;
+ 	struct rx_curr_get_info rx_curr_get_info;
  
- 	/* Initialize spinlocks */
-diff -Nurp 2-0-26-19/drivers/net/s2io.h 2-0-26-21-1/drivers/net/s2io.h
---- 2-0-26-19/drivers/net/s2io.h	2008-04-09 21:06:13.000000000 +0530
-+++ 2-0-26-21-1/drivers/net/s2io.h	2008-04-09 21:07:06.000000000 +0530
-@@ -868,8 +868,6 @@ struct s2io_nic {
- 	int device_enabled_once;
+-	/* Index to the absolute position of the put pointer of Rx ring */
+-	int put_pos;
+-
+ 	/* Buffer Address store. */
+ 	struct buffAdd **ba;
+ 	struct s2io_nic *nic;
+@@ -877,8 +874,6 @@ struct s2io_nic {
  
- 	char name[60];
--	struct tasklet_struct task;
--	volatile unsigned long tasklet_status;
+ 	atomic_t rx_bufs_left[MAX_RX_RINGS];
  
- 	/* Timer that handles I/O errors/exceptions */
- 	struct timer_list alarm_timer;
-@@ -1094,7 +1092,6 @@ static void s2io_handle_errors(void * de
- static int s2io_starter(void);
- static void s2io_closer(void);
- static void s2io_tx_watchdog(struct net_device *dev);
--static void s2io_tasklet(unsigned long dev_addr);
- static void s2io_set_multicast(struct net_device *dev);
- static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp);
- static void s2io_link(struct s2io_nic * sp, int link);
+-	spinlock_t put_lock;
+-
+ #define PROMISC     1
+ #define ALL_MULTI   2
+ 
+@@ -962,7 +957,6 @@ struct s2io_nic {
+ 	u8		lro;
+ 	u16		lro_max_aggr_per_sess;
+ 	volatile unsigned long state;
+-	spinlock_t	rx_lock;
+ 	u64		general_int_mask;
+ #define VPD_STRING_LEN 80
+ 	u8  product_name[VPD_STRING_LEN];
 
