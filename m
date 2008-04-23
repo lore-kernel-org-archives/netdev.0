@@ -1,116 +1,154 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 2/8] e1000e: Add interrupt moderation run-time ethtool
-	interface
-Date: Wed, 23 Apr 2008 11:09:08 -0700
-Message-ID: <20080423180908.24972.64503.stgit@localhost.localdomain>
-References: <20080423180900.24972.84015.stgit@localhost.localdomain>
+From: wendy xiong <wendyx@us.ibm.com>
+Subject: Re: [ PATCH 1/1 2.6.25-rc9] bnx2: Add EEH support in bnx2 driver -
+	Resending
+Date: Wed, 23 Apr 2008 15:36:48 -0500
+Message-ID: <1208983008.7339.24.camel@wendyx.austin.ibm.com>
+References: <1208812834.24768.40.camel@wendyx.austin.ibm.com>
+	 <1208823296.16633.230.camel@dell>
+	 <1208893442.7339.17.camel@wendyx.austin.ibm.com>
+	 <1208900791.13806.5.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: jeff@garzik.org
+Cc: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
+	David Miller <davem@davemloft.net>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:24434 "EHLO mga01.intel.com"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:34077 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753615AbYDWSXK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2008 14:23:10 -0400
-In-Reply-To: <20080423180900.24972.84015.stgit@localhost.localdomain>
+	id S1752700AbYDWUgz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2008 16:36:55 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3NKaorA020702
+	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:36:50 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3NKaopQ244094
+	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:36:50 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3NKaodG016893
+	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:36:50 -0400
+In-Reply-To: <1208900791.13806.5.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool -c / -C interface can now be used to modify the
-irq moderation algorithm. This change does not require an
-adapter reset and can thus be used at all times. The adapter
-only supports changing/reading rx-usecs which has special
-values for 0, 1 and 3:
+Hi Michael,
 
-0 - no irq moderation whatsoever
-1 - normal moderation favoring regular mixed traffic (default)
-3 - best attempt at low latency possible at cost of CPU
+Thanks!
+I am re-sending patch with rtnl_lock()/rtnl_unlock().
 
-For values between 10 and 10000 the rx-usecs defines "the minimum
-time between successive irqs" in usec, unlike the module parameter.
+Thanks,
+Wendy
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/drivers/net/bnx2.c
+--- linux-2.6.25-rc9.orig/drivers/net/bnx2.c    2008-04-18 22:12:53.000000000 -0500
++++ linux-2.6.25-rc9.eeh/drivers/net/bnx2.c     2008-04-23 15:08:40.000000000 -0500
+@@ -7108,6 +7108,7 @@ bnx2_init_board(struct pci_dev *pdev, st
+        }
 
- drivers/net/e1000e/e1000.h   |    3 +++
- drivers/net/e1000e/ethtool.c |   43 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 46 insertions(+), 0 deletions(-)
+        pci_set_master(pdev);
++       pci_save_state(pdev);
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 4d3d1c2..79a426f 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -70,6 +70,9 @@ struct e1000_info;
- #define E1000_MAX_RXD			4096
- #define E1000_MIN_RXD			80
- 
-+#define E1000_MIN_ITR_USECS		10 /* 100000 irq/sec */
-+#define E1000_MAX_ITR_USECS		10000 /* 100    irq/sec */
-+
- /* Early Receive defines */
- #define E1000_ERT_2048			0x100
- 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index c894a6f..ce045ac 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1770,6 +1770,47 @@ static int e1000_phys_id(struct net_device *netdev, u32 data)
- 	return 0;
+        bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
+        if (bp->pm_cap == 0) {
+@@ -7617,6 +7618,91 @@ bnx2_resume(struct pci_dev *pdev)
+        return 0;
  }
- 
-+static int e1000_get_coalesce(struct net_device *netdev,
-+			      struct ethtool_coalesce *ec)
+
++/**
++ * bnx2_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci connection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t bnx2_io_error_detected(struct pci_dev *pdev,
++                                               pci_channel_state_t state)
 +{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
++       struct net_device *dev = pci_get_drvdata(pdev);
++       struct bnx2 *bp = netdev_priv(dev);
 +
-+	if (adapter->itr_setting <= 3)
-+		ec->rx_coalesce_usecs = adapter->itr_setting;
-+	else
-+		ec->rx_coalesce_usecs = 1000000 / adapter->itr_setting;
++       rtnl_lock();
++       netif_device_detach(dev);
 +
-+	return 0;
++       if (netif_running(dev)) {
++               bnx2_netif_stop(bp);
++               del_timer_sync(&bp->timer);
++               bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
++       }
++
++       pci_disable_device(pdev);
++       rtnl_unlock();
++
++       /* Request a slot slot reset. */
++       return PCI_ERS_RESULT_NEED_RESET;
 +}
 +
-+static int e1000_set_coalesce(struct net_device *netdev,
-+			      struct ethtool_coalesce *ec)
++/**
++ * bnx2_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot.
++ */
++static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
 +{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
++       struct net_device *dev = pci_get_drvdata(pdev);
++       struct bnx2 *bp = netdev_priv(dev);
 +
-+	if ((ec->rx_coalesce_usecs > E1000_MAX_ITR_USECS) ||
-+	    ((ec->rx_coalesce_usecs > 3) &&
-+	     (ec->rx_coalesce_usecs < E1000_MIN_ITR_USECS)) ||
-+	    (ec->rx_coalesce_usecs == 2))
-+		return -EINVAL;
++       rtnl_lock();
++       if (pci_enable_device(pdev)) {
++               dev_err(&pdev->dev,
++                       "Cannot re-enable PCI device after reset.\n");
++               return PCI_ERS_RESULT_DISCONNECT;
++       }
++       pci_set_master(pdev);
++       pci_restore_state(pdev);
 +
-+	if (ec->rx_coalesce_usecs <= 3) {
-+		adapter->itr = 20000;
-+		adapter->itr_setting = ec->rx_coalesce_usecs;
-+	} else {
-+		adapter->itr = (1000000 / ec->rx_coalesce_usecs);
-+		adapter->itr_setting = adapter->itr & ~3;
-+	}
++       if (netif_running(dev)) {
++               bnx2_set_power_state(bp, PCI_D0);
++               bnx2_init_nic(bp);
++       }
 +
-+	if (adapter->itr_setting != 0)
-+		ew32(ITR, 1000000000 / (adapter->itr * 256));
-+	else
-+		ew32(ITR, 0);
-+
-+	return 0;
++       rtnl_unlock();
++       return PCI_ERS_RESULT_RECOVERED;
 +}
 +
- static int e1000_nway_reset(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
-@@ -1845,6 +1886,8 @@ static const struct ethtool_ops e1000_ethtool_ops = {
- 	.phys_id		= e1000_phys_id,
- 	.get_ethtool_stats	= e1000_get_ethtool_stats,
- 	.get_sset_count		= e1000e_get_sset_count,
-+	.get_coalesce		= e1000_get_coalesce,
-+	.set_coalesce		= e1000_set_coalesce,
++/**
++ * bnx2_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells us that
++ * its OK to resume normal operation.
++ */
++static void bnx2_io_resume(struct pci_dev *pdev)
++{
++       struct net_device *dev = pci_get_drvdata(pdev);
++       struct bnx2 *bp = netdev_priv(dev);
++
++       rtnl_lock();
++       if (netif_running(dev))
++               bnx2_netif_start(bp);
++
++       netif_device_attach(dev);
++       rtnl_unlock();
++}
++
++static struct pci_error_handlers bnx2_err_handler = {
++       .error_detected = bnx2_io_error_detected,
++       .slot_reset = bnx2_io_slot_reset,
++       .resume = bnx2_io_resume,
++};
++
+ static struct pci_driver bnx2_pci_driver = {
+        .name           = DRV_MODULE_NAME,
+        .id_table       = bnx2_pci_tbl,
+@@ -7624,6 +7710,7 @@ static struct pci_driver bnx2_pci_driver
+        .remove         = __devexit_p(bnx2_remove_one),
+        .suspend        = bnx2_suspend,
+        .resume         = bnx2_resume,
++       .err_handler    = &bnx2_err_handler,
  };
  
- void e1000e_set_ethtool_ops(struct net_device *netdev)
+ static int __init bnx2_init(void)
+
 
