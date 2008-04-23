@@ -1,56 +1,56 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: "John Heffner" <johnwheffner@gmail.com>
 Subject: Re: Socket buffer sizes with autotuning
-Date: Wed, 23 Apr 2008 09:32:50 -0700
-Message-ID: <480F64B2.7060608@hp.com>
-References: <480E8523.4030007@hp.com>	<1e41a3230804221917m4af32ed9ice8225c943d3ffa2@mail.gmail.com> <20080422.205945.229828014.davem@davemloft.net>
+Date: Wed, 23 Apr 2008 09:58:15 -0700
+Message-ID: <1e41a3230804230958s4d7bb997pee2c7cbdd8448391@mail.gmail.com>
+References: <480E8523.4030007@hp.com>
+	 <1e41a3230804221917m4af32ed9ice8225c943d3ffa2@mail.gmail.com>
+	 <20080422.205945.229828014.davem@davemloft.net>
+	 <480F64B2.7060608@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Rick Jones" <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:24503 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751119AbYDWQcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 12:32:53 -0400
-In-Reply-To: <20080422.205945.229828014.davem@davemloft.net>
+Received: from rn-out-0910.google.com ([64.233.170.188]:65044 "EHLO
+	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752066AbYDWQ60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 12:58:26 -0400
+Received: by rn-out-0910.google.com with SMTP id e11so1164453rng.17
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 09:58:25 -0700 (PDT)
+In-Reply-To: <480F64B2.7060608@hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "John Heffner" <johnwheffner@gmail.com>
-> Date: Tue, 22 Apr 2008 19:17:39 -0700
-> 
-> 
->>On Tue, Apr 22, 2008 at 5:38 PM, Rick Jones <rick.jones2@hp.com> wrote:
->>
->>> oslowest:~# netstat -an | grep ESTAB
->>> ...
->>> tcp    0 2760560 10.208.0.1:40500    10.208.0.45:42049   ESTABLISHED
->>> ...
->>>
->>> Is this expected behaviour?
->>
->>What is your interface txqueuelen and mtu? 
+On Wed, Apr 23, 2008 at 9:32 AM, Rick Jones <rick.jones2@hp.com> wrote:
+>  I can see that for the sending side being willing to send into the
+> receiver's ever increasing window, but is autotuning supposed to keep
+> growing and growing the receive window the way it seems to be?
 
-1000, MTU 1500 and TSO is enabled.
+Receive-side autotuning by design will attempt to grow the rcvbuf
+(adjusting for overhead) to twice the observed cwnd[1].  When the
+sender keeps growing its window to fill up your interface queue, the
+receiver will continue to grow its window to let the sender do what it
+wants.  It's not the receiver's job to do congestion control.
 
->> If you have a very large interface queue, TCP will happily fill it
->> up unless you are using a delay-based congestion controller.
+One interesting observation is that when timestamps are turned off the
+receiver autotuning actually has the property that if the RTT is
+growing (in this case due to a queue filling), it will not grow the
+window since it's not able to update its RTT estimate.  This property
+was described as a feature of the Dynamic Right-Sizing algorithm
+(http://public.lanl.gov/radiant/software/drs.html), and obviously in
+some cases it is.  However, in general it has the same types of
+problems that delay-based congestion control has.  And, it's not the
+receiver's job to do congestion control. :-)
 
-At the same time, the sender will not try to send any more than the 
-receiver is willing to advertise as window.
+One thing you will note if you run many flows is that the aggregate
+buffer space used should be much less than n*2MB, since each flow is
+competing for the same queue space.  This has good scaling properties.
 
-> Yes, that's the fundamental problem with loss based congestion
-> control.  If there are any queues in the path, TCP will fill them up.
-> 
-> Vegas and other similar techniques are able to avoid this, but come
-> with the fundamental flaw that it's easy to get them into situations
-> where they do not respond to increases in pipe space adequately, and
-> thus underperform compared to loss based algorithms.
+  -John
 
-I can see that for the sending side being willing to send into the 
-receiver's ever increasing window, but is autotuning supposed to keep 
-growing and growing the receive window the way it seems to be?
 
-rick jones
+[1] It's not exactly accurate that it tries to set rcvbuf to 2*cwnd.
+A subtle but important distinction is that it tries to set rcvbuf to
+twice the data read by the application in any RTT.
