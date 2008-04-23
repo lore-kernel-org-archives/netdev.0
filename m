@@ -1,48 +1,45 @@
 From: wendy xiong <wendyx@us.ibm.com>
-Subject: Re: [ PATCH 1/1 2.6.25-rc9] bnx2: Add EEH support in bnx2 driver -
-	Resending
-Date: Wed, 23 Apr 2008 15:36:48 -0500
-Message-ID: <1208983008.7339.24.camel@wendyx.austin.ibm.com>
-References: <1208812834.24768.40.camel@wendyx.austin.ibm.com>
-	 <1208823296.16633.230.camel@dell>
-	 <1208893442.7339.17.camel@wendyx.austin.ibm.com>
-	 <1208900791.13806.5.camel@dell>
+Subject: [PATCH 1/1 2.6.25-rc9] bnx2x: Add EEH support in bnx2x driver -
+	10G pci-express adapter
+Date: Wed, 23 Apr 2008 15:43:34 -0500
+Message-ID: <1208983414.7339.31.camel@wendyx.austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
-	David Miller <davem@davemloft.net>
-To: Michael Chan <mchan@broadcom.com>
+To: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org,
+	eliezert@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:34077 "EHLO e1.ny.us.ibm.com"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:49570 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752700AbYDWUgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2008 16:36:55 -0400
+	id S1751204AbYDWUng (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2008 16:43:36 -0400
 Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3NKaorA020702
-	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:36:50 -0400
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3NKhZrV028719
+	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:43:35 -0400
 Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3NKaopQ244094
-	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:36:50 -0400
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3NKhZps249376
+	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:43:35 -0400
 Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3NKaodG016893
-	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:36:50 -0400
-In-Reply-To: <1208900791.13806.5.camel@dell>
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3NKhY57005515
+	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:43:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+Hi
 
-Thanks!
-I am re-sending patch with rtnl_lock()/rtnl_unlock().
+To enable EEH suuport for this 10G pci-express adapter, we added 3 EEH
+callback functions in the driver and also msi/pcie state needs to be
+saved and restored for the adapter.
 
 Thanks,
 Wendy
 
-diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/drivers/net/bnx2.c
---- linux-2.6.25-rc9.orig/drivers/net/bnx2.c    2008-04-18 22:12:53.000000000 -0500
-+++ linux-2.6.25-rc9.eeh/drivers/net/bnx2.c     2008-04-23 15:08:40.000000000 -0500
-@@ -7108,6 +7108,7 @@ bnx2_init_board(struct pci_dev *pdev, st
+Signed-off-by: Wendy Xiong <wendyx@us.ibm.com>
+
+diff -Nuarp 2.6.25-rc9/drivers/net/bnx2x.c 2.6.25-rc9.bnx2x/drivers/net/bnx2x.c
+--- 2.6.25-rc9/drivers/net/bnx2x.c      2008-04-23 08:38:03.000000000 -0700
++++ 2.6.25-rc9.bnx2x/drivers/net/bnx2x.c        2008-04-23 08:45:40.000000000 -0700
+@@ -9645,6 +9645,7 @@ static int __devinit bnx2x_init_board(st
         }
 
         pci_set_master(pdev);
@@ -50,32 +47,29 @@ diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/driver
 
         bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
         if (bp->pm_cap == 0) {
-@@ -7617,6 +7618,91 @@ bnx2_resume(struct pci_dev *pdev)
+@@ -9963,6 +9964,85 @@ static int bnx2x_resume(struct pci_dev *
         return 0;
  }
 
 +/**
-+ * bnx2_io_error_detected - called when PCI error is detected
++ * bnx2x_io_error_detected - called when PCI error is detected
 + * @pdev: Pointer to PCI device
 + * @state: The current pci connection state
 + *
 + * This function is called after a PCI bus error affecting
 + * this device has been detected.
 + */
-+static pci_ers_result_t bnx2_io_error_detected(struct pci_dev *pdev,
-+                                               pci_channel_state_t state)
++static pci_ers_result_t bnx2x_io_error_detected(struct pci_dev *pdev,
++                                       pci_channel_state_t state)
 +{
 +       struct net_device *dev = pci_get_drvdata(pdev);
-+       struct bnx2 *bp = netdev_priv(dev);
++       struct bnx2x *bp = netdev_priv(dev);
 +
 +       rtnl_lock();
 +       netif_device_detach(dev);
 +
-+       if (netif_running(dev)) {
-+               bnx2_netif_stop(bp);
-+               del_timer_sync(&bp->timer);
-+               bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
-+       }
++       if (netif_running(dev))
++               bnx2x_nic_unload(bp, 0);
 +
 +       pci_disable_device(pdev);
 +       rtnl_unlock();
@@ -85,15 +79,15 @@ diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/driver
 +}
 +
 +/**
-+ * bnx2_io_slot_reset - called after the pci bus has been reset.
++ * bnx2x_io_slot_reset - called after the pci bus has been reset.
 + * @pdev: Pointer to PCI device
 + *
 + * Restart the card from scratch, as if from a cold-boot.
 + */
-+static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
++static pci_ers_result_t bnx2x_io_slot_reset(struct pci_dev *pdev)
 +{
 +       struct net_device *dev = pci_get_drvdata(pdev);
-+       struct bnx2 *bp = netdev_priv(dev);
++       struct bnx2x *bp = netdev_priv(dev);
 +
 +       rtnl_lock();
 +       if (pci_enable_device(pdev)) {
@@ -101,54 +95,51 @@ diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/driver
 +                       "Cannot re-enable PCI device after reset.\n");
 +               return PCI_ERS_RESULT_DISCONNECT;
 +       }
++
 +       pci_set_master(pdev);
 +       pci_restore_state(pdev);
-+
-+       if (netif_running(dev)) {
-+               bnx2_set_power_state(bp, PCI_D0);
-+               bnx2_init_nic(bp);
-+       }
-+
 +       rtnl_unlock();
++
 +       return PCI_ERS_RESULT_RECOVERED;
 +}
 +
 +/**
-+ * bnx2_io_resume - called when traffic can start flowing again.
++ * bnx2x_io_resume - called when traffic can start flowing again.
 + * @pdev: Pointer to PCI device
 + *
 + * This callback is called when the error recovery driver tells us that
 + * its OK to resume normal operation.
 + */
-+static void bnx2_io_resume(struct pci_dev *pdev)
++static void bnx2x_io_resume(struct pci_dev *pdev)
 +{
 +       struct net_device *dev = pci_get_drvdata(pdev);
-+       struct bnx2 *bp = netdev_priv(dev);
++       struct bnx2x *bp = netdev_priv(dev);
 +
 +       rtnl_lock();
-+       if (netif_running(dev))
-+               bnx2_netif_start(bp);
 +
++       if (netif_running(dev))
++               bnx2x_nic_load(bp, 0);
 +       netif_device_attach(dev);
++
 +       rtnl_unlock();
 +}
 +
-+static struct pci_error_handlers bnx2_err_handler = {
-+       .error_detected = bnx2_io_error_detected,
-+       .slot_reset = bnx2_io_slot_reset,
-+       .resume = bnx2_io_resume,
++static struct pci_error_handlers bnx2x_err_handler = {
++       .error_detected = bnx2x_io_error_detected,
++       .slot_reset = bnx2x_io_slot_reset,
++       .resume = bnx2x_io_resume,
 +};
 +
- static struct pci_driver bnx2_pci_driver = {
-        .name           = DRV_MODULE_NAME,
-        .id_table       = bnx2_pci_tbl,
-@@ -7624,6 +7710,7 @@ static struct pci_driver bnx2_pci_driver
-        .remove         = __devexit_p(bnx2_remove_one),
-        .suspend        = bnx2_suspend,
-        .resume         = bnx2_resume,
-+       .err_handler    = &bnx2_err_handler,
+ static struct pci_driver bnx2x_pci_driver = {
+        .name       = DRV_MODULE_NAME,
+        .id_table   = bnx2x_pci_tbl,
+@@ -9970,6 +10050,7 @@ static struct pci_driver bnx2x_pci_drive
+        .remove     = __devexit_p(bnx2x_remove_one),
+        .suspend    = bnx2x_suspend,
+        .resume     = bnx2x_resume,
++       .err_handler= &bnx2x_err_handler,
  };
- 
- static int __init bnx2_init(void)
+
+ static int __init bnx2x_init(void)
 
 
