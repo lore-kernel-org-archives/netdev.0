@@ -1,145 +1,359 @@
-From: wendy xiong <wendyx@us.ibm.com>
-Subject: [PATCH 1/1 2.6.25-rc9] bnx2x: Add EEH support in bnx2x driver -
-	10G pci-express adapter
-Date: Wed, 23 Apr 2008 15:43:34 -0500
-Message-ID: <1208983414.7339.31.camel@wendyx.austin.ibm.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH] forcedeth: realtek phy crossover detection
+Date: Wed, 23 Apr 2008 14:37:30 -0400
+Message-ID: <480F81EA.1050005@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org,
-	eliezert@broadcom.com
+Content-Type: multipart/mixed;
+ boundary="------------080300050401040603000807"
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:49570 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751204AbYDWUng (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2008 16:43:36 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3NKhZrV028719
-	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:43:35 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3NKhZps249376
-	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:43:35 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3NKhY57005515
-	for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 16:43:35 -0400
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:14841 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752812AbYDWViY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 17:38:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+This is a multi-part message in MIME format.
+--------------080300050401040603000807
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-To enable EEH suuport for this 10G pci-express adapter, we added 3 EEH
-callback functions in the driver and also msi/pcie state needs to be
-saved and restored for the adapter.
+This patch fixes an issue seen with the realtek 8201 phy. This phy has a 
+problem with crossover detection and it needs to be disabled. The 
+problem only arises on certain switches. Therefore, a module parameter 
+has been added to allow enabling crossover detection if needed. The 
+default will be set to disabled.
 
-Thanks,
-Wendy
 
-Signed-off-by: Wendy Xiong <wendyx@us.ibm.com>
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
-diff -Nuarp 2.6.25-rc9/drivers/net/bnx2x.c 2.6.25-rc9.bnx2x/drivers/net/bnx2x.c
---- 2.6.25-rc9/drivers/net/bnx2x.c      2008-04-23 08:38:03.000000000 -0700
-+++ 2.6.25-rc9.bnx2x/drivers/net/bnx2x.c        2008-04-23 08:45:40.000000000 -0700
-@@ -9645,6 +9645,7 @@ static int __devinit bnx2x_init_board(st
-        }
 
-        pci_set_master(pdev);
-+       pci_save_state(pdev);
+--------------080300050401040603000807
+Content-Type: text/plain;
+ name="patch-forcedeth-realtek"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-realtek"
 
-        bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
-        if (bp->pm_cap == 0) {
-@@ -9963,6 +9964,85 @@ static int bnx2x_resume(struct pci_dev *
-        return 0;
- }
-
-+/**
-+ * bnx2x_io_error_detected - called when PCI error is detected
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci connection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
-+ */
-+static pci_ers_result_t bnx2x_io_error_detected(struct pci_dev *pdev,
-+                                       pci_channel_state_t state)
-+{
-+       struct net_device *dev = pci_get_drvdata(pdev);
-+       struct bnx2x *bp = netdev_priv(dev);
-+
-+       rtnl_lock();
-+       netif_device_detach(dev);
-+
-+       if (netif_running(dev))
-+               bnx2x_nic_unload(bp, 0);
-+
-+       pci_disable_device(pdev);
-+       rtnl_unlock();
-+
-+       /* Request a slot slot reset. */
-+       return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * bnx2x_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch, as if from a cold-boot.
-+ */
-+static pci_ers_result_t bnx2x_io_slot_reset(struct pci_dev *pdev)
-+{
-+       struct net_device *dev = pci_get_drvdata(pdev);
-+       struct bnx2x *bp = netdev_priv(dev);
-+
-+       rtnl_lock();
-+       if (pci_enable_device(pdev)) {
-+               dev_err(&pdev->dev,
-+                       "Cannot re-enable PCI device after reset.\n");
-+               return PCI_ERS_RESULT_DISCONNECT;
-+       }
-+
-+       pci_set_master(pdev);
-+       pci_restore_state(pdev);
-+       rtnl_unlock();
-+
-+       return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * bnx2x_io_resume - called when traffic can start flowing again.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * This callback is called when the error recovery driver tells us that
-+ * its OK to resume normal operation.
-+ */
-+static void bnx2x_io_resume(struct pci_dev *pdev)
-+{
-+       struct net_device *dev = pci_get_drvdata(pdev);
-+       struct bnx2x *bp = netdev_priv(dev);
-+
-+       rtnl_lock();
-+
-+       if (netif_running(dev))
-+               bnx2x_nic_load(bp, 0);
-+       netif_device_attach(dev);
-+
-+       rtnl_unlock();
-+}
-+
-+static struct pci_error_handlers bnx2x_err_handler = {
-+       .error_detected = bnx2x_io_error_detected,
-+       .slot_reset = bnx2x_io_slot_reset,
-+       .resume = bnx2x_io_resume,
-+};
-+
- static struct pci_driver bnx2x_pci_driver = {
-        .name       = DRV_MODULE_NAME,
-        .id_table   = bnx2x_pci_tbl,
-@@ -9970,6 +10050,7 @@ static struct pci_driver bnx2x_pci_drive
-        .remove     = __devexit_p(bnx2x_remove_one),
-        .suspend    = bnx2x_suspend,
-        .resume     = bnx2x_resume,
-+       .err_handler= &bnx2x_err_handler,
+--- old/drivers/net/forcedeth.c	2008-04-09 19:33:19.000000000 -0400
++++ new/drivers/net/forcedeth.c	2008-04-23 14:34:09.000000000 -0400
+@@ -572,16 +572,22 @@
+ #define DESC_VER_3	3
+ 
+ /* PHY defines */
+-#define PHY_OUI_MARVELL	0x5043
+-#define PHY_OUI_CICADA	0x03f1
+-#define PHY_OUI_VITESSE	0x01c1
+-#define PHY_OUI_REALTEK	0x0732
++#define PHY_OUI_MARVELL		0x5043
++#define PHY_OUI_CICADA		0x03f1
++#define PHY_OUI_VITESSE		0x01c1
++#define PHY_OUI_REALTEK		0x0732
++#define PHY_OUI_REALTEK2	0x0020
+ #define PHYID1_OUI_MASK	0x03ff
+ #define PHYID1_OUI_SHFT	6
+ #define PHYID2_OUI_MASK	0xfc00
+ #define PHYID2_OUI_SHFT	10
+ #define PHYID2_MODEL_MASK		0x03f0
+-#define PHY_MODEL_MARVELL_E3016		0x220
++#define PHY_MODEL_REALTEK_8211		0x0110
++#define PHY_REV_MASK			0x0001
++#define PHY_REV_REALTEK_8211B		0x0000
++#define PHY_REV_REALTEK_8211C		0x0001
++#define PHY_MODEL_REALTEK_8201		0x0200
++#define PHY_MODEL_MARVELL_E3016		0x0220
+ #define PHY_MARVELL_E3016_INITMASK	0x0300
+ #define PHY_CICADA_INIT1	0x0f000
+ #define PHY_CICADA_INIT2	0x0e00
+@@ -608,10 +614,18 @@
+ #define PHY_REALTEK_INIT_REG1	0x1f
+ #define PHY_REALTEK_INIT_REG2	0x19
+ #define PHY_REALTEK_INIT_REG3	0x13
++#define PHY_REALTEK_INIT_REG4	0x14
++#define PHY_REALTEK_INIT_REG5	0x18
++#define PHY_REALTEK_INIT_REG6	0x11
+ #define PHY_REALTEK_INIT1	0x0000
+ #define PHY_REALTEK_INIT2	0x8e00
+ #define PHY_REALTEK_INIT3	0x0001
+ #define PHY_REALTEK_INIT4	0xad17
++#define PHY_REALTEK_INIT5	0xfb54
++#define PHY_REALTEK_INIT6	0xf5c7
++#define PHY_REALTEK_INIT7	0x1000
++#define PHY_REALTEK_INIT8	0x0003
++#define PHY_REALTEK_INIT_MSK1	0x0003
+ 
+ #define PHY_GIGABIT	0x0100
+ 
+@@ -790,6 +804,7 @@
+ 	int wolenabled;
+ 	unsigned int phy_oui;
+ 	unsigned int phy_model;
++	unsigned int phy_rev;
+ 	u16 gigabit;
+ 	int intr_test;
+ 	int recover_error;
+@@ -803,6 +818,7 @@
+ 	u32 txrxctl_bits;
+ 	u32 vlanctl_bits;
+ 	u32 driver_data;
++	u32 device_id;
+ 	u32 register_size;
+ 	int rx_csum;
+ 	u32 mac_in_use;
+@@ -913,6 +929,16 @@
  };
+ static int dma_64bit = NV_DMA_64BIT_ENABLED;
+ 
++/*
++ * Crossover Detection
++ * Realtek 8201 phy + some OEM boards do not work properly.
++ */
++enum {
++	NV_CROSSOVER_DETECTION_DISABLED,
++	NV_CROSSOVER_DETECTION_ENABLED
++};
++static int phy_cross = NV_CROSSOVER_DETECTION_DISABLED;
++
+ static inline struct fe_priv *get_nvpriv(struct net_device *dev)
+ {
+ 	return netdev_priv(dev);
+@@ -1170,25 +1196,53 @@
+ 		}
+ 	}
+ 	if (np->phy_oui == PHY_OUI_REALTEK) {
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
+-		}
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, PHY_REALTEK_INIT2)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
+-		}
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
+-		}
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG3, PHY_REALTEK_INIT4)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
++		if (np->phy_model == PHY_MODEL_REALTEK_8211 &&
++		    np->phy_rev == PHY_REV_REALTEK_8211B) {
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, PHY_REALTEK_INIT2)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG3, PHY_REALTEK_INIT4)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG4, PHY_REALTEK_INIT5)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG5, PHY_REALTEK_INIT6)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
+ 		}
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
++		if (np->phy_model == PHY_MODEL_REALTEK_8201) {
++			if (np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_32 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_33 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_34 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_35 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_36 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_37 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_38 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_39) {
++				phy_reserved = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, MII_READ);
++				phy_reserved |= PHY_REALTEK_INIT7;
++				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, phy_reserved)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++			}
+ 		}
+ 	}
+ 
+@@ -1328,26 +1382,71 @@
+ 		}
+ 	}
+ 	if (np->phy_oui == PHY_OUI_REALTEK) {
+-		/* reset could have cleared these out, set them back */
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
+-		}
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, PHY_REALTEK_INIT2)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
+-		}
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
+-		}
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG3, PHY_REALTEK_INIT4)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
++		if (np->phy_model == PHY_MODEL_REALTEK_8211 &&
++		    np->phy_rev == PHY_REV_REALTEK_8211B) {
++			/* reset could have cleared these out, set them back */
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, PHY_REALTEK_INIT2)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG3, PHY_REALTEK_INIT4)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG4, PHY_REALTEK_INIT5)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG5, PHY_REALTEK_INIT6)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
++			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
++				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++				return PHY_ERROR;
++			}
+ 		}
+-		if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+-			return PHY_ERROR;
++		if (np->phy_model == PHY_MODEL_REALTEK_8201) {
++			if (np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_32 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_33 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_34 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_35 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_36 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_37 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_38 ||
++			    np->device_id == PCI_DEVICE_ID_NVIDIA_NVENET_39) {
++				phy_reserved = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, MII_READ);
++				phy_reserved |= PHY_REALTEK_INIT7;
++				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, phy_reserved)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++			}
++			if (phy_cross == NV_CROSSOVER_DETECTION_DISABLED) {
++				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++				phy_reserved = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, MII_READ);
++				phy_reserved &= ~PHY_REALTEK_INIT_MSK1;
++				phy_reserved |= PHY_REALTEK_INIT3;
++				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, phy_reserved)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++			}
+ 		}
+ 	}
+ 
+@@ -5339,6 +5438,8 @@
+ 
+ 	/* copy of driver data */
+ 	np->driver_data = id->driver_data;
++	/* copy of device id */
++	np->device_id = id->device;
+ 
+ 	/* handle different descriptor versions */
+ 	if (id->driver_data & DEV_HAS_HIGH_DMA) {
+@@ -5612,6 +5713,14 @@
+ 			pci_name(pci_dev), id1, id2, phyaddr);
+ 		np->phyaddr = phyaddr;
+ 		np->phy_oui = id1 | id2;
++
++		/* Realtek hardcoded phy id1 to all zero's on certain phys */
++		if (np->phy_oui == PHY_OUI_REALTEK2)
++			np->phy_oui = PHY_OUI_REALTEK;
++		/* Setup phy revision for Realtek */
++		if (np->phy_oui == PHY_OUI_REALTEK && np->phy_model == PHY_MODEL_REALTEK_8211)
++			np->phy_rev = mii_rw(dev, phyaddr, MII_RESV1, MII_READ) & PHY_REV_MASK;
++
+ 		break;
+ 	}
+ 	if (i == 33) {
+@@ -5690,6 +5799,28 @@
+ 	return err;
+ }
+ 
++static void nv_restore_phy(struct net_device *dev)
++{
++	struct fe_priv *np = netdev_priv(dev);
++	u16 phy_reserved, mii_control;
++
++	if (np->phy_oui == PHY_OUI_REALTEK &&
++	    np->phy_model == PHY_MODEL_REALTEK_8201 &&
++	    phy_cross == NV_CROSSOVER_DETECTION_DISABLED) {
++		mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3);
++		phy_reserved = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, MII_READ);
++		phy_reserved &= ~PHY_REALTEK_INIT_MSK1;
++		phy_reserved |= PHY_REALTEK_INIT8;
++		mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, phy_reserved);
++		mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1);
++
++		/* restart auto negotiation */
++		mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
++		mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++		mii_rw(dev, np->phyaddr, MII_BMCR, mii_control);
++	}
++}
++
+ static void __devexit nv_remove(struct pci_dev *pci_dev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pci_dev);
+@@ -5706,6 +5837,9 @@
+ 	writel(readl(base + NvRegTransmitPoll) & ~NVREG_TRANSMITPOLL_MAC_ADDR_REV,
+ 	       base + NvRegTransmitPoll);
+ 
++	/* restore any phy related changes */
++	nv_restore_phy(dev);
++
+ 	/* free all structures */
+ 	free_rings(dev);
+ 	iounmap(get_hwbase(dev));
+@@ -5950,6 +6084,8 @@
+ MODULE_PARM_DESC(msix, "MSIX interrupts are enabled by setting to 1 and disabled by setting to 0.");
+ module_param(dma_64bit, int, 0);
+ MODULE_PARM_DESC(dma_64bit, "High DMA is enabled by setting to 1 and disabled by setting to 0.");
++module_param(phy_cross, int, 0);
++MODULE_PARM_DESC(phy_cross, "Phy crossover detection for Realtek 8201 phy is enabled by setting to 1 and disabled by setting to 0.");
+ 
+ MODULE_AUTHOR("Manfred Spraul <manfred@colorfullife.com>");
+ MODULE_DESCRIPTION("Reverse Engineered nForce ethernet driver");
 
- static int __init bnx2x_init(void)
-
-
+--------------080300050401040603000807--
