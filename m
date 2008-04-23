@@ -1,276 +1,142 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 1/5] mv643xx_eth: get rid of static variables, allow multiple instances
-Date: Thu, 24 Apr 2008 01:27:02 +0200
-Message-ID: <20080423232702.GC17159@xi.wantstofly.org>
+Subject: [PATCH 2/5] mv643xx_eth: mbus decode window support
+Date: Thu, 24 Apr 2008 01:27:17 +0200
+Message-ID: <20080423232717.GD17159@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Nicolas Pitre <nico@cam.org>
 To: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:60262 "EHLO
+Received: from alephnull.demon.nl ([83.160.184.112]:60267 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753067AbYDWX1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 19:27:06 -0400
+	with ESMTP id S1753142AbYDWX1T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 19:27:19 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move mv643xx_eth's static state (ethernet register block base address
-and MII management interface spinlock) into a struct hanging off the
-shared platform device.  This is necessary to support chips that
-contain multiple mv643xx_eth silicon blocks.
+Make it possible to pass mbus_dram_target_info to the mv643xx_eth
+driver via the platform data, and make the mv643xx_eth driver
+program the window registers based on this data if it is passed in.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-Acked-by: Nicolas Pitre <nico@marvell.com>
+Reviewed-by: Tzachi Perelstein <tzachi@marvell.com>
+Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-Index: linux-2.6.25-git4/arch/arm/mach-orion5x/common.c
-===================================================================
---- linux-2.6.25-git4.orig/arch/arm/mach-orion5x/common.c
-+++ linux-2.6.25-git4/arch/arm/mach-orion5x/common.c
-@@ -223,7 +223,9 @@ static struct platform_device orion5x_et
- 
- void __init orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data)
- {
-+	eth_data->shared = &orion5x_eth_shared;
- 	orion5x_eth.dev.platform_data = eth_data;
-+
- 	platform_device_register(&orion5x_eth_shared);
- 	platform_device_register(&orion5x_eth);
- }
-Index: linux-2.6.25-git4/arch/powerpc/platforms/chrp/pegasos_eth.c
-===================================================================
---- linux-2.6.25-git4.orig/arch/powerpc/platforms/chrp/pegasos_eth.c
-+++ linux-2.6.25-git4/arch/powerpc/platforms/chrp/pegasos_eth.c
-@@ -58,7 +58,9 @@ static struct resource mv643xx_eth0_reso
- 
- 
- static struct mv643xx_eth_platform_data eth0_pd = {
-+	.shared		= &mv643xx_eth_shared_device,
- 	.port_number	= 0,
-+
- 	.tx_sram_addr = PEGASOS2_SRAM_BASE_ETH0,
- 	.tx_sram_size = PEGASOS2_SRAM_TXRING_SIZE,
- 	.tx_queue_size = PEGASOS2_SRAM_TXRING_SIZE/16,
-@@ -88,7 +90,9 @@ static struct resource mv643xx_eth1_reso
- };
- 
- static struct mv643xx_eth_platform_data eth1_pd = {
-+	.shared		= &mv643xx_eth_shared_device,
- 	.port_number	= 1,
-+
- 	.tx_sram_addr = PEGASOS2_SRAM_BASE_ETH1,
- 	.tx_sram_size = PEGASOS2_SRAM_TXRING_SIZE,
- 	.tx_queue_size = PEGASOS2_SRAM_TXRING_SIZE/16,
-Index: linux-2.6.25-git4/arch/powerpc/sysdev/mv64x60_dev.c
-===================================================================
---- linux-2.6.25-git4.orig/arch/powerpc/sysdev/mv64x60_dev.c
-+++ linux-2.6.25-git4/arch/powerpc/sysdev/mv64x60_dev.c
-@@ -239,6 +239,8 @@ static int __init mv64x60_eth_device_set
- 
- 	memset(&pdata, 0, sizeof(pdata));
- 
-+	pdata.shared = shared_pdev;
-+
- 	prop = of_get_property(np, "reg", NULL);
- 	if (!prop)
- 		return -ENODEV;
-Index: linux-2.6.25-git4/arch/ppc/syslib/mv64x60.c
-===================================================================
---- linux-2.6.25-git4.orig/arch/ppc/syslib/mv64x60.c
-+++ linux-2.6.25-git4/arch/ppc/syslib/mv64x60.c
-@@ -341,6 +341,7 @@ static struct resource mv64x60_eth0_reso
- };
- 
- static struct mv643xx_eth_platform_data eth0_pd = {
-+	.shared		= &mv64x60_eth_shared_device;
- 	.port_number	= 0,
- };
- 
-@@ -366,6 +367,7 @@ static struct resource mv64x60_eth1_reso
- };
- 
- static struct mv643xx_eth_platform_data eth1_pd = {
-+	.shared		= &mv64x60_eth_shared_device;
- 	.port_number	= 1,
- };
- 
-@@ -391,6 +393,7 @@ static struct resource mv64x60_eth2_reso
- };
- 
- static struct mv643xx_eth_platform_data eth2_pd = {
-+	.shared		= &mv64x60_eth_shared_device;
- 	.port_number	= 2,
- };
- 
 Index: linux-2.6.25-git4/drivers/net/mv643xx_eth.c
 ===================================================================
 --- linux-2.6.25-git4.orig/drivers/net/mv643xx_eth.c
 +++ linux-2.6.25-git4/drivers/net/mv643xx_eth.c
-@@ -507,7 +507,15 @@ struct mv643xx_mib_counters {
- 	u32 late_collision;
- };
- 
-+struct mv643xx_shared_private {
-+	void __iomem *eth_base;
-+
-+	/* used to protect SMI_REG, which is shared across ports */
-+	spinlock_t phy_lock;
-+};
-+
- struct mv643xx_private {
-+	struct mv643xx_shared_private *shared;
- 	int port_num;			/* User Ethernet port number	*/
- 
- 	u32 rx_sram_addr;		/* Base address of rx sram area */
-@@ -614,19 +622,14 @@ static const struct ethtool_ops mv643xx_
- static char mv643xx_driver_name[] = "mv643xx_eth";
- static char mv643xx_driver_version[] = "1.0";
- 
--static void __iomem *mv643xx_eth_base;
--
--/* used to protect SMI_REG, which is shared across ports */
--static DEFINE_SPINLOCK(mv643xx_eth_phy_lock);
--
- static inline u32 rdl(struct mv643xx_private *mp, int offset)
- {
--	return readl(mv643xx_eth_base + offset);
-+	return readl(mp->shared->eth_base + offset);
- }
- 
- static inline void wrl(struct mv643xx_private *mp, int offset, u32 data)
- {
--	writel(data, mv643xx_eth_base + offset);
-+	writel(data, mp->shared->eth_base + offset);
- }
+@@ -91,6 +91,11 @@
+  */
+ #define PHY_ADDR_REG				0x0000
+ #define SMI_REG					0x0004
++#define WINDOW_BASE(i)				(0x0200 + ((i) << 3))
++#define WINDOW_SIZE(i)				(0x0204 + ((i) << 3))
++#define WINDOW_REMAP_HIGH(i)			(0x0280 + ((i) << 2))
++#define WINDOW_BAR_ENABLE			0x0290
++#define WINDOW_PROTECT(i)			(0x0294 + ((i) << 4))
  
  /*
-@@ -1827,6 +1830,11 @@ static int mv643xx_eth_probe(struct plat
- 		return -ENODEV;
- 	}
+  * Per-port registers.
+@@ -512,6 +517,8 @@ struct mv643xx_shared_private {
  
-+	if (pd->shared == NULL) {
-+		printk(KERN_ERR "No mv643xx_eth_platform_data->shared\n");
-+		return -ENODEV;
-+	}
+ 	/* used to protect SMI_REG, which is shared across ports */
+ 	spinlock_t phy_lock;
 +
- 	dev = alloc_etherdev(sizeof(struct mv643xx_private));
- 	if (!dev)
- 		return -ENOMEM;
-@@ -1877,6 +1885,7 @@ static int mv643xx_eth_probe(struct plat
++	u32 win_protect;
+ };
  
- 	spin_lock_init(&mp->lock);
- 
-+	mp->shared = platform_get_drvdata(pd->shared);
+ struct mv643xx_private {
+@@ -1888,6 +1895,9 @@ static int mv643xx_eth_probe(struct plat
+ 	mp->shared = platform_get_drvdata(pd->shared);
  	port_num = mp->port_num = pd->port_number;
  
++	if (mp->shared->win_protect)
++		wrl(mp, WINDOW_PROTECT(port_num), mp->shared->win_protect);
++
  	/* set default config values */
-@@ -1986,27 +1995,46 @@ static int mv643xx_eth_remove(struct pla
+ 	eth_port_uc_addr_get(mp, dev->dev_addr);
+ 	mp->rx_ring_size = PORT_DEFAULT_RECEIVE_QUEUE_SIZE;
+@@ -1992,9 +2002,44 @@ static int mv643xx_eth_remove(struct pla
+ 	return 0;
+ }
+ 
++static void mv643xx_eth_conf_mbus_windows(struct mv643xx_shared_private *msp,
++					  struct mbus_dram_target_info *dram)
++{
++	void __iomem *base = msp->eth_base;
++	u32 win_enable;
++	u32 win_protect;
++	int i;
++
++	for (i = 0; i < 6; i++) {
++		writel(0, base + WINDOW_BASE(i));
++		writel(0, base + WINDOW_SIZE(i));
++		if (i < 4)
++			writel(0, base + WINDOW_REMAP_HIGH(i));
++	}
++
++	win_enable = 0x3f;
++	win_protect = 0;
++
++	for (i = 0; i < dram->num_cs; i++) {
++		struct mbus_dram_window *cs = dram->cs + i;
++
++		writel((cs->base & 0xffff0000) |
++			(cs->mbus_attr << 8) |
++			dram->mbus_dram_target_id, base + WINDOW_BASE(i));
++		writel((cs->size - 1) & 0xffff0000, base + WINDOW_SIZE(i));
++
++		win_enable &= ~(1 << i);
++		win_protect |= 3 << (2 * i);
++	}
++
++	writel(win_enable, base + WINDOW_BAR_ENABLE);
++	msp->win_protect = win_protect;
++}
++
  static int mv643xx_eth_shared_probe(struct platform_device *pdev)
  {
  	static int mv643xx_version_printed = 0;
-+	struct mv643xx_shared_private *msp;
++	struct mv643xx_eth_shared_platform_data *pd = pdev->dev.platform_data;
+ 	struct mv643xx_shared_private *msp;
  	struct resource *res;
-+	int ret;
+ 	int ret;
+@@ -2021,6 +2066,12 @@ static int mv643xx_eth_shared_probe(stru
  
- 	if (!mv643xx_version_printed++)
- 		printk(KERN_NOTICE "MV-643xx 10/100/1000 Ethernet Driver\n");
+ 	platform_set_drvdata(pdev, msp);
  
-+	ret = -EINVAL;
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (res == NULL)
--		return -ENODEV;
-+		goto out;
- 
--	mv643xx_eth_base = ioremap(res->start, res->end - res->start + 1);
--	if (mv643xx_eth_base == NULL)
--		return -ENOMEM;
-+	ret = -ENOMEM;
-+	msp = kmalloc(sizeof(*msp), GFP_KERNEL);
-+	if (msp == NULL)
-+		goto out;
-+	memset(msp, 0, sizeof(*msp));
++	/*
++	 * (Re-)program MBUS remapping windows if we are asked to.
++	 */
++	if (pd != NULL && pd->dram != NULL)
++		mv643xx_eth_conf_mbus_windows(msp, pd->dram);
 +
-+	msp->eth_base = ioremap(res->start, res->end - res->start + 1);
-+	if (msp->eth_base == NULL)
-+		goto out_free;
-+
-+	spin_lock_init(&msp->phy_lock);
-+
-+	platform_set_drvdata(pdev, msp);
- 
  	return 0;
  
-+out_free:
-+	kfree(msp);
-+out:
-+	return ret;
- }
- 
- static int mv643xx_eth_shared_remove(struct platform_device *pdev)
- {
--	iounmap(mv643xx_eth_base);
--	mv643xx_eth_base = NULL;
-+	struct mv643xx_shared_private *msp = platform_get_drvdata(pdev);
-+
-+	iounmap(msp->eth_base);
-+	kfree(msp);
- 
- 	return 0;
- }
-@@ -2908,7 +2936,7 @@ static void eth_port_read_smi_reg(struct
- 	int i;
- 
- 	/* the SMI register is a shared resource */
--	spin_lock_irqsave(&mv643xx_eth_phy_lock, flags);
-+	spin_lock_irqsave(&mp->shared->phy_lock, flags);
- 
- 	/* wait for the SMI register to become available */
- 	for (i = 0; rdl(mp, SMI_REG) & ETH_SMI_BUSY; i++) {
-@@ -2933,7 +2961,7 @@ static void eth_port_read_smi_reg(struct
- 
- 	*value = rdl(mp, SMI_REG) & 0xffff;
- out:
--	spin_unlock_irqrestore(&mv643xx_eth_phy_lock, flags);
-+	spin_unlock_irqrestore(&mp->shared->phy_lock, flags);
- }
- 
- /*
-@@ -2966,7 +2994,7 @@ static void eth_port_write_smi_reg(struc
- 	phy_addr = ethernet_phy_get(mp);
- 
- 	/* the SMI register is a shared resource */
--	spin_lock_irqsave(&mv643xx_eth_phy_lock, flags);
-+	spin_lock_irqsave(&mp->shared->phy_lock, flags);
- 
- 	/* wait for the SMI register to become available */
- 	for (i = 0; rdl(mp, SMI_REG) & ETH_SMI_BUSY; i++) {
-@@ -2980,7 +3008,7 @@ static void eth_port_write_smi_reg(struc
- 	wrl(mp, SMI_REG, (phy_addr << 16) | (phy_reg << 21) |
- 				ETH_SMI_OPCODE_WRITE | (value & 0xffff));
- out:
--	spin_unlock_irqrestore(&mv643xx_eth_phy_lock, flags);
-+	spin_unlock_irqrestore(&mp->shared->phy_lock, flags);
- }
- 
- /*
+ out_free:
 Index: linux-2.6.25-git4/include/linux/mv643xx_eth.h
 ===================================================================
 --- linux-2.6.25-git4.orig/include/linux/mv643xx_eth.h
 +++ linux-2.6.25-git4/include/linux/mv643xx_eth.h
-@@ -1,6 +1,7 @@
- /*
-  * MV-643XX ethernet platform device data definition file.
-  */
-+
+@@ -5,6 +5,8 @@
  #ifndef __LINUX_MV643XX_ETH_H
  #define __LINUX_MV643XX_ETH_H
  
-@@ -13,7 +14,9 @@
++#include <linux/mbus.h>
++
+ #define MV643XX_ETH_SHARED_NAME		"mv643xx_eth_shared"
+ #define MV643XX_ETH_NAME		"mv643xx_eth"
+ #define MV643XX_ETH_SHARED_REGS		0x2000
+@@ -13,6 +15,10 @@
+ #define MV643XX_ETH_SIZE_REG_4		0x2224
  #define MV643XX_ETH_BASE_ADDR_ENABLE_REG	0x2290
  
- struct mv643xx_eth_platform_data {
-+	struct platform_device	*shared;
- 	int		port_number;
++struct mv643xx_eth_shared_platform_data {
++	struct mbus_dram_target_info	*dram;
++};
 +
- 	u16		force_phy_addr;	/* force override if phy_addr == 0 */
- 	u16		phy_addr;
+ struct mv643xx_eth_platform_data {
+ 	struct platform_device	*shared;
+ 	int		port_number;
