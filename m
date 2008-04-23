@@ -1,58 +1,56 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 4/8] e1000e: lower ring minimum size to 64
-Date: Wed, 23 Apr 2008 11:09:19 -0700
-Message-ID: <20080423180919.24972.67080.stgit@localhost.localdomain>
+Subject: [PATCH 6/8] e1000e: save and restore pcie/msi state to support EEH
+	recovery
+Date: Wed, 23 Apr 2008 11:09:29 -0700
+Message-ID: <20080423180929.24972.1179.stgit@localhost.localdomain>
 References: <20080423180900.24972.84015.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: jeff@garzik.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:5974 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755843AbYDWSJv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2008 14:09:51 -0400
 In-Reply-To: <20080423180900.24972.84015.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The lower limit of 80 descriptors in the ring is only valid for
-one older 8254x chipset. All e1000e devices can use as low as
-64 descriptors.
+From: Wendy Xiong <wendyx@us.ibm.com>
 
+To enable EEH support for pci-express network adapters, pcie/msi state
+needs to be saved and restored for that adapter.
+
+Tested this EEH patch with 2ports and 4ports pci-express e1000e
+adapters.
+
+Signed-off-by: Wendy Xiong <wendyx@us.ibm.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000e/e1000.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/e1000e/netdev.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index f6835c3..38bfd0d 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -64,11 +64,11 @@ struct e1000_info;
- /* Tx/Rx descriptor defines */
- #define E1000_DEFAULT_TXD		256
- #define E1000_MAX_TXD			4096
--#define E1000_MIN_TXD			80
-+#define E1000_MIN_TXD			64
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 146edf7..7282751 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3815,6 +3815,7 @@ static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+ 	pci_set_master(pdev);
++	pci_restore_state(pdev);
  
- #define E1000_DEFAULT_RXD		256
- #define E1000_MAX_RXD			4096
--#define E1000_MIN_RXD			80
-+#define E1000_MIN_RXD			64
+ 	pci_enable_wake(pdev, PCI_D3hot, 0);
+ 	pci_enable_wake(pdev, PCI_D3cold, 0);
+@@ -3941,6 +3942,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 		goto err_pci_reg;
  
- #define E1000_MIN_ITR_USECS		10 /* 100000 irq/sec */
- #define E1000_MAX_ITR_USECS		10000 /* 100    irq/sec */
+ 	pci_set_master(pdev);
++	pci_save_state(pdev);
+ 
+ 	err = -ENOMEM;
+ 	netdev = alloc_etherdev(sizeof(struct e1000_adapter));
 
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
-Don't miss this year's exciting event. There's still time to save $100. 
-Use priority code J8TL2D2. 
-http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
