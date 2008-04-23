@@ -1,145 +1,114 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [ PATCH 1/1 2.6.25-rc9] bnx2: Add EEH support in bnx2
- driver - Resending
-Date: Wed, 23 Apr 2008 17:23:22 -0700
-Message-ID: <1208996602.6194.26.camel@dell>
-References: <1208812834.24768.40.camel@wendyx.austin.ibm.com>
- <1208823296.16633.230.camel@dell>
- <1208893442.7339.17.camel@wendyx.austin.ibm.com>
- <1208900791.13806.5.camel@dell>
- <1208983008.7339.24.camel@wendyx.austin.ibm.com>
+From: pidoux <bpidoux@free.fr>
+Subject: Subject: [PATCH] [AX25] [ROSE] rose_get_route()
+Date: Thu, 24 Apr 2008 01:18:26 +0200
+Message-ID: <480FC3C2.7070107@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
-	"David Miller" <davem@davemloft.net>
-To: "wendy xiong" <wendyx@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2097 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752872AbYDWXTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2008 19:19:48 -0400
-In-Reply-To: <1208983008.7339.24.camel@wendyx.austin.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams <linux-hams@vger.kernel.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2008-04-23 at 15:36 -0500, wendy xiong wrote:
+ From c2a2edd975669614e7e0a890800fd6a92850771f Mon Sep 17 00:00:00 2001
+From: Bernard Pidoux <f6bvp@amsat.org>
+Date: Thu, 24 Apr 2008 00:48:07 +0200
+Subject: [PATCH] [AX25] [ROSE] rose_get_route()
 
-> diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/drivers/net/bnx2.c
-> --- linux-2.6.25-rc9.orig/drivers/net/bnx2.c    2008-04-18 22:12:53.000000000 -0500
-> +++ linux-2.6.25-rc9.eeh/drivers/net/bnx2.c     2008-04-23 15:08:40.000000000 -0500
-> @@ -7108,6 +7108,7 @@ bnx2_init_board(struct pci_dev *pdev, st
->         }
-> 
->         pci_set_master(pdev);
-> +       pci_save_state(pdev);
-> 
->         bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
->         if (bp->pm_cap == 0) {
-> @@ -7617,6 +7618,91 @@ bnx2_resume(struct pci_dev *pdev)
->         return 0;
->  }
-> 
-> +/**
-> + * bnx2_io_error_detected - called when PCI error is detected
-> + * @pdev: Pointer to PCI device
-> + * @state: The current pci connection state
-> + *
-> + * This function is called after a PCI bus error affecting
-> + * this device has been detected.
-> + */
-> +static pci_ers_result_t bnx2_io_error_detected(struct pci_dev *pdev,
-> +                                               pci_channel_state_t state)
-> +{
-> +       struct net_device *dev = pci_get_drvdata(pdev);
-> +       struct bnx2 *bp = netdev_priv(dev);
-> +
-> +       rtnl_lock();
-> +       netif_device_detach(dev);
-> +
-> +       if (netif_running(dev)) {
-> +               bnx2_netif_stop(bp);
-> +               del_timer_sync(&bp->timer);
-> +               bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
-> +       }
-> +
-> +       pci_disable_device(pdev);
-> +       rtnl_unlock();
-> +
-> +       /* Request a slot slot reset. */
-> +       return PCI_ERS_RESULT_NEED_RESET;
-> +}
-> +
-> +/**
-> + * bnx2_io_slot_reset - called after the pci bus has been reset.
-> + * @pdev: Pointer to PCI device
-> + *
-> + * Restart the card from scratch, as if from a cold-boot.
-> + */
-> +static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
-> +{
-> +       struct net_device *dev = pci_get_drvdata(pdev);
-> +       struct bnx2 *bp = netdev_priv(dev);
-> +
-> +       rtnl_lock();
-> +       if (pci_enable_device(pdev)) {
-> +               dev_err(&pdev->dev,
-> +                       "Cannot re-enable PCI device after reset.\n");
+This patch offers a new function named rose_get_route(), called
+  by rose_route_frame() in order to find a route each time a packet
+  must be routed toward a specific address handled by one of the adjacent
+  nodes in a list.
 
-Need rtnl_unlock() here.
+It returns the address of the adjacent node if it is connected,
+otherwise it returns a NULL. In that case, the calling function
+will initiate a new connection as before, when it was calling
+rose_get_neigh().
 
-> +               return PCI_ERS_RESULT_DISCONNECT;
-> +       }
-> +       pci_set_master(pdev);
-> +       pci_restore_state(pdev);
-> +
-> +       if (netif_running(dev)) {
-> +               bnx2_set_power_state(bp, PCI_D0);
-> +               bnx2_init_nic(bp);
-> +       }
-> +
-> +       rtnl_unlock();
-> +       return PCI_ERS_RESULT_RECOVERED;
-> +}
-> +
-> +/**
-> + * bnx2_io_resume - called when traffic can start flowing again.
-> + * @pdev: Pointer to PCI device
-> + *
-> + * This callback is called when the error recovery driver tells us that
-> + * its OK to resume normal operation.
-> + */
-> +static void bnx2_io_resume(struct pci_dev *pdev)
-> +{
-> +       struct net_device *dev = pci_get_drvdata(pdev);
-> +       struct bnx2 *bp = netdev_priv(dev);
-> +
-> +       rtnl_lock();
-> +       if (netif_running(dev))
-> +               bnx2_netif_start(bp);
-> +
-> +       netif_device_attach(dev);
-> +       rtnl_unlock();
-> +}
-> +
-> +static struct pci_error_handlers bnx2_err_handler = {
-> +       .error_detected = bnx2_io_error_detected,
-> +       .slot_reset = bnx2_io_slot_reset,
-> +       .resume = bnx2_io_resume,
-> +};
-> +
->  static struct pci_driver bnx2_pci_driver = {
->         .name           = DRV_MODULE_NAME,
->         .id_table       = bnx2_pci_tbl,
-> @@ -7624,6 +7710,7 @@ static struct pci_driver bnx2_pci_driver
->         .remove         = __devexit_p(bnx2_remove_one),
->         .suspend        = bnx2_suspend,
->         .resume         = bnx2_resume,
-> +       .err_handler    = &bnx2_err_handler,
->  };
->  
->  static int __init bnx2_init(void)
-> 
-> 
-> 
+This function has been tested for months now and it works fine.
+It adds a fast automatic frame routing mechanism from nodes to nodes,
+while identifaction of packets remains all along with callsigns
+of calling and destination AX25 stations.
 
+Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+---
+  include/net/rose.h    |    1 +
+  net/rose/rose_route.c |   30 +++++++++++++++++++++++++++---
+  2 files changed, 28 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/rose.h b/include/net/rose.h
+index e5bb084..de88459 100644
+--- a/include/net/rose.h
++++ b/include/net/rose.h
+@@ -201,6 +201,7 @@ extern void rose_link_device_down(struct net_device *);
+  extern struct net_device *rose_dev_first(void);
+  extern struct net_device *rose_dev_get(rose_address *);
+  extern struct rose_route *rose_route_free_lci(unsigned int, struct 
+rose_neigh *);
++extern struct rose_neigh *rose_get_route(rose_address *);
+  extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char 
+*, unsigned char *);
+  extern int  rose_rt_ioctl(unsigned int, void __user *);
+  extern void rose_link_failed(ax25_cb *, int);
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index 5053a53..ad0ebdc 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -662,6 +662,31 @@ struct rose_route *rose_route_free_lci(unsigned int 
+lci, struct rose_neigh *neig
+  }
+
+  /*
++ *	Find an opened route given a ROSE address.
++ */
++struct rose_neigh *rose_get_route(rose_address *addr)
++{
++	struct rose_node *node;
++	struct rose_neigh *res = NULL;
++	int i;
++
++	spin_lock_bh(&rose_node_list_lock);
++	for (node = rose_node_list; node != NULL; node = node->next) {
++		if (rosecmpm(addr, &node->address, node->mask) == 0) {
++			for (i = 0; i < node->count; i++) {
++				if (node->neighbour[i]->restarted) {
++					res = node->neighbour[i];
++					goto out;
++				}
++			}
++		}
++	}
++out:
++	spin_unlock_bh(&rose_node_list_lock);
++	return res;
++}
++
++/*
+   *	Find a neighbour given a ROSE address.
+   */
+  struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char 
+*cause,
+@@ -842,7 +867,6 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+  	struct sock *sk;
+  	unsigned short frametype;
+  	unsigned int lci, new_lci;
+-	unsigned char cause, diagnostic;
+  	struct net_device *dev;
+  	int len, res = 0;
+  	char buf[11];
+@@ -1018,8 +1042,8 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb 
+*ax25)
+  		rose_route = rose_route->next;
+  	}
+
+-	if ((new_neigh = rose_get_neigh(dest_addr, &cause, &diagnostic)) == 
+NULL) {
+-		rose_transmit_clear_request(rose_neigh, lci, cause, diagnostic);
++	if ((new_neigh = rose_get_route(dest_addr)) == NULL) {
++		rose_transmit_clear_request(rose_neigh, lci, ROSE_NOT_OBTAINABLE, 0);
+  		goto out;
+  	}
+
+-- 1.5.5
