@@ -1,51 +1,43 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: mac80211/wme.c: check-after-use
-Date: Wed, 23 Apr 2008 12:51:01 +0300
-Message-ID: <20080423095101.GV28933@cs181133002.pp.htv.fi>
+From: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [2.6 patch] net/mac80211/rx.c: fix off-by-one
+Date: Wed, 23 Apr 2008 12:51:28 +0300
+Message-ID: <20080423095128.GY28933@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ron Rindjunsky <ron.rindjunsky@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:59419 "EHLO smtp6.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755512AbYDWJvk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2008 05:51:40 -0400
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The Coverity checker spotted the following check-after-use of the 
-"qdisc" variable in net/mac80211/wme.c introduced by
-commit 9e7234923789897858e1a475c579b5e2e6ad5b74
-(mac80211: A-MPDU Tx adding qdisc support):
+This patch fixes an off-by-one in net/mac80211/rx.c introduced by
+commit 8318d78a44d49ac1edf2bdec7299de3617c4232e
+(cfg80211 API for channels/bitrates, mac80211 and driver conversion)
+and spotted by the Coverity checker.
 
-<--  snip  -->
+Signed-off-by: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-...
-void ieee80211_requeue(struct ieee80211_local *local, int queue)
-{
-        struct Qdisc *root_qd = local->mdev->qdisc_sleeping;
-        struct ieee80211_sched_data *q = qdisc_priv(root_qd);
-        struct Qdisc *qdisc = q->queues[queue];
-        struct sk_buff *skb = NULL;
-        u32 len = qdisc->q.qlen;    <------
+---
+--- linux-2.6/net/mac80211/rx.c.old	2008-04-22 02:23:40.000000000 +0300
++++ linux-2.6/net/mac80211/rx.c	2008-04-22 02:24:23.000000000 +0300
+@@ -2168,11 +2168,11 @@ void __ieee80211_rx(struct ieee80211_hw 
+ 	u32 pkt_load;
+ 	struct ieee80211_rate *rate = NULL;
+ 	struct ieee80211_supported_band *sband;
+ 
+ 	if (status->band < 0 ||
+-	    status->band > IEEE80211_NUM_BANDS) {
++	    status->band >= IEEE80211_NUM_BANDS) {
+ 		WARN_ON(1);
+ 		return;
+ 	}
+ 
+ 	sband = local->hw.wiphy->bands[status->band];
 
-        if (!qdisc || !qdisc->dequeue)
-                return;
-...
-
-<--  snip  -->
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
