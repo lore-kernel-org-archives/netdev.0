@@ -1,30 +1,30 @@
-From: "durgam@it.iitb.ac.in phani" <durgam.iit@gmail.com>
-Subject: proxy arp bug
-Date: Wed, 23 Apr 2008 19:21:56 +0530
-Message-ID: <f46324890804230651r6bb15a98ma746d60d4c499275@mail.gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH 1/3] [IPV6] Remove unused macro (MLDV2_QQIC) from mcast.c.
+Date: Wed, 23 Apr 2008 07:47:52 -0700
+Message-ID: <OF78FBCDB5.F62220EB-ON88257434.00508BE6-88257434.005148DA@us.ibm.com>
+References: <eb3ff54b0804230434m5a844cf9w4b2ee074bce832c0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: "Rami Rosen" <ramirose@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:20607 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753313AbYDWNv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 09:51:58 -0400
-Received: by py-out-1112.google.com with SMTP id u52so4214004pyb.10
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 06:51:57 -0700 (PDT)
-Content-Disposition: inline
+Received: from e33.co.us.ibm.com ([32.97.110.151]:58245 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754459AbYDWOsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 10:48:03 -0400
+In-Reply-To: <eb3ff54b0804230434m5a844cf9w4b2ee074bce832c0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 1027 says  "The default route must not be used when checking for a
-route to the target host of an ARP request. If the default route were
-used, the check would always
-   succeed."
+The QQIC field is only used by multicast routers.
 
-    But when i tested ,  linux OS is considering this default route
-also. Any configuration parameter needs to be set to make it work
-properly or is it the desired behaviour?
+I don't object strongly to removing it, but it doesn't really save much
+and it's potentially useful for debug printing or simply documenting how
+to decode the field. So, I would leave it, but I agree it isn't a 
+requirement
+if Yoshifuji or Dave thinks it's better to remove it.
 
-Thanks
- Pani
+                                                +-DLS
+
