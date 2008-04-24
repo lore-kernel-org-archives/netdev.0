@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: physmap and "request_module: runaway loop modprobe net-pf-1"
-Date: Thu, 24 Apr 2008 00:58:23 -0700 (PDT)
-Message-ID: <20080424.005823.19184500.davem@davemloft.net>
-References: <1209021399.9212.927.camel@pmac.infradead.org>
-	<20080424.002038.201593352.davem@davemloft.net>
-	<1209021852.9212.936.camel@pmac.infradead.org>
+Subject: Re: [RFC PATCH net-2.6.26 (Plan B)] [TCP]: Lower stack usage in
+ tcp4_seq_show().
+Date: Thu, 24 Apr 2008 01:02:36 -0700 (PDT)
+Message-ID: <20080424.010236.189297164.davem@davemloft.net>
+References: <20080415.193355.36907928.yoshfuji@linux-ipv6.org>
+	<480DF7BE.5030803@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gordonfarquharson@gmail.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mtd@lists.infradead.org,
-	netdev@vger.kernel.org
-To: dwmw2@infradead.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48228
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34920
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751140AbYDXH6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 03:58:30 -0400
-In-Reply-To: <1209021852.9212.936.camel@pmac.infradead.org>
+	by vger.kernel.org with ESMTP id S1751127AbYDXICj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 04:02:39 -0400
+In-Reply-To: <480DF7BE.5030803@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Thu, 24 Apr 2008 08:24:12 +0100
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 22 Apr 2008 18:35:42 +0400
 
-> On Thu, 2008-04-24 at 00:20 -0700, David Miller wrote:
-> > But won't the request_module() for AF_UNIX spit out that warning too?
+> YOSHIFUJI Hideaki wrote:
+> > tcp4_seq_show() eats about 250 bytes.  By using buffer in seq_file
+> > directly, it will be reduced around 100 bytes.
+> > 
+> > One drawback is higher usage of slab for IPv6 but the format
+> > will not change with this patch.
+> > 
+> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 > 
-> Yes. If you build AF_UNIX as a module, it will. Just once though, before
-> loading it (assuming it's available).
+> Plan C: we can follow the Al Viro's proposal about %n like in this patch.
+> The same applies to udp, fib (the /proc/net/route file), rt_cache and 
+> sctp debug. This is minus ~150-200 bytes for each.
 > 
-> > Actually, I think I need a clarification.  It is the modular loader
-> > utility in userspace which is trying to open up AF_UNIX sockets,
-> > right?
+> How do you think?
 > 
-> Yes. Or probably libc.
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Ok, I'll apply your patch, but really this all feels like a jumble
-of hacks to me :-)
+To me, this looks great.  Thanks everyone for working on this.
+
+Patch applied.
