@@ -1,103 +1,79 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [RTNETLINK]: Fix bogus ASSERT_RTNL warning
-Date: Thu, 24 Apr 2008 05:44:03 +0200
-Message-ID: <48100203.2020606@trash.net>
+From: "Gordon Farquharson" <gordonfarquharson@gmail.com>
+Subject: Re: physmap and "request_module: runaway loop modprobe net-pf-1"
+Date: Wed, 23 Apr 2008 22:01:07 -0600
+Message-ID: <97a0a9ac0804232101i71bfff22o723e2aaa80b09c2f@mail.gmail.com>
+References: <97a0a9ac0803112235l157706adoa84b131549a46049@mail.gmail.com>
+	 <20080311225926.6515e18c.akpm@linux-foundation.org>
+	 <1208867831.9212.582.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060006090803030302090809"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Denys <denys@visp.net.lb>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mtd@lists.infradead.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: "David Woodhouse" <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55657 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbYDXDoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 23:44:00 -0400
+Received: from el-out-1112.google.com ([209.85.162.183]:11667 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720AbYDXEBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 00:01:08 -0400
+Received: by el-out-1112.google.com with SMTP id n30so1118233elf.21
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2008 21:01:07 -0700 (PDT)
+In-Reply-To: <1208867831.9212.582.camel@pmac.infradead.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060006090803030302090809
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi David
 
-This patch should fix/silence the warning reported by Denys
-Fedoryshchenko. Looking at kerneloops.org, there are also a
-huge number of reports of this warning triggered by wireless,
-so even if this is not the ideal solution, I think for now
-we should just silence it.
+On Tue, Apr 22, 2008 at 6:37 AM, David Woodhouse <dwmw2@infradead.org> wrote:
+> On Tue, 2008-03-11 at 22:59 -0700, Andrew Morton wrote:
+>
+> > Now, af_unix_init() uses module_init(), which is really __initcall(), which
+>  > is really device_initcall() (ug, don't ask).
+>
+>  ... which is really __define_initcall("6", ...);.
+>
+>
+>  > So you can do what you're sugesting here by locating the caller/callers of
+>  > parse_mtd_partitions() and marking them late_initcall().
+>
+>  Better still, just initialise af_unix earlier so that it's there before
+>  any normal drivers which happen to call request_module(). Since core
+>  network stuff is initialised with subsys_initcall() which is really
+>  __define_initcall("4", ...), we can initialise af_unix with
+>  fs_initcall() which is really __define_initcall("5", ...).
 
+I tested the patch you sent. It fixes the runaway modprobe messages,
+but I get a modprobe error (see below) with the Debian kernel I used
+to test the patch because modules.dep does not exist in the initramfs
+(should it?). In my kernel config, I did not enable
+CONFIG_MTD_CMDLINE_PARTS and I set CONFIG_MTD_REDBOOT_PARTS=m but the
+redboot module was not included in the initramfs so it could not be
+loaded, hence the messages saying that the parsing schemes are not
+available.
 
---------------060006090803030302090809
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+[    4.790000] physmap platform flash device: 00080000 at f0000000
+[    4.800000] Found: ST M29W400DB
+[    4.800000] physmap-flash.0: Found 1 x16 devices at 0x0 in 16-bit bank
+[    4.810000] number of JEDEC chips: 1
+[    4.810000] cfi_cmdset_0002: Disabling erase-suspend-program due to
+code brokenness.
+modprobe: FATAL: Could not load
+/lib/modules/2.6.25-trunk-iop32x/modules.dep: No such file or
+directory
 
-commit 0d034d8ef5cc2f9f4df960d4f8625c1061282e69
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Apr 24 05:40:27 2008 +0200
+[    4.900000] cmdlinepart partition parsing not available
+modprobe: FATAL: Could not load
+/lib/modules/2.6.25-trunk-iop32x/modules.dep: No such file or
+directory
 
-    [RTNETLINK]: Fix bogus ASSERT_RTNL warning
-    
-    ASSERT_RTNL uses mutex_trylock to test whether the rtnl_mutex is
-    held. This bogus warnings when running in atomic context, which
-    f.e. happens when adding secondary unicast addresses through
-    macvlan or vlan or when synchronizing multicast addresses from
-    wireless devices.
-    
-    Mid-term we might want to consider moving all address updates
-    to process context since the locking seems overly complicated,
-    for now just fix the bogus warning by changing ASSERT_RTNL to
-    use mutex_is_locked().
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+[    4.970000] RedBoot partition parsing not available
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index b9e1740..44c81c7 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -740,13 +740,13 @@ extern void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
- extern void rtnl_lock(void);
- extern void rtnl_unlock(void);
- extern int rtnl_trylock(void);
-+extern int rtnl_is_locked(void);
- 
- extern void rtnetlink_init(void);
- extern void __rtnl_unlock(void);
- 
- #define ASSERT_RTNL() do { \
--	if (unlikely(rtnl_trylock())) { \
--		rtnl_unlock(); \
-+	if (unlikely(!rtnl_is_locked())) { \
- 		printk(KERN_ERR "RTNL: assertion failed at %s (%d)\n", \
- 		       __FILE__,  __LINE__); \
- 		dump_stack(); \
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index bc39e41..cf857c4 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -82,6 +82,11 @@ int rtnl_trylock(void)
- 	return mutex_trylock(&rtnl_mutex);
- }
- 
-+int rtnl_is_locked(void)
-+{
-+	return mutex_is_locked(&rtnl_mutex);
-+}
-+
- static struct rtnl_link *rtnl_msg_handlers[NPROTO];
- 
- static inline int rtm_msgindex(int msgtype)
-@@ -1402,6 +1407,7 @@ EXPORT_SYMBOL(rtnetlink_put_metrics);
- EXPORT_SYMBOL(rtnl_lock);
- EXPORT_SYMBOL(rtnl_trylock);
- EXPORT_SYMBOL(rtnl_unlock);
-+EXPORT_SYMBOL(rtnl_is_locked);
- EXPORT_SYMBOL(rtnl_unicast);
- EXPORT_SYMBOL(rtnl_notify);
- EXPORT_SYMBOL(rtnl_set_sk_err);
+I guess the question is which patch (if either) is more appealing.
 
---------------060006090803030302090809--
+Gordon
+
+-- 
+Gordon Farquharson
+GnuPG Key ID: 32D6D676
