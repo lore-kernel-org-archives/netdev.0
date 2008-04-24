@@ -1,47 +1,44 @@
-From: David Miller <davem@davemloft.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 09:09:24 -0700 (PDT)
-Message-ID: <20080424.090924.257450074.davem@davemloft.net>
-References: <20080424162444.1c5b9ba2@the-village.bc.nu>
-	<20080424.090008.232544945.davem@davemloft.net>
-	<20080424163835.55520b5b@the-village.bc.nu>
+Date: Thu, 24 Apr 2008 16:42:26 +0100
+Message-ID: <20080424164226.415cedeb@the-village.bc.nu>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
+	<20080424112514.055d8071@the-village.bc.nu>
+	<alpine.LFD.1.10.0804240828100.2779@woody.linux-foundation.org>
+	<20080424.083908.147395158.davem@davemloft.net>
+	<517f3f820804240903y788102bar5c7d1fa9bcee1c8a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jakub@redhat.com, drepper@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: "David Miller" <davem@davemloft.net>,
+	torvalds@linux-foundation.org, drepper@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: "Michael Kerrisk" <mtk.manpages@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49477
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755105AbYDXQJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:09:24 -0400
-In-Reply-To: <20080424163835.55520b5b@the-village.bc.nu>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:55350 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751623AbYDXQLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:11:24 -0400
+In-Reply-To: <517f3f820804240903y788102bar5c7d1fa9bcee1c8a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Thu, 24 Apr 2008 16:38:35 +0100
+> But this approach fixes just one of the interfaces.  There are 7 or 8
+> other interfaces that need to solve the same problem.  What about
+> those?
 
-> On Thu, 24 Apr 2008 09:00:08 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-> > Date: Thu, 24 Apr 2008 16:24:44 +0100
-> > 
-> > > BTW in 4.4BSD and derivatives if I remember rightly F_CLOEXEC *is*
-> > > inherited across accept() so I doubt any user space software will be too
-> > > upset by such a shift.
-> > 
-> > It actually doesn't.
-> > 
-> > Just like in Linux, no file descriptor flags are inherited.
-> 
-> NDELAY certainly appears to be looking at Stevens.
+Actually it seems to fix most of them. I accept Jakub's observation we
+need a "paccept()" or similar.
 
-It's checking NDELAY, for the accept() call itself, on the
-parent socket.
+> It strikes me to be cleanest to use the same solution for all of them
+> -- i.e., new syscalls (seems simplest) or sys_indirect() -- including
+> socket().
 
-It allocates the new FD for the process and sets FREAD and
-FWRITE in the flags, that's it.
+New syscalls make the interface more complex and harder to learn. They
+make it harder to tweak applications neatly to use the new API if
+present. They are not immediately obvious from knowling the existing API.
+
+What we don't want to do is to end up with a thousand weird system calls
+as Windows NT did where nobody can actually understand chunks of code
+without looking calls up in books as they go.
