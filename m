@@ -1,65 +1,34 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] alternative^2 to sys_indirect: socket, socketpair
-Date: Thu, 24 Apr 2008 17:03:25 +0100
-Message-ID: <20080424170325.569afa43@the-village.bc.nu>
-References: <200804241618.m3OGI9kd013025@devserv.devel.redhat.com>
+From: "John Heffner" <johnwheffner@gmail.com>
+Subject: Re: Socket buffer sizes with autotuning
+Date: Thu, 24 Apr 2008 09:32:38 -0700
+Message-ID: <1e41a3230804240932u510609beh8fb577baaadeb9bd@mail.gmail.com>
+References: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org
-To: Ulrich Drepper <drepper@redhat.com>
+Cc: netdev@vger.kernel.org
+To: "Jerry Chu" <hkchu@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:48766 "EHLO
-	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755138AbYDXQbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:31:51 -0400
-In-Reply-To: <200804241618.m3OGI9kd013025@devserv.devel.redhat.com>
+Received: from rn-out-0910.google.com ([64.233.170.184]:9904 "EHLO
+	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753695AbYDXQco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:32:44 -0400
+Received: by rn-out-0910.google.com with SMTP id e11so1453994rng.17
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 09:32:40 -0700 (PDT)
+In-Reply-To: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Comments all come down to implementation details and it basically looks
-sound and fairly small clean change (especially when the various wrappers
-and _flags changes were replaced by just fixing up the callers to
-functions in a final implementation.
+On Wed, Apr 23, 2008 at 4:29 PM, Jerry Chu <hkchu@google.com> wrote:
+>
+> I've been seeing the same problem here and am trying to fix it.
+>  My fix is to not count those pkts still in the host queue as "prior_in_flight"
+>  when feeding the latter to tcp_cong_avoid(). This should cause
+>  tcp_is_cwnd_limited() test to fail when the previous in_flight build-up
+>  is all due to the large host queue, and stop the cwnd to grow beyond
+>  what's really necessary.
 
-Add a new accept() and it looks good to me
+Sounds like a useful optimization.  Do you have a patch?
 
-> -	fd = get_unused_fd();
-> +	fd = get_unused_fd_flags(flags);
-
-Better to fix up the existing users who don't pass flags (and check why
-they need not to), Implementation detail
-
-> -int sock_map_fd(struct socket *sock)
-> +static int sock_map_fd_flags(struct socket *sock, int flags)
-
-No need to rename these, the compiler errors will let us quickly
-find/fix any users.
-
-> +int sock_map_fd(struct socket *sock)
-> +{
-> +	return sock_map_fd_flags(sock, 0);
-> +}
-
-Ditto
-
-> +	/* Extract the close-on-exec flag.  */
-> +	if ((type & SOCK_CLOEXEC) != 0) {
-> +		fflags = O_CLOEXEC;
-> +		type &= ~SOCK_CLOEXEC;
-
-> +	/* Extract the close-on-exec flag.  */
-> +	if ((type & SOCK_CLOEXEC) != 0) {
-> +		fflags = O_CLOEXEC;
-> +		type &= ~SOCK_CLOEXEC;
-> +	}
-
-Should probably be done once in one place in case we ever add future flags
-
-
-
--- 
---
-	"Alan, I'm getting a bit worried about you."
-				-- Linus Torvalds
+  -John
