@@ -1,33 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Thu, 24 Apr 2008 06:55:55 -0700 (PDT)
-Message-ID: <20080424.065555.30390704.davem@davemloft.net>
-References: <m3r6cv75xq.fsf@maximus.localdomain>
-	<20080424.063006.153647297.davem@davemloft.net>
-	<m3mynj74nw.fsf@maximus.localdomain>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [PATCH] alternative to sys_indirect, part 1
+Date: Thu, 24 Apr 2008 07:18:43 -0700
+Message-ID: <481096C3.2020206@redhat.com>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com> <20080424112514.055d8071@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, paulkf@microgate.com, jchapman@katalix.com,
-	alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55964
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751211AbYDXNz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 09:55:56 -0400
-In-Reply-To: <m3mynj74nw.fsf@maximus.localdomain>
+Received: from mx1.redhat.com ([66.187.233.31]:38000 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751797AbYDXOTm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2008 10:19:42 -0400
+In-Reply-To: <20080424112514.055d8071@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Thu, 24 Apr 2008 15:39:47 +0200
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> Though we will have to abandon syncppp use anyway, at least for
-> generic HDLC (I don't care much about the old ISA drivers).
+Alan Cox wrote:
+> Given we will never have 2^32 socket types, and in a sense this is pa=
+rt
+> of the type why not just use
+>=20
+> 	socket(PF_INET, SOCK_STREAM|SOCK_CLOEXEC, ...)
+>=20
+> that would be far far cleaner, no new syscalls on the socket side at =
+all.
 
-That, I still don't understand.
+You have a strange sense of "clean" I must say.
 
-I would rather see you add small extensions to syncppp to
-provide for HDLC's needs, rather than reimplement it.
+I don't think this is a viable approach because it is not about the
+range.  People can and do select arbitrary values for those types.
+Until a value is officially recognized and registered it is in fact bes=
+t
+to choose a (possibly large) random value to not conflict with anything
+else.  Who can guarantee that whatever bit is chosen for SOCK_CLOEXEC
+isn't already used by someone?
+
+Add to this that it's not a complete solution (no such hack possible fo=
+r
+accept) and I think using a new interface is cleaner(tm).
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFIEJbD2ijCOnn/RHQRAnUBAKDFxC7Xkl8Qlo5u7PS8XBx4WrNzRQCgm2Ic
+mV6zeglZaTJMn3IuGv3tB60=3D
+=3D06jC
+-----END PGP SIGNATURE-----
