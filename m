@@ -1,20 +1,23 @@
 From: Ulrich Drepper <drepper@redhat.com>
 Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 08:16:59 -0700
-Message-ID: <4810A46B.1090809@redhat.com>
-References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>	<20080424112514.055d8071@the-village.bc.nu>	<481096C3.2020206@redhat.com> <20080424152436.6cf53c1b@the-village.bc.nu>
+Date: Thu, 24 Apr 2008 08:19:27 -0700
+Message-ID: <4810A4FF.7030004@redhat.com>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>	<20080424112514.055d8071@the-village.bc.nu>	<517f3f820804240534r3bbbdc52s52a6dfe3f2d14b7f@mail.gmail.com>	<48109DFB.900@redhat.com> <20080424154220.3dae36a1@the-village.bc.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	michael.kerrisk@gmail.com, linux-man@vger.kernel.org
 To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46297 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:39112 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760089AbYDXPSG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 11:18:06 -0400
-In-Reply-To: <20080424152436.6cf53c1b@the-village.bc.nu>
+	id S1762605AbYDXPUx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2008 11:20:53 -0400
+In-Reply-To: <20080424154220.3dae36a1@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -22,26 +25,20 @@ List-ID: <netdev.vger.kernel.org>
 Hash: SHA1
 
 Alan Cox wrote:
-> There are only a small number of valid socket types recognized by POS=
-IX
-> plus a few BSD plus a few Linux ones so Linux can happily assign the
-> upper bits for a different purpose.
+> We shouldn't be seeing this as a Linux problem, its a BSD problem, an=
+ AIX
+> problem, a Solaris problem and an HPUX problem and really wants one
+> solution applying across distributions or it will harm everyone in th=
+e
+> long term.
 
-You didn't read what I wrote.  It's about the not-yet-assigned types.
-=46or those the implementer must ensure that during the development no
-value is used which can conflict with any current and future assigned
-value and not with any other development.  Hence common practice is to
-use a random value over the entire range.
-
-I don't know about a case for socket but this is definitely how (sane)
-development elsewhere works.
-
-
-> Every other property of a socket via accept() is inherited from the
-> parent. Making one property different would be bizarre and ugly.
-
-Implementing this would visibly change existing code and it would
-actively violate POSIX.  Not a good idea.
+Look at the other interfaces.  I've proposed them for POSIX and they ar=
+e
+going to be in the next revision (O_CLOEXEC, F_DUPFD_CLOEXEC).  I'm
+confident that whatever we'll do will be endorsed this way.  It's just
+too late for the next revision, it'd have to wait a few years until wor=
+k
+on the next revision (esp reviews) start.  That's too long.
 
 - --
 =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
@@ -49,7 +46,7 @@ t =E2=9E=A7 Mountain View, CA =E2=9D=96
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.7 (GNU/Linux)
 
-iD8DBQFIEKRr2ijCOnn/RHQRAoltAJ98g8GHGSYceIJxyddjCRI6otoVagCfeTXC
-TfgaalHo6XQEzehnST+unhk=3D
-=3DT272
+iD8DBQFIEKT/2ijCOnn/RHQRAkyoAJ9/FRwN3r6zg2cSvzVrA2TiGlfergCdG1r9
+H/UghrO5A99ieG6O7wXvu7I=3D
+=3DpUfi
 -----END PGP SIGNATURE-----
