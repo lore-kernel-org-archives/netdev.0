@@ -1,41 +1,66 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [PATCH] alternative^2 to sys_indirect: socket, socketpair
-Date: Thu, 24 Apr 2008 09:37:47 -0700
-Message-ID: <4810B75B.20202@redhat.com>
-References: <200804241618.m3OGI9kd013025@devserv.devel.redhat.com> <20080424170325.569afa43@the-village.bc.nu>
+From: "Michael Kerrisk" <mtk.manpages@gmail.com>
+Subject: Re: [PATCH] alternative to sys_indirect, part 1
+Date: Thu, 24 Apr 2008 18:45:43 +0200
+Message-ID: <517f3f820804240945l2dc203afx8fa432ac41219236@mail.gmail.com>
+References: <20080424160352.30f2dd5b@the-village.bc.nu>
+	 <20080424154441.GG2255@devserv.devel.redhat.com>
+	 <20080424162444.1c5b9ba2@the-village.bc.nu>
+	 <20080424.090008.232544945.davem@davemloft.net>
+	 <20080424163835.55520b5b@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, jakub@redhat.com,
+	drepper@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org
+To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:38331 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750944AbYDXQiE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 12:38:04 -0400
-In-Reply-To: <20080424170325.569afa43@the-village.bc.nu>
+Received: from fg-out-1718.google.com ([72.14.220.159]:33111 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751024AbYDXQps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:45:48 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so3162514fgb.17
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 09:45:43 -0700 (PDT)
+In-Reply-To: <20080424163835.55520b5b@the-village.bc.nu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On 4/24/08, Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+> On Thu, 24 Apr 2008 09:00:08 -0700 (PDT)
+>
+> David Miller <davem@davemloft.net> wrote:
+>
+>
+> > From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+>  > Date: Thu, 24 Apr 2008 16:24:44 +0100
+>  >
+>  > > BTW in 4.4BSD and derivatives if I remember rightly F_CLOEXEC *is*
+>  > > inherited across accept() so I doubt any user space software will be too
+>  > > upset by such a shift.
+>  >
+>  > It actually doesn't.
+>  >
+>  > Just like in Linux, no file descriptor flags are inherited.
+>
+>
+> NDELAY certainly appears to be looking at Stevens.
 
-Alan Cox wrote:
+A while back I did some testing of this point.  These were the results I noted:
 
->> -int sock_map_fd(struct socket *sock)
->> +static int sock_map_fd_flags(struct socket *sock, int flags)
+FreeBSD 4.8
+O_NONBLOCK and O_ASYNC are inherited
+FD_CLOEXEC is not inherited
 
-sock_map_fd is exported to modules.  Isn't it a big no-no to change
-those interfaces?
+Solaris 8
+O_NONBLOCK and O_ASYNC are inherited
+FD_CLOEXEC is not inherited
 
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
+Tru64 5.1 (sep 03, testdrive)
+No F_SETFL flags are inherited
+FD_CLOEXEC is not inherited
 
-iD8DBQFIELda2ijCOnn/RHQRAoXZAKCAnv7JAup2v6KukBp59LDELfNUeACgvuET
-eBYx7ErX8E27VLxlYOdeXjs=3D
-=3DD+sf
------END PGP SIGNATURE-----
+HP-UX 11
+No F_SETFL flags are inherited
+FD_CLOEXEC is not inherited
