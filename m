@@ -1,58 +1,57 @@
-From: "Michael Kerrisk" <mtk.manpages@gmail.com>
+From: Ulrich Drepper <drepper@redhat.com>
 Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 18:03:53 +0200
-Message-ID: <517f3f820804240903y788102bar5c7d1fa9bcee1c8a@mail.gmail.com>
-References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
-	 <20080424112514.055d8071@the-village.bc.nu>
-	 <alpine.LFD.1.10.0804240828100.2779@woody.linux-foundation.org>
-	 <20080424.083908.147395158.davem@davemloft.net>
+Date: Thu, 24 Apr 2008 09:04:47 -0700
+Message-ID: <4810AF9F.5040705@redhat.com>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>	<20080424112514.055d8071@the-village.bc.nu>	<481096C3.2020206@redhat.com>	<20080424152436.6cf53c1b@the-village.bc.nu>	<4810A46B.1090809@redhat.com>	<20080424160352.30f2dd5b@the-village.bc.nu>	<4810AB29.5030604@redhat.com> <20080424162703.1eec01a2@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	drepper@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:26875 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761002AbYDXQDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:03:55 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so3136486fgb.17
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 09:03:53 -0700 (PDT)
-In-Reply-To: <20080424.083908.147395158.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:45270 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754823AbYDXQFF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2008 12:05:05 -0400
+In-Reply-To: <20080424162703.1eec01a2@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/24/08, David Miller <davem@davemloft.net> wrote:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
->  Date: Thu, 24 Apr 2008 08:29:14 -0700 (PDT)
->
->
->  >
->  >
->  > On Thu, 24 Apr 2008, Alan Cox wrote:
->  > >
->  > > Given we will never have 2^32 socket types, and in a sense this is part
->  > > of the type why not just use
->  > >
->  > >     socket(PF_INET, SOCK_STREAM|SOCK_CLOEXEC, ...)
->  >
->  > Ok, I have to admit that I find this very appealing. It looks much
->  > cleaner, but perhaps more importantly, it also looks both readable _and_
->  > easier to use for the user-space programmer.
->
->
-> Me too.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-But this approach fixes just one of the interfaces.  There are 7 or 8
-other interfaces that need to solve the same problem.  What about
-those?
+Alan Cox wrote:
+> Believe it or not we have the compute capability between us to not
+> accidentally reassign values we assigned to one thing to something el=
+se.
 
-It strikes me to be cleanest to use the same solution for all of them
--- i.e., new syscalls (seems simplest) or sys_indirect() -- including
-socket().
+Once again, this is not about assigned values.  This is about the time
+before you get a value assigned.  Not every experiment out there will
+have a value assigned before it starts development.
 
--- 
-I'll likely only see replies if they are CCed to mtk.manpages at gmail dot com
+But it really doesn't matter to me. I'm not the one you would introduce
+the problem.  Patch is forthcoming.
+
+
+>> Oh really?  You open a server socket, use fcntl(FD_CLOEXEC), and the=
+n
+>> accept().=20
+>=20
+> And your behaviour just became OS specific....
+
+Not according to POSIX.  If some OSes deliberately violate POSIX that's
+their problem.  All POSIX OSes will have up to today return a new file
+descriptor without the close-on-exec flag set at all times.  Just read
+the spec.
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFIEK+f2ijCOnn/RHQRAtYRAJ9Ve9XSkMriqkHkiCL00wsXzJJbYgCgmqzQ
+3uexpcjM0NvU7qgngOs7LDA=3D
+=3DuNKi
+-----END PGP SIGNATURE-----
