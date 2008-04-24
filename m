@@ -1,137 +1,109 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] via-velocity: fix vlan receipt
-Date: Thu, 24 Apr 2008 23:32:33 +0200
-Message-ID: <20080424213233.GA23638@electric-eye.fr.zoreil.com>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: [PATCH] [ROSE] [AX25] rose_get_route() added
+Date: Fri, 25 Apr 2008 00:04:32 +0200
+Message-ID: <200804250004.33322.bpidoux@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=unknown-8bit
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	=?unknown-8bit?B?U8OpZ3VpZXIgUsOpZ2lz?= <rseguier@e-teleport.net>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:53702 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752012AbYDXVvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 17:51:15 -0400
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-hams" <linux-hams@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-hams-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-- vlans were using a single CAM register (see mac_set_vlan_cam)
-- setting the address filtering registers for vlans is not
-  needed when there is no vlan
+This patch offers a new function, named rose_get_route(), called
+by rose_route_frame() in order to find a route each time a packet
+must be routed toward a specific address handled by one of the adjacent
+nodes in a list.
 
-The non-tagged interface is filtered out as soon as a tagged
-(!=3D 0) interface is created. Its traffic appears again when an
-zero-tagged interface is created.
+It returns the address of the adjacent node if it is connected,
+otherwise it returns a NULL. In that case, the calling function
+will initiate a new connection as before, when it was calling
+rose_get_neigh(). However, the new thing is that if a route is
+already opened via an adjacent node, the frame is routed immediately.
 
-Tested on Via Epia SN (VT6130 chipset) with several vlans whose
-tag was above or beyond 255.
-
-Signed-off-by: S=C3=A9guier R=C3=A9gis <rseguier@e-teleport.net>
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+This function has been tested for months now and it works fine.
+It adds a fast automatic frame routing mechanism from nodes to nodes,
+while identifaction of packets remains all along with callsigns
+of calling and destination AX25 station.
 ---
- drivers/net/via-velocity.c |   46 ++++++++++++++++++++++++++----------=
--------
- 1 files changed, 28 insertions(+), 18 deletions(-)
+ include/net/rose.h    |    1 +
+ net/rose/rose_route.c |   30 +++++++++++++++++++++++++++---
+ 2 files changed, 28 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index ed1afaf..036c5c9 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -605,7 +605,6 @@ static void __devinit velocity_get_options(struct v=
-elocity_opt *opts, int index,
- static void velocity_init_cam_filter(struct velocity_info *vptr)
- {
- 	struct mac_regs __iomem * regs =3D vptr->mac_regs;
--	unsigned short vid;
-=20
- 	/* Turn on MCFG_PQEN, turn off MCFG_RTGOPT */
- 	WORD_REG_BITS_SET(MCFG_PQEN, MCFG_RTGOPT, &regs->MCFG);
-@@ -617,29 +616,33 @@ static void velocity_init_cam_filter(struct veloc=
-ity_info *vptr)
- 	mac_set_vlan_cam_mask(regs, vptr->vCAMmask);
- 	mac_set_cam_mask(regs, vptr->mCAMmask);
-=20
--	/* Enable first VCAM */
-+	/* Enable VCAMs */
- 	if (vptr->vlgrp) {
--		for (vid =3D 0; vid < VLAN_VID_MASK; vid++) {
--			if (vlan_group_get_device(vptr->vlgrp, vid)) {
--				/* If Tagging option is enabled and
--				   VLAN ID is not zero, then
--				   turn on MCFG_RTGOPT also */
--				if (vid !=3D 0)
--					WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG);
-+		unsigned int vid, i =3D 0;
-+
-+		if (!vlan_group_get_device(vptr->vlgrp, 0))
-+			WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG);
-=20
--				mac_set_vlan_cam(regs, 0, (u8 *) &vid);
-+		for (vid =3D 1; (vid < VLAN_VID_MASK); vid++) {
-+			if (vlan_group_get_device(vptr->vlgrp, vid)) {
-+				mac_set_vlan_cam(regs, i, (u8 *) &vid);
-+				vptr->vCAMmask[i / 8] |=3D 0x1 << (i % 8);
-+				if (++i >=3D VCAM_SIZE)
-+					break;
- 			}
- 		}
--		vptr->vCAMmask[0] |=3D 1;
- 		mac_set_vlan_cam_mask(regs, vptr->vCAMmask);
--	} else {
--		u16 temp =3D 0;
--		mac_set_vlan_cam(regs, 0, (u8 *) &temp);
--		temp =3D 1;
--		mac_set_vlan_cam_mask(regs, (u8 *) &temp);
- 	}
+diff --git a/include/net/rose.h b/include/net/rose.h
+index e5bb084..de88459 100644
+--- a/include/net/rose.h
++++ b/include/net/rose.h
+@@ -201,6 +201,7 @@ extern void rose_link_device_down(struct net_device *);
+ extern struct net_device *rose_dev_first(void);
+ extern struct net_device *rose_dev_get(rose_address *);
+ extern struct rose_route *rose_route_free_lci(unsigned int, struct rose_neigh 
+*);
++extern struct rose_neigh *rose_get_route(rose_address *);
+ extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char *, 
+unsigned char *);
+ extern int  rose_rt_ioctl(unsigned int, void __user *);
+ extern void rose_link_failed(ax25_cb *, int);
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index 5053a53..ad0ebdc 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -662,6 +662,31 @@ struct rose_route *rose_route_free_lci(unsigned int lci, 
+struct rose_neigh *neig
  }
-=20
-+static void velocity_vlan_rx_register(struct net_device *dev,
-+				      struct vlan_group *grp)
+ 
+ /*
++ *	Find an opened route given a ROSE address.
++ */
++struct rose_neigh *rose_get_route(rose_address *addr)
 +{
-+	struct velocity_info *vptr =3D netdev_priv(dev);
++	struct rose_node *node;
++	struct rose_neigh *res = NULL;
++	int i;
 +
-+	vptr->vlgrp =3D grp;
++	spin_lock_bh(&rose_node_list_lock);
++	for (node = rose_node_list; node != NULL; node = node->next) {
++		if (rosecmpm(addr, &node->address, node->mask) == 0) {
++			for (i = 0; i < node->count; i++) {
++				if (node->neighbour[i]->restarted) {
++					res = node->neighbour[i];
++					goto out;
++				}
++			}
++		}
++	}
++out:
++	spin_unlock_bh(&rose_node_list_lock);
++	return res;
 +}
 +
- static void velocity_vlan_rx_add_vid(struct net_device *dev, unsigned =
-short vid)
- {
- 	struct velocity_info *vptr =3D netdev_priv(dev);
-@@ -959,11 +962,13 @@ static int __devinit velocity_found1(struct pci_d=
-ev *pdev, const struct pci_devi
-=20
- 	dev->vlan_rx_add_vid =3D velocity_vlan_rx_add_vid;
- 	dev->vlan_rx_kill_vid =3D velocity_vlan_rx_kill_vid;
-+	dev->vlan_rx_register =3D velocity_vlan_rx_register;
-=20
- #ifdef  VELOCITY_ZERO_COPY_SUPPORT
- 	dev->features |=3D NETIF_F_SG;
- #endif
--	dev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER;
-+	dev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
-+		NETIF_F_HW_VLAN_RX;
-=20
- 	if (vptr->flags & VELOCITY_FLAGS_TX_CSUM)
- 		dev->features |=3D NETIF_F_IP_CSUM;
-@@ -1597,8 +1602,13 @@ static int velocity_receive_frame(struct velocit=
-y_info *vptr, int idx)
- 	skb_put(skb, pkt_len - 4);
- 	skb->protocol =3D eth_type_trans(skb, vptr->dev);
-=20
-+	if (vptr->vlgrp && (rd->rdesc0.RSR & RSR_DETAG)) {
-+		vlan_hwaccel_rx(skb, vptr->vlgrp,
-+				swab16(le16_to_cpu(rd->rdesc1.PQTAG));
-+	} else
-+		netif_rx(skb);
-+
- 	stats->rx_bytes +=3D pkt_len;
--	netif_rx(skb);
-=20
- 	return 0;
- }
---=20
-1.5.3.3
++/*
+  *	Find a neighbour given a ROSE address.
+  */
+ struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char *cause,
+@@ -842,7 +867,6 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+ 	struct sock *sk;
+ 	unsigned short frametype;
+ 	unsigned int lci, new_lci;
+-	unsigned char cause, diagnostic;
+ 	struct net_device *dev;
+ 	int len, res = 0;
+ 	char buf[11];
+@@ -1018,8 +1042,8 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+ 		rose_route = rose_route->next;
+ 	}
+ 
+-	if ((new_neigh = rose_get_neigh(dest_addr, &cause, &diagnostic)) == NULL) {
+-		rose_transmit_clear_request(rose_neigh, lci, cause, diagnostic);
++	if ((new_neigh = rose_get_route(dest_addr)) == NULL) {
++		rose_transmit_clear_request(rose_neigh, lci, ROSE_NOT_OBTAINABLE, 0);
+ 		goto out;
+ 	}
+ 
+-- 
+1.5.5
+
 
