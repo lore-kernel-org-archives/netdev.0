@@ -1,287 +1,184 @@
-From: Eric Sesterhenn <snakebyte@gmx.de>
-Subject: Slab Corruption with ipv6 and tcp6fuzz
-Date: Thu, 24 Apr 2008 16:27:27 +0200
-Message-ID: <20080424142727.GA24025@alice>
+From: Tuomas Jormola <tj@solitudo.net>
+Subject: Re: PROBLEM: A set of networking related oopses
+Date: Thu, 24 Apr 2008 17:25:59 +0300
+Message-ID: <20080424142559.GA25023@solitudo.net>
+References: <D04F01C2-03F0-4FBC-933D-62899456BEE9@solitudo.net> <47D26201.2060201@gmail.com> <0CFB0535-DE03-4C13-8EC5-9471CED9B6BE@solitudo.net> <20080308175721.GA3582@ami.dom.local> <2DAAA71E-5F03-41CA-B7E0-5BE4073D14F5@solitudo.net> <20080309173122.GA3339@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="5/uDoXvLw7AC5HRs"
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:56096 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751623AbYDXO1c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 10:27:32 -0400
+Received: from mail.solitudo.net ([213.157.84.60]:43433 "EHLO
+	mail.solitudo.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752344AbYDXOgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 10:36:05 -0400
 Content-Disposition: inline
+In-Reply-To: <20080309173122.GA3339@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi,
 
-i found some local ivp6 network fuzzing tools from the bsd folks
-today and wanted to add them to my testmachine. When
-trying one of them (running with user privs) it gave me slab corruption errors.
-Running http://clem1.be/lf6/tcp6fuzz.c 1 to 5 times
-always results in errors, strangely using the same seed twice
-in a row doesnt trigger the warnings again.
+--5/uDoXvLw7AC5HRs
+Content-Type: multipart/mixed; boundary="k+w/mQv8wyuph6w0"
+Content-Disposition: inline
 
-If there is any more info i can provide please let me know.
 
-A sample of the warnings follows:
+--k+w/mQv8wyuph6w0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-[   57.315914] process `tcp6fuzz' is using obsolete setsockopt SO_BSDCOMPAT
-[   57.810370] sock_set_timeout: `tcp6fuzz' (pid 3721) tries to set negative timeout
-[  215.102729] =============================================================================
-[  215.102786] BUG skbuff_head_cache: Invalid object pointer 0xccd2b520
-[  215.102810] -----------------------------------------------------------------------------
-[  215.102816] 
-[  215.102840] INFO: Slab 0xc119c560 used=10 fp=0x00000000 flags=0x40000083
-[  215.102868] Pid: 0, comm: swapper Not tainted 2.6.25-03562-g3dc5063 #23
-[  215.102880]  [<c0177b57>] slab_err+0x47/0x50
-[  215.102978]  [<c0177bc7>] ? slab_pad_check+0x67/0xe0
-[  215.102994]  [<c0177c92>] ? check_slab+0x52/0x80
-[  215.103010]  [<c0179405>] __slab_free+0x1d5/0x2d0
-[  215.103024]  [<c0179eb0>] kmem_cache_free+0x80/0xe0
-[  215.103039]  [<c05d91dc>] ? __kfree_skb+0x3c/0x90
-[  215.103063]  [<c05d91dc>] ? __kfree_skb+0x3c/0x90
-[  215.103078]  [<c05d91dc>] __kfree_skb+0x3c/0x90
-[  215.103090]  [<c05d9249>] kfree_skb+0x19/0x30
-[  215.103103]  [<c0671e3b>] tcp_v6_do_rcv+0x33b/0xcd0
-[  215.103128]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.103161]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.103177]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.103191]  [<c012b075>] ? local_bh_enable_ip+0x85/0xf0
-[  215.103220]  [<c0680718>] ? ip6t_do_table+0x318/0x590
-[  215.103245]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.103260]  [<c0146721>] ? trace_hardirqs_on+0x81/0x150
-[  215.103275]  [<c0680718>] ? ip6t_do_table+0x318/0x590
-[  215.103289]  [<c0109637>] ? native_sched_clock+0x67/0xb0
-[  215.103317]  [<c014424d>] ? put_lock_stats+0xd/0x30
-[  215.103333]  [<c0674e97>] ? tcp_v6_rcv+0x567/0x710
-[  215.103349]  [<c0706615>] ? _spin_lock_nested+0x65/0x80
-[  215.103377]  [<c0674e97>] ? tcp_v6_rcv+0x567/0x710
-[  215.103391]  [<c0674f57>] tcp_v6_rcv+0x627/0x710
-[  215.103404]  [<c06809c0>] ? ip6t_hook+0x0/0x30
-[  215.103418]  [<c05f3c89>] ? nf_iterate+0x59/0x80
-[  215.103448]  [<c0653ff2>] ip6_input_finish+0xc2/0x2a0
-[  215.103465]  [<c0653f30>] ? ip6_input_finish+0x0/0x2a0
-[  215.103479]  [<c06541ef>] ip6_input+0x1f/0x60
-[  215.103491]  [<c0653f30>] ? ip6_input_finish+0x0/0x2a0
-[  215.103505]  [<c0654464>] ipv6_rcv+0x194/0x2e0
-[  215.103518]  [<c0654290>] ? ip6_rcv_finish+0x0/0x40
-[  215.103532]  [<c06542d0>] ? ipv6_rcv+0x0/0x2e0
-[  215.103545]  [<c05de7f0>] netif_receive_skb+0x280/0x2f0
-[  215.103560]  [<c05e1336>] process_backlog+0x76/0xd0
-[  215.103576]  [<c05e0c90>] net_rx_action+0x120/0x1a0
-[  215.103589]  [<c012ac92>] __do_softirq+0x62/0xc0
-[  215.103602]  [<c010676a>] do_softirq+0x8a/0xd0
-[  215.103618]  [<c0155f80>] ? handle_level_irq+0x0/0xe0
-[  215.103634]  [<c012abc6>] irq_exit+0x86/0x90
-[  215.103647]  [<c010684a>] do_IRQ+0x9a/0x100
-[  215.103659]  [<c0706e49>] ? _spin_unlock_irqrestore+0x39/0x70
-[  215.103677]  [<c01047f2>] common_interrupt+0x2e/0x34
-[  215.103691]  [<c0140000>] ? sysfs_override_clocksource+0x70/0x100
-[  215.103706]  [<c04b6d42>] ? acpi_idle_enter_simple+0x18a/0x1fc
-[  215.103739]  [<c058decd>] cpuidle_idle_call+0x5d/0xb0
-[  215.103760]  [<c058de70>] ? cpuidle_idle_call+0x0/0xb0
-[  215.103775]  [<c0102838>] cpu_idle+0x38/0xa0
-[  215.103787]  [<c06f94cc>] rest_init+0x5c/0x60
-[  215.103811]  =======================
-[  215.103819] FIX skbuff_head_cache: Object at 0xccd2b520 not freed
-[  215.108749] =============================================================================
-[  215.108796] BUG skbuff_head_cache: Invalid object pointer 0xcb13a820
-[  215.108820] -----------------------------------------------------------------------------
-[  215.108826] 
-[  215.108851] INFO: Slab 0xc1164740 used=5 fp=0xcb13a600 flags=0x40000083
-[  215.108879] Pid: 3172, comm: dd Not tainted 2.6.25-03562-g3dc5063 #23
-[  215.108896]  [<c0177b57>] slab_err+0x47/0x50
-[  215.108935]  [<c0177bc7>] ? slab_pad_check+0x67/0xe0
-[  215.108951]  [<c0177c92>] ? check_slab+0x52/0x80
-[  215.108966]  [<c0179405>] __slab_free+0x1d5/0x2d0
-[  215.108981]  [<c0179eb0>] kmem_cache_free+0x80/0xe0
-[  215.108995]  [<c05d91dc>] ? __kfree_skb+0x3c/0x90
-[  215.109021]  [<c05d91dc>] ? __kfree_skb+0x3c/0x90
-[  215.109035]  [<c05d91dc>] __kfree_skb+0x3c/0x90
-[  215.109048]  [<c05d9249>] kfree_skb+0x19/0x30
-[  215.109060]  [<c0671e3b>] tcp_v6_do_rcv+0x33b/0xcd0
-[  215.109086]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.109120]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.109136]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.109151]  [<c012b075>] ? local_bh_enable_ip+0x85/0xf0
-[  215.109181]  [<c0680718>] ? ip6t_do_table+0x318/0x590
-[  215.109209]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.109224]  [<c0146721>] ? trace_hardirqs_on+0x81/0x150
-[  215.109239]  [<c0680718>] ? ip6t_do_table+0x318/0x590
-[  215.109253]  [<c0109637>] ? native_sched_clock+0x67/0xb0
-[  215.109281]  [<c014424d>] ? put_lock_stats+0xd/0x30
-[  215.109296]  [<c0674e97>] ? tcp_v6_rcv+0x567/0x710
-[  215.109312]  [<c0706615>] ? _spin_lock_nested+0x65/0x80
-[  215.109337]  [<c0674e97>] ? tcp_v6_rcv+0x567/0x710
-[  215.109352]  [<c0674f57>] tcp_v6_rcv+0x627/0x710
-[  215.109365]  [<c06809c0>] ? ip6t_hook+0x0/0x30
-[  215.109379]  [<c05f3c89>] ? nf_iterate+0x59/0x80
-[  215.109412]  [<c0653ff2>] ip6_input_finish+0xc2/0x2a0
-[  215.109428]  [<c0653f30>] ? ip6_input_finish+0x0/0x2a0
-[  215.109443]  [<c06541ef>] ip6_input+0x1f/0x60
-[  215.109455]  [<c0653f30>] ? ip6_input_finish+0x0/0x2a0
-[  215.109469]  [<c0654464>] ipv6_rcv+0x194/0x2e0
-[  215.109481]  [<c0654290>] ? ip6_rcv_finish+0x0/0x40
-[  215.109495]  [<c06542d0>] ? ipv6_rcv+0x0/0x2e0
-[  215.109508]  [<c05de7f0>] netif_receive_skb+0x280/0x2f0
-[  215.109524]  [<c05e1336>] process_backlog+0x76/0xd0
-[  215.109540]  [<c05e0c90>] net_rx_action+0x120/0x1a0
-[  215.109554]  [<c012ac92>] __do_softirq+0x62/0xc0
-[  215.109567]  [<c010676a>] do_softirq+0x8a/0xd0
-[  215.109583]  [<c0155f80>] ? handle_level_irq+0x0/0xe0
-[  215.109599]  [<c012abc6>] irq_exit+0x86/0x90
-[  215.109612]  [<c010684a>] do_IRQ+0x9a/0x100
-[  215.109625]  [<c01047f2>] common_interrupt+0x2e/0x34
-[  215.109639]  [<c0147cff>] ? lock_acquire+0x8f/0xa0
-[  215.109654]  [<c01959e0>] ? mnt_want_write+0x20/0x90
-[  215.109677]  [<c0706669>] _spin_lock+0x39/0x70
-[  215.109690]  [<c01959e0>] ? mnt_want_write+0x20/0x90
-[  215.109704]  [<c01959e0>] mnt_want_write+0x20/0x90
-[  215.109717]  [<c0191a79>] file_update_time+0x39/0xd0
-[  215.109744]  [<c018413a>] pipe_write+0x21a/0x450
-[  215.109772]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.109788]  [<c017d55c>] do_sync_write+0xcc/0x110
-[  215.109802]  [<c0138a80>] ? autoremove_wake_function+0x0/0x50
-[  215.109827]  [<c01b1c9e>] ? dnotify_parent+0x6e/0x80
-[  215.109850]  [<c0706d47>] ? _spin_unlock+0x27/0x50
-[  215.109867]  [<c017dd99>] vfs_write+0x99/0x130
-[  215.109879]  [<c017d490>] ? do_sync_write+0x0/0x110
-[  215.109893]  [<c017e38d>] sys_write+0x3d/0x70
-[  215.109906]  [<c0103d75>] sysenter_past_esp+0x6a/0xb1
-[  215.109920]  =======================
-[  215.109928] FIX skbuff_head_cache: Object at 0xcb13a820 not freed
-[  215.116324] =============================================================================
-[  215.116372] BUG skbuff_head_cache: Invalid object pointer 0xccbf10a0
-[  215.116396] -----------------------------------------------------------------------------
-[  215.116401] 
-[  215.116426] INFO: Slab 0xc1199e20 used=10 fp=0x00000000 flags=0x40000083
-[  215.116455] Pid: 3172, comm: dd Not tainted 2.6.25-03562-g3dc5063 #23
-[  215.116467]  [<c0177b57>] slab_err+0x47/0x50
-[  215.116506]  [<c0177bc7>] ? slab_pad_check+0x67/0xe0
-[  215.116522]  [<c0177c92>] ? check_slab+0x52/0x80
-[  215.116537]  [<c0179405>] __slab_free+0x1d5/0x2d0
-[  215.116553]  [<c0179eb0>] kmem_cache_free+0x80/0xe0
-[  215.116567]  [<c05d91dc>] ? __kfree_skb+0x3c/0x90
-[  215.116592]  [<c05d91dc>] ? __kfree_skb+0x3c/0x90
-[  215.116606]  [<c05d91dc>] __kfree_skb+0x3c/0x90
-[  215.116619]  [<c05d9249>] kfree_skb+0x19/0x30
-[  215.116631]  [<c0671e3b>] tcp_v6_do_rcv+0x33b/0xcd0
-[  215.116657]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.116693]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.116709]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.116724]  [<c012b075>] ? local_bh_enable_ip+0x85/0xf0
-[  215.116753]  [<c0680718>] ? ip6t_do_table+0x318/0x590
-[  215.116781]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.116796]  [<c0146721>] ? trace_hardirqs_on+0x81/0x150
-[  215.116811]  [<c0680718>] ? ip6t_do_table+0x318/0x590
-[  215.116826]  [<c0109637>] ? native_sched_clock+0x67/0xb0
-[  215.116855]  [<c014424d>] ? put_lock_stats+0xd/0x30
-[  215.116870]  [<c0674e97>] ? tcp_v6_rcv+0x567/0x710
-[  215.116886]  [<c0706615>] ? _spin_lock_nested+0x65/0x80
-[  215.116913]  [<c0674e97>] ? tcp_v6_rcv+0x567/0x710
-[  215.116928]  [<c0674f57>] tcp_v6_rcv+0x627/0x710
-[  215.116941]  [<c06809c0>] ? ip6t_hook+0x0/0x30
-[  215.116955]  [<c05f3c89>] ? nf_iterate+0x59/0x80
-[  215.116988]  [<c0653ff2>] ip6_input_finish+0xc2/0x2a0
-[  215.117006]  [<c0653f30>] ? ip6_input_finish+0x0/0x2a0
-[  215.117021]  [<c06541ef>] ip6_input+0x1f/0x60
-[  215.117033]  [<c0653f30>] ? ip6_input_finish+0x0/0x2a0
-[  215.117047]  [<c0654464>] ipv6_rcv+0x194/0x2e0
-[  215.117059]  [<c0654290>] ? ip6_rcv_finish+0x0/0x40
-[  215.117073]  [<c06542d0>] ? ipv6_rcv+0x0/0x2e0
-[  215.117087]  [<c05de7f0>] netif_receive_skb+0x280/0x2f0
-[  215.117102]  [<c05e1336>] process_backlog+0x76/0xd0
-[  215.117118]  [<c05e0c90>] net_rx_action+0x120/0x1a0
-[  215.117131]  [<c012ac92>] __do_softirq+0x62/0xc0
-[  215.117145]  [<c010676a>] do_softirq+0x8a/0xd0
-[  215.117161]  [<c0155f80>] ? handle_level_irq+0x0/0xe0
-[  215.117178]  [<c012abc6>] irq_exit+0x86/0x90
-[  215.117191]  [<c010684a>] do_IRQ+0x9a/0x100
-[  215.117203]  [<c0109637>] ? native_sched_clock+0x67/0xb0
-[  215.117218]  [<c0109637>] ? native_sched_clock+0x67/0xb0
-[  215.117234]  [<c01047f2>] common_interrupt+0x2e/0x34
-[  215.117247]  [<c070007b>] ? tulip_init_one+0x5eb/0xda0
-[  215.117262]  [<c0192e3a>] ? __mnt_is_readonly+0xa/0x20
-[  215.117281]  [<c01959e7>] ? mnt_want_write+0x27/0x90
-[  215.117299]  [<c0191a79>] file_update_time+0x39/0xd0
-[  215.117322]  [<c018413a>] pipe_write+0x21a/0x450
-[  215.117348]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.117364]  [<c017d55c>] do_sync_write+0xcc/0x110
-[  215.117378]  [<c0138a80>] ? autoremove_wake_function+0x0/0x50
-[  215.117401]  [<c01b1c9e>] ? dnotify_parent+0x6e/0x80
-[  215.117423]  [<c0706d47>] ? _spin_unlock+0x27/0x50
-[  215.117439]  [<c017dd99>] vfs_write+0x99/0x130
-[  215.117451]  [<c017d490>] ? do_sync_write+0x0/0x110
-[  215.117465]  [<c017e38d>] sys_write+0x3d/0x70
-[  215.117478]  [<c0103d75>] sysenter_past_esp+0x6a/0xb1
-[  215.117492]  =======================
-[  215.117499] FIX skbuff_head_cache: Object at 0xccbf10a0 not freed
-[  215.125990] =============================================================================
-[  215.126042] BUG skbuff_head_cache: Invalid object pointer 0xccbe1820
-[  215.126066] -----------------------------------------------------------------------------
-[  215.126071] 
-[  215.126095] INFO: Slab 0xc1199c20 used=5 fp=0xccbe1600 flags=0x40000083
-[  215.126123] Pid: 3172, comm: dd Not tainted 2.6.25-03562-g3dc5063 #23
-[  215.126135]  [<c0177b57>] slab_err+0x47/0x50
-[  215.126172]  [<c0177bc7>] ? slab_pad_check+0x67/0xe0
-[  215.126189]  [<c0177c92>] ? check_slab+0x52/0x80
-[  215.126204]  [<c0179405>] __slab_free+0x1d5/0x2d0
-[  215.126219]  [<c0179eb0>] kmem_cache_free+0x80/0xe0
-[  215.126233]  [<c05d91dc>] ? __kfree_skb+0x3c/0x90
-[  215.126258]  [<c05d91dc>] ? __kfree_skb+0x3c/0x90
-[  215.126273]  [<c05d91dc>] __kfree_skb+0x3c/0x90
-[  215.126285]  [<c05d9249>] kfree_skb+0x19/0x30
-[  215.126298]  [<c0671e3b>] tcp_v6_do_rcv+0x33b/0xcd0
-[  215.126324]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.126359]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.126375]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.126389]  [<c012b075>] ? local_bh_enable_ip+0x85/0xf0
-[  215.126420]  [<c0680718>] ? ip6t_do_table+0x318/0x590
-[  215.126446]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.126461]  [<c0146721>] ? trace_hardirqs_on+0x81/0x150
-[  215.126476]  [<c0680718>] ? ip6t_do_table+0x318/0x590
-[  215.126490]  [<c0109637>] ? native_sched_clock+0x67/0xb0
-[  215.126519]  [<c014424d>] ? put_lock_stats+0xd/0x30
-[  215.126534]  [<c0674e97>] ? tcp_v6_rcv+0x567/0x710
-[  215.126550]  [<c0706615>] ? _spin_lock_nested+0x65/0x80
-[  215.126580]  [<c0674e97>] ? tcp_v6_rcv+0x567/0x710
-[  215.126594]  [<c0674f57>] tcp_v6_rcv+0x627/0x710
-[  215.126608]  [<c06809c0>] ? ip6t_hook+0x0/0x30
-[  215.126622]  [<c05f3c89>] ? nf_iterate+0x59/0x80
-[  215.126654]  [<c0653ff2>] ip6_input_finish+0xc2/0x2a0
-[  215.126672]  [<c0653f30>] ? ip6_input_finish+0x0/0x2a0
-[  215.126687]  [<c06541ef>] ip6_input+0x1f/0x60
-[  215.126699]  [<c0653f30>] ? ip6_input_finish+0x0/0x2a0
-[  215.126713]  [<c0654464>] ipv6_rcv+0x194/0x2e0
-[  215.126725]  [<c0654290>] ? ip6_rcv_finish+0x0/0x40
-[  215.126739]  [<c06542d0>] ? ipv6_rcv+0x0/0x2e0
-[  215.126752]  [<c05de7f0>] netif_receive_skb+0x280/0x2f0
-[  215.126767]  [<c05e1336>] process_backlog+0x76/0xd0
-[  215.126783]  [<c05e0c90>] net_rx_action+0x120/0x1a0
-[  215.126796]  [<c012ac92>] __do_softirq+0x62/0xc0
-[  215.126810]  [<c010676a>] do_softirq+0x8a/0xd0
-[  215.126826]  [<c0155f80>] ? handle_level_irq+0x0/0xe0
-[  215.126842]  [<c012abc6>] irq_exit+0x86/0x90
-[  215.126855]  [<c010684a>] do_IRQ+0x9a/0x100
-[  215.126867]  [<c0109637>] ? native_sched_clock+0x67/0xb0
-[  215.126883]  [<c01047f2>] common_interrupt+0x2e/0x34
-[  215.126897]  [<c0140000>] ? sysfs_override_clocksource+0x70/0x100
-[  215.126912]  [<c0706e67>] ? _spin_unlock_irqrestore+0x57/0x70
-[  215.126929]  [<c011e5c6>] __wake_up_sync+0x46/0x60
-[  215.126942]  [<c0184119>] pipe_write+0x1f9/0x450
-[  215.126968]  [<c0146fe5>] ? __lock_acquire+0x395/0x1020
-[  215.126983]  [<c017d55c>] do_sync_write+0xcc/0x110
-[  215.126997]  [<c0138a80>] ? autoremove_wake_function+0x0/0x50
-[  215.127021]  [<c01b1c9e>] ? dnotify_parent+0x6e/0x80
-[  215.127044]  [<c0706d47>] ? _spin_unlock+0x27/0x50
-[  215.127059]  [<c017dd99>] vfs_write+0x99/0x130
-[  215.127071]  [<c017d490>] ? do_sync_write+0x0/0x110
-[  215.127085]  [<c017e38d>] sys_write+0x3d/0x70
-[  215.127098]  [<c0103d75>] sysenter_past_esp+0x6a/0xb1
-[  215.127112]  =======================
-[  215.127119] FIX skbuff_head_cache: Object at 0xccbe1820 not freed
+Hi again,
 
-Greetings, Eric
+On Sun, Mar 09, 2008 at 06:31:22PM +0100, Jarek Poplawski wrote:
+> On Sun, Mar 09, 2008 at 06:58:47PM +0200, Tuomas Jormola wrote:
+> ...
+> > there be new oopses, I will replace the old card with a newer Intel=20
+> > gigabit card that I have laying around, and put it in a different PCI=
+=20
+> > slot.
+>=20
+> The link I gave you described similar problem just with e1000.
+> The next message after this thread looks alike (e1000 driver).
+> So, you shouldn't hurry with this change. Just set this affinity
+> for both cards and check if it's respected.
+I've now run my system about a month with the following configuration. I
+replaced the very old e100 card with a newer e1000 PCI card and set
+affinity so that interrupts for the IRQs of both e1000e and e1000 cards
+are handled by a single CPU, and this is working very well.
 
+(17:15:13)(tj@shakti)(~)$ grep eth /proc/interrupts=20
+ 18:   88113407       3780   IO-APIC-fasteoi   uhci_hcd:usb1, uhci_hcd:usb6=
+, eth0
+217:    9710797       4297   PCI-MSI-edge      eth1
+
+(This is after about a 8 days of uptime, the affinity was set
+automatically in a local init script)
+
+And with this, I've gotten rid of the OOPSes I had earlier. But is this
+really a feasible long term solution to the problem? I.e. if you're
+getting networking related OOPSes with SMP kernel on a box with two or
+more CPUs, the first thing you should do is to switch off the interrupt
+handling load balacing between the CPUs by issuing some obscure statment
+on the command line? I don't think that's very friendly advice for so
+called regular users... There's no way to work around it on the kernel
+side?
+
+Also after installing the e1000 card, I've gotten a few of these dumps
+(see attachments) from the e1000 driver (during about a month, a dozen
+incidents, sometimes there might be 3 incidents a day, sometimes it
+takes a week when everything's normal.
+
+Thanks,
+
+--=20
+Tuomas Jormola <tj@solitudo.net>
+
+--k+w/mQv8wyuph6w0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="e1000-hang1.txt"
+
+Apr 22 10:08:48 shakti kernel: [435270.771373] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+Apr 22 10:08:48 shakti kernel: [435270.771375]   Tx Queue             <0>
+Apr 22 10:08:48 shakti kernel: [435270.771376]   TDH                  <8b>
+Apr 22 10:08:48 shakti kernel: [435270.771376]   TDT                  <78>
+Apr 22 10:08:48 shakti kernel: [435270.771377]   next_to_use          <78>
+Apr 22 10:08:48 shakti kernel: [435270.771378]   next_to_clean        <8b>
+Apr 22 10:08:48 shakti kernel: [435270.771379] buffer_info[next_to_clean]
+Apr 22 10:08:48 shakti kernel: [435270.771379]   time_stamp           <29843da>
+Apr 22 10:08:48 shakti kernel: [435270.771380]   next_to_watch        <8d>
+Apr 22 10:08:48 shakti kernel: [435270.771381]   jiffies              <29844bc>
+Apr 22 10:08:48 shakti kernel: [435270.771382]   next_to_watch.status <0>
+Apr 22 10:08:50 shakti kernel: [435272.769478] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+Apr 22 10:08:50 shakti kernel: [435272.769480]   Tx Queue             <0>
+Apr 22 10:08:50 shakti kernel: [435272.769481]   TDH                  <8b>
+Apr 22 10:08:50 shakti kernel: [435272.769482]   TDT                  <78>
+Apr 22 10:08:50 shakti kernel: [435272.769483]   next_to_use          <78>
+Apr 22 10:08:50 shakti kernel: [435272.769484]   next_to_clean        <8b>
+Apr 22 10:08:50 shakti kernel: [435272.769484] buffer_info[next_to_clean]
+Apr 22 10:08:50 shakti kernel: [435272.769485]   time_stamp           <29843da>
+Apr 22 10:08:50 shakti kernel: [435272.769486]   next_to_watch        <8d>
+Apr 22 10:08:50 shakti kernel: [435272.769486]   jiffies              <2984584>
+Apr 22 10:08:50 shakti kernel: [435272.769487]   next_to_watch.status <0>
+Apr 22 10:08:52 shakti kernel: [435274.767578] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+Apr 22 10:08:52 shakti kernel: [435274.767580]   Tx Queue             <0>
+Apr 22 10:08:52 shakti kernel: [435274.767581]   TDH                  <8b>
+Apr 22 10:08:52 shakti kernel: [435274.767582]   TDT                  <78>
+Apr 22 10:08:52 shakti kernel: [435274.767582]   next_to_use          <78>
+Apr 22 10:08:52 shakti kernel: [435274.767583]   next_to_clean        <8b>
+Apr 22 10:08:52 shakti kernel: [435274.767584] buffer_info[next_to_clean]
+Apr 22 10:08:52 shakti kernel: [435274.767585]   time_stamp           <29843da>
+Apr 22 10:08:52 shakti kernel: [435274.767585]   next_to_watch        <8d>
+Apr 22 10:08:52 shakti kernel: [435274.767586]   jiffies              <298464c>
+Apr 22 10:08:52 shakti kernel: [435274.767587]   next_to_watch.status <0>
+Apr 22 10:08:54 shakti kernel: [435276.765683] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+Apr 22 10:08:54 shakti kernel: [435276.765685]   Tx Queue             <0>
+Apr 22 10:08:54 shakti kernel: [435276.765686]   TDH                  <8b>
+Apr 22 10:08:54 shakti kernel: [435276.765687]   TDT                  <78>
+Apr 22 10:08:54 shakti kernel: [435276.765687]   next_to_use          <78>
+Apr 22 10:08:54 shakti kernel: [435276.765688]   next_to_clean        <8b>
+Apr 22 10:08:54 shakti kernel: [435276.765689] buffer_info[next_to_clean]
+Apr 22 10:08:54 shakti kernel: [435276.765690]   time_stamp           <29843da>
+Apr 22 10:08:54 shakti kernel: [435276.765690]   next_to_watch        <8d>
+Apr 22 10:08:54 shakti kernel: [435276.765691]   jiffies              <2984714>
+Apr 22 10:08:54 shakti kernel: [435276.765692]   next_to_watch.status <0>
+Apr 22 10:08:56 shakti kernel: [435278.763580] NETDEV WATCHDOG: eth0: transmit timed out
+Apr 22 10:08:57 shakti kernel: [435280.482316] e1000: eth0: e1000_watchdog: NIC Link is Up 100 Mbps Full Duplex, Flow Control: RX/TX
+
+--k+w/mQv8wyuph6w0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="e1000-hang2.txt"
+
+Apr 22 16:36:18 shakti kernel: [458498.700148] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+Apr 22 16:36:18 shakti kernel: [458498.700150]   Tx Queue             <0>
+Apr 22 16:36:18 shakti kernel: [458498.700151]   TDH                  <31>
+Apr 22 16:36:18 shakti kernel: [458498.700152]   TDT                  <1d>
+Apr 22 16:36:18 shakti kernel: [458498.700152]   next_to_use          <1d>
+Apr 22 16:36:18 shakti kernel: [458498.700153]   next_to_clean        <31>
+Apr 22 16:36:18 shakti kernel: [458498.700154] buffer_info[next_to_clean]
+Apr 22 16:36:18 shakti kernel: [458498.700154]   time_stamp           <2bbbdc6>
+Apr 22 16:36:18 shakti kernel: [458498.700155]   next_to_watch        <33>
+Apr 22 16:36:18 shakti kernel: [458498.700156]   jiffies              <2bbbec4>
+Apr 22 16:36:18 shakti kernel: [458498.700157]   next_to_watch.status <0>
+Apr 22 16:36:20 shakti kernel: [458500.698250] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+Apr 22 16:36:20 shakti kernel: [458500.698252]   Tx Queue             <0>
+Apr 22 16:36:20 shakti kernel: [458500.698253]   TDH                  <31>
+Apr 22 16:36:20 shakti kernel: [458500.698254]   TDT                  <1d>
+Apr 22 16:36:20 shakti kernel: [458500.698255]   next_to_use          <1d>
+Apr 22 16:36:20 shakti kernel: [458500.698255]   next_to_clean        <31>
+Apr 22 16:36:20 shakti kernel: [458500.698256] buffer_info[next_to_clean]
+Apr 22 16:36:20 shakti kernel: [458500.698257]   time_stamp           <2bbbdc6>
+Apr 22 16:36:20 shakti kernel: [458500.698257]   next_to_watch        <33>
+Apr 22 16:36:20 shakti kernel: [458500.698258]   jiffies              <2bbbf8c>
+Apr 22 16:36:20 shakti kernel: [458500.698259]   next_to_watch.status <0>
+Apr 22 16:36:22 shakti kernel: [458502.696351] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+Apr 22 16:36:22 shakti kernel: [458502.696353]   Tx Queue             <0>
+Apr 22 16:36:22 shakti kernel: [458502.696354]   TDH                  <31>
+Apr 22 16:36:22 shakti kernel: [458502.696355]   TDT                  <1d>
+Apr 22 16:36:22 shakti kernel: [458502.696355]   next_to_use          <1d>
+Apr 22 16:36:22 shakti kernel: [458502.696356]   next_to_clean        <31>
+Apr 22 16:36:22 shakti kernel: [458502.696357] buffer_info[next_to_clean]
+Apr 22 16:36:22 shakti kernel: [458502.696357]   time_stamp           <2bbbdc6>
+Apr 22 16:36:22 shakti kernel: [458502.696358]   next_to_watch        <33>
+Apr 22 16:36:22 shakti kernel: [458502.696359]   jiffies              <2bbc054>
+Apr 22 16:36:22 shakti kernel: [458502.696360]   next_to_watch.status <0>
+Apr 22 16:36:23 shakti kernel: [458503.695087] NETDEV WATCHDOG: eth0: transmit timed out
+Apr 22 16:36:24 shakti kernel: [458505.503739] e1000: eth0: e1000_watchdog: NIC Link is Up 100 Mbps Full Duplex, Flow Control: RX/TX
+
+--k+w/mQv8wyuph6w0--
+
+--5/uDoXvLw7AC5HRs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.3 (GNU/Linux)
+
+iD8DBQFIEJh3TIdDC2qqn8kRAiZQAJ9fFpUegwbIeEdQyiEJ701L2qlaAgCeJ79U
+9cbPyGLszFu8Nk2VKBTz3+I=
+=g7nT
+-----END PGP SIGNATURE-----
+
+--5/uDoXvLw7AC5HRs--
