@@ -1,55 +1,137 @@
-From: Brad Boyer <flar@allandria.com>
-Subject: Re: [patch 10/15] m68k: Some network drivers do not check the platform
-Date: Thu, 24 Apr 2008 10:54:49 -0700
-Message-ID: <20080424175449.GA20639@cynthia.pants.nu>
-References: <20080424182940.424312704@mail.of.borg> <20080424183242.943446357@mail.of.borg> <20080424184256.GA8531@infradead.org> <Pine.LNX.4.64.0804242045510.21224@anakin>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] via-velocity: fix vlan receipt
+Date: Thu, 24 Apr 2008 23:32:33 +0200
+Message-ID: <20080424213233.GA23638@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	=?unknown-8bit?B?U8OpZ3VpZXIgUsOpZ2lz?= <rseguier@e-teleport.net>,
 	netdev@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-76-245-85-235.dsl.pltn13.sbcglobal.net ([76.245.85.235]:36340
-	"EHLO cynthia.pants.nu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753480AbYDXVtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 17:49:53 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:53702 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752012AbYDXVvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 17:51:15 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0804242045510.21224@anakin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 24, 2008 at 08:51:17PM +0200, Geert Uytterhoeven wrote:
-> On Thu, 24 Apr 2008, Christoph Hellwig wrote:
-> > On Thu, Apr 24, 2008 at 08:29:50PM +0200, Geert Uytterhoeven wrote:
-> > > +++ b/drivers/net/macmace.c
-> > > @@ -781,6 +781,9 @@ static int __init mac_mace_init_module(v
-> > >  {
-> > >  	int err;
-> > >  
-> > > +	if (!MACH_IS_MAC)
-> > > +		return -ENODEV;
-> > > +
-> > >  	if ((err = platform_driver_register(&mac_mace_driver))) {
-> > >  		printk(KERN_ERR "Driver registration failed\n");
-> > >  		return err;
-> > 
-> 
-> All these drivers predate the platform device framework and have been converted
-> to this framework a while ago, without separating the actual platform drivers
-> and platform devices.
+- vlans were using a single CAM register (see mac_set_vlan_cam)
+- setting the address filtering registers for vlans is not
+  needed when there is no vlan
 
-At some point I intend to merge macmace.c into mace.c by using the macio
-bus code on m68k macs. This would avoid the need for these checks, but
-it's not something I have working yet. My first driver to merge with ppc
-would be serial since we don't need any DMA support for that. It's on my
-list of things to do once I get macio working on m68k. I'll be sure to
-send a patch to the m68k list as soon as I have something that runs.
-After that I'll copy it to the ppc list to make sure I didn't break that,
-and submit it for inclusion once people are satisfied.
+The non-tagged interface is filtered out as soon as a tagged
+(!=3D 0) interface is created. Its traffic appears again when an
+zero-tagged interface is created.
 
-	Brad Boyer
-	flar@allandria.com
+Tested on Via Epia SN (VT6130 chipset) with several vlans whose
+tag was above or beyond 255.
+
+Signed-off-by: S=C3=A9guier R=C3=A9gis <rseguier@e-teleport.net>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/via-velocity.c |   46 ++++++++++++++++++++++++++----------=
+-------
+ 1 files changed, 28 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index ed1afaf..036c5c9 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -605,7 +605,6 @@ static void __devinit velocity_get_options(struct v=
+elocity_opt *opts, int index,
+ static void velocity_init_cam_filter(struct velocity_info *vptr)
+ {
+ 	struct mac_regs __iomem * regs =3D vptr->mac_regs;
+-	unsigned short vid;
+=20
+ 	/* Turn on MCFG_PQEN, turn off MCFG_RTGOPT */
+ 	WORD_REG_BITS_SET(MCFG_PQEN, MCFG_RTGOPT, &regs->MCFG);
+@@ -617,29 +616,33 @@ static void velocity_init_cam_filter(struct veloc=
+ity_info *vptr)
+ 	mac_set_vlan_cam_mask(regs, vptr->vCAMmask);
+ 	mac_set_cam_mask(regs, vptr->mCAMmask);
+=20
+-	/* Enable first VCAM */
++	/* Enable VCAMs */
+ 	if (vptr->vlgrp) {
+-		for (vid =3D 0; vid < VLAN_VID_MASK; vid++) {
+-			if (vlan_group_get_device(vptr->vlgrp, vid)) {
+-				/* If Tagging option is enabled and
+-				   VLAN ID is not zero, then
+-				   turn on MCFG_RTGOPT also */
+-				if (vid !=3D 0)
+-					WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG);
++		unsigned int vid, i =3D 0;
++
++		if (!vlan_group_get_device(vptr->vlgrp, 0))
++			WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG);
+=20
+-				mac_set_vlan_cam(regs, 0, (u8 *) &vid);
++		for (vid =3D 1; (vid < VLAN_VID_MASK); vid++) {
++			if (vlan_group_get_device(vptr->vlgrp, vid)) {
++				mac_set_vlan_cam(regs, i, (u8 *) &vid);
++				vptr->vCAMmask[i / 8] |=3D 0x1 << (i % 8);
++				if (++i >=3D VCAM_SIZE)
++					break;
+ 			}
+ 		}
+-		vptr->vCAMmask[0] |=3D 1;
+ 		mac_set_vlan_cam_mask(regs, vptr->vCAMmask);
+-	} else {
+-		u16 temp =3D 0;
+-		mac_set_vlan_cam(regs, 0, (u8 *) &temp);
+-		temp =3D 1;
+-		mac_set_vlan_cam_mask(regs, (u8 *) &temp);
+ 	}
+ }
+=20
++static void velocity_vlan_rx_register(struct net_device *dev,
++				      struct vlan_group *grp)
++{
++	struct velocity_info *vptr =3D netdev_priv(dev);
++
++	vptr->vlgrp =3D grp;
++}
++
+ static void velocity_vlan_rx_add_vid(struct net_device *dev, unsigned =
+short vid)
+ {
+ 	struct velocity_info *vptr =3D netdev_priv(dev);
+@@ -959,11 +962,13 @@ static int __devinit velocity_found1(struct pci_d=
+ev *pdev, const struct pci_devi
+=20
+ 	dev->vlan_rx_add_vid =3D velocity_vlan_rx_add_vid;
+ 	dev->vlan_rx_kill_vid =3D velocity_vlan_rx_kill_vid;
++	dev->vlan_rx_register =3D velocity_vlan_rx_register;
+=20
+ #ifdef  VELOCITY_ZERO_COPY_SUPPORT
+ 	dev->features |=3D NETIF_F_SG;
+ #endif
+-	dev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER;
++	dev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
++		NETIF_F_HW_VLAN_RX;
+=20
+ 	if (vptr->flags & VELOCITY_FLAGS_TX_CSUM)
+ 		dev->features |=3D NETIF_F_IP_CSUM;
+@@ -1597,8 +1602,13 @@ static int velocity_receive_frame(struct velocit=
+y_info *vptr, int idx)
+ 	skb_put(skb, pkt_len - 4);
+ 	skb->protocol =3D eth_type_trans(skb, vptr->dev);
+=20
++	if (vptr->vlgrp && (rd->rdesc0.RSR & RSR_DETAG)) {
++		vlan_hwaccel_rx(skb, vptr->vlgrp,
++				swab16(le16_to_cpu(rd->rdesc1.PQTAG));
++	} else
++		netif_rx(skb);
++
+ 	stats->rx_bytes +=3D pkt_len;
+-	netif_rx(skb);
+=20
+ 	return 0;
+ }
+--=20
+1.5.3.3
 
