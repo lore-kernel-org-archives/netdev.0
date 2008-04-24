@@ -1,38 +1,145 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Wed, 23 Apr 2008 15:49:53 -0700 (PDT)
-Message-ID: <20080423.154953.161012169.davem@davemloft.net>
-References: <480E4FA1.5020508@garzik.org>
-	<20080422.150559.115368150.davem@davemloft.net>
-	<m34p9smrmp.fsf@maximus.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [ PATCH 1/1 2.6.25-rc9] bnx2: Add EEH support in bnx2
+ driver - Resending
+Date: Wed, 23 Apr 2008 17:23:22 -0700
+Message-ID: <1208996602.6194.26.camel@dell>
+References: <1208812834.24768.40.camel@wendyx.austin.ibm.com>
+ <1208823296.16633.230.camel@dell>
+ <1208893442.7339.17.camel@wendyx.austin.ibm.com>
+ <1208900791.13806.5.camel@dell>
+ <1208983008.7339.24.camel@wendyx.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, paulkf@microgate.com, jchapman@katalix.com,
-	alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Cc: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
+	"David Miller" <davem@davemloft.net>
+To: "wendy xiong" <wendyx@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41452
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751564AbYDWWtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2008 18:49:51 -0400
-In-Reply-To: <m34p9smrmp.fsf@maximus.localdomain>
+Received: from mms3.broadcom.com ([216.31.210.19]:2097 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752872AbYDWXTs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2008 19:19:48 -0400
+In-Reply-To: <1208983008.7339.24.camel@wendyx.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Wed, 23 Apr 2008 19:02:22 +0200
+On Wed, 2008-04-23 at 15:36 -0500, wendy xiong wrote:
 
-> netdev_priv() was introduced at some point in time to allow
-> alloc_netdev() to optionally allocate additional memory for internal
-> use by the driver. It had nothing to do with dev->priv except "priv"
-> name. The drivers don't use it passing size 0.
+> diff -Nuarp linux-2.6.25-rc9.orig/drivers/net/bnx2.c linux-2.6.25-rc9.eeh/drivers/net/bnx2.c
+> --- linux-2.6.25-rc9.orig/drivers/net/bnx2.c    2008-04-18 22:12:53.000000000 -0500
+> +++ linux-2.6.25-rc9.eeh/drivers/net/bnx2.c     2008-04-23 15:08:40.000000000 -0500
+> @@ -7108,6 +7108,7 @@ bnx2_init_board(struct pci_dev *pdev, st
+>         }
+> 
+>         pci_set_master(pdev);
+> +       pci_save_state(pdev);
+> 
+>         bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
+>         if (bp->pm_cap == 0) {
+> @@ -7617,6 +7618,91 @@ bnx2_resume(struct pci_dev *pdev)
+>         return 0;
+>  }
+> 
+> +/**
+> + * bnx2_io_error_detected - called when PCI error is detected
+> + * @pdev: Pointer to PCI device
+> + * @state: The current pci connection state
+> + *
+> + * This function is called after a PCI bus error affecting
+> + * this device has been detected.
+> + */
+> +static pci_ers_result_t bnx2_io_error_detected(struct pci_dev *pdev,
+> +                                               pci_channel_state_t state)
+> +{
+> +       struct net_device *dev = pci_get_drvdata(pdev);
+> +       struct bnx2 *bp = netdev_priv(dev);
+> +
+> +       rtnl_lock();
+> +       netif_device_detach(dev);
+> +
+> +       if (netif_running(dev)) {
+> +               bnx2_netif_stop(bp);
+> +               del_timer_sync(&bp->timer);
+> +               bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
+> +       }
+> +
+> +       pci_disable_device(pdev);
+> +       rtnl_unlock();
+> +
+> +       /* Request a slot slot reset. */
+> +       return PCI_ERS_RESULT_NEED_RESET;
+> +}
+> +
+> +/**
+> + * bnx2_io_slot_reset - called after the pci bus has been reset.
+> + * @pdev: Pointer to PCI device
+> + *
+> + * Restart the card from scratch, as if from a cold-boot.
+> + */
+> +static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
+> +{
+> +       struct net_device *dev = pci_get_drvdata(pdev);
+> +       struct bnx2 *bp = netdev_priv(dev);
+> +
+> +       rtnl_lock();
+> +       if (pci_enable_device(pdev)) {
+> +               dev_err(&pdev->dev,
+> +                       "Cannot re-enable PCI device after reset.\n");
 
-No, it was added as an optimization since the private
-area was allocated together with the struct netdev, and
-thus at a constant offset computable a compile time.
+Need rtnl_unlock() here.
 
-It was never meant to provide a facility to have two private areas
-associated with a device, but unfortunately some broken stuff decided
-to use it that way.
+> +               return PCI_ERS_RESULT_DISCONNECT;
+> +       }
+> +       pci_set_master(pdev);
+> +       pci_restore_state(pdev);
+> +
+> +       if (netif_running(dev)) {
+> +               bnx2_set_power_state(bp, PCI_D0);
+> +               bnx2_init_nic(bp);
+> +       }
+> +
+> +       rtnl_unlock();
+> +       return PCI_ERS_RESULT_RECOVERED;
+> +}
+> +
+> +/**
+> + * bnx2_io_resume - called when traffic can start flowing again.
+> + * @pdev: Pointer to PCI device
+> + *
+> + * This callback is called when the error recovery driver tells us that
+> + * its OK to resume normal operation.
+> + */
+> +static void bnx2_io_resume(struct pci_dev *pdev)
+> +{
+> +       struct net_device *dev = pci_get_drvdata(pdev);
+> +       struct bnx2 *bp = netdev_priv(dev);
+> +
+> +       rtnl_lock();
+> +       if (netif_running(dev))
+> +               bnx2_netif_start(bp);
+> +
+> +       netif_device_attach(dev);
+> +       rtnl_unlock();
+> +}
+> +
+> +static struct pci_error_handlers bnx2_err_handler = {
+> +       .error_detected = bnx2_io_error_detected,
+> +       .slot_reset = bnx2_io_slot_reset,
+> +       .resume = bnx2_io_resume,
+> +};
+> +
+>  static struct pci_driver bnx2_pci_driver = {
+>         .name           = DRV_MODULE_NAME,
+>         .id_table       = bnx2_pci_tbl,
+> @@ -7624,6 +7710,7 @@ static struct pci_driver bnx2_pci_driver
+>         .remove         = __devexit_p(bnx2_remove_one),
+>         .suspend        = bnx2_suspend,
+>         .resume         = bnx2_resume,
+> +       .err_handler    = &bnx2_err_handler,
+>  };
+>  
+>  static int __init bnx2_init(void)
+> 
+> 
+> 
+
