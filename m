@@ -1,74 +1,33 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH][IPROUTE2] Support device movement between network namespaces
-Date: Thu, 24 Apr 2008 17:15:38 +0200
-Message-ID: <20080424151630.970357562@theryb.frec.bull.fr>
-References: <20080424151528.746600079@theryb.frec.bull.fr>
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] alternative to sys_indirect, part 1
+Date: Thu, 24 Apr 2008 08:29:14 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0804240828100.2779@woody.linux-foundation.org>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com> <20080424112514.055d8071@the-village.bc.nu>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ulrich Drepper <drepper@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:50355 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764232AbYDXP01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 11:26:27 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47321 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762579AbYDXPaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 11:30:20 -0400
+In-Reply-To: <20080424112514.055d8071@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
-
-I don't know if anyone has already sent you this patch for iproute2 to
-enable movement of network devices between network namespaces. 
-(Daniel Lezcano is the original author). 
-
-It applies on iproute2-2.6.25.
-
-Benjamin
 
 
-This patch adds support for the IFLA_NET_NS_PID type used to move 
-network devices between network namespaces.
+On Thu, 24 Apr 2008, Alan Cox wrote:
+> 
+> Given we will never have 2^32 socket types, and in a sense this is part
+> of the type why not just use
+> 
+> 	socket(PF_INET, SOCK_STREAM|SOCK_CLOEXEC, ...)
 
-The syntax is: 
-ip link DEVICE netns PID
+Ok, I have to admit that I find this very appealing. It looks much 
+cleaner, but perhaps more importantly, it also looks both readable _and_ 
+easier to use for the user-space programmer.
 
-PID is the pid of a process in the target network namespace.
-
----
- ip/iplink.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
-Index: iproute2-2.6.25/ip/iplink.c
-===================================================================
---- iproute2-2.6.25.orig/ip/iplink.c
-+++ iproute2-2.6.25/ip/iplink.c
-@@ -49,6 +49,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "	                     name NEWNAME |\n");
- 	fprintf(stderr, "	                     address LLADDR | broadcast LLADDR |\n");
- 	fprintf(stderr, "	                     mtu MTU }\n");
-+	fprintf(stderr, "	                     netns PID }\n");
- 	fprintf(stderr, "       ip link show [ DEVICE ]\n");
- 	exit(-1);
- }
-@@ -156,6 +157,7 @@ int iplink_parse(int argc, char **argv, 
- 	char abuf[32];
- 	int qlen = -1;
- 	int mtu = -1;
-+	int netns = -1;
- 
- 	ret = argc;
- 
-@@ -197,6 +199,13 @@ int iplink_parse(int argc, char **argv, 
- 			if (get_integer(&mtu, *argv, 0))
- 				invarg("Invalid \"mtu\" value\n", *argv);
- 			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
-+                } else if (strcmp(*argv, "netns") == 0) {
-+                        NEXT_ARG();
-+                        if (netns != -1)
-+                                duparg("netns", *argv);
-+                        if (get_integer(&netns, *argv, 0))
-+                                invarg("Invalid \"netns\" value\n", *argv);
-+                        addattr_l(&req->n, sizeof(*req), IFLA_NET_NS_PID, &netns, 4);
- 		} else if (strcmp(*argv, "multicast") == 0) {
- 			NEXT_ARG();
- 			req->i.ifi_change |= IFF_MULTICAST;
-
--- 
+		Linus
