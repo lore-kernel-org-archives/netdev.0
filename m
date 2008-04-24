@@ -1,46 +1,32 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 16:27:03 +0100
-Message-ID: <20080424162703.1eec01a2@the-village.bc.nu>
-References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
-	<20080424112514.055d8071@the-village.bc.nu>
-	<481096C3.2020206@redhat.com>
-	<20080424152436.6cf53c1b@the-village.bc.nu>
-	<4810A46B.1090809@redhat.com>
-	<20080424160352.30f2dd5b@the-village.bc.nu>
-	<4810AB29.5030604@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2 2.6.25-rc8] ixgbe: save and restore pcie/msi state
+ to support EEH recovery
+Date: Thu, 24 Apr 2008 08:56:28 -0700 (PDT)
+Message-ID: <20080424.085628.24868716.davem@davemloft.net>
+References: <1207856434.24768.27.camel@wendyx.austin.ibm.com>
+	<47FE7D3A.2090703@intel.com>
+	<1209052206.7339.40.camel@wendyx.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org
-To: Ulrich Drepper <drepper@redhat.com>
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org, jeff@garzik.org,
+	jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net
+To: wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:50475 "EHLO
-	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757596AbYDXPzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 11:55:36 -0400
-In-Reply-To: <4810AB29.5030604@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55869
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760034AbYDXP43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 11:56:29 -0400
+In-Reply-To: <1209052206.7339.40.camel@wendyx.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Alan Cox wrote:
-> > Kernel socket type values are assigned by the kernel team so that
-> > isn't a problem.
+From: wendy xiong <wendyx@us.ibm.com>
+Date: Thu, 24 Apr 2008 10:50:06 -0500
+
+> Hi David,
 > 
-> Again, it's not about assigned values.  It about those not yet assigned.
+> These two patches got ack by Intel developer. Can you put them in your
+> tree for 2.6.26 kernel?
 
-Earth calling Ulrich, Earth calling Ulrich...
-
-"Kernel socket type values are assigned by the kernel team so that isn't a
-problem."
-
-Believe it or not we have the compute capability between us to not
-accidentally reassign values we assigned to one thing to something else.
-
-> Oh really?  You open a server socket, use fcntl(FD_CLOEXEC), and then
-> accept(). 
-
-And your behaviour just became OS specific....
-
-Alan
+I don't take network driver patches, Jeff Garzik does.
