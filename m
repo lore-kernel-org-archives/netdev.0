@@ -1,51 +1,47 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 08:45:45 -0700
-Message-ID: <4810AB29.5030604@redhat.com>
-References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>	<20080424112514.055d8071@the-village.bc.nu>	<481096C3.2020206@redhat.com>	<20080424152436.6cf53c1b@the-village.bc.nu>	<4810A46B.1090809@redhat.com> <20080424160352.30f2dd5b@the-village.bc.nu>
+From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: [PATCH] RAW6: Do not allow set IPV6_CHECKSUM for ICMPv6 socket
+Date: Thu, 24 Apr 2008 18:26:52 +0300
+Message-ID: <200804241826.52507.rdenis@simphalempin.com>
+References: <20080420.183835.02139171.yoshfuji@linux-ipv6.org> <20080424.034845.137470754.davem@davemloft.net> <20080424.211953.52921169.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: davem@davemloft.net, ellre923@gmail.com, wangchen@cn.fujitsu.com,
+	netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki /
+	 =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:49776 "EHLO mx1.redhat.com"
+Received: from yop.chewa.net ([91.121.105.214]:33707 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762708AbYDXPqa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 11:46:30 -0400
-In-Reply-To: <20080424160352.30f2dd5b@the-village.bc.nu>
+	id S1753254AbYDXPqS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 11:46:18 -0400
+In-Reply-To: <20080424.211953.52921169.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Le Thursday 24 April 2008 15:19:53 YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
+=E8=8B=B1=E6=98=8E, vous avez =C3=A9crit=C2=A0:
+> RFC3542 discusses about IPPROTO_IPV6 level IPV6_CHECKSUM socket optio=
+n
+> only. IPPROTO_RAW level IPV6_CHECKSUM socket option is undocumented L=
+inux
+> extension.  So, we are free to choose allowing setting that option on
+> ICMPv6 socket as we have been doing.
 
-Alan Cox wrote:
-> Kernel socket type values are assigned by the kernel team so that
-> isn't a problem.
+I wonder why RFC3542 forbids the contentious case. Is it a security=20
+consideration, that userland should not be allowed to create bogus ICMP=
+v6=20
+packets (IPV6_CHECKSUM can be set after dropping root after opening a r=
+aw=20
+socket, right?), or is it just some random IETF folklore ??
 
-Again, it's not about assigned values.  It about those not yet assigned=
-=2E
+I'd note that my ndisc6 package does call setsockopt(SOL_IPV6,=20
+ICMPV6_CHECKSUM). Fortunately, it does not check for error values, so I=
+ don't=20
+really care if this is changed.
 
-> POSIX has no interface for this new behaviour you propose so that is
-> complete crap. The moment you use one of these features you stepped
-> outside of the POSIX spec - and you know that. If there was an existi=
-ng
-> standard we wouldn't have a problem.
-
-Oh really?  You open a server socket, use fcntl(FD_CLOEXEC), and then
-accept().  This is identical to the new behavior and it is very well
-defined in POSIX.  Hence, code which uses fcntl() this way today will
-see a change with your proposal.
-
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFIEKsp2ijCOnn/RHQRAl7yAJ40IosF+DLjiFtmuOt/t9LShBt46ACfbVi6
-BXwZE0fKUAh0Iqmrme3On6A=3D
-=3DiDY5
------END PGP SIGNATURE-----
+--=20
+R=C3=A9mi Denis-Courmont
+http://www.remlab.net/
