@@ -1,33 +1,58 @@
-From: David Miller <davem@davemloft.net>
+From: "Michael Kerrisk" <mtk.manpages@gmail.com>
 Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 09:00:08 -0700 (PDT)
-Message-ID: <20080424.090008.232544945.davem@davemloft.net>
-References: <20080424160352.30f2dd5b@the-village.bc.nu>
-	<20080424154441.GG2255@devserv.devel.redhat.com>
-	<20080424162444.1c5b9ba2@the-village.bc.nu>
+Date: Thu, 24 Apr 2008 18:03:53 +0200
+Message-ID: <517f3f820804240903y788102bar5c7d1fa9bcee1c8a@mail.gmail.com>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
+	 <20080424112514.055d8071@the-village.bc.nu>
+	 <alpine.LFD.1.10.0804240828100.2779@woody.linux-foundation.org>
+	 <20080424.083908.147395158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jakub@redhat.com, drepper@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: torvalds@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	drepper@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55879
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751623AbYDXQAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:00:08 -0400
-In-Reply-To: <20080424162444.1c5b9ba2@the-village.bc.nu>
+Received: from fg-out-1718.google.com ([72.14.220.155]:26875 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761002AbYDXQDz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:03:55 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so3136486fgb.17
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 09:03:53 -0700 (PDT)
+In-Reply-To: <20080424.083908.147395158.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Thu, 24 Apr 2008 16:24:44 +0100
+On 4/24/08, David Miller <davem@davemloft.net> wrote:
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+>  Date: Thu, 24 Apr 2008 08:29:14 -0700 (PDT)
+>
+>
+>  >
+>  >
+>  > On Thu, 24 Apr 2008, Alan Cox wrote:
+>  > >
+>  > > Given we will never have 2^32 socket types, and in a sense this is part
+>  > > of the type why not just use
+>  > >
+>  > >     socket(PF_INET, SOCK_STREAM|SOCK_CLOEXEC, ...)
+>  >
+>  > Ok, I have to admit that I find this very appealing. It looks much
+>  > cleaner, but perhaps more importantly, it also looks both readable _and_
+>  > easier to use for the user-space programmer.
+>
+>
+> Me too.
 
-> BTW in 4.4BSD and derivatives if I remember rightly F_CLOEXEC *is*
-> inherited across accept() so I doubt any user space software will be too
-> upset by such a shift.
+But this approach fixes just one of the interfaces.  There are 7 or 8
+other interfaces that need to solve the same problem.  What about
+those?
 
-It actually doesn't.
+It strikes me to be cleanest to use the same solution for all of them
+-- i.e., new syscalls (seems simplest) or sys_indirect() -- including
+socket().
 
-Just like in Linux, no file descriptor flags are inherited.
+-- 
+I'll likely only see replies if they are CCed to mtk.manpages at gmail dot com
