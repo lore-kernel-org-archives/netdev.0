@@ -1,39 +1,33 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 2/6] virtio: fix tx_ stats in virtio_net
-Date: Wed, 23 Apr 2008 23:56:07 -0500
-Message-ID: <200804241456.07551.rusty@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RTNETLINK]: Fix bogus ASSERT_RTNL warning
+Date: Wed, 23 Apr 2008 22:11:42 -0700 (PDT)
+Message-ID: <20080423.221142.169307866.davem@davemloft.net>
+References: <48100203.2020606@trash.net>
 Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:58754 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752679AbYDXE4Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 00:56:16 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60064
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750860AbYDXFLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 01:11:44 -0400
+In-Reply-To: <48100203.2020606@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 24 Apr 2008 05:44:03 +0200
 
-get_buf() gives the length written by the other side, which will be
-zero.  We want to add the skb length.
+> This patch should fix/silence the warning reported by Denys
+> Fedoryshchenko. Looking at kerneloops.org, there are also a
+> huge number of reports of this warning triggered by wireless,
+> so even if this is not the ideal solution, I think for now
+> we should just silence it.
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/net/virtio_net.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks Patrick, I'll probably send this to -stable too.
 
-diff -r 51bdbdc4f199 drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c	Thu Apr 10 15:55:52 2008 +1000
-+++ b/drivers/net/virtio_net.c	Mon Apr 14 11:13:45 2008 +1000
-@@ -221,7 +221,7 @@ static void free_old_xmit_skbs(struct vi
- 	while ((skb = vi->svq->vq_ops->get_buf(vi->svq, &len)) != NULL) {
- 		pr_debug("Sent skb %p\n", skb);
- 		__skb_unlink(skb, &vi->send);
--		vi->dev->stats.tx_bytes += len;
-+		vi->dev->stats.tx_bytes += skb->len;
- 		vi->dev->stats.tx_packets++;
- 		kfree_skb(skb);
- 	}
-
+We can handle this more elegantly with followon patches
+if we want.
