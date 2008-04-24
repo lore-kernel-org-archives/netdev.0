@@ -1,52 +1,74 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 08:19:27 -0700
-Message-ID: <4810A4FF.7030004@redhat.com>
-References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>	<20080424112514.055d8071@the-village.bc.nu>	<517f3f820804240534r3bbbdc52s52a6dfe3f2d14b7f@mail.gmail.com>	<48109DFB.900@redhat.com> <20080424154220.3dae36a1@the-village.bc.nu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	michael.kerrisk@gmail.com, linux-man@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: [PATCH][IPROUTE2] Support device movement between network namespaces
+Date: Thu, 24 Apr 2008 17:15:38 +0200
+Message-ID: <20080424151630.970357562@theryb.frec.bull.fr>
+References: <20080424151528.746600079@theryb.frec.bull.fr>
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:39112 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762605AbYDXPUx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 11:20:53 -0400
-In-Reply-To: <20080424154220.3dae36a1@the-village.bc.nu>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:50355 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764232AbYDXP01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 11:26:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Hi Stephen,
 
-Alan Cox wrote:
-> We shouldn't be seeing this as a Linux problem, its a BSD problem, an=
- AIX
-> problem, a Solaris problem and an HPUX problem and really wants one
-> solution applying across distributions or it will harm everyone in th=
-e
-> long term.
+I don't know if anyone has already sent you this patch for iproute2 to
+enable movement of network devices between network namespaces. 
+(Daniel Lezcano is the original author). 
 
-Look at the other interfaces.  I've proposed them for POSIX and they ar=
-e
-going to be in the next revision (O_CLOEXEC, F_DUPFD_CLOEXEC).  I'm
-confident that whatever we'll do will be endorsed this way.  It's just
-too late for the next revision, it'd have to wait a few years until wor=
-k
-on the next revision (esp reviews) start.  That's too long.
+It applies on iproute2-2.6.25.
 
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
+Benjamin
 
-iD8DBQFIEKT/2ijCOnn/RHQRAkyoAJ9/FRwN3r6zg2cSvzVrA2TiGlfergCdG1r9
-H/UghrO5A99ieG6O7wXvu7I=3D
-=3DpUfi
------END PGP SIGNATURE-----
+
+This patch adds support for the IFLA_NET_NS_PID type used to move 
+network devices between network namespaces.
+
+The syntax is: 
+ip link DEVICE netns PID
+
+PID is the pid of a process in the target network namespace.
+
+---
+ ip/iplink.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+Index: iproute2-2.6.25/ip/iplink.c
+===================================================================
+--- iproute2-2.6.25.orig/ip/iplink.c
++++ iproute2-2.6.25/ip/iplink.c
+@@ -49,6 +49,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "	                     name NEWNAME |\n");
+ 	fprintf(stderr, "	                     address LLADDR | broadcast LLADDR |\n");
+ 	fprintf(stderr, "	                     mtu MTU }\n");
++	fprintf(stderr, "	                     netns PID }\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE ]\n");
+ 	exit(-1);
+ }
+@@ -156,6 +157,7 @@ int iplink_parse(int argc, char **argv, 
+ 	char abuf[32];
+ 	int qlen = -1;
+ 	int mtu = -1;
++	int netns = -1;
+ 
+ 	ret = argc;
+ 
+@@ -197,6 +199,13 @@ int iplink_parse(int argc, char **argv, 
+ 			if (get_integer(&mtu, *argv, 0))
+ 				invarg("Invalid \"mtu\" value\n", *argv);
+ 			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
++                } else if (strcmp(*argv, "netns") == 0) {
++                        NEXT_ARG();
++                        if (netns != -1)
++                                duparg("netns", *argv);
++                        if (get_integer(&netns, *argv, 0))
++                                invarg("Invalid \"netns\" value\n", *argv);
++                        addattr_l(&req->n, sizeof(*req), IFLA_NET_NS_PID, &netns, 4);
+ 		} else if (strcmp(*argv, "multicast") == 0) {
+ 			NEXT_ARG();
+ 			req->i.ifi_change |= IFF_MULTICAST;
+
+-- 
