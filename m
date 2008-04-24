@@ -1,165 +1,55 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: [patch 37/37] LTTng instrumentation net
-Date: Thu, 24 Apr 2008 11:04:01 -0400
-Message-ID: <20080424151408.991424268@polymtl.ca>
-References: <20080424150324.802695381@polymtl.ca>
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [PATCH] alternative to sys_indirect, part 1
+Date: Thu, 24 Apr 2008 08:16:59 -0700
+Message-ID: <4810A46B.1090809@redhat.com>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>	<20080424112514.055d8071@the-village.bc.nu>	<481096C3.2020206@redhat.com> <20080424152436.6cf53c1b@the-village.bc.nu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.polymtl.ca ([132.207.4.11]:56072 "EHLO smtp.polymtl.ca"
+Received: from mx1.redhat.com ([66.187.233.31]:46297 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759407AbYDXPOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 11:14:45 -0400
-Content-Disposition: inline; filename=lttng-instrumentation-net.patch
+	id S1760089AbYDXPSG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2008 11:18:06 -0400
+In-Reply-To: <20080424152436.6cf53c1b@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Network core events.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Added markers :
+Alan Cox wrote:
+> There are only a small number of valid socket types recognized by POS=
+IX
+> plus a few BSD plus a few Linux ones so Linux can happily assign the
+> upper bits for a different purpose.
 
-net_del_ifa_ipv4
-net_dev_receive
-net_dev_xmit
-net_insert_ifa_ipv4
-net_socket_call
-net_socket_create
-net_socket_recvmsg
-net_socket_sendmsg
+You didn't read what I wrote.  It's about the not-yet-assigned types.
+=46or those the implementer must ensure that during the development no
+value is used which can conflict with any current and future assigned
+value and not with any other development.  Hence common practice is to
+use a random value over the entire range.
 
-Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-CC: netdev@vger.kernel.org
----
- net/core/dev.c     |    6 ++++++
- net/ipv4/devinet.c |    6 ++++++
- net/socket.c       |   19 +++++++++++++++++++
- 3 files changed, 31 insertions(+)
+I don't know about a case for socket but this is definitely how (sane)
+development elsewhere works.
 
-Index: linux-2.6-lttng/net/core/dev.c
-===================================================================
---- linux-2.6-lttng.orig/net/core/dev.c	2008-03-27 07:26:26.000000000 -0400
-+++ linux-2.6-lttng/net/core/dev.c	2008-03-27 07:31:44.000000000 -0400
-@@ -119,6 +119,7 @@
- #include <linux/err.h>
- #include <linux/ctype.h>
- #include <linux/if_arp.h>
-+#include <linux/marker.h>
- 
- #include "net-sysfs.h"
- 
-@@ -1643,6 +1644,8 @@ int dev_queue_xmit(struct sk_buff *skb)
- 	}
- 
- gso:
-+	trace_mark(net_dev_xmit, "skb %p protocol #2u%hu", skb, skb->protocol);
-+
- 	spin_lock_prefetch(&dev->queue_lock);
- 
- 	/* Disable soft irqs for various locks below. Also
-@@ -2043,6 +2046,9 @@ int netif_receive_skb(struct sk_buff *sk
- 
- 	__get_cpu_var(netdev_rx_stat).total++;
- 
-+	trace_mark(net_dev_receive, "skb %p protocol #2u%hu",
-+		skb, skb->protocol);
-+
- 	skb_reset_network_header(skb);
- 	skb_reset_transport_header(skb);
- 	skb->mac_len = skb->network_header - skb->mac_header;
-Index: linux-2.6-lttng/net/ipv4/devinet.c
-===================================================================
---- linux-2.6-lttng.orig/net/ipv4/devinet.c	2008-03-27 07:26:26.000000000 -0400
-+++ linux-2.6-lttng/net/ipv4/devinet.c	2008-03-27 07:31:49.000000000 -0400
-@@ -56,6 +56,7 @@
- #include <linux/sysctl.h>
- #endif
- #include <linux/kmod.h>
-+#include <linux/marker.h>
- 
- #include <net/arp.h>
- #include <net/ip.h>
-@@ -258,6 +259,8 @@ static void __inet_del_ifa(struct in_dev
- 		struct in_ifaddr **ifap1 = &ifa1->ifa_next;
- 
- 		while ((ifa = *ifap1) != NULL) {
-+			trace_mark(net_del_ifa_ipv4, "label %s",
-+				ifa->ifa_label);
- 			if (!(ifa->ifa_flags & IFA_F_SECONDARY) &&
- 			    ifa1->ifa_scope <= ifa->ifa_scope)
- 				last_prim = ifa;
-@@ -364,6 +367,9 @@ static int __inet_insert_ifa(struct in_i
- 			}
- 			ifa->ifa_flags |= IFA_F_SECONDARY;
- 		}
-+		trace_mark(net_insert_ifa_ipv4, "label %s address #4u%lu",
-+			ifa->ifa_label,
-+			(unsigned long)ifa->ifa_address);
- 	}
- 
- 	if (!(ifa->ifa_flags & IFA_F_SECONDARY)) {
-Index: linux-2.6-lttng/net/socket.c
-===================================================================
---- linux-2.6-lttng.orig/net/socket.c	2008-03-27 07:26:26.000000000 -0400
-+++ linux-2.6-lttng/net/socket.c	2008-03-27 07:31:57.000000000 -0400
-@@ -85,6 +85,7 @@
- #include <linux/audit.h>
- #include <linux/wireless.h>
- #include <linux/nsproxy.h>
-+#include <linux/marker.h>
- 
- #include <asm/uaccess.h>
- #include <asm/unistd.h>
-@@ -567,6 +568,11 @@ int sock_sendmsg(struct socket *sock, st
- 	struct sock_iocb siocb;
- 	int ret;
- 
-+	trace_mark(net_socket_sendmsg,
-+		"sock %p family %d type %d protocol %d size %zu",
-+		sock, sock->sk->sk_family, sock->sk->sk_type,
-+		sock->sk->sk_protocol, size);
-+
- 	init_sync_kiocb(&iocb, NULL);
- 	iocb.private = &siocb;
- 	ret = __sock_sendmsg(&iocb, sock, msg, size);
-@@ -650,7 +656,13 @@ int sock_recvmsg(struct socket *sock, st
- 	struct sock_iocb siocb;
- 	int ret;
- 
-+	trace_mark(net_socket_recvmsg,
-+		"sock %p family %d type %d protocol %d size %zu",
-+		sock, sock->sk->sk_family, sock->sk->sk_type,
-+		sock->sk->sk_protocol, size);
-+
- 	init_sync_kiocb(&iocb, NULL);
-+
- 	iocb.private = &siocb;
- 	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
- 	if (-EIOCBQUEUED == ret)
-@@ -1226,6 +1238,11 @@ asmlinkage long sys_socket(int family, i
- 	if (retval < 0)
- 		goto out_release;
- 
-+	trace_mark(net_socket_create,
-+		"sock %p family %d type %d protocol %d fd %d",
-+		sock, sock->sk->sk_family, sock->sk->sk_type,
-+		sock->sk->sk_protocol, retval);
-+
- out:
- 	/* It may be already another descriptor 8) Not kernel problem. */
- 	return retval;
-@@ -2024,6 +2041,8 @@ asmlinkage long sys_socketcall(int call,
- 	a0 = a[0];
- 	a1 = a[1];
- 
-+	trace_mark(net_socket_call, "call %d a0 %lu", call, a0);
-+
- 	switch (call) {
- 	case SYS_SOCKET:
- 		err = sys_socket(a0, a1, a[2]);
 
--- 
-Mathieu Desnoyers
-Computer Engineering Ph.D. Student, Ecole Polytechnique de Montreal
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+> Every other property of a socket via accept() is inherited from the
+> parent. Making one property different would be bizarre and ugly.
+
+Implementing this would visibly change existing code and it would
+actively violate POSIX.  Not a good idea.
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFIEKRr2ijCOnn/RHQRAoltAJ98g8GHGSYceIJxyddjCRI6otoVagCfeTXC
+TfgaalHo6XQEzehnST+unhk=3D
+=3DT272
+-----END PGP SIGNATURE-----
