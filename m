@@ -1,39 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] RAW6: Do not allow set IPV6_CHECKSUM for ICMPv6 socket
-Date: Thu, 24 Apr 2008 03:48:45 -0700 (PDT)
-Message-ID: <20080424.034845.137470754.davem@davemloft.net>
-References: <480B0A59.7000408@cn.fujitsu.com>
-	<20080420.183835.02139171.yoshfuji@linux-ipv6.org>
-	<dd9c5f130804200342r4bdc938fq4af15c9747ba6e06@mail.gmail.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] alternative to sys_indirect, part 1
+Date: Thu, 24 Apr 2008 11:25:14 +0100
+Message-ID: <20080424112514.055d8071@the-village.bc.nu>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, wangchen@cn.fujitsu.com,
-	netdev@vger.kernel.org
-To: ellre923@gmail.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org
+To: Ulrich Drepper <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42723
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751373AbYDXKsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 06:48:45 -0400
-In-Reply-To: <dd9c5f130804200342r4bdc938fq4af15c9747ba6e06@mail.gmail.com>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:36431 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751581AbYDXKx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 06:53:58 -0400
+In-Reply-To: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "chen wang" <ellre923@gmail.com>
-Date: Sun, 20 Apr 2008 18:42:14 +0800
+> - I decided against using the O_* flags here.  Most are not useful and
+>   we might need the bits for something else at some time.  Hence the
+>   new SOCKFL_* flag.  The intend is to define SOCKFL_CLOEXEC and
+>   O_CLOEXEC to the same value.  In this case there is zero overhead.
 
-> 2008/4/20, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>:
-> > RFC3542 tells that IPV6_CHECKSUM socket option in the IPPROTO_IPV6
-> 
-> 
-> 
->              ^^^^^^^^^^^^^^^^^^^
-> Where in RFC3542 says that "only IPPROTO_IPV6 level" is not allowed to be
-> set
-> IPV6_CHECKSUM option on ICMPv6 socket?
+Given we will never have 2^32 socket types, and in a sense this is part
+of the type why not just use
 
-Yoshifuji-san, please address this question.
+	socket(PF_INET, SOCK_STREAM|SOCK_CLOEXEC, ...)
 
-I haven't applied this patch, and I won't until this is resolved
-and discussed.
+that would be far far cleaner, no new syscalls on the socket side at all.
+
+Alan
