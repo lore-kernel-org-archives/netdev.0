@@ -1,33 +1,47 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 08:29:14 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0804240828100.2779@woody.linux-foundation.org>
-References: <200804240403.m3O43us8028699@devserv.devel.redhat.com> <20080424112514.055d8071@the-village.bc.nu>
+Date: Thu, 24 Apr 2008 16:03:52 +0100
+Message-ID: <20080424160352.30f2dd5b@the-village.bc.nu>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
+	<20080424112514.055d8071@the-village.bc.nu>
+	<481096C3.2020206@redhat.com>
+	<20080424152436.6cf53c1b@the-village.bc.nu>
+	<4810A46B.1090809@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ulrich Drepper <drepper@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org
+To: Ulrich Drepper <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:47321 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762579AbYDXPaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 11:30:20 -0400
-In-Reply-To: <20080424112514.055d8071@the-village.bc.nu>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:39528 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755499AbYDXPec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 11:34:32 -0400
+In-Reply-To: <4810A46B.1090809@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> You didn't read what I wrote.
 
+The feeling is mutual
 
-On Thu, 24 Apr 2008, Alan Cox wrote:
+> For those the implementer must ensure that during the development no
+> value is used which can conflict with any current and future assigned
+> value and not with any other development.
+
+Kernel socket type values are assigned by the kernel team so that
+isn't a problem.
+
+> > Every other property of a socket via accept() is inherited from the
+> > parent. Making one property different would be bizarre and ugly.
 > 
-> Given we will never have 2^32 socket types, and in a sense this is part
-> of the type why not just use
-> 
-> 	socket(PF_INET, SOCK_STREAM|SOCK_CLOEXEC, ...)
+> Implementing this would visibly change existing code and it would
+> actively violate POSIX.  Not a good idea.
 
-Ok, I have to admit that I find this very appealing. It looks much 
-cleaner, but perhaps more importantly, it also looks both readable _and_ 
-easier to use for the user-space programmer.
+POSIX has no interface for this new behaviour you propose so that is
+complete crap. The moment you use one of these features you stepped
+outside of the POSIX spec - and you know that. If there was an existing
+standard we wouldn't have a problem.
 
-		Linus
+Alan
