@@ -1,66 +1,47 @@
 From: "Michael Kerrisk" <mtk.manpages@gmail.com>
 Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 18:45:43 +0200
-Message-ID: <517f3f820804240945l2dc203afx8fa432ac41219236@mail.gmail.com>
-References: <20080424160352.30f2dd5b@the-village.bc.nu>
-	 <20080424154441.GG2255@devserv.devel.redhat.com>
-	 <20080424162444.1c5b9ba2@the-village.bc.nu>
-	 <20080424.090008.232544945.davem@davemloft.net>
-	 <20080424163835.55520b5b@the-village.bc.nu>
+Date: Thu, 24 Apr 2008 18:48:37 +0200
+Message-ID: <517f3f820804240948u788745f4s7a5dd4e7417ffeaf@mail.gmail.com>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
+	 <20080424112514.055d8071@the-village.bc.nu>
+	 <alpine.LFD.1.10.0804240828100.2779@woody.linux-foundation.org>
+	 <20080424.083908.147395158.davem@davemloft.net>
+	 <517f3f820804240903y788102bar5c7d1fa9bcee1c8a@mail.gmail.com>
+	 <20080424164226.415cedeb@the-village.bc.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, jakub@redhat.com,
-	drepper@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org
+Cc: "David Miller" <davem@davemloft.net>,
+	torvalds@linux-foundation.org, drepper@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"akpm@linux-foundation.org Jakub Jelinek" <jakub@redhat.com>
 To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:33111 "EHLO
+Received: from fg-out-1718.google.com ([72.14.220.159]:41207 "EHLO
 	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024AbYDXQps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:45:48 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so3162514fgb.17
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 09:45:43 -0700 (PDT)
-In-Reply-To: <20080424163835.55520b5b@the-village.bc.nu>
+	with ESMTP id S1751073AbYDXQsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:48:38 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so3163980fgb.17
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 09:48:37 -0700 (PDT)
+In-Reply-To: <20080424164226.415cedeb@the-village.bc.nu>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 4/24/08, Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
-> On Thu, 24 Apr 2008 09:00:08 -0700 (PDT)
->
-> David Miller <davem@davemloft.net> wrote:
->
->
-> > From: Alan Cox <alan@lxorguk.ukuu.org.uk>
->  > Date: Thu, 24 Apr 2008 16:24:44 +0100
->  >
->  > > BTW in 4.4BSD and derivatives if I remember rightly F_CLOEXEC *is*
->  > > inherited across accept() so I doubt any user space software will be too
->  > > upset by such a shift.
->  >
->  > It actually doesn't.
->  >
->  > Just like in Linux, no file descriptor flags are inherited.
+> > But this approach fixes just one of the interfaces.  There are 7 or 8
+>  > other interfaces that need to solve the same problem.  What about
+>  > those?
 >
 >
-> NDELAY certainly appears to be looking at Stevens.
+> Actually it seems to fix most of them.
 
-A while back I did some testing of this point.  These were the results I noted:
+Am I missingg something?  How?  There a number of system calls that
+have neither a flags argument, nor another argument that we can
+overload (as you propose with socket()).  For those, we'd need new
+system calls os sys_indirect().
 
-FreeBSD 4.8
-O_NONBLOCK and O_ASYNC are inherited
-FD_CLOEXEC is not inherited
+> I accept Jakub's observation we
+>  need a "paccept()" or similar.
 
-Solaris 8
-O_NONBLOCK and O_ASYNC are inherited
-FD_CLOEXEC is not inherited
-
-Tru64 5.1 (sep 03, testdrive)
-No F_SETFL flags are inherited
-FD_CLOEXEC is not inherited
-
-HP-UX 11
-No F_SETFL flags are inherited
-FD_CLOEXEC is not inherited
+True, that would be nice.
