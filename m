@@ -1,57 +1,66 @@
-From: Ulrich Drepper <drepper@redhat.com>
+From: "Michael Kerrisk" <mtk.manpages@gmail.com>
 Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 09:04:47 -0700
-Message-ID: <4810AF9F.5040705@redhat.com>
-References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>	<20080424112514.055d8071@the-village.bc.nu>	<481096C3.2020206@redhat.com>	<20080424152436.6cf53c1b@the-village.bc.nu>	<4810A46B.1090809@redhat.com>	<20080424160352.30f2dd5b@the-village.bc.nu>	<4810AB29.5030604@redhat.com> <20080424162703.1eec01a2@the-village.bc.nu>
+Date: Thu, 24 Apr 2008 18:06:55 +0200
+Message-ID: <517f3f820804240906k6a701c2et86a4cabd730a8651@mail.gmail.com>
+References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
+	 <20080424112514.055d8071@the-village.bc.nu>
+	 <481096C3.2020206@redhat.com>
+	 <20080424152436.6cf53c1b@the-village.bc.nu>
+	 <4810A46B.1090809@redhat.com>
+	 <20080424160352.30f2dd5b@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Ulrich Drepper" <drepper@redhat.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	akpm@linux-foundation.org, torvalds@linux-foundation.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:45270 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754823AbYDXQFF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 12:05:05 -0400
-In-Reply-To: <20080424162703.1eec01a2@the-village.bc.nu>
+Received: from fg-out-1718.google.com ([72.14.220.157]:35754 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760137AbYDXQG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 12:06:59 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so3138408fgb.17
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 09:06:56 -0700 (PDT)
+In-Reply-To: <20080424160352.30f2dd5b@the-village.bc.nu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On 4/24/08, Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+> > You didn't read what I wrote.
+>
+>
+> The feeling is mutual
+>
+>
+>  > For those the implementer must ensure that during the development no
+>  > value is used which can conflict with any current and future assigned
+>  > value and not with any other development.
+>
+>
+> Kernel socket type values are assigned by the kernel team so that
+>  isn't a problem.
+>
+>
+>  > > Every other property of a socket via accept() is inherited from the
+>  > > parent. Making one property different would be bizarre and ugly.
+>  >
+>  > Implementing this would visibly change existing code and it would
+>  > actively violate POSIX.  Not a good idea.
+>
+>
+> POSIX has no interface for this new behaviour you propose so that is
+>  complete crap. The moment you use one of these features you stepped
+>  outside of the POSIX spec - and you know that. If there was an existing
+>  standard we wouldn't have a problem.
 
-Alan Cox wrote:
-> Believe it or not we have the compute capability between us to not
-> accidentally reassign values we assigned to one thing to something el=
-se.
+Alan, I agree with your analysis of the standard on that last para,
+but I'm still not convinced that having the behavior inherited from
+accept() would be good.  The problem (IIUC) is that after the
+accept(), a userland programmer might want to immediately change the
+O_CLOEXEC for the descriptor, and there would be the same race there
+that this whole thread is about avoiding.
 
-Once again, this is not about assigned values.  This is about the time
-before you get a value assigned.  Not every experiment out there will
-have a value assigned before it starts development.
-
-But it really doesn't matter to me. I'm not the one you would introduce
-the problem.  Patch is forthcoming.
-
-
->> Oh really?  You open a server socket, use fcntl(FD_CLOEXEC), and the=
-n
->> accept().=20
->=20
-> And your behaviour just became OS specific....
-
-Not according to POSIX.  If some OSes deliberately violate POSIX that's
-their problem.  All POSIX OSes will have up to today return a new file
-descriptor without the close-on-exec flag set at all times.  Just read
-the spec.
-
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFIEK+f2ijCOnn/RHQRAtYRAJ9Ve9XSkMriqkHkiCL00wsXzJJbYgCgmqzQ
-3uexpcjM0NvU7qgngOs7LDA=3D
-=3DuNKi
------END PGP SIGNATURE-----
+-- 
+I'll likely only see replies if they are CCed to mtk.manpages at gmail dot com
