@@ -1,56 +1,60 @@
-From: David Collier-Brown <davecb@sun.com>
-Subject: Re: [PATCH] alternative to sys_indirect, part 1
-Date: Thu, 24 Apr 2008 08:46:51 -0400
-Message-ID: <4810813B.6010604@sun.com>
-References: <200804240403.m3O43us8028699@devserv.devel.redhat.com>
- <517f3f820804240527l66e4372dt9d6cdc293e35899d@mail.gmail.com>
-Reply-To: davecb@sun.com
+From: "Shigeo N" <shigeonx@gmail.com>
+Subject: Re: XTP for 2.6.25
+Date: Thu, 24 Apr 2008 22:06:11 +0900
+Message-ID: <18b669d80804240606n47854939x94278f8d974034c1@mail.gmail.com>
+References: <18b669d80804240314t7b2f6e4cpc9a9f2690c6d21b4@mail.gmail.com>
+	 <873apbijb9.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: Ulrich Drepper <drepper@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org
-To: Michael Kerrisk <mtk.manpages@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759308AbYDXMsy@vger.kernel.org>
-In-reply-to: <517f3f820804240527l66e4372dt9d6cdc293e35899d@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Andi Kleen" <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.157]:59641 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753041AbYDXNGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 09:06:12 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so3067276fgb.17
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 06:06:11 -0700 (PDT)
+In-Reply-To: <873apbijb9.fsf@basil.nowhere.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  Just FYI, if you end up looking at having to make lots of changes to a 
-(probably user-side) interface, I did an open-source version of the
-"score" fast-porting tool, described at http://datacenterworks.com/stories/port.html
+Now I have connected 2 hosts directly, and evaluate the each throughput.
+Then all the results of UDP, TCP and XTP are the same and 94Mbps. (My
+netwrok is 100Base/TX).
 
-It makes fixing annoying API changes somewhat less evil (;-))
+In this case round-trip time between 2 hosts is less than 0.1ms
+because they are directly connected. But my previouse case, round-trip
+time between 2 hosts are 4ms. (I use IPSEC between the security
+gateways to increase delay).
+I think that's the reason TCP throughput is slow. If ACK packets are
+delayed, sending window cannot slide and sending packets cannot be
+fully bursted.
 
---dave (at work) c-b
+If I changes wmem size through /proc/sys/net/ipv4/tcp_wmem, TCP's
+throughput may improve, but congestion control becomes more difficult
+for TCP.
 
-Michael Kerrisk wrote:
-> On 4/24/08, Ulrich Drepper <drepper@redhat.com> wrote:
-> 
->>The alternative to using sys_indirect is to create a whole bunch of new
->> syscalls.  Here the beginning.  These are the socket interfaces which
->> create file descriptors and therefore need a flags parameter to let
->> the caller decide about setting the close-on-exit bit.
-> 
-> 
-> Ulrich,
-> 
-> Could you please CC me on patches that make kernel-userland API changes.
-> 
-> Cheers,
-> 
-> Michael
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+That is TCP's disadvantage to XTP.
 
--- 
-David Collier-Brown            | Always do right. This will gratify
-Sun Microsystems, Toronto      | some people and astonish the rest
-davecb@sun.com                 |                      -- Mark Twain
-(905) 943-1983, cell: (647) 833-9377, (800) 555-9786 x56583
-bridge: (877) 385-4099 code: 506 9191#
+Best
+Shigeo
+
+On 4/24/08, Andi Kleen <andi@firstfloor.org> wrote:
+> "Shigeo N" <shigeonx@gmail.com> writes:
+> >
+> > I tested in the network where UDP throughput is 29Mbps, then TCP
+> > throughput was 13Mbps, but XTP's reached to 25Mbps.
+>
+> One interesting question is why TCP was so much slower than UDP
+> on your test. It shouldn't be on a fair test setup.
+>
+> Please post details. Was the network losing packets?
+>
+> New protocols might be interesting, but even more interesting is to
+> fix any (real) problems in existing protocols.
+>
+> -Andi
+>
