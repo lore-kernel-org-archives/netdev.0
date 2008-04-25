@@ -1,44 +1,57 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: XTP for 2.6.25
-Date: Fri, 25 Apr 2008 16:05:51 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804251558550.1888@wrl-59.cs.helsinki.fi>
-References: <18b669d80804250059m793f3f56xc4fdb8bad949fa3@mail.gmail.com>
- <Pine.LNX.4.64.0804251115470.2363@wrl-59.cs.helsinki.fi>
- <18b669d80804250151h516788cdqc7931a7ab5a195de@mail.gmail.com>
- <20080425.015508.254917794.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Slab Corruption with ipv6 and tcp6fuzz
+Date: Fri, 25 Apr 2008 17:09:46 +0400
+Message-ID: <20080425130946.GA1019@2ka.mipt.ru>
+References: <20080424142727.GA24025@alice> <20080424211320.GA13695@2ka.mipt.ru> <20080425125230.GA12343@alice>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shigeonx@gmail.com, andi@firstfloor.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	ilpo.jarvinen@helsinki.fi
+To: Eric Sesterhenn <snakebyte@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42361 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbYDYNHE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 09:07:04 -0400
-In-Reply-To: <20080425.015508.254917794.davem@davemloft.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:60920 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755268AbYDYNKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 09:10:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20080425125230.GA12343@alice>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 25 Apr 2008, David Miller wrote:
-
-> From: "Shigeo N" <shigeonx@gmail.com>
-> Date: Fri, 25 Apr 2008 17:51:49 +0900
+On Fri, Apr 25, 2008 at 02:52:30PM +0200, Eric Sesterhenn (snakebyte@gmx.de) wrote:
+> > > [  215.103103]  [<c0671e3b>] tcp_v6_do_rcv+0x33b/0xcd0
+> > 
+> > So far can you run kernel with debug turned on and provide output of
+> > gdb ./vmlinux
+> > l *(tcp_v6_do_rcv+0x33b)
 > 
-> > One host(sender) is 2.6.25, but the other(receiver) is 2.6.18.
-> > I will evaluate again after I upgrade it to 2.6.25.
-> 
-> The bug fix isn't in 2.6.25 either.
+> l *(tcp_v6_do_rcv+0x33b)
+> Using host libthread_db library "/lib/tls/i686/cmov/libthread_db.so.1".
+> (gdb) l *(tcp_v6_do_rcv+0x33b)
+> 0xc0671e3b is in tcp_v6_do_rcv (net/ipv6/tcp_ipv6.c:1670).
+> 1665    reset:
+> 1666            tcp_v6_send_reset(sk, skb);
+> 1667    discard:
+> 1668            if (opt_skb)
+> 1669                    __kfree_skb(opt_skb);
+> 1670            kfree_skb(skb);
+> 1671            return 0;
+> 1672    csum_err:
+> 1673            TCP_INC_STATS_BH(TCP_MIB_INERRS);
+> 1674            goto discard;
 
-Sure it is, or git is lying:
+Well, first possible error path:
 
-$ git-describe dd9e0dda66ba38a2ddd1405ac279894260dc5c36
-v2.6.25-rc8-1190-gdd9e0dd
+tcp_v6_do_rcv()->tcp_rcv_established(), the latter goes to step5, where
+eventually skb can be freed via tcp_data_queue() (drop: label), then if
+check for tcp_defer_accept_check() returns true and thus
+tcp_rcv_established() returns -1, which forces tcp_v6_do_rcv() to jump
+to reset: label, which in turn will pass through discard: label and free
+the same skb again.
+ 
+> Here is the programm itself...
 
-> [ Upstream commit: dd9e0dda66ba38a2ddd1405ac279894260dc5c36 ]
-
+I will work on this this weekend, thank you.
 
 -- 
- i.
+	Evgeniy Polyakov
