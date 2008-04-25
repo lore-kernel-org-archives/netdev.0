@@ -1,32 +1,28 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH v2.6.26] gianfar: Fix skb allocation strategy
-Date: Fri, 25 Apr 2008 02:04:20 -0400
-Message-ID: <48117464.4060301@pobox.com>
-References: <1208902709-23557-1-git-send-email-afleming@freescale.com>
+Subject: Re: [PATCH] ibm_newemac: Increase MDIO timeouts
+Date: Fri, 25 Apr 2008 02:04:27 -0400
+Message-ID: <4811746B.9050202@pobox.com>
+References: <20080423051832.63BF7DDF65@ozlabs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Andy Fleming <afleming@freescale.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	super.firetwister@googlemail.com
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57223 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:57230 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756087AbYDYGEW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 02:04:22 -0400
-In-Reply-To: <1208902709-23557-1-git-send-email-afleming@freescale.com>
+	id S1756051AbYDYGE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 02:04:29 -0400
+In-Reply-To: <20080423051832.63BF7DDF65@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Fleming wrote:
-> gianfar was unable to handle failed skb allocation for rx buffers, so
-> we were spinning until it succeeded.  Actually, it was worse--we were
-> spinning for a long time, and then silently failing.  Instead, we take
-> Stephen Hemminger's suggestion to try the allocation earlier, and drop the
-> packet if it failed.
+Benjamin Herrenschmidt wrote:
+> This patch doubles the MDIO timeouts in EMAC as there are field
+> cases where they are two short to communicate with some PHYs.
 > 
-> We also make a couple of tweaks to how buffer descriptors are set up.
-> 
-> Signed-off-by: Andy Fleming <afleming@freescale.com>
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
 applied
 
