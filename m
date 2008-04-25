@@ -1,71 +1,70 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Fri, 25 Apr 2008 09:06:48 +0200
-Message-ID: <48118308.1090407@firstfloor.org>
-References: <d1c2719f0804241829s1bc3f41ejf7ebbff73ed96578@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [XFRM]: alg_key_len & alg_icv_len should be unsigned
+Date: Fri, 25 Apr 2008 09:09:05 +0200
+Message-ID: <48118391.3010109@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Jerry Chu <hkchu@google.com>, davem@davemloft.net,
-	johnwheffner@gmail.com, rick.jones2@hp.com, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------000006040102080002070506"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:55953 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752794AbYDYHGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 03:06:51 -0400
-In-Reply-To: <d1c2719f0804241829s1bc3f41ejf7ebbff73ed96578@mail.gmail.com>
+Received: from smtp2e.orange.fr ([80.12.242.112]:49085 "EHLO smtp2e.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751205AbYDYHJY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 03:09:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[fixed cc and subject]
+This is a multi-part message in MIME format.
+--------------000006040102080002070506
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Jerry Chu wrote:
-> On Thu, Apr 24, 2008 at 3:21 PM, Andi Kleen <andi@firstfloor.org> wrote:
->> David Miller <davem@davemloft.net> writes:
->>
->>>> What is your interface txqueuelen and mtu?  If you have a very large
->>>> interface queue, TCP will happily fill it up unless you are using a
->>>> delay-based congestion controller.
->>> Yes, that's the fundamental problem with loss based congestion
->>> control.  If there are any queues in the path, TCP will fill them up.
->> That just means Linux does too much queueing by default.  Perhaps that
->> should be fixed. On Ethernet hardware the NIC TX queue should be
->> usually sufficient anyways I would guess. Do we really need the long
->> qdisc queue too?
-> 
-> I think we really need the large xmit queue, especially when the CPU speed,
-> or the aggregated CPU bandwidth in the case of multi-cores, is >> NIC speed
-> for the following reason:
-> 
-> If the qdisc and/or NIC queue is not large enough, it may not absorb the high
-> burst rate from the much faster CPU xmit threads, hence causing pkts to
-> be dropped before they hit the wire. 
+In commit ba749ae98d5aa9d2ce9a7facde0deed454f92230 ([XFRM]: alg_key_len 
+should be unsigned to avoid integer divides 
+<http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=ba749ae98d5aa9d2ce9a7facde0deed454f92230>) 
+alg_key_len field of struct xfrm_algo was converted to unsigned int to 
+avoid integer divides.
 
-sendmsg should just be a little smarter on when to block depending on
-the state of the interface. There is already some minor code for tnat
-as you'll have noted. Then the bursts would be much less of a problem.
+Then Herbert in commit 1a6509d991225ad210de54c63314fd9542922095 
+([IPSEC]: Add support for combined mode algorithms) added a new 
+structure xfrm_algo_aead, that resurrected a signed int for alg_key_len 
+and re-introduce integer divides.
 
-We already had this discussion recently together with better behaviour
-on bounding.
+This patch avoids these divides and saves 64 bytes of text on i386.
 
-The only big problem then would be if there are more submitting threads
-than packets in the TX queue, but I would consider that unlikely for
-GB+ NICs at least (might be an issue for older designs with smaller queues)
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-> Here the CPU/NIC relation is much like
-> a router
 
-It doesn't need to be. Unlike a true network it is very cheap here
-to do direct feedback.
 
-> Removing the unnecessary cwnd growth by counting out those pkts that are
-> still stuck in the host queue may be a simpler solution. I'll find out
-> how well it
-> works soon.
+--------------000006040102080002070506
+Content-Type: text/plain;
+ name="xfrm.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="xfrm.patch"
 
-I think that's a great start, but probably not enough.
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index 0c82c80..2ca6bae 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -97,10 +97,10 @@ struct xfrm_algo {
+ };
+ 
+ struct xfrm_algo_aead {
+-	char	alg_name[64];
+-	int	alg_key_len;	/* in bits */
+-	int	alg_icv_len;	/* in bits */
+-	char	alg_key[0];
++	char		alg_name[64];
++	unsigned int	alg_key_len;	/* in bits */
++	unsigned int	alg_icv_len;	/* in bits */
++	char		alg_key[0];
+ };
+ 
+ struct xfrm_stats {
 
--Andi
-
+--------------000006040102080002070506--
 
 
