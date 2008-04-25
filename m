@@ -1,38 +1,47 @@
-From: Jos van der Ende <seraph@xs4all.nl>
-Subject: Re: [SPARC64] INO problem Re: [Bug 10273] New: Sun GEM (PCI) -
- network device doesn't work
-Date: Fri, 25 Apr 2008 21:59:05 +0200
-Message-ID: <20080425215905.0d21f5ca.seraph@xs4all.nl>
-References: <20080317143624.da313311.akpm@linux-foundation.org>
-	<20080402182655.GA2739@ami.dom.local>
-	<20080425.002636.250010462.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: XTP for 2.6.25
+Date: Fri, 25 Apr 2008 13:12:55 -0700 (PDT)
+Message-ID: <20080425.131255.95495287.davem@davemloft.net>
+References: <18b669d80804250151h516788cdqc7931a7ab5a195de@mail.gmail.com>
+	<20080425.015508.254917794.davem@davemloft.net>
+	<Pine.LNX.4.64.0804251558550.1888@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shigeonx@gmail.com, andi@firstfloor.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pearlgates.net ([82.92.180.13]:53797 "EHLO mail.pearlgates.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760480AbYDYUJI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 16:09:08 -0400
-In-Reply-To: <20080425.002636.250010462.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45439
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1762636AbYDYUMz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 16:12:55 -0400
+In-Reply-To: <Pine.LNX.4.64.0804251558550.1888@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Please give this patch a try (this is against 2.6.23, which is the
-> version you reported the bug against, let me know if another version
-> is more convenient).
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Fri, 25 Apr 2008 16:05:51 +0300 (EEST)
 
-I applied the patch against 2.6.24-gentoo-r4, the current kernel on this machine. It worked fine, with only an offset of 12 lines. Nothing unusual during compile either.
+> On Fri, 25 Apr 2008, David Miller wrote:
+>=20
+> > From: "Shigeo N" <shigeonx@gmail.com>
+> > Date: Fri, 25 Apr 2008 17:51:49 +0900
+> >=20
+> > > One host(sender) is 2.6.25, but the other(receiver) is 2.6.18.
+> > > I will evaluate again after I upgrade it to 2.6.25.
+> >=20
+> > The bug fix isn't in 2.6.25 either.
+>=20
+> Sure it is, or git is lying:
+>=20
+> $ git-describe dd9e0dda66ba38a2ddd1405ac279894260dc5c36
+> v2.6.25-rc8-1190-gdd9e0dd
 
-The first results are hopeful: I am no longer able to trigger this bug by loading sym53c8xx before sungem, nor by having them both loaded by udev. Nothing odd in dmesg and the machine is completely functional.
+I just submitted the TCP reorder patch for 2.6.25-stable, it applied
+on top of a tree for which I did:
 
+	git checkout -b linux25 v2.6.25
 
-I don't have much time for testing today, but if desired I will gladly do some more testing tomorrow or Sunday.
-
-
--- 
-Jos van der Ende <seraph@xs4all.nl>
+so something is up :-)
