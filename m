@@ -1,55 +1,55 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] tg3 : sparse cleanup
-Date: Fri, 25 Apr 2008 08:31:35 +0200
-Message-ID: <48117AC7.40507@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] [IPV6] COMPAT: Fix SSM applications on 64bit
+ kernels.
+Date: Thu, 24 Apr 2008 23:31:59 -0700 (PDT)
+Message-ID: <20080424.233159.06679047.davem@davemloft.net>
+References: <20080424.170257.87949659.yoshfuji@linux-ipv6.org>
+	<OF3A37018B.9EFE360C-ON88257435.00614684-88257435.00622448@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010404050904040801090904"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2f.orange.fr ([80.12.242.152]:4023 "EHLO smtp2f.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756468AbYDYGbu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 02:31:50 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48952
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756804AbYDYGcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 02:32:00 -0400
+In-Reply-To: <OF3A37018B.9EFE360C-ON88257435.00614684-88257435.00622448@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010404050904040801090904
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Thu, 24 Apr 2008 11:52:01 -0600
 
-Fix the following sparse warning :
+> I was looking at this problem too, and below is what I have at the
+> moment. I've only tested the group_req portion, and I was looking
+> at putting this in net/compat.c with hooks back, since the code is
+> literally identical for IPv4 except the sockopt function you call at
+> the end, but I've moved it to ipv6_sockglue.c for this patch.
+> 
+> This touches a lot less code and I think comes out a lot smaller.
+> 
+> Method is to translate to padded version on the user stack, make
+> the call, and translate back (in the MSFILTER case) on return, as
+> is done for some other compat functions.
 
-drivers/net/tg3.c:4025:3: warning: context imbalance in 'tg3_restart_hw' 
-- unexpected unlock
+I've looked at both approaches.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+David's might be the better way to do this, as an initial
+approximation.
 
+I think we can combine ideas from both implementations, so why don't
+we do the following:
 
+1) Use copy_in_user() as that's the proper interaface to copy within
+   userspace in COMPAT code.
 
---------------010404050904040801090904
-Content-Type: text/plain;
- name="tg3.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tg3.patch"
+2) Use aligned(4) attribute instead of packed, this will help RISC
+   compat systems a lot
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index bc4c62b..e3f74c9 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4017,6 +4017,8 @@ static int tg3_halt(struct tg3 *, int, int);
-  * Invoked with tp->lock held.
-  */
- static int tg3_restart_hw(struct tg3 *tp, int reset_phy)
-+	__releases(tp->lock)
-+	__acquires(tp->lock)
- {
- 	int err;
- 
+If you make these changes and do some testing, I think this is the
+patch I will apply.
 
---------------010404050904040801090904--
-
-
+Thanks.
