@@ -1,38 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Thu, 24 Apr 2008 23:36:43 -0700 (PDT)
-Message-ID: <20080424.233643.250240829.davem@davemloft.net>
-References: <20080422.205945.229828014.davem@davemloft.net>
-	<87ej8uyjvv.fsf@basil.nowhere.org>
-	<65634d660804242234w66455bedve44801a98e3de9d9@mail.gmail.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [GIT PULL] [IPV6] COMPAT: Fix SSM applications on 64bit
+ kernels.
+Date: Fri, 25 Apr 2008 15:37:33 +0900 (JST)
+Message-ID: <20080425.153733.98184095.yoshfuji@linux-ipv6.org>
+References: <20080424.170257.87949659.yoshfuji@linux-ipv6.org>
+	<OF3A37018B.9EFE360C-ON88257435.00614684-88257435.00622448@us.ibm.com>
+	<20080424.233159.06679047.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, johnwheffner@gmail.com, rick.jones2@hp.com,
-	netdev@vger.kernel.org
-To: therbert@google.com
+Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54287
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756319AbYDYGgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 02:36:43 -0400
-In-Reply-To: <65634d660804242234w66455bedve44801a98e3de9d9@mail.gmail.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33523 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754883AbYDYGhe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 02:37:34 -0400
+In-Reply-To: <20080424.233159.06679047.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Tom Herbert" <therbert@google.com>
-Date: Thu, 24 Apr 2008 22:34:50 -0700
+In article <20080424.233159.06679047.davem@davemloft.net> (at Thu, 24 Apr 2008 23:31:59 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-> Queuing in the host as opposed to in the TX NIC might be beneficial to make
-> work conserving queuing disciplines more effective, since once a packet is
-> queued in the NIC the host can no longer perform any more scheduling on
-> it.    In fact, we have been working on a mechanism to dynamically limit
-> queuing in the NIC (by number of bytes), so that more packets will be queued
-> in host.  This seems to give better results with some of the qdiscs (I can
-> post a patch if there's interest in this).
+> 1) Use copy_in_user() as that's the proper interaface to copy within
+>    userspace in COMPAT code.
 
-This work is interesting, but doesn't it make more sense to limit by
-number of packets instead of bytes?
+So, don't we care increase of copy operation with it?
 
-No intermediate node that I know of drops bytes, they drop packets
-instead :-)
+--yoshfuji
