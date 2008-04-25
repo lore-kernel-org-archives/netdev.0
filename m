@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Thu, 24 Apr 2008 18:28:57 -0700 (PDT)
-Message-ID: <20080424.182857.83348182.davem@davemloft.net>
-References: <1e41a3230804221917m4af32ed9ice8225c943d3ffa2@mail.gmail.com>
-	<20080422.205945.229828014.davem@davemloft.net>
-	<87ej8uyjvv.fsf@basil.nowhere.org>
+Subject: Re: [PATCH] alternative^2 to sys_indirect: socket, socketpair
+Date: Thu, 24 Apr 2008 18:40:51 -0700 (PDT)
+Message-ID: <20080424.184051.192887364.davem@davemloft.net>
+References: <200804241618.m3OGI9kd013025@devserv.devel.redhat.com>
+	<20080424170325.569afa43@the-village.bc.nu>
+	<4810B75B.20202@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnwheffner@gmail.com, rick.jones2@hp.com, netdev@vger.kernel.org
-To: andi@firstfloor.org
+Cc: alan@lxorguk.ukuu.org.uk, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org
+To: drepper@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46037
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39549
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751571AbYDYB25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 21:28:57 -0400
-In-Reply-To: <87ej8uyjvv.fsf@basil.nowhere.org>
+	by vger.kernel.org with ESMTP id S1753774AbYDYBk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 21:40:57 -0400
+In-Reply-To: <4810B75B.20202@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Fri, 25 Apr 2008 00:21:08 +0200
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Thu, 24 Apr 2008 09:37:47 -0700
 
-> That just means Linux does too much queueing by default.  Perhaps that
-> should be fixed. On Ethernet hardware the NIC TX queue should be
-> usually sufficient anyways I would guess. Do we really need the long
-> qdisc queue too?
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> Alan Cox wrote:
+> 
+> >> -int sock_map_fd(struct socket *sock)
+> >> +static int sock_map_fd_flags(struct socket *sock, int flags)
+> 
+> sock_map_fd is exported to modules.  Isn't it a big no-no to change
+> those interfaces?
 
-It is definitely an area that deserves attention and a real
-investigation, that's for sure.
-
-I spent a lot of time looking at the behavior in this area
-while writing the NIU 10G driver.  As usual, I got distracted
-before I could make any real experiments.
-
-I'll try to get back to this if someone else doesn't beat
-me to it.  We also have the TX multiqueue stuff to move
-forward, and it's deeply related to these issues.
+It's perfectly acceptable to change the interface however
+you like when necessary, and merely fix up all the in-tree users.
