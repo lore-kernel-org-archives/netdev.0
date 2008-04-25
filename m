@@ -1,57 +1,43 @@
-From: "John Heffner" <johnwheffner@gmail.com>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Thu, 24 Apr 2008 15:39:09 -0700
-Message-ID: <1e41a3230804241539n3c0c8ab3iafedc7861947ee5@mail.gmail.com>
-References: <480E8523.4030007@hp.com>
-	 <1e41a3230804221917m4af32ed9ice8225c943d3ffa2@mail.gmail.com>
-	 <20080422.205945.229828014.davem@davemloft.net>
-	 <87ej8uyjvv.fsf@basil.nowhere.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [ PATCH 1/1 2.6.25-rc9] bnx2: Add EEH support in bnx2
+ driver - Resending
+Date: Thu, 24 Apr 2008 17:34:08 -0700
+Message-ID: <1209083648.6194.107.camel@dell>
+References: <1208812834.24768.40.camel@wendyx.austin.ibm.com>
+ <1208823296.16633.230.camel@dell>
+ <1208893442.7339.17.camel@wendyx.austin.ibm.com>
+ <1208900791.13806.5.camel@dell>
+ <1208983008.7339.24.camel@wendyx.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, rick.jones2@hp.com,
-	netdev@vger.kernel.org
-To: "Andi Kleen" <andi@firstfloor.org>
+Cc: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
+	"David Miller" <davem@davemloft.net>
+To: "wendy xiong" <wendyx@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.225]:4827 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754610AbYDXWjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 18:39:11 -0400
-Received: by wr-out-0506.google.com with SMTP id c48so2134923wra.1
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 15:39:10 -0700 (PDT)
-In-Reply-To: <87ej8uyjvv.fsf@basil.nowhere.org>
-Content-Disposition: inline
+Received: from mms1.broadcom.com ([216.31.210.17]:4996 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751217AbYDXXau (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2008 19:30:50 -0400
+In-Reply-To: <1208983008.7339.24.camel@wendyx.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 24, 2008 at 3:21 PM, Andi Kleen <andi@firstfloor.org> wrote:
-> David Miller <davem@davemloft.net> writes:
->
->  >> What is your interface txqueuelen and mtu?  If you have a very large
->  >> interface queue, TCP will happily fill it up unless you are using a
->  >> delay-based congestion controller.
->  >
->  > Yes, that's the fundamental problem with loss based congestion
->  > control.  If there are any queues in the path, TCP will fill them up.
->
->  That just means Linux does too much queueing by default.  Perhaps that
->  should be fixed. On Ethernet hardware the NIC TX queue should be
->  usually sufficient anyways I would guess. Do we really need the long
->  qdisc queue too?
+On Wed, 2008-04-23 at 15:36 -0500, wendy xiong wrote:
+> Hi Michael,
+> 
+> Thanks!
+> I am re-sending patch with rtnl_lock()/rtnl_unlock().
+> 
+> Thanks,
+> Wendy
+> 
 
-The default on most ethernet devices used to be 100 packets.  This is
-pretty short when your flow's window size is thousands of packets.
-It's especially a killer for large BDP flows because it causes
-slow-start to cut out early and you have to ramp up slowly with
-congestion avoidance.  (This effect it mitigated somewhat by cubic,
-etc, or even better by limited slow-start, but it's still very
-significant.)
+Thanks.  The patch is white-space damaged and won't apply the way it is.
 
-I have in the past used a hack that suppressed congestion notification
-when overflowing the local interface queue.  This is a very simple
-approach, and works fairly well, but doesn't have the property of
-converging toward fairness if multiple flows are competing for
-bandwidth at the local interface.  It might be possible to cook
-something up that's smarter.
+I'll regenerate it and send it to DaveM when he opens up net-2.6.27
+together with other patches in my queue.  He has announced earlier that
+net-2.6.26 is no longer accepting new features.
 
-  -John
+Thanks.
+
