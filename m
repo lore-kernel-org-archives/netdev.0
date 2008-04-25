@@ -1,35 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: XTP for 2.6.25
-Date: Fri, 25 Apr 2008 01:28:42 -0700 (PDT)
-Message-ID: <20080425.012842.239066929.davem@davemloft.net>
-References: <18b669d80804240606n47854939x94278f8d974034c1@mail.gmail.com>
-	<18b669d80804250059m793f3f56xc4fdb8bad949fa3@mail.gmail.com>
-	<Pine.LNX.4.64.0804251115470.2363@wrl-59.cs.helsinki.fi>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][NET]: Fix wrong interpretation of some copy_to_user() results.
+Date: Fri, 25 Apr 2008 12:41:55 +0400
+Message-ID: <48119953.6060808@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shigeonx@gmail.com, andi@firstfloor.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37844
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752555AbYDYI2n convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 04:28:43 -0400
-In-Reply-To: <Pine.LNX.4.64.0804251115470.2363@wrl-59.cs.helsinki.fi>
+Received: from sacred.ru ([62.205.161.221]:33799 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751841AbYDYIop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 04:44:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Fri, 25 Apr 2008 11:23:58 +0300 (EEST)
+I found some places, that erroneously return the value obtained from
+the copy_to_user() call: if some amount of bytes were not able to get
+to the user (this is what this one returns) the proper behavior is to
+return the -EFAULT error, not that number itself.
 
-> Where these results with 2.6.25 as well? ...John Heffner just couple =
-of=20
-> days ago fixed reordering related problem in TCP (in case that netem=20
-> parametrization causes reordering), the fix is not even in 2.6.24.y, =
-I=20
-> think...
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Right, I didn't submit it there yet but I will make sure it
-hits -stable in the next round.
+---
+
+diff --git a/net/can/raw.c b/net/can/raw.c
+index ead50c7..201cbfc 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -573,7 +573,8 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
+ 			int fsize = ro->count * sizeof(struct can_filter);
+ 			if (len > fsize)
+ 				len = fsize;
+-			err = copy_to_user(optval, ro->filter, len);
++			if (copy_to_user(optval, ro->filter, len))
++				err = -EFAULT;
+ 		} else
+ 			len = 0;
+ 		release_sock(sk);
+diff --git a/net/dccp/probe.c b/net/dccp/probe.c
+index 6e1df62..0bcdc92 100644
+--- a/net/dccp/probe.c
++++ b/net/dccp/probe.c
+@@ -140,7 +140,7 @@ static ssize_t dccpprobe_read(struct file *file, char __user *buf,
+ 		goto out_free;
+ 
+ 	cnt = kfifo_get(dccpw.fifo, tbuf, len);
+-	error = copy_to_user(buf, tbuf, cnt);
++	error = copy_to_user(buf, tbuf, cnt) ? -EFAULT : 0;
+ 
+ out_free:
+ 	vfree(tbuf);
+diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+index 1c50959..82a09aa 100644
+--- a/net/ipv4/tcp_probe.c
++++ b/net/ipv4/tcp_probe.c
+@@ -200,9 +200,10 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
+ 		if (width >= len)
+ 			break;
+ 
+-		error = copy_to_user(buf + cnt, tbuf, width);
+-		if (error)
++		if (copy_to_user(buf + cnt, tbuf, width)) {
++			error = -EFAULT;
+ 			break;
++		}
+ 		cnt += width;
+ 	}
+ 
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 0585315..230f9ca 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1756,8 +1756,8 @@ static int getsockopt(struct socket *sock,
+ 	else if (len < sizeof(value)) {
+ 		res = -EINVAL;
+ 	}
+-	else if ((res = copy_to_user(ov, &value, sizeof(value)))) {
+-		/* couldn't return value */
++	else if (copy_to_user(ov, &value, sizeof(value))) {
++		res = -EFAULT;
+ 	}
+ 	else {
+ 		res = put_user(sizeof(value), ol);
