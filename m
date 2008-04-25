@@ -1,107 +1,71 @@
-From: David Miller <davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: Socket buffer sizes with autotuning
-Date: Fri, 25 Apr 2008 00:05:47 -0700 (PDT)
-Message-ID: <20080425.000547.152086801.davem@davemloft.net>
-References: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
+Date: Fri, 25 Apr 2008 09:06:48 +0200
+Message-ID: <48118308.1090407@firstfloor.org>
+References: <d1c2719f0804241829s1bc3f41ejf7ebbff73ed96578@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hkchu@google.com
+To: Jerry Chu <hkchu@google.com>, davem@davemloft.net,
+	johnwheffner@gmail.com, rick.jones2@hp.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35845
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752012AbYDYHFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 03:05:48 -0400
-In-Reply-To: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
+Received: from one.firstfloor.org ([213.235.205.2]:55953 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752794AbYDYHGv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 03:06:51 -0400
+In-Reply-To: <d1c2719f0804241829s1bc3f41ejf7ebbff73ed96578@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jerry Chu" <hkchu@google.com>
-Date: Wed, 23 Apr 2008 16:29:58 -0700
+[fixed cc and subject]
 
-> I've been seeing the same problem here and am trying to fix it.
-> My fix is to not count those pkts still in the host queue as "prior_in_flight"
-> when feeding the latter to tcp_cong_avoid(). This should cause
-> tcp_is_cwnd_limited() test to fail when the previous in_flight build-up
-> is all due to the large host queue, and stop the cwnd to grow beyond
-> what's really necessary.
+Jerry Chu wrote:
+> On Thu, Apr 24, 2008 at 3:21 PM, Andi Kleen <andi@firstfloor.org> wrote:
+>> David Miller <davem@davemloft.net> writes:
+>>
+>>>> What is your interface txqueuelen and mtu?  If you have a very large
+>>>> interface queue, TCP will happily fill it up unless you are using a
+>>>> delay-based congestion controller.
+>>> Yes, that's the fundamental problem with loss based congestion
+>>> control.  If there are any queues in the path, TCP will fill them up.
+>> That just means Linux does too much queueing by default.  Perhaps that
+>> should be fixed. On Ethernet hardware the NIC TX queue should be
+>> usually sufficient anyways I would guess. Do we really need the long
+>> qdisc queue too?
+> 
+> I think we really need the large xmit queue, especially when the CPU speed,
+> or the aggregated CPU bandwidth in the case of multi-cores, is >> NIC speed
+> for the following reason:
+> 
+> If the qdisc and/or NIC queue is not large enough, it may not absorb the high
+> burst rate from the much faster CPU xmit threads, hence causing pkts to
+> be dropped before they hit the wire. 
 
-Does something like the following suit your needs?
+sendmsg should just be a little smarter on when to block depending on
+the state of the interface. There is already some minor code for tnat
+as you'll have noted. Then the bursts would be much less of a problem.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 299ec4b..6cdf4be 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -140,6 +140,7 @@ struct skb_frag_struct {
-  */
- struct skb_shared_info {
- 	atomic_t	dataref;
-+	atomic_t	*in_flight;
- 	unsigned short	nr_frags;
- 	unsigned short	gso_size;
- 	/* Warning: this field is not always filled in (UFO)! */
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index d96d9b1..62bb58d 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -271,6 +271,8 @@ struct tcp_sock {
- 	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives) */
- 	u32	lsndtime;	/* timestamp of last sent data packet (for restart window) */
- 
-+	atomic_t host_inflight;	/* packets queued in transmit path	*/
-+
- 	/* Data for direct copy to user */
- 	struct {
- 		struct sk_buff_head	prequeue;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 4fe605f..a6880c2 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -212,6 +212,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	/* make sure we initialize shinfo sequentially */
- 	shinfo = skb_shinfo(skb);
- 	atomic_set(&shinfo->dataref, 1);
-+	shinfo->in_flight = NULL;
- 	shinfo->nr_frags  = 0;
- 	shinfo->gso_size = 0;
- 	shinfo->gso_segs = 0;
-@@ -403,6 +404,8 @@ static void skb_release_all(struct sk_buff *skb)
- void __kfree_skb(struct sk_buff *skb)
- {
- 	skb_release_all(skb);
-+	if (skb_shinfo(skb)->in_flight)
-+		atomic_dec(skb_shinfo(skb)->in_flight);
- 	kfree_skbmem(skb);
- }
- 
-@@ -486,6 +489,8 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
- 	atomic_set(&n->users, 1);
- 
- 	atomic_inc(&(skb_shinfo(skb)->dataref));
-+	if (skb_shinfo(skb)->in_flight)
-+		atomic_inc(skb_shinfo(skb)->in_flight);
- 	skb->cloned = 1;
- 
- 	return n;
-@@ -743,6 +748,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 	skb->hdr_len  = 0;
- 	skb->nohdr    = 0;
- 	atomic_set(&skb_shinfo(skb)->dataref, 1);
-+	skb_shinfo(skb)->in_flight = NULL;
- 	return 0;
- 
- nodata:
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index f886531..28a71fd 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -479,6 +479,7 @@ static inline void skb_entail(struct sock *sk, struct sk_buff *skb)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
- 
-+	skb_shinfo(skb)->in_flight = &tp->host_inflight;
- 	skb->csum    = 0;
- 	tcb->seq     = tcb->end_seq = tp->write_seq;
- 	tcb->flags   = TCPCB_FLAG_ACK;
+We already had this discussion recently together with better behaviour
+on bounding.
+
+The only big problem then would be if there are more submitting threads
+than packets in the TX queue, but I would consider that unlikely for
+GB+ NICs at least (might be an issue for older designs with smaller queues)
+
+> Here the CPU/NIC relation is much like
+> a router
+
+It doesn't need to be. Unlike a true network it is very cheap here
+to do direct feedback.
+
+> Removing the unnecessary cwnd growth by counting out those pkts that are
+> still stuck in the host queue may be a simpler solution. I'll find out
+> how well it
+> works soon.
+
+I think that's a great start, but probably not enough.
+
+-Andi
+
+
 
