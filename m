@@ -1,68 +1,30 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] Fix af_key.c compiler warning
-Date: Thu, 24 Apr 2008 22:53:38 -0400
-Message-ID: <481147B2.3020801@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix af_key.c compiler warning
+Date: Thu, 24 Apr 2008 20:39:08 -0700 (PDT)
+Message-ID: <20080424.203908.193706345.davem@davemloft.net>
+References: <481147B2.3020801@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010208050309090409090407"
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:46068 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753219AbYDYCxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 22:53:49 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52827
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753505AbYDYDjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 23:39:10 -0400
+In-Reply-To: <481147B2.3020801@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010208050309090409090407
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-
-
-net/key/af_key.c: In function ‘pfkey_spddelete’:
-net/key/af_key.c:2359: warning: ‘pol_ctx’ may be used uninitialized in 
-this function
-
-When CONFIG_SECURITY_NETWORK_XFRM isn't set, 
-security_xfrm_policy_alloc() is an inline that doesn't set pol_ctx, so 
-this seemed like the easiest fix short of using *uninitialized_var(pol_ctx).
-
--Brian
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
-
---------------010208050309090409090407
-Content-Type: text/x-patch;
- name="pol_ctx.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="pol_ctx.patch"
-
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 81a8e52..2403a31 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2356,7 +2356,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, struct sadb_msg
- 	struct xfrm_selector sel;
- 	struct km_event c;
- 	struct sadb_x_sec_ctx *sec_ctx;
--	struct xfrm_sec_ctx *pol_ctx;
-+	struct xfrm_sec_ctx *pol_ctx = NULL;
- 
- 	if (!present_and_same_family(ext_hdrs[SADB_EXT_ADDRESS_SRC-1],
- 				     ext_hdrs[SADB_EXT_ADDRESS_DST-1]) ||
-@@ -2396,8 +2396,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, struct sadb_msg
- 		kfree(uctx);
- 		if (err)
- 			return err;
--	} else
--		pol_ctx = NULL;
-+	}
- 
- 	xp = xfrm_policy_bysel_ctx(XFRM_POLICY_TYPE_MAIN,
- 				   pol->sadb_x_policy_dir - 1, &sel, pol_ctx,
-
---------------010208050309090409090407--
+RnJvbTogQnJpYW4gSGFsZXkgPGJyaWFuLmhhbGV5QGhwLmNvbT4NCkRhdGU6IFRodSwgMjQgQXBy
+IDIwMDggMjI6NTM6MzggLTA0MDANCg0KPiBuZXQva2V5L2FmX2tleS5jOiBJbiBmdW5jdGlvbiDi
+gJhwZmtleV9zcGRkZWxldGXigJk6DQo+IG5ldC9rZXkvYWZfa2V5LmM6MjM1OTogd2FybmluZzog
+4oCYcG9sX2N0eOKAmSBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIA0KPiB0aGlzIGZ1bmN0
+aW9uDQo+IA0KPiBXaGVuIENPTkZJR19TRUNVUklUWV9ORVRXT1JLX1hGUk0gaXNuJ3Qgc2V0LCAN
+Cj4gc2VjdXJpdHlfeGZybV9wb2xpY3lfYWxsb2MoKSBpcyBhbiBpbmxpbmUgdGhhdCBkb2Vzbid0
+IHNldCBwb2xfY3R4LCBzbyANCj4gdGhpcyBzZWVtZWQgbGlrZSB0aGUgZWFzaWVzdCBmaXggc2hv
+cnQgb2YgdXNpbmcgKnVuaW5pdGlhbGl6ZWRfdmFyKHBvbF9jdHgpLg0KPiANCj4gU2lnbmVkLW9m
+Zi1ieTogQnJpYW4gSGFsZXkgPGJyaWFuLmhhbGV5QGhwLmNvbT4NCg0KSSBoYWQgYmVlbiBtZWFu
+aW5nIHRvIGtpbGwgdGhpcyBvbmUgb2ZmIG15c2VsZiwgdGhhbmtzIGZvcg0KdGFraW5nIGNhcmUg
+b2YgdGhpcyBCcmlhbi4NCg0KQXBwbGllZC4NCg==
