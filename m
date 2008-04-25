@@ -1,28 +1,31 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] ibm_newemac: Increase MDIO timeouts
-Date: Fri, 25 Apr 2008 16:57:03 -0400
-Message-ID: <20080425165703.864e63bd.billfink@mindspring.com>
-References: <20080423051832.63BF7DDF65@ozlabs.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked
+ version of Tomasz's patch set
+Date: Fri, 25 Apr 2008 13:58:16 -0700 (PDT)
+Message-ID: <20080425.135816.197801806.davem@davemloft.net>
+References: <20080422.154212.108914213.davem@davemloft.net>
+	<200804252133.11264.tomasz@grobelny.oswiecenia.net>
+	<20080425204024.GA16635@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <jgarzik@pobox.com>, <netdev@vger.kernel.org>,
-	<linuxppc-dev@ozlabs.org>, <super.firetwister@googlemail.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: tomasz@grobelny.oswiecenia.net, gerrit@erg.abdn.ac.uk,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:60848 "EHLO
-	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763265AbYDYU5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 16:57:14 -0400
-In-Reply-To: <20080423051832.63BF7DDF65@ozlabs.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44755
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753263AbYDYU6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 16:58:16 -0400
+In-Reply-To: <20080425204024.GA16635@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Apr 2008, Benjamin Herrenschmidt wrote:
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Fri, 25 Apr 2008 17:40:24 -0300
 
-> This patch doubles the MDIO timeouts in EMAC as there are field
-> cases where they are two short to communicate with some PHYs.
+> I haven't read all the patches, but I guess Tomasz is on the safe side
+> as the intended skb->priority usage is limited to DCCP, when IP is
+> handed the skb it can do as it pleases with skb->priority.
 
-I guess them being "two short" is why they needed to be doubled.  :-)
-
-						-Bill
+Great.
