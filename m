@@ -1,67 +1,103 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: XTP for 2.6.25
-Date: Sat, 26 Apr 2008 00:06:58 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804252353550.9132@wrl-59.cs.helsinki.fi>
-References: <18b669d80804250151h516788cdqc7931a7ab5a195de@mail.gmail.com>
- <20080425.015508.254917794.davem@davemloft.net>
- <Pine.LNX.4.64.0804251558550.1888@wrl-59.cs.helsinki.fi>
- <20080425.131255.95495287.davem@davemloft.net>
+From: "Jerry Chu" <hkchu@google.com>
+Subject: Re: Socket buffer sizes with autotuning
+Date: Fri, 25 Apr 2008 14:29:25 -0700
+Message-ID: <d1c2719f0804251429l26118ef0j8a386103ee41f0ea@mail.gmail.com>
+References: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
+	 <1e41a3230804240932u510609beh8fb577baaadeb9bd@mail.gmail.com>
+	 <d1c2719f0804241749p2c0dd7daofd343bc37a916247@mail.gmail.com>
+	 <20080424.234628.170849475.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-213856561-1209157618=:9132"
-Cc: shigeonx@gmail.com, andi@firstfloor.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org, rick.jones2@hp.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58255 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758628AbYDYVHF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 17:07:05 -0400
-In-Reply-To: <20080425.131255.95495287.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.33.17]:5409 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762040AbYDYV3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 17:29:33 -0400
+Received: from zps78.corp.google.com (zps78.corp.google.com [172.25.146.78])
+	by smtp-out.google.com with ESMTP id m3PLTR2r009559
+	for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 22:29:27 +0100
+Received: from hs-out-0708.google.com (hsc55.prod.google.com [10.44.3.55])
+	by zps78.corp.google.com with ESMTP id m3PLTP3T022442
+	for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 14:29:26 -0700
+Received: by hs-out-0708.google.com with SMTP id 55so2640289hsc.10
+        for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 14:29:25 -0700 (PDT)
+In-Reply-To: <20080424.234628.170849475.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Thu, Apr 24, 2008 at 11:46 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Jerry Chu" <hkchu@google.com>
+>  Date: Thu, 24 Apr 2008 17:49:33 -0700
+>
+>
+>  > One question: I currently use skb_shinfo(skb)->dataref == 1 for skb's on the
+>  > sk_write_queue list as the heuristic to determine if a packet has hit the wire.
+>
+>  This doesn't work for the reasons that you mention in detail next :-)
+>
+>
+>  > Is there a better solution than checking against dataref to determine if a pkt
+>  > has hit the wire?
+>
+>  Unfortunately, no there isn't.
+>
+>  Part of the issue is that the driver is only working with a clone, but
+>  if a packet gets resent before the driver gives up it's reference,
+>  we'll make a completely new copy.
 
----696208474-213856561-1209157618=:9132
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+I think we can ignore this case if it happens rarely.
 
-On Fri, 25 Apr 2008, David Miller wrote:
+>
+>  But even assuming we could say that the driver gets a clone all the
+>  time, the "sent" state would need to be in the shared data area.
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Fri, 25 Apr 2008 16:05:51 +0300 (EEST)
-> 
-> > On Fri, 25 Apr 2008, David Miller wrote:
-> > 
-> > > From: "Shigeo N" <shigeonx@gmail.com>
-> > > Date: Fri, 25 Apr 2008 17:51:49 +0900
-> > > 
-> > > > One host(sender) is 2.6.25, but the other(receiver) is 2.6.18.
-> > > > I will evaluate again after I upgrade it to 2.6.25.
-> > > 
-> > > The bug fix isn't in 2.6.25 either.
-> > 
-> > Sure it is, or git is lying:
-> > 
-> > $ git-describe dd9e0dda66ba38a2ddd1405ac279894260dc5c36
-> > v2.6.25-rc8-1190-gdd9e0dd
-> 
-> I just submitted the TCP reorder patch for 2.6.25-stable, it applied
-> on top of a tree for which I did:
-> 
-> 	git checkout -b linux25 v2.6.25
-> 
-> so something is up :-)
+Ok.
 
-Of course I was wrong :-), misintepreted git-describe's result as it 
-cannot prove what I was trying to make it to prove (basically it was
-reporting just the latest net-2.6 -> net-2.6.26 merge of yours, while 
-that doesn't tell anything about entry of a commit to Linus' tree).
+>
+>
+>  > Also the code to determine when/how much to defer in the TSO path seems
+>  > too aggressive. It's currently based on a percentage
+>  > (sysctl_tcp_tso_win_divisor)
+>  > of min(snd_wnd, snd_cwnd). Would it be too much if the value is large? E.g.,
+>  > when I disable sysctl_tcp_tso_win_divisor, the cwnd of my simple netperf run
+>  > drops exactly 1/3 from 1037 (segments) to 695. It seems to me the TSO
+>  > defer factor should be based on an absolute count, e.g., 64KB.
+>
+>  This is one of the most difficult knobs to get right in the TSO code.
+>
+>  If the percentage is too low, you'll notice that cpu utilization
+>  increases because you aren't accumulating enough data to send down the
+>  largest possible TSO frames.
 
-...Sorry about the noise.
+Well, there is a fine line to walk before CPU efficiency and traffic
+burstiness. The TSO defer code causes a few hundred KB of bursts that
+quickly blow away our small switch buffers. The matter may get even
+worse for 10GE.
 
--- 
- i.
----696208474-213856561-1209157618=:9132--
+>
+>  But yes you are absolutely right that we should have a hard limit
+>  of 64K here, since we can't build a larger TSO frame anyways.
+>
+>  In fact I thought we had something like that here already :-/
+>
+>  Wait, in fact we do, it's just hidden behind a variable now:
+>
+>         /* If a full-sized TSO skb can be sent, do it. */
+>         if (limit >= sk->sk_gso_max_size)
+>                 goto send_now;
+
+Oh, just realized I've been working on a very "old" (2.6.18 :-)
+version of kernel.
+Will get the latest 2.6.25 and take a look. I can't find "skb_release_all()"
+function you pointed in a later mail either. Guess the Linux kernel
+code is rewritten every few month :-(.
+
+Jerry
+
+>
+>  :-)
+>
