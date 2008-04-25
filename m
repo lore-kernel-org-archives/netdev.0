@@ -1,108 +1,114 @@
-From: "Shigeo N" <shigeonx@gmail.com>
-Subject: Re: XTP for 2.6.25
-Date: Fri, 25 Apr 2008 16:59:45 +0900
-Message-ID: <18b669d80804250059m793f3f56xc4fdb8bad949fa3@mail.gmail.com>
-References: <18b669d80804240314t7b2f6e4cpc9a9f2690c6d21b4@mail.gmail.com>
-	 <873apbijb9.fsf@basil.nowhere.org>
-	 <18b669d80804240606n47854939x94278f8d974034c1@mail.gmail.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [build bug] drivers/built-in.o: In function
+	`rt2x00leds_resume': : undefined reference to `led_classdev_resume'
+Date: Fri, 25 Apr 2008 10:00:33 +0200
+Message-ID: <20080425080033.GA14121@elte.hu>
+References: <20080420081302.GA11954@elte.hu> <20080420.020557.231970202.davem@davemloft.net> <20080425073504.GA12549@elte.hu> <20080425.003947.72853787.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Andi Kleen" <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:5607 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894AbYDYH7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 03:59:47 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so3494849fgb.17
-        for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 00:59:45 -0700 (PDT)
-In-Reply-To: <18b669d80804240606n47854939x94278f8d974034c1@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linville@tuxdriver.com, tomas.winkler@intel.com,
+	linux-kernel@vger.kernel.org, kaber@trash.net,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl,
+	ivdoorn@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-I emulated WAN delay by netem and compared the performance again.
-
-case1) fixed delay
-
-    <------------- 100Mbps -------------->
-Host1 --------- Linux Router ---------- Host2
-
- In this case, just adds a fixed amount of delay to all packets going
-out on Linux Router by command, "tc qdisc add dev eth0 root netem
-delay 100ms".
-
- Here is the result.
-
-    fixed delay    UDP/TCP/XTP throghput
-  ---------------------------------------
-      10ms         88/85/92 Mbps
-      30ms         88/70/91 Mbps
-      50ms         88/63/89 Mbps
-      70ms         88/52/84 Mbps
-     100ms         88/36/70 Mbps
+In-Reply-To: <20080425.003947.72853787.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-case2) random delay
+* David Miller <davem@davemloft.net> wrote:
 
- In this case, add a fixed amount of delay + 10% random delay by
-command, "tc change dev eth0 root netem delay 100ms 10ms 25%".
+> This was reported elsewhere as well.
+> 
+> I was sure that the patch below fixed it.
+> 
+> I don't understand how it can still fail, unless the problem is that 
+> selecting "FOO" does not take care to enable any dependencies of 
+> "FOO".
 
- Here is the result.
+yeah, i think that's a fundamental property of select: it does _not_ 
+select the sub-dependencies. randconfig found that combination rather 
+well it seems:
 
-    fixed delay    UDP/TCP/XTP throghput
-  ---------------------------------------
-      10ms         88/80/92 Mbps
-      30ms         88/51/91 Mbps
-      50ms         88/41/89 Mbps
-      70ms         88/28/80 Mbps
-     100ms         88/19/66 Mbps
+ # CONFIG_IWLWIFI_LEDS is not set
+ # CONFIG_IWL4965_LEDS is not set
+ # CONFIG_IWL3945_LEDS is not set
+ CONFIG_RT2X00_LIB_LEDS=y
+ # CONFIG_RT61PCI_LEDS is not set
+ CONFIG_RT73USB_LEDS=y
+ # CONFIG_NEW_LEDS is not set
+ CONFIG_LEDS_CLASS=y
 
- TCP's perfomance looks very poor when delay is long and variable.
+this weakness of select is the major reason why "select is evil" has 
+been propagated.
 
-Thanks
-Shigeo
+personally i always considered this a Kconfig bug - although it's 
+probably not an easy issue to solve. (what if there are conflicts? What 
+if a driver's select choice disables another driver, without the user 
+being openly aware of this side-effect?)
 
+the patch below fixes it here but it's still kind of a band-aid - what 
+if the Kconfig structure of LEDS get modified - does that have to be 
+propagated to all LEDS using drivers? I dont think this necessity of 
+open-coded dependency resolution is maintainable in the long run.
 
-On Thu, Apr 24, 2008 at 10:06 PM, Shigeo N <shigeonx@gmail.com> wrote:
-> Now I have connected 2 hosts directly, and evaluate the each throughput.
->  Then all the results of UDP, TCP and XTP are the same and 94Mbps. (My
->  netwrok is 100Base/TX).
->
->  In this case round-trip time between 2 hosts is less than 0.1ms
->  because they are directly connected. But my previouse case, round-trip
->  time between 2 hosts are 4ms. (I use IPSEC between the security
->  gateways to increase delay).
->  I think that's the reason TCP throughput is slow. If ACK packets are
->  delayed, sending window cannot slide and sending packets cannot be
->  fully bursted.
->
->  If I changes wmem size through /proc/sys/net/ipv4/tcp_wmem, TCP's
->  throughput may improve, but congestion control becomes more difficult
->  for TCP.
->
->  That is TCP's disadvantage to XTP.
->
->  Best
->  Shigeo
->
->
->
->  On 4/24/08, Andi Kleen <andi@firstfloor.org> wrote:
->  > "Shigeo N" <shigeonx@gmail.com> writes:
->  > >
->  > > I tested in the network where UDP throughput is 29Mbps, then TCP
->  > > throughput was 13Mbps, but XTP's reached to 25Mbps.
->  >
->  > One interesting question is why TCP was so much slower than UDP
->  > on your test. It shouldn't be on a fair test setup.
->  >
->  > Please post details. Was the network losing packets?
->  >
->  > New protocols might be interesting, but even more interesting is to
->  > fix any (real) problems in existing protocols.
->  >
->  > -Andi
->  >
->
+	Ingo
+
+----------------->
+Subject: rt2x00: leds fix
+From: Ingo Molnar <mingo@elte.hu>
+Date: Fri Apr 25 09:41:26 CEST 2008
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ drivers/net/wireless/rt2x00/Kconfig |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+Index: linux/drivers/net/wireless/rt2x00/Kconfig
+===================================================================
+--- linux.orig/drivers/net/wireless/rt2x00/Kconfig
++++ linux/drivers/net/wireless/rt2x00/Kconfig
+@@ -62,6 +62,7 @@ config RT2400PCI_LEDS
+ 	bool "RT2400 leds support"
+ 	depends on RT2400PCI
+ 	select LEDS_CLASS
++	select NEW_LEDS
+ 	select RT2X00_LIB_LEDS
+ 	---help---
+ 	  This adds support for led triggers provided my mac80211.
+@@ -89,6 +90,7 @@ config RT2500PCI_LEDS
+ 	bool "RT2500 leds support"
+ 	depends on RT2500PCI
+ 	select LEDS_CLASS
++	select NEW_LEDS
+ 	select RT2X00_LIB_LEDS
+ 	---help---
+ 	  This adds support for led triggers provided my mac80211.
+@@ -118,6 +120,7 @@ config RT61PCI_LEDS
+ 	bool "RT61 leds support"
+ 	depends on RT61PCI
+ 	select LEDS_CLASS
++	select NEW_LEDS
+ 	select RT2X00_LIB_LEDS
+ 	---help---
+ 	  This adds support for led triggers provided my mac80211.
+@@ -135,6 +138,7 @@ config RT2500USB_LEDS
+ 	bool "RT2500 leds support"
+ 	depends on RT2500USB
+ 	select LEDS_CLASS
++	select NEW_LEDS
+ 	select RT2X00_LIB_LEDS
+ 	---help---
+ 	  This adds support for led triggers provided my mac80211.
+@@ -154,6 +158,7 @@ config RT73USB_LEDS
+ 	bool "RT73 leds support"
+ 	depends on RT73USB
+ 	select LEDS_CLASS
++	select NEW_LEDS
+ 	select RT2X00_LIB_LEDS
+ 	---help---
+ 	  This adds support for led triggers provided my mac80211.
