@@ -1,55 +1,52 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/6] ibm_newemac: Fix problem with jumbo frame support
- and EMAC V4.patch
-Date: Fri, 25 Apr 2008 02:01:37 -0400
-Message-ID: <481173C1.8060300@pobox.com>
-References: <20080422004758.1A823DE19B@ozlabs.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Removing dead code in /drivers/net/wan/hdlc_fr.c
+Date: Fri, 25 Apr 2008 02:01:58 -0400
+Message-ID: <481173D6.6080609@garzik.org>
+References: <m3lk385tx4.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58440 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:58467 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754889AbYDYGBl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 02:01:41 -0400
-In-Reply-To: <20080422004758.1A823DE19B@ozlabs.org>
+	id S1755575AbYDYGCB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 02:02:01 -0400
+In-Reply-To: <m3lk385tx4.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Herrenschmidt wrote:
-> From: Stefan Roese <sr@denx.de>
-> 
-> This fixes the jumbo frame support on EMAC V4 systems. Now the correct
-> bit is set depending on the EMAC version configured.
-> 
-> Tested on Kilauea (405EX) and Canyonlands (460EX).
-> 
-> Signed-off-by: Stefan Roese <sr@denx.de>
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> 
-> ---
->  drivers/net/ibm_newemac/core.c |    5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-> index 0789802..486901f 100644
-> --- a/drivers/net/ibm_newemac/core.c
-> +++ b/drivers/net/ibm_newemac/core.c
-> @@ -524,7 +524,10 @@ static int emac_configure(struct emac_instance *dev)
->  		rx_size = dev->rx_fifo_size_gige;
->  
->  		if (dev->ndev->mtu > ETH_DATA_LEN) {
-> -			mr1 |= EMAC_MR1_JPSM;
-> +			if (emac_has_feature(dev, EMAC_FTR_EMAC4))
-> +				mr1 |= EMAC4_MR1_JPSM;
-> +			else
-> +				mr1 |= EMAC_MR1_JPSM;
->  			dev->stop_timeout = STOP_TIMEOUT_1000_JUMBO;
->  		} else
->  			dev->stop_timeout = STOP_TIMEOUT_1000;
+Krzysztof Halasa wrote:
+> From: C=E9dric Augonnet <Cedric.Augonnet@ens-lyon.fr>
+>=20
+> Removing dead code in /drivers/net/wan/hdlc_fr.c
+>    =20
+> The local variable "prefix" is never used anymore, and the content of
+> this string appears a bit later, directly in a call to "alloc_netdev"
+> after doing exactly the same if/else test. So there seems to be no
+> point keeping those 4 lines anymore.
+>    =20
+> Signed-off-by: C=E9dric Augonnet <cedric.augonnet@ens-lyon.org>
+> Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
+>=20
+> diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
+> index c4ab032..520bb0b 100644
+> --- a/drivers/net/wan/hdlc_fr.c
+> +++ b/drivers/net/wan/hdlc_fr.c
+> @@ -1090,10 +1090,6 @@ static int fr_add_pvc(struct net_device *frad,=
+ unsigned int dlci, int type)
+>  	pvc_device *pvc =3D NULL;
+>  	struct net_device *dev;
+>  	int result, used;
+> -	char * prefix =3D "pvc%d";
+> -
+> -	if (type =3D=3D ARPHRD_ETHER)
+> -		prefix =3D "pvceth%d";
+> =20
+>  	if ((pvc =3D add_pvc(frad, dlci)) =3D=3D NULL) {
 
-applied 1-6
+applied
 
 
