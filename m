@@ -1,29 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Fri, 25 Apr 2008 14:35:08 -0700 (PDT)
-Message-ID: <20080425.143508.38481200.davem@davemloft.net>
-References: <d1c2719f0804241749p2c0dd7daofd343bc37a916247@mail.gmail.com>
-	<20080424.234628.170849475.davem@davemloft.net>
-	<d1c2719f0804251429l26118ef0j8a386103ee41f0ea@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] ibm_newemac: Increase MDIO timeouts
+Date: Sat, 26 Apr 2008 08:22:38 +1000
+Message-ID: <1209162158.5420.35.camel@pasglop>
+References: <20080423051832.63BF7DDF65@ozlabs.org>
+	 <20080425165703.864e63bd.billfink@mindspring.com>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org, rick.jones2@hp.com
-To: hkchu@google.com
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	super.firetwister@googlemail.com
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58929
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759204AbYDYVfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 17:35:09 -0400
-In-Reply-To: <d1c2719f0804251429l26118ef0j8a386103ee41f0ea@mail.gmail.com>
+Received: from gate.crashing.org ([63.228.1.57]:38024 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933124AbYDYWXG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 18:23:06 -0400
+In-Reply-To: <20080425165703.864e63bd.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jerry Chu" <hkchu@google.com>
-Date: Fri, 25 Apr 2008 14:29:25 -0700
 
-> Will get the latest 2.6.25 and take a look. I can't find "skb_release_all()"
-> function you pointed in a later mail either. Guess the Linux kernel
-> code is rewritten every few month :-(.
+On Fri, 2008-04-25 at 16:57 -0400, Bill Fink wrote:
+> On Wed, 23 Apr 2008, Benjamin Herrenschmidt wrote:
+> 
+> > This patch doubles the MDIO timeouts in EMAC as there are field
+> > cases where they are two short to communicate with some PHYs.
+> 
+> I guess them being "two short" is why they needed to be doubled.  :-)
 
-You want bugs fixed, like the one you reported here, don't you?
+Well, in that case, it makes sense, it's still pretty short and better
+safe than sorry. On day I may look at actually measuring PHYs and see if
+it's worth trying to do sleeping waits in there.
+
+Ben.
+
+
