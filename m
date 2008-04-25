@@ -1,42 +1,36 @@
-From: "Michael Kerrisk" <mtk.manpages@gmail.com>
-Subject: Re: [PATCH] socket, socketpair w/flags, accept4
-Date: Fri, 25 Apr 2008 12:49:12 +0200
-Message-ID: <517f3f820804250349m19efe63eqa789aeb359c86f78@mail.gmail.com>
-References: <200804241820.m3OIKlMK017580@devserv.devel.redhat.com>
-	 <20080425042957.GA17699@2ka.mipt.ru>
-	 <517f3f820804242343g22700872tf31f0c15047e70e2@mail.gmail.com>
-	 <20080425105835.62e80537@core>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
+Date: Fri, 25 Apr 2008 13:10:11 +0200
+Message-ID: <m3prse2nsc.fsf@maximus.localdomain>
+References: <m3r6cv75xq.fsf@maximus.localdomain>
+	<20080424.063006.153647297.davem@davemloft.net>
+	<m3mynj74nw.fsf@maximus.localdomain>
+	<20080424.065555.30390704.davem@davemloft.net>
+	<m3ve27nfpx.fsf@maximus.localdomain>
+	<20080424214457.1d5a1655@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Ulrich Drepper" <drepper@redhat.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	"Jakub Jelinek" <jakub@redhat.com>
-To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	paulkf@microgate.com, jchapman@katalix.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:2019 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751961AbYDYKtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 06:49:14 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so3553343fgb.17
-        for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 03:49:12 -0700 (PDT)
-In-Reply-To: <20080425105835.62e80537@core>
-Content-Disposition: inline
+Received: from khc.piap.pl ([195.187.100.11]:33508 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751454AbYDYLKO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 07:10:14 -0400
+In-Reply-To: <20080424214457.1d5a1655@the-village.bc.nu> (Alan Cox's message of "Thu\, 24 Apr 2008 21\:44\:57 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/25/08, Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
-> > > What about sigset there too?
->  >
->  > Right.  That was what I was understanding that Alan referred to when
->  > he was talking about paccept()
->
->
-> Actually I hadn't thought about the sigset at all.
+Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
 
-Oh -- okay then.  I had understood that that was what you were
-referring to when you mentioned Jakub's reference to paccept() (which
-I took to be analogous with pselect() -- I vaguely remember seeing
-this discussed elsewhere also).
+> I would agree with this. There isn't a sane way to sort out the old
+> kernel side syncppp (which is useless for todays networks as it doesn't
+> do compression, IPv6 or auth protocols) except by going to user space.
+
+Well, I never used compression or auth on fixed line, and that would
+require generic PPP. Perhaps we should use it, I don't know.
+-- 
+Krzysztof Halasa
