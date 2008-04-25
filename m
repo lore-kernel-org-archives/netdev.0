@@ -1,23 +1,37 @@
-From: Free Lotto Online Promo <utilempcu@bellnet.ca>
-Subject: 2008 Confirm Winner
-Date: Fri, 25 Apr 2008 0:08:19 -0400
-Message-ID: <6k1gas$148acl@toip40-bus.srvr.bell.ca>
-Reply-To: contactrichardsmith01@btinternet.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] RAW6: Do not allow set IPV6_CHECKSUM for ICMPv6 socket
+Date: Thu, 24 Apr 2008 21:46:39 -0700 (PDT)
+Message-ID: <20080424.214639.189928746.davem@davemloft.net>
+References: <20080424.211953.52921169.yoshfuji@linux-ipv6.org>
+	<200804241826.52507.rdenis@simphalempin.com>
+	<48112DFF.8020003@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: <winner@freelotto.net>
+Cc: rdenis@simphalempin.com, yoshfuji@linux-ipv6.org,
+	ellre923@gmail.com, netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from toq2-srv.bellnexxia.net ([209.226.175.121]:62795 "EHLO
-	toq2-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454AbYDYEd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 00:33:26 -0400
-Received: from toip40-bus.srvr.bell.ca ([67.69.240.41])
-          by tomts28-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20080425040819.CHGM1835.tomts28-srv.bellnexxia.net@toip40-bus.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 00:08:19 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38185
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750930AbYDYEqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 00:46:42 -0400
+In-Reply-To: <48112DFF.8020003@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-we are happy to announce to that you won the sum of $2,000,000.00 from our monthly FREELOTTO PROMOTION PROGRAM,you are advice to get back to us, to claim your prize.Contact Richard Smith E-mail:contactrichardsmith01@btinternet.com
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Fri, 25 Apr 2008 09:03:59 +0800
+
+> David, should we make sure every common used userland package
+> will not be influenced by this change?
+> No influence packages:
+> iputils
+> iproute2
+> ndisc6
+> net-tools
+
+I don't think it is necessary to maintain a list.
+
+If problems crop up and get reported, we should just focus
+on fixing them.
