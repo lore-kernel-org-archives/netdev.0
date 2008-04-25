@@ -1,58 +1,56 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH 2.6.26 3/5]S2io: Enabling Multi ring support
-Date: Fri, 25 Apr 2008 12:06:58 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7703788760@nekter>
-References: <Pine.GSO.4.10.10804231331360.10279-100000@guinness> <481170D1.2060700@garzik.org> <78C9135A3D2ECE4B8162EBDCE82CAD770378875D@nekter> <48120134.7090402@garzik.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 1/8] e1000e: cleanup several stats issues
+Date: Fri, 25 Apr 2008 09:39:18 -0700
+Message-ID: <48120936.2060308@intel.com>
+References: <20080423180900.24972.84015.stgit@localhost.localdomain> <481173B9.3010006@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
-	<netdev@vger.kernel.org>, "support" <support@neterion.com>
-To: "Jeff Garzik" <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:15933 "EHLO owa.neterion.com"
+Received: from mga11.intel.com ([192.55.52.93]:23507 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763601AbYDYQSr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 12:18:47 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <48120134.7090402@garzik.org>
+	id S1757276AbYDYQjU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 12:39:20 -0400
+In-Reply-To: <481173B9.3010006@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Got it. Will do.
+Jeff Garzik wrote:
+> Auke Kok wrote:
+>> From: Bruce Allan <bruce.w.allan@intel.com>
+>>
+>> Several stats registers are completely unused and we just waste pci
+>> bus time reading them. We also omit using the high 32 bits of the GORC/
+>> GOTC counters. We can just read clear them and only read the low
+>> registers.
+>>
+>> Mii-tool can also break es2lan if it executes a MII PHY register
+>> ioctl while the device is in autonegotiation. Unfortunately it seems
+>> that several applications and installations still perform this ioctl
+>> call periodically and especially in this crucial startup time. We
+>> can fool the ioctl by providing fail safe information that mimics
+>> the "down" link state and only perform the dangerous PHY reads once
+>> after link comes up to fill in the real values. As long as link
+>> stays up the information will not change.
+>>
+>> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 
+> applied 1-8
+> 
+> I was mainly waiting for the discussion of the abuse of the ethtool
+> interface, which I chose to allow.
+> 
+> Now, send me a patch to the ethtool man page for this new behavior :)
 
-Thanks,
-Ram
+agreed - I'll come up with an appropriate explanation to cover this issue.
 
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jeff@garzik.org]
-> Sent: Friday, April 25, 2008 9:05 AM
-> To: Ramkrishna Vepa
-> Cc: Sreenivasa Honnur; netdev@vger.kernel.org; support
-> Subject: Re: [PATCH 2.6.26 3/5]S2io: Enabling Multi ring support
-> 
-> Ramkrishna Vepa wrote:
-> >> Sreenivasa Honnur wrote:
-> >>> Enable multi ring support:
-> >>> 	- Seperate ring specific data
-> >>> 	- Initialize all configured rings with equal priority.
-> >>> 	- Updated boundary check for number of Rings.
-> >>> 	- Updated per ring statistics of rx_bytes and rx_packets.
-> >>> 	- Moved lro struct from struct s2io_nic to struct ring_info.
-> >>>
-> >>> Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
-> >>> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-> >>> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
-> >> if multi-ring support and fixes are two separate patches, then that
-> >> creates a state whereby git-bisect might produce a broken driver.
-> > [Ram] We created two patches so they can be reviewed easily. Do you
-want
-> > us to merge the two patches and submit?
-> 
-> Yes.
-> 
-> 	Jeff
-> 
-> 
+Thanks.
+
+Auke
+
 
