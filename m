@@ -1,57 +1,79 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
-Date: Fri, 25 Apr 2008 15:31:47 +0300
-Message-ID: <4811CF33.8040007@teltonika.lt>
-References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt> <480CB8C2.9090902@teltonika.lt> <480DA2CA.8090705@teltonika.lt> <480DED38.3080900@teltonika.lt> <480F3C41.10908@teltonika.lt>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][CAN]: Fix copy_from_user() results interpretation.
+Date: Fri, 25 Apr 2008 16:42:14 +0400
+Message-ID: <4811D1A6.909@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040205020408050802060207"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <480F3C41.10908-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------040205020408050802060207
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: socketcan-core@lists.berlios.de,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, urs.thuermann@volkswagen.de,
+	oliver.hartkopp@volkswagen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:56834 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753728AbYDYMpU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 08:45:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Incremental patch.
-- don't reset rx_packets stats when telling device "up".
+Sorry for the noise, I had to check this right after facing this problem
+with the copy_to_user()...
 
-TODO:
-- figure out what should be MTU value. Currently it is set
-   to 1500-14. I guess that 14 here means eth header size, but
-   this has no logical explanation...
-- do we really need ethtool support? It always reports that
-   link is up... The only useful information is driver name,
-   version and USB path... Is it worth it?
+Both copy_to_ and _from_user return the number of bytes, that failed to
+reach their destination, not the 0/-EXXX values.
 
---------------040205020408050802060207
-Content-Type: text/x-patch;
- name="hso_reset_rx.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="hso_reset_rx.patch"
+Other net/ code handles this correctly.
 
---- linux-2.6-hso-my/drivers/net/usb/hso.c.orig	2008-04-23 16:24:30.000000000 +0300
-+++ linux-2.6-hso-my/drivers/net/usb/hso.c	2008-04-25 15:12:48.000000000 +0300
-@@ -693,8 +693,7 @@ static int hso_net_open(struct net_devic
- 		dev_err(&net->dev, "No net device !\n");
- 		return -ENODEV;
- 	}
--	/* reset read counter. */
--	odev->net->stats.rx_packets = 0;
-+
- 	odev->skb_tx_buf = NULL;
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/can/raw.c b/net/can/raw.c
+index ead50c7..2be8c6e 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -438,12 +438,12 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+ 			err = copy_from_user(filter, optval, optlen);
+ 			if (err) {
+ 				kfree(filter);
+-				return err;
++				return -EFAULT;
+ 			}
+ 		} else if (count == 1) {
+ 			err = copy_from_user(&sfilter, optval, optlen);
+ 			if (err)
+-				return err;
++				return -EFAULT;
+ 		}
  
- 	/* setup environment */
-
---------------040205020408050802060207--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 		lock_sock(sk);
+@@ -495,7 +495,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+ 
+ 		err = copy_from_user(&err_mask, optval, optlen);
+ 		if (err)
+-			return err;
++			return -EFAULT;
+ 
+ 		err_mask &= CAN_ERR_MASK;
+ 
+@@ -531,7 +531,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+ 		if (optlen != sizeof(ro->loopback))
+ 			return -EINVAL;
+ 
+-		err = copy_from_user(&ro->loopback, optval, optlen);
++		err = copy_from_user(&ro->loopback, optval, optlen) ?
++			-EFAULT : 0;
+ 
+ 		break;
+ 
+@@ -539,7 +540,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+ 		if (optlen != sizeof(ro->recv_own_msgs))
+ 			return -EINVAL;
+ 
+-		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
++		err = copy_from_user(&ro->recv_own_msgs, optval, optlen) ?
++			-EFAULT : 0;
+ 
+ 		break;
+ 
