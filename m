@@ -1,32 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] forcedeth: realtek phy crossover detection
-Date: Fri, 25 Apr 2008 02:04:33 -0400
-Message-ID: <48117471.50601@pobox.com>
-References: <480F81EA.1050005@nvidia.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] netxen: reduce stack usage of netxen_nic_flash_print
+Date: Fri, 25 Apr 2008 02:04:09 -0400
+Message-ID: <48117459.4050903@garzik.org>
+References: <1208890115.24124.3.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57247 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:57214 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755450AbYDYGEk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 02:04:40 -0400
-In-Reply-To: <480F81EA.1050005@nvidia.com>
+	id S1755576AbYDYGEO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 02:04:14 -0400
+In-Reply-To: <1208890115.24124.3.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ayaz Abdulla wrote:
-> This patch fixes an issue seen with the realtek 8201 phy. This phy has a 
-> problem with crossover detection and it needs to be disabled. The 
-> problem only arises on certain switches. Therefore, a module parameter 
-> has been added to allow enabling crossover detection if needed. The 
-> default will be set to disabled.
+Harvey Harrison wrote:
+> Don't need to keep a struct netxen_new_user_info on the stack
+> when we only are interested in printing the serial_num.  Change
+> to only reading the serial_num.
 > 
-> 
-> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 
 applied
 
