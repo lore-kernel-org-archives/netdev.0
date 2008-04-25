@@ -1,79 +1,32 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][CAN]: Fix copy_from_user() results interpretation.
-Date: Fri, 25 Apr 2008 16:42:14 +0400
-Message-ID: <4811D1A6.909@openvz.org>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
+Date: Fri, 25 Apr 2008 15:03:30 +0200
+Message-ID: <200804251503.31240.oliver@neukum.org>
+References: <20080417214719.GF17664@kroah.com> <480F3C41.10908@teltonika.lt> <4811CF33.8040007@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core@lists.berlios.de,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, urs.thuermann@volkswagen.de,
-	oliver.hartkopp@volkswagen.de
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:56834 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753728AbYDYMpU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 08:45:20 -0400
+Received: from smtp-out003.kontent.com ([81.88.40.217]:36211 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753701AbYDYMuf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 08:50:35 -0400
+In-Reply-To: <4811CF33.8040007@teltonika.lt>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for the noise, I had to check this right after facing this problem
-with the copy_to_user()...
+Am Freitag, 25. April 2008 14:31:47 schrieb Paulius Zaleckas:
+> - do we really need ethtool support? It always reports that
+> =C2=A0 =C2=A0link is up... The only useful information is driver name=
+,
+> =C2=A0 =C2=A0version and USB path... Is it worth it?
 
-Both copy_to_ and _from_user return the number of bytes, that failed to
-reach their destination, not the 0/-EXXX values.
+Yes. NetworkManager does strange things to devices without ethtool
+support. NetworkManager is important.
 
-Other net/ code handles this correctly.
+	Regards
+		Oliver
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/can/raw.c b/net/can/raw.c
-index ead50c7..2be8c6e 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -438,12 +438,12 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
- 			err = copy_from_user(filter, optval, optlen);
- 			if (err) {
- 				kfree(filter);
--				return err;
-+				return -EFAULT;
- 			}
- 		} else if (count == 1) {
- 			err = copy_from_user(&sfilter, optval, optlen);
- 			if (err)
--				return err;
-+				return -EFAULT;
- 		}
- 
- 		lock_sock(sk);
-@@ -495,7 +495,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
- 
- 		err = copy_from_user(&err_mask, optval, optlen);
- 		if (err)
--			return err;
-+			return -EFAULT;
- 
- 		err_mask &= CAN_ERR_MASK;
- 
-@@ -531,7 +531,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
- 		if (optlen != sizeof(ro->loopback))
- 			return -EINVAL;
- 
--		err = copy_from_user(&ro->loopback, optval, optlen);
-+		err = copy_from_user(&ro->loopback, optval, optlen) ?
-+			-EFAULT : 0;
- 
- 		break;
- 
-@@ -539,7 +540,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
- 		if (optlen != sizeof(ro->recv_own_msgs))
- 			return -EINVAL;
- 
--		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
-+		err = copy_from_user(&ro->recv_own_msgs, optval, optlen) ?
-+			-EFAULT : 0;
- 
- 		break;
- 
