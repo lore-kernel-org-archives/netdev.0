@@ -1,35 +1,37 @@
-From: David Miller <davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: Socket buffer sizes with autotuning
-Date: Fri, 25 Apr 2008 00:46:34 -0700 (PDT)
-Message-ID: <20080425.004634.27450322.davem@davemloft.net>
-References: <65634d660804242234w66455bedve44801a98e3de9d9@mail.gmail.com>
-	<20080424.233643.250240829.davem@davemloft.net>
-	<65634d660804250042y5786e305t456f2154a6bcf040@mail.gmail.com>
+Date: Fri, 25 Apr 2008 09:48:34 +0200
+Message-ID: <48118CD2.6000706@firstfloor.org>
+References: <d1c2719f0804241829s1bc3f41ejf7ebbff73ed96578@mail.gmail.com>	<48118308.1090407@firstfloor.org> <20080425.002804.152322163.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, johnwheffner@gmail.com, rick.jones2@hp.com,
+Cc: hkchu@google.com, johnwheffner@gmail.com, rick.jones2@hp.com,
 	netdev@vger.kernel.org
-To: therbert@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48996
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756580AbYDYHqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 03:46:34 -0400
-In-Reply-To: <65634d660804250042y5786e305t456f2154a6bcf040@mail.gmail.com>
+Received: from one.firstfloor.org ([213.235.205.2]:53108 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760107AbYDYHsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 03:48:38 -0400
+In-Reply-To: <20080425.002804.152322163.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Tom Herbert" <therbert@google.com>
-Date: Fri, 25 Apr 2008 00:42:03 -0700
+David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Fri, 25 Apr 2008 09:06:48 +0200
+> 
+>> The only big problem then would be if there are more submitting threads
+>> than packets in the TX queue, but I would consider that unlikely for
+>> GB+ NICs at least (might be an issue for older designs with smaller queues)
+> 
+> It's probably exactly what happens in those chat server benchmarks.
 
-> If NIC is interrupt driven, enough data must be queued to span
-> consecutive interrupts.  So for instance if a 10G NIC is generating an
-> interrupt every 100us, about 125,000 bytes needs to queued at each
-> interrupt to prevent starvation-- this doesn't translate to a fixed
-> number of packets.  Limiting by packets seems somewhat ad hoc; if the
-> limit is to small and the link will be starved, too big and
-> over-queuing results.
+In that case we might be better off just blocking some of these threads
+until the TX queue cleared? What good is it to send faster than the
+network allows?
 
-Yes, however when packets are small the limiting factor becomes
-per-transfer transaction related overhead.
+-Andi
+
+
