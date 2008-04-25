@@ -1,63 +1,53 @@
-From: Mandeep Singh Baines <msb@google.com>
-Subject: [PATCH] [ETHTOOL]: EEPROM dump no longer works for tg3 and natsemi
-Date: Thu, 24 Apr 2008 19:20:30 -0700
-Message-ID: <20080425022030.GA593@google.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: ISDN testing
+Date: Thu, 24 Apr 2008 22:39:07 -0400
+Message-ID: <4811444B.1@garzik.org>
+References: <20080420223959.GA17998@havoc.gtf.org>	<200804210205.38891.elendil@planet.nl> <480BF15D.2090100@garzik.org>	<200804211536.57655.elendil@planet.nl> <480CE960.4050000@garzik.org> <878wz76lbr.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: thockin@google.com, jeff@garzik.org, joe@perches.com,
-	nil@google.com, matthew@wil.cx
-To: netdev@vger.kernel.org, leitao@linux.vnet.ibm.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Frans Pop <elendil@planet.nl>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:42598 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753254AbYDYCUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 22:20:51 -0400
-Received: from zps38.corp.google.com (zps38.corp.google.com [172.25.146.38])
-	by smtp-out.google.com with ESMTP id m3P2Kj0j017940
-	for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 03:20:45 +0100
-Received: from an-out-0708.google.com (andd11.prod.google.com [10.100.30.11])
-	by zps38.corp.google.com with ESMTP id m3P2KiuJ024700
-	for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 19:20:44 -0700
-Received: by an-out-0708.google.com with SMTP id d11so877405and.53
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2008 19:20:44 -0700 (PDT)
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:46238 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753285AbYDYCjN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2008 22:39:13 -0400
+In-Reply-To: <878wz76lbr.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the ethtool user-space application, tg3 and natsemi over-ride the default
-implementation of dump_eeprom(). In both tg3_dump_eeprom() and
-natsemi_dump_eeprom(), there is a magic number check which is not present in
-the default implementation.
+Andi Kleen wrote:
+> Jeff Garzik <jeff@garzik.org> writes:
+>> Yeah, that's what my patchset does -- splits the "hisax" driver into
+>> multiple smaller drivers.  Thus, "modprobe hisax" produces the results
+>> that you are seeing.
+> 
+> That will break a lot of user's setup.
 
-Commit b131dd5d snipped the code which copied the ethtool_eeprom structure
-back to user-space. tg3 and natsemi are over-writing the magic number field
-and then checking it in user-space. With the ethtool_eeprom copy removed, the
-check is failing.
+At present, yes :/  Yet another why it's not upstream :)
 
-The fix is simple. Add the ethtool_eeprom copy back.
 
-Signed-off-by: Mandeep Singh Baines <msb@google.com>
----
- net/core/ethtool.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+>> You'll need to determine which newly-created kernel module applies to
+>> your hardware.  Let me know if you need help with that.  The new
+>> drivers should be in
+>> /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/ provided that you
+>> enabled them in the kernel configuration.
+> 
+> One way to avoid that issue would be to continue having a dummy
+> "hisax" module that just depends on all the other drivers with 
+> a symbol reference.
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index a29b43d..0133b5e 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -323,6 +323,11 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
- 		bytes_remaining -= eeprom.len;
- 	}
- 
-+	eeprom.len = userbuf - (useraddr + sizeof(eeprom));
-+	eeprom.offset -= eeprom.len;
-+	if (copy_to_user(useraddr, &eeprom, sizeof(eeprom)))
-+		ret = -EFAULT;
-+
- 	kfree(data);
- 	return ret;
- }
--- 
-1.5.2.5
+I'm definitely open to any solution like this.  Unfortunately (as Frans, 
+I think, pointed out) the hisax module routinely depends on critical 
+setup info being passed as module options, mainly for non-PCI hardware.
+
+One solution might be to create a dummy hisax module that calls 
+foo_module_init() and foo_module_exit(), and stitch them together in an 
+unconventional way.
+
+	Jeff
+
+
 
