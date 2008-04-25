@@ -1,110 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [build bug] drivers/built-in.o: In function
- `rt2x00leds_resume': : undefined reference to `led_classdev_resume'
-Date: Fri, 25 Apr 2008 00:39:47 -0700 (PDT)
-Message-ID: <20080425.003947.72853787.davem@davemloft.net>
-References: <20080420081302.GA11954@elte.hu>
-	<20080420.020557.231970202.davem@davemloft.net>
-	<20080425073504.GA12549@elte.hu>
+From: "Tom Herbert" <therbert@google.com>
+Subject: Re: Socket buffer sizes with autotuning
+Date: Fri, 25 Apr 2008 00:42:03 -0700
+Message-ID: <65634d660804250042y5786e305t456f2154a6bcf040@mail.gmail.com>
+References: <20080422.205945.229828014.davem@davemloft.net>
+	 <87ej8uyjvv.fsf@basil.nowhere.org>
+	 <65634d660804242234w66455bedve44801a98e3de9d9@mail.gmail.com>
+	 <20080424.233643.250240829.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, tomas.winkler@intel.com,
-	linux-kernel@vger.kernel.org, kaber@trash.net,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	mabbas@linux.intel.com, ischram@telenet.be, rjw@sisk.pl,
-	ivdoorn@gmail.com
-To: mingo@elte.hu
+Cc: andi@firstfloor.org, johnwheffner@gmail.com, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45826
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755696AbYDYHjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 03:39:49 -0400
-In-Reply-To: <20080425073504.GA12549@elte.hu>
+Received: from smtp-out.google.com ([216.239.33.17]:20038 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752955AbYDYHmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 03:42:16 -0400
+Received: from zps78.corp.google.com (zps78.corp.google.com [172.25.146.78])
+	by smtp-out.google.com with ESMTP id m3P7g40p001416
+	for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 08:42:05 +0100
+Received: from py-out-1112.google.com (pyia25.prod.google.com [10.34.253.25])
+	by zps78.corp.google.com with ESMTP id m3P7fp3q030913
+	for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 00:42:04 -0700
+Received: by py-out-1112.google.com with SMTP id a25so4232598pyi.13
+        for <netdev@vger.kernel.org>; Fri, 25 Apr 2008 00:42:04 -0700 (PDT)
+In-Reply-To: <20080424.233643.250240829.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 25 Apr 2008 09:35:04 +0200
+On Thu, Apr 24, 2008 at 11:36 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Tom Herbert" <therbert@google.com>
+> Date: Thu, 24 Apr 2008 22:34:50 -0700
+>
+>
+> > Queuing in the host as opposed to in the TX NIC might be beneficial to make
+> > work conserving queuing disciplines more effective, since once a packet is
+> > queued in the NIC the host can no longer perform any more scheduling on
+> > it.    In fact, we have been working on a mechanism to dynamically limit
+> > queuing in the NIC (by number of bytes), so that more packets will be queued
+> > in host.  This seems to give better results with some of the qdiscs (I can
+> > post a patch if there's interest in this).
+>
+> This work is interesting, but doesn't it make more sense to limit by
+> number of packets instead of bytes?
+>
 
-> hm, it seems there's still some small hole left in its Kconfig 
-> structure, overnight testing triggered this randconfig combination:
-> 
-> |  drivers/built-in.o: In function `rt2x00leds_resume':
-> |  : undefined reference to `led_classdev_resume'
-> |  drivers/built-in.o: In function `rt2x00leds_resume':
-> |  : undefined reference to `led_classdev_resume'
-> |
-> |  http://redhat.com/~mingo/misc/config-Fri_Apr_25_08_50_47_CEST_2008.bad
+If NIC is interrupt driven, enough data must be queued to span
+consecutive interrupts.  So for instance if a 10G NIC is generating an
+interrupt every 100us, about 125,000 bytes needs to queued at each
+interrupt to prevent starvation-- this doesn't translate to a fixed
+number of packets.  Limiting by packets seems somewhat ad hoc; if the
+limit is to small and the link will be starved, too big and
+over-queuing results.
 
-This was reported elsewhere as well.
-
-I was sure that the patch below fixed it.
-
-I don't understand how it can still fail, unless the problem is that
-selecting "FOO" does not take care to enable any dependencies of
-"FOO".
-
-commit 201410ce85d80b7b893cdc72e944a1341dd393f1
-Author: David S. Miller <davem@davemloft.net>
-Date:   Wed Apr 23 03:34:50 2008 -0700
-
-    rt2x00: Select LEDS_CLASS.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/wireless/rt2x00/Kconfig b/drivers/net/wireless/rt2x00/Kconfig
-index a1e3938..ab1029e 100644
---- a/drivers/net/wireless/rt2x00/Kconfig
-+++ b/drivers/net/wireless/rt2x00/Kconfig
-@@ -60,7 +60,8 @@ config RT2400PCI_RFKILL
- 
- config RT2400PCI_LEDS
- 	bool "RT2400 leds support"
--	depends on RT2400PCI && LEDS_CLASS
-+	depends on RT2400PCI
-+	select LEDS_CLASS
- 	select RT2X00_LIB_LEDS
- 	---help---
- 	  This adds support for led triggers provided my mac80211.
-@@ -86,7 +87,8 @@ config RT2500PCI_RFKILL
- 
- config RT2500PCI_LEDS
- 	bool "RT2500 leds support"
--	depends on RT2500PCI && LEDS_CLASS
-+	depends on RT2500PCI
-+	select LEDS_CLASS
- 	select RT2X00_LIB_LEDS
- 	---help---
- 	  This adds support for led triggers provided my mac80211.
-@@ -114,7 +116,8 @@ config RT61PCI_RFKILL
- 
- config RT61PCI_LEDS
- 	bool "RT61 leds support"
--	depends on RT61PCI && LEDS_CLASS
-+	depends on RT61PCI
-+	select LEDS_CLASS
- 	select RT2X00_LIB_LEDS
- 	---help---
- 	  This adds support for led triggers provided my mac80211.
-@@ -130,7 +133,8 @@ config RT2500USB
- 
- config RT2500USB_LEDS
- 	bool "RT2500 leds support"
--	depends on RT2500USB && LEDS_CLASS
-+	depends on RT2500USB
-+	select LEDS_CLASS
- 	select RT2X00_LIB_LEDS
- 	---help---
- 	  This adds support for led triggers provided my mac80211.
-@@ -148,7 +152,8 @@ config RT73USB
- 
- config RT73USB_LEDS
- 	bool "RT73 leds support"
--	depends on RT73USB && LEDS_CLASS
-+	depends on RT73USB
-+	select LEDS_CLASS
- 	select RT2X00_LIB_LEDS
- 	---help---
- 	  This adds support for led triggers provided my mac80211.
+> No intermediate node that I know of drops bytes, they drop packets
+> instead :-)
+>
