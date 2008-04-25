@@ -1,59 +1,67 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: POHMELFS high performance network filesystem release.
-Date: Sat, 26 Apr 2008 01:03:15 +0400
-Message-ID: <20080425210315.GA3712@2ka.mipt.ru>
-References: <20080425150756.GA28369@2ka.mipt.ru> <87wsmlx2w1.fsf@basil.nowhere.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: XTP for 2.6.25
+Date: Sat, 26 Apr 2008 00:06:58 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804252353550.9132@wrl-59.cs.helsinki.fi>
+References: <18b669d80804250151h516788cdqc7931a7ab5a195de@mail.gmail.com>
+ <20080425.015508.254917794.davem@davemloft.net>
+ <Pine.LNX.4.64.0804251558550.1888@wrl-59.cs.helsinki.fi>
+ <20080425.131255.95495287.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-213856561-1209157618=:9132"
+Cc: shigeonx@gmail.com, andi@firstfloor.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:51099 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759221AbYDYVDg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 17:03:36 -0400
-Content-Disposition: inline
-In-Reply-To: <87wsmlx2w1.fsf@basil.nowhere.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58255 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758628AbYDYVHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 17:07:05 -0400
+In-Reply-To: <20080425.131255.95495287.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Fri, Apr 25, 2008 at 07:25:50PM +0200, Andi Kleen (andi@firstfloor.org) wrote:
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
+---696208474-213856561-1209157618=:9132
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Fri, 25 Apr 2008, David Miller wrote:
+
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Fri, 25 Apr 2008 16:05:51 +0300 (EEST)
 > 
-> > It is work-in-progress, and network protocol is not stable yet.
+> > On Fri, 25 Apr 2008, David Miller wrote:
+> > 
+> > > From: "Shigeo N" <shigeonx@gmail.com>
+> > > Date: Fri, 25 Apr 2008 17:51:49 +0900
+> > > 
+> > > > One host(sender) is 2.6.25, but the other(receiver) is 2.6.18.
+> > > > I will evaluate again after I upgrade it to 2.6.25.
+> > > 
+> > > The bug fix isn't in 2.6.25 either.
+> > 
+> > Sure it is, or git is lying:
+> > 
+> > $ git-describe dd9e0dda66ba38a2ddd1405ac279894260dc5c36
+> > v2.6.25-rc8-1190-gdd9e0dd
 > 
-> Congratulations. I'm sure it was a lot of work.
-
-Well, not _that_ lot of work, but it is interesting, so...
-It was at least once time rewriten mostly from scratch to allow all those
-shiny things. It is not in-advance design, but kind of evolution based
-on my filesystem studying.
-
-> But could you please quickly expand how useful it is at this state? Is
-> it already far enough that someone could save some data on it and use
-> it without it crashing all the time?
+> I just submitted the TCP reorder patch for 2.6.25-stable, it applied
+> on top of a tree for which I did:
 > 
-> It's unclear even from your status report.
+> 	git checkout -b linux25 v2.6.25
+> 
+> so something is up :-)
 
-Well, it does not crash in iozone, huge untar, kernel compilations
-and big file copies. And it works reliably enough to make md5 sums be
-equal on both server and clients, but I will not be surprised if it
-contains some bugs. I also will not be surprised, if current server 
-behaviour does not match POSIX expectations (I'm curios of NFS
-matches that), but at least this behaviour will be much more clean
-with transaction introduction and server support for them.
+Of course I was wrong :-), misintepreted git-describe's result as it 
+cannot prove what I was trying to make it to prove (basically it was
+reporting just the latest net-2.6 -> net-2.6.26 merge of yours, while 
+that doesn't tell anything about entry of a commit to Linus' tree).
 
-So, it works for usual NFS-like workload, but since it is rather young
-FS (this particular design implementation exists for about couple of
-months), there may be some questions...
-
-Getting that POHMELFS is really simple and its design is oriented to be
-as open as possible without burden of old age problems and
-compatibilities, it is not a any kind of a problem to locate and fix a
-bug, so I'm very open for any kind of reports.
+...Sorry about the noise.
 
 -- 
-	Evgeniy Polyakov
+ i.
+---696208474-213856561-1209157618=:9132--
