@@ -1,126 +1,68 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [git patches] ISDN cleanups (modularization prep)
-Date: Thu, 24 Apr 2008 22:46:56 -0400
-Message-ID: <48114620.2060508@garzik.org>
-References: <20080420223959.GA17998@havoc.gtf.org> <200804210205.38891.elendil@planet.nl> <480BF15D.2090100@garzik.org> <200804211536.57655.elendil@planet.nl> <200804211536.57655.elendil@planet.nl> <480CE960.4050000@garzik.org> <200804212221.24586.elendil@planet.nl>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] Fix af_key.c compiler warning
+Date: Thu, 24 Apr 2008 22:53:38 -0400
+Message-ID: <481147B2.3020801@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	isdn4linux@listserv.isdn4linux.de, Andi Kleen <andi@firstfloor.org>
-To: Frans Pop <elendil@planet.nl>
+Content-Type: multipart/mixed;
+ boundary="------------010208050309090409090407"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43518 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752505AbYDYCq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2008 22:46:58 -0400
-In-Reply-To: <200804212221.24586.elendil@planet.nl>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:46068 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753219AbYDYCxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2008 22:53:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Frans Pop wrote:
-> (Let's change the subject back to what it was :-)
-> 
-> Jeff Garzik wrote:
->> Frans Pop wrote:
->>> But when I tried to modprobe hisax, I got:
->>> # modprobe hisax
->>> FATAL: Module hisax not found.
->>>
->>> Cause seems to be:
->>> # depmod -a
->>> WARNING: Module
->>> /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/hisaxdiva.ko ignored,
->>> due to loop WARNING: Module
->>> /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/libhisax.ko ignored,
->>> due to loop WARNING: Loop
->>> detected: /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/hisax.ko
->>> needs libhisax.ko which needs hisax.ko again!
->>> WARNING: Module
->>> /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/hisax.ko ignored, due
->>> to loop
->> Yeah, that's what my patchset does -- splits the "hisax" driver into
->> multiple smaller drivers.  Thus, "modprobe hisax" produces the results
->> that you are seeing.
-> 
-> Hmmm. Isn't that going to break things for existing users?
-
-At present, yes.  Ultimately I want to find a solution that doesn't 
-break existing users, but I am still at the early "trying to see if it 
-works at all" stage.
+This is a multi-part message in MIME format.
+--------------010208050309090409090407
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
 
 
-> For example, I currently have this in /etc/modprobe.d/hisax to get the two 
-> cards to work correctly:
-> options hisax type=9,11 protocol=2,2 irq=10 io=0x398
-> 
-> This effectively translates to:
-> - ITK card:  type=9  protocol=2 irq=10 io=0x398
-> - Diva card: type=11 protocol=2
-> 
-> To what would I have to change this?
+net/key/af_key.c: In function ‘pfkey_spddelete’:
+net/key/af_key.c:2359: warning: ‘pol_ctx’ may be used uninitialized in 
+this function
 
-Two changes:
+When CONFIG_SECURITY_NETWORK_XFRM isn't set, 
+security_xfrm_policy_alloc() is an inline that doesn't set pol_ctx, so 
+this seemed like the easiest fix short of using *uninitialized_var(pol_ctx).
 
-1) 'type' is now automatically deduced based on your choice of driver, 
-so it is not needed anymore.
+-Brian
 
-2) The module options are passed to the specific module, rather than the 
-hisax module.
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+---
 
-'protocol', 'irq' and 'io' module options should remain completely 
-compatible with existing setups.
+--------------010208050309090409090407
+Content-Type: text/x-patch;
+ name="pol_ctx.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="pol_ctx.patch"
 
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 81a8e52..2403a31 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2356,7 +2356,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, struct sadb_msg
+ 	struct xfrm_selector sel;
+ 	struct km_event c;
+ 	struct sadb_x_sec_ctx *sec_ctx;
+-	struct xfrm_sec_ctx *pol_ctx;
++	struct xfrm_sec_ctx *pol_ctx = NULL;
+ 
+ 	if (!present_and_same_family(ext_hdrs[SADB_EXT_ADDRESS_SRC-1],
+ 				     ext_hdrs[SADB_EXT_ADDRESS_DST-1]) ||
+@@ -2396,8 +2396,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, struct sadb_msg
+ 		kfree(uctx);
+ 		if (err)
+ 			return err;
+-	} else
+-		pol_ctx = NULL;
++	}
+ 
+ 	xp = xfrm_policy_bysel_ctx(XFRM_POLICY_TYPE_MAIN,
+ 				   pol->sadb_x_policy_dir - 1, &sel, pol_ctx,
 
->> You'll need to determine which newly-created kernel module applies to
->> your hardware.  Let me know if you need help with that.  The new drivers
->> should be in /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax/
->> provided that you enabled them in the kernel configuration.
-> 
-> I think that I have the correct config (unset options omitted):
-> CONFIG_ISDN=m
-> CONFIG_ISDN_I4L=m
-> # ISDN feature submodules
-> # ISDN4Linux hardware drivers
-> # Passive cards
-> CONFIG_ISDN_DRV_HISAX=m
-> # D-channel protocol features
-> CONFIG_HISAX_EURO=y
-> CONFIG_HISAX_MAX_CARDS=8
-> # HiSax supported cards
-> CONFIG_HISAX_16_3=y
-> CONFIG_HISAX_IX1MICROR2=y
-> CONFIG_HISAX_DIEHLDIVA=m
-> 
-> Note that HISAX_16_3 and HISAX_IX1MICROR2 are y/n config options; making 
-> those modular is not allowed.
-> 
-> This results in the following modules under drivers/isdn:
-> /lib/modules/2.6.25-isdn/kernel/drivers/isdn/hisax:
-> hisaxdiva.ko  hisax.ko  libhisax.ko
-> /lib/modules/2.6.25-isdn/kernel/drivers/isdn/i4l:
-> isdn.ko
-> 
-> So AFAICT, I should still be loading hisax for the ITK card.
-> 
-> Also, I doubt that depmod is supposed to fail like the way I saw. Seems to 
-> me that the "loop" errors during depmod are the cause of the modules not 
-> being loadable.
-> Note that 'modprobe hisaxdiva' fails with the exact same message as for 
-> hisax and that depmod even explicitly says that the modules are "ignored"!
-
-Yeah, it looks like the ITK card is still served by the main hisax 
-module (not all were converted, just the ones related to PCI).
-
-Maybe try manually modprobing libhisax and then hisaxdiva.
-
-Also try disabling the ITK support in Kconfig and see if that at least 
-permits you to load the hisaxdiva driver.
-
-
-My apologies for all the caveats, this is quite raw code.  I appreciate 
-your taking a look at this!
-
-	Jeff
-
-
+--------------010208050309090409090407--
