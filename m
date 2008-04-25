@@ -1,36 +1,29 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [ANNOUNCE] 82598 Software Developer Manual 2.2 released
-Date: Fri, 25 Apr 2008 14:32:48 -0700
-Message-ID: <48124E00.80406@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Socket buffer sizes with autotuning
+Date: Fri, 25 Apr 2008 14:35:08 -0700 (PDT)
+Message-ID: <20080425.143508.38481200.davem@davemloft.net>
+References: <d1c2719f0804241749p2c0dd7daofd343bc37a916247@mail.gmail.com>
+	<20080424.234628.170849475.davem@davemloft.net>
+	<d1c2719f0804251429l26118ef0j8a386103ee41f0ea@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Jeff Garzik <jeff@garzik.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: NetDev <netdev@vger.kernel.org>
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org, rick.jones2@hp.com
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:7327 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753518AbYDYVct (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2008 17:32:49 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58929
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759204AbYDYVfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 17:35:09 -0400
+In-Reply-To: <d1c2719f0804251429l26118ef0j8a386103ee41f0ea@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Jerry Chu" <hkchu@google.com>
+Date: Fri, 25 Apr 2008 14:29:25 -0700
 
-All,
+> Will get the latest 2.6.25 and take a look. I can't find "skb_release_all()"
+> function you pointed in a later mail either. Guess the Linux kernel
+> code is rewritten every few month :-(.
 
-Intel is pleased to release the 82598 10GbE PCI Express MAC Software Development
-Manual to the open source community. The document is available from both the
-www.intel.com website (search for '82598') and our http://e1000.sf.net/ project
-website. (quick doc link: http://tinyurl.com/4yc5l5 )
-
-82598 Drivers are currently available in the linux kernel and as a standalone
-(ixgbe) driver from our project page. This new MAC supports various new
-technologies that people may find interesting, some of which are already enabled
-in the linux driver.
-
-Cheers,
-
-Auke
+You want bugs fixed, like the one you reported here, don't you?
