@@ -1,35 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] [IPV6] COMPAT: Fix SSM applications on 64bit
- kernels.
-Date: Thu, 24 Apr 2008 23:27:00 -0700 (PDT)
-Message-ID: <20080424.232700.144474920.davem@davemloft.net>
-References: <20080425.143845.24767700.yoshfuji@linux-ipv6.org>
-	<OF6BB885BC.24376BB7-ON88257436.0021B953-88257436.002315D4@us.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] tg3 : sparse cleanup
+Date: Fri, 25 Apr 2008 08:31:35 +0200
+Message-ID: <48117AC7.40507@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: dlstevens@us.ibm.com
+Content-Type: multipart/mixed;
+ boundary="------------010404050904040801090904"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49015
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755118AbYDYG1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2008 02:27:01 -0400
-In-Reply-To: <OF6BB885BC.24376BB7-ON88257436.0021B953-88257436.002315D4@us.ibm.com>
+Received: from smtp2f.orange.fr ([80.12.242.152]:4023 "EHLO smtp2f.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756468AbYDYGbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2008 02:31:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Thu, 24 Apr 2008 23:23:15 -0700
+This is a multi-part message in MIME format.
+--------------010404050904040801090904
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> I wanted to allocate the copy on the user stack
+Fix the following sparse warning :
 
-compat_alloc_user_space(size), as you used it, is the way
+drivers/net/tg3.c:4025:3: warning: context imbalance in 'tg3_restart_hw' 
+- unexpected unlock
 
-On sparc64 I named the "within userspace" copy function
-copy_in_user() and this seems to be supported well enough
-to be used by the generic compat code elsewhere in the
-tree so very likely it's supported everywhere it needs
-to be
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+
+--------------010404050904040801090904
+Content-Type: text/plain;
+ name="tg3.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="tg3.patch"
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index bc4c62b..e3f74c9 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -4017,6 +4017,8 @@ static int tg3_halt(struct tg3 *, int, int);
+  * Invoked with tp->lock held.
+  */
+ static int tg3_restart_hw(struct tg3 *tp, int reset_phy)
++	__releases(tp->lock)
++	__acquires(tp->lock)
+ {
+ 	int err;
+ 
+
+--------------010404050904040801090904--
+
 
