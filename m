@@ -1,42 +1,88 @@
-From: "M. Istehbab" <hariskhan@gmail.com>
-Subject: Re: TCP connection failure in kernel 2.6.25
-Date: Sat, 26 Apr 2008 17:16:38 +0500
-Message-ID: <c1410bfe0804260516k1149fadaoc06f02b94dcd12e9@mail.gmail.com>
-References: <c1410bfe0804260217t33139fd2v324af1a149843989@mail.gmail.com>
-	 <1209205136.2929.6.camel@localhost.localdomain>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH][CAN]: Fix copy_from_user() results interpretation.
+Date: Sat, 26 Apr 2008 15:04:30 +0200
+Message-ID: <4813285E.1000407@grandegger.com>
+References: <4811E915.80303@volkswagen.de>	<4812C973.5000504@grandegger.com>	<20080426064007.GA20558@uranus.ravnborg.org> <20080426.000302.177643527.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: sam@ravnborg.org, oliver.hartkopp@volkswagen.de,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	urs.thuermann@volkswagen.de, xemul@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:31382 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751427AbYDZMQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 08:16:39 -0400
-Received: by wf-out-1314.google.com with SMTP id 28so3262551wff.4
-        for <netdev@vger.kernel.org>; Sat, 26 Apr 2008 05:16:38 -0700 (PDT)
-In-Reply-To: <1209205136.2929.6.camel@localhost.localdomain>
-Content-Disposition: inline
+Received: from mail-out.m-online.net ([212.18.0.9]:40607 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751656AbYDZNEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 09:04:34 -0400
+In-Reply-To: <20080426.000302.177643527.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes, after a while (it can be a few seconds, minutes, or 1+ hour) the
-proxy server starts accepting connections again. I don't need to
-reboot the box when this happens.
+David Miller wrote:
+> From: Sam Ravnborg <sam@ravnborg.org>
+> Date: Sat, 26 Apr 2008 08:40:07 +0200
+> 
+>> On Sat, Apr 26, 2008 at 08:19:31AM +0200, Wolfgang Grandegger wrote:
+>>> What about removing the assignment "err =" in that case.
+>> Preferred.
+>>
+>> See sample patch below (made on top of -linus
+>> so it does likely not apply but made it only to
+>> see the difference anyway).
+> 
+> I want to make one comment, directed at Wolfgang.
+> 
+> You are absolutely wrong, Wolfgang, in saying that Pavel's
+> original patch isn't easier to review than just changing
+> this code to go:
+> 
+> 	if (copy_*_user())
+> 		return -EFAULT;
+> 
+> In fact, recoding things like this is an immense extra hardship on a
+> reviewer.  I'll explain why.
+> 
+> If I see a patch that changes:
+> 
+> 	err = SOMETHING;
+> 	break;
+> 
+> into:
+> 
+> 	err = SOMETHING_ELSE;
+> 	break;
+> 
+> I know, WITH JUST READING THE PATCH, exactly what the side effects of
+> this change are.
+> 
+> I DO NOT need to bring the code into my editor and validate side
+> effects to the surrounding code.
+> 
+> I know that the assignment to 'err' is being changed, and that's it.
+> 
+> Whereas if you change:
+> 
+> 	err = SOMETHING;
+> 	break;
+> 
+> into:
+> 
+> 	if (SOMETHING)
+> 		return -SOME_ERROR;
+> 	break;
+> 
+> I now have to bring the code into an editor and make sure that the
+> control flow change doesn't break things.
+> 
+> For example, maybe the exit of the switch statement was important, to
+> make sure cleanup code runs at the end of the function to release
+> locks, free allocated memory, etc.
+> 
+> With Pavel's patch it is not necessary to make such validations so
+> it's INFINITELY easier to validate.
 
-This happens randomely to anyone behind it. Then, after a while, it
-starts working again by itself.
+OK, I see, if you have to review a lot of patches, it does matter, indeed.
 
-M. Istehbab
+Wolfgang.
 
-On 4/26/08, H. Willstrand <h.willstrand@gmail.com> wrote:
->
-> >
->
-> Is the proxy server accepting connections after the issue has occurred?
-> Or do you need to re-boot? Or do you have to wait for a number of
-> seconds or what?
->
-> Cheers,
-> H. Willstrand
->
