@@ -1,88 +1,85 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH][CAN]: Fix copy_from_user() results interpretation.
-Date: Sat, 26 Apr 2008 15:04:30 +0200
-Message-ID: <4813285E.1000407@grandegger.com>
-References: <4811E915.80303@volkswagen.de>	<4812C973.5000504@grandegger.com>	<20080426064007.GA20558@uranus.ravnborg.org> <20080426.000302.177643527.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Slab Corruption with ipv6 and tcp6fuzz
+Date: Sat, 26 Apr 2008 20:05:20 +0400
+Message-ID: <20080426160519.GA5697@2ka.mipt.ru>
+References: <20080424142727.GA24025@alice> <20080424211320.GA13695@2ka.mipt.ru> <20080425125230.GA12343@alice> <20080425130946.GA1019@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: sam@ravnborg.org, oliver.hartkopp@volkswagen.de,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	urs.thuermann@volkswagen.de, xemul@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	ilpo.jarvinen@helsinki.fi
+To: Eric Sesterhenn <snakebyte@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:40607 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751656AbYDZNEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 09:04:34 -0400
-In-Reply-To: <20080426.000302.177643527.davem@davemloft.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:44162 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754061AbYDZQF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Apr 2008 12:05:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20080425130946.GA1019@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Sam Ravnborg <sam@ravnborg.org>
-> Date: Sat, 26 Apr 2008 08:40:07 +0200
-> 
->> On Sat, Apr 26, 2008 at 08:19:31AM +0200, Wolfgang Grandegger wrote:
->>> What about removing the assignment "err =" in that case.
->> Preferred.
->>
->> See sample patch below (made on top of -linus
->> so it does likely not apply but made it only to
->> see the difference anyway).
-> 
-> I want to make one comment, directed at Wolfgang.
-> 
-> You are absolutely wrong, Wolfgang, in saying that Pavel's
-> original patch isn't easier to review than just changing
-> this code to go:
-> 
-> 	if (copy_*_user())
-> 		return -EFAULT;
-> 
-> In fact, recoding things like this is an immense extra hardship on a
-> reviewer.  I'll explain why.
-> 
-> If I see a patch that changes:
-> 
-> 	err = SOMETHING;
-> 	break;
-> 
-> into:
-> 
-> 	err = SOMETHING_ELSE;
-> 	break;
-> 
-> I know, WITH JUST READING THE PATCH, exactly what the side effects of
-> this change are.
-> 
-> I DO NOT need to bring the code into my editor and validate side
-> effects to the surrounding code.
-> 
-> I know that the assignment to 'err' is being changed, and that's it.
-> 
-> Whereas if you change:
-> 
-> 	err = SOMETHING;
-> 	break;
-> 
-> into:
-> 
-> 	if (SOMETHING)
-> 		return -SOME_ERROR;
-> 	break;
-> 
-> I now have to bring the code into an editor and make sure that the
-> control flow change doesn't break things.
-> 
-> For example, maybe the exit of the switch statement was important, to
-> make sure cleanup code runs at the end of the function to release
-> locks, free allocated memory, etc.
-> 
-> With Pavel's patch it is not necessary to make such validations so
-> it's INFINITELY easier to validate.
+Hi.
 
-OK, I see, if you have to review a lot of patches, it does matter, indeed.
+On Fri, Apr 25, 2008 at 05:09:46PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> On Fri, Apr 25, 2008 at 02:52:30PM +0200, Eric Sesterhenn (snakebyte@gmx.de) wrote:
+> > > > [  215.103103]  [<c0671e3b>] tcp_v6_do_rcv+0x33b/0xcd0
+> > > 
+> > > So far can you run kernel with debug turned on and provide output of
+> > > gdb ./vmlinux
+> > > l *(tcp_v6_do_rcv+0x33b)
+> > 
+> > l *(tcp_v6_do_rcv+0x33b)
+> > Using host libthread_db library "/lib/tls/i686/cmov/libthread_db.so.1".
+> > (gdb) l *(tcp_v6_do_rcv+0x33b)
+> > 0xc0671e3b is in tcp_v6_do_rcv (net/ipv6/tcp_ipv6.c:1670).
+> > 1665    reset:
+> > 1666            tcp_v6_send_reset(sk, skb);
+> > 1667    discard:
+> > 1668            if (opt_skb)
+> > 1669                    __kfree_skb(opt_skb);
+> > 1670            kfree_skb(skb);
+> > 1671            return 0;
+> > 1672    csum_err:
+> > 1673            TCP_INC_STATS_BH(TCP_MIB_INERRS);
+> > 1674            goto discard;
+> 
+> Well, first possible error path:
+> 
+> tcp_v6_do_rcv()->tcp_rcv_established(), the latter goes to step5, where
+> eventually skb can be freed via tcp_data_queue() (drop: label), then if
+> check for tcp_defer_accept_check() returns true and thus
+> tcp_rcv_established() returns -1, which forces tcp_v6_do_rcv() to jump
+> to reset: label, which in turn will pass through discard: label and free
+> the same skb again.
+>  
+> > Here is the programm itself...
+> 
+> I will work on this this weekend, thank you.
 
-Wolfgang.
+Ok, I can not reproduce it, so lets try hard way.
+Can you test attached patch, its idea is described above and I checked
+multiple times, that it is forbidden to free skb and return non-zero
+value from tcp_rcv_established(). This behaviour was introduced with TCP
+defer accept changes in 2.6.25 with
+ec3c0982a2dd1e671bad8e9d26c28dcba0039d87 commit.
 
+Please test. This bug affects both ipv6 and ipv4 code actually.
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index ac9b848..0298f80 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4925,8 +4925,7 @@ step5:
+ 	tcp_data_snd_check(sk);
+ 	tcp_ack_snd_check(sk);
+ 
+-	if (tcp_defer_accept_check(sk))
+-		return -1;
++	tcp_defer_accept_check(sk);
+ 	return 0;
+ 
+ csum_error:
+
+
+-- 
+	Evgeniy Polyakov
