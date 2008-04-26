@@ -1,95 +1,87 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH][CAN]: Fix copy_from_user() results interpretation.
-Date: Sat, 26 Apr 2008 08:40:07 +0200
-Message-ID: <20080426064007.GA20558@uranus.ravnborg.org>
-References: <4811D1A6.909@openvz.org> <4811E915.80303@volkswagen.de> <4812C973.5000504@grandegger.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [GIT PULL] [IPV6] COMPAT: Fix SSM applications on 64bit kernels.
+Date: Sat, 26 Apr 2008 00:00:49 -0700
+Message-ID: <OF7B59958D.88AA9A1D-ON88257437.0023AEDC-88257437.00268638@us.ibm.com>
+References: <20080425.223130.04936392.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	socketcan-core@lists.berlios.de,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Thuermann, Urs, Dr. (K-EFFI/I)" <urs.thuermann@volkswagen.de>,
-	David Miller <davem@davemloft.net>,
-	Pavel Emelyanov <xemul@openvz.org>
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpb.tele.dk ([80.160.77.98]:49379 "EHLO pasmtpB.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751844AbYDZGjf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Apr 2008 02:39:35 -0400
-Content-Disposition: inline
-In-Reply-To: <4812C973.5000504@grandegger.com>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:45634 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751989AbYDZHAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 03:00:55 -0400
+In-Reply-To: <20080425.223130.04936392.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 26, 2008 at 08:19:31AM +0200, Wolfgang Grandegger wrote:
-> What about removing the assignment "err =" in that case.
-Preferred.
+Dave Miller wrote on 04/25/2008 10:31:30 PM:
 
-See sample patch below (made on top of -linus
-so it does likely not apply but made it only to
-see the difference anyway).
+> Regardless, using packed has several other side effects you absolutely
+> do not want.  It causes words to be loaded using byte loads on RISC
+> architectures, because no alignment assumptions can be made at all
+> about packed objects.
 
+        Isn't that appropriate in the general case? If the architecture
+actually required 8-byte alignment to access the type and we only have
+4-byte alignment because the app was compiled with different (32 bit)
+alignment rules, then we'd fault if we forced the alignment and accessed
+it directly. That's why we don't access it directly. In these, we're
+using the (byte) copy functions to get the (totally inappropriately
+aligned because it wasn't compiled in 64-bit mode) data to the well
+behaved and aligned in-kernel copy of the struct and from there (only)
+do we access them as structured objects. If the copy code is clever
+enough to use word copies when alignment allows, and byte copies for
+the ends, then all we have to care about is that the byte-offset we copy
+from is correct for the app-compiled architecture.
 
-	Sam
+        I don't think the point is that important here, because all of 
+these
+methods identically describe the 32-bit data layout (which is all we
+need-- could even use a char array for the source data since we know
+the offsets very well!), and we use the copy functions to get it to the
+layout we need. So I may be missing your point, but I don't need to 
+belabor
+it all the same. :-)
+        The only reason I didn't want to use aligned(4) for 
+sockaddr_storage
+is because it's just another single-use declaration. It seems to me plain
+old packed is defined by the C language to have the proper offsets on all
+architectures for these declarations, and all of these others 
+modifications
+are no better since they all lead to the same thing. But so would
+(char *)optval + 4; as the start of the gr_group, say. We don't use the
+compat struct's for anything but a handy way to describe those byte 
+offsets.
 
-diffstat:
- net/can/raw.c          |   21 ++++++++++-----------
- 2 files changed, 11 insertions(+), 12 deletions(-)
+        Anyway, I belabored. I'll change to aligned(4) with 
+compat_sockaddr_storage
+declaration...
 
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 201cbfc..69877b8 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -435,15 +435,13 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
- 			if (!filter)
- 				return -ENOMEM;
+> 
+> Please use aligned(4), it should be totally sufficient.
+> 
+> >         In this case, we want no pad, so packed is the relevant part. 
+If
+> > had a char followed by a struct as in your previous example, the right
+> > way to get 4-byte alignment is both aligned(4) and packed. Leaving off
+> > packed would allow 8-byte or 16-byte (or 12 :-)) alignment, too.
+> 
+> Have you seen this in practice?
+
+        I did see that plain old structure field __attribute((4))__
+wasn't correct (still padded), and gcc docs use the same language
+to define the behavior for structure field attribute "aligned" and
+type attribute "aligned" (at least with my limited research). So,
+it surprised me that the field attribute results in pad and the
+type attribute doesn't, and I wonder if it's good to rely on that
+difference given the same documentation for both as "minimum alignment".
+But if the compiler changes its notion of when to pad this in a way
+that breaks it, we can always revisit it later. :-)
+
+                                                                +-DLS
+
  
--			err = copy_from_user(filter, optval, optlen);
--			if (err) {
-+			if (copy_from_user(filter, optval, optlen)) {
- 				kfree(filter);
--				return err;
-+				return -EFAULT;
- 			}
- 		} else if (count == 1) {
--			err = copy_from_user(&sfilter, optval, optlen);
--			if (err)
--				return err;
-+			if (copy_from_user(&sfilter, optval, optlen))
-+				return -EFAULT;
- 		}
- 
- 		lock_sock(sk);
-@@ -493,9 +491,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
- 		if (optlen != sizeof(err_mask))
- 			return -EINVAL;
- 
--		err = copy_from_user(&err_mask, optval, optlen);
--		if (err)
--			return err;
-+		if (copy_from_user(&err_mask, optval, optlen))
-+			return -EFAULT;
- 
- 		err_mask &= CAN_ERR_MASK;
- 
-@@ -531,7 +528,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
- 		if (optlen != sizeof(ro->loopback))
- 			return -EINVAL;
- 
--		err = copy_from_user(&ro->loopback, optval, optlen);
-+		if (copy_from_user(&ro->loopback, optval, optlen))
-+			return -EFAULT;
- 
- 		break;
- 
-@@ -539,7 +537,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
- 		if (optlen != sizeof(ro->recv_own_msgs))
- 			return -EINVAL;
- 
--		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
-+		if (copy_from_user(&ro->recv_own_msgs, optval, optlen))
-+			return -EFAULT;
- 
- 		break;
- 
+
