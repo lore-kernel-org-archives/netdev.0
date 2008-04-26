@@ -1,84 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][CAN]: Fix copy_from_user() results interpretation.
-Date: Sat, 26 Apr 2008 00:03:02 -0700 (PDT)
-Message-ID: <20080426.000302.177643527.davem@davemloft.net>
-References: <4811E915.80303@volkswagen.de>
-	<4812C973.5000504@grandegger.com>
-	<20080426064007.GA20558@uranus.ravnborg.org>
+Subject: Re: [GIT PULL] [IPV6] COMPAT: Fix SSM applications on 64bit
+ kernels.
+Date: Sat, 26 Apr 2008 00:09:44 -0700 (PDT)
+Message-ID: <20080426.000944.50852302.davem@davemloft.net>
+References: <20080425.223130.04936392.davem@davemloft.net>
+	<OF7B59958D.88AA9A1D-ON88257437.0023AEDC-88257437.00268638@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, oliver.hartkopp@volkswagen.de,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	urs.thuermann@volkswagen.de, xemul@openvz.org
-To: sam@ravnborg.org
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33881
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52822
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752053AbYDZHDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 03:03:02 -0400
-In-Reply-To: <20080426064007.GA20558@uranus.ravnborg.org>
+	by vger.kernel.org with ESMTP id S1752112AbYDZHJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 03:09:45 -0400
+In-Reply-To: <OF7B59958D.88AA9A1D-ON88257437.0023AEDC-88257437.00268638@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Sat, 26 Apr 2008 08:40:07 +0200
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Sat, 26 Apr 2008 00:00:49 -0700
 
-> On Sat, Apr 26, 2008 at 08:19:31AM +0200, Wolfgang Grandegger wrote:
-> > What about removing the assignment "err =" in that case.
-> Preferred.
-> 
-> See sample patch below (made on top of -linus
-> so it does likely not apply but made it only to
-> see the difference anyway).
+>         I did see that plain old structure field __attribute((4))__
+> wasn't correct (still padded), and gcc docs use the same language
+> to define the behavior for structure field attribute "aligned" and
+> type attribute "aligned" (at least with my limited research). So,
+> it surprised me that the field attribute results in pad and the
+> type attribute doesn't, and I wonder if it's good to rely on that
+> difference given the same documentation for both as "minimum alignment".
+> But if the compiler changes its notion of when to pad this in a way
+> that breaks it, we can always revisit it later. :-)
 
-I want to make one comment, directed at Wolfgang.
+You're right about this point of course:
 
-You are absolutely wrong, Wolfgang, in saying that Pavel's
-original patch isn't easier to review than just changing
-this code to go:
+--------------------
+struct foo {
+	int a;
+	unsigned long b;
+};
 
-	if (copy_*_user())
-		return -EFAULT;
+struct foo_align4 {
+	int a;
+	unsigned long b;
+} __attribute__((aligned(4)));
 
-In fact, recoding things like this is an immense extra hardship on a
-reviewer.  I'll explain why.
+int main(void)
+{
+	printf("Normal: 'b' offset is %Zu\n",
+	       __builtin_offsetof(struct foo, b));
+	printf("Align4: 'b' offset is %Zu\n",
+	       __builtin_offsetof(struct foo_align4, b));
+	return 0;
+}
+--------------------
 
-If I see a patch that changes:
+gives:
 
-	err = SOMETHING;
-	break;
+--------------------
+Normal: 'b' offset is 8
+Align4: 'b' offset is 8
+--------------------
 
-into:
+on sparc64.
 
-	err = SOMETHING_ELSE;
-	break;
-
-I know, WITH JUST READING THE PATCH, exactly what the side effects of
-this change are.
-
-I DO NOT need to bring the code into my editor and validate side
-effects to the surrounding code.
-
-I know that the assignment to 'err' is being changed, and that's it.
-
-Whereas if you change:
-
-	err = SOMETHING;
-	break;
-
-into:
-
-	if (SOMETHING)
-		return -SOME_ERROR;
-	break;
-
-I now have to bring the code into an editor and make sure that the
-control flow change doesn't break things.
-
-For example, maybe the exit of the switch statement was important, to
-make sure cleanup code runs at the end of the function to release
-locks, free allocated memory, etc.
-
-With Pavel's patch it is not necessary to make such validations so
-it's INFINITELY easier to validate.
+So if we need to use packed because of that specific problem here,
+fine.
