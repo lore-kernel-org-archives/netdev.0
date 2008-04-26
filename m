@@ -1,35 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [GIT PULL] [IPV6] COMPAT: Fix SSM applications on 64bit
  kernels.
-Date: Sat, 26 Apr 2008 14:14:54 +0900 (JST)
-Message-ID: <20080426.141454.105085673.yoshfuji@linux-ipv6.org>
-References: <20080425.162417.25756786.yoshfuji@linux-ipv6.org>
-	<OFAF2C4F7A.77CF5A8D-ON88257437.0001566B-88257437.00023C8D@us.ibm.com>
+Date: Fri, 25 Apr 2008 22:31:30 -0700 (PDT)
+Message-ID: <20080425.223130.04936392.davem@davemloft.net>
+References: <20080426.123359.14563419.yoshfuji@linux-ipv6.org>
+	<OF326F3AF9.7322F5FB-ON88257437.00174874-88257437.00194F7B@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33775 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751683AbYDZFO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 01:14:56 -0400
-In-Reply-To: <OFAF2C4F7A.77CF5A8D-ON88257437.0001566B-88257437.00023C8D@us.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53429
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751644AbYDZFbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 01:31:31 -0400
+In-Reply-To: <OF326F3AF9.7322F5FB-ON88257437.00174874-88257437.00194F7B@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <OFAF2C4F7A.77CF5A8D-ON88257437.0001566B-88257437.00023C8D@us.ibm.com> (at Fri, 25 Apr 2008 18:24:28 -0600), David Stevens <dlstevens@us.ibm.com> says:
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Fri, 25 Apr 2008 21:36:29 -0700
 
-> +       }
-> +       if (level == SOL_IPV6)
-> +               return ipv6_setsockopt(sock, level, optname, koptval, 
-> koptlen);
-> +       return ip_setsockopt(sock, level, optname, koptval, koptlen);
-> +}
-> +
+> YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote on 04/25/2008 
+> 08:33:59 PM:
+> 
+> > Please define __compat_sockaddr_storage{} with attribute((aligned(4))).
+> > If you do that we do not need attribute(packed).  No?
+> 
+>         I just tried it and the compiler seems to do that for this case,
+> but the gcc documentation says explicitly that you need both packed and
+> aligned if you want it to be a specific value. aligned(4) is a minimum
+> only and the compiler would be free to add pad still as long as the
+> padded value was also 4-byte aligned.
 
-Sorry, you cannot do this.  Build with allmodconfig.
+Regardless, using packed has several other side effects you absolutely
+do not want.  It causes words to be loaded using byte loads on RISC
+architectures, because no alignment assumptions can be made at all
+about packed objects.
 
---yoshfuji
+Please use aligned(4), it should be totally sufficient.
+
+>         In this case, we want no pad, so packed is the relevant part. If
+> had a char followed by a struct as in your previous example, the right
+> way to get 4-byte alignment is both aligned(4) and packed. Leaving off
+> packed would allow 8-byte or 16-byte (or 12 :-)) alignment, too.
+
+Have you seen this in practice?
+
+>         I don't understand this comment. If you're suggesting I
+> put these in an include file, I didn't because this is the only
+> file that uses them and I don't want them to be visible to any
+> other code. If you mean something else, please explain.
+
+Right.
