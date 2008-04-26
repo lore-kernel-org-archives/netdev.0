@@ -1,87 +1,84 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [GIT PULL] [IPV6] COMPAT: Fix SSM applications on 64bit kernels.
-Date: Sat, 26 Apr 2008 00:00:49 -0700
-Message-ID: <OF7B59958D.88AA9A1D-ON88257437.0023AEDC-88257437.00268638@us.ibm.com>
-References: <20080425.223130.04936392.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][CAN]: Fix copy_from_user() results interpretation.
+Date: Sat, 26 Apr 2008 00:03:02 -0700 (PDT)
+Message-ID: <20080426.000302.177643527.davem@davemloft.net>
+References: <4811E915.80303@volkswagen.de>
+	<4812C973.5000504@grandegger.com>
+	<20080426064007.GA20558@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wg@grandegger.com, oliver.hartkopp@volkswagen.de,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	urs.thuermann@volkswagen.de, xemul@openvz.org
+To: sam@ravnborg.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:45634 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989AbYDZHAz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 03:00:55 -0400
-In-Reply-To: <20080425.223130.04936392.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33881
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752053AbYDZHDC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 03:03:02 -0400
+In-Reply-To: <20080426064007.GA20558@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave Miller wrote on 04/25/2008 10:31:30 PM:
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Sat, 26 Apr 2008 08:40:07 +0200
 
-> Regardless, using packed has several other side effects you absolutely
-> do not want.  It causes words to be loaded using byte loads on RISC
-> architectures, because no alignment assumptions can be made at all
-> about packed objects.
-
-        Isn't that appropriate in the general case? If the architecture
-actually required 8-byte alignment to access the type and we only have
-4-byte alignment because the app was compiled with different (32 bit)
-alignment rules, then we'd fault if we forced the alignment and accessed
-it directly. That's why we don't access it directly. In these, we're
-using the (byte) copy functions to get the (totally inappropriately
-aligned because it wasn't compiled in 64-bit mode) data to the well
-behaved and aligned in-kernel copy of the struct and from there (only)
-do we access them as structured objects. If the copy code is clever
-enough to use word copies when alignment allows, and byte copies for
-the ends, then all we have to care about is that the byte-offset we copy
-from is correct for the app-compiled architecture.
-
-        I don't think the point is that important here, because all of 
-these
-methods identically describe the 32-bit data layout (which is all we
-need-- could even use a char array for the source data since we know
-the offsets very well!), and we use the copy functions to get it to the
-layout we need. So I may be missing your point, but I don't need to 
-belabor
-it all the same. :-)
-        The only reason I didn't want to use aligned(4) for 
-sockaddr_storage
-is because it's just another single-use declaration. It seems to me plain
-old packed is defined by the C language to have the proper offsets on all
-architectures for these declarations, and all of these others 
-modifications
-are no better since they all lead to the same thing. But so would
-(char *)optval + 4; as the start of the gr_group, say. We don't use the
-compat struct's for anything but a handy way to describe those byte 
-offsets.
-
-        Anyway, I belabored. I'll change to aligned(4) with 
-compat_sockaddr_storage
-declaration...
-
+> On Sat, Apr 26, 2008 at 08:19:31AM +0200, Wolfgang Grandegger wrote:
+> > What about removing the assignment "err =" in that case.
+> Preferred.
 > 
-> Please use aligned(4), it should be totally sufficient.
-> 
-> >         In this case, we want no pad, so packed is the relevant part. 
-If
-> > had a char followed by a struct as in your previous example, the right
-> > way to get 4-byte alignment is both aligned(4) and packed. Leaving off
-> > packed would allow 8-byte or 16-byte (or 12 :-)) alignment, too.
-> 
-> Have you seen this in practice?
+> See sample patch below (made on top of -linus
+> so it does likely not apply but made it only to
+> see the difference anyway).
 
-        I did see that plain old structure field __attribute((4))__
-wasn't correct (still padded), and gcc docs use the same language
-to define the behavior for structure field attribute "aligned" and
-type attribute "aligned" (at least with my limited research). So,
-it surprised me that the field attribute results in pad and the
-type attribute doesn't, and I wonder if it's good to rely on that
-difference given the same documentation for both as "minimum alignment".
-But if the compiler changes its notion of when to pad this in a way
-that breaks it, we can always revisit it later. :-)
+I want to make one comment, directed at Wolfgang.
 
-                                                                +-DLS
+You are absolutely wrong, Wolfgang, in saying that Pavel's
+original patch isn't easier to review than just changing
+this code to go:
 
- 
+	if (copy_*_user())
+		return -EFAULT;
 
+In fact, recoding things like this is an immense extra hardship on a
+reviewer.  I'll explain why.
+
+If I see a patch that changes:
+
+	err = SOMETHING;
+	break;
+
+into:
+
+	err = SOMETHING_ELSE;
+	break;
+
+I know, WITH JUST READING THE PATCH, exactly what the side effects of
+this change are.
+
+I DO NOT need to bring the code into my editor and validate side
+effects to the surrounding code.
+
+I know that the assignment to 'err' is being changed, and that's it.
+
+Whereas if you change:
+
+	err = SOMETHING;
+	break;
+
+into:
+
+	if (SOMETHING)
+		return -SOME_ERROR;
+	break;
+
+I now have to bring the code into an editor and make sure that the
+control flow change doesn't break things.
+
+For example, maybe the exit of the switch statement was important, to
+make sure cleanup code runs at the end of the function to release
+locks, free allocated memory, etc.
+
+With Pavel's patch it is not necessary to make such validations so
+it's INFINITELY easier to validate.
