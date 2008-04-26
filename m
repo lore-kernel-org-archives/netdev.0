@@ -1,158 +1,233 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: [BUG,NETFILTER] nfqnl_mangle() not requesting enough space for bigger reinjected packet.
-Date: Sat, 26 Apr 2008 19:24:37 +0200
-Message-ID: <87hcdo8r6y.fsf@natisbad.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [Bugme-new] [Bug 10556] New: IPVS sync_backup oops
+Date: Sat, 26 Apr 2008 20:48:46 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0804261834450.4615@u.domain.uli>
+References: <bug-10556-10286@http.bugzilla.kernel.org/>
+ <20080426040452.4fcbc962.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	bugme-daemon@bugzilla.kernel.org, l0op8ack@hotmail.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:47141 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758875AbYDZRY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Apr 2008 13:24:56 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Jpo8n-0002v3-RE
-	for netdev@vger.kernel.org; Sat, 26 Apr 2008 17:24:49 +0000
-Received: from cct.net8.nerim.net ([213.41.184.223])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 26 Apr 2008 17:24:49 +0000
-Received: from arno by cct.net8.nerim.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 26 Apr 2008 17:24:49 +0000
+Received: from ja.ssi.bg ([217.79.71.194]:37840 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751745AbYDZRsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Apr 2008 13:48:12 -0400
+In-Reply-To: <20080426040452.4fcbc962.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-=-=
 
-Hi,
+	Hello,
 
-While reinjecting *bigger* modified versions of IPv6 packets using
-libnetfilter_queue, things work fine on a 2.6.24 kernel (2.6.22 too)
-but I get the following on recents kernels (2.6.25, trace below is
-against today's net-2.6 git tree):
+On Sat, 26 Apr 2008, Andrew Morton wrote:
 
-skb_over_panic: text:c04fddb0 len:696 put:632 head:f7592c00 data:f7592c00 tail:0xf7592eb8 end:0xf7592e80 dev:eth0
-------------[ cut here ]------------
-invalid opcode: 0000 [#1] PREEMPT 
-Process sendd (pid: 3657, ti=f6014000 task=f77c31d0 task.ti=f6014000)
-Stack: c071e638 c04fddb0 000002b8 00000278 f7592c00 f7592c00 f7592eb8 f7592e80 
-       f763c000 f6bc5200 f7592c40 f6015c34 c04cdbfc f6bc5200 00000278 f6015c60 
-       c04fddb0 00000020 f72a10c0 f751b420 00000001 0000000a 000002b8 c065582c 
-Call Trace:
- [<c04fddb0>] ? nfqnl_recv_verdict+0x1c0/0x2e0
- [<c04cdbfc>] ? skb_put+0x3c/0x40
- [<c04fddb0>] ? nfqnl_recv_verdict+0x1c0/0x2e0
- [<c04fd115>] ? nfnetlink_rcv_msg+0xf5/0x160
- [<c04fd03e>] ? nfnetlink_rcv_msg+0x1e/0x160
- [<c04fd020>] ? nfnetlink_rcv_msg+0x0/0x160
- [<c04f8ed7>] ? netlink_rcv_skb+0x77/0xa0
- [<c04fcefc>] ? nfnetlink_rcv+0x1c/0x30
- [<c04f8c73>] ? netlink_unicast+0x243/0x2b0
- [<c04cfaba>] ? memcpy_fromiovec+0x4a/0x70
- [<c04f9406>] ? netlink_sendmsg+0x1c6/0x270
- [<c04c8244>] ? sock_sendmsg+0xc4/0xf0
- [<c011970d>] ? set_next_entity+0x1d/0x50
- [<c0133a80>] ? autoremove_wake_function+0x0/0x40
- [<c0118f9e>] ? __wake_up_common+0x3e/0x70
- [<c0342fbf>] ? n_tty_receive_buf+0x34f/0x1280
- [<c011d308>] ? __wake_up+0x68/0x70
- [<c02cea47>] ? copy_from_user+0x37/0x70
- [<c04cfd7c>] ? verify_iovec+0x2c/0x90
- [<c04c837a>] ? sys_sendmsg+0x10a/0x230
- [<c011967a>] ? __dequeue_entity+0x2a/0xa0
- [<c011970d>] ? set_next_entity+0x1d/0x50
- [<c0345397>] ? pty_write+0x47/0x60
- [<c033d59b>] ? tty_default_put_char+0x1b/0x20
- [<c011d2e9>] ? __wake_up+0x49/0x70
- [<c033df99>] ? tty_ldisc_deref+0x39/0x90
- [<c033ff20>] ? tty_write+0x1a0/0x1b0
- [<c04c93af>] ? sys_socketcall+0x7f/0x260
- [<c0102ff9>] ? sysenter_past_esp+0x6a/0x91
- [<c05f0000>] ? snd_intel8x0m_probe+0x270/0x6e0
- =======================
-Code: 00 00 89 5c 24 14 8b 98 9c 00 00 00 89 54 24 0c 89 5c 24 10 8b 40 50 89 4c 24 04 c7 04 24 38 e6 71 c0 89 44 24 08 e8 c4 46 c5 ff <0f> 0b eb fe 55 89 e5 56 89 d6 53 89 c3 83 ec 0c 8b 40 50 39 d0 
-EIP: [<c04ccdfc>] skb_over_panic+0x5c/0x60 SS:ESP 0068:f6015bf8
+> On Fri, 25 Apr 2008 21:27:18 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=10556
+> > 
+> >         ReportedBy: l0op8ack@hotmail.com
+> > 
+> > Latest working kernel version: 2.6.23.17
+> > Earliest failing kernel version: 2.6.24
+> 
+> Also,
+> 
+> BUG: unable to handle kernel NULL pointer dereference at virtual address
+> 00000014
+> printing eip: c030659e *pde = 00000000 
+> Oops: 0000 [#1] SMP 
+> Modules linked in: xt_tcpudp iptable_mangle xt_MARK xt_multiport ip_tables
+> x_tables ip_vs_wrr ip_vs_wlc ip_vs_sh ip_vs_sed ip_vs_rr ip_vs_nq ip_vs_lc
+> ip_vs_lblcr ip_vs_lblc ip_vs_ftp ip_vs_dh pcnet32 crc32 e1000 e100 mii
+> 
+> Pid: 3960, comm: ipvs_syncbackup Not tainted (2.6.24.4 #3)
+> EIP: 0060:[<c030659e>] EFLAGS: 00010246 CPU: 0
+> EIP is at sync_thread+0x919/0xa3c
+> EAX: 00000000 EBX: f6fe6800 ECX: e3ba2c00 EDX: 00000000
+> ESI: 00000000 EDI: 00000000 EBP: f7310034 ESP: f699bf54
+>  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+> Process ipvs_syncbackup (pid: 3960, ti=f699a000 task=f6995030 task.ti=f699a000)
+> Stack: 01000000 00000000 23035e0a 00000000 00001183 00000000 f699bfc0 f6d04860 
+>        00000002 00000034 f7310000 f78f1800 00000001 f731001c c0000000 00000000 
+>        00000010 f699bfc0 00000001 00000000 00000000 00000000 00000000 f6995030 
+> Call Trace:
+>  [<c011c53a>] default_wake_function+0x0/0x8
+>  [<c0305c85>] sync_thread+0x0/0xa3c
+>  [<c0104aa7>] kernel_thread_helper+0x7/0x10
+>  =======================
+> Code: a1 20 64 3e c0 89 43 54 8b 54 24 34 0f b7 42 16 66 c1 c0 08 0f b7 c0 66
+> 89 43 42 0f b6 42 01 e8 90 06 00 00 0f b7 53 42 0f b7 d2 <8b> 40 14 8b 04 90 89
+> 43 38 89 d8 e8 8a 8e ff ff 8b 44 24 28 03 
+> EIP: [<c030659e>] sync_thread+0x919/0xa3c SS:ESP 0068:f699bf54
+> Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> 
+> Which will be a bit hard to track down because it seems that pretty much
+> the whole world got inlined into sync_thread().
 
-
-Looking at the code, I ended up in nfq_mangle() function (called by
-nfqnl_recv_verdict()) which performs a call to skb_copy_expand() due to
-the increased size of data passed to the function. AFAICT, it should ask
-for 'diff' instead of 'diff - skb_tailroom(e->skb)'. Because the
-resulting sk_buff has not enough space to support the skb_put(skb, diff)
-call a few lines later, this results in the call to skb_over_panic().
-
-The patch below asks for allocation of a copy with enough space for
-mangled packet and the same amount of headroom as old sk_buff. While
-looking at how the regression appeared (e2b58a67), I noticed the same
-pattern in ipq_mangle_ipv6() and ipq_mangle_ipv4(). The patch corrects
-those locations too.
-
-Tested with bigger reinjected IPv6 packets (nfqnl_mangle() path), things
-are ok (2.6.25 and today's net-2.6 git tree).
-
-Don't hesitate if I missed something.
-
-Cheers,
-
-a+
+	I can not fully understand the above oops but hope following
+fix can help (not tested). It is for 2.6.25. I can provide patch for
+2.6.24 if needed (there are rejects):
 
 
---=-=-=
-Content-Type: text/x-diff
-Content-Disposition: inline;
- filename=bad_argument_to_skb_copy_expand_in_nfqnl_mangle.patch
+	Result from ip_vs_proto_get() should be checked because
+protocol value can be invalid or unsupported in backup. Also, add
+checks to validate message limits and connection state.
 
-Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
 
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index 719be29..26a37ce 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -296,9 +296,8 @@ ipq_mangle_ipv4(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
- 		if (v->data_len > 0xFFFF)
- 			return -EINVAL;
- 		if (diff > skb_tailroom(e->skb)) {
--			nskb = skb_copy_expand(e->skb, 0,
--					       diff - skb_tailroom(e->skb),
--					       GFP_ATOMIC);
-+			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
-+					       diff, GFP_ATOMIC);
- 			if (!nskb) {
- 				printk(KERN_WARNING "ip_queue: error "
- 				      "in mangle, dropping packet\n");
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 92a36c9..2eff3ae 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -298,9 +298,8 @@ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
- 		if (v->data_len > 0xFFFF)
- 			return -EINVAL;
- 		if (diff > skb_tailroom(e->skb)) {
--			nskb = skb_copy_expand(e->skb, 0,
--					       diff - skb_tailroom(e->skb),
--					       GFP_ATOMIC);
-+			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
-+					       diff, GFP_ATOMIC);
- 			if (!nskb) {
- 				printk(KERN_WARNING "ip6_queue: OOM "
- 				      "in mangle, dropping packet\n");
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index 2c9fe5c..3447025 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -454,9 +454,8 @@ nfqnl_mangle(void *data, int data_len, struct nf_queue_entry *e)
- 		if (data_len > 0xFFFF)
- 			return -EINVAL;
- 		if (diff > skb_tailroom(e->skb)) {
--			nskb = skb_copy_expand(e->skb, 0,
--					       diff - skb_tailroom(e->skb),
--					       GFP_ATOMIC);
-+			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
-+					       diff, GFP_ATOMIC);
- 			if (!nskb) {
- 				printk(KERN_WARNING "nf_queue: OOM "
- 				      "in mangle, dropping packet\n");
-
---=-=-=--
-
+diff -urp v2.6.25/linux/include/net/ip_vs.h linux/include/net/ip_vs.h
+--- v2.6.25/linux/include/net/ip_vs.h	2008-04-17 09:58:08.000000000 +0300
++++ linux/include/net/ip_vs.h	2008-04-26 20:10:46.000000000 +0300
+@@ -405,7 +405,8 @@ struct sk_buff;
+ struct ip_vs_protocol {
+ 	struct ip_vs_protocol	*next;
+ 	char			*name;
+-	__u16			protocol;
++	u16			protocol;
++	u16			num_states;
+ 	int			dont_defrag;
+ 	atomic_t		appcnt;		/* counter of proto app incs */
+ 	int			*timeout_table;	/* protocol timeout table */
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_ah.c linux/net/ipv4/ipvs/ip_vs_proto_ah.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_ah.c	2007-07-10 09:18:43.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_proto_ah.c	2008-04-26 20:14:17.000000000 +0300
+@@ -160,6 +160,7 @@ static void ah_exit(struct ip_vs_protoco
+ struct ip_vs_protocol ip_vs_protocol_ah = {
+ 	.name =			"AH",
+ 	.protocol =		IPPROTO_AH,
++	.num_states =		1,
+ 	.dont_defrag =		1,
+ 	.init =			ah_init,
+ 	.exit =			ah_exit,
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_esp.c linux/net/ipv4/ipvs/ip_vs_proto_esp.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_esp.c	2008-04-17 09:58:09.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_proto_esp.c	2008-04-26 20:14:39.000000000 +0300
+@@ -159,6 +159,7 @@ static void esp_exit(struct ip_vs_protoc
+ struct ip_vs_protocol ip_vs_protocol_esp = {
+ 	.name =			"ESP",
+ 	.protocol =		IPPROTO_ESP,
++	.num_states =		1,
+ 	.dont_defrag =		1,
+ 	.init =			esp_init,
+ 	.exit =			esp_exit,
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_tcp.c linux/net/ipv4/ipvs/ip_vs_proto_tcp.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_tcp.c	2008-01-25 10:45:06.000000000 +0200
++++ linux/net/ipv4/ipvs/ip_vs_proto_tcp.c	2008-04-26 20:15:45.000000000 +0300
+@@ -594,6 +594,7 @@ static void ip_vs_tcp_exit(struct ip_vs_
+ struct ip_vs_protocol ip_vs_protocol_tcp = {
+ 	.name =			"TCP",
+ 	.protocol =		IPPROTO_TCP,
++	.num_states =		IP_VS_TCP_S_LAST,
+ 	.dont_defrag =		0,
+ 	.appcnt =		ATOMIC_INIT(0),
+ 	.init =			ip_vs_tcp_init,
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_udp.c linux/net/ipv4/ipvs/ip_vs_proto_udp.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_udp.c	2008-01-25 10:45:06.000000000 +0200
++++ linux/net/ipv4/ipvs/ip_vs_proto_udp.c	2008-04-26 20:15:07.000000000 +0300
+@@ -409,6 +409,7 @@ static void udp_exit(struct ip_vs_protoc
+ struct ip_vs_protocol ip_vs_protocol_udp = {
+ 	.name =			"UDP",
+ 	.protocol =		IPPROTO_UDP,
++	.num_states =		IP_VS_UDP_S_LAST,
+ 	.dont_defrag =		0,
+ 	.init =			udp_init,
+ 	.exit =			udp_exit,
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_sync.c linux/net/ipv4/ipvs/ip_vs_sync.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_sync.c	2008-04-17 09:58:09.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_sync.c	2008-04-26 20:25:51.000000000 +0300
+@@ -288,11 +288,16 @@ static void ip_vs_process_message(const 
+ 	char *p;
+ 	int i;
+ 
++	if (buflen < sizeof(struct ip_vs_sync_mesg)) {
++		IP_VS_ERR_RL("message header too short\n");
++		return;
++	}
++
+ 	/* Convert size back to host byte order */
+ 	m->size = ntohs(m->size);
+ 
+ 	if (buflen != m->size) {
+-		IP_VS_ERR("bogus message\n");
++		IP_VS_ERR_RL("bogus message size\n");
+ 		return;
+ 	}
+ 
+@@ -307,9 +312,37 @@ static void ip_vs_process_message(const 
+ 	for (i=0; i<m->nr_conns; i++) {
+ 		unsigned flags, state;
+ 
+-		s = (struct ip_vs_sync_conn *)p;
++		if (p + SIMPLE_CONN_SIZE > buffer+buflen) {
++			IP_VS_ERR_RL("bogus message\n");
++			return;
++		}
++		s = (struct ip_vs_sync_conn *) p;
+ 		flags = ntohs(s->flags) | IP_VS_CONN_F_SYNC;
++		if (flags & IP_VS_CONN_F_SEQ_MASK) {
++			opt = (struct ip_vs_sync_conn_options *)&s[1];
++			p += FULL_CONN_SIZE;
++			if (p > buffer+buflen) {
++				IP_VS_ERR_RL("bogus message\n");
++				return;
++			}
++		} else {
++			opt = NULL;
++			p += SIMPLE_CONN_SIZE;
++		}
++
++		pp = ip_vs_proto_get(s->protocol);
++		if (!pp) {
++			IP_VS_ERR_RL("Unsupported protocol %u in sync msg\n",
++				s->protocol);
++			continue;
++		}
+ 		state = ntohs(s->state);
++		if (state >= pp->num_states) {
++			IP_VS_DBG(2, "Invalid %s state %u in sync msg\n",
++				pp->name, state);
++			continue;
++		}
++
+ 		if (!(flags & IP_VS_CONN_F_TEMPLATE))
+ 			cp = ip_vs_conn_in_get(s->protocol,
+ 					       s->caddr, s->cport,
+@@ -345,7 +378,6 @@ static void ip_vs_process_message(const 
+ 				IP_VS_ERR("ip_vs_conn_new failed\n");
+ 				return;
+ 			}
+-			cp->state = state;
+ 		} else if (!cp->dest) {
+ 			dest = ip_vs_try_bind_dest(cp);
+ 			if (!dest) {
+@@ -371,23 +403,13 @@ static void ip_vs_process_message(const 
+ 			}
+ 		}
+ 
+-		if (flags & IP_VS_CONN_F_SEQ_MASK) {
+-			opt = (struct ip_vs_sync_conn_options *)&s[1];
++		if (opt)
+ 			memcpy(&cp->in_seq, opt, sizeof(*opt));
+-			p += FULL_CONN_SIZE;
+-		} else
+-			p += SIMPLE_CONN_SIZE;
+-
+ 		atomic_set(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
+ 		cp->state = state;
+-		pp = ip_vs_proto_get(s->protocol);
+-		cp->timeout = pp->timeout_table[cp->state];
++		cp->timeout = pp->timeout_table ?
++			pp->timeout_table[state] : (3*60*HZ);
+ 		ip_vs_conn_put(cp);
+-
+-		if (p > buffer+buflen) {
+-			IP_VS_ERR("bogus message\n");
+-			return;
+-		}
+ 	}
+ }
+ 
