@@ -1,85 +1,48 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Slab Corruption with ipv6 and tcp6fuzz
-Date: Sat, 26 Apr 2008 20:05:20 +0400
-Message-ID: <20080426160519.GA5697@2ka.mipt.ru>
-References: <20080424142727.GA24025@alice> <20080424211320.GA13695@2ka.mipt.ru> <20080425125230.GA12343@alice> <20080425130946.GA1019@2ka.mipt.ru>
+Subject: Re: [Bugme-new] [Bug 10556] New: IPVS sync_backup oops
+Date: Sat, 26 Apr 2008 20:31:30 +0400
+Message-ID: <20080426163130.GA4499@2ka.mipt.ru>
+References: <bug-10556-10286@http.bugzilla.kernel.org/> <20080426040452.4fcbc962.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	ilpo.jarvinen@helsinki.fi
-To: Eric Sesterhenn <snakebyte@gmx.de>
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	ja@ssi.bg, bugme-daemon@bugzilla.kernel.org, l0op8ack@hotmail.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:44162 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54475 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754061AbYDZQF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Apr 2008 12:05:56 -0400
+	id S1753909AbYDZQcN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Apr 2008 12:32:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20080425130946.GA1019@2ka.mipt.ru>
+In-Reply-To: <20080426040452.4fcbc962.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi.
 
-On Fri, Apr 25, 2008 at 05:09:46PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> On Fri, Apr 25, 2008 at 02:52:30PM +0200, Eric Sesterhenn (snakebyte@gmx.de) wrote:
-> > > > [  215.103103]  [<c0671e3b>] tcp_v6_do_rcv+0x33b/0xcd0
-> > > 
-> > > So far can you run kernel with debug turned on and provide output of
-> > > gdb ./vmlinux
-> > > l *(tcp_v6_do_rcv+0x33b)
-> > 
-> > l *(tcp_v6_do_rcv+0x33b)
-> > Using host libthread_db library "/lib/tls/i686/cmov/libthread_db.so.1".
-> > (gdb) l *(tcp_v6_do_rcv+0x33b)
-> > 0xc0671e3b is in tcp_v6_do_rcv (net/ipv6/tcp_ipv6.c:1670).
-> > 1665    reset:
-> > 1666            tcp_v6_send_reset(sk, skb);
-> > 1667    discard:
-> > 1668            if (opt_skb)
-> > 1669                    __kfree_skb(opt_skb);
-> > 1670            kfree_skb(skb);
-> > 1671            return 0;
-> > 1672    csum_err:
-> > 1673            TCP_INC_STATS_BH(TCP_MIB_INERRS);
-> > 1674            goto discard;
-> 
-> Well, first possible error path:
-> 
-> tcp_v6_do_rcv()->tcp_rcv_established(), the latter goes to step5, where
-> eventually skb can be freed via tcp_data_queue() (drop: label), then if
-> check for tcp_defer_accept_check() returns true and thus
-> tcp_rcv_established() returns -1, which forces tcp_v6_do_rcv() to jump
-> to reset: label, which in turn will pass through discard: label and free
-> the same skb again.
->  
-> > Here is the programm itself...
-> 
-> I will work on this this weekend, thank you.
+On Sat, Apr 26, 2008 at 04:04:52AM -0700, Andrew Morton (akpm@linux-foundation.org) wrote:
+>  [<c011c53a>] default_wake_function+0x0/0x8
+>  [<c0305c85>] sync_thread+0x0/0xa3c
+>  [<c0104aa7>] kernel_thread_helper+0x7/0x10
+>  =======================
+> Code: a1 20 64 3e c0 89 43 54 8b 54 24 34 0f b7 42 16 66 c1 c0 08 0f b7 c0 66
+> 89 43 42 0f b6 42 01 e8 90 06 00 00 0f b7 53 42 0f b7 d2 <8b> 40 14 8b 04 90 89
+> 43 38 89 d8 e8 8a 8e ff ff 8b 44 24 28 03 
+> EIP: [<c030659e>] sync_thread+0x919/0xa3c SS:ESP 0068:f699bf54
+> Kernel panic - not syncing: Fatal exception in interrupt
 
-Ok, I can not reproduce it, so lets try hard way.
-Can you test attached patch, its idea is described above and I checked
-multiple times, that it is forbidden to free skb and return non-zero
-value from tcp_rcv_established(). This behaviour was introduced with TCP
-defer accept changes in 2.6.25 with
-ec3c0982a2dd1e671bad8e9d26c28dcba0039d87 commit.
+Any chance to run
 
-Please test. This bug affects both ipv6 and ipv4 code actually.
+gdb ./vmlinux
+$ l *(sync_thread+0x919)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ac9b848..0298f80 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4925,8 +4925,7 @@ step5:
- 	tcp_data_snd_check(sk);
- 	tcp_ack_snd_check(sk);
+for that kernel, and if it was not compiled with debug info try to do
+that and get bug with it?
  
--	if (tcp_defer_accept_check(sk))
--		return -1;
-+	tcp_defer_accept_check(sk);
- 	return 0;
- 
- csum_error:
+> Which will be a bit hard to track down because it seems that pretty much
+> the whole world got inlined into sync_thread().
 
+I'm not ipvs guru, but that will give us at least some hint...
 
 -- 
 	Evgeniy Polyakov
