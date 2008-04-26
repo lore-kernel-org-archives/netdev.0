@@ -1,52 +1,48 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH] r8169: fix panic when using unlisted MAC
-Date: Mon, 28 Apr 2008 13:22:09 -0400
-Message-ID: <20080428172209.GE26591@gospo.usersys.redhat.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Subject: [PATCH] ARCH 2.6.25.y: Fix 32-bit x86 MSI-X allocation leakage
+Date: Fri, 25 Apr 2008 18:00:26 -0700
+Message-ID: <20080426010025.7212.3940.stgit@scrappy.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, romieu@fr.zoreil.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: stable@kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42514 "EHLO mx1.redhat.com"
+Received: from mga14.intel.com ([143.182.124.37]:37560 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934280AbYD1RWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2008 13:22:16 -0400
-Content-Disposition: inline
+	id S932481AbYD1R1d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 13:27:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where
+MSI-X vector allocation will eventually fail.  The cause is the new
+bit array tracking used vectors is not getting cleared properly on
+IRQ destruction on the 32-bit APIC code.
 
-When using the r8169 driver with an unlisted MAC, the system will
-panic in rtl8169_get_mac_version since it will try to access tp->pci_dev
-when it's unset.  Moving the call to set pci_dev earlier in
-rtnl8169_init_one will resolve this and should not introduce any other
-problems.
+This can be seen easily using the ixgbe 10 GbE driver on multi-core
+systems by simply loading and unloading the driver a few times.
+Depending on the number of available vectors on the host system, the
+MSI-X allocation will eventually fail, and the driver will only be
+able to use legacy interrupts.
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
- drivers/net/r8169.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 3acfeea..0faa652 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1617,6 +1617,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	tp = netdev_priv(dev);
- 	tp->dev = dev;
-+	tp->pci_dev = pdev;
- 	tp->msg_enable = netif_msg_init(debug.msg_enable, R8169_MSG_DEFAULT);
+ arch/x86/kernel/io_apic_32.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+
+diff --git a/arch/x86/kernel/io_apic_32.c b/arch/x86/kernel/io_apic_32.c
+index 4ca5486..f239b30 100644
+--- a/arch/x86/kernel/io_apic_32.c
++++ b/arch/x86/kernel/io_apic_32.c
+@@ -2477,6 +2477,7 @@ void destroy_irq(unsigned int irq)
+ 	dynamic_irq_cleanup(irq);
  
- 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
-@@ -1777,7 +1778,6 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- #endif
- 
- 	tp->intr_mask = 0xffff;
--	tp->pci_dev = pdev;
- 	tp->mmio_addr = ioaddr;
- 	tp->align = cfg->align;
- 	tp->hw_start = cfg->hw_start;
--- 
-1.5.2.1
+ 	spin_lock_irqsave(&vector_lock, flags);
++	clear_bit(irq_vector[irq], used_vectors);
+ 	irq_vector[irq] = 0;
+ 	spin_unlock_irqrestore(&vector_lock, flags);
+ }
 
