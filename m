@@ -1,48 +1,158 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Bugme-new] [Bug 10556] New: IPVS sync_backup oops
-Date: Sat, 26 Apr 2008 20:31:30 +0400
-Message-ID: <20080426163130.GA4499@2ka.mipt.ru>
-References: <bug-10556-10286@http.bugzilla.kernel.org/> <20080426040452.4fcbc962.akpm@linux-foundation.org>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: [BUG,NETFILTER] nfqnl_mangle() not requesting enough space for bigger reinjected packet.
+Date: Sat, 26 Apr 2008 19:24:37 +0200
+Message-ID: <87hcdo8r6y.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	ja@ssi.bg, bugme-daemon@bugzilla.kernel.org, l0op8ack@hotmail.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: multipart/mixed; boundary="=-=-="
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:54475 "EHLO 2ka.mipt.ru"
+Received: from main.gmane.org ([80.91.229.2]:47141 "EHLO ciao.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753909AbYDZQcN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Apr 2008 12:32:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20080426040452.4fcbc962.akpm@linux-foundation.org>
+	id S1758875AbYDZRY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Apr 2008 13:24:56 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Jpo8n-0002v3-RE
+	for netdev@vger.kernel.org; Sat, 26 Apr 2008 17:24:49 +0000
+Received: from cct.net8.nerim.net ([213.41.184.223])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 26 Apr 2008 17:24:49 +0000
+Received: from arno by cct.net8.nerim.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 26 Apr 2008 17:24:49 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+--=-=-=
 
-On Sat, Apr 26, 2008 at 04:04:52AM -0700, Andrew Morton (akpm@linux-foundation.org) wrote:
->  [<c011c53a>] default_wake_function+0x0/0x8
->  [<c0305c85>] sync_thread+0x0/0xa3c
->  [<c0104aa7>] kernel_thread_helper+0x7/0x10
->  =======================
-> Code: a1 20 64 3e c0 89 43 54 8b 54 24 34 0f b7 42 16 66 c1 c0 08 0f b7 c0 66
-> 89 43 42 0f b6 42 01 e8 90 06 00 00 0f b7 53 42 0f b7 d2 <8b> 40 14 8b 04 90 89
-> 43 38 89 d8 e8 8a 8e ff ff 8b 44 24 28 03 
-> EIP: [<c030659e>] sync_thread+0x919/0xa3c SS:ESP 0068:f699bf54
-> Kernel panic - not syncing: Fatal exception in interrupt
+Hi,
 
-Any chance to run
+While reinjecting *bigger* modified versions of IPv6 packets using
+libnetfilter_queue, things work fine on a 2.6.24 kernel (2.6.22 too)
+but I get the following on recents kernels (2.6.25, trace below is
+against today's net-2.6 git tree):
 
-gdb ./vmlinux
-$ l *(sync_thread+0x919)
+skb_over_panic: text:c04fddb0 len:696 put:632 head:f7592c00 data:f7592c00 tail:0xf7592eb8 end:0xf7592e80 dev:eth0
+------------[ cut here ]------------
+invalid opcode: 0000 [#1] PREEMPT 
+Process sendd (pid: 3657, ti=f6014000 task=f77c31d0 task.ti=f6014000)
+Stack: c071e638 c04fddb0 000002b8 00000278 f7592c00 f7592c00 f7592eb8 f7592e80 
+       f763c000 f6bc5200 f7592c40 f6015c34 c04cdbfc f6bc5200 00000278 f6015c60 
+       c04fddb0 00000020 f72a10c0 f751b420 00000001 0000000a 000002b8 c065582c 
+Call Trace:
+ [<c04fddb0>] ? nfqnl_recv_verdict+0x1c0/0x2e0
+ [<c04cdbfc>] ? skb_put+0x3c/0x40
+ [<c04fddb0>] ? nfqnl_recv_verdict+0x1c0/0x2e0
+ [<c04fd115>] ? nfnetlink_rcv_msg+0xf5/0x160
+ [<c04fd03e>] ? nfnetlink_rcv_msg+0x1e/0x160
+ [<c04fd020>] ? nfnetlink_rcv_msg+0x0/0x160
+ [<c04f8ed7>] ? netlink_rcv_skb+0x77/0xa0
+ [<c04fcefc>] ? nfnetlink_rcv+0x1c/0x30
+ [<c04f8c73>] ? netlink_unicast+0x243/0x2b0
+ [<c04cfaba>] ? memcpy_fromiovec+0x4a/0x70
+ [<c04f9406>] ? netlink_sendmsg+0x1c6/0x270
+ [<c04c8244>] ? sock_sendmsg+0xc4/0xf0
+ [<c011970d>] ? set_next_entity+0x1d/0x50
+ [<c0133a80>] ? autoremove_wake_function+0x0/0x40
+ [<c0118f9e>] ? __wake_up_common+0x3e/0x70
+ [<c0342fbf>] ? n_tty_receive_buf+0x34f/0x1280
+ [<c011d308>] ? __wake_up+0x68/0x70
+ [<c02cea47>] ? copy_from_user+0x37/0x70
+ [<c04cfd7c>] ? verify_iovec+0x2c/0x90
+ [<c04c837a>] ? sys_sendmsg+0x10a/0x230
+ [<c011967a>] ? __dequeue_entity+0x2a/0xa0
+ [<c011970d>] ? set_next_entity+0x1d/0x50
+ [<c0345397>] ? pty_write+0x47/0x60
+ [<c033d59b>] ? tty_default_put_char+0x1b/0x20
+ [<c011d2e9>] ? __wake_up+0x49/0x70
+ [<c033df99>] ? tty_ldisc_deref+0x39/0x90
+ [<c033ff20>] ? tty_write+0x1a0/0x1b0
+ [<c04c93af>] ? sys_socketcall+0x7f/0x260
+ [<c0102ff9>] ? sysenter_past_esp+0x6a/0x91
+ [<c05f0000>] ? snd_intel8x0m_probe+0x270/0x6e0
+ =======================
+Code: 00 00 89 5c 24 14 8b 98 9c 00 00 00 89 54 24 0c 89 5c 24 10 8b 40 50 89 4c 24 04 c7 04 24 38 e6 71 c0 89 44 24 08 e8 c4 46 c5 ff <0f> 0b eb fe 55 89 e5 56 89 d6 53 89 c3 83 ec 0c 8b 40 50 39 d0 
+EIP: [<c04ccdfc>] skb_over_panic+0x5c/0x60 SS:ESP 0068:f6015bf8
 
-for that kernel, and if it was not compiled with debug info try to do
-that and get bug with it?
- 
-> Which will be a bit hard to track down because it seems that pretty much
-> the whole world got inlined into sync_thread().
 
-I'm not ipvs guru, but that will give us at least some hint...
+Looking at the code, I ended up in nfq_mangle() function (called by
+nfqnl_recv_verdict()) which performs a call to skb_copy_expand() due to
+the increased size of data passed to the function. AFAICT, it should ask
+for 'diff' instead of 'diff - skb_tailroom(e->skb)'. Because the
+resulting sk_buff has not enough space to support the skb_put(skb, diff)
+call a few lines later, this results in the call to skb_over_panic().
 
--- 
-	Evgeniy Polyakov
+The patch below asks for allocation of a copy with enough space for
+mangled packet and the same amount of headroom as old sk_buff. While
+looking at how the regression appeared (e2b58a67), I noticed the same
+pattern in ipq_mangle_ipv6() and ipq_mangle_ipv4(). The patch corrects
+those locations too.
+
+Tested with bigger reinjected IPv6 packets (nfqnl_mangle() path), things
+are ok (2.6.25 and today's net-2.6 git tree).
+
+Don't hesitate if I missed something.
+
+Cheers,
+
+a+
+
+
+--=-=-=
+Content-Type: text/x-diff
+Content-Disposition: inline;
+ filename=bad_argument_to_skb_copy_expand_in_nfqnl_mangle.patch
+
+Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index 719be29..26a37ce 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -296,9 +296,8 @@ ipq_mangle_ipv4(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
+ 		if (v->data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			nskb = skb_copy_expand(e->skb, 0,
+-					       diff - skb_tailroom(e->skb),
+-					       GFP_ATOMIC);
++			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
++					       diff, GFP_ATOMIC);
+ 			if (!nskb) {
+ 				printk(KERN_WARNING "ip_queue: error "
+ 				      "in mangle, dropping packet\n");
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 92a36c9..2eff3ae 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -298,9 +298,8 @@ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
+ 		if (v->data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			nskb = skb_copy_expand(e->skb, 0,
+-					       diff - skb_tailroom(e->skb),
+-					       GFP_ATOMIC);
++			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
++					       diff, GFP_ATOMIC);
+ 			if (!nskb) {
+ 				printk(KERN_WARNING "ip6_queue: OOM "
+ 				      "in mangle, dropping packet\n");
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 2c9fe5c..3447025 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -454,9 +454,8 @@ nfqnl_mangle(void *data, int data_len, struct nf_queue_entry *e)
+ 		if (data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			nskb = skb_copy_expand(e->skb, 0,
+-					       diff - skb_tailroom(e->skb),
+-					       GFP_ATOMIC);
++			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
++					       diff, GFP_ATOMIC);
+ 			if (!nskb) {
+ 				printk(KERN_WARNING "nf_queue: OOM "
+ 				      "in mangle, dropping packet\n");
+
+--=-=-=--
+
