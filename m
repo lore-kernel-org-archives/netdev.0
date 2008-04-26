@@ -1,69 +1,42 @@
-From: Jason Riedy <jason@acm.org>
-Subject: [PATCH] Allow building iwl3945 without iwl4965.
-Date: Sat, 26 Apr 2008 15:27:43 -0700
-Message-ID: <87zlrgl09s.fsf@sparse.dyndns.org>
+From: dean gaudet <dean@arctic.org>
+Subject: Re: [PATCH] alternative to sys_indirect, part 1
+Date: Sat, 26 Apr 2008 15:41:28 -0700 (PDT)
+Message-ID: <alpine.DEB.1.10.0804261540310.6108@twinlark.arctic.org>
+References: <20080424160352.30f2dd5b@the-village.bc.nu>  <20080424154441.GG2255@devserv.devel.redhat.com>  <20080424162444.1c5b9ba2@the-village.bc.nu>  <20080424.090008.232544945.davem@davemloft.net>  <20080424163835.55520b5b@the-village.bc.nu>
+ <517f3f820804240945l2dc203afx8fa432ac41219236@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Zhu Yi <yi.zhu@intel.com>, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from b.mail.sonic.net ([64.142.19.5]:34138 "EHLO b.mail.sonic.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755466AbYDZW1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Apr 2008 18:27:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	David Miller <davem@davemloft.net>, jakub@redhat.com,
+	drepper@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org
+To: Michael Kerrisk <mtk.manpages@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760074AbYDZWli@vger.kernel.org>
+In-Reply-To: <517f3f820804240945l2dc203afx8fa432ac41219236@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If IWL3945 ever depends on IWLCORE, the silent, user-invisible
-IWLWIFI option can go away.
+On Thu, 24 Apr 2008, Michael Kerrisk wrote:
 
-Signed-off-by: Jason Riedy <jason@acm.org>
----
-   The breakage made it to Linus's tree but isn't in the wireless forest
-   (as far as I can see).  Commit 49186b4a083655 is a "part 2" without
-   a "part 1", so perhaps that "part 1" avoided the problem?
+> A while back I did some testing of this point.  These were the results I noted:
+> 
+> FreeBSD 4.8
+> O_NONBLOCK and O_ASYNC are inherited
+> FD_CLOEXEC is not inherited
+> 
+> Solaris 8
+> O_NONBLOCK and O_ASYNC are inherited
+> FD_CLOEXEC is not inherited
+> 
+> Tru64 5.1 (sep 03, testdrive)
+> No F_SETFL flags are inherited
+> FD_CLOEXEC is not inherited
+> 
+> HP-UX 11
+> No F_SETFL flags are inherited
+> FD_CLOEXEC is not inherited
 
- drivers/net/wireless/Makefile        |    2 +-
- drivers/net/wireless/iwlwifi/Kconfig |    6 ++++++
- 2 files changed, 7 insertions(+), 1 deletions(-)
+invent FD_CLOEXEC_INHERITED to handle accept()?
 
-diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-index c2642bc..2c343aa 100644
---- a/drivers/net/wireless/Makefile
-+++ b/drivers/net/wireless/Makefile
-@@ -56,7 +56,7 @@ obj-$(CONFIG_RTL8187)	+= rtl8187.o
- 
- obj-$(CONFIG_ADM8211)	+= adm8211.o
- 
--obj-$(CONFIG_IWLCORE)	+= iwlwifi/
-+obj-$(CONFIG_IWLWIFI)	+= iwlwifi/
- obj-$(CONFIG_RT2X00)	+= rt2x00/
- 
- obj-$(CONFIG_P54_COMMON)	+= p54/
-diff --git a/drivers/net/wireless/iwlwifi/Kconfig b/drivers/net/wireless/iwlwifi/Kconfig
-index c4e631d..9a25f55 100644
---- a/drivers/net/wireless/iwlwifi/Kconfig
-+++ b/drivers/net/wireless/iwlwifi/Kconfig
-@@ -1,6 +1,11 @@
-+config IWLWIFI
-+	bool
-+	default n
-+
- config IWLCORE
- 	tristate "Intel Wireless Wifi Core"
- 	depends on PCI && MAC80211 && WLAN_80211 && EXPERIMENTAL
-+	select IWLWIFI
- 
- config IWLWIFI_LEDS
- 	bool
-@@ -106,6 +111,7 @@ config IWL3945
- 	tristate "Intel PRO/Wireless 3945ABG/BG Network Connection"
- 	depends on PCI && MAC80211 && WLAN_80211 && EXPERIMENTAL
- 	select FW_LOADER
-+	select IWLWIFI
- 	---help---
- 	  Select to build the driver supporting the:
- 
--- 
-1.5.5.rc1.121.g1594
-
+-dean
