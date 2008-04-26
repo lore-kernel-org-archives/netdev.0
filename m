@@ -1,58 +1,102 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] [IPV6] COMPAT: Fix SSM applications on 64bit
- kernels.
-Date: Fri, 25 Apr 2008 23:01:16 -0700 (PDT)
-Message-ID: <20080425.230116.234973563.davem@davemloft.net>
-References: <20080426.135337.101775890.yoshfuji@linux-ipv6.org>
-	<20080425.223236.81693355.davem@davemloft.net>
-	<20080426.145611.18597942.yoshfuji@linux-ipv6.org>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH][CAN]: Fix copy_from_user() results interpretation.
+Date: Sat, 26 Apr 2008 08:19:31 +0200
+Message-ID: <4812C973.5000504@grandegger.com>
+References: <4811D1A6.909@openvz.org> <4811E915.80303@volkswagen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	socketcan-core@lists.berlios.de,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Thuermann, Urs, Dr. \(K-EFFI/I\)" <urs.thuermann@volkswagen.de>
+To: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49965
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751640AbYDZGBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 02:01:16 -0400
-In-Reply-To: <20080426.145611.18597942.yoshfuji@linux-ipv6.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:35941 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751515AbYDZGTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 02:19:44 -0400
+In-Reply-To: <4811E915.80303@volkswagen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Sat, 26 Apr 2008 14:56:11 +0900 (JST)
-
-> In article <20080425.223236.81693355.davem@davemloft.net> (at Fri, 25 Apr 2008 22:32:36 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+Oliver Hartkopp wrote:
+> Pavel Emelyanov wrote:
+>> Sorry for the noise, I had to check this right after facing this problem
+>> with the copy_to_user()...
+>>
+>> Both copy_to_ and _from_user return the number of bytes, that failed to
+>> reach their destination, not the 0/-EXXX values.
+>>
+>> Other net/ code handles this correctly.
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>>
 > 
-> > From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-> > Date: Sat, 26 Apr 2008 13:53:37 +0900 (JST)
-> > 
-> > > In article <OF326F3AF9.7322F5FB-ON88257437.00174874-88257437.00194F7B@us.ibm.com> (at Fri, 25 Apr 2008 21:36:29 -0700), David Stevens <dlstevens@us.ibm.com> says:
-> > > 
-> > > > > net/compat.c is not the right place.
-> > > > > Please put this in net/ipv4/compat.c or so.
-> > > > > Or at least, these must be guarded by CONFIG_INET.
-> > > > 
-> > > >         This code is for both v4 and v6, so I'd rather it not be in
-> > > > net/ipv4/compat.c. I didn't try without CONFIG_INET, -- will look
-> > > > at that.
-> > > 
-> > > We've been putting ipv4/ipv6 common things in net/ipv4/*.c,
-> > > so please put it in net/ipv4/compat.c.
-> > 
-> > I see no reason not to put this in net/compat.c, it's acting
-> > like fs/compat_ioctl.c which even has networking compat
-> > ioctls implemented there, among other things ;-)
+> Thanks very much for catching this, Pavel!
 > 
-> Okay
+> Acked-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> 
+>> ---
+>>
+>> diff --git a/net/can/raw.c b/net/can/raw.c
+>> index ead50c7..2be8c6e 100644
+>> --- a/net/can/raw.c
+>> +++ b/net/can/raw.c
+>> @@ -438,12 +438,12 @@ static int raw_setsockopt(struct socket *sock, 
+>> int level, int optname,
+>>                         err = copy_from_user(filter, optval, optlen);
+>>                         if (err) {
+>>                                 kfree(filter);
+>> -                               return err;
+>> +                               return -EFAULT;
+>>                         }
+>>                 } else if (count == 1) {
+>>                         err = copy_from_user(&sfilter, optval, optlen);
+>>                         if (err)
+>> -                               return err;
+>> +                               return -EFAULT;
+>>                 }
+>>  
+>>                 lock_sock(sk);
+>> @@ -495,7 +495,7 @@ static int raw_setsockopt(struct socket *sock, int 
+>> level, int optname,
+>>  
+>>                 err = copy_from_user(&err_mask, optval, optlen);
+>>                 if (err)
+>> -                       return err;
+>> +                       return -EFAULT;
+>>  
+>>                 err_mask &= CAN_ERR_MASK;
+>>  
+>> @@ -531,7 +531,8 @@ static int raw_setsockopt(struct socket *sock, int 
+>> level, int optname,
+>>                 if (optlen != sizeof(ro->loopback))
+>>                         return -EINVAL;
+>>  
+>> -               err = copy_from_user(&ro->loopback, optval, optlen);
+>> +               err = copy_from_user(&ro->loopback, optval, optlen) ?
+>> +                       -EFAULT : 0;
+>>  
+>>                 break;
+>>  
+>> @@ -539,7 +540,8 @@ static int raw_setsockopt(struct socket *sock, int 
+>> level, int optname,
+>>                 if (optlen != sizeof(ro->recv_own_msgs))
+>>                         return -EINVAL;
+>>  
+>> -               err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
+>> +               err = copy_from_user(&ro->recv_own_msgs, optval, 
+>> optlen) ?
+>> +                       -EFAULT : 0;
+>>  
+>>                 break;
+>>  
+>>
 
-Actually, it is a problem.  I take back what I said.
+What about removing the assignment "err =" in that case. It's confusing
+otherwise and maybe the variable err is even obsolete.
 
-There is no easy way to call into the ipv6 code from
-this built-in code if IPV6 is built modular.
+Wolfgang.
 
-So it really does have to go into ipv4 and ipv6 subdirectories,
-respectively.
-
-David, please make this adjustment.  Thanks!
