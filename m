@@ -1,62 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Allow building iwl3945 without iwl4965.
-Date: Sun, 27 Apr 2008 15:43:08 -0700 (PDT)
-Message-ID: <20080427.154308.207402253.davem@davemloft.net>
-References: <87zlrgl09s.fsf@sparse.dyndns.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH net-2.6/stable] [XFRM] AUDIT: Fix flowlabel text format.
+Date: Mon, 28 Apr 2008 09:09:12 +1000 (EST)
+Message-ID: <Xine.LNX.4.64.0804280908470.1406@us.intercode.com.au>
+References: <20080427.122418.32604330.yoshfuji@linux-ipv6.org>
+ <20080426.202558.208247674.davem@davemloft.net> <20080427.125437.59237838.yoshfuji@linux-ipv6.org>
+ <20080426.222512.134613395.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, netdev@vger.kernel.org
-To: jason@acm.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="927316971-323111180-1209337752=:1406"
+Cc: =?iso-2022-jp?Q?YOSHIFUJI_Hideaki_=2F_=B5=C8=C6=A3=B1=D1=CC=C0?=
+	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
+	Paul Moore <paul.moore@hp.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36266
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751936AbYD0WnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 18:43:08 -0400
-In-Reply-To: <87zlrgl09s.fsf@sparse.dyndns.org>
+Received: from namei.org ([69.55.235.186]:51534 "EHLO us.intercode.com.au"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752400AbYD0XJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Apr 2008 19:09:28 -0400
+In-Reply-To: <20080426.222512.134613395.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Riedy <jason@acm.org>
-Date: Sat, 26 Apr 2008 15:27:43 -0700
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> If IWL3945 ever depends on IWLCORE, the silent, user-invisible
-> IWLWIFI option can go away.
+--927316971-323111180-1209337752=:1406
+Content-Type: TEXT/PLAIN; charset=iso-2022-jp
+Content-Transfer-Encoding: 8BIT
+
+On Sat, 26 Apr 2008, David Miller wrote:
+
+> From: YOSHIFUJI Hideaki / µ»∆£±—Ã¿ <yoshfuji@linux-ipv6.org>
+> Date: Sun, 27 Apr 2008 12:54:37 +0900 (JST)
 > 
-> Signed-off-by: Jason Riedy <jason@acm.org>
+> > In article <20080426.202558.208247674.davem@davemloft.net> (at Sat, 26 Apr 2008 20:25:58 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+> > 
+> > > What about the format is it fixing?
+> > 
+> > Sorry...
+> 
+> I now understand the problem with the new changelog message.
+> 
+> > > Also, can this possibly break existing audit log scanning
+> > > tools and parsers?
+> > 
+> > James?
+> > 
+> > We could add "flowlabel", but it is possible to break something, too.
+> > Anyway, because the log format did not make sense as audit log,
+> > we need to fix it.
+> > 
+> > ---
+> > [XFRM] AUDIT: Fix flowlabel text format ambibuity.
+> > 
+> > Flowlabel text format was not correct and thus ambiguous.
+> > For example, 0x00123 or 0x01203 are formatted as 0x123.
+> > This is not what audit tools want.
+> > 
+> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> Patch applied, James if you have some objections let me know,
+> otherwise I'll toss this to -stable too.
 
-Patch applied, thanks a lot jason.
+Ok, cc'ing Paul Moore, who's maintining this now.
 
->    The breakage made it to Linus's tree but isn't in the wireless forest
->    (as far as I can see).  Commit 49186b4a083655 is a "part 2" without
->    a "part 1", so perhaps that "part 1" avoided the problem?
 
-No, the "part 1" is exactly the patch posted by Tomas Winkler
-and referenced in the 49186b4a083655 commit, which is:
-
-commit d7d313000ba2fc94a5383511a17ff38a39bab928
-Author: Tomas Winkler <tomas.winkler@intel.com>
-Date:   Wed Apr 23 03:48:57 2008 -0700
-
-    iwlwifi: Fix built-in compilation of iwlcore
-    
-    This patch fixes problem in Makefile that prevented
-    built-in compilation of iwlcore
-    
-    Commit that caused this problem: eadd3c4b ("iwlwifi: make Makefile
-    more concise")
-    
-    Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
-    Signed-off-by: Yi Zhu <yi.zhu@intel.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/wireless/iwlwifi/Makefile b/drivers/net/wireless/iwlwifi/Makefile
-index 4f3e88b..ec6187b 100644
---- a/drivers/net/wireless/iwlwifi/Makefile
-+++ b/drivers/net/wireless/iwlwifi/Makefile
-@@ -1,4 +1,4 @@
--obj-$(CONFIG_IWLCORE)	:= iwlcore.o
-+obj-$(CONFIG_IWLCORE)	+= iwlcore.o
- iwlcore-objs 		:= iwl-core.o iwl-eeprom.o iwl-hcmd.o
- iwlcore-$(CONFIG_IWLWIFI_DEBUGFS) += iwl-debugfs.o
- iwlcore-$(CONFIG_IWLWIFI_LEDS) += iwl-led.o
+-- 
+James Morris
+<jmorris@namei.org>
+--927316971-323111180-1209337752=:1406--
