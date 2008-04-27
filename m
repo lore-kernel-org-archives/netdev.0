@@ -1,33 +1,36 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH] asm/unaligned.h doesn't work well as the very first
-	include
-Date: Sun, 27 Apr 2008 07:12:10 +0100
-Message-ID: <20080427061210.GT5882@ZenIV.linux.org.uk>
-References: <20080427051918.GO5882@ZenIV.linux.org.uk> <20080427060944.GB9199@uranus.ravnborg.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Use inline function dst_metric() instead of direct
+ access to dst->metric[]
+Date: Sat, 26 Apr 2008 23:23:32 -0700 (PDT)
+Message-ID: <20080426.232332.30254129.davem@davemloft.net>
+References: <d72b7ace0804250717g40f81ea0o899f43fdc1d08384@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Sam Ravnborg <sam@ravnborg.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: satoru.satoh@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:41878 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594AbYD0GMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 02:12:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20080427060944.GB9199@uranus.ravnborg.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60553
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751010AbYD0GXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 02:23:35 -0400
+In-Reply-To: <d72b7ace0804250717g40f81ea0o899f43fdc1d08384@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 27, 2008 at 08:09:44AM +0200, Sam Ravnborg wrote:
+From: "Satoru SATOH" <satoru.satoh@gmail.com>
+Date: Fri, 25 Apr 2008 23:17:00 +0900
 
-> It has been discussed that any .h file should pull
-> in what it needs so the other of includes does not matter.
-> Some do them alphabetically.
+> There are functions to refer to the value of dst->metric[THE_METRIC-1] directly
+> without use of a inline function "dst_metric" defined in net/dst.h.
+> 
+> The following patch changes them to use the inline function consistently.
+> 
+> Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
 
-It has been discussed or it has been agreed?  IMO it's a bullshit - especially
-for low-level stuff like that.
+Your email client has corrupted the patch, adding line breaks and
+making other transformations that make the patch not apply cleanly.
 
-As for the way some do includes...  It's not exactly a family-friendly list,
-but still I'd rather not comment in details on the existing practices...
+Please correct this and resubmit your patch.
+
+Thank you!
