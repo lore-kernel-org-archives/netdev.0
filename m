@@ -1,75 +1,62 @@
-From: Jeremy Jackson <jerj@coplanar.net>
-Subject: Re: adding tcpdump/OAM support to usb ATM devices
-Date: Sun, 27 Apr 2008 18:35:14 -0400
-Message-ID: <1209335714.8768.226.camel@ragnarok>
-References: <1209331913.8768.214.camel@ragnarok>
-	 <20080427.143504.197027637.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Allow building iwl3945 without iwl4965.
+Date: Sun, 27 Apr 2008 15:43:08 -0700 (PDT)
+Message-ID: <20080427.154308.207402253.davem@davemloft.net>
+References: <87zlrgl09s.fsf@sparse.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: yi.zhu@intel.com, netdev@vger.kernel.org
+To: jason@acm.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from titan.coplanar.net ([70.47.139.2]:48524 "EHLO
-	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751447AbYD0WfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 18:35:14 -0400
-In-Reply-To: <20080427.143504.197027637.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36266
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751936AbYD0WnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 18:43:08 -0400
+In-Reply-To: <87zlrgl09s.fsf@sparse.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jason Riedy <jason@acm.org>
+Date: Sat, 26 Apr 2008 15:27:43 -0700
 
-On Sun, 2008-04-27 at 14:35 -0700, David Miller wrote:
-> From: Jeremy Jackson <jerj@coplanar.net>
-> Date: Sun, 27 Apr 2008 17:31:53 -0400
+> If IWL3945 ever depends on IWLCORE, the silent, user-invisible
+> IWLWIFI option can go away.
 > 
-> > The question: what is the recommended way to push the captured cells to
-> > userspace?  raw ATM socket, netlink, packet socket, i'm not up to speed
-> > here people!
-> > 
-> > in 2.6.22 drivers/usb/atm/usbatm.c::usbatm_extract_one_cell()
-> 
-> It depends upon what you want to do with this.
-> 
-> Maybe it makes sense, if what you're trying to do is expose the
-> signalling layer of the packet to diagnostic tools, is have an
-> option in the driver such that the entire ATM header area will
-> be presented to the AF_PACKET socket when tapping the network.
-> 
-> Could that work?
-> 
-> Adding special mechanisms to get at the packet data is going to
-> make it more difficult to use this stuff, and kind of defeat
-> your purpose.  So anything that's automatically working with
-> tcpdump and will "just work" is preferred.
+> Signed-off-by: Jason Riedy <jason@acm.org>
 
-Backgroud: OAM cells are like the ICMP of ATM networking, they are
-separate from payload cells, not part of the headers.  They do share the
-VPI/VCI of the data circuit, but have a different cell Packet Type
-Indication (PTI)
+Patch applied, thanks a lot jason.
 
-With br2684, it exposes an ethernet-like device.  Tcpdump can work on
-that no problem, and perhaps it could expose the headers of the
-first/last cell of each "frame", but I don't see how the OAM cells would
-fit into capturing packets that way.
+>    The breakage made it to Linus's tree but isn't in the wireless forest
+>    (as far as I can see).  Commit 49186b4a083655 is a "part 2" without
+>    a "part 1", so perhaps that "part 1" avoided the problem?
 
-Or can an AF_PACKET socket be made that retrieved raw ATM cells (AAL0
-style) regardless of the upper layer (br2684)?
+No, the "part 1" is exactly the patch posted by Tomas Winkler
+and referenced in the 49186b4a083655 commit, which is:
 
-Sadly, my goal isn't an overhaul of the ATM stack, but a
-minimal-distance hack with some good advice thrown in.  The typical
-tcpdump would grab all cells, or perhaps unclaimed ones unless in
-promisc mode, but I'm happy with just partial capture of certain out of
-band cells for now.
+commit d7d313000ba2fc94a5383511a17ff38a39bab928
+Author: Tomas Winkler <tomas.winkler@intel.com>
+Date:   Wed Apr 23 03:48:57 2008 -0700
 
-Maybe the code in usbatm_extract_one_cell() that drops cells, would
-check for an ATM packet socket first, and dump the cells in there,
-otherwise drop them.
+    iwlwifi: Fix built-in compilation of iwlcore
+    
+    This patch fixes problem in Makefile that prevented
+    built-in compilation of iwlcore
+    
+    Commit that caused this problem: eadd3c4b ("iwlwifi: make Makefile
+    more concise")
+    
+    Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+    Signed-off-by: Yi Zhu <yi.zhu@intel.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
--- 
-Jeremy Jackson
-Coplanar Networks
-(519)489-4903
-http://www.coplanar.net
-jerj@coplanar.net
-
+diff --git a/drivers/net/wireless/iwlwifi/Makefile b/drivers/net/wireless/iwlwifi/Makefile
+index 4f3e88b..ec6187b 100644
+--- a/drivers/net/wireless/iwlwifi/Makefile
++++ b/drivers/net/wireless/iwlwifi/Makefile
+@@ -1,4 +1,4 @@
+-obj-$(CONFIG_IWLCORE)	:= iwlcore.o
++obj-$(CONFIG_IWLCORE)	+= iwlcore.o
+ iwlcore-objs 		:= iwl-core.o iwl-eeprom.o iwl-hcmd.o
+ iwlcore-$(CONFIG_IWLWIFI_DEBUGFS) += iwl-debugfs.o
+ iwlcore-$(CONFIG_IWLWIFI_LEDS) += iwl-led.o
