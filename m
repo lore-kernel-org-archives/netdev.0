@@ -1,47 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV4]: Update MTU to all related cache entries in
- ip_rt_frag_needed()
-Date: Sat, 26 Apr 2008 23:27:56 -0700 (PDT)
-Message-ID: <20080426.232756.259679168.davem@davemloft.net>
-References: <48105B67.7060804@iki.fi>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH] asm/unaligned.h doesn't work well as the very first
+	include
+Date: Sat, 26 Apr 2008 23:31:28 -0700
+Message-ID: <1209277888.14173.45.camel@brick>
+References: <20080427051918.GO5882@ZenIV.linux.org.uk>
+	 <20080427060944.GB9199@uranus.ravnborg.org>
+	 <20080427061210.GT5882@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: timo.teras@iki.fi
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Sam Ravnborg <sam@ravnborg.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58323
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752672AbYD0G17 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Apr 2008 02:27:59 -0400
-In-Reply-To: <48105B67.7060804@iki.fi>
+Received: from wa-out-1112.google.com ([209.85.146.179]:43709 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750812AbYD0GbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 02:31:24 -0400
+Received: by wa-out-1112.google.com with SMTP id m16so7075082waf.23
+        for <netdev@vger.kernel.org>; Sat, 26 Apr 2008 23:31:23 -0700 (PDT)
+In-Reply-To: <20080427061210.GT5882@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
-Date: Thu, 24 Apr 2008 13:05:27 +0300
+On Sun, 2008-04-27 at 07:12 +0100, Al Viro wrote:
+> On Sun, Apr 27, 2008 at 08:09:44AM +0200, Sam Ravnborg wrote:
+> 
+> > It has been discussed that any .h file should pull
+> > in what it needs so the other of includes does not matter.
+> > Some do them alphabetically.
+> 
+> It has been discussed or it has been agreed?  IMO it's a bullshit - especially
+> for low-level stuff like that.
+> 
+> As for the way some do includes...  It's not exactly a family-friendly list,
+> but still I'd rather not comment in details on the existing practices...
 
-> Add struct net_device parameter to ip_rt_frag_needed() and update MTU=
- to
-> cache entries where ifindex is specified. This is similar to what is
-> already done in ip_rt_redirect().
->=20
-> Signed-off-by: Timo Teras <timo.teras@iki.fi>
-> ---
-> I noticed this bug when using GRE tunnel bound to specific device. Th=
-is
-> causes ip_gre to use ifindex in ip_route_output_key() lookups and the
-> results are not proper unless the MTU is updated for entries where
-> ifindex is specified (causing my tunneled packets to be dropped).
->=20
-> I have a patch for older kernels too if this is good for -stable.
+I'm redoing the unaligned handling in -mm at the moment, and it avoids
+this problem.
 
-I haven't forgotten about this patch, I'm just still thinking about
-possible negative side effects.  I don't think there are any, but
-I want to be sure.
+Harvey
 
-This function has been a constant source of consternation.  It also
-doesn't do the right thing when the TOS is modified mid-network, and
-that's arguably wrong too but more difficult to solve efficiently than
-this ifindex keying case.
