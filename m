@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: adding tcpdump/OAM support to usb ATM devices
-Date: Sun, 27 Apr 2008 14:35:04 -0700 (PDT)
-Message-ID: <20080427.143504.197027637.davem@davemloft.net>
-References: <1209331913.8768.214.camel@ragnarok>
+Subject: Re: Slab Corruption with ipv6 and tcp6fuzz
+Date: Sun, 27 Apr 2008 15:27:48 -0700 (PDT)
+Message-ID: <20080427.152748.64017299.davem@davemloft.net>
+References: <20080425130946.GA1019@2ka.mipt.ru>
+	<20080426160519.GA5697@2ka.mipt.ru>
+	<1209314906.29301.148.camel@tng>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jerj@coplanar.net
+Cc: johnpol@2ka.mipt.ru, snakebyte@gmx.de, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi
+To: mcmanus@ducksong.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44747
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40950
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751058AbYD0VfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 17:35:04 -0400
-In-Reply-To: <1209331913.8768.214.camel@ragnarok>
+	by vger.kernel.org with ESMTP id S1752562AbYD0W1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 18:27:48 -0400
+In-Reply-To: <1209314906.29301.148.camel@tng>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeremy Jackson <jerj@coplanar.net>
-Date: Sun, 27 Apr 2008 17:31:53 -0400
+From: Patrick McManus <mcmanus@ducksong.com>
+Date: Sun, 27 Apr 2008 12:48:26 -0400
 
-> The question: what is the recommended way to push the captured cells to
-> userspace?  raw ATM socket, netlink, packet socket, i'm not up to speed
-> here people!
+> Sorry for the bug, and thanks Evgeniy for fixing it and Eric for finding
+> it.
 > 
-> in 2.6.22 drivers/usb/atm/usbatm.c::usbatm_extract_one_cell()
+> Acked-By: Patrick McManus <mcmanus@ducksong.com>
 
-It depends upon what you want to do with this.
-
-Maybe it makes sense, if what you're trying to do is expose the
-signalling layer of the packet to diagnostic tools, is have an
-option in the driver such that the entire ATM header area will
-be presented to the AF_PACKET socket when tapping the network.
-
-Could that work?
-
-Adding special mechanisms to get at the packet data is going to
-make it more difficult to use this stuff, and kind of defeat
-your purpose.  So anything that's automatically working with
-tcpdump and will "just work" is preferred.
+Patch applied, thanks everyone!
