@@ -1,78 +1,148 @@
-From: "H. Willstrand" <h.willstrand@gmail.com>
-Subject: Re: TCP connection failure in kernel 2.6.25
-Date: Sun, 27 Apr 2008 18:56:02 +0200
-Message-ID: <1209315362.2934.55.camel@localhost.localdomain>
-References: <c1410bfe0804260217t33139fd2v324af1a149843989@mail.gmail.com>
-	 <1209205136.2929.6.camel@localhost.localdomain>
-	 <c1410bfe0804260516k1149fadaoc06f02b94dcd12e9@mail.gmail.com>
-	 <1209241624.2929.17.camel@localhost.localdomain>
-	 <c1410bfe0804262302p3f283f9k97a04ff11dd2779e@mail.gmail.com>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: [ipw2100, b44] Re: X or AF_UNIX and order 3 allocation
+Date: Sun, 27 Apr 2008 19:48:24 +0300
+Message-ID: <20080427164824.GA31477@ee.oulu.fi>
+References: <20080415211055.882e67fe.zaitcev@redhat.com> <20080415.215144.87148045.davem@davemloft.net> <20080416085213.1e55bd1e@extreme> <20080416095938.66d798e4.zaitcev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "M. Istehbab" <hariskhan@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Pete Zaitcev <zaitcev@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:40442 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753860AbYD0RBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 13:01:16 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so4572165fgb.17
-        for <netdev@vger.kernel.org>; Sun, 27 Apr 2008 10:01:14 -0700 (PDT)
-In-Reply-To: <c1410bfe0804262302p3f283f9k97a04ff11dd2779e@mail.gmail.com>
+Received: from ee.oulu.fi ([130.231.61.23]:56274 "EHLO ee.oulu.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755670AbYD0RQs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Apr 2008 13:16:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20080416095938.66d798e4.zaitcev@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Apr 16, 2008 at 09:59:38AM -0700, Pete Zaitcev wrote:
+> > > It seems to be the b44 driver doing a large huge order allocation.
+> > > That driver only asks for (1536 + 30 + 64) bytes, so I suppose part of
+> > > the problem is that SLAB is using an order 3 allocation to satisfy
+> > > that.
+> > The chip needs memory below 1G for DMA, perhaps low memory is getting
+> > exhausted.
+> The failure corresponds to memory pressure (from yum), but the real issue
+> is the lack of order 3 areas. We're talking a 32KB chunk! Why would anyone
+> need that much? Crazy!
+Here too, but with ipw2100 not b44 (-rc8.git7, which has otherwise been
+running quite happily for a few weeks)
 
-On Sun, 2008-04-27 at 11:02 +0500, M. Istehbab wrote:
-> On Sun, Apr 27, 2008 at 1:27 AM, H. Willstrand <h.willstrand@gmail.com> wrote:
-> > On Sat, 2008-04-26 at 17:16 +0500, M. Istehbab wrote:
-> > > Yes, after a while (it can be a few seconds, minutes, or 1+ hour) the
-> > > proxy server starts accepting connections again. I don't need to
-> > > reboot the box when this happens.
-> > >
-> > > This happens randomely to anyone behind it. Then, after a while, it
-> > > starts working again by itself.
-> > >
-> > Well, there are too many possibilities for failures... the Linux
-> > distribution (RHEL 3 workstation) was built for 2.4.21 (around year
-> > 2003) and you try 2.6.x
-> >
-> > Maybe you should stick to one of the later 2.4.x kernels or even better
-> > upgrade the Linux distribution.
-> >
-> > Cheers,
-> > H. Willstrand
-> 
-> 
-> I didn't have problems with rhel ws3 or with the kernel it came with.
-> I removed it in favour of debian a long time back, when debian/etch r0
-> was released.
-> 
-> I have been running debian etch r2 (4.0 r2) ever since, which comes
-> with kernel (2.6.18-5-686). As you might notice from the mentioned
-> kernel versions, I tried upgrading to kernels from lenny/debian and
-> sid/debian hoping to find a solution. I tried from 2.3.13 - 2.6.25
-> from both debian packages and vanilla sources (as they are called),
-> but the problem persists. It started and is continuing on debian.
-> 
-So, you have the same issue with all tested kernels
-RHEL 3 works, Debian fails
+swapper: page allocation failure. order:3, mode:0x4020
+Pid: 0, comm: swapper Not tainted 2.6.25-0.218.rc8.git7.fc9.i686 #1
+ [<c0466d66>] __alloc_pages+0x2cf/0x2e6
+ [<c047e8f9>] __slab_alloc+0x19e/0x529
+ [<c047fbc4>] __kmalloc_track_caller+0x87/0xca
+ [<f09f8e00>] ? ipw2100_alloc_skb+0x19/0x5c [ipw2100]
+ [<f09f8e00>] ? ipw2100_alloc_skb+0x19/0x5c [ipw2100]
+ [<c05b4c30>] __alloc_skb+0x49/0xf8
+ [<f09f8e00>] ipw2100_alloc_skb+0x19/0x5c [ipw2100]
+ [<f09f9599>] ipw2100_irq_tasklet+0x4b1/0x6e0 [ipw2100]
+ [<c042b161>] tasklet_action+0x5e/0xb3
+ [<c042b879>] __do_softirq+0x79/0xe7
+ [<c0407edf>] do_softirq+0x74/0xb5
+ [<c045ccde>] ? handle_level_irq+0x0/0xbe
+ [<c042b681>] irq_exit+0x38/0x6b
+ [<c0407fcc>] do_IRQ+0xac/0xc4
+ [<c04066eb>] common_interrupt+0x23/0x28
+ [<c059e494>] ? poll_idle+0x21/0x65
+ [<c059e3d2>] cpuidle_idle_call+0x62/0x92
+ [<c059e370>] ? cpuidle_idle_call+0x0/0x92
+ [<c0404c8d>] cpu_idle+0xbd/0xdd
+ [<c061c009>] rest_init+0x49/0x4b
+ =======================
+Mem-info:
+DMA per-cpu:
+CPU    0: hi:    0, btch:   1 usd:   0
+Normal per-cpu:
+CPU    0: hi:  186, btch:  31 usd: 152
+Active:155693 inactive:24779 dirty:2760 writeback:447 unstable:0
+ free:2446 slab:6669 mapped:16577 pagetables:1509 bounce:0
+DMA free:3012kB min:72kB low:88kB high:108kB active:6620kB inactive:952kB
+present:16256kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 745 745 745
+Normal free:6772kB min:3452kB low:4312kB high:5176kB active:616152kB
+inactive:98164kB present:763400kB pages_scanned:260 all_unreclaimable? no
+lowmem_reserve[]: 0 0 0 0
+DMA: 33*4kB 6*8kB 5*16kB 0*32kB 1*64kB 3*128kB 1*256kB 0*512kB 0*1024kB
+1*2048kB 0*4096kB = 3012kB
+Normal: 1133*4kB 218*8kB 23*16kB 1*32kB 0*64kB 1*128kB 0*256kB 0*512kB
+0*1024kB 0*2048kB 0*4096kB = 6804kB
+75100 total pagecache pages
+Swap cache: add 369369, delete 344259, find 701011/737099
+Free swap  = 1314284kB
+Total swap = 1572856kB
+Free swap:       1314284kB
+196448 pages of RAM
+0 pages of HIGHMEM
+2965 reserved pages
+87587 pages shared
+25110 pages swap cached
+2760 pages dirty
+447 pages writeback
+16577 pages mapped
+6669 pages slab
+1509 pages pagetables
+swapper: page allocation failure. order:3, mode:0x4020
+Pid: 0, comm: swapper Not tainted 2.6.25-0.218.rc8.git7.fc9.i686 #1
+ [<c0466d66>] __alloc_pages+0x2cf/0x2e6
+ [<c047e8f9>] __slab_alloc+0x19e/0x529
+ [<c047fbc4>] __kmalloc_track_caller+0x87/0xca
+[<f09f8e00>] ? ipw2100_alloc_skb+0x19/0x5c [ipw2100]
+ [<f09f8e00>] ? ipw2100_alloc_skb+0x19/0x5c [ipw2100]
+ [<c05b4c30>] __alloc_skb+0x49/0xf8
+ [<f09f8e00>] ipw2100_alloc_skb+0x19/0x5c [ipw2100]
+ [<f09f9599>] ipw2100_irq_tasklet+0x4b1/0x6e0 [ipw2100]
+ [<c042b161>] tasklet_action+0x5e/0xb3
+ [<c042b879>] __do_softirq+0x79/0xe7
+ [<c0407edf>] do_softirq+0x74/0xb5
+ [<c045ccde>] ? handle_level_irq+0x0/0xbe
+ [<c042b681>] irq_exit+0x38/0x6b
+ [<c0407fcc>] do_IRQ+0xac/0xc4
+ [<c04066eb>] common_interrupt+0x23/0x28
+ [<c059e494>] ? poll_idle+0x21/0x65
+ [<c059e3d2>] cpuidle_idle_call+0x62/0x92
+ [<c059e370>] ? cpuidle_idle_call+0x0/0x92
+ [<c0404c8d>] cpu_idle+0xbd/0xdd
+ [<c061c009>] rest_init+0x49/0x4b
+ =======================
 
-This smells configuration failure, you better compare your working
-configuration with the others.
+It seems to have been a pretty transient thing:
 
-// H.Willstrand
+messages-20080427:Apr 24 15:37:14 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:15 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:15 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:15 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:16 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:16 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:16 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:16 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:16 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:16 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:35 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:35 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:35 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
+messages-20080427:Apr 24 15:37:37 it-pc37 kernel: swapper: page allocation
+failure. order:3, mode:0x4020
 
-> I have 2 ISPs hooked into this box. One is CIR, the other is ADSL. The
-> ADSL runs over pppoe. I don't know if the 2.4.x kernels support pppoe.
-> The 2.6.x kernels do. I need to run 2 ISPs on this box seemlessly.
-> 
-> The last rhel version I used was using kernel 2.6.9. I'm going to grab
-> that and see if that helps.
-> 
-> I need pppoe, iptables, vpn, scsi with raid support, smp, and a around
-> 8000 file descriptors to run stable on this box.
-> 
-> M. Istehbab
+(and nothing since that for a few days)
 
+-- 
+Pekka Pietikainen
