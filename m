@@ -1,71 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-2.6/stable] [XFRM] AUDIT: Fix flowlabel text format.
-Date: Sun, 27 Apr 2008 12:54:37 +0900 (JST)
-Message-ID: <20080427.125437.59237838.yoshfuji@linux-ipv6.org>
-References: <20080427.122418.32604330.yoshfuji@linux-ipv6.org>
-	<20080426.202558.208247674.davem@davemloft.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH] asm/unaligned.h doesn't work well as the very first include
+Date: Sun, 27 Apr 2008 06:19:18 +0100
+Message-ID: <20080427051918.GO5882@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, jmorris@namei.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33809 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753694AbYD0Dyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 23:54:39 -0400
-In-Reply-To: <20080426.202558.208247674.davem@davemloft.net>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:49599 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754825AbYD0FTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 01:19:18 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080426.202558.208247674.davem@davemloft.net> (at Sat, 26 Apr 2008 20:25:58 -0700 (PDT)), David Miller <davem@davemloft.net> says:
-
-> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-> Date: Sun, 27 Apr 2008 12:24:18 +0900 (JST)
-> 
-> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> 
-> You'll have to be more specific than just saying "fixed"
-> when you submit a patch like this.
-> 
-> What about the format is it fixing?
-
-Sorry...
-
-> Also, can this possibly break existing audit log scanning
-> tools and parsers?
-
-James?
-
-We could add "flowlabel", but it is possible to break something, too.
-Anyway, because the log format did not make sense as audit log,
-we need to fix it.
-
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
-[XFRM] AUDIT: Fix flowlabel text format ambibuity.
+ net/mac80211/mesh.h      |    1 +
+ net/mac80211/mesh_hwmp.c |    1 -
+ 2 files changed, 1 insertions(+), 1 deletions(-)
 
-Flowlabel text format was not correct and thus ambiguous.
-For example, 0x00123 or 0x01203 are formatted as 0x123.
-This is not what audit tools want.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
----
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 5dcc10b..fac27ce 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -2112,7 +2112,7 @@ static void xfrm_audit_helper_pktinfo(struct sk_buff *skb, u16 family,
- 		iph6 = ipv6_hdr(skb);
- 		audit_log_format(audit_buf,
- 				 " src=" NIP6_FMT " dst=" NIP6_FMT
--				 " flowlbl=0x%x%x%x",
-+				 " flowlbl=0x%x%02x%02x",
- 				 NIP6(iph6->saddr),
- 				 NIP6(iph6->daddr),
- 				 iph6->flow_lbl[0] & 0x0f,
-
+diff --git a/net/mac80211/mesh.h b/net/mac80211/mesh.h
+index 742003d..9ee3aff 100644
+--- a/net/mac80211/mesh.h
++++ b/net/mac80211/mesh.h
+@@ -13,6 +13,7 @@
+ 
+ #include <linux/types.h>
+ #include <linux/jhash.h>
++#include <asm/unaligned.h>
+ #include "ieee80211_i.h"
+ 
+ 
+diff --git a/net/mac80211/mesh_hwmp.c b/net/mac80211/mesh_hwmp.c
+index 02de8f1..3df8092 100644
+--- a/net/mac80211/mesh_hwmp.c
++++ b/net/mac80211/mesh_hwmp.c
+@@ -7,7 +7,6 @@
+  * published by the Free Software Foundation.
+  */
+ 
+-#include <asm/unaligned.h>
+ #include "mesh.h"
+ 
+ #define TEST_FRAME_LEN	8192
 -- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+1.5.3.GIT
+
