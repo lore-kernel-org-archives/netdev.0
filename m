@@ -1,60 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC]: Use digest_null directly for auth
-Date: Sun, 27 Apr 2008 15:17:47 +0800
-Message-ID: <20080427071747.GA2317@gondor.apana.org.au>
+From: Ondrej Zajicek <santiago@crfreenet.org>
+Subject: [PATCH] via-rhine: suspend/resume bugfix
+Date: Sun, 27 Apr 2008 09:13:51 +0200
+Message-ID: <20080427071351.GA20561@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rl@hellgate.ch
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54794 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758971AbYD0HRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 03:17:50 -0400
+Received: from gateway.crfreenet.org ([81.92.146.254]:35788 "EHLO
+	mail.crfreenet.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048AbYD0HmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 03:42:07 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+There is a bug in via-rhine driver - the driver don't disable
+interrupts during suspend, which sometimes leads to globally
+disabled interrupt line.
 
-This patch is a minor optimisation to avoid using hmac on null
-authentication when explicitly specified by the user.
+This patch disables interrupts (and Rx/Tx) during suspend.
 
-[IPSEC]: Use digest_null directly for auth
+Signed-off-by: Ondrej Zajicek <santiago@crfreenet.org>
 
-Previously digest_null had no setkey function which meant that
-we used hmac(digest_null) for IPsec since IPsec always calls
-setkey.  Now that digest_null has a setkey we no longer need to
-do that.
+---
 
-In fact when only confidentiality is specified for ESP we already
-use digest_null directly.  However, when the null algorithm is
-explicitly specified by the user we still opt for hmac(digest_null).
-
-This patch removes this discrepancy.  I have not added a new compat
-name for it because by chance it wasn't actualy possible for the user
-to specify the name hmac(digest_null) due to a key length check in
-xfrm_user (which I found out when testing that compat name :)
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index 8aa6440..ac765dd 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -129,8 +129,7 @@ static struct xfrm_algo_desc aead_list[] = {
+diff -uprN -X linux-2.6.25/Documentation/dontdiff linux-2.6.25/drivers/net/via-rhine.c linux-2.6.25-feanor/drivers/net/via-rhine.c
+--- linux-2.6.25/drivers/net/via-rhine.c	2008-04-17 04:49:44.000000000 +0200
++++ linux-2.6.25-feanor/drivers/net/via-rhine.c	2008-04-26 14:08:44.000000000 +0200
+@@ -1886,6 +1886,15 @@ static void rhine_shutdown (struct pci_d
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 	void __iomem *ioaddr = rp->base;
  
- static struct xfrm_algo_desc aalg_list[] = {
- {
--	.name = "hmac(digest_null)",
--	.compat = "digest_null",
-+	.name = "digest_null",
++	/* Switch to loopback mode to avoid hardware races. */
++	iowrite8(rp->tx_thresh | 0x02, ioaddr + TxConfig);
++
++	/* Disable interrupts by clearing the interrupt mask. */
++	iowrite16(0x0000, ioaddr + IntrEnable);
++
++	/* Stop the chip's Tx and Rx processes. */
++	iowrite16(CmdStop, ioaddr + ChipCmd);
++
+ 	if (!(rp->quirks & rqWOL))
+ 		return; /* Nothing to do for non-WOL adapters */
  
- 	.uinfo = {
- 		.auth = {
