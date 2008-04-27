@@ -1,41 +1,26 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: udev can't name PS3's network devices correctly
-Date: Sun, 27 Apr 2008 20:28:13 +0200
-Message-ID: <1209320893.3356.3.camel@linux.site>
-References: <ftdb3v$tls$1@ger.gmane.org>
-	 <20080407143805.GA9492@bongo.bofh.it>
-	 <1208167737.31695.32.camel@pmac.infradead.org>
-	 <1208171478.31695.58.camel@pmac.infradead.org>
-	 <3ae72650804140455l4bb2afc2i4c54e58f3be1f931@mail.gmail.com>
-	 <1209317870.25560.66.camel@pmac.infradead.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][NET_SCHED] sch_sfq: use del_timer_sync() in sfq_destroy()
+Date: Sun, 27 Apr 2008 20:24:34 +0200
+Message-ID: <4814C4E2.50600@trash.net>
+References: <20080427125921.GA7480@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Marco d'Itri <md@linux.it>, Harald Hoyer <harald@redhat.com>,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <1209317870.25560.66.camel@pmac.infradead.org>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:64480 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758631AbYD0S2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 14:28:42 -0400
+In-Reply-To: <20080427125921.GA7480@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-04-27 at 18:37 +0100, David Woodhouse wrote:
-> On Mon, 2008-04-14 at 13:55 +0200, Kay Sievers wrote:
-> > 
-> > >  +# match dev_id
-> > >  +ENV{MATCHDEVID}="$attr{dev_id}"
-> > >  +
-> > 
-> > Sure, looks good. Let me know when the kernel part gets merged, and I
-> > will apply that.
-> 
-> http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d29672c64505f2d7f707701b829715705308a69
+Jarek Poplawski wrote:
+> [NET_SCHED] sch_sfq: use del_timer_sync() in sfq_destroy()
+>
+> Let's delete timer reliably in sfq_destroy().
 
-http://git.kernel.org/?p=linux/hotplug/udev.git;a=commitdiff;h=8b6e9f287d4ba774a12c023c2ef8fc78def29df8
-
-I have a link for you too. :)
-
-Thanks,
-Kay
+This is broken, we hold dev->queue_lock in ->destroy.
 
