@@ -1,42 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][NET_SCHED] sch_sfq: fix queue limiting while enqueuing
-Date: Sun, 27 Apr 2008 20:29:44 +0200
-Message-ID: <4814C618.3050506@trash.net>
-References: <20080427142216.GB7480@ami.dom.local>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][NET_SCHED] sch_sfq: use del_timer_sync() in
+	sfq_destroy()
+Date: Sun, 27 Apr 2008 21:00:44 +0200
+Message-ID: <20080427190044.GA7747@ami.dom.local>
+References: <20080427125921.GA7480@ami.dom.local> <4814C4E2.50600@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64585 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758064AbYD0Sdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 14:33:49 -0400
-In-Reply-To: <20080427142216.GB7480@ami.dom.local>
+Received: from fg-out-1718.google.com ([72.14.220.154]:43507 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757866AbYD0TCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 15:02:54 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so4610834fgb.17
+        for <netdev@vger.kernel.org>; Sun, 27 Apr 2008 12:02:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4814C4E2.50600@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> [NET_SCHED] sch_sfq: fix queue limiting while enqueuing
+On Sun, Apr 27, 2008 at 08:24:34PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> [NET_SCHED] sch_sfq: use del_timer_sync() in sfq_destroy()
+>>
+>> Let's delete timer reliably in sfq_destroy().
 >
-> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-> index a20e2ef..b4fd592 100644
-> --- a/net/sched/sch_sfq.c
-> +++ b/net/sched/sch_sfq.c
-> @@ -283,6 +283,9 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  	sfq_index x;
->  	int ret;
->  
-> +	if (unlikely(sch->q.qlen >= max_t(__u32, sch->dev->tx_queue_len, 1)))
-> +		return qdisc_drop(skb, sch);
-> +
->   
+> This is broken, we hold dev->queue_lock in ->destroy.
+>
 
-I don't think we should do this. The tx_queue_len is only used for
-initialization in case no parameter is specified by other qdiscs.
+But sfq timer (sfq_perturbation()) doesn't use this timer...
+Could you explain your point more?
 
-Besides this *will* break for example my configuration, I use SFQ
-as inner qdisc on virtual devices with either tx_queue_len == 0
-or 3 in case of ppp.
-
+Thanks,
+Jarek P.
