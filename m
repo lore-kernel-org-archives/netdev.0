@@ -1,45 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [git patches] net driver updates
-Date: Sat, 26 Apr 2008 22:53:41 -0400
-Message-ID: <20080427025341.GB24710@havoc.gtf.org>
-References: <20080425072621.GA21299@havoc.gtf.org> <20080426220725.GV21637@solarflare.com> <20080426.174319.04173925.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-2.6/stable] [XFRM] AUDIT: Fix flowlabel text format.
+Date: Sun, 27 Apr 2008 12:24:18 +0900 (JST)
+Message-ID: <20080427.122418.32604330.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:58488 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754599AbYD0Cxm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Apr 2008 22:53:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20080426.174319.04173925.davem@davemloft.net>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33806 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761508AbYD0DYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 23:24:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 26, 2008 at 05:43:19PM -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Sat, 26 Apr 2008 23:07:26 +0100
-> 
-> > Still no sfc driver?  I thought you accepted it a couple of weeks ago.
-> 
-> Jeff, what happened here?
-> 
-> If Ben sent the full driver patch as Jeff asked for it, Jeff
-> should have added it by now. :-/
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-I have repeatedly requested the full patch, without receiving it.  I
-have requested the full patch via email, and not a URL to fetch and
-reconstruct the patch description and sign-offs.
+---
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 5dcc10b..fac27ce 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -2112,7 +2112,7 @@ static void xfrm_audit_helper_pktinfo(struct sk_buff *skb, u16 family,
+ 		iph6 = ipv6_hdr(skb);
+ 		audit_log_format(audit_buf,
+ 				 " src=" NIP6_FMT " dst=" NIP6_FMT
+-				 " flowlbl=0x%x%x%x",
++				 " flowlbl=0x%x%02x%02x",
+ 				 NIP6(iph6->saddr),
+ 				 NIP6(iph6->daddr),
+ 				 iph6->flow_lbl[0] & 0x0f,
 
-I searched my spam folder just now, just in case, but no sfc there
-either.
-
-We all agree the driver is OK for merging, I continue to wait for the
-roll-up patch.
-
-	Jeff
-
-
-
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
