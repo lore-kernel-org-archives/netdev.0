@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix typo in net/ipv6/Kconfig
-Date: Sat, 26 Apr 2008 22:51:12 -0700 (PDT)
-Message-ID: <20080426.225112.112596327.davem@davemloft.net>
-References: <20080424084009.61f773a6@snafu.setup>
-	<20080424.235043.152016786.davem@davemloft.net>
-	<Pine.LNX.4.55.0804260059050.13902@cliff.in.clinika.pl>
+Subject: Re: [PATCH][CAN]: Fix copy_from_user() results interpretation
+Date: Sat, 26 Apr 2008 22:57:51 -0700 (PDT)
+Message-ID: <20080426.225751.117819831.davem@davemloft.net>
+References: <4812E73A.6060104@hartkopp.net>
+	<20080426.021001.18044508.davem@davemloft.net>
+	<20080426095923.GA22836@uranus.ravnborg.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: youvegotmoxie@gmail.com, netdev@vger.kernel.org
-To: macro@linux-mips.org
+Cc: oliver@hartkopp.net, wg@grandegger.com,
+	urs.thuermann@volkswagen.de, netdev@vger.kernel.org,
+	socketcan-core@lists.berlios.de, oliver.hartkopp@volkswagen.de,
+	xemul@openvz.org
+To: sam@ravnborg.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59002
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47499
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750926AbYD0FvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 01:51:13 -0400
-In-Reply-To: <Pine.LNX.4.55.0804260059050.13902@cliff.in.clinika.pl>
+	by vger.kernel.org with ESMTP id S1750926AbYD0F5v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 01:57:51 -0400
+In-Reply-To: <20080426095923.GA22836@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Date: Sat, 26 Apr 2008 00:59:57 +0100 (BST)
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Sat, 26 Apr 2008 11:59:23 +0200
 
-> On Thu, 24 Apr 2008, David Miller wrote:
+> Both copy_to_ and _from_user return the number of bytes, that failed to
+> reach their destination, not the 0/-EXXX values.
 > 
-> > From: Michael Beasley <youvegotmoxie@gmail.com>
-> > Date: Thu, 24 Apr 2008 08:40:09 -0400
-> > 
-> > > From: Michael Beasley <youvegotmoxie@gmail.com>
-> > > 
-> > > Two is used in the wrong context here, as you are connecting to an IPv6 network
-> > > over IPv4; not connecting two IPv6 networks to an IPv4 one.
-> > > 
-> > > Signed-off-by: Michael Beasley <youvegotmoxie@gmail.com>
-> > 
-> > Applied, thanks Michael.
+> Based on patch from Pavel Emelyanov <xemul@openvz.org>
 > 
->  Please revert, the change is wrong as described in my other mail.
+> Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+> Acked-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 
-Done, thanks.
+Applied, sans the local Makefile.build change in your tree,
+thanks Sam. :-)
