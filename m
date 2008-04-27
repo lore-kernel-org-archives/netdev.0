@@ -1,36 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Use inline function dst_metric() instead of direct
- access to dst->metric[]
-Date: Sat, 26 Apr 2008 23:23:32 -0700 (PDT)
-Message-ID: <20080426.232332.30254129.davem@davemloft.net>
-References: <d72b7ace0804250717g40f81ea0o899f43fdc1d08384@mail.gmail.com>
+Subject: Re: [PATCH] [IPV4]: Update MTU to all related cache entries in
+ ip_rt_frag_needed()
+Date: Sat, 26 Apr 2008 23:27:56 -0700 (PDT)
+Message-ID: <20080426.232756.259679168.davem@davemloft.net>
+References: <48105B67.7060804@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: satoru.satoh@gmail.com
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60553
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58323
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751010AbYD0GXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 02:23:35 -0400
-In-Reply-To: <d72b7ace0804250717g40f81ea0o899f43fdc1d08384@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752672AbYD0G17 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Apr 2008 02:27:59 -0400
+In-Reply-To: <48105B67.7060804@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Satoru SATOH" <satoru.satoh@gmail.com>
-Date: Fri, 25 Apr 2008 23:17:00 +0900
+=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
+Date: Thu, 24 Apr 2008 13:05:27 +0300
 
-> There are functions to refer to the value of dst->metric[THE_METRIC-1] directly
-> without use of a inline function "dst_metric" defined in net/dst.h.
-> 
-> The following patch changes them to use the inline function consistently.
-> 
-> Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+> Add struct net_device parameter to ip_rt_frag_needed() and update MTU=
+ to
+> cache entries where ifindex is specified. This is similar to what is
+> already done in ip_rt_redirect().
+>=20
+> Signed-off-by: Timo Teras <timo.teras@iki.fi>
+> ---
+> I noticed this bug when using GRE tunnel bound to specific device. Th=
+is
+> causes ip_gre to use ifindex in ip_route_output_key() lookups and the
+> results are not proper unless the MTU is updated for entries where
+> ifindex is specified (causing my tunneled packets to be dropped).
+>=20
+> I have a patch for older kernels too if this is good for -stable.
 
-Your email client has corrupted the patch, adding line breaks and
-making other transformations that make the patch not apply cleanly.
+I haven't forgotten about this patch, I'm just still thinking about
+possible negative side effects.  I don't think there are any, but
+I want to be sure.
 
-Please correct this and resubmit your patch.
-
-Thank you!
+This function has been a constant source of consternation.  It also
+doesn't do the right thing when the TOS is modified mid-network, and
+that's arguably wrong too but more difficult to solve efficiently than
+this ifindex keying case.
