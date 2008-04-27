@@ -1,34 +1,39 @@
-From: Russell King <rmk@arm.linux.org.uk>
+From: David Miller <davem@davemloft.net>
 Subject: Re: 2.6.25: Weird IPv4 stack behaviour, IPv6 is fine
-Date: Mon, 28 Apr 2008 00:17:36 +0100
-Message-ID: <20080427231736.GA12053@flint.arm.linux.org.uk>
+Date: Sun, 27 Apr 2008 16:26:20 -0700 (PDT)
+Message-ID: <20080427.162620.221106869.davem@davemloft.net>
 References: <20080427231411.GA5261@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xemul@openvz.org
+To: rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:57163 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759864AbYD0XRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 19:17:43 -0400
-Received: from flint.arm.linux.org.uk ([2002:4e20:1eda:1:201:2ff:fe14:8fad])
-	by caramon.arm.linux.org.uk with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.69)
-	(envelope-from <rmk@arm.linux.org.uk>)
-	id 1JqG7n-0000CS-R9
-	for netdev@vger.kernel.org; Mon, 28 Apr 2008 00:17:40 +0100
-Received: from rmk by flint.arm.linux.org.uk with local (Exim 4.69)
-	(envelope-from <rmk@flint.arm.linux.org.uk>)
-	id 1JqG7l-00039j-JH
-	for netdev@vger.kernel.org; Mon, 28 Apr 2008 00:17:37 +0100
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44704
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752942AbYD0X0U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 19:26:20 -0400
 In-Reply-To: <20080427231411.GA5261@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Forgot the config file for the problem kernel...
+From: Russell King <rmk@arm.linux.org.uk>
+Date: Mon, 28 Apr 2008 00:14:11 +0100
 
-  http://www.home.arm.linux.org.uk/~rmk/bast-config-2.6.25
+> Lastly, in /proc/net/snmp on lists, I find:
+> 
+> Ip: Forwarding DefaultTTL InReceives InHdrErrors InAddrErrors ForwDatagrams InUnknownProtos InDiscards InDelivers OutRequests OutDiscards OutNoRoutes ReasmTimeout ReasmReqds ReasmOKs ReasmFails FragOKs FragFails FragCreates
+> Ip: 2 64 12771 0 0 0 0 0 5159 6262 9 0 2 8172 1363 2 922 0 5520
+> 
+> Note - InReceives = 12771, but InDelivers = 5159 - so roughly 50% of
+> IPv4 packets were received but not delivered, which appears to tie up
+> with the ping statistics.
+> 
+> Not sure what to make of this at the moment.  Any ideas?
 
--- 
-Russell King
+The ReasmTimeout and ReasmFails look interesting.  Maybe it was the
+namespace bits?
+
+Pavel, could you take a quick look?
+
+Thanks.
