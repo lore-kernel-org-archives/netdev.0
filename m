@@ -1,42 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [git patches] net driver updates
-Date: Sun, 27 Apr 2008 12:34:51 +0100
-Message-ID: <20080427113449.GW21637@solarflare.com>
-References: <20080425072621.GA21299@havoc.gtf.org> <20080426220725.GV21637@solarflare.com> <20080426.174319.04173925.davem@davemloft.net> <20080427025341.GB24710@havoc.gtf.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH][NET_SCHED] sch_sfq: use del_timer_sync() in sfq_destroy()
+Date: Sun, 27 Apr 2008 14:59:21 +0200
+Message-ID: <20080427125921.GA7480@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:58122 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752742AbYD0LfB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 07:35:01 -0400
+Received: from nf-out-0910.google.com ([64.233.182.186]:18287 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752092AbYD0NBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 09:01:34 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so1720542nfb.21
+        for <netdev@vger.kernel.org>; Sun, 27 Apr 2008 06:01:32 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20080427025341.GB24710@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> On Sat, Apr 26, 2008 at 05:43:19PM -0700, David Miller wrote:
-> > From: Ben Hutchings <bhutchings@solarflare.com>
-> > Date: Sat, 26 Apr 2008 23:07:26 +0100
-> > 
-> > > Still no sfc driver?  I thought you accepted it a couple of weeks ago.
-> > 
-> > Jeff, what happened here?
-> > 
-> > If Ben sent the full driver patch as Jeff asked for it, Jeff
-> > should have added it by now. :-/
-> 
-> I have repeatedly requested the full patch, without receiving it.
+[NET_SCHED] sch_sfq: use del_timer_sync() in sfq_destroy()
 
-You requested it once, and I sent it immediately.  I will re-send
-it in a moment; please acknowledge receipt.
+Let's delete timer reliably in sfq_destroy().
 
-Ben.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ net/sched/sch_sfq.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index a20e2ef..f0463d7 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -521,7 +521,8 @@ static void sfq_destroy(struct Qdisc *sch)
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+ 
+ 	tcf_destroy_chain(q->filter_list);
+-	del_timer(&q->perturb_timer);
++	q->perturb_period = 0;
++	del_timer_sync(&q->perturb_timer);
+ }
+ 
+ static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
