@@ -1,45 +1,45 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH] asm/unaligned.h doesn't work well as the very first
-	include
-Date: Sat, 26 Apr 2008 23:31:28 -0700
-Message-ID: <1209277888.14173.45.camel@brick>
-References: <20080427051918.GO5882@ZenIV.linux.org.uk>
-	 <20080427060944.GB9199@uranus.ravnborg.org>
-	 <20080427061210.GT5882@ZenIV.linux.org.uk>
+Subject: [PATCH] net: eepro autoport typo
+Date: Sat, 26 Apr 2008 23:44:03 -0700
+Message-ID: <1209278643.14173.48.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Sam Ravnborg <sam@ravnborg.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:43709 "EHLO
+Received: from wa-out-1112.google.com ([209.85.146.182]:10551 "EHLO
 	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812AbYD0GbY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 02:31:24 -0400
-Received: by wa-out-1112.google.com with SMTP id m16so7075082waf.23
-        for <netdev@vger.kernel.org>; Sat, 26 Apr 2008 23:31:23 -0700 (PDT)
-In-Reply-To: <20080427061210.GT5882@ZenIV.linux.org.uk>
+	with ESMTP id S1752268AbYD0Gn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 02:43:58 -0400
+Received: by wa-out-1112.google.com with SMTP id m16so7079657waf.23
+        for <netdev@vger.kernel.org>; Sat, 26 Apr 2008 23:43:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-04-27 at 07:12 +0100, Al Viro wrote:
-> On Sun, Apr 27, 2008 at 08:09:44AM +0200, Sam Ravnborg wrote:
-> 
-> > It has been discussed that any .h file should pull
-> > in what it needs so the other of includes does not matter.
-> > Some do them alphabetically.
-> 
-> It has been discussed or it has been agreed?  IMO it's a bullshit - especially
-> for low-level stuff like that.
-> 
-> As for the way some do includes...  It's not exactly a family-friendly list,
-> but still I'd rather not comment in details on the existing practices...
+Found by sparse dubious !x & y warning...hidden in the GetBit macro
+why !Word doesn't make any sense.
 
-I'm redoing the unaligned handling in -mm at the moment, and it avoids
-this problem.
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ drivers/net/eepro.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Harvey
+diff --git a/drivers/net/eepro.c b/drivers/net/eepro.c
+index 83bda6c..56f5049 100644
+--- a/drivers/net/eepro.c
++++ b/drivers/net/eepro.c
+@@ -633,7 +633,7 @@ static void __init printEEPROMInfo(struct net_device *dev)
+ 		printk(KERN_DEBUG " PC: %d\n", GetBit(Word,ee_PC));
+ 		printk(KERN_DEBUG " TPE/AUI: %d\n", GetBit(Word,ee_TPE_AUI));
+ 		printk(KERN_DEBUG " Jabber: %d\n", GetBit(Word,ee_Jabber));
+-		printk(KERN_DEBUG " AutoPort: %d\n", GetBit(!Word,ee_Jabber));
++		printk(KERN_DEBUG " AutoPort: %d\n", !GetBit(Word,ee_AutoPort));
+ 		printk(KERN_DEBUG " Duplex: %d\n", GetBit(Word,ee_Duplex));
+ 	}
+ 
+-- 
+1.5.5.1.270.g89765
+
+
 
