@@ -1,38 +1,42 @@
-From: Ondrej Zajicek <santiago@crfreenet.org>
-Subject: Re: [PATCH] via-rhine: suspend/resume bugfix
-Date: Sun, 27 Apr 2008 11:58:44 +0200
-Message-ID: <20080427095843.GA28784@localhost.localdomain>
-References: <20080427071351.GA20561@localhost.localdomain> <4814406B.8000907@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [git patches] net driver updates
+Date: Sun, 27 Apr 2008 12:34:51 +0100
+Message-ID: <20080427113449.GW21637@solarflare.com>
+References: <20080425072621.GA21299@havoc.gtf.org> <20080426220725.GV21637@solarflare.com> <20080426.174319.04173925.davem@davemloft.net> <20080427025341.GB24710@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rl@hellgate.ch
-To: Jiri Slaby <jirislaby@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.crfreenet.org ([81.92.146.254]:36000 "EHLO
-	mail.crfreenet.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753523AbYD0J6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 05:58:46 -0400
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:58122 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752742AbYD0LfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 07:35:01 -0400
 Content-Disposition: inline
-In-Reply-To: <4814406B.8000907@gmail.com>
+In-Reply-To: <20080427025341.GB24710@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 27, 2008 at 10:59:23AM +0200, Jiri Slaby wrote:
-> >+	/* Disable interrupts by clearing the interrupt mask. */
-> >+	iowrite16(0x0000, ioaddr + IntrEnable);
-> >+
-> >+	/* Stop the chip's Tx and Rx processes. */
-> >+	iowrite16(CmdStop, ioaddr + ChipCmd);
+Jeff Garzik wrote:
+> On Sat, Apr 26, 2008 at 05:43:19PM -0700, David Miller wrote:
+> > From: Ben Hutchings <bhutchings@solarflare.com>
+> > Date: Sat, 26 Apr 2008 23:07:26 +0100
+> > 
+> > > Still no sfc driver?  I thought you accepted it a couple of weeks ago.
+> > 
+> > Jeff, what happened here?
+> > 
+> > If Ben sent the full driver patch as Jeff asked for it, Jeff
+> > should have added it by now. :-/
+> 
+> I have repeatedly requested the full patch, without receiving it.
 
-> What about PCI posting?
+You requested it once, and I sent it immediately.  I will re-send
+it in a moment; please acknowledge receipt.
 
-Hmm, i will fix it. And i found that the patch might break
-wakeup-on-LAN. So please discard it.
+Ben.
 
 -- 
-Elen sila lumenn' omentielvo
-
-Ondrej 'SanTiago' Zajicek (email: santiago@crfreenet.org)
-OpenPGP encrypted e-mails preferred (KeyID 0x11DEADC3, wwwkeys.pgp.net)
-"To err is human -- to blame it on a computer is even more so."
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
