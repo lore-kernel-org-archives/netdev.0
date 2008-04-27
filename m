@@ -1,43 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch]net/xfrm/xfrm_state.c: replace timer with delayed_work
-Date: Sun, 27 Apr 2008 09:19:06 +0800
-Message-ID: <20080427011906.GB662@gondor.apana.org.au>
-References: <20080217.000049.88383747.xiyou.wangcong@gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver updates
+Date: Sat, 26 Apr 2008 22:53:41 -0400
+Message-ID: <20080427025341.GB24710@havoc.gtf.org>
+References: <20080425072621.GA21299@havoc.gtf.org> <20080426220725.GV21637@solarflare.com> <20080426.174319.04173925.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
-To: WANG Cong <xiyou.wangcong@gmail.com>
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33899 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752564AbYD0BTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 21:19:12 -0400
+Received: from havoc.gtf.org ([69.61.125.42]:58488 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754599AbYD0Cxm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Apr 2008 22:53:42 -0400
 Content-Disposition: inline
-In-Reply-To: <20080217.000049.88383747.xiyou.wangcong@gmail.com>
+In-Reply-To: <20080426.174319.04173925.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 17, 2008 at 12:00:49AM +0800, WANG Cong wrote:
+On Sat, Apr 26, 2008 at 05:43:19PM -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Sat, 26 Apr 2008 23:07:26 +0100
 > 
-> Also suggested by Herbert Xu, using workqueue is better than timer
-> for net/xfrm/xfrm_state.c, so replace them with delayed_work.
+> > Still no sfc driver?  I thought you accepted it a couple of weeks ago.
 > 
-> Note that, this patch is not fully tested, just compile and
-> run as a whole on an Intel Core Duo matchine. So should be
-> in -mm first.
+> Jeff, what happened here?
 > 
-> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: David Miller <davem@davemloft.net>
+> If Ben sent the full driver patch as Jeff asked for it, Jeff
+> should have added it by now. :-/
 
-As with the xfrm policy patch, the spin lock here needs to disable
-BH.
+I have repeatedly requested the full patch, without receiving it.  I
+have requested the full patch via email, and not a URL to fetch and
+reconstruct the patch description and sign-offs.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I searched my spam folder just now, just in case, but no sfc there
+either.
+
+We all agree the driver is OK for merging, I continue to wait for the
+roll-up patch.
+
+	Jeff
+
+
+
