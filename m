@@ -1,42 +1,38 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [PATCH 1/1 2.6.25-rc9] bnx2x: Add EEH support in bnx2x
- driver - 10G pci-express adapter
-Date: Sun, 27 Apr 2008 12:12:38 +0300
-Message-ID: <1209287558.4928.18.camel@lb-tlvb-eliezer.il.broadcom.com>
-References: <1208983414.7339.31.camel@wendyx.austin.ibm.com>
+From: Ondrej Zajicek <santiago@crfreenet.org>
+Subject: Re: [PATCH] via-rhine: suspend/resume bugfix
+Date: Sun, 27 Apr 2008 11:58:44 +0200
+Message-ID: <20080427095843.GA28784@localhost.localdomain>
+References: <20080427071351.GA20561@localhost.localdomain> <4814406B.8000907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org
-To: "wendy xiong" <wendyx@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, rl@hellgate.ch
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3828 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751973AbYD0JSo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Apr 2008 05:18:44 -0400
-In-Reply-To: <1208983414.7339.31.camel@wendyx.austin.ibm.com>
+Received: from gateway.crfreenet.org ([81.92.146.254]:36000 "EHLO
+	mail.crfreenet.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753523AbYD0J6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 05:58:46 -0400
+Content-Disposition: inline
+In-Reply-To: <4814406B.8000907@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wendy,
+On Sun, Apr 27, 2008 at 10:59:23AM +0200, Jiri Slaby wrote:
+> >+	/* Disable interrupts by clearing the interrupt mask. */
+> >+	iowrite16(0x0000, ioaddr + IntrEnable);
+> >+
+> >+	/* Stop the chip's Tx and Rx processes. */
+> >+	iowrite16(CmdStop, ioaddr + ChipCmd);
 
-I will add this into the next version of the driver.
-A few minor changes are needed, I will take care of them.
+> What about PCI posting?
 
-Thanks
-Eliezer
+Hmm, i will fix it. And i found that the patch might break
+wakeup-on-LAN. So please discard it.
 
-On Wed, 2008-04-23 at 13:43 -0700, wendy xiong wrote:
-> Hi
-> 
-> To enable EEH suuport for this 10G pci-express adapter, we added 3 EEH
-> callback functions in the driver and also msi/pcie state needs to be
-> saved and restored for the adapter.
-> 
-> Thanks,
-> Wendy
-> 
-> Signed-off-by: Wendy Xiong <wendyx@us.ibm.com>
+-- 
+Elen sila lumenn' omentielvo
 
-
-
+Ondrej 'SanTiago' Zajicek (email: santiago@crfreenet.org)
+OpenPGP encrypted e-mails preferred (KeyID 0x11DEADC3, wwwkeys.pgp.net)
+"To err is human -- to blame it on a computer is even more so."
