@@ -1,31 +1,71 @@
-From: David Miller <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH net-2.6/stable] [XFRM] AUDIT: Fix flowlabel text format.
-Date: Sat, 26 Apr 2008 20:25:58 -0700 (PDT)
-Message-ID: <20080426.202558.208247674.davem@davemloft.net>
+Date: Sun, 27 Apr 2008 12:54:37 +0900 (JST)
+Message-ID: <20080427.125437.59237838.yoshfuji@linux-ipv6.org>
 References: <20080427.122418.32604330.yoshfuji@linux-ipv6.org>
+	<20080426.202558.208247674.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50936
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756555AbYD0DZ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 23:25:59 -0400
-In-Reply-To: <20080427.122418.32604330.yoshfuji@linux-ipv6.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33809 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753694AbYD0Dyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2008 23:54:39 -0400
+In-Reply-To: <20080426.202558.208247674.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Sun, 27 Apr 2008 12:24:18 +0900 (JST)
+In article <20080426.202558.208247674.davem@davemloft.net> (at Sat, 26 Apr 2008 20:25:58 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+> Date: Sun, 27 Apr 2008 12:24:18 +0900 (JST)
+> 
+> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> You'll have to be more specific than just saying "fixed"
+> when you submit a patch like this.
+> 
+> What about the format is it fixing?
 
-You'll have to be more specific than just saying "fixed"
-when you submit a patch like this.
+Sorry...
 
-What about the format is it fixing?
+> Also, can this possibly break existing audit log scanning
+> tools and parsers?
 
-Also, can this possibly break existing audit log scanning
-tools and parsers?
+James?
+
+We could add "flowlabel", but it is possible to break something, too.
+Anyway, because the log format did not make sense as audit log,
+we need to fix it.
+
+---
+[XFRM] AUDIT: Fix flowlabel text format ambibuity.
+
+Flowlabel text format was not correct and thus ambiguous.
+For example, 0x00123 or 0x01203 are formatted as 0x123.
+This is not what audit tools want.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+---
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 5dcc10b..fac27ce 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -2112,7 +2112,7 @@ static void xfrm_audit_helper_pktinfo(struct sk_buff *skb, u16 family,
+ 		iph6 = ipv6_hdr(skb);
+ 		audit_log_format(audit_buf,
+ 				 " src=" NIP6_FMT " dst=" NIP6_FMT
+-				 " flowlbl=0x%x%x%x",
++				 " flowlbl=0x%x%02x%02x",
+ 				 NIP6(iph6->saddr),
+ 				 NIP6(iph6->daddr),
+ 				 iph6->flow_lbl[0] & 0x0f,
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
