@@ -1,47 +1,27 @@
-From: Ondrej Zajicek <santiago@crfreenet.org>
-Subject: [PATCH] via-rhine: suspend/resume bugfix
-Date: Sun, 27 Apr 2008 09:13:51 +0200
-Message-ID: <20080427071351.GA20561@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPSEC]: Use digest_null directly for auth
+Date: Sun, 27 Apr 2008 01:00:21 -0700 (PDT)
+Message-ID: <20080427.010021.159494845.davem@davemloft.net>
+References: <20080427071747.GA2317@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rl@hellgate.ch
-To: akpm@linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.crfreenet.org ([81.92.146.254]:35788 "EHLO
-	mail.crfreenet.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752048AbYD0HmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 03:42:07 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43433
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751708AbYD0IAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 04:00:25 -0400
+In-Reply-To: <20080427071747.GA2317@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a bug in via-rhine driver - the driver don't disable
-interrupts during suspend, which sometimes leads to globally
-disabled interrupt line.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 27 Apr 2008 15:17:47 +0800
 
-This patch disables interrupts (and Rx/Tx) during suspend.
+> [IPSEC]: Use digest_null directly for auth
 
-Signed-off-by: Ondrej Zajicek <santiago@crfreenet.org>
+"Null, I really mean it." :-)
 
----
-
-diff -uprN -X linux-2.6.25/Documentation/dontdiff linux-2.6.25/drivers/net/via-rhine.c linux-2.6.25-feanor/drivers/net/via-rhine.c
---- linux-2.6.25/drivers/net/via-rhine.c	2008-04-17 04:49:44.000000000 +0200
-+++ linux-2.6.25-feanor/drivers/net/via-rhine.c	2008-04-26 14:08:44.000000000 +0200
-@@ -1886,6 +1886,15 @@ static void rhine_shutdown (struct pci_d
- 	struct rhine_private *rp = netdev_priv(dev);
- 	void __iomem *ioaddr = rp->base;
- 
-+	/* Switch to loopback mode to avoid hardware races. */
-+	iowrite8(rp->tx_thresh | 0x02, ioaddr + TxConfig);
-+
-+	/* Disable interrupts by clearing the interrupt mask. */
-+	iowrite16(0x0000, ioaddr + IntrEnable);
-+
-+	/* Stop the chip's Tx and Rx processes. */
-+	iowrite16(CmdStop, ioaddr + ChipCmd);
-+
- 	if (!(rp->quirks & rqWOL))
- 		return; /* Nothing to do for non-WOL adapters */
- 
+Patch applied, thanks Herbert!
