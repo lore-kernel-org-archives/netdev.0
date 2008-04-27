@@ -1,66 +1,78 @@
-From: Patrick McManus <mcmanus@ducksong.com>
-Subject: Re: Slab Corruption with ipv6 and tcp6fuzz
-Date: Sun, 27 Apr 2008 12:48:26 -0400
-Message-ID: <1209314906.29301.148.camel@tng>
-References: <20080424142727.GA24025@alice>
-	 <20080424211320.GA13695@2ka.mipt.ru> <20080425125230.GA12343@alice>
-	 <20080425130946.GA1019@2ka.mipt.ru>  <20080426160519.GA5697@2ka.mipt.ru>
+From: "H. Willstrand" <h.willstrand@gmail.com>
+Subject: Re: TCP connection failure in kernel 2.6.25
+Date: Sun, 27 Apr 2008 18:56:02 +0200
+Message-ID: <1209315362.2934.55.camel@localhost.localdomain>
+References: <c1410bfe0804260217t33139fd2v324af1a149843989@mail.gmail.com>
+	 <1209205136.2929.6.camel@localhost.localdomain>
+	 <c1410bfe0804260516k1149fadaoc06f02b94dcd12e9@mail.gmail.com>
+	 <1209241624.2929.17.camel@localhost.localdomain>
+	 <c1410bfe0804262302p3f283f9k97a04ff11dd2779e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Eric Sesterhenn <snakebyte@gmx.de>, netdev@vger.kernel.org,
-	davem@davemloft.net, ilpo.jarvinen@helsinki.fi
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: netdev@vger.kernel.org
+To: "M. Istehbab" <hariskhan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from linode.ducksong.com ([64.22.125.164]:47926 "EHLO
-	linode.ducksong.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752946AbYD0QsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 12:48:05 -0400
-In-Reply-To: <20080426160519.GA5697@2ka.mipt.ru>
+Received: from fg-out-1718.google.com ([72.14.220.154]:40442 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753860AbYD0RBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 13:01:16 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so4572165fgb.17
+        for <netdev@vger.kernel.org>; Sun, 27 Apr 2008 10:01:14 -0700 (PDT)
+In-Reply-To: <c1410bfe0804262302p3f283f9k97a04ff11dd2779e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2008-04-26 at 20:05 +0400, Evgeniy Polyakov wrote:
 
-> > tcp_v6_do_rcv()->tcp_rcv_established(), the latter goes to step5, where
-> > eventually skb can be freed via tcp_data_queue() (drop: label), then if
-> > check for tcp_defer_accept_check() returns true and thus
-> > tcp_rcv_established() returns -1, which forces tcp_v6_do_rcv() to jump
-> > to reset: label, which in turn will pass through discard: label and free
-> > the same skb again.
-> >  
-
-yep. That buggy test was logic from a different strategy long
-discarded.. the skb is always queued/dropped independently of
-defer_accept_check() and as such it shouldn't impact the return value of
-rcv_established.
-
-I was able to reproduce by forcing the fuzzer to play with DEFER_ACCEPT
-100% of the time, and with the patch tests out fine as do the original
-defer_accept tests.
-
-Sorry for the bug, and thanks Evgeniy for fixing it and Eric for finding
-it.
-
-Acked-By: Patrick McManus <mcmanus@ducksong.com>
-
-> 
-> Please test. This bug affects both ipv6 and ipv4 code actually.
-> 
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index ac9b848..0298f80 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -4925,8 +4925,7 @@ step5:
->  	tcp_data_snd_check(sk);
->  	tcp_ack_snd_check(sk);
->  
-> -	if (tcp_defer_accept_check(sk))
-> -		return -1;
-> +	tcp_defer_accept_check(sk);
->  	return 0;
->  
->  csum_error:
+On Sun, 2008-04-27 at 11:02 +0500, M. Istehbab wrote:
+> On Sun, Apr 27, 2008 at 1:27 AM, H. Willstrand <h.willstrand@gmail.com> wrote:
+> > On Sat, 2008-04-26 at 17:16 +0500, M. Istehbab wrote:
+> > > Yes, after a while (it can be a few seconds, minutes, or 1+ hour) the
+> > > proxy server starts accepting connections again. I don't need to
+> > > reboot the box when this happens.
+> > >
+> > > This happens randomely to anyone behind it. Then, after a while, it
+> > > starts working again by itself.
+> > >
+> > Well, there are too many possibilities for failures... the Linux
+> > distribution (RHEL 3 workstation) was built for 2.4.21 (around year
+> > 2003) and you try 2.6.x
+> >
+> > Maybe you should stick to one of the later 2.4.x kernels or even better
+> > upgrade the Linux distribution.
+> >
+> > Cheers,
+> > H. Willstrand
 > 
 > 
+> I didn't have problems with rhel ws3 or with the kernel it came with.
+> I removed it in favour of debian a long time back, when debian/etch r0
+> was released.
+> 
+> I have been running debian etch r2 (4.0 r2) ever since, which comes
+> with kernel (2.6.18-5-686). As you might notice from the mentioned
+> kernel versions, I tried upgrading to kernels from lenny/debian and
+> sid/debian hoping to find a solution. I tried from 2.3.13 - 2.6.25
+> from both debian packages and vanilla sources (as they are called),
+> but the problem persists. It started and is continuing on debian.
+> 
+So, you have the same issue with all tested kernels
+RHEL 3 works, Debian fails
+
+This smells configuration failure, you better compare your working
+configuration with the others.
+
+// H.Willstrand
+
+> I have 2 ISPs hooked into this box. One is CIR, the other is ADSL. The
+> ADSL runs over pppoe. I don't know if the 2.4.x kernels support pppoe.
+> The 2.6.x kernels do. I need to run 2 ISPs on this box seemlessly.
+> 
+> The last rhel version I used was using kernel 2.6.9. I'm going to grab
+> that and see if that helps.
+> 
+> I need pppoe, iptables, vpn, scsi with raid support, smp, and a around
+> 8000 file descriptors to run stable on this box.
+> 
+> M. Istehbab
 
