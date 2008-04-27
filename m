@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][CAN]: Fix copy_from_user() results interpretation
-Date: Sat, 26 Apr 2008 22:57:51 -0700 (PDT)
-Message-ID: <20080426.225751.117819831.davem@davemloft.net>
-References: <4812E73A.6060104@hartkopp.net>
-	<20080426.021001.18044508.davem@davemloft.net>
-	<20080426095923.GA22836@uranus.ravnborg.org>
+Subject: Re: [PATCH] sunrpc: fix missing kernel-doc
+Date: Sat, 26 Apr 2008 22:59:15 -0700 (PDT)
+Message-ID: <20080426.225915.47075440.davem@davemloft.net>
+References: <20080425085750.8c064403.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oliver@hartkopp.net, wg@grandegger.com,
-	urs.thuermann@volkswagen.de, netdev@vger.kernel.org,
-	socketcan-core@lists.berlios.de, oliver.hartkopp@volkswagen.de,
-	xemul@openvz.org
-To: sam@ravnborg.org
+Cc: netdev@vger.kernel.org, torvalds@linux-foundation.org
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47499
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47507
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750926AbYD0F5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 01:57:51 -0400
-In-Reply-To: <20080426095923.GA22836@uranus.ravnborg.org>
+	by vger.kernel.org with ESMTP id S1750812AbYD0F7Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 01:59:16 -0400
+In-Reply-To: <20080425085750.8c064403.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Sat, 26 Apr 2008 11:59:23 +0200
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Fri, 25 Apr 2008 08:57:50 -0700
 
-> Both copy_to_ and _from_user return the number of bytes, that failed to
-> reach their destination, not the 0/-EXXX values.
+> Fix missing sunrpc kernel-doc:
 > 
-> Based on patch from Pavel Emelyanov <xemul@openvz.org>
+> Warning(linux-2.6.25-git7//net/sunrpc/xprt.c:451): No description found for parameter 'action'
 > 
-> Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
-> Acked-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Applied, sans the local Makefile.build change in your tree,
-thanks Sam. :-)
+Applied, thanks a lot Randy.
