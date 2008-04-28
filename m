@@ -1,448 +1,79 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [DCCP] [RFC] [Patchv3 1/1]: Queuing policies -- reworked version
-	of Tomasz's patch set
-Date: Mon, 28 Apr 2008 16:19:55 +0100
-Message-ID: <20080428151955.GC27604@gerrit.erg.abdn.ac.uk>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804192242.33632.tomasz@grobelny.oswiecenia.net> <20080422173050.GC6039@gerrit.erg.abdn.ac.uk> <200804222230.25743.tomasz@grobelny.oswiecenia.net> <20080428131047.GB14346@gerrit.erg.abdn.ac.uk>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH 2/4] virtio: finer-grained features for virtio_net
+Date: Tue, 29 Apr 2008 01:17:44 +1000
+Message-ID: <200804290117.45010.rusty@rustcorp.com.au>
+References: <200804290116.05951.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
+To: virtualization@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:65495 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932381AbYD1PUY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2008 11:20:24 -0400
+Received: from ozlabs.org ([203.10.76.45]:34648 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933866AbYD1PTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 11:19:25 -0400
+In-Reply-To: <200804290116.05951.rusty@rustcorp.com.au>
 Content-Disposition: inline
-In-Reply-To: <20080428131047.GB14346@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here is a tidied-up version, the patch sent last week and stored in
+So, we previously had a 'VIRTIO_NET_F_GSO' bit which meant that 'the
+host can handle csum offload, and any TSO (v4&v6 incl ECN) or UFO
+packets you might want to send.  I thought this was good enough for
+Linux, but it actually isn't, since we don't do UFO in software.
 
-	git://eden-feed.erg.abdn.ac.uk/dccp_exp (tree `qpolicy')
+So, add separate feature bits for what the host can handle.  Add
+equivalent ones for the guest to say what it can handle, because LRO
+is coming too (thanks Herbert!).
 
-was not very good, the updates are:
-
- * the skb->priority is now cleared when leaving the DCCP layer;
- * there is now documentation/hints about the use of skb->priority in DCCP;
- * there is one question I have, and that can be reverted:
-   - qpolicy_prio_push() has been replaced by a combination of
-   - qpolicy_prio_full() [which now does the drop-on-queue-full] and
-     qpolicy_simple_push() [which does the FIFO-queueing]
-   This means fewer routines, but if you don't like it, I am ok to revert it.
-
-Please do take time with the comments -- another busy week means I won't
-have time to respond properly before the end of the week.
-
-Gerrit
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- Documentation/networking/dccp.txt |   19 +++++
- include/linux/dccp.h              |   19 +++++
- net/dccp/Makefile                 |    2 
- net/dccp/dccp.h                   |   12 +++
- net/dccp/output.c                 |   10 +--
- net/dccp/proto.c                  |   67 +++++++++++++++++++-
- net/dccp/qpolicy.c                |  124 ++++++++++++++++++++++++++++++++++++++
- 7 files changed, 245 insertions(+), 8 deletions(-)
+ drivers/net/virtio_net.c   |    9 +++++++++
+ include/linux/virtio_net.h |   13 +++++++++++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -45,6 +45,25 @@ http://linux-net.osdl.org/index.php/DCCP
- 
- Socket options
- ==============
-+DCCP_SOCKOPT_QPOLICY_ID sets the dequeuing policy for outgoing packets. It takes
-+a policy ID as argument and can only be set before the connection (i.e. changes
-+during an established connection are not supported). Currently, two policies are
-+defined: the "simple" policy (DCCPQ_POLICY_SIMPLE), which does nothing special,
-+and a priority-based variant (DCCPQ_POLICY_PRIO). The latter allows to pass an
-+u32 priority value as ancillary data to sendmsg(), where higher numbers indicate
-+a higher packet priority (similar to SO_PRIORITY). This ancillary data needs to
-+be formatted using a cmsg(3) message header filled in as follows:
-+	cmsg->cmsg_level = SOL_DCCP;
-+	cmsg->cmsg_type	 = DCCP_SCM_PRIORITY;
-+	cmsg->cmsg_len	 = CMSG_LEN(sizeof(uint32_t));	/* or CMSG_LEN(4) */
-+
-+DCCP_SOCKOPT_QPOLICY_TXQLEN sets the maximum length of the output queue. A zero
-+value is always interpreted as unbounded queue length. If different from zero,
-+the interpretation of this parameter depends on the current dequeuing policy
-+(see above): the "simple" policy will enforce a fixed queue size by returning
-+EAGAIN, whereas the "prio" policy enforces a fixed queue length by dropping the
-+lowest-priority packet first. The default value for this parameter is
-+initialised from /proc/sys/net/dccp/default/tx_qlen.
- 
- DCCP_SOCKOPT_SERVICE sets the service. The specification mandates use of
- service codes (RFC 4340, sec. 8.1.2); if this socket option is not set,
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -195,6 +195,19 @@ enum dccp_feature_numbers {
- 	DCCPF_MAX_CCID_SPECIFIC = 255,
- };
- 
-+/* DCCP socket control message types for cmsg */
-+enum dccp_cmsg_type {
-+	DCCP_SCM_PRIORITY = 1,
-+	DCCP_SCM_MAX
-+};
-+
-+/* DCCP priorities for outgoing/queued packets */
-+enum dccp_packet_dequeueing_policy {
-+	DCCPQ_POLICY_SIMPLE,
-+	DCCPQ_POLICY_PRIO,
-+	DCCPQ_POLICY_MAX
-+};
-+
- /* DCCP socket options */
- #define DCCP_SOCKOPT_PACKET_SIZE	1 /* XXX deprecated, without effect */
- #define DCCP_SOCKOPT_SERVICE		2
-@@ -208,6 +221,8 @@ enum dccp_feature_numbers {
- #define DCCP_SOCKOPT_CCID		13
- #define DCCP_SOCKOPT_TX_CCID		14
- #define DCCP_SOCKOPT_RX_CCID		15
-+#define DCCP_SOCKOPT_QPOLICY_ID		16
-+#define DCCP_SOCKOPT_QPOLICY_TXQLEN	17
- #define DCCP_SOCKOPT_CCID_RX_INFO	128
- #define DCCP_SOCKOPT_CCID_TX_INFO	192
- 
-@@ -459,6 +474,8 @@ struct dccp_ackvec;
-  * @dccps_hc_rx_ccid - CCID used for the receiver (or receiving half-connection)
-  * @dccps_hc_tx_ccid - CCID used for the sender (or sending half-connection)
-  * @dccps_options_received - parsed set of retrieved options
-+ * @dccps_qpolicy - TX dequeueing policy, one of %dccp_packet_dequeueing_policy
-+ * @dccps_tx_qlen - maximum length of the TX queue
-  * @dccps_role - role of this sock, one of %dccp_role
-  * @dccps_hc_rx_insert_options - receiver wants to add options when acking
-  * @dccps_hc_tx_insert_options - sender wants to add options when sending
-@@ -501,6 +518,8 @@ struct dccp_sock {
- 	struct ccid			*dccps_hc_rx_ccid;
- 	struct ccid			*dccps_hc_tx_ccid;
- 	struct dccp_options_received	dccps_options_received;
-+	__u8				dccps_qpolicy;
-+	__u32				dccps_tx_qlen;
- 	enum dccp_role			dccps_role:2;
- 	__u8				dccps_hc_rx_insert_options:1;
- 	__u8				dccps_hc_tx_insert_options:1;
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -187,6 +187,7 @@ int dccp_init_sock(struct sock *sk, cons
- 	dp->dccps_rate_last	= jiffies;
- 	dp->dccps_role		= DCCP_ROLE_UNDEFINED;
- 	dp->dccps_service	= DCCP_SERVICE_CODE_IS_ABSENT;
-+	dp->dccps_tx_qlen	= sysctl_dccp_tx_qlen;
- 
- 	INIT_LIST_HEAD(&dp->dccps_featneg);
- 	/* control socket doesn't need feat nego */
-@@ -540,6 +541,20 @@ static int do_dccp_setsockopt(struct soc
- 	case DCCP_SOCKOPT_RECV_CSCOV:
- 		err = dccp_setsockopt_cscov(sk, val, true);
- 		break;
-+	case DCCP_SOCKOPT_QPOLICY_ID:
-+		if (sk->sk_state != DCCP_CLOSED)
-+			err = -EISCONN;
-+		else if (val < 0 || val >= DCCPQ_POLICY_MAX)
-+			err = -EINVAL;
-+		else
-+			dp->dccps_qpolicy = val;
-+		break;
-+	case DCCP_SOCKOPT_QPOLICY_TXQLEN:
-+		if (val < 0)
-+			err = -EINVAL;
-+		else
-+			dp->dccps_tx_qlen = val;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 		break;
-@@ -643,6 +658,12 @@ static int do_dccp_getsockopt(struct soc
- 	case DCCP_SOCKOPT_RECV_CSCOV:
- 		val = dp->dccps_pcrlen;
- 		break;
-+	case DCCP_SOCKOPT_QPOLICY_ID:
-+		val = dp->dccps_qpolicy;
-+		break;
-+	case DCCP_SOCKOPT_QPOLICY_TXQLEN:
-+		val = dp->dccps_tx_qlen;
-+		break;
- 	case 128 ... 191:
- 		return ccid_hc_rx_getsockopt(dp->dccps_hc_rx_ccid, sk, optname,
- 					     len, (u32 __user *)optval, optlen);
-@@ -685,6 +706,32 @@ int compat_dccp_getsockopt(struct sock *
- EXPORT_SYMBOL_GPL(compat_dccp_getsockopt);
- #endif
- 
-+static int dccp_msghdr_parse(struct msghdr *msg, __u32 **priority)
-+{
-+	struct cmsghdr *cmsg = CMSG_FIRSTHDR(msg);
-+
-+	for (; cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+
-+		if (!CMSG_OK(msg, cmsg))
-+			return -EINVAL;
-+
-+		/* Only look at DCCP-related socket control messages */
-+		if (cmsg->cmsg_level != SOL_DCCP)
-+			continue;
-+
-+		switch (cmsg->cmsg_type) {
-+		case DCCP_SCM_PRIORITY:
-+			if (cmsg->cmsg_len != CMSG_LEN(sizeof(__u32)))
-+				return -EINVAL;
-+			*priority = (__u32 *)CMSG_DATA(cmsg);
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+	}
-+	return 0;
-+}
-+
- int dccp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		 size_t len)
- {
-@@ -693,15 +740,18 @@ int dccp_sendmsg(struct kiocb *iocb, str
- 	const int noblock = flags & MSG_DONTWAIT;
- 	struct sk_buff *skb;
- 	int rc, size;
-+	__u32 *pprio = NULL;
- 	long timeo;
- 
- 	if (len > dp->dccps_mss_cache)
- 		return -EMSGSIZE;
- 
-+	if (dccp_msghdr_parse(msg, &pprio))
-+		return -EINVAL;
-+
- 	lock_sock(sk);
- 
--	if (sysctl_dccp_tx_qlen &&
--	    (sk->sk_write_queue.qlen >= sysctl_dccp_tx_qlen)) {
-+	if (dccp_qpolicy_full(sk)) {
- 		rc = -EAGAIN;
- 		goto out_release;
- 	}
-@@ -729,7 +779,18 @@ int dccp_sendmsg(struct kiocb *iocb, str
- 	if (rc != 0)
- 		goto out_discard;
- 
--	skb_queue_tail(&sk->sk_write_queue, skb);
-+	/*
-+	 * Assign the (opaque) qpolicy priority value to skb->priority.
-+	 *
-+	 * We are overloading this skb field for use with the qpolicy subystem.
-+	 * The skb->priority is normally used for the SO_PRIORITY option, which
-+	 * is initialised from sk_priority. Since the assignment of sk_priority
-+	 * to skb->priority happens later (on layer 3), we overload this field
-+	 * for use with queueing priorities as long as the skb is on layer 4.
-+	 */
-+	skb->priority = pprio == NULL ? 0 : *pprio;
-+
-+	dccp_qpolicy_push(sk, skb);
- 	dccp_write_xmit(sk);
- out_release:
- 	release_sock(sk);
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -238,7 +238,7 @@ static void dccp_xmit_packet(struct sock
- {
- 	int err, len;
- 	struct dccp_sock *dp = dccp_sk(sk);
--	struct sk_buff *skb = skb_dequeue(&sk->sk_write_queue);
-+	struct sk_buff *skb = dccp_qpolicy_pop(sk);
- 
- 	if (unlikely(skb == NULL))
- 		return;
-@@ -257,6 +257,9 @@ static void dccp_xmit_packet(struct sock
- 		DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_DATA;
- 	}
- 
-+	/* Clear priority value used by the qpolicy subsystem */
-+	skb->priority = 0;
-+
- 	err = dccp_transmit_skb(sk, skb);
- 	if (err)
- 		dccp_pr_debug("transmit_skb() returned err=%d\n", err);
-@@ -328,7 +331,7 @@ void dccp_write_xmit(struct sock *sk)
- 	struct dccp_sock *dp = dccp_sk(sk);
- 	struct sk_buff *skb;
- 
--	while ((skb = skb_peek(&sk->sk_write_queue))) {
-+	while ((skb = dccp_qpolicy_top(sk))) {
- 		int rc = ccid_hc_tx_send_packet(dp->dccps_hc_tx_ccid, sk, skb);
- 
- 		switch (ccid_packet_dequeue_eval(rc)) {
-@@ -342,8 +345,7 @@ void dccp_write_xmit(struct sock *sk)
- 			dccp_xmit_packet(sk);
- 			break;
- 		case CCID_PACKET_ERR:
--			skb_dequeue(&sk->sk_write_queue);
--			kfree_skb(skb);
-+			dccp_qpolicy_drop(sk, skb);
- 			dccp_pr_debug("packet discarded due to err=%d\n", rc);
+diff -r effa8facedf1 drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c	Tue Apr 22 07:59:24 2008 +1000
++++ b/drivers/net/virtio_net.c	Tue Apr 22 10:31:05 2008 +1000
+@@ -381,6 +381,15 @@ static int virtnet_probe(struct virtio_d
+ 			dev->features |= NETIF_F_TSO | NETIF_F_UFO
+ 				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
  		}
++		/* Individual feature bits: what can host handle? */
++		if (gso && vdev->config->feature(vdev, VIRTIO_NET_F_HOST_TSO4))
++			dev->features |= NETIF_F_TSO;
++		if (gso && vdev->config->feature(vdev, VIRTIO_NET_F_HOST_TSO6))
++			dev->features |= NETIF_F_TSO6;
++		if (gso && vdev->config->feature(vdev, VIRTIO_NET_F_HOST_ECN))
++			dev->features |= NETIF_F_TSO_ECN;
++		if (gso && vdev->config->feature(vdev, VIRTIO_NET_F_HOST_UFO))
++			dev->features |= NETIF_F_UFO;
  	}
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -215,6 +215,18 @@ extern void dccp_reqsk_send_ack(struct s
- extern void dccp_send_sync(struct sock *sk, const u64 seq,
- 			   const enum dccp_pkt_type pkt_type);
  
-+/*
-+ * TX Packet Dequeueing Interface
-+ */
-+extern void		dccp_qpolicy_push(struct sock *sk, struct sk_buff *skb);
-+extern bool		dccp_qpolicy_full(struct sock *sk);
-+extern void		dccp_qpolicy_drop(struct sock *sk, struct sk_buff *skb);
-+extern struct sk_buff	*dccp_qpolicy_top(struct sock *sk);
-+extern struct sk_buff	*dccp_qpolicy_pop(struct sock *sk);
-+
-+/*
-+ * TX Packet Output and TX Timers
-+ */
- extern void dccp_write_xmit(struct sock *sk);
- extern void dccp_write_space(struct sock *sk);
- extern void dccp_flush_write_queue(struct sock *sk, long *time_budget);
---- /dev/null
-+++ b/net/dccp/qpolicy.c
-@@ -0,0 +1,124 @@
-+/*
-+ *  net/dccp/qpolicy.c
-+ *
-+ *  An implementation of the DCCP protocol
-+ *
-+ *  Copyright (c) 2008 Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License v2
-+ *  as published by the Free Software Foundation.
-+ */
-+#include <asm/unaligned.h>
-+#include "dccp.h"
-+
-+/*
-+ *	Simple Dequeueing Policy:
-+ *	If tx_qlen is different from 0, enqueue up to tx_qlen elements.
-+ */
-+static void qpolicy_simple_push(struct sock *sk, struct sk_buff *skb)
-+{
-+	skb_queue_tail(&sk->sk_write_queue, skb);
-+}
-+
-+static bool qpolicy_simple_full(struct sock *sk)
-+{
-+	return dccp_sk(sk)->dccps_tx_qlen &&
-+	       sk->sk_write_queue.qlen >= dccp_sk(sk)->dccps_tx_qlen;
-+}
-+
-+static struct sk_buff *qpolicy_simple_top(struct sock *sk)
-+{
-+	return skb_peek(&sk->sk_write_queue);
-+}
-+
-+/*
-+ *	Priority-based Dequeueing Policy:
-+ *	If tx_qlen is different from 0 and the queue has reached its upper bound
-+ *	of tx_qlen elements, replace older packets lowest-priority-first.
-+ */
-+static struct sk_buff *qpolicy_prio_best_skb(struct sock *sk)
-+{
-+	struct sk_buff *skb, *best = NULL;
-+
-+	skb_queue_walk(&sk->sk_write_queue, skb)
-+		if (best == NULL || skb->priority > best->priority)
-+			best = skb;
-+	return best;
-+}
-+
-+static struct sk_buff *qpolicy_prio_worst_skb(struct sock *sk)
-+{
-+	struct sk_buff *skb, *worst = NULL;
-+
-+	skb_queue_walk(&sk->sk_write_queue, skb)
-+		if (worst == NULL || skb->priority < worst->priority)
-+			worst = skb;
-+	return worst;
-+}
-+
-+static bool qpolicy_prio_full(struct sock *sk)
-+{
-+	if (qpolicy_simple_full(sk))
-+		dccp_qpolicy_drop(sk, qpolicy_prio_worst_skb(sk));
-+	return false;
-+}
-+
-+/**
-+ * struct dccp_qpolicy_operations  -  TX Packet Dequeueing Interface
-+ * @push: add a new @skb with possibly a struct dccp_packet_info
-+ * @full: indicates that no more packets will be admitted
-+ * @top:  peeks at whatever the queueing policy defines as its top
-+ */
-+static struct dccp_qpolicy_operations {
-+	void		(*push)	(struct sock *sk, struct sk_buff *skb);
-+	bool		(*full) (struct sock *sk);
-+	struct sk_buff*	(*top)  (struct sock *sk);
-+
-+} qpol_table[DCCPQ_POLICY_MAX] = {
-+	[DCCPQ_POLICY_SIMPLE] = {
-+		.push = qpolicy_simple_push,
-+		.full = qpolicy_simple_full,
-+		.top  = qpolicy_simple_top,
-+	},
-+	[DCCPQ_POLICY_PRIO] = {
-+		.push = qpolicy_simple_push,
-+		.full = qpolicy_prio_full,
-+		.top  = qpolicy_prio_best_skb,
-+	},
-+};
-+
-+/*
-+ *	Externally visible interface
-+ */
-+void dccp_qpolicy_push(struct sock *sk, struct sk_buff *skb)
-+{
-+	qpol_table[dccp_sk(sk)->dccps_qpolicy].push(sk, skb);
-+}
-+
-+bool dccp_qpolicy_full(struct sock *sk)
-+{
-+	return qpol_table[dccp_sk(sk)->dccps_qpolicy].full(sk);
-+}
-+
-+void dccp_qpolicy_drop(struct sock *sk, struct sk_buff *skb)
-+{
-+	if (skb != NULL) {
-+		skb_unlink(skb, &sk->sk_write_queue);
-+		kfree_skb(skb);
-+	}
-+}
-+
-+struct sk_buff *dccp_qpolicy_top(struct sock *sk)
-+{
-+	return qpol_table[dccp_sk(sk)->dccps_qpolicy].top(sk);
-+}
-+
-+struct sk_buff *dccp_qpolicy_pop(struct sock *sk)
-+{
-+	struct sk_buff *skb = dccp_qpolicy_top(sk);
-+
-+	if (skb)
-+		skb_unlink(skb, &sk->sk_write_queue);
-+	return skb;
-+}
---- a/net/dccp/Makefile
-+++ b/net/dccp/Makefile
-@@ -1,7 +1,7 @@
- obj-$(CONFIG_IP_DCCP) += dccp.o dccp_ipv4.o
+ 	/* Configuration may specify what MAC to use.  Otherwise random. */
+diff -r effa8facedf1 include/linux/virtio_net.h
+--- a/include/linux/virtio_net.h	Tue Apr 22 07:59:24 2008 +1000
++++ b/include/linux/virtio_net.h	Tue Apr 22 10:31:05 2008 +1000
+@@ -6,9 +6,18 @@
+ #define VIRTIO_ID_NET	1
  
- dccp-y := ccid.o feat.o input.o minisocks.o options.o \
--	  output.o proto.o timer.o ackvec.o
-+	  qpolicy.o output.o proto.o timer.o ackvec.o
+ /* The feature bitmap for virtio net */
+-#define VIRTIO_NET_F_CSUM	0	/* Can handle pkts w/ partial csum */
++#define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
++#define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
+ #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
+-#define VIRTIO_NET_F_GSO	6	/* Can handle pkts w/ any GSO type */
++#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
++#define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
++#define VIRTIO_NET_F_GUEST_TSO6	8	/* Guest can handle TSOv6 in. */
++#define VIRTIO_NET_F_GUEST_ECN	9	/* Guest can handle TSO[6] w/ ECN in. */
++#define VIRTIO_NET_F_GUEST_UFO	10	/* Guest can handle UFO in. */
++#define VIRTIO_NET_F_HOST_TSO4	11	/* Host can handle TSOv4 in. */
++#define VIRTIO_NET_F_HOST_TSO6	12	/* Host can handle TSOv6 in. */
++#define VIRTIO_NET_F_HOST_ECN	13	/* Host can handle TSO[6] w/ ECN in. */
++#define VIRTIO_NET_F_HOST_UFO	14	/* Host can handle UFO in. */
  
- dccp_ipv4-y := ipv4.o
- 
-  
-
-
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
-
+ struct virtio_net_config
+ {
