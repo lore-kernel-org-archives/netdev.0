@@ -1,56 +1,43 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: [PATCH 1/2] [NET]: Allow send-limited cwnd to grow up to max_burst when gso disabled
-Date: Mon, 28 Apr 2008 16:22:30 -0700
-Message-ID: <1209424951-13450-1-git-send-email-johnwheffner@gmail.com>
-References: <d1c2719f0804281344h4b8c98b9w6d7d4d2cbcdee857@mail.gmail.com>
-Cc: netdev@vger.kernel.org, John Heffner <johnwheffner@gmail.com>
-To: davem@davemloft.net
+From: "John Heffner" <johnwheffner@gmail.com>
+Subject: Re: Socket buffer sizes with autotuning
+Date: Mon, 28 Apr 2008 16:28:16 -0700
+Message-ID: <1e41a3230804281628r363f9d3cn7b0eee0bd6423e65@mail.gmail.com>
+References: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
+	 <1e41a3230804240932u510609beh8fb577baaadeb9bd@mail.gmail.com>
+	 <d1c2719f0804241749p2c0dd7daofd343bc37a916247@mail.gmail.com>
+	 <20080424.234628.170849475.davem@davemloft.net>
+	 <d1c2719f0804281130n7b0aaab8t54b2a585cff53a99@mail.gmail.com>
+	 <1e41a3230804281221s11442a82j55c363116988a5cb@mail.gmail.com>
+	 <d1c2719f0804281338j3984cf2bga31def0c2c1192a1@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	rick.jones2@hp.com
+To: "Jerry Chu" <hkchu@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail172.messagelabs.com ([216.82.254.3]:19245 "HELO
-	mail172.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753328AbYD1XWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 19:22:38 -0400
-In-Reply-To: <d1c2719f0804281344h4b8c98b9w6d7d4d2cbcdee857@mail.gmail.com>
+Received: from wa-out-1112.google.com ([209.85.146.180]:27879 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753453AbYD1X2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 19:28:17 -0400
+Received: by wa-out-1112.google.com with SMTP id m16so8349397waf.23
+        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 16:28:16 -0700 (PDT)
+In-Reply-To: <d1c2719f0804281338j3984cf2bga31def0c2c1192a1@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This changes the logic in tcp_is_cwnd_limited() so that cwnd may grow
-up to tcp_max_burst() even when sk_can_gso() is false, or when
-sysctl_tcp_tso_win_divisor != 0.
+On Mon, Apr 28, 2008 at 1:38 PM, Jerry Chu <hkchu@google.com> wrote:
+> > Try this series of patches, against net-next.
+>
+> Ah, you already know about this problem. Yes it does the trick.
 
-Signed-off-by: John Heffner <johnwheffner@gmail.com>
----
- net/ipv4/tcp_cong.c |   11 ++++-------
- 1 files changed, 4 insertions(+), 7 deletions(-)
+I had not actually known about this.  (Just cooked up the patches
+after I saw your mail.)  This looks to me like a clear bug.  After
+looking carefully at the code there, it seems there was another small
+problem, too, though not likely to have much effect.
 
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 3a6be23..bfb1996 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -285,14 +285,11 @@ int tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
- 	if (in_flight >= tp->snd_cwnd)
- 		return 1;
- 
--	if (!sk_can_gso(sk))
--		return 0;
--
- 	left = tp->snd_cwnd - in_flight;
--	if (sysctl_tcp_tso_win_divisor)
--		return left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd;
--	else
--		return left <= tcp_max_burst(tp);
-+	if (sk_can_gso(sk) &&
-+	    left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd)
-+		return 1;
-+	return left <= tcp_max_burst(tp);
- }
- EXPORT_SYMBOL_GPL(tcp_is_cwnd_limited);
- 
--- 
-1.5.2.5
+Dave, can you apply the patches I just sent?
 
-
-______________________________________________________________________
-This email has been scanned by the MessageLabs Email Security System.
-For more information please visit http://www.messagelabs.com/email 
-______________________________________________________________________
+Thanks,
+  -John
