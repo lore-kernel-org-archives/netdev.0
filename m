@@ -1,63 +1,77 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] ARCH: Fix 32-bit x86 MSI-X allocation leakage
-Date: Mon, 28 Apr 2008 13:42:40 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32904F9EC8C@orsmsx414.amr.corp.intel.com>
-References: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com> <alpine.LFD.1.10.0804282216570.3261@apollo.tec.linutronix.de>
+From: "Jerry Chu" <hkchu@google.com>
+Subject: Re: Socket buffer sizes with autotuning
+Date: Mon, 28 Apr 2008 13:44:06 -0700
+Message-ID: <d1c2719f0804281344h4b8c98b9w6d7d4d2cbcdee857@mail.gmail.com>
+References: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
+	 <1e41a3230804240932u510609beh8fb577baaadeb9bd@mail.gmail.com>
+	 <d1c2719f0804241749p2c0dd7daofd343bc37a916247@mail.gmail.com>
+	 <20080424.234628.170849475.davem@davemloft.net>
+	 <d1c2719f0804281130n7b0aaab8t54b2a585cff53a99@mail.gmail.com>
+	 <1e41a3230804281221s11442a82j55c363116988a5cb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
-	"LKML" <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	<netdev@vger.kernel.org>
-To: "Thomas Gleixner" <tglx@linutronix.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	rick.jones2@hp.com
+To: "John Heffner" <johnwheffner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:44123 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933008AbYD1Umi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 16:42:38 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <alpine.LFD.1.10.0804282216570.3261@apollo.tec.linutronix.de>
+Received: from smtp-out.google.com ([216.239.33.17]:61628 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934751AbYD1UoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 16:44:12 -0400
+Received: from zps19.corp.google.com (zps19.corp.google.com [172.25.146.19])
+	by smtp-out.google.com with ESMTP id m3SKi7RZ028475
+	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 21:44:07 +0100
+Received: from hs-out-0708.google.com (hsbx43.prod.google.com [10.44.100.43])
+	by zps19.corp.google.com with ESMTP id m3SKhfCJ006577
+	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 13:44:06 -0700
+Received: by hs-out-0708.google.com with SMTP id x43so4355764hsb.3
+        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 13:44:06 -0700 (PDT)
+In-Reply-To: <1e41a3230804281221s11442a82j55c363116988a5cb@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Fri, 25 Apr 2008, PJ Waskiewicz wrote:
-> > This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where
-> 
-> Can you please explain what exactly caused the bug. 
-> Definitely not the move from arch/i386 to arch/x86 as the 
-> code there was not changed at all and has not be changed since then.
-> 
-> CC'ed Eric as well.
+On Mon, Apr 28, 2008 at 12:21 PM, John Heffner <johnwheffner@gmail.com> wrote:
+>
+> On Mon, Apr 28, 2008 at 11:30 AM, Jerry Chu <hkchu@google.com> wrote:
+> >  Correct, but its counterpart doesn't exist in tcp_is_cwnd_limited(). So
+> >  cwnd will continue to grow when left < cwnd/sysctl_tcp_tso_win_divisor,
+> >  which can be very large when cwnd is large.
+> >
+> >  If I change tcp_tso_win_divisor to 0, cwnd max out at 695 rather than 1037,
+> >  exactly off by 1/3. I tried to add the same check to tcp_is_cwnd_limited():
+> >
+> >  diff -c /tmp/tcp.h.old tcp.h
+> >  *** /tmp/tcp.h.old      Mon Apr 28 11:00:44 2008
+> >  --- tcp.h       Mon Apr 28 10:54:10 2008
+> >  ***************
+> >  *** 828,833 ****
+> >  --- 828,835 ----
+> >                 return 0;
+> >
+> >         left = tp->snd_cwnd - in_flight;
+> >  +       if (left >= 65536)
+> >  +               return 0;
+> >         if (sysctl_tcp_tso_win_divisor)
+> >                 return left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd;
+> >         else
+> >
+> >  >
+> >
+> >  But it doesn't seem to help (cwnd still grows to 1037).
+>
+> Cwnd is in packets, not bytes.
 
-Eric replied with the actual commit during the 2.6.24 merge window that
-introduced this bug.  The io_apic.c code from the i386 tree did not stay
-completely static when it was merged into the x86 io_apic_32.c code.
-Here is the commit that Eric identified that introduced the defect:
+Yes, of course.
 
-In particular commit dbeb2be21d678c49a8d8bbf774903df15dd55474
-Author: Rusty Russell <rusty@rustcorp.com.au>
-Date:   Fri Oct 19 20:35:03 2007 +0200
+>
+> Try this series of patches, against net-next.
 
-    i386: introduce "used_vectors" bitmap which can be used to reserve
-vectors.
-    
-    This simplifies the io_apic.c __assign_irq_vector() logic and
-removes
-    the explicit SYSCALL_VECTOR check, and also allows for vectors to be
-    reserved by other mechanisms (ie. lguest).
-    
-    [ tglx: arch/x86 adaptation ]
-    
-    Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-    Signed-off-by: Andi Kleen <ak@suse.de>
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
-    Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Ah, you already know about this problem. Yes it does the trick.
 
-Basically the code introduced the test_and_set_bit() on the used_vectors
-bitmap, but it didn't have a corresponding clear_bit() on IRQ
-destruction.
+Jerry
 
-Cheers,
--PJ Waskiewicz
+>
+>  -John
+>
