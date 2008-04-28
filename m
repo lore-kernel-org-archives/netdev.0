@@ -1,134 +1,147 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: External interface changes
-Date: Mon, 28 Apr 2008 23:29:48 +0200
-Message-ID: <200804282329.48669.tomasz@grobelny.oswiecenia.net>
-References: <200804222230.25743.tomasz@grobelny.oswiecenia.net> <20080424220704.0483DBC12@poczta.oswiecenia.net> <20080428150819.GA27604@gerrit.erg.abdn.ac.uk>
+From: wendy xiong <wendyx@us.ibm.com>
+Subject: Re: [PATCH 1/1 2.6.25-rc9] bnx2x: Add EEH support in bnx2x driver
+	- 10G pci-express adapter - Re-submit with a minor fix
+Date: Mon, 28 Apr 2008 16:52:05 -0500
+Message-ID: <1209419525.8085.10.camel@wendyx.austin.ibm.com>
+References: <1208983414.7339.31.camel@wendyx.austin.ibm.com>
+	 <1209287558.4928.18.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org
+To: Eliezer Tamir <eliezert@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:4157 "EHLO poczta.oswiecenia.net"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:55297 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937777AbYD1VaW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 17:30:22 -0400
-In-Reply-To: <20080428150819.GA27604@gerrit.erg.abdn.ac.uk>
-Content-Disposition: inline
+	id S964929AbYD1VwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 17:52:09 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3SLq6Se009293
+	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 17:52:06 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3SLq60J279932
+	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 17:52:06 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3SLq624026752
+	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 17:52:06 -0400
+In-Reply-To: <1209287558.4928.18.camel@lb-tlvb-eliezer.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dnia Monday 28 of April 2008, Gerrit Renker napisa=B3:
-> | @@ -721,9 +721,7 @@ static int dccp_msghdr_parse(struct msghdr *msg=
-,
-> | __u32 **priority)
-> |
-> |  		switch (cmsg->cmsg_type) {
-> |  		case DCCP_SCM_PRIORITY:
-> | -			if (cmsg->cmsg_len !=3D CMSG_LEN(sizeof(__u32)))
-> | -				return -EINVAL;
-> | -			*priority =3D (__u32 *)CMSG_DATA(cmsg);
-> | +			*cmsg_qpolicy =3D cmsg;
-> |  			break;
-> |  		default:
-> |  			return -EINVAL;
->
-> Here the cmsg is exported to any current qpolicy. The disadvantages
-> are	that * there is no longer any length check, the functions using t=
-his
-> interface have in the worst case no idea how much the user wanted to =
-pass,
-> so this is dangerous (compare also RFC 3542, 20.2);
-The information about size can be retrieved in specific qpolicy. It is =
-not=20
-CMSG_DATA(cmsg) that is passed to qpolicy but cmsg itself along with cm=
-sg_len=20
-field.
+Hi Eliezer,
 
->  * the separation-of-concerns becomes unclear: now part of the parsin=
-g is
-> done in dccp_msg_hdr_parse() and another part in some of the
-> qpolicy_xxx_push() routines, so one routine does part of the work of
-> another;
-That is a problem. So I think all the code should be moved to=20
-qpolicy_prio_push().
+Thanks for your comments!
 
->  * each qpolicy_xxx_push() routine needs to have a cmsghdr* argument =
-even
-> if it is not used.
->
-Before the change I could say: why call dccp_msghdr_parse() if choosen =
-policy=20
-cannot make use of it's result.
-No matter what we will always have either "unnecessary code", "unnecess=
-ary=20
-parameter" or something else that is "unnecessary" simply because simpl=
-e=20
-policy is, well... simple. But it has to be so to keep interfaces clean=
-=2E
+Re-sending with a minor fix.
 
-> It is however possible to reach the same goal with just a small
-> modification: * so far only one SCM message (DCCP_SCM_PRIORITY) has b=
-een
-> defined; * maintainers generally accepted the use of skb->priority wh=
-ile on
-> layer 4; * hence for all sub-variants of a "prio" policy (strict/part=
-ial
-> orderings), one can use DCCP_SCM_PRIORITY, in combination with
-> skb->priority; * for different policies, define a different DCCP_SCM_=
-xxx
-> message and store the cmsg data in a different field (to be decided);
->  * this has the advantage that type/length checking is all in one pla=
-ce,
->    so that the qpolicy routines need to do qpolicy only.
->
-I would use different DCCP_SCM_xxx for different parameters. So that on=
-e=20
-qpolicy could use more than one DCCP_SCM_xxx. And parsing of specific=20
-DCCP_SCM_xxx should IMHO happen in qpolicy_*_push().
+Thanks,
+Wendy
 
-> | --- a/net/dccp/qpolicy.c
-> | +++ b/net/dccp/qpolicy.c
-> | @@ -57,8 +58,13 @@ static struct sk_buff *qpolicy_prio_worst_skb(st=
-ruct
-> | sock *sk) return worst;
-> |  }
-> |
-> | -static void qpolicy_prio_push(struct sock *sk, struct sk_buff *skb=
-)
-> | +static void qpolicy_prio_push(struct sock *sk, struct sk_buff *skb=
-,
-> | +				struct cmsghdr *cmsg)
-> |  {
-> | +	struct dccp_qpolicy_prio_info info;
-> | +	memcpy(&info, CMSG_DATA(cmsg), min(cmsg->cmsg_len, sizeof(info)))=
-;
->
-> That is the problem I see - `info' could end up with garbled data, if=
- the
-> user had accidentally passed `u32' instead of CMSG_LEN(sizeof priorit=
-y).
->
-Right, but this could easily be fixed by initializing info prior to mem=
-cpy.=20
-Then only data provided by user would override defaults. But see below.
+diff -Nuarp 2.6.25-rc9/drivers/net/bnx2x.c 2.6.25-rc9.bnx2x/drivers/net/bnx2x.c
+--- 2.6.25-rc9/drivers/net/bnx2x.c      2008-04-23 10:38:03.000000000 -0500
++++ 2.6.25-rc9.bnx2x/drivers/net/bnx2x.c        2008-04-28 15:32:55.045159872 -0500
+@@ -9645,6 +9645,7 @@ static int __devinit bnx2x_init_board(st
+        }
 
-> The CMSG_LEN() ensures an additional check - that the user is in fact=
- using
-> proper encapsulation via CMSG_xxx macros and not via
-> msg_control/msg_controllen directly. The latter leads to hard-to-debu=
-g
-> problems: in my case, I found this works - by accident - on 32-bit In=
-tel,
-> but will fail on 64-bit computers in compatibility mode.
->
-Then min(cmsg->cmsg_len, sizeof(info)) could be changed to min(CMSG_LEN=
-(cmsg),=20
-sizeof(info)), I see no problem with that.
+        pci_set_master(pdev);
++       pci_save_state(pdev);
 
-That said I think that multiple DCCP_SCM_xxx per policy might be a bett=
-er=20
-approach.
---=20
-Regards,
-Tomasz Grobelny
+        bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
+        if (bp->pm_cap == 0) {
+@@ -9963,6 +9964,86 @@ static int bnx2x_resume(struct pci_dev *
+        return 0;
+ }
+
++/**
++ * bnx2x_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci connection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t bnx2x_io_error_detected(struct pci_dev *pdev,
++                                       pci_channel_state_t state)
++{
++       struct net_device *dev = pci_get_drvdata(pdev);
++       struct bnx2x *bp = netdev_priv(dev);
++
++       rtnl_lock();
++       netif_device_detach(dev);
++
++       if (netif_running(dev))
++               bnx2x_nic_unload(bp, 0);
++
++       pci_disable_device(pdev);
++       rtnl_unlock();
++
++       /* Request a slot slot reset. */
++       return PCI_ERS_RESULT_NEED_RESET;
++}
++
++/**
++ * bnx2x_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot.
++ */
++static pci_ers_result_t bnx2x_io_slot_reset(struct pci_dev *pdev)
++{
++       struct net_device *dev = pci_get_drvdata(pdev);
++       struct bnx2x *bp = netdev_priv(dev);
++
++       rtnl_lock();
++       if (pci_enable_device(pdev)) {
++               dev_err(&pdev->dev,
++                       "Cannot re-enable PCI device after reset.\n");
++               rtnl_unlock();
++               return PCI_ERS_RESULT_DISCONNECT;
++       }
++
++       pci_set_master(pdev);
++       pci_restore_state(pdev);
++       rtnl_unlock();
++
++       return PCI_ERS_RESULT_RECOVERED;
++}
++
++/**
++ * bnx2x_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells us that
++ * its OK to resume normal operation.
++ */
++static void bnx2x_io_resume(struct pci_dev *pdev)
++{
++       struct net_device *dev = pci_get_drvdata(pdev);
++       struct bnx2x *bp = netdev_priv(dev);
++
++       rtnl_lock();
++
++       if (netif_running(dev))
++               bnx2x_nic_load(bp, 0);
++       netif_device_attach(dev);
++
++       rtnl_unlock();
++}
++
++static struct pci_error_handlers bnx2x_err_handler = {
++       .error_detected = bnx2x_io_error_detected,
++       .slot_reset = bnx2x_io_slot_reset,
++       .resume = bnx2x_io_resume,
++};
++
+ static struct pci_driver bnx2x_pci_driver = {
+        .name       = DRV_MODULE_NAME,
+        .id_table   = bnx2x_pci_tbl,
+@@ -9970,6 +10051,7 @@ static struct pci_driver bnx2x_pci_drive
+        .remove     = __devexit_p(bnx2x_remove_one),
+        .suspend    = bnx2x_suspend,
+        .resume     = bnx2x_resume,
++       .err_handler= &bnx2x_err_handler,
+ };
+
+ static int __init bnx2x_init(void)
+
+
