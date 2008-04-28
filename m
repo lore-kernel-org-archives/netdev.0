@@ -1,38 +1,60 @@
 From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Subject: RE: [PATCH] ARCH: Fix 32-bit x86 MSI-X allocation leakage
-Date: Mon, 28 Apr 2008 14:21:26 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32904F9ED1F@orsmsx414.amr.corp.intel.com>
-References: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com> <alpine.LFD.1.10.0804282216570.3261@apollo.tec.linutronix.de> <D5C1322C3E673F459512FB59E0DDC32904F9EC8C@orsmsx414.amr.corp.intel.com> <alpine.LFD.1.10.0804282313040.3261@apollo.tec.linutronix.de>
+Date: Mon, 28 Apr 2008 14:27:40 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32904F9ED35@orsmsx414.amr.corp.intel.com>
+References: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com> <200804281909.m3SJ9v0k015496@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
-	"LKML" <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
+Cc: <torvalds@linux-foundation.org>, <linux-kernel@vger.kernel.org>,
 	<netdev@vger.kernel.org>
-To: "Thomas Gleixner" <tglx@linutronix.de>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:26957 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:15045 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932846AbYD1VVZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 17:21:25 -0400
+	id S934594AbYD1V1i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 17:27:38 -0400
 Content-class: urn:content-classes:message
-In-Reply-To: <alpine.LFD.1.10.0804282313040.3261@apollo.tec.linutronix.de>
+In-Reply-To: <200804281909.m3SJ9v0k015496@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Ok, that makes sense. I just did not get the context out of 
-> your commit log. Adding the commit which caused the trouble 
-> to the commit log makes it easier to understand. So the 
-> problem is unrelated to the merger, it's caused by a patch 
-> which was pending against the i386 tree around the time of 
-> the merger and which was converted to the merge tree.
+> Thanks Jesse for forwarding this to me.
 
-That's my miss for not including the specific context.  I will try to be
-better about that in the future.  I do appreciate the interest though to
-make sure it's specifically understood when this bug was introduced.
+Yes, Jesse took care of that oversight for me.  I owe him a tasty
+beverage.  :-)
+
+> The patch below does looks ok in terms of fixing the issue 
+> with respect to MSIs.
+> 
+> Unfortunately the entire used_vectors concept appears broken. 
+>  Rusty is not taking vector_lock.  used_vectors as designed 
+> can not work on x86_64 as vectors are allocated to interrupts 
+> in a per cpu manner, resulting in unnecessary divergences 
+> between the two pieces of code.  used_vectors is an an extra 
+> data structure that we have to keep in sync, and failing to 
+> keep that data structure in sync is why we have a problem.
+> 
+> For the concept of allocating a non 0x80 vector for 
+> interrupts Rusty was on the right track.  His implementation 
+> just appears to be broken in the corner cases, and has a 
+> design we can not use long term.
+> 
+> To fix this my inclination is to revert:
+> dbeb2be21d678c49a8d8bbf774903df15dd55474 (the infracture) and 
+> c18acd73ffc209def08003a1927473096f66c5ad (the lguest user) as 
+> we need to rework those pieces of code anyway, and then work 
+> with Rusty to come up with something that we can share on x86 
+> and x86_64.
+
+Either way, I'm fine if that gets reverted or not, just as long as we
+don't revert back to leaking vectors on device unload.  But if things
+are somewhat functional today, I'd say leave the code in there until the
+proper solution can be worked out.  Then go ahead and pull it out and
+put the new bits in, so anyone currently using the functionality
+provided isn't left out in the cold.  That is assuming that these bits
+are being used...
 
 Cheers,
-
 -PJ Waskiewicz
