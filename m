@@ -1,60 +1,134 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] ARCH: Fix 32-bit x86 MSI-X allocation leakage
-Date: Mon, 28 Apr 2008 14:27:40 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32904F9ED35@orsmsx414.amr.corp.intel.com>
-References: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com> <200804281909.m3SJ9v0k015496@frodo.ebiederm.org>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: External interface changes
+Date: Mon, 28 Apr 2008 23:29:48 +0200
+Message-ID: <200804282329.48669.tomasz@grobelny.oswiecenia.net>
+References: <200804222230.25743.tomasz@grobelny.oswiecenia.net> <20080424220704.0483DBC12@poczta.oswiecenia.net> <20080428150819.GA27604@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <torvalds@linux-foundation.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15045 "EHLO mga09.intel.com"
+Received: from oswiecenia.net ([83.13.108.58]:4157 "EHLO poczta.oswiecenia.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934594AbYD1V1i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 17:27:38 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <200804281909.m3SJ9v0k015496@frodo.ebiederm.org>
+	id S937777AbYD1VaW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 17:30:22 -0400
+In-Reply-To: <20080428150819.GA27604@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Thanks Jesse for forwarding this to me.
+Dnia Monday 28 of April 2008, Gerrit Renker napisa=B3:
+> | @@ -721,9 +721,7 @@ static int dccp_msghdr_parse(struct msghdr *msg=
+,
+> | __u32 **priority)
+> |
+> |  		switch (cmsg->cmsg_type) {
+> |  		case DCCP_SCM_PRIORITY:
+> | -			if (cmsg->cmsg_len !=3D CMSG_LEN(sizeof(__u32)))
+> | -				return -EINVAL;
+> | -			*priority =3D (__u32 *)CMSG_DATA(cmsg);
+> | +			*cmsg_qpolicy =3D cmsg;
+> |  			break;
+> |  		default:
+> |  			return -EINVAL;
+>
+> Here the cmsg is exported to any current qpolicy. The disadvantages
+> are	that * there is no longer any length check, the functions using t=
+his
+> interface have in the worst case no idea how much the user wanted to =
+pass,
+> so this is dangerous (compare also RFC 3542, 20.2);
+The information about size can be retrieved in specific qpolicy. It is =
+not=20
+CMSG_DATA(cmsg) that is passed to qpolicy but cmsg itself along with cm=
+sg_len=20
+field.
 
-Yes, Jesse took care of that oversight for me.  I owe him a tasty
-beverage.  :-)
+>  * the separation-of-concerns becomes unclear: now part of the parsin=
+g is
+> done in dccp_msg_hdr_parse() and another part in some of the
+> qpolicy_xxx_push() routines, so one routine does part of the work of
+> another;
+That is a problem. So I think all the code should be moved to=20
+qpolicy_prio_push().
 
-> The patch below does looks ok in terms of fixing the issue 
-> with respect to MSIs.
-> 
-> Unfortunately the entire used_vectors concept appears broken. 
->  Rusty is not taking vector_lock.  used_vectors as designed 
-> can not work on x86_64 as vectors are allocated to interrupts 
-> in a per cpu manner, resulting in unnecessary divergences 
-> between the two pieces of code.  used_vectors is an an extra 
-> data structure that we have to keep in sync, and failing to 
-> keep that data structure in sync is why we have a problem.
-> 
-> For the concept of allocating a non 0x80 vector for 
-> interrupts Rusty was on the right track.  His implementation 
-> just appears to be broken in the corner cases, and has a 
-> design we can not use long term.
-> 
-> To fix this my inclination is to revert:
-> dbeb2be21d678c49a8d8bbf774903df15dd55474 (the infracture) and 
-> c18acd73ffc209def08003a1927473096f66c5ad (the lguest user) as 
-> we need to rework those pieces of code anyway, and then work 
-> with Rusty to come up with something that we can share on x86 
-> and x86_64.
+>  * each qpolicy_xxx_push() routine needs to have a cmsghdr* argument =
+even
+> if it is not used.
+>
+Before the change I could say: why call dccp_msghdr_parse() if choosen =
+policy=20
+cannot make use of it's result.
+No matter what we will always have either "unnecessary code", "unnecess=
+ary=20
+parameter" or something else that is "unnecessary" simply because simpl=
+e=20
+policy is, well... simple. But it has to be so to keep interfaces clean=
+=2E
 
-Either way, I'm fine if that gets reverted or not, just as long as we
-don't revert back to leaking vectors on device unload.  But if things
-are somewhat functional today, I'd say leave the code in there until the
-proper solution can be worked out.  Then go ahead and pull it out and
-put the new bits in, so anyone currently using the functionality
-provided isn't left out in the cold.  That is assuming that these bits
-are being used...
+> It is however possible to reach the same goal with just a small
+> modification: * so far only one SCM message (DCCP_SCM_PRIORITY) has b=
+een
+> defined; * maintainers generally accepted the use of skb->priority wh=
+ile on
+> layer 4; * hence for all sub-variants of a "prio" policy (strict/part=
+ial
+> orderings), one can use DCCP_SCM_PRIORITY, in combination with
+> skb->priority; * for different policies, define a different DCCP_SCM_=
+xxx
+> message and store the cmsg data in a different field (to be decided);
+>  * this has the advantage that type/length checking is all in one pla=
+ce,
+>    so that the qpolicy routines need to do qpolicy only.
+>
+I would use different DCCP_SCM_xxx for different parameters. So that on=
+e=20
+qpolicy could use more than one DCCP_SCM_xxx. And parsing of specific=20
+DCCP_SCM_xxx should IMHO happen in qpolicy_*_push().
 
-Cheers,
--PJ Waskiewicz
+> | --- a/net/dccp/qpolicy.c
+> | +++ b/net/dccp/qpolicy.c
+> | @@ -57,8 +58,13 @@ static struct sk_buff *qpolicy_prio_worst_skb(st=
+ruct
+> | sock *sk) return worst;
+> |  }
+> |
+> | -static void qpolicy_prio_push(struct sock *sk, struct sk_buff *skb=
+)
+> | +static void qpolicy_prio_push(struct sock *sk, struct sk_buff *skb=
+,
+> | +				struct cmsghdr *cmsg)
+> |  {
+> | +	struct dccp_qpolicy_prio_info info;
+> | +	memcpy(&info, CMSG_DATA(cmsg), min(cmsg->cmsg_len, sizeof(info)))=
+;
+>
+> That is the problem I see - `info' could end up with garbled data, if=
+ the
+> user had accidentally passed `u32' instead of CMSG_LEN(sizeof priorit=
+y).
+>
+Right, but this could easily be fixed by initializing info prior to mem=
+cpy.=20
+Then only data provided by user would override defaults. But see below.
+
+> The CMSG_LEN() ensures an additional check - that the user is in fact=
+ using
+> proper encapsulation via CMSG_xxx macros and not via
+> msg_control/msg_controllen directly. The latter leads to hard-to-debu=
+g
+> problems: in my case, I found this works - by accident - on 32-bit In=
+tel,
+> but will fail on 64-bit computers in compatibility mode.
+>
+Then min(cmsg->cmsg_len, sizeof(info)) could be changed to min(CMSG_LEN=
+(cmsg),=20
+sizeof(info)), I see no problem with that.
+
+That said I think that multiple DCCP_SCM_xxx per policy might be a bett=
+er=20
+approach.
+--=20
+Regards,
+Tomasz Grobelny
