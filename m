@@ -1,77 +1,153 @@
-From: "Jerry Chu" <hkchu@google.com>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Mon, 28 Apr 2008 13:44:06 -0700
-Message-ID: <d1c2719f0804281344h4b8c98b9w6d7d4d2cbcdee857@mail.gmail.com>
-References: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
-	 <1e41a3230804240932u510609beh8fb577baaadeb9bd@mail.gmail.com>
-	 <d1c2719f0804241749p2c0dd7daofd343bc37a916247@mail.gmail.com>
-	 <20080424.234628.170849475.davem@davemloft.net>
-	 <d1c2719f0804281130n7b0aaab8t54b2a585cff53a99@mail.gmail.com>
-	 <1e41a3230804281221s11442a82j55c363116988a5cb@mail.gmail.com>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Mon, 28 Apr 2008 23:03:40 +0200
+Message-ID: <200804282303.40673.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804222230.25743.tomasz@grobelny.oswiecenia.net> <20080428131047.GB14346@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	rick.jones2@hp.com
-To: "John Heffner" <johnwheffner@gmail.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:61628 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934751AbYD1UoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 16:44:12 -0400
-Received: from zps19.corp.google.com (zps19.corp.google.com [172.25.146.19])
-	by smtp-out.google.com with ESMTP id m3SKi7RZ028475
-	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 21:44:07 +0100
-Received: from hs-out-0708.google.com (hsbx43.prod.google.com [10.44.100.43])
-	by zps19.corp.google.com with ESMTP id m3SKhfCJ006577
-	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 13:44:06 -0700
-Received: by hs-out-0708.google.com with SMTP id x43so4355764hsb.3
-        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 13:44:06 -0700 (PDT)
-In-Reply-To: <1e41a3230804281221s11442a82j55c363116988a5cb@mail.gmail.com>
+Received: from oswiecenia.net ([83.13.108.58]:1767 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934013AbYD1VEA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 17:04:00 -0400
+In-Reply-To: <20080428131047.GB14346@gerrit.erg.abdn.ac.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 28, 2008 at 12:21 PM, John Heffner <johnwheffner@gmail.com> wrote:
+Dnia Monday 28 of April 2008, Gerrit Renker napisa=B3:
+> | (a bit of reordering)
+> |
+> | > So we can reduce this to the other question "is 32 bit enough for
+> | > priority information".
+> |
+> | That is an important question. But I'm afraid the answer is no (eve=
+n
+> | though I thought otherwise when writing previous mail). When we wan=
+t to
+> | add packet expiry times we will need a field for timestamp. Which i=
+s
+> | quite big (64 bits?). But note that it is only needed for in-kernel
+> | implemetation. Userspace can write this information on as low as 16=
+ bits.
+> | This leads me to conclusions stated below.
 >
-> On Mon, Apr 28, 2008 at 11:30 AM, Jerry Chu <hkchu@google.com> wrote:
-> >  Correct, but its counterpart doesn't exist in tcp_is_cwnd_limited(). So
-> >  cwnd will continue to grow when left < cwnd/sysctl_tcp_tso_win_divisor,
-> >  which can be very large when cwnd is large.
-> >
-> >  If I change tcp_tso_win_divisor to 0, cwnd max out at 695 rather than 1037,
-> >  exactly off by 1/3. I tried to add the same check to tcp_is_cwnd_limited():
-> >
-> >  diff -c /tmp/tcp.h.old tcp.h
-> >  *** /tmp/tcp.h.old      Mon Apr 28 11:00:44 2008
-> >  --- tcp.h       Mon Apr 28 10:54:10 2008
-> >  ***************
-> >  *** 828,833 ****
-> >  --- 828,835 ----
-> >                 return 0;
-> >
-> >         left = tp->snd_cwnd - in_flight;
-> >  +       if (left >= 65536)
-> >  +               return 0;
-> >         if (sysctl_tcp_tso_win_divisor)
-> >                 return left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd;
-> >         else
-> >
-> >  >
-> >
-> >  But it doesn't seem to help (cwnd still grows to 1037).
+> I had the same thoughts - it is easy to end up with a wide range of
+> possible structs, numbers, etc. that are not related and require 20
+> different APIs.
+=46or now I can think of three possible solutions:
+a) one structure per policy (of course only if additional data is neede=
+d),
+b) one structure that could contain parameters from all possible polici=
+es=20
+(that would mean that not all fields are used),
+c) allow qpolicy to use each cmsg header as different parameter. So tha=
+t apart=20
+from DCCP_SCM_PRIORITY we could also have DCCP_SCM_TIMEOUT_MS. And this=
+ seems=20
+to be a very nice approach. It has several advantages:
+ - extensible,
+ - application does not need to pass parameter if it is ok with default=
+ value.=20
+It could for example pass only DCCP_SCM_TIMEOUT_MS without DCCP_SCM_PRI=
+ORITY,
+ - it is easy to maintain compatibility.
+This series of parameters should be parsed by specific qpolicy that can=
+ make=20
+use of them (read: prio). Other policies (read: simple) would not even=20
+attempt to parse the list of parameters.
+
+> But the basic line of thought is
+>  * the queue size is always limited since afaik the amount of skbs th=
+at
+>    can be queued depends on the socket's write memory (wmem);
+Yes.
+
+>  * hence a strict priority ordering can be done even with u8 (up to 2=
+55)
+>    in not-too-extreme case
+But note that it is not only about ordering but potentially also about =
+when=20
+(and if) packets should be dropped. And that may depend on many factors=
+, not=20
+only ordering, but also current time, current speed, current rtt, etc.
+
+> | So this could look like that:
+> | Userspace application fills in a structure:
+> | struct dccp_packet_info {
+> | 	s8 priority; //as it is now
+> | 	u16 expire_after; //up to 65s with 1ms accuracy
+> | }
+> | and passes it to sendmsg(..., struct dccp_packet_info pktinfo), whi=
+ch
+> | passes it to qpolicy_push which passes it to qpolicy_prio_push whic=
+h does
+> | the tricky stuff with CMSG and does:
+> | skb->priority=3Dpktinfo->priority;
+> | skb->tstamp=3Dnow()+pktinfo->expire_after;
+> | (possibly other things that could potentially store data in dccp_sk=
+b_cb)
 >
-> Cwnd is in packets, not bytes.
+> I notice you have discovered another skb field that could be reused :=
+)
+Yes :-)
 
-Yes, of course.
-
+> | This would allow us to:
+> | 1. Use existing skb fields in a clean way. I mean according to thei=
+r
+> | names (priority, tstamp).
+> | 2. Have a clean userspace interface not affected by internal kernel
+> |    implementation details.
+> |
+> | What do you think of such decoupling?
+> | --
 >
-> Try this series of patches, against net-next.
-
-Ah, you already know about this problem. Yes it does the trick.
-
-Jerry
-
+> Yes, great. The concept is good, it is some of the details that need
+> some more work. In (2) you mention distributing the information among
+> several skb fields. With regard to above comment, I think we need to =
+do
+> this with some care, to avoid interactions with other subsystems.
 >
->  -John
+Sure.
+
+> At the moment I have no concrete idea of how to implement a timeout-b=
+ased
+> policy ... probably this is something along the line of Ian's patches
+> and what you sketched above.
 >
+I think that implementing timeouts should not be in separate policy but=
+ in=20
+prio policy. Simply one more parameter would have to be passed to this =
+policy=20
+and timed out packets would be dropped in qpolicy_prio_full() or=20
+qpolicy_prio_push() methods. The master question for now is how to pass=
+ this=20
+additional parameter. I would be in favour of second struct cmsg* with =
+type=20
+set to DCCP_SCM_TIMEOUT_MS.
+
+> Also in (2) is the size question. The bottom line is if 2^32-1 differ=
+ent
+> numbers are sufficient to represent a range of policies, then we can
+> work with skb->priority for the moment.
+>
+> My understanding of the above is
+>  * the per-policy data is an opaque bitstring whose only requirement
+>    is that it fits within 32 bits;
+>  * how the bitstring is interpreted depends on the chosen policy;
+You mean data passed between userspace and kernelspace or in-kernel sto=
+rage?=20
+1. For user to kernel data for me seems to be not expressive enough. Wh=
+o knows=20
+what these 32-bits are supposed to mean? Ok, we may document that but t=
+o me=20
+it is almost like passing void*: you never know what's inside.
+2. For in-kernel storage 32-bits is simply not enough for priority+time=
+out.
+--=20
+Regards,
+Tomasz Grobelny
