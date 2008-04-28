@@ -1,75 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.25: Weird IPv4 stack behaviour, IPv6 is fine
-Date: Mon, 28 Apr 2008 03:30:22 -0700 (PDT)
-Message-ID: <20080428.033022.166259760.davem@davemloft.net>
-References: <48157685.1040709@openvz.org>
-	<20080428093130.GA1011@flint.arm.linux.org.uk>
-	<20080428101835.GA13522@flint.arm.linux.org.uk>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
+Date: Mon, 28 Apr 2008 13:53:17 +0300
+Message-ID: <4815AC9D.7080009@teltonika.lt>
+References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt> <480CB8C2.9090902@teltonika.lt> <480DA2CA.8090705@teltonika.lt> <480DED38.3080900@teltonika.lt> <480F3C41.10908@teltonika.lt> <4811CF33.8040007@teltonika.lt> <4811DA4F.30209@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, netfilter@vger.kernel.org
-To: rmk@arm.linux.org.uk
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <20080428101835.GA13522@flint.arm.linux.org.uk>
-Sender: netfilter-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------010904000301080401020101"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4811DA4F.30209-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Russell King <rmk@arm.linux.org.uk>
-Date: Mon, 28 Apr 2008 11:18:35 +0100
+This is a multi-part message in MIME format.
+--------------010904000301080401020101
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Further to this, it's looking like there's a nf_conntrack issue.  Having
-> placed similar printks in the netfilter code, I see the ipv4_confirm()
-> hook normally returning 1 (NF_ACCEPT), but then decides to return 0
-> (NF_DROP) and no ping replies.
+Incremental patch.
+- fix bug with freeing locked mutex:
 
-There's already been a report about specific hashing problems with
-conntrack on ARM.  It has something to do with how structures are
-padding on ARM combined with the following patch made by Patrick:
+ > =========================
+ > [ BUG: held lock freed! ]
+ > -------------------------
+ > modprobe/3829 is freeing memory ffff81002acb5948-ffff81002acb5a07, with
+ > a lock still held there!
+ >  (&mux->shared_int_lock){--..}, at: [<ffffffff88303234>]
+ > hso_serial_ref_free+0x7a/0xce [hso]
+ > 1 lock held by modprobe/3829:
+ >  #0:  (&mux->shared_int_lock){--..}, at: [<ffffffff88303234>]
+ > hso_serial_ref_free+0x7a/0xce [hso]
 
-commit 0794935e21a18e7c171b604c31219b60ad9749a9
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Jan 31 04:40:52 2008 -0800
+--------------010904000301080401020101
+Content-Type: text/x-patch;
+ name="hso_shared_int_free.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hso_shared_int_free.patch"
 
-    [NETFILTER]: nf_conntrack: optimize hash_conntrack()
-    
-    Avoid calling jhash three times and hash the entire tuple in one go.
-    
-      __hash_conntrack | -485 # 760 -> 275, # inlines: 3 -> 1, size inlines: 717 -> 252
-     1 function changed, 485 bytes removed
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index ce4c4ba..4a2cce1 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -73,15 +73,19 @@ static unsigned int nf_conntrack_hash_rnd;
- static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
- 				  unsigned int size, unsigned int rnd)
+--- linux-2.6-hso-my/drivers/net/usb/hso.c.orig	2008-04-25 16:13:41.000000000 +0300
++++ linux-2.6-hso-my/drivers/net/usb/hso.c	2008-04-28 12:34:23.000000000 +0300
+@@ -2210,7 +2210,8 @@ static void hso_free_serial_device(struc
+ 		mutex_lock(&serial->shared_int->shared_int_lock);
+ 		if (--serial->shared_int->ref_count == 0)
+ 			hso_free_shared_int(serial->shared_int);
+-		mutex_unlock(&serial->shared_int->shared_int_lock);
++		else
++			mutex_unlock(&serial->shared_int->shared_int_lock);
+ 	}
+ 	kfree(serial);
+ 	hso_free_device(hso_dev);
+@@ -2360,6 +2361,7 @@ static void hso_free_shared_int(struct h
  {
--	unsigned int a, b;
-+	unsigned int n;
-+	u_int32_t h;
- 
--	a = jhash2(tuple->src.u3.all, ARRAY_SIZE(tuple->src.u3.all),
--		   (tuple->src.l3num << 16) | tuple->dst.protonum);
--	b = jhash2(tuple->dst.u3.all, ARRAY_SIZE(tuple->dst.u3.all),
--		   ((__force __u16)tuple->src.u.all << 16) |
--		    (__force __u16)tuple->dst.u.all);
-+	/* The direction must be ignored, so we hash everything up to the
-+	 * destination ports (which is a multiple of 4) and treat the last
-+	 * three bytes manually.
-+	 */
-+	n = (sizeof(tuple->src) + sizeof(tuple->dst.u3)) / sizeof(u32);
-+	h = jhash2((u32 *)tuple, n,
-+		   rnd ^ (((__force __u16)tuple->dst.u.all << 16) |
-+			  tuple->dst.protonum));
- 
--	return ((u64)jhash_2words(a, b, rnd) * size) >> 32;
-+	return ((u64)h * size) >> 32;
+ 	usb_free_urb(mux->shared_intr_urb);
+ 	kfree(mux->shared_intr_buf);
++	mutex_unlock(&mux->shared_int_lock);
+ 	kfree(mux);
  }
  
- static inline u_int32_t hash_conntrack(const struct nf_conntrack_tuple *tuple)
 
+--------------010904000301080401020101--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
