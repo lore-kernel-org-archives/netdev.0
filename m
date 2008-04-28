@@ -1,85 +1,232 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: Re: [RFC PATCH resend]: Fix output for BEET ipsec
-Date: Mon, 28 Apr 2008 10:51:55 +0300
-Message-ID: <200804281051.55711.joakim.koskela@hiit.fi>
-References: <200803261115.26157.joakim.koskela@hiit.fi> <200804231013.38390.joakim.koskela@hiit.fi> <20080423073003.GB29767@gondor.apana.org.au>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] ipvs: fix oops in backup for fwmark conn templates
+Date: Mon, 28 Apr 2008 10:52:38 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0804281028110.2775@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+	"Rumen G. Bogdanovski" <rumen@voicecho.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Horms <horms@verge.net.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:37741 "EHLO creon.otaverkko.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750898AbYD1Hs7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 03:48:59 -0400
-In-Reply-To: <20080423073003.GB29767@gondor.apana.org.au>
-Content-Disposition: inline
+Received: from ja.ssi.bg ([217.79.71.194]:50229 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932257AbYD1Hw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 03:52:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 23 April 2008 10:30, Herbert Xu wrote:
-> On Wed, Apr 23, 2008 at 10:13:38AM +0300, Joakim Koskela wrote:
-> > Sorry, I know really should. I'll try to get back on this asap with some
-> > more details. But in a nutshell - I get crashes on 4-6 (inner-outer), and
-> > although 6-4 gets packets on the wire, they're somehow wrong. Hm, don't
-> > actually think there's anything wrong with 6-6 though, I'll have to
-> > recheck that..
->
-> OK I'll try to get my test environment back up to have a look.
->
-> Thanks,
 
-Here's a calltrace from 4 inner, 6 outer. I do a manual key setup, and try to
-ping the other host.
+	Fixes bug http://bugzilla.kernel.org/show_bug.cgi?id=10556
+where conn templates with protocol=IPPROTO_IP can oops backup box.
 
-------------[ cut here ]------------
-invalid opcode: 0000 [#4] PREEMPT
-Process ping (pid: 5516, ti=d9598000 task=d957b140 task.ti=d9598000)
-Stack: e086f700 e1b9a5ec 00000000 00000014 d9599c17 dc3fbc40 dfa68a80 dfa68a80
-       00000078 00000000 00000001 c069a3a0 deef2000 00000000 dc3fbc40 dfa68aa0
-       d9569040 dfa68a80 c03d2c04 00000054 d9569038 c0476b1d 00000054 dc35e600
-Call Trace:
- [<c03d2c04>] skb_to_sgvec+0x14/0x30
- [<c0476b1d>] esp6_output+0x1ad/0x270
- [<c0441fa4>] xfrm_output_resume+0x2a4/0x320
- [<c03fad17>] __ip_local_out+0x97/0xa0
- [<c03fad35>] ip_local_out+0x15/0x20
- [<c03faf4a>] ip_push_pending_frames+0x20a/0x350
- [<c03f3ea4>] ip_route_output_flow+0x74/0x290
- [<c041688f>] raw_sendmsg+0x69f/0x750
- [<c041eb27>] inet_sendmsg+0x37/0x70
- [<c03cde7d>] sock_sendmsg+0xcd/0x100
- [<c03fd407>] ip_setsockopt+0x147/0xc40
- [<c0136550>] autoremove_wake_function+0x0/0x50
- [<c011ce9c>] set_next_entity+0x1c/0x50
- [<c04cbfb7>] schedule+0x177/0x310
- [<c03d5afa>] verify_iovec+0x2a/0x90
- [<c03ce011>] sys_sendmsg+0x161/0x270
- [<c0359f6a>] tty_ioctl+0x73a/0xec0
- [<c014e7ae>] find_lock_page+0x2e/0xd0
- [<c0150e2f>] filemap_fault+0x1ef/0x460
- [<c015b291>] __do_fault+0x171/0x3b0
- [<c0150c40>] filemap_fault+0x0/0x460
- [<c015d0c2>] handle_mm_fault+0xf2/0x600
- [<c03cf42f>] sys_socketcall+0x24f/0x280
- [<c013b62d>] do_gettimeofday+0xd/0x30
- [<c0102f3d>] sysenter_past_esp+0x6a/0x91
- =======================
-Code: ff ff c7 44 24 0c 74 09 00 00 c7 44 24 08 a9 37 5a c0 c7 44 24 04 bb 37 5a c0 c7 04 24 2c 6e 5a c0 e8 95 1c d5 ff e9 02 ff ff ff <0f> 0b eb fe 0f 0b eb fe 90 8d b4 26 00 00 00 00 53 89 d3 83 ec
-EIP: [<c03d2be0>] __skb_to_sgvec+0x280/0x290 SS:ESP 0068:d9599bd0
+        Result from ip_vs_proto_get() should be checked because
+protocol value can be invalid or unsupported in backup. But
+for valid message we should not fail for templates which use
+IPPROTO_IP. Also, add checks to validate message limits and
+connection state. Show state NONE for templates using IPPROTO_IP.
 
-Modules linked in: radeon drm rfcomm l2cap binfmt_misc ppdev lp cpufreq_userspace cpufreq_conservative cpufreq_powersave cpufreq_ondemand ipt_TTL ipt_ttl ipt_REDIRECT ipt_recent ipt_NETMAP ipt_MASQUERADE ipt_ECN ipt_ecn ipt_addrtype nf_nat_tftp nf_nat_snmp_basic nf_nat_sip nf_nat_pptp nf_nat_proto_gre nf_nat_irc nf_nat_h323 nf_nat_ftp nf_nat_amanda ts_kmp nf_conntrack_amanda nf_conntrack_tftp nf_conntrack_sip nf_conntrack_proto_sctp nf_conntrack_pptp nf_conntrack_proto_gre nf_conntrack_netbios_ns nf_conntrack_irc nf_conntrack_h323 nf_conntrack_ftp xt_tcpmss xt_pkttype xt_mark xt_mac xt_limit xt_length xt_helper xt_hashlimit xt_dccp xt_conntrack xt_CONNMARK xt_connmark xt_state iptable_nat nf_nat nf_conntrack_ipv4 nf_conntrack nls_cp437 loop 8250_pci hci_usb bluetooth snd_intel8x0m snd_inte
- l8x0 snd_ac97_codec irtty_sir ac97_bus sir_dev snd_pcm_oss snd_mixer_oss parport_pc 8250_pnp snd_pcm 8250 irda snd_timer serial_core snd parport crc_ccitt floppy soundcore ide_cd_mod ipw2100 cdro
- i2c_i801 snd_page_alloc ieee80211 ieee80211_crypt e1000 ehci_hcd uhci_hcd video usbcore output evdev
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
 
-Pid: 5516, comm: ping Tainted: G      D  (2.6.25-02632-g358c129 #3)
-EIP: 0060:[<c03d2be0>] EFLAGS: 00010206 CPU: 0
-EIP is at __skb_to_sgvec+0x280/0x290
-EAX: dc3fbc40 EBX: 00000048 ECX: dfa68a80 EDX: d9569100
-ESI: 00000000 EDI: 00000014 EBP: 00000078 ESP: d9599bd0
- DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
----[ end trace ff7f9acec52365a5 ]---
+	I'm CCing people that have IPVS sync setups to make sure
+these fixes don't add other problems. For now only one user reported
+that IPVS sync works. I assume the problems during testing are result
+of patch hunk failures, not sure. This is large fix. There can be
+short fix that just fixes one buggy line: the result from ip_vs_proto_get.
+Also, I don't remember if fwmark based services are designed to work
+with sync.
 
-
-
+diff -urp v2.6.25/linux/include/net/ip_vs.h linux/include/net/ip_vs.h
+--- v2.6.25/linux/include/net/ip_vs.h	2008-04-17 09:58:08.000000000 +0300
++++ linux/include/net/ip_vs.h	2008-04-26 20:10:46.000000000 +0300
+@@ -405,7 +405,8 @@ struct sk_buff;
+ struct ip_vs_protocol {
+ 	struct ip_vs_protocol	*next;
+ 	char			*name;
+-	__u16			protocol;
++	u16			protocol;
++	u16			num_states;
+ 	int			dont_defrag;
+ 	atomic_t		appcnt;		/* counter of proto app incs */
+ 	int			*timeout_table;	/* protocol timeout table */
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto.c linux/net/ipv4/ipvs/ip_vs_proto.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto.c	2008-04-17 09:58:09.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_proto.c	2008-04-27 10:31:24.000000000 +0300
+@@ -148,7 +148,7 @@ const char * ip_vs_state_name(__u16 prot
+ 	struct ip_vs_protocol *pp = ip_vs_proto_get(proto);
+ 
+ 	if (pp == NULL || pp->state_name == NULL)
+-		return "ERR!";
++		return (IPPROTO_IP == proto) ? "NONE" : "ERR!";
+ 	return pp->state_name(state);
+ }
+ 
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_ah.c linux/net/ipv4/ipvs/ip_vs_proto_ah.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_ah.c	2007-07-10 09:18:43.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_proto_ah.c	2008-04-26 20:14:17.000000000 +0300
+@@ -160,6 +160,7 @@ static void ah_exit(struct ip_vs_protoco
+ struct ip_vs_protocol ip_vs_protocol_ah = {
+ 	.name =			"AH",
+ 	.protocol =		IPPROTO_AH,
++	.num_states =		1,
+ 	.dont_defrag =		1,
+ 	.init =			ah_init,
+ 	.exit =			ah_exit,
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_esp.c linux/net/ipv4/ipvs/ip_vs_proto_esp.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_esp.c	2008-04-17 09:58:09.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_proto_esp.c	2008-04-26 20:14:39.000000000 +0300
+@@ -159,6 +159,7 @@ static void esp_exit(struct ip_vs_protoc
+ struct ip_vs_protocol ip_vs_protocol_esp = {
+ 	.name =			"ESP",
+ 	.protocol =		IPPROTO_ESP,
++	.num_states =		1,
+ 	.dont_defrag =		1,
+ 	.init =			esp_init,
+ 	.exit =			esp_exit,
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_tcp.c linux/net/ipv4/ipvs/ip_vs_proto_tcp.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_tcp.c	2008-01-25 10:45:06.000000000 +0200
++++ linux/net/ipv4/ipvs/ip_vs_proto_tcp.c	2008-04-26 20:15:45.000000000 +0300
+@@ -594,6 +594,7 @@ static void ip_vs_tcp_exit(struct ip_vs_
+ struct ip_vs_protocol ip_vs_protocol_tcp = {
+ 	.name =			"TCP",
+ 	.protocol =		IPPROTO_TCP,
++	.num_states =		IP_VS_TCP_S_LAST,
+ 	.dont_defrag =		0,
+ 	.appcnt =		ATOMIC_INIT(0),
+ 	.init =			ip_vs_tcp_init,
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_udp.c linux/net/ipv4/ipvs/ip_vs_proto_udp.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_proto_udp.c	2008-01-25 10:45:06.000000000 +0200
++++ linux/net/ipv4/ipvs/ip_vs_proto_udp.c	2008-04-26 20:15:07.000000000 +0300
+@@ -409,6 +409,7 @@ static void udp_exit(struct ip_vs_protoc
+ struct ip_vs_protocol ip_vs_protocol_udp = {
+ 	.name =			"UDP",
+ 	.protocol =		IPPROTO_UDP,
++	.num_states =		IP_VS_UDP_S_LAST,
+ 	.dont_defrag =		0,
+ 	.init =			udp_init,
+ 	.exit =			udp_exit,
+diff -urp v2.6.25/linux/net/ipv4/ipvs/ip_vs_sync.c linux/net/ipv4/ipvs/ip_vs_sync.c
+--- v2.6.25/linux/net/ipv4/ipvs/ip_vs_sync.c	2008-04-17 09:58:09.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_sync.c	2008-04-27 15:11:00.000000000 +0300
+@@ -288,11 +288,16 @@ static void ip_vs_process_message(const 
+ 	char *p;
+ 	int i;
+ 
++	if (buflen < sizeof(struct ip_vs_sync_mesg)) {
++		IP_VS_ERR_RL("sync message header too short\n");
++		return;
++	}
++
+ 	/* Convert size back to host byte order */
+ 	m->size = ntohs(m->size);
+ 
+ 	if (buflen != m->size) {
+-		IP_VS_ERR("bogus message\n");
++		IP_VS_ERR_RL("bogus sync message size\n");
+ 		return;
+ 	}
+ 
+@@ -307,9 +312,48 @@ static void ip_vs_process_message(const 
+ 	for (i=0; i<m->nr_conns; i++) {
+ 		unsigned flags, state;
+ 
+-		s = (struct ip_vs_sync_conn *)p;
++		if (p + SIMPLE_CONN_SIZE > buffer+buflen) {
++			IP_VS_ERR_RL("bogus conn in sync message\n");
++			return;
++		}
++		s = (struct ip_vs_sync_conn *) p;
+ 		flags = ntohs(s->flags) | IP_VS_CONN_F_SYNC;
++		flags &= ~IP_VS_CONN_F_HASHED;
++		if (flags & IP_VS_CONN_F_SEQ_MASK) {
++			opt = (struct ip_vs_sync_conn_options *)&s[1];
++			p += FULL_CONN_SIZE;
++			if (p > buffer+buflen) {
++				IP_VS_ERR_RL("bogus conn options in sync message\n");
++				return;
++			}
++		} else {
++			opt = NULL;
++			p += SIMPLE_CONN_SIZE;
++		}
++
+ 		state = ntohs(s->state);
++		if (!(flags & IP_VS_CONN_F_TEMPLATE)) {
++			pp = ip_vs_proto_get(s->protocol);
++			if (!pp) {
++				IP_VS_ERR_RL("Unsupported protocol %u in sync msg\n",
++					s->protocol);
++				continue;
++			}
++			if (state >= pp->num_states) {
++				IP_VS_DBG(2, "Invalid %s state %u in sync msg\n",
++					pp->name, state);
++				continue;
++			}
++		} else {
++			/* protocol in templates is not used for state/timeout */
++			pp = NULL;
++			if (state > 0) {
++				IP_VS_DBG(2, "Invalid template state %u in sync msg\n",
++					state);
++				state = 0;
++			}
++		}
++
+ 		if (!(flags & IP_VS_CONN_F_TEMPLATE))
+ 			cp = ip_vs_conn_in_get(s->protocol,
+ 					       s->caddr, s->cport,
+@@ -345,14 +389,9 @@ static void ip_vs_process_message(const 
+ 				IP_VS_ERR("ip_vs_conn_new failed\n");
+ 				return;
+ 			}
+-			cp->state = state;
+ 		} else if (!cp->dest) {
+ 			dest = ip_vs_try_bind_dest(cp);
+-			if (!dest) {
+-				/* it is an unbound entry created by
+-				 * synchronization */
+-				cp->flags = flags | IP_VS_CONN_F_HASHED;
+-			} else
++			if (dest)
+ 				atomic_dec(&dest->refcnt);
+ 		} else if ((cp->dest) && (cp->protocol == IPPROTO_TCP) &&
+ 			   (cp->state != state)) {
+@@ -371,23 +410,22 @@ static void ip_vs_process_message(const 
+ 			}
+ 		}
+ 
+-		if (flags & IP_VS_CONN_F_SEQ_MASK) {
+-			opt = (struct ip_vs_sync_conn_options *)&s[1];
++		if (opt)
+ 			memcpy(&cp->in_seq, opt, sizeof(*opt));
+-			p += FULL_CONN_SIZE;
+-		} else
+-			p += SIMPLE_CONN_SIZE;
+-
+ 		atomic_set(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
+ 		cp->state = state;
+-		pp = ip_vs_proto_get(s->protocol);
+-		cp->timeout = pp->timeout_table[cp->state];
++		cp->old_state = cp->state;
++		/*
++		 * We can not recover the right timeout for templates
++		 * in all cases, we can not find the right fwmark
++		 * virtual service. If needed, we can do it for
++		 * non-fwmark persistent services.
++		 */
++		if (!(flags & IP_VS_CONN_F_TEMPLATE) && pp->timeout_table)
++			cp->timeout = pp->timeout_table[state];
++		else
++			cp->timeout = (3*60*HZ);
+ 		ip_vs_conn_put(cp);
+-
+-		if (p > buffer+buflen) {
+-			IP_VS_ERR("bogus message\n");
+-			return;
+-		}
+ 	}
+ }
+ 
