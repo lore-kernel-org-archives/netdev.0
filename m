@@ -1,68 +1,50 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: [RFC] updated Patch to option HSO driver to the kernel
-Date: Mon, 28 Apr 2008 13:53:17 +0300
-Message-ID: <4815AC9D.7080009@teltonika.lt>
-References: <20080417214719.GF17664@kroah.com> <480BE815.2000409@teltonika.lt> <480CB8C2.9090902@teltonika.lt> <480DA2CA.8090705@teltonika.lt> <480DED38.3080900@teltonika.lt> <480F3C41.10908@teltonika.lt> <4811CF33.8040007@teltonika.lt> <4811DA4F.30209@teltonika.lt>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: [PATCH][NET_SCHED] sch_sfq: prevent unnecessary reordering
+Date: Mon, 28 Apr 2008 12:37:14 +0100
+Message-ID: <4815B6EA.5070201@andyfurniss.entadsl.com>
+References: <20080428090453.GA4936@ff.dom.local>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010904000301080401020101"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4811DA4F.30209-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------010904000301080401020101
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.ukfsn.org ([77.75.108.10]:41808 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1763049AbYD1LhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 07:37:16 -0400
+In-Reply-To: <20080428090453.GA4936@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Incremental patch.
-- fix bug with freeing locked mutex:
+Jarek Poplawski wrote:
+> On 27-04-2008 16:22, Jarek Poplawski wrote:
+>> [NET_SCHED] sch_sfq: fix queue limiting while enqueuing
+>>
+> 
+> David, as Patrick noticed this patch was wrong and I withdraw it.
+> 
+> I still can't see why sfq should have such a low limit,
 
- > =========================
- > [ BUG: held lock freed! ]
- > -------------------------
- > modprobe/3829 is freeing memory ffff81002acb5948-ffff81002acb5a07, with
- > a lock still held there!
- >  (&mux->shared_int_lock){--..}, at: [<ffffffff88303234>]
- > hso_serial_ref_free+0x7a/0xce [hso]
- > 1 lock held by modprobe/3829:
- >  #0:  (&mux->shared_int_lock){--..}, at: [<ffffffff88303234>]
- > hso_serial_ref_free+0x7a/0xce [hso]
+It's a useful param which I use - on slow egress I can't see the point 
+of queuing many seconds worth of traffic. It may also help keep stronger 
+connections in check.
 
---------------010904000301080401020101
-Content-Type: text/x-patch;
- name="hso_shared_int_free.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="hso_shared_int_free.patch"
+When shaping ingress it's essential to drop early to get out of 
+slowstart before the far buffer gets too full.
 
---- linux-2.6-hso-my/drivers/net/usb/hso.c.orig	2008-04-25 16:13:41.000000000 +0300
-+++ linux-2.6-hso-my/drivers/net/usb/hso.c	2008-04-28 12:34:23.000000000 +0300
-@@ -2210,7 +2210,8 @@ static void hso_free_serial_device(struc
- 		mutex_lock(&serial->shared_int->shared_int_lock);
- 		if (--serial->shared_int->ref_count == 0)
- 			hso_free_shared_int(serial->shared_int);
--		mutex_unlock(&serial->shared_int->shared_int_lock);
-+		else
-+			mutex_unlock(&serial->shared_int->shared_int_lock);
- 	}
- 	kfree(serial);
- 	hso_free_device(hso_dev);
-@@ -2360,6 +2361,7 @@ static void hso_free_shared_int(struct h
- {
- 	usb_free_urb(mux->shared_intr_urb);
- 	kfree(mux->shared_intr_buf);
-+	mutex_unlock(&mux->shared_int_lock);
- 	kfree(mux);
- }
- 
 
---------------010904000301080401020101--
+> 
+> [NET_SCHED] sch_sfq: prevent unnecessary reordering
+> 
+> Current check of queue limit in sfq_enqueue() isn't optimal: there
+> is really not much more needed to prevent unnecessary dropping and
+> possible reordering.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Maybe it makes no difference in the long run, but if you drop and then 
+enqueue a later packet the sender will get to know sooner so congestion 
+control can do it's stuff.
+
+Andy.
