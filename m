@@ -1,88 +1,57 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Subject: Re: 2.6.25: Weird IPv4 stack behaviour, IPv6 is fine
-Date: Mon, 28 Apr 2008 11:18:35 +0100
-Message-ID: <20080428101835.GA13522@flint.arm.linux.org.uk>
-References: <20080427231411.GA5261@flint.arm.linux.org.uk> <48157685.1040709@openvz.org> <20080428093130.GA1011@flint.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org
-To: Pavel Emelyanov <xemul@openvz.org>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: 2.6.25 crash: EIP: [<c02e2f14>] xfrm_output_resume+0x64/0x100 ss:esp 0068:c03a1e5c
+Date: Mon, 28 Apr 2008 12:18:59 +0200
+Message-ID: <BAY103-DAV16C270BEEB34A42A676B1B2DE0@phx.gbl>
+References: <BAY103-DAV11F874912A45144805FC26B2DE0@phx.gbl> <20080428.024208.153440332.davem@davemloft.net>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	"Marco Berizzi" <pupilla@hotmail.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:37774 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752693AbYD1KSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 06:18:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20080428093130.GA1011@flint.arm.linux.org.uk>
+Received: from bay0-omc2-s7.bay0.hotmail.com ([65.54.246.143]:8784 "EHLO
+	bay0-omc2-s7.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752618AbYD1KVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 06:21:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 28, 2008 at 10:31:30AM +0100, Russell King wrote:
-> int ip_local_deliver(struct sk_buff *skb)
-> {
-> ...
-> if (ip_hdr(skb)->saddr == htonl(0xc0a80043) &&
->     ip_hdr(skb)->protocol == IPPROTO_ICMP) printk("ping 2\n");
->         return NF_HOOK(PF_INET, NF_INET_LOCAL_IN, skb, skb->dev, NULL,
->                        ip_local_deliver_finish);
-> }
-> 
-> static int ip_local_deliver_finish(struct sk_buff *skb)
-> {
->         __skb_pull(skb, ip_hdrlen(skb));
-> 
->         /* Point into the IP datagram, just past the header. */
->         skb_reset_transport_header(skb);
-> 
-> if (ip_hdr(skb)->saddr == htonl(0xc0a80043) &&
->     ip_hdr(skb)->protocol == IPPROTO_ICMP) printk("ping 3\n");
-> 
-> When the machine stops responding to pings, I see in the kernel message
-> log 'ping 2' but no 'ping 3' (whereas I get both when it does respond.)
-> 
-> I don't have the iptables binary installed, so there aren't any rules.
-> (Also, the iptables_filter module isn't loaded.)
+David Miller wrote:
 
-(Adding netfilter mailing list.  See http://marc.info/?t=120933809600001&r=1&w=2
-for the initial problem description.)
+> Netdev added to CC:, please include in all bug reports as
+> that's where the networking developers sit.
 
-Further to this, it's looking like there's a nf_conntrack issue.  Having
-placed similar printks in the netfilter code, I see the ipv4_confirm()
-hook normally returning 1 (NF_ACCEPT), but then decides to return 0
-(NF_DROP) and no ping replies.
+ok.
+Two different systems have crashed since
+2.6.25 upgrade (I upgraded a total of 8
+systems).
 
--bash-3.1# cat /proc/net/stat/ip_conntrack
-entries  searched found new invalid ignore delete delete_list insert insert_failed drop early_drop icmp_error  expect_new expect_create expect_delete
-00000110  000000e2 000001c6 000003bb 00000140 00000000 000002ab 0000023a 0000034a 0000005f 00000000 00000000 0000000f  00000000 00000000 00000000
+For now, the only two boxes that crashed
+have these modules loaded (where the other
+systems doesn't have these modules loaded):
 
-insert_failed increments when there aren't any ping replies.
+sch_sfq 6088 3
+sch_htb 15208 1
+cls_fw 3848 1
 
-The other interesting thing (though I'm not sure if it's really
-related or helps) is:
+Here is the script for setup htb (which classify
+traffic inside the ipsec tunnels):
 
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 29 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=19 bytes=156180 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 29 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=21 bytes=172620 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 29 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=22 bytes=180840 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 29 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=23 bytes=189060 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 29 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=24 bytes=197280 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 28 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=26 bytes=213720 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 25 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=26 bytes=213720 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 24 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=26 bytes=213720 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
--bash-3.1# grep 'ipv4.*icmp.*192.168.0.67' /proc/net/nf_conntrack
-ipv4     2 icmp     1 23 src=192.168.0.67 dst=78.32.30.220 type=8 code=0 id=53823 packets=26 bytes=213720 [UNREPLIED] src=78.32.30.220 dst=192.168.0.67 type=0 code=0 id=53823 packets=0 bytes=0 mark=0 use=1
+tc qdisc add dev eth0 root handle 1:0 htb default 11
 
-Note how the conntrack entry stays as "unreplied" and the packet and
-byte counters stop incrementing with each ping packet sent.  Maybe
-something's missing from the local IP output path to confirm the
-entry?
+tc class add dev eth0 parent 1:0 classid 1:1 htb rate 1700kbit ceil
+1700kbit burst 15k
+tc class add dev eth0 parent 1:1 classid 1:10 htb rate 200kbit ceil
+400kbit burst 5k
+tc class add dev eth0 parent 1:1 classid 1:11 htb rate 600kbit ceil
+1600kbit burst 5k
+tc class add dev eth0 parent 1:1 classid 1:12 htb rate 800kbit ceil
+1700kbit burst 15k
+tc qdisc add dev eth0 parent 1:10 handle 10:0 sfq perturb 10
+tc qdisc add dev eth0 parent 1:11 handle 20:0 sfq perturb 5
+tc qdisc add dev eth0 parent 1:12 handle 30:0 sfq perturb 10
 
--- 
-Russell King
+FW="tc filter add dev eth0 protocol ip parent 1:0 prio 1"
+$FW handle 110 fw flowid 1:10
+$FW handle 111 fw flowid 1:11
+$FW handle 112 fw flowid 1:12
+
+
