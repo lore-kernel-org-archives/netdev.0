@@ -1,27 +1,134 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Mon, 28 Apr 2008 16:35:21 -0700 (PDT)
-Message-ID: <20080428.163521.193687215.davem@davemloft.net>
-References: <1e41a3230804281221s11442a82j55c363116988a5cb@mail.gmail.com>
-	<d1c2719f0804281338j3984cf2bga31def0c2c1192a1@mail.gmail.com>
-	<1e41a3230804281628r363f9d3cn7b0eee0bd6423e65@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, netdev@vger.kernel.org, rick.jones2@hp.com
-To: johnwheffner@gmail.com
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH 2/2] Add support for SMSC LAN8187 and LAN8700 PHYs
+Date: Mon, 28 Apr 2008 18:37:29 +0100
+Message-ID: <1209404249-32572-1-git-send-email-steve.glendinning@smsc.com>
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Ian Saturley <ian.saturley@smsc.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36878
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754999AbYD1XfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 19:35:22 -0400
-In-Reply-To: <1e41a3230804281628r363f9d3cn7b0eee0bd6423e65@mail.gmail.com>
+Received: from sandgatehouse.force9.co.uk ([84.92.144.20]:42421 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755163AbYD1XhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 19:37:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John Heffner" <johnwheffner@gmail.com>
-Date: Mon, 28 Apr 2008 16:28:16 -0700
+Add support for two additional SMSC PHY models with identical interrupt
+source and mask registers to the LAN83C185
 
-> Dave, can you apply the patches I just sent?
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/phy/Kconfig |    2 +-
+ drivers/net/phy/smsc.c  |   69 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 69 insertions(+), 2 deletions(-)
 
-Sure thing.
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 3ac8529..6bf9e76 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -48,7 +48,7 @@ config VITESSE_PHY
+ config SMSC_PHY
+ 	tristate "Drivers for SMSC PHYs"
+ 	---help---
+-	  Currently supports the LAN83C185 PHY
++	  Currently supports the LAN83C185, LAN8187 and LAN8700 PHYs
+ 
+ config BROADCOM_PHY
+ 	tristate "Drivers for Broadcom PHYs"
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index 6a901f0..73baa7a 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -12,6 +12,8 @@
+  * Free Software Foundation;  either version 2 of the  License, or (at your
+  * option) any later version.
+  *
++ * Support added for SMSC LAN8187 and LAN8700 by steve.glendinning@smsc.com
++ *
+  */
+ 
+ #include <linux/kernel.h>
+@@ -82,13 +84,78 @@ static struct phy_driver lan83c185_driver = {
+ 	.driver		= { .owner = THIS_MODULE, }
+ };
+ 
++static struct phy_driver lan8187_driver = {
++	.phy_id		= 0x0007c0b0, /* OUI=0x00800f, Model#=0x0b */
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "SMSC LAN8187",
++
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
++				| SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++
++	/* basic functions */
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.config_init	= smsc_phy_config_init,
++
++	/* IRQ related */
++	.ack_interrupt	= smsc_phy_ack_interrupt,
++	.config_intr	= smsc_phy_config_intr,
++
++	.driver		= { .owner = THIS_MODULE, }
++};
++
++static struct phy_driver lan8700_driver = {
++	.phy_id		= 0x0007c0c0, /* OUI=0x00800f, Model#=0x0c */
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "SMSC LAN8700",
++
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
++				| SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++
++	/* basic functions */
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.config_init	= smsc_phy_config_init,
++
++	/* IRQ related */
++	.ack_interrupt	= smsc_phy_ack_interrupt,
++	.config_intr	= smsc_phy_config_intr,
++
++	.driver		= { .owner = THIS_MODULE, }
++};
++
+ static int __init smsc_init(void)
+ {
+-	return phy_driver_register (&lan83c185_driver);
++	int ret;
++
++	ret = phy_driver_register (&lan83c185_driver);
++	if (ret)
++		goto err1;
++
++	ret = phy_driver_register (&lan8187_driver);
++	if (ret)
++		goto err2;
++
++	ret = phy_driver_register (&lan8700_driver);
++	if (ret)
++		goto err3;
++
++	return 0;
++
++err3:
++	phy_driver_unregister (&lan8187_driver);
++err2:
++	phy_driver_unregister (&lan83c185_driver);
++err1:
++	return ret;
+ }
+ 
+ static void __exit smsc_exit(void)
+ {
++	phy_driver_unregister (&lan8700_driver);
++	phy_driver_unregister (&lan8187_driver);
+ 	phy_driver_unregister (&lan83c185_driver);
+ }
+ 
+-- 
+1.5.4.1
+
