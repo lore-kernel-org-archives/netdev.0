@@ -1,75 +1,74 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 3/4] virtio: net: Add ethtool ops for SG/GSO
-Date: Tue, 29 Apr 2008 01:19:16 +1000
-Message-ID: <200804290119.17180.rusty@rustcorp.com.au>
-References: <200804290116.05951.rusty@rustcorp.com.au> <200804290117.45010.rusty@rustcorp.com.au>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: TCP slowdown in 2.6.25?
+Date: Mon, 28 Apr 2008 17:19:19 +0200
+Message-ID: <1209395959.6904.25.camel@gentoo-jocke.transmode.se>
+References: <1209384733.6904.12.camel@gentoo-jocke.transmode.se>
+	 <1209389586.6904.17.camel@gentoo-jocke.transmode.se>
+	 <Pine.LNX.4.64.0804281728280.1888@wrl-59.cs.helsinki.fi>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
-To: virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:34650 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934089AbYD1PTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2008 11:19:25 -0400
-In-Reply-To: <200804290117.45010.rusty@rustcorp.com.au>
-Content-Disposition: inline
+Received: from mail.transmode.se ([83.241.175.147]:46840 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933418AbYD1PTW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 11:19:22 -0400
+In-Reply-To: <Pine.LNX.4.64.0804281728280.1888@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Date: Fri, 18 Apr 2008 11:21:42 +0800
-From: Herbert Xu <herbert@gondor.apana.org.au>
 
-This patch adds some basic ethtool operations to virtio_net so
-I could test SG without GSO (which was really useful because TSO
-turned out to be buggy :)
+On Mon, 2008-04-28 at 17:42 +0300, Ilpo J=E4rvinen wrote:
+> On Mon, 28 Apr 2008, Joakim Tjernlund wrote:
+> > On Mon, 2008-04-28 at 14:12 +0200, Joakim Tjernlund wrote:
+> > > After upgrading from 2.6.23 to 2.6.25 I am seeing a big slow down=
+ on
+> > > our old www server. Stracing shows lots of EAGAIN but i not sure
+> > > these are relevant. I got no idea where to start looking so
+> > > I would appreciate some pointers. Perhaps this is a know issue?
+> > >=20
+> > > CPU is a PowerPC, mpc8321, network driver ucc_geth
+> >=20
+> > Some info:
+> > Even ftp transfers takes forever, but only in one direction: from t=
+he
+> > node with kernel 2.6.25 to some other host. Strace show me that
+> > write(2) hangs for long periods before succeeding to transmit=20
+> > the data.
+>=20
+> Since it's easy, can you quickly try to if setting tcp_sack sysctl to=
+ 0=20
+> makes any difference (I made a surgery there, perhaps some bug in the=
+re=20
+> could cause TCP to recover by RTO multiple times in a row, that shoul=
+d=20
+> be visible in tcpdump as well)?
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au> (remove MTU setting)
----
- drivers/net/virtio_net.c |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+echo 0 > /proc/sys/net/ipv4/tcp_sack
+did not make a difference, same problem.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -19,6 +19,7 @@
- //#define DEBUG
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/ethtool.h>
- #include <linux/module.h>
- #include <linux/virtio.h>
- #include <linux/virtio_net.h>
-@@ -352,6 +353,22 @@ static int virtnet_close(struct net_devi
- 	return 0;
- }
- 
-+static int virtnet_set_tx_csum(struct net_device *dev, u32 data)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct virtio_device *vdev = vi->vdev;
-+
-+	if (data && !virtio_has_feature(vdev, VIRTIO_NET_F_CSUM))
-+		return -ENOSYS;
-+
-+	return ethtool_op_set_tx_hw_csum(dev, data);
-+}
-+
-+static struct ethtool_ops virtnet_ethtool_ops = {
-+	.set_tx_csum = virtnet_set_tx_csum,
-+	.set_sg = ethtool_op_set_sg,
-+};
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int err;
-@@ -371,6 +389,7 @@ static int virtnet_probe(struct virtio_d
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	dev->poll_controller = virtnet_netpoll;
- #endif
-+	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
- 	SET_NETDEV_DEV(dev, &vdev->dev);
- 
- 	/* Do we support "hardware" checksums? */
+
+>=20
+> Do you have network namespaces enabled in .config?
+
+No,
+# CONFIG_NAMESPACES is not set
+
+>=20
+> Netfilter/iptables involved?
+
+Some support compiled into the kernel, but no one is using it.
+
+>=20
+> To some specific or "any" other host? How long is "long"?
+
+Any host. A 1304632 bytes file takes about 110 seconds to transfer
+(12 Kbytes/sec)
+
+Thanks for helping.
+
+A quick capture with wireshark indicates that some sent packages from
+the node never reaches the host on the network.
