@@ -1,38 +1,153 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] phy: fix kernel-doc notation
-Date: Mon, 28 Apr 2008 10:58:22 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0804281056520.30172@shark.he.net>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: [RESEND][NETFILTER][PATCH] nfqnl_mangle() not requesting enough space for bigger reinjected packet.
+Date: Mon, 28 Apr 2008 19:49:01 +0200
+Message-ID: <87abjdvpiq.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jgarzik@pobox.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-=-="
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:40928 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1763309AbYD1R6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2008 13:58:24 -0400
-Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 10:58:22 -0700
+Received: from moog.chdir.org ([88.191.42.160]:38354 "EHLO moog.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932493AbYD1SCO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 14:02:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+--=-=-=
 
-Fix kernel-doc warning:
-Warning(linux-2.6.25-git11//drivers/net/phy/phy_device.c:275): No description found for parameter 'bus_id'
+Hi,
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+This is a resend, first post was to netdev only and slipped through.
+
+While reinjecting *bigger* modified versions of IPv6 packets using
+libnetfilter_queue, things work fine on a 2.6.24 kernel (2.6.22 too)
+but I get the following on recents kernels (2.6.25, trace below is
+against today's net-2.6 git tree):
+
+skb_over_panic: text:c04fddb0 len:696 put:632 head:f7592c00 data:f7592c00 tail:0xf7592eb8 end:0xf7592e80 dev:eth0
+------------[ cut here ]------------
+invalid opcode: 0000 [#1] PREEMPT 
+Process sendd (pid: 3657, ti=f6014000 task=f77c31d0 task.ti=f6014000)
+Stack: c071e638 c04fddb0 000002b8 00000278 f7592c00 f7592c00 f7592eb8 f7592e80 
+       f763c000 f6bc5200 f7592c40 f6015c34 c04cdbfc f6bc5200 00000278 f6015c60 
+       c04fddb0 00000020 f72a10c0 f751b420 00000001 0000000a 000002b8 c065582c 
+Call Trace:
+ [<c04fddb0>] ? nfqnl_recv_verdict+0x1c0/0x2e0
+ [<c04cdbfc>] ? skb_put+0x3c/0x40
+ [<c04fddb0>] ? nfqnl_recv_verdict+0x1c0/0x2e0
+ [<c04fd115>] ? nfnetlink_rcv_msg+0xf5/0x160
+ [<c04fd03e>] ? nfnetlink_rcv_msg+0x1e/0x160
+ [<c04fd020>] ? nfnetlink_rcv_msg+0x0/0x160
+ [<c04f8ed7>] ? netlink_rcv_skb+0x77/0xa0
+ [<c04fcefc>] ? nfnetlink_rcv+0x1c/0x30
+ [<c04f8c73>] ? netlink_unicast+0x243/0x2b0
+ [<c04cfaba>] ? memcpy_fromiovec+0x4a/0x70
+ [<c04f9406>] ? netlink_sendmsg+0x1c6/0x270
+ [<c04c8244>] ? sock_sendmsg+0xc4/0xf0
+ [<c011970d>] ? set_next_entity+0x1d/0x50
+ [<c0133a80>] ? autoremove_wake_function+0x0/0x40
+ [<c0118f9e>] ? __wake_up_common+0x3e/0x70
+ [<c0342fbf>] ? n_tty_receive_buf+0x34f/0x1280
+ [<c011d308>] ? __wake_up+0x68/0x70
+ [<c02cea47>] ? copy_from_user+0x37/0x70
+ [<c04cfd7c>] ? verify_iovec+0x2c/0x90
+ [<c04c837a>] ? sys_sendmsg+0x10a/0x230
+ [<c011967a>] ? __dequeue_entity+0x2a/0xa0
+ [<c011970d>] ? set_next_entity+0x1d/0x50
+ [<c0345397>] ? pty_write+0x47/0x60
+ [<c033d59b>] ? tty_default_put_char+0x1b/0x20
+ [<c011d2e9>] ? __wake_up+0x49/0x70
+ [<c033df99>] ? tty_ldisc_deref+0x39/0x90
+ [<c033ff20>] ? tty_write+0x1a0/0x1b0
+ [<c04c93af>] ? sys_socketcall+0x7f/0x260
+ [<c0102ff9>] ? sysenter_past_esp+0x6a/0x91
+ [<c05f0000>] ? snd_intel8x0m_probe+0x270/0x6e0
+ =======================
+Code: 00 00 89 5c 24 14 8b 98 9c 00 00 00 89 54 24 0c 89 5c 24 10 8b 40 50 89 4c 24 04 c7 04 24 38 e6 71 c0 89 44 24 08 e8 c4 46 c5 ff <0f> 0b eb fe 55 89 e5 56 89 d6 53 89 c3 83 ec 0c 8b 40 50 39 d0 
+EIP: [<c04ccdfc>] skb_over_panic+0x5c/0x60 SS:ESP 0068:f6015bf8
+
+
+Looking at the code, I ended up in nfq_mangle() function (called by
+nfqnl_recv_verdict()) which performs a call to skb_copy_expand() due to
+the increased size of data passed to the function. AFAICT, it should ask
+for 'diff' instead of 'diff - skb_tailroom(e->skb)'. Because the
+resulting sk_buff has not enough space to support the skb_put(skb, diff)
+call a few lines later, this results in the call to skb_over_panic().
+
+The patch below asks for allocation of a copy with enough space for
+mangled packet and the same amount of headroom as old sk_buff. While
+looking at how the regression appeared (e2b58a67), I noticed the same
+pattern in ipq_mangle_ipv6() and ipq_mangle_ipv4(). The patch corrects
+those locations too.
+
+Tested with bigger reinjected IPv6 packets (nfqnl_mangle() path), things
+are ok (2.6.25 and today's net-2.6 git tree).
+
+Don't hesitate if I missed something.
+
+Cheers,
+
+a+
+
+
+--=-=-=
+Content-Type: text/x-diff
+Content-Disposition: inline;
+ filename=bad_argument_to_skb_copy_expand_in_nfqnl_mangle.patch
+
+Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+
 ---
- drivers/net/phy/phy_device.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
---- linux-2.6.25-git11.orig/drivers/net/phy/phy_device.c
-+++ linux-2.6.25-git11/drivers/net/phy/phy_device.c
-@@ -256,7 +256,7 @@ void phy_prepare_link(struct phy_device 
- /**
-  * phy_connect - connect an ethernet device to a PHY device
-  * @dev: the network device to connect
-- * @phy_id: the PHY device to connect
-+ * @bus_id: the id string of the PHY device to connect
-  * @handler: callback function for state change notifications
-  * @flags: PHY device's dev_flags
-  * @interface: PHY device's interface
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index 719be29..26a37ce 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -296,9 +296,8 @@ ipq_mangle_ipv4(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
+ 		if (v->data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			nskb = skb_copy_expand(e->skb, 0,
+-					       diff - skb_tailroom(e->skb),
+-					       GFP_ATOMIC);
++			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
++					       diff, GFP_ATOMIC);
+ 			if (!nskb) {
+ 				printk(KERN_WARNING "ip_queue: error "
+ 				      "in mangle, dropping packet\n");
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 92a36c9..2eff3ae 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -298,9 +298,8 @@ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
+ 		if (v->data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			nskb = skb_copy_expand(e->skb, 0,
+-					       diff - skb_tailroom(e->skb),
+-					       GFP_ATOMIC);
++			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
++					       diff, GFP_ATOMIC);
+ 			if (!nskb) {
+ 				printk(KERN_WARNING "ip6_queue: OOM "
+ 				      "in mangle, dropping packet\n");
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 2c9fe5c..3447025 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -454,9 +454,8 @@ nfqnl_mangle(void *data, int data_len, struct nf_queue_entry *e)
+ 		if (data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			nskb = skb_copy_expand(e->skb, 0,
+-					       diff - skb_tailroom(e->skb),
+-					       GFP_ATOMIC);
++			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
++					       diff, GFP_ATOMIC);
+ 			if (!nskb) {
+ 				printk(KERN_WARNING "nf_queue: OOM "
+ 				      "in mangle, dropping packet\n");
+
+--=-=-=--
