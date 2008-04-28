@@ -1,55 +1,38 @@
-From: "Tom Herbert" <therbert@google.com>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Mon, 28 Apr 2008 10:51:12 -0700
-Message-ID: <65634d660804281051i1ce3deb1m626bb9b64473b536@mail.gmail.com>
-References: <65634d660804242234w66455bedve44801a98e3de9d9@mail.gmail.com>
-	 <20080424.233643.250240829.davem@davemloft.net>
-	 <65634d660804250042y5786e305t456f2154a6bcf040@mail.gmail.com>
-	 <20080425.004634.27450322.davem@davemloft.net>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: [PATCH] phy: fix kernel-doc notation
+Date: Mon, 28 Apr 2008 10:58:22 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0804281056520.30172@shark.he.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, johnwheffner@gmail.com, rick.jones2@hp.com,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jgarzik@pobox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:33995 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934430AbYD1RvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 13:51:16 -0400
-Received: from spaceape14.eur.corp.google.com (spaceape14.eur.corp.google.com [172.28.16.148])
-	by smtp-out.google.com with ESMTP id m3SHpD2G005236
-	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 18:51:13 +0100
-Received: from py-out-1112.google.com (pybu52.prod.google.com [10.34.97.52])
-	by spaceape14.eur.corp.google.com with ESMTP id m3SHo8K9011279
-	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 18:51:12 +0100
-Received: by py-out-1112.google.com with SMTP id u52so5144502pyb.1
-        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 10:51:12 -0700 (PDT)
-In-Reply-To: <20080425.004634.27450322.davem@davemloft.net>
-Content-Disposition: inline
+Received: from xenotime.net ([66.160.160.81]:40928 "HELO xenotime.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1763309AbYD1R6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 13:58:24 -0400
+Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 10:58:22 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  > If NIC is interrupt driven, enough data must be queued to span
->  > consecutive interrupts.  So for instance if a 10G NIC is generating an
->  > interrupt every 100us, about 125,000 bytes needs to queued at each
->  > interrupt to prevent starvation-- this doesn't translate to a fixed
->  > number of packets.  Limiting by packets seems somewhat ad hoc; if the
->  > limit is to small and the link will be starved, too big and
->  > over-queuing results.
->
->  Yes, however when packets are small the limiting factor becomes
->  per-transfer transaction related overhead.
->
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-The gist of our algorithm is to determine when the device has been
-starved (ie. when all packets queued to the device have been sent, and
-there are packets ready in host queues).  When the device is starved,
-the byte limit is increased by some amount; if the device is not
-starved, the byte limit is decreased by an amount subject to some
-mechanisms to prevent hysteresis.  If throughput is less than line
-rate, because of small packets for example, the byte limit will
-decrease accordingly since fewer packets are needed to be queued to
-prevent starvation.  This algorithm requires no a priori knowledge of
-link speed or interrupt rate, it will adjust the byte queue limit to
-such variable parameters.
+Fix kernel-doc warning:
+Warning(linux-2.6.25-git11//drivers/net/phy/phy_device.c:275): No description found for parameter 'bus_id'
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/phy/phy_device.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-2.6.25-git11.orig/drivers/net/phy/phy_device.c
++++ linux-2.6.25-git11/drivers/net/phy/phy_device.c
+@@ -256,7 +256,7 @@ void phy_prepare_link(struct phy_device 
+ /**
+  * phy_connect - connect an ethernet device to a PHY device
+  * @dev: the network device to connect
+- * @phy_id: the PHY device to connect
++ * @bus_id: the id string of the PHY device to connect
+  * @handler: callback function for state change notifications
+  * @flags: PHY device's dev_flags
+  * @interface: PHY device's interface
