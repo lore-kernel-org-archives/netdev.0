@@ -1,55 +1,68 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipvs: fix oops in backup for fwmark conn templates
-Date: Mon, 28 Apr 2008 11:58:55 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0804281151550.3315@u.domain.uli>
-References: <Pine.LNX.4.58.0804281028110.2775@u.domain.uli>
- <20080428083011.GA6139@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: useless tcp maybe-bug report
+Date: Mon, 28 Apr 2008 02:01:23 -0700 (PDT)
+Message-ID: <20080428.020123.07945936.davem@davemloft.net>
+References: <20080428014049.eee1a533.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"Rumen G. Bogdanovski" <rumen@voicecho.com>,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:55949 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1765436AbYD1I6U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2008 04:58:20 -0400
-In-Reply-To: <20080428083011.GA6139@verge.net.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52706
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752350AbYD1JBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 05:01:23 -0400
+In-Reply-To: <20080428014049.eee1a533.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 28 Apr 2008 01:40:49 -0700
 
-	Hello,
-
-On Mon, 28 Apr 2008, Simon Horman wrote:
-
-> On Mon, Apr 28, 2008 at 10:52:38AM +0300, Julian Anastasov wrote:
-> > 
-> > 	Fixes bug http://bugzilla.kernel.org/show_bug.cgi?id=10556
-> > where conn templates with protocol=IPPROTO_IP can oops backup box.
-> > 
-> >         Result from ip_vs_proto_get() should be checked because
-> > protocol value can be invalid or unsupported in backup. But
-> > for valid message we should not fail for templates which use
-> > IPPROTO_IP. Also, add checks to validate message limits and
-> > connection state. Show state NONE for templates using IPPROTO_IP.
+> I just fired up latest mainline plus the 300-odd patches which I'm about to
+> send Linuswards on a mac g5.
 > 
-> Julian, am I right in thinking that this is a long-standing bug
-> rather than a recent regression?
+> I use that g5 as a distcc server.  I'm now seeing this:
+> 
+> distcc[13554] (dcc_writex) ERROR: failed to write: Connection reset by peer
+> distcc[13554] (dcc_writex) ERROR: failed to write: Broken pipe
+> distcc[13554] Warning: failed to distribute net/atm/clip.mod.c to g5/32, running locally instead
+> 
+> about once per allmodconfig build.  The client kernel is 2.6.24.3-34.fc8
+> and has never changed.
+> 
+> Thing is, these messages are unusual.  I suspect that Something Is Up with
+> that g5, perhaps its networking.
+> 
+> There are no signs of problems in the g5's dmesg.
 
-	Bug reporter is using 2.6.24.4, bug comes with 2.6.24,
-pp is NULL for IPPROTO_IP, 2.6.24 shows:
+I bet your fc8 kernel has the bug that needs this patch below.
 
-[IPVS]: use proper timeout instead of fixed value
+The bug causes timewait sockets to reset erroneously and matches your
+symptoms precisely.
 
--               cp->timeout = IP_VS_SYNC_CONN_TIMEOUT;
-+               cp->state = ntohs(s->state);
-+               pp = ip_vs_proto_get(s->protocol);
-+               cp->timeout = pp->timeout_table[cp->state];
+commit 7951f0b03a63d657c72c7d54d306ef3357e7e604
+Author: Daniel Lezcano <dlezcano@fr.ibm.com>
+Date:   Thu Apr 10 20:53:10 2008 -0700
 
-Regards
+    [NETNS][IPV6] tcp - assign the netns for timewait sockets
+    
+    Copy the network namespace from the socket to the timewait socket.
+    
+    Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+    Acked-by: Mark Lord <mlord@pobox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index 876169f..717c411 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -124,6 +124,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int stat
+ 		tw->tw_hash	    = sk->sk_hash;
+ 		tw->tw_ipv6only	    = 0;
+ 		tw->tw_prot	    = sk->sk_prot_creator;
++		tw->tw_net          = sk->sk_net;
+ 		atomic_set(&tw->tw_refcnt, 1);
+ 		inet_twsk_dead_node_init(tw);
+ 		__module_get(tw->tw_prot->owner);
