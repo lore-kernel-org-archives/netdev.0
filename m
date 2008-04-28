@@ -1,109 +1,176 @@
 From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 6/9 net-next-2.6] [TIPC]: Cosmetic cleanup of print buffer code
-Date: Mon, 28 Apr 2008 15:48:43 -0400
-Message-ID: <1209412126-2109-7-git-send-email-allan.stephens@windriver.com>
+Subject: [PATCH 8/9 net-next-2.6] [TIPC]: Exclude debug-only print buffer code when not debugging
+Date: Mon, 28 Apr 2008 15:48:45 -0400
+Message-ID: <1209412126-2109-9-git-send-email-allan.stephens@windriver.com>
 References: <1209412126-2109-1-git-send-email-allan.stephens@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:33683 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:33701 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934197AbYD1TwF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2008 15:52:05 -0400
+	id S934205AbYD1TwH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 15:52:07 -0400
 In-Reply-To: <1209412126-2109-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch contains changes to make TIPC's print buffer code
-conform more closely to Linux kernel coding guidelines.
+This patch modifies TIPC to only exclude debug-related print buffer
+routines when debugging capabilities are not required.  It also
+fixes up some related #defines that exceed 80 characters.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 ---
- net/tipc/core.h |    6 ++++--
- net/tipc/dbg.c  |   14 +++++++-------
- 2 files changed, 11 insertions(+), 9 deletions(-)
+ net/tipc/core.h |   12 ++++++++----
+ net/tipc/dbg.c  |    8 ++++++--
+ net/tipc/link.c |   20 ++++++++++++++++----
+ net/tipc/msg.c  |   10 +++++++---
+ 4 files changed, 37 insertions(+), 13 deletions(-)
 
 diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 7042ef3..bc63355 100644
+index d7f3b3c..0d783bc 100644
 --- a/net/tipc/core.h
 +++ b/net/tipc/core.h
-@@ -2,7 +2,7 @@
-  * net/tipc/core.h: Include file for TIPC global declarations
-  *
-  * Copyright (c) 2005-2006, Ericsson AB
-- * Copyright (c) 2005-2006, Wind River Systems
-+ * Copyright (c) 2005-2007, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -65,7 +65,9 @@
- #define assert(i)  BUG_ON(!(i))
+@@ -85,8 +85,6 @@ extern struct print_buf *const TIPC_CONS;
+ extern struct print_buf *const TIPC_LOG;
  
- struct tipc_msg;
--extern struct print_buf *TIPC_NULL, *TIPC_CONS, *TIPC_LOG;
-+extern struct print_buf *const TIPC_NULL;
-+extern struct print_buf *const TIPC_CONS;
-+extern struct print_buf *const TIPC_LOG;
- void tipc_msg_print(struct print_buf*,struct tipc_msg *,const char*);
  void tipc_printf(struct print_buf *, const char *fmt, ...);
- void tipc_dump(struct print_buf*,const char *fmt, ...);
-diff --git a/net/tipc/dbg.c b/net/tipc/dbg.c
-index 8ca9457..cda4968 100644
---- a/net/tipc/dbg.c
-+++ b/net/tipc/dbg.c
-@@ -49,13 +49,13 @@
-  */
- 
- static struct print_buf null_buf = { NULL, 0, NULL, 0 };
--struct print_buf *TIPC_NULL = &null_buf;
-+struct print_buf *const TIPC_NULL = &null_buf;
- 
- static struct print_buf cons_buf = { NULL, 0, NULL, 1 };
--struct print_buf *TIPC_CONS = &cons_buf;
-+struct print_buf *const TIPC_CONS = &cons_buf;
- 
- static struct print_buf log_buf = { NULL, 0, NULL, 1 };
--struct print_buf *TIPC_LOG = &log_buf;
-+struct print_buf *const TIPC_LOG = &log_buf;
+-void tipc_msg_print(struct print_buf *, struct tipc_msg *, const char *);
+-void tipc_dump(struct print_buf *, const char *fmt, ...);
  
  /*
-  * Locking policy when using print buffers.
-@@ -107,7 +107,7 @@ void tipc_printbuf_init(struct print_buf *pb, char *raw, u32 size)
- 		pb->buf = NULL;
- 	} else if (raw) {
- 		pb->buf[0] = 0;
--		pb->buf[size-1] = ~0;
-+		pb->buf[size - 1] = ~0;
- 	}
+  * TIPC_OUTPUT is the destination print buffer for system messages.
+@@ -144,20 +142,26 @@ void tipc_dump(struct print_buf *, const char *fmt, ...);
+ #define msg_dbg(msg, txt) \
+ 	do { \
+ 		if (DBG_OUTPUT != TIPC_NULL) \
+-			tipc_msg_print(DBG_OUTPUT, msg, txt); \
++			tipc_msg_dbg(DBG_OUTPUT, msg, txt); \
+ 	} while (0)
+ #define dump(fmt, arg...) \
+ 	do { \
+ 		if (DBG_OUTPUT != TIPC_NULL) \
+-			tipc_dump(DBG_OUTPUT, fmt, ##arg); \
++			tipc_dump_dbg(DBG_OUTPUT, fmt, ##arg); \
+ 	} while (0)
+ 
++void tipc_msg_dbg(struct print_buf *, struct tipc_msg *, const char *);
++void tipc_dump_dbg(struct print_buf *, const char *fmt, ...);
++
+ #else
+ 
+ #define dbg(fmt, arg...)	do {} while (0)
+ #define msg_dbg(msg, txt)	do {} while (0)
+ #define dump(fmt, arg...)	do {} while (0)
+ 
++#define tipc_msg_dbg(...)	do {} while (0)
++#define tipc_dump_dbg(...)	do {} while (0)
++
+ #endif
+ 
+ 
+diff --git a/net/tipc/dbg.c b/net/tipc/dbg.c
+index cda4968..29ecae8 100644
+--- a/net/tipc/dbg.c
++++ b/net/tipc/dbg.c
+@@ -263,6 +263,8 @@ void tipc_printf(struct print_buf *pb, const char *fmt, ...)
+ 	spin_unlock_bh(&print_lock);
  }
  
-@@ -118,7 +118,7 @@ void tipc_printbuf_init(struct print_buf *pb, char *raw, u32 size)
++#ifdef CONFIG_TIPC_DEBUG
++
+ /**
+  * print_to_console - write string of bytes to console in multiple chunks
+  */
+@@ -309,11 +311,11 @@ static void printbuf_dump(struct print_buf *pb)
+ }
  
- void tipc_printbuf_reset(struct print_buf *pb)
+ /**
+- * tipc_dump - dump (non-console) print buffer to console
++ * tipc_dump_dbg - dump (non-console) print buffer to console
+  * @pb: pointer to print buffer
+  */
+ 
+-void tipc_dump(struct print_buf *pb, const char *fmt, ...)
++void tipc_dump_dbg(struct print_buf *pb, const char *fmt, ...)
  {
--	if (pb->buf != NULL) {
-+	if (pb->buf) {
- 		pb->crs = pb->buf;
- 		pb->buf[0] = 0;
- 		pb->buf[pb->size - 1] = ~0;
-@@ -158,7 +158,7 @@ int tipc_printbuf_validate(struct print_buf *pb)
+ 	int len;
  
- 	if (pb->buf[pb->size - 1] == 0) {
- 		cp_buf = kmalloc(pb->size, GFP_ATOMIC);
--		if (cp_buf != NULL){
-+		if (cp_buf) {
- 			tipc_printbuf_init(&cb, cp_buf, pb->size);
- 			tipc_printbuf_move(&cb, pb);
- 			tipc_printbuf_move(pb, &cb);
-@@ -205,7 +205,7 @@ void tipc_printbuf_move(struct print_buf *pb_to, struct print_buf *pb_from)
- 	/* Copy data from char after cursor to end (if used) */
+@@ -334,6 +336,8 @@ void tipc_dump(struct print_buf *pb, const char *fmt, ...)
+ 	spin_unlock_bh(&print_lock);
+ }
  
- 	len = pb_from->buf + pb_from->size - pb_from->crs - 2;
--	if ((pb_from->buf[pb_from->size-1] == 0) && (len > 0)) {
-+	if ((pb_from->buf[pb_from->size - 1] == 0) && (len > 0)) {
- 		strcpy(pb_to->buf, pb_from->crs + 1);
- 		pb_to->crs = pb_to->buf + len;
- 	} else
++#endif
++
+ /**
+  * tipc_log_resize - change the size of the TIPC log buffer
+  * @log_size: print buffer size to use
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 2a26a16..bd206eb 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -147,9 +147,21 @@ static void link_print(struct link *l_ptr, struct print_buf *buf,
+ 
+ #define LINK_LOG_BUF_SIZE 0
+ 
+-#define dbg_link(fmt, arg...)  do {if (LINK_LOG_BUF_SIZE) tipc_printf(&l_ptr->print_buf, fmt, ## arg); } while(0)
+-#define dbg_link_msg(msg, txt) do {if (LINK_LOG_BUF_SIZE) tipc_msg_print(&l_ptr->print_buf, msg, txt); } while(0)
+-#define dbg_link_state(txt) do {if (LINK_LOG_BUF_SIZE) link_print(l_ptr, &l_ptr->print_buf, txt); } while(0)
++#define dbg_link(fmt, arg...) \
++	do { \
++		if (LINK_LOG_BUF_SIZE) \
++			tipc_printf(&l_ptr->print_buf, fmt, ## arg); \
++	} while (0)
++#define dbg_link_msg(msg, txt) \
++	do { \
++		if (LINK_LOG_BUF_SIZE) \
++			tipc_msg_dbg(&l_ptr->print_buf, msg, txt); \
++	} while (0)
++#define dbg_link_state(txt) \
++	do { \
++		if (LINK_LOG_BUF_SIZE) \
++			link_print(l_ptr, &l_ptr->print_buf, txt); \
++	} while (0)
+ #define dbg_link_dump() do { \
+ 	if (LINK_LOG_BUF_SIZE) { \
+ 		tipc_printf(LOG, "\n\nDumping link <%s>:\n", l_ptr->name); \
+@@ -1651,7 +1663,7 @@ static void link_retransmit_failure(struct link *l_ptr, struct sk_buff *buf)
+ 	struct tipc_msg *msg = buf_msg(buf);
+ 
+ 	warn("Retransmission failure on link <%s>\n", l_ptr->name);
+-	tipc_msg_print(TIPC_OUTPUT, msg, ">RETR-FAIL>");
++	tipc_msg_dbg(TIPC_OUTPUT, msg, ">RETR-FAIL>");
+ 
+ 	if (l_ptr->addr) {
+ 
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index 696a863..38abeba 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -41,7 +41,9 @@
+ #include "bearer.h"
+ 
+ 
+-void tipc_msg_print(struct print_buf *buf, struct tipc_msg *msg, const char *str)
++#ifdef CONFIG_TIPC_DEBUG
++
++void tipc_msg_dbg(struct print_buf *buf, struct tipc_msg *msg, const char *str)
+ {
+ 	u32 usr = msg_user(msg);
+ 	tipc_printf(buf, str);
+@@ -315,9 +317,11 @@ void tipc_msg_print(struct print_buf *buf, struct tipc_msg *msg, const char *str
+ 	}
+ 	tipc_printf(buf, "\n");
+ 	if ((usr == CHANGEOVER_PROTOCOL) && (msg_msgcnt(msg))) {
+-		tipc_msg_print(buf,msg_get_wrapped(msg),"      /");
++		tipc_msg_dbg(buf, msg_get_wrapped(msg), "      /");
+ 	}
+ 	if ((usr == MSG_FRAGMENTER) && (msg_type(msg) == FIRST_FRAGMENT)) {
+-		tipc_msg_print(buf,msg_get_wrapped(msg),"      /");
++		tipc_msg_dbg(buf, msg_get_wrapped(msg), "      /");
+ 	}
+ }
++
++#endif
 -- 
 1.5.3.2
 
