@@ -1,76 +1,196 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 1/2] Rename SMSC phy functions to be more generic
-Date: Mon, 28 Apr 2008 18:36:46 +0100
-Message-ID: <1209404206-32551-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Ian Saturley <ian.saturley@smsc.com>,
-	Steve Glendinning <steve.glendinning@smsc.com>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH] 3c509: use netstats in net_device structure
+Date: Tue, 29 Apr 2008 02:45:43 +0300
+Message-ID: <481661A7.4040909@teltonika.lt>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------090002030002060201040809"
+Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sandgatehouse.force9.co.uk ([84.92.144.20]:42420 "EHLO
-	drevil.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932424AbYD1XhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 19:37:20 -0400
+Received: from main.gmane.org ([80.91.229.2]:49753 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752572AbYD1Xp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 19:45:58 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Jqd2h-0005u8-IU
+	for netdev@vger.kernel.org; Mon, 28 Apr 2008 23:45:55 +0000
+Received: from 78-62-85-225.static.zebra.lt ([78.62.85.225])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 23:45:55 +0000
+Received: from paulius.zaleckas by 78-62-85-225.static.zebra.lt with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 23:45:55 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several models of SMSC PHY have the same interrupt status and mask
-registers as the LAN83C185, so these functions can service multiple
-different PHY drivers.
+This is a multi-part message in MIME format.
+--------------090002030002060201040809
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/phy/smsc.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+Use net_device_stats from net_device structure instead of local.
 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index b1d8ed4..6a901f0 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -38,7 +38,7 @@
- 	(MII_LAN83C185_ISF_INT6 | MII_LAN83C185_ISF_INT4)
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+
+--------------090002030002060201040809
+Content-Type: text/x-patch;
+ name="3c509_netstats.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="3c509_netstats.patch"
+
+diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
+index 54dac06..e6c545f 100644
+--- a/drivers/net/3c509.c
++++ b/drivers/net/3c509.c
+@@ -167,7 +167,6 @@ enum RxFilter {
+ enum el3_cardtype { EL3_ISA, EL3_PNP, EL3_MCA, EL3_EISA };
  
- 
--static int lan83c185_config_intr(struct phy_device *phydev)
-+static int smsc_phy_config_intr(struct phy_device *phydev)
+ struct el3_private {
+-	struct net_device_stats stats;
+ 	spinlock_t lock;
+ 	/* skb send-queue */
+ 	int head, size;
+@@ -794,7 +793,6 @@ el3_open(struct net_device *dev)
+ static void
+ el3_tx_timeout (struct net_device *dev)
  {
- 	int rc = phy_write (phydev, MII_LAN83C185_IM,
- 			((PHY_INTERRUPT_ENABLED == phydev->interrupts)
-@@ -48,16 +48,16 @@ static int lan83c185_config_intr(struct phy_device *phydev)
- 	return rc < 0 ? rc : 0;
+-	struct el3_private *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 
+ 	/* Transmitter timeout, serious problems. */
+@@ -802,7 +800,7 @@ el3_tx_timeout (struct net_device *dev)
+ 		   "Tx FIFO room %d.\n",
+ 		   dev->name, inb(ioaddr + TX_STATUS), inw(ioaddr + EL3_STATUS),
+ 		   inw(ioaddr + TX_FREE));
+-	lp->stats.tx_errors++;
++	dev->stats.tx_errors++;
+ 	dev->trans_start = jiffies;
+ 	/* Issue TX_RESET and TX_START commands. */
+ 	outw(TxReset, ioaddr + EL3_CMD);
+@@ -820,7 +818,7 @@ el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	netif_stop_queue (dev);
+ 
+-	lp->stats.tx_bytes += skb->len;
++	dev->stats.tx_bytes += skb->len;
+ 
+ 	if (el3_debug > 4) {
+ 		printk(KERN_DEBUG "%s: el3_start_xmit(length = %u) called, status %4.4x.\n",
+@@ -881,7 +879,7 @@ el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		int i = 4;
+ 
+ 		while (--i > 0	&&	(tx_status = inb(ioaddr + TX_STATUS)) > 0) {
+-			if (tx_status & 0x38) lp->stats.tx_aborted_errors++;
++			if (tx_status & 0x38) dev->stats.tx_aborted_errors++;
+ 			if (tx_status & 0x30) outw(TxReset, ioaddr + EL3_CMD);
+ 			if (tx_status & 0x3C) outw(TxEnable, ioaddr + EL3_CMD);
+ 			outb(0x00, ioaddr + TX_STATUS); /* Pop the status stack. */
+@@ -931,12 +929,11 @@ el3_interrupt(int irq, void *dev_id)
+ 				outw(AckIntr | RxEarly, ioaddr + EL3_CMD);
+ 			}
+ 			if (status & TxComplete) {			/* Really Tx error. */
+-				struct el3_private *lp = netdev_priv(dev);
+ 				short tx_status;
+ 				int i = 4;
+ 
+ 				while (--i>0 && (tx_status = inb(ioaddr + TX_STATUS)) > 0) {
+-					if (tx_status & 0x38) lp->stats.tx_aborted_errors++;
++					if (tx_status & 0x38) dev->stats.tx_aborted_errors++;
+ 					if (tx_status & 0x30) outw(TxReset, ioaddr + EL3_CMD);
+ 					if (tx_status & 0x3C) outw(TxEnable, ioaddr + EL3_CMD);
+ 					outb(0x00, ioaddr + TX_STATUS); /* Pop the status stack. */
+@@ -1002,7 +999,7 @@ el3_get_stats(struct net_device *dev)
+ 	spin_lock_irqsave(&lp->lock, flags);
+ 	update_stats(dev);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+-	return &lp->stats;
++	return &dev->stats;
  }
  
--static int lan83c185_ack_interrupt(struct phy_device *phydev)
-+static int smsc_phy_ack_interrupt(struct phy_device *phydev)
+ /*  Update statistics.  We change to register window 6, so this should be run
+@@ -1012,7 +1009,6 @@ el3_get_stats(struct net_device *dev)
+ 	*/
+ static void update_stats(struct net_device *dev)
  {
- 	int rc = phy_read (phydev, MII_LAN83C185_ISF);
+-	struct el3_private *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
  
- 	return rc < 0 ? rc : 0;
- }
- 
--static int lan83c185_config_init(struct phy_device *phydev)
-+static int smsc_phy_config_init(struct phy_device *phydev)
+ 	if (el3_debug > 5)
+@@ -1021,13 +1017,13 @@ static void update_stats(struct net_device *dev)
+ 	outw(StatsDisable, ioaddr + EL3_CMD);
+ 	/* Switch to the stats window, and read everything. */
+ 	EL3WINDOW(6);
+-	lp->stats.tx_carrier_errors 	+= inb(ioaddr + 0);
+-	lp->stats.tx_heartbeat_errors	+= inb(ioaddr + 1);
++	dev->stats.tx_carrier_errors 	+= inb(ioaddr + 0);
++	dev->stats.tx_heartbeat_errors	+= inb(ioaddr + 1);
+ 	/* Multiple collisions. */	   inb(ioaddr + 2);
+-	lp->stats.collisions		+= inb(ioaddr + 3);
+-	lp->stats.tx_window_errors	+= inb(ioaddr + 4);
+-	lp->stats.rx_fifo_errors	+= inb(ioaddr + 5);
+-	lp->stats.tx_packets		+= inb(ioaddr + 6);
++	dev->stats.collisions		+= inb(ioaddr + 3);
++	dev->stats.tx_window_errors	+= inb(ioaddr + 4);
++	dev->stats.rx_fifo_errors	+= inb(ioaddr + 5);
++	dev->stats.tx_packets		+= inb(ioaddr + 6);
+ 	/* Rx packets	*/		   inb(ioaddr + 7);
+ 	/* Tx deferrals */		   inb(ioaddr + 8);
+ 	inw(ioaddr + 10);	/* Total Rx and Tx octets. */
+@@ -1042,7 +1038,6 @@ static void update_stats(struct net_device *dev)
+ static int
+ el3_rx(struct net_device *dev)
  {
--	return lan83c185_ack_interrupt (phydev);
-+	return smsc_phy_ack_interrupt (phydev);
- }
+-	struct el3_private *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	short rx_status;
  
+@@ -1054,21 +1049,21 @@ el3_rx(struct net_device *dev)
+ 			short error = rx_status & 0x3800;
  
-@@ -73,11 +73,11 @@ static struct phy_driver lan83c185_driver = {
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
--	.config_init	= lan83c185_config_init,
-+	.config_init	= smsc_phy_config_init,
+ 			outw(RxDiscard, ioaddr + EL3_CMD);
+-			lp->stats.rx_errors++;
++			dev->stats.rx_errors++;
+ 			switch (error) {
+-			case 0x0000:		lp->stats.rx_over_errors++; break;
+-			case 0x0800:		lp->stats.rx_length_errors++; break;
+-			case 0x1000:		lp->stats.rx_frame_errors++; break;
+-			case 0x1800:		lp->stats.rx_length_errors++; break;
+-			case 0x2000:		lp->stats.rx_frame_errors++; break;
+-			case 0x2800:		lp->stats.rx_crc_errors++; break;
++			case 0x0000:		dev->stats.rx_over_errors++; break;
++			case 0x0800:		dev->stats.rx_length_errors++; break;
++			case 0x1000:		dev->stats.rx_frame_errors++; break;
++			case 0x1800:		dev->stats.rx_length_errors++; break;
++			case 0x2000:		dev->stats.rx_frame_errors++; break;
++			case 0x2800:		dev->stats.rx_crc_errors++; break;
+ 			}
+ 		} else {
+ 			short pkt_len = rx_status & 0x7ff;
+ 			struct sk_buff *skb;
  
- 	/* IRQ related */
--	.ack_interrupt	= lan83c185_ack_interrupt,
--	.config_intr	= lan83c185_config_intr,
-+	.ack_interrupt	= smsc_phy_ack_interrupt,
-+	.config_intr	= smsc_phy_config_intr,
- 
- 	.driver		= { .owner = THIS_MODULE, }
- };
--- 
-1.5.4.1
+ 			skb = dev_alloc_skb(pkt_len+5);
+-			lp->stats.rx_bytes += pkt_len;
++			dev->stats.rx_bytes += pkt_len;
+ 			if (el3_debug > 4)
+ 				printk("Receiving packet size %d status %4.4x.\n",
+ 					   pkt_len, rx_status);
+@@ -1083,11 +1078,11 @@ el3_rx(struct net_device *dev)
+ 				skb->protocol = eth_type_trans(skb,dev);
+ 				netif_rx(skb);
+ 				dev->last_rx = jiffies;
+-				lp->stats.rx_packets++;
++				dev->stats.rx_packets++;
+ 				continue;
+ 			}
+ 			outw(RxDiscard, ioaddr + EL3_CMD);
+-			lp->stats.rx_dropped++;
++			dev->stats.rx_dropped++;
+ 			if (el3_debug)
+ 				printk("%s: Couldn't allocate a sk_buff of size %d.\n",
+ 					   dev->name, pkt_len);
+
+--------------090002030002060201040809--
 
