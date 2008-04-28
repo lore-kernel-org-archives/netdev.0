@@ -1,121 +1,147 @@
-From: "John Heffner" <johnwheffner@gmail.com>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Mon, 28 Apr 2008 12:21:53 -0700
-Message-ID: <1e41a3230804281221s11442a82j55c363116988a5cb@mail.gmail.com>
-References: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
-	 <1e41a3230804240932u510609beh8fb577baaadeb9bd@mail.gmail.com>
-	 <d1c2719f0804241749p2c0dd7daofd343bc37a916247@mail.gmail.com>
-	 <20080424.234628.170849475.davem@davemloft.net>
-	 <d1c2719f0804281130n7b0aaab8t54b2a585cff53a99@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_12476_31689569.1209410513984"
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	rick.jones2@hp.com
-To: "Jerry Chu" <hkchu@google.com>
+From: Allan Stephens <allan.stephens@windriver.com>
+Subject: [PATCH 1/9 net-next-2.6] [TIPC]: Simplify log buffer resizing
+Date: Mon, 28 Apr 2008 15:48:38 -0400
+Message-ID: <1209412126-2109-2-git-send-email-allan.stephens@windriver.com>
+References: <1209412126-2109-1-git-send-email-allan.stephens@windriver.com>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.177]:24503 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934545AbYD1TWR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 15:22:17 -0400
-Received: by el-out-1112.google.com with SMTP id n30so1650386elf.21
-        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 12:22:16 -0700 (PDT)
-In-Reply-To: <d1c2719f0804281130n7b0aaab8t54b2a585cff53a99@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:33650 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932884AbYD1TwD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 15:52:03 -0400
+In-Reply-To: <1209412126-2109-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_12476_31689569.1209410513984
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+This patch simplifies & standardizes the way TIPC's print buffer
+log is resized.  Code to terminate use of the log buffer is
+eliminated by simply setting the log buffer size to 0 bytes.
 
-On Mon, Apr 28, 2008 at 11:30 AM, Jerry Chu <hkchu@google.com> wrote:
->  Correct, but its counterpart doesn't exist in tcp_is_cwnd_limited(). So
->  cwnd will continue to grow when left < cwnd/sysctl_tcp_tso_win_divisor,
->  which can be very large when cwnd is large.
->
->  If I change tcp_tso_win_divisor to 0, cwnd max out at 695 rather than 1037,
->  exactly off by 1/3. I tried to add the same check to tcp_is_cwnd_limited():
->
->  diff -c /tmp/tcp.h.old tcp.h
->  *** /tmp/tcp.h.old      Mon Apr 28 11:00:44 2008
->  --- tcp.h       Mon Apr 28 10:54:10 2008
->  ***************
->  *** 828,833 ****
->  --- 828,835 ----
->                 return 0;
->
->         left = tp->snd_cwnd - in_flight;
->  +       if (left >= 65536)
->  +               return 0;
->         if (sysctl_tcp_tso_win_divisor)
->                 return left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd;
->         else
->
->  >
->
->  But it doesn't seem to help (cwnd still grows to 1037).
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+---
+ net/tipc/config.c |    2 +-
+ net/tipc/core.c   |    4 ++--
+ net/tipc/dbg.c    |   26 +++++++-------------------
+ net/tipc/dbg.h    |    6 +++---
+ 4 files changed, 13 insertions(+), 25 deletions(-)
 
-Cwnd is in packets, not bytes.
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index c71337a..91d56f8 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -529,7 +529,7 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
+ 		break;
+ #endif
+ 	case TIPC_CMD_SET_LOG_SIZE:
+-		rep_tlv_buf = tipc_log_resize(req_tlv_area, req_tlv_space);
++		rep_tlv_buf = tipc_log_resize_cmd(req_tlv_area, req_tlv_space);
+ 		break;
+ 	case TIPC_CMD_DUMP_LOG:
+ 		rep_tlv_buf = tipc_log_dump();
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 740aac5..862d415 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -182,7 +182,7 @@ static int __init tipc_init(void)
+ {
+ 	int res;
+ 
+-	tipc_log_reinit(CONFIG_TIPC_LOG);
++	tipc_log_resize(CONFIG_TIPC_LOG);
+ 	info("Activated (version " TIPC_MOD_VER
+ 	     " compiled " __DATE__ " " __TIME__ ")\n");
+ 
+@@ -209,7 +209,7 @@ static void __exit tipc_exit(void)
+ 	tipc_core_stop_net();
+ 	tipc_core_stop();
+ 	info("Deactivated\n");
+-	tipc_log_stop();
++	tipc_log_resize(0);
+ }
+ 
+ module_init(tipc_init);
+diff --git a/net/tipc/dbg.c b/net/tipc/dbg.c
+index e809d2a..1a8d0a2 100644
+--- a/net/tipc/dbg.c
++++ b/net/tipc/dbg.c
+@@ -350,43 +350,31 @@ void tipc_dump(struct print_buf *pb, const char *fmt, ...)
+ }
+ 
+ /**
+- * tipc_log_stop - free up TIPC log print buffer
++ * tipc_log_resize - change the size of the TIPC log buffer
++ * @log_size: print buffer size to use
+  */
+ 
+-void tipc_log_stop(void)
++void tipc_log_resize(int log_size)
+ {
+ 	spin_lock_bh(&print_lock);
+ 	if (TIPC_LOG->buf) {
+ 		kfree(TIPC_LOG->buf);
+ 		TIPC_LOG->buf = NULL;
+ 	}
+-	spin_unlock_bh(&print_lock);
+-}
+-
+-/**
+- * tipc_log_reinit - (re)initialize TIPC log print buffer
+- * @log_size: print buffer size to use
+- */
+-
+-void tipc_log_reinit(int log_size)
+-{
+-	tipc_log_stop();
+-
+ 	if (log_size) {
+ 		if (log_size < TIPC_PB_MIN_SIZE)
+ 			log_size = TIPC_PB_MIN_SIZE;
+-		spin_lock_bh(&print_lock);
+ 		tipc_printbuf_init(TIPC_LOG, kmalloc(log_size, GFP_ATOMIC),
+ 				   log_size);
+-		spin_unlock_bh(&print_lock);
+ 	}
++	spin_unlock_bh(&print_lock);
+ }
+ 
+ /**
+- * tipc_log_resize - reconfigure size of TIPC log buffer
++ * tipc_log_resize_cmd - reconfigure size of TIPC log buffer
+  */
+ 
+-struct sk_buff *tipc_log_resize(const void *req_tlv_area, int req_tlv_space)
++struct sk_buff *tipc_log_resize_cmd(const void *req_tlv_area, int req_tlv_space)
+ {
+ 	u32 value;
+ 
+@@ -397,7 +385,7 @@ struct sk_buff *tipc_log_resize(const void *req_tlv_area, int req_tlv_space)
+ 	if (value != delimit(value, 0, 32768))
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+ 						   " (log size must be 0-32768)");
+-	tipc_log_reinit(value);
++	tipc_log_resize(value);
+ 	return tipc_cfg_reply_none();
+ }
+ 
+diff --git a/net/tipc/dbg.h b/net/tipc/dbg.h
+index c01b085..718a5db 100644
+--- a/net/tipc/dbg.h
++++ b/net/tipc/dbg.h
+@@ -61,10 +61,10 @@ int  tipc_printbuf_empty(struct print_buf *pb);
+ int  tipc_printbuf_validate(struct print_buf *pb);
+ void tipc_printbuf_move(struct print_buf *pb_to, struct print_buf *pb_from);
+ 
+-void tipc_log_reinit(int log_size);
+-void tipc_log_stop(void);
++void tipc_log_resize(int log_size);
+ 
+-struct sk_buff *tipc_log_resize(const void *req_tlv_area, int req_tlv_space);
++struct sk_buff *tipc_log_resize_cmd(const void *req_tlv_area,
++				    int req_tlv_space);
+ struct sk_buff *tipc_log_dump(void);
+ 
+ #endif
+-- 
+1.5.3.2
 
-Try this series of patches, against net-next.
-
-  -John
-
-------=_Part_12476_31689569.1209410513984
-Content-Type: text/x-diff;
- name=0001-NET-Allow-send-limited-cwnd-to-grow-up-to-max_bur.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fflfryuu0
-Content-Disposition: attachment;
- filename=0001-NET-Allow-send-limited-cwnd-to-grow-up-to-max_bur.patch
-
-RnJvbSA1NzAzOWNmYzQ4NmFlNGRlYWMzYjFmZWNhYTIzOGI1NDgzYzAzNGRmIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBKb2huIEhlZmZuZXIgPGpvaG53aGVmZm5lckBnbWFpbC5jb20+
-CkRhdGU6IE1vbiwgMjggQXByIDIwMDggMTI6MTc6NDkgLTA3MDAKU3ViamVjdDogW1BBVENIIDEv
-Ml0gW05FVF06IEFsbG93IHNlbmQtbGltaXRlZCBjd25kIHRvIGdyb3cgdXAgdG8gbWF4X2J1cnN0
-IHdoZW4gZ3NvIGRpc2FibGVkCgpUaGlzIGNoYW5nZXMgdGhlIGxvZ2ljIGluIHRjcF9pc19jd25k
-X2xpbWl0ZWQoKSBzbyB0aGF0IGN3bmQgbWF5IGdyb3cKdXAgdG8gdGNwX21heF9idXJzdCgpIGV2
-ZW4gd2hlbiBza19jYW5fZ3NvKCkgaXMgZmFsc2UsIG9yIHdoZW4Kc3lzY3RsX3RjcF90c29fd2lu
-X2Rpdmlzb3IgIT0gMC4KClNpZ25lZC1vZmYtYnk6IEpvaG4gSGVmZm5lciA8am9obndoZWZmbmVy
-QGdtYWlsLmNvbT4KLS0tCiBuZXQvaXB2NC90Y3BfY29uZy5jIHwgICAxMSArKysrLS0tLS0tLQog
-MSBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyksIDcgZGVsZXRpb25zKC0pCgpkaWZmIC0t
-Z2l0IGEvbmV0L2lwdjQvdGNwX2NvbmcuYyBiL25ldC9pcHY0L3RjcF9jb25nLmMKaW5kZXggM2E2
-YmUyMy4uYmZiMTk5NiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX2NvbmcuYworKysgYi9uZXQv
-aXB2NC90Y3BfY29uZy5jCkBAIC0yODUsMTQgKzI4NSwxMSBAQCBpbnQgdGNwX2lzX2N3bmRfbGlt
-aXRlZChjb25zdCBzdHJ1Y3Qgc29jayAqc2ssIHUzMiBpbl9mbGlnaHQpCiAJaWYgKGluX2ZsaWdo
-dCA+PSB0cC0+c25kX2N3bmQpCiAJCXJldHVybiAxOwogCi0JaWYgKCFza19jYW5fZ3NvKHNrKSkK
-LQkJcmV0dXJuIDA7Ci0KIAlsZWZ0ID0gdHAtPnNuZF9jd25kIC0gaW5fZmxpZ2h0OwotCWlmIChz
-eXNjdGxfdGNwX3Rzb193aW5fZGl2aXNvcikKLQkJcmV0dXJuIGxlZnQgKiBzeXNjdGxfdGNwX3Rz
-b193aW5fZGl2aXNvciA8IHRwLT5zbmRfY3duZDsKLQllbHNlCi0JCXJldHVybiBsZWZ0IDw9IHRj
-cF9tYXhfYnVyc3QodHApOworCWlmIChza19jYW5fZ3NvKHNrKSAmJgorCSAgICBsZWZ0ICogc3lz
-Y3RsX3RjcF90c29fd2luX2Rpdmlzb3IgPCB0cC0+c25kX2N3bmQpCisJCXJldHVybiAxOworCXJl
-dHVybiBsZWZ0IDw9IHRjcF9tYXhfYnVyc3QodHApOwogfQogRVhQT1JUX1NZTUJPTF9HUEwodGNw
-X2lzX2N3bmRfbGltaXRlZCk7CiAKLS0gCjEuNS4yLjUKCg==
-------=_Part_12476_31689569.1209410513984
-Content-Type: text/x-diff;
- name=0002-NET-Limit-cwnd-growth-when-deferring-for-GSO.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fflfs9u51
-Content-Disposition: attachment;
- filename=0002-NET-Limit-cwnd-growth-when-deferring-for-GSO.patch
-
-RnJvbSBmYzFkOWZlOTk3NDhmMzgxMWEwYTViOWQ5MzQ2M2NmMGU0Nzg4ZjU2IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBKb2huIEhlZmZuZXIgPGpvaG53aGVmZm5lckBnbWFpbC5jb20+
-CkRhdGU6IE1vbiwgMjggQXByIDIwMDggMTI6MTk6MjIgLTA3MDAKU3ViamVjdDogW1BBVENIIDIv
-Ml0gW05FVF06IExpbWl0IGN3bmQgZ3Jvd3RoIHdoZW4gZGVmZXJyaW5nIGZvciBHU08KClRoaXMg
-Zml4ZXMgaW5hcHByb3ByaWF0ZWx5IGxhcmdlIGN3bmQgZ3Jvd3RoIG9uIHNlbmRlci1saW1pdGVk
-IGZsb3dzCndoZW4gR1NPIGlzIGVuYWJsZWQsIGxpbWl0aW5nIGN3bmQgZ3Jvd3RoIHRvIDY0ay4K
-ClNpZ25lZC1vZmYtYnk6IEpvaG4gSGVmZm5lciA8am9obndoZWZmbmVyQGdtYWlsLmNvbT4KLS0t
-CiBuZXQvaXB2NC90Y3BfY29uZy5jIHwgICAgMyArKy0KIDEgZmlsZXMgY2hhbmdlZCwgMiBpbnNl
-cnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9jb25n
-LmMgYi9uZXQvaXB2NC90Y3BfY29uZy5jCmluZGV4IGJmYjE5OTYuLjZhMjUwODIgMTAwNjQ0Ci0t
-LSBhL25ldC9pcHY0L3RjcF9jb25nLmMKKysrIGIvbmV0L2lwdjQvdGNwX2NvbmcuYwpAQCAtMjg3
-LDcgKzI4Nyw4IEBAIGludCB0Y3BfaXNfY3duZF9saW1pdGVkKGNvbnN0IHN0cnVjdCBzb2NrICpz
-aywgdTMyIGluX2ZsaWdodCkKIAogCWxlZnQgPSB0cC0+c25kX2N3bmQgLSBpbl9mbGlnaHQ7CiAJ
-aWYgKHNrX2Nhbl9nc28oc2spICYmCi0JICAgIGxlZnQgKiBzeXNjdGxfdGNwX3Rzb193aW5fZGl2
-aXNvciA8IHRwLT5zbmRfY3duZCkKKwkgICAgbGVmdCAqIHN5c2N0bF90Y3BfdHNvX3dpbl9kaXZp
-c29yIDwgdHAtPnNuZF9jd25kICYmCisJICAgIGxlZnQgKiB0cC0+bXNzX2NhY2hlIDwgc2stPnNr
-X2dzb19tYXhfc2l6ZSkKIAkJcmV0dXJuIDE7CiAJcmV0dXJuIGxlZnQgPD0gdGNwX21heF9idXJz
-dCh0cCk7CiB9Ci0tIAoxLjUuMi41Cgo=
-------=_Part_12476_31689569.1209410513984--
