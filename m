@@ -1,90 +1,133 @@
-From: Kostya B <bkostya@hotmail.com>
-Subject: [PATCH][IPv4] UFO: prevent generation of chained skb
-Date: Mon, 28 Apr 2008 12:13:27 +0000
-Message-ID: <BAY121-W44CAF03A4C79BFC4FEEEBDB6DE0@phx.gbl>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked
+	version of Tomasz's patch set
+Date: Mon, 28 Apr 2008 14:10:47 +0100
+Message-ID: <20080428131047.GB14346@gerrit.erg.abdn.ac.uk>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804192242.33632.tomasz@grobelny.oswiecenia.net> <20080422173050.GC6039@gerrit.erg.abdn.ac.uk> <200804222230.25743.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1255"
-Content-Transfer-Encoding: 8bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s14.bay0.hotmail.com ([65.54.246.86]:52949 "EHLO
-	bay0-omc1-s14.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1765374AbYD1MN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 08:13:28 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54139 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1765421AbYD1NLc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 09:11:32 -0400
+Content-Disposition: inline
+In-Reply-To: <200804222230.25743.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+| > | > True, but we need to get something working first. There is no point
+| > | > exporting an API which only works half.
+| > |
+| > | You can never assume that the API is feature complete. Even if it "works
+| > | half" at the beginning (which is I guess quite normal) it should be easy
+| > | to make it "work full" without breaking compatibility when it's not
+| > | necessary.
+| >
+| > No I don't agree. Things that work half are worse than constant failures,
+| > since it is never clear when they will fail next. But maybe you didn't mean
+| > that.
+| >
+| I mean that what we are currently discussing (only priorities) is in itself 
+| useful ("works half"). Adding more features (expiry times) would be a nice 
+| but non essential feature ("work full").
+| 
+It seems I misunderstood you, and agree that with regard to API it is
+better to have a little too much discussion than too little, there are
+many aspects to consider.
 
-[IPv4] UFO: prevent generation of chained skb destined to UFO device
-
-Problem:
-ip_append_data() could wrongly generate a chained skb for devices which support UFO.
-When sk_write_queue is not empty (e.g. MSG_MORE), __instead__ of appending data 
-into the next nr_frag of the queued skb, a new chained skb is created.
-
-I would normally assume UFO device should get data in nr_frags and not in frag_list.
-Later the udp4_hwcsum_outgoing() resets csum to NONE and skb_gso_segment() has oops.
-
-Proposal:
-1. Even length is less than mtu, employ ip_ufo_append_data() and append data to the  __existed__ skb in the sk_write_queue.
-
-2. ip_ufo_append_data() is fixed due to a wrong manipulation of peek-ing and later enqueue-ing of the same skb.
-Now, enqueuing is always performed, because on error the further ip_flush_pending_frames() would release the queued skb.
 
 
-Signed-off-by: Kostya B 
+| (a bit of reordering)
+| > So we can reduce this to the other question "is 32 bit enough for priority
+| > information".
+| >
+| That is an important question. But I'm afraid the answer is no (even though I 
+| thought otherwise when writing previous mail). When we want to add packet 
+| expiry times we will need a field for timestamp. Which is quite big (64 
+| bits?). But note that it is only needed for in-kernel implemetation. 
+| Userspace can write this information on as low as 16 bits. This leads me to 
+| conclusions stated below.
+| 
+I had the same thoughts - it is easy to end up with a wide range of
+possible structs, numbers, etc. that are not related and require 20
+different APIs. 
+But the basic line of thought is 
+ * the queue size is always limited since afaik the amount of skbs that 
+   can be queued depends on the socket's write memory (wmem);
+ * hence a strict priority ordering can be done even with u8 (up to 255)
+   in not-too-extreme case
+ * for timeouts, it is not necessary to use struct time{val,spec} (as
+   also above); if really required, a conversion can be done by a
+   library (but not a kernel) routine.
 
----
 
-net/ipv4/ip_output.c |   25 +++++++++----------------
-1 file changed, 9 insertions(+), 16 deletions(-)
+| > So it only remains to see whether to use a field in dccp_skb_cb, or to
+| > use skb->priority. I think the latter has advantages, since this field
+| > is only set/used for the SO_PRIORITY field (in socket(7)).
+| >
+| I think we should distingish two things:
+| 1. How do we pass data along with each packet from userspace to kernelspace.
+| 2. How do we store data in in-kernel skb for internal use.
+<snip>
+| 
+| Ad 1. In this case we need not care about sizes etc. Clean and extensible 
+|       interface is very important. We can also have very different priority data 
+|       representantion from what is later stored in skb.
+| Ad 2. In this case sizes do matter. We can use whichever fields we want. In 
+|       particular we need not keep all the data passed from userspace application in 
+|       one chunk but we can distribute it among arbitrary skb fields.
+| 
+| So this could look like that:
+| Userspace application fills in a structure:
+| struct dccp_packet_info {
+| 	s8 priority; //as it is now
+| 	u16 expire_after; //up to 65s with 1ms accuracy
+| }
+| and passes it to sendmsg(..., struct dccp_packet_info pktinfo), which passes 
+| it to qpolicy_push which passes it to qpolicy_prio_push which does the tricky 
+| stuff with CMSG and does:
+| skb->priority=pktinfo->priority;
+| skb->tstamp=now()+pktinfo->expire_after;
+| (possibly other things that could potentially store data in dccp_skb_cb)
+I notice you have discovered another skb field that could be reused :)
+The idea looks good, if you decide to go ahead with it, please just make
+sure to document it (and that is a reminder for myself too).
+| 
+| This would allow us to:
+| 1. Use existing skb fields in a clean way. I mean according to their names 
+|    (priority, tstamp).
+| 2. Have a clean userspace interface not affected by internal kernel 
+|    implementation details.
+| 
+| What do you think of such decoupling?
+| -- 
+Yes, great. The concept is good, it is some of the details that need
+some more work. In (2) you mention distributing the information among
+several skb fields. With regard to above comment, I think we need to do
+this with some care, to avoid interactions with other subsystems. 
 
-diff -uprN -X linux-2.6.25-git11/Documentation/dontdiff linux-2.6.25-git11/net/ipv4/ip_output.c linux-2.6.25-git11-fix/net/ipv4/ip_output.c
---- linux-2.6.25-git11/net/ipv4/ip_output.c     2008-04-28 12:22:00.000000000 +0300
-+++ linux-2.6.25-git11-fix/net/ipv4/ip_output.c 2008-04-28 14:02:41.000000000 +0300
-@@ -753,23 +753,15 @@ static inline int ip_ufo_append_data(str
-                skb->ip_summed = CHECKSUM_PARTIAL;
-                skb->csum = 0;
-                sk->sk_sndmsg_off = 0;
-+
-+                /* specify the length of each IP datagram fragment*/
-+                skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
-+                skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
-+                __skb_queue_tail(&sk->sk_write_queue, skb);
-        }
+At the moment I have no concrete idea of how to implement a timeout-based
+policy ... probably this is something along the line of Ian's patches
+and what you sketched above.
 
--       err = skb_append_datato_frags(sk,skb, getfrag, from,
-+       return skb_append_datato_frags(sk,skb, getfrag, from,
-                               (length - transhdrlen));
--       if (!err) {
--               /* specify the length of each IP datagram fragment*/
--               skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
--               skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--               __skb_queue_tail(&sk->sk_write_queue, skb);
--
--               return 0;
--       }
--       /* There is not enough support do UFO ,
--        * so follow normal path
--        */
--       kfree_skb(skb);
--       return err;
- }
+Also in (2) is the size question. The bottom line is if 2^32-1 different
+numbers are sufficient to represent a range of policies, then we can
+work with skb->priority for the moment.
 
- /*
-@@ -863,8 +855,9 @@ int ip_append_data(struct sock *sk,
-                csummode = CHECKSUM_PARTIAL;
+My understanding of the above is
+ * the per-policy data is an opaque bitstring whose only requirement
+   is that it fits within 32 bits;
+ * how the bitstring is interpreted depends on the chosen policy;
+ * not necessary to always use the full 32 bits (also in your example
+   above).
 
-        inet->cork.length += length;
--       if (((length> mtu) && (sk->sk_protocol == IPPROTO_UDP)) &&
--                       (rt->u.dst.dev->features & NETIF_F_UFO)) {
-+       if (((length> mtu) || !skb_queue_empty(&sk->sk_write_queue)) &&
-+           (sk->sk_protocol == IPPROTO_UDP) &&
-+           (rt->u.dst.dev->features & NETIF_F_UFO)) {
+I have a tidied-up version of the changes so far which will be posted
+later, also with comments on your patch.
 
-                err = ip_ufo_append_data(sk, getfrag, from, length, hh_len,
-                                         fragheaderlen, transhdrlen, mtu,
----
-_________________________________________________________________
-Explore the seven wonders of the world
-http://search.msn.com/results.aspx?q=7+wonders+world&mkt=en-US&form=QBRE
+
+The University of Aberdeen is a charity registered in Scotland, No SC013683.
+
