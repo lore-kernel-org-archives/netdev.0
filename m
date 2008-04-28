@@ -1,59 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RESEND][NETFILTER][PATCH] nfqnl_mangle() not requesting enough
- space for bigger reinjected packet.
-Date: Mon, 28 Apr 2008 23:56:02 +0200
-Message-ID: <481647F2.20507@trash.net>
-References: <87abjdvpiq.fsf@natisbad.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 1/8] e1000e: cleanup several stats issues
+Date: Mon, 28 Apr 2008 15:13:22 -0700
+Message-ID: <48164C02.9060902@intel.com>
+References: <20080423180900.24972.84015.stgit@localhost.localdomain>
+	<481173B9.3010006@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Arnaud Ebalard <arno@natisbad.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33157 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934016AbYD1V4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 17:56:05 -0400
-In-Reply-To: <87abjdvpiq.fsf@natisbad.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Auke Kok <auke-jan.h.kok@intel.com>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <481173B9.3010006@garzik.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Arnaud Ebalard wrote:
-> Hi,
->
-> This is a resend, first post was to netdev only and slipped through.
->
-> While reinjecting *bigger* modified versions of IPv6 packets using
-> libnetfilter_queue, things work fine on a 2.6.24 kernel (2.6.22 too)
-> but I get the following on recents kernels (2.6.25, trace below is
-> against today's net-2.6 git tree):
->
-> skb_over_panic: text:c04fddb0 len:696 put:632 head:f7592c00 data:f7592c00 tail:0xf7592eb8 end:0xf7592e80 dev:eth0
-> [...]
-> Looking at the code, I ended up in nfq_mangle() function (called by
-> nfqnl_recv_verdict()) which performs a call to skb_copy_expand() due to
-> the increased size of data passed to the function. AFAICT, it should ask
-> for 'diff' instead of 'diff - skb_tailroom(e->skb)'. Because the
-> resulting sk_buff has not enough space to support the skb_put(skb, diff)
-> call a few lines later, this results in the call to skb_over_panic().
->
-> The patch below asks for allocation of a copy with enough space for
-> mangled packet and the same amount of headroom as old sk_buff. While
-> looking at how the regression appeared (e2b58a67), I noticed the same
-> pattern in ipq_mangle_ipv6() and ipq_mangle_ipv4(). The patch corrects
-> those locations too.
->
-> Tested with bigger reinjected IPv6 packets (nfqnl_mangle() path), things
-> are ok (2.6.25 and today's net-2.6 git tree).
->
-> Don't hesitate if I missed something.
->   
+Jeff Garzik wrote:
+> Auke Kok wrote:
+>> From: Bruce Allan <bruce.w.allan@intel.com>
+>>
+>> Several stats registers are completely unused and we just waste pci
+>> bus time reading them. We also omit using the high 32 bits of the GORC/
+>> GOTC counters. We can just read clear them and only read the low
+>> registers.
+>>
+>> Mii-tool can also break es2lan if it executes a MII PHY register
+>> ioctl while the device is in autonegotiation. Unfortunately it seems
+>> that several applications and installations still perform this ioctl
+>> call periodically and especially in this crucial startup time. We
+>> can fool the ioctl by providing fail safe information that mimics
+>> the "down" link state and only perform the dangerous PHY reads once
+>> after link comes up to fill in the real values. As long as link
+>> stays up the information will not change.
+>>
+>> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 
+> applied 1-8
+> 
+> I was mainly waiting for the discussion of the abuse of the ethtool
+> interface, which I chose to allow.
+> 
+> Now, send me a patch to the ethtool man page for this new behavior :)
 
-Good catch, thanks. That code seems to be very resistent against
-attempts to fix it :)
+it almost seems more appropriate to send a patch to the e1000 README and explain
+the parameter use in there since this is a per-driver modification and there's
+nothing special about the ethtool call itself.
 
-Patch applied, and I'll also send it to -stable once it hits
-upstream.
+Would you be OK with a general patch to ethtool that states that "drivers may
+interpret values differently and users should consult the driver's source code or
+README for proper use of the parameter." ?
+
+This seems the logical solution.
+
+Auke
 
 
+-------------------------------------------------------------------------
+This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
+Don't miss this year's exciting event. There's still time to save $100. 
+Use priority code J8TL2D2. 
+http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
