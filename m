@@ -1,49 +1,83 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP slowdown in 2.6.25?
-Date: Mon, 28 Apr 2008 17:42:45 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804281728280.1888@wrl-59.cs.helsinki.fi>
-References: <1209384733.6904.12.camel@gentoo-jocke.transmode.se>
- <1209389586.6904.17.camel@gentoo-jocke.transmode.se>
+From: "Michael Kerrisk" <mtk.manpages@googlemail.com>
+Subject: Re: [PATCH] paccept, socket, socketpair w/flags
+Date: Mon, 28 Apr 2008 16:51:21 +0200
+Message-ID: <cfd18e0f0804280751x21833b51y4b1f6f7ce3201d0d@mail.gmail.com>
+References: <200804262224.m3QMOP3a006296@devserv.devel.redhat.com>
+	 <517f3f820804280252h753c8cacv7fe9580f96dcf1ce@mail.gmail.com>
+	 <4815DB8B.7060606@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Cc: "Michael Kerrisk" <mtk.manpages@gmail.com>,
+	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org
+To: "Ulrich Drepper" <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53787 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932210AbYD1Omr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 10:42:47 -0400
-In-Reply-To: <1209389586.6904.17.camel@gentoo-jocke.transmode.se>
+Received: from el-out-1112.google.com ([209.85.162.181]:16557 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933418AbYD1OvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 10:51:23 -0400
+Received: by el-out-1112.google.com with SMTP id n30so1549681elf.21
+        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 07:51:22 -0700 (PDT)
+In-Reply-To: <4815DB8B.7060606@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Apr 2008, Joakim Tjernlund wrote:
-> On Mon, 2008-04-28 at 14:12 +0200, Joakim Tjernlund wrote:
-> > After upgrading from 2.6.23 to 2.6.25 I am seeing a big slow down on
-> > our old www server. Stracing shows lots of EAGAIN but i not sure
-> > these are relevant. I got no idea where to start looking so
-> > I would appreciate some pointers. Perhaps this is a know issue?
-> > 
-> > CPU is a PowerPC, mpc8321, network driver ucc_geth
-> 
-> Some info:
-> Even ftp transfers takes forever, but only in one direction: from the
-> node with kernel 2.6.25 to some other host. Strace show me that
-> write(2) hangs for long periods before succeeding to transmit 
-> the data.
+On Mon, Apr 28, 2008 at 4:13 PM, Ulrich Drepper <drepper@redhat.com> wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+>
+> Michael Kerrisk wrote:
+> > This is ugly.  Why invent a diffent set of flags here.  I agree with
+> > your earlier statement that new syscalls would be cleaner.
+>
+> Don't lay words in my mouth.  I do think that different flags are
+> needed.
 
-Since it's easy, can you quickly try to if setting tcp_sack sysctl to 0 
-makes any difference (I made a surgery there, perhaps some bug in there 
-could cause TCP to recover by RTO multiple times in a row, that should 
-be visible in tcpdump as well)?
+Okay -- to some extent I seem to have misunderstood you.  I'll step
+back a little and start again.
 
-Do you have network namespaces enabled in .config?
+You have said it would be cleaner to have new syscalls for socket()
+and socketpair().  I understand your reasoning for that to be that
+doing so is cleaner than overloading the type argument of the existing
+versions of these syscalls.  I agree.  So, since you are adding new
+syscalls for all of the other interfaces, why not do it for these two
+syscalls also?
 
-Netfilter/iptables involved?
+> The name of the flag must indicate what it is for and you don't
+> want to mix flags with different prefixes for the same flags parameter.
+>  Not introducing separate flags would mean all the functions would have
+> to accept the same set of flags which will sooner or later create
+> problems.  I really don't see the problem here.
+>
+>
+> > then *please* let's go the hwole way cleanly, and have new syscalls
+> > also for socketpair() and socket(), and make all of the new syscalls
+> > use the same flags.
+>
+> Hell, no, that's worse than everything else proposed.  We don't have the
+> luxury to have a separate parameter to indicate close-on-exec or not.
+> For efficiency it has to be a multi-purpose flags parameter and the
+> flags each syscall takes are different since the functionality is different.
 
-To some specific or "any" other host? How long is "long"?
+Okay -- I see your point (and I didn't read your patches closely
+enough).  However, the rationale for the implementations proposed to
+date isn't very clear.  So far we have the following new flags:
 
+timerfd_create() -- TFD_CLOEXEC
+signalfd4() -- SFD_CLOEXEC
+eventfd2() -- EFD_CLOEXEC
+epoll_create2() -- EPOLL_CLOEXEC
+open() (and openat()), dup3() -- all use O_CLOEXEC
+socketpair(), socket(), paccept -- all use SOCK_CLOEXEC
+pipe2() -- to be determined
+inotify_init2() -- to be determined
 
--- 
- i.
+It would help if you laid out your reasoning for creating distinct
+flags for some syscalls but not others.  For example, is the
+assumption here that socketpair(), socket(), and paccept() will always
+use the same set of flags?  If so, what makes that group special with
+respect to your arguments about the need for separate flags for each
+syscall?
