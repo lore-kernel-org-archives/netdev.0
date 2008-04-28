@@ -1,40 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: useless tcp maybe-bug report
-Date: Mon, 28 Apr 2008 01:40:49 -0700
-Message-ID: <20080428014049.eee1a533.akpm@linux-foundation.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs: fix oops in backup for fwmark conn templates
+Date: Mon, 28 Apr 2008 11:58:55 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0804281151550.3315@u.domain.uli>
+References: <Pine.LNX.4.58.0804281028110.2775@u.domain.uli>
+ <20080428083011.GA6139@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"Rumen G. Bogdanovski" <rumen@voicecho.com>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39322 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751744AbYD1IlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 04:41:20 -0400
-Received: from imap1.linux-foundation.org (imap1.linux-foundation.org [140.211.169.55])
-	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id m3S8envP022889
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 01:40:51 -0700
-Received: from y.localdomain (localhost [127.0.0.1])
-	by imap1.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with SMTP id m3S8enoF016712
-	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 01:40:49 -0700
+Received: from ja.ssi.bg ([217.79.71.194]:55949 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1765436AbYD1I6U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 04:58:20 -0400
+In-Reply-To: <20080428083011.GA6139@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-I just fired up latest mainline plus the 300-odd patches which I'm about to
-send Linuswards on a mac g5.
+	Hello,
 
-I use that g5 as a distcc server.  I'm now seeing this:
+On Mon, 28 Apr 2008, Simon Horman wrote:
 
-distcc[13554] (dcc_writex) ERROR: failed to write: Connection reset by peer
-distcc[13554] (dcc_writex) ERROR: failed to write: Broken pipe
-distcc[13554] Warning: failed to distribute net/atm/clip.mod.c to g5/32, running locally instead
+> On Mon, Apr 28, 2008 at 10:52:38AM +0300, Julian Anastasov wrote:
+> > 
+> > 	Fixes bug http://bugzilla.kernel.org/show_bug.cgi?id=10556
+> > where conn templates with protocol=IPPROTO_IP can oops backup box.
+> > 
+> >         Result from ip_vs_proto_get() should be checked because
+> > protocol value can be invalid or unsupported in backup. But
+> > for valid message we should not fail for templates which use
+> > IPPROTO_IP. Also, add checks to validate message limits and
+> > connection state. Show state NONE for templates using IPPROTO_IP.
+> 
+> Julian, am I right in thinking that this is a long-standing bug
+> rather than a recent regression?
 
-about once per allmodconfig build.  The client kernel is 2.6.24.3-34.fc8
-and has never changed.
+	Bug reporter is using 2.6.24.4, bug comes with 2.6.24,
+pp is NULL for IPPROTO_IP, 2.6.24 shows:
 
-Thing is, these messages are unusual.  I suspect that Something Is Up with
-that g5, perhaps its networking.
+[IPVS]: use proper timeout instead of fixed value
 
-There are no signs of problems in the g5's dmesg.
+-               cp->timeout = IP_VS_SYNC_CONN_TIMEOUT;
++               cp->state = ntohs(s->state);
++               pp = ip_vs_proto_get(s->protocol);
++               cp->timeout = pp->timeout_table[cp->state];
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
