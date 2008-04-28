@@ -1,147 +1,370 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: RE: netperf udp_rr testing hang
-Date: Mon, 28 Apr 2008 11:43:20 +0800
-Message-ID: <1209354200.2873.11.camel@ymzhang>
-References: <1209109343.28819.37.camel@ymzhang>
-	 <36D9DB17C6DE9E40B059440DB8D95F520507661D@orsmsx418.amr.corp.intel.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: [PATCH] add compat support for getsockopt (MCAST_MSFILTER)
+Date: Sun, 27 Apr 2008 23:41:51 -0600
+Message-ID: <OFCC2BF571.D815BBAC-ON88257439.001DC6D6-88257439.001F49AD@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: multipart/mixed; boundary="=_mixed 001F49AA88257439_="
 Cc: netdev@vger.kernel.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: davem@davemloft.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:37543 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762197AbYD1Dpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2008 23:45:32 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F520507661D@orsmsx418.amr.corp.intel.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:35369 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750942AbYD1Fl5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 01:41:57 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3S5fuSO017230
+	for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 01:41:56 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3S5fuwk125622
+	for <netdev@vger.kernel.org>; Sun, 27 Apr 2008 23:41:56 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3S5fsaI029497
+	for <netdev@vger.kernel.org>; Sun, 27 Apr 2008 23:41:54 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--=_mixed 001F49AA88257439_=
+Content-Type: text/plain; charset="US-ASCII"
 
-On Sun, 2008-04-27 at 16:47 -0700, Brandeburg, Jesse wrote:=20
-Thanks for your kind response. I think it might be an issue of kernel. =
-Pls. see below comments.
+This patch adds support for getsockopt for MCAST_MSFILTER for
+both IPv4 and IPv6. It depends on the previous setsockopt patch,
+and uses the same method. In addition, there are these cleanups
+included for the setsockopt patch:
 
-> are you turning on arp_filter in sysctl?
-No. I use the default configuration, i.e. arp_filter=3D0.
+1) added missing "__user" for kgsr and kgf pointers
+2) verify read for only GROUP_FILTER_SIZE(0). The group_filter
+        structure definition (via RFC) includes space for one source
+        in the source list array, but that source need not be present.
+        So, sizeof(group_filter) > GROUP_FILTER_SIZE(0). Fixed
+        the user read-check for minimum length to use the smaller size.
+3) remove unneeded "&" for gf_slist addresses
 
->=20
-> IMO you can't use two IP addresses in the same subnet on the same swi=
-tch anyway, even with arp filter.
->=20
-> if you were to assign 192.168.0.X to one interface and 192.168.1.X to=
- the other, *and* then use arp filter it will work okay.
-Why does TCP work well? Lab manager just configures 192.168.0.XXX on th=
-e dns server.
+[in-line for viewing, attached for applying]
 
-I tried =EF=BB=BFarp_filter=3D1 a moment ago and it doesn't work.
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-I checked document e1000.txt and it says Multiple Interfaces on Same Et=
-hernet Broadcast Network
-results in unbalanced receive traffic. But it doesn't say it will break=
- the network.
+diff -ruNp linux-2.6.18.ppc64DLS2/include/net/compat.h 
+linux-2.6.18.ppc64GSO/include/net/compat.h
+--- linux-2.6.18.ppc64DLS2/include/net/compat.h 2008-04-26 
+04:34:04.000000000 -0700
++++ linux-2.6.18.ppc64GSO/include/net/compat.h  2008-04-27 
+08:08:53.000000000 -0700
+@@ -41,5 +41,8 @@ extern int cmsghdr_from_user_compat_to_k
+ 
+ extern int compat_mc_setsockopt(struct sock *, int, int, char __user *, 
+int,
+        int (*)(struct sock *, int, int, char __user *, int));
++extern int compat_mc_getsockopt(struct sock *, int, int, char __user *, 
++       int __user *, int (*)(struct sock *, int, int, char __user *,
++                               int __user *));
+ 
+ #endif /* NET_COMPAT_H */
+diff -ruNp linux-2.6.18.ppc64DLS2/net/compat.c 
+linux-2.6.18.ppc64GSO/net/compat.c
+--- linux-2.6.18.ppc64DLS2/net/compat.c 2008-04-26 04:35:22.000000000 
+-0700
++++ linux-2.6.18.ppc64GSO/net/compat.c  2008-04-27 13:55:40.000000000 
+-0700
+@@ -616,6 +616,9 @@ struct compat_group_filter {
+                __attribute__ ((aligned(4)));
+ } __attribute__ ((packed));
+ 
++#define __COMPAT_GF0_SIZE (sizeof(struct compat_group_filter) - \
++                       sizeof(struct __kernel_sockaddr_storage))
++
+ 
+ int compat_mc_setsockopt(struct sock *sock, int level, int optname,
+        char __user *optval, int optlen,
+@@ -650,7 +653,7 @@ int compat_mc_setsockopt(struct sock *so
+        case MCAST_UNBLOCK_SOURCE:
+        {
+                struct compat_group_source_req __user *gsr32 = (void 
+*)optval;
+-               struct group_source_req *kgsr = compat_alloc_user_space(
++               struct group_source_req __user *kgsr = 
+compat_alloc_user_space(
+                        sizeof(struct group_source_req));
+                u32 interface;
+ 
+@@ -671,10 +674,10 @@ int compat_mc_setsockopt(struct sock *so
+        case MCAST_MSFILTER:
+        {
+                struct compat_group_filter __user *gf32 = (void *)optval;
+-               struct group_filter *kgf;
++               struct group_filter __user *kgf;
+                u32 interface, fmode, numsrc;
+ 
+-               if (!access_ok(VERIFY_READ, gf32, sizeof(*gf32)) ||
++               if (!access_ok(VERIFY_READ, gf32, __COMPAT_GF0_SIZE) ||
+                    __get_user(interface, &gf32->gf_interface) ||
+                    __get_user(fmode, &gf32->gf_fmode) ||
+                    __get_user(numsrc, &gf32->gf_numsrc))
+@@ -690,7 +693,7 @@ int compat_mc_setsockopt(struct sock *so
+                    __put_user(numsrc, &kgf->gf_numsrc) ||
+                    copy_in_user(&kgf->gf_group, &gf32->gf_group,
+                                sizeof(kgf->gf_group)) ||
+-                   (numsrc && copy_in_user(&kgf->gf_slist, 
+&gf32->gf_slist,
++                   (numsrc && copy_in_user(kgf->gf_slist, gf32->gf_slist,
+                                numsrc * sizeof(kgf->gf_slist[0]))))
+                        return -EFAULT;
+                koptval = (char __user *)kgf;
+@@ -705,6 +708,85 @@ int compat_mc_setsockopt(struct sock *so
+ 
+ EXPORT_SYMBOL(compat_mc_setsockopt);
+ 
++int compat_mc_getsockopt(struct sock *sock, int level, int optname,
++       char __user *optval, int __user *optlen,
++       int (*getsockopt)(struct sock *,int,int,char __user *,int __user 
+*))
++{
++       struct compat_group_filter __user *gf32 = (void *)optval;
++       struct group_filter __user *kgf;
++       int __user      *koptlen;
++       u32 interface, fmode, numsrc;
++       int klen, ulen, err;
++
++       if (optname != MCAST_MSFILTER)
++               return getsockopt(sock, level, optname, optval, optlen);
++
++       koptlen = compat_alloc_user_space(sizeof(*koptlen));
++       if (!access_ok(VERIFY_READ, optlen, sizeof(*optlen)) ||
++           __get_user(ulen, optlen))
++               return -EFAULT;
++
++       /* adjust len for pad */
++       klen = ulen + sizeof(*kgf) - sizeof(*gf32);
++
++       if (klen < GROUP_FILTER_SIZE(0))
++               return -EINVAL;
++
++       if (!access_ok(VERIFY_WRITE, koptlen, sizeof(*koptlen)) ||
++           __put_user(klen, koptlen))
++               return -EFAULT;
++
++       /* have to allow space for previous compat_alloc_user_space, too 
+*/
++       kgf = compat_alloc_user_space(klen+sizeof(*optlen));
++
++       if (!access_ok(VERIFY_READ, gf32, __COMPAT_GF0_SIZE) ||
++           __get_user(interface, &gf32->gf_interface) ||
++           __get_user(fmode, &gf32->gf_fmode) ||
++           __get_user(numsrc, &gf32->gf_numsrc) ||
++           __put_user(interface, &kgf->gf_interface) ||
++           __put_user(fmode, &kgf->gf_fmode) ||
++           __put_user(numsrc, &kgf->gf_numsrc) ||
++ copy_in_user(&kgf->gf_group,&gf32->gf_group,sizeof(kgf->gf_group)))
++               return -EFAULT;
++
++       err = getsockopt(sock, level, optname, (char __user *)kgf, 
+koptlen);
++       if (err)
++               return err;
++
++       if (!access_ok(VERIFY_READ, koptlen, sizeof(*koptlen)) ||
++           __get_user(klen, koptlen))
++               return -EFAULT;
++
++       ulen = klen - (sizeof(*kgf)-sizeof(*gf32));
++
++       if (!access_ok(VERIFY_WRITE, optlen, sizeof(*optlen)) ||
++           __put_user(ulen, optlen))
++               return -EFAULT;
++
++       if (!access_ok(VERIFY_READ, kgf, klen) ||
++           !access_ok(VERIFY_WRITE, gf32, ulen) ||
++           __get_user(interface, &kgf->gf_interface) ||
++           __get_user(fmode, &kgf->gf_fmode) ||
++           __get_user(numsrc, &kgf->gf_numsrc) ||
++           __put_user(interface, &gf32->gf_interface) ||
++           __put_user(fmode, &gf32->gf_fmode) ||
++           __put_user(numsrc, &gf32->gf_numsrc))
++               return -EFAULT;
++       if (numsrc) {
++               int copylen;
++
++               klen -= GROUP_FILTER_SIZE(0);
++               copylen = numsrc * sizeof(gf32->gf_slist[0]);
++               if (copylen > klen)
++                       copylen = klen;
++               if (copy_in_user(gf32->gf_slist, kgf->gf_slist, copylen))
++                       return -EFAULT;
++       }
++       return err;
++}
++
++EXPORT_SYMBOL(compat_mc_getsockopt);
++
+ 
+ /* Argument list sizes for compat_sys_socketcall */
+ #define AL(x) ((x) * sizeof(u32))
+diff -ruNp linux-2.6.18.ppc64DLS2/net/ipv4/ip_sockglue.c 
+linux-2.6.18.ppc64GSO/net/ipv4/ip_sockglue.c
+--- linux-2.6.18.ppc64DLS2/net/ipv4/ip_sockglue.c       2008-04-26 
+04:36:24.000000000 -0700
++++ linux-2.6.18.ppc64GSO/net/ipv4/ip_sockglue.c        2008-04-27 
+11:24:48.000000000 -0700
+@@ -1193,7 +1193,14 @@ int ip_getsockopt(struct sock *sk, int l
+ int compat_ip_getsockopt(struct sock *sk, int level, int optname,
+                         char __user *optval, int __user *optlen)
+ {
+-       int err = do_ip_getsockopt(sk, level, optname, optval, optlen);
++       int err;
++
++       if (optname == MCAST_MSFILTER)
++               return compat_mc_getsockopt(sk, level, optname, optval, 
+optlen,
++                       ip_getsockopt);
++
++       err = do_ip_getsockopt(sk, level, optname, optval, optlen);
++
+ #ifdef CONFIG_NETFILTER
+        /* we need to exclude all possible ENOPROTOOPTs except default 
+case */
+        if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS
+diff -ruNp linux-2.6.18.ppc64DLS2/net/ipv6/ipv6_sockglue.c 
+linux-2.6.18.ppc64GSO/net/ipv6/ipv6_sockglue.c
+--- linux-2.6.18.ppc64DLS2/net/ipv6/ipv6_sockglue.c     2008-04-26 
+04:35:19.000000000 -0700
++++ linux-2.6.18.ppc64GSO/net/ipv6/ipv6_sockglue.c      2008-04-27 
+13:56:27.000000000 -0700
+@@ -1062,6 +1062,10 @@ int compat_ipv6_getsockopt(struct sock *
+        if (level != SOL_IPV6)
+                return -ENOPROTOOPT;
+ 
++       if (optname == MCAST_MSFILTER)
++               return compat_mc_getsockopt(sk, level, optname, optval, 
+optlen,
++                       ipv6_getsockopt);
++
+        err = do_ipv6_getsockopt(sk, level, optname, optval, optlen);
+ #ifdef CONFIG_NETFILTER
+        /* we need to exclude all possible EINVALs except default case */
 
->From the tcpdump info, I think kernel on the client machine always dro=
-ps the first UDP packet unexpectedly, after
-the server (=EF=BB=BF=EF=BB=BFlkp-tt02-nic2.tsp.org) sends the first UD=
-P response back. If I disable =EF=BB=BF192.168.1.160 (eth0:=EF=BB=BFlkp=
--tt02-x8664.tsp.org)
-on server, the testing could go ahead. That also means the issue isn't =
-relevant to arp_filter. If I firstly disable
-=EF=BB=BF192.168.1.160 (eth0:=EF=BB=BFlkp-tt02-x8664.tsp.org) and then =
-reenable it, restart testing, the testing also could go ahead, but then
-the testing to IP =EF=BB=BF192.168.1.160 becomes hanging. So it looks l=
-ike only one ip at the same time could be
-available for UDP.
-
->=20
-> jesse=20
->=20
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.o=
-rg] On Behalf Of Zhang, Yanmin
-> Sent: Friday, April 25, 2008 12:42 AM
-> To: netdev@vger.kernel.org
-> Cc: Rick Jones
-> Subject: netperf udp_rr testing hang
->=20
-> I am testing network UDP by netperf V2.4.4.
->=20
-> I have 2 machines. Every machine has 2 NIC, so 2 IP addresses per mac=
-hine.
-> Client1: 192.168.1.164 (eth1:=EF=BB=BF=EF=BB=BFlkp-h01-nic2.tsp.org) =
-and =EF=BB=BF192.168.1.169 (eth2:=EF=BB=BF=EF=BB=BF=EF=BB=BFlkp-h01.tsp=
-=2Eorg).
-> Server1: 192.168.1.160 (eth0:=EF=BB=BFlkp-tt02-x8664.tsp.org) and 192=
-=2E168.1.153 (eth1:=EF=BB=BFlkp-tt02-nic2.tsp.org).
->=20
-> They are connected to the same GIGA switch.
->=20
-> On Server1, start netserver:
-> #./netserver&
->=20
-> Then, on Client1: start netperf:
-> #./netperf -t UDP_RR -l 60 -H 192.168.1.153 -L 192.168.1.164 -i 3,3 -=
-I 99,5 -- -r 1,1
-> It looks like netperf hangs and exits after 180(or 60?) seconds. The =
-result shows
-> RatePerSec is 0.0.
-> If I use tcpdump to intercept all packets on eth1 on client1, the dum=
-p shows:
-> 14:49:14.820924 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.1286=
-5: . ack 1 win 46 <nop,nop,timestamp 1691048 1803244>
-> 14:49:14.821043 IP lkp-h01.tsp.org.ssh > lkp-os.tsp.org.45485: P 176:=
-368(192) ack 49 win 146 <nop,nop,timestamp 1691048 1575061177>
-> 14:49:14.821047 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.1286=
-5: P 1:257(256) ack 1 win 46 <nop,nop,timestamp 1691048 1803244>
-> 14:49:14.821157 IP lkp-tt02-nic2.tsp.org.12865 > lkp-h01.tsp.org.4145=
-6: . ack 257 win 54 <nop,nop,timestamp 1803244 1691048>
-> 14:49:14.821307 IP lkp-tt02-nic2.tsp.org.12865 > lkp-h01.tsp.org.4145=
-6: P 1:257(256) ack 257 win 54 <nop,nop,timestamp 1803244 1691048>
-> 14:49:14.821312 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.1286=
-5: . ack 257 win 54 <nop,nop,timestamp 1691048 1803244>
-> 14:49:14.821348 IP lkp-h01.tsp.org.54226 > lkp-tt02-nic2.tsp.org.4216=
-4: UDP, length 1
-> 14:49:14.821406 IP lkp-tt02-x8664.tsp.org.42164 > lkp-h01.tsp.org.542=
-26: UDP, length 1
-> 14:49:14.821415 IP lkp-h01.tsp.org > lkp-tt02-x8664.tsp.org: ICMP lkp=
--h01.tsp.org udp port 54226 unreachable, length 37
->=20
-> =EF=BB=BF
-> If I use tcpdump to intercept all packets on eth1 on Server1, the dum=
-p shows:
-> 23:54:12.320760 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.1286=
-5: S 2825016431:2825016431(0) win 5840 <mss 1460,sackOK,timestamp 16910=
-48 0,nop,wscale 7>
-> 23:54:12.320858 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.1286=
-5: . ack 1965002601 win 46 <nop,nop,timestamp 1691048 1803244>
-> 23:54:12.321010 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.1286=
-5: P 0:256(256) ack 1 win 46 <nop,nop,timestamp 1691048 1803244>
-> 23:54:12.321259 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.1286=
-5: . ack 257 win 54 <nop,nop,timestamp 1691048 1803244>
-> 23:54:12.321271 IP lkp-h01.tsp.org.54226 > lkp-tt02-nic2.tsp.org.4216=
-4: UDP, length 1
->=20
->=20
-> If I start netperf by below command:
-> =EF=BB=BF#./netperf -t UDP_RR -l 60 -H 192.168.1.160 -L 192.168.1.164=
- -i 3,3 -I 99,5 -- -r 1,1
-> The testing really goes ahead and prints correct result after testing=
-=2E However, tcpdump shows
-> the packets just pass between lkp-h01.tsp.org.50303 and lkp-tt02-x866=
-4.tsp.org.41305, not
-> lkp-h01=EF=BB=BF-nic2.tsp.org.50303 and lkp-tt02-x8664.tsp.org.41305
->=20
-> I check source codes of netperf and send_udp_rr really binds the corr=
-ect local/host IP.
->=20
-> I tries TCP_RR and it has no hang issue although packets might be sen=
-t out from another IP.
->=20
-> I tested it with kernel 2.6.22/23/24/25.
->=20
-> Thanks,
-> Yanmin
 
 
+--=_mixed 001F49AA88257439_=
+Content-Type: application/octet-stream; name="getsockopt.patch"
+Content-Disposition: attachment; filename="getsockopt.patch"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtcnVOcCBsaW51eC0yLjYuMTgucHBjNjRETFMyL2luY2x1ZGUvbmV0L2NvbXBhdC5oIGxp
+bnV4LTIuNi4xOC5wcGM2NEdTTy9pbmNsdWRlL25ldC9jb21wYXQuaAotLS0gbGludXgtMi42LjE4
+LnBwYzY0RExTMi9pbmNsdWRlL25ldC9jb21wYXQuaAkyMDA4LTA0LTI2IDA0OjM0OjA0LjAwMDAw
+MDAwMCAtMDcwMAorKysgbGludXgtMi42LjE4LnBwYzY0R1NPL2luY2x1ZGUvbmV0L2NvbXBhdC5o
+CTIwMDgtMDQtMjcgMDg6MDg6NTMuMDAwMDAwMDAwIC0wNzAwCkBAIC00MSw1ICs0MSw4IEBAIGV4
+dGVybiBpbnQgY21zZ2hkcl9mcm9tX3VzZXJfY29tcGF0X3RvX2sKIAogZXh0ZXJuIGludCBjb21w
+YXRfbWNfc2V0c29ja29wdChzdHJ1Y3Qgc29jayAqLCBpbnQsIGludCwgY2hhciBfX3VzZXIgKiwg
+aW50LAogCWludCAoKikoc3RydWN0IHNvY2sgKiwgaW50LCBpbnQsIGNoYXIgX191c2VyICosIGlu
+dCkpOworZXh0ZXJuIGludCBjb21wYXRfbWNfZ2V0c29ja29wdChzdHJ1Y3Qgc29jayAqLCBpbnQs
+IGludCwgY2hhciBfX3VzZXIgKiwgCisJaW50IF9fdXNlciAqLCBpbnQgKCopKHN0cnVjdCBzb2Nr
+ICosIGludCwgaW50LCBjaGFyIF9fdXNlciAqLAorCQkJCWludCBfX3VzZXIgKikpOwogCiAjZW5k
+aWYgLyogTkVUX0NPTVBBVF9IICovCmRpZmYgLXJ1TnAgbGludXgtMi42LjE4LnBwYzY0RExTMi9u
+ZXQvY29tcGF0LmMgbGludXgtMi42LjE4LnBwYzY0R1NPL25ldC9jb21wYXQuYwotLS0gbGludXgt
+Mi42LjE4LnBwYzY0RExTMi9uZXQvY29tcGF0LmMJMjAwOC0wNC0yNiAwNDozNToyMi4wMDAwMDAw
+MDAgLTA3MDAKKysrIGxpbnV4LTIuNi4xOC5wcGM2NEdTTy9uZXQvY29tcGF0LmMJMjAwOC0wNC0y
+NyAxMzo1NTo0MC4wMDAwMDAwMDAgLTA3MDAKQEAgLTYxNiw2ICs2MTYsOSBAQCBzdHJ1Y3QgY29t
+cGF0X2dyb3VwX2ZpbHRlciB7CiAJCV9fYXR0cmlidXRlX18gKChhbGlnbmVkKDQpKSk7CiB9IF9f
+YXR0cmlidXRlX18gKChwYWNrZWQpKTsKIAorI2RlZmluZSBfX0NPTVBBVF9HRjBfU0laRSAoc2l6
+ZW9mKHN0cnVjdCBjb21wYXRfZ3JvdXBfZmlsdGVyKSAtIFwKKwkJCXNpemVvZihzdHJ1Y3QgX19r
+ZXJuZWxfc29ja2FkZHJfc3RvcmFnZSkpCisKIAogaW50IGNvbXBhdF9tY19zZXRzb2Nrb3B0KHN0
+cnVjdCBzb2NrICpzb2NrLCBpbnQgbGV2ZWwsIGludCBvcHRuYW1lLAogCWNoYXIgX191c2VyICpv
+cHR2YWwsIGludCBvcHRsZW4sCkBAIC02NTAsNyArNjUzLDcgQEAgaW50IGNvbXBhdF9tY19zZXRz
+b2Nrb3B0KHN0cnVjdCBzb2NrICpzbwogCWNhc2UgTUNBU1RfVU5CTE9DS19TT1VSQ0U6CiAJewog
+CQlzdHJ1Y3QgY29tcGF0X2dyb3VwX3NvdXJjZV9yZXEgX191c2VyICpnc3IzMiA9ICh2b2lkICop
+b3B0dmFsOwotCQlzdHJ1Y3QgZ3JvdXBfc291cmNlX3JlcSAqa2dzciA9IGNvbXBhdF9hbGxvY191
+c2VyX3NwYWNlKAorCQlzdHJ1Y3QgZ3JvdXBfc291cmNlX3JlcSBfX3VzZXIgKmtnc3IgPSBjb21w
+YXRfYWxsb2NfdXNlcl9zcGFjZSgKIAkJCXNpemVvZihzdHJ1Y3QgZ3JvdXBfc291cmNlX3JlcSkp
+OwogCQl1MzIgaW50ZXJmYWNlOwogCkBAIC02NzEsMTAgKzY3NCwxMCBAQCBpbnQgY29tcGF0X21j
+X3NldHNvY2tvcHQoc3RydWN0IHNvY2sgKnNvCiAJY2FzZSBNQ0FTVF9NU0ZJTFRFUjoKIAl7CiAJ
+CXN0cnVjdCBjb21wYXRfZ3JvdXBfZmlsdGVyIF9fdXNlciAqZ2YzMiA9ICh2b2lkICopb3B0dmFs
+OwotCQlzdHJ1Y3QgZ3JvdXBfZmlsdGVyICprZ2Y7CisJCXN0cnVjdCBncm91cF9maWx0ZXIgX191
+c2VyICprZ2Y7CiAJCXUzMiBpbnRlcmZhY2UsIGZtb2RlLCBudW1zcmM7CiAKLQkJaWYgKCFhY2Nl
+c3Nfb2soVkVSSUZZX1JFQUQsIGdmMzIsIHNpemVvZigqZ2YzMikpIHx8CisJCWlmICghYWNjZXNz
+X29rKFZFUklGWV9SRUFELCBnZjMyLCBfX0NPTVBBVF9HRjBfU0laRSkgfHwKIAkJICAgIF9fZ2V0
+X3VzZXIoaW50ZXJmYWNlLCAmZ2YzMi0+Z2ZfaW50ZXJmYWNlKSB8fAogCQkgICAgX19nZXRfdXNl
+cihmbW9kZSwgJmdmMzItPmdmX2Ztb2RlKSB8fAogCQkgICAgX19nZXRfdXNlcihudW1zcmMsICZn
+ZjMyLT5nZl9udW1zcmMpKQpAQCAtNjkwLDcgKzY5Myw3IEBAIGludCBjb21wYXRfbWNfc2V0c29j
+a29wdChzdHJ1Y3Qgc29jayAqc28KIAkJICAgIF9fcHV0X3VzZXIobnVtc3JjLCAma2dmLT5nZl9u
+dW1zcmMpIHx8CiAJCSAgICBjb3B5X2luX3VzZXIoJmtnZi0+Z2ZfZ3JvdXAsICZnZjMyLT5nZl9n
+cm91cCwKIAkJCQlzaXplb2Yoa2dmLT5nZl9ncm91cCkpIHx8Ci0JCSAgICAobnVtc3JjICYmIGNv
+cHlfaW5fdXNlcigma2dmLT5nZl9zbGlzdCwgJmdmMzItPmdmX3NsaXN0LAorCQkgICAgKG51bXNy
+YyAmJiBjb3B5X2luX3VzZXIoa2dmLT5nZl9zbGlzdCwgZ2YzMi0+Z2Zfc2xpc3QsCiAJCQkJbnVt
+c3JjICogc2l6ZW9mKGtnZi0+Z2Zfc2xpc3RbMF0pKSkpCiAJCQlyZXR1cm4gLUVGQVVMVDsKIAkJ
+a29wdHZhbCA9IChjaGFyIF9fdXNlciAqKWtnZjsKQEAgLTcwNSw2ICs3MDgsODUgQEAgaW50IGNv
+bXBhdF9tY19zZXRzb2Nrb3B0KHN0cnVjdCBzb2NrICpzbwogCiBFWFBPUlRfU1lNQk9MKGNvbXBh
+dF9tY19zZXRzb2Nrb3B0KTsKIAoraW50IGNvbXBhdF9tY19nZXRzb2Nrb3B0KHN0cnVjdCBzb2Nr
+ICpzb2NrLCBpbnQgbGV2ZWwsIGludCBvcHRuYW1lLAorCWNoYXIgX191c2VyICpvcHR2YWwsIGlu
+dCBfX3VzZXIgKm9wdGxlbiwKKwlpbnQgKCpnZXRzb2Nrb3B0KShzdHJ1Y3Qgc29jayAqLGludCxp
+bnQsY2hhciBfX3VzZXIgKixpbnQgX191c2VyICopKQoreworCXN0cnVjdCBjb21wYXRfZ3JvdXBf
+ZmlsdGVyIF9fdXNlciAqZ2YzMiA9ICh2b2lkICopb3B0dmFsOworCXN0cnVjdCBncm91cF9maWx0
+ZXIgX191c2VyICprZ2Y7CisJaW50IF9fdXNlcgkqa29wdGxlbjsKKwl1MzIgaW50ZXJmYWNlLCBm
+bW9kZSwgbnVtc3JjOworCWludCBrbGVuLCB1bGVuLCBlcnI7CisKKwlpZiAob3B0bmFtZSAhPSBN
+Q0FTVF9NU0ZJTFRFUikKKwkJcmV0dXJuIGdldHNvY2tvcHQoc29jaywgbGV2ZWwsIG9wdG5hbWUs
+IG9wdHZhbCwgb3B0bGVuKTsKKworCWtvcHRsZW4gPSBjb21wYXRfYWxsb2NfdXNlcl9zcGFjZShz
+aXplb2YoKmtvcHRsZW4pKTsKKwlpZiAoIWFjY2Vzc19vayhWRVJJRllfUkVBRCwgb3B0bGVuLCBz
+aXplb2YoKm9wdGxlbikpIHx8CisJICAgIF9fZ2V0X3VzZXIodWxlbiwgb3B0bGVuKSkKKwkJcmV0
+dXJuIC1FRkFVTFQ7CisKKwkvKiBhZGp1c3QgbGVuIGZvciBwYWQgKi8KKwlrbGVuID0gdWxlbiAr
+IHNpemVvZigqa2dmKSAtIHNpemVvZigqZ2YzMik7CisKKwlpZiAoa2xlbiA8IEdST1VQX0ZJTFRF
+Ul9TSVpFKDApKQorCQlyZXR1cm4gLUVJTlZBTDsKKworCWlmICghYWNjZXNzX29rKFZFUklGWV9X
+UklURSwga29wdGxlbiwgc2l6ZW9mKCprb3B0bGVuKSkgfHwKKwkgICAgX19wdXRfdXNlcihrbGVu
+LCBrb3B0bGVuKSkKKwkJcmV0dXJuIC1FRkFVTFQ7CisKKwkvKiBoYXZlIHRvIGFsbG93IHNwYWNl
+IGZvciBwcmV2aW91cyBjb21wYXRfYWxsb2NfdXNlcl9zcGFjZSwgdG9vICovCisJa2dmID0gY29t
+cGF0X2FsbG9jX3VzZXJfc3BhY2Uoa2xlbitzaXplb2YoKm9wdGxlbikpOworCisJaWYgKCFhY2Nl
+c3Nfb2soVkVSSUZZX1JFQUQsIGdmMzIsIF9fQ09NUEFUX0dGMF9TSVpFKSB8fAorCSAgICBfX2dl
+dF91c2VyKGludGVyZmFjZSwgJmdmMzItPmdmX2ludGVyZmFjZSkgfHwKKwkgICAgX19nZXRfdXNl
+cihmbW9kZSwgJmdmMzItPmdmX2Ztb2RlKSB8fAorCSAgICBfX2dldF91c2VyKG51bXNyYywgJmdm
+MzItPmdmX251bXNyYykgfHwKKwkgICAgX19wdXRfdXNlcihpbnRlcmZhY2UsICZrZ2YtPmdmX2lu
+dGVyZmFjZSkgfHwKKwkgICAgX19wdXRfdXNlcihmbW9kZSwgJmtnZi0+Z2ZfZm1vZGUpIHx8CisJ
+ICAgIF9fcHV0X3VzZXIobnVtc3JjLCAma2dmLT5nZl9udW1zcmMpIHx8CisJICAgIGNvcHlfaW5f
+dXNlcigma2dmLT5nZl9ncm91cCwmZ2YzMi0+Z2ZfZ3JvdXAsc2l6ZW9mKGtnZi0+Z2ZfZ3JvdXAp
+KSkKKwkJcmV0dXJuIC1FRkFVTFQ7CisKKwllcnIgPSBnZXRzb2Nrb3B0KHNvY2ssIGxldmVsLCBv
+cHRuYW1lLCAoY2hhciBfX3VzZXIgKilrZ2YsIGtvcHRsZW4pOworCWlmIChlcnIpCisJCXJldHVy
+biBlcnI7CisKKwlpZiAoIWFjY2Vzc19vayhWRVJJRllfUkVBRCwga29wdGxlbiwgc2l6ZW9mKCpr
+b3B0bGVuKSkgfHwKKwkgICAgX19nZXRfdXNlcihrbGVuLCBrb3B0bGVuKSkKKwkJcmV0dXJuIC1F
+RkFVTFQ7CisKKwl1bGVuID0ga2xlbiAtIChzaXplb2YoKmtnZiktc2l6ZW9mKCpnZjMyKSk7CisK
+KwlpZiAoIWFjY2Vzc19vayhWRVJJRllfV1JJVEUsIG9wdGxlbiwgc2l6ZW9mKCpvcHRsZW4pKSB8
+fAorCSAgICBfX3B1dF91c2VyKHVsZW4sIG9wdGxlbikpCisJCXJldHVybiAtRUZBVUxUOworCisJ
+aWYgKCFhY2Nlc3Nfb2soVkVSSUZZX1JFQUQsIGtnZiwga2xlbikgfHwKKwkgICAgIWFjY2Vzc19v
+ayhWRVJJRllfV1JJVEUsIGdmMzIsIHVsZW4pIHx8CisJICAgIF9fZ2V0X3VzZXIoaW50ZXJmYWNl
+LCAma2dmLT5nZl9pbnRlcmZhY2UpIHx8CisJICAgIF9fZ2V0X3VzZXIoZm1vZGUsICZrZ2YtPmdm
+X2Ztb2RlKSB8fAorCSAgICBfX2dldF91c2VyKG51bXNyYywgJmtnZi0+Z2ZfbnVtc3JjKSB8fAor
+CSAgICBfX3B1dF91c2VyKGludGVyZmFjZSwgJmdmMzItPmdmX2ludGVyZmFjZSkgfHwKKwkgICAg
+X19wdXRfdXNlcihmbW9kZSwgJmdmMzItPmdmX2Ztb2RlKSB8fAorCSAgICBfX3B1dF91c2VyKG51
+bXNyYywgJmdmMzItPmdmX251bXNyYykpCisJCXJldHVybiAtRUZBVUxUOworCWlmIChudW1zcmMp
+IHsKKwkJaW50IGNvcHlsZW47CisKKwkJa2xlbiAtPSBHUk9VUF9GSUxURVJfU0laRSgwKTsKKwkJ
+Y29weWxlbiA9IG51bXNyYyAqIHNpemVvZihnZjMyLT5nZl9zbGlzdFswXSk7CisJCWlmIChjb3B5
+bGVuID4ga2xlbikKKwkJCWNvcHlsZW4gPSBrbGVuOworCSAgICAgICAgaWYgKGNvcHlfaW5fdXNl
+cihnZjMyLT5nZl9zbGlzdCwga2dmLT5nZl9zbGlzdCwgY29weWxlbikpCisJCQlyZXR1cm4gLUVG
+QVVMVDsKKwl9CisJcmV0dXJuIGVycjsKK30KKworRVhQT1JUX1NZTUJPTChjb21wYXRfbWNfZ2V0
+c29ja29wdCk7CisKIAogLyogQXJndW1lbnQgbGlzdCBzaXplcyBmb3IgY29tcGF0X3N5c19zb2Nr
+ZXRjYWxsICovCiAjZGVmaW5lIEFMKHgpICgoeCkgKiBzaXplb2YodTMyKSkKZGlmZiAtcnVOcCBs
+aW51eC0yLjYuMTgucHBjNjRETFMyL25ldC9pcHY0L2lwX3NvY2tnbHVlLmMgbGludXgtMi42LjE4
+LnBwYzY0R1NPL25ldC9pcHY0L2lwX3NvY2tnbHVlLmMKLS0tIGxpbnV4LTIuNi4xOC5wcGM2NERM
+UzIvbmV0L2lwdjQvaXBfc29ja2dsdWUuYwkyMDA4LTA0LTI2IDA0OjM2OjI0LjAwMDAwMDAwMCAt
+MDcwMAorKysgbGludXgtMi42LjE4LnBwYzY0R1NPL25ldC9pcHY0L2lwX3NvY2tnbHVlLmMJMjAw
+OC0wNC0yNyAxMToyNDo0OC4wMDAwMDAwMDAgLTA3MDAKQEAgLTExOTMsNyArMTE5MywxNCBAQCBp
+bnQgaXBfZ2V0c29ja29wdChzdHJ1Y3Qgc29jayAqc2ssIGludCBsCiBpbnQgY29tcGF0X2lwX2dl
+dHNvY2tvcHQoc3RydWN0IHNvY2sgKnNrLCBpbnQgbGV2ZWwsIGludCBvcHRuYW1lLAogCQkJIGNo
+YXIgX191c2VyICpvcHR2YWwsIGludCBfX3VzZXIgKm9wdGxlbikKIHsKLQlpbnQgZXJyID0gZG9f
+aXBfZ2V0c29ja29wdChzaywgbGV2ZWwsIG9wdG5hbWUsIG9wdHZhbCwgb3B0bGVuKTsKKwlpbnQg
+ZXJyOworCisJaWYgKG9wdG5hbWUgPT0gTUNBU1RfTVNGSUxURVIpCisJCXJldHVybiBjb21wYXRf
+bWNfZ2V0c29ja29wdChzaywgbGV2ZWwsIG9wdG5hbWUsIG9wdHZhbCwgb3B0bGVuLAorCQkJaXBf
+Z2V0c29ja29wdCk7CisKKwllcnIgPSBkb19pcF9nZXRzb2Nrb3B0KHNrLCBsZXZlbCwgb3B0bmFt
+ZSwgb3B0dmFsLCBvcHRsZW4pOworCiAjaWZkZWYgQ09ORklHX05FVEZJTFRFUgogCS8qIHdlIG5l
+ZWQgdG8gZXhjbHVkZSBhbGwgcG9zc2libGUgRU5PUFJPVE9PUFRzIGV4Y2VwdCBkZWZhdWx0IGNh
+c2UgKi8KIAlpZiAoZXJyID09IC1FTk9QUk9UT09QVCAmJiBvcHRuYW1lICE9IElQX1BLVE9QVElP
+TlMKZGlmZiAtcnVOcCBsaW51eC0yLjYuMTgucHBjNjRETFMyL25ldC9pcHY2L2lwdjZfc29ja2ds
+dWUuYyBsaW51eC0yLjYuMTgucHBjNjRHU08vbmV0L2lwdjYvaXB2Nl9zb2NrZ2x1ZS5jCi0tLSBs
+aW51eC0yLjYuMTgucHBjNjRETFMyL25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYwkyMDA4LTA0LTI2
+IDA0OjM1OjE5LjAwMDAwMDAwMCAtMDcwMAorKysgbGludXgtMi42LjE4LnBwYzY0R1NPL25ldC9p
+cHY2L2lwdjZfc29ja2dsdWUuYwkyMDA4LTA0LTI3IDEzOjU2OjI3LjAwMDAwMDAwMCAtMDcwMApA
+QCAtMTA2Miw2ICsxMDYyLDEwIEBAIGludCBjb21wYXRfaXB2Nl9nZXRzb2Nrb3B0KHN0cnVjdCBz
+b2NrICoKIAlpZiAobGV2ZWwgIT0gU09MX0lQVjYpCiAJCXJldHVybiAtRU5PUFJPVE9PUFQ7CiAK
+KwlpZiAob3B0bmFtZSA9PSBNQ0FTVF9NU0ZJTFRFUikKKwkJcmV0dXJuIGNvbXBhdF9tY19nZXRz
+b2Nrb3B0KHNrLCBsZXZlbCwgb3B0bmFtZSwgb3B0dmFsLCBvcHRsZW4sCisJCQlpcHY2X2dldHNv
+Y2tvcHQpOworCiAJZXJyID0gZG9faXB2Nl9nZXRzb2Nrb3B0KHNrLCBsZXZlbCwgb3B0bmFtZSwg
+b3B0dmFsLCBvcHRsZW4pOwogI2lmZGVmIENPTkZJR19ORVRGSUxURVIKIAkvKiB3ZSBuZWVkIHRv
+IGV4Y2x1ZGUgYWxsIHBvc3NpYmxlIEVJTlZBTHMgZXhjZXB0IGRlZmF1bHQgY2FzZSAqLwo=
+
+--=_mixed 001F49AA88257439_=--
