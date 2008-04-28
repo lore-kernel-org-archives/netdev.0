@@ -1,75 +1,46 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [PATCH net-2.6/stable] [XFRM] AUDIT: Fix flowlabel text format.
-Date: Mon, 28 Apr 2008 10:35:17 -0400
-Message-ID: <1209393317.3093.2.camel@localhost.localdomain>
-References: <20080427.122418.32604330.yoshfuji@linux-ipv6.org>
-	<20080426.202558.208247674.davem@davemloft.net>
-	<20080427.125437.59237838.yoshfuji@linux-ipv6.org>
-	<200804281014.44318.paul.moore@hp.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][NET_SCHED] sch_sfq: prevent unnecessary reordering
+Date: Mon, 28 Apr 2008 16:39:46 +0200
+Message-ID: <20080428143946.GA2870@ami.dom.local>
+References: <20080428.020356.105209144.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
-	jmorris@namei.org, linux-audit@redhat.com, davem@davemloft.net
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-audit-bounces@redhat.com>
-In-Reply-To: <200804281014.44318.paul.moore@hp.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.157]:3348 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932432AbYD1Oln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 10:41:43 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so4969958fgb.17
+        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 07:41:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080428.020356.105209144.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-04-28 at 10:14 -0400, Paul Moore wrote:
-> On Saturday 26 April 2008 11:54:37 pm YOSHIFUJI Hideaki / =E5=90=89=E8=97=
-=A4=E8=8B=B1=E6=98=8E wrote:
-> > [XFRM] AUDIT: Fix flowlabel text format ambibuity.
-> >
-> > Flowlabel text format was not correct and thus ambiguous.
-> > For example, 0x00123 or 0x01203 are formatted as 0x123.
-> > This is not what audit tools want.
-> >
-> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->=20
-> Thanks for catching this.
->=20
-> I'm CC'ing the audit list on this because they get nervous when people=20
-> start changing the audit records.  However, I'll ack this patch because=
-=20
-> I think the previous behavior was incorrect and this should be=20
-> considered a bugfix.
->=20
-> Acked-by: Paul Moore <paul.moore@hp.com>
+David Miller wrote, On 04/28/2008 11:03 AM:
+...
+>> [NET_SCHED] sch_sfq: prevent unnecessary reordering
+>>
+>> Current check of queue limit in sfq_enqueue() isn't optimal: there
+>> is really not much more needed to prevent unnecessary dropping and
+>> possible reordering.
+>>
+>>
+>> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> 
+> I'll let Patrick review this one first, too.
 
-If you as the user of the audit system understand how that message is
-being used its totally up to you to when it is safe and not safe to
-change it.  I only get nervous when the audit system itself wants to
-make/force changes to users of the subsystem.
+Very wise decision! (As usual.)
 
-Acked-by: Eric Paris <eparis@redhat.com>
+But, after rethinking, I've to withdraw this patch too. Sorry!
 
--Eric
+It looks like the patch could be quite right and should save sometimes
+a few cpu cycles, but the subject and the comment are wrong: it doesn't
+prevent reordering, but simply adding and later dropping the same
+packet. So, the gain is less than planned. (Anyway, if somebody thinks
+it's useful, I could resend it after changing...)
 
-
->=20
-> > ---
-> > diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-> > index 5dcc10b..fac27ce 100644
-> > --- a/net/xfrm/xfrm_state.c
-> > +++ b/net/xfrm/xfrm_state.c
-> > @@ -2112,7 +2112,7 @@ static void xfrm_audit_helper_pktinfo(struct
-> > sk_buff *skb, u16 family, iph6 =3D ipv6_hdr(skb);
-> >  		audit_log_format(audit_buf,
-> >  				 " src=3D" NIP6_FMT " dst=3D" NIP6_FMT
-> > -				 " flowlbl=3D0x%x%x%x",
-> > +				 " flowlbl=3D0x%x%02x%02x",
-> >  				 NIP6(iph6->saddr),
-> >  				 NIP6(iph6->daddr),
-> >  				 iph6->flow_lbl[0] & 0x0f,
->=20
+Thanks,
+Jarek P.
