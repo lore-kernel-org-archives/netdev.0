@@ -1,47 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NET_SCHED] sch_sfq: prevent unnecessary reordering
-Date: Mon, 28 Apr 2008 02:03:56 -0700 (PDT)
-Message-ID: <20080428.020356.105209144.davem@davemloft.net>
-References: <20080427142216.GB7480@ami.dom.local>
-	<20080428090453.GA4936@ff.dom.local>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] Driver for IXP4xx built-in Ethernet ports
+Date: Mon, 28 Apr 2008 11:16:46 +0200
+Message-ID: <m34p9mfif5.fsf@maximus.localdomain>
+References: <m3r6d05ucg.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60957
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1765721AbYD1JD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 05:03:56 -0400
-In-Reply-To: <20080428090453.GA4936@ff.dom.local>
+Received: from OSB1387.piap.pl ([195.187.100.11]:38586 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755234AbYD1JQt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 05:16:49 -0400
+In-Reply-To: <m3r6d05ucg.fsf@maximus.localdomain> (Krzysztof Halasa's message of "Sun\, 20 Apr 2008 19\:06\:39 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 28 Apr 2008 09:04:53 +0000
+> Adds a driver for built-in IXP4xx Ethernet ports.
 
-> On 27-04-2008 16:22, Jarek Poplawski wrote:
-> > [NET_SCHED] sch_sfq: fix queue limiting while enqueuing
-> > 
-> 
-> David, as Patrick noticed this patch was wrong and I withdraw it.
+Thanks for applying those other two patches, Jeff.
 
-Yes, I was following the discussion.  But thanks for the
-confirmation :-)
+And if you worry about this one and specifically about these two
+included fixes to arch/arm/mach-ixp4xx/ixp4xx_npe.c and ixp4xx_qmgr.c,
+I believe they don't need to go through Russell's patch system, and
+I maintain the files, there is no potential conflict. I guess you can
+take this patch safely.
 
-> I still can't see why sfq should have such a low limit, but I think,
-> there is at least something to improve in the way it's imposed. BTW,
-> my previous idea to check this before classifying was wrong too. But,
-> IMHO, this could be done better than now like in this patch.
- ...
-> [NET_SCHED] sch_sfq: prevent unnecessary reordering
-> 
-> Current check of queue limit in sfq_enqueue() isn't optimal: there
-> is really not much more needed to prevent unnecessary dropping and
-> possible reordering.
-> 
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Alternatively I can omit the changes and submit them separately, your
+call.
 
-I'll let Patrick review this one first, too.
+You have already acked a previous version of this driver, I have
+changed NAPI interface (as needed by 2.6.24) since then.
+
+TIA.
+-- 
+Krzysztof Halasa
