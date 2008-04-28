@@ -1,108 +1,79 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] ARCH: Fix 32-bit x86 MSI-X allocation leakage
-Date: Mon, 28 Apr 2008 12:09:57 -0700
-Message-ID: <200804281909.m3SJ9v0k015496@frodo.ebiederm.org>
-References: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com>
-Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S966565AbYD1TKf@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c
+Date: Mon, 28 Apr 2008 22:21:57 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804282210390.16635@wrl-59.cs.helsinki.fi>
+References: <4815BCDF.6070704@andyfurniss.entadsl.com>
+ <Pine.LNX.4.64.0804281714090.1888@wrl-59.cs.helsinki.fi>
+ <48162070.4030405@andyfurniss.entadsl.com>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1274454625-1209410112=:16635"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Andy Furniss <lists@andyfurniss.entadsl.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:44094 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934597AbYD1TWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 15:22:00 -0400
+In-Reply-To: <48162070.4030405@andyfurniss.entadsl.com>
+Content-ID: <Pine.LNX.4.64.0804282215220.16635@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Brandeburg, Jesse" <jesse.brandeburg@intel.com>, <linux-pci@atrey.karlin.mff.cuni.cz>,  "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,  <michael@ellerman.id.au>, Rusty Russell <rusty@rustcorp.com.au>, Andi Kleen <ak@suse.de>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>
-Date: Mon, 28 Apr 2008 12:09:57 -0700
-In-Reply-To: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com> (PJ
-	Waskiewicz's message of "Fri, 25 Apr 2008 17:58:52 -0700")
-Message-ID: <m1skx53iey.fsf@frodo.ebiederm.org>
-User-Agent: Gnus/5.110006 (No Gnus v0.6) Emacs/21.4 (gnu/linux)
-MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
+---696208474-1274454625-1209410112=:16635
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0804282215221.16635@wrl-59.cs.helsinki.fi>
 
-Thanks Jesse for forwarding this to me.
+On Mon, 28 Apr 2008, Andy Furniss wrote:
 
-PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com> writes:
+> Ilpo Järvinen wrote:
+> > On Mon, 28 Apr 2008, Andy Furniss wrote:
+> > 
+> > > Since upgrading to 2.6.25 from 2.6.21.1 I've noticed a few of these.
+> > 
+> > ...Thanks for the report, you could actually reproduce it in non-infinite
+> > time?? ...Finally somebody who might actually have a change to catch this
+> > shows up... :-)
+> 
+> Hopefully - grepping shows I've had a few,
 
-> This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where
-> MSI-X vector allocation will eventually fail.  The cause is the new
-> bit array tracking used vectors is not getting cleared properly on
-> IRQ destruction on the 32-bit APIC code.
+More than one is a good start already. Most people who have reported had 
+just one or have a loaded server which isn't that suitable for expensive
+tracking that is necessary.
 
-In particular commit dbeb2be21d678c49a8d8bbf774903df15dd55474
-Author: Rusty Russell <rusty@rustcorp.com.au>
-Date:   Fri Oct 19 20:35:03 2007 +0200
+> I was running -rc7 for a while and
+> see a different message from that. I changed to .25 on the 21st.
 
-    i386: introduce "used_vectors" bitmap which can be used to reserve vectors.
-    
-    This simplifies the io_apic.c __assign_irq_vector() logic and removes
-    the explicit SYSCALL_VECTOR check, and also allows for vectors to be
-    reserved by other mechanisms (ie. lguest).
-    
-    [ tglx: arch/x86 adaptation ]
-    
-    Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-    Signed-off-by: Andi Kleen <ak@suse.de>
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
-    Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Anything pre -rc9 is not worth to mention. There have been other issues 
+that were fixed in it.
 
-> This can be seen easily using the ixgbe 10 GbE driver on multi-core
-> systems by simply loading and unloading the driver a few times.
-> Depending on the number of available vectors on the host system, the
-> MSI-X allocation will eventually fail, and the driver will only be
-> able to use legacy interrupts.
+> > I've tried to catch these with torrent but never got anything, it seems to
+> > be quite sensitive to "network weather", which varies too much for me to
+> > catch it. Maybe I'll try w/o timestamps if that helps me to reproduce it
+> > (more likely).
+> 
+> Could be my qos shaking things up. bt uses piggy backed acks and I must drop a
+> fair few. I probably reorder a bit as well by treating small tcp as higher
+> prio than large. Egress tcp is also mss clamped to 1150.
+
+Thanks for the info, though I've tried to use netem to generate some 
+reordering & drops in my setup but just couldn't make it to happen with 
+them either.
+
+> > The debug patch below will add considerable amount of processing per ACK to
+> > verify where this invariant gets broken for the first time, in case that's
+> > fine with your server, please consider adding that and waiting until it
+> > spits something out... :-)
+> 
+> No problem it's 90% idle most of the time and my wan isn't that fast.
 >
-> I am generating the same patch for both stable trees for 2.6.24 and
-> 2.6.25.
+> I'll rebuild tonight.
 
-The patch below does looks ok in terms of fixing the issue with
-respect to MSIs.
+Thanks.
 
-Unfortunately the entire used_vectors concept appears broken.  Rusty
-is not taking vector_lock.  used_vectors as designed can not
-work on x86_64 as vectors are allocated to interrupts in a per cpu
-manner, resulting in unnecessary divergences between  
-the two pieces of code.  used_vectors is an an extra data structure
-that we have to keep in sync, and failing to keep that data
-structure in sync is why we have a problem.
-
-For the concept of allocating a non 0x80 vector for interrupts Rusty
-was on the right track.  His implementation just appears to be 
-broken in the corner cases, and has a design we can not use long
-term.
-
-To fix this my inclination is to revert:
-dbeb2be21d678c49a8d8bbf774903df15dd55474 (the infracture) and
-c18acd73ffc209def08003a1927473096f66c5ad (the lguest user)
-as we need to rework those pieces of code anyway, and then work with
-Rusty to come up with something that we can share on x86 and x86_64.
-
-Rusty?
-
-Eric
-
-
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> ---
->
->  arch/x86/kernel/io_apic_32.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->
->
-> diff --git a/arch/x86/kernel/io_apic_32.c b/arch/x86/kernel/io_apic_32.c
-> index 2e2f420..77798b1 100644
-> --- a/arch/x86/kernel/io_apic_32.c
-> +++ b/arch/x86/kernel/io_apic_32.c
-> @@ -2444,6 +2444,7 @@ void destroy_irq(unsigned int irq)
->  	dynamic_irq_cleanup(irq);
->  
->  	spin_lock_irqsave(&vector_lock, flags);
-> +	clear_bit(irq_vector[irq], used_vectors);
->  	irq_vector[irq] = 0;
->  	spin_unlock_irqrestore(&vector_lock, flags);
->  }
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+ i.
+---696208474-1274454625-1209410112=:16635--
