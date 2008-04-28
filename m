@@ -1,21 +1,21 @@
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH] ARCH 2.6.24.y: Fix 32-bit x86 MSI-X allocation leakage
-Date: Mon, 28 Apr 2008 11:56:03 -0700
-Message-ID: <20080428185603.11595.17319.stgit@scrappy.jf.intel.com>
+Subject: [PATCH] ARCH 2.6.25.y: Fix 32-bit x86 MSI-X allocation leakage
+Date: Mon, 28 Apr 2008 11:56:22 -0700
+Message-ID: <20080428185622.11638.29287.stgit@scrappy.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: stable@kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:18945 "EHLO mga14.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:17191 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933714AbYD1S6H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2008 14:58:07 -0400
+	id S935196AbYD1S6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 14:58:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resend now that this patch was merged into -upstream.
+Resend now that this patch is in -upstream.
 
 This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where
 MSI-X vector allocation will eventually fail.  The cause is the new
@@ -36,10 +36,10 @@ Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
 
 diff --git a/arch/x86/kernel/io_apic_32.c b/arch/x86/kernel/io_apic_32.c
-index 232fdeb..9994c52 100644
+index 4ca5486..f239b30 100644
 --- a/arch/x86/kernel/io_apic_32.c
 +++ b/arch/x86/kernel/io_apic_32.c
-@@ -2478,6 +2478,7 @@ void destroy_irq(unsigned int irq)
+@@ -2477,6 +2477,7 @@ void destroy_irq(unsigned int irq)
  	dynamic_irq_cleanup(irq);
  
  	spin_lock_irqsave(&vector_lock, flags);
