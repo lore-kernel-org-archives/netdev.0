@@ -1,59 +1,66 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][NET_SCHED] sch_sfq: prevent unnecessary reordering
-Date: Mon, 28 Apr 2008 17:41:46 +0200
-Message-ID: <20080428154146.GC2870@ami.dom.local>
-References: <4815B6EA.5070201@andyfurniss.entadsl.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP slowdown in 2.6.25?
+Date: Mon, 28 Apr 2008 18:48:12 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804281826260.1888@wrl-59.cs.helsinki.fi>
+References: <1209384733.6904.12.camel@gentoo-jocke.transmode.se>
+ <1209389586.6904.17.camel@gentoo-jocke.transmode.se>
+ <Pine.LNX.4.64.0804281728280.1888@wrl-59.cs.helsinki.fi>
+ <1209395959.6904.25.camel@gentoo-jocke.transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: lists@andyfurniss.entadsl.com
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1408643012-1209397065=:1888"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:41295 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936274AbYD1PnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 11:43:17 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so1910974nfb.21
-        for <netdev@vger.kernel.org>; Mon, 28 Apr 2008 08:43:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4815B6EA.5070201@andyfurniss.entadsl.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45328 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965543AbYD1PsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 11:48:16 -0400
+In-Reply-To: <1209395959.6904.25.camel@gentoo-jocke.transmode.se>
+Content-ID: <Pine.LNX.4.64.0804281837540.1888@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Furniss wrote, On 04/28/2008 01:37 PM:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Jarek Poplawski wrote:
->> On 27-04-2008 16:22, Jarek Poplawski wrote:
->>> [NET_SCHED] sch_sfq: fix queue limiting while enqueuing
->>>
->> David, as Patrick noticed this patch was wrong and I withdraw it.
->>
->> I still can't see why sfq should have such a low limit,
+---696208474-1408643012-1209397065=:1888
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0804281837541.1888@wrl-59.cs.helsinki.fi>
+
+On Mon, 28 Apr 2008, Joakim Tjernlund wrote:
+
+> On Mon, 2008-04-28 at 17:42 +0300, Ilpo Järvinen wrote:
+> > On Mon, 28 Apr 2008, Joakim Tjernlund wrote:
+> > > On Mon, 2008-04-28 at 14:12 +0200, Joakim Tjernlund wrote:
+> > > > After upgrading from 2.6.23 to 2.6.25 I am seeing a big slow down on
+> > > > our old www server. Stracing shows lots of EAGAIN but i not sure
+> > > > these are relevant. I got no idea where to start looking so
+> > > > I would appreciate some pointers. Perhaps this is a know issue?
+> > > > 
+> > > > CPU is a PowerPC, mpc8321, network driver ucc_geth
+> > > 
+> > > Some info:
+> > > Even ftp transfers takes forever, but only in one direction: from the
+> > > node with kernel 2.6.25 to some other host. Strace show me that
+> > > write(2) hangs for long periods before succeeding to transmit 
+> > > the data.
+
+> > To some specific or "any" other host? How long is "long"?
 > 
-> It's a useful param which I use - on slow egress I can't see the point 
-> of queuing many seconds worth of traffic. It may also help keep stronger 
-> connections in check.
+> Any host. A 1304632 bytes file takes about 110 seconds to transfer
+> (12 Kbytes/sec)
+>
+> A quick capture with wireshark indicates that some sent packages from
+> the node never reaches the host on the network.
 
-I agree the param is useful, but I can't see any technical reason why
-sfq can't do a bit more queuing sometimes - especially when we expect
-more flows/users per qdisc (probably another param would be necessary
-for this).
+Thanks, this is the important bit of info, TCP flow control limit seems 
+just a consequence of that... ...Now we'll just have to figure out what is 
+causing those losses.
 
-> When shaping ingress it's essential to drop early to get out of 
-> slowstart before the far buffer gets too full.
-> 
-> 
->> [NET_SCHED] sch_sfq: prevent unnecessary reordering
->>
->> Current check of queue limit in sfq_enqueue() isn't optimal: there
->> is really not much more needed to prevent unnecessary dropping and
->> possible reordering.
-> 
-> Maybe it makes no difference in the long run, but if you drop and then 
-> enqueue a later packet the sender will get to know sooner so congestion 
-> control can do it's stuff.
+Is there some middlebox on the route to that host?
 
-Happilly(?) it looks like my patch will not change here a lot...
 
-Thanks for comments,
-Jarek P.
+-- 
+ i.
+---696208474-1408643012-1209397065=:1888--
