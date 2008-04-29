@@ -1,55 +1,56 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [stable] [PATCH] ARCH 2.6.24.y: Fix 32-bit x86 MSI-X
-	allocation leakage
-Date: Wed, 30 Apr 2008 00:01:15 +0200
-Message-ID: <20080429220115.GE2302@elte.hu>
-References: <20080426005950.7155.44626.stgit@scrappy.jf.intel.com> <20080429102235.GI23198@elte.hu> <20080429164744.GA29911@kroah.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: odd RTL8139 quirk.
+Date: Tue, 29 Apr 2008 18:04:06 -0400
+Message-ID: <48179B56.7000606@garzik.org>
+References: <20080429171403.GA21035@redhat.com> <48177905.4000409@garzik.org> <20080429215626.GC2859@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org, stable@kernel.org,
-	linux-kernel@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:41926 "EHLO mx2.mail.elte.hu"
+Received: from srv5.dvmed.net ([207.36.208.214]:49670 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752786AbYD2WBa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 18:01:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20080429164744.GA29911@kroah.com>
+	id S1753813AbYD2WEI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 18:04:08 -0400
+In-Reply-To: <20080429215626.GC2859@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* Greg KH <greg@kroah.com> wrote:
-
-> On Tue, Apr 29, 2008 at 12:22:35PM +0200, Ingo Molnar wrote:
-> > 
-> > * PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com> wrote:
-> > 
-> > > This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where 
-> > > MSI-X vector allocation will eventually fail.  The cause is the new 
-> > > bit array tracking used vectors is not getting cleared properly on IRQ 
-> > > destruction on the 32-bit APIC code.
-> > 
-> > Greg, please fix the commit message - this is a separate bug that 
-> > has nothing to do with the unification.
+Dave Jones wrote:
+> On Tue, Apr 29, 2008 at 03:37:41PM -0400, Jeff Garzik wrote:
+>  > Dave Jones wrote:
+>  > > I've just been playing with a model 2 OQO, which has an RTL8139.
+>  > > It gets detected just fine, though it doesn't actually work..
+>  > > 
+>  > > eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
+>  > > eth0:  Identified 8139 chip type 'RTL-8139'
+>  > > 
+>  > > The null MAC address being one clue.  Another oddity is that
+>  > > ethtool reports that there's no link detected, even though there is.
+>  > > (Enough for it to PXE boot a kernel from at least :)
+>  > > 
+>  > > Futzing with the debug= modparam didn't yield anything extra at all.
+>  > > 
+>  > > Any clues?
+>  > 
+>  > Sounds like a broken EEPROM.  Does supplying a MAC via ifconfig prior to 
+>  > 'ifconfig ... up' help?
 > 
-> What should I fix the commit message to be?  I copied the same commit 
-> message that went into Linus's tree.  We should be consistent :)
+> Ah. This sounds enlightening: http://www.oqotalk.com/index.php/topic,1511.0.html
+> Seems a shame to have to choose PIO vs MMIO for a distro kernel though.
+> Would there be any objection to turning that into a modparam ?
+> (If we wanted to get really fancy, we could even quirk around it automatically
+>  when we detect broken hardware).
 
-instead of:
+Something like this?  :)
 
-   This bug was introduced in the 2.6.24 i386/x86_64 tree merge,
+http://www.linux.sgi.com/archives/netdev/2004-11/msg00226.html
 
-use:
+It did not go upstream but it needed some init-time bug fixing, IIRC. 
+Maybe akpm remembers more why my patch sucked... :)
 
-   This bug was introduced in the 2.6.24 lguest merge,
+	Jeff
 
-or just:
 
-   This bug was introduced in 2.6.24,
 
-:-)
-
-	Ingo
