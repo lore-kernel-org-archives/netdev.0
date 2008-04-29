@@ -1,49 +1,70 @@
-From: Dave Jones <davej@redhat.com>
-Subject: odd RTL8139 quirk.
-Date: Tue, 29 Apr 2008 13:14:03 -0400
-Message-ID: <20080429171403.GA21035@redhat.com>
+From: Greg KH <gregkh@suse.de>
+Subject: [36/37] x86: Fix 32-bit x86 MSI-X allocation leakage
+Date: Tue, 29 Apr 2008 10:19:23 -0700
+Message-ID: <20080429171923.GK14724@suse.de>
+References: <20080429171222.073929148@mini.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	Domenico Andreoli <cavokz@gmail.com>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: linux-kernel@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:58758 "EHLO mx1.redhat.com"
+Received: from cantor.suse.de ([195.135.220.2]:52706 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755906AbYD2ROF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 13:14:05 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id m3THE4Ck004364
-	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:14:04 -0400
-Received: from file.rdu.redhat.com (file.rdu.redhat.com [10.11.255.147])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id m3THE4Ok016985
-	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:14:04 -0400
-Received: from quoit.install.boston.redhat.com (quoit.install.boston.redhat.com [10.13.0.212])
-	by file.rdu.redhat.com (8.13.1/8.13.1) with ESMTP id m3THE4BK024060
-	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:14:04 -0400
-Received: from quoit.install.boston.redhat.com (localhost.localdomain [127.0.0.1])
-	by quoit.install.boston.redhat.com (8.14.2/8.14.1) with ESMTP id m3THE3nD008460
-	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:14:03 -0400
-Received: (from davej@localhost)
-	by quoit.install.boston.redhat.com (8.14.2/8.14.2/Submit) id m3THE3H6008459
-	for netdev@vger.kernel.org; Tue, 29 Apr 2008 13:14:03 -0400
-Content-Disposition: inline
+	id S1758384AbYD2RWY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 13:22:24 -0400
+Content-Disposition: inline; filename="x86-fix-32-bit-x86-msi-x-allocation-leakage.patch"
+In-Reply-To: <20080429171730.GA14724@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've just been playing with a model 2 OQO, which has an RTL8139.
-It gets detected just fine, though it doesn't actually work..
+2.6.25-stable review patch.  If anyone has any objections, please let us
+know.
 
-eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
-eth0:  Identified 8139 chip type 'RTL-8139'
+------------------
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-The null MAC address being one clue.  Another oddity is that
-ethtool reports that there's no link detected, even though there is.
-(Enough for it to PXE boot a kernel from at least :)
+commit 9d9ad4b51d2b29b5bbeb4011f5e76f7538119cf9 upstream
 
-Futzing with the debug= modparam didn't yield anything extra at all.
+This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where
+MSI-X vector allocation will eventually fail.  The cause is the new
+bit array tracking used vectors is not getting cleared properly on
+IRQ destruction on the 32-bit APIC code.
 
-Any clues?
+This can be seen easily using the ixgbe 10 GbE driver on multi-core
+systems by simply loading and unloading the driver a few times.
+Depending on the number of available vectors on the host system, the
+MSI-X allocation will eventually fail, and the driver will only be
+able to use legacy interrupts.
 
-	Dave
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ arch/x86/kernel/io_apic_32.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/arch/x86/kernel/io_apic_32.c
++++ b/arch/x86/kernel/io_apic_32.c
+@@ -2477,6 +2477,7 @@ void destroy_irq(unsigned int irq)
+ 	dynamic_irq_cleanup(irq);
+ 
+ 	spin_lock_irqsave(&vector_lock, flags);
++	clear_bit(irq_vector[irq], used_vectors);
+ 	irq_vector[irq] = 0;
+ 	spin_unlock_irqrestore(&vector_lock, flags);
+ }
 
 -- 
-http://www.codemonkey.org.uk
