@@ -1,125 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bug 10575] New: WARNING: at mm/slub.c:2444
-Date: Tue, 29 Apr 2008 21:14:46 +0200
-Message-ID: <481773A6.5050507@trash.net>
-References: <bug-10575-27@http.bugzilla.kernel.org/> <20080429082231.2c5470ff.akpm@linux-foundation.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 00/10] sysfs tagged directories
+Date: Tue, 29 Apr 2008 12:14:21 -0700
+Message-ID: <m1d4o83242.fsf@frodo.ebiederm.org>
+References: <20080429171015.473938697@theryb.frec.bull.fr>
+	<20080429173621.GA16625@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: htmldeveloper@gmail.com, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62280 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758283AbYD2TO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 15:14:56 -0400
-In-Reply-To: <20080429082231.2c5470ff.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762120AbYD2TTx@vger.kernel.org>
+In-Reply-To: <20080429173621.GA16625@suse.de> (Greg KH's message of "Tue, 29
+	Apr 2008 10:36:21 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
+Greg KH <gregkh@suse.de> writes:
+
+> On Tue, Apr 29, 2008 at 07:10:15PM +0200, Benjamin Thery wrote:
+>> Here is the announcement Eric wrote back in December to introduce his 
+>> patchset:
 >
-> On Tue, 29 Apr 2008 06:31:36 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> <snip>
 >
->   
->>
->> kernel version:
->>
->> cat include/config/kernel.release 
->> 2.6.25-sched-devel.git-x86-latest.git
->>
->> Shutting down the system generated the following errors:
->>
->> Apr 28 00:20:22 funnyman libvirtd: Shutting down on signal 15
->> Apr 28 00:20:25 funnyman kernel: sky2 eth0: Link is down.
->> Apr 28 00:20:25 funnyman xinetd[3373]: Exiting...
->> Apr 28 00:20:30 funnyman kernel: ------------[ cut here ]------------
->> Apr 28 00:20:30 funnyman kernel: WARNING: at mm/slub.c:2444
->> kmem_cache_destroy+0xfe/0x108()
->> Apr 28 00:20:30 funnyman kernel: Modules linked in: rfcomm hidp l2cap bluetooth
->> button ext2 btrfs hfsplus usb_storage nls_utf8 bridge autofs4 nf_conntrack(-)
->> xt_tcpudp x_tables sunrpc loop dm_multipath video output sbs sbshc battery ac
->> ipv6 parport_pc lp parport snd_usb_audio snd_usb_lib snd_rawmidi snd_hwdep
->> snd_hda_intel snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq
->> snd_seq_device snd_pcm_oss sg firewire_ohci snd_mixer_oss snd_pcm firewire_core
->> crc_itu_t snd_timer snd pata_jmicron soundcore serio_raw sky2 snd_page_alloc
->> pcspkr i2c_i801 iTCO_wdt iTCO_vendor_support i2c_core floppy dm_snapshot
->> dm_zero dm_mirror dm_mod ahci ata_generic ata_piix libata sd_mod scsi_mod ext3
->> jbd ehci_hcd ohci_hcd uhci_hcd [last unloaded: xt_state]
->> Apr 28 00:20:30 funnyman kernel: Pid: 11669, comm: modprobe Not tainted
->> 2.6.25-sched-devel.git-x86-latest.git #1
->> Apr 28 00:20:30 funnyman kernel:  [<c042bad6>] warn_on_slowpath+0x46/0x56
->> Apr 28 00:20:30 funnyman kernel:  [<c0415a33>] ? apic_wait_icr_idle+0x16/0x1d
->> Apr 28 00:20:30 funnyman kernel:  [<c0415243>] ?
->> __send_IPI_dest_field+0x50/0x54
->> Apr 28 00:20:30 funnyman kernel:  [<c04020e5>] ? send_IPI_mask+0xd/0xf
->> Apr 28 00:20:30 funnyman kernel:  [<c046773c>] ?
->> get_pageblock_flags_group+0x50/0x6e
->> Apr 28 00:20:30 funnyman kernel:  [<c046777e>] ?
->> get_pageblock_migratetype+0x24/0x27
->> Apr 28 00:20:30 funnyman kernel:  [<c0468472>] ? free_hot_page+0xf/0x11
->> Apr 28 00:20:30 funnyman kernel:  [<c0468494>] ? __free_pages+0x20/0x2b
->> Apr 28 00:20:30 funnyman kernel:  [<c047f471>] ? __free_slab+0xac/0xb4
->> Apr 28 00:20:30 funnyman kernel:  [<c0480754>] kmem_cache_destroy+0xfe/0x108
->> Apr 28 00:20:30 funnyman kernel:  [<f8d337c0>] nf_conntrack_cleanup+0x53/0x7a
->> [nf_conntrack]
->> Apr 28 00:20:30 funnyman kernel:  [<f8d3766d>]
->> nf_conntrack_standalone_fini+0x1c/0x1e [nf_conntrack]
->> Apr 28 00:20:30 funnyman kernel:  [<c044b56f>] sys_delete_module+0x177/0x1af
->> Apr 28 00:20:30 funnyman kernel:  [<c0472c00>] ? remove_vma+0x31/0x53
->> Apr 28 00:20:30 funnyman kernel:  [<c0473468>] ? do_munmap+0x182/0x19c
->> Apr 28 00:20:30 funnyman kernel:  [<c0404bae>] sysenter_past_esp+0x6a/0x90
->> Apr 28 00:20:30 funnyman kernel:  [<c0640000>] ? pci_scan_bridge+0x1dc/0x2eb
->> Apr 28 00:20:30 funnyman hcid[9436]: Got disconnected from the system message
->> bus
->> Apr 28 00:20:30 funnyman kernel:  =======================
->> Apr 28 00:20:30 funnyman rpc.statd[2994]: Caught signal 15, un-registering and
->> exiting.
->> Apr 28 00:20:30 funnyman kernel: ---[ end trace eb2ec02455daeda8 ]---
->> Apr 28 00:20:30 funnyman portmap[11769]: connect from 127.0.0.1 to
->> unset(status): request from unprivileged port
->> Apr 28 00:20:30 funnyman pcscd: pcscdaemon.c:529:signal_trap() Preparing for
->> suicide
->>
->> and mm/slub.c:2444 are as follows:
->>
->>  2433  * Close a cache and release the kmem_cache structure
->>    2434  * (must be used for caches created using kmem_cache_create)
->>    2435  */
->>    2436 void kmem_cache_destroy(struct kmem_cache *s)
->>    2437 {
->>    2438         down_write(&slub_lock);
->>    2439         s->refcount--;
->>    2440         if (!s->refcount) {
->>    2441                 list_del(&s->list);
->>    2442                 up_write(&slub_lock);
->>    2443                 if (kmem_cache_close(s))
->>    2444                         WARN_ON(1);
->>    2445                 sysfs_slab_remove(s);
->>    2446         } else
->>    2447                 up_write(&slub_lock);
->>    2448 }
->>    2449 EXPORT_SYMBOL(kmem_cache_destroy);
->>
->> How to reproduce:
->>
->> Not sure how, as it occur during shutdown.
->>     
->
-> Looks like nf_contrack is destroying a slab cache which still has
-> live objects.
->
-> I think this came up a few days ago but I'm not sure if it was fixed?
+> Are the objections that Al Viro made to this patchset when it was last
+> sent out addressed in this new series?
 
-I believe Stephen fixed a use-after-free in bridging a few days ago,
-are you referring to this? Otherwise a pointer would be appreciated.
+I'm trying to recall.  Al was nervous when the approach was described
+to him but I don't remember him looking at specific patches and
+objecting.
 
-In any case, htmldeveloper, could you provide some more information
-about your setup, i.e. firewall rules, does the unload happen during
-load, ...? Did you also notice the bug on other kernel versions than
-sched-devel.git-x86-latest.git? Thanks.
+There was also an issue about races in sysfs between rename
+and unlink that Al brought up, that causes real problems in
+at least one piece of code that uses that functionality.  I have been
+busy so I don't know if anyone has addressed that issue.  It is
+independent but this patchset may make that issue slightly harder
+to fix.
 
+If the concern is Al nervousness with respect to locking order
+(and that is complex) the only really sane way to fix that is
+to dig into the VFS and change the lock ordering so that is 
+friendlier to distributed filesystems like sysfs.
 
+This patchset does not introduce any new lock ordering issues
+but it may make the existing convolutions we have to go through
+to keep the dcache for existing file handles in sync with the
+internal sysfs tree more visible.  As of my last posting I am
+not aware of any locking problems in the code itself.
+
+Greg I had thought you had dropped the patchset simply because
+you got busy.  I know it languished for a long time because of
+that.
+
+Eric
