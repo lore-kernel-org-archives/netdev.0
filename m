@@ -1,45 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] phy: fix kernel-doc notation
-Date: Tue, 29 Apr 2008 01:59:01 -0400
-Message-ID: <4816B925.6000103@pobox.com>
-References: <Pine.LNX.4.64.0804281056520.30172@shark.he.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/2] Rename SMSC phy functions to be more generic
+Date: Tue, 29 Apr 2008 01:59:10 -0400
+Message-ID: <4816B92E.7030702@garzik.org>
+References: <1209404206-32551-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
+Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>
+To: Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53360 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:53365 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752560AbYD2F7E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 01:59:04 -0400
-In-Reply-To: <Pine.LNX.4.64.0804281056520.30172@shark.he.net>
+	id S1751571AbYD2F7M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 01:59:12 -0400
+In-Reply-To: <1209404206-32551-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Randy.Dunlap wrote:
-> From: Randy Dunlap <randy.dunlap@oracle.com>
+Steve Glendinning wrote:
+> Several models of SMSC PHY have the same interrupt status and mask
+> registers as the LAN83C185, so these functions can service multiple
+> different PHY drivers.
 > 
-> Fix kernel-doc warning:
-> Warning(linux-2.6.25-git11//drivers/net/phy/phy_device.c:275): No description found for parameter 'bus_id'
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 > ---
->  drivers/net/phy/phy_device.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> --- linux-2.6.25-git11.orig/drivers/net/phy/phy_device.c
-> +++ linux-2.6.25-git11/drivers/net/phy/phy_device.c
-> @@ -256,7 +256,7 @@ void phy_prepare_link(struct phy_device 
->  /**
->   * phy_connect - connect an ethernet device to a PHY device
->   * @dev: the network device to connect
-> - * @phy_id: the PHY device to connect
-> + * @bus_id: the id string of the PHY device to connect
->   * @handler: callback function for state change notifications
->   * @flags: PHY device's dev_flags
->   * @interface: PHY device's interface
+>  drivers/net/phy/smsc.c |   14 +++++++-------
+>  1 files changed, 7 insertions(+), 7 deletions(-)
 
-applied
+applied 1-2
 
 
