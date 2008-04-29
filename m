@@ -1,49 +1,52 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [Bug 10575] New: WARNING: at mm/slub.c:2444
-Date: Tue, 29 Apr 2008 22:39:13 +0300
-Message-ID: <48177961.3030204@cs.helsinki.fi>
-References: <bug-10575-27@http.bugzilla.kernel.org/>	<20080429082231.2c5470ff.akpm@linux-foundation.org>	<481773A6.5050507@trash.net> <20080429123741.bce81cf8.akpm@linux-foundation.org>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: odd RTL8139 quirk.
+Date: Tue, 29 Apr 2008 15:47:18 -0400
+Message-ID: <20080429194718.GC21035@redhat.com>
+References: <20080429171403.GA21035@redhat.com> <48177905.4000409@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, htmldeveloper@gmail.com,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	clameter@sgi.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:38878 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608AbYD2TlF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 15:41:05 -0400
-In-Reply-To: <20080429123741.bce81cf8.akpm@linux-foundation.org>
+Received: from mx1.redhat.com ([66.187.233.31]:55204 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755391AbYD2TrX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 15:47:23 -0400
+Content-Disposition: inline
+In-Reply-To: <48177905.4000409@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> Sorry, I confused it with a similar-looking USB trace.  Pekka added some
-> additional debug at that site which might help here - it will tell us the
-> name of the slab cache:
-> 
-> void kmem_cache_destroy(struct kmem_cache *s)
-> {
-> 	down_write(&slub_lock);
-> 	s->refcount--;
-> 	if (!s->refcount) {
-> 		list_del(&s->list);
-> 		up_write(&slub_lock);
-> 		if (kmem_cache_close(s)) {
-> 			printk(KERN_ERR "SLUB %s: %s called for cache that "
-> 				"still has objects.\n", s->name, __func__);
-> 			dump_stack();
-> 		}
-> 		sysfs_slab_remove(s);
-> 	} else
-> 		up_write(&slub_lock);
-> }
-> 			
-> that was merged into mainline yesterday.
+On Tue, Apr 29, 2008 at 03:37:41PM -0400, Jeff Garzik wrote:
+ > Dave Jones wrote:
+ > > I've just been playing with a model 2 OQO, which has an RTL8139.
+ > > It gets detected just fine, though it doesn't actually work..
+ > > 
+ > > eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
+ > > eth0:  Identified 8139 chip type 'RTL-8139'
+ > > 
+ > > The null MAC address being one clue.  Another oddity is that
+ > > ethtool reports that there's no link detected, even though there is.
+ > > (Enough for it to PXE boot a kernel from at least :)
+ > > 
+ > > Futzing with the debug= modparam didn't yield anything extra at all.
+ > > 
+ > > Any clues?
+ > 
+ > Sounds like a broken EEPROM.
 
-Christoph added even nicer debugging code that dumps the objects in the 
-cache:
+Not that it counts for much, but the NIC works fine in the vista install
+that it came with.
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=33b12c38134e95e5afa73214af6f49abd7b8418e
+ >  Does supplying a MAC via ifconfig prior to 'ifconfig ... up' help?
+
+That fails spectacularly with 'eth0: PCI Bus error 0290' after I do the 'up'
+Someone suggested that the PHY isn't being detected.
+I don't get any of the MII messages from rtl8139_init_one()
+Which is odd (to me at least) as ethtool reports MII as a supported port,
+(and even has it as the 'current' port).
+
+	Dave
+
+-- 
+http://www.codemonkey.org.uk
