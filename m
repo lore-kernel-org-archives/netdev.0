@@ -1,36 +1,50 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 00/10] sysfs tagged directories
-Date: Tue, 29 Apr 2008 10:36:21 -0700
-Message-ID: <20080429173621.GA16625@suse.de>
-References: <20080429171015.473938697@theryb.frec.bull.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Tejun Heo <htejun@gmail.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: Benjamin Thery <benjamin.thery@bull.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47713 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932890AbYD2Rgn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 13:36:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20080429171015.473938697@theryb.frec.bull.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 3/3] [POWERPC] 86xx: mpc8610_hpcd: use ULI526X driver for
+	on-board ethernet
+Date: Tue, 29 Apr 2008 12:52:03 -0500
+Message-ID: <45E20E37-8AC3-46CE-ABC5-AB469AFF9D6E@kernel.crashing.org>
+References: <20080429155333.GC28166@polina.dev.rtsoft.ru>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	linuxppc-dev@ozlabs.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20080429155333.GC28166@polina.dev.rtsoft.ru>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 29, 2008 at 07:10:15PM +0200, Benjamin Thery wrote:
-> Here is the announcement Eric wrote back in December to introduce his 
-> patchset:
 
-<snip>
+On Apr 29, 2008, at 10:53 AM, Anton Vorontsov wrote:
+>  floating around (and also included in the
+> BSP), which tries to heal the situation, though the ethernet is still
+> unusable. Practically it takes ages to mount NFS filesystem:
+>
+> VFS: Mounted root (nfs filesystem).
+> Freeing unused kernel memory: 180k init
+> nfs: server 10.0.0.2 not responding, still trying
+> nfs: server 10.0.0.2 OK
+> nfs: server 10.0.0.2 not responding, still trying
+> nfs: server 10.0.0.2 not responding, still trying
+> nfs: server 10.0.0.2 not responding, still trying
+> nfs: server 10.0.0.2 not responding, still trying
+> nfs: server 10.0.0.2 OK
+> nfs: server 10.0.0.2 not responding, still trying
+>
+> So, instead of trying to add uli526x functionality into TULIP driver
+> (which is already bloated enough), I fixed existing ULI526X driver
+> and now it works perfectly well here.
 
-Are the objections that Al Viro made to this patchset when it was last
-sent out addressed in this new series?
+I'm assuming patches that fix the uli526x driver have been accepted by  
+jeff.
 
-thanks,
-
-greg k-h
+- k
