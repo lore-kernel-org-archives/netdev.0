@@ -1,53 +1,116 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [Bug 10575] New: WARNING: at mm/slub.c:2444
-Date: Tue, 29 Apr 2008 16:00:06 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0804291551410.15273@schroedinger.engr.sgi.com>
-References: <bug-10575-27@http.bugzilla.kernel.org/>
- <20080429082231.2c5470ff.akpm@linux-foundation.org> <481773A6.5050507@trash.net>
- <20080429123741.bce81cf8.akpm@linux-foundation.org> <48177EB2.2070309@cs.helsinki.fi>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH] acenic: use netstats in net_device structure
+Date: Wed, 30 Apr 2008 02:03:55 +0300
+Message-ID: <4817A95B.9050609@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>, htmldeveloper@gmail.com,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: multipart/mixed;
+ boundary="------------030709010504070303050607"
+Cc: davem@davemloft.net, jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.171.29]:56721 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751974AbYD2XAI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 19:00:08 -0400
-In-Reply-To: <48177EB2.2070309@cs.helsinki.fi>
+Received: from main.gmane.org ([80.91.229.2]:55305 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750976AbYD2XEM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 19:04:12 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Jqyrn-0003XO-2k
+	for netdev@vger.kernel.org; Tue, 29 Apr 2008 23:04:07 +0000
+Received: from 78-62-85-225.static.zebra.lt ([78.62.85.225])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 23:04:07 +0000
+Received: from paulius.zaleckas by 78-62-85-225.static.zebra.lt with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 23:04:07 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Apr 2008, Pekka Enberg wrote:
+This is a multi-part message in MIME format.
+--------------030709010504070303050607
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Well, it's obviously nf_conntrack_cachep but this is the second time I see the
-> SLUB WARN_ON trigger but can't find anything wrong with the code. Christoph,
-> if you look at nf_conntrack_cleanup() in net/netfilter/nf_conntrack_core.c:
-> 
->  i_see_dead_people:
->         nf_conntrack_flush();
->         if (atomic_read(&nf_conntrack_count) != 0) {
->                 schedule();
->                 goto i_see_dead_people;
->         }
+Use net_device_stats from net_device structure instead of local.
+No need to memset it to 0, because it is allocated by kzalloc.
 
-And we are sure that no additional items are allocatable after this?
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 
->         ct = kmem_cache_zalloc(nf_conntrack_cachep, GFP_ATOMIC);
-> 
-> So I don't see how we can call kmem_cache_destroy() with unfree'd objects in
-> it... Can you take a look at this?
 
-Nothing jumps out but then there are numerous components involved.
 
-> And oh, Peter, if you can trigger this with mainline, please do post the oops.
-> I should give us better information what's happening.
 
-The new diagnostics should give us a lot more data to go on. Make sure you 
-run with "slub_debug" as a kernel parameter or SLUB_DEBUG_ON configured.
+--------------030709010504070303050607
+Content-Type: text/x-patch;
+ name="acenic_netstats.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="acenic_netstats.patch"
 
-The dump will include the time and place when the remaining objects were 
-allocated which should resolve this issue.
+diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
+index 6c19265..e4483de 100644
+--- a/drivers/net/acenic.c
++++ b/drivers/net/acenic.c
+@@ -1457,11 +1457,6 @@ static int __devinit ace_init(struct net_device *dev)
+ 	ace_set_txprd(regs, ap, 0);
+ 	writel(0, &regs->RxRetCsm);
+ 
+-	/*
+-	 * Zero the stats before starting the interface
+-	 */
+-	memset(&ap->stats, 0, sizeof(ap->stats));
+-
+        /*
+ 	* Enable DMA engine now.
+ 	* If we do this sooner, Mckinley box pukes.
+@@ -2041,8 +2036,8 @@ static void ace_rx_int(struct net_device *dev, u32 rxretprd, u32 rxretcsm)
+ 			netif_rx(skb);
+ 
+ 		dev->last_rx = jiffies;
+-		ap->stats.rx_packets++;
+-		ap->stats.rx_bytes += retdesc->size;
++		dev->stats.rx_packets++;
++		dev->stats.rx_bytes += retdesc->size;
+ 
+ 		idx = (idx + 1) % RX_RETURN_RING_ENTRIES;
+ 	}
+@@ -2090,8 +2085,8 @@ static inline void ace_tx_int(struct net_device *dev,
+ 		}
+ 
+ 		if (skb) {
+-			ap->stats.tx_packets++;
+-			ap->stats.tx_bytes += skb->len;
++			dev->stats.tx_packets++;
++			dev->stats.tx_bytes += skb->len;
+ 			dev_kfree_skb_irq(skb);
+ 			info->skb = NULL;
+ 		}
+@@ -2863,11 +2858,11 @@ static struct net_device_stats *ace_get_stats(struct net_device *dev)
+ 	struct ace_mac_stats __iomem *mac_stats =
+ 		(struct ace_mac_stats __iomem *)ap->regs->Stats;
+ 
+-	ap->stats.rx_missed_errors = readl(&mac_stats->drop_space);
+-	ap->stats.multicast = readl(&mac_stats->kept_mc);
+-	ap->stats.collisions = readl(&mac_stats->coll);
++	dev->stats.rx_missed_errors = readl(&mac_stats->drop_space);
++	dev->stats.multicast = readl(&mac_stats->kept_mc);
++	dev->stats.collisions = readl(&mac_stats->coll);
+ 
+-	return &ap->stats;
++	return &dev->stats;
+ }
+ 
+ 
+diff --git a/drivers/net/acenic.h b/drivers/net/acenic.h
+index 60ed183..4487f32 100644
+--- a/drivers/net/acenic.h
++++ b/drivers/net/acenic.h
+@@ -693,7 +693,6 @@ struct ace_private
+ 				__attribute__ ((aligned (SMP_CACHE_BYTES)));
+ 	u32			last_tx, last_std_rx, last_mini_rx;
+ #endif
+-	struct net_device_stats stats;
+ 	int			pci_using_dac;
+ };
+ 
+
+--------------030709010504070303050607--
 
