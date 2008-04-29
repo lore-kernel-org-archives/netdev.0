@@ -1,32 +1,39 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] ARCH: Fix 32-bit x86 MSI-X allocation leakage
-Date: Tue, 29 Apr 2008 12:21:07 +0200
-Message-ID: <20080429102107.GH23198@elte.hu>
-References: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipvs: fix oops in backup for fwmark conn templates
+Date: Tue, 29 Apr 2008 03:21:52 -0700 (PDT)
+Message-ID: <20080429.032152.137995014.davem@davemloft.net>
+References: <Pine.LNX.4.58.0804281028110.2775@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, rumen@voicecho.com,
+	wensong@linux-vs.org, horms@verge.net.au
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:44454 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752976AbYD2KVW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 06:21:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35292
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753216AbYD2KVx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 06:21:53 -0400
+In-Reply-To: <Pine.LNX.4.58.0804281028110.2775@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Julian Anastasov <ja@ssi.bg>
+Date: Mon, 28 Apr 2008 10:52:38 +0300 (EEST)
 
-* PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com> wrote:
+> 
+> 	Fixes bug http://bugzilla.kernel.org/show_bug.cgi?id=10556
+> where conn templates with protocol=IPPROTO_IP can oops backup box.
+> 
+>         Result from ip_vs_proto_get() should be checked because
+> protocol value can be invalid or unsupported in backup. But
+> for valid message we should not fail for templates which use
+> IPPROTO_IP. Also, add checks to validate message limits and
+> connection state. Show state NONE for templates using IPPROTO_IP.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-> This bug was introduced in the 2.6.24 i386/x86_64 tree merge, [...]
+I'm applying this to mainline, thanks Julian.
 
-that's wrong, that code was there in v2.6.23 too - and it wasnt touched 
-in the unification. Why do you think it was introduced in the 
-i386/x86_64 tree merge?
-
-... the fix is right though, thanks!
- 
-	Ingo
+After the patch gets some more exposure and testing we can
+push it to -stable.
