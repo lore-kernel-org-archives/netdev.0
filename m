@@ -1,30 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] bridge: fix error handling in br_add_if()
-Date: Tue, 29 Apr 2008 03:17:50 -0700 (PDT)
-Message-ID: <20080429.031750.252450213.davem@davemloft.net>
-References: <20080428172925.64b88010@extreme>
+Subject: Re: [PATCH 2/2] bridge: kernel panic when unloading bridge module
+Date: Tue, 29 Apr 2008 03:18:23 -0700 (PDT)
+Message-ID: <20080429.031823.214117840.davem@davemloft.net>
+References: <20080428172809.7f814ed5@extreme>
+	<20080428172907.2517c12e@extreme>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, volodymyrgl@gmail.com
+Cc: netdev@vger.kernel.org, bstroesser@fujitsu-siemens.com
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59029
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59033
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752159AbYD2KRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 06:17:51 -0400
-In-Reply-To: <20080428172925.64b88010@extreme>
+	by vger.kernel.org with ESMTP id S1752479AbYD2KSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 06:18:25 -0400
+In-Reply-To: <20080428172907.2517c12e@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 28 Apr 2008 17:29:25 -0700
+Date: Mon, 28 Apr 2008 17:29:07 -0700
 
-> When device is added to bridge its refcnt is incremented (in new_nbp()), but if
-> error occurs during further br_add_if() operations this counter is not
-> decremented back. Fix it by adding dev_put() call in the error path.
+> There is a race condition when unloading bridge and netfilter.
 > 
-> Signed-off-by: Volodymyr G Lukiianyk <volodymyrgl@gmail.com>
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> The problem happens if __fake_rtable is in use by a skb
+> coming in, while someone starts to unload bridge.ko.
+> br_netfilter_fini() is called at the beginning of unload
+> in br_deinit() while skbs still are being forwarded and
+> transferred to local ip stack. Thus there is a possibility
+> of the __fake_rtable pointer not being removed in a skb that
+> goes up to ip stack. This results in a kernel panic, as
+> ip_rcv() calls the input-function of __fake_rtable, which
+> is NULL.
+> 
+> Moving the call of br_netfilter_fini() to the end of
+> br_deinit() solves the problem.
+> 
+> Signed-off-by: Bodo Stroesser <bstroesser@fujitsu-siemens.com>
+> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
 
-Applied.
+Also applied, thanks.
