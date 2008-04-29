@@ -1,175 +1,166 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] 3c527: use netstats in net_device structure
-Date: Tue, 29 Apr 2008 12:09:38 +0300
-Message-ID: <4816E5D2.8010500@teltonika.lt>
+From: "Li Yang" <LeoLi@freescale.com>
+Subject: RE: [PATCH] ucc_geth: Ack IRQ events as late as possible.
+Date: Tue, 29 Apr 2008 17:26:05 +0800
+Message-ID: <989B956029373F45A0B8AF029708189002007ECF@zch01exm26.fsl.freescale.net>
+References: <1209138209-8073-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000106050803060101070609"
-Cc: davem@davemloft.net, jeff@garzik.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Joakim Tjernlund" <Joakim.Tjernlund@transmode.se>,
+	"Netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:37780 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753477AbYD2JKT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 05:10:19 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Jqlqo-000330-Og
-	for netdev@vger.kernel.org; Tue, 29 Apr 2008 09:10:14 +0000
-Received: from 82-135-208-232.static.zebra.lt ([82.135.208.232])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 09:10:14 +0000
-Received: from paulius.zaleckas by 82-135-208-232.static.zebra.lt with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 09:10:14 +0000
+Received: from de01egw02.freescale.net ([192.88.165.103]:43838 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751668AbYD2J0Q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 05:26:16 -0400
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by de01egw02.freescale.net (8.12.11/de01egw02) with ESMTP id m3T9QCYr022294
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 02:26:12 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id m3T9Q7ws009170
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 04:26:08 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1209138209-8073-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000106050803060101070609
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+> -----Original Message-----
+> From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
+> Sent: Friday, April 25, 2008 11:43 PM
+> To: Li Yang; Netdev
+> Cc: Joakim Tjernlund
+> Subject: [PATCH] ucc_geth: Ack IRQ events as late as possible.
+> 
+> Late acking of IRQ events will reduce number of interrupts 
+> that needs to be served.
+> 
+> Makes the system somewhat responsive during a ping -f -l 10
+> 
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> ---
+>  drivers/net/ucc_geth.c |   36 ++++++++++++++++++++++--------------
+>  drivers/net/ucc_geth.h |    4 ++--
+>  2 files changed, 24 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c 
+> index 28431aa..c6bf4d3 100644
+> --- a/drivers/net/ucc_geth.c
+> +++ b/drivers/net/ucc_geth.c
+> @@ -3449,6 +3449,7 @@ static int ucc_geth_rx(struct 
+> ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
+>  	u32 bd_status;
+>  	u8 *bdBuffer;
+>  	struct net_device *dev;
+> +	struct ucc_fast_private *uccf = ugeth->uccf;
+>  
+>  	ugeth_vdbg("%s: IN", __FUNCTION__);
+>  
+> @@ -3457,10 +3458,21 @@ static int ucc_geth_rx(struct 
+> ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
+>  	/* collect received buffers */
+>  	bd = ugeth->rxBd[rxQ];
+>  
+> -	bd_status = in_be32((u32 *)bd);
+> -
+>  	/* while there are received buffers and BD is full (~R_E) */
+> -	while (!((bd_status & (R_E)) || (--rx_work_limit < 0))) {
+> +	while (1) {
+> +		if (in_be32(uccf->p_ucce) & UCCE_BSY) {
+> +			dev->stats.rx_missed_errors++;
+> +			dev->stats.rx_errors++;
+> +		}
+> +		out_be32(uccf->p_ucce, UCCE_RX_EVENTS);
+> +
+> +		if (--rx_work_limit < 0)
+> +			break;
+> +
+> +		bd_status = in_be32((u32 *)bd);
+> +		if (bd_status & R_E)
+> +			break; /* No more RX buffers */
+> +
+>  		bdBuffer = (u8 *) in_be32(&((struct qe_bd *)bd)->buf);
+>  		length = (u16) ((bd_status & BD_LENGTH_MASK) - 4);
+>  		skb = ugeth->rx_skbuff[rxQ][ugeth->skb_currx[rxQ]];
+> @@ -3530,6 +3542,7 @@ static int ucc_geth_tx(struct 
+> net_device *dev, u8 txQ)  {
+>  	/* Start from the next BD that should be filled */
+>  	struct ucc_geth_private *ugeth = netdev_priv(dev);
+> +	struct ucc_fast_private *uccf = ugeth->uccf;
+>  	u8 *bd;			/* BD pointer */
+>  	u32 bd_status;
+>  
+> @@ -3541,6 +3554,7 @@ static int ucc_geth_tx(struct 
+> net_device *dev, u8 txQ)
+>  		/* BD contains already transmitted buffer.   */
+>  		/* Handle the transmitted buffer and release */
+>  		/* the BD to be used with the current frame  */
+> +		out_be32(uccf->p_ucce, UCCE_TX_EVENTS);
+>  
+>  		if ((bd == ugeth->txBd[txQ]) && 
+> (netif_queue_stopped(dev) == 0))
+>  			break;
+> @@ -3619,10 +3633,8 @@ static irqreturn_t 
+> ucc_geth_irq_handler(int irq, void *info)
+>  	ug_info = ugeth->ug_info;
+>  
+>  	/* read and clear events */
+> -	ucce = (u32) in_be32(uccf->p_ucce);
+>  	uccm = (u32) in_be32(uccf->p_uccm);
+> -	ucce &= uccm;
+> -	out_be32(uccf->p_ucce, ucce);
+> +	ucce = (u32) in_be32(uccf->p_ucce) & uccm;
+>  
+>  	/* check for receive events that require processing */
+>  	if (ucce & UCCE_RX_EVENTS) {
+> @@ -3643,6 +3655,7 @@ static irqreturn_t 
+> ucc_geth_irq_handler(int irq, void *info)  #endif /* 
+> CONFIG_UGETH_NAPI */
+>  	}
+>  
+> +	ucce = (u32) in_be32(uccf->p_ucce) & uccm;
+>  	/* Tx event processing */
+>  	if (ucce & UCCE_TX_EVENTS) {
+>  		spin_lock(&ugeth->lock);
+> @@ -3655,15 +3668,10 @@ static irqreturn_t 
+> ucc_geth_irq_handler(int irq, void *info)
+>  		}
+>  		spin_unlock(&ugeth->lock);
+>  	}
+> -
+> -	/* Errors and other events */
+> +	ucce = (u32) in_be32(uccf->p_ucce) & uccm;
+> +	/* Other events */
+>  	if (ucce & UCCE_OTHER) {
+> -		if (ucce & UCCE_BSY) {
+> -			dev->stats.rx_errors++;
+> -		}
+> -		if (ucce & UCCE_TXE) {
+> -			dev->stats.tx_errors++;
+> -		}
+> +		out_be32(uccf->p_ucce, UCCE_OTHER);
+>  	}
+>  
+>  	return IRQ_HANDLED;
+> diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h 
+> index cc24e87..7451f17 100644
+> --- a/drivers/net/ucc_geth.h
+> +++ b/drivers/net/ucc_geth.h
+> @@ -207,8 +207,8 @@ struct ucc_geth {
+>  			UCCE_RXB3 | UCCE_RXB2 | UCCE_RXB1 | UCCE_RXB0)
+>  #define UCCE_RXF         (UCCE_RXF7 | UCCE_RXF6 | UCCE_RXF5 
+> | UCCE_RXF4 |\
+>  			UCCE_RXF3 | UCCE_RXF2 | UCCE_RXF1 | UCCE_RXF0)
+> -#define UCCE_OTHER       (UCCE_SCAR | UCCE_GRA  | UCCE_CBPR 
+> | UCCE_BSY  |\
+> -			UCCE_RXC  | UCCE_TXC  | UCCE_TXE)
+> +#define UCCE_OTHER       (UCCE_SCAR | UCCE_GRA | UCCE_CBPR |\
+> +			UCCE_RXC  | UCCE_TXC)
 
-Use net_device_stats from net_device structure instead of local.
+This will remove UCCE_BSY and UCCE_TXE from the uccm_mask, hence
+disabled them from generating interrupts.
 
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+How is the improvement after your change to put off interrupt ack?
+Isn't it caused by disabling the busy interrupts?
 
---------------000106050803060101070609
-Content-Type: text/x-patch;
- name="3c527_netstats.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="3c527_netstats.patch"
-
-diff --git a/drivers/net/3c527.c b/drivers/net/3c527.c
-index fae295b..6aca0c6 100644
---- a/drivers/net/3c527.c
-+++ b/drivers/net/3c527.c
-@@ -158,7 +158,6 @@ struct mc32_local
- 	int slot;
- 
- 	u32 base;
--	struct net_device_stats net_stats;
- 	volatile struct mc32_mailbox *rx_box;
- 	volatile struct mc32_mailbox *tx_box;
- 	volatile struct mc32_mailbox *exec_box;
-@@ -1093,24 +1092,24 @@ static void mc32_update_stats(struct net_device *dev)
- 
- 	u32 rx_errors=0;
- 
--	rx_errors+=lp->net_stats.rx_crc_errors   +=st->rx_crc_errors;
-+	rx_errors+=dev->stats.rx_crc_errors   +=st->rx_crc_errors;
- 	                                           st->rx_crc_errors=0;
--	rx_errors+=lp->net_stats.rx_fifo_errors  +=st->rx_overrun_errors;
-+	rx_errors+=dev->stats.rx_fifo_errors  +=st->rx_overrun_errors;
- 	                                           st->rx_overrun_errors=0;
--	rx_errors+=lp->net_stats.rx_frame_errors +=st->rx_alignment_errors;
-+	rx_errors+=dev->stats.rx_frame_errors +=st->rx_alignment_errors;
-  	                                           st->rx_alignment_errors=0;
--	rx_errors+=lp->net_stats.rx_length_errors+=st->rx_tooshort_errors;
-+	rx_errors+=dev->stats.rx_length_errors+=st->rx_tooshort_errors;
- 	                                           st->rx_tooshort_errors=0;
--	rx_errors+=lp->net_stats.rx_missed_errors+=st->rx_outofresource_errors;
-+	rx_errors+=dev->stats.rx_missed_errors+=st->rx_outofresource_errors;
- 	                                           st->rx_outofresource_errors=0;
--        lp->net_stats.rx_errors=rx_errors;
-+        dev->stats.rx_errors=rx_errors;
- 
- 	/* Number of packets which saw one collision */
--	lp->net_stats.collisions+=st->dataC[10];
-+	dev->stats.collisions+=st->dataC[10];
- 	st->dataC[10]=0;
- 
- 	/* Number of packets which saw 2--15 collisions */
--	lp->net_stats.collisions+=st->dataC[11];
-+	dev->stats.collisions+=st->dataC[11];
- 	st->dataC[11]=0;
- }
- 
-@@ -1178,7 +1177,7 @@ static void mc32_rx_ring(struct net_device *dev)
- 				skb=dev_alloc_skb(length+2);
- 
- 				if(skb==NULL) {
--					lp->net_stats.rx_dropped++;
-+					dev->stats.rx_dropped++;
- 					goto dropped;
- 				}
- 
-@@ -1189,8 +1188,8 @@ static void mc32_rx_ring(struct net_device *dev)
- 
- 			skb->protocol=eth_type_trans(skb,dev);
- 			dev->last_rx = jiffies;
-- 			lp->net_stats.rx_packets++;
-- 			lp->net_stats.rx_bytes += length;
-+ 			dev->stats.rx_packets++;
-+ 			dev->stats.rx_bytes += length;
- 			netif_rx(skb);
- 		}
- 
-@@ -1253,34 +1252,34 @@ static void mc32_tx_ring(struct net_device *dev)
- 			/* Not COMPLETED */
- 			break;
- 		}
--		lp->net_stats.tx_packets++;
-+		dev->stats.tx_packets++;
- 		if(!(np->status & (1<<6))) /* Not COMPLETED_OK */
- 		{
--			lp->net_stats.tx_errors++;
-+			dev->stats.tx_errors++;
- 
- 			switch(np->status&0x0F)
- 			{
- 				case 1:
--					lp->net_stats.tx_aborted_errors++;
-+					dev->stats.tx_aborted_errors++;
- 					break; /* Max collisions */
- 				case 2:
--					lp->net_stats.tx_fifo_errors++;
-+					dev->stats.tx_fifo_errors++;
- 					break;
- 				case 3:
--					lp->net_stats.tx_carrier_errors++;
-+					dev->stats.tx_carrier_errors++;
- 					break;
- 				case 4:
--					lp->net_stats.tx_window_errors++;
-+					dev->stats.tx_window_errors++;
- 					break;  /* CTS Lost */
- 				case 5:
--					lp->net_stats.tx_aborted_errors++;
-+					dev->stats.tx_aborted_errors++;
- 					break; /* Transmit timeout */
- 			}
- 		}
- 		/* Packets are sent in order - this is
- 		    basically a FIFO queue of buffers matching
- 		    the card ring */
--		lp->net_stats.tx_bytes+=lp->tx_ring[t].skb->len;
-+		dev->stats.tx_bytes+=lp->tx_ring[t].skb->len;
- 		dev_kfree_skb_irq(lp->tx_ring[t].skb);
- 		lp->tx_ring[t].skb=NULL;
- 		atomic_inc(&lp->tx_count);
-@@ -1367,7 +1366,7 @@ static irqreturn_t mc32_interrupt(int irq, void *dev_id)
- 			case 6:
- 				/* Out of RX buffers stat */
- 				/* Must restart rx */
--				lp->net_stats.rx_dropped++;
-+				dev->stats.rx_dropped++;
- 				mc32_rx_ring(dev);
- 				mc32_start_transceiver(dev);
- 				break;
-@@ -1489,10 +1488,8 @@ static int mc32_close(struct net_device *dev)
- 
- static struct net_device_stats *mc32_get_stats(struct net_device *dev)
- {
--	struct mc32_local *lp = netdev_priv(dev);
--
- 	mc32_update_stats(dev);
--	return &lp->net_stats;
-+	return &dev->stats;
- }
- 
- 
-
---------------000106050803060101070609--
-
+- Leo
