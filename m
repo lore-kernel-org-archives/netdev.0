@@ -1,35 +1,40 @@
-From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Subject: [PATCH 2.6.26 2/2]S2io: Version update for multi ring patche
-Date: Mon, 28 Apr 2008 21:09:40 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10804282108480.22468-100000@guinness>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC XFRM]: esp: fix scatterlist of out bounds access with crypto_eseqiv
+Date: Tue, 29 Apr 2008 09:41:07 +0800
+Message-ID: <20080429014107.GA16700@gondor.apana.org.au>
+References: <48161D99.5070303@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: support@neterion.com
-To: netdev@vger.kernel.org, jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-crypto@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:58397 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752424AbYD2BJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 21:09:44 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:43672 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751730AbYD2BlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 21:41:09 -0400
+Content-Disposition: inline
+In-Reply-To: <48161D99.5070303@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Updated version number.
+Hi Patrick:
 
-Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
-Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
----
-diff -pNur 2.6.26_version_test1/drivers/net/s2io.c 2.6.26_version_test2/drivers/net/s2io.c
---- 2.6.26_version_test1/drivers/net/s2io.c	2008-04-25 19:54:30.000000000 -0700
-+++ 2.6.26_version_test2/drivers/net/s2io.c	2008-04-25 20:03:05.000000000 -0700
-@@ -86,7 +86,7 @@
- #include "s2io.h"
- #include "s2io-regs.h"
- 
--#define DRV_VERSION "2.0.26.22"
-+#define DRV_VERSION "2.0.26.23"
- 
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
+On Mon, Apr 28, 2008 at 08:55:21PM +0200, Patrick McHardy wrote:
+> I ran into occasional BUGs in scatterlist.h, which turned
+> out the be caused by accessing an uninitialized scatterlist
+> entry from eseqiv. I'm not sure whether this patch is correct
+> since I'm seeing invalid packets with and without this patch
+> (probably related to HIFN though) and I don't understand why
+> scatterwalk_sg_next() returns either a scatterlist or a
+> struct page dependant on the length, but at least it fixes
+> the BUG() for me :)
 
+Can you attach the BUG output please?
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
