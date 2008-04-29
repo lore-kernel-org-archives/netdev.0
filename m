@@ -1,40 +1,80 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC XFRM]: esp: fix scatterlist of out bounds access with crypto_eseqiv
-Date: Tue, 29 Apr 2008 09:41:07 +0800
-Message-ID: <20080429014107.GA16700@gondor.apana.org.au>
-References: <48161D99.5070303@trash.net>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH] Allow building iwl3945 without iwl4965.
+Date: Tue, 29 Apr 2008 10:19:57 +0800
+Message-ID: <1209435597.2624.35.camel@debian.sh.intel.com>
+References: <87zlrgl09s.fsf@sparse.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jason Riedy <jason@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43672 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751730AbYD2BlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2008 21:41:09 -0400
-Content-Disposition: inline
-In-Reply-To: <48161D99.5070303@trash.net>
+Received: from mga03.intel.com ([143.182.124.21]:31731 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751411AbYD2CUq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2008 22:20:46 -0400
+In-Reply-To: <87zlrgl09s.fsf@sparse.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick:
+On Sat, 2008-04-26 at 15:27 -0700, Jason Riedy wrote:
+> If IWL3945 ever depends on IWLCORE, the silent, user-invisible
+> IWLWIFI option can go away.
+> 
+> Signed-off-by: Jason Riedy <jason@acm.org>
+> ---
+>    The breakage made it to Linus's tree but isn't in the wireless forest
+>    (as far as I can see).  Commit 49186b4a083655 is a "part 2" without
+>    a "part 1", so perhaps that "part 1" avoided the problem?
+> 
+>  drivers/net/wireless/Makefile        |    2 +-
+>  drivers/net/wireless/iwlwifi/Kconfig |    6 ++++++
+>  2 files changed, 7 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+> index c2642bc..2c343aa 100644
+> --- a/drivers/net/wireless/Makefile
+> +++ b/drivers/net/wireless/Makefile
+> @@ -56,7 +56,7 @@ obj-$(CONFIG_RTL8187)	+= rtl8187.o
+>  
+>  obj-$(CONFIG_ADM8211)	+= adm8211.o
+>  
+> -obj-$(CONFIG_IWLCORE)	+= iwlwifi/
+> +obj-$(CONFIG_IWLWIFI)	+= iwlwifi/
+>  obj-$(CONFIG_RT2X00)	+= rt2x00/
+>  
+>  obj-$(CONFIG_P54_COMMON)	+= p54/
+> diff --git a/drivers/net/wireless/iwlwifi/Kconfig b/drivers/net/wireless/iwlwifi/Kconfig
+> index c4e631d..9a25f55 100644
+> --- a/drivers/net/wireless/iwlwifi/Kconfig
+> +++ b/drivers/net/wireless/iwlwifi/Kconfig
+> @@ -1,6 +1,11 @@
+> +config IWLWIFI
+> +	bool
+> +	default n
+> +
+>  config IWLCORE
+>  	tristate "Intel Wireless Wifi Core"
+>  	depends on PCI && MAC80211 && WLAN_80211 && EXPERIMENTAL
+> +	select IWLWIFI
+>  
+>  config IWLWIFI_LEDS
+>  	bool
+> @@ -106,6 +111,7 @@ config IWL3945
+>  	tristate "Intel PRO/Wireless 3945ABG/BG Network Connection"
+>  	depends on PCI && MAC80211 && WLAN_80211 && EXPERIMENTAL
+>  	select FW_LOADER
+> +	select IWLWIFI
+>  	---help---
+>  	  Select to build the driver supporting the:
 
-On Mon, Apr 28, 2008 at 08:55:21PM +0200, Patrick McHardy wrote:
-> I ran into occasional BUGs in scatterlist.h, which turned
-> out the be caused by accessing an uninitialized scatterlist
-> entry from eseqiv. I'm not sure whether this patch is correct
-> since I'm seeing invalid packets with and without this patch
-> (probably related to HIFN though) and I don't understand why
-> scatterwalk_sg_next() returns either a scatterlist or a
-> struct page dependant on the length, but at least it fixes
-> the BUG() for me :)
-
-Can you attach the BUG output please?
+Do we have a way to make "select IWLWIFI" generate CONFIG_IWLWIFI with
+the same state as CONFIG_IWLCORE (or CONFIG_IWL3945)? AFAICS,
+CONFIG_IWLWIFI is always 'y' whenever CONFIG_IWLCORE is 'y' or 'm'. If
+the latter is 'm', the Makefile will generate a empty built-in.o which
+requires vmlinux to update unnecessarily every time we only compile
+iwl3945/4965 modules.
 
 Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-yi
+
