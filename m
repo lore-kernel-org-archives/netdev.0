@@ -1,70 +1,125 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [03/12] x86: Fix 32-bit x86 MSI-X allocation leakage
-Date: Tue, 29 Apr 2008 11:49:29 -0700
-Message-ID: <20080429184929.GD24199@suse.de>
-References: <20080429184543.308594866@mini.kroah.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bug 10575] New: WARNING: at mm/slub.c:2444
+Date: Tue, 29 Apr 2008 21:14:46 +0200
+Message-ID: <481773A6.5050507@trash.net>
+References: <bug-10575-27@http.bugzilla.kernel.org/> <20080429082231.2c5470ff.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: linux-kernel@vger.kernel.org, stable@kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: htmldeveloper@gmail.com, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:41248 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761910AbYD2Sup (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 14:50:45 -0400
-Content-Disposition: inline; filename="x86-fix-32-bit-x86-msi-x-allocation-leakage.patch"
-In-Reply-To: <20080429184911.GA24199@suse.de>
+Received: from stinky.trash.net ([213.144.137.162]:62280 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758283AbYD2TO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 15:14:56 -0400
+In-Reply-To: <20080429082231.2c5470ff.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2.6.24-stable review patch.  If anyone has any objections, please let us
-know.
+Andrew Morton wrote:
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+>
+> On Tue, 29 Apr 2008 06:31:36 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+>
+>   
+>>
+>> kernel version:
+>>
+>> cat include/config/kernel.release 
+>> 2.6.25-sched-devel.git-x86-latest.git
+>>
+>> Shutting down the system generated the following errors:
+>>
+>> Apr 28 00:20:22 funnyman libvirtd: Shutting down on signal 15
+>> Apr 28 00:20:25 funnyman kernel: sky2 eth0: Link is down.
+>> Apr 28 00:20:25 funnyman xinetd[3373]: Exiting...
+>> Apr 28 00:20:30 funnyman kernel: ------------[ cut here ]------------
+>> Apr 28 00:20:30 funnyman kernel: WARNING: at mm/slub.c:2444
+>> kmem_cache_destroy+0xfe/0x108()
+>> Apr 28 00:20:30 funnyman kernel: Modules linked in: rfcomm hidp l2cap bluetooth
+>> button ext2 btrfs hfsplus usb_storage nls_utf8 bridge autofs4 nf_conntrack(-)
+>> xt_tcpudp x_tables sunrpc loop dm_multipath video output sbs sbshc battery ac
+>> ipv6 parport_pc lp parport snd_usb_audio snd_usb_lib snd_rawmidi snd_hwdep
+>> snd_hda_intel snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq
+>> snd_seq_device snd_pcm_oss sg firewire_ohci snd_mixer_oss snd_pcm firewire_core
+>> crc_itu_t snd_timer snd pata_jmicron soundcore serio_raw sky2 snd_page_alloc
+>> pcspkr i2c_i801 iTCO_wdt iTCO_vendor_support i2c_core floppy dm_snapshot
+>> dm_zero dm_mirror dm_mod ahci ata_generic ata_piix libata sd_mod scsi_mod ext3
+>> jbd ehci_hcd ohci_hcd uhci_hcd [last unloaded: xt_state]
+>> Apr 28 00:20:30 funnyman kernel: Pid: 11669, comm: modprobe Not tainted
+>> 2.6.25-sched-devel.git-x86-latest.git #1
+>> Apr 28 00:20:30 funnyman kernel:  [<c042bad6>] warn_on_slowpath+0x46/0x56
+>> Apr 28 00:20:30 funnyman kernel:  [<c0415a33>] ? apic_wait_icr_idle+0x16/0x1d
+>> Apr 28 00:20:30 funnyman kernel:  [<c0415243>] ?
+>> __send_IPI_dest_field+0x50/0x54
+>> Apr 28 00:20:30 funnyman kernel:  [<c04020e5>] ? send_IPI_mask+0xd/0xf
+>> Apr 28 00:20:30 funnyman kernel:  [<c046773c>] ?
+>> get_pageblock_flags_group+0x50/0x6e
+>> Apr 28 00:20:30 funnyman kernel:  [<c046777e>] ?
+>> get_pageblock_migratetype+0x24/0x27
+>> Apr 28 00:20:30 funnyman kernel:  [<c0468472>] ? free_hot_page+0xf/0x11
+>> Apr 28 00:20:30 funnyman kernel:  [<c0468494>] ? __free_pages+0x20/0x2b
+>> Apr 28 00:20:30 funnyman kernel:  [<c047f471>] ? __free_slab+0xac/0xb4
+>> Apr 28 00:20:30 funnyman kernel:  [<c0480754>] kmem_cache_destroy+0xfe/0x108
+>> Apr 28 00:20:30 funnyman kernel:  [<f8d337c0>] nf_conntrack_cleanup+0x53/0x7a
+>> [nf_conntrack]
+>> Apr 28 00:20:30 funnyman kernel:  [<f8d3766d>]
+>> nf_conntrack_standalone_fini+0x1c/0x1e [nf_conntrack]
+>> Apr 28 00:20:30 funnyman kernel:  [<c044b56f>] sys_delete_module+0x177/0x1af
+>> Apr 28 00:20:30 funnyman kernel:  [<c0472c00>] ? remove_vma+0x31/0x53
+>> Apr 28 00:20:30 funnyman kernel:  [<c0473468>] ? do_munmap+0x182/0x19c
+>> Apr 28 00:20:30 funnyman kernel:  [<c0404bae>] sysenter_past_esp+0x6a/0x90
+>> Apr 28 00:20:30 funnyman kernel:  [<c0640000>] ? pci_scan_bridge+0x1dc/0x2eb
+>> Apr 28 00:20:30 funnyman hcid[9436]: Got disconnected from the system message
+>> bus
+>> Apr 28 00:20:30 funnyman kernel:  =======================
+>> Apr 28 00:20:30 funnyman rpc.statd[2994]: Caught signal 15, un-registering and
+>> exiting.
+>> Apr 28 00:20:30 funnyman kernel: ---[ end trace eb2ec02455daeda8 ]---
+>> Apr 28 00:20:30 funnyman portmap[11769]: connect from 127.0.0.1 to
+>> unset(status): request from unprivileged port
+>> Apr 28 00:20:30 funnyman pcscd: pcscdaemon.c:529:signal_trap() Preparing for
+>> suicide
+>>
+>> and mm/slub.c:2444 are as follows:
+>>
+>>  2433  * Close a cache and release the kmem_cache structure
+>>    2434  * (must be used for caches created using kmem_cache_create)
+>>    2435  */
+>>    2436 void kmem_cache_destroy(struct kmem_cache *s)
+>>    2437 {
+>>    2438         down_write(&slub_lock);
+>>    2439         s->refcount--;
+>>    2440         if (!s->refcount) {
+>>    2441                 list_del(&s->list);
+>>    2442                 up_write(&slub_lock);
+>>    2443                 if (kmem_cache_close(s))
+>>    2444                         WARN_ON(1);
+>>    2445                 sysfs_slab_remove(s);
+>>    2446         } else
+>>    2447                 up_write(&slub_lock);
+>>    2448 }
+>>    2449 EXPORT_SYMBOL(kmem_cache_destroy);
+>>
+>> How to reproduce:
+>>
+>> Not sure how, as it occur during shutdown.
+>>     
+>
+> Looks like nf_contrack is destroying a slab cache which still has
+> live objects.
+>
+> I think this came up a few days ago but I'm not sure if it was fixed?
 
-------------------
+I believe Stephen fixed a use-after-free in bridging a few days ago,
+are you referring to this? Otherwise a pointer would be appreciated.
 
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+In any case, htmldeveloper, could you provide some more information
+about your setup, i.e. firewall rules, does the unload happen during
+load, ...? Did you also notice the bug on other kernel versions than
+sched-devel.git-x86-latest.git? Thanks.
 
-commit 9d9ad4b51d2b29b5bbeb4011f5e76f7538119cf9 upstream
 
-This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where
-MSI-X vector allocation will eventually fail.  The cause is the new
-bit array tracking used vectors is not getting cleared properly on
-IRQ destruction on the 32-bit APIC code.
-
-This can be seen easily using the ixgbe 10 GbE driver on multi-core
-systems by simply loading and unloading the driver a few times.
-Depending on the number of available vectors on the host system, the
-MSI-X allocation will eventually fail, and the driver will only be
-able to use legacy interrupts.
-
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- arch/x86/kernel/io_apic_32.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/arch/x86/kernel/io_apic_32.c
-+++ b/arch/x86/kernel/io_apic_32.c
-@@ -2478,6 +2478,7 @@ void destroy_irq(unsigned int irq)
- 	dynamic_irq_cleanup(irq);
- 
- 	spin_lock_irqsave(&vector_lock, flags);
-+	clear_bit(irq_vector[irq], used_vectors);
- 	irq_vector[irq] = 0;
- 	spin_unlock_irqrestore(&vector_lock, flags);
- }
-
--- 
