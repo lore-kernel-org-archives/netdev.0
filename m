@@ -1,40 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.26 1/2]S2io: Fixes for multi ring support
-Date: Tue, 29 Apr 2008 01:58:54 -0400
-Message-ID: <4816B91E.5020707@garzik.org>
-References: <Pine.GSO.4.10.10804282103270.22468-100000@guinness>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] phy: fix kernel-doc notation
+Date: Tue, 29 Apr 2008 01:59:01 -0400
+Message-ID: <4816B925.6000103@pobox.com>
+References: <Pine.LNX.4.64.0804281056520.30172@shark.he.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Cc: netdev@vger.kernel.org
+To: "Randy.Dunlap" <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33217 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:53360 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751250AbYD2F64 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 01:58:56 -0400
-In-Reply-To: <Pine.GSO.4.10.10804282103270.22468-100000@guinness>
+	id S1752560AbYD2F7E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 01:59:04 -0400
+In-Reply-To: <Pine.LNX.4.64.0804281056520.30172@shark.he.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sreenivasa Honnur wrote:
-> Enable multi ring support:
-> 	- Seperate ring specific data
-> 	- Initialize all configured rings with equal priority.
-> 	- Updated boundary check for number of Rings.
-> 	- Updated per ring statistics of rx_bytes and rx_packets.
-> 	- Moved lro struct from struct s2io_nic to struct ring_info.
-> 	- Access respective rx ring directly in fill_rx_buffers.
-> 	- Moved rx_bufs_left struct s2io_nic to struct ring_info.
-> 	- Added per ring variables -  rxd_mode, rxd_count, dev, pdev. 
-> -As per Jeff's suggestion merged multi ring support and fixe patches in
-> to one single patch.
+Randy.Dunlap wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
-> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> Fix kernel-doc warning:
+> Warning(linux-2.6.25-git11//drivers/net/phy/phy_device.c:275): No description found for parameter 'bus_id'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> ---
+>  drivers/net/phy/phy_device.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> --- linux-2.6.25-git11.orig/drivers/net/phy/phy_device.c
+> +++ linux-2.6.25-git11/drivers/net/phy/phy_device.c
+> @@ -256,7 +256,7 @@ void phy_prepare_link(struct phy_device 
+>  /**
+>   * phy_connect - connect an ethernet device to a PHY device
+>   * @dev: the network device to connect
+> - * @phy_id: the PHY device to connect
+> + * @bus_id: the id string of the PHY device to connect
+>   * @handler: callback function for state change notifications
+>   * @flags: PHY device's dev_flags
+>   * @interface: PHY device's interface
 
-applied 1-2 after fixing patch description ("fixes for multi-ring 
-support" is an inaccurate description, after patches were combined)
+applied
 
 
