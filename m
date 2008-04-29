@@ -1,66 +1,54 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 1/8][BONDING]: Do not call free_netdev for already registered
- device.
-Date: Tue, 29 Apr 2008 18:54:34 +0400
-Message-ID: <481736AA.9050805@openvz.org>
+Subject: [PATCH 5/8][BONDING]: Lost semaphores unlock in one of bonding_store_bonds
+ error paths.
+Date: Tue, 29 Apr 2008 19:02:52 +0400
+Message-ID: <4817389C.2090400@openvz.org>
 References: <481735F4.30909@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	bonding-devel@lists.sourceforge.net,
+Cc: bonding-devel@lists.sourceforge.net,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+To: Jay Vosburgh <fubar@us.ibm.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58802 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:58807 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751505AbYD2PHw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 11:07:52 -0400
+	id S1754561AbYD2PH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 11:07:56 -0400
 In-Reply-To: <481735F4.30909@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the call to bond_create_sysfs_entry in bond_create fails, the
-proper rollback is to call unregister_netdevice, not free_netdev.
-Otherwise - kernel BUG at net/core/dev.c:4057!
-
-Checked with artificial failures injected into bond_create_sysfs_entry.
+The out: label just makes return. Wipe things up.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- drivers/net/bonding/bond_main.c |   14 +++++++++-----
- 1 files changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/bonding/bond_sysfs.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6e91b4b..36121b6 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4936,14 +4936,18 @@ int bond_create(char *name, struct bond_params *params, struct bonding **newbond
- 	up_write(&bonding_rwsem);
- 	rtnl_unlock(); /* allows sysfs registration of net device */
- 	res = bond_create_sysfs_entry(bond_dev->priv);
--	if (res < 0) {
--		rtnl_lock();
--		down_write(&bonding_rwsem);
--		goto out_bond;
--	}
-+	if (res < 0)
-+		goto out_unreg;
- 
- 	return 0;
- 
-+out_unreg:
-+	rtnl_lock();
-+	down_write(&bonding_rwsem);
-+	bond_deinit(bond_dev);
-+	unregister_netdevice(bond_dev);
-+	goto out_rtnl;
-+
- out_bond:
- 	bond_deinit(bond_dev);
- out_netdev:
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 88de27f..752e43b 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -146,12 +146,12 @@ static ssize_t bonding_store_bonds(struct class *cls, const char *buffer, size_t
+ 						": Unable remove bond %s due to open references.\n",
+ 						ifname);
+ 					res = -EPERM;
+-					goto out;
++				} else {
++					printk(KERN_INFO DRV_NAME
++						": %s is being deleted...\n",
++						bond->dev->name);
++					bond_destroy(bond);
+ 				}
+-				printk(KERN_INFO DRV_NAME
+-					": %s is being deleted...\n",
+-					bond->dev->name);
+-				bond_destroy(bond);
+ 				up_write(&bonding_rwsem);
+ 				rtnl_unlock();
+ 				goto out;
 -- 
 1.5.3.4
 
