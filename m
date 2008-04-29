@@ -1,166 +1,179 @@
-From: "Li Yang" <LeoLi@freescale.com>
-Subject: RE: [PATCH] ucc_geth: Ack IRQ events as late as possible.
-Date: Tue, 29 Apr 2008 17:26:05 +0800
-Message-ID: <989B956029373F45A0B8AF029708189002007ECF@zch01exm26.fsl.freescale.net>
-References: <1209138209-8073-1-git-send-email-Joakim.Tjernlund@transmode.se>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: RE: netperf udp_rr testing hang
+Date: Tue, 29 Apr 2008 17:27:58 +0800
+Message-ID: <1209461278.2873.34.camel@ymzhang>
+References: <1209109343.28819.37.camel@ymzhang>
+	 <36D9DB17C6DE9E40B059440DB8D95F520507661D@orsmsx418.amr.corp.intel.com>
+	 <1209354200.2873.11.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Joakim Tjernlund" <Joakim.Tjernlund@transmode.se>,
-	"Netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Rick Jones <rick.jones2@hp.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:43838 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668AbYD2J0Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 05:26:16 -0400
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by de01egw02.freescale.net (8.12.11/de01egw02) with ESMTP id m3T9QCYr022294
-	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 02:26:12 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id m3T9Q7ws009170
-	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 04:26:08 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1209138209-8073-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Received: from mga05.intel.com ([192.55.52.89]:60870 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751585AbYD2Ja1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 05:30:27 -0400
+In-Reply-To: <1209354200.2873.11.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
-> Sent: Friday, April 25, 2008 11:43 PM
-> To: Li Yang; Netdev
-> Cc: Joakim Tjernlund
-> Subject: [PATCH] ucc_geth: Ack IRQ events as late as possible.
-> 
-> Late acking of IRQ events will reduce number of interrupts 
-> that needs to be served.
-> 
-> Makes the system somewhat responsive during a ping -f -l 10
-> 
-> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> ---
->  drivers/net/ucc_geth.c |   36 ++++++++++++++++++++++--------------
->  drivers/net/ucc_geth.h |    4 ++--
->  2 files changed, 24 insertions(+), 16 deletions(-)
-> 
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c 
-> index 28431aa..c6bf4d3 100644
-> --- a/drivers/net/ucc_geth.c
-> +++ b/drivers/net/ucc_geth.c
-> @@ -3449,6 +3449,7 @@ static int ucc_geth_rx(struct 
-> ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
->  	u32 bd_status;
->  	u8 *bdBuffer;
->  	struct net_device *dev;
-> +	struct ucc_fast_private *uccf = ugeth->uccf;
->  
->  	ugeth_vdbg("%s: IN", __FUNCTION__);
->  
-> @@ -3457,10 +3458,21 @@ static int ucc_geth_rx(struct 
-> ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
->  	/* collect received buffers */
->  	bd = ugeth->rxBd[rxQ];
->  
-> -	bd_status = in_be32((u32 *)bd);
-> -
->  	/* while there are received buffers and BD is full (~R_E) */
-> -	while (!((bd_status & (R_E)) || (--rx_work_limit < 0))) {
-> +	while (1) {
-> +		if (in_be32(uccf->p_ucce) & UCCE_BSY) {
-> +			dev->stats.rx_missed_errors++;
-> +			dev->stats.rx_errors++;
-> +		}
-> +		out_be32(uccf->p_ucce, UCCE_RX_EVENTS);
-> +
-> +		if (--rx_work_limit < 0)
-> +			break;
-> +
-> +		bd_status = in_be32((u32 *)bd);
-> +		if (bd_status & R_E)
-> +			break; /* No more RX buffers */
-> +
->  		bdBuffer = (u8 *) in_be32(&((struct qe_bd *)bd)->buf);
->  		length = (u16) ((bd_status & BD_LENGTH_MASK) - 4);
->  		skb = ugeth->rx_skbuff[rxQ][ugeth->skb_currx[rxQ]];
-> @@ -3530,6 +3542,7 @@ static int ucc_geth_tx(struct 
-> net_device *dev, u8 txQ)  {
->  	/* Start from the next BD that should be filled */
->  	struct ucc_geth_private *ugeth = netdev_priv(dev);
-> +	struct ucc_fast_private *uccf = ugeth->uccf;
->  	u8 *bd;			/* BD pointer */
->  	u32 bd_status;
->  
-> @@ -3541,6 +3554,7 @@ static int ucc_geth_tx(struct 
-> net_device *dev, u8 txQ)
->  		/* BD contains already transmitted buffer.   */
->  		/* Handle the transmitted buffer and release */
->  		/* the BD to be used with the current frame  */
-> +		out_be32(uccf->p_ucce, UCCE_TX_EVENTS);
->  
->  		if ((bd == ugeth->txBd[txQ]) && 
-> (netif_queue_stopped(dev) == 0))
->  			break;
-> @@ -3619,10 +3633,8 @@ static irqreturn_t 
-> ucc_geth_irq_handler(int irq, void *info)
->  	ug_info = ugeth->ug_info;
->  
->  	/* read and clear events */
-> -	ucce = (u32) in_be32(uccf->p_ucce);
->  	uccm = (u32) in_be32(uccf->p_uccm);
-> -	ucce &= uccm;
-> -	out_be32(uccf->p_ucce, ucce);
-> +	ucce = (u32) in_be32(uccf->p_ucce) & uccm;
->  
->  	/* check for receive events that require processing */
->  	if (ucce & UCCE_RX_EVENTS) {
-> @@ -3643,6 +3655,7 @@ static irqreturn_t 
-> ucc_geth_irq_handler(int irq, void *info)  #endif /* 
-> CONFIG_UGETH_NAPI */
->  	}
->  
-> +	ucce = (u32) in_be32(uccf->p_ucce) & uccm;
->  	/* Tx event processing */
->  	if (ucce & UCCE_TX_EVENTS) {
->  		spin_lock(&ugeth->lock);
-> @@ -3655,15 +3668,10 @@ static irqreturn_t 
-> ucc_geth_irq_handler(int irq, void *info)
->  		}
->  		spin_unlock(&ugeth->lock);
->  	}
-> -
-> -	/* Errors and other events */
-> +	ucce = (u32) in_be32(uccf->p_ucce) & uccm;
-> +	/* Other events */
->  	if (ucce & UCCE_OTHER) {
-> -		if (ucce & UCCE_BSY) {
-> -			dev->stats.rx_errors++;
-> -		}
-> -		if (ucce & UCCE_TXE) {
-> -			dev->stats.tx_errors++;
-> -		}
-> +		out_be32(uccf->p_ucce, UCCE_OTHER);
->  	}
->  
->  	return IRQ_HANDLED;
-> diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h 
-> index cc24e87..7451f17 100644
-> --- a/drivers/net/ucc_geth.h
-> +++ b/drivers/net/ucc_geth.h
-> @@ -207,8 +207,8 @@ struct ucc_geth {
->  			UCCE_RXB3 | UCCE_RXB2 | UCCE_RXB1 | UCCE_RXB0)
->  #define UCCE_RXF         (UCCE_RXF7 | UCCE_RXF6 | UCCE_RXF5 
-> | UCCE_RXF4 |\
->  			UCCE_RXF3 | UCCE_RXF2 | UCCE_RXF1 | UCCE_RXF0)
-> -#define UCCE_OTHER       (UCCE_SCAR | UCCE_GRA  | UCCE_CBPR 
-> | UCCE_BSY  |\
-> -			UCCE_RXC  | UCCE_TXC  | UCCE_TXE)
-> +#define UCCE_OTHER       (UCCE_SCAR | UCCE_GRA | UCCE_CBPR |\
-> +			UCCE_RXC  | UCCE_TXC)
+On Mon, 2008-04-28 at 11:43 +0800, Zhang, Yanmin wrote:
+> On Sun, 2008-04-27 at 16:47 -0700, Brandeburg, Jesse wrote:=20
+> Thanks for your kind response. I think it might be an issue of kernel=
+=2E Pls. see below comments.
+I located the root cause.
+kernel is ok. It's an issue of netperf.
 
-This will remove UCCE_BSY and UCCE_TXE from the uccm_mask, hence
-disabled them from generating interrupts.
+I instrumented kernel and turn on netperf debug to capture more data.
+As a matter of fact, netserver on the Server1 machine binds ip 0.0.0.0 =
+and the port to
+receive UDP packets, but netperf on Client1 machine binds ip =EF=BB=BF1=
+92.168.1.164 by bind and
+remote ip =EF=BB=BF192.168.1.153 by connect. When Server1 sends back a =
+response, it just chooses
+one ip of Server1 as the source ip to send out the packets, because ser=
+ver socket just binds
+=EF=BB=BF0.0.0.0. So kernel on Client1 just drops the packets.
 
-How is the improvement after your change to put off interrupt ack?
-Isn't it caused by disabling the busy interrupts?
+The fix could be one of them:
+1) Don't call connect in netperf for UDP testing; But it looks like the=
+ transactions just pass
+from one interface, not distributed on the 2 interface;
+2) Pass remote_ip to server by udp_rr_request;
 
-- Leo
+1 is more simple.
+
+-yanmin
+
+>=20
+> > are you turning on arp_filter in sysctl?
+> No. I use the default configuration, i.e. arp_filter=3D0.
+>=20
+> >=20
+> > IMO you can't use two IP addresses in the same subnet on the same s=
+witch anyway, even with arp filter.
+> >=20
+> > if you were to assign 192.168.0.X to one interface and 192.168.1.X =
+to the other, *and* then use arp filter it will work okay.
+> Why does TCP work well? Lab manager just configures 192.168.0.XXX on =
+the dns server.
+>=20
+> I tried =EF=BB=BFarp_filter=3D1 a moment ago and it doesn't work.
+>=20
+> I checked document e1000.txt and it says Multiple Interfaces on Same =
+Ethernet Broadcast Network
+> results in unbalanced receive traffic. But it doesn't say it will bre=
+ak the network.
+>=20
+> >From the tcpdump info, I think kernel on the client machine always d=
+rops the first UDP packet unexpectedly, after
+> the server (=EF=BB=BF=EF=BB=BFlkp-tt02-nic2.tsp.org) sends the first =
+UDP response back. If I disable =EF=BB=BF192.168.1.160 (eth0:=EF=BB=BFl=
+kp-tt02-x8664.tsp.org)
+> on server, the testing could go ahead. That also means the issue isn'=
+t relevant to arp_filter. If I firstly disable
+> =EF=BB=BF192.168.1.160 (eth0:=EF=BB=BFlkp-tt02-x8664.tsp.org) and the=
+n reenable it, restart testing, the testing also could go ahead, but th=
+en
+> the testing to IP =EF=BB=BF192.168.1.160 becomes hanging. So it looks=
+ like only one ip at the same time could be
+> available for UDP.
+>=20
+> >=20
+> > jesse=20
+> >=20
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
+=2Eorg] On Behalf Of Zhang, Yanmin
+> > Sent: Friday, April 25, 2008 12:42 AM
+> > To: netdev@vger.kernel.org
+> > Cc: Rick Jones
+> > Subject: netperf udp_rr testing hang
+> >=20
+> > I am testing network UDP by netperf V2.4.4.
+> >=20
+> > I have 2 machines. Every machine has 2 NIC, so 2 IP addresses per m=
+achine.
+> > Client1: 192.168.1.164 (eth1:=EF=BB=BF=EF=BB=BFlkp-h01-nic2.tsp.org=
+) and =EF=BB=BF192.168.1.169 (eth2:=EF=BB=BF=EF=BB=BF=EF=BB=BFlkp-h01.t=
+sp.org).
+> > Server1: 192.168.1.160 (eth0:=EF=BB=BFlkp-tt02-x8664.tsp.org) and 1=
+92.168.1.153 (eth1:=EF=BB=BFlkp-tt02-nic2.tsp.org).
+> >=20
+> > They are connected to the same GIGA switch.
+> >=20
+> > On Server1, start netserver:
+> > #./netserver&
+> >=20
+> > Then, on Client1: start netperf:
+> > #./netperf -t UDP_RR -l 60 -H 192.168.1.153 -L 192.168.1.164 -i 3,3=
+ -I 99,5 -- -r 1,1
+> > It looks like netperf hangs and exits after 180(or 60?) seconds. Th=
+e result shows
+> > RatePerSec is 0.0.
+> > If I use tcpdump to intercept all packets on eth1 on client1, the d=
+ump shows:
+> > 14:49:14.820924 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.12=
+865: . ack 1 win 46 <nop,nop,timestamp 1691048 1803244>
+> > 14:49:14.821043 IP lkp-h01.tsp.org.ssh > lkp-os.tsp.org.45485: P 17=
+6:368(192) ack 49 win 146 <nop,nop,timestamp 1691048 1575061177>
+> > 14:49:14.821047 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.12=
+865: P 1:257(256) ack 1 win 46 <nop,nop,timestamp 1691048 1803244>
+> > 14:49:14.821157 IP lkp-tt02-nic2.tsp.org.12865 > lkp-h01.tsp.org.41=
+456: . ack 257 win 54 <nop,nop,timestamp 1803244 1691048>
+> > 14:49:14.821307 IP lkp-tt02-nic2.tsp.org.12865 > lkp-h01.tsp.org.41=
+456: P 1:257(256) ack 257 win 54 <nop,nop,timestamp 1803244 1691048>
+> > 14:49:14.821312 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.12=
+865: . ack 257 win 54 <nop,nop,timestamp 1691048 1803244>
+> > 14:49:14.821348 IP lkp-h01.tsp.org.54226 > lkp-tt02-nic2.tsp.org.42=
+164: UDP, length 1
+> > 14:49:14.821406 IP lkp-tt02-x8664.tsp.org.42164 > lkp-h01.tsp.org.5=
+4226: UDP, length 1
+> > 14:49:14.821415 IP lkp-h01.tsp.org > lkp-tt02-x8664.tsp.org: ICMP l=
+kp-h01.tsp.org udp port 54226 unreachable, length 37
+> >=20
+> > =EF=BB=BF
+> > If I use tcpdump to intercept all packets on eth1 on Server1, the d=
+ump shows:
+> > 23:54:12.320760 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.12=
+865: S 2825016431:2825016431(0) win 5840 <mss 1460,sackOK,timestamp 169=
+1048 0,nop,wscale 7>
+> > 23:54:12.320858 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.12=
+865: . ack 1965002601 win 46 <nop,nop,timestamp 1691048 1803244>
+> > 23:54:12.321010 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.12=
+865: P 0:256(256) ack 1 win 46 <nop,nop,timestamp 1691048 1803244>
+> > 23:54:12.321259 IP lkp-h01.tsp.org.41456 > lkp-tt02-nic2.tsp.org.12=
+865: . ack 257 win 54 <nop,nop,timestamp 1691048 1803244>
+> > 23:54:12.321271 IP lkp-h01.tsp.org.54226 > lkp-tt02-nic2.tsp.org.42=
+164: UDP, length 1
+> >=20
+> >=20
+> > If I start netperf by below command:
+> > =EF=BB=BF#./netperf -t UDP_RR -l 60 -H 192.168.1.160 -L 192.168.1.1=
+64 -i 3,3 -I 99,5 -- -r 1,1
+> > The testing really goes ahead and prints correct result after testi=
+ng. However, tcpdump shows
+> > the packets just pass between lkp-h01.tsp.org.50303 and lkp-tt02-x8=
+664.tsp.org.41305, not
+> > lkp-h01=EF=BB=BF-nic2.tsp.org.50303 and lkp-tt02-x8664.tsp.org.4130=
+5
+> >=20
+> > I check source codes of netperf and send_udp_rr really binds the co=
+rrect local/host IP.
+> >=20
+> > I tries TCP_RR and it has no hang issue although packets might be s=
+ent out from another IP.
+> >=20
+> > I tested it with kernel 2.6.22/23/24/25.
+> >=20
+> > Thanks,
+> > Yanmin
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
