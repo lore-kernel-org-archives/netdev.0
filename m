@@ -1,8 +1,7 @@
 From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH 03/10] sysfs: Implement __sysfs_get_dentry
-Date: Tue, 29 Apr 2008 19:10:45 +0200
-Message-ID: <20080429171702.001577626@theryb.frec.bull.fr>
-References: <20080429171015.473938697@theryb.frec.bull.fr>
+Subject: [PATCH 00/10] sysfs tagged directories
+Date: Tue, 29 Apr 2008 19:10:15 +0200
+Message-ID: <20080429171015.473938697@theryb.frec.bull.fr>
 Cc: Tejun Heo <htejun@gmail.com>, Greg Kroah-Hartman <gregkh@suse.de>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
 	"Serge E. Hallyn" <serue@us.ibm.com>,
@@ -11,72 +10,55 @@ Cc: Tejun Heo <htejun@gmail.com>, Greg Kroah-Hartman <gregkh@suse.de>,
 To: linux-kernel@vger.kernel.org,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:47258 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:47139 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761230AbYD2RZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 13:25:18 -0400
+	with ESMTP id S1760927AbYD2RYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 13:24:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sysfs: Implement __sysfs_get_dentry
+This is a port to 2.6.25-mm1 of Eric Biederman's patchset to implement
+tagged directories in sysfs. This patchset was discussed a few months
+ago on lkml@.
 
-This function is similar but much simpler to sysfs_get_dentry
-returns a sysfs dentry if one curently exists.
+I re-post this patchset as most of network namespace work has been
+merged in net-2.6.26 and the issue is it is currently easy to test
+because of this missing piece.
+(today sysfs must be disabled to test netns).
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Acked-by: Benjamin Thery <benjamin.thery@bull.net>
----
- fs/sysfs/dir.c |   38 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
 
-Index: linux-mm/fs/sysfs/dir.c
-===================================================================
---- linux-mm.orig/fs/sysfs/dir.c
-+++ linux-mm/fs/sysfs/dir.c
-@@ -776,6 +776,44 @@ void sysfs_remove_dir(struct kobject * k
- 	__sysfs_remove_dir(sd);
- }
- 
-+/**
-+ *	__sysfs_get_dentry - get dentry for the given sysfs_dirent
-+ *	@sb: superblock of the dentry to return
-+ *	@sd: sysfs_dirent of interest
-+ *
-+ *	Get dentry for @sd.  Only return a dentry if one currently
-+ *	exists.
-+ *
-+ *	LOCKING:
-+ *	Kernel thread context (may sleep)
-+ *
-+ *	RETURNS:
-+ *	Pointer to found dentry on success, NULL on failure.
-+ */
-+static struct dentry *__sysfs_get_dentry(struct super_block *sb, struct sysfs_dirent *sd)
-+{
-+	struct inode *inode;
-+	struct dentry *dentry = NULL;
-+
-+	inode = ilookup5_nowait(sysfs_sb, sd->s_ino, sysfs_ilookup_test, sd);
-+	if (inode && !(inode->i_state & I_NEW)) {
-+		struct dentry *alias;
-+		spin_lock(&dcache_lock);
-+		list_for_each_entry(alias, &inode->i_dentry, d_alias) {
-+			if (!IS_ROOT(alias) && d_unhashed(alias))
-+				continue;
-+			if (alias->d_sb != sb)
-+				continue;
-+			dentry = alias;
-+			dget_locked(dentry);
-+			break;
-+		}
-+		spin_unlock(&dcache_lock);
-+	}
-+	iput(inode);
-+	return dentry;
-+}
-+
- int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
- {
- 	struct sysfs_dirent *sd = kobj->sd;
+This feature is needed for network namespaces where we have to be able
+to have multiple network devices with the same name in different network
+namespaces. 
+
+On top of that, the final patch from Serge Hallyn also implements 
+tagging for user namespaces.
+
+
+Here is the announcement Eric wrote back in December to introduce his 
+patchset:
+
+"
+Now that we have network namespace support merged it is time to
+revisit the sysfs support so we can remove the dependency on !SYSFS.
+
+[...]
+
+The bulk of the patches are the changes to allow multiple sysfs
+superblocks.
+
+Then comes the tagged directory sysfs support which uses information
+captured at mount time to decide which object with which tag will
+appear in a directory.
+
+Then the support for renaming and deleting objects where the source
+may be ambiguous because of tagging.
+
+Then finally the network namespace support so it is clear how all
+of this tied together.
+"
+
+Regards,
+Benjamin
 
 -- 
