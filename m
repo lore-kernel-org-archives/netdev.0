@@ -1,34 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC XFRM]: esp: fix scatterlist of out bounds access with crypto_eseqiv
-Date: Tue, 29 Apr 2008 22:45:03 +0800
-Message-ID: <20080429144503.GA21238@gondor.apana.org.au>
-References: <48161D99.5070303@trash.net> <20080429014107.GA16700@gondor.apana.org.au> <4816AD93.5090404@trash.net> <20080429135932.GA20790@gondor.apana.org.au> <20080429142144.GB16068@2ka.mipt.ru>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 2/8][BONDING]: Don't create bondings with % in their names.
+Date: Tue, 29 Apr 2008 18:56:53 +0400
+Message-ID: <48173735.5060505@openvz.org>
+References: <481735F4.30909@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, linux-crypto@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Jay Vosburgh <fubar@us.ibm.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43954 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750837AbYD2OpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 10:45:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20080429142144.GB16068@2ka.mipt.ru>
+Received: from sacred.ru ([62.205.161.221]:39458 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751710AbYD2PBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 11:01:15 -0400
+In-Reply-To: <481735F4.30909@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 29, 2008 at 06:21:44PM +0400, Evgeniy Polyakov wrote:
-> 
-> Hey, it works :))
-> Just not always, which is great at attracting Patrick and problems.
+Type 
+# echo '+bond%d' > /sys/class/net/bonding_masters
+and get the 'bond%d' device in the ip l l output.
 
-I was more commenting on the bugs in the crypto layer that breaks
-hifn rather than the hifn driver itself :)
+Other drivers do not play such jokes on user :)
 
-Cheers,
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+ drivers/net/bonding/bond_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 36121b6..2072910 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4909,6 +4909,10 @@ int bond_create(char *name, struct bond_params *params, struct bonding **newbond
+ 		res = dev_alloc_name(bond_dev, "bond%d");
+ 		if (res < 0)
+ 			goto out_netdev;
++	} else if (strchr(name, '%')) {
++		res = dev_alloc_name(bond_dev, name);
++		if (res < 0)
++			goto out_netdev;
+ 	}
+ 
+ 	/* bond_init() must be called after dev_alloc_name() (for the
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.3.4
+
