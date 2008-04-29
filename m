@@ -1,36 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: odd RTL8139 quirk.
-Date: Tue, 29 Apr 2008 18:19:46 -0400
-Message-ID: <48179F02.6020309@garzik.org>
-References: <20080429171403.GA21035@redhat.com> <48177905.4000409@garzik.org> <20080429215626.GC2859@redhat.com> <48179B56.7000606@garzik.org> <20080429221011.GD2859@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NET] Exporting of some IPv6 symbols for HIP and SHIM6
+ experimentation
+Date: Tue, 29 Apr 2008 15:20:14 -0700 (PDT)
+Message-ID: <20080429.152014.00555445.davem@davemloft.net>
+References: <Pine.SOL.4.64.0804292344490.29274@kekkonen.cs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: Dave Jones <davej@redhat.com>
+Cc: netdev@vger.kernel.org
+To: miika@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46722 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762130AbYD2WTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 18:19:48 -0400
-In-Reply-To: <20080429221011.GD2859@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59663
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755867AbYD2WUQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 18:20:16 -0400
+In-Reply-To: <Pine.SOL.4.64.0804292344490.29274@kekkonen.cs.hut.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave Jones wrote:
->>From a quick eyeball, that would seem that it still requires a choice
-> to be made whether or not to enable CONFIG_8139TOO_PIO
-> What I had in mind was to make that whole USE_IO_OPS ifdef
-> (and related bits) if (modparm==.. instead of #ifdefs.
+From: Miika Komu <miika@iki.fi>
+Date: Wed, 30 Apr 2008 00:07:56 +0300 (EEST)
 
+> Host Identity Protocol (HIP, RFC5201, RFC4423) and Site Multihoming for 
+> IPv6 (SHIM6, draft-ietf-shim6-proto-10) define new APIs in the URLs below. 
+> This patch exports some IPv6 symbols to help in initial IETF 
+> experimentation with external kernel modules for HIP and SHIM6 socket 
+> handlers. The SHIM6 and HIP socket handlers are built on top of IPv6 
+> socket handlers.
+> http://www.ietf.org/internet-drafts/draft-ietf-hip-native-api-04.txt
+> http://www.ietf.org/internet-drafts/draft-ietf-shim6-multihome-shim-api-05.txt
+> 
+> 
+> Signed-off-by: Miika Komu <miika@iki.fi>
 
-The patch is the requisite groundwork to add such a module param... 
-iomap support is required to enable runtime rather than compile-time 
-MMIO/PIO switching.
+This is not how we do things.
 
-e100 does this with the 'use_io' module param.
-
-	Jeff
-
-
-
+When the HIP implementation is submitted for inclusion, the module
+exports can be added, not before.
