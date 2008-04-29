@@ -1,36 +1,45 @@
-From: "Mile Davidovic" <md4linux@gmail.com>
-Subject: Network driver questions
-Date: Tue, 29 Apr 2008 15:21:23 +0200
-Message-ID: <17896ec80804290621w1b4573c4lc0fa7eaec4f6c7dd@mail.gmail.com>
-References: <17896ec80804290540s492962a6ke0ab8790755337de@mail.gmail.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] cxgb3: Use CAP_SYS_RAWIO for firmware
+Date: Tue, 29 Apr 2008 14:29:30 +0100
+Message-ID: <20080429142930.0181f078@core>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.186]:63494 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755795AbYD2NVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 09:21:24 -0400
-Received: by mu-out-0910.google.com with SMTP id i10so3778092mue.1
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 06:21:23 -0700 (PDT)
-In-Reply-To: <17896ec80804290540s492962a6ke0ab8790755337de@mail.gmail.com>
-Content-Disposition: inline
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:51462 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752314AbYD2Ngz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 09:36:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-We have some dedicated interface for connecting various external
-devices (NOR, ONENAND, SMSC network adapter), similar to PCI except
-one big difference/restriction:
+Otherwise theoretically at least
 
-we can not work in atomic context because low lever drivers have such
-limitation.
+	CAP_NET_ADMIN
+	Reload new firmware
+	Wait..
+	Firmware patches kernel
 
-I would like to write network driver (for SMSC chip for example) with
-this restriction.
+So it should be CAY_SYS_RAWIO - not that I suspect this is in fact a
+credible attack vector!
 
-Do we have some network driver which also have suffer from similar restrictions?
+Signed-off-by: Alan Cox <alan@redhat.com>
 
-Thanks in advance
-Mile
+diff -u --new-file --recursive --exclude-from /usr/src/exclude linux.vanilla-2.6.25-mm1/drivers/net/cxgb3/cxgb3_main.c linux-2.6.25-mm1/drivers/net/cxgb3/cxgb3_main.c
+--- linux.vanilla-2.6.25-mm1/drivers/net/cxgb3/cxgb3_main.c	2008-04-28 11:36:42.000000000 +0100
++++ linux-2.6.25-mm1/drivers/net/cxgb3/cxgb3_main.c	2008-04-18 17:14:44.000000000 +0100
+@@ -1894,11 +1894,11 @@
+ 		u8 *fw_data;
+ 		struct ch_mem_range t;
+ 
+-		if (!capable(CAP_NET_ADMIN))
++		if (!capable(CAP_SYS_RAWIO))
+ 			return -EPERM;
+ 		if (copy_from_user(&t, useraddr, sizeof(t)))
+ 			return -EFAULT;
+-
++		/* Check t.len sanity ? */
+ 		fw_data = kmalloc(t.len, GFP_KERNEL);
+ 		if (!fw_data)
+ 			return -ENOMEM;
