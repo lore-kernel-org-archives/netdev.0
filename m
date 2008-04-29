@@ -1,53 +1,40 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: netperf udp_rr testing hang
-Date: Tue, 29 Apr 2008 09:48:31 -0700
-Message-ID: <4817515F.4090500@hp.com>
-References: <1209109343.28819.37.camel@ymzhang>	<36D9DB17C6DE9E40B059440DB8D95F520507661D@orsmsx418.amr.corp.intel.com>	<1209354200.2873.11.camel@ymzhang> <1209461278.2873.34.camel@ymzhang>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH] ARCH 2.6.24.y: Fix 32-bit x86 MSI-X
+	allocation leakage
+Date: Tue, 29 Apr 2008 09:47:44 -0700
+Message-ID: <20080429164744.GA29911@kroah.com>
+References: <20080426005950.7155.44626.stgit@scrappy.jf.intel.com> <20080429102235.GI23198@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	netdev@vger.kernel.org, stable@kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:10503 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754276AbYD2Qse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 12:48:34 -0400
-In-Reply-To: <1209461278.2873.34.camel@ymzhang>
+Received: from pentafluge.infradead.org ([213.146.154.40]:39219 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751916AbYD2RLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 13:11:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20080429102235.GI23198@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Zhang, Yanmin wrote:
-> I located the root cause.
-> kernel is ok. It's an issue of netperf.
+On Tue, Apr 29, 2008 at 12:22:35PM +0200, Ingo Molnar wrote:
 > 
-> I instrumented kernel and turn on netperf debug to capture more data.
->  As a matter of fact, netserver on the Server1 machine binds ip
-> 0.0.0.0 and the port to receive UDP packets, but netperf on Client1
-> machine binds ip 192.168.1.164 by bind and remote ip 192.168.1.153 by
-> connect. When Server1 sends back a response, it just chooses one ip
-> of Server1 as the source ip to send out the packets, because server
-> socket just binds 0.0.0.0. So kernel on Client1 just drops the
-> packets.
+> * PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com> wrote:
 > 
-> The fix could be one of them:
-> 1) Don't call connect in netperf for UDP testing; But it looks like
-> the transactions just pass from one interface, not distributed on the
-> 2 interface;
-> 2) Pass remote_ip to server by udp_rr_request;
+> > This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where 
+> > MSI-X vector allocation will eventually fail.  The cause is the new 
+> > bit array tracking used vectors is not getting cleared properly on IRQ 
+> > destruction on the 32-bit APIC code.
 > 
-> 1 is more simple.
+> Greg, please fix the commit message - this is a separate bug that has 
+> nothing to do with the unification.
 
-Odd that this should come-up at this point - the netperf UDP_RR test has 
-been operating that way since day one.  It goes backa long way, but I 
-believe I did things that way on the premis that a client would 
-"connect" to the server IP so it would "know" that the response 
-came-back from the server to which the request was sent.
+What should I fix the commit message to be?  I copied the same commit
+message that went into Linus's tree.  We should be consistent :)
 
-The only thing that _might_ have changed over the years was an explicit 
-bind() creaping-in when the bind() used to be implicit with the 
-connect() call.   If that is indeed involved, it would be seen by 
-running say a, oh, 2.0 version of netperf from the repository.
+thanks,
 
-rick jones
+greg k-h
