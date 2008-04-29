@@ -1,116 +1,264 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] acenic: use netstats in net_device structure
-Date: Wed, 30 Apr 2008 02:03:55 +0300
-Message-ID: <4817A95B.9050609@teltonika.lt>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH] [POWERPC] mpc5200: Allow for fixed speed MII configurations
+Date: Tue, 29 Apr 2008 17:06:20 -0600
+Message-ID: <20080429230620.11248.25729.stgit@trillian.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030709010504070303050607"
-Cc: davem@davemloft.net, jeff@garzik.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: wg@grandegger.com, linuxppc-dev@ozlabs.org, paulus@samba.org,
+	netdev@vger.kernel.org, wd@denx.de, domen.puncer@telargo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:55305 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750976AbYD2XEM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 19:04:12 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Jqyrn-0003XO-2k
-	for netdev@vger.kernel.org; Tue, 29 Apr 2008 23:04:07 +0000
-Received: from 78-62-85-225.static.zebra.lt ([78.62.85.225])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 23:04:07 +0000
-Received: from paulius.zaleckas by 78-62-85-225.static.zebra.lt with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 23:04:07 +0000
+Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:5480 "EHLO
+	pd3mo3so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760388AbYD2XG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 19:06:26 -0400
+Received: from pd3mr4so.prod.shaw.ca
+ (pd3mr4so-qfe3.prod.shaw.ca [10.0.141.180]) by l-daemon
+ (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
+ with ESMTP id <0K0400DAM06PH660@l-daemon> for netdev@vger.kernel.org; Tue,
+ 29 Apr 2008 17:06:25 -0600 (MDT)
+Received: from pn2ml8so.prod.shaw.ca ([10.0.121.152])
+ by pd3mr4so.prod.shaw.ca (Sun Java System Messaging Server 6.2-7.05 (built Sep
+ 5 2006)) with ESMTP id <0K0400KUH06N0170@pd3mr4so.prod.shaw.ca> for
+ netdev@vger.kernel.org; Tue, 29 Apr 2008 17:06:25 -0600 (MDT)
+Received: from trillian.cg.shawcable.net ([68.147.67.118])
+ by l-daemon (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
+ with ESMTP id <0K0400FBQ06LELB0@l-daemon> for netdev@vger.kernel.org; Tue,
+ 29 Apr 2008 17:06:22 -0600 (MDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030709010504070303050607
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Grant Likely <grant.likely@secretlab.ca>
 
-Use net_device_stats from net_device structure instead of local.
-No need to memset it to 0, because it is allocated by kzalloc.
+Various improvements for configuring the MPC5200 MII link from the
+device tree:
+* Look for 'current-speed' property for fixed speed MII links
+* Look for 'fsl,7-wire-mode' property for boards using the 7 wire mode
+* move definition of private data structure out of the header file
 
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
 
+ .../powerpc/mpc52xx-device-tree-bindings.txt       |   11 ++
+ drivers/net/fec_mpc52xx.c                          |   96 +++++++++++++++-----
+ drivers/net/fec_mpc52xx.h                          |   19 ----
+ 3 files changed, 85 insertions(+), 41 deletions(-)
 
-
-
---------------030709010504070303050607
-Content-Type: text/x-patch;
- name="acenic_netstats.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="acenic_netstats.patch"
-
-diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
-index 6c19265..e4483de 100644
---- a/drivers/net/acenic.c
-+++ b/drivers/net/acenic.c
-@@ -1457,11 +1457,6 @@ static int __devinit ace_init(struct net_device *dev)
- 	ace_set_txprd(regs, ap, 0);
- 	writel(0, &regs->RxRetCsm);
+diff --git a/Documentation/powerpc/mpc52xx-device-tree-bindings.txt b/Documentation/powerpc/mpc52xx-device-tree-bindings.txt
+index cda7a7d..6f12f1c 100644
+--- a/Documentation/powerpc/mpc52xx-device-tree-bindings.txt
++++ b/Documentation/powerpc/mpc52xx-device-tree-bindings.txt
+@@ -237,6 +237,17 @@ Each GPIO controller node should have the empty property gpio-controller and
+ according to the bit numbers in the GPIO control registers. The second cell
+ is for flags which is currently unsused.
  
--	/*
--	 * Zero the stats before starting the interface
--	 */
--	memset(&ap->stats, 0, sizeof(ap->stats));
++8) FEC nodes
++The FEC node can specify one of the following properties to configure
++the MII link:
++"fsl,7-wire-mode" - An empty property that specifies the link uses 7-wire
++                    mode instead of MII
++"current-speed"   - Specifies that the MII should be configured for a fixed
++                    speed.  This property should contain two cells.  The
++                    first cell specifies the speed in Mbps and the second
++                    should be '0' for half duplex and '1' for full duplex
++"phy-handle"      - Contains a phandle to an Ethernet PHY.
++
+ IV - Extra Notes
+ ================
+ 
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+index d21b7ab..eeb4433 100644
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -43,6 +43,29 @@
+ 
+ #define DRIVER_NAME "mpc52xx-fec"
+ 
++#define FEC5200_PHYADDR_NONE	(-1)
++#define FEC5200_PHYADDR_7WIRE	(-2)
++
++/* Private driver data structure */
++struct mpc52xx_fec_priv {
++	int duplex;
++	int speed;
++	int r_irq;
++	int t_irq;
++	struct mpc52xx_fec __iomem *fec;
++	struct bcom_task *rx_dmatsk;
++	struct bcom_task *tx_dmatsk;
++	spinlock_t lock;
++	int msg_enable;
++
++	/* MDIO link details */
++	int phy_addr;
++	unsigned int phy_speed;
++	struct phy_device *phydev;
++	enum phy_state link;
++};
++
++
+ static irqreturn_t mpc52xx_fec_interrupt(int, void *);
+ static irqreturn_t mpc52xx_fec_rx_interrupt(int, void *);
+ static irqreturn_t mpc52xx_fec_tx_interrupt(int, void *);
+@@ -223,7 +246,7 @@ static int mpc52xx_fec_phy_start(struct net_device *dev)
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+ 	int err;
+ 
+-	if (!priv->has_phy)
++	if (priv->phy_addr < 0)
+ 		return 0;
+ 
+ 	err = mpc52xx_fec_init_phy(dev);
+@@ -243,7 +266,7 @@ static void mpc52xx_fec_phy_stop(struct net_device *dev)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+ 
+-	if (!priv->has_phy)
++	if (!priv->phydev)
+ 		return;
+ 
+ 	phy_disconnect(priv->phydev);
+@@ -255,7 +278,7 @@ static void mpc52xx_fec_phy_stop(struct net_device *dev)
+ static int mpc52xx_fec_phy_mii_ioctl(struct mpc52xx_fec_priv *priv,
+ 		struct mii_ioctl_data *mii_data, int cmd)
+ {
+-	if (!priv->has_phy)
++	if (!priv->phydev)
+ 		return -ENOTSUPP;
+ 
+ 	return phy_mii_ioctl(priv->phydev, mii_data, cmd);
+@@ -265,7 +288,7 @@ static void mpc52xx_fec_phy_hw_init(struct mpc52xx_fec_priv *priv)
+ {
+ 	struct mpc52xx_fec __iomem *fec = priv->fec;
+ 
+-	if (!priv->has_phy)
++	if (priv->phydev)
+ 		return;
+ 
+ 	out_be32(&fec->mii_speed, priv->phy_speed);
+@@ -704,7 +727,7 @@ static void mpc52xx_fec_start(struct net_device *dev)
+ 	rcntrl = FEC_RX_BUFFER_SIZE << 16;	/* max frame length */
+ 	rcntrl |= FEC_RCNTRL_FCE;
+ 
+-	if (priv->has_phy)
++	if (priv->phy_addr != FEC5200_PHYADDR_7WIRE)
+ 		rcntrl |= FEC_RCNTRL_MII_MODE;
+ 
+ 	if (priv->duplex == DUPLEX_FULL)
+@@ -864,7 +887,10 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+ 	struct net_device *ndev;
+ 	struct mpc52xx_fec_priv *priv = NULL;
+ 	struct resource mem;
+-	const phandle *ph;
++	struct device_node *phy_node;
++	const phandle *phy_handle;
++	const u32 *prop;
++	int prop_size;
+ 
+ 	phys_addr_t rx_fifo;
+ 	phys_addr_t tx_fifo;
+@@ -950,24 +976,36 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+ 	priv->msg_enable = netif_msg_init(debug, MPC52xx_MESSAGES_DEFAULT);
+ 	priv->duplex = DUPLEX_FULL;
+ 
+-	/* is the phy present in device tree? */
+-	ph = of_get_property(op->node, "phy-handle", NULL);
+-	if (ph) {
+-		const unsigned int *prop;
+-		struct device_node *phy_dn;
+-		priv->has_phy = 1;
 -
-        /*
- 	* Enable DMA engine now.
- 	* If we do this sooner, Mckinley box pukes.
-@@ -2041,8 +2036,8 @@ static void ace_rx_int(struct net_device *dev, u32 rxretprd, u32 rxretcsm)
- 			netif_rx(skb);
+-		phy_dn = of_find_node_by_phandle(*ph);
+-		prop = of_get_property(phy_dn, "reg", NULL);
+-		priv->phy_addr = *prop;
++	/*
++	 * Link mode configuration
++	 */
  
- 		dev->last_rx = jiffies;
--		ap->stats.rx_packets++;
--		ap->stats.rx_bytes += retdesc->size;
-+		dev->stats.rx_packets++;
-+		dev->stats.rx_bytes += retdesc->size;
+-		of_node_put(phy_dn);
++	/* Start with safe defaults for link connection */
++	priv->phy_addr = FEC5200_PHYADDR_NONE;
++	priv->speed = 100;
++	priv->duplex = 0;
++	priv->phy_speed = ((mpc52xx_find_ipb_freq(op->node) >> 20) / 5) << 1;
++
++	/* the 7-wire property means don't use MII mode */
++	if (of_find_property(op->node, "fsl,7-wire-mode", NULL))
++		priv->phy_addr = FEC5200_PHYADDR_7WIRE;
++
++	/* The current speed preconfigures the speed of the MII link */
++	prop = of_get_property(op->node, "current-speed", &prop_size);
++	if (prop && (prop_size >= sizeof(u32) * 2)) {
++		priv->speed = prop[0];
++		priv->duplex = prop[1] ? DUPLEX_FULL : DUPLEX_HALF;
++	}
  
- 		idx = (idx + 1) % RX_RETURN_RING_ENTRIES;
+-		/* Phy speed */
+-		priv->phy_speed = ((mpc52xx_find_ipb_freq(op->node) >> 20) / 5) << 1;
+-	} else {
+-		dev_info(&ndev->dev, "can't find \"phy-handle\" in device"
+-				" tree, using 7-wire mode\n");
++	/* If there is a phy handle, setup link to that phy */
++	phy_handle = of_get_property(op->node, "phy-handle", &prop_size);
++	if (phy_handle && (prop_size >= sizeof(phandle))) {
++		phy_node = of_find_node_by_phandle(*phy_handle);
++		prop = of_get_property(phy_node, "reg", &prop_size);
++		if (prop && (prop_size >= sizeof(u32)))
++			if ((*prop >= 0) && (*prop < PHY_MAX_ADDR))
++				priv->phy_addr = *prop;
++		of_node_put(phy_node);
  	}
-@@ -2090,8 +2085,8 @@ static inline void ace_tx_int(struct net_device *dev,
- 		}
  
- 		if (skb) {
--			ap->stats.tx_packets++;
--			ap->stats.tx_bytes += skb->len;
-+			dev->stats.tx_packets++;
-+			dev->stats.tx_bytes += skb->len;
- 			dev_kfree_skb_irq(skb);
- 			info->skb = NULL;
- 		}
-@@ -2863,11 +2858,11 @@ static struct net_device_stats *ace_get_stats(struct net_device *dev)
- 	struct ace_mac_stats __iomem *mac_stats =
- 		(struct ace_mac_stats __iomem *)ap->regs->Stats;
+ 	/* Hardware init */
+@@ -982,6 +1020,20 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+ 	if (rv < 0)
+ 		goto probe_error;
  
--	ap->stats.rx_missed_errors = readl(&mac_stats->drop_space);
--	ap->stats.multicast = readl(&mac_stats->kept_mc);
--	ap->stats.collisions = readl(&mac_stats->coll);
-+	dev->stats.rx_missed_errors = readl(&mac_stats->drop_space);
-+	dev->stats.multicast = readl(&mac_stats->kept_mc);
-+	dev->stats.collisions = readl(&mac_stats->coll);
++	/* Now report the link setup */
++	switch (priv->phy_addr) {
++	 case FEC5200_PHYADDR_NONE:
++		dev_info(&ndev->dev, "Fixed speed MII link: %i%cD\n",
++			 priv->speed, priv->duplex ? 'F' : 'H');
++		break;
++	 case FEC5200_PHYADDR_7WIRE:
++		dev_info(&ndev->dev, "using 7-wire PHY mode\n");
++		break;
++	 default:
++		dev_info(&ndev->dev, "Using PHY at MDIO address %i\n",
++			 priv->phy_addr);
++	}
++
+ 	/* We're done ! */
+ 	dev_set_drvdata(&op->dev, ndev);
  
--	return &ap->stats;
-+	return &dev->stats;
- }
+diff --git a/drivers/net/fec_mpc52xx.h b/drivers/net/fec_mpc52xx.h
+index 8b1f753..a227a52 100644
+--- a/drivers/net/fec_mpc52xx.h
++++ b/drivers/net/fec_mpc52xx.h
+@@ -26,25 +26,6 @@
  
+ #define FEC_WATCHDOG_TIMEOUT	((400*HZ)/1000)
  
-diff --git a/drivers/net/acenic.h b/drivers/net/acenic.h
-index 60ed183..4487f32 100644
---- a/drivers/net/acenic.h
-+++ b/drivers/net/acenic.h
-@@ -693,7 +693,6 @@ struct ace_private
- 				__attribute__ ((aligned (SMP_CACHE_BYTES)));
- 	u32			last_tx, last_std_rx, last_mini_rx;
- #endif
--	struct net_device_stats stats;
- 	int			pci_using_dac;
- };
- 
-
---------------030709010504070303050607--
+-struct mpc52xx_fec_priv {
+-	int duplex;
+-	int r_irq;
+-	int t_irq;
+-	struct mpc52xx_fec __iomem *fec;
+-	struct bcom_task *rx_dmatsk;
+-	struct bcom_task *tx_dmatsk;
+-	spinlock_t lock;
+-	int msg_enable;
+-
+-	int has_phy;
+-	unsigned int phy_speed;
+-	unsigned int phy_addr;
+-	struct phy_device *phydev;
+-	enum phy_state link;
+-	int speed;
+-};
+-
+-
+ /* ======================================================================== */
+ /* Hardware register sets & bits                                            */
+ /* ======================================================================== */
 
