@@ -1,52 +1,71 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: odd RTL8139 quirk.
-Date: Tue, 29 Apr 2008 15:47:18 -0400
-Message-ID: <20080429194718.GC21035@redhat.com>
-References: <20080429171403.GA21035@redhat.com> <48177905.4000409@garzik.org>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: [PATCH][IPV4] annotate a few functions __init in ipconfig.c
+Date: Tue, 29 Apr 2008 21:50:06 +0200
+Message-ID: <20080429195006.GA468@uranus.ravnborg.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55204 "EHLO mx1.redhat.com"
+Received: from pasmtpa.tele.dk ([80.160.77.114]:40094 "EHLO pasmtpA.tele.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755391AbYD2TrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 15:47:23 -0400
+	id S1753396AbYD2Ttc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 15:49:32 -0400
 Content-Disposition: inline
-In-Reply-To: <48177905.4000409@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 29, 2008 at 03:37:41PM -0400, Jeff Garzik wrote:
- > Dave Jones wrote:
- > > I've just been playing with a model 2 OQO, which has an RTL8139.
- > > It gets detected just fine, though it doesn't actually work..
- > > 
- > > eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
- > > eth0:  Identified 8139 chip type 'RTL-8139'
- > > 
- > > The null MAC address being one clue.  Another oddity is that
- > > ethtool reports that there's no link detected, even though there is.
- > > (Enough for it to PXE boot a kernel from at least :)
- > > 
- > > Futzing with the debug= modparam didn't yield anything extra at all.
- > > 
- > > Any clues?
- > 
- > Sounds like a broken EEPROM.
+A few functions are only used from __init context.
+So annotate these with __init for consistency and silence
+the following warnings:
 
-Not that it counts for much, but the NIC works fine in the vista install
-that it came with.
+WARNING: net/ipv4/built-in.o(.text+0x2a876): Section mismatch
+         in reference from the function ic_bootp_init() to
+         the variable .init.data:bootp_packet_type
+WARNING: net/ipv4/built-in.o(.text+0x2a907): Section mismatch
+         in reference from the function ic_bootp_cleanup() to
+         the variable .init.data:bootp_packet_type
 
- >  Does supplying a MAC via ifconfig prior to 'ifconfig ... up' help?
+Note: The warnings only appear with CONFIG_DEBUG_SECTION_MISMATCH=y
 
-That fails spectacularly with 'eth0: PCI Bus error 0290' after I do the 'up'
-Someone suggested that the PHY isn't being detected.
-I don't get any of the MII messages from rtl8139_init_one()
-Which is odd (to me at least) as ethtool reports MII as a supported port,
-(and even has it as the 'current' port).
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+---
 
-	Dave
+Build testet only - but trivial.
 
--- 
-http://www.codemonkey.org.uk
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 0f42d1c..89dee43 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -412,12 +412,12 @@ static struct packet_type rarp_packet_type __initdata = {
+ 	.func =	ic_rarp_recv,
+ };
+ 
+-static inline void ic_rarp_init(void)
++static inline void __init ic_rarp_init(void)
+ {
+ 	dev_add_pack(&rarp_packet_type);
+ }
+ 
+-static inline void ic_rarp_cleanup(void)
++static inline void __init ic_rarp_cleanup(void)
+ {
+ 	dev_remove_pack(&rarp_packet_type);
+ }
+@@ -682,7 +682,7 @@ static void __init ic_bootp_init_ext(u8 *e)
+ /*
+  *  Initialize the DHCP/BOOTP mechanism.
+  */
+-static inline void ic_bootp_init(void)
++static inline void __init ic_bootp_init(void)
+ {
+ 	int i;
+ 
+@@ -696,7 +696,7 @@ static inline void ic_bootp_init(void)
+ /*
+  *  DHCP/BOOTP cleanup.
+  */
+-static inline void ic_bootp_cleanup(void)
++static inline void __init ic_bootp_cleanup(void)
+ {
+ 	dev_remove_pack(&bootp_packet_type);
+ }
