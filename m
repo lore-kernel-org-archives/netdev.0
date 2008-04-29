@@ -1,183 +1,59 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] 3c574_cs: use netstats in net_device structure
-Date: Wed, 30 Apr 2008 01:08:26 +0300
-Message-ID: <48179C5A.4000502@teltonika.lt>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: odd RTL8139 quirk.
+Date: Tue, 29 Apr 2008 18:10:11 -0400
+Message-ID: <20080429221011.GD2859@redhat.com>
+References: <20080429171403.GA21035@redhat.com> <48177905.4000409@garzik.org> <20080429215626.GC2859@redhat.com> <48179B56.7000606@garzik.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080001000608030809080802"
-Cc: davem@davemloft.net, jeff@garzik.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:56441 "EHLO ciao.gmane.org"
+Received: from mx1.redhat.com ([66.187.233.31]:43083 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754199AbYD2WIm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 18:08:42 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Jqy05-0001ER-1Q
-	for netdev@vger.kernel.org; Tue, 29 Apr 2008 22:08:37 +0000
-Received: from 78-62-85-225.static.zebra.lt ([78.62.85.225])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 22:08:37 +0000
-Received: from paulius.zaleckas by 78-62-85-225.static.zebra.lt with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 22:08:37 +0000
+	id S1759548AbYD2WKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 18:10:34 -0400
+Content-Disposition: inline
+In-Reply-To: <48179B56.7000606@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080001000608030809080802
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, Apr 29, 2008 at 06:04:06PM -0400, Jeff Garzik wrote:
+ > Dave Jones wrote:
+ > > On Tue, Apr 29, 2008 at 03:37:41PM -0400, Jeff Garzik wrote:
+ > >  > Dave Jones wrote:
+ > >  > > I've just been playing with a model 2 OQO, which has an RTL8139.
+ > >  > > It gets detected just fine, though it doesn't actually work..
+ > >  > > 
+ > >  > > eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
+ > >  > > eth0:  Identified 8139 chip type 'RTL-8139'
+ > >  > > 
+ > >  > > The null MAC address being one clue.  Another oddity is that
+ > >  > > ethtool reports that there's no link detected, even though there is.
+ > >  > > (Enough for it to PXE boot a kernel from at least :)
+ > >  > > 
+ > >  > > Futzing with the debug= modparam didn't yield anything extra at all.
+ > >  > > 
+ > >  > > Any clues?
+ > >  > 
+ > >  > Sounds like a broken EEPROM.  Does supplying a MAC via ifconfig prior to 
+ > >  > 'ifconfig ... up' help?
+ > > 
+ > > Ah. This sounds enlightening: http://www.oqotalk.com/index.php/topic,1511.0.html
+ > > Seems a shame to have to choose PIO vs MMIO for a distro kernel though.
+ > > Would there be any objection to turning that into a modparam ?
+ > > (If we wanted to get really fancy, we could even quirk around it automatically
+ > >  when we detect broken hardware).
+ > 
+ > Something like this?  :)
+ > 
+ > http://www.linux.sgi.com/archives/netdev/2004-11/msg00226.html
 
-Use net_device_stats from net_device structure instead of local.
+>From a quick eyeball, that would seem that it still requires a choice
+to be made whether or not to enable CONFIG_8139TOO_PIO
+What I had in mind was to make that whole USE_IO_OPS ifdef
+(and related bits) if (modparm==.. instead of #ifdefs.
 
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+	Dave
 
---------------080001000608030809080802
-Content-Type: text/x-patch;
- name="3c574_cs_netstats.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="3c574_cs_netstats.patch"
-
-diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
-index 3b78a38..7112fd5 100644
---- a/drivers/net/pcmcia/3c574_cs.c
-+++ b/drivers/net/pcmcia/3c574_cs.c
-@@ -208,7 +208,6 @@ enum Window4 {		/* Window 4: Xcvr/media bits. */
- struct el3_private {
- 	struct pcmcia_device	*p_dev;
- 	dev_node_t node;
--	struct net_device_stats stats;
- 	u16 advertising, partner;		/* NWay media advertisement */
- 	unsigned char phys;			/* MII device address */
- 	unsigned int autoselect:1, default_media:3;	/* Read from the EEPROM/Wn3_Config. */
-@@ -741,12 +740,11 @@ static int el3_open(struct net_device *dev)
- 
- static void el3_tx_timeout(struct net_device *dev)
- {
--	struct el3_private *lp = netdev_priv(dev);
- 	unsigned int ioaddr = dev->base_addr;
- 	
- 	printk(KERN_NOTICE "%s: Transmit timed out!\n", dev->name);
- 	dump_status(dev);
--	lp->stats.tx_errors++;
-+	dev->stats.tx_errors++;
- 	dev->trans_start = jiffies;
- 	/* Issue TX_RESET and TX_START commands. */
- 	tc574_wait_for_completion(dev, TxReset);
-@@ -756,7 +754,6 @@ static void el3_tx_timeout(struct net_device *dev)
- 
- static void pop_tx_status(struct net_device *dev)
- {
--	struct el3_private *lp = netdev_priv(dev);
- 	unsigned int ioaddr = dev->base_addr;
- 	int i;
-     
-@@ -772,7 +769,7 @@ static void pop_tx_status(struct net_device *dev)
- 			DEBUG(1, "%s: transmit error: status 0x%02x\n",
- 				  dev->name, tx_status);
- 			outw(TxEnable, ioaddr + EL3_CMD);
--			lp->stats.tx_aborted_errors++;
-+			dev->stats.tx_aborted_errors++;
- 		}
- 		outb(0x00, ioaddr + TxStatus); /* Pop the status stack. */
- 	}
-@@ -987,7 +984,7 @@ static struct net_device_stats *el3_get_stats(struct net_device *dev)
- 		update_stats(dev);
- 		spin_unlock_irqrestore(&lp->window_lock, flags);
- 	}
--	return &lp->stats;
-+	return &dev->stats;
- }
- 
- /*  Update statistics.
-@@ -996,7 +993,6 @@ static struct net_device_stats *el3_get_stats(struct net_device *dev)
-  */
- static void update_stats(struct net_device *dev)
- {
--	struct el3_private *lp = netdev_priv(dev);
- 	unsigned int ioaddr = dev->base_addr;
- 	u8 rx, tx, up;
- 
-@@ -1008,15 +1004,15 @@ static void update_stats(struct net_device *dev)
- 	/* Unlike the 3c509 we need not turn off stats updates while reading. */
- 	/* Switch to the stats window, and read everything. */
- 	EL3WINDOW(6);
--	lp->stats.tx_carrier_errors 		+= inb(ioaddr + 0);
--	lp->stats.tx_heartbeat_errors		+= inb(ioaddr + 1);
-+	dev->stats.tx_carrier_errors 		+= inb(ioaddr + 0);
-+	dev->stats.tx_heartbeat_errors		+= inb(ioaddr + 1);
- 	/* Multiple collisions. */	   	inb(ioaddr + 2);
--	lp->stats.collisions			+= inb(ioaddr + 3);
--	lp->stats.tx_window_errors		+= inb(ioaddr + 4);
--	lp->stats.rx_fifo_errors		+= inb(ioaddr + 5);
--	lp->stats.tx_packets			+= inb(ioaddr + 6);
-+	dev->stats.collisions			+= inb(ioaddr + 3);
-+	dev->stats.tx_window_errors		+= inb(ioaddr + 4);
-+	dev->stats.rx_fifo_errors		+= inb(ioaddr + 5);
-+	dev->stats.tx_packets			+= inb(ioaddr + 6);
- 	up		 			 = inb(ioaddr + 9);
--	lp->stats.tx_packets			+= (up&0x30) << 4;
-+	dev->stats.tx_packets			+= (up&0x30) << 4;
- 	/* Rx packets   */			   inb(ioaddr + 7);
- 	/* Tx deferrals */			   inb(ioaddr + 8);
- 	rx		 			 = inw(ioaddr + 10);
-@@ -1026,14 +1022,13 @@ static void update_stats(struct net_device *dev)
- 	/* BadSSD */				   inb(ioaddr + 12);
- 	up					 = inb(ioaddr + 13);
- 
--	lp->stats.tx_bytes 			+= tx + ((up & 0xf0) << 12);
-+	dev->stats.tx_bytes 			+= tx + ((up & 0xf0) << 12);
- 
- 	EL3WINDOW(1);
- }
- 
- static int el3_rx(struct net_device *dev, int worklimit)
- {
--	struct el3_private *lp = netdev_priv(dev);
- 	unsigned int ioaddr = dev->base_addr;
- 	short rx_status;
- 	
-@@ -1043,14 +1038,14 @@ static int el3_rx(struct net_device *dev, int worklimit)
- 		   (--worklimit >= 0)) {
- 		if (rx_status & 0x4000) { /* Error, update stats. */
- 			short error = rx_status & 0x3800;
--			lp->stats.rx_errors++;
-+			dev->stats.rx_errors++;
- 			switch (error) {
--			case 0x0000:	lp->stats.rx_over_errors++; break;
--			case 0x0800:	lp->stats.rx_length_errors++; break;
--			case 0x1000:	lp->stats.rx_frame_errors++; break;
--			case 0x1800:	lp->stats.rx_length_errors++; break;
--			case 0x2000:	lp->stats.rx_frame_errors++; break;
--			case 0x2800:	lp->stats.rx_crc_errors++; break;
-+			case 0x0000:	dev->stats.rx_over_errors++; break;
-+			case 0x0800:	dev->stats.rx_length_errors++; break;
-+			case 0x1000:	dev->stats.rx_frame_errors++; break;
-+			case 0x1800:	dev->stats.rx_length_errors++; break;
-+			case 0x2000:	dev->stats.rx_frame_errors++; break;
-+			case 0x2800:	dev->stats.rx_crc_errors++; break;
- 			}
- 		} else {
- 			short pkt_len = rx_status & 0x7ff;
-@@ -1067,12 +1062,12 @@ static int el3_rx(struct net_device *dev, int worklimit)
- 				skb->protocol = eth_type_trans(skb, dev);
- 				netif_rx(skb);
- 				dev->last_rx = jiffies;
--				lp->stats.rx_packets++;
--				lp->stats.rx_bytes += pkt_len;
-+				dev->stats.rx_packets++;
-+				dev->stats.rx_bytes += pkt_len;
- 			} else {
- 				DEBUG(1, "%s: couldn't allocate a sk_buff of"
- 					  " size %d.\n", dev->name, pkt_len);
--				lp->stats.rx_dropped++;
-+				dev->stats.rx_dropped++;
- 			}
- 		}
- 		tc574_wait_for_completion(dev, RxDiscard);
-
---------------080001000608030809080802--
-
+-- 
+http://www.codemonkey.org.uk
