@@ -1,40 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV4]: Update MTU to all related cache entries in
- ip_rt_frag_needed()
-Date: Tue, 29 Apr 2008 03:32:45 -0700 (PDT)
-Message-ID: <20080429.033245.141337746.davem@davemloft.net>
-References: <48105B67.7060804@iki.fi>
-	<20080426.232756.259679168.davem@davemloft.net>
-	<48143ADE.40304@iki.fi>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: Re: [PATCH 1/1 2.6.25-rc9] bnx2x: Add EEH support in bnx2x
+ driver - 10G pci-express adapter - Re-submit with a minor fix
+Date: Tue, 29 Apr 2008 10:19:03 +0300
+Message-ID: <1209453543.18607.13.camel@lb-tlvb-eliezer.il.broadcom.com>
+References: <1208983414.7339.31.camel@wendyx.austin.ibm.com>
+ <1209287558.4928.18.camel@lb-tlvb-eliezer.il.broadcom.com>
+ <1209419525.8085.10.camel@wendyx.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: timo.teras@iki.fi
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org
+To: "wendy xiong" <wendyx@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47656
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753957AbYD2Kcq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 06:32:46 -0400
-In-Reply-To: <48143ADE.40304@iki.fi>
+Received: from mms3.broadcom.com ([216.31.210.19]:3142 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753531AbYD2Kdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 06:33:46 -0400
+In-Reply-To: <1209419525.8085.10.camel@wendyx.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
-Date: Sun, 27 Apr 2008 11:35:42 +0300
 
-> I understand your concern. It is pretty easy break routing cache with
-> some seemingly unrelated changes. I tried to think about possible sid=
-e
-> effects, but concluded that this should be safe. Then again, I don't
-> know all the tiny details and unusual scenarios. But I have been runn=
-ing
-> a 2.6.23 kernel with (backported) patch on a production machine (rout=
-er
-> connected to two ISPs, internal subnet and also having multiple gre
-> tunnels), so far I have not encountered any problems.
+On Mon, 2008-04-28 at 16:52 -0500, wendy xiong wrote:
+> Hi Eliezer,
+> 
+> Thanks for your comments!
+> 
+> Re-sending with a minor fix.
+> 
+> Thanks,
+> Wendy
+> 
+I have one more minor fix, I will rework this and resubmit shortly.
 
-I thought more about your patch and it should be OK.
+Thanks
+Eliezer
 
-I've applied it, thanks a lot.
+
