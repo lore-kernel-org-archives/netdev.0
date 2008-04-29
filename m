@@ -1,264 +1,343 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH] [POWERPC] mpc5200: Allow for fixed speed MII configurations
-Date: Tue, 29 Apr 2008 17:06:20 -0600
-Message-ID: <20080429230620.11248.25729.stgit@trillian.secretlab.ca>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 10/10] sysfs: user namespaces: add ns to user_struct
+Date: Tue, 29 Apr 2008 18:18:19 -0500
+Message-ID: <20080429231819.GA27705@sergelap.austin.ibm.com>
+References: <20080429171015.473938697@theryb.frec.bull.fr> <20080429171703.529721456@theryb.frec.bull.fr> <m17ieg1ltq.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: wg@grandegger.com, linuxppc-dev@ozlabs.org, paulus@samba.org,
-	netdev@vger.kernel.org, wd@denx.de, domen.puncer@telargo.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:5480 "EHLO
-	pd3mo3so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760388AbYD2XG0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 19:06:26 -0400
-Received: from pd3mr4so.prod.shaw.ca
- (pd3mr4so-qfe3.prod.shaw.ca [10.0.141.180]) by l-daemon
- (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
- with ESMTP id <0K0400DAM06PH660@l-daemon> for netdev@vger.kernel.org; Tue,
- 29 Apr 2008 17:06:25 -0600 (MDT)
-Received: from pn2ml8so.prod.shaw.ca ([10.0.121.152])
- by pd3mr4so.prod.shaw.ca (Sun Java System Messaging Server 6.2-7.05 (built Sep
- 5 2006)) with ESMTP id <0K0400KUH06N0170@pd3mr4so.prod.shaw.ca> for
- netdev@vger.kernel.org; Tue, 29 Apr 2008 17:06:25 -0600 (MDT)
-Received: from trillian.cg.shawcable.net ([68.147.67.118])
- by l-daemon (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
- with ESMTP id <0K0400FBQ06LELB0@l-daemon> for netdev@vger.kernel.org; Tue,
- 29 Apr 2008 17:06:22 -0600 (MDT)
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:55032 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753681AbYD2XSV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 19:18:21 -0400
+Content-Disposition: inline
+In-Reply-To: <m17ieg1ltq.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> Benjamin Thery <benjamin.thery@bull.net> writes:
+> 
+> > Add the user_namespace to user_struct.
+> >
+> > Add a user_namespace to the sysfs_tag struct.
+> >
+> > Mark the /sys/kernel/uids directory to be tagged so that processes in
+> > different user namespaces can remount /sys and see their own uid
+> > listings.
+> >
+> > Without this patch, having CONFIG_FAIR_SCHED=y makes user namespaces
+> > unusable, because when you
+> >   clone(CLONE_NEWUSER)
+> > it will auto-create the root userid and try to create
+> > /sys/kernel/uids/0.  Since that already exists from the parent user
+> > namespace, the create fails, and the clone misleadingly ends up
+> > returning -ENOMEM.
+> >
+> > This patch fixes the issue by allowing each user namespace to remount
+> > /sys, and having /sys filter the /sys/kernel/uid/ entries by user
+> > namespace.
+> 
+> There is a lot of promising code in this patch.  This patch appears to
+> be building up a lot of userns infrastructure that is only indirectly
+> related to sysfs, and it still appears to have some debugging code
+> present.  
 
-Various improvements for configuring the MPC5200 MII link from the
-device tree:
-* Look for 'current-speed' property for fixed speed MII links
-* Look for 'fsl,7-wire-mode' property for boards using the 7 wire mode
-* move definition of private data structure out of the header file
+Good point.
 
-Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
----
+I left in more cruft than I thought I had.  Really the k_uid_t
+shouldn't be there at all.  But to have any fix at all I do need the
+user_namespace in the user_struct.  So unless you're ok with putting
+that in explicitly for now, then until we decide how to handle the
+user_struct being in multiple namespaces, the fix will have to wait.
 
- .../powerpc/mpc52xx-device-tree-bindings.txt       |   11 ++
- drivers/net/fec_mpc52xx.c                          |   96 +++++++++++++++-----
- drivers/net/fec_mpc52xx.h                          |   19 ----
- 3 files changed, 85 insertions(+), 41 deletions(-)
+> As a proof of concept patch (which I asked for) this looks good.
+> 
+> I do think this patch should get split into logical changes
+> and cleaned up a bit before it gets merged into mainline.
 
-diff --git a/Documentation/powerpc/mpc52xx-device-tree-bindings.txt b/Documentation/powerpc/mpc52xx-device-tree-bindings.txt
-index cda7a7d..6f12f1c 100644
---- a/Documentation/powerpc/mpc52xx-device-tree-bindings.txt
-+++ b/Documentation/powerpc/mpc52xx-device-tree-bindings.txt
-@@ -237,6 +237,17 @@ Each GPIO controller node should have the empty property gpio-controller and
- according to the bit numbers in the GPIO control registers. The second cell
- is for flags which is currently unsused.
- 
-+8) FEC nodes
-+The FEC node can specify one of the following properties to configure
-+the MII link:
-+"fsl,7-wire-mode" - An empty property that specifies the link uses 7-wire
-+                    mode instead of MII
-+"current-speed"   - Specifies that the MII should be configured for a fixed
-+                    speed.  This property should contain two cells.  The
-+                    first cell specifies the speed in Mbps and the second
-+                    should be '0' for half duplex and '1' for full duplex
-+"phy-handle"      - Contains a phandle to an Ethernet PHY.
-+
- IV - Extra Notes
- ================
- 
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index d21b7ab..eeb4433 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -43,6 +43,29 @@
- 
- #define DRIVER_NAME "mpc52xx-fec"
- 
-+#define FEC5200_PHYADDR_NONE	(-1)
-+#define FEC5200_PHYADDR_7WIRE	(-2)
-+
-+/* Private driver data structure */
-+struct mpc52xx_fec_priv {
-+	int duplex;
-+	int speed;
-+	int r_irq;
-+	int t_irq;
-+	struct mpc52xx_fec __iomem *fec;
-+	struct bcom_task *rx_dmatsk;
-+	struct bcom_task *tx_dmatsk;
-+	spinlock_t lock;
-+	int msg_enable;
-+
-+	/* MDIO link details */
-+	int phy_addr;
-+	unsigned int phy_speed;
-+	struct phy_device *phydev;
-+	enum phy_state link;
-+};
-+
-+
- static irqreturn_t mpc52xx_fec_interrupt(int, void *);
- static irqreturn_t mpc52xx_fec_rx_interrupt(int, void *);
- static irqreturn_t mpc52xx_fec_tx_interrupt(int, void *);
-@@ -223,7 +246,7 @@ static int mpc52xx_fec_phy_start(struct net_device *dev)
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
- 	int err;
- 
--	if (!priv->has_phy)
-+	if (priv->phy_addr < 0)
- 		return 0;
- 
- 	err = mpc52xx_fec_init_phy(dev);
-@@ -243,7 +266,7 @@ static void mpc52xx_fec_phy_stop(struct net_device *dev)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
- 
--	if (!priv->has_phy)
-+	if (!priv->phydev)
- 		return;
- 
- 	phy_disconnect(priv->phydev);
-@@ -255,7 +278,7 @@ static void mpc52xx_fec_phy_stop(struct net_device *dev)
- static int mpc52xx_fec_phy_mii_ioctl(struct mpc52xx_fec_priv *priv,
- 		struct mii_ioctl_data *mii_data, int cmd)
- {
--	if (!priv->has_phy)
-+	if (!priv->phydev)
- 		return -ENOTSUPP;
- 
- 	return phy_mii_ioctl(priv->phydev, mii_data, cmd);
-@@ -265,7 +288,7 @@ static void mpc52xx_fec_phy_hw_init(struct mpc52xx_fec_priv *priv)
- {
- 	struct mpc52xx_fec __iomem *fec = priv->fec;
- 
--	if (!priv->has_phy)
-+	if (priv->phydev)
- 		return;
- 
- 	out_be32(&fec->mii_speed, priv->phy_speed);
-@@ -704,7 +727,7 @@ static void mpc52xx_fec_start(struct net_device *dev)
- 	rcntrl = FEC_RX_BUFFER_SIZE << 16;	/* max frame length */
- 	rcntrl |= FEC_RCNTRL_FCE;
- 
--	if (priv->has_phy)
-+	if (priv->phy_addr != FEC5200_PHYADDR_7WIRE)
- 		rcntrl |= FEC_RCNTRL_MII_MODE;
- 
- 	if (priv->duplex == DUPLEX_FULL)
-@@ -864,7 +887,10 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 	struct net_device *ndev;
- 	struct mpc52xx_fec_priv *priv = NULL;
- 	struct resource mem;
--	const phandle *ph;
-+	struct device_node *phy_node;
-+	const phandle *phy_handle;
-+	const u32 *prop;
-+	int prop_size;
- 
- 	phys_addr_t rx_fifo;
- 	phys_addr_t tx_fifo;
-@@ -950,24 +976,36 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 	priv->msg_enable = netif_msg_init(debug, MPC52xx_MESSAGES_DEFAULT);
- 	priv->duplex = DUPLEX_FULL;
- 
--	/* is the phy present in device tree? */
--	ph = of_get_property(op->node, "phy-handle", NULL);
--	if (ph) {
--		const unsigned int *prop;
--		struct device_node *phy_dn;
--		priv->has_phy = 1;
--
--		phy_dn = of_find_node_by_phandle(*ph);
--		prop = of_get_property(phy_dn, "reg", NULL);
--		priv->phy_addr = *prop;
-+	/*
-+	 * Link mode configuration
-+	 */
- 
--		of_node_put(phy_dn);
-+	/* Start with safe defaults for link connection */
-+	priv->phy_addr = FEC5200_PHYADDR_NONE;
-+	priv->speed = 100;
-+	priv->duplex = 0;
-+	priv->phy_speed = ((mpc52xx_find_ipb_freq(op->node) >> 20) / 5) << 1;
-+
-+	/* the 7-wire property means don't use MII mode */
-+	if (of_find_property(op->node, "fsl,7-wire-mode", NULL))
-+		priv->phy_addr = FEC5200_PHYADDR_7WIRE;
-+
-+	/* The current speed preconfigures the speed of the MII link */
-+	prop = of_get_property(op->node, "current-speed", &prop_size);
-+	if (prop && (prop_size >= sizeof(u32) * 2)) {
-+		priv->speed = prop[0];
-+		priv->duplex = prop[1] ? DUPLEX_FULL : DUPLEX_HALF;
-+	}
- 
--		/* Phy speed */
--		priv->phy_speed = ((mpc52xx_find_ipb_freq(op->node) >> 20) / 5) << 1;
--	} else {
--		dev_info(&ndev->dev, "can't find \"phy-handle\" in device"
--				" tree, using 7-wire mode\n");
-+	/* If there is a phy handle, setup link to that phy */
-+	phy_handle = of_get_property(op->node, "phy-handle", &prop_size);
-+	if (phy_handle && (prop_size >= sizeof(phandle))) {
-+		phy_node = of_find_node_by_phandle(*phy_handle);
-+		prop = of_get_property(phy_node, "reg", &prop_size);
-+		if (prop && (prop_size >= sizeof(u32)))
-+			if ((*prop >= 0) && (*prop < PHY_MAX_ADDR))
-+				priv->phy_addr = *prop;
-+		of_node_put(phy_node);
- 	}
- 
- 	/* Hardware init */
-@@ -982,6 +1020,20 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 	if (rv < 0)
- 		goto probe_error;
- 
-+	/* Now report the link setup */
-+	switch (priv->phy_addr) {
-+	 case FEC5200_PHYADDR_NONE:
-+		dev_info(&ndev->dev, "Fixed speed MII link: %i%cD\n",
-+			 priv->speed, priv->duplex ? 'F' : 'H');
-+		break;
-+	 case FEC5200_PHYADDR_7WIRE:
-+		dev_info(&ndev->dev, "using 7-wire PHY mode\n");
-+		break;
-+	 default:
-+		dev_info(&ndev->dev, "Using PHY at MDIO address %i\n",
-+			 priv->phy_addr);
-+	}
-+
- 	/* We're done ! */
- 	dev_set_drvdata(&op->dev, ndev);
- 
-diff --git a/drivers/net/fec_mpc52xx.h b/drivers/net/fec_mpc52xx.h
-index 8b1f753..a227a52 100644
---- a/drivers/net/fec_mpc52xx.h
-+++ b/drivers/net/fec_mpc52xx.h
-@@ -26,25 +26,6 @@
- 
- #define FEC_WATCHDOG_TIMEOUT	((400*HZ)/1000)
- 
--struct mpc52xx_fec_priv {
--	int duplex;
--	int r_irq;
--	int t_irq;
--	struct mpc52xx_fec __iomem *fec;
--	struct bcom_task *rx_dmatsk;
--	struct bcom_task *tx_dmatsk;
--	spinlock_t lock;
--	int msg_enable;
--
--	int has_phy;
--	unsigned int phy_speed;
--	unsigned int phy_addr;
--	struct phy_device *phydev;
--	enum phy_state link;
--	int speed;
--};
--
--
- /* ======================================================================== */
- /* Hardware register sets & bits                                            */
- /* ======================================================================== */
+Agreed.  I didn't pull out enough for the simple sysfs fix.
 
+> More comments inline below.
+> 
+> Eric
+> 
+> > Index: linux-mm/fs/sysfs/mount.c
+> > ===================================================================
+> > --- linux-mm.orig/fs/sysfs/mount.c
+> > +++ linux-mm/fs/sysfs/mount.c
+> > @@ -17,6 +17,7 @@
+> >  #include <linux/pagemap.h>
+> >  #include <linux/init.h>
+> >  #include <linux/nsproxy.h>
+> > +#include <linux/user_namespace.h>
+> >  #include <net/net_namespace.h>
+> >  
+> >  #include "sysfs.h"
+> > @@ -81,6 +82,7 @@ static int sysfs_fill_super(struct super
+> >  	sb->s_root = root;
+> >  	sb->s_fs_info = info;
+> >  	info->tag.net_ns = hold_net(current->nsproxy->net_ns);
+> > +	info->tag.user_ns = current->nsproxy->user_ns;
+> >  	return 0;
+> >  
+> >  out_err:
+> > @@ -100,6 +102,8 @@ static int sysfs_test_super(struct super
+> >  
+> >  	if (task->nsproxy->net_ns != info->tag.net_ns)
+> >  		found = 0;
+> > +	if (task->nsproxy->user_ns != info->tag.user_ns)
+> > +		found = 0;
+> >  
+> >  	return found;
+> >  }
+> > @@ -214,6 +218,27 @@ static struct pernet_operations sysfs_ne
+> >  };
+> >  #endif
+> >  
+> > +#ifdef CONFIG_USER_NS
+> > +void sysfs_userns_exit(struct user_namespace *user_ns)
+> > +{
+> > +	/* Allow the net namespace to go away while sysfs is still mounted. */
+> > +	struct super_block *sb;
+> > +	printk(KERN_NOTICE "sysfs: user namespace exiting\n");
+> Debugging?
+
+Yes, sorry.
+
+> > +	mutex_lock(&sysfs_rename_mutex);
+> > +	sysfs_grab_supers();
+> > +	mutex_lock(&sysfs_mutex);
+> > +	list_for_each_entry(sb, &sysfs_fs_type.fs_supers, s_instances) {
+> > +		struct sysfs_super_info *info = sysfs_info(sb);
+> > +		if (info->tag.user_ns != user_ns)
+> > +			continue;
+> > +		info->tag.user_ns = NULL;
+> > +	}
+> > +	mutex_unlock(&sysfs_mutex);
+> > +	sysfs_release_supers();
+> > +	mutex_unlock(&sysfs_rename_mutex);
+> > +}
+> > +#endif
+> > +
+> >  int __init sysfs_init(void)
+> >  {
+> >  	int err = -ENOMEM;
+> > Index: linux-mm/include/linux/sched.h
+> > ===================================================================
+> > --- linux-mm.orig/include/linux/sched.h
+> > +++ linux-mm/include/linux/sched.h
+> > @@ -598,7 +598,7 @@ struct user_struct {
+> >  
+> >  	/* Hash table maintenance information */
+> >  	struct hlist_node uidhash_node;
+> > -	uid_t uid;
+> > +	struct k_uid_t uid;
+> 
+> If we are going to go this direction my inclination
+> is to include an array of a single element in user_struct.
+> 
+> Maybe that makes sense.  I just know we need to talk about
+> how a user maps into different user namespaces.  As that
+
+My thought had been that a task belongs to several user_structs, but
+each user_struct belongs to just one user namespace.  Maybe as you
+suggest that's not the right way to go.
+
+But are you ok with just sticking a user_namespace * in here for now,
+and making it clear that the user_struct-user_namespace relation is yet
+to be defined?
+
+If not that's fine, we just won't be able to clone(CLONE_NEWUSER)
+until we get the relationship straightened out.
+
+> is a real concept that really occurs in real filesystems
+> like nfsv4 and p9fs, and having infrastructure that can
+> deal with the concept (even if it doesn't support it yet) would be
+> useful.
+
+I'll have to look at 9p, bc right now I don't know what you're talking
+about.  Then I'll move to the containers list to discuss what the
+user_struct should look like.
+
+Thanks for taking a look.
+
+-serge
+
+> >  #endif /* _SYSFS_H_ */
+> > Index: linux-mm/include/linux/types.h
+> > ===================================================================
+> > --- linux-mm.orig/include/linux/types.h
+> > +++ linux-mm/include/linux/types.h
+> > @@ -37,6 +37,11 @@ typedef __kernel_gid32_t	gid_t;
+> >  typedef __kernel_uid16_t        uid16_t;
+> >  typedef __kernel_gid16_t        gid16_t;
+> >  
+> > +struct k_uid_t {
+> > +	uid_t uid;
+> > +	struct user_namespace *ns;
+> > +};
+> 
+> Weird a _t suffix in a structure name.  Usually _t indicates
+> that something is a typedef.
+> 
+> > +
+> >  typedef unsigned long		uintptr_t;
+> >  
+> >  #ifdef CONFIG_UID16
+> > Index: linux-mm/include/linux/user_namespace.h
+> > ===================================================================
+> > --- linux-mm.orig/include/linux/user_namespace.h
+> > +++ linux-mm/include/linux/user_namespace.h
+> > @@ -12,10 +12,15 @@
+> >  struct user_namespace {
+> >  	struct kref		kref;
+> >  	struct hlist_head	uidhash_table[UIDHASH_SZ];
+> > +	struct kset		*kset;
+> >  	struct user_struct	*root_user;
+> >  };
+> >  
+> >  extern struct user_namespace init_user_ns;
+> > +extern int register_user_ns_kobj(struct user_namespace *ns);
+> > +extern void unregister_user_ns_kobj(struct user_namespace *ns);
+> > +extern int register_user_ns_kobj(struct user_namespace *ns);
+> > +extern void unregister_user_ns_kobj(struct user_namespace *ns);
+> >  
+> >  #ifdef CONFIG_USER_NS
+> >  
+> > Index: linux-mm/kernel/user.c
+> > ===================================================================
+> > --- linux-mm.orig/kernel/user.c
+> > +++ linux-mm/kernel/user.c
+> > @@ -53,6 +53,10 @@ struct user_struct root_user = {
+> >  	.files		= ATOMIC_INIT(0),
+> >  	.sigpending	= ATOMIC_INIT(0),
+> >  	.locked_shm     = 0,
+> > +	.uid		= {
+> > +		.uid = 0,
+> > +		.ns = &init_user_ns,
+> > +	},
+> >  #ifdef CONFIG_USER_SCHED
+> >  	.tg		= &init_task_group,
+> >  #endif
+> > @@ -71,13 +75,23 @@ static void uid_hash_remove(struct user_
+> >  	hlist_del_init(&up->uidhash_node);
+> >  }
+> >  
+> > -static struct user_struct *uid_hash_find(uid_t uid, struct hlist_head *hashent)
+> > +int task_user_equiv(struct task_struct *tsk, struct user_struct *u)
+> > +{
+> > +	if (tsk->uid != u->uid.uid)
+> > +		return 0;
+> > +	if (tsk->nsproxy->user_ns != u->uid.ns)
+> > +		return 0;
+> > +	return 1;
+> > +}
+> > +
+> > +static struct user_struct *uid_hash_find(uid_t uid,
+> > +				struct hlist_head *hashent)
+> >  {
+> >  	struct user_struct *user;
+> >  	struct hlist_node *h;
+> >  
+> >  	hlist_for_each_entry(user, h, hashent, uidhash_node) {
+> > -		if (user->uid == uid) {
+> > +		if (user->uid.uid == uid) {
+> >  			atomic_inc(&user->__count);
+> >  			return user;
+> >  		}
+> > @@ -236,6 +250,23 @@ static void uids_release(struct kobject 
+> >  	return;
+> >  }
+> >  
+> > +static const void *userns_sb_tag(struct sysfs_tag_info *info)
+> > +{
+> > +       return info->user_ns;
+> > +}
+> > +
+> > +static const void *userns_kobject_tag(struct kobject *kobj)
+> > +{
+> > +       struct user_struct *up;
+> > +       up = container_of(kobj, struct user_struct, kobj);
+> > +       return up->uid.ns;
+> > +}
+> > +
+> > +static struct sysfs_tagged_dir_operations userns_tagged_dir_operations = {
+> > +       .sb_tag = userns_sb_tag,
+> > +       .kobject_tag = userns_kobject_tag,
+> > +};
+> > +
+> >  static struct kobj_type uids_ktype = {
+> >  	.sysfs_ops = &kobj_sysfs_ops,
+> >  	.default_attrs = uids_attributes,
+> > @@ -246,19 +277,19 @@ static struct kobj_type uids_ktype = {
+> >  static int uids_user_create(struct user_struct *up)
+> >  {
+> >  	struct kobject *kobj = &up->kobj;
+> > -	int error;
+> > +	int err;
+> >  
+> >  	memset(kobj, 0, sizeof(struct kobject));
+> >  	kobj->kset = uids_kset;
+> > -	error = kobject_init_and_add(kobj, &uids_ktype, NULL, "%d", up->uid);
+> > -	if (error) {
+> > +	err = kobject_init_and_add(kobj, &uids_ktype, NULL, "%d", up->uid.uid);
+> > +	if (err) {
+> >  		kobject_put(kobj);
+> >  		goto done;
+> >  	}
+> >  
+> >  	kobject_uevent(kobj, KOBJ_ADD);
+> >  done:
+> > -	return error;
+> > +	return err;
+> >  }
+> >  
+> >  /* create these entries in sysfs:
+> > @@ -271,7 +302,7 @@ int __init uids_sysfs_init(void)
+> >  	uids_kset = kset_create_and_add("uids", NULL, kernel_kobj);
+> >  	if (!uids_kset)
+> >  		return -ENOMEM;
+> > -
+> > +	sysfs_enable_tagging(&uids_kset->kobj, &userns_tagged_dir_operations);
+> >  	return uids_user_create(&root_user);
+> >  }
+> >  
+> > @@ -403,7 +434,8 @@ struct user_struct *alloc_uid(struct use
+> >  		if (!new)
+> >  			goto out_unlock;
+> >  
+> > -		new->uid = uid;
+> > +		new->uid.uid = uid;
+> > +		new->uid.ns = ns;
+> >  		atomic_set(&new->__count, 1);
+> >  
+> >  		if (sched_create_user(new) < 0)
+> > Index: linux-mm/kernel/user_namespace.c
+> > ===================================================================
+> > --- linux-mm.orig/kernel/user_namespace.c
+> > +++ linux-mm/kernel/user_namespace.c
+> > @@ -22,7 +22,7 @@ static struct user_namespace *clone_user
+> >  	struct user_struct *new_user;
+> >  	int n;
+> >  
+> > -	ns = kmalloc(sizeof(struct user_namespace), GFP_KERNEL);
+> > +	ns = kzalloc(sizeof(struct user_namespace), GFP_KERNEL);
+> >  	if (!ns)
+> >  		return ERR_PTR(-ENOMEM);
+> >  
+> > @@ -71,6 +71,7 @@ void free_user_ns(struct kref *kref)
+> >  	struct user_namespace *ns;
+> >  
+> >  	ns = container_of(kref, struct user_namespace, kref);
+> > +	sysfs_userns_exit(ns);
+> >  	release_uids(ns);
+> >  	kfree(ns);
+> >  }
