@@ -1,22 +1,34 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: 2.6.25 crash: EIP: [<c02e2f14>] xfrm_output_resume+0x64/0x100 ss:esp 0068:c03a1e5c
-Date: Tue, 29 Apr 2008 16:37:55 +0200
-Message-ID: <BAY103-DAV12E9E0E5107A5FCEF3F473B2D90@phx.gbl>
-References: <BAY103-DAV11F874912A45144805FC26B2DE0@phx.gbl> <20080428.024208.153440332.davem@davemloft.net>
-To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC XFRM]: esp: fix scatterlist of out bounds access with crypto_eseqiv
+Date: Tue, 29 Apr 2008 22:45:03 +0800
+Message-ID: <20080429144503.GA21238@gondor.apana.org.au>
+References: <48161D99.5070303@trash.net> <20080429014107.GA16700@gondor.apana.org.au> <4816AD93.5090404@trash.net> <20080429135932.GA20790@gondor.apana.org.au> <20080429142144.GB16068@2ka.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, linux-crypto@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s23.bay0.hotmail.com ([65.54.246.159]:55597 "EHLO
-	bay0-omc2-s23.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933023AbYD2OkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 10:40:13 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:43954 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750837AbYD2OpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 10:45:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20080429142144.GB16068@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just few minutes ago, another 2.6.25 crash
-with this message:
+On Tue, Apr 29, 2008 at 06:21:44PM +0400, Evgeniy Polyakov wrote:
+> 
+> Hey, it works :))
+> Just not always, which is great at attracting Patrick and problems.
 
-EIP: [<c028000a>] netif_rx+0x6a/0xd0 SS:ESP 0068:c039f868
+I was more commenting on the bugs in the crypto layer that breaks
+hifn rather than the hifn driver itself :)
 
-http://80.204.235.230/4.jpg
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
