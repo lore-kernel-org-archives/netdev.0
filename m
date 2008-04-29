@@ -1,61 +1,50 @@
-From: Miika Komu <miika@iki.fi>
-Subject: [PATCH] [NET] Exporting of some IPv6 symbols for HIP and SHIM6
- experimentation
-Date: Wed, 30 Apr 2008 00:07:56 +0300 (EEST)
-Message-ID: <Pine.SOL.4.64.0804292344490.29274@kekkonen.cs.hut.fi>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: odd RTL8139 quirk.
+Date: Tue, 29 Apr 2008 17:56:26 -0400
+Message-ID: <20080429215626.GC2859@redhat.com>
+References: <20080429171403.GA21035@redhat.com> <48177905.4000409@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from twilight.cs.hut.fi ([130.233.40.5]:61965 "EHLO
-	twilight.cs.hut.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbYD2VbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 17:31:01 -0400
-Received: from kekkonen (kekkonen.cs.hut.fi [130.233.41.50])
-	by twilight.cs.hut.fi (Postfix) with ESMTP id 404732F37
-	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 00:07:56 +0300 (EEST)
+Received: from mx1.redhat.com ([66.187.233.31]:45574 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752362AbYD2V4c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 17:56:32 -0400
+Content-Disposition: inline
+In-Reply-To: <48177905.4000409@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Host Identity Protocol (HIP, RFC5201, RFC4423) and Site Multihoming for 
-IPv6 (SHIM6, draft-ietf-shim6-proto-10) define new APIs in the URLs below. 
-This patch exports some IPv6 symbols to help in initial IETF 
-experimentation with external kernel modules for HIP and SHIM6 socket 
-handlers. The SHIM6 and HIP socket handlers are built on top of IPv6 
-socket handlers.
-http://www.ietf.org/internet-drafts/draft-ietf-hip-native-api-04.txt
-http://www.ietf.org/internet-drafts/draft-ietf-shim6-multihome-shim-api-05.txt
+On Tue, Apr 29, 2008 at 03:37:41PM -0400, Jeff Garzik wrote:
+ > Dave Jones wrote:
+ > > I've just been playing with a model 2 OQO, which has an RTL8139.
+ > > It gets detected just fine, though it doesn't actually work..
+ > > 
+ > > eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
+ > > eth0:  Identified 8139 chip type 'RTL-8139'
+ > > 
+ > > The null MAC address being one clue.  Another oddity is that
+ > > ethtool reports that there's no link detected, even though there is.
+ > > (Enough for it to PXE boot a kernel from at least :)
+ > > 
+ > > Futzing with the debug= modparam didn't yield anything extra at all.
+ > > 
+ > > Any clues?
+ > 
+ > Sounds like a broken EEPROM.  Does supplying a MAC via ifconfig prior to 
+ > 'ifconfig ... up' help?
 
+Ah. This sounds enlightening: http://www.oqotalk.com/index.php/topic,1511.0.html
+Seems a shame to have to choose PIO vs MMIO for a distro kernel though.
+Would there be any objection to turning that into a modparam ?
+(If we wanted to get really fancy, we could even quirk around it automatically
+ when we detect broken hardware).
 
-Signed-off-by: Miika Komu <miika@iki.fi>
---
+Thoughts?
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 3c6aafb..ec96224 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -239,7 +239,7 @@ out_rcu_unlock:
-  	rcu_read_unlock();
-  	goto out;
-  }
--
-+EXPORT_SYMBOL(inet6_create);
+	Dave
 
-  /* bind for INET6 API */
-  int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-@@ -498,6 +498,7 @@ const struct proto_ops inet6_stream_ops = {
-  	.compat_getsockopt = compat_sock_common_getsockopt,
-  #endif
-  };
-+EXPORT_SYMBOL(inet6_stream_ops);
-
-  const struct proto_ops inet6_dgram_ops = {
-  	.family		   = PF_INET6,
-@@ -523,6 +524,7 @@ const struct proto_ops inet6_dgram_ops = {
-  	.compat_getsockopt = compat_sock_common_getsockopt,
-  #endif
-  };
-+EXPORT_SYMBOL(inet6_dgram_ops);
-
-  static struct net_proto_family inet6_family_ops = {
-  	.family = PF_INET6,
+-- 
+http://www.codemonkey.org.uk
