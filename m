@@ -1,67 +1,45 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 7/8][BONDING]: Remove unneeded list_empty checks.
-Date: Tue, 29 Apr 2008 19:06:54 +0400
-Message-ID: <4817398E.7070806@openvz.org>
-References: <481735F4.30909@openvz.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] ARCH: Fix 32-bit x86 MSI-X allocation leakage
+Date: Tue, 29 Apr 2008 17:14:03 +0200
+Message-ID: <20080429151403.GA19410@elte.hu>
+References: <20080426005850.7098.77479.stgit@scrappy.jf.intel.com> <20080429102107.GH23198@elte.hu> <D5C1322C3E673F459512FB59E0DDC32904F9F13E@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58839 "EHLO sacred.ru"
+Received: from mx3.mail.elte.hu ([157.181.1.138]:36895 "EHLO mx3.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751668AbYD2PLz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 11:11:55 -0400
-In-Reply-To: <481735F4.30909@openvz.org>
+	id S1751565AbYD2POX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 11:14:23 -0400
+Content-Disposition: inline
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32904F9F13E@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some places iterate over the checked list right after the check 
-itself, so even if the list is empty, the list_for_each_xxx
-iterator will make everything right by himself.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+* Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> wrote:
 
----
- drivers/net/bonding/bond_main.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
+> > * PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com> wrote:
+> > 
+> > > This bug was introduced in the 2.6.24 i386/x86_64 tree merge, [...]
+> > 
+> > that's wrong, that code was there in v2.6.23 too - and it wasnt 
+> > touched in the unification. Why do you think it was introduced in 
+> > the i386/x86_64 tree merge?
+> 
+> 2.6.23.17 didn't have the used_vectors bitmap.  The first time I could 
+> find it used was in 2.6.24.  Where was the code existing in 2.6.23?  
+> The addition may have not been part of the merge, but it was 
+> definitely introduced in the same timeframe, meaning the 2.6.24 
+> release timeframe.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 8623e47..4d852ab 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2433,9 +2433,6 @@ static int bond_has_ip(struct bonding *bond)
- 	if (bond->master_ip)
- 		return 1;
- 
--	if (list_empty(&bond->vlan_list))
--		return 0;
--
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
- 		if (vlan->vlan_ip)
- 			return 1;
-@@ -2451,9 +2448,6 @@ static int bond_has_this_ip(struct bonding *bond, __be32 ip)
- 	if (ip == bond->master_ip)
- 		return 1;
- 
--	if (list_empty(&bond->vlan_list))
--		return 0;
--
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
- 		if (ip == vlan->vlan_ip)
- 			return 1;
-@@ -3520,9 +3514,6 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
- 			}
- 		}
- 
--		if (list_empty(&bond->vlan_list))
--			continue;
--
- 		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
- 			vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
- 			if (vlan_dev == event_dev) {
--- 
-1.5.3.4
+that change came in via lguest (commit dbeb2be2), not the 32-bit/64-bit 
+x86 unification. Lguest is a new feature in 2.6.24 and this side-effect 
+of it was not known until you fixed it - thanks for that!
 
+So i was just splitting hairs over your statement that it was due to the 
+unification :-)
+
+	Ingo
