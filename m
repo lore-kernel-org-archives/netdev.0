@@ -1,309 +1,154 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 10/10] sysfs: user namespaces: add ns to user_struct
-Date: Tue, 29 Apr 2008 12:51:29 -0700
-Message-ID: <m17ieg1ltq.fsf@frodo.ebiederm.org>
-References: <20080429171015.473938697@theryb.frec.bull.fr>
-	<20080429171703.529721456@theryb.frec.bull.fr>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [Bug 10575] New: WARNING: at mm/slub.c:2444
+Date: Tue, 29 Apr 2008 23:01:54 +0300
+Message-ID: <48177EB2.2070309@cs.helsinki.fi>
+References: <bug-10575-27@http.bugzilla.kernel.org/>	<20080429082231.2c5470ff.akpm@linux-foundation.org>	<481773A6.5050507@trash.net> <20080429123741.bce81cf8.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: Benjamin Thery <benjamin.thery@bull.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, htmldeveloper@gmail.com,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	clameter@sgi.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:43674 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755380AbYD2T7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 15:59:34 -0400
-In-Reply-To: <20080429171703.529721456@theryb.frec.bull.fr> (Benjamin Thery's
-	message of "Tue, 29 Apr 2008 19:11:55 +0200")
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46158 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752900AbYD2UHs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 16:07:48 -0400
+In-Reply-To: <20080429123741.bce81cf8.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Thery <benjamin.thery@bull.net> writes:
+Andrew Morton wrote:
+> On Tue, 29 Apr 2008 21:14:46 +0200
+> Patrick McHardy <kaber@trash.net> wrote:
+> 
+>> Andrew Morton wrote:
+>>> (switched to email.  Please respond via emailed reply-to-all, not via the
+>>> bugzilla web interface).
+>>>
+>>> On Tue, 29 Apr 2008 06:31:36 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+>>>
+>>>   
+>>>> kernel version:
+>>>>
+>>>> cat include/config/kernel.release 
+>>>> 2.6.25-sched-devel.git-x86-latest.git
+>>>>
+>>>> Shutting down the system generated the following errors:
+>>>>
+>>>> Apr 28 00:20:22 funnyman libvirtd: Shutting down on signal 15
+>>>> Apr 28 00:20:25 funnyman kernel: sky2 eth0: Link is down.
+>>>> Apr 28 00:20:25 funnyman xinetd[3373]: Exiting...
+>>>> Apr 28 00:20:30 funnyman kernel: ------------[ cut here ]------------
+>>>> Apr 28 00:20:30 funnyman kernel: WARNING: at mm/slub.c:2444
+>>>> kmem_cache_destroy+0xfe/0x108()
+>>>> Apr 28 00:20:30 funnyman kernel: Modules linked in: rfcomm hidp l2cap bluetooth
+>>>> button ext2 btrfs hfsplus usb_storage nls_utf8 bridge autofs4 nf_conntrack(-)
+>>>> xt_tcpudp x_tables sunrpc loop dm_multipath video output sbs sbshc battery ac
+>>>> ipv6 parport_pc lp parport snd_usb_audio snd_usb_lib snd_rawmidi snd_hwdep
+>>>> snd_hda_intel snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq
+>>>> snd_seq_device snd_pcm_oss sg firewire_ohci snd_mixer_oss snd_pcm firewire_core
+>>>> crc_itu_t snd_timer snd pata_jmicron soundcore serio_raw sky2 snd_page_alloc
+>>>> pcspkr i2c_i801 iTCO_wdt iTCO_vendor_support i2c_core floppy dm_snapshot
+>>>> dm_zero dm_mirror dm_mod ahci ata_generic ata_piix libata sd_mod scsi_mod ext3
+>>>> jbd ehci_hcd ohci_hcd uhci_hcd [last unloaded: xt_state]
+>>>> Apr 28 00:20:30 funnyman kernel: Pid: 11669, comm: modprobe Not tainted
+>>>> 2.6.25-sched-devel.git-x86-latest.git #1
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c042bad6>] warn_on_slowpath+0x46/0x56
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0415a33>] ? apic_wait_icr_idle+0x16/0x1d
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0415243>] ?
+>>>> __send_IPI_dest_field+0x50/0x54
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c04020e5>] ? send_IPI_mask+0xd/0xf
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c046773c>] ?
+>>>> get_pageblock_flags_group+0x50/0x6e
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c046777e>] ?
+>>>> get_pageblock_migratetype+0x24/0x27
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0468472>] ? free_hot_page+0xf/0x11
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0468494>] ? __free_pages+0x20/0x2b
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c047f471>] ? __free_slab+0xac/0xb4
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0480754>] kmem_cache_destroy+0xfe/0x108
+>>>> Apr 28 00:20:30 funnyman kernel:  [<f8d337c0>] nf_conntrack_cleanup+0x53/0x7a
+>>>> [nf_conntrack]
+>>>> Apr 28 00:20:30 funnyman kernel:  [<f8d3766d>]
+>>>> nf_conntrack_standalone_fini+0x1c/0x1e [nf_conntrack]
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c044b56f>] sys_delete_module+0x177/0x1af
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0472c00>] ? remove_vma+0x31/0x53
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0473468>] ? do_munmap+0x182/0x19c
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0404bae>] sysenter_past_esp+0x6a/0x90
+>>>> Apr 28 00:20:30 funnyman kernel:  [<c0640000>] ? pci_scan_bridge+0x1dc/0x2eb
+>>>> Apr 28 00:20:30 funnyman hcid[9436]: Got disconnected from the system message
+>>>> bus
+>>>> Apr 28 00:20:30 funnyman kernel:  =======================
+>>>> Apr 28 00:20:30 funnyman rpc.statd[2994]: Caught signal 15, un-registering and
+>>>> exiting.
+>>>> Apr 28 00:20:30 funnyman kernel: ---[ end trace eb2ec02455daeda8 ]---
+>>>> Apr 28 00:20:30 funnyman portmap[11769]: connect from 127.0.0.1 to
+>>>> unset(status): request from unprivileged port
+>>>> Apr 28 00:20:30 funnyman pcscd: pcscdaemon.c:529:signal_trap() Preparing for
+>>>> suicide
+>>>>
+>>>> and mm/slub.c:2444 are as follows:
+>>>>
+>>>>  2433  * Close a cache and release the kmem_cache structure
+>>>>    2434  * (must be used for caches created using kmem_cache_create)
+>>>>    2435  */
+>>>>    2436 void kmem_cache_destroy(struct kmem_cache *s)
+>>>>    2437 {
+>>>>    2438         down_write(&slub_lock);
+>>>>    2439         s->refcount--;
+>>>>    2440         if (!s->refcount) {
+>>>>    2441                 list_del(&s->list);
+>>>>    2442                 up_write(&slub_lock);
+>>>>    2443                 if (kmem_cache_close(s))
+>>>>    2444                         WARN_ON(1);
+>>>>    2445                 sysfs_slab_remove(s);
+>>>>    2446         } else
+>>>>    2447                 up_write(&slub_lock);
+>>>>    2448 }
+>>>>    2449 EXPORT_SYMBOL(kmem_cache_destroy);
+>>>>
+>>>> How to reproduce:
+>>>>
+>>>> Not sure how, as it occur during shutdown.
+>>>>     
+>>> Looks like nf_contrack is destroying a slab cache which still has
+>>> live objects.
+>>>
+>>> I think this came up a few days ago but I'm not sure if it was fixed?
+>> I believe Stephen fixed a use-after-free in bridging a few days ago,
+>> are you referring to this? Otherwise a pointer would be appreciated.
+> 
+> <checks>
+> 
+> Sorry, I confused it with a similar-looking USB trace.  Pekka added some
+> additional debug at that site which might help here - it will tell us the
+> name of the slab cache:
 
-> Add the user_namespace to user_struct.
->
-> Add a user_namespace to the sysfs_tag struct.
->
-> Mark the /sys/kernel/uids directory to be tagged so that processes in
-> different user namespaces can remount /sys and see their own uid
-> listings.
->
-> Without this patch, having CONFIG_FAIR_SCHED=y makes user namespaces
-> unusable, because when you
->   clone(CLONE_NEWUSER)
-> it will auto-create the root userid and try to create
-> /sys/kernel/uids/0.  Since that already exists from the parent user
-> namespace, the create fails, and the clone misleadingly ends up
-> returning -ENOMEM.
->
-> This patch fixes the issue by allowing each user namespace to remount
-> /sys, and having /sys filter the /sys/kernel/uid/ entries by user
-> namespace.
+Well, it's obviously nf_conntrack_cachep but this is the second time I 
+see the SLUB WARN_ON trigger but can't find anything wrong with the 
+code. Christoph, if you look at nf_conntrack_cleanup() in 
+net/netfilter/nf_conntrack_core.c:
 
-There is a lot of promising code in this patch.  This patch appears to
-be building up a lot of userns infrastructure that is only indirectly
-related to sysfs, and it still appears to have some debugging code
-present.  
+  i_see_dead_people:
+         nf_conntrack_flush();
+         if (atomic_read(&nf_conntrack_count) != 0) {
+                 schedule();
+                 goto i_see_dead_people;
+         }
 
-As a proof of concept patch (which I asked for) this looks good.
+Yeah, yikes, but in nf_conntrack_alloc() we do
 
-I do think this patch should get split into logical changes
-and cleaned up a bit before it gets merged into mainline.
+         atomic_inc(&nf_conntrack_count);
 
-More comments inline below.
+before
 
-Eric
+         ct = kmem_cache_zalloc(nf_conntrack_cachep, GFP_ATOMIC);
 
-> Index: linux-mm/fs/sysfs/mount.c
-> ===================================================================
-> --- linux-mm.orig/fs/sysfs/mount.c
-> +++ linux-mm/fs/sysfs/mount.c
-> @@ -17,6 +17,7 @@
->  #include <linux/pagemap.h>
->  #include <linux/init.h>
->  #include <linux/nsproxy.h>
-> +#include <linux/user_namespace.h>
->  #include <net/net_namespace.h>
->  
->  #include "sysfs.h"
-> @@ -81,6 +82,7 @@ static int sysfs_fill_super(struct super
->  	sb->s_root = root;
->  	sb->s_fs_info = info;
->  	info->tag.net_ns = hold_net(current->nsproxy->net_ns);
-> +	info->tag.user_ns = current->nsproxy->user_ns;
->  	return 0;
->  
->  out_err:
-> @@ -100,6 +102,8 @@ static int sysfs_test_super(struct super
->  
->  	if (task->nsproxy->net_ns != info->tag.net_ns)
->  		found = 0;
-> +	if (task->nsproxy->user_ns != info->tag.user_ns)
-> +		found = 0;
->  
->  	return found;
->  }
-> @@ -214,6 +218,27 @@ static struct pernet_operations sysfs_ne
->  };
->  #endif
->  
-> +#ifdef CONFIG_USER_NS
-> +void sysfs_userns_exit(struct user_namespace *user_ns)
-> +{
-> +	/* Allow the net namespace to go away while sysfs is still mounted. */
-> +	struct super_block *sb;
-> +	printk(KERN_NOTICE "sysfs: user namespace exiting\n");
-Debugging?
-> +	mutex_lock(&sysfs_rename_mutex);
-> +	sysfs_grab_supers();
-> +	mutex_lock(&sysfs_mutex);
-> +	list_for_each_entry(sb, &sysfs_fs_type.fs_supers, s_instances) {
-> +		struct sysfs_super_info *info = sysfs_info(sb);
-> +		if (info->tag.user_ns != user_ns)
-> +			continue;
-> +		info->tag.user_ns = NULL;
-> +	}
-> +	mutex_unlock(&sysfs_mutex);
-> +	sysfs_release_supers();
-> +	mutex_unlock(&sysfs_rename_mutex);
-> +}
-> +#endif
-> +
->  int __init sysfs_init(void)
->  {
->  	int err = -ENOMEM;
-> Index: linux-mm/include/linux/sched.h
-> ===================================================================
-> --- linux-mm.orig/include/linux/sched.h
-> +++ linux-mm/include/linux/sched.h
-> @@ -598,7 +598,7 @@ struct user_struct {
->  
->  	/* Hash table maintenance information */
->  	struct hlist_node uidhash_node;
-> -	uid_t uid;
-> +	struct k_uid_t uid;
+So I don't see how we can call kmem_cache_destroy() with unfree'd 
+objects in it... Can you take a look at this?
 
-If we are going to go this direction my inclination
-is to include an array of a single element in user_struct.
+And oh, Peter, if you can trigger this with mainline, please do post the 
+oops. I should give us better information what's happening.
 
-Maybe that makes sense.  I just know we need to talk about
-how a user maps into different user namespaces.  As that
-is a real concept that really occurs in real filesystems
-like nfsv4 and p9fs, and having infrastructure that can
-deal with the concept (even if it doesn't support it yet) would be
-useful.
-
->  #endif /* _SYSFS_H_ */
-> Index: linux-mm/include/linux/types.h
-> ===================================================================
-> --- linux-mm.orig/include/linux/types.h
-> +++ linux-mm/include/linux/types.h
-> @@ -37,6 +37,11 @@ typedef __kernel_gid32_t	gid_t;
->  typedef __kernel_uid16_t        uid16_t;
->  typedef __kernel_gid16_t        gid16_t;
->  
-> +struct k_uid_t {
-> +	uid_t uid;
-> +	struct user_namespace *ns;
-> +};
-
-Weird a _t suffix in a structure name.  Usually _t indicates
-that something is a typedef.
-
-> +
->  typedef unsigned long		uintptr_t;
->  
->  #ifdef CONFIG_UID16
-> Index: linux-mm/include/linux/user_namespace.h
-> ===================================================================
-> --- linux-mm.orig/include/linux/user_namespace.h
-> +++ linux-mm/include/linux/user_namespace.h
-> @@ -12,10 +12,15 @@
->  struct user_namespace {
->  	struct kref		kref;
->  	struct hlist_head	uidhash_table[UIDHASH_SZ];
-> +	struct kset		*kset;
->  	struct user_struct	*root_user;
->  };
->  
->  extern struct user_namespace init_user_ns;
-> +extern int register_user_ns_kobj(struct user_namespace *ns);
-> +extern void unregister_user_ns_kobj(struct user_namespace *ns);
-> +extern int register_user_ns_kobj(struct user_namespace *ns);
-> +extern void unregister_user_ns_kobj(struct user_namespace *ns);
->  
->  #ifdef CONFIG_USER_NS
->  
-> Index: linux-mm/kernel/user.c
-> ===================================================================
-> --- linux-mm.orig/kernel/user.c
-> +++ linux-mm/kernel/user.c
-> @@ -53,6 +53,10 @@ struct user_struct root_user = {
->  	.files		= ATOMIC_INIT(0),
->  	.sigpending	= ATOMIC_INIT(0),
->  	.locked_shm     = 0,
-> +	.uid		= {
-> +		.uid = 0,
-> +		.ns = &init_user_ns,
-> +	},
->  #ifdef CONFIG_USER_SCHED
->  	.tg		= &init_task_group,
->  #endif
-> @@ -71,13 +75,23 @@ static void uid_hash_remove(struct user_
->  	hlist_del_init(&up->uidhash_node);
->  }
->  
-> -static struct user_struct *uid_hash_find(uid_t uid, struct hlist_head *hashent)
-> +int task_user_equiv(struct task_struct *tsk, struct user_struct *u)
-> +{
-> +	if (tsk->uid != u->uid.uid)
-> +		return 0;
-> +	if (tsk->nsproxy->user_ns != u->uid.ns)
-> +		return 0;
-> +	return 1;
-> +}
-> +
-> +static struct user_struct *uid_hash_find(uid_t uid,
-> +				struct hlist_head *hashent)
->  {
->  	struct user_struct *user;
->  	struct hlist_node *h;
->  
->  	hlist_for_each_entry(user, h, hashent, uidhash_node) {
-> -		if (user->uid == uid) {
-> +		if (user->uid.uid == uid) {
->  			atomic_inc(&user->__count);
->  			return user;
->  		}
-> @@ -236,6 +250,23 @@ static void uids_release(struct kobject 
->  	return;
->  }
->  
-> +static const void *userns_sb_tag(struct sysfs_tag_info *info)
-> +{
-> +       return info->user_ns;
-> +}
-> +
-> +static const void *userns_kobject_tag(struct kobject *kobj)
-> +{
-> +       struct user_struct *up;
-> +       up = container_of(kobj, struct user_struct, kobj);
-> +       return up->uid.ns;
-> +}
-> +
-> +static struct sysfs_tagged_dir_operations userns_tagged_dir_operations = {
-> +       .sb_tag = userns_sb_tag,
-> +       .kobject_tag = userns_kobject_tag,
-> +};
-> +
->  static struct kobj_type uids_ktype = {
->  	.sysfs_ops = &kobj_sysfs_ops,
->  	.default_attrs = uids_attributes,
-> @@ -246,19 +277,19 @@ static struct kobj_type uids_ktype = {
->  static int uids_user_create(struct user_struct *up)
->  {
->  	struct kobject *kobj = &up->kobj;
-> -	int error;
-> +	int err;
->  
->  	memset(kobj, 0, sizeof(struct kobject));
->  	kobj->kset = uids_kset;
-> -	error = kobject_init_and_add(kobj, &uids_ktype, NULL, "%d", up->uid);
-> -	if (error) {
-> +	err = kobject_init_and_add(kobj, &uids_ktype, NULL, "%d", up->uid.uid);
-> +	if (err) {
->  		kobject_put(kobj);
->  		goto done;
->  	}
->  
->  	kobject_uevent(kobj, KOBJ_ADD);
->  done:
-> -	return error;
-> +	return err;
->  }
->  
->  /* create these entries in sysfs:
-> @@ -271,7 +302,7 @@ int __init uids_sysfs_init(void)
->  	uids_kset = kset_create_and_add("uids", NULL, kernel_kobj);
->  	if (!uids_kset)
->  		return -ENOMEM;
-> -
-> +	sysfs_enable_tagging(&uids_kset->kobj, &userns_tagged_dir_operations);
->  	return uids_user_create(&root_user);
->  }
->  
-> @@ -403,7 +434,8 @@ struct user_struct *alloc_uid(struct use
->  		if (!new)
->  			goto out_unlock;
->  
-> -		new->uid = uid;
-> +		new->uid.uid = uid;
-> +		new->uid.ns = ns;
->  		atomic_set(&new->__count, 1);
->  
->  		if (sched_create_user(new) < 0)
-> Index: linux-mm/kernel/user_namespace.c
-> ===================================================================
-> --- linux-mm.orig/kernel/user_namespace.c
-> +++ linux-mm/kernel/user_namespace.c
-> @@ -22,7 +22,7 @@ static struct user_namespace *clone_user
->  	struct user_struct *new_user;
->  	int n;
->  
-> -	ns = kmalloc(sizeof(struct user_namespace), GFP_KERNEL);
-> +	ns = kzalloc(sizeof(struct user_namespace), GFP_KERNEL);
->  	if (!ns)
->  		return ERR_PTR(-ENOMEM);
->  
-> @@ -71,6 +71,7 @@ void free_user_ns(struct kref *kref)
->  	struct user_namespace *ns;
->  
->  	ns = container_of(kref, struct user_namespace, kref);
-> +	sysfs_userns_exit(ns);
->  	release_uids(ns);
->  	kfree(ns);
->  }
+		Pekka
