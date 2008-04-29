@@ -1,8 +1,8 @@
 From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH 09/10] net: netns: Enable tagging for net_class directories
- in sysfs
-Date: Tue, 29 Apr 2008 19:11:45 +0200
-Message-ID: <20080429171703.312647423@theryb.frec.bull.fr>
+Subject: [PATCH 07/10] sysfs: Implement sysfs_delete_link and
+ sysfs_rename_link
+Date: Tue, 29 Apr 2008 19:11:25 +0200
+Message-ID: <20080429171702.907111717@theryb.frec.bull.fr>
 References: <20080429171015.473938697@theryb.frec.bull.fr>
 Cc: Tejun Heo <htejun@gmail.com>, Greg Kroah-Hartman <gregkh@suse.de>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -12,197 +12,121 @@ Cc: Tejun Heo <htejun@gmail.com>, Greg Kroah-Hartman <gregkh@suse.de>,
 To: linux-kernel@vger.kernel.org,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:47452 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:47407 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761394AbYD2R0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 13:26:15 -0400
+	with ESMTP id S1755530AbYD2RZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 13:25:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net: Enable tagging for net_class directories in sysfs
+sysfs: Implement sysfs_delete_link and sysfs_rename_link
 
-The problem.  Network devices show up in sysfs and with the network
-namespace active multiple devices with the same name can show up in
-the same directory, ouch!
+When removing a symlink sysfs_remove_link does not provide
+enough information to figure out which tagged directory the symlink
+falls in.  So I need sysfs_delete_link which is passed the target
+of the symlink to delete.
 
-To avoid that problem and allow existing applications in network namespaces
-to see the same interface that is currently presented in sysfs, this
-patch enables the tagging directory support in sysfs.
+Further half the time when we are removing a symlink the code is
+actually renaming the symlink but not doing so explicitly because
+we don't have a symlink rename method. So I have added sysfs_rename_link
+as well.
 
-By using the network namespace pointers as tags to separate out the
-the sysfs directory entries we ensure that we don't have conflicts
-in the directories and applications only see a limited set of
-the network devices.
+Both of these functions now have enough information to find a symlink
+in a tagged directory.  The only restriction is that they must be called
+before the target kobject is renamed or deleted.  If they are called
+later I loose track of which tag the target kobject was marked with
+and can no longer find the old symlink to remove it.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 Acked-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- fs/sysfs/mount.c      |   36 ++++++++++++++++++++++++++++++++++++
- include/linux/sysfs.h |    2 ++
- net/Kconfig           |    2 +-
- net/core/net-sysfs.c  |   20 ++++++++++++++++++++
- 4 files changed, 59 insertions(+), 1 deletion(-)
+ fs/sysfs/symlink.c    |   31 +++++++++++++++++++++++++++++++
+ include/linux/sysfs.h |   17 +++++++++++++++++
+ 2 files changed, 48 insertions(+)
 
-Index: linux-mm/fs/sysfs/mount.c
+Index: linux-mm/fs/sysfs/symlink.c
 ===================================================================
---- linux-mm.orig/fs/sysfs/mount.c
-+++ linux-mm/fs/sysfs/mount.c
-@@ -16,6 +16,8 @@
- #include <linux/mount.h>
- #include <linux/pagemap.h>
- #include <linux/init.h>
-+#include <linux/nsproxy.h>
-+#include <net/net_namespace.h>
- 
- #include "sysfs.h"
- 
-@@ -78,6 +80,7 @@ static int sysfs_fill_super(struct super
- 	root->d_sb = sb;
- 	sb->s_root = root;
- 	sb->s_fs_info = info;
-+	info->tag.net_ns = hold_net(current->nsproxy->net_ns);
- 	return 0;
- 
- out_err:
-@@ -95,6 +98,9 @@ static int sysfs_test_super(struct super
- 	struct sysfs_super_info *info = sysfs_info(sb);
- 	int found = 1;
- 
-+	if (task->nsproxy->net_ns != info->tag.net_ns)
-+		found = 0;
-+
- 	return found;
+--- linux-mm.orig/fs/sysfs/symlink.c
++++ linux-mm/fs/sysfs/symlink.c
+@@ -80,6 +80,21 @@ int sysfs_create_link(struct kobject * k
  }
  
-@@ -131,6 +137,8 @@ static void sysfs_kill_sb(struct super_b
- 	struct sysfs_super_info *info = sysfs_info(sb);
- 
- 	kill_anon_super(sb);
-+	if (info->tag.net_ns)
-+		release_net(info->tag.net_ns);
- 	kfree(info);
- }
- 
-@@ -181,6 +189,31 @@ restart:
- 	spin_unlock(&sb_lock);
- }
- 
-+#ifdef CONFIG_NET
-+static void sysfs_net_exit(struct net *net)
+ /**
++ *	sysfs_delete_link - remove symlink in object's directory.
++ *	@kobj:	object we're acting for.
++ *	@targ:	object we're pointing to.
++ *	@name:	name of the symlink to remove.
++ *
++ *	Unlike sysfs_remove_link sysfs_delete_link has enough information
++ *	to successfully delete symlinks in tagged directories.
++ */
++void sysfs_delete_link(struct kobject *kobj, struct kobject *targ,
++			const char *name)
 +{
-+	/* Allow the net namespace to go away while sysfs is still mounted. */
-+	struct super_block *sb;
-+	mutex_lock(&sysfs_rename_mutex);
-+	sysfs_grab_supers();
-+	mutex_lock(&sysfs_mutex);
-+	list_for_each_entry(sb, &sysfs_fs_type.fs_supers, s_instances) {
-+		struct sysfs_super_info *info = sysfs_info(sb);
-+		if (info->tag.net_ns != net)
-+			continue;
-+		release_net(info->tag.net_ns);
-+		info->tag.net_ns = NULL;
-+	}
-+	mutex_unlock(&sysfs_mutex);
-+	sysfs_release_supers();
-+	mutex_unlock(&sysfs_rename_mutex);
++	sysfs_hash_and_remove(targ, kobj->sd, name);
 +}
 +
-+static struct pernet_operations sysfs_net_ops = {
-+	.exit = sysfs_net_exit,
-+};
-+#endif
++/**
+  *	sysfs_remove_link - remove symlink in object's directory.
+  *	@kobj:	object we're acting for.
+  *	@name:	name of the symlink to remove.
+@@ -97,6 +112,22 @@ void sysfs_remove_link(struct kobject * 
+ 	sysfs_hash_and_remove(kobj, parent_sd, name);
+ }
+ 
++/**
++ *	sysfs_rename_link - rename symlink in object's directory.
++ *	@kobj:	object we're acting for.
++ *	@targ:	object we're pointing to.
++ *	@old:	previous name of the symlink.
++ *	@new:	new name of the symlink.
++ *
++ *	A helper function for the common rename symlink idiom.
++ */
++int sysfs_rename_link(struct kobject *kobj, struct kobject *targ,
++			const char *old, const char *new)
++{
++	sysfs_delete_link(kobj, targ, old);
++	return sysfs_create_link(kobj, targ, new);
++}
 +
- int __init sysfs_init(void)
+ static int sysfs_get_target_path(struct sysfs_dirent *parent_sd,
+ 				 struct sysfs_dirent *target_sd, char *path)
  {
- 	int err = -ENOMEM;
-@@ -205,6 +238,9 @@ int __init sysfs_init(void)
- 			unregister_filesystem(&sysfs_fs_type);
- 			goto out_err;
- 		}
-+#ifdef CONFIG_NET
-+		register_pernet_subsys(&sysfs_net_ops);
-+#endif
- 	} else
- 		goto out_err;
- out:
 Index: linux-mm/include/linux/sysfs.h
 ===================================================================
 --- linux-mm.orig/include/linux/sysfs.h
 +++ linux-mm/include/linux/sysfs.h
-@@ -19,6 +19,7 @@
+@@ -111,6 +111,12 @@ int __must_check sysfs_create_link(struc
+ 				   const char *name);
+ void sysfs_remove_link(struct kobject *kobj, const char *name);
  
- struct kobject;
- struct module;
-+struct net;
- 
- /* FIXME
-  * The *owner field is no longer used, but leave around
-@@ -79,6 +80,7 @@ struct sysfs_ops {
- };
- 
- struct sysfs_tag_info {
-+	struct net *net_ns;
- };
- 
- struct sysfs_tagged_dir_operations {
-Index: linux-mm/net/Kconfig
-===================================================================
---- linux-mm.orig/net/Kconfig
-+++ linux-mm/net/Kconfig
-@@ -30,7 +30,7 @@ menu "Networking options"
- config NET_NS
- 	bool "Network namespace support"
- 	default n
--	depends on EXPERIMENTAL && !SYSFS && NAMESPACES
-+	depends on EXPERIMENTAL && NAMESPACES
- 	help
- 	  Allow user space to create what appear to be multiple instances
- 	  of the network stack.
-Index: linux-mm/net/core/net-sysfs.c
-===================================================================
---- linux-mm.orig/net/core/net-sysfs.c
-+++ linux-mm/net/core/net-sysfs.c
-@@ -13,7 +13,9 @@
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/if_arp.h>
-+#include <linux/nsproxy.h>
- #include <net/sock.h>
-+#include <net/net_namespace.h>
- #include <linux/rtnetlink.h>
- #include <linux/wireless.h>
- #include <net/iw_handler.h>
-@@ -419,6 +421,23 @@ static void netdev_release(struct device
- 	kfree((char *)dev - dev->padded);
++int sysfs_rename_link(struct kobject *kobj, struct kobject *target,
++			const char *old_name, const char *new_name);
++
++void sysfs_delete_link(struct kobject *dir, struct kobject *targ,
++			const char *name);
++
+ int __must_check sysfs_create_group(struct kobject *kobj,
+ 				    const struct attribute_group *grp);
+ void sysfs_remove_group(struct kobject *kobj,
+@@ -193,6 +199,17 @@ static inline void sysfs_remove_link(str
+ {
  }
  
-+static const void *net_sb_tag(struct sysfs_tag_info *info)
++static inline int sysfs_rename_link(struct kobject * k, struct kobject *t,
++				    const char *old_name, const char * new_name)
 +{
-+	return info->net_ns;
++	return 0;
 +}
 +
-+static const void *net_kobject_tag(struct kobject *kobj)
++static inline void sysfs_delete_link(struct kobject *k, struct kobject *t,
++				     const char *name)
 +{
-+	struct net_device *dev;
-+	dev = container_of(kobj, struct net_device, dev.kobj);
-+	return dev_net(dev);
 +}
 +
-+static const struct sysfs_tagged_dir_operations net_tagged_dir_operations = {
-+	.sb_tag = net_sb_tag,
-+	.kobject_tag = net_kobject_tag,
-+};
-+
- static struct class net_class = {
- 	.name = "net",
- 	.dev_release = netdev_release,
-@@ -428,6 +447,7 @@ static struct class net_class = {
- #ifdef CONFIG_HOTPLUG
- 	.dev_uevent = netdev_uevent,
- #endif
-+	.tag_ops = &net_tagged_dir_operations,
- };
- 
- /* Delete sysfs entries but hold kobject reference until after all
+ static inline int sysfs_create_group(struct kobject *kobj,
+ 				     const struct attribute_group *grp)
+ {
 
 -- 
