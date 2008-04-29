@@ -1,48 +1,42 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 00/10] sysfs tagged directories
-Date: Tue, 29 Apr 2008 13:10:06 -0700
-Message-ID: <m1tzhkzald.fsf@frodo.ebiederm.org>
-References: <20080429171015.473938697@theryb.frec.bull.fr>
-	<20080429173621.GA16625@suse.de>
-	<20080429180445.GA18110@sergelap.austin.ibm.com>
-	<20080429184151.GA19794@suse.de>
-	<20080429193417.GA19282@sergelap.austin.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][NET_SCHED] sch_sfq: fix queue limiting while enqueuing
+Date: Tue, 29 Apr 2008 22:53:41 +0200
+Message-ID: <20080429205341.GA4356@ami.dom.local>
+References: <20080427142216.GB7480@ami.dom.local> <4814C618.3050506@trash.net> <20080427203630.GA9648@ami.dom.local> <4815D8D9.5020201@trash.net> <20080428145837.GB2870@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@suse.de>, Benjamin Thery <benjamin.thery@bull.net>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Tejun Heo <htejun@gmail.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serue@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:57660 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752655AbYD2UTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 16:19:31 -0400
-In-Reply-To: <20080429193417.GA19282@sergelap.austin.ibm.com> (Serge
-	E. Hallyn's message of "Tue, 29 Apr 2008 14:34:17 -0500")
+Received: from nf-out-0910.google.com ([64.233.182.185]:32615 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751447AbYD2UvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 16:51:09 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so127677nfc.21
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:51:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080428145837.GB2870@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Serge E. Hallyn" <serue@us.ibm.com> writes:
+On Mon, Apr 28, 2008 at 04:58:37PM +0200, Jarek Poplawski wrote:
+...
+> Yes, a new parameter looks like the safest choice. I'll only have to
+> re-think first the possible reason for this strange limit...
 
-> Ah I see it, thanks.
+  
+static inline void sfq_link(struct sfq_sched_data *q, sfq_index x)
+{
+	sfq_index p, n;
+	int d = q->qs[x].qlen + SFQ_DEPTH;
+-------------------->^^^^^^^^
 
-Serge thanks for your productive and detailed reply to this.
+	p = d;
+	n = q->dep[d].next;
+...
 
-> The last question of Al's which went unanswered was
->
->> Excuse me, _what_?  Are you seriously suggesting going through all dentry
->> trees, doing d_move() in each?  I want to see your locking.  It's promising
->> to be worse than devfs had ever been.  Much worse.
->
-> I think this is answered in patch 4.  So yeah, it does d_move() in each
-> sysfs mount.  It's all done under the sysfs_rename_mutex.  Judging by
-> the phrasing of the question, is that not acceptable?
+So it's really by design! (I don't know why I missed this, and why
+it didn't break my lame test...)
 
-We also have to call sysfs_grab_supers to ensure none of the superblocks
-we know about will go away during the rename.  I believe that is the
-only locking change from the current code.
-
-Eric
+Thanks again for stopping this disaster,
+Jarek P. 
