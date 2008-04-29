@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NET_SCHED] sch_sfq: use del_timer_sync() in
- sfq_destroy()
-Date: Tue, 29 Apr 2008 03:29:11 -0700 (PDT)
-Message-ID: <20080429.032911.50520722.davem@davemloft.net>
-References: <20080427125921.GA7480@ami.dom.local>
+Subject: Re: [PATCH] [IPV4]: Update MTU to all related cache entries in
+ ip_rt_frag_needed()
+Date: Tue, 29 Apr 2008 03:32:45 -0700 (PDT)
+Message-ID: <20080429.033245.141337746.davem@davemloft.net>
+References: <48105B67.7060804@iki.fi>
+	<20080426.232756.259679168.davem@davemloft.net>
+	<48143ADE.40304@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: jarkao2@gmail.com
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42740
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47656
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753439AbYD2K3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 06:29:12 -0400
-In-Reply-To: <20080427125921.GA7480@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1753957AbYD2Kcq convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 06:32:46 -0400
+In-Reply-To: <48143ADE.40304@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sun, 27 Apr 2008 14:59:21 +0200
+=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
+Date: Sun, 27 Apr 2008 11:35:42 +0300
 
-> [NET_SCHED] sch_sfq: use del_timer_sync() in sfq_destroy()
-> 
-> Let's delete timer reliably in sfq_destroy().
-> 
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> I understand your concern. It is pretty easy break routing cache with
+> some seemingly unrelated changes. I tried to think about possible sid=
+e
+> effects, but concluded that this should be safe. Then again, I don't
+> know all the tiny details and unusual scenarios. But I have been runn=
+ing
+> a 2.6.23 kernel with (backported) patch on a production machine (rout=
+er
+> connected to two ISPs, internal subnet and also having multiple gre
+> tunnels), so far I have not encountered any problems.
 
-Applied, thanks.
+I thought more about your patch and it should be OK.
+
+I've applied it, thanks a lot.
