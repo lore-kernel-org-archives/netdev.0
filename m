@@ -1,40 +1,49 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH] ARCH 2.6.24.y: Fix 32-bit x86 MSI-X
-	allocation leakage
-Date: Tue, 29 Apr 2008 09:47:44 -0700
-Message-ID: <20080429164744.GA29911@kroah.com>
-References: <20080426005950.7155.44626.stgit@scrappy.jf.intel.com> <20080429102235.GI23198@elte.hu>
+From: Dave Jones <davej@redhat.com>
+Subject: odd RTL8139 quirk.
+Date: Tue, 29 Apr 2008 13:14:03 -0400
+Message-ID: <20080429171403.GA21035@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org, stable@kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:39219 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751916AbYD2RLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 13:11:13 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:58758 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755906AbYD2ROF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 13:14:05 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id m3THE4Ck004364
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:14:04 -0400
+Received: from file.rdu.redhat.com (file.rdu.redhat.com [10.11.255.147])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id m3THE4Ok016985
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:14:04 -0400
+Received: from quoit.install.boston.redhat.com (quoit.install.boston.redhat.com [10.13.0.212])
+	by file.rdu.redhat.com (8.13.1/8.13.1) with ESMTP id m3THE4BK024060
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:14:04 -0400
+Received: from quoit.install.boston.redhat.com (localhost.localdomain [127.0.0.1])
+	by quoit.install.boston.redhat.com (8.14.2/8.14.1) with ESMTP id m3THE3nD008460
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 13:14:03 -0400
+Received: (from davej@localhost)
+	by quoit.install.boston.redhat.com (8.14.2/8.14.2/Submit) id m3THE3H6008459
+	for netdev@vger.kernel.org; Tue, 29 Apr 2008 13:14:03 -0400
 Content-Disposition: inline
-In-Reply-To: <20080429102235.GI23198@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 29, 2008 at 12:22:35PM +0200, Ingo Molnar wrote:
-> 
-> * PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com> wrote:
-> 
-> > This bug was introduced in the 2.6.24 i386/x86_64 tree merge, where 
-> > MSI-X vector allocation will eventually fail.  The cause is the new 
-> > bit array tracking used vectors is not getting cleared properly on IRQ 
-> > destruction on the 32-bit APIC code.
-> 
-> Greg, please fix the commit message - this is a separate bug that has 
-> nothing to do with the unification.
+I've just been playing with a model 2 OQO, which has an RTL8139.
+It gets detected just fine, though it doesn't actually work..
 
-What should I fix the commit message to be?  I copied the same commit
-message that went into Linus's tree.  We should be consistent :)
+eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
+eth0:  Identified 8139 chip type 'RTL-8139'
 
-thanks,
+The null MAC address being one clue.  Another oddity is that
+ethtool reports that there's no link detected, even though there is.
+(Enough for it to PXE boot a kernel from at least :)
 
-greg k-h
+Futzing with the debug= modparam didn't yield anything extra at all.
+
+Any clues?
+
+	Dave
+
+-- 
+http://www.codemonkey.org.uk
