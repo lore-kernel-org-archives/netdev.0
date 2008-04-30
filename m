@@ -1,340 +1,90 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] ethtool: command line support for lro
-Date: Wed, 30 Apr 2008 11:36:44 -0700
-Message-ID: <4818BC3C.8060601@intel.com>
-References: <1204898997.4220.41.camel@moonstone.uk.level5networks.com> <20080307082538.1a674ae1@extreme> <1204909575.4220.71.camel@moonstone.uk.level5networks.com> <20080307134312.037e2cf6@extreme> <20080310180706.GF12660@solarflare.com> <20080417121119.GI21637@solarflare.com>
+From: Bruce Robson <bns_robson@hotmail.com>
+Subject: [PATCH] drivers/net  EtherExpress 16 : IPv6 not working with this
+ driver
+Date: Wed, 30 Apr 2008 19:39:45 +0100
+Message-ID: <4818BCF1.9030100@hotmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Kieran Mansley <kmansley@solarflare.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Garzik <jgarzik@pobox.com>
+To: Philip Blundell <philb@gnu.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:25832 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764036AbYD3ShJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2008 14:37:09 -0400
-In-Reply-To: <20080417121119.GI21637@solarflare.com>
+Received: from bnsrobson.cjb.net ([82.69.45.180]:44637 "EHLO
+	advance9.bnsrobson.cjb.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1764200AbYD3TWY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 15:22:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> Add lro support to command in similar manner to TSO, GSO, etc.
-> The file ethtool-copy.h is updated to be sanitised version of
-> ethtool.h from 2.6.25-rc4 (ie make headers_install)
-> 
-> Based on patch by Stephen Hemminger
-> <http://article.gmane.org/gmane.linux.network/88124>.
-> 
-> My changes:
-> - Changed error return codes for setting LRO to be unique.
-> - Report failure to get device flags, consistent with other offload settings.
-> - Fixed code spacing.
-> 
-> Tested with the sfc driver.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> diff --git a/ethtool-copy.h b/ethtool-copy.h
-> index 3a63224..87c7c9a 100644
-> --- a/ethtool-copy.h
-> +++ b/ethtool-copy.h
-> @@ -39,7 +39,8 @@ struct ethtool_drvinfo {
->  	char	bus_info[ETHTOOL_BUSINFO_LEN];	/* Bus info for this IF. */
->  				/* For PCI devices, use pci_name(pci_dev). */
->  	char	reserved1[32];
-> -	char	reserved2[16];
-> +	char	reserved2[12];
-> +	__u32	n_priv_flags;	/* number of flags valid in ETHTOOL_GPFLAGS */
->  	__u32	n_stats;	/* number of u64's from ETHTOOL_GSTATS */
->  	__u32	testinfo_len;
->  	__u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM (bytes) */
-> @@ -219,6 +220,7 @@ struct ethtool_pauseparam {
->  enum ethtool_stringset {
->  	ETH_SS_TEST		= 0,
->  	ETH_SS_STATS,
-> +	ETH_SS_PRIV_FLAGS,
->  };
->  
->  /* for passing string sets for data tagging */
-> @@ -256,125 +258,19 @@ struct ethtool_perm_addr {
->  	__u8	data[0];
->  };
->  
-> -#ifdef __KERNEL__
-> -
-> -struct net_device;
-> -
-> -/* Some generic methods drivers may use in their ethtool_ops */
-> -u32 ethtool_op_get_link(struct net_device *dev);
-> -u32 ethtool_op_get_tx_csum(struct net_device *dev);
-> -int ethtool_op_set_tx_csum(struct net_device *dev, u32 data);
-> -int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data);
-> -int ethtool_op_set_tx_ipv6_csum(struct net_device *dev, u32 data);
-> -u32 ethtool_op_get_sg(struct net_device *dev);
-> -int ethtool_op_set_sg(struct net_device *dev, u32 data);
-> -u32 ethtool_op_get_tso(struct net_device *dev);
-> -int ethtool_op_set_tso(struct net_device *dev, u32 data);
-> -int ethtool_op_get_perm_addr(struct net_device *dev, 
-> -			     struct ethtool_perm_addr *addr, u8 *data);
-> -u32 ethtool_op_get_ufo(struct net_device *dev);
-> -int ethtool_op_set_ufo(struct net_device *dev, u32 data);
-> -
-> -/**
-> - * &ethtool_ops - Alter and report network device settings
-> - * get_settings: Get device-specific settings
-> - * set_settings: Set device-specific settings
-> - * get_drvinfo: Report driver information
-> - * get_regs: Get device registers
-> - * get_wol: Report whether Wake-on-Lan is enabled
-> - * set_wol: Turn Wake-on-Lan on or off
-> - * get_msglevel: Report driver message level
-> - * set_msglevel: Set driver message level
-> - * nway_reset: Restart autonegotiation
-> - * get_link: Get link status
-> - * get_eeprom: Read data from the device EEPROM
-> - * set_eeprom: Write data to the device EEPROM
-> - * get_coalesce: Get interrupt coalescing parameters
-> - * set_coalesce: Set interrupt coalescing parameters
-> - * get_ringparam: Report ring sizes
-> - * set_ringparam: Set ring sizes
-> - * get_pauseparam: Report pause parameters
-> - * set_pauseparam: Set pause paramters
-> - * get_rx_csum: Report whether receive checksums are turned on or off
-> - * set_rx_csum: Turn receive checksum on or off
-> - * get_tx_csum: Report whether transmit checksums are turned on or off
-> - * set_tx_csum: Turn transmit checksums on or off
-> - * get_sg: Report whether scatter-gather is enabled
-> - * set_sg: Turn scatter-gather on or off
-> - * get_tso: Report whether TCP segmentation offload is enabled
-> - * set_tso: Turn TCP segmentation offload on or off
-> - * get_ufo: Report whether UDP fragmentation offload is enabled
-> - * set_ufo: Turn UDP fragmentation offload on or off
-> - * self_test: Run specified self-tests
-> - * get_strings: Return a set of strings that describe the requested objects 
-> - * phys_id: Identify the device
-> - * get_stats: Return statistics about the device
-> - * get_perm_addr: Gets the permanent hardware address
-> - * 
-> - * Description:
-> +/* boolean flags controlling per-interface behavior characteristics.
-> + * When reading, the flag indicates whether or not a certain behavior
-> + * is enabled/present.  When writing, the flag indicates whether
-> + * or not the driver should turn on (set) or off (clear) a behavior.
->   *
-> - * get_settings:
-> - *	@get_settings is passed an &ethtool_cmd to fill in.  It returns
-> - *	an negative errno or zero.
-> - *
-> - * set_settings:
-> - *	@set_settings is passed an &ethtool_cmd and should attempt to set
-> - *	all the settings this device supports.  It may return an error value
-> - *	if something goes wrong (otherwise 0).
-> - *
-> - * get_eeprom:
-> - *	Should fill in the magic field.  Don't need to check len for zero
-> - *	or wraparound.  Fill in the data argument with the eeprom values
-> - *	from offset to offset + len.  Update len to the amount read.
-> - *	Returns an error or zero.
-> - *
-> - * set_eeprom:
-> - *	Should validate the magic field.  Don't need to check len for zero
-> - *	or wraparound.  Update len to the amount written.  Returns an error
-> - *	or zero.
-> + * Some behaviors may read-only (unconditionally absent or present).
-> + * If such is the case, return EINVAL in the set-flags operation if the
-> + * flag differs from the read-only value.
->   */
-> -struct ethtool_ops {
-> -	int	(*get_settings)(struct net_device *, struct ethtool_cmd *);
-> -	int	(*set_settings)(struct net_device *, struct ethtool_cmd *);
-> -	void	(*get_drvinfo)(struct net_device *, struct ethtool_drvinfo *);
-> -	int	(*get_regs_len)(struct net_device *);
-> -	void	(*get_regs)(struct net_device *, struct ethtool_regs *, void *);
-> -	void	(*get_wol)(struct net_device *, struct ethtool_wolinfo *);
-> -	int	(*set_wol)(struct net_device *, struct ethtool_wolinfo *);
-> -	u32	(*get_msglevel)(struct net_device *);
-> -	void	(*set_msglevel)(struct net_device *, u32);
-> -	int	(*nway_reset)(struct net_device *);
-> -	u32	(*get_link)(struct net_device *);
-> -	int	(*get_eeprom_len)(struct net_device *);
-> -	int	(*get_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
-> -	int	(*set_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
-> -	int	(*get_coalesce)(struct net_device *, struct ethtool_coalesce *);
-> -	int	(*set_coalesce)(struct net_device *, struct ethtool_coalesce *);
-> -	void	(*get_ringparam)(struct net_device *, struct ethtool_ringparam *);
-> -	int	(*set_ringparam)(struct net_device *, struct ethtool_ringparam *);
-> -	void	(*get_pauseparam)(struct net_device *, struct ethtool_pauseparam*);
-> -	int	(*set_pauseparam)(struct net_device *, struct ethtool_pauseparam*);
-> -	u32	(*get_rx_csum)(struct net_device *);
-> -	int	(*set_rx_csum)(struct net_device *, u32);
-> -	u32	(*get_tx_csum)(struct net_device *);
-> -	int	(*set_tx_csum)(struct net_device *, u32);
-> -	u32	(*get_sg)(struct net_device *);
-> -	int	(*set_sg)(struct net_device *, u32);
-> -	u32	(*get_tso)(struct net_device *);
-> -	int	(*set_tso)(struct net_device *, u32);
-> -	int	(*self_test_count)(struct net_device *);
-> -	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
-> -	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
-> -	int	(*phys_id)(struct net_device *, u32);
-> -	int	(*get_stats_count)(struct net_device *);
-> -	void	(*get_ethtool_stats)(struct net_device *, struct ethtool_stats *, u64 *);
-> -	int	(*get_perm_addr)(struct net_device *, struct ethtool_perm_addr *, u8 *);
-> -	int	(*begin)(struct net_device *);
-> -	void	(*complete)(struct net_device *);
-> -	u32     (*get_ufo)(struct net_device *);
-> -	int     (*set_ufo)(struct net_device *, u32);
-> +enum ethtool_flags {
-> +	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
->  };
-> -#endif /* __KERNEL__ */
-> +
->  
->  /* CMDs currently supported */
->  #define ETHTOOL_GSET		0x00000001 /* Get settings. */
-> @@ -414,6 +310,10 @@ struct ethtool_ops {
->  #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
->  #define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
->  #define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
-> +#define ETHTOOL_GFLAGS		0x00000025 /* Get flags bitmap(ethtool_value) */
-> +#define ETHTOOL_SFLAGS		0x00000026 /* Set flags bitmap(ethtool_value) */
-> +#define ETHTOOL_GPFLAGS		0x00000027 /* Get driver-private flags bitmap */
-> +#define ETHTOOL_SPFLAGS		0x00000028 /* Set driver-private flags bitmap */
->  
->  /* compatibility with older code */
->  #define SPARC_ETH_GSET		ETHTOOL_GSET
-> diff --git a/ethtool.c b/ethtool.c
-> index a668b49..5f519bc 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -151,7 +151,9 @@ static struct option {
->  		"		[ sg on|off ]\n"
->  	        "		[ tso on|off ]\n"
->  	        "		[ ufo on|off ]\n"
-> -	        "		[ gso on|off ]\n" },
-> +		"		[ gso on|off ]\n"
-> +		"               [ lro on|off ]\n"
-> +    },
->      { "-i", "--driver", MODE_GDRV, "Show driver information" },
->      { "-d", "--register-dump", MODE_GREGS, "Do a register dump",
->  		"		[ raw on|off ]\n"
-> @@ -200,6 +202,7 @@ static int off_sg_wanted = -1;
->  static int off_tso_wanted = -1;
->  static int off_ufo_wanted = -1;
->  static int off_gso_wanted = -1;
-> +static int off_lro_wanted = -1;
->  
->  static struct ethtool_pauseparam epause;
->  static int gpause_changed = 0;
-> @@ -310,6 +313,7 @@ static struct cmdline_info cmdline_offload[] = {
->  	{ "tso", CMDL_BOOL, &off_tso_wanted, NULL },
->  	{ "ufo", CMDL_BOOL, &off_ufo_wanted, NULL },
->  	{ "gso", CMDL_BOOL, &off_gso_wanted, NULL },
-> +	{ "lro", CMDL_BOOL, &off_lro_wanted, NULL },
->  };
->  
->  static struct cmdline_info cmdline_pause[] = {
-> @@ -1217,7 +1221,7 @@ static int dump_coalesce(void)
->  	return 0;
->  }
->  
-> -static int dump_offload (int rx, int tx, int sg, int tso, int ufo, int gso)
-> +static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso, int lro)
->  {
->  	fprintf(stdout,
->  		"rx-checksumming: %s\n"
-> @@ -1225,13 +1229,15 @@ static int dump_offload (int rx, int tx, int sg, int tso, int ufo, int gso)
->  		"scatter-gather: %s\n"
->  		"tcp segmentation offload: %s\n"
->  		"udp fragmentation offload: %s\n"
-> -		"generic segmentation offload: %s\n",
-> +		"generic segmentation offload: %s\n"
-> +		"large receive offload: %s\n",
->  		rx ? "on" : "off",
->  		tx ? "on" : "off",
->  		sg ? "on" : "off",
->  		tso ? "on" : "off",
->  		ufo ? "on" : "off",
-> -		gso ? "on" : "off");
-> +		gso ? "on" : "off",
-> +		lro ? "on" : "off");
->  
->  	return 0;
->  }
-> @@ -1495,7 +1501,8 @@ static int do_scoalesce(int fd, struct ifreq *ifr)
->  static int do_goffload(int fd, struct ifreq *ifr)
->  {
->  	struct ethtool_value eval;
-> -	int err, allfail = 1, rx = 0, tx = 0, sg = 0, tso = 0, ufo = 0, gso = 0;
-> +	int err, allfail = 1, rx = 0, tx = 0, sg = 0;
-> +	int tso = 0, ufo = 0, gso = 0, lro = 0;
->  
->  	fprintf(stdout, "Offload parameters for %s:\n", devname);
->  
-> @@ -1559,12 +1566,22 @@ static int do_goffload(int fd, struct ifreq *ifr)
->  		allfail = 0;
->  	}
->  
-> +	eval.cmd = ETHTOOL_GFLAGS;
-> +	ifr->ifr_data = (caddr_t)&eval;
-> +	err = ioctl(fd, SIOCETHTOOL, ifr);
-> +	if (err) {
-> +		perror("Cannot get device flags");
-> +	} else {
-> +		lro = (eval.data & ETH_FLAG_LRO) != 0;
-> +		allfail = 0;
-> +	}
-> +
->  	if (allfail) {
->  		fprintf(stdout, "no offload info available\n");
->  		return 83;
->  	}
->  
-> -	return dump_offload(rx, tx, sg, tso, ufo, gso);
-> +	return dump_offload(rx, tx, sg, tso, ufo, gso, lro);
->  }
->  
->  static int do_soffload(int fd, struct ifreq *ifr)
-> @@ -1641,6 +1658,30 @@ static int do_soffload(int fd, struct ifreq *ifr)
->  			return 90;
->  		}
->  	}
-> +	if (off_lro_wanted >= 0) {
-> +		changed = 1;
-> +		eval.cmd = ETHTOOL_GFLAGS;
-> +		eval.data = 0;
-> +		ifr->ifr_data = (caddr_t)&eval;
-> +		err = ioctl(fd, SIOCETHTOOL, ifr);
-> +		if (err) {
-> +			perror("Cannot get device flag settings");
-> +			return 91;
-> +		}
-> +
-> +		eval.cmd = ETHTOOL_SFLAGS;
-> +		if (off_lro_wanted == 1)
-> +			eval.data |= ETH_FLAG_LRO;
-> +		else
-> +			eval.data &= ~ETH_FLAG_LRO;
-> +
-> +		err = ioctl(fd, SIOCETHTOOL, ifr);
-> +		if (err) {
-> +			perror("Cannot set large receive offload settings");
-> +			return 92;
-> +		}
-> +	}
-> +
->  	if (!changed) {
->  		fprintf(stdout, "no offload settings changed\n");
->  	}
-> 
+From: Bruce Robson <bns_robson@hotmail.com>
 
-what is the status of this patch?
+Corrects loading of multi-cast addresses.
+Thereby allowing IPv6 neighbour discovery to work.
 
-I don't like the fact that you included the removal of a __KERNEL__ section in
-this patch - that should have been a separate patch IMHO :)
+Signed-off-by: Bruce Robson <bns_robson@hotmail.com>
 
-otherwise I would like to see this patch included.
+---
+
+The driver sources file eexpress.c contains an approximately 30 line
+function eexp_setup_filter used when loading multicast addresses.
+There were 3 problems in this function
+1)  It wrote the number of multicast addresses to the card instead
+    of the number of bytes in the multicast addresses.
+2)  When loading multiple multicast addresses it loaded the first
+    one provided multiple times instead of loading each one once.
+3)  The setting of pointer 'data' from 'dmi->dmi_addr' occured before
+    the test for the error situation of 'dmi' being NULL.
+
+There is some information on the Intel EtherExpress 16 at
+http://www.intel.com/support/etherexpress/vintage/sb/cs-013500.htm
+Datasheet for the Intel 82586 ethernet controller used by the card
+http://www.datasheetcatalog.com/datasheets_pdf/8/2/5/8/82586.shtml
 
 
-Auke
+--- drivers/net/eexpress.c.000	2008-01-24 22:58:37.000000000 +0000
++++ drivers/net/eexpress.c	2008-04-30 00:17:51.000000000 +0100
+@@ -201,9 +201,9 @@ static unsigned short start_code[] = {
+ 
+ 	0x0000,Cmd_MCast,
+ 	0x0076,                 /* link to next command */
+ #define CONF_NR_MULTICAST 0x44
+-	0x0000,                 /* number of multicast addresses */
++	0x0000,                 /* number of bytes in multicast address(es) */
+ #define CONF_MULTICAST 0x46
+ 	0x0000, 0x0000, 0x0000, /* some addresses */
+ 	0x0000, 0x0000, 0x0000,
+ 	0x0000, 0x0000, 0x0000,
+@@ -1568,9 +1568,9 @@ static void eexp_hw_init586(struct net_d
+ }
+ 
+ static void eexp_setup_filter(struct net_device *dev)
+ {
+-	struct dev_mc_list *dmi = dev->mc_list;
++	struct dev_mc_list *dmi;
+ 	unsigned short ioaddr = dev->base_addr;
+ 	int count = dev->mc_count;
+ 	int i;
+ 	if (count > 8) {
+@@ -1579,19 +1579,20 @@ static void eexp_setup_filter(struct net
+ 		count = 8;
+ 	}
+ 
+ 	outw(CONF_NR_MULTICAST & ~31, ioaddr+SM_PTR);
+-	outw(count, ioaddr+SHADOW(CONF_NR_MULTICAST));
+-	for (i = 0; i < count; i++) {
+-		unsigned short *data = (unsigned short *)dmi->dmi_addr;
++	outw(6*count, ioaddr+SHADOW(CONF_NR_MULTICAST));
++	for (i = 0, dmi = dev->mc_list; i < count; i++, dmi = dmi->next) {
++		unsigned short *data;
+ 		if (!dmi) {
+ 			printk(KERN_INFO "%s: too few multicast addresses\n", dev->name);
+ 			break;
+ 		}
+ 		if (dmi->dmi_addrlen != ETH_ALEN) {
+ 			printk(KERN_INFO "%s: invalid multicast address length given.\n", dev->name);
+ 			continue;
+ 		}
++		data = (unsigned short *)dmi->dmi_addr;
+ 		outw((CONF_MULTICAST+(6*i)) & ~31, ioaddr+SM_PTR);
+ 		outw(data[0], ioaddr+SHADOW(CONF_MULTICAST+(6*i)));
+ 		outw((CONF_MULTICAST+(6*i)+2) & ~31, ioaddr+SM_PTR);
+ 		outw(data[1], ioaddr+SHADOW(CONF_MULTICAST+(6*i)+2));
