@@ -1,63 +1,85 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH] [POWERPC] mpc5200: Allow for fixed speed MII
-	configurations
-Date: Wed, 30 Apr 2008 16:16:15 +0200
-Message-ID: <1209564975.16926.8.camel@gentoo-jocke.transmode.se>
-References: <20080429230620.11248.25729.stgit@trillian.secretlab.ca>
-	 <1209540962.18445.8.camel@gentoo-jocke.transmode.se>
-	 <fa686aa40804300607k72ef9985m43b3c4111cad6085@mail.gmail.com>
-	 <1209561053.16926.2.camel@gentoo-jocke.transmode.se>
-	 <fa686aa40804300626v41828f64oc3d0d88ff5954825@mail.gmail.com>
-Reply-To: joakim.tjernlund@transmode.se
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH][IPV6]: Compilation fix for compat MCAST_MSFILTER sockopts.
+Date: Wed, 30 Apr 2008 07:26:29 -0700
+Message-ID: <OF3F5D943F.5B85126C-ON8825743B.004ED1BA-8825743B.004F51C2@us.ibm.com>
+References: <481875DF.2020401@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, linuxppc-dev@ozlabs.org, paulus@samba.org,
-	netdev@vger.kernel.org, Wolfgang Denk <wd@denx.de>
-To: Grant Likely <grant.likely@secretlab.ca>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:12810 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760166AbYD3OQS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 10:16:18 -0400
-In-Reply-To: <fa686aa40804300626v41828f64oc3d0d88ff5954825@mail.gmail.com>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:45354 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753848AbYD3O1B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2008 10:27:01 -0400
+Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
+	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3UEQuYw016017
+	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 10:26:56 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3UEQi7f291052
+	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 10:26:44 -0400
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3UKQhYT011968
+	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 14:26:43 -0600
+In-Reply-To: <481875DF.2020401@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Pavel,
+Definitely should be in compat_ipv6_getsockopt() as the original was-- I 
+hope
+your patch doesn't do the same thing when applied!
 
-On Wed, 2008-04-30 at 07:26 -0600, Grant Likely wrote:
-> On Wed, Apr 30, 2008 at 7:10 AM, Joakim Tjernlund
-> <joakim.tjernlund@transmode.se> wrote:
-> >
-> >
-> >  On Wed, 2008-04-30 at 07:07 -0600, Grant Likely wrote:
-> >  > On Wed, Apr 30, 2008 at 1:36 AM, Joakim Tjernlund
-> >  > <joakim.tjernlund@transmode.se> wrote:
-> >  > >
-> >  > >  On Tue, 2008-04-29 at 17:06 -0600, Grant Likely wrote:
-> >  > >  > From: Grant Likely <grant.likely@secretlab.ca>
-> >  > >  >
-> >  > >  > Various improvements for configuring the MPC5200 MII link from the
-> >  > >  > device tree:
-> >  > >  > * Look for 'current-speed' property for fixed speed MII links
-> >  > >
-> >  > >  Not that I have looked, but why can't you use the fixed-link property?
-> >  >
-> >  > fixed-link seems to be a recent invention, whereas current-speed is
-> >  > better know having already been in use with serial devices.  It seemed
-> >  > to me to be a better choice, but my opinion can probably be swayed
-> >  > (arguments welcome).
-> >
-> >  yes it is fairly new. You get alot more than just speed: Duplex/Pause
-> >  You need these too.
+Good catch!
+                                                        +-DLS
+
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
+
+netdev-owner@vger.kernel.org wrote on 04/30/2008 06:36:31 AM:
+
+> The last hunk from the commit dae50295 (ipv4/ipv6 compat: Fix SSM
+> applications on 64bit kernels.) escaped from the compat_ipv6_setsockopt
+> to the ipv6_getsockopt (I guess due to patch smartness wrt searching
+> for context) thus breaking 32-bit and 64-bit-without-compat compilation.
 > 
-> duplex I've got.  pause I don't need.
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
+> ---
+> 
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index b4a26f2..56d55fe 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -1089,10 +1089,6 @@ int ipv6_getsockopt(struct sock *sk, int level, 
+int optname,
+>     if(level != SOL_IPV6)
+>        return -ENOPROTOOPT;
+> 
+> -   if (optname == MCAST_MSFILTER)
+> -      return compat_mc_getsockopt(sk, level, optname, optval, optlen,
+> -         ipv6_getsockopt);
+> -
+>     err = do_ipv6_getsockopt(sk, level, optname, optval, optlen);
+>  #ifdef CONFIG_NETFILTER
+>     /* we need to exclude all possible ENOPROTOOPTs except default case 
+*/
+> @@ -1131,6 +1127,10 @@ int compat_ipv6_getsockopt(struct sock *sk, int 
+level, 
+> int optname,
+>     if (level != SOL_IPV6)
+>        return -ENOPROTOOPT;
+> 
+> +   if (optname == MCAST_MSFILTER)
+> +      return compat_mc_getsockopt(sk, level, optname, optval, optlen,
+> +         ipv6_getsockopt);
+> +
+>     err = do_ipv6_getsockopt(sk, level, optname, optval, optlen);
+>  #ifdef CONFIG_NETFILTER
+>     /* we need to exclude all possible ENOPROTOOPTs except default case 
+*/
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-dunno how you speify Half/Full Duplex, but isn't it possible that
-someone else wants to use Pause in the future?
-Isn't the point that everyone should use fixed-link when it is there
-for this purpose?
-
- Jocke
-
-  Jocke
