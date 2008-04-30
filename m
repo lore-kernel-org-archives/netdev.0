@@ -1,52 +1,65 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH] Allow building iwl3945 without iwl4965.
-Date: Tue, 29 Apr 2008 19:36:35 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0804291934470.18219@shark.he.net>
-References: <87zlrgl09s.fsf@sparse.dyndns.org>  <1209435597.2624.35.camel@debian.sh.intel.com>
-  <20080429132720.GB4887@tuxdriver.com> <1209521679.2827.23.camel@debian.sh.intel.com>
+From: Satoru SATOH <satoru.satoh@gmail.com>
+Subject: Re: [PATCH][IP] Make use of the inline function dst_metric_locked()
+Date: Wed, 30 Apr 2008 11:53:31 +0900
+Message-ID: <4817DF2B.1080701@gmail.com>
+References: <4817C8F5.7060101@gmail.com> <20080429.182443.154118887.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jason Riedy <jason@acm.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Zhu Yi <yi.zhu@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:41256 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754595AbYD3Cgn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2008 22:36:43 -0400
-Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 19:36:35 -0700
-In-Reply-To: <1209521679.2827.23.camel@debian.sh.intel.com>
+Received: from mx1.redhat.com ([66.187.233.31]:41319 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754848AbYD3C4o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 22:56:44 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id m3U2ugjC027912
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 22:56:42 -0400
+Received: from pobox.nrt.redhat.com (pobox.nrt.redhat.com [10.64.255.12])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id m3U2ufKD008818
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 22:56:42 -0400
+Received: from gescom.nrt.redhat.com (vpn-198-9.nrt.redhat.com [10.64.198.9])
+	by pobox.nrt.redhat.com (8.13.1/8.13.1) with ESMTP id m3U2ueWk021795
+	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 11:56:40 +0900
+In-Reply-To: <20080429.182443.154118887.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Apr 2008, Zhu Yi wrote:
+# Resend it. I think it fixed.
 
-> On Tue, 2008-04-29 at 09:27 -0400, John W. Linville wrote:
-> > 
-> > > Do we have a way to make "select IWLWIFI" generate CONFIG_IWLWIFI
-> > with
-> > > the same state as CONFIG_IWLCORE (or CONFIG_IWL3945)? AFAICS,
-> > > CONFIG_IWLWIFI is always 'y' whenever CONFIG_IWLCORE is 'y' or 'm'.
-> > If
-> > > the latter is 'm', the Makefile will generate a empty built-in.o
-> > which
-> > > requires vmlinux to update unnecessarily every time we only compile
-> > > iwl3945/4965 modules.
-> > 
-> > Can you do something like  "default IWLCORE'?  Untested, off the top
-> > of my head...
-> 
-> I just realized the kernel now updates vmlinux when I type 'make' even
-> if nothing is changed in the source code. Is this a bug or feature?
+I found some parts inline function dst_metric_locked should be used but
+not. The following patch fixes these.
 
-I see files in arch/x86/kernel/acpi/realmode/ always being built.
-Is that what you see or is it something else?
+Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
 
-You can do
-  make V=2 all >build.log 2>&1
-to see what is being rebuilt and hopefully why.
-Then post that and maybe we can fix it (with the right people helping).
+  include/net/ip.h |    2 +-
+  net/ipv4/route.c |    2 +-
+  2 files changed, 2 insertions(+), 2 deletions(-)
 
--- 
-~Randy
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 6d7bcd5..3b40bc2 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -210,7 +210,7 @@ int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
+  {
+  	return (inet_sk(sk)->pmtudisc == IP_PMTUDISC_DO ||
+  		(inet_sk(sk)->pmtudisc == IP_PMTUDISC_WANT &&
+-		 !(dst_metric(dst, RTAX_LOCK)&(1<<RTAX_MTU))));
++		 !(dst_metric_locked(dst, RTAX_MTU))));
+  }
+
+  extern void __ip_select_ident(struct iphdr *iph, struct dst_entry *dst, int more);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index ce25a13..2fd69b5 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1607,7 +1607,7 @@ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
+  		       sizeof(rt->u.dst.metrics));
+  		if (fi->fib_mtu == 0) {
+  			rt->u.dst.metrics[RTAX_MTU-1] = rt->u.dst.dev->mtu;
+-			if (rt->u.dst.metrics[RTAX_LOCK-1] & (1 << RTAX_MTU) &&
++			if (dst_metric_locked(&rt->u.dst, RTAX_MTU) &&
+  			    rt->rt_gateway != rt->rt_dst &&
+  			    rt->u.dst.dev->mtu > 576)
+  				rt->u.dst.metrics[RTAX_MTU-1] = 576;
+
