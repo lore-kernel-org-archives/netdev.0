@@ -1,8 +1,8 @@
 From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] [PATCH 05/13] QLogic VNIC: Implementation of Data path
-	of communication protocol
-Date: Wed, 30 Apr 2008 22:48:25 +0530
-Message-ID: <20080430171824.31725.5212.stgit@localhost.localdomain>
+Subject: [ofa-general] [PATCH 07/13] QLogic VNIC: Handling configurable
+	parameters of the driver
+Date: Wed, 30 Apr 2008 22:49:25 +0530
+Message-ID: <20080430171925.31725.22023.stgit@localhost.localdomain>
 References: <20080430171028.31725.86190.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -22,30 +22,28 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+From: Poornima Kamath <poornima.kamath@qlogic.com>
 
-This patch implements the actual data transfer part of the communication
-protocol with the EVIC/VEx. RDMA of ethernet packets is implemented in
-here.
+This patch adds the files that handle various configurable parameters
+of the VNIC driver ---- configuration of virtual NIC, control, data 
+connections to the EVIC and general IB connection parameters.
 
-Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
+Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
 ---
 
- drivers/infiniband/ulp/qlgc_vnic/vnic_data.c    | 1473 +++++++++++++++++++++++
- drivers/infiniband/ulp/qlgc_vnic/vnic_data.h    |  206 +++
- drivers/infiniband/ulp/qlgc_vnic/vnic_trailer.h |  103 ++
- 3 files changed, 1782 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_data.c
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_data.h
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_trailer.h
+ drivers/infiniband/ulp/qlgc_vnic/vnic_config.c |  380 ++++++++++++++++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_config.h |  242 +++++++++++++++
+ 2 files changed, 622 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_config.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_config.h
 
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_data.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_data.c
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_config.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_config.c
 new file mode 100644
-index 0000000..599e716
+index 0000000..86d99b6
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_data.c
-@@ -0,0 +1,1473 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_config.c
+@@ -0,0 +1,380 @@
 +/*
 + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
@@ -78,1665 +76,360 @@ index 0000000..599e716
 + * SOFTWARE.
 + */
 +
-+#include <net/inet_sock.h>
-+#include <linux/ip.h>
-+#include <linux/if_ether.h>
-+#include <linux/vmalloc.h>
-+
-+#include "vnic_util.h"
-+#include "vnic_viport.h"
-+#include "vnic_main.h"
-+#include "vnic_data.h"
-+#include "vnic_trailer.h"
-+#include "vnic_stats.h"
-+
-+static void data_received_kick(struct io *io);
-+static void data_xmit_complete(struct io *io);
-+
-+static void mc_data_recv_routine(struct io *io);
-+static void mc_data_post_recvs(struct mc_data *mc_data);
-+static void mc_data_recv_to_skbuff(struct viport *viport, struct sk_buff *skb,
-+	struct viport_trailer *trailer);
-+
-+static u32 min_rcv_skb = 60;
-+module_param(min_rcv_skb, int, 0444);
-+MODULE_PARM_DESC(min_rcv_skb, "Packets of size (in bytes) less than"
-+		 " or equal this value will be copied during receive."
-+		 " Default 60");
-+
-+static u32 min_xmt_skb = 60;
-+module_param(min_xmt_skb, int, 0444);
-+MODULE_PARM_DESC(min_xmit_skb, "Packets of size (in bytes) less than"
-+		 " or equal to this value will be copied during transmit."
-+		 "Default 60");
-+
-+int data_init(struct data *data, struct viport *viport,
-+	      struct data_config *config, struct ib_pd *pd)
-+{
-+	DATA_FUNCTION("data_init()\n");
-+
-+	data->parent = viport;
-+	data->config = config;
-+	data->ib_conn.viport = viport;
-+	data->ib_conn.ib_config = &config->ib_config;
-+	data->ib_conn.state = IB_CONN_UNINITTED;
-+	data->ib_conn.callback_thread = NULL;
-+	data->ib_conn.callback_thread_end = 0;
-+
-+	if ((min_xmt_skb < 60) || (min_xmt_skb > 9000)) {
-+		DATA_ERROR("min_xmt_skb (%d) must be between 60 and 9000\n",
-+			   min_xmt_skb);
-+		goto failure;
-+	}
-+	if (vnic_ib_conn_init(&data->ib_conn, viport, pd,
-+			      &config->ib_config)) {
-+		DATA_ERROR("Data IB connection initialization failed\n");
-+		goto failure;
-+	}
-+	data->mr = ib_get_dma_mr(pd,
-+				 IB_ACCESS_LOCAL_WRITE |
-+				 IB_ACCESS_REMOTE_READ |
-+				 IB_ACCESS_REMOTE_WRITE);
-+	if (IS_ERR(data->mr)) {
-+		DATA_ERROR("failed to register memory for"
-+			   " data connection\n");
-+		goto destroy_conn;
-+	}
-+
-+	data->ib_conn.cm_id = ib_create_cm_id(viport->config->ibdev,
-+					      vnic_ib_cm_handler,
-+					      &data->ib_conn);
-+
-+	if (IS_ERR(data->ib_conn.cm_id)) {
-+		DATA_ERROR("creating data CM ID failed\n");
-+		goto dereg_mr;
-+	}
-+
-+	return 0;
-+
-+dereg_mr:
-+	ib_dereg_mr(data->mr);
-+destroy_conn:
-+	completion_callback_cleanup(&data->ib_conn);
-+	ib_destroy_qp(data->ib_conn.qp);
-+	ib_destroy_cq(data->ib_conn.cq);
-+failure:
-+	return -1;
-+}
-+
-+static void data_post_recvs(struct data *data)
-+{
-+	unsigned long flags;
-+	int i = 0;
-+
-+	DATA_FUNCTION("data_post_recvs()\n");
-+	spin_lock_irqsave(&data->recv_ios_lock, flags);
-+	while (!list_empty(&data->recv_ios)) {
-+		struct io *io = list_entry(data->recv_ios.next,
-+					   struct io, list_ptrs);
-+		struct recv_io *recv_io = (struct recv_io *)io;
-+
-+		list_del(&recv_io->io.list_ptrs);
-+		spin_unlock_irqrestore(&data->recv_ios_lock, flags);
-+		if (vnic_ib_post_recv(&data->ib_conn, &recv_io->io)) {
-+			viport_failure(data->parent);
-+			return;
-+		}
-+		i++;
-+		spin_lock_irqsave(&data->recv_ios_lock, flags);
-+	}
-+	spin_unlock_irqrestore(&data->recv_ios_lock, flags);
-+	DATA_INFO("data posted %d %p\n", i, &data->recv_ios);
-+}
-+
-+static void data_init_pool_work_reqs(struct data *data,
-+				      struct recv_io *recv_io)
-+{
-+	struct recv_pool	*recv_pool = &data->recv_pool;
-+	struct xmit_pool	*xmit_pool = &data->xmit_pool;
-+	struct rdma_io		*rdma_io;
-+	struct rdma_dest	*rdma_dest;
-+	dma_addr_t		xmit_dma;
-+	u8			*xmit_data;
-+	unsigned int		i;
-+
-+	INIT_LIST_HEAD(&data->recv_ios);
-+	spin_lock_init(&data->recv_ios_lock);
-+	spin_lock_init(&data->xmit_buf_lock);
-+	for (i = 0; i < data->config->num_recvs; i++) {
-+		recv_io[i].io.viport = data->parent;
-+		recv_io[i].io.routine = data_received_kick;
-+		recv_io[i].list.addr = data->region_data_dma;
-+		recv_io[i].list.length = 4;
-+		recv_io[i].list.lkey = data->mr->lkey;
-+
-+		recv_io[i].io.rwr.wr_id = (u64)&recv_io[i].io;
-+		recv_io[i].io.rwr.sg_list = &recv_io[i].list;
-+		recv_io[i].io.rwr.num_sge = 1;
-+
-+		list_add(&recv_io[i].io.list_ptrs, &data->recv_ios);
-+	}
-+
-+	INIT_LIST_HEAD(&recv_pool->avail_recv_bufs);
-+	for (i = 0; i < recv_pool->pool_sz; i++) {
-+		rdma_dest = &recv_pool->recv_bufs[i];
-+		list_add(&rdma_dest->list_ptrs,
-+			 &recv_pool->avail_recv_bufs);
-+	}
-+
-+	xmit_dma = xmit_pool->xmitdata_dma;
-+	xmit_data = xmit_pool->xmit_data;
-+
-+	for (i = 0; i < xmit_pool->num_xmit_bufs; i++) {
-+		rdma_io = &xmit_pool->xmit_bufs[i];
-+		rdma_io->index = i;
-+		rdma_io->io.viport = data->parent;
-+		rdma_io->io.routine = data_xmit_complete;
-+
-+		rdma_io->list[0].lkey = data->mr->lkey;
-+		rdma_io->list[1].lkey = data->mr->lkey;
-+		rdma_io->io.swr.wr_id = (u64)rdma_io;
-+		rdma_io->io.swr.sg_list = rdma_io->list;
-+		rdma_io->io.swr.num_sge = 2;
-+		rdma_io->io.swr.opcode = IB_WR_RDMA_WRITE;
-+		rdma_io->io.swr.send_flags = IB_SEND_SIGNALED;
-+		rdma_io->io.type = RDMA;
-+
-+		rdma_io->data = xmit_data;
-+		rdma_io->data_dma = xmit_dma;
-+
-+		xmit_data += ALIGN(min_xmt_skb, VIPORT_TRAILER_ALIGNMENT);
-+		xmit_dma += ALIGN(min_xmt_skb, VIPORT_TRAILER_ALIGNMENT);
-+		rdma_io->trailer = (struct viport_trailer *)xmit_data;
-+		rdma_io->trailer_dma = xmit_dma;
-+		xmit_data += sizeof(struct viport_trailer);
-+		xmit_dma += sizeof(struct viport_trailer);
-+	}
-+
-+	xmit_pool->rdma_rkey = data->mr->rkey;
-+	xmit_pool->rdma_addr = xmit_pool->buf_pool_dma;
-+}
-+
-+static void data_init_free_bufs_swrs(struct data *data)
-+{
-+	struct rdma_io		*rdma_io;
-+	struct send_io		*send_io;
-+
-+	rdma_io = &data->free_bufs_io;
-+	rdma_io->io.viport = data->parent;
-+	rdma_io->io.routine = NULL;
-+
-+	rdma_io->list[0].lkey = data->mr->lkey;
-+
-+	rdma_io->io.swr.wr_id = (u64)rdma_io;
-+	rdma_io->io.swr.sg_list = rdma_io->list;
-+	rdma_io->io.swr.num_sge = 1;
-+	rdma_io->io.swr.opcode = IB_WR_RDMA_WRITE;
-+	rdma_io->io.swr.send_flags = IB_SEND_SIGNALED;
-+	rdma_io->io.type = RDMA;
-+
-+	send_io = &data->kick_io;
-+	send_io->io.viport = data->parent;
-+	send_io->io.routine = NULL;
-+
-+	send_io->list.addr = data->region_data_dma;
-+	send_io->list.length = 0;
-+	send_io->list.lkey = data->mr->lkey;
-+
-+	send_io->io.swr.wr_id = (u64)send_io;
-+	send_io->io.swr.sg_list = &send_io->list;
-+	send_io->io.swr.num_sge = 1;
-+	send_io->io.swr.opcode = IB_WR_SEND;
-+	send_io->io.swr.send_flags = IB_SEND_SIGNALED;
-+	send_io->io.type = SEND;
-+}
-+
-+static int data_init_buf_pools(struct data *data)
-+{
-+	struct recv_pool	*recv_pool = &data->recv_pool;
-+	struct xmit_pool	*xmit_pool = &data->xmit_pool;
-+	struct viport		*viport = data->parent;
-+
-+	recv_pool->buf_pool_len =
-+	    sizeof(struct buff_pool_entry) * recv_pool->eioc_pool_sz;
-+
-+	recv_pool->buf_pool = kzalloc(recv_pool->buf_pool_len, GFP_KERNEL);
-+
-+	if (!recv_pool->buf_pool) {
-+		DATA_ERROR("failed allocating %d bytes"
-+			   " for recv pool bufpool\n",
-+			   recv_pool->buf_pool_len);
-+		goto failure;
-+	}
-+
-+	recv_pool->buf_pool_dma =
-+	    ib_dma_map_single(viport->config->ibdev,
-+			      recv_pool->buf_pool, recv_pool->buf_pool_len,
-+			      DMA_TO_DEVICE);
-+
-+	if (ib_dma_mapping_error(viport->config->ibdev, recv_pool->buf_pool_dma)) {
-+		DATA_ERROR("xmit buf_pool dma map error\n");
-+		goto free_recv_pool;
-+	}
-+
-+	xmit_pool->buf_pool_len =
-+	    sizeof(struct buff_pool_entry) * xmit_pool->pool_sz;
-+	xmit_pool->buf_pool = kzalloc(xmit_pool->buf_pool_len, GFP_KERNEL);
-+
-+	if (!xmit_pool->buf_pool) {
-+		DATA_ERROR("failed allocating %d bytes"
-+			   " for xmit pool bufpool\n",
-+			   xmit_pool->buf_pool_len);
-+		goto unmap_recv_pool;
-+	}
-+
-+	xmit_pool->buf_pool_dma =
-+	    ib_dma_map_single(viport->config->ibdev,
-+			      xmit_pool->buf_pool, xmit_pool->buf_pool_len,
-+			      DMA_FROM_DEVICE);
-+
-+	if (ib_dma_mapping_error(viport->config->ibdev, xmit_pool->buf_pool_dma)) {
-+		DATA_ERROR("xmit buf_pool dma map error\n");
-+		goto free_xmit_pool;
-+	}
-+
-+	xmit_pool->xmit_data = kzalloc(xmit_pool->xmitdata_len, GFP_KERNEL);
-+
-+	if (!xmit_pool->xmit_data) {
-+		DATA_ERROR("failed allocating %d bytes for xmit data\n",
-+			   xmit_pool->xmitdata_len);
-+		goto unmap_xmit_pool;
-+	}
-+
-+	xmit_pool->xmitdata_dma =
-+	    ib_dma_map_single(viport->config->ibdev,
-+			      xmit_pool->xmit_data, xmit_pool->xmitdata_len,
-+			      DMA_TO_DEVICE);
-+
-+	if (ib_dma_mapping_error(viport->config->ibdev, xmit_pool->xmitdata_dma)) {
-+		DATA_ERROR("xmit data dma map error\n");
-+		goto free_xmit_data;
-+	}
-+
-+	return 0;
-+
-+free_xmit_data:
-+	kfree(xmit_pool->xmit_data);
-+unmap_xmit_pool:
-+	ib_dma_unmap_single(data->parent->config->ibdev,
-+			    xmit_pool->buf_pool_dma,
-+			    xmit_pool->buf_pool_len, DMA_FROM_DEVICE);
-+free_xmit_pool:
-+	kfree(xmit_pool->buf_pool);
-+unmap_recv_pool:
-+	ib_dma_unmap_single(data->parent->config->ibdev,
-+			    recv_pool->buf_pool_dma,
-+			    recv_pool->buf_pool_len, DMA_TO_DEVICE);
-+free_recv_pool:
-+	kfree(recv_pool->buf_pool);
-+failure:
-+	return -1;
-+}
-+
-+static void data_init_xmit_pool(struct data *data)
-+{
-+	struct xmit_pool	*xmit_pool = &data->xmit_pool;
-+
-+	xmit_pool->pool_sz =
-+		be32_to_cpu(data->eioc_pool_parms.num_recv_pool_entries);
-+	xmit_pool->buffer_sz =
-+		be32_to_cpu(data->eioc_pool_parms.size_recv_pool_entry);
-+
-+	xmit_pool->notify_count = 0;
-+	xmit_pool->notify_bundle = data->config->notify_bundle;
-+	xmit_pool->next_xmit_pool = 0;
-+	xmit_pool->num_xmit_bufs = xmit_pool->notify_bundle * 2;
-+	xmit_pool->next_xmit_buf = 0;
-+	xmit_pool->last_comp_buf = xmit_pool->num_xmit_bufs - 1;
-+	/* This assumes that data_init_recv_pool has been called
-+	 * before.
-+	 */
-+	data->max_mtu = MAX_PAYLOAD(min((data)->recv_pool.buffer_sz,
-+				   (data)->xmit_pool.buffer_sz)) - VLAN_ETH_HLEN;
-+
-+	xmit_pool->kick_count = 0;
-+	xmit_pool->kick_byte_count = 0;
-+
-+	xmit_pool->send_kicks =
-+	  be32_to_cpu(data->
-+			eioc_pool_parms.num_recv_pool_entries_before_kick)
-+	  || be32_to_cpu(data->
-+			eioc_pool_parms.num_recv_pool_bytes_before_kick);
-+	xmit_pool->kick_bundle =
-+	    be32_to_cpu(data->
-+			eioc_pool_parms.num_recv_pool_entries_before_kick);
-+	xmit_pool->kick_byte_bundle =
-+	    be32_to_cpu(data->
-+			eioc_pool_parms.num_recv_pool_bytes_before_kick);
-+
-+	xmit_pool->need_buffers = 1;
-+
-+	xmit_pool->xmitdata_len =
-+	    BUFFER_SIZE(min_xmt_skb) * xmit_pool->num_xmit_bufs;
-+}
-+
-+static void data_init_recv_pool(struct data *data)
-+{
-+	struct recv_pool	*recv_pool = &data->recv_pool;
-+
-+	recv_pool->pool_sz = data->config->host_recv_pool_entries;
-+	recv_pool->eioc_pool_sz =
-+		be32_to_cpu(data->host_pool_parms.num_recv_pool_entries);
-+	if (recv_pool->pool_sz > recv_pool->eioc_pool_sz)
-+		recv_pool->pool_sz =
-+		    be32_to_cpu(data->host_pool_parms.num_recv_pool_entries);
-+
-+	recv_pool->buffer_sz =
-+		    be32_to_cpu(data->host_pool_parms.size_recv_pool_entry);
-+
-+	recv_pool->sz_free_bundle =
-+		be32_to_cpu(data->
-+			host_pool_parms.free_recv_pool_entries_per_update);
-+	recv_pool->num_free_bufs = 0;
-+	recv_pool->num_posted_bufs = 0;
-+
-+	recv_pool->next_full_buf = 0;
-+	recv_pool->next_free_buf = 0;
-+	recv_pool->kick_on_free  = 0;
-+}
-+
-+int data_connect(struct data *data)
-+{
-+	struct xmit_pool	*xmit_pool = &data->xmit_pool;
-+	struct recv_pool	*recv_pool = &data->recv_pool;
-+	struct recv_io		*recv_io;
-+	unsigned int		sz;
-+	struct viport		*viport = data->parent;
-+
-+	DATA_FUNCTION("data_connect()\n");
-+
-+	/* Do not interchange the order of the functions
-+	 * called below as this will affect the MAX MTU
-+	 * calculation
-+	 */
-+
-+	data_init_recv_pool(data);
-+	data_init_xmit_pool(data);
-+
-+	sz = sizeof(struct rdma_dest) * recv_pool->pool_sz    +
-+	     sizeof(struct recv_io) * data->config->num_recvs +
-+	     sizeof(struct rdma_io) * xmit_pool->num_xmit_bufs;
-+
-+	data->local_storage = vmalloc(sz);
-+
-+	if (!data->local_storage) {
-+		DATA_ERROR("failed allocating %d bytes"
-+			   " local storage\n", sz);
-+		goto out;
-+	}
-+
-+	memset(data->local_storage, 0, sz);
-+
-+	recv_pool->recv_bufs = (struct rdma_dest *)data->local_storage;
-+	sz = sizeof(struct rdma_dest) * recv_pool->pool_sz;
-+
-+	recv_io = (struct recv_io *)(data->local_storage + sz);
-+	sz += sizeof(struct recv_io) * data->config->num_recvs;
-+
-+	xmit_pool->xmit_bufs = (struct rdma_io *)(data->local_storage + sz);
-+	data->region_data = kzalloc(4, GFP_KERNEL);
-+
-+	if (!data->region_data) {
-+		DATA_ERROR("failed to alloc memory for region data\n");
-+		goto free_local_storage;
-+	}
-+
-+	data->region_data_dma =
-+	    ib_dma_map_single(viport->config->ibdev,
-+			      data->region_data, 4, DMA_BIDIRECTIONAL);
-+
-+	if (ib_dma_mapping_error(viport->config->ibdev, data->region_data_dma)) {
-+		DATA_ERROR("region data dma map error\n");
-+		goto free_region_data;
-+	}
-+
-+	if (data_init_buf_pools(data))
-+		goto unmap_region_data;
-+
-+	data_init_free_bufs_swrs(data);
-+	data_init_pool_work_reqs(data, recv_io);
-+
-+	data_post_recvs(data);
-+
-+	if (vnic_ib_cm_connect(&data->ib_conn))
-+		goto unmap_region_data;
-+
-+	return 0;
-+
-+unmap_region_data:
-+	ib_dma_unmap_single(data->parent->config->ibdev,
-+			    data->region_data_dma, 4, DMA_BIDIRECTIONAL);
-+free_region_data:
-+		kfree(data->region_data);
-+free_local_storage:
-+		vfree(data->local_storage);
-+out:
-+	return -1;
-+}
-+
-+static void data_add_free_buffer(struct data *data, int index,
-+				 struct rdma_dest *rdma_dest)
-+{
-+	struct recv_pool *pool = &data->recv_pool;
-+	struct buff_pool_entry *bpe;
-+	dma_addr_t vaddr_dma;
-+
-+	DATA_FUNCTION("data_add_free_buffer()\n");
-+	rdma_dest->trailer->connection_hash_and_valid = 0;
-+	ib_dma_sync_single_for_cpu(data->parent->config->ibdev,
-+				   pool->buf_pool_dma, pool->buf_pool_len,
-+				   DMA_TO_DEVICE);
-+
-+	bpe = &pool->buf_pool[index];
-+	bpe->rkey = cpu_to_be32(data->mr->rkey);
-+	vaddr_dma = ib_dma_map_single(data->parent->config->ibdev,
-+					rdma_dest->data, pool->buffer_sz,
-+					DMA_FROM_DEVICE);
-+	if (ib_dma_mapping_error(data->parent->config->ibdev, vaddr_dma)) {
-+		DATA_ERROR("rdma_dest->data dma map error\n");
-+		goto failure;
-+	}
-+	bpe->remote_addr = cpu_to_be64(vaddr_dma);
-+	bpe->valid = (u32) (rdma_dest - &pool->recv_bufs[0]) + 1;
-+	++pool->num_free_bufs;
-+failure:
-+	ib_dma_sync_single_for_device(data->parent->config->ibdev,
-+				      pool->buf_pool_dma, pool->buf_pool_len,
-+				      DMA_TO_DEVICE);
-+}
-+
-+/* NOTE: this routine is not reentrant */
-+static void data_alloc_buffers(struct data *data, int initial_allocation)
-+{
-+	struct recv_pool *pool = &data->recv_pool;
-+	struct rdma_dest *rdma_dest;
-+	struct sk_buff *skb;
-+	int index;
-+
-+	DATA_FUNCTION("data_alloc_buffers()\n");
-+	index = ADD(pool->next_free_buf, pool->num_free_bufs,
-+		    pool->eioc_pool_sz);
-+
-+	while (!list_empty(&pool->avail_recv_bufs)) {
-+		rdma_dest =
-+		    list_entry(pool->avail_recv_bufs.next,
-+			       struct rdma_dest, list_ptrs);
-+		if (!rdma_dest->skb) {
-+			if (initial_allocation)
-+				skb = alloc_skb(pool->buffer_sz + 2,
-+						GFP_KERNEL);
-+			else
-+				skb = dev_alloc_skb(pool->buffer_sz + 2);
-+			if (!skb)
-+				break;
-+			skb_reserve(skb, 2);
-+			skb_put(skb, pool->buffer_sz);
-+			rdma_dest->skb = skb;
-+			rdma_dest->data = skb->data;
-+			rdma_dest->trailer =
-+			  (struct viport_trailer *)(rdma_dest->data +
-+						    pool->buffer_sz -
-+						    sizeof(struct
-+							   viport_trailer));
-+		}
-+		rdma_dest->trailer->connection_hash_and_valid = 0;
-+
-+		list_del_init(&rdma_dest->list_ptrs);
-+
-+		data_add_free_buffer(data, index, rdma_dest);
-+		index = NEXT(index, pool->eioc_pool_sz);
-+	}
-+}
-+
-+static void data_send_kick_message(struct data *data)
-+{
-+	struct xmit_pool *pool = &data->xmit_pool;
-+	DATA_FUNCTION("data_send_kick_message()\n");
-+	/* stop timer for bundle_timeout */
-+	if (data->kick_timer_on) {
-+		del_timer(&data->kick_timer);
-+		data->kick_timer_on = 0;
-+	}
-+	pool->kick_count = 0;
-+	pool->kick_byte_count = 0;
-+
-+	/* TODO: keep track of when kick is outstanding, and
-+	 * don't reuse until complete
-+	 */
-+	if (vnic_ib_post_send(&data->ib_conn, &data->free_bufs_io.io)) {
-+		DATA_ERROR("failed to post send\n");
-+		viport_failure(data->parent);
-+	}
-+}
-+
-+static void data_send_free_recv_buffers(struct data *data)
-+{
-+	struct recv_pool *pool = &data->recv_pool;
-+	struct ib_send_wr *swr = &data->free_bufs_io.io.swr;
-+
-+	int bufs_sent = 0;
-+	u64 rdma_addr;
-+	u32 offset;
-+	u32 sz;
-+	unsigned int num_to_send, next_increment;
-+
-+	DATA_FUNCTION("data_send_free_recv_buffers()\n");
-+
-+	for (num_to_send = pool->sz_free_bundle;
-+	     num_to_send <= pool->num_free_bufs;
-+	     num_to_send += pool->sz_free_bundle) {
-+		/* handle multiple bundles as one when possible. */
-+		next_increment = num_to_send + pool->sz_free_bundle;
-+		if ((next_increment <= pool->num_free_bufs)
-+		    && (pool->next_free_buf + next_increment <=
-+			pool->eioc_pool_sz))
-+			continue;
-+
-+		offset = pool->next_free_buf *
-+				sizeof(struct buff_pool_entry);
-+		sz = num_to_send * sizeof(struct buff_pool_entry);
-+		rdma_addr = pool->eioc_rdma_addr + offset;
-+		swr->sg_list->length = sz;
-+		swr->sg_list->addr = pool->buf_pool_dma + offset;
-+		swr->wr.rdma.remote_addr = rdma_addr;
-+
-+		if (vnic_ib_post_send(&data->ib_conn,
-+		    &data->free_bufs_io.io)) {
-+			DATA_ERROR("failed to post send\n");
-+			viport_failure(data->parent);
-+			return;
-+		}
-+		INC(pool->next_free_buf, num_to_send, pool->eioc_pool_sz);
-+		pool->num_free_bufs -= num_to_send;
-+		pool->num_posted_bufs += num_to_send;
-+		bufs_sent = 1;
-+	}
-+
-+	if (bufs_sent) {
-+		if (pool->kick_on_free)
-+			data_send_kick_message(data);
-+	}
-+	if (pool->num_posted_bufs == 0) {
-+		struct vnic *vnic = data->parent->vnic;
-+
-+		if (vnic->current_path == &vnic->primary_path)
-+			DATA_ERROR("%s: primary path: "
-+					"unable to allocate receive buffers\n",
-+					vnic->config->name);
-+		else if (vnic->current_path == &vnic->secondary_path)
-+			DATA_ERROR("%s: secondary path: "
-+					"unable to allocate receive buffers\n",
-+					vnic->config->name);
-+		data->ib_conn.state = IB_CONN_ERRORED;
-+		viport_failure(data->parent);
-+	}
-+}
-+
-+void data_connected(struct data *data)
-+{
-+	DATA_FUNCTION("data_connected()\n");
-+	data->free_bufs_io.io.swr.wr.rdma.rkey =
-+				data->recv_pool.eioc_rdma_rkey;
-+	data_alloc_buffers(data, 1);
-+	data_send_free_recv_buffers(data);
-+	data->connected = 1;
-+}
-+
-+void data_disconnect(struct data *data)
-+{
-+	struct xmit_pool *xmit_pool = &data->xmit_pool;
-+	struct recv_pool *recv_pool = &data->recv_pool;
-+	unsigned int i;
-+
-+	DATA_FUNCTION("data_disconnect()\n");
-+
-+	data->connected = 0;
-+	if (data->kick_timer_on) {
-+		del_timer_sync(&data->kick_timer);
-+		data->kick_timer_on = 0;
-+	}
-+
-+	if (ib_send_cm_dreq(data->ib_conn.cm_id, NULL, 0))
-+		DATA_ERROR("data CM DREQ sending failed\n");
-+	data->ib_conn.state = IB_CONN_DISCONNECTED;
-+
-+	completion_callback_cleanup(&data->ib_conn);
-+
-+	for (i = 0; i < xmit_pool->num_xmit_bufs; i++) {
-+		if (xmit_pool->xmit_bufs[i].skb)
-+			dev_kfree_skb(xmit_pool->xmit_bufs[i].skb);
-+		xmit_pool->xmit_bufs[i].skb = NULL;
-+
-+	}
-+	for (i = 0; i < recv_pool->pool_sz; i++) {
-+		if (data->recv_pool.recv_bufs[i].skb)
-+			dev_kfree_skb(recv_pool->recv_bufs[i].skb);
-+		recv_pool->recv_bufs[i].skb = NULL;
-+	}
-+	vfree(data->local_storage);
-+	if (data->region_data) {
-+		ib_dma_unmap_single(data->parent->config->ibdev,
-+				    data->region_data_dma, 4,
-+				    DMA_BIDIRECTIONAL);
-+		kfree(data->region_data);
-+	}
-+
-+	if (recv_pool->buf_pool) {
-+		ib_dma_unmap_single(data->parent->config->ibdev,
-+				    recv_pool->buf_pool_dma,
-+				    recv_pool->buf_pool_len, DMA_TO_DEVICE);
-+		kfree(recv_pool->buf_pool);
-+	}
-+
-+	if (xmit_pool->buf_pool) {
-+		ib_dma_unmap_single(data->parent->config->ibdev,
-+				    xmit_pool->buf_pool_dma,
-+				    xmit_pool->buf_pool_len, DMA_FROM_DEVICE);
-+		kfree(xmit_pool->buf_pool);
-+	}
-+
-+	if (xmit_pool->xmit_data) {
-+		ib_dma_unmap_single(data->parent->config->ibdev,
-+				    xmit_pool->xmitdata_dma,
-+				    xmit_pool->xmitdata_len, DMA_TO_DEVICE);
-+		kfree(xmit_pool->xmit_data);
-+	}
-+}
-+
-+void data_cleanup(struct data *data)
-+{
-+	ib_destroy_cm_id(data->ib_conn.cm_id);
-+
-+	/* Completion callback cleanup called again.
-+	 * This is to cleanup the threads in case there is an
-+	 * error before state LINK_DATACONNECT due to which
-+	 * data_disconnect is not called.
-+	 */
-+	completion_callback_cleanup(&data->ib_conn);
-+	ib_destroy_qp(data->ib_conn.qp);
-+	ib_destroy_cq(data->ib_conn.cq);
-+	ib_dereg_mr(data->mr);
-+
-+}
-+
-+static int data_alloc_xmit_buffer(struct data *data, struct sk_buff *skb,
-+				  struct buff_pool_entry **pp_bpe,
-+				  struct rdma_io **pp_rdma_io,
-+				  int *last)
-+{
-+	struct xmit_pool	*pool = &data->xmit_pool;
-+	unsigned long		flags;
-+	int			ret;
-+
-+	DATA_FUNCTION("data_alloc_xmit_buffer()\n");
-+
-+	spin_lock_irqsave(&data->xmit_buf_lock, flags);
-+	ib_dma_sync_single_for_cpu(data->parent->config->ibdev,
-+				   pool->buf_pool_dma, pool->buf_pool_len,
-+				   DMA_TO_DEVICE);
-+	*last = 0;
-+	*pp_rdma_io = &pool->xmit_bufs[pool->next_xmit_buf];
-+	*pp_bpe = &pool->buf_pool[pool->next_xmit_pool];
-+
-+	if ((*pp_bpe)->valid && pool->next_xmit_buf !=
-+	     pool->last_comp_buf) {
-+		INC(pool->next_xmit_buf, 1, pool->num_xmit_bufs);
-+		INC(pool->next_xmit_pool, 1, pool->pool_sz);
-+		if (!pool->buf_pool[pool->next_xmit_pool].valid) {
-+			DATA_INFO("just used the last EIOU"
-+				  " receive buffer\n");
-+			*last = 1;
-+			pool->need_buffers = 1;
-+			vnic_stop_xmit(data->parent->vnic,
-+				       data->parent->parent);
-+			data_kickreq_stats(data);
-+		} else if (pool->next_xmit_buf == pool->last_comp_buf) {
-+			DATA_INFO("just used our last xmit buffer\n");
-+			pool->need_buffers = 1;
-+			vnic_stop_xmit(data->parent->vnic,
-+				       data->parent->parent);
-+		}
-+		(*pp_rdma_io)->skb = skb;
-+		(*pp_bpe)->valid = 0;
-+		ret = 0;
-+	} else {
-+		data_no_xmitbuf_stats(data);
-+		DATA_ERROR("Out of xmit buffers\n");
-+		vnic_stop_xmit(data->parent->vnic,
-+			       data->parent->parent);
-+		ret = -1;
-+	}
-+
-+	ib_dma_sync_single_for_device(data->parent->config->ibdev,
-+				      pool->buf_pool_dma,
-+				      pool->buf_pool_len, DMA_TO_DEVICE);
-+	spin_unlock_irqrestore(&data->xmit_buf_lock, flags);
-+	return ret;
-+}
-+
-+static void data_rdma_packet(struct data *data, struct buff_pool_entry *bpe,
-+			     struct rdma_io *rdma_io)
-+{
-+	struct ib_send_wr	*swr;
-+	struct sk_buff		*skb;
-+	dma_addr_t		trailer_data_dma;
-+	dma_addr_t		skb_data_dma;
-+	struct xmit_pool	*xmit_pool = &data->xmit_pool;
-+	struct viport		*viport = data->parent;
-+	u8			*d;
-+	int			len;
-+	int			fill_len;
-+
-+	DATA_FUNCTION("data_rdma_packet()\n");
-+	swr = &rdma_io->io.swr;
-+	skb = rdma_io->skb;
-+	len = ALIGN(rdma_io->len, VIPORT_TRAILER_ALIGNMENT);
-+	fill_len = len - skb->len;
-+
-+	ib_dma_sync_single_for_cpu(data->parent->config->ibdev,
-+				   xmit_pool->xmitdata_dma,
-+				   xmit_pool->xmitdata_len, DMA_TO_DEVICE);
-+
-+	d = (u8 *) rdma_io->trailer - fill_len;
-+	trailer_data_dma = rdma_io->trailer_dma - fill_len;
-+	memset(d, 0, fill_len);
-+
-+	swr->sg_list[0].length = skb->len;
-+	if (skb->len <= min_xmt_skb) {
-+		memcpy(rdma_io->data, skb->data, skb->len);
-+		swr->sg_list[0].lkey = data->mr->lkey;
-+		swr->sg_list[0].addr = rdma_io->data_dma;
-+		dev_kfree_skb_any(skb);
-+		rdma_io->skb = NULL;
-+	} else {
-+		swr->sg_list[0].lkey = data->mr->lkey;
-+
-+		skb_data_dma = ib_dma_map_single(viport->config->ibdev,
-+						skb->data, skb->len,
-+						DMA_TO_DEVICE);
-+
-+		if (ib_dma_mapping_error(viport->config->ibdev, skb_data_dma)) {
-+			DATA_ERROR("skb data dma map error\n");
-+			goto failure;
-+		}
-+
-+		rdma_io->skb_data_dma = skb_data_dma;
-+
-+		swr->sg_list[0].addr = skb_data_dma;
-+		skb_orphan(skb);
-+	}
-+	ib_dma_sync_single_for_cpu(data->parent->config->ibdev,
-+				   xmit_pool->buf_pool_dma,
-+				   xmit_pool->buf_pool_len, DMA_TO_DEVICE);
-+
-+	swr->sg_list[1].addr = trailer_data_dma;
-+	swr->sg_list[1].length = fill_len + sizeof(struct viport_trailer);
-+	swr->sg_list[0].lkey = data->mr->lkey;
-+	swr->wr.rdma.remote_addr = be64_to_cpu(bpe->remote_addr);
-+	swr->wr.rdma.remote_addr += data->xmit_pool.buffer_sz;
-+	swr->wr.rdma.remote_addr -= (sizeof(struct viport_trailer) + len);
-+	swr->wr.rdma.rkey = be32_to_cpu(bpe->rkey);
-+
-+	ib_dma_sync_single_for_device(data->parent->config->ibdev,
-+				      xmit_pool->buf_pool_dma,
-+				      xmit_pool->buf_pool_len, DMA_TO_DEVICE);
-+
-+	/* If VNIC_FEAT_RDMA_IMMED is supported then change the work request
-+	 * opcode to IB_WR_RDMA_WRITE_WITH_IMM
-+	 */
-+
-+	if (data->parent->features_supported & VNIC_FEAT_RDMA_IMMED) {
-+		swr->ex.imm_data = 0;
-+		swr->opcode = IB_WR_RDMA_WRITE_WITH_IMM;
-+	}
-+
-+	data->xmit_pool.notify_count++;
-+	if (data->xmit_pool.notify_count >= data->xmit_pool.notify_bundle) {
-+		data->xmit_pool.notify_count = 0;
-+		swr->send_flags = IB_SEND_SIGNALED;
-+	} else {
-+		swr->send_flags = 0;
-+	}
-+	ib_dma_sync_single_for_device(data->parent->config->ibdev,
-+				      xmit_pool->xmitdata_dma,
-+				      xmit_pool->xmitdata_len, DMA_TO_DEVICE);
-+	if (vnic_ib_post_send(&data->ib_conn, &rdma_io->io)) {
-+		DATA_ERROR("failed to post send for data RDMA write\n");
-+		viport_failure(data->parent);
-+		goto failure;
-+	}
-+
-+	data_xmits_stats(data);
-+failure:
-+	ib_dma_sync_single_for_device(data->parent->config->ibdev,
-+				      xmit_pool->xmitdata_dma,
-+				      xmit_pool->xmitdata_len, DMA_TO_DEVICE);
-+}
-+
-+static void data_kick_timeout_handler(unsigned long arg)
-+{
-+	struct data *data = (struct data *)arg;
-+
-+	DATA_FUNCTION("data_kick_timeout_handler()\n");
-+	data->kick_timer_on = 0;
-+	data_send_kick_message(data);
-+}
-+
-+int data_xmit_packet(struct data *data, struct sk_buff *skb)
-+{
-+	struct xmit_pool	*pool = &data->xmit_pool;
-+	struct rdma_io		*rdma_io;
-+	struct buff_pool_entry	*bpe;
-+	struct viport_trailer	*trailer;
-+	unsigned int		sz = skb->len;
-+	int			last;
-+
-+	DATA_FUNCTION("data_xmit_packet()\n");
-+	if (sz > pool->buffer_sz) {
-+		DATA_ERROR("outbound packet too large, size = %d\n", sz);
-+		return -1;
-+	}
-+
-+	if (data_alloc_xmit_buffer(data, skb, &bpe, &rdma_io, &last)) {
-+		DATA_ERROR("error in allocating data xmit buffer\n");
-+		return -1;
-+	}
-+
-+	ib_dma_sync_single_for_cpu(data->parent->config->ibdev,
-+				   pool->xmitdata_dma, pool->xmitdata_len,
-+				   DMA_TO_DEVICE);
-+	trailer = rdma_io->trailer;
-+
-+	memset(trailer, 0, sizeof *trailer);
-+	memcpy(trailer->dest_mac_addr, skb->data, ETH_ALEN);
-+
-+	if (skb->sk)
-+		trailer->connection_hash_and_valid = 0x40 |
-+			 ((be16_to_cpu(inet_sk(skb->sk)->sport) +
-+			   be16_to_cpu(inet_sk(skb->sk)->dport)) & 0x3f);
-+
-+	trailer->connection_hash_and_valid |= CHV_VALID;
-+
-+	if ((sz > 16) && (*(__be16 *) (skb->data + 12) ==
-+			   __constant_cpu_to_be16(ETH_P_8021Q))) {
-+		trailer->vlan = *(__be16 *) (skb->data + 14);
-+		memmove(skb->data + 4, skb->data, 12);
-+		skb_pull(skb, 4);
-+		sz -= 4;
-+		trailer->pkt_flags |= PF_VLAN_INSERT;
-+	}
-+	if (last)
-+		trailer->pkt_flags |= PF_KICK;
-+	if (sz < ETH_ZLEN) {
-+		/* EIOU requires all packets to be
-+		 * of ethernet minimum packet size.
-+		 */
-+		trailer->data_length = __constant_cpu_to_be16(ETH_ZLEN);
-+		rdma_io->len = ETH_ZLEN;
-+	} else {
-+		trailer->data_length = cpu_to_be16(sz);
-+		rdma_io->len = sz;
-+	}
-+
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		trailer->tx_chksum_flags = TX_CHKSUM_FLAGS_CHECKSUM_V4
-+		    | TX_CHKSUM_FLAGS_IP_CHECKSUM
-+		    | TX_CHKSUM_FLAGS_TCP_CHECKSUM
-+		    | TX_CHKSUM_FLAGS_UDP_CHECKSUM;
-+	}
-+
-+	ib_dma_sync_single_for_device(data->parent->config->ibdev,
-+				      pool->xmitdata_dma, pool->xmitdata_len,
-+				      DMA_TO_DEVICE);
-+	data_rdma_packet(data, bpe, rdma_io);
-+
-+	if (pool->send_kicks) {
-+		/* EIOC needs kicks to inform it of sent packets */
-+		pool->kick_count++;
-+		pool->kick_byte_count += sz;
-+		if ((pool->kick_count >= pool->kick_bundle)
-+		    || (pool->kick_byte_count >= pool->kick_byte_bundle)) {
-+			data_send_kick_message(data);
-+		} else if (pool->kick_count == 1) {
-+			init_timer(&data->kick_timer);
-+			/* timeout_before_kick is in usec */
-+			data->kick_timer.expires =
-+			   msecs_to_jiffies(be32_to_cpu(data->
-+				eioc_pool_parms.timeout_before_kick) * 1000)
-+				+ jiffies;
-+			data->kick_timer.data = (unsigned long)data;
-+			data->kick_timer.function = data_kick_timeout_handler;
-+			add_timer(&data->kick_timer);
-+			data->kick_timer_on = 1;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static void data_check_xmit_buffers(struct data *data)
-+{
-+	struct xmit_pool *pool = &data->xmit_pool;
-+	unsigned long flags;
-+
-+	DATA_FUNCTION("data_check_xmit_buffers()\n");
-+	spin_lock_irqsave(&data->xmit_buf_lock, flags);
-+	ib_dma_sync_single_for_cpu(data->parent->config->ibdev,
-+				   pool->buf_pool_dma, pool->buf_pool_len,
-+				   DMA_TO_DEVICE);
-+
-+	if (data->xmit_pool.need_buffers
-+	    && pool->buf_pool[pool->next_xmit_pool].valid
-+	    && pool->next_xmit_buf != pool->last_comp_buf) {
-+		data->xmit_pool.need_buffers = 0;
-+		vnic_restart_xmit(data->parent->vnic,
-+				  data->parent->parent);
-+		DATA_INFO("there are free xmit buffers\n");
-+	}
-+	ib_dma_sync_single_for_device(data->parent->config->ibdev,
-+				      pool->buf_pool_dma, pool->buf_pool_len,
-+				      DMA_TO_DEVICE);
-+
-+	spin_unlock_irqrestore(&data->xmit_buf_lock, flags);
-+}
-+
-+static struct sk_buff *data_recv_to_skbuff(struct data *data,
-+					   struct rdma_dest *rdma_dest)
-+{
-+	struct viport_trailer *trailer;
-+	struct sk_buff *skb = NULL;
-+	int start;
-+	unsigned int len;
-+	u8 rx_chksum_flags;
-+
-+	DATA_FUNCTION("data_recv_to_skbuff()\n");
-+	trailer = rdma_dest->trailer;
-+	start = data_offset(data, trailer);
-+	len = data_len(data, trailer);
-+
-+	if (len <= min_rcv_skb)
-+		skb = dev_alloc_skb(len + VLAN_HLEN + 2);
-+			 /* leave room for VLAN header and alignment */
-+	if (skb) {
-+		skb_reserve(skb, VLAN_HLEN + 2);
-+		memcpy(skb->data, rdma_dest->data + start, len);
-+		skb_put(skb, len);
-+	} else {
-+		skb = rdma_dest->skb;
-+		rdma_dest->skb = NULL;
-+		rdma_dest->trailer = NULL;
-+		rdma_dest->data = NULL;
-+		skb_pull(skb, start);
-+		skb_trim(skb, len);
-+	}
-+
-+	rx_chksum_flags = trailer->rx_chksum_flags;
-+	DATA_INFO("rx_chksum_flags = %d, LOOP = %c, IP = %c,"
-+	     " TCP = %c, UDP = %c\n",
-+	     rx_chksum_flags,
-+	     (rx_chksum_flags & RX_CHKSUM_FLAGS_LOOPBACK) ? 'Y' : 'N',
-+	     (rx_chksum_flags & RX_CHKSUM_FLAGS_IP_CHECKSUM_SUCCEEDED) ? 'Y'
-+	     : (rx_chksum_flags & RX_CHKSUM_FLAGS_IP_CHECKSUM_FAILED) ? 'N' :
-+	     '-',
-+	     (rx_chksum_flags & RX_CHKSUM_FLAGS_TCP_CHECKSUM_SUCCEEDED) ? 'Y'
-+	     : (rx_chksum_flags & RX_CHKSUM_FLAGS_TCP_CHECKSUM_FAILED) ? 'N' :
-+	     '-',
-+	     (rx_chksum_flags & RX_CHKSUM_FLAGS_UDP_CHECKSUM_SUCCEEDED) ? 'Y'
-+	     : (rx_chksum_flags & RX_CHKSUM_FLAGS_UDP_CHECKSUM_FAILED) ? 'N' :
-+	     '-');
-+
-+	if ((rx_chksum_flags & RX_CHKSUM_FLAGS_LOOPBACK)
-+	    || ((rx_chksum_flags & RX_CHKSUM_FLAGS_IP_CHECKSUM_SUCCEEDED)
-+		&& ((rx_chksum_flags & RX_CHKSUM_FLAGS_TCP_CHECKSUM_SUCCEEDED)
-+		    || (rx_chksum_flags &
-+			RX_CHKSUM_FLAGS_UDP_CHECKSUM_SUCCEEDED))))
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	else
-+		skb->ip_summed = CHECKSUM_NONE;
-+
-+	if ((trailer->pkt_flags & PF_VLAN_INSERT) &&
-+		!(data->parent->features_supported & VNIC_FEAT_IGNORE_VLAN)) {
-+		u8 *rv;
-+
-+		rv = skb_push(skb, 4);
-+		memmove(rv, rv + 4, 12);
-+		*(__be16 *) (rv + 12) = __constant_cpu_to_be16(ETH_P_8021Q);
-+		if (trailer->pkt_flags & PF_PVID_OVERRIDDEN)
-+			*(__be16 *) (rv + 14) = trailer->vlan &
-+					__constant_cpu_to_be16(0xF000);
-+		else
-+			*(__be16 *) (rv + 14) = trailer->vlan;
-+	}
-+
-+	return skb;
-+}
-+
-+static int data_incoming_recv(struct data *data)
-+{
-+	struct recv_pool *pool = &data->recv_pool;
-+	struct rdma_dest *rdma_dest;
-+	struct viport_trailer *trailer;
-+	struct buff_pool_entry *bpe;
-+	struct sk_buff *skb;
-+	dma_addr_t vaddr_dma;
-+
-+	DATA_FUNCTION("data_incoming_recv()\n");
-+	if (pool->next_full_buf == pool->next_free_buf)
-+		return -1;
-+	bpe = &pool->buf_pool[pool->next_full_buf];
-+	vaddr_dma = be64_to_cpu(bpe->remote_addr);
-+	rdma_dest = &pool->recv_bufs[bpe->valid - 1];
-+	trailer = rdma_dest->trailer;
-+
-+	if (!trailer
-+	    || !(trailer->connection_hash_and_valid & CHV_VALID))
-+		return -1;
-+
-+	/* received a packet */
-+	if (trailer->pkt_flags & PF_KICK)
-+		pool->kick_on_free = 1;
-+
-+	skb = data_recv_to_skbuff(data, rdma_dest);
-+
-+	if (skb) {
-+		vnic_recv_packet(data->parent->vnic,
-+				 data->parent->parent, skb);
-+		list_add(&rdma_dest->list_ptrs, &pool->avail_recv_bufs);
-+	}
-+
-+	ib_dma_unmap_single(data->parent->config->ibdev,
-+			    vaddr_dma, pool->buffer_sz,
-+			    DMA_FROM_DEVICE);
-+	ib_dma_sync_single_for_cpu(data->parent->config->ibdev,
-+				   pool->buf_pool_dma, pool->buf_pool_len,
-+				   DMA_TO_DEVICE);
-+
-+	bpe->valid = 0;
-+	ib_dma_sync_single_for_device(data->parent->config->ibdev,
-+					pool->buf_pool_dma, pool->buf_pool_len,
-+					DMA_TO_DEVICE);
-+
-+	INC(pool->next_full_buf, 1, pool->eioc_pool_sz);
-+	pool->num_posted_bufs--;
-+	data_recvs_stats(data);
-+	return 0;
-+}
-+
-+static void data_received_kick(struct io *io)
-+{
-+	struct data *data = &io->viport->data;
-+	unsigned long flags;
-+
-+	DATA_FUNCTION("data_received_kick()\n");
-+	data_note_kickrcv_time();
-+	spin_lock_irqsave(&data->recv_ios_lock, flags);
-+	list_add(&io->list_ptrs, &data->recv_ios);
-+	spin_unlock_irqrestore(&data->recv_ios_lock, flags);
-+	data_post_recvs(data);
-+	data_rcvkicks_stats(data);
-+	data_check_xmit_buffers(data);
-+
-+	while (!data_incoming_recv(data));
-+
-+	if (data->connected) {
-+		data_alloc_buffers(data, 0);
-+		data_send_free_recv_buffers(data);
-+	}
-+}
-+
-+static void data_xmit_complete(struct io *io)
-+{
-+	struct rdma_io *rdma_io = (struct rdma_io *)io;
-+	struct data *data = &io->viport->data;
-+	struct xmit_pool *pool = &data->xmit_pool;
-+	struct sk_buff *skb;
-+
-+	DATA_FUNCTION("data_xmit_complete()\n");
-+
-+	if (rdma_io->skb)
-+		ib_dma_unmap_single(data->parent->config->ibdev,
-+				    rdma_io->skb_data_dma, rdma_io->skb->len,
-+				    DMA_TO_DEVICE);
-+
-+	while (pool->last_comp_buf != rdma_io->index) {
-+		INC(pool->last_comp_buf, 1, pool->num_xmit_bufs);
-+		skb = pool->xmit_bufs[pool->last_comp_buf].skb;
-+		if (skb)
-+			dev_kfree_skb_any(skb);
-+		pool->xmit_bufs[pool->last_comp_buf].skb = NULL;
-+	}
-+
-+	data_check_xmit_buffers(data);
-+}
-+
-+static int mc_data_alloc_skb(struct ud_recv_io *recv_io, u32 len,
-+				int initial_allocation)
-+{
-+	struct sk_buff *skb;
-+	struct mc_data *mc_data = &recv_io->io.viport->mc_data;
-+
-+	DATA_FUNCTION("mc_data_alloc_skb\n");
-+	if (initial_allocation)
-+		skb = alloc_skb(len, GFP_KERNEL);
-+	else
-+		skb = alloc_skb(len, GFP_ATOMIC);
-+	if (!skb) {
-+		DATA_ERROR("failed to alloc MULTICAST skb\n");
-+		return -1;
-+	}
-+	skb_put(skb, len);
-+	recv_io->skb = skb;
-+
-+	recv_io->skb_data_dma = ib_dma_map_single(
-+					recv_io->io.viport->config->ibdev,
-+					skb->data, skb->len,
-+					DMA_FROM_DEVICE);
-+
-+	if (ib_dma_mapping_error(recv_io->io.viport->config->ibdev,
-+			recv_io->skb_data_dma)) {
-+		DATA_ERROR("skb data dma map error\n");
-+		dev_kfree_skb(skb);
-+		return -1;
-+	}
-+
-+	recv_io->list[0].addr = recv_io->skb_data_dma;
-+	recv_io->list[0].length = sizeof(struct ib_grh);
-+	recv_io->list[0].lkey = mc_data->mr->lkey;
-+
-+	recv_io->list[1].addr = recv_io->skb_data_dma + sizeof(struct ib_grh);
-+	recv_io->list[1].length = len - sizeof(struct ib_grh);
-+	recv_io->list[1].lkey = mc_data->mr->lkey;
-+
-+	recv_io->io.rwr.wr_id = (u64)&recv_io->io;
-+	recv_io->io.rwr.sg_list = recv_io->list;
-+	recv_io->io.rwr.num_sge = 2;
-+	recv_io->io.rwr.next = NULL;
-+
-+	return 0;
-+}
-+
-+static int mc_data_alloc_buffers(struct mc_data *mc_data)
-+{
-+	unsigned int i, num;
-+	struct ud_recv_io *bufs = NULL, *recv_io;
-+
-+	DATA_FUNCTION("mc_data_alloc_buffers\n");
-+	if (!mc_data->skb_len) {
-+		unsigned int len;
-+		/* align multicast msg buffer on viport_trailer boundary */
-+		len = (MCAST_MSG_SIZE + VIPORT_TRAILER_ALIGNMENT - 1) &
-+				(~((unsigned int)VIPORT_TRAILER_ALIGNMENT - 1));
-+		/*
-+		 * Add size of grh and trailer -
-+		 * note, we don't need a + 4 for vlan because we have room in
-+		 * netbuf for grh & trailer and we'll strip them both, so there
-+		 * will be room enough to handle the 4 byte insertion for vlan.
-+		 */
-+		len +=	sizeof(struct ib_grh) +
-+				sizeof(struct viport_trailer);
-+		mc_data->skb_len = len;
-+		DATA_INFO("mc_data->skb_len %d (sizes:%d %d)\n",
-+					len, (int)sizeof(struct ib_grh),
-+					(int)sizeof(struct viport_trailer));
-+	}
-+	mc_data->recv_len = sizeof(struct ud_recv_io) * mc_data->num_recvs;
-+	bufs = kmalloc(mc_data->recv_len, GFP_KERNEL);
-+	if (!bufs) {
-+		DATA_ERROR("failed to allocate MULTICAST buffers size:%d\n",
-+				mc_data->recv_len);
-+		return -1;
-+	}
-+	DATA_INFO("allocated num_recvs:%d recv_len:%d \n",
-+			mc_data->num_recvs, mc_data->recv_len);
-+	for (num = 0; num < mc_data->num_recvs; num++) {
-+		recv_io = &bufs[num];
-+		recv_io->len = mc_data->skb_len;
-+		recv_io->io.type = RECV_UD;
-+		recv_io->io.viport = mc_data->parent;
-+		recv_io->io.routine = mc_data_recv_routine;
-+
-+		if (mc_data_alloc_skb(recv_io, mc_data->skb_len, 1)) {
-+			for (i = 0; i < num; i++) {
-+				recv_io = &bufs[i];
-+				ib_dma_unmap_single(recv_io->io.viport->config->ibdev,
-+						    recv_io->skb_data_dma,
-+						    recv_io->skb->len,
-+						    DMA_FROM_DEVICE);
-+				dev_kfree_skb(recv_io->skb);
-+			}
-+			kfree(bufs);
-+			return -1;
-+		}
-+		list_add_tail(&recv_io->io.list_ptrs,
-+						 &mc_data->avail_recv_ios_list);
-+	}
-+	mc_data->recv_ios = bufs;
-+	return 0;
-+}
-+
-+void mc_data_cleanup(struct mc_data *mc_data)
-+{
-+	DATA_FUNCTION("mc_data_cleanup\n");
-+	completion_callback_cleanup(&mc_data->ib_conn);
-+	if (!IS_ERR(mc_data->ib_conn.qp)) {
-+		ib_destroy_qp(mc_data->ib_conn.qp);
-+		mc_data->ib_conn.qp = (struct ib_qp *)ERR_PTR(-EINVAL);
-+	}
-+	if (!IS_ERR(mc_data->ib_conn.cq)) {
-+		ib_destroy_cq(mc_data->ib_conn.cq);
-+		mc_data->ib_conn.cq = (struct ib_cq *)ERR_PTR(-EINVAL);
-+	}
-+	kfree(mc_data->recv_ios);
-+	mc_data->recv_ios = (struct ud_recv_io *)NULL;
-+	if (mc_data->mr) {
-+		ib_dereg_mr(mc_data->mr);
-+		mc_data->mr = (struct ib_mr *)NULL;
-+	}
-+	DATA_FUNCTION("mc_data_cleanup done\n");
-+
-+}
-+
-+int mc_data_init(struct mc_data *mc_data, struct viport *viport,
-+	      struct data_config *config, struct ib_pd *pd)
-+{
-+	DATA_FUNCTION("mc_data_init()\n");
-+
-+	mc_data->num_recvs = viport->data.config->num_recvs;
-+
-+	INIT_LIST_HEAD(&mc_data->avail_recv_ios_list);
-+	spin_lock_init(&mc_data->recv_lock);
-+
-+	mc_data->parent = viport;
-+	mc_data->config = config;
-+
-+	mc_data->ib_conn.cm_id = NULL;
-+	mc_data->ib_conn.viport = viport;
-+	mc_data->ib_conn.ib_config = &config->ib_config;
-+	mc_data->ib_conn.state = IB_CONN_UNINITTED;
-+	mc_data->ib_conn.callback_thread = NULL;
-+	mc_data->ib_conn.callback_thread_end = 0;
-+
-+	if (vnic_ib_mc_init(mc_data, viport, pd,
-+			      &config->ib_config)) {
-+		DATA_ERROR("vnic_ib_mc_init failed\n");
-+		goto failure;
-+	}
-+	mc_data->mr = ib_get_dma_mr(pd,
-+				 IB_ACCESS_LOCAL_WRITE |
-+				 IB_ACCESS_REMOTE_WRITE);
-+	if (IS_ERR(mc_data->mr)) {
-+		DATA_ERROR("failed to register memory for"
-+			   " mc_data connection\n");
-+		goto destroy_conn;
-+	}
-+
-+	if (mc_data_alloc_buffers(mc_data))
-+		goto dereg_mr;
-+
-+	mc_data_post_recvs(mc_data);
-+	if (vnic_ib_mc_mod_qp_to_rts(mc_data->ib_conn.qp))
-+		goto dereg_mr;
-+
-+	return 0;
-+
-+dereg_mr:
-+	ib_dereg_mr(mc_data->mr);
-+	mc_data->mr = (struct ib_mr *)NULL;
-+destroy_conn:
-+	completion_callback_cleanup(&mc_data->ib_conn);
-+	ib_destroy_qp(mc_data->ib_conn.qp);
-+	mc_data->ib_conn.qp = (struct ib_qp *)ERR_PTR(-EINVAL);
-+	ib_destroy_cq(mc_data->ib_conn.cq);
-+	mc_data->ib_conn.cq = (struct ib_cq *)ERR_PTR(-EINVAL);
-+failure:
-+	return -1;
-+}
-+
-+static void mc_data_post_recvs(struct mc_data *mc_data)
-+{
-+	unsigned long flags;
-+	int i = 0;
-+	DATA_FUNCTION("mc_data_post_recvs\n");
-+	spin_lock_irqsave(&mc_data->recv_lock, flags);
-+	while (!list_empty(&mc_data->avail_recv_ios_list)) {
-+		struct io *io = list_entry(mc_data->avail_recv_ios_list.next,
-+				struct io, list_ptrs);
-+		struct ud_recv_io *recv_io =
-+					container_of(io, struct ud_recv_io, io);
-+		list_del(&recv_io->io.list_ptrs);
-+		spin_unlock_irqrestore(&mc_data->recv_lock, flags);
-+		if (vnic_ib_mc_post_recv(mc_data, &recv_io->io)) {
-+			viport_failure(mc_data->parent);
-+			return;
-+		}
-+		spin_lock_irqsave(&mc_data->recv_lock, flags);
-+		i++;
-+	}
-+	DATA_INFO("mcdata posted %d %p\n", i, &mc_data->avail_recv_ios_list);
-+	spin_unlock_irqrestore(&mc_data->recv_lock, flags);
-+}
-+
-+static void mc_data_recv_routine(struct io *io)
-+{
-+	struct sk_buff *skb;
-+	struct ib_grh *grh;
-+	struct viport_trailer *trailer;
-+	struct mc_data *mc_data;
-+	unsigned long flags;
-+	struct ud_recv_io *recv_io = container_of(io, struct ud_recv_io, io);
-+	union ib_gid_cpu sgid;
-+
-+	DATA_FUNCTION("mc_data_recv_routine\n");
-+	skb = recv_io->skb;
-+	grh = (struct ib_grh *)skb->data;
-+	mc_data = &recv_io->io.viport->mc_data;
-+
-+	ib_dma_unmap_single(recv_io->io.viport->config->ibdev,
-+			    recv_io->skb_data_dma, recv_io->skb->len,
-+			    DMA_FROM_DEVICE);
-+
-+	/* first - check if we've got our own mc packet  */
-+	/* convert sgid from host to cpu form before comparing */
-+	bswap_ib_gid(&grh->sgid, &sgid);
-+	if (cpu_to_be64(sgid.global.interface_id) ==
-+		io->viport->config->path_info.path.sgid.global.interface_id) {
-+		DATA_ERROR("dropping - our mc packet\n");
-+		dev_kfree_skb(skb);
-+	} else {
-+		/* GRH is at head and trailer at end. Remove GRH from head.  */
-+		trailer = (struct viport_trailer *)
-+				(skb->data + recv_io->len -
-+				 sizeof(struct viport_trailer));
-+		skb_pull(skb, sizeof(struct ib_grh));
-+		if (trailer->connection_hash_and_valid & CHV_VALID) {
-+			mc_data_recv_to_skbuff(io->viport, skb, trailer);
-+			vnic_recv_packet(io->viport->vnic, io->viport->parent,
-+					skb);
-+			vnic_multicast_recv_pkt_stats(io->viport->vnic);
-+		} else {
-+			DATA_ERROR("dropping - no CHV_VALID in HashAndValid\n");
-+			dev_kfree_skb(skb);
-+		}
-+	}
-+	recv_io->skb = NULL;
-+	if (mc_data_alloc_skb(recv_io, mc_data->skb_len, 0))
-+		return;
-+
-+	spin_lock_irqsave(&mc_data->recv_lock, flags);
-+	list_add_tail(&recv_io->io.list_ptrs, &mc_data->avail_recv_ios_list);
-+	spin_unlock_irqrestore(&mc_data->recv_lock, flags);
-+	mc_data_post_recvs(mc_data);
-+	return;
-+}
-+
-+static void mc_data_recv_to_skbuff(struct viport *viport, struct sk_buff *skb,
-+				   struct viport_trailer *trailer)
-+{
-+	u8 rx_chksum_flags = trailer->rx_chksum_flags;
-+
-+	/* drop alignment bytes at start */
-+	skb_pull(skb, trailer->data_alignment_offset);
-+	/* drop excess from end */
-+	skb_trim(skb, __be16_to_cpu(trailer->data_length));
-+
-+	if ((rx_chksum_flags & RX_CHKSUM_FLAGS_LOOPBACK)
-+	    || ((rx_chksum_flags & RX_CHKSUM_FLAGS_IP_CHECKSUM_SUCCEEDED)
-+		&& ((rx_chksum_flags & RX_CHKSUM_FLAGS_TCP_CHECKSUM_SUCCEEDED)
-+		    || (rx_chksum_flags &
-+			RX_CHKSUM_FLAGS_UDP_CHECKSUM_SUCCEEDED))))
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	else
-+		skb->ip_summed = CHECKSUM_NONE;
-+
-+	if ((trailer->pkt_flags & PF_VLAN_INSERT) &&
-+	    !(viport->features_supported & VNIC_FEAT_IGNORE_VLAN)) {
-+		u8 *rv;
-+
-+		/* insert VLAN id between source & length */
-+		DATA_INFO("VLAN adjustment\n");
-+		rv = skb_push(skb, 4);
-+		memmove(rv, rv + 4, 12);
-+		*(__be16 *) (rv + 12) = __constant_cpu_to_be16(ETH_P_8021Q);
-+		if (trailer->pkt_flags & PF_PVID_OVERRIDDEN)
-+		/*
-+		 *  Indicates VLAN is 0 but we keep the protocol id.
-+		 */
-+			*(__be16 *) (rv + 14) = trailer->vlan &
-+					__constant_cpu_to_be16(0xF000);
-+		else
-+			*(__be16 *) (rv + 14) = trailer->vlan;
-+		DATA_INFO("vlan:%x\n", *(int *)(rv+14));
-+	}
-+
-+    return;
-+}
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_data.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_data.h
-new file mode 100644
-index 0000000..ad77aa9
---- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_data.h
-@@ -0,0 +1,206 @@
-+/*
-+ * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef VNIC_DATA_H_INCLUDED
-+#define VNIC_DATA_H_INCLUDED
-+
++#include <linux/netdevice.h>
++#include <linux/string.h>
++#include <linux/utsname.h>
 +#include <linux/if_vlan.h>
 +
-+#ifdef CONFIG_INFINIBAND_QLGC_VNIC_STATS
-+#include <linux/timex.h>
-+#endif	/* CONFIG_INFINIBAND_QLGC_VNIC_STATS */
++#include <rdma/ib_cache.h>
 +
-+#include "vnic_ib.h"
-+#include "vnic_control_pkt.h"
++#include "vnic_util.h"
++#include "vnic_config.h"
 +#include "vnic_trailer.h"
++#include "vnic_main.h"
 +
-+struct rdma_dest {
-+	struct list_head	list_ptrs;
-+	struct sk_buff		*skb;
-+	u8			*data;
-+	struct viport_trailer	*trailer __attribute__((aligned(32)));
-+};
++u16 vnic_max_mtu = MAX_MTU;
 +
-+struct buff_pool_entry {
-+	__be64	remote_addr;
-+	__be32	rkey;
-+	u32	valid;
-+};
++static u32 default_no_path_timeout = DEFAULT_NO_PATH_TIMEOUT;
++static u32 sa_path_rec_get_timeout = SA_PATH_REC_GET_TIMEOUT;
++static u32 default_primary_reconnect_timeout =
++				    DEFAULT_PRIMARY_RECONNECT_TIMEOUT;
++static u32 default_primary_switch_timeout = DEFAULT_PRIMARY_SWITCH_TIMEOUT;
++static int default_prefer_primary         = DEFAULT_PREFER_PRIMARY;
 +
-+struct recv_pool {
-+	u32			buffer_sz;
-+	u32			pool_sz;
-+	u32			eioc_pool_sz;
-+	u32	 		eioc_rdma_rkey;
-+	u64 			eioc_rdma_addr;
-+	u32 			next_full_buf;
-+	u32 			next_free_buf;
-+	u32 			num_free_bufs;
-+	u32 			num_posted_bufs;
-+	u32 			sz_free_bundle;
-+	int			kick_on_free;
-+	struct buff_pool_entry	*buf_pool;
-+	dma_addr_t		buf_pool_dma;
-+	int			buf_pool_len;
-+	struct rdma_dest	*recv_bufs;
-+	struct list_head	avail_recv_bufs;
-+};
++static int use_rx_csum = VNIC_USE_RX_CSUM;
++static int use_tx_csum = VNIC_USE_TX_CSUM;
 +
-+struct xmit_pool {
-+	u32			buffer_sz;
-+	u32 			pool_sz;
-+	u32 			notify_count;
-+	u32 			notify_bundle;
-+	u32 			next_xmit_buf;
-+	u32 			last_comp_buf;
-+	u32 			num_xmit_bufs;
-+	u32 			next_xmit_pool;
-+	u32 			kick_count;
-+	u32 			kick_byte_count;
-+	u32 			kick_bundle;
-+	u32 			kick_byte_bundle;
-+	int			need_buffers;
-+	int			send_kicks;
-+	uint32_t 		rdma_rkey;
-+	u64 			rdma_addr;
-+	struct buff_pool_entry	*buf_pool;
-+	dma_addr_t		buf_pool_dma;
-+	int			buf_pool_len;
-+	struct rdma_io		*xmit_bufs;
-+	u8			*xmit_data;
-+	dma_addr_t		xmitdata_dma;
-+	int			xmitdata_len;
-+};
++static u32 control_response_timeout = CONTROL_RSP_TIMEOUT;
++static u32 completion_limit = DEFAULT_COMPLETION_LIMIT;
 +
-+struct data {
-+	struct viport			*parent;
-+	struct data_config		*config;
-+	struct ib_mr			*mr;
-+	struct vnic_ib_conn		ib_conn;
-+	u8				*local_storage;
-+	struct vnic_recv_pool_config	host_pool_parms;
-+	struct vnic_recv_pool_config	eioc_pool_parms;
-+	struct recv_pool		recv_pool;
-+	struct xmit_pool		xmit_pool;
-+	u8				*region_data;
-+	dma_addr_t			region_data_dma;
-+	struct rdma_io			free_bufs_io;
-+	struct send_io			kick_io;
-+	struct list_head		recv_ios;
-+	spinlock_t			recv_ios_lock;
-+	spinlock_t			xmit_buf_lock;
-+	int				kick_timer_on;
-+	int				connected;
-+	u16				max_mtu;
-+	struct timer_list		kick_timer;
-+	struct completion		done;
-+#ifdef CONFIG_INFINIBAND_QLGC_VNIC_STATS
-+	struct {
-+		u32		xmit_num;
-+		u32		recv_num;
-+		u32		free_buf_sends;
-+		u32		free_buf_num;
-+		u32		free_buf_min;
-+		u32		kick_recvs;
-+		u32		kick_reqs;
-+		u32		no_xmit_bufs;
-+		cycles_t	no_xmit_buf_time;
-+	} statistics;
-+#endif	/* CONFIG_INFINIBAND_QLGC_VNIC_STATS */
-+};
++module_param(vnic_max_mtu, ushort, 0444);
++MODULE_PARM_DESC(vnic_max_mtu, "Maximum MTU size (1500-9500). Default is 9500");
 +
-+struct mc_data {
-+    struct viport           *parent;
-+    struct data_config      *config;
-+    struct ib_mr            *mr;
-+    struct vnic_ib_conn     ib_conn;
++module_param(default_prefer_primary, bool, 0444);
++MODULE_PARM_DESC(default_prefer_primary, "Determines if primary path is"
++		 " preferred (1) or not (0). Defaults to 0");
++module_param(use_rx_csum, bool, 0444);
++MODULE_PARM_DESC(use_rx_csum, "Determines if RX checksum is done on VEx (1)"
++		 " or not (0). Defaults to 1");
++module_param(use_tx_csum, bool, 0444);
++MODULE_PARM_DESC(use_tx_csum, "Determines if TX checksum is done on VEx (1)"
++		 " or not (0). Defaults to 1");
++module_param(default_no_path_timeout, uint, 0444);
++MODULE_PARM_DESC(default_no_path_timeout, "Time to wait in milliseconds"
++		 " before reconnecting to VEx after connection loss");
++module_param(default_primary_reconnect_timeout, uint, 0444);
++MODULE_PARM_DESC(default_primary_reconnect_timeout,  "Time to wait in"
++		 " milliseconds before reconnecting the"
++		 " primary path to VEx");
++module_param(default_primary_switch_timeout, uint, 0444);
++MODULE_PARM_DESC(default_primary_switch_timeout, "Time to wait before"
++		 " switching back to primary path if"
++		 " primary path is preferred");
++module_param(sa_path_rec_get_timeout, uint, 0444);
++MODULE_PARM_DESC(sa_path_rec_get_timeout, "Time out value in milliseconds"
++		 " for SA path record get queries");
 +
-+    u32                     num_recvs;
-+    u32                     skb_len;
-+    spinlock_t              recv_lock;
-+    int                     recv_len;
-+    struct ud_recv_io      *recv_ios;
-+    struct list_head        avail_recv_ios_list;
-+};
++module_param(control_response_timeout, uint, 0444);
++MODULE_PARM_DESC(control_response_timeout, "Time out value in milliseconds"
++		 " to wait for response to control requests");
 +
-+int data_init(struct data *data, struct viport *viport,
-+	      struct data_config *config, struct ib_pd *pd);
++module_param(completion_limit, uint, 0444);
++MODULE_PARM_DESC(completion_limit, "Maximum completions to process"
++		" in a single completion callback invocation. Default is 100"
++		" Minimum value is 10");
 +
-+int  data_connect(struct data *data);
-+void data_connected(struct data *data);
-+void data_disconnect(struct data *data);
++static void config_control_defaults(struct control_config *control_config,
++				    struct path_param *params)
++{
++	int len;
++	char *dot;
++	u64 sid;
 +
-+int data_xmit_packet(struct data *data, struct sk_buff *skb);
++	sid = (SST_AGN << 56) | (SST_OUI << 32) | (CONTROL_PATH_ID << 8)
++	      |	IOC_NUMBER(be64_to_cpu(params->ioc_guid));
 +
-+void data_cleanup(struct data *data);
++	control_config->ib_config.service_id = cpu_to_be64(sid);
++	control_config->ib_config.conn_data.path_id = 0;
++	control_config->ib_config.conn_data.vnic_instance = params->instance;
++	control_config->ib_config.conn_data.path_num = 0;
++	control_config->ib_config.conn_data.features_supported =
++			__constant_cpu_to_be32((u32) (VNIC_FEAT_IGNORE_VLAN |
++						      VNIC_FEAT_RDMA_IMMED));
++	dot = strchr(init_utsname()->nodename, '.');
 +
-+#define data_is_connected(data)		\
-+	(vnic_ib_conn_connected(&((data)->ib_conn)))
-+#define data_path_id(data)		(data)->config->path_id
-+#define data_eioc_pool(data)		&(data)->eioc_pool_parms
-+#define data_host_pool(data)		&(data)->host_pool_parms
-+#define data_eioc_pool_min(data)	&(data)->config->eioc_min
-+#define data_host_pool_min(data)	&(data)->config->host_min
-+#define data_eioc_pool_max(data)	&(data)->config->eioc_max
-+#define data_host_pool_max(data)	&(data)->config->host_max
-+#define data_local_pool_addr(data)	(data)->xmit_pool.rdma_addr
-+#define data_local_pool_rkey(data)	(data)->xmit_pool.rdma_rkey
-+#define data_remote_pool_addr(data)	&(data)->recv_pool.eioc_rdma_addr
-+#define data_remote_pool_rkey(data)	&(data)->recv_pool.eioc_rdma_rkey
++	if (dot)
++		len = dot - init_utsname()->nodename;
++	else
++		len = strlen(init_utsname()->nodename);
 +
-+#define data_max_mtu(data)		(data)->max_mtu
++	if (len > VNIC_MAX_NODENAME_LEN)
++		len = VNIC_MAX_NODENAME_LEN;
++
++	memcpy(control_config->ib_config.conn_data.nodename,
++					init_utsname()->nodename, len);
++
++	if (params->ib_multicast == 1)
++		control_config->ib_multicast = 1;
++	else if (params->ib_multicast == 0)
++		control_config->ib_multicast = 0;
++	else {
++		/* parameter is not set - enable it by default */
++		control_config->ib_multicast = 1;
++		CONFIG_ERROR("IOCGUID=%llx INSTANCE=%d IB_MULTICAST defaulted"
++					" to TRUE\n", params->ioc_guid,
++					(char)params->instance);
++	}
++
++	if (control_config->ib_multicast)
++		control_config->ib_config.conn_data.features_supported |=
++			__constant_cpu_to_be32(VNIC_FEAT_INBOUND_IB_MC);
++
++	control_config->ib_config.retry_count = RETRY_COUNT;
++	control_config->ib_config.rnr_retry_count = RETRY_COUNT;
++	control_config->ib_config.min_rnr_timer = MIN_RNR_TIMER;
++
++	/* These values are not configurable*/
++	control_config->ib_config.num_recvs    = 5;
++	control_config->ib_config.num_sends    = 1;
++	control_config->ib_config.recv_scatter = 1;
++	control_config->ib_config.send_gather  = 1;
++	control_config->ib_config.completion_limit = completion_limit;
++
++	control_config->num_recvs = control_config->ib_config.num_recvs;
++
++	control_config->vnic_instance = params->instance;
++	control_config->max_address_entries = MAX_ADDRESS_ENTRIES;
++	control_config->min_address_entries = MIN_ADDRESS_ENTRIES;
++	control_config->rsp_timeout = msecs_to_jiffies(control_response_timeout);
++}
++
++static void config_data_defaults(struct data_config *data_config,
++				 struct path_param *params)
++{
++	u64 sid;
++
++	sid = (SST_AGN << 56) | (SST_OUI << 32) | (DATA_PATH_ID << 8)
++	      |	IOC_NUMBER(be64_to_cpu(params->ioc_guid));
++
++	data_config->ib_config.service_id = cpu_to_be64(sid);
++	data_config->ib_config.conn_data.path_id = jiffies; /* random */
++	data_config->ib_config.conn_data.vnic_instance = params->instance;
++	data_config->ib_config.conn_data.path_num = 0;
++
++	data_config->ib_config.retry_count = RETRY_COUNT;
++	data_config->ib_config.rnr_retry_count = RETRY_COUNT;
++	data_config->ib_config.min_rnr_timer = MIN_RNR_TIMER;
++
++	/*
++	 * NOTE: the num_recvs size assumes that the EIOC could
++	 * RDMA enough packets to fill all of the host recv
++	 * pool entries, plus send a kick message after each
++	 * packet, plus RDMA new buffers for the size of
++	 * the EIOC recv buffer pool, plus send kick messages
++	 * after each min_host_update_sz of new buffers all
++	 * before the host can even pull off the first completed
++	 * receive off the completion queue, and repost the
++	 * receive. NOT LIKELY!
++	 */
++	data_config->ib_config.num_recvs = HOST_RECV_POOL_ENTRIES +
++	    (MAX_EIOC_POOL_SZ / MIN_HOST_UPDATE_SZ);
++
++	data_config->ib_config.num_sends = (2 * NOTIFY_BUNDLE_SZ) +
++	    (HOST_RECV_POOL_ENTRIES / MIN_EIOC_UPDATE_SZ) + 1;
++
++	data_config->ib_config.recv_scatter = 1; /* not configurable */
++	data_config->ib_config.send_gather = 2;	 /* not configurable */
++	data_config->ib_config.completion_limit = completion_limit;
++
++	data_config->num_recvs = data_config->ib_config.num_recvs;
++	data_config->path_id = data_config->ib_config.conn_data.path_id;
 +
 +
-+#define data_len(data, trailer)		be16_to_cpu(trailer->data_length)
-+#define data_offset(data, trailer)					\
-+	((data)->recv_pool.buffer_sz - sizeof(struct viport_trailer)	\
-+	- ALIGN(data_len((data), (trailer)), VIPORT_TRAILER_ALIGNMENT)	\
-+	+ (trailer->data_alignment_offset))
++	data_config->host_recv_pool_entries = HOST_RECV_POOL_ENTRIES;
 +
-+/* the following macros manipulate ring buffer indexes.
-+ * the ring buffer size must be a power of 2.
-+ */
-+#define ADD(index, increment, size)	(((index) + (increment))&((size) - 1))
-+#define NEXT(index, size)		ADD(index, 1, size)
-+#define INC(index, increment, size)	(index) = ADD(index, increment, size)
++	data_config->host_min.size_recv_pool_entry =
++			cpu_to_be32(BUFFER_SIZE(VLAN_ETH_HLEN + MIN_MTU));
++	data_config->host_max.size_recv_pool_entry =
++			cpu_to_be32(BUFFER_SIZE(VLAN_ETH_HLEN + vnic_max_mtu));
++	data_config->eioc_min.size_recv_pool_entry =
++			cpu_to_be32(BUFFER_SIZE(VLAN_ETH_HLEN + MIN_MTU));
++	data_config->eioc_max.size_recv_pool_entry =
++			__constant_cpu_to_be32(MAX_PARAM_VALUE);
 +
-+/* this is max multicast msg embedded will send */
-+#define MCAST_MSG_SIZE \
-+		(2048 - sizeof(struct ib_grh) - sizeof(struct viport_trailer))
++	data_config->host_min.num_recv_pool_entries =
++				__constant_cpu_to_be32(MIN_HOST_POOL_SZ);
++	data_config->host_max.num_recv_pool_entries =
++				__constant_cpu_to_be32(MAX_PARAM_VALUE);
++	data_config->eioc_min.num_recv_pool_entries =
++				__constant_cpu_to_be32(MIN_EIOC_POOL_SZ);
++	data_config->eioc_max.num_recv_pool_entries =
++				__constant_cpu_to_be32(MAX_EIOC_POOL_SZ);
 +
-+int mc_data_init(struct mc_data *mc_data, struct viport *viport,
-+	struct data_config *config,
-+	struct ib_pd *pd);
++	data_config->host_min.timeout_before_kick =
++			__constant_cpu_to_be32(MIN_HOST_KICK_TIMEOUT);
++	data_config->host_max.timeout_before_kick =
++			__constant_cpu_to_be32(MAX_HOST_KICK_TIMEOUT);
++	data_config->eioc_min.timeout_before_kick = 0;
++	data_config->eioc_max.timeout_before_kick =
++			__constant_cpu_to_be32(MAX_PARAM_VALUE);
 +
-+void mc_data_cleanup(struct mc_data *mc_data);
++	data_config->host_min.num_recv_pool_entries_before_kick =
++			__constant_cpu_to_be32(MIN_HOST_KICK_ENTRIES);
++	data_config->host_max.num_recv_pool_entries_before_kick =
++			__constant_cpu_to_be32(MAX_HOST_KICK_ENTRIES);
++	data_config->eioc_min.num_recv_pool_entries_before_kick = 0;
++	data_config->eioc_max.num_recv_pool_entries_before_kick =
++				__constant_cpu_to_be32(MAX_PARAM_VALUE);
 +
-+#endif	/* VNIC_DATA_H_INCLUDED */
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_trailer.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_trailer.h
++	data_config->host_min.num_recv_pool_bytes_before_kick =
++			__constant_cpu_to_be32(MIN_HOST_KICK_BYTES);
++	data_config->host_max.num_recv_pool_bytes_before_kick =
++			__constant_cpu_to_be32(MAX_HOST_KICK_BYTES);
++	data_config->eioc_min.num_recv_pool_bytes_before_kick = 0;
++	data_config->eioc_max.num_recv_pool_bytes_before_kick =
++				__constant_cpu_to_be32(MAX_PARAM_VALUE);
++
++	data_config->host_min.free_recv_pool_entries_per_update =
++				__constant_cpu_to_be32(MIN_HOST_UPDATE_SZ);
++	data_config->host_max.free_recv_pool_entries_per_update =
++				__constant_cpu_to_be32(MAX_HOST_UPDATE_SZ);
++	data_config->eioc_min.free_recv_pool_entries_per_update =
++				__constant_cpu_to_be32(MIN_EIOC_UPDATE_SZ);
++	data_config->eioc_max.free_recv_pool_entries_per_update =
++				__constant_cpu_to_be32(MAX_EIOC_UPDATE_SZ);
++
++	data_config->notify_bundle = NOTIFY_BUNDLE_SZ;
++}
++
++static void config_path_info_defaults(struct viport_config *config,
++				      struct path_param *params)
++{
++	int i;
++	ib_get_cached_gid(config->ibdev, config->port, 0,
++			  &config->path_info.path.sgid);
++	for (i = 0; i < 16; i++)
++		config->path_info.path.dgid.raw[i] = params->dgid[i];
++
++	config->path_info.path.pkey = params->pkey;
++	config->path_info.path.numb_path = 1;
++	config->sa_path_rec_get_timeout = sa_path_rec_get_timeout;
++
++}
++
++static void config_viport_defaults(struct viport_config *config,
++				      struct path_param *params)
++{
++	config->ibdev = params->ibdev;
++	config->port = params->port;
++	config->ioc_guid = params->ioc_guid;
++	config->stats_interval = msecs_to_jiffies(VIPORT_STATS_INTERVAL);
++	config->hb_interval = msecs_to_jiffies(VIPORT_HEARTBEAT_INTERVAL);
++	config->hb_timeout = VIPORT_HEARTBEAT_TIMEOUT * 1000;
++				/*hb_timeout needs to be in usec*/
++	strcpy(config->ioc_string, params->ioc_string);
++	config_path_info_defaults(config, params);
++
++	config_control_defaults(&config->control_config, params);
++	config_data_defaults(&config->data_config, params);
++}
++
++static void config_vnic_defaults(struct vnic_config *config)
++{
++	config->no_path_timeout = msecs_to_jiffies(default_no_path_timeout);
++	config->primary_connect_timeout =
++	    msecs_to_jiffies(DEFAULT_PRIMARY_CONNECT_TIMEOUT);
++	config->primary_reconnect_timeout =
++	    msecs_to_jiffies(default_primary_reconnect_timeout);
++	config->primary_switch_timeout =
++	    msecs_to_jiffies(default_primary_switch_timeout);
++	config->prefer_primary = default_prefer_primary;
++	config->use_rx_csum = use_rx_csum;
++	config->use_tx_csum = use_tx_csum;
++}
++
++struct viport_config *config_alloc_viport(struct path_param *params)
++{
++	struct viport_config *config;
++
++	config = kzalloc(sizeof *config, GFP_KERNEL);
++	if (!config) {
++		CONFIG_ERROR("could not allocate memory for"
++			     " struct viport_config\n");
++		return NULL;
++	}
++
++	config_viport_defaults(config, params);
++
++	return config;
++}
++
++struct vnic_config *config_alloc_vnic(void)
++{
++	struct vnic_config *config;
++
++	config = kzalloc(sizeof *config, GFP_KERNEL);
++	if (!config) {
++		CONFIG_ERROR("couldn't allocate memory for"
++			     " struct vnic_config\n");
++
++		return NULL;
++	}
++
++	config_vnic_defaults(config);
++	return config;
++}
++
++char *config_viport_name(struct viport_config *config)
++{
++	/* function only called by one thread, can return a static string */
++	static char str[64];
++
++	sprintf(str, "GUID %llx instance %d",
++		be64_to_cpu(config->ioc_guid),
++		config->control_config.vnic_instance);
++	return str;
++}
++
++int config_start(void)
++{
++	vnic_max_mtu = min_t(u16, vnic_max_mtu, MAX_MTU);
++	vnic_max_mtu = max_t(u16, vnic_max_mtu, MIN_MTU);
++
++	sa_path_rec_get_timeout = min_t(u32, sa_path_rec_get_timeout,
++					MAX_SA_TIMEOUT);
++	sa_path_rec_get_timeout = max_t(u32, sa_path_rec_get_timeout,
++					MIN_SA_TIMEOUT);
++
++	control_response_timeout = min_t(u32, control_response_timeout,
++					 MAX_CONTROL_RSP_TIMEOUT);
++
++	control_response_timeout = max_t(u32, control_response_timeout,
++					 MIN_CONTROL_RSP_TIMEOUT);
++
++	completion_limit	 = max_t(u32, completion_limit,
++					 MIN_COMPLETION_LIMIT);
++
++	if (!default_no_path_timeout)
++		default_no_path_timeout = DEFAULT_NO_PATH_TIMEOUT;
++
++	if (!default_primary_reconnect_timeout)
++		default_primary_reconnect_timeout =
++					 DEFAULT_PRIMARY_RECONNECT_TIMEOUT;
++
++	if (!default_primary_switch_timeout)
++		default_primary_switch_timeout =
++					DEFAULT_PRIMARY_SWITCH_TIMEOUT;
++
++	return 0;
++
++}
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_config.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_config.h
 new file mode 100644
-index 0000000..dd8a073
+index 0000000..c5b00b9
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_trailer.h
-@@ -0,0 +1,103 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_config.h
+@@ -0,0 +1,242 @@
 +/*
 + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
@@ -1769,74 +462,213 @@ index 0000000..dd8a073
 + * SOFTWARE.
 + */
 +
-+#ifndef VNIC_TRAILER_H_INCLUDED
-+#define VNIC_TRAILER_H_INCLUDED
++#ifndef VNIC_CONFIG_H_INCLUDED
++#define VNIC_CONFIG_H_INCLUDED
 +
-+/* pkt_flags values */
++#include <rdma/ib_verbs.h>
++#include <linux/types.h>
++#include <linux/if.h>
++
++#include "vnic_control.h"
++#include "vnic_ib.h"
++
++#define SST_AGN         0x10ULL
++#define SST_OUI         0x00066AULL
++
 +enum {
-+	PF_CHASH_VALID		= 0x01,
-+	PF_IPSEC_VALID		= 0x02,
-+	PF_TCP_SEGMENT		= 0x04,
-+	PF_KICK			= 0x08,
-+	PF_VLAN_INSERT		= 0x10,
-+	PF_PVID_OVERRIDDEN 	= 0x20,
-+	PF_FCS_INCLUDED 	= 0x40,
-+	PF_FORCE_ROUTE		= 0x80
++	CONTROL_PATH_ID = 0x0,
++	DATA_PATH_ID    = 0x1
 +};
 +
-+/* tx_chksum_flags values */
++#define IOC_NUMBER(GUID)        (((GUID) >> 32) & 0xFF)
++
 +enum {
-+	TX_CHKSUM_FLAGS_CHECKSUM_V4	= 0x01,
-+	TX_CHKSUM_FLAGS_CHECKSUM_V6	= 0x02,
-+	TX_CHKSUM_FLAGS_TCP_CHECKSUM	= 0x04,
-+	TX_CHKSUM_FLAGS_UDP_CHECKSUM	= 0x08,
-+	TX_CHKSUM_FLAGS_IP_CHECKSUM	= 0x10
++	VNIC_CLASS_SUBCLASS	= 0x2000066A,
++	VNIC_PROTOCOL		= 0,
++	VNIC_PROT_VERSION	= 1
 +};
 +
-+/* rx_chksum_flags values */
 +enum {
-+	RX_CHKSUM_FLAGS_TCP_CHECKSUM_FAILED	= 0x01,
-+	RX_CHKSUM_FLAGS_UDP_CHECKSUM_FAILED	= 0x02,
-+	RX_CHKSUM_FLAGS_IP_CHECKSUM_FAILED	= 0x04,
-+	RX_CHKSUM_FLAGS_TCP_CHECKSUM_SUCCEEDED	= 0x08,
-+	RX_CHKSUM_FLAGS_UDP_CHECKSUM_SUCCEEDED	= 0x10,
-+	RX_CHKSUM_FLAGS_IP_CHECKSUM_SUCCEEDED	= 0x20,
-+	RX_CHKSUM_FLAGS_LOOPBACK		= 0x40,
-+	RX_CHKSUM_FLAGS_RESERVED		= 0x80
++	MIN_MTU	= 1500,	/* minimum negotiated MTU size */
++	MAX_MTU	= 9500	/* jumbo frame */
 +};
 +
-+/* connection_hash_and_valid values */
++/*
++ * TODO: tune the pool parameter values
++ */
 +enum {
-+	CHV_VALID	= 0x80,
-+	CHV_HASH_MASH	= 0x7f
++	MIN_ADDRESS_ENTRIES = 16,
++	MAX_ADDRESS_ENTRIES = 64
 +};
 +
-+struct viport_trailer {
-+	s8	data_alignment_offset;
-+	u8	rndis_header_length;	/* reserved for use by edp */
-+	__be16	data_length;
-+	u8	pkt_flags;
-+	u8	tx_chksum_flags;
-+	u8	rx_chksum_flags;
-+	u8	ip_sec_flags;
-+	u32	tcp_seq_no;
-+	u32	ip_sec_offload_handle;
-+	u32	ip_sec_next_offload_handle;
-+	u8	dest_mac_addr[6];
-+	__be16	vlan;
-+	u16	time_stamp;
-+	u8	origin;
-+	u8	connection_hash_and_valid;
++enum {
++	HOST_RECV_POOL_ENTRIES	= 512,
++	MIN_HOST_POOL_SZ	= 64,
++	MIN_EIOC_POOL_SZ	= 64,
++	MAX_EIOC_POOL_SZ	= 256,
++	MIN_HOST_UPDATE_SZ	= 8,
++	MAX_HOST_UPDATE_SZ	= 32,
++	MIN_EIOC_UPDATE_SZ	= 8,
++	MAX_EIOC_UPDATE_SZ	= 32,
++	NOTIFY_BUNDLE_SZ	= 32
 +};
 +
-+#define VIPORT_TRAILER_ALIGNMENT	32
++enum {
++	MIN_HOST_KICK_TIMEOUT = 10,	/* in usec */
++	MAX_HOST_KICK_TIMEOUT = 100	/* in usec */
++};
 +
-+#define BUFFER_SIZE(len)					\
-+	(sizeof(struct viport_trailer) +			\
-+	 ALIGN((len), VIPORT_TRAILER_ALIGNMENT))
++enum {
++	MIN_HOST_KICK_ENTRIES = 1,
++	MAX_HOST_KICK_ENTRIES = 128
++};
 +
-+#define MAX_PAYLOAD(len)					\
-+	ALIGN_DOWN((len) - sizeof(struct viport_trailer),	\
-+		   VIPORT_TRAILER_ALIGNMENT)
++enum {
++	MIN_HOST_KICK_BYTES = 0,
++	MAX_HOST_KICK_BYTES = 5000
++};
 +
-+#endif	/* VNIC_TRAILER_H_INCLUDED */
++enum {
++	DEFAULT_NO_PATH_TIMEOUT			= 10000,
++	DEFAULT_PRIMARY_CONNECT_TIMEOUT		= 10000,
++	DEFAULT_PRIMARY_RECONNECT_TIMEOUT	= 10000,
++	DEFAULT_PRIMARY_SWITCH_TIMEOUT		= 10000
++};
++
++enum {
++	VIPORT_STATS_INTERVAL		= 500,	/* .5 sec */
++	VIPORT_HEARTBEAT_INTERVAL	= 1000,	/* 1 second */
++	VIPORT_HEARTBEAT_TIMEOUT	= 64000	/* 64 sec */
++};
++
++enum {
++	/* 5 sec increased for EVIC support for large number of
++	 * host connections
++	 */
++	CONTROL_RSP_TIMEOUT		= 5000,
++	MIN_CONTROL_RSP_TIMEOUT		= 1000,	/* 1  sec */
++	MAX_CONTROL_RSP_TIMEOUT		= 60000	/* 60 sec */
++};
++
++/* Maximum number of completions to be processed
++ * during a single completion callback invocation
++ */
++enum {
++	DEFAULT_COMPLETION_LIMIT 	= 100,
++	MIN_COMPLETION_LIMIT		= 10
++};
++
++/* infiniband connection parameters */
++enum {
++	RETRY_COUNT		= 3,
++	MIN_RNR_TIMER		= 22,	/* 20 ms */
++	DEFAULT_PKEY		= 0	/* pkey table index */
++};
++
++enum {
++	SA_PATH_REC_GET_TIMEOUT	= 1000,	/* 1000 ms */
++	MIN_SA_TIMEOUT		= 100,	/* 100 ms */
++	MAX_SA_TIMEOUT		= 20000	/* 20s */
++};
++
++#define MAX_PARAM_VALUE                 0x40000000
++#define VNIC_USE_RX_CSUM		1
++#define VNIC_USE_TX_CSUM		1
++#define	DEFAULT_PREFER_PRIMARY		0
++
++/* As per IBTA specification, IOCString Maximum length can be 512 bits. */
++#define MAX_IOC_STRING_LEN 		(512/8)
++
++struct path_param {
++	__be64			ioc_guid;
++	u8			ioc_string[MAX_IOC_STRING_LEN+1];
++	u8			port;
++	u8			instance;
++	struct ib_device	*ibdev;
++	struct vnic_ib_port	*ibport;
++	char			name[IFNAMSIZ];
++	u8			dgid[16];
++	__be16			pkey;
++	int			rx_csum;
++	int			tx_csum;
++	int			heartbeat;
++	int			ib_multicast;
++};
++
++struct vnic_ib_config {
++	__be64				service_id;
++	struct vnic_connection_data	conn_data;
++	u32				retry_count;
++	u32				rnr_retry_count;
++	u8				min_rnr_timer;
++	u32				num_sends;
++	u32				num_recvs;
++	u32				recv_scatter;	/* 1 */
++	u32				send_gather;	/* 1 or 2 */
++	u32				completion_limit;
++};
++
++struct control_config {
++	struct vnic_ib_config	ib_config;
++	u32			num_recvs;
++	u8			vnic_instance;
++	u16			max_address_entries;
++	u16			min_address_entries;
++	u32			rsp_timeout;
++	u32			ib_multicast;
++};
++
++struct data_config {
++	struct vnic_ib_config		ib_config;
++	u64				path_id;
++	u32				num_recvs;
++	u32				host_recv_pool_entries;
++	struct vnic_recv_pool_config	host_min;
++	struct vnic_recv_pool_config	host_max;
++	struct vnic_recv_pool_config	eioc_min;
++	struct vnic_recv_pool_config	eioc_max;
++	u32				notify_bundle;
++};
++
++struct viport_config {
++	struct viport			*viport;
++	struct control_config		control_config;
++	struct data_config		data_config;
++	struct vnic_ib_path_info	path_info;
++	u32				sa_path_rec_get_timeout;
++	struct ib_device		*ibdev;
++	u32				port;
++	u32				stats_interval;
++	u32				hb_interval;
++	u32				hb_timeout;
++	__be64				ioc_guid;
++	u8				ioc_string[MAX_IOC_STRING_LEN+1];
++	size_t				path_idx;
++};
++
++/*
++ * primary_connect_timeout   - if the secondary connects first,
++ *                             how long do we give the primary?
++ * primary_reconnect_timeout - same as above, but used when recovering
++ *                             from the case where both paths fail
++ * primary_switch_timeout -    how long do we wait before switching to the
++ *                             primary when it comes back?
++ */
++struct vnic_config {
++	struct vnic	*vnic;
++	char		name[IFNAMSIZ];
++	u32		no_path_timeout;
++	u32 		primary_connect_timeout;
++	u32		primary_reconnect_timeout;
++	u32		primary_switch_timeout;
++	int		prefer_primary;
++	int		use_rx_csum;
++	int		use_tx_csum;
++};
++
++int config_start(void);
++struct viport_config *config_alloc_viport(struct path_param *params);
++struct vnic_config   *config_alloc_vnic(void);
++char *config_viport_name(struct viport_config *config);
++
++#endif	/* VNIC_CONFIG_H_INCLUDED */
