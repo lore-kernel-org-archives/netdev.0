@@ -1,44 +1,37 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 6/6] [BNX2]: Update version to 1.7.5.
-Date: Wed, 30 Apr 2008 15:52:20 -0700
-Message-ID: <1209595940.7941.65.camel@dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] net: ipv6 build fix
+Date: Wed, 30 Apr 2008 14:48:35 -0700 (PDT)
+Message-ID: <20080430.144835.25064746.davem@davemloft.net>
+References: <20080430.013138.157977693.davem@davemloft.net>
+	<20080430203839.GA19203@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: benli@broadcom.com, andy@greyhouse.net
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2141 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758649AbYD3VsO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2008 17:48:14 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53358
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758372AbYD3Vsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:48:36 -0400
+In-Reply-To: <20080430203839.GA19203@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[BNX2]: Update version to 1.7.5.
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 30 Apr 2008 22:38:39 +0200
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> hi David,
+> 
+> * David Miller <davem@davemloft.net> wrote:
+> 
+> >       net: Several cleanups for the setsockopt compat support.
+> >       net: Add compat support for getsockopt (MCAST_MSFILTER)
+> 
+> this broke !COMPAT builds in current -git. Fix below. NOTE: fix is just 
+> a quick guess.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 90621c7..252797f 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -56,8 +56,8 @@
- 
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.7.4"
--#define DRV_MODULE_RELDATE	"February 18, 2008"
-+#define DRV_MODULE_VERSION	"1.7.5"
-+#define DRV_MODULE_RELDATE	"April 29, 2008"
- 
- #define RUN_AT(x) (jiffies + (x))
- 
--- 
-1.5.5.GIT
-
-
-
+I know, Pavel posted a fix to netdev already which I'll push to
+Linus.
