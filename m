@@ -1,57 +1,75 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [net-2.6 patch 2/2][NETNS] Fix reassembly timer to use the right namespace
-Date: Wed, 30 Apr 2008 23:31:15 +0200
-Message-ID: <20080430213322.234776390@localhost.localdomain>
-References: <20080430213113.410541118@localhost.localdomain>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 1/6][BNX2]: Refine remote PHY locking.
+Date: Wed, 30 Apr 2008 15:50:29 -0700
+Message-ID: <1209595829.7941.60.camel@dell>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: benli@broadcom.com, andy@greyhouse.net
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:46282 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759419AbYD3Vdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:33:43 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate8.de.ibm.com (8.13.8/8.13.8) with ESMTP id m3ULXgOn107772
-	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 21:33:42 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3ULXgWh4337898
-	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 23:33:42 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3ULXfSG015493
-	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 23:33:41 +0200
-Content-Disposition: inline; filename=fix-reassembly-timer.patch
+Received: from mms1.broadcom.com ([216.31.210.17]:3235 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758693AbYD3Vqk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2008 17:46:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This trivial fix retrieves the network namespace from frag queue
-and use it to get the network device in the right namespace.
+[BNX2]: Refine remote PHY locking.
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+bnx2_set_remote_link() should be called under bp->phy_lock to protect
+against concurrent polling and interrupt calls.  This change is needed
+by the next patch which will add one initial poll of the remote PHY
+link status.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
 ---
- net/ipv6/reassembly.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/bnx2.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-Index: net-2.6/net/ipv6/reassembly.c
-===================================================================
---- net-2.6.orig/net/ipv6/reassembly.c
-+++ net-2.6/net/ipv6/reassembly.c
-@@ -197,6 +197,7 @@ static void ip6_frag_expire(unsigned lon
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 15853be..284dda2 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -1715,7 +1715,6 @@ bnx2_remote_phy_event(struct bnx2 *bp)
+ 				break;
+ 		}
+ 
+-		spin_lock(&bp->phy_lock);
+ 		bp->flow_ctrl = 0;
+ 		if ((bp->autoneg & (AUTONEG_SPEED | AUTONEG_FLOW_CTRL)) !=
+ 		    (AUTONEG_SPEED | AUTONEG_FLOW_CTRL)) {
+@@ -1737,7 +1736,6 @@ bnx2_remote_phy_event(struct bnx2 *bp)
+ 		if (old_port != bp->phy_port)
+ 			bnx2_set_default_link(bp);
+ 
+-		spin_unlock(&bp->phy_lock);
+ 	}
+ 	if (bp->link_up != link_up)
+ 		bnx2_report_link(bp);
+@@ -2445,14 +2443,15 @@ bnx2_phy_event_is_set(struct bnx2 *bp, struct bnx2_napi *bnapi, u32 event)
+ static void
+ bnx2_phy_int(struct bnx2 *bp, struct bnx2_napi *bnapi)
  {
- 	struct frag_queue *fq;
- 	struct net_device *dev = NULL;
-+	struct net *net;
+-	if (bnx2_phy_event_is_set(bp, bnapi, STATUS_ATTN_BITS_LINK_STATE)) {
+-		spin_lock(&bp->phy_lock);
++	spin_lock(&bp->phy_lock);
++
++	if (bnx2_phy_event_is_set(bp, bnapi, STATUS_ATTN_BITS_LINK_STATE))
+ 		bnx2_set_link(bp);
+-		spin_unlock(&bp->phy_lock);
+-	}
+ 	if (bnx2_phy_event_is_set(bp, bnapi, STATUS_ATTN_BITS_TIMER_ABORT))
+ 		bnx2_set_remote_link(bp);
  
- 	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
++	spin_unlock(&bp->phy_lock);
++
+ }
  
-@@ -207,7 +208,8 @@ static void ip6_frag_expire(unsigned lon
- 
- 	fq_kill(fq);
- 
--	dev = dev_get_by_index(&init_net, fq->iif);
-+	net = container_of(fq->q.net, struct net, ipv6.frags);
-+	dev = dev_get_by_index(net, fq->iif);
- 	if (!dev)
- 		goto out;
- 
-
+ static inline u16
 -- 
+1.5.5.GIT
+
+
+
