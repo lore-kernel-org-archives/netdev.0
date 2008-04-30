@@ -1,62 +1,74 @@
-From: Bernard Pidoux <bpidoux@free.fr>
-Subject: [PATCH] Wrong list_lock argument in rose_node seqops
-Date: Wed, 30 Apr 2008 22:08:56 +0200
-Message-ID: <200804302208.56925.bpidoux@free.fr>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: [patch] net: ipv6 build fix
+Date: Wed, 30 Apr 2008 22:38:39 +0200
+Message-ID: <20080430203839.GA19203@elte.hu>
+References: <20080430.013138.157977693.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-hams" <linux-hams@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g19.free.fr ([212.27.42.35]:41503 "EHLO smtp5-g19.free.fr"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:52418 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757301AbYD3UJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2008 16:09:01 -0400
+	id S1758672AbYD3Uiz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2008 16:38:55 -0400
 Content-Disposition: inline
+In-Reply-To: <20080430.013138.157977693.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In rose_node_start() as well as in rose_node_stop()
-__acquires() and spin_lock_bh() were wrongly passing
-rose_neigh_list_lock instead of rose_node_list_lock arguments.
 
-Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+hi David,
+
+* David Miller <davem@davemloft.net> wrote:
+
+>       net: Several cleanups for the setsockopt compat support.
+>       net: Add compat support for getsockopt (MCAST_MSFILTER)
+
+this broke !COMPAT builds in current -git. Fix below. NOTE: fix is just 
+a quick guess.
+
+	Ingo
+
+----------------------->
+Subject: net: ipv6 build fix
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed Apr 30 22:32:09 CEST 2008
+
+x86.git testing found the following build error on -git:
+
+  ERROR: "compat_mc_getsockopt" [net/ipv6/ipv6.ko] undefined!
+
+with this config:
+
+  http://redhat.com/~mingo/misc/config-Wed_Apr_30_22_23_37_CEST_2008.bad
+
+this hits on !COMPAT + IPV6 modular builds. It is caused by commit
+42908c69f6 ("net: Add compat support for getsockopt (MCAST_MSFILTER)").
+
+this fix here is just a quick guess - i _suspect_ that
+do_ipv6_getsockopt() will just DTRT and return -EINVAL but i
+havent checked. It obviously solves the build issue.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
 ---
- net/rose/rose_route.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ net/ipv6/ipv6_sockglue.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
-index 5053a53..bd59387 100644
---- a/net/rose/rose_route.c
-+++ b/net/rose/rose_route.c
-@@ -1066,12 +1066,12 @@ out:
- #ifdef CONFIG_PROC_FS
+Index: linux/net/ipv6/ipv6_sockglue.c
+===================================================================
+--- linux.orig/net/ipv6/ipv6_sockglue.c
++++ linux/net/ipv6/ipv6_sockglue.c
+@@ -1089,9 +1089,11 @@ int ipv6_getsockopt(struct sock *sk, int
+ 	if(level != SOL_IPV6)
+ 		return -ENOPROTOOPT;
  
- static void *rose_node_start(struct seq_file *seq, loff_t *pos)
--	__acquires(rose_neigh_list_lock)
-+	__acquires(rose_node_list_lock)
- {
- 	struct rose_node *rose_node;
- 	int i = 1;
++#ifdef CONFIG_COMPAT
+ 	if (optname == MCAST_MSFILTER)
+ 		return compat_mc_getsockopt(sk, level, optname, optval, optlen,
+ 			ipv6_getsockopt);
++#endif
  
--	spin_lock_bh(&rose_neigh_list_lock);
-+	spin_lock_bh(&rose_node_list_lock);
- 	if (*pos == 0)
- 		return SEQ_START_TOKEN;
- 
-@@ -1090,9 +1090,9 @@ static void *rose_node_next(struct seq_file *seq, void *v, loff_t *pos)
- }
- 
- static void rose_node_stop(struct seq_file *seq, void *v)
--	__releases(rose_neigh_list_lock)
-+	__releases(rose_node_list_lock)
- {
--	spin_unlock_bh(&rose_neigh_list_lock);
-+	spin_unlock_bh(&rose_node_list_lock);
- }
- 
- static int rose_node_show(struct seq_file *seq, void *v)
--- 
-1.5.5
-
+ 	err = do_ipv6_getsockopt(sk, level, optname, optval, optlen);
+ #ifdef CONFIG_NETFILTER
