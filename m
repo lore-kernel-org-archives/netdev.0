@@ -1,48 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][IPv4] UFO: prevent generation of chained skb
-Date: Tue, 29 Apr 2008 22:37:47 -0700 (PDT)
-Message-ID: <20080429.223747.211215854.davem@davemloft.net>
-References: <BAY121-W44CAF03A4C79BFC4FEEEBDB6DE0@phx.gbl>
-	<20080429.032714.263350536.davem@davemloft.net>
-	<20080429120713.GA19937@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/5] e1000e: Allow TSO to trickle down to
+	VLAN device
+Date: Wed, 30 Apr 2008 08:54:37 +0200
+Message-ID: <481817AD.1010306@trash.net>
+References: <20080414170557.23286.71580.stgit@localhost.localdomain>
+	<20080414170609.23286.42880.stgit@localhost.localdomain>
+	<4803903B.1020100@trash.net> <4807C516.90308@intel.com>
+	<480CA399.50708@trash.net>
+	<D5C1322C3E673F459512FB59E0DDC32904FE0E6B@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bkostya@hotmail.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55594
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751214AbYD3Fhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 01:37:48 -0400
-In-Reply-To: <20080429120713.GA19937@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>, jeff@garzik.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32904FE0E6B@orsmsx414.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 29 Apr 2008 20:07:13 +0800
-
-> On Tue, Apr 29, 2008 at 03:27:14AM -0700, David Miller wrote:
-> >
-> > Mostly this looks fine to me.
-> > 
-> > Herbert, can you take a quick look at this?
+Waskiewicz Jr, Peter P wrote:
+>> In any case I would prefer to avoid having drivers mess with VLAN
+>> device flags. How about adding a device flag indicating that the
+>> driver supports TSO + VLAN acceleration and using the
+>> NETDEV_FEAT_CHANGE notification inside the VLAN code do adjust
+>> the device's flags properly?
 > 
-> Yep looks good to me too.
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> I've been looking into this, and I agree this makes sense when creating
+> a new VLAN to get the device flags to the VLAN device.  However, we need
+> to get the TSO and/or Tx checksum offload feature flags off all VLAN
+> devices when the parent device has it turned off.  I don't see any clean
+> way of doing this with netdev_features_change().  I'd really love to
+> implement this correctly, so if you have any ideas on how to handle this
+> latter case, I'm all ears.  :-)
 
-Applied, thanks everyone.
 
-K, I had to fix up your patch by hand because your email
-client corrupted the patch, changing tabs into space
-characters, and things of that nature.
+Whats the problem with doing:
 
-Also, your patch description had many lines longer than
-80 columns, which I had to fix up as well.
+- on VLAN creation: copy VLAN flag from lower device if lowerdev
+   has NETIF_F_<flag indicating non-broken TSO+VLAN accel>
 
-I'm happy to do this before you are aware of the problem,
-like this time, but now that I've made you aware I will
-push back future patches which have these errors.
+- on change of TSO/checksumming flags of lower device:
+   use netdevice notifier to adjust the settings for all
+   VLANs on that device
 
-Thank you.
+-------------------------------------------------------------------------
+This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
+Don't miss this year's exciting event. There's still time to save $100. 
+Use priority code J8TL2D2. 
+http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
