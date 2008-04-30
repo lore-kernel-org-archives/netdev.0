@@ -1,31 +1,43 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [patch] net: ipv6 build fix
-Date: Wed, 30 Apr 2008 14:17:41 -0700
-Message-ID: <OF82C2A611.73628201-ON8825743B.00745835-8825743B.0074F726@us.ibm.com>
-References: <20080430203839.GA19203@elte.hu>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: 2.6.25-git16 fails with "undefined reference to	`compat_mc_getsockopt'"
+Date: Wed, 30 Apr 2008 23:11:39 +0200
+Message-ID: <4818E08B.4040901@hartkopp.net>
+References: <20080430204622.GA1663@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: akpm@linux-foundation.org, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, torvalds@linux-foundation.org
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Pavel Emelyanov <xemul@openvz.org>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:48007 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758524AbYD3VRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:17:55 -0400
-In-Reply-To: <20080430203839.GA19203@elte.hu>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:34716 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759834AbYD3VWn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:22:43 -0400
+In-Reply-To: <20080430204622.GA1663@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo,
-        That fix is not correct. Pavel Emelyanov posted a
-correct fix to netdev earlier today. Apparently, the context
-matched ipv6_getsockopt() in the split version, but those
-changes belong in compat_ipv6_getsockopt(), as in Pavel's
-fix.
-        Since the original patch was correct, I'm not sure
-if the fix will have the same problem or not.
+Greg KH wrote:
+> Don't know if you have seen this or not, but 2.6.25-gi16 seems to fail
+> with:
+> 	net/built-in.o: In function `ipv6_getsockopt':
+> 	(.text+0x6829c): undefined reference to `compat_mc_getsockopt'
+>
+> I've attached my .config below if that helps any.
+>
+> thanks,
+>
+> greg k-h
+>   
 
-                                        +-DLS
+Hi Greg,
 
+this issue has been already identified and fixed by Pavel Emelyanov:
+
+http://marc.info/?l=linux-netdev&m=120956601217678&w=2
+
+I also had this problem and his fix worked fine for me.
+
+Regards,
+Oliver
