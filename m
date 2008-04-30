@@ -1,37 +1,77 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.25 crash: EIP: [<c02e2f14>] xfrm_output_resume+0x64/0x100 ss:esp 0068:c03a1e5c
-Date: Wed, 30 Apr 2008 23:15:09 +0800
-Message-ID: <E1JrE1V-00082Q-00@gondolin.me.apana.org.au>
-References: <BAY103-DAV11F874912A45144805FC26B2DE0@phx.gbl>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: pupilla@hotmail.com (Marco Berizzi)
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: odd RTL8139 quirk.
+Date: Wed, 30 Apr 2008 08:19:22 -0700
+Message-ID: <20080430081922.0ba98ce8@extreme>
+References: <20080429171403.GA21035@redhat.com>
+ <48177905.4000409@garzik.org>
+ <20080429215626.GC2859@redhat.com>
+ <48179B56.7000606@garzik.org>
+ <20080429153240.7200e1a3.akpm@linux-foundation.org>
+ <4818546C.4060703@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, davej@redhat.com,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59124 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756100AbYD3PPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 11:15:13 -0400
-In-Reply-To: <BAY103-DAV11F874912A45144805FC26B2DE0@phx.gbl>
+Received: from mail.vyatta.com ([216.93.170.194]:37108 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763277AbYD3PT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2008 11:19:27 -0400
+In-Reply-To: <4818546C.4060703@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marco Berizzi <pupilla@hotmail.com> wrote:
-> I know, it is pretty useless this report,
-> but I have nothing more than these bitmaps
-> and the message in the subject :-(
+On Wed, 30 Apr 2008 07:13:48 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
+
+> Andrew Morton wrote:
+> > On Tue, 29 Apr 2008 18:04:06 -0400
+> > Jeff Garzik <jeff@garzik.org> wrote:
+> > 
+> >> Dave Jones wrote:
+> >>> On Tue, Apr 29, 2008 at 03:37:41PM -0400, Jeff Garzik wrote:
+> >>>  > Dave Jones wrote:
+> >>>  > > I've just been playing with a model 2 OQO, which has an RTL8139.
+> >>>  > > It gets detected just fine, though it doesn't actually work..
+> >>>  > > 
+> >>>  > > eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
+> >>>  > > eth0:  Identified 8139 chip type 'RTL-8139'
+> >>>  > > 
+> >>>  > > The null MAC address being one clue.  Another oddity is that
+> >>>  > > ethtool reports that there's no link detected, even though there is.
+> >>>  > > (Enough for it to PXE boot a kernel from at least :)
+> >>>  > > 
+> >>>  > > Futzing with the debug= modparam didn't yield anything extra at all.
+> >>>  > > 
+> >>>  > > Any clues?
+> >>>  > 
+> >>>  > Sounds like a broken EEPROM.  Does supplying a MAC via ifconfig prior to 
+> >>>  > 'ifconfig ... up' help?
+> >>>
+> >>> Ah. This sounds enlightening: http://www.oqotalk.com/index.php/topic,1511.0.html
+> >>> Seems a shame to have to choose PIO vs MMIO for a distro kernel though.
+> >>> Would there be any objection to turning that into a modparam ?
+> >>> (If we wanted to get really fancy, we could even quirk around it automatically
+> >>>  when we detect broken hardware).
+> >> Something like this?  :)
+> >>
+> >> http://www.linux.sgi.com/archives/netdev/2004-11/msg00226.html
+> >>
+> >> It did not go upstream but it needed some init-time bug fixing, IIRC. 
+> >> Maybe akpm remembers more why my patch sucked... :)
+> > 
+> > Apart from its From: address you mean? ;)
+> > 
+> > I can find no record, sorry.
 > 
-> http://80.204.235.230/1.jpg
-> http://80.204.235.230/2.jpg
-> http://80.204.235.230/2.jpg
+> Yeah, it was in -mm for a while (via netdev-2.6.git#ALL most likely), 
+> and a -mm tester reported that it consistently oops for him, or 
+> something along those lines.
+> 
+> You continually (and rightly!) pestered me about it, and I withdrew the 
+> patch from -mm since I didn't have time to futz with it.
 
-Could you please take a better shot of this crash the next time
-it happens? As it is the right-hand-side of the code section is
-missing which makes it hard to determine where exactly it crashed.
-
-Alternatively send me your xfrm_output.o file (or vmlinux).
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Is there any possibility for the driver to discover broken MMIO at runtime?
+Could it look for some portion like mac address or HW_REVID being all zeros or all ones?
