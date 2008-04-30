@@ -1,46 +1,67 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 3/5] e1000e: Allow TSO to trickle down to VLAN device
-Date: Tue, 29 Apr 2008 17:42:48 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32904FE0E6B@orsmsx414.amr.corp.intel.com>
-References: <20080414170557.23286.71580.stgit@localhost.localdomain> <20080414170609.23286.42880.stgit@localhost.localdomain> <4803903B.1020100@trash.net> <4807C516.90308@intel.com> <480CA399.50708@trash.net>
+From: Satoru SATOH <satoru.satoh@gmail.com>
+Subject: [PATCH][IP] Make use of the inline function dst_metric_locked()
+Date: Wed, 30 Apr 2008 10:18:45 +0900
+Message-ID: <4817C8F5.7060101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>,
-	<e1000-devel@lists.sourceforge.net>
-To: "Patrick McHardy" <kaber@trash.net>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:16497 "EHLO mga09.intel.com"
+Received: from mx1.redhat.com ([66.187.233.31]:55680 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755879AbYD3Amr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2008 20:42:47 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <480CA399.50708@trash.net>
+	id S1756470AbYD3BV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2008 21:21:57 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id m3U1Lvrp020415
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 21:21:57 -0400
+Received: from pobox.nrt.redhat.com (pobox.nrt.redhat.com [10.64.255.12])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id m3U1Ltaq004174
+	for <netdev@vger.kernel.org>; Tue, 29 Apr 2008 21:21:56 -0400
+Received: from gescom.nrt.redhat.com (vpn-198-9.nrt.redhat.com [10.64.198.9])
+	by pobox.nrt.redhat.com (8.13.1/8.13.1) with ESMTP id m3U1LsZf007500
+	for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 10:21:54 +0900
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> That was a typo, I meant netdev_features_change(), which is invoked
-> by dev_ethtool() and calls the netdev notifier with 
-> NETDEV_FEAT_CHANGE,
-> on which the VLAN code could react. I wasn't aware of the TSO + VLAN
-> acceleration problems you've mentioned, do you have a pointer to more
-> information about this?
-> 
-> In any case I would prefer to avoid having drivers mess with VLAN
-> device flags. How about adding a device flag indicating that the
-> driver supports TSO + VLAN acceleration and using the
-> NETDEV_FEAT_CHANGE notification inside the VLAN code do adjust
-> the device's flags properly?
+I found some parts inline function dst_metric_locked should be used but
+not.
+The following patch fixes these.
 
-I've been looking into this, and I agree this makes sense when creating
-a new VLAN to get the device flags to the VLAN device.  However, we need
-to get the TSO and/or Tx checksum offload feature flags off all VLAN
-devices when the parent device has it turned off.  I don't see any clean
-way of doing this with netdev_features_change().  I'd really love to
-implement this correctly, so if you have any ideas on how to handle this
-latter case, I'm all ears.  :-)
+Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
 
-Thanks Patrick,
--PJ Waskiewicz
+include/net/ip.h | 2 +-
+net/ipv4/route.c | 2 +-
+2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 6d7bcd5..3b40bc2 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -210,7 +210,7 @@ int ip_dont_fragment(struct sock *sk, struct
+dst_entry *dst)
+{
+return (inet_sk(sk)->pmtudisc == IP_PMTUDISC_DO ||
+(inet_sk(sk)->pmtudisc == IP_PMTUDISC_WANT &&
+- !(dst_metric(dst, RTAX_LOCK)&(1<<RTAX_MTU))));
++ !(dst_metric_locked(dst, RTAX_MTU))));
+}
+
+extern void __ip_select_ident(struct iphdr *iph, struct dst_entry *dst,
+int more);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index ce25a13..2fd69b5 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1607,7 +1607,7 @@ static void rt_set_nexthop(struct rtable *rt,
+struct fib_result *res, u32 itag)
+sizeof(rt->u.dst.metrics));
+if (fi->fib_mtu == 0) {
+rt->u.dst.metrics[RTAX_MTU-1] = rt->u.dst.dev->mtu;
+- if (rt->u.dst.metrics[RTAX_LOCK-1] & (1 << RTAX_MTU) &&
++ if (dst_metric_locked(&rt->u.dst, RTAX_MTU) &&
+rt->rt_gateway != rt->rt_dst &&
+rt->u.dst.dev->mtu > 576)
+rt->u.dst.metrics[RTAX_MTU-1] = 576;
+
+
+
