@@ -1,77 +1,85 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: odd RTL8139 quirk.
-Date: Wed, 30 Apr 2008 08:19:22 -0700
-Message-ID: <20080430081922.0ba98ce8@extreme>
-References: <20080429171403.GA21035@redhat.com>
- <48177905.4000409@garzik.org>
- <20080429215626.GC2859@redhat.com>
- <48179B56.7000606@garzik.org>
- <20080429153240.7200e1a3.akpm@linux-foundation.org>
- <4818546C.4060703@garzik.org>
+From: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC/RFT 4/4] mac80211: use multi-queue master netdevice
+Date: Wed, 30 Apr 2008 17:34:10 +0200
+Message-ID: <200804301734.11804.IvDoorn@gmail.com>
+References: <20080430124055.091382000@sipsolutions.net> <1209566743.18659.30.camel@johannes.berg> <1209567609.18659.33.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, davej@redhat.com,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:37108 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763277AbYD3PT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2008 11:19:27 -0400
-In-Reply-To: <4818546C.4060703@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ron Rindjunsky <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1209567609.18659.33.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Apr 2008 07:13:48 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
+Hi,
 
-> Andrew Morton wrote:
-> > On Tue, 29 Apr 2008 18:04:06 -0400
-> > Jeff Garzik <jeff@garzik.org> wrote:
-> > 
-> >> Dave Jones wrote:
-> >>> On Tue, Apr 29, 2008 at 03:37:41PM -0400, Jeff Garzik wrote:
-> >>>  > Dave Jones wrote:
-> >>>  > > I've just been playing with a model 2 OQO, which has an RTL8139.
-> >>>  > > It gets detected just fine, though it doesn't actually work..
-> >>>  > > 
-> >>>  > > eth0: RealTek RTL8139 at 0xf8830000, 00:00:00:00:00:00, IRQ 18
-> >>>  > > eth0:  Identified 8139 chip type 'RTL-8139'
-> >>>  > > 
-> >>>  > > The null MAC address being one clue.  Another oddity is that
-> >>>  > > ethtool reports that there's no link detected, even though there is.
-> >>>  > > (Enough for it to PXE boot a kernel from at least :)
-> >>>  > > 
-> >>>  > > Futzing with the debug= modparam didn't yield anything extra at all.
-> >>>  > > 
-> >>>  > > Any clues?
-> >>>  > 
-> >>>  > Sounds like a broken EEPROM.  Does supplying a MAC via ifconfig prior to 
-> >>>  > 'ifconfig ... up' help?
-> >>>
-> >>> Ah. This sounds enlightening: http://www.oqotalk.com/index.php/topic,1511.0.html
-> >>> Seems a shame to have to choose PIO vs MMIO for a distro kernel though.
-> >>> Would there be any objection to turning that into a modparam ?
-> >>> (If we wanted to get really fancy, we could even quirk around it automatically
-> >>>  when we detect broken hardware).
-> >> Something like this?  :)
-> >>
-> >> http://www.linux.sgi.com/archives/netdev/2004-11/msg00226.html
-> >>
-> >> It did not go upstream but it needed some init-time bug fixing, IIRC. 
-> >> Maybe akpm remembers more why my patch sucked... :)
-> > 
-> > Apart from its From: address you mean? ;)
-> > 
-> > I can find no record, sorry.
-> 
-> Yeah, it was in -mm for a while (via netdev-2.6.git#ALL most likely), 
-> and a -mm tester reported that it consistently oops for him, or 
-> something along those lines.
-> 
-> You continually (and rightly!) pestered me about it, and I withdrew the 
-> patch from -mm since I didn't have time to futz with it.
+Don't want to spoil the fun, but the following part doesn't compile
+when CONFIG_MAC80211_QOS is not set.
 
-Is there any possibility for the driver to discover broken MMIO at runtime?
-Could it look for some portion like mac address or HW_REVID being all zeros or all ones?
+In the following occurences struct ieee80211_local *local needs to be defined.
+
+>  void ieee80211_start_queues(struct ieee80211_hw *hw)
+>  {
+> -	struct ieee80211_local *local = hw_to_local(hw);
+> +#ifdef CONFIG_MAC80211_QOS
+>  	int i;
+>  
+> -	for (i = 0; i < local->hw.queues; i++)
+> -		clear_bit(IEEE80211_LINK_STATE_XOFF, &local->state[i]);
+> -	if (!ieee80211_qdisc_installed(local->mdev))
+> -		netif_start_queue(local->mdev);
+> +	for (i = 0; i < hw->queues; i++)
+> +		ieee80211_start_queue(hw, i);
+> +#else
+
+	struct ieee80211_local *local = hw_to_local(hw);
+
+> +	netif_start_queue(local->mdev);
+> +#endif
+>  }
+>  EXPORT_SYMBOL(ieee80211_start_queues);
+>  
+>  void ieee80211_stop_queues(struct ieee80211_hw *hw)
+>  {
+> +#ifdef CONFIG_MAC80211_QOS
+>  	int i;
+>  
+>  	for (i = 0; i < hw->queues; i++)
+>  		ieee80211_stop_queue(hw, i);
+> +#else
+
+	struct ieee80211_local *local = hw_to_local(hw);
+
+> +	netif_stop_queue(local->mdev);
+> +#endif
+>  }
+>  EXPORT_SYMBOL(ieee80211_stop_queues);
+>  
+>  void ieee80211_wake_queues(struct ieee80211_hw *hw)
+>  {
+> +#ifdef CONFIG_MAC80211_QOS
+>  	int i;
+>  
+>  	for (i = 0; i < hw->queues; i++)
+>  		ieee80211_wake_queue(hw, i);
+> +#else
+
+	struct ieee80211_local *local = hw_to_local(hw);
+
+> +	netif_wake_queue(local->mdev);
+> +#endif
+>  }
+>  EXPORT_SYMBOL(ieee80211_wake_queues);
+
+Ivo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
