@@ -1,30 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Disable forwarding of LRO skbs
-Date: Wed, 30 Apr 2008 14:58:20 -0700 (PDT)
-Message-ID: <20080430.145820.50450486.davem@davemloft.net>
-References: <20080430214845.GC14219@solarflare.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: 2.6.25-git16 fails with "undefined reference to
+	`compat_mc_getsockopt'"
+Date: Wed, 30 Apr 2008 15:03:15 -0700
+Message-ID: <20080430220315.GA11136@kroah.com>
+References: <20080430204622.GA1663@kroah.com> <20080430.144906.105396672.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kmansley@solarflare.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57476
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753156AbYD3V6V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:58:21 -0400
-In-Reply-To: <20080430214845.GC14219@solarflare.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:51861 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765370AbYD3WD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 18:03:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20080430.144906.105396672.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 30 Apr 2008 22:48:46 +0100
+On Wed, Apr 30, 2008 at 02:49:06PM -0700, David Miller wrote:
+> From: Greg KH <greg@kroah.com>
+> Date: Wed, 30 Apr 2008 13:46:22 -0700
+> 
+> > Don't know if you have seen this or not, but 2.6.25-gi16 seems to fail
+> > with:
+> > 	net/built-in.o: In function `ipv6_getsockopt':
+> > 	(.text+0x6829c): undefined reference to `compat_mc_getsockopt'
+> > 
+> > I've attached my .config below if that helps any.
+> 
+> Known problem and there is a fix pending, sit tight.
 
-> Large Receive Offload (LRO) destroys packet headers that should be
-> preserved when forwarding.  Currently it also triggers a BUG() or WARN()
-> in skb_gso_segment().  We should disable it wherever forwarding is
-> enabled, and discard LRO skbs with a warning if it is turned back on.
+Great, thanks for letting me know and sending the patch to Linus, I
+appreciate it.
 
-Thanks for reposting your work, I'll take a closer look at these
-two patches later today.
+greg k-h
