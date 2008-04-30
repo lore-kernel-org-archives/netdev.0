@@ -1,90 +1,62 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: RE: [RFC/RFT 4/4] mac80211: use multi-queue master netdevice
-Date: Wed, 30 Apr 2008 22:07:27 +0200
-Message-ID: <1209586047.18659.93.camel@johannes.berg>
-References: <20080430124055.091382000@sipsolutions.net>
-	 <20080430130051.397094000@sipsolutions.net>
-	 <D5C1322C3E673F459512FB59E0DDC32904FE144F@orsmsx414.amr.corp.intel.com>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: [PATCH] Wrong list_lock argument in rose_node seqops
+Date: Wed, 30 Apr 2008 22:08:56 +0200
+Message-ID: <200804302208.56925.bpidoux@free.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-IfX5slhbi/cr/hHkbFhB"
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Rindjunsky, Ron" <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32904FE144F-O6kdQIuPh0Q64kNsxIetb7fspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-hams" <linux-hams@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g19.free.fr ([212.27.42.35]:41503 "EHLO smtp5-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757301AbYD3UJB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2008 16:09:01 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+In rose_node_start() as well as in rose_node_stop()
+__acquires() and spin_lock_bh() were wrongly passing
+rose_neigh_list_lock instead of rose_node_list_lock arguments.
 
---=-IfX5slhbi/cr/hHkbFhB
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+---
+ net/rose/rose_route.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index 5053a53..bd59387 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -1066,12 +1066,12 @@ out:
+ #ifdef CONFIG_PROC_FS
+ 
+ static void *rose_node_start(struct seq_file *seq, loff_t *pos)
+-	__acquires(rose_neigh_list_lock)
++	__acquires(rose_node_list_lock)
+ {
+ 	struct rose_node *rose_node;
+ 	int i = 1;
+ 
+-	spin_lock_bh(&rose_neigh_list_lock);
++	spin_lock_bh(&rose_node_list_lock);
+ 	if (*pos == 0)
+ 		return SEQ_START_TOKEN;
+ 
+@@ -1090,9 +1090,9 @@ static void *rose_node_next(struct seq_file *seq, void *v, loff_t *pos)
+ }
+ 
+ static void rose_node_stop(struct seq_file *seq, void *v)
+-	__releases(rose_neigh_list_lock)
++	__releases(rose_node_list_lock)
+ {
+-	spin_unlock_bh(&rose_neigh_list_lock);
++	spin_unlock_bh(&rose_node_list_lock);
+ }
+ 
+ static int rose_node_show(struct seq_file *seq, void *v)
+-- 
+1.5.5
 
-> > +void ieee80211_start_queue(struct ieee80211_hw *hw, int queue)
-> > +{
-> > +	struct ieee80211_local *local =3D hw_to_local(hw);
-> > +#ifdef CONFIG_MAC80211_QOS
-> > +	netif_start_subqueue(local->mdev, queue);
-> > +#else
-> > +	WARN_ON(queue !=3D 0);
-> > +	netif_start_queue(local->mdev);
-> > +#endif
-> > +}
-> > +EXPORT_SYMBOL(ieee80211_start_queue);
-> > +
->=20
-> I would suggest that you enable the netdev feature flag for
-> NETIF_F_MULTI_QUEUE on devices when you create them.  That way you can
-> have things like ieee80211_start_queue() key on that instead of a
-> compile-time option, in case wireless devices come along that won't
-> support multiple queues, if that's possible.=20
-
-Ah. I thought that then I'd just create a device with alloc_mq with a
-single queue.
-
-> If you think this is a decent idea, I'd suggest that any function that
-> has a compile-time check for multiqueue being changed to use the runtime
-> check.  Then in your device setup, where you call netdev_alloc_mq(),
-> there you set the flag NETIF_F_MULTI_QUEUE based on the device features.
-
-Hah, indeed, I don't currently set it at all. Yes, I guess I should do
-it that way.
-
-> Other than that, this patch looks great.  Exciting to see this starting
-> to take flight.
-
-:)
-
-johannes
-
---=-IfX5slhbi/cr/hHkbFhB
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASBjRfqVg1VMiehFYAQKn7A/9F/HBqLJyKCqADyvK255Mw5JmrSvlg461
-HAyS4LxgcvgVRZz8P6EQMzWvSvLC+A2mvuCkgoDtu3jLwmt5w2uLz+zJBxUtAeJN
-pDM0FruiUnzJ4s2YkNRLnn3xePtwVs4HfX99p9ipv3FPAIHRGYnHOHwya/9bpVWD
-LMLPUA3Mc4rOeyzObG2TNEPsFWE1r8XFG9TmGwFN1myxA+DO7evYXLhxFLcw/5qW
-WqGp6lbLsUW3HzhPlPJQkjgjS5Nlb7Fa4RMcmfKRZybmCZefufaVOWVYazTQt9cV
-ozXeUfc7VprfRysWO9pTbib9bVOC+6H+HKyXoZ3Qbn6eoWqQUeHu46L7Qx3rQkH9
-LV9jAlqlUt8eJZSmljH09AP4yeT01mzi+m4CPnVPxvIH/jVNeapNEfxEfwDQUEle
-GAFTEksEBZlDyalXdIIOHs2vovvkkzxFMQmZWlkghSlNGaezRdk0XQGQVabvUTCN
-+LfeitTAY5Esu/jm6c3ytdNF1zwCzaY08MYPjZfigjGIQoShfCFxjPCfbIzmQVL4
-sfp2qgFYR+E7dzZOUpJCXdpAE4TJCD3aTgit9l/oIsLyvIA6bl/nr9CdCLJ28ClF
-NivDO0cbqZGUngs7x5/xeMD4If0eUCIgXpxPa0DjKRpQh7esVkJhXv35luUhVBuE
-8kzSLVYwXX8=
-=mP4V
------END PGP SIGNATURE-----
-
---=-IfX5slhbi/cr/hHkbFhB--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
