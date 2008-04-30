@@ -1,37 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] net: ipv6 build fix
-Date: Wed, 30 Apr 2008 14:48:35 -0700 (PDT)
-Message-ID: <20080430.144835.25064746.davem@davemloft.net>
-References: <20080430.013138.157977693.davem@davemloft.net>
-	<20080430203839.GA19203@elte.hu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 0/2] Disable forwarding of LRO skbs
+Date: Wed, 30 Apr 2008 22:48:46 +0100
+Message-ID: <20080430214845.GC14219@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mingo@elte.hu
+Content-Type: text/plain; charset=us-ascii
+Cc: Kieran Mansley <kmansley@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53358
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758372AbYD3Vsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:48:36 -0400
-In-Reply-To: <20080430203839.GA19203@elte.hu>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:36643 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1760270AbYD3Vs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:48:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Wed, 30 Apr 2008 22:38:39 +0200
+Large Receive Offload (LRO) destroys packet headers that should be
+preserved when forwarding.  Currently it also triggers a BUG() or WARN()
+in skb_gso_segment().  We should disable it wherever forwarding is
+enabled, and discard LRO skbs with a warning if it is turned back on.
 
-> 
-> hi David,
-> 
-> * David Miller <davem@davemloft.net> wrote:
-> 
-> >       net: Several cleanups for the setsockopt compat support.
-> >       net: Add compat support for getsockopt (MCAST_MSFILTER)
-> 
-> this broke !COMPAT builds in current -git. Fix below. NOTE: fix is just 
-> a quick guess.
+Ben.
 
-I know, Pavel posted a fix to netdev already which I'll push to
-Linus.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
