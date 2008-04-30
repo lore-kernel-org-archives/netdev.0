@@ -1,90 +1,75 @@
-From: Bruce Robson <bns_robson@hotmail.com>
-Subject: [PATCH] drivers/net  EtherExpress 16 : IPv6 not working with this
- driver
-Date: Wed, 30 Apr 2008 19:39:45 +0100
-Message-ID: <4818BCF1.9030100@hotmail.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [RFC/RFT 4/4] mac80211: use multi-queue master netdevice
+Date: Wed, 30 Apr 2008 12:39:04 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32904FE144F@orsmsx414.amr.corp.intel.com>
+References: <20080430124055.091382000@sipsolutions.net> <20080430130051.397094000@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Philip Blundell <philb@gnu.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bnsrobson.cjb.net ([82.69.45.180]:44637 "EHLO
-	advance9.bnsrobson.cjb.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764200AbYD3TWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 15:22:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Rindjunsky, Ron" <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Ivo van Doorn" <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20080430130051.397094000-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Bruce Robson <bns_robson@hotmail.com>
+> --- everything.orig/net/mac80211/util.c	2008-04-30 
+> 14:02:31.000000000 +0200
+> +++ everything/net/mac80211/util.c	2008-04-30 
+> 14:20:06.000000000 +0200
+> @@ -323,18 +323,28 @@ __le16 ieee80211_ctstoself_duration(stru
+>  }
+>  EXPORT_SYMBOL(ieee80211_ctstoself_duration);
+>  
+> +void ieee80211_start_queue(struct ieee80211_hw *hw, int queue)
+> +{
+> +	struct ieee80211_local *local = hw_to_local(hw);
+> +#ifdef CONFIG_MAC80211_QOS
+> +	netif_start_subqueue(local->mdev, queue);
+> +#else
+> +	WARN_ON(queue != 0);
+> +	netif_start_queue(local->mdev);
+> +#endif
+> +}
+> +EXPORT_SYMBOL(ieee80211_start_queue);
+> +
 
-Corrects loading of multi-cast addresses.
-Thereby allowing IPv6 neighbour discovery to work.
+I would suggest that you enable the netdev feature flag for
+NETIF_F_MULTI_QUEUE on devices when you create them.  That way you can
+have things like ieee80211_start_queue() key on that instead of a
+compile-time option, in case wireless devices come along that won't
+support multiple queues, if that's possible.  So something like this:
 
-Signed-off-by: Bruce Robson <bns_robson@hotmail.com>
++void ieee80211_start_queue(struct ieee80211_hw *hw, int queue)
++{
++	struct ieee80211_local *local = hw_to_local(hw);
++	if (netif_is_multiqueue(local->mdev) {
++		netif_start_subqueue(local->mdev, queue);
++	} else {
++		WARN_ON(queue != 0);
++		netif_start_queue(local->mdev);
++	}
++}
++EXPORT_SYMBOL(ieee80211_start_queue);
++
 
----
+If you think this is a decent idea, I'd suggest that any function that
+has a compile-time check for multiqueue being changed to use the runtime
+check.  Then in your device setup, where you call netdev_alloc_mq(),
+there you set the flag NETIF_F_MULTI_QUEUE based on the device features.
 
-The driver sources file eexpress.c contains an approximately 30 line
-function eexp_setup_filter used when loading multicast addresses.
-There were 3 problems in this function
-1)  It wrote the number of multicast addresses to the card instead
-    of the number of bytes in the multicast addresses.
-2)  When loading multiple multicast addresses it loaded the first
-    one provided multiple times instead of loading each one once.
-3)  The setting of pointer 'data' from 'dmi->dmi_addr' occured before
-    the test for the error situation of 'dmi' being NULL.
+Other than that, this patch looks great.  Exciting to see this starting
+to take flight.
 
-There is some information on the Intel EtherExpress 16 at
-http://www.intel.com/support/etherexpress/vintage/sb/cs-013500.htm
-Datasheet for the Intel 82586 ethernet controller used by the card
-http://www.datasheetcatalog.com/datasheets_pdf/8/2/5/8/82586.shtml
-
-
---- drivers/net/eexpress.c.000	2008-01-24 22:58:37.000000000 +0000
-+++ drivers/net/eexpress.c	2008-04-30 00:17:51.000000000 +0100
-@@ -201,9 +201,9 @@ static unsigned short start_code[] = {
- 
- 	0x0000,Cmd_MCast,
- 	0x0076,                 /* link to next command */
- #define CONF_NR_MULTICAST 0x44
--	0x0000,                 /* number of multicast addresses */
-+	0x0000,                 /* number of bytes in multicast address(es) */
- #define CONF_MULTICAST 0x46
- 	0x0000, 0x0000, 0x0000, /* some addresses */
- 	0x0000, 0x0000, 0x0000,
- 	0x0000, 0x0000, 0x0000,
-@@ -1568,9 +1568,9 @@ static void eexp_hw_init586(struct net_d
- }
- 
- static void eexp_setup_filter(struct net_device *dev)
- {
--	struct dev_mc_list *dmi = dev->mc_list;
-+	struct dev_mc_list *dmi;
- 	unsigned short ioaddr = dev->base_addr;
- 	int count = dev->mc_count;
- 	int i;
- 	if (count > 8) {
-@@ -1579,19 +1579,20 @@ static void eexp_setup_filter(struct net
- 		count = 8;
- 	}
- 
- 	outw(CONF_NR_MULTICAST & ~31, ioaddr+SM_PTR);
--	outw(count, ioaddr+SHADOW(CONF_NR_MULTICAST));
--	for (i = 0; i < count; i++) {
--		unsigned short *data = (unsigned short *)dmi->dmi_addr;
-+	outw(6*count, ioaddr+SHADOW(CONF_NR_MULTICAST));
-+	for (i = 0, dmi = dev->mc_list; i < count; i++, dmi = dmi->next) {
-+		unsigned short *data;
- 		if (!dmi) {
- 			printk(KERN_INFO "%s: too few multicast addresses\n", dev->name);
- 			break;
- 		}
- 		if (dmi->dmi_addrlen != ETH_ALEN) {
- 			printk(KERN_INFO "%s: invalid multicast address length given.\n", dev->name);
- 			continue;
- 		}
-+		data = (unsigned short *)dmi->dmi_addr;
- 		outw((CONF_MULTICAST+(6*i)) & ~31, ioaddr+SM_PTR);
- 		outw(data[0], ioaddr+SHADOW(CONF_MULTICAST+(6*i)));
- 		outw((CONF_MULTICAST+(6*i)+2) & ~31, ioaddr+SM_PTR);
- 		outw(data[1], ioaddr+SHADOW(CONF_MULTICAST+(6*i)+2));
+Cheers,
+-PJ Waskiewicz
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
