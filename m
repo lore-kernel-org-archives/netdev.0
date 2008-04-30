@@ -1,114 +1,41 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked
-	version of Tomasz's patch set
-Date: Wed, 30 Apr 2008 08:53:32 +0100
-Message-ID: <20080430075332.GA4277@gerrit.erg.abdn.ac.uk>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804222230.25743.tomasz@grobelny.oswiecenia.net> <20080428131047.GB14346@gerrit.erg.abdn.ac.uk> <200804282303.40673.tomasz@grobelny.oswiecenia.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Overflow bug in Vegas
+Date: Wed, 30 Apr 2008 01:06:27 -0700 (PDT)
+Message-ID: <20080430.010627.236416568.davem@davemloft.net>
+References: <aa7d2c6d0804091357i10aa16f8sf8d99dbaaa7f0542@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: lachlan.andrew@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35860 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756434AbYD3Hxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2008 03:53:53 -0400
-Content-Disposition: inline
-In-Reply-To: <200804282303.40673.tomasz@grobelny.oswiecenia.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47873
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755261AbYD3IG3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 04:06:29 -0400
+In-Reply-To: <aa7d2c6d0804091357i10aa16f8sf8d99dbaaa7f0542@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > | > So we can reduce this to the other question "is 32 bit enough for
-| > | > priority information".
-| > |
-| > | That is an important question. But I'm afraid the answer is no (even
-| > | though I thought otherwise when writing previous mail). When we want to
-| > | add packet expiry times we will need a field for timestamp. Which is
-| > | quite big (64 bits?). But note that it is only needed for in-kernel
-| > | implemetation. Userspace can write this information on as low as 16 bits.
-| > | This leads me to conclusions stated below.
-| >
-| > I had the same thoughts - it is easy to end up with a wide range of
-| > possible structs, numbers, etc. that are not related and require 20
-| > different APIs.
-| For now I can think of three possible solutions:
-| a) one structure per policy (of course only if additional data is needed),
-| b) one structure that could contain parameters from all possible policies 
-| (that would mean that not all fields are used),
-| c) allow qpolicy to use each cmsg header as different parameter. So that apart 
-| from DCCP_SCM_PRIORITY we could also have DCCP_SCM_TIMEOUT_MS. And this seems 
-| to be a very nice approach. It has several advantages:
-|  - extensible,
-|  - application does not need to pass parameter if it is ok with default value. 
-| It could for example pass only DCCP_SCM_TIMEOUT_MS without DCCP_SCM_PRIORITY,
-|  - it is easy to maintain compatibility.
-| This series of parameters should be parsed by specific qpolicy that can make 
-| use of them (read: prio). Other policies (read: simple) would not even 
-| attempt to parse the list of parameters.
-| 
-I think (c) is best, here is what I'd support.
+From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
+Date: Wed, 9 Apr 2008 13:57:23 -0700
 
- 1. Using different DCCP_SCM_xxx is definitively okay:
-    the cmsg_type is `int', so there is more than enough room.
+> Greetings all,
+> 
+> There is an overflow bug in  net/ipv4/tcp_vegas.c  for large BDPs
+> (e.g. 400Mbit/s, 400ms).
+> The multiplication  (old_wnd * vegas->baseRTT) << V_PARAM_SHIFT
+> overflows a  u32.
+> 
+> The attached patch relative to 2.6.25-rc7 fixes that.
+> 
+> (No-one would ever use Vegas on a path like that, but it will affect
+> algorithms derived from the Vegas code.  I found the bug while testing
+> the Linux port of Microsoft's Compound TCP, from
+> <http://netlab.caltech.edu/lachlan/ctcp/>.  That patch is derived from
+> Angelo Castellani's which used the Vegas code.)
 
- 2. I want to make the relationship between DCCP_SCM_xxx and the type passed
-    as parameter explicit, i.e.
+tcp_veno.c had similar calculations, so I fixed those up too when
+I applied your patch.
 
-    - each DCCP_SCM_xxx has exactly one parameter type associated with it
-      (e.g. DCCP_SCM_PRIORITY => uint32_t);
-
-    - it is okay to associate the same parameter type with several
-      different DCCP_SCM_xxx,but not ok to allow one DCCP_SCM_xxx to be
-      associated with more than one parameter type or parameter length;
-
-    - so that there is no confusion about the type of the parameters.
-
- 3. Parsing and interpreting parameters to be kept separate, i.e. the qpolicy 
-    routines read skb fields which have either been set from cmsg ancillary 
-    data to sendmsg() or are otherwise initialised to default values. 
-
-
-| > Also in (2) is the size question. The bottom line is if 2^32-1 different
-| > numbers are sufficient to represent a range of policies, then we can
-| > work with skb->priority for the moment.
-| >
-| > My understanding of the above is
-| >  * the per-policy data is an opaque bitstring whose only requirement
-| >    is that it fits within 32 bits;
-| >  * how the bitstring is interpreted depends on the chosen policy;
-| You mean data passed between userspace and kernelspace or in-kernel storage? 
-| 1. For user to kernel data for me seems to be not expressive enough. Who knows 
-| what these 32-bits are supposed to mean? Ok, we may document that but to me 
-| it is almost like passing void*: you never know what's inside.
-To me this means that you agree with (2) above. 
-With (2) in place, the question does not arise.
-
-| 2. For in-kernel storage 32-bits is simply not enough for priority+timeout.
-Ok, but this is a separate question and it is about a yet non-existing policy.
-
-So far there is a "priority" policy, for which I think we agree that 32
-bits are enough.
-
-Then there is a yet non-existing "timeout" policy, which has no associated
-field yet. If we can assume that e.g. the skb->tstamp field can be used
-to store timeouts, then there are separate fields associated with separate
-policies.
-
-And both associated parameters can be parsed differently, in particular
-there is no requirement to restrict DCCP_SCM_TIMEOUT to use 32 bits - it
-could even pass a struct timeval or struct timespec.
-
-Thirdly, there is the aggregate policy "priority+timeout", which can
-then use both skb->priority and skb->tstamp. 
-
-I.e. to answer the question, I think it is best to implement "timeout" first,
-solve the problems it brings up; when that is done, "priority+timeout" will
-be easy to do - it could be constructed just out of the existing functions
-defined for "priority" and "timeout".
-
-In that manner, other policies can be modularly constructed - for instance
-by combining "timeout" with a different form of the "priority" policy.
-
-
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
-
+Thanks.
