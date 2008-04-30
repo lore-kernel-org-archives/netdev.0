@@ -1,59 +1,53 @@
-From: "Grant Likely" <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] [POWERPC] mpc5200: Allow for fixed speed MII configurations
-Date: Wed, 30 Apr 2008 07:26:26 -0600
-Message-ID: <fa686aa40804300626v41828f64oc3d0d88ff5954825@mail.gmail.com>
-References: <20080429230620.11248.25729.stgit@trillian.secretlab.ca>
-	 <1209540962.18445.8.camel@gentoo-jocke.transmode.se>
-	 <fa686aa40804300607k72ef9985m43b3c4111cad6085@mail.gmail.com>
-	 <1209561053.16926.2.camel@gentoo-jocke.transmode.se>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][IPV6]: Compilation fix for compat MCAST_MSFILTER sockopts.
+Date: Wed, 30 Apr 2008 17:36:31 +0400
+Message-ID: <481875DF.2020401@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, linuxppc-dev@ozlabs.org, paulus@samba.org,
-	netdev@vger.kernel.org, wd@denx.de, domen.puncer@telargo.com
-To: joakim.tjernlund@transmode.se
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.251]:28683 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754256AbYD3N01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 09:26:27 -0400
-Received: by an-out-0708.google.com with SMTP id d40so107313and.103
-        for <netdev@vger.kernel.org>; Wed, 30 Apr 2008 06:26:26 -0700 (PDT)
-In-Reply-To: <1209561053.16926.2.camel@gentoo-jocke.transmode.se>
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:55874 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754486AbYD3N7t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2008 09:59:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 30, 2008 at 7:10 AM, Joakim Tjernlund
-<joakim.tjernlund@transmode.se> wrote:
->
->
->  On Wed, 2008-04-30 at 07:07 -0600, Grant Likely wrote:
->  > On Wed, Apr 30, 2008 at 1:36 AM, Joakim Tjernlund
->  > <joakim.tjernlund@transmode.se> wrote:
->  > >
->  > >  On Tue, 2008-04-29 at 17:06 -0600, Grant Likely wrote:
->  > >  > From: Grant Likely <grant.likely@secretlab.ca>
->  > >  >
->  > >  > Various improvements for configuring the MPC5200 MII link from the
->  > >  > device tree:
->  > >  > * Look for 'current-speed' property for fixed speed MII links
->  > >
->  > >  Not that I have looked, but why can't you use the fixed-link property?
->  >
->  > fixed-link seems to be a recent invention, whereas current-speed is
->  > better know having already been in use with serial devices.  It seemed
->  > to me to be a better choice, but my opinion can probably be swayed
->  > (arguments welcome).
->
->  yes it is fairly new. You get alot more than just speed: Duplex/Pause
->  You need these too.
+The last hunk from the commit dae50295 (ipv4/ipv6 compat: Fix SSM
+applications on 64bit kernels.) escaped from the compat_ipv6_setsockopt
+to the ipv6_getsockopt (I guess due to patch smartness wrt searching
+for context) thus breaking 32-bit and 64-bit-without-compat compilation.
 
-duplex I've got.  pause I don't need.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Cheers,
-g.
+---
 
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index b4a26f2..56d55fe 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -1089,10 +1089,6 @@ int ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 	if(level != SOL_IPV6)
+ 		return -ENOPROTOOPT;
+ 
+-	if (optname == MCAST_MSFILTER)
+-		return compat_mc_getsockopt(sk, level, optname, optval, optlen,
+-			ipv6_getsockopt);
+-
+ 	err = do_ipv6_getsockopt(sk, level, optname, optval, optlen);
+ #ifdef CONFIG_NETFILTER
+ 	/* we need to exclude all possible ENOPROTOOPTs except default case */
+@@ -1131,6 +1127,10 @@ int compat_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 	if (level != SOL_IPV6)
+ 		return -ENOPROTOOPT;
+ 
++	if (optname == MCAST_MSFILTER)
++		return compat_mc_getsockopt(sk, level, optname, optval, optlen,
++			ipv6_getsockopt);
++
+ 	err = do_ipv6_getsockopt(sk, level, optname, optval, optlen);
+ #ifdef CONFIG_NETFILTER
+ 	/* we need to exclude all possible ENOPROTOOPTs except default case */
