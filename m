@@ -1,29 +1,31 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 0/2] Disable forwarding of LRO skbs
-Date: Wed, 30 Apr 2008 22:48:46 +0100
-Message-ID: <20080430214845.GC14219@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.25-git16 fails with "undefined reference to
+ `compat_mc_getsockopt'"
+Date: Wed, 30 Apr 2008 14:49:06 -0700 (PDT)
+Message-ID: <20080430.144906.105396672.davem@davemloft.net>
+References: <20080430204622.GA1663@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kieran Mansley <kmansley@solarflare.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:36643 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1760270AbYD3Vs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:48:56 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53362
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1762108AbYD3VtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:49:08 -0400
+In-Reply-To: <20080430204622.GA1663@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Large Receive Offload (LRO) destroys packet headers that should be
-preserved when forwarding.  Currently it also triggers a BUG() or WARN()
-in skb_gso_segment().  We should disable it wherever forwarding is
-enabled, and discard LRO skbs with a warning if it is turned back on.
+From: Greg KH <greg@kroah.com>
+Date: Wed, 30 Apr 2008 13:46:22 -0700
 
-Ben.
+> Don't know if you have seen this or not, but 2.6.25-gi16 seems to fail
+> with:
+> 	net/built-in.o: In function `ipv6_getsockopt':
+> 	(.text+0x6829c): undefined reference to `compat_mc_getsockopt'
+> 
+> I've attached my .config below if that helps any.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Known problem and there is a fix pending, sit tight.
