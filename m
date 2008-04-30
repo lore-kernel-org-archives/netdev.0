@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.25-git16 fails with "undefined reference to
- `compat_mc_getsockopt'"
-Date: Wed, 30 Apr 2008 14:49:06 -0700 (PDT)
-Message-ID: <20080430.144906.105396672.davem@davemloft.net>
-References: <20080430204622.GA1663@kroah.com>
+Subject: Re: [PATCH][IPV6]: Compilation fix for compat MCAST_MSFILTER
+ sockopts.
+Date: Wed, 30 Apr 2008 14:50:28 -0700 (PDT)
+Message-ID: <20080430.145028.58393157.davem@davemloft.net>
+References: <481875DF.2020401@openvz.org>
+	<OF3F5D943F.5B85126C-ON8825743B.004ED1BA-8825743B.004F51C2@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: greg@kroah.com
+Cc: xemul@openvz.org, netdev@vger.kernel.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53362
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53366
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762108AbYD3VtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:49:08 -0400
-In-Reply-To: <20080430204622.GA1663@kroah.com>
+	by vger.kernel.org with ESMTP id S933168AbYD3Vu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 17:50:29 -0400
+In-Reply-To: <OF3F5D943F.5B85126C-ON8825743B.004ED1BA-8825743B.004F51C2@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg@kroah.com>
-Date: Wed, 30 Apr 2008 13:46:22 -0700
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Wed, 30 Apr 2008 07:26:29 -0700
 
-> Don't know if you have seen this or not, but 2.6.25-gi16 seems to fail
-> with:
-> 	net/built-in.o: In function `ipv6_getsockopt':
-> 	(.text+0x6829c): undefined reference to `compat_mc_getsockopt'
+> Pavel,
+> Definitely should be in compat_ipv6_getsockopt() as the original was-- I 
+> hope
+> your patch doesn't do the same thing when applied!
 > 
-> I've attached my .config below if that helps any.
+> Good catch!
+>                                                         +-DLS
+> 
+> Acked-by: David L Stevens <dlstevens@us.ibm.com>
 
-Known problem and there is a fix pending, sit tight.
+Applied, thanks guys.
