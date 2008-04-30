@@ -1,7 +1,8 @@
 From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] [PATCH 06/13] QLogic VNIC: IB core stack interaction
-Date: Wed, 30 Apr 2008 22:48:55 +0530
-Message-ID: <20080430171855.31725.89658.stgit@localhost.localdomain>
+Subject: [ofa-general] [PATCH 08/13] QLogic VNIC: sysfs interface
+	implementation for the driver
+Date: Wed, 30 Apr 2008 22:49:55 +0530
+Message-ID: <20080430171955.31725.7771.stgit@localhost.localdomain>
 References: <20080430171028.31725.86190.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -21,27 +22,27 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+From: Amar Mudrankit <amar.mudrankit@qlogic.com>
 
-The patch implements the interaction of the QLogic VNIC driver with
-the underlying core infiniband stack.
+The sysfs interface for the QLogic VNIC driver is implemented through
+this patch.
 
+Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
-Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
 ---
 
- drivers/infiniband/ulp/qlgc_vnic/vnic_ib.c | 1046 ++++++++++++++++++++++++++++
- drivers/infiniband/ulp/qlgc_vnic/vnic_ib.h |  206 ++++++
- 2 files changed, 1252 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_ib.c
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_ib.h
+ drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c | 1127 +++++++++++++++++++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h |   62 +
+ 2 files changed, 1189 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h
 
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_ib.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_ib.c
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c
 new file mode 100644
-index 0000000..3bf6455
+index 0000000..7e70b0c
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_ib.c
-@@ -0,0 +1,1046 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c
+@@ -0,0 +1,1127 @@
 +/*
 + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
@@ -74,1026 +75,1107 @@ index 0000000..3bf6455
 + * SOFTWARE.
 + */
 +
-+#include <linux/string.h>
-+#include <linux/random.h>
++#include <linux/parser.h>
 +#include <linux/netdevice.h>
-+#include <linux/list.h>
-+#include <rdma/ib_cache.h>
++#include <linux/if.h>
 +
 +#include "vnic_util.h"
-+#include "vnic_data.h"
 +#include "vnic_config.h"
 +#include "vnic_ib.h"
 +#include "vnic_viport.h"
-+#include "vnic_sys.h"
 +#include "vnic_main.h"
 +#include "vnic_stats.h"
 +
-+static int vnic_ib_inited;
-+static void vnic_add_one(struct ib_device *device);
-+static void vnic_remove_one(struct ib_device *device);
-+static int vnic_defer_completion(void *ptr);
-+
-+static int vnic_ib_mc_init_qp(struct mc_data *mc_data,
-+		struct vnic_ib_config *config,
-+		struct ib_pd *pd,
-+		struct viport_config *viport_config);
-+
-+static struct ib_client vnic_client = {
-+	.name = "vnic",
-+	.add = vnic_add_one,
-+	.remove = vnic_remove_one
++/*
++ * target eiocs are added by writing
++ *
++ * ioc_guid=<EIOC GUID>,dgid=<dest GID>,pkey=<P_key>,name=<interface_name>
++ * to the create_primary  sysfs attribute.
++ */
++enum {
++	VNIC_OPT_ERR = 0,
++	VNIC_OPT_IOC_GUID = 1 << 0,
++	VNIC_OPT_DGID = 1 << 1,
++	VNIC_OPT_PKEY = 1 << 2,
++	VNIC_OPT_NAME = 1 << 3,
++	VNIC_OPT_INSTANCE = 1 << 4,
++	VNIC_OPT_RXCSUM = 1 << 5,
++	VNIC_OPT_TXCSUM = 1 << 6,
++	VNIC_OPT_HEARTBEAT = 1 << 7,
++	VNIC_OPT_IOC_STRING = 1 << 8,
++	VNIC_OPT_IB_MULTICAST = 1 << 9,
++	VNIC_OPT_ALL = (VNIC_OPT_IOC_GUID |
++			VNIC_OPT_DGID | VNIC_OPT_NAME | VNIC_OPT_PKEY),
 +};
 +
-+struct ib_sa_client vnic_sa_client;
++static match_table_t vnic_opt_tokens = {
++	{VNIC_OPT_IOC_GUID, "ioc_guid=%s"},
++	{VNIC_OPT_DGID, "dgid=%s"},
++	{VNIC_OPT_PKEY, "pkey=%x"},
++	{VNIC_OPT_NAME, "name=%s"},
++	{VNIC_OPT_INSTANCE, "instance=%d"},
++	{VNIC_OPT_RXCSUM, "rx_csum=%s"},
++	{VNIC_OPT_TXCSUM, "tx_csum=%s"},
++	{VNIC_OPT_HEARTBEAT, "heartbeat=%d"},
++	{VNIC_OPT_IOC_STRING, "ioc_string=\"%s"},
++	{VNIC_OPT_IB_MULTICAST, "ib_multicast=%s"},
++	{VNIC_OPT_ERR, NULL}
++};
 +
-+int vnic_ib_init(void)
++void vnic_release_dev(struct device *dev)
 +{
-+	int ret = -1;
++	struct dev_info *dev_info =
++	    container_of(dev, struct dev_info, dev);
 +
-+	IB_FUNCTION("vnic_ib_init()\n");
-+
-+	/* class has to be registered before
-+	 * calling ib_register_client() because, that call
-+	 * will trigger vnic_add_port() which will register
-+	 * class_device for the port with the parent class
-+	 * as vnic_class
-+	 */
-+	ret = class_register(&vnic_class);
-+	if (ret) {
-+		printk(KERN_ERR PFX "couldn't register class"
-+		       " infiniband_qlgc_vnic; error %d", ret);
-+		goto out;
-+	}
-+
-+	ib_sa_register_client(&vnic_sa_client);
-+	ret = ib_register_client(&vnic_client);
-+	if (ret) {
-+		printk(KERN_ERR PFX "couldn't register IB client;"
-+		       " error %d", ret);
-+		goto err_ib_reg;
-+	}
-+
-+	interface_dev.dev.class = &vnic_class;
-+	interface_dev.dev.release = vnic_release_dev;
-+	snprintf(interface_dev.dev.bus_id,
-+		 BUS_ID_SIZE, "interfaces");
-+	init_completion(&interface_dev.released);
-+	ret = device_register(&interface_dev.dev);
-+	if (ret) {
-+		printk(KERN_ERR PFX "couldn't register class interfaces;"
-+		       " error %d", ret);
-+		goto err_class_dev;
-+	}
-+	ret = device_create_file(&interface_dev.dev,
-+				       &dev_attr_delete_vnic);
-+	if (ret) {
-+		printk(KERN_ERR PFX "couldn't create class file"
-+		       " 'delete_vnic'; error %d", ret);
-+		goto err_class_file;
-+	}
-+
-+	vnic_ib_inited = 1;
-+
-+	return ret;
-+err_class_file:
-+	device_unregister(&interface_dev.dev);
-+err_class_dev:
-+	ib_unregister_client(&vnic_client);
-+err_ib_reg:
-+	ib_sa_unregister_client(&vnic_sa_client);
-+	class_unregister(&vnic_class);
-+out:
-+	return ret;
-+}
-+
-+static struct vnic_ib_port *vnic_add_port(struct vnic_ib_device *device,
-+					  u8 port_num)
-+{
-+	struct vnic_ib_port *port;
-+
-+	port = kzalloc(sizeof *port, GFP_KERNEL);
-+	if (!port)
-+		return NULL;
-+
-+	init_completion(&port->pdev_info.released);
-+	port->dev = device;
-+	port->port_num = port_num;
-+
-+	port->pdev_info.dev.class = &vnic_class;
-+	port->pdev_info.dev.parent = NULL;
-+	port->pdev_info.dev.release = vnic_release_dev;
-+	snprintf(port->pdev_info.dev.bus_id, BUS_ID_SIZE,
-+		 "vnic-%s-%d", device->dev->name, port_num);
-+
-+	if (device_register(&port->pdev_info.dev))
-+		goto free_port;
-+
-+	if (device_create_file(&port->pdev_info.dev,
-+				     &dev_attr_create_primary))
-+		goto err_class;
-+	if (device_create_file(&port->pdev_info.dev,
-+				     &dev_attr_create_secondary))
-+		goto err_class;
-+
-+	return port;
-+err_class:
-+	device_unregister(&port->pdev_info.dev);
-+free_port:
-+	kfree(port);
-+
-+	return NULL;
-+}
-+
-+static void vnic_add_one(struct ib_device *device)
-+{
-+	struct vnic_ib_device *vnic_dev;
-+	struct vnic_ib_port *port;
-+	int s, e, p;
-+
-+	vnic_dev = kmalloc(sizeof *vnic_dev, GFP_KERNEL);
-+	if (!vnic_dev)
-+		return;
-+
-+	vnic_dev->dev = device;
-+	INIT_LIST_HEAD(&vnic_dev->port_list);
-+
-+	if (device->node_type == RDMA_NODE_IB_SWITCH) {
-+		s = 0;
-+		e = 0;
-+
-+	} else {
-+		s = 1;
-+		e = device->phys_port_cnt;
-+
-+	}
-+
-+	for (p = s; p <= e; p++) {
-+		port = vnic_add_port(vnic_dev, p);
-+		if (port)
-+			list_add_tail(&port->list, &vnic_dev->port_list);
-+	}
-+
-+	ib_set_client_data(device, &vnic_client, vnic_dev);
++	complete(&dev_info->released);
 +
 +}
 +
-+static void vnic_remove_one(struct ib_device *device)
++struct class vnic_class = {
++	.name = "infiniband_qlgc_vnic",
++	.dev_release = vnic_release_dev
++};
++
++struct dev_info interface_dev;
++
++DEVICE_ATTR(create_primary, S_IWUSR, NULL, vnic_create_primary);
++DEVICE_ATTR(create_secondary, S_IWUSR, NULL, vnic_create_secondary);
++DEVICE_ATTR(delete_vnic, S_IWUSR, NULL, vnic_delete);
++
++static int vnic_parse_options(const char *buf, struct path_param *param)
 +{
-+	struct vnic_ib_device *vnic_dev;
-+	struct vnic_ib_port *port, *tmp_port;
++	char *options, *sep_opt;
++	char *p;
++	char dgid[3];
++	substring_t args[MAX_OPT_ARGS];
++	int opt_mask = 0;
++	int token;
++	int ret = -EINVAL;
++	int i, len;
 +
-+	vnic_dev = ib_get_client_data(device, &vnic_client);
-+	list_for_each_entry_safe(port, tmp_port,
-+				 &vnic_dev->port_list, list) {
-+		device_unregister(&port->pdev_info.dev);
-+		/*
-+		 * wait for sysfs entries to go away, so that no new vnics
-+		 * are created
-+		 */
-+		wait_for_completion(&port->pdev_info.released);
-+		kfree(port);
-+
-+	}
-+	kfree(vnic_dev);
-+
-+	/* TODO Only those vnic interfaces associated with
-+	 * the HCA whose remove event is called should be freed
-+	 * Currently all the vnic interfaces are freed
-+	 */
-+
-+	while (!list_empty(&vnic_list)) {
-+		struct vnic *vnic =
-+		    list_entry(vnic_list.next, struct vnic, list_ptrs);
-+		vnic_free(vnic);
-+	}
-+
-+	vnic_npevent_cleanup();
-+	viport_cleanup();
-+
-+}
-+
-+void vnic_ib_cleanup(void)
-+{
-+	IB_FUNCTION("vnic_ib_cleanup()\n");
-+
-+	if (!vnic_ib_inited)
-+		return;
-+
-+	device_unregister(&interface_dev.dev);
-+	wait_for_completion(&interface_dev.released);
-+
-+	ib_unregister_client(&vnic_client);
-+	ib_sa_unregister_client(&vnic_sa_client);
-+	class_unregister(&vnic_class);
-+}
-+
-+static void vnic_path_rec_completion(int status,
-+				     struct ib_sa_path_rec *pathrec,
-+				     void *context)
-+{
-+	struct vnic_ib_path_info *p = context;
-+	p->status = status;
-+	if (!status)
-+		p->path = *pathrec;
-+
-+	complete(&p->done);
-+}
-+
-+int vnic_ib_get_path(struct netpath *netpath, struct vnic *vnic)
-+{
-+	struct viport_config *config = netpath->viport->config;
-+	int ret = 0;
-+
-+	init_completion(&config->path_info.done);
-+	IB_INFO("Using SA path rec get time out value of %d\n",
-+	       config->sa_path_rec_get_timeout);
-+	config->path_info.path_query_id =
-+			 ib_sa_path_rec_get(&vnic_sa_client,
-+					    config->ibdev,
-+					    config->port,
-+					    &config->path_info.path,
-+					    IB_SA_PATH_REC_DGID      |
-+					    IB_SA_PATH_REC_SGID      |
-+					    IB_SA_PATH_REC_NUMB_PATH |
-+					    IB_SA_PATH_REC_PKEY,
-+					    config->sa_path_rec_get_timeout,
-+					    GFP_KERNEL,
-+					    vnic_path_rec_completion,
-+					    &config->path_info,
-+					    &config->path_info.path_query);
-+
-+	if (config->path_info.path_query_id < 0) {
-+		IB_ERROR("SA path record query failed; error %d\n",
-+			 config->path_info.path_query_id);
-+		ret = config->path_info.path_query_id;
-+		goto out;
-+	}
-+
-+	wait_for_completion(&config->path_info.done);
-+
-+	if (config->path_info.status < 0) {
-+		printk(KERN_WARNING PFX "connection not available to dgid "
-+		       "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x",
-+		       (int)be16_to_cpu(*(__be16 *) &config->path_info.path.
-+					dgid.raw[0]),
-+		       (int)be16_to_cpu(*(__be16 *) &config->path_info.path.
-+					dgid.raw[2]),
-+		       (int)be16_to_cpu(*(__be16 *) &config->path_info.path.
-+					dgid.raw[4]),
-+		       (int)be16_to_cpu(*(__be16 *) &config->path_info.path.
-+					dgid.raw[6]),
-+		       (int)be16_to_cpu(*(__be16 *) &config->path_info.path.
-+					dgid.raw[8]),
-+		       (int)be16_to_cpu(*(__be16 *) &config->path_info.path.
-+					dgid.raw[10]),
-+		       (int)be16_to_cpu(*(__be16 *) &config->path_info.path.
-+					dgid.raw[12]),
-+		       (int)be16_to_cpu(*(__be16 *) &config->path_info.path.
-+					dgid.raw[14]));
-+
-+		if (config->path_info.status == -ETIMEDOUT)
-+			printk(KERN_INFO " path query timed out\n");
-+		else if (config->path_info.status == -EIO)
-+			printk(KERN_INFO " path query sending error\n");
-+		else
-+			printk(KERN_INFO " error %d\n",
-+			       config->path_info.status);
-+
-+		ret = config->path_info.status;
-+	}
-+out:
-+	if (ret)
-+		netpath_timer(netpath, vnic->config->no_path_timeout);
-+
-+	return ret;
-+}
-+
-+static inline void vnic_ib_handle_completions(struct ib_wc *wc,
-+					      struct vnic_ib_conn *ib_conn,
-+					      u32 *comp_num,
-+					      cycles_t *comp_time)
-+{
-+	struct io *io;
-+
-+	io = (struct io *)(wc->wr_id);
-+	vnic_ib_comp_stats(ib_conn, comp_num);
-+	if (wc->status) {
-+		IB_INFO("completion error  wc.status %d"
-+			 " wc.opcode %d vendor err 0x%x\n",
-+			  wc->status, wc->opcode, wc->vendor_err);
-+	} else if (io) {
-+		vnic_ib_io_stats(io, ib_conn, *comp_time);
-+		if (io->type == RECV_UD) {
-+			struct ud_recv_io *recv_io =
-+				container_of(io, struct ud_recv_io, io);
-+			recv_io->len = wc->byte_len;
-+		}
-+		if (io->routine)
-+			(*io->routine) (io);
-+	}
-+}
-+
-+static void ib_qp_event(struct ib_event *event, void *context)
-+{
-+	IB_ERROR("QP event %d\n", event->event);
-+}
-+
-+static void vnic_ib_completion(struct ib_cq *cq, void *ptr)
-+{
-+	struct vnic_ib_conn *ib_conn = ptr;
-+	unsigned long	 flags;
-+	int compl_received;
-+	struct ib_wc wc;
-+	cycles_t  comp_time;
-+	u32  comp_num = 0;
-+
-+	/* for multicast, cm_id is NULL, so skip that test */
-+	if (ib_conn->cm_id &&
-+	    (ib_conn->state != IB_CONN_CONNECTED))
-+		return;
-+
-+	/* Check if completion processing is taking place in thread
-+	 * If not then process completions in this handler,
-+	 * else set compl_received if not set, to indicate that
-+	 * there are more completions to process in thread.
-+	 */
-+
-+	spin_lock_irqsave(&ib_conn->compl_received_lock, flags);
-+	compl_received = ib_conn->compl_received;
-+	spin_unlock_irqrestore(&ib_conn->compl_received_lock, flags);
-+
-+	if (ib_conn->in_thread || compl_received) {
-+		if (!compl_received) {
-+			spin_lock_irqsave(&ib_conn->compl_received_lock, flags);
-+			ib_conn->compl_received = 1;
-+			spin_unlock_irqrestore(&ib_conn->compl_received_lock,
-+									flags);
-+		}
-+		wake_up(&(ib_conn->callback_wait_queue));
-+	} else {
-+		vnic_ib_note_comptime_stats(&comp_time);
-+		vnic_ib_callback_stats(ib_conn);
-+		ib_req_notify_cq(cq, IB_CQ_NEXT_COMP);
-+		while (ib_poll_cq(cq, 1, &wc) > 0) {
-+			vnic_ib_handle_completions(&wc, ib_conn, &comp_num,
-+								 &comp_time);
-+			if (ib_conn->cm_id &&
-+				 ib_conn->state != IB_CONN_CONNECTED)
-+				break;
-+
-+			/* If we get more completions than the completion limit
-+			 * defer completion to the thread
-+			 */
-+			if ((!ib_conn->in_thread) &&
-+			    (comp_num >= ib_conn->ib_config->completion_limit)) {
-+				ib_conn->in_thread = 1;
-+				spin_lock_irqsave(
-+					&ib_conn->compl_received_lock, flags);
-+				ib_conn->compl_received = 1;
-+				spin_unlock_irqrestore(
-+					&ib_conn->compl_received_lock, flags);
-+				wake_up(&(ib_conn->callback_wait_queue));
-+				break;
-+			}
-+
-+		}
-+		vnic_ib_maxio_stats(ib_conn, comp_num);
-+	}
-+}
-+
-+static int vnic_ib_mod_qp_to_rts(struct ib_cm_id *cm_id,
-+			     struct vnic_ib_conn *ib_conn)
-+{
-+	int attr_mask = 0;
-+	int ret;
-+	struct ib_qp_attr *qp_attr = NULL;
-+
-+	qp_attr = kmalloc(sizeof *qp_attr, GFP_KERNEL);
-+	if (!qp_attr)
++	options = kstrdup(buf, GFP_KERNEL);
++	if (!options)
 +		return -ENOMEM;
 +
-+	qp_attr->qp_state = IB_QPS_RTR;
++	sep_opt = options;
++	while ((p = strsep(&sep_opt, ",")) != NULL) {
++		if (!*p)
++			continue;
 +
-+	ret = ib_cm_init_qp_attr(cm_id, qp_attr, &attr_mask);
-+	if (ret)
-+		goto out;
++		token = match_token(p, vnic_opt_tokens, args);
++		opt_mask |= token;
 +
-+	ret = ib_modify_qp(ib_conn->qp, qp_attr, attr_mask);
-+	if (ret)
-+		goto out;
++		switch (token) {
++		case VNIC_OPT_IOC_GUID:
++			p = match_strdup(args);
++			param->ioc_guid = cpu_to_be64(simple_strtoull(p, NULL,
++								      16));
++			kfree(p);
++			break;
 +
-+	IB_INFO("QP RTR\n");
++		case VNIC_OPT_DGID:
++			p = match_strdup(args);
++			if (strlen(p) != 32) {
++				printk(KERN_WARNING PFX
++				       "bad dest GID parameter '%s'\n", p);
++				kfree(p);
++				goto out;
++			}
 +
-+	qp_attr->qp_state = IB_QPS_RTS;
++			for (i = 0; i < 16; ++i) {
++				strlcpy(dgid, p + i * 2, 3);
++				param->dgid[i] = simple_strtoul(dgid, NULL,
++								16);
 +
-+	ret = ib_cm_init_qp_attr(cm_id, qp_attr, &attr_mask);
-+	if (ret)
-+		goto out;
++			}
++			kfree(p);
++			break;
 +
-+	ret = ib_modify_qp(ib_conn->qp, qp_attr, attr_mask);
-+	if (ret)
-+		goto out;
++		case VNIC_OPT_PKEY:
++			if (match_hex(args, &token)) {
++				printk(KERN_WARNING PFX
++				       "bad P_key parameter '%s'\n", p);
++				goto out;
++			}
++			param->pkey = cpu_to_be16(token);
++			break;
 +
-+	IB_INFO("QP RTS\n");
++		case VNIC_OPT_NAME:
++			p = match_strdup(args);
++			if (strlen(p) >= IFNAMSIZ) {
++				printk(KERN_WARNING PFX
++				       "interface name parameter too long\n");
++				kfree(p);
++				goto out;
++			}
++			strcpy(param->name, p);
++			kfree(p);
++			break;
++		case VNIC_OPT_INSTANCE:
++			if (match_int(args, &token)) {
++				printk(KERN_WARNING PFX
++				       "bad instance parameter '%s'\n", p);
++				goto out;
++			}
 +
-+	ret = ib_send_cm_rtu(cm_id, NULL, 0);
-+	if (ret)
-+		goto out;
++			if (token > 255 || token < 0) {
++				printk(KERN_WARNING PFX
++				       "instance parameter must be"
++				       " >= 0 and <= 255\n");
++				goto out;
++			}
++
++			param->instance = token;
++			break;
++		case VNIC_OPT_RXCSUM:
++			p = match_strdup(args);
++			if (!strncmp(p, "true", 4))
++				param->rx_csum = 1;
++			else if (!strncmp(p, "false", 5))
++				param->rx_csum = 0;
++			else {
++				printk(KERN_WARNING PFX
++				       "bad rx_csum parameter."
++				       " must be 'true' or 'false'\n");
++				kfree(p);
++				goto out;
++			}
++			kfree(p);
++			break;
++		case VNIC_OPT_TXCSUM:
++			p = match_strdup(args);
++			if (!strncmp(p, "true", 4))
++				param->tx_csum = 1;
++			else if (!strncmp(p, "false", 5))
++				param->tx_csum = 0;
++			else {
++				printk(KERN_WARNING PFX
++				       "bad tx_csum parameter."
++				       " must be 'true' or 'false'\n");
++				kfree(p);
++				goto out;
++			}
++			kfree(p);
++			break;
++		case VNIC_OPT_HEARTBEAT:
++			if (match_int(args, &token)) {
++				printk(KERN_WARNING PFX
++				       "bad instance parameter '%s'\n", p);
++				goto out;
++			}
++
++			if (token > 6000 || token <= 0) {
++				printk(KERN_WARNING PFX
++				       "heartbeat parameter must be"
++				       " > 0 and <= 6000\n");
++				goto out;
++			}
++			param->heartbeat = token;
++			break;
++		case VNIC_OPT_IOC_STRING:
++			p = match_strdup(args);
++			len = strlen(p);
++			if (len > MAX_IOC_STRING_LEN) {
++				printk(KERN_WARNING PFX
++				       "ioc string parameter too long\n");
++				kfree(p);
++				goto out;
++			}
++			strcpy(param->ioc_string, p);
++			if (*(p + len - 1) != '\"') {
++				strcat(param->ioc_string, ",");
++				kfree(p);
++				p = strsep(&sep_opt, "\"");
++				strcat(param->ioc_string, p);
++				sep_opt++;
++			} else {
++				*(param->ioc_string + len - 1) = '\0';
++				kfree(p);
++			}
++			break;
++		case VNIC_OPT_IB_MULTICAST:
++			p = match_strdup(args);
++			if (!strncmp(p, "true", 4))
++				param->ib_multicast = 1;
++			else if (!strncmp(p, "false", 5))
++				param->ib_multicast = 0;
++			else {
++					printk(KERN_WARNING PFX
++					"bad ib_multicast parameter."
++					" must be 'true' or 'false'\n");
++				kfree(p);
++				goto out;
++			}
++			kfree(p);
++			break;
++		default:
++			printk(KERN_WARNING PFX
++			       "unknown parameter or missing value "
++			       "'%s' in target creation request\n", p);
++			goto out;
++		}
++
++	}
++
++	if ((opt_mask & VNIC_OPT_ALL) == VNIC_OPT_ALL)
++		ret = 0;
++	else
++		for (i = 0; i < ARRAY_SIZE(vnic_opt_tokens); ++i)
++			if ((vnic_opt_tokens[i].token & VNIC_OPT_ALL) &&
++			    !(vnic_opt_tokens[i].token & opt_mask))
++				printk(KERN_WARNING PFX
++				       "target creation request is "
++				       "missing parameter '%s'\n",
++				       vnic_opt_tokens[i].pattern);
++
 +out:
-+	kfree(qp_attr);
++	kfree(options);
 +	return ret;
++
 +}
 +
-+int vnic_ib_cm_handler(struct ib_cm_id *cm_id, struct ib_cm_event *event)
++static ssize_t show_vnic_state(struct device *dev,
++			       struct device_attribute *dev_attr, char *buf)
 +{
-+	struct vnic_ib_conn *ib_conn = cm_id->context;
-+	struct viport *viport = ib_conn->viport;
-+	int err = 0;
-+
-+	switch (event->event) {
-+	case IB_CM_REQ_ERROR:
-+		IB_ERROR("sending CM REQ failed\n");
-+		err = 1;
-+		viport->retry = 1;
-+		break;
-+	case IB_CM_REP_RECEIVED:
-+		IB_INFO("CM REP recvd\n");
-+		if (vnic_ib_mod_qp_to_rts(cm_id, ib_conn))
-+			err = 1;
-+		else {
-+			ib_conn->state = IB_CONN_CONNECTED;
-+			vnic_ib_connected_time_stats(ib_conn);
-+			IB_INFO("RTU SENT\n");
-+		}
-+		break;
-+	case IB_CM_REJ_RECEIVED:
-+		printk(KERN_ERR PFX " CM rejected control connection\n");
-+		if (event->param.rej_rcvd.reason ==
-+		    IB_CM_REJ_INVALID_SERVICE_ID)
-+			printk(KERN_ERR "reason: invalid service ID. "
-+			       "IOCGUID value specified may be incorrect\n");
-+		else
-+			printk(KERN_ERR "reason code : 0x%x\n",
-+			       event->param.rej_rcvd.reason);
-+
-+		err = 1;
-+		viport->retry = 1;
-+		break;
-+	case IB_CM_MRA_RECEIVED:
-+		IB_INFO("CM MRA received\n");
-+		break;
-+
-+	case IB_CM_DREP_RECEIVED:
-+		IB_INFO("CM DREP recvd\n");
-+		ib_conn->state = IB_CONN_DISCONNECTED;
-+		break;
-+
-+	case IB_CM_TIMEWAIT_EXIT:
-+		IB_ERROR("CM timewait exit\n");
-+		err = 1;
-+		break;
-+
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, dev_info);
++	switch (vnic->state) {
++	case VNIC_UNINITIALIZED:
++		return sprintf(buf, "VNIC_UNINITIALIZED\n");
++	case VNIC_REGISTERED:
++		return sprintf(buf, "VNIC_REGISTERED\n");
 +	default:
-+		IB_INFO("unhandled CM event %d\n", event->event);
-+		break;
-+
++		return sprintf(buf, "INVALID STATE\n");
 +	}
 +
-+	if (err) {
-+		ib_conn->state = IB_CONN_DISCONNECTED;
-+		viport_failure(viport);
-+	}
++}
 +
-+	viport_kick(viport);
++static DEVICE_ATTR(vnic_state, S_IRUGO, show_vnic_state, NULL);
++
++static ssize_t show_rx_csum(struct device *dev,
++			    struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, dev_info);
++
++	if (vnic->config->use_rx_csum)
++		return sprintf(buf, "true\n");
++	else
++		return sprintf(buf, "false\n");
++}
++
++static DEVICE_ATTR(rx_csum, S_IRUGO, show_rx_csum, NULL);
++
++static ssize_t show_tx_csum(struct device *dev,
++			    struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, dev_info);
++
++	if (vnic->config->use_tx_csum)
++		return sprintf(buf, "true\n");
++	else
++		return sprintf(buf, "false\n");
++}
++
++static DEVICE_ATTR(tx_csum, S_IRUGO, show_tx_csum, NULL);
++
++static ssize_t show_current_path(struct device *dev,
++				 struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, dev_info);
++
++	if (vnic->current_path == &vnic->primary_path)
++		return sprintf(buf, "primary path\n");
++	else if (vnic->current_path == &vnic->secondary_path)
++		return sprintf(buf, "secondary path\n");
++	else
++		return sprintf(buf, "none\n");
++
++}
++
++static DEVICE_ATTR(current_path, S_IRUGO, show_current_path, NULL);
++
++static struct attribute *vnic_dev_attrs[] = {
++	&dev_attr_vnic_state.attr,
++	&dev_attr_rx_csum.attr,
++	&dev_attr_tx_csum.attr,
++	&dev_attr_current_path.attr,
++	NULL
++};
++
++struct attribute_group vnic_dev_attr_group = {
++	.attrs = vnic_dev_attrs,
++};
++
++static inline void print_dgid(u8 *dgid)
++{
++	int i;
++
++	for (i = 0; i < 16; i += 2)
++		printk("%04x", be16_to_cpu(*(__be16 *)&dgid[i]));
++}
++
++static inline int is_dgid_zero(u8 *dgid)
++{
++	int i;
++
++	for (i = 0; i < 16; i++) {
++		if (dgid[i] != 0)
++			return 1;
++	}
 +	return 0;
 +}
 +
-+
-+int vnic_ib_cm_connect(struct vnic_ib_conn *ib_conn)
++static int create_netpath(struct netpath *npdest,
++			  struct path_param *p_params)
 +{
-+	struct ib_cm_req_param	*req = NULL;
++	struct viport_config	*viport_config;
 +	struct viport		*viport;
-+	int 			ret = -1;
++	struct vnic		*vnic;
++	struct list_head	*ptr;
++	int			ret = 0;
 +
-+	if (!vnic_ib_conn_initted(ib_conn)) {
-+		IB_ERROR("IB Connection out of state for CM connect (%d)\n",
-+			 ib_conn->state);
-+		return -EINVAL;
++	list_for_each(ptr, &vnic_list) {
++		vnic = list_entry(ptr, struct vnic, list_ptrs);
++		if (vnic->primary_path.viport) {
++			viport_config = vnic->primary_path.viport->config;
++			if ((viport_config->ioc_guid == p_params->ioc_guid)
++			    && (viport_config->control_config.vnic_instance
++				== p_params->instance)
++			    && (be64_to_cpu(p_params->ioc_guid))) {
++				SYS_ERROR("GUID %llx,"
++					  " INSTANCE %d already in use\n",
++					  be64_to_cpu(p_params->ioc_guid),
++					  p_params->instance);
++				ret = -EINVAL;
++				goto out;
++			}
++		}
++
++		if (vnic->secondary_path.viport) {
++			viport_config = vnic->secondary_path.viport->config;
++			if ((viport_config->ioc_guid == p_params->ioc_guid)
++			    && (viport_config->control_config.vnic_instance
++				== p_params->instance)
++			    && (be64_to_cpu(p_params->ioc_guid))) {
++				SYS_ERROR("GUID %llx,"
++					  " INSTANCE %d already in use\n",
++					  be64_to_cpu(p_params->ioc_guid),
++					  p_params->instance);
++				ret = -EINVAL;
++				goto out;
++			}
++		}
 +	}
 +
-+	vnic_ib_conntime_stats(ib_conn);
-+	req = kzalloc(sizeof *req, GFP_KERNEL);
-+	if (!req)
-+		return -ENOMEM;
-+
-+	viport	= ib_conn->viport;
-+
-+	req->primary_path	= &viport->config->path_info.path;
-+	req->alternate_path	= NULL;
-+	req->qp_num		= ib_conn->qp->qp_num;
-+	req->qp_type		= ib_conn->qp->qp_type;
-+	req->service_id 	= ib_conn->ib_config->service_id;
-+	req->private_data	= &ib_conn->ib_config->conn_data;
-+	req->private_data_len	= sizeof(struct vnic_connection_data);
-+	req->flow_control	= 1;
-+
-+	get_random_bytes(&req->starting_psn, 4);
-+	req->starting_psn &= 0xffffff;
-+
-+	/*
-+	 * Both responder_resources and initiator_depth are set to zero
-+	 * as we do not need RDMA read.
-+	 *
-+	 * They also must be set to zero, otherwise data connections
-+	 * are rejected by VEx.
-+	 */
-+	req->responder_resources 	= 0;
-+	req->initiator_depth		= 0;
-+	req->remote_cm_response_timeout = 20;
-+	req->local_cm_response_timeout  = 20;
-+	req->retry_count		= ib_conn->ib_config->retry_count;
-+	req->rnr_retry_count		= ib_conn->ib_config->rnr_retry_count;
-+	req->max_cm_retries		= 15;
-+
-+	ib_conn->state = IB_CONN_CONNECTING;
-+
-+	ret = ib_send_cm_req(ib_conn->cm_id, req);
-+
-+	kfree(req);
-+
-+	if (ret) {
-+		IB_ERROR("CM REQ sending failed; error %d \n", ret);
-+		ib_conn->state = IB_CONN_DISCONNECTED;
-+	}
-+
-+	return ret;
-+}
-+
-+static int vnic_ib_init_qp(struct vnic_ib_conn *ib_conn,
-+			   struct vnic_ib_config *config,
-+			   struct ib_pd	*pd,
-+			   struct viport_config *viport_config)
-+{
-+	struct ib_qp_init_attr	*init_attr;
-+	struct ib_qp_attr	*attr;
-+	int			ret;
-+
-+	init_attr = kzalloc(sizeof *init_attr, GFP_KERNEL);
-+	if (!init_attr)
-+		return -ENOMEM;
-+
-+	init_attr->event_handler	= ib_qp_event;
-+	init_attr->cap.max_send_wr	= config->num_sends;
-+	init_attr->cap.max_recv_wr	= config->num_recvs;
-+	init_attr->cap.max_recv_sge	= config->recv_scatter;
-+	init_attr->cap.max_send_sge	= config->send_gather;
-+	init_attr->sq_sig_type		= IB_SIGNAL_ALL_WR;
-+	init_attr->qp_type		= IB_QPT_RC;
-+	init_attr->send_cq		= ib_conn->cq;
-+	init_attr->recv_cq		= ib_conn->cq;
-+
-+	ib_conn->qp = ib_create_qp(pd, init_attr);
-+
-+	if (IS_ERR(ib_conn->qp)) {
-+		ret = -1;
-+		IB_ERROR("could not create QP\n");
-+		goto free_init_attr;
-+	}
-+
-+	attr = kmalloc(sizeof *attr, GFP_KERNEL);
-+	if (!attr) {
-+		ret = -ENOMEM;
-+		goto destroy_qp;
-+	}
-+
-+	ret = ib_find_cached_pkey(viport_config->ibdev,
-+				  viport_config->port,
-+				  be16_to_cpu(viport_config->path_info.path.
-+					      pkey),
-+				  &attr->pkey_index);
-+	if (ret) {
-+		printk(KERN_WARNING PFX "ib_find_cached_pkey() failed; "
-+		       "error %d\n", ret);
-+		goto freeattr;
-+	}
-+
-+	attr->qp_state		= IB_QPS_INIT;
-+	attr->qp_access_flags	= IB_ACCESS_REMOTE_WRITE;
-+	attr->port_num		= viport_config->port;
-+
-+	ret = ib_modify_qp(ib_conn->qp, attr,
-+			   IB_QP_STATE |
-+			   IB_QP_PKEY_INDEX |
-+			   IB_QP_ACCESS_FLAGS | IB_QP_PORT);
-+	if (ret) {
-+		printk(KERN_WARNING PFX "could not modify QP; error %d \n",
-+		       ret);
-+		goto freeattr;
-+	}
-+
-+	kfree(attr);
-+	kfree(init_attr);
-+	return ret;
-+
-+freeattr:
-+	kfree(attr);
-+destroy_qp:
-+	ib_destroy_qp(ib_conn->qp);
-+free_init_attr:
-+	kfree(init_attr);
-+	return ret;
-+}
-+
-+int vnic_ib_conn_init(struct vnic_ib_conn *ib_conn, struct viport *viport,
-+		      struct ib_pd *pd, struct vnic_ib_config *config)
-+{
-+	struct viport_config	*viport_config = viport->config;
-+	int		ret = -1;
-+	unsigned int	cq_size = config->num_sends + config->num_recvs;
-+
-+
-+	if (!vnic_ib_conn_uninitted(ib_conn)) {
-+		IB_ERROR("IB Connection out of state for init (%d)\n",
-+			 ib_conn->state);
-+		return -EINVAL;
-+	}
-+
-+	ib_conn->cq = ib_create_cq(viport_config->ibdev, vnic_ib_completion,
-+#ifdef BUILD_FOR_OFED_1_2
-+				   NULL, ib_conn, cq_size);
-+#else
-+				   NULL, ib_conn, cq_size, 0);
-+#endif
-+	if (IS_ERR(ib_conn->cq)) {
-+		IB_ERROR("could not create CQ\n");
-+		goto out;
-+	}
-+
-+	IB_INFO("cq created %p %d\n", ib_conn->cq, cq_size);
-+	ib_req_notify_cq(ib_conn->cq, IB_CQ_NEXT_COMP);
-+	init_waitqueue_head(&(ib_conn->callback_wait_queue));
-+	init_completion(&(ib_conn->callback_thread_exit));
-+
-+	spin_lock_init(&ib_conn->compl_received_lock);
-+
-+	ib_conn->callback_thread = kthread_run(vnic_defer_completion, ib_conn,
-+						"qlgc_vnic_def_compl");
-+	if (IS_ERR(ib_conn->callback_thread)) {
-+		IB_ERROR("Could not create vnic_callback_thread;"
-+			" error %d\n", (int) PTR_ERR(ib_conn->callback_thread));
-+		ib_conn->callback_thread = NULL;
-+		goto destroy_cq;
-+	}
-+
-+	ret = vnic_ib_init_qp(ib_conn, config, pd, viport_config);
-+
-+	if (ret)
-+		goto destroy_thread;
-+
-+	spin_lock_init(&ib_conn->conn_lock);
-+	ib_conn->state = IB_CONN_INITTED;
-+
-+	return ret;
-+
-+destroy_thread:
-+	completion_callback_cleanup(ib_conn);
-+destroy_cq:
-+	ib_destroy_cq(ib_conn->cq);
-+out:
-+	return ret;
-+}
-+
-+int vnic_ib_post_recv(struct vnic_ib_conn *ib_conn, struct io *io)
-+{
-+	cycles_t		post_time;
-+	struct ib_recv_wr	*bad_wr;
-+	int			ret = -1;
-+	unsigned long		flags;
-+
-+	IB_FUNCTION("vnic_ib_post_recv()\n");
-+
-+	spin_lock_irqsave(&ib_conn->conn_lock, flags);
-+
-+	if (!vnic_ib_conn_initted(ib_conn) &&
-+	    !vnic_ib_conn_connected(ib_conn)) {
++	if (npdest->viport) {
++		SYS_ERROR("create_netpath: path already exists\n");
 +		ret = -EINVAL;
 +		goto out;
 +	}
 +
-+	vnic_ib_pre_rcvpost_stats(ib_conn, io, &post_time);
-+	io->type = RECV;
-+	ret = ib_post_recv(ib_conn->qp, &io->rwr, &bad_wr);
-+	if (ret) {
-+		IB_ERROR("error in posting rcv wr; error %d\n", ret);
-+		ib_conn->state = IB_CONN_ERRORED;
-+		goto out;
-+	}
-+
-+	vnic_ib_post_rcvpost_stats(ib_conn, post_time);
-+out:
-+	spin_unlock_irqrestore(&ib_conn->conn_lock, flags);
-+	return ret;
-+
-+}
-+
-+int vnic_ib_post_send(struct vnic_ib_conn *ib_conn, struct io *io)
-+{
-+	cycles_t		post_time;
-+	unsigned long		flags;
-+	struct ib_send_wr	*bad_wr;
-+	int			ret = -1;
-+
-+	IB_FUNCTION("vnic_ib_post_send()\n");
-+
-+	spin_lock_irqsave(&ib_conn->conn_lock, flags);
-+	if (!vnic_ib_conn_connected(ib_conn)) {
-+		IB_ERROR("IB Connection out of state for"
-+			 " posting sends (%d)\n", ib_conn->state);
-+		goto out;
-+	}
-+
-+	vnic_ib_pre_sendpost_stats(io, &post_time);
-+	if (io->swr.opcode == IB_WR_RDMA_WRITE)
-+		io->type = RDMA;
-+	else
-+		io->type = SEND;
-+
-+	ret = ib_post_send(ib_conn->qp, &io->swr, &bad_wr);
-+	if (ret) {
-+		IB_ERROR("error in posting send wr; error %d\n", ret);
-+		ib_conn->state = IB_CONN_ERRORED;
-+		goto out;
-+	}
-+
-+	vnic_ib_post_sendpost_stats(ib_conn, io, post_time);
-+out:
-+	spin_unlock_irqrestore(&ib_conn->conn_lock, flags);
-+	return ret;
-+}
-+
-+static int vnic_defer_completion(void *ptr)
-+{
-+	struct vnic_ib_conn *ib_conn = ptr;
-+	struct ib_wc wc;
-+	struct ib_cq *cq = ib_conn->cq;
-+	cycles_t 	 comp_time;
-+	u32              comp_num = 0;
-+	unsigned long	flags;
-+
-+	while (!ib_conn->callback_thread_end) {
-+		wait_event_interruptible(ib_conn->callback_wait_queue,
-+					 ib_conn->compl_received ||
-+					 ib_conn->callback_thread_end);
-+		ib_conn->in_thread = 1;
-+		spin_lock_irqsave(&ib_conn->compl_received_lock, flags);
-+		ib_conn->compl_received = 0;
-+		spin_unlock_irqrestore(&ib_conn->compl_received_lock, flags);
-+		if (ib_conn->cm_id &&
-+		    ib_conn->state != IB_CONN_CONNECTED)
-+			goto out_thread;
-+
-+		vnic_ib_note_comptime_stats(&comp_time);
-+		vnic_ib_callback_stats(ib_conn);
-+		ib_req_notify_cq(cq, IB_CQ_NEXT_COMP);
-+		while (ib_poll_cq(cq, 1, &wc) > 0) {
-+			vnic_ib_handle_completions(&wc, ib_conn, &comp_num,
-+								 &comp_time);
-+			if (ib_conn->cm_id &&
-+				 ib_conn->state != IB_CONN_CONNECTED)
-+				break;
-+		}
-+		vnic_ib_maxio_stats(ib_conn, comp_num);
-+out_thread:
-+		ib_conn->in_thread = 0;
-+	}
-+	complete_and_exit(&(ib_conn->callback_thread_exit), 0);
-+	return 0;
-+}
-+
-+void completion_callback_cleanup(struct vnic_ib_conn *ib_conn)
-+{
-+	if (ib_conn->callback_thread) {
-+		ib_conn->callback_thread_end = 1;
-+		wake_up(&(ib_conn->callback_wait_queue));
-+		wait_for_completion(&(ib_conn->callback_thread_exit));
-+		ib_conn->callback_thread = NULL;
-+	}
-+}
-+
-+int vnic_ib_mc_init(struct mc_data *mc_data, struct viport *viport,
-+		      struct ib_pd *pd, struct vnic_ib_config *config)
-+{
-+	struct viport_config	*viport_config = viport->config;
-+	int		ret = -1;
-+	unsigned int	cq_size = config->num_recvs; /* recvs only */
-+
-+	IB_FUNCTION("vnic_ib_mc_init\n");
-+
-+	mc_data->ib_conn.cq = ib_create_cq(viport_config->ibdev, vnic_ib_completion,
-+#ifdef BUILD_FOR_OFED_1_2
-+				   NULL, &mc_data->ib_conn, cq_size);
-+#else
-+				   NULL, &mc_data->ib_conn, cq_size, 0);
-+#endif
-+	if (IS_ERR(mc_data->ib_conn.cq)) {
-+		IB_ERROR("ib_create_cq failed\n");
-+		goto out;
-+	}
-+	IB_INFO("mc cq created %p %d\n", mc_data->ib_conn.cq, cq_size);
-+
-+	ret = ib_req_notify_cq(mc_data->ib_conn.cq, IB_CQ_NEXT_COMP);
-+	if (ret) {
-+		IB_ERROR("ib_req_notify_cq failed %x \n", ret);
-+		goto destroy_cq;
-+	}
-+
-+	init_waitqueue_head(&(mc_data->ib_conn.callback_wait_queue));
-+	init_completion(&(mc_data->ib_conn.callback_thread_exit));
-+
-+	spin_lock_init(&mc_data->ib_conn.compl_received_lock);
-+	mc_data->ib_conn.callback_thread = kthread_run(vnic_defer_completion,
-+							&mc_data->ib_conn,
-+							"qlgc_vnic_mc_def_compl");
-+	if (IS_ERR(mc_data->ib_conn.callback_thread)) {
-+		IB_ERROR("Could not create vnic_callback_thread for MULTICAST;"
-+			" error %d\n",
-+			(int) PTR_ERR(mc_data->ib_conn.callback_thread));
-+		mc_data->ib_conn.callback_thread = NULL;
-+		goto destroy_cq;
-+	}
-+	IB_INFO("callback_thread created\n");
-+
-+	ret = vnic_ib_mc_init_qp(mc_data, config, pd, viport_config);
-+	if (ret)
-+		goto destroy_thread;
-+
-+	spin_lock_init(&mc_data->ib_conn.conn_lock);
-+	mc_data->ib_conn.state = IB_CONN_INITTED; /* stays in this state */
-+
-+	return ret;
-+
-+destroy_thread:
-+	completion_callback_cleanup(&mc_data->ib_conn);
-+destroy_cq:
-+	ib_destroy_cq(mc_data->ib_conn.cq);
-+	mc_data->ib_conn.cq = (struct ib_cq *)ERR_PTR(-EINVAL);
-+out:
-+	return ret;
-+}
-+
-+static int vnic_ib_mc_init_qp(struct mc_data *mc_data,
-+			   struct vnic_ib_config *config,
-+			   struct ib_pd	*pd,
-+			   struct viport_config *viport_config)
-+{
-+	struct ib_qp_init_attr	*init_attr;
-+	struct ib_qp_attr	*qp_attr;
-+	int			ret;
-+
-+	IB_FUNCTION("vnic_ib_mc_init_qp\n");
-+
-+	if (!mc_data->ib_conn.cq) {
-+		IB_ERROR("cq is null\n");
-+		return -ENOMEM;
-+	}
-+
-+	init_attr = kzalloc(sizeof *init_attr, GFP_KERNEL);
-+	if (!init_attr) {
-+		IB_ERROR("failed to alloc init_attr\n");
-+		return -ENOMEM;
-+	}
-+
-+	init_attr->cap.max_recv_wr	= config->num_recvs;
-+	init_attr->cap.max_send_wr	= 1;
-+	init_attr->cap.max_recv_sge	= 2;
-+	init_attr->cap.max_send_sge	= 1;
-+
-+	/* Completion for all work requests. */
-+	init_attr->sq_sig_type		= IB_SIGNAL_ALL_WR;
-+
-+	init_attr->qp_type		= IB_QPT_UD;
-+
-+	init_attr->send_cq		= mc_data->ib_conn.cq;
-+	init_attr->recv_cq		= mc_data->ib_conn.cq;
-+
-+	IB_INFO("creating qp %d \n", config->num_recvs);
-+
-+	mc_data->ib_conn.qp = ib_create_qp(pd, init_attr);
-+
-+	if (IS_ERR(mc_data->ib_conn.qp)) {
++	viport_config = config_alloc_viport(p_params);
++	if (!viport_config) {
++		SYS_ERROR("create_netpath: failed creating viport config\n");
 +		ret = -1;
-+		IB_ERROR("could not create QP\n");
-+		goto free_init_attr;
++		goto out;
 +	}
 +
-+	qp_attr = kzalloc(sizeof *qp_attr, GFP_KERNEL);
-+	if (!qp_attr) {
-+		ret = -ENOMEM;
-+		goto destroy_qp;
++	/*User specified heartbeat value is in 1/100s of a sec*/
++	if (p_params->heartbeat != -1) {
++		viport_config->hb_interval =
++			msecs_to_jiffies(p_params->heartbeat * 10);
++		viport_config->hb_timeout =
++			(p_params->heartbeat << 6) * 10000; /* usec */
 +	}
 +
-+	qp_attr->qp_state	= IB_QPS_INIT;
-+	qp_attr->port_num	= viport_config->port;
-+	qp_attr->qkey 		= IOC_NUMBER(be64_to_cpu(viport_config->ioc_guid));
-+	qp_attr->pkey_index	= 0;
-+	/* cannot set access flags for UD qp
-+	qp_attr->qp_access_flags	= IB_ACCESS_REMOTE_WRITE; */
++	viport_config->path_idx = 0;
 +
-+	IB_INFO("port_num:%d qkey:%d pkey:%d\n", qp_attr->port_num,
-+			qp_attr->qkey, qp_attr->pkey_index);
-+	ret = ib_modify_qp(mc_data->ib_conn.qp, qp_attr,
-+			   IB_QP_STATE |
-+			   IB_QP_PKEY_INDEX |
-+			   IB_QP_QKEY |
-+
-+			/* cannot set this for UD
-+			   IB_QP_ACCESS_FLAGS | */
-+
-+			   IB_QP_PORT);
-+	if (ret) {
-+		IB_ERROR("ib_modify_qp to INIT failed %d \n", ret);
-+		goto free_qp_attr;
++	viport = viport_allocate(viport_config);
++	if (!viport) {
++		SYS_ERROR("create_netpath: failed creating viport\n");
++		kfree(viport_config);
++		ret = -1;
++		goto out;
 +	}
 +
-+	kfree(qp_attr);
-+	kfree(init_attr);
-+	return ret;
++	npdest->viport = viport;
++	viport->parent = npdest;
++	viport->vnic = npdest->parent;
 +
-+free_qp_attr:
-+	kfree(qp_attr);
-+destroy_qp:
-+	ib_destroy_qp(mc_data->ib_conn.qp);
-+	mc_data->ib_conn.qp = ERR_PTR(-EINVAL);
-+free_init_attr:
-+	kfree(init_attr);
++	if (is_dgid_zero(p_params->dgid) &&  p_params->ioc_guid != 0
++	   &&  p_params->pkey != 0) {
++		viport_kick(viport);
++		vnic_disconnected(npdest->parent, npdest);
++	} else {
++		printk(KERN_WARNING "Specified parameters IOCGUID=%llx, "
++			"P_Key=%x, DGID=", be64_to_cpu(p_params->ioc_guid),
++			p_params->pkey);
++		print_dgid(p_params->dgid);
++		printk(" insufficient for establishing %s path for interface "
++			"%s. Hence, path will not be established.\n",
++			(npdest->second_bias ? "secondary" : "primary"),
++			p_params->name);
++	}
++out:
 +	return ret;
 +}
 +
-+int vnic_ib_mc_mod_qp_to_rts(struct ib_qp *qp)
++static struct vnic *create_vnic(struct path_param *param)
 +{
-+	int ret;
-+	struct ib_qp_attr *qp_attr = NULL;
++	struct vnic_config *vnic_config;
++	struct vnic *vnic;
++	struct list_head *ptr;
 +
-+	IB_FUNCTION("vnic_ib_mc_mod_qp_to_rts\n");
-+	qp_attr = kmalloc(sizeof *qp_attr, GFP_KERNEL);
-+	if (!qp_attr)
-+		return -ENOMEM;
++	SYS_INFO("create_vnic: name = %s\n", param->name);
++	list_for_each(ptr, &vnic_list) {
++		vnic = list_entry(ptr, struct vnic, list_ptrs);
++		if (!strcmp(vnic->config->name, param->name)) {
++			SYS_ERROR("vnic %s already exists\n",
++				   param->name);
++			return NULL;
++		}
++	}
 +
-+	memset(qp_attr, 0, sizeof *qp_attr);
-+	qp_attr->qp_state = IB_QPS_RTR;
++	vnic_config = config_alloc_vnic();
++	if (!vnic_config) {
++		SYS_ERROR("create_vnic: failed creating vnic config\n");
++		return NULL;
++	}
 +
-+	ret = ib_modify_qp(qp, qp_attr, IB_QP_STATE);
-+	if (ret) {
-+		IB_ERROR("ib_modify_qp to RTR failed %d\n", ret);
++	if (param->rx_csum != -1)
++		vnic_config->use_rx_csum = param->rx_csum;
++
++	if (param->tx_csum != -1)
++		vnic_config->use_tx_csum = param->tx_csum;
++
++	strcpy(vnic_config->name, param->name);
++	vnic = vnic_allocate(vnic_config);
++	if (!vnic) {
++		SYS_ERROR("create_vnic: failed allocating vnic\n");
++		goto free_vnic_config;
++	}
++
++	init_completion(&vnic->dev_info.released);
++
++	vnic->dev_info.dev.class = NULL;
++	vnic->dev_info.dev.parent = &interface_dev.dev;
++	vnic->dev_info.dev.release = vnic_release_dev;
++	snprintf(vnic->dev_info.dev.bus_id, BUS_ID_SIZE,
++		 vnic_config->name);
++
++	if (device_register(&vnic->dev_info.dev)) {
++		SYS_ERROR("create_vnic: error in registering"
++			  " vnic class dev\n");
++		goto free_vnic;
++	}
++
++	if (sysfs_create_group(&vnic->dev_info.dev.kobj,
++			       &vnic_dev_attr_group)) {
++		SYS_ERROR("create_vnic: error in creating"
++			  "vnic attr group\n");
++		goto err_attr;
++
++	}
++
++	if (vnic_setup_stats_files(vnic))
++		goto err_stats;
++
++	return vnic;
++err_stats:
++	sysfs_remove_group(&vnic->dev_info.dev.kobj,
++			   &vnic_dev_attr_group);
++err_attr:
++	device_unregister(&vnic->dev_info.dev);
++	wait_for_completion(&vnic->dev_info.released);
++free_vnic:
++	list_del(&vnic->list_ptrs);
++	kfree(vnic);
++free_vnic_config:
++	kfree(vnic_config);
++	return NULL;
++}
++
++ssize_t vnic_delete(struct device *dev, struct device_attribute *dev_attr,
++		    const char *buf, size_t count)
++{
++	struct vnic *vnic;
++	struct list_head *ptr;
++	int ret = -EINVAL;
++
++	if (count > IFNAMSIZ) {
++		printk(KERN_WARNING PFX "invalid vnic interface name\n");
++		return ret;
++	}
++
++	SYS_INFO("vnic_delete: name = %s\n", buf);
++	list_for_each(ptr, &vnic_list) {
++		vnic = list_entry(ptr, struct vnic, list_ptrs);
++		if (!strcmp(vnic->config->name, buf)) {
++			vnic_free(vnic);
++			return count;
++		}
++	}
++
++	printk(KERN_WARNING PFX "vnic interface '%s' does not exist\n", buf);
++	return ret;
++}
++
++static ssize_t show_viport_state(struct device *dev,
++				 struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++	switch (path->viport->state) {
++	case VIPORT_DISCONNECTED:
++		return sprintf(buf, "VIPORT_DISCONNECTED\n");
++	case VIPORT_CONNECTED:
++		return sprintf(buf, "VIPORT_CONNECTED\n");
++	default:
++		return sprintf(buf, "INVALID STATE\n");
++	}
++
++}
++
++static DEVICE_ATTR(viport_state, S_IRUGO, show_viport_state, NULL);
++
++static ssize_t show_link_state(struct device *dev,
++			       struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++
++	switch (path->viport->link_state) {
++	case LINK_UNINITIALIZED:
++		return sprintf(buf, "LINK_UNINITIALIZED\n");
++	case LINK_INITIALIZE:
++		return sprintf(buf, "LINK_INITIALIZE\n");
++	case LINK_INITIALIZECONTROL:
++		return sprintf(buf, "LINK_INITIALIZECONTROL\n");
++	case LINK_INITIALIZEDATA:
++		return sprintf(buf, "LINK_INITIALIZEDATA\n");
++	case LINK_CONTROLCONNECT:
++		return sprintf(buf, "LINK_CONTROLCONNECT\n");
++	case LINK_CONTROLCONNECTWAIT:
++		return sprintf(buf, "LINK_CONTROLCONNECTWAIT\n");
++	case LINK_INITVNICREQ:
++		return sprintf(buf, "LINK_INITVNICREQ\n");
++	case LINK_INITVNICRSP:
++		return sprintf(buf, "LINK_INITVNICRSP\n");
++	case LINK_BEGINDATAPATH:
++		return sprintf(buf, "LINK_BEGINDATAPATH\n");
++	case LINK_CONFIGDATAPATHREQ:
++		return sprintf(buf, "LINK_CONFIGDATAPATHREQ\n");
++	case LINK_CONFIGDATAPATHRSP:
++		return sprintf(buf, "LINK_CONFIGDATAPATHRSP\n");
++	case LINK_DATACONNECT:
++		return sprintf(buf, "LINK_DATACONNECT\n");
++	case LINK_DATACONNECTWAIT:
++		return sprintf(buf, "LINK_DATACONNECTWAIT\n");
++	case LINK_XCHGPOOLREQ:
++		return sprintf(buf, "LINK_XCHGPOOLREQ\n");
++	case LINK_XCHGPOOLRSP:
++		return sprintf(buf, "LINK_XCHGPOOLRSP\n");
++	case LINK_INITIALIZED:
++		return sprintf(buf, "LINK_INITIALIZED\n");
++	case LINK_IDLE:
++		return sprintf(buf, "LINK_IDLE\n");
++	case LINK_IDLING:
++		return sprintf(buf, "LINK_IDLING\n");
++	case LINK_CONFIGLINKREQ:
++		return sprintf(buf, "LINK_CONFIGLINKREQ\n");
++	case LINK_CONFIGLINKRSP:
++		return sprintf(buf, "LINK_CONFIGLINKRSP\n");
++	case LINK_CONFIGADDRSREQ:
++		return sprintf(buf, "LINK_CONFIGADDRSREQ\n");
++	case LINK_CONFIGADDRSRSP:
++		return sprintf(buf, "LINK_CONFIGADDRSRSP\n");
++	case LINK_REPORTSTATREQ:
++		return sprintf(buf, "LINK_REPORTSTATREQ\n");
++	case LINK_REPORTSTATRSP:
++		return sprintf(buf, "LINK_REPORTSTATRSP\n");
++	case LINK_HEARTBEATREQ:
++		return sprintf(buf, "LINK_HEARTBEATREQ\n");
++	case LINK_HEARTBEATRSP:
++		return sprintf(buf, "LINK_HEARTBEATRSP\n");
++	case LINK_RESET:
++		return sprintf(buf, "LINK_RESET\n");
++	case LINK_RESETRSP:
++		return sprintf(buf, "LINK_RESETRSP\n");
++	case LINK_RESETCONTROL:
++		return sprintf(buf, "LINK_RESETCONTROL\n");
++	case LINK_RESETCONTROLRSP:
++		return sprintf(buf, "LINK_RESETCONTROLRSP\n");
++	case LINK_DATADISCONNECT:
++		return sprintf(buf, "LINK_DATADISCONNECT\n");
++	case LINK_CONTROLDISCONNECT:
++		return sprintf(buf, "LINK_CONTROLDISCONNECT\n");
++	case LINK_CLEANUPDATA:
++		return sprintf(buf, "LINK_CLEANUPDATA\n");
++	case LINK_CLEANUPCONTROL:
++		return sprintf(buf, "LINK_CLEANUPCONTROL\n");
++	case LINK_DISCONNECTED:
++		return sprintf(buf, "LINK_DISCONNECTED\n");
++	case LINK_RETRYWAIT:
++		return sprintf(buf, "LINK_RETRYWAIT\n");
++	default:
++		return sprintf(buf, "INVALID STATE\n");
++
++	}
++
++}
++static DEVICE_ATTR(link_state, S_IRUGO, show_link_state, NULL);
++
++static ssize_t show_heartbeat(struct device *dev,
++			      struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++
++	/* hb_inteval is in jiffies, convert it back to
++	 * 1/100ths of a second
++	 */
++	return sprintf(buf, "%d\n",
++		(jiffies_to_msecs(path->viport->config->hb_interval)/10));
++}
++
++static DEVICE_ATTR(heartbeat, S_IRUGO, show_heartbeat, NULL);
++
++static ssize_t show_ioc_guid(struct device *dev,
++			     struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++
++	return sprintf(buf, "%llx\n",
++				__be64_to_cpu(path->viport->config->ioc_guid));
++}
++
++static DEVICE_ATTR(ioc_guid, S_IRUGO, show_ioc_guid, NULL);
++
++static inline void get_dgid_string(u8 *dgid, char *buf)
++{
++	int i;
++	char holder[5];
++
++	for (i = 0; i < 16; i += 2) {
++		sprintf(holder, "%04x", be16_to_cpu(*(__be16 *)&dgid[i]));
++		strcat(buf, holder);
++	}
++
++	strcat(buf, "\n");
++}
++
++static ssize_t show_dgid(struct device *dev,
++			 struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++
++	get_dgid_string(path->viport->config->path_info.path.dgid.raw, buf);
++
++	return strlen(buf);
++}
++
++static DEVICE_ATTR(dgid, S_IRUGO, show_dgid, NULL);
++
++static ssize_t show_pkey(struct device *dev,
++			 struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++
++	return sprintf(buf, "%x\n", path->viport->config->path_info.path.pkey);
++}
++
++static DEVICE_ATTR(pkey, S_IRUGO, show_pkey, NULL);
++
++static ssize_t show_hca_info(struct device *dev,
++			     struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++
++	return sprintf(buf, "vnic-%s-%d\n", path->viport->config->ibdev->name,
++						path->viport->config->port);
++}
++
++static DEVICE_ATTR(hca_info, S_IRUGO, show_hca_info, NULL);
++
++static ssize_t show_ioc_string(struct device *dev,
++			       struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++
++	return sprintf(buf, "%s\n", path->viport->config->ioc_string);
++}
++
++static  DEVICE_ATTR(ioc_string, S_IRUGO, show_ioc_string, NULL);
++
++static ssize_t show_multicast_state(struct device *dev,
++				    struct device_attribute *dev_attr,
++				    char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++
++	struct netpath *path = container_of(info, struct netpath, dev_info);
++
++	if (!(path->viport->features_supported & VNIC_FEAT_INBOUND_IB_MC))
++		return sprintf(buf, "feature not enabled\n");
++
++	switch (path->viport->mc_info.state) {
++	case MCAST_STATE_INVALID:
++		return sprintf(buf, "state=Invalid\n");
++	case MCAST_STATE_JOINING:
++		return sprintf(buf, "state=Joining MGID:" VNIC_GID_FMT "\n",
++			VNIC_GID_RAW_ARG(path->viport->mc_info.mgid.raw));
++	case MCAST_STATE_ATTACHING:
++		return sprintf(buf, "state=Attaching MGID:" VNIC_GID_FMT
++			" MLID:%X\n",
++			VNIC_GID_RAW_ARG(path->viport->mc_info.mgid.raw),
++			path->viport->mc_info.mlid);
++	case MCAST_STATE_JOINED_ATTACHED:
++		return sprintf(buf,
++			"state=Joined & Attached MGID:" VNIC_GID_FMT
++			" MLID:%X\n",
++			VNIC_GID_RAW_ARG(path->viport->mc_info.mgid.raw),
++			path->viport->mc_info.mlid);
++	case MCAST_STATE_DETACHING:
++		return sprintf(buf, "state=Detaching MGID: " VNIC_GID_FMT "\n",
++			VNIC_GID_RAW_ARG(path->viport->mc_info.mgid.raw));
++	case MCAST_STATE_RETRIED:
++		return sprintf(buf, "state=Retries Exceeded\n");
++	}
++	return sprintf(buf, "invalid state\n");
++}
++
++static  DEVICE_ATTR(multicast_state, S_IRUGO, show_multicast_state, NULL);
++
++static struct attribute *vnic_path_attrs[] = {
++	&dev_attr_viport_state.attr,
++	&dev_attr_link_state.attr,
++	&dev_attr_heartbeat.attr,
++	&dev_attr_ioc_guid.attr,
++	&dev_attr_dgid.attr,
++	&dev_attr_pkey.attr,
++	&dev_attr_hca_info.attr,
++	&dev_attr_ioc_string.attr,
++	&dev_attr_multicast_state.attr,
++	NULL
++};
++
++struct attribute_group vnic_path_attr_group = {
++	.attrs = vnic_path_attrs,
++};
++
++
++static int setup_path_class_files(struct netpath *path, char *name)
++{
++	init_completion(&path->dev_info.released);
++
++	path->dev_info.dev.class = NULL;
++	path->dev_info.dev.parent = &path->parent->dev_info.dev;
++	path->dev_info.dev.release = vnic_release_dev;
++	snprintf(path->dev_info.dev.bus_id, BUS_ID_SIZE, name);
++
++	if (device_register(&path->dev_info.dev)) {
++		SYS_ERROR("error in registering path class dev\n");
 +		goto out;
 +	}
-+	IB_INFO("MC QP RTR\n");
 +
-+	memset(qp_attr, 0, sizeof *qp_attr);
-+	qp_attr->qp_state = IB_QPS_RTS;
-+	qp_attr->sq_psn = 0;
-+
-+	ret = ib_modify_qp(qp, qp_attr, IB_QP_STATE | IB_QP_SQ_PSN);
-+	if (ret) {
-+		IB_ERROR("ib_modify_qp to RTS failed %d\n", ret);
-+		goto out;
++	if (sysfs_create_group(&path->dev_info.dev.kobj,
++			       &vnic_path_attr_group)) {
++		SYS_ERROR("error in creating vnic path group attrs");
++		goto err_path;
 +	}
-+	IB_INFO("MC QP RTS\n");
 +
 +	return 0;
 +
++err_path:
++	device_unregister(&path->dev_info.dev);
++	wait_for_completion(&path->dev_info.released);
 +out:
-+	kfree(qp_attr);
 +	return -1;
++
 +}
 +
-+int vnic_ib_mc_post_recv(struct mc_data *mc_data, struct io *io)
++static inline void update_dgids(u8 *old, u8 *new, char *vnic_name,
++				char *path_name)
 +{
-+	cycles_t		post_time;
-+	struct ib_recv_wr	*bad_wr;
-+	int			ret = -1;
++	int i;
 +
-+	IB_FUNCTION("vnic_ib_mc_post_recv()\n");
++	if (!memcmp(old, new, 16))
++		return;
 +
-+	vnic_ib_pre_rcvpost_stats(&mc_data->ib_conn, io, &post_time);
-+	io->type = RECV_UD;
-+	ret = ib_post_recv(mc_data->ib_conn.qp, &io->rwr, &bad_wr);
-+	if (ret) {
-+		IB_ERROR("error in posting rcv wr; error %d\n", ret);
++	printk(KERN_INFO PFX "Changing dgid from 0x");
++	print_dgid(old);
++	printk(" to 0x");
++	print_dgid(new);
++	printk(" for %s path of %s\n", path_name, vnic_name);
++	for (i = 0; i < 16; i++)
++		old[i] = new[i];
++}
++
++static inline void update_ioc_guids(struct path_param *params,
++				    struct netpath *path,
++				    char *vnic_name, char *path_name)
++{
++	u64 sid;
++
++	if (path->viport->config->ioc_guid == params->ioc_guid)
++		return;
++
++	printk(KERN_INFO PFX "Changing IOC GUID from 0x%llx to 0x%llx "
++			 "for %s path of %s\n",
++			 __be64_to_cpu(path->viport->config->ioc_guid),
++			 __be64_to_cpu(params->ioc_guid), path_name, vnic_name);
++
++	path->viport->config->ioc_guid = params->ioc_guid;
++
++	sid = (SST_AGN << 56) | (SST_OUI << 32) | (CONTROL_PATH_ID << 8)
++				| IOC_NUMBER(be64_to_cpu(params->ioc_guid));
++
++	path->viport->config->control_config.ib_config.service_id =
++							 cpu_to_be64(sid);
++
++	sid = (SST_AGN << 56) | (SST_OUI << 32) | (DATA_PATH_ID << 8)
++				| IOC_NUMBER(be64_to_cpu(params->ioc_guid));
++
++	path->viport->config->data_config.ib_config.service_id =
++							 cpu_to_be64(sid);
++}
++
++static inline void update_pkeys(__be16 *old, __be16 *new, char *vnic_name,
++				char *path_name)
++{
++	if (*old == *new)
++		return;
++
++	printk(KERN_INFO PFX "Changing P_Key from 0x%x to 0x%x "
++			 "for %s path of %s\n", *old, *new,
++			 path_name, vnic_name);
++	*old = *new;
++}
++
++static void update_ioc_strings(struct path_param *params, struct netpath *path,
++								char *path_name)
++{
++	if (!strcmp(params->ioc_string, path->viport->config->ioc_string))
++		return;
++
++	printk(KERN_INFO PFX "Changing ioc_string to %s for %s path of %s\n",
++				params->ioc_string, path_name, params->name);
++
++	strcpy(path->viport->config->ioc_string, params->ioc_string);
++}
++
++static void update_path_parameters(struct path_param *params,
++				   struct netpath *path)
++{
++	update_dgids(path->viport->config->path_info.path.dgid.raw,
++		params->dgid, params->name,
++		(path->second_bias ? "secondary" : "primary"));
++
++	update_ioc_guids(params, path, params->name,
++		(path->second_bias ? "secondary" : "primary"));
++
++	update_pkeys(&path->viport->config->path_info.path.pkey,
++		&params->pkey, params->name,
++		(path->second_bias ? "secondary" : "primary"));
++
++	update_ioc_strings(params, path,
++		(path->second_bias ? "secondary" : "primary"));
++}
++
++static ssize_t update_params_and_connect(struct path_param *params,
++					 struct netpath *path, size_t count)
++{
++	if (is_dgid_zero(params->dgid) && params->ioc_guid != 0 &&
++	    params->pkey != 0) {
++
++		if (!memcmp(path->viport->config->path_info.path.dgid.raw,
++			params->dgid, 16) &&
++		    params->ioc_guid == path->viport->config->ioc_guid &&
++		    params->pkey     == path->viport->config->path_info.path.pkey) {
++
++			printk(KERN_WARNING PFX "All of the dgid, ioc_guid and "
++						"pkeys are same as the existing"
++						" one. Not updating values.\n");
++			return -EINVAL;
++		} else {
++			if (path->viport->state == VIPORT_CONNECTED) {
++				printk(KERN_WARNING PFX "%s path of %s "
++					"interface is already in connected "
++					"state. Not updating values.\n",
++				(path->second_bias ? "Secondary" : "Primary"),
++				path->parent->config->name);
++				return -EINVAL;
++			} else {
++				update_path_parameters(params, path);
++				viport_kick(path->viport);
++				vnic_disconnected(path->parent, path);
++				return count;
++			}
++		}
++	} else {
++		printk(KERN_WARNING PFX "Either dgid, iocguid, pkey is zero. "
++					"No update.\n");
++		return -EINVAL;
++	}
++}
++
++ssize_t vnic_create_primary(struct device *dev,
++			    struct device_attribute *dev_attr, const char *buf,
++			    size_t count)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct vnic_ib_port *target =
++	    container_of(info, struct vnic_ib_port, pdev_info);
++
++	struct path_param param;
++	int ret = -EINVAL;
++	struct vnic *vnic;
++	struct list_head    *ptr;
++
++	param.instance = 0;
++	param.rx_csum = -1;
++	param.tx_csum = -1;
++	param.heartbeat = -1;
++	param.ib_multicast = -1;
++	*param.ioc_string = '\0';
++
++	ret = vnic_parse_options(buf, &param);
++
++	if (ret)
++		goto out;
++
++	list_for_each(ptr, &vnic_list) {
++		vnic = list_entry(ptr, struct vnic, list_ptrs);
++		if (!strcmp(vnic->config->name, param.name)) {
++			ret = update_params_and_connect(&param,
++							&vnic->primary_path,
++							count);
++			goto out;
++		}
++	 }
++
++	param.ibdev = target->dev->dev;
++	param.ibport = target;
++	param.port = target->port_num;
++
++	vnic = create_vnic(&param);
++	if (!vnic) {
++		printk(KERN_ERR PFX "creating vnic failed\n");
++		ret = -EINVAL;
 +		goto out;
 +	}
-+	vnic_ib_post_rcvpost_stats(&mc_data->ib_conn, post_time);
 +
++	if (create_netpath(&vnic->primary_path, &param)) {
++		printk(KERN_ERR PFX "creating primary netpath failed\n");
++		goto free_vnic;
++	}
++
++	if (setup_path_class_files(&vnic->primary_path, "primary_path"))
++		goto free_vnic;
++
++	if (vnic && !vnic->primary_path.viport) {
++		printk(KERN_ERR PFX "no valid netpaths\n");
++		goto free_vnic;
++	}
++
++	return count;
++
++free_vnic:
++	vnic_free(vnic);
++	ret = -EINVAL;
 +out:
 +	return ret;
 +}
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_ib.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_ib.h
++
++ssize_t vnic_create_secondary(struct device *dev,
++			      struct device_attribute *dev_attr,
++			      const char *buf, size_t count)
++{
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct vnic_ib_port *target =
++	    container_of(info, struct vnic_ib_port, pdev_info);
++
++	struct path_param param;
++	struct vnic *vnic = NULL;
++	int ret = -EINVAL;
++	struct list_head *ptr;
++	int found = 0;
++
++	param.instance = 0;
++	param.rx_csum = -1;
++	param.tx_csum = -1;
++	param.heartbeat = -1;
++	param.ib_multicast = -1;
++	*param.ioc_string = '\0';
++
++	ret = vnic_parse_options(buf, &param);
++
++	if (ret)
++		goto out;
++
++	list_for_each(ptr, &vnic_list) {
++		vnic = list_entry(ptr, struct vnic, list_ptrs);
++		if (!strncmp(vnic->config->name, param.name, IFNAMSIZ)) {
++			if (vnic->secondary_path.viport) {
++				ret = update_params_and_connect(&param,
++								&vnic->secondary_path,
++								count);
++				goto out;
++			}
++			found = 1;
++			break;
++		}
++	}
++
++	if (!found) {
++		printk(KERN_ERR PFX
++		       "primary connection with name '%s' does not exist\n",
++		       param.name);
++		ret = -EINVAL;
++		goto out;
++	}
++
++	param.ibdev = target->dev->dev;
++	param.ibport = target;
++	param.port = target->port_num;
++
++	if (create_netpath(&vnic->secondary_path, &param)) {
++		printk(KERN_ERR PFX "creating secondary netpath failed\n");
++		ret = -EINVAL;
++		goto out;
++	}
++
++	if (setup_path_class_files(&vnic->secondary_path, "secondary_path"))
++		goto free_vnic;
++
++	return count;
++
++free_vnic:
++	vnic_free(vnic);
++	ret = -EINVAL;
++out:
++	return ret;
++}
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h
 new file mode 100644
-index 0000000..ebf9ef5
+index 0000000..b41e770
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_ib.h
-@@ -0,0 +1,206 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h
+@@ -0,0 +1,62 @@
 +/*
 + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
@@ -1126,177 +1208,33 @@ index 0000000..ebf9ef5
 + * SOFTWARE.
 + */
 +
-+#ifndef VNIC_IB_H_INCLUDED
-+#define VNIC_IB_H_INCLUDED
++#ifndef VNIC_SYS_H_INCLUDED
++#define VNIC_SYS_H_INCLUDED
 +
-+#include <linux/timex.h>
-+#include <linux/completion.h>
-+#include <rdma/ib_verbs.h>
-+#include <rdma/ib_pack.h>
-+#include <rdma/ib_sa.h>
-+#include <rdma/ib_cm.h>
-+
-+#include "vnic_sys.h"
-+#include "vnic_netpath.h"
-+#define PFX	"qlgc_vnic: "
-+
-+struct io;
-+typedef void (comp_routine_t) (struct io *io);
-+
-+enum vnic_ib_conn_state {
-+	IB_CONN_UNINITTED	= 0,
-+	IB_CONN_INITTED		= 1,
-+	IB_CONN_CONNECTING	= 2,
-+	IB_CONN_CONNECTED	= 3,
-+	IB_CONN_DISCONNECTED	= 4,
-+	IB_CONN_ERRORED		= 5
++struct dev_info {
++	struct device		dev;
++	struct completion	released;
 +};
 +
-+struct vnic_ib_conn {
-+	struct viport		*viport;
-+	struct vnic_ib_config	*ib_config;
-+	spinlock_t		conn_lock;
-+	enum vnic_ib_conn_state	state;
-+	struct ib_qp		*qp;
-+	struct ib_cq		*cq;
-+	struct ib_cm_id		*cm_id;
-+	int 			callback_thread_end;
-+	struct task_struct	*callback_thread;
-+	wait_queue_head_t	callback_wait_queue;
-+	u32 			in_thread;
-+	u32 			compl_received;
-+	struct completion 	callback_thread_exit;
-+	spinlock_t		compl_received_lock;
-+#ifdef CONFIG_INFINIBAND_QLGC_VNIC_STATS
-+	struct {
-+		cycles_t	connection_time;
-+		cycles_t	rdma_post_time;
-+		u32		rdma_post_ios;
-+		cycles_t	rdma_comp_time;
-+		u32		rdma_comp_ios;
-+		cycles_t	send_post_time;
-+		u32		send_post_ios;
-+		cycles_t	send_comp_time;
-+		u32		send_comp_ios;
-+		cycles_t	recv_post_time;
-+		u32		recv_post_ios;
-+		cycles_t	recv_comp_time;
-+		u32		recv_comp_ios;
-+		u32		num_ios;
-+		u32		num_callbacks;
-+		u32		max_ios;
-+	} statistics;
-+#endif	/* CONFIG_INFINIBAND_QLGC_VNIC_STATS */
-+};
++extern struct class vnic_class;
++extern struct dev_info interface_dev;
++extern struct attribute_group vnic_dev_attr_group;
++extern struct attribute_group vnic_path_attr_group;
++extern struct device_attribute dev_attr_create_primary;
++extern struct device_attribute dev_attr_create_secondary;
++extern struct device_attribute dev_attr_delete_vnic;
 +
-+struct vnic_ib_path_info {
-+	struct ib_sa_path_rec	path;
-+	struct ib_sa_query	*path_query;
-+	int			path_query_id;
-+	int			status;
-+	struct			completion done;
-+};
++extern void vnic_release_dev(struct device *dev);
 +
-+struct vnic_ib_device {
-+	struct ib_device	*dev;
-+	struct list_head	port_list;
-+};
++extern ssize_t vnic_create_primary(struct device *dev,
++				   struct device_attribute *dev_attr,
++				   const char *buf, size_t count);
 +
-+struct vnic_ib_port {
-+	struct vnic_ib_device	*dev;
-+	u8			port_num;
-+	struct dev_info		pdev_info;
-+	struct list_head	list;
-+};
++extern ssize_t vnic_create_secondary(struct device *dev,
++				     struct device_attribute *dev_attr,
++				     const char *buf, size_t count);
 +
-+struct io {
-+	struct list_head	list_ptrs;
-+	struct viport		*viport;
-+	comp_routine_t		*routine;
-+	struct ib_recv_wr	rwr;
-+	struct ib_send_wr	swr;
-+#ifdef CONFIG_INFINIBAND_QLGC_VNIC_STATS
-+	cycles_t		time;
-+#endif	/* CONFIG_INFINIBAND_QLGC_VNIC_STATS */
-+	enum {RECV, RDMA, SEND, RECV_UD}	type;
-+};
-+
-+struct rdma_io {
-+	struct io		io;
-+	struct ib_sge		list[2];
-+	u16			index;
-+	u16			len;
-+	u8			*data;
-+	dma_addr_t		data_dma;
-+	struct sk_buff		*skb;
-+	dma_addr_t		skb_data_dma;
-+	struct viport_trailer 	*trailer;
-+	dma_addr_t 		trailer_dma;
-+};
-+
-+struct send_io {
-+	struct io	io;
-+	struct ib_sge	list;
-+	u8		*virtual_addr;
-+};
-+
-+struct recv_io {
-+	struct io	io;
-+	struct ib_sge	list;
-+	u8		*virtual_addr;
-+};
-+
-+struct ud_recv_io {
-+	struct io	io;
-+	u16 	len;
-+	dma_addr_t		skb_data_dma;
-+	struct ib_sge	list[2]; /* one for grh and other for rest of pkt. */
-+	struct sk_buff 	*skb;
-+};
-+
-+int	vnic_ib_init(void);
-+void	vnic_ib_cleanup(void);
-+
-+struct vnic;
-+int vnic_ib_get_path(struct netpath *netpath, struct vnic *vnic);
-+int vnic_ib_conn_init(struct vnic_ib_conn *ib_conn, struct viport *viport,
-+		      struct ib_pd *pd, struct vnic_ib_config *config);
-+
-+int vnic_ib_post_recv(struct vnic_ib_conn *ib_conn, struct io *io);
-+int vnic_ib_post_send(struct vnic_ib_conn *ib_conn, struct io *io);
-+int vnic_ib_cm_connect(struct vnic_ib_conn *ib_conn);
-+int vnic_ib_cm_handler(struct ib_cm_id *cm_id, struct ib_cm_event *event);
-+
-+#define	vnic_ib_conn_uninitted(ib_conn)			\
-+	((ib_conn)->state == IB_CONN_UNINITTED)
-+#define	vnic_ib_conn_initted(ib_conn)			\
-+	((ib_conn)->state == IB_CONN_INITTED)
-+#define	vnic_ib_conn_connecting(ib_conn)		\
-+	((ib_conn)->state == IB_CONN_CONNECTING)
-+#define	vnic_ib_conn_connected(ib_conn)			\
-+	((ib_conn)->state == IB_CONN_CONNECTED)
-+#define	vnic_ib_conn_disconnected(ib_conn)		\
-+	((ib_conn)->state == IB_CONN_DISCONNECTED)
-+
-+#define MCAST_GROUP_INVALID 0x00 /* viport failed to join or left mc group */
-+#define MCAST_GROUP_JOINING 0x01 /* wait for completion */
-+#define MCAST_GROUP_JOINED  0x02 /* join process completed successfully */
-+
-+/* vnic_sa_client is used to register with sa once. It is needed to join and
-+ * leave multicast groups.
-+ */
-+extern struct ib_sa_client vnic_sa_client;
-+
-+/* The following functions are using initialize and handle multicast
-+ * components.
-+ */
-+struct mc_data; /* forward declaration */
-+/* Initialize all necessary mc components */
-+int vnic_ib_mc_init(struct mc_data *mc_data, struct viport *viport,
-+			struct ib_pd *pd, struct vnic_ib_config *config);
-+/* Put multicast qp in RTS */
-+int vnic_ib_mc_mod_qp_to_rts(struct ib_qp *qp);
-+/* Post multicast receive buffers */
-+int vnic_ib_mc_post_recv(struct mc_data *mc_data, struct io *io);
-+
-+#endif	/* VNIC_IB_H_INCLUDED */
++extern ssize_t vnic_delete(struct device *dev,
++			   struct device_attribute *dev_attr,
++			   const char *buf, size_t count);
++#endif	/*VNIC_SYS_H_INCLUDED*/
