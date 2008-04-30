@@ -1,62 +1,48 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] Allow building iwl3945 without iwl4965.
-Date: Wed, 30 Apr 2008 00:46:05 -0400
-Message-ID: <20080430004605.4775469a.billfink@mindspring.com>
-References: <1209521679.2827.23.camel@debian.sh.intel.com>
-	<20080429.191754.29710117.davem@davemloft.net>
-	<1209522667.2827.26.camel@debian.sh.intel.com>
-	<20080429.193253.188598222.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][IPv4] UFO: prevent generation of chained skb
+Date: Tue, 29 Apr 2008 22:37:47 -0700 (PDT)
+Message-ID: <20080429.223747.211215854.davem@davemloft.net>
+References: <BAY121-W44CAF03A4C79BFC4FEEEBDB6DE0@phx.gbl>
+	<20080429.032714.263350536.davem@davemloft.net>
+	<20080429120713.GA19937@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, linville@tuxdriver.com, jason@acm.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: bkostya@hotmail.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:50787 "EHLO
-	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755537AbYD3EqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 00:46:09 -0400
-In-Reply-To: <20080429.193253.188598222.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55594
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751214AbYD3Fhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 01:37:48 -0400
+In-Reply-To: <20080429120713.GA19937@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Apr 2008, David Miller wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 29 Apr 2008 20:07:13 +0800
 
-> From: Zhu Yi <yi.zhu@intel.com>
-> Date: Wed, 30 Apr 2008 10:31:07 +0800
-> 
-> > On Tue, 2008-04-29 at 19:17 -0700, David Miller wrote:
-> > > The build number increments every time you make.
-> > > 
-> > > That's where the "#nn" in the uname output comes from.
+> On Tue, Apr 29, 2008 at 03:27:14AM -0700, David Miller wrote:
+> >
+> > Mostly this looks fine to me.
 > > 
-> > Well, if nothing is changed, why it tries to recompile the image? IIRC,
-> > we don't have this problem in early kernels.
+> > Herbert, can you take a quick look at this?
 > 
-> Something did change, the build number in the header file.
+> Yep looks good to me too.
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-It doesn't do it in 2.6.22:
+Applied, thanks everyone.
 
-[root@lang2 linux-2.6.22.9-foo]# pwd
-/home/extra/usr/src/kernels/linux-2.6.22.9-foo
+K, I had to fix up your patch by hand because your email
+client corrupted the patch, changing tabs into space
+characters, and things of that nature.
 
-[root@lang2 linux-2.6.22.9-foo]# strings - vmlinux | grep 'Linux vers'
-Linux version 2.6.22.9-mf1 (root@lang2.eiger.nasa.atd.net) (gcc version 4.1.1 20060525 (Red Hat 4.1.1-1)) #4 SMP Wed Apr 30 00:37:52 EDT 2008
+Also, your patch description had many lines longer than
+80 columns, which I had to fix up as well.
 
-[root@lang2 linux-2.6.22.9-foo]# make
-  CHK     include/linux/version.h
-  CHK     include/linux/utsrelease.h
-  CALL    scripts/checksyscalls.sh
-  CHK     include/linux/compile.h
-  MODPOST vmlinux
-Kernel: arch/x86_64/boot/bzImage is ready  (#4)
-  Building modules, stage 2.
-  MODPOST 1605 modules
+I'm happy to do this before you are aware of the problem,
+like this time, but now that I've made you aware I will
+push back future patches which have these errors.
 
-[root@lang2 linux-2.6.22.9-foo]# strings - vmlinux | grep 'Linux vers'
-Linux version 2.6.22.9-mf1 (root@lang2.eiger.nasa.atd.net) (gcc version 4.1.1 20060525 (Red Hat 4.1.1-1)) #4 SMP Wed Apr 30 00:37:52 EDT 2008
-
-This is as it should be I would think.
-
-						-Bill
+Thank you.
