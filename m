@@ -1,37 +1,44 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: 2.6.25-git16 fails with "undefined reference to
-	`compat_mc_getsockopt'"
-Date: Wed, 30 Apr 2008 15:03:15 -0700
-Message-ID: <20080430220315.GA11136@kroah.com>
-References: <20080430204622.GA1663@kroah.com> <20080430.144906.105396672.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: [PATCH 00/13] QLogic Virtual NIC (VNIC) Driver
+Date: Wed, 30 Apr 2008 15:25:40 -0700
+Message-ID: <adamynb6kuz.fsf@cisco.com>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:51861 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765370AbYD3WD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2008 18:03:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20080430.144906.105396672.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, poornima.kamath@qlogic.com,
+	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
+To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080430171028.31725.86190.stgit@localhost.localdomain>
+	(Ramachandra K.'s message of "Wed, 30 Apr 2008 22:45:52 +0530")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 30, 2008 at 02:49:06PM -0700, David Miller wrote:
-> From: Greg KH <greg@kroah.com>
-> Date: Wed, 30 Apr 2008 13:46:22 -0700
-> 
-> > Don't know if you have seen this or not, but 2.6.25-gi16 seems to fail
-> > with:
-> > 	net/built-in.o: In function `ipv6_getsockopt':
-> > 	(.text+0x6829c): undefined reference to `compat_mc_getsockopt'
-> > 
-> > I've attached my .config below if that helps any.
-> 
-> Known problem and there is a fix pending, sit tight.
+ > This is the QLogic Virtual NIC driver patch series which has been tested
+ > against your for-2.6.26 and for-2.6.27 branches. We intended these patches to
+ > make it to the 2.6.26 kernel, but if it is too late for the 2.6.26 merge window
+ > please consider them for 2.6.27.
 
-Great, thanks for letting me know and sending the patch to Linus, I
-appreciate it.
+Yes, *WAY* too late for 2.6.26, given that today is the last day of the
+merge window, and that things that get merged need to be ready before
+the merge window opens.
 
-greg k-h
+ > The driver compiles cleanly with sparse endianness checking enabled. We have
+ > also tested the driver with lockdep checking enabled.
+ > 
+ > We have run these patches through checkpatch.pl and the only warnings are
+ > related to lines slightly longer than 80 columns in some of the statements.
+
+All good news.
+
+Will review and I hope get this into 2.6.27.
+
+ - R.
