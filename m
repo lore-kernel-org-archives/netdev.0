@@ -1,73 +1,72 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: mac80211 truesize bugs
-Date: Thu, 1 May 2008 11:32:24 +0200
-Message-ID: <200805011132.24399.mb@bu3sch.de>
-References: <1209607368.7173.20.camel@johannes.berg> <200805011058.40197.mb@bu3sch.de> <1209632886.4008.8.camel@johannes.berg>
+Date: Thu, 01 May 2008 11:32:29 +0200
+Message-ID: <1209634349.4008.15.camel@johannes.berg>
+References: <1209607368.7173.20.camel@johannes.berg>
+	 <200805011058.40197.mb@bu3sch.de> <1209632886.4008.8.camel@johannes.berg>
+	 <20080501.022041.213526595.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1209632886.4008.8.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On Thursday 01 May 2008 11:08:06 Johannes Berg wrote:
-> 
-> > Hm, unrelated to this...
-> > But I am wondering what happens if the driver adds a device header to the skb.
-> > Is that header then also passed up netif_rx()?
-> > This doesn't happen for b43, as we use the DMA fragmentation to transmit the header,
-> > but it might happen for zd1211rw and others.
-> 
-> Hmm. I thought we said that it was supposed to be removed again by the
-> hardware before TX status reporting. That's what most drivers seem to do
-> anyway.
-
-Ok. I was not aware of that. Is that documented somewhere? I guess we can't WARN_ON()?
-
-> > Seems the skb->destructor messes it up.
-> 
-> Actually, it seems to be outside of mac80211, I put in a WARN_ON() and
-> got this:
-
-Yeah looks like the destructor messes with the data/sizes and disagrees
-with the way mac80211 handles stuff, in some way.
-
-> Badness at include/linux/skbuff.h:392
-> NIP: c026ea14 LR: c0273d54 CTR: c026e9e4
-> REGS: edfc7c00 TRAP: 0700   Not tainted  (2.6.25-wl-06841-g6b3d5c6-dirty)
-> MSR: 00029032 <EE,ME,IR,DR>  CR: 82022444  XER: 00000000
-> TASK = edf50e20[3453] 'tcpdump' THREAD: edfc6000
-> GPR00: 00000001 edfc7cb0 edf50e20 edfd7700 edfd7700 00000002 edfc7e75 03230306 
-> GPR08: 02000100 00000168 4dff0200 00000150 22022442 100a6290 100783f8 10078e18 
-> GPR16: 10078e14 10078e10 100a0000 00000000 00000000 bfe2c9d2 1004d320 bfe2c4b0 
-> GPR24: 10165070 edfd7724 00000060 00000020 ed8157f0 edfd7700 ed8157f0 edfd7700 
-> NIP [c026ea14] sock_rfree+0x30/0x94
-> LR [c0273d54] skb_release_all+0x98/0x128
-> Call Trace:
-> [edfc7cb0] [10078e10] 0x10078e10 (unreliable)
-> [edfc7cc0] [c0273d54] skb_release_all+0x98/0x128
-> [edfc7cd0] [c0273034] __kfree_skb+0x18/0xc8
-> [edfc7ce0] [c02760d0] skb_free_datagram+0x1c/0x54
-> [edfc7cf0] [f264d068] packet_recvmsg+0x170/0x1e8 [af_packet]
-> [edfc7d40] [c026b69c] sock_recvmsg+0xb8/0xf0
-> [edfc7e30] [c026b9d0] sys_recvfrom+0x94/0x100
-> [edfc7f00] [c026ca08] sys_socketcall+0x114/0x1dc
-> [edfc7f40] [c00124cc] ret_from_syscall+0x0/0x38
-> 
-> johannes
-> 
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-5hyj9nEcbOCeMbQPv+bL"
+Cc: mb@bu3sch.de, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:59081 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753758AbYEAJdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 05:33:09 -0400
+In-Reply-To: <20080501.022041.213526595.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--=-5hyj9nEcbOCeMbQPv+bL
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
--- 
-Greetings Michael.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, 2008-05-01 at 02:20 -0700, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Thu, 01 May 2008 11:08:06 +0200
+>=20
+> > > Seems the skb->destructor messes it up.
+> >=20
+> > Actually, it seems to be outside of mac80211, I put in a WARN_ON() and
+> > got this:
+>=20
+> You're just seeing who freed it last here.
+>=20
+> It could have had it's ->truesize put into an illegal state
+> elsewhere.
+
+Yes, I know, but it doesn't come from my skb_orphan() call. Hence, I
+just =EF=BB=BFnetif_rx() the packet which makes it go onto the input_pkt_qu=
+eue
+and then to netif_receive_skb() which gives it to af_packet and all
+others should ignore it since I set =EF=BB=BFPACKET_OTHERHOST.
+
+johannes
+
+--=-5hyj9nEcbOCeMbQPv+bL
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUASBmOLKVg1VMiehFYAQJMaQ//SCvIESq3jYrUzS0z3+P5HnIN2o4WEucW
+JJO3L0A/MTMPsX7oq56JU0YzaU7VtxR0EVIHWt2lOwXBlbdA1oV0p1ymgUVYvRh0
+iW9wJzZFvFlRbLl5zDXp7xTvaaRejP7IWp9JYzeY4qX2pOdFLzLBBL8o4LhEGx/z
+g+SlYOTzoSEDPe88W4sLaLXgw/ofRDN7obbx8AX5xlrudzKg8Fgk7TYCZYbfISLP
+X7q9vVlqJZq8+l0PY/LJ/OPP2oS/h0X6LA6Jpk5u94G6yLfpdHoX5AalWXQwaBmY
+blfWZJDYtqBGxiVUJza4SlchYUJ/IQZC6VhYh4IaOJKDScPDGCCNOgqMCwT1Lvri
+xhP8/rVohfVmo0DFPcwu9/IJ7B0W+Rq+7LKjMU9WLPjPe30oefyWCyag/GeHd5lV
+pexIR39GTdKc29HeLKFO6P1kk9Jfj+lJ76MCx5djlg7+b2irrPgL8h8Q0a5Z7DeR
+N76vpGH+q3tAJhQyLsWpTDHXmGr+EflBTtB2VxbejorZiT2EM5RyQPq9D/nqY+y3
+Mah6qmWcjmRt0nSSV6I/uwJzzrPNncC7PGYJ81bfyZPhbdIpZQbwswUCibJdmqJI
+9caz4uY5bU5CYXTpg/Dez47S0SbeF4mOtDcGcldi0gNQQgZKltLT2n2hYrk4MYgF
+PES/JvOcsD8=
+=LoW7
+-----END PGP SIGNATURE-----
+
+--=-5hyj9nEcbOCeMbQPv+bL--
+
