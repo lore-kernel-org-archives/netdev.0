@@ -1,44 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: mac80211 truesize bugs
-Date: Thu, 01 May 2008 03:32:21 -0700 (PDT)
-Message-ID: <20080501.033221.193705040.davem@davemloft.net>
-References: <1209635299.4008.21.camel@johannes.berg>
-	<20080501.025635.216053297.davem@davemloft.net>
-	<1209636494.4008.24.camel@johannes.berg>
+Subject: Re: [PATCH 0/2] Disable forwarding of LRO skbs
+Date: Thu, 01 May 2008 03:34:14 -0700 (PDT)
+Message-ID: <20080501.033414.132094744.davem@davemloft.net>
+References: <20080430.145820.50450486.davem@davemloft.net>
+	<E1JrVtK-0001pb-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mb@bu3sch.de, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: bhutchings@solarflare.com, kmansley@solarflare.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54816
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54821
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751542AbYEAKcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 06:32:23 -0400
-In-Reply-To: <1209636494.4008.24.camel@johannes.berg>
+	by vger.kernel.org with ESMTP id S1752084AbYEAKeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 06:34:14 -0400
+In-Reply-To: <E1JrVtK-0001pb-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 01 May 2008 12:08:14 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 01 May 2008 18:19:54 +0800
 
-> > Grrr, I bet it's coming from a combination of the
-> > skb_set_mac_header(skb, 0); call done by mac80211 and the skb_push()
-> > calls in net/packet/af_packet.c
-> > 
-> > davem@sunset:~/src/GIT/net-2.6$ egrep skb_push net/packet/af_packet.c
-> > 	skb_push(skb, skb->data - skb_mac_header(skb));
-> > 			skb_push(skb, skb->data - skb_mac_header(skb));
-> > 			skb_push(skb, skb->data - skb_mac_header(skb));
-> 
-> But mac80211 does set_mac_header(0) so this should just push zero bytes,
-> no?
+> This patch completely breaks forwarding of GSO packets in a
+> virtualised environment where we explicitly want to forward
+> them as is to reduce per-packet overhead.  So if LRO is causing
+> problems then I suggest we find a better way around that that
+> does not penalise all forms of GSO.
 
-Right you are.
+I assume you mean forwarding via a bridge?
 
-So, I wonder what's causing the problem...  Could you "remember" the
-length and truesize at the skb_orphan() point in mac80211, right
-after the skb_push(), then in the truesize warning, print those
-"remembered" values as well as the current ones.
+I think we'll need to add a device attribute for what
+you want.
 
