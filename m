@@ -1,307 +1,90 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [ofa-general] Re: [PATCH 11/13] QLogic VNIC: Driver utility file -
- implements various utility macros
-Date: Thu, 1 May 2008 07:58:16 -0700
-Message-ID: <20080501075816.1010ec3a@extreme>
-References: <20080430171028.31725.86190.stgit@localhost.localdomain>
-	<20080430172126.31725.48554.stgit@localhost.localdomain>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 00/10] sysfs tagged directories
+Date: Thu, 1 May 2008 10:10:51 -0500
+Message-ID: <20080501151051.GB16038@sergelap.austin.ibm.com>
+References: <20080429171015.473938697@theryb.frec.bull.fr> <20080429173621.GA16625@suse.de> <20080429180445.GA18110@sergelap.austin.ibm.com> <20080429184151.GA19794@suse.de> <20080429193417.GA19282@sergelap.austin.ibm.com> <20080501031341.GD4911@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, poornima.kamath@qlogic.com,
-	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
-To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20080430172126.31725.48554.stgit@localhost.localdomain>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:45145 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751452AbYEAPKz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2008 11:10:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20080501031341.GD4911@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Apr 2008 22:51:26 +0530
-Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
-
-> From: Poornima Kamath <poornima.kamath@qlogic.com>
+Quoting Greg KH (gregkh@suse.de):
+> On Tue, Apr 29, 2008 at 02:34:17PM -0500, Serge E. Hallyn wrote:
+> > Finally, to give an idea about how the trees end up looking, here is
+> > what I just did on my test box;
+> > 
+> > /usr/sbin/ip link add type veth
+> > mount --bind /mnt /mnt
+> > mkdir /mnt/sys
+> > mount --make-shared /mnt
+> > ns_exec -cmn /bin/sh  # unshare netns and mounts ns
+> >  # At this point, I still see eth0 and friends under /sys/class/net etc
+> > mount -t sysfs none /sys
+> >  # At this point, /sys/class/net has only lo0 and sit0, and
+> >  # /sys/devices/pci0000:00/0000:00:03.0/net:eth0 is a dead link
+> > mount --bind /sys /mnt/sys
+> > echo $$
+> > 	3050
+> > 
+> > (back in another shell):
+> > /usr/sbin/ip link set veth1 netns 3050
+> > 
+> > (back in container shell):
+> > /usr/sbin/ip link set veth1 name eth0
+> >  # Now /sys/devices/pci0000:00/0000:00:03.0/net:eth0 is a live link to
+> >  # the /sys/class/net/eth0 which is really the original veth1
+> > exit
+> > 
+> > ls /mnt/sys/class/net
+> >  # empty directory
 > 
-> This patch adds the driver utility file which mainly contains utility
-> macros for debugging of QLogic VNIC driver.
+> What does this all look like without CONFIG_SYSFS_DEPRECATED enabled,
+> which is what all sane distros do these days.  That's going to change
+> the look of the tree for stuff like this a lot I think...
 > 
-> Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-> Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
-> ---
+> thanks,
 > 
->  drivers/infiniband/ulp/qlgc_vnic/vnic_util.h |  251 ++++++++++++++++++++++++++
->  1 files changed, 251 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_util.h
-> 
-> diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_util.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_util.h
-> new file mode 100644
-> index 0000000..4d7d540
-> --- /dev/null
-> +++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_util.h
-> @@ -0,0 +1,251 @@
-> +/*
-> + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
-> + *
-> + * This software is available to you under a choice of one of two
-> + * licenses.  You may choose to be licensed under the terms of the GNU
-> + * General Public License (GPL) Version 2, available from the file
-> + * COPYING in the main directory of this source tree, or the
-> + * OpenIB.org BSD license below:
-> + *
-> + *     Redistribution and use in source and binary forms, with or
-> + *     without modification, are permitted provided that the following
-> + *     conditions are met:
-> + *
-> + *      - Redistributions of source code must retain the above
-> + *        copyright notice, this list of conditions and the following
-> + *        disclaimer.
-> + *
-> + *      - Redistributions in binary form must reproduce the above
-> + *        copyright notice, this list of conditions and the following
-> + *        disclaimer in the documentation and/or other materials
-> + *        provided with the distribution.
-> + *
-> + * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-> + * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-> + * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-> + * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-> + * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-> + * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-> + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> + * SOFTWARE.
-> + */
-> +
-> +#ifndef VNIC_UTIL_H_INCLUDED
-> +#define VNIC_UTIL_H_INCLUDED
-> +
-> +#define MODULE_NAME "QLGC_VNIC"
-> +
-> +#define VNIC_MAJORVERSION	1
-> +#define VNIC_MINORVERSION	1
-> +
-> +#define is_power_of2(value)	(((value) & ((value - 1))) == 0)
-> +#define ALIGN_DOWN(x, a)	((x)&(~((a)-1)))
+> greg k-h
 
-In kernel.h already
+Now before moving veth1 to the new netns, we have in the container:
+/sys/class/net:
+lo  sit0
 
-> +extern u32 vnic_debug;
+/sys/devices/virtual/net:
+lo  sit0
 
-Use msg level macros instead?
+and after moving veth1, we have in the container:
 
-> +
-> +enum {
-> +	DEBUG_IB_INFO			= 0x00000001,
-> +	DEBUG_IB_FUNCTION		= 0x00000002,
-> +	DEBUG_IB_FSTATUS		= 0x00000004,
-> +	DEBUG_IB_ASSERTS		= 0x00000008,
-> +	DEBUG_CONTROL_INFO		= 0x00000010,
-> +	DEBUG_CONTROL_FUNCTION	= 0x00000020,
-> +	DEBUG_CONTROL_PACKET	= 0x00000040,
-> +	DEBUG_CONFIG_INFO		= 0x00000100,
-> +	DEBUG_DATA_INFO 		= 0x00001000,
-> +	DEBUG_DATA_FUNCTION		= 0x00002000,
-> +	DEBUG_NETPATH_INFO		= 0x00010000,
-> +	DEBUG_VIPORT_INFO		= 0x00100000,
-> +	DEBUG_VIPORT_FUNCTION	= 0x00200000,
-> +	DEBUG_LINK_STATE		= 0x00400000,
-> +	DEBUG_VNIC_INFO 		= 0x01000000,
-> +	DEBUG_VNIC_FUNCTION		= 0x02000000,
-> +	DEBUG_MCAST_INFO		= 0x04000000,
-> +	DEBUG_MCAST_FUNCTION	= 0x08000000,
-> +	DEBUG_SYS_INFO			= 0x10000000,
-> +	DEBUG_SYS_VERBOSE		= 0x40000000
-> +};
-> +
-> +#ifdef CONFIG_INFINIBAND_QLGC_VNIC_DEBUG
-> +#define PRINT(level, x, fmt, arg...)					\
-> +	printk(level "%s: %s: %s, line %d: " fmt,			\
-> +	       MODULE_NAME, x, __FILE__, __LINE__, ##arg)
-> +
-> +#define PRINT_CONDITIONAL(level, x, condition, fmt, arg...)		\
-> +	do {								\
-> +		if (condition)						\
-> +			printk(level "%s: %s: %s, line %d: " fmt,	\
-> +			       MODULE_NAME, x, __FILE__, __LINE__,	\
-> +			       ##arg);					\
-> +	} while (0)
-> +#else
-> +#define PRINT(level, x, fmt, arg...)					\
-> +	printk(level "%s: " fmt, MODULE_NAME, ##arg)
-> +
-> +#define PRINT_CONDITIONAL(level, x, condition, fmt, arg...)		\
-> +	do {								\
-> +		 if (condition)						\
-> +			printk(level "%s: %s: " fmt,			\
-> +			       MODULE_NAME, x, ##arg);			\
-> +	} while (0)
-> +#endif	/*CONFIG_INFINIBAND_QLGC_VNIC_DEBUG*/
-> +
-> +#define IB_PRINT(fmt, arg...)			\
-> +	PRINT(KERN_INFO, "IB", fmt, ##arg)
-> +#define IB_ERROR(fmt, arg...)			\
-> +	PRINT(KERN_ERR, "IB", fmt, ##arg)
-> +
-> +#define IB_FUNCTION(fmt, arg...) 				\
-> +	PRINT_CONDITIONAL(KERN_INFO, 				\
-> +			  "IB", 				\
-> +			  (vnic_debug & DEBUG_IB_FUNCTION), 	\
-> +			  fmt, ##arg)
-> +
-> +#define IB_INFO(fmt, arg...)					\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			  "IB",					\
-> +			  (vnic_debug & DEBUG_IB_INFO),		\
-> +			  fmt, ##arg)
-> +
-> +#define IB_ASSERT(x)							\
-> +	do {								\
-> +		 if ((vnic_debug & DEBUG_IB_ASSERTS) && !(x))		\
-> +			panic("%s assertion failed, file:  %s,"		\
-> +				" line %d: ",				\
-> +				MODULE_NAME, __FILE__, __LINE__)	\
-> +	} while (0)
-> +
-> +#define CONTROL_PRINT(fmt, arg...)			\
-> +	PRINT(KERN_INFO, "CONTROL", fmt, ##arg)
-> +#define CONTROL_ERROR(fmt, arg...)			\
-> +	PRINT(KERN_ERR, "CONTROL", fmt, ##arg)
-> +
-> +#define CONTROL_INFO(fmt, arg...)					\
-> +	PRINT_CONDITIONAL(KERN_INFO,					\
-> +			  "CONTROL",					\
-> +			  (vnic_debug & DEBUG_CONTROL_INFO),		\
-> +			  fmt, ##arg)
-> +
-> +#define CONTROL_FUNCTION(fmt, arg...)					\
-> +	PRINT_CONDITIONAL(KERN_INFO,					\
-> +			"CONTROL",					\
-> +			(vnic_debug & DEBUG_CONTROL_FUNCTION),		\
-> +			fmt, ##arg)
-> +
-> +#define CONTROL_PACKET(pkt)					\
-> +	do {							\
-> +		 if (vnic_debug & DEBUG_CONTROL_PACKET)		\
-> +			control_log_control_packet(pkt);	\
-> +	} while (0)
-> +
-> +#define CONFIG_PRINT(fmt, arg...)		\
-> +	PRINT(KERN_INFO, "CONFIG", fmt, ##arg)
-> +#define CONFIG_ERROR(fmt, arg...)		\
-> +	PRINT(KERN_ERR, "CONFIG", fmt, ##arg)
-> +
-> +#define CONFIG_INFO(fmt, arg...)				\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			  "CONFIG",				\
-> +			  (vnic_debug & DEBUG_CONFIG_INFO),	\
-> +			  fmt, ##arg)
-> +
-> +#define DATA_PRINT(fmt, arg...)			\
-> +	PRINT(KERN_INFO, "DATA", fmt, ##arg)
-> +#define DATA_ERROR(fmt, arg...)			\
-> +	PRINT(KERN_ERR, "DATA", fmt, ##arg)
-> +
-> +#define DATA_INFO(fmt, arg...)					\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			  "DATA",				\
-> +			  (vnic_debug & DEBUG_DATA_INFO),	\
-> +			  fmt, ##arg)
-> +
-> +#define DATA_FUNCTION(fmt, arg...)				\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			  "DATA",				\
-> +			  (vnic_debug & DEBUG_DATA_FUNCTION),	\
-> +			  fmt, ##arg)
-> +
-> +
-> +#define MCAST_PRINT(fmt, arg...)        \
-> +    PRINT(KERN_INFO, "MCAST", fmt, ##arg)
-> +#define MCAST_ERROR(fmt, arg...)        \
-> +    PRINT(KERN_ERR, "MCAST", fmt, ##arg)
-> +
-> +#define MCAST_INFO(fmt, arg...)   	              		\
-> +	PRINT_CONDITIONAL(KERN_INFO,     			\
-> +			"MCAST",   				\
-> +			(vnic_debug & DEBUG_MCAST_INFO),	\
-> +			fmt, ##arg)
-> +
-> +#define MCAST_FUNCTION(fmt, arg...)				\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			"MCAST",				\
-> +			(vnic_debug & DEBUG_MCAST_FUNCTION), 	\
-> +			fmt, ##arg)
-> +
-> +#define NETPATH_PRINT(fmt, arg...)		\
-> +	PRINT(KERN_INFO, "NETPATH", fmt, ##arg)
-> +#define NETPATH_ERROR(fmt, arg...)		\
-> +	PRINT(KERN_ERR, "NETPATH", fmt, ##arg)
-> +
-> +#define NETPATH_INFO(fmt, arg...)				\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			  "NETPATH",				\
-> +			  (vnic_debug & DEBUG_NETPATH_INFO),	\
-> +			  fmt, ##arg)
-> +
-> +#define VIPORT_PRINT(fmt, arg...)		\
-> +	PRINT(KERN_INFO, "VIPORT", fmt, ##arg)
-> +#define VIPORT_ERROR(fmt, arg...)		\
-> +	PRINT(KERN_ERR, "VIPORT", fmt, ##arg)
-> +
-> +#define VIPORT_INFO(fmt, arg...) 				\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			  "VIPORT",				\
-> +			  (vnic_debug & DEBUG_VIPORT_INFO),	\
-> +			  fmt, ##arg)
-> +
-> +#define VIPORT_FUNCTION(fmt, arg...)				\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			  "VIPORT",				\
-> +			  (vnic_debug & DEBUG_VIPORT_FUNCTION),	\
-> +			  fmt, ##arg)
-> +
-> +#define LINK_STATE(fmt, arg...) 				\
-> +	PRINT_CONDITIONAL(KERN_INFO,				\
-> +			  "LINK",				\
-> +			  (vnic_debug & DEBUG_LINK_STATE),	\
-> +			  fmt, ##arg)
-> +
-> +#define VNIC_PRINT(fmt, arg...)			\
-> +	PRINT(KERN_INFO, "NIC", fmt, ##arg)
-> +#define VNIC_ERROR(fmt, arg...)			\
-> +	PRINT(KERN_ERR, "NIC", fmt, ##arg)
-> +#define VNIC_INIT(fmt, arg...)			\
-> +	PRINT(KERN_INFO, "NIC", fmt, ##arg)
-> +
-> +#define VNIC_INFO(fmt, arg...)					\
-> +	 PRINT_CONDITIONAL(KERN_INFO,				\
-> +			   "NIC",				\
-> +			   (vnic_debug & DEBUG_VNIC_INFO),	\
-> +			   fmt, ##arg)
-> +
-> +#define VNIC_FUNCTION(fmt, arg...)				\
-> +	 PRINT_CONDITIONAL(KERN_INFO,				\
-> +			   "NIC",				\
-> +			   (vnic_debug & DEBUG_VNIC_FUNCTION),	\
-> +			   fmt, ##arg)
-> +
-> +#define SYS_PRINT(fmt, arg...)			\
-> +	PRINT(KERN_INFO, "SYS", fmt, ##arg)
-> +#define SYS_ERROR(fmt, arg...)			\
-> +	PRINT(KERN_ERR, "SYS", fmt, ##arg)
-> +
-> +#define SYS_INFO(fmt, arg...)					\
-> +	 PRINT_CONDITIONAL(KERN_INFO,				\
-> +			   "SYS",				\
-> +			   (vnic_debug & DEBUG_SYS_INFO),	\
-> +			   fmt, ##arg)
-> +
-> +#endif	/* VNIC_UTIL_H_INCLUDED */
+/sys/class/net:
+lo  sit0  veth1
 
+/sys/devices/virtual/net:
+lo  sit0
 
-Many of these are already in standard macros pr_info, pr_err etc.
+In the parent network namespace, veth1 is removed from /sys/class/net
+but remains in /sys/devices/virtual/net.
+
+I'm not sure whether this is the renaming bug that Daniel Lezcano's
+patch addresses.  If not (as I suspect) then that clearly needs to be
+fixed.
+
+Benjamin can you play around with this and test it with Daniel's
+patch?
+
+thanks,
+-serge
