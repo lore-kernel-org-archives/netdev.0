@@ -1,64 +1,75 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [ofa-general] RE: [PATCH 11/13] QLogic VNIC: Driver utility
-	file - implements various utility macros
-Date: Thu, 1 May 2008 11:26:33 -0700
-Message-ID: <20080501112633.7e272dcc@extreme>
-References: <20080430171028.31725.86190.stgit@localhost.localdomain>
-	<20080430172126.31725.48554.stgit@localhost.localdomain>
-	<20080501075816.1010ec3a@extreme>
-	<C07C40DB2364324799506DE8FF12F8D8590EE1@EPEXCH1.qlogic.org>
-	<71d336490805011001he7359dfw831470986d87b385@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 00/10] sysfs tagged directories
+Date: Thu, 01 May 2008 11:34:31 -0700
+Message-ID: <m11w4lho08.fsf@frodo.ebiederm.org>
+References: <20080429171015.473938697@theryb.frec.bull.fr>
+	<20080429173621.GA16625@suse.de>
+	<20080429180445.GA18110@sergelap.austin.ibm.com>
+	<20080429184151.GA19794@suse.de>
+	<20080429193417.GA19282@sergelap.austin.ibm.com>
+	<20080501031341.GD4911@suse.de>
+	<20080501151051.GB16038@sergelap.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, "Amar
-	Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>,
-	general@lists.openfabrics.org, "Poornima Kamath \(Contractor
-	- \)" <poornima.kamath@qlogic.com>
-To: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <71d336490805011001he7359dfw831470986d87b385@mail.gmail.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <gregkh@suse.de>, Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:40722 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755407AbYEASjk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 14:39:40 -0400
+In-Reply-To: <20080501151051.GB16038@sergelap.austin.ibm.com> (Serge
+	E. Hallyn's message of "Thu, 1 May 2008 10:10:51 -0500")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 May 2008 22:31:10 +0530
-"Ramachandra K" <ramachandra.kuchimanchi@qlogic.com> wrote:
+"Serge E. Hallyn" <serue@us.ibm.com> writes:
 
-> Sorry for the resend. Original mail bounced from netdev.
-> 
-> On Thu, May 1, 2008 at 9:48 PM <ramachandra.kuchimanchi@qlogic.com> wrote:
-> > Stephen,
-> >
-> >
-> >  Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
-> >
-> >  > Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
-> >
-> >  >> +#define is_power_of2(value) (((value) & ((value - 1))) == 0)
-> >  >> +#define ALIGN_DOWN(x, a)    ((x)&(~((a)-1)))
-> >
-> >  > In kernel.h already
-> >
-> >  Will fix this. Thanks.
-> >
-> >
-> >  >> +extern u32 vnic_debug;
-> >
-> >  > Use msg level macros instead?
+> Quoting Greg KH (gregkh@suse.de):
+> Now before moving veth1 to the new netns, we have in the container:
+> /sys/class/net:
+> lo  sit0
+>
+> /sys/devices/virtual/net:
+> lo  sit0
+>
+> and after moving veth1, we have in the container:
+>
+> /sys/class/net:
+> lo  sit0  veth1
+>
+> /sys/devices/virtual/net:
+> lo  sit0
+>
+> In the parent network namespace, veth1 is removed from /sys/class/net
+> but remains in /sys/devices/virtual/net.
 
-There is a ethtool mechanism to set message level for debug method, read other
-network drivers and look at netif_msg_timer(x), netif_msg_probe(x), etc in
-include/linux/netdevice.h
+The symlink is gone by the real directory remains?
 
-The goal here is to not have any special configuration for each different type
-of hardware.  It is bad user design to have each hardware vendor choosing different
-mechanism and values to enable debugging. You can argue that the existing infrastructure
-is inadequate, in which case extend the infrastructure for all devices.
+> I'm not sure whether this is the renaming bug that Daniel Lezcano's
+> patch addresses.  If not (as I suspect) then that clearly needs to be
+> fixed.
+>
+> Benjamin can you play around with this and test it with Daniel's
+> patch?
+
+Darn.  It appears we have a regression in this patchset.
+That part used to work.
+
+I was thinking of blaming sysfs_rename_link.  But it the
+links are fine so it looks more likely that sysfs has morphed once
+again and we have  a reference counting issue or something similar.
+Yuck. d_move and the other moves should have worked.
+
+>From a purely get the good less controversial parts of this
+patchset in.  I suggest we look at patches 7/10 and 8/10 (without
+the tag_ops).  And introduce and start using sysfs_delete_link
+and sysfs_rename_link.  That code seems pretty stable and is
+generally a code reduction all by itself by reducing a common
+idiom into a single function.
+
+Eric
