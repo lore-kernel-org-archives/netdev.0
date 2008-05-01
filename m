@@ -1,92 +1,128 @@
-From: Mark Asselstine <mark.asselstine@windriver.com>
-Subject: [PATCH] Remove cli()/sti() calls from HYSDN driver.
-Date: Thu,  1 May 2008 16:16:52 -0400
-Message-ID: <1209673012-10500-1-git-send-email-mark.asselstine@windriver.com>
-Cc: asselsm@gmail.com, Mark Asselstine <mark.asselstine@windriver.com>
-To: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	kkeil@suse.de
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP]: Fix fackets corruption during transitional state
+Date: Thu, 1 May 2008 23:31:14 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805012328570.29396@wrl-59.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1080025771-1209673874=:29396"
+Cc: Netdev <netdev@vger.kernel.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Arjan van de Ven <arjan@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Andy Furniss <lists@andyfurniss.entadsl.com>,
+	Georgi Chorbadzhiyski <gf@unixsol.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:62863 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750903AbYEAURZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2008 16:17:25 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:59576 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757027AbYEAUbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 16:31:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From looking at this driver the use of cli()/sti() within the do/while
-was a way to ensure interrupts were only disabled for short periods of
-time while the bulk of the time interrupts were free to occur. The
-use of the spin lock has eliminated the need to play with interrupts
-in this way while still allowing for IO to be protected.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-The remaining 3 sti() calls seem unneeded now that at no other point
-in the driver is there a call to cli().
+---696208474-1080025771-1209673874=:29396
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
+
+Ingrediments:
+
+- Sacktag can call tcp_fragment() for those skbs that will get
+  discard in tcp_clean_rtx_queue(), even though some of the
+  other things are "optimized away".
+- snd_una is advanced very early in tcp_ack()
+- tcp_highest_sack_seq() uses tp->snd_una when sacked_out is
+  zero
+
+These together make it possible to get fackets_out adjusted
+while sacked_out remains zero (it can then later on be
+incremented as well but then incorrect fackets_out is already
+getting happily used). The corruption can occur only when no
+SACK info is previously known and a DSACK below snd_una arrives.
+I think an old ACK with some SACK info could do the same as
+well.
+
+Significant corruption is not likely to happen in practice
+(explains the rareness of reports) because it requires quite
+complex things to end up into a situation where fragmentation due
+to arriving SACK block does actually cause packets_out (and the
+related fackets_out) adjustment to become necessary.
+
+In addition to above, we fix fackets_out in fastretrans_alert if
+sacked_out remained zero (at the same place where the WARN_ON
+triggers), so some SACK info above snd_una must arrive too to
+make the incorrect state to have some persistency.
+
+In general, this causes mainly off-by-one error in fackets_out
+(though it might occur "twice in a row" to get it more off).
+That can cause premature entry to recovery and minor miscounts
+of other state that depends on fackets_out amount. However,
+quite often we'd immediately hit the WARN_ON trap and fix the
+invariant. Even if persistent for a short duration, threat of
+this bug is quite low, couple of extra packets at most,
+sometimes it could have even made the recovery to begin more
+timely, which normally isn't done to avoid spurious recoveries
+due to potential reordering (which didn't occur near the majority
+of the recoveries anyway).
+
+To be honest, so far I've not been able to find out a scenario
+where it would be caused by something that isn't either buggy or
+malicious SACK block (not that it wouldn't exists, I'm just too
+dumb to find that :-)). Win in malicious case would really be
+close to zero, besides spamming the log.
+
+We could optimize fragmenting of soon to be discarded part away
+from sacktag as well (it might still be necessary for DSACKs
+though, so not much gain currently). However, I don't want to do
+such, more scary thing now due to stable potential of this fix,
+and such optimization approach requires more thinking to not
+introduce other problems.
+
+Heh, it helped nothing to verify whether those fackets_out
+touching functions successfully kept invariants intact (did
+that at least twenty times and never found anything) because
+the function they depended on weas breaking the other thing
+(I though that it would be an invariant too) during update
+snd_una in tcp_ack->sacktag->clean_rtx_queue period.
+
+Reported by couple of people in the past and finally Andy
+Furniss <lists@andyfurniss.entadsl.com> who had a
+reproducable setup for this (with some amount of waiting of
+course :-)) and was able to try with my debug patches.
+
+Should fix Bugzilla #10346.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Reported-by: Andy Furniss <lists@andyfurniss.entadsl.com>
+Reported-by: Georgi Chorbadzhiyski <gf@unixsol.org>
+Cc: Rafael J. Wysocki <rjw@sisk.pl>
+Cc: Arjan van de Ven <arjan@infradead.org>
 ---
- drivers/isdn/hysdn/boardergo.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+ net/ipv4/tcp_output.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/isdn/hysdn/boardergo.c b/drivers/isdn/hysdn/boardergo.c
-index 6cdbad3..3eb096f 100644
---- a/drivers/isdn/hysdn/boardergo.c
-+++ b/drivers/isdn/hysdn/boardergo.c
-@@ -64,10 +64,11 @@ ergo_interrupt(int intno, void *dev_id)
- }				/* ergo_interrupt */
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index d29ef79..8c1578b 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -783,7 +783,14 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+ 			tcp_dec_pcount_approx_int(&tp->sacked_out, diff);
+ 			tcp_verify_left_out(tp);
+ 		}
+-		tcp_adjust_fackets_out(sk, skb, diff);
++
++		/* Sacktag may use tcp_fragment for skb with seq < snd_una
++		 * which is incompatible what tcp_highest_sack_seq() used in
++		 * tcp_adjust_fackets_out assumes. Under non-trivial
++		 * conditions that would cause problems.
++		 */
++		if (tp->sacked_out)
++			tcp_adjust_fackets_out(sk, skb, diff);
+ 	}
  
- /******************************************************************************/
--/* ergo_irq_bh is the function called by the immediate kernel task list after */
--/* being activated with queue_task and no interrupts active. This task is the */
--/* only one handling data transfer from or to the card after booting. The task */
--/* may be queued from everywhere (interrupts included).                       */
-+/* ergo_irq_bh will be called as part of the kernel clearing its shared work  */
-+/* queue sometime after a call to schedule_work has been made passing our     */
-+/* work_struct. This task is the only one handling data transfer from or to   */
-+/* the card after booting. The task may be queued from everywhere             */
-+/* (interrupts included).                                                     */
- /******************************************************************************/
- static void
- ergo_irq_bh(struct work_struct *ugli_api)
-@@ -90,7 +91,6 @@ ergo_irq_bh(struct work_struct *ugli_api)
- 	card->hw_lock = 1;	/* we now lock the hardware */
- 
- 	do {
--		sti();		/* reenable other ints */
- 		again = 0;	/* assume loop not to be repeated */
- 
- 		if (!dpr->ToHyFlag) {
-@@ -110,7 +110,6 @@ ergo_irq_bh(struct work_struct *ugli_api)
- 				again = 1;	/* restart loop */
- 			}
- 		}		/* a message has arrived for us */
--		cli();		/* no further ints */
- 		if (again) {
- 			dpr->ToHyInt = 1;
- 			dpr->ToPcInt = 1;	/* interrupt to E1 for all cards */
-@@ -242,7 +241,6 @@ ergo_writebootimg(struct HYSDN_CARD *card, unsigned char *buf,
- 		byteout(card->iobase + PCI9050_USER_IO, PCI9050_E1_RUN);	/* start E1 processor */
- 		/* the interrupts are still masked */
- 
--		sti();
- 		msleep_interruptible(20);		/* Timeout 20ms */
- 
- 		if (((tDpramBootSpooler *) card->dpram)->Len != DPRAM_SPOOLER_DATA_SIZE) {
-@@ -276,7 +274,6 @@ ergo_writebootseq(struct HYSDN_CARD *card, unsigned char *buf, int len)
- 	dst = sp->Data;		/* point to data in spool structure */
- 	buflen = sp->Len;	/* maximum len of spooled data */
- 	wr_mirror = sp->WrPtr;	/* only once read */
--	sti();
- 
- 	/* try until all bytes written or error */
- 	i = 0x1000;		/* timeout value */
-@@ -380,7 +377,6 @@ ergo_waitpofready(struct HYSDN_CARD *card)
- #endif /* CONFIG_HYSDN_CAPI */
- 			return (0);	/* success */
- 		}		/* data has arrived */
--		sti();
- 		msleep_interruptible(50);		/* Timeout 50ms */
- 	}			/* wait until timeout */
- 
+ 	/* Link BUFF into the send queue. */
 -- 
-1.5.5.1
+1.5.2.2
 
+---696208474-1080025771-1209673874=:29396--
