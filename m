@@ -1,34 +1,35 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/2] Disable forwarding of LRO skbs
-Date: Thu, 1 May 2008 22:06:25 +0800
-Message-ID: <20080501140625.GA9055@gondor.apana.org.au>
-References: <20080430214845.GC14219@solarflare.com> <E1JrWFU-0001ue-00@gondolin.me.apana.org.au> <20080501110225.GG14219@solarflare.com>
+Subject: Re: 2.6.25 crash: EIP: [<c02e2f14>] xfrm_output_resume+0x64/0x100 ss:esp 0068:c03a1e5c
+Date: Thu, 1 May 2008 22:09:11 +0800
+Message-ID: <20080501140911.GB9055@gondor.apana.org.au>
+References: <E1JrXMB-00028Q-00@gondolin.me.apana.org.au> <BAY103-DAV8F11938C76B8B9245D864B2DB0@phx.gbl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kmansley@solarflare.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: Marco Berizzi <pupilla@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53359 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:53366 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752485AbYEAOGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 10:06:36 -0400
+	with ESMTP id S1753039AbYEAOJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 10:09:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20080501110225.GG14219@solarflare.com>
+In-Reply-To: <BAY103-DAV8F11938C76B8B9245D864B2DB0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 01, 2008 at 12:02:27PM +0100, Ben Hutchings wrote:
+On Thu, May 01, 2008 at 02:59:42PM +0200, Marco Berizzi wrote:
 >
-> My understanding is that at the points I'm adding the check, we're only
-> considering received skbs and gso_size will only be set if LRO was used.
+> Yes indeed, this box is in the middle of a very poorly designed
+> network: it is the default gateway for lan clients, but it is
+> routing back all traffic to another lan box except for ipsec
+> traffic.
 
-Unfortunately that's not the case.  The forwarding path can and
-does occur for GSO packets sent from other guests.  The obvious
-case would be a GSO packet from a guest forwarded by the host
-(as opposed to bridged) to the outside world.
+OK I don't see any rerouting actions in your rule dump.
 
-Cheers,
+Is your box SMP or have you enabled preemption? Just trying to
+eliminate the case of another thread zapping skb->dst.
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
