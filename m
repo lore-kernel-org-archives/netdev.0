@@ -1,56 +1,92 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: State of TCP segmentation offload to NIC in linux
-Date: Thu, 1 May 2008 12:39:08 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290501C9EA@orsmsx414.amr.corp.intel.com>
-References: <49c0ff980805011056q25d24616vf4cea6d8b387b717@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "prodyut hazarika" <prodyuth@gmail.com>, <netdev@vger.kernel.org>
+From: Mark Asselstine <mark.asselstine@windriver.com>
+Subject: [PATCH] Remove cli()/sti() calls from HYSDN driver.
+Date: Thu,  1 May 2008 16:16:52 -0400
+Message-ID: <1209673012-10500-1-git-send-email-mark.asselstine@windriver.com>
+Cc: asselsm@gmail.com, Mark Asselstine <mark.asselstine@windriver.com>
+To: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	kkeil@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:21589 "EHLO mga03.intel.com"
+Received: from mail.windriver.com ([147.11.1.11]:62863 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758757AbYEATjI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 15:39:08 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <49c0ff980805011056q25d24616vf4cea6d8b387b717@mail.gmail.com>
+	id S1750903AbYEAURZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2008 16:17:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  I see the define NETIF_F_TSO in the linux kernel, and I see 
-> that the e1000 driver is setting this flag in its 
-> capabilities list. But for TSO to work, TCP code should send 
-> the big segment (say 64K) directly to the NIC, bypassing the 
-> IP layer. Else, the IP layer would fragment the packets, and 
-> the whole purpose of TSO will be lost. I cannot see any code 
-> in tcp layer which bypasses the IP layer and goes directly to 
-> the NIC. It seems to me that the TCP/IP stack in Linux always 
-> does the segmentation, since there is no code under the 
-> NETIF_F_TSO define which bypasses the IP layer. Or am I 
-> missing something?
+>From looking at this driver the use of cli()/sti() within the do/while
+was a way to ensure interrupts were only disabled for short periods of
+time while the bulk of the time interrupts were free to occur. The
+use of the spin lock has eliminated the need to play with interrupts
+in this way while still allowing for IO to be protected.
 
-The IP layer does not need to be bypassed.  The TCP layer will set the
-proper headers for TSO to work properly and continue sending the skb
-down the stack.  IP will not fragment a packet on transmit.  The only
-way an skb will be fragmented into smaller chunks is if gso_segment() is
-called, which will call the proper upper-layer segmenter routine.  This
-case only happens when a packet was coalesced by the TCP layer and sent
-to the core stack, which then ran GSO (generic segmentation offload) in
-net/core/dev.c, dev_hard_start_xmit(), which would be the case if the
-underlying NIC didn't have TSO enabled, but still wanted to have the TCP
-layer send larger segments.
+The remaining 3 sti() calls seem unneeded now that at no other point
+in the driver is there a call to cli().
 
-> Can anyone please tell me whether the Linux TCP/IP stack 
-> support TSO so that TCP segments bigger than MSS is segmented 
-> by the NIC, not the software? If not, is there plans to 
-> support this, since this is stateless offload?
+Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
+---
+ drivers/isdn/hysdn/boardergo.c |   14 +++++---------
+ 1 files changed, 5 insertions(+), 9 deletions(-)
 
-Yes, TSO is fully supported.  The default is 64k frames, and in the
-upstream tree, netif_set_gso_max_size().  I know most 1 GbE and beyond
-parts and Linux drivers fully support TSO.
+diff --git a/drivers/isdn/hysdn/boardergo.c b/drivers/isdn/hysdn/boardergo.c
+index 6cdbad3..3eb096f 100644
+--- a/drivers/isdn/hysdn/boardergo.c
++++ b/drivers/isdn/hysdn/boardergo.c
+@@ -64,10 +64,11 @@ ergo_interrupt(int intno, void *dev_id)
+ }				/* ergo_interrupt */
+ 
+ /******************************************************************************/
+-/* ergo_irq_bh is the function called by the immediate kernel task list after */
+-/* being activated with queue_task and no interrupts active. This task is the */
+-/* only one handling data transfer from or to the card after booting. The task */
+-/* may be queued from everywhere (interrupts included).                       */
++/* ergo_irq_bh will be called as part of the kernel clearing its shared work  */
++/* queue sometime after a call to schedule_work has been made passing our     */
++/* work_struct. This task is the only one handling data transfer from or to   */
++/* the card after booting. The task may be queued from everywhere             */
++/* (interrupts included).                                                     */
+ /******************************************************************************/
+ static void
+ ergo_irq_bh(struct work_struct *ugli_api)
+@@ -90,7 +91,6 @@ ergo_irq_bh(struct work_struct *ugli_api)
+ 	card->hw_lock = 1;	/* we now lock the hardware */
+ 
+ 	do {
+-		sti();		/* reenable other ints */
+ 		again = 0;	/* assume loop not to be repeated */
+ 
+ 		if (!dpr->ToHyFlag) {
+@@ -110,7 +110,6 @@ ergo_irq_bh(struct work_struct *ugli_api)
+ 				again = 1;	/* restart loop */
+ 			}
+ 		}		/* a message has arrived for us */
+-		cli();		/* no further ints */
+ 		if (again) {
+ 			dpr->ToHyInt = 1;
+ 			dpr->ToPcInt = 1;	/* interrupt to E1 for all cards */
+@@ -242,7 +241,6 @@ ergo_writebootimg(struct HYSDN_CARD *card, unsigned char *buf,
+ 		byteout(card->iobase + PCI9050_USER_IO, PCI9050_E1_RUN);	/* start E1 processor */
+ 		/* the interrupts are still masked */
+ 
+-		sti();
+ 		msleep_interruptible(20);		/* Timeout 20ms */
+ 
+ 		if (((tDpramBootSpooler *) card->dpram)->Len != DPRAM_SPOOLER_DATA_SIZE) {
+@@ -276,7 +274,6 @@ ergo_writebootseq(struct HYSDN_CARD *card, unsigned char *buf, int len)
+ 	dst = sp->Data;		/* point to data in spool structure */
+ 	buflen = sp->Len;	/* maximum len of spooled data */
+ 	wr_mirror = sp->WrPtr;	/* only once read */
+-	sti();
+ 
+ 	/* try until all bytes written or error */
+ 	i = 0x1000;		/* timeout value */
+@@ -380,7 +377,6 @@ ergo_waitpofready(struct HYSDN_CARD *card)
+ #endif /* CONFIG_HYSDN_CAPI */
+ 			return (0);	/* success */
+ 		}		/* data has arrived */
+-		sti();
+ 		msleep_interruptible(50);		/* Timeout 50ms */
+ 	}			/* wait until timeout */
+ 
+-- 
+1.5.5.1
 
-I hope this helps.
-
-Cheers,
--PJ Waskiewicz
