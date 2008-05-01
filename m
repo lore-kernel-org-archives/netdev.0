@@ -1,56 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] bridge: forwarding table information for >256 devices
-Date: Thu, 1 May 2008 13:42:09 -0700
-Message-ID: <20080501134209.3012de69@extreme>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: fix panic when using unlisted MAC
+Date: Thu, 1 May 2008 22:32:49 +0200
+Message-ID: <20080501203249.GA3808@electric-eye.fr.zoreil.com>
+References: <20080428172209.GE26591@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@linux-foundation.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:46015 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755731AbYEAUmO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2008 16:42:14 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54191 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760037AbYEAUwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 16:52:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20080428172209.GE26591@gospo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The forwarding table binary interface (my bad choice), only exposes the
-port number of the first 8 bits. The bridge code was limited to 256 ports
-at the time, but now the kernel supports up 1024 ports, so the upper bits
-are lost when doing:
-   brctl showmacs
+Andy Gospodarek <andy@greyhouse.net> :
+[...]
+> When using the r8169 driver with an unlisted MAC, the system will
+> panic in rtl8169_get_mac_version since it will try to access tp->pci_dev
+> when it's unset.  Moving the call to set pci_dev earlier in
+> rtnl8169_init_one will resolve this and should not introduce any other
+> problems.
 
-The fix is to squeeze the extra bits into small hole left in data structure,
-to maintain binary compatiablity.
+This change has already been committed in Linus's tree.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-
---- a/include/linux/if_bridge.h	2008-04-28 15:27:05.000000000 -0700
-+++ b/include/linux/if_bridge.h	2008-04-28 15:31:38.000000000 -0700
-@@ -97,7 +97,9 @@ struct __fdb_entry
- 	__u8 port_no;
- 	__u8 is_local;
- 	__u32 ageing_timer_value;
--	__u32 unused;
-+	__u8 port_hi;
-+	__u8 pad0;
-+	__u16 unused;
- };
- 
- #ifdef __KERNEL__
---- a/net/bridge/br_fdb.c	2008-04-28 15:27:05.000000000 -0700
-+++ b/net/bridge/br_fdb.c	2008-04-28 15:31:38.000000000 -0700
-@@ -285,7 +285,11 @@ int br_fdb_fillbuf(struct net_bridge *br
- 
- 			/* convert from internal format to API */
- 			memcpy(fe->mac_addr, f->addr.addr, ETH_ALEN);
-+
-+			/* due to ABI compat need to split into hi/lo */
- 			fe->port_no = f->dst->port_no;
-+			fe->port_hi = f->dst->port_no >> 8;
-+
- 			fe->is_local = f->is_local;
- 			if (!f->is_static)
- 				fe->ageing_timer_value = jiffies_to_clock_t(jiffies - f->ageing_timer);
+-- 
+Ueimor
