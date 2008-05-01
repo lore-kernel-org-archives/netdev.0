@@ -1,50 +1,51 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 08/13] QLogic VNIC: sysfs interface implementation for
- the driver
-Date: Thu, 1 May 2008 07:56:06 -0700
-Message-ID: <20080501075606.4963afa3@extreme>
+Subject: [ofa-general] Re: [PATCH 11/13] QLogic VNIC: Driver utility file -
+ implements various utility macros
+Date: Thu, 1 May 2008 07:58:16 -0700
+Message-ID: <20080501075816.1010ec3a@extreme>
 References: <20080430171028.31725.86190.stgit@localhost.localdomain>
-	<20080430171955.31725.7771.stgit@localhost.localdomain>
+	<20080430172126.31725.48554.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, general@lists.openfabrics.org,
-	netdev@vger.kernel.org, amar.mudrankit@qlogic.com,
-	poornima.kamath@qlogic.com
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, poornima.kamath@qlogic.com,
+	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
 To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:37380 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754505AbYEAO4M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2008 10:56:12 -0400
-In-Reply-To: <20080430171955.31725.7771.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080430172126.31725.48554.stgit@localhost.localdomain>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Apr 2008 22:49:55 +0530
+On Wed, 30 Apr 2008 22:51:26 +0530
 Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
 
-> From: Amar Mudrankit <amar.mudrankit@qlogic.com>
+> From: Poornima Kamath <poornima.kamath@qlogic.com>
 > 
-> The sysfs interface for the QLogic VNIC driver is implemented through
-> this patch.
+> This patch adds the driver utility file which mainly contains utility
+> macros for debugging of QLogic VNIC driver.
 > 
 > Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-> Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
+> Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
 > ---
 > 
->  drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c | 1127 +++++++++++++++++++++++++++
->  drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h |   62 +
->  2 files changed, 1189 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c
->  create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h
+>  drivers/infiniband/ulp/qlgc_vnic/vnic_util.h |  251 ++++++++++++++++++++++++++
+>  1 files changed, 251 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_util.h
 > 
-> diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c
+> diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_util.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_util.h
 > new file mode 100644
-> index 0000000..7e70b0c
+> index 0000000..4d7d540
 > --- /dev/null
-> +++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c
-> @@ -0,0 +1,1127 @@
+> +++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_util.h
+> @@ -0,0 +1,251 @@
 > +/*
 > + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 > + *
@@ -77,57 +78,230 @@ Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
 > + * SOFTWARE.
 > + */
 > +
-> +#include <linux/parser.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/if.h>
+> +#ifndef VNIC_UTIL_H_INCLUDED
+> +#define VNIC_UTIL_H_INCLUDED
 > +
-> +#include "vnic_util.h"
-> +#include "vnic_config.h"
-> +#include "vnic_ib.h"
-> +#include "vnic_viport.h"
-> +#include "vnic_main.h"
-> +#include "vnic_stats.h"
+> +#define MODULE_NAME "QLGC_VNIC"
 > +
-> +/*
-> + * target eiocs are added by writing
-> + *
-> + * ioc_guid=<EIOC GUID>,dgid=<dest GID>,pkey=<P_key>,name=<interface_name>
-> + * to the create_primary  sysfs attribute.
-> + */
+> +#define VNIC_MAJORVERSION	1
+> +#define VNIC_MINORVERSION	1
+> +
+> +#define is_power_of2(value)	(((value) & ((value - 1))) == 0)
+> +#define ALIGN_DOWN(x, a)	((x)&(~((a)-1)))
+
+In kernel.h already
+
+> +extern u32 vnic_debug;
+
+Use msg level macros instead?
+
+> +
 > +enum {
-> +	VNIC_OPT_ERR = 0,
-> +	VNIC_OPT_IOC_GUID = 1 << 0,
-> +	VNIC_OPT_DGID = 1 << 1,
-> +	VNIC_OPT_PKEY = 1 << 2,
-> +	VNIC_OPT_NAME = 1 << 3,
-> +	VNIC_OPT_INSTANCE = 1 << 4,
-> +	VNIC_OPT_RXCSUM = 1 << 5,
-> +	VNIC_OPT_TXCSUM = 1 << 6,
-> +	VNIC_OPT_HEARTBEAT = 1 << 7,
-> +	VNIC_OPT_IOC_STRING = 1 << 8,
-> +	VNIC_OPT_IB_MULTICAST = 1 << 9,
-> +	VNIC_OPT_ALL = (VNIC_OPT_IOC_GUID |
-> +			VNIC_OPT_DGID | VNIC_OPT_NAME | VNIC_OPT_PKEY),
+> +	DEBUG_IB_INFO			= 0x00000001,
+> +	DEBUG_IB_FUNCTION		= 0x00000002,
+> +	DEBUG_IB_FSTATUS		= 0x00000004,
+> +	DEBUG_IB_ASSERTS		= 0x00000008,
+> +	DEBUG_CONTROL_INFO		= 0x00000010,
+> +	DEBUG_CONTROL_FUNCTION	= 0x00000020,
+> +	DEBUG_CONTROL_PACKET	= 0x00000040,
+> +	DEBUG_CONFIG_INFO		= 0x00000100,
+> +	DEBUG_DATA_INFO 		= 0x00001000,
+> +	DEBUG_DATA_FUNCTION		= 0x00002000,
+> +	DEBUG_NETPATH_INFO		= 0x00010000,
+> +	DEBUG_VIPORT_INFO		= 0x00100000,
+> +	DEBUG_VIPORT_FUNCTION	= 0x00200000,
+> +	DEBUG_LINK_STATE		= 0x00400000,
+> +	DEBUG_VNIC_INFO 		= 0x01000000,
+> +	DEBUG_VNIC_FUNCTION		= 0x02000000,
+> +	DEBUG_MCAST_INFO		= 0x04000000,
+> +	DEBUG_MCAST_FUNCTION	= 0x08000000,
+> +	DEBUG_SYS_INFO			= 0x10000000,
+> +	DEBUG_SYS_VERBOSE		= 0x40000000
 > +};
 > +
-> +static match_table_t vnic_opt_tokens = {
-> +	{VNIC_OPT_IOC_GUID, "ioc_guid=%s"},
-> +	{VNIC_OPT_DGID, "dgid=%s"},
-> +	{VNIC_OPT_PKEY, "pkey=%x"},
-> +	{VNIC_OPT_NAME, "name=%s"},
-> +	{VNIC_OPT_INSTANCE, "instance=%d"},
-> +	{VNIC_OPT_RXCSUM, "rx_csum=%s"},
-> +	{VNIC_OPT_TXCSUM, "tx_csum=%s"},
-> +	{VNIC_OPT_HEARTBEAT, "heartbeat=%d"},
-> +	{VNIC_OPT_IOC_STRING, "ioc_string=\"%s"},
-> +	{VNIC_OPT_IB_MULTICAST, "ib_multicast=%s"},
-> +	{VNIC_OPT_ERR, NULL}
-> +};
-> 
+> +#ifdef CONFIG_INFINIBAND_QLGC_VNIC_DEBUG
+> +#define PRINT(level, x, fmt, arg...)					\
+> +	printk(level "%s: %s: %s, line %d: " fmt,			\
+> +	       MODULE_NAME, x, __FILE__, __LINE__, ##arg)
+> +
+> +#define PRINT_CONDITIONAL(level, x, condition, fmt, arg...)		\
+> +	do {								\
+> +		if (condition)						\
+> +			printk(level "%s: %s: %s, line %d: " fmt,	\
+> +			       MODULE_NAME, x, __FILE__, __LINE__,	\
+> +			       ##arg);					\
+> +	} while (0)
+> +#else
+> +#define PRINT(level, x, fmt, arg...)					\
+> +	printk(level "%s: " fmt, MODULE_NAME, ##arg)
+> +
+> +#define PRINT_CONDITIONAL(level, x, condition, fmt, arg...)		\
+> +	do {								\
+> +		 if (condition)						\
+> +			printk(level "%s: %s: " fmt,			\
+> +			       MODULE_NAME, x, ##arg);			\
+> +	} while (0)
+> +#endif	/*CONFIG_INFINIBAND_QLGC_VNIC_DEBUG*/
+> +
+> +#define IB_PRINT(fmt, arg...)			\
+> +	PRINT(KERN_INFO, "IB", fmt, ##arg)
+> +#define IB_ERROR(fmt, arg...)			\
+> +	PRINT(KERN_ERR, "IB", fmt, ##arg)
+> +
+> +#define IB_FUNCTION(fmt, arg...) 				\
+> +	PRINT_CONDITIONAL(KERN_INFO, 				\
+> +			  "IB", 				\
+> +			  (vnic_debug & DEBUG_IB_FUNCTION), 	\
+> +			  fmt, ##arg)
+> +
+> +#define IB_INFO(fmt, arg...)					\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			  "IB",					\
+> +			  (vnic_debug & DEBUG_IB_INFO),		\
+> +			  fmt, ##arg)
+> +
+> +#define IB_ASSERT(x)							\
+> +	do {								\
+> +		 if ((vnic_debug & DEBUG_IB_ASSERTS) && !(x))		\
+> +			panic("%s assertion failed, file:  %s,"		\
+> +				" line %d: ",				\
+> +				MODULE_NAME, __FILE__, __LINE__)	\
+> +	} while (0)
+> +
+> +#define CONTROL_PRINT(fmt, arg...)			\
+> +	PRINT(KERN_INFO, "CONTROL", fmt, ##arg)
+> +#define CONTROL_ERROR(fmt, arg...)			\
+> +	PRINT(KERN_ERR, "CONTROL", fmt, ##arg)
+> +
+> +#define CONTROL_INFO(fmt, arg...)					\
+> +	PRINT_CONDITIONAL(KERN_INFO,					\
+> +			  "CONTROL",					\
+> +			  (vnic_debug & DEBUG_CONTROL_INFO),		\
+> +			  fmt, ##arg)
+> +
+> +#define CONTROL_FUNCTION(fmt, arg...)					\
+> +	PRINT_CONDITIONAL(KERN_INFO,					\
+> +			"CONTROL",					\
+> +			(vnic_debug & DEBUG_CONTROL_FUNCTION),		\
+> +			fmt, ##arg)
+> +
+> +#define CONTROL_PACKET(pkt)					\
+> +	do {							\
+> +		 if (vnic_debug & DEBUG_CONTROL_PACKET)		\
+> +			control_log_control_packet(pkt);	\
+> +	} while (0)
+> +
+> +#define CONFIG_PRINT(fmt, arg...)		\
+> +	PRINT(KERN_INFO, "CONFIG", fmt, ##arg)
+> +#define CONFIG_ERROR(fmt, arg...)		\
+> +	PRINT(KERN_ERR, "CONFIG", fmt, ##arg)
+> +
+> +#define CONFIG_INFO(fmt, arg...)				\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			  "CONFIG",				\
+> +			  (vnic_debug & DEBUG_CONFIG_INFO),	\
+> +			  fmt, ##arg)
+> +
+> +#define DATA_PRINT(fmt, arg...)			\
+> +	PRINT(KERN_INFO, "DATA", fmt, ##arg)
+> +#define DATA_ERROR(fmt, arg...)			\
+> +	PRINT(KERN_ERR, "DATA", fmt, ##arg)
+> +
+> +#define DATA_INFO(fmt, arg...)					\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			  "DATA",				\
+> +			  (vnic_debug & DEBUG_DATA_INFO),	\
+> +			  fmt, ##arg)
+> +
+> +#define DATA_FUNCTION(fmt, arg...)				\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			  "DATA",				\
+> +			  (vnic_debug & DEBUG_DATA_FUNCTION),	\
+> +			  fmt, ##arg)
+> +
+> +
+> +#define MCAST_PRINT(fmt, arg...)        \
+> +    PRINT(KERN_INFO, "MCAST", fmt, ##arg)
+> +#define MCAST_ERROR(fmt, arg...)        \
+> +    PRINT(KERN_ERR, "MCAST", fmt, ##arg)
+> +
+> +#define MCAST_INFO(fmt, arg...)   	              		\
+> +	PRINT_CONDITIONAL(KERN_INFO,     			\
+> +			"MCAST",   				\
+> +			(vnic_debug & DEBUG_MCAST_INFO),	\
+> +			fmt, ##arg)
+> +
+> +#define MCAST_FUNCTION(fmt, arg...)				\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			"MCAST",				\
+> +			(vnic_debug & DEBUG_MCAST_FUNCTION), 	\
+> +			fmt, ##arg)
+> +
+> +#define NETPATH_PRINT(fmt, arg...)		\
+> +	PRINT(KERN_INFO, "NETPATH", fmt, ##arg)
+> +#define NETPATH_ERROR(fmt, arg...)		\
+> +	PRINT(KERN_ERR, "NETPATH", fmt, ##arg)
+> +
+> +#define NETPATH_INFO(fmt, arg...)				\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			  "NETPATH",				\
+> +			  (vnic_debug & DEBUG_NETPATH_INFO),	\
+> +			  fmt, ##arg)
+> +
+> +#define VIPORT_PRINT(fmt, arg...)		\
+> +	PRINT(KERN_INFO, "VIPORT", fmt, ##arg)
+> +#define VIPORT_ERROR(fmt, arg...)		\
+> +	PRINT(KERN_ERR, "VIPORT", fmt, ##arg)
+> +
+> +#define VIPORT_INFO(fmt, arg...) 				\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			  "VIPORT",				\
+> +			  (vnic_debug & DEBUG_VIPORT_INFO),	\
+> +			  fmt, ##arg)
+> +
+> +#define VIPORT_FUNCTION(fmt, arg...)				\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			  "VIPORT",				\
+> +			  (vnic_debug & DEBUG_VIPORT_FUNCTION),	\
+> +			  fmt, ##arg)
+> +
+> +#define LINK_STATE(fmt, arg...) 				\
+> +	PRINT_CONDITIONAL(KERN_INFO,				\
+> +			  "LINK",				\
+> +			  (vnic_debug & DEBUG_LINK_STATE),	\
+> +			  fmt, ##arg)
+> +
+> +#define VNIC_PRINT(fmt, arg...)			\
+> +	PRINT(KERN_INFO, "NIC", fmt, ##arg)
+> +#define VNIC_ERROR(fmt, arg...)			\
+> +	PRINT(KERN_ERR, "NIC", fmt, ##arg)
+> +#define VNIC_INIT(fmt, arg...)			\
+> +	PRINT(KERN_INFO, "NIC", fmt, ##arg)
+> +
+> +#define VNIC_INFO(fmt, arg...)					\
+> +	 PRINT_CONDITIONAL(KERN_INFO,				\
+> +			   "NIC",				\
+> +			   (vnic_debug & DEBUG_VNIC_INFO),	\
+> +			   fmt, ##arg)
+> +
+> +#define VNIC_FUNCTION(fmt, arg...)				\
+> +	 PRINT_CONDITIONAL(KERN_INFO,				\
+> +			   "NIC",				\
+> +			   (vnic_debug & DEBUG_VNIC_FUNCTION),	\
+> +			   fmt, ##arg)
+> +
+> +#define SYS_PRINT(fmt, arg...)			\
+> +	PRINT(KERN_INFO, "SYS", fmt, ##arg)
+> +#define SYS_ERROR(fmt, arg...)			\
+> +	PRINT(KERN_ERR, "SYS", fmt, ##arg)
+> +
+> +#define SYS_INFO(fmt, arg...)					\
+> +	 PRINT_CONDITIONAL(KERN_INFO,				\
+> +			   "SYS",				\
+> +			   (vnic_debug & DEBUG_SYS_INFO),	\
+> +			   fmt, ##arg)
+> +
+> +#endif	/* VNIC_UTIL_H_INCLUDED */
 
-NO
 
-1. Most of this shouldn't be done via sysfs (rx_csum, tx_csum, ...)
-
-2. Sysfs is one value per file not name=value
-
+Many of these are already in standard macros pr_info, pr_err etc.
