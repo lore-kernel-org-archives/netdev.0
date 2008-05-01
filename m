@@ -1,65 +1,79 @@
-From: "prodyut hazarika" <prodyuth@gmail.com>
-Subject: State of TCP segmentation offload to NIC in linux
-Date: Thu, 1 May 2008 10:56:10 -0700
-Message-ID: <49c0ff980805011056q25d24616vf4cea6d8b387b717@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ofa-general] Re: [RESEND] RE: [PATCH 08/13] QLogic VNIC: sysfs
+ interface implementation for the driver
+Date: Thu, 1 May 2008 11:22:52 -0700
+Message-ID: <20080501112252.167695c7@extreme>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain>
+	<20080430171955.31725.7771.stgit@localhost.localdomain>
+	<20080501075606.4963afa3@extreme>
+	<C07C40DB2364324799506DE8FF12F8D8590EE0@EPEXCH1.qlogic.org>
+	<71d336490805010943s79f01e01u9b4566165c4fba3f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:52041 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751614AbYEAR4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 13:56:14 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so628663fgg.17
-        for <netdev@vger.kernel.org>; Thu, 01 May 2008 10:56:10 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, "Amar
+	Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>,
+	general@lists.openfabrics.org, "Poornima Kamath \(Contractor
+	- \)" <poornima.kamath@qlogic.com>
+To: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <71d336490805010943s79f01e01u9b4566165c4fba3f@mail.gmail.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-I am trying to understand the current state of TCP segmentation
-offload to Network cards. in Linux I have read posts that tells that
-Intel e1000 driver supports TSO (TCP segmentation offload). This link
-tells that TSO is supported in Linux:
-http://lwn.net/Articles/9129/
+On Thu, 1 May 2008 22:13:08 +0530
+"Ramachandra K" <ramachandra.kuchimanchi@qlogic.com> wrote:
 
- I see the define NETIF_F_TSO in the linux kernel, and I see that the
-e1000 driver is setting this flag in its capabilities list. But for
-TSO to work, TCP code should send the big segment (say 64K) directly
-to the NIC, bypassing the IP layer. Else, the IP layer would fragment
-the packets, and the whole purpose of TSO will be lost. I cannot see
-any code in tcp layer which bypasses the IP layer and goes directly to
-the NIC. It seems to me that the TCP/IP stack in Linux always does the
-segmentation, since there is no code under the NETIF_F_TSO define
-which bypasses the IP layer. Or am I missing something?
+> Sorry for the resend. Original mail got bounced from netdev.
+> 
+> On Thu, May 1, 2008 at 9:32 PM,  <ramachandra.kuchimanchi@qlogic.com> wrote:
+> >
+> > Stephen,
+> >
+> >
+> >  Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
+> >
+> >  >> On Wed, 30 Apr 2008 22:49:55 +0530
+> >  >> Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
+> >
+> >  <snip>
+> >
+> >
+> >  >> +static match_table_t vnic_opt_tokens = {
+> >  >> +    {VNIC_OPT_IOC_GUID, "ioc_guid=%s"},
+> >  >> +    {VNIC_OPT_DGID, "dgid=%s"},
+> >  >> +    {VNIC_OPT_PKEY, "pkey=%x"},
+> >  >> +    {VNIC_OPT_NAME, "name=%s"},
+> >  >> +    {VNIC_OPT_INSTANCE, "instance=%d"},
+> >  >> +    {VNIC_OPT_RXCSUM, "rx_csum=%s"},
+> >  >> +    {VNIC_OPT_TXCSUM, "tx_csum=%s"},
+> >  >> +    {VNIC_OPT_HEARTBEAT, "heartbeat=%d"},
+> >  >> +    {VNIC_OPT_IOC_STRING, "ioc_string=\"%s"},
+> >  >> +    {VNIC_OPT_IB_MULTICAST, "ib_multicast=%s"},
+> >  >> +    {VNIC_OPT_ERR, NULL}
+> >  >> +};
+> >  >>
+> >
+> >  > NO
+> >  > 1. Most of this shouldn't be done via sysfs (rx_csum, tx_csum, ...)
+> >  > 2. Sysfs is one value per file not name=value
+> >
+> >  The VNIC driver needs multiple parameters (IOCGUID, DGID etc) from user space
+> >  to connect to the EVIC. For this the "name=value" mechanism is used for
+> >  a write-only sysfs file as an input method to the driver.
+> >
+> >  The driver follows the one value per file sysfs rule when it returns any data
+> >  with each readable file returning only a single value.
+> >
+> >  Regards,
+> >  Ram
 
-Can anyone please tell me whether the Linux TCP/IP stack support TSO
-so that TCP segments bigger than MSS is segmented by the NIC, not the
-software? If not, is there plans to support this, since this is
-stateless offload?
-
-Any pointers would be greatly appreciated.
-
-Regards,
-Prodyuthttp://lwn.net/Articles/9129/
-
- I see the define NETIF_F_TSO in the linux kernel, and I see that the
-e1000 driver is setting this flag in its capabilities list. But for
-TSO to work, TCP code should send the big segment (say 64K) directly
-to the NIC, bypassing the IP layer. Else, the IP layer would fragment
-the packets, and the whole purpose of TSO will be lost. I cannot see
-any code in tcp layer which bypasses the IP layer and goes directly to
-the NIC. It seems to me that the TCP/IP stack in Linux always does the
-segmentation, since there is no code under the NETIF_F_TSO define
-which bypasses the IP layer. Or am I missing something?
-
-Can anyone please tell me whether the Linux TCP/IP stack support TSO
-so that TCP segments bigger than MSS is segmented by the NIC, not the
-software? If not, is there plans to support this, since this is
-stateless offload?
-
-Any pointers would be greatly appreciated.
-
-Regards,
-Prodyut
+The undocumented style rule of sysfs is one value (ascii) per file.
