@@ -1,73 +1,65 @@
-From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Subject: Re: [ofa-general] RE: [PATCH 11/13] QLogic VNIC: Driver utility file
-	- implements various utility macros
-Date: Thu, 1 May 2008 22:31:10 +0530
-Message-ID: <71d336490805011001he7359dfw831470986d87b385@mail.gmail.com>
-References: <20080430171028.31725.86190.stgit@localhost.localdomain>
-	<20080430172126.31725.48554.stgit@localhost.localdomain>
-	<20080501075816.1010ec3a@extreme>
-	<C07C40DB2364324799506DE8FF12F8D8590EE1@EPEXCH1.qlogic.org>
+From: "prodyut hazarika" <prodyuth@gmail.com>
+Subject: State of TCP segmentation offload to NIC in linux
+Date: Thu, 1 May 2008 10:56:10 -0700
+Message-ID: <49c0ff980805011056q25d24616vf4cea6d8b387b717@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com,
-	"Amar Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>,
-	general@lists.openfabrics.org,
-	"Poornima Kamath \(Contractor - \)" <poornima.kamath@qlogic.com>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <C07C40DB2364324799506DE8FF12F8D8590EE1@EPEXCH1.qlogic.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.156]:52041 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751614AbYEAR4O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 13:56:14 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so628663fgg.17
+        for <netdev@vger.kernel.org>; Thu, 01 May 2008 10:56:10 -0700 (PDT)
 Content-Disposition: inline
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry for the resend. Original mail bounced from netdev.
+Hi all,
+I am trying to understand the current state of TCP segmentation
+offload to Network cards. in Linux I have read posts that tells that
+Intel e1000 driver supports TSO (TCP segmentation offload). This link
+tells that TSO is supported in Linux:
+http://lwn.net/Articles/9129/
 
-On Thu, May 1, 2008 at 9:48 PM <ramachandra.kuchimanchi@qlogic.com> wrote:
-> Stephen,
->
->
->  Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
->
->  > Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
->
->  >> +#define is_power_of2(value) (((value) & ((value - 1))) == 0)
->  >> +#define ALIGN_DOWN(x, a)    ((x)&(~((a)-1)))
->
->  > In kernel.h already
->
->  Will fix this. Thanks.
->
->
->  >> +extern u32 vnic_debug;
->
->  > Use msg level macros instead?
->
->  I am sorry, I did not understand this comment.
->
->
->  > +
->  > +#define SYS_INFO(fmt, arg...)                                        \
->  > +      PRINT_CONDITIONAL(KERN_INFO,                           \
->  > +                        "SYS",                               \
->  > +                        (vnic_debug & DEBUG_SYS_INFO),       \
->  > +                        fmt, ##arg)
->  > +
->  > +#endif       /* VNIC_UTIL_H_INCLUDED */
->
->
->  > Many of these are already in standard macros pr_info, pr_err etc.
->
->  These macros are for providing a debug log level functionality through
->  the vnic_debug module parameter.
->
->  Regards,
->  Ram
+ I see the define NETIF_F_TSO in the linux kernel, and I see that the
+e1000 driver is setting this flag in its capabilities list. But for
+TSO to work, TCP code should send the big segment (say 64K) directly
+to the NIC, bypassing the IP layer. Else, the IP layer would fragment
+the packets, and the whole purpose of TSO will be lost. I cannot see
+any code in tcp layer which bypasses the IP layer and goes directly to
+the NIC. It seems to me that the TCP/IP stack in Linux always does the
+segmentation, since there is no code under the NETIF_F_TSO define
+which bypasses the IP layer. Or am I missing something?
+
+Can anyone please tell me whether the Linux TCP/IP stack support TSO
+so that TCP segments bigger than MSS is segmented by the NIC, not the
+software? If not, is there plans to support this, since this is
+stateless offload?
+
+Any pointers would be greatly appreciated.
+
+Regards,
+Prodyuthttp://lwn.net/Articles/9129/
+
+ I see the define NETIF_F_TSO in the linux kernel, and I see that the
+e1000 driver is setting this flag in its capabilities list. But for
+TSO to work, TCP code should send the big segment (say 64K) directly
+to the NIC, bypassing the IP layer. Else, the IP layer would fragment
+the packets, and the whole purpose of TSO will be lost. I cannot see
+any code in tcp layer which bypasses the IP layer and goes directly to
+the NIC. It seems to me that the TCP/IP stack in Linux always does the
+segmentation, since there is no code under the NETIF_F_TSO define
+which bypasses the IP layer. Or am I missing something?
+
+Can anyone please tell me whether the Linux TCP/IP stack support TSO
+so that TCP segments bigger than MSS is segmented by the NIC, not the
+software? If not, is there plans to support this, since this is
+stateless offload?
+
+Any pointers would be greatly appreciated.
+
+Regards,
+Prodyut
