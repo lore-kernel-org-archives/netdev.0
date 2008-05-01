@@ -1,120 +1,72 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 6/6] sis190: account for Tx errors
-Date: Thu, 1 May 2008 16:16:51 -0700
-Message-ID: <20080501161651.0a754572.akpm@linux-foundation.org>
-References: <20080427170023.GA26953@electric-eye.fr.zoreil.com>
-	<20080427170604.GG26953@electric-eye.fr.zoreil.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: brctl shows output for pegasus ethernet device?
+Date: Thu, 01 May 2008 15:55:44 -0700
+Message-ID: <481A4A70.1040806@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37079 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753946AbYEAXQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 19:16:58 -0400
-In-Reply-To: <20080427170604.GG26953@electric-eye.fr.zoreil.com>
+Received: from mail.candelatech.com ([66.165.47.212]:57955 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752752AbYEAX0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 19:26:14 -0400
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id m41MtixU014894
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 1 May 2008 15:55:44 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 27 Apr 2008 19:06:04 +0200
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+I was expecting brctl to fail in this case, but it shows data
+for the pegasus USB ethernet device??
 
-> Update the collision counter as well.
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> ---
->  drivers/net/sis190.c |   38 +++++++++++++++++++++++++++++++++++---
->  1 files changed, 35 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-> index 20f4829..abc63b0 100644
-> --- a/drivers/net/sis190.c
-> +++ b/drivers/net/sis190.c
-> @@ -212,6 +212,12 @@ enum _DescStatusBit {
->  	THOL2		= 0x20000000,
->  	THOL1		= 0x10000000,
->  	THOL0		= 0x00000000,
-> +
-> +	WND		= 0x00080000,
-> +	TABRT		= 0x00040000,
-> +	FIFO		= 0x00020000,
-> +	LINK		= 0x00010000,
-> +	ColCountMask	= 0x0000ffff,
->  	/* RxDesc.status */
->  	IPON		= 0x20000000,
->  	TCPON		= 0x10000000,
-> @@ -653,9 +659,31 @@ static void sis190_unmap_tx_skb(struct pci_dev *pdev, struct sk_buff *skb,
->  	memset(desc, 0x00, sizeof(*desc));
->  }
->  
-> +static inline int sis190_tx_pkt_err(u32 status, struct net_device_stats *stats)
-> +{
-> +#define TxErrMask	(WND | TABRT | FIFO | LINK)
-> +
-> +	if (!unlikely(status & TxErrMask))
-> +		return 0;
-> +
-> +	if (status & WND)
-> +		stats->tx_window_errors++;
-> +	if (status & TABRT)
-> +		stats->tx_aborted_errors++;
-> +	if (status & FIFO)
-> +		stats->tx_fifo_errors++;
-> +	if (status & LINK)
-> +		stats->tx_carrier_errors++;
-> +
-> +	stats->tx_errors++;
-> +
-> +	return -1;
-> +}
-
-Does !unlikely(...) actually do what we want?
-
->  static void sis190_tx_interrupt(struct net_device *dev,
->  				struct sis190_private *tp, void __iomem *ioaddr)
->  {
-> +	struct net_device_stats *stats = &dev->stats;
->  	u32 pending, dirty_tx = tp->dirty_tx;
->  	/*
->  	 * It would not be needed if queueing was allowed to be enabled
-> @@ -670,15 +698,19 @@ static void sis190_tx_interrupt(struct net_device *dev,
->  	for (; pending; pending--, dirty_tx++) {
->  		unsigned int entry = dirty_tx % NUM_TX_DESC;
->  		struct TxDesc *txd = tp->TxDescRing + entry;
-> +		u32 status = le32_to_cpu(txd->status);
->  		struct sk_buff *skb;
->  
-> -		if (le32_to_cpu(txd->status) & OWNbit)
-> +		if (status & OWNbit)
->  			break;
->  
->  		skb = tp->Tx_skbuff[entry];
->  
-> -		dev->stats.tx_packets++;
-> -		dev->stats.tx_bytes += skb->len;
-> +		if (likely(sis190_tx_pkt_err(status, stats) == 0)) {
-> +			stats->tx_packets++;
-> +			stats->tx_bytes += skb->len;
-> +			stats->collisions += ((status & ColCountMask) - 1);
-> +		}
-
-Because it kinda matters here.  We would like to prevent the unlikely
-error-handling code from gumming up the interrupt handler's cache
-footprint.
-
-To be confident, one could do:
-
-static noinline sis190_tx_pkt_err(...)
-{
-	if (status & WND)
-	...
-}
+brctl version 1.2  (FC8)
+kernel 2.6.25 plus hacks
 
 
-	if (unlikely(status & TxErrMask))
-		sis190_tx_pkt_err(...);
+[root@eepc ]# brctl showstp eth3
+eth3
+  bridge id              0000.000018000000
+  designated root        0200.000004000000
+  root port               255                    path cost               7664
+  max age                   0.00                 bridge max age             0.00
+  hello time                0.00                 bridge hello time          0.00
+  forward delay             0.00                 bridge forward delay       0.00
+  ageing time               0.00
+  hello timer               0.00                 tcn timer               11346042.76
+  topology change timer  32183585.20                     gc timer                32183588.56
+  flags                  TOPOLOGY_CHANGE TOPOLOGY_CHANGE_DETECTED
 
 
+[root@eepc ]# ethtool eth3
+Settings for eth3:
+         Supported ports: [ TP MII ]
+         Supported link modes:   10baseT/Half 10baseT/Full
+                                 100baseT/Half 100baseT/Full
+         Supports auto-negotiation: Yes
+         Advertised link modes:  10baseT/Half 10baseT/Full
+                                 100baseT/Half 100baseT/Full
+         Advertised auto-negotiation: Yes
+         Speed: 100Mb/s
+         Duplex: Full
+         Port: MII
+         PHYAD: 1
+         Transceiver: internal
+         Auto-negotiation: on
+         Supports Wake-on: pg
+         Wake-on: d
+         Current message level: 0x00000007 (7)
+         Link detected: yes
+[root@eepc ]# ethtool -i eth3
+driver: pegasus
+version: v0.6.14 (2006/09/27)
+firmware-version:
+bus-info: usb-0000:00:10.0-2
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
