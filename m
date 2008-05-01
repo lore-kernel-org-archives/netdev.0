@@ -1,90 +1,84 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: mac80211 truesize bugs
-Date: Thu, 01 May 2008 04:02:48 +0200
-Message-ID: <1209607368.7173.20.camel@johannes.berg>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 00/10] sysfs tagged directories
+Date: Wed, 30 Apr 2008 20:12:28 -0700
+Message-ID: <20080501031228.GC4911@suse.de>
+References: <20080429171015.473938697@theryb.frec.bull.fr> <20080429173621.GA16625@suse.de> <20080429180445.GA18110@sergelap.austin.ibm.com> <20080429184151.GA19794@suse.de> <20080429193417.GA19282@sergelap.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Dpc07RSskzhXXMFJW4Ta"
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759143AbYEADRT@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080429193417.GA19282@sergelap.austin.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Apr 29, 2008 at 02:34:17PM -0500, Serge E. Hallyn wrote:
+> Quoting Greg KH (gregkh@suse.de):
+> > On Tue, Apr 29, 2008 at 01:04:45PM -0500, Serge E. Hallyn wrote:
+> > > Quoting Greg KH (gregkh@suse.de):
+> > > > On Tue, Apr 29, 2008 at 07:10:15PM +0200, Benjamin Thery wrote:
+> > > > > Here is the announcement Eric wrote back in December to introduce his 
+> > > > > patchset:
+> > > > 
+> > > > <snip>
+> > > > 
+> > > > Are the objections that Al Viro made to this patchset when it was last
+> > > > sent out addressed in this new series?
+> > > > 
+> > > > thanks,
+> > > > 
+> > > > greg k-h
+> > > 
+> > > Which objections were those?  The last submission which I see by Eric
+> > > was http://lkml.org/lkml/2007/12/1/15 this past December.  I see no
+> > > response from Al and get the feeling you were ok with them.
+> > > 
+> > > So my hunch would be that Eric had addressed those before that last
+> > > submission, but if not I'm sorry, and please do set me straight.
+> > 
+> > See the thread from Al starting with:
+> > 	Date: Mon, 7 Jan 2008 10:24:17 +0000
+> > 	From: Al Viro <viro@ZenIV.linux.org.uk>
+> > 	To: "Eric W. Biederman" <ebiederm@xmission.com>
+> > 	Cc: linux-kernel@vger.kernel.org, htejun@gmail.com,
+> > 	        linux-fsdevel@vger.kernel.org, gregkh@suse.de
+> > 	Subject: [RFC] netns / sysfs interaction
+> > 	Message-ID: <20080107072301.GW27894@ZenIV.linux.org.uk>
+> > 
+> > He had a lot of questions and objections to this way forward, and I
+> > share those objections.
+> 
+> Ah I see it, thanks.
+> 
+> All Al's questions appear to be about how a task migration will be handled
+> in the face of funky userspace usage of sysfs files.  But it seems clear the
+> first use of these will not be for migration but for vservers.  The key
+> thing to remember is that we don't (as decided at kernel-summit 06) aim
+> to hide from userspace the fact that it's in a vserver, we just give it
+> what it needs so that it can pretend.
+> 
+> As we start implementing checkpoint and restart to effect migration,
+> *clearly* if we're trying to restart a task which has cwd or an open fd
+> in /sys/class/net/eth42/, but that directory doesn't exist on the target
+> machine, then the restart (and hence migrate) fails.
+> 
+> There was a concern about
+> /sys/devices/pci0000\:00/0000\:00\:0a.0/net:eth0.  Since that's a
+> symlink to ../../../class/net/eth0, it will either point nowhere or
+> point to the virtualized eth0, if veth1 (or vethN) was renamed to eth0
+> in the container.  (see below)  If that is the wrong thing to do we
+> could try to address it in this patchset, but I suspect it is better
+> left until device namespace are implemented.  Does that sounds sane?
 
---=-Dpc07RSskzhXXMFJW4Ta
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I really don't think so, but I'll wait for the reworked patches to
+review them and see how badly they mess the code up :)
 
-Hi,
+thanks,
 
-Whenever you run a monitor interface in mac80211, you can see lots of
-truesize bugs:
-
-SKB BUG: Invalid truesize (464) len=3D307, sizeof(sk_buff)=3D176
-
-It appears to be caused by mac80211's re-injection of the transmitted
-frame. For those not familiar, here's what happens:
-
-When a frame comes in on say wlan0's hard_start_xmit(), it is prepared
-for transmission by the code there (802.11 headers added etc.) and then
-scheduled to the master interface. Once it arrives on the master
-(wmaster0) interface's hard_start_xmit(), it is modified again and
-finally handed to the driver.
-
-When the driver has transmitted the frame (successfully or not) it
-reports the status of the transmission to mac80211 including the skb the
-driver was given. At that point, things go different depending on
-circumstances.
-
-If no monitor interfaces are present, mac80211 simply orphans the skb
-and destroys it. If there are monitor interfaces, it pushes some data
-into the skb (the radiotap transmit status) and hands clones of the skb
-to netif_rx() for each monitor interface, or the skb itself for the last
-interface in the list.
-
-All this is in net/mac80211/main.c:ieee80211_tx_status.
-
-Now, the thing is that the skb truesize bug ONLY occurs when the last
-part here is done when a radiotap monitor interface is present, if you
-add
-
-	dev_kfree_skb(skb);
-	return;
-
-in that function somewhere before the skb_orphan() call it never
-happens. Hence, I'm confused. Since I only have a single monitor
-interface when this happens, it can't be due to af_packet either,
-afaict.
-
-Can anyone help me diagnose this?
-
-johannes
-
---=-Dpc07RSskzhXXMFJW4Ta
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASBkkxqVg1VMiehFYAQIGaxAAt9J6H/MUKjLU+yt9gg7/s9BKvsBm5X26
-H2x8LbxOW5Sj0isvtslWIav3Z5+mnXsXOpN7jgEGm3s+W+pc0++sLWcCaj4Nsett
-NxwVMKIVNXmEFFuvGUpFv5BhXwlC1BAlt7Pw7z/w497uqrY8gaHnqvWTigGl6oE0
-RomflSf7S8VsLhZlcO5fM2HbXapb0FYq8/JFnfTaxbQHSn3KAQpec7a3J43LWMHj
-m2SpmObgaIRfM1stbEKPYqLC7jD/+5ijAu88CFAd8wkcGIcFHZqEvImazxomO7SD
-6UxXjg8xxTVIYtLoVENWg/dwYnZv7uo18NvODarYCkOsl96yVMAzGXQ5cNGqL8fL
-VVNHmA6WuFCVfcPlV234feNgVc/BnmFOzg9COzlpEGzADukFBftV/iW1MfqAZzui
-8nmQRQMf31JteTql1NL5feUsDQs85HUsJPenL9HlL8c+IrcubyKAbERbpS5whvME
-LVknwt6VeCxI9L7W/FndAP6zZNnR2sJiaUT5FxGhZ0GXmKgrHsDJoEe/J+7rBkEH
-NTqDh8tFYfyqH5Bk5fkCjqu0vs8zNXkiV8F4jBbq34DWKskqjiCMyy6eLY40BKfZ
-YUjgYpVSoyphjBXuMseKBKBAHvYTSMyRBhnOTHZbB5Jrtdnxb8PbJ/088+cpFgyr
-beX/00QJ9jU=
-=a4Qa
------END PGP SIGNATURE-----
-
---=-Dpc07RSskzhXXMFJW4Ta--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+greg k-h
