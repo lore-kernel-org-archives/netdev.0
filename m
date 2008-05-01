@@ -1,71 +1,73 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] [POWERPC] mpc5200: Allow for fixed speed MII configurations
-Date: Thu, 01 May 2008 18:59:20 +0200
-Message-ID: <4819F6E8.1@grandegger.com>
-References: <20080429230620.11248.25729.stgit@trillian.secretlab.ca>	 <fa686aa40805010733o6bb5b522hd16669b732f1892@mail.gmail.com>	 <4819F1F3.2000406@grandegger.com> <fa686aa40805010952t58af0071rc308956e9fb13fbf@mail.gmail.com>
+From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Subject: Re: [ofa-general] RE: [PATCH 11/13] QLogic VNIC: Driver utility file
+	- implements various utility macros
+Date: Thu, 1 May 2008 22:31:10 +0530
+Message-ID: <71d336490805011001he7359dfw831470986d87b385@mail.gmail.com>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain>
+	<20080430172126.31725.48554.stgit@localhost.localdomain>
+	<20080501075816.1010ec3a@extreme>
+	<C07C40DB2364324799506DE8FF12F8D8590EE1@EPEXCH1.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, paulus@samba.org, netdev@vger.kernel.org,
-	wd@denx.de, Domen Puncer <domen@coderock.org>,
-	Sylvain Munaut <tnt@246tnt.com>
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:46805 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757593AbYEAQ7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 12:59:23 -0400
-In-Reply-To: <fa686aa40805010952t58af0071rc308956e9fb13fbf@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com,
+	"Amar Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>,
+	general@lists.openfabrics.org,
+	"Poornima Kamath \(Contractor - \)" <poornima.kamath@qlogic.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <C07C40DB2364324799506DE8FF12F8D8590EE1@EPEXCH1.qlogic.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Grant Likely wrote:
-> On Thu, May 1, 2008 at 10:38 AM, Wolfgang Grandegger <wg@grandegger.com> wrote:
->> Hi Grant,
->>
->>
->>  Grant Likely wrote:
->>  > On Tue, Apr 29, 2008 at 5:06 PM, Grant Likely <grant.likely@secretlab.ca> wrote:
->>  >> From: Grant Likely <grant.likely@secretlab.ca>
->>  >>
->>  >>  Various improvements for configuring the MPC5200 MII link from the
->>  >>  device tree:
->>  >>  * Look for 'current-speed' property for fixed speed MII links
->>  >>  * Look for 'fsl,7-wire-mode' property for boards using the 7 wire mode
->>  >>  * move definition of private data structure out of the header file
->>  >>
->>  >>  Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
->>  >
->>  > Any more comments on this patch?  I want to push it to Paulus, but I'd
->>  > like to have someone ack it first.
->>  >
->>  > Wolfgang, you used the previous version of this patch.  Does this one
->>  > work for you?
->>
->>  Sorry for the late answer. The patch works fine (under Linux 2.6.24) on
->>  my board with a 3-port Micrel ethernet switch. There is still a minor
->>  issue, though:
->>
->>  >>  -               of_node_put(phy_dn);
->>  >>  +       /* Start with safe defaults for link connection */
->>  >>  +       priv->phy_addr = FEC5200_PHYADDR_NONE;
->>  >>  +       priv->speed = 100;
->>  >>  +       priv->duplex = 0;
->>
->>  priv->duplex is re-defined here. And instead of "0" we should use
->>  DUPLEX_HALF.
-> 
-> Oops,
-> 
-> Fixed.
-> 
-> If you reply with your 'acked-by' line, then I'll push this one to
-> Paul so it can get into .26
+Sorry for the resend. Original mail bounced from netdev.
 
-Yes, of course. Add
-
-  Acked-by: Wolfgang Grandegger <wg@grandegger.com>
-
-please.
-
-Wolfgang.
+On Thu, May 1, 2008 at 9:48 PM <ramachandra.kuchimanchi@qlogic.com> wrote:
+> Stephen,
+>
+>
+>  Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
+>
+>  > Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
+>
+>  >> +#define is_power_of2(value) (((value) & ((value - 1))) == 0)
+>  >> +#define ALIGN_DOWN(x, a)    ((x)&(~((a)-1)))
+>
+>  > In kernel.h already
+>
+>  Will fix this. Thanks.
+>
+>
+>  >> +extern u32 vnic_debug;
+>
+>  > Use msg level macros instead?
+>
+>  I am sorry, I did not understand this comment.
+>
+>
+>  > +
+>  > +#define SYS_INFO(fmt, arg...)                                        \
+>  > +      PRINT_CONDITIONAL(KERN_INFO,                           \
+>  > +                        "SYS",                               \
+>  > +                        (vnic_debug & DEBUG_SYS_INFO),       \
+>  > +                        fmt, ##arg)
+>  > +
+>  > +#endif       /* VNIC_UTIL_H_INCLUDED */
+>
+>
+>  > Many of these are already in standard macros pr_info, pr_err etc.
+>
+>  These macros are for providing a debug log level functionality through
+>  the vnic_debug module parameter.
+>
+>  Regards,
+>  Ram
