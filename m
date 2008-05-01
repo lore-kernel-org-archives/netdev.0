@@ -1,13 +1,13 @@
 From: "Kuchimanchi,
 	Ramachandra \(Contractor - \)" <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] RE: [PATCH 08/13] QLogic VNIC: sysfs interface
-	implementation for the driver
-Date: Thu, 1 May 2008 11:02:14 -0500
-Message-ID: <C07C40DB2364324799506DE8FF12F8D8590EE0@EPEXCH1.qlogic.org>
-References: <20080430171028.31725.86190.stgit@localhost.localdomain><20080430171955.31725.7771.stgit@localhost.localdomain>
-	<20080501075606.4963afa3@extreme>
+Subject: [ofa-general] RE: [PATCH 11/13] QLogic VNIC: Driver utility file -
+	implements various utility macros
+Date: Thu, 1 May 2008 11:18:53 -0500
+Message-ID: <C07C40DB2364324799506DE8FF12F8D8590EE1@EPEXCH1.qlogic.org>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain><20080430172126.31725.48554.stgit@localhost.localdomain>
+	<20080501075816.1010ec3a@extreme>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1660661233=="
+Content-Type: multipart/mixed; boundary="===============1063738993=="
 Cc: netdev@vger.kernel.org, rdreier@cisco.com,
 	"Poornima Kamath \(Contractor - \)" <poornima.kamath@qlogic.com>,
 	general@lists.openfabrics.org,
@@ -29,14 +29,14 @@ List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===============1660661233==
+--===============1063738993==
 Content-class: urn:content-classes:message
 Content-Type: multipart/alternative;
-	boundary="----_=_NextPart_001_01C8ABA4.B899E4BA"
+	boundary="----_=_NextPart_001_01C8ABA7.0C5333A4"
 
 This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C8ABA4.B899E4BA
+------_=_NextPart_001_01C8ABA7.0C5333A4
 Content-Type: text/plain;
 	charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -45,44 +45,40 @@ Stephen,
 
 Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
 
->> On Wed, 30 Apr 2008 22:49:55 +0530
->> Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
+> Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
 
-<snip>
+>> +#define is_power_of2(value)	(((value) & ((value - 1))) =3D=3D 0)
+>> +#define ALIGN_DOWN(x, a)	((x)&(~((a)-1)))
 
->> +static match_table_t vnic_opt_tokens =3D {
->> +	{VNIC_OPT_IOC_GUID, "ioc_guid=3D%s"},
->> +	{VNIC_OPT_DGID, "dgid=3D%s"},
->> +	{VNIC_OPT_PKEY, "pkey=3D%x"},
->> +	{VNIC_OPT_NAME, "name=3D%s"},
->> +	{VNIC_OPT_INSTANCE, "instance=3D%d"},
->> +	{VNIC_OPT_RXCSUM, "rx_csum=3D%s"},
->> +	{VNIC_OPT_TXCSUM, "tx_csum=3D%s"},
->> +	{VNIC_OPT_HEARTBEAT, "heartbeat=3D%d"},
->> +	{VNIC_OPT_IOC_STRING, "ioc_string=3D\"%s"},
->> +	{VNIC_OPT_IB_MULTICAST, "ib_multicast=3D%s"},
->> +	{VNIC_OPT_ERR, NULL}
->> +};
->>=20
+> In kernel.h already
 
-> NO
-> 1. Most of this shouldn't be done via sysfs (rx_csum, tx_csum, ...)
-> 2. Sysfs is one value per file not name=3Dvalue
+Will fix this. Thanks.
 
-The VNIC driver needs multiple parameters (IOCGUID, DGID etc) from user =
-space
-to connect to the EVIC. For this the "name=3Dvalue" mechanism is used =
-for
-a write-only sysfs file as an input method to the driver.
+>> +extern u32 vnic_debug;
 
-The driver follows the one value per file sysfs rule when it returns any =
-data
-with each readable file returning only a single value.
+> Use msg level macros instead?
+
+I am sorry, I did not understand this comment.
+
+> +
+> +#define SYS_INFO(fmt, arg...)					\
+> +	 PRINT_CONDITIONAL(KERN_INFO,				\
+> +			   "SYS",				\
+> +			   (vnic_debug & DEBUG_SYS_INFO),	\
+> +			   fmt, ##arg)
+> +
+> +#endif	/* VNIC_UTIL_H_INCLUDED */
+
+
+> Many of these are already in standard macros pr_info, pr_err etc.
+
+These macros are for providing a debug log level functionality through
+the vnic_debug module parameter.
 
 Regards,
 Ram
 
-------_=_NextPart_001_01C8ABA4.B899E4BA
+------_=_NextPart_001_01C8ABA7.0C5333A4
 Content-Type: text/html;
 	charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -94,8 +90,8 @@ Content-Transfer-Encoding: quoted-printable
 charset=3Diso-8859-1">
 <META NAME=3D"Generator" CONTENT=3D"MS Exchange Server version =
 6.5.7651.59">
-<TITLE>RE: [PATCH 08/13] QLogic VNIC: sysfs interface implementation for =
-the driver</TITLE>
+<TITLE>RE: [PATCH 11/13] QLogic VNIC: Driver utility file - implements =
+various utility macros</TITLE>
 </HEAD>
 <BODY>
 <!-- Converted from text/plain format -->
@@ -106,48 +102,60 @@ Stephen Hemminger [<A =
 HREF=3D"mailto:shemminger@vyatta.com">mailto:shemminger@vyatta.com</A>] =
 wrote:<BR>
 <BR>
-&gt;&gt; On Wed, 30 Apr 2008 22:49:55 +0530<BR>
-&gt;&gt; Ramachandra K &lt;ramachandra.kuchimanchi@qlogic.com&gt; =
-wrote:<BR>
+&gt; Ramachandra K &lt;ramachandra.kuchimanchi@qlogic.com&gt; wrote:<BR>
 <BR>
-&lt;snip&gt;<BR>
+&gt;&gt; +#define is_power_of2(value) (((value) &amp; ((value - 1))) =
+=3D=3D 0)<BR>
+&gt;&gt; +#define ALIGN_DOWN(x, a)&nbsp;&nbsp;&nbsp; =
+((x)&amp;(~((a)-1)))<BR>
 <BR>
-&gt;&gt; +static match_table_t vnic_opt_tokens =3D {<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_IOC_GUID, =
-&quot;ioc_guid=3D%s&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_DGID, &quot;dgid=3D%s&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_PKEY, &quot;pkey=3D%x&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_NAME, &quot;name=3D%s&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_INSTANCE, =
-&quot;instance=3D%d&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_RXCSUM, =
-&quot;rx_csum=3D%s&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_TXCSUM, =
-&quot;tx_csum=3D%s&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_HEARTBEAT, =
-&quot;heartbeat=3D%d&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_IOC_STRING, =
-&quot;ioc_string=3D\&quot;%s&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_IB_MULTICAST, =
-&quot;ib_multicast=3D%s&quot;},<BR>
-&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_ERR, NULL}<BR>
-&gt;&gt; +};<BR>
-&gt;&gt;<BR>
+&gt; In kernel.h already<BR>
 <BR>
-&gt; NO<BR>
-&gt; 1. Most of this shouldn't be done via sysfs (rx_csum, tx_csum, =
-...)<BR>
-&gt; 2. Sysfs is one value per file not name=3Dvalue<BR>
+Will fix this. Thanks.<BR>
 <BR>
-The VNIC driver needs multiple parameters (IOCGUID, DGID etc) from user =
-space<BR>
-to connect to the EVIC. For this the &quot;name=3Dvalue&quot; mechanism =
-is used for<BR>
-a write-only sysfs file as an input method to the driver.<BR>
+&gt;&gt; +extern u32 vnic_debug;<BR>
 <BR>
-The driver follows the one value per file sysfs rule when it returns any =
-data<BR>
-with each readable file returning only a single value.<BR>
+&gt; Use msg level macros instead?<BR>
+<BR>
+I am sorry, I did not understand this comment.<BR>
+<BR>
+&gt; +<BR>
+&gt; +#define SYS_INFO(fmt, =
+arg...)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \<BR>
+&gt; +&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+PRINT_CONDITIONAL(KERN_INFO,&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \<BR>
+&gt; +&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; =
+&quot;SYS&quot;,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \<BR>
+&gt; +&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; (vnic_debug =
+&amp; DEBUG_SYS_INFO),&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \<BR>
+&gt; +&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; fmt, ##arg)<BR>
+&gt; +<BR>
+&gt; +#endif&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* VNIC_UTIL_H_INCLUDED =
+*/<BR>
+<BR>
+<BR>
+&gt; Many of these are already in standard macros pr_info, pr_err =
+etc.<BR>
+<BR>
+These macros are for providing a debug log level functionality =
+through<BR>
+the vnic_debug module parameter.<BR>
 <BR>
 Regards,<BR>
 Ram</FONT>
@@ -155,13 +163,13 @@ Ram</FONT>
 
 </BODY>
 </HTML>
-------_=_NextPart_001_01C8ABA4.B899E4BA--
+------_=_NextPart_001_01C8ABA7.0C5333A4--
 
---===============1660661233==
+--===============1063738993==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
 
---===============1660661233==--
+--===============1063738993==--
