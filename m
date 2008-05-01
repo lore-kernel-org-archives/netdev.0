@@ -1,61 +1,55 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c
-Date: Thu, 1 May 2008 12:37:30 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805011216230.19286@wrl-59.cs.helsinki.fi>
-References: <4815BCDF.6070704@andyfurniss.entadsl.com>
- <Pine.LNX.4.64.0804281714090.1888@wrl-59.cs.helsinki.fi>
- <48162070.4030405@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804282210390.16635@wrl-59.cs.helsinki.fi>
- <481986FD.8070108@andyfurniss.entadsl.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: mac80211 truesize bugs
+Date: Thu, 01 May 2008 02:43:20 -0700 (PDT)
+Message-ID: <20080501.024320.212547875.davem@davemloft.net>
+References: <1209632886.4008.8.camel@johannes.berg>
+	<20080501.022041.213526595.davem@davemloft.net>
+	<1209634349.4008.15.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Andy Furniss <lists@andyfurniss.entadsl.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: mb@bu3sch.de, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:44299 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754023AbYEAJhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 05:37:36 -0400
-In-Reply-To: <481986FD.8070108@andyfurniss.entadsl.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56011
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756374AbYEAJnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 05:43:24 -0400
+In-Reply-To: <1209634349.4008.15.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 May 2008, Andy Furniss wrote:
-
-> Caught one -
-> 
-> 
-> May  1 03:35:45 noki kernel: 4l2_common ir_kbd_i2c ir_common tveeprom
-
-Things above this got lost somewhere?
-
-> videobuf_dvb dvb_core videobuf_dma_sg videobuf_core nxt200x isl6421 tda1004x
-> firmware_class tda827x cls_flow sch_ingress xt_mark xt_length xt_MARK cls_u32
-> sch_sfq cls_fw sch_htb ipt_REJECT xt_state iptable_filter xt_TCPMSS xt_tcpmss
-> xt_tcpudp iptable_mangle nf_nat_ftp nf_conntrack_ftp iptable_nat ip_tables
-> nf_nat x_tables nf_conntrack_ipv4 nf_conntrack bridge llc container fan
-> thermal processor button tulip
-> May  1 03:35:45 noki kernel: Pid: 0, comm: swapper Not tainted 2.6.25 #2
-> May  1 03:35:45 noki kernel:  [warn_on_slowpath+95/144]
-> warn_on_slowpath+0x5f/0x90
-> May  1 03:35:45 noki kernel:  [tcp_transmit_skb+1149/1840]
-> tcp_transmit_skb+0x47d/0x730
-> May  1 03:35:45 noki kernel:  [tcp_verify_wq+863/944]
-> tcp_verify_wq+0x35f/0x3b0
-> May  1 03:35:45 noki kernel:  [tcp_xmit_retransmit_queue+346/976]
-> tcp_xmit_retransmit_queue+0x15a/0x3d0
-> May  1 03:35:45 noki kernel:  [tcp_ack+4069/7232] tcp_ack+0xfe5/0x1c40
-> May  1 03:35:45 noki kernel:  [tcp_rcv_established+990/1840]
-> tcp_rcv_established+0x3de/0x730
-> May  1 03:35:45 noki kernel:  [tcp_v4_do_rcv+179/464] tcp_v4_do_rcv+0xb3/0x1d0
-[...snip...]
-> May  1 03:35:45 noki kernel: ---[ end trace ca0e42fa80915e32 ]---
-> May  1 03:35:45 noki kernel: P: 4 L: 1 vs 1 S: 3 vs 3 F: 4 vs 6 w:
-> 2200787703-2200792303 (7)
-
-Thanks, a genuine one, fackets_out (= 6) > packets_out (= 4). :-)
-...I'll try to figure it out anyway.
-
--- 
- i.
-
+RnJvbTogSm9oYW5uZXMgQmVyZyA8am9oYW5uZXNAc2lwc29sdXRpb25zLm5ldD4NCkRhdGU6IFRo
+dSwgMDEgTWF5IDIwMDggMTE6MzI6MjkgKzAyMDANCg0KPiBPbiBUaHUsIDIwMDgtMDUtMDEgYXQg
+MDI6MjAgLTA3MDAsIERhdmlkIE1pbGxlciB3cm90ZToNCj4gPiBGcm9tOiBKb2hhbm5lcyBCZXJn
+IDxqb2hhbm5lc0BzaXBzb2x1dGlvbnMubmV0Pg0KPiA+IERhdGU6IFRodSwgMDEgTWF5IDIwMDgg
+MTE6MDg6MDYgKzAyMDANCj4gPiANCj4gPiA+ID4gU2VlbXMgdGhlIHNrYi0+ZGVzdHJ1Y3RvciBt
+ZXNzZXMgaXQgdXAuDQo+ID4gPiANCj4gPiA+IEFjdHVhbGx5LCBpdCBzZWVtcyB0byBiZSBvdXRz
+aWRlIG9mIG1hYzgwMjExLCBJIHB1dCBpbiBhIFdBUk5fT04oKSBhbmQNCj4gPiA+IGdvdCB0aGlz
+Og0KPiA+IA0KPiA+IFlvdSdyZSBqdXN0IHNlZWluZyB3aG8gZnJlZWQgaXQgbGFzdCBoZXJlLg0K
+PiA+IA0KPiA+IEl0IGNvdWxkIGhhdmUgaGFkIGl0J3MgLT50cnVlc2l6ZSBwdXQgaW50byBhbiBp
+bGxlZ2FsIHN0YXRlDQo+ID4gZWxzZXdoZXJlLg0KPiANCj4gWWVzLCBJIGtub3csIGJ1dCBpdCBk
+b2Vzbid0IGNvbWUgZnJvbSBteSBza2Jfb3JwaGFuKCkgY2FsbC4gSGVuY2UsIEkNCj4ganVzdCDv
+u79uZXRpZl9yeCgpIHRoZSBwYWNrZXQgd2hpY2ggbWFrZXMgaXQgZ28gb250byB0aGUgaW5wdXRf
+cGt0X3F1ZXVlDQo+IGFuZCB0aGVuIHRvIG5ldGlmX3JlY2VpdmVfc2tiKCkgd2hpY2ggZ2l2ZXMg
+aXQgdG8gYWZfcGFja2V0IGFuZCBhbGwNCj4gb3RoZXJzIHNob3VsZCBpZ25vcmUgaXQgc2luY2Ug
+SSBzZXQg77u/UEFDS0VUX09USEVSSE9TVC4NCg0KSSBsb29rZWQgYXQgdGhlIG1hYzgwMjExIGNv
+ZGUsIHRoZSBwcm9ibGVtIGlzIHRoZSBza2JfcHVzaCgpIHlvdQ0KZ3V5cyBkbyBpbiB0aGlzIHNp
+dHVhdGlvbi4NCg0KVGhpbmdzIGxpa2UgbG9vcGJhY2ssIHdoaWNoIGFsc28gb3JwaGFuIHRoZW4g
+cmVpbmplY3QsIGRvbid0IHRyaWdnZXINCnRoaXMgcHJvYmxlbSBiZWNhdXNlIHRoZSByZS1pbnB1
+dCBwYXRoIHRyaW1zIHRoaW5ncywgbmV2ZXIgYWRkcy4NCg0KVGhlIGdvb2QgbmV3cyBpcyB0aGF0
+IHRoaXMgaXMgZWFzeSB0byBmaXguDQoNClNpbmNlIHlvdSd2ZSBvcnBoYW5lZCB0aGUgU0tCLCBz
+aW1wbHkgYWRqdXN0IHNrYi0+dHJ1ZXNpemUgYXMgeW91DQpkbyBwdXNoZXMuICBMaWtlIHRoaXM6
+DQoNCm1hYzgwMjExOiBBZGp1c3QgdHJ1ZXNpemUgaW4gaWVlZTgwMjExX3R4X3N0YXR1cygpIHdo
+ZW4gcmVpbmplY3RpbmcuDQoNClNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1A
+ZGF2ZW1sb2Z0Lm5ldD4NCg0KZGlmZiAtLWdpdCBhL25ldC9tYWM4MDIxMS9tYWluLmMgYi9uZXQv
+bWFjODAyMTEvbWFpbi5jDQppbmRleCA5YWQ0ZTM2Li5kZTJlOTA0IDEwMDY0NA0KLS0tIGEvbmV0
+L21hYzgwMjExL21haW4uYw0KKysrIGIvbmV0L21hYzgwMjExL21haW4uYw0KQEAgLTE0ODUsNiAr
+MTQ4NSw5IEBAIHZvaWQgaWVlZTgwMjExX3R4X3N0YXR1cyhzdHJ1Y3QgaWVlZTgwMjExX2h3ICpo
+dywgc3RydWN0IHNrX2J1ZmYgKnNrYiwNCiAJcnRoZHIgPSAoc3RydWN0IGllZWU4MDIxMV90eF9z
+dGF0dXNfcnRhcF9oZHIqKQ0KIAkJCQlza2JfcHVzaChza2IsIHNpemVvZigqcnRoZHIpKTsNCiAN
+CisJLyogVGhpcyBpcyBzYWZlIGJlY2F1c2UgdGhlIGJ1ZmZlciBoYXMgYmVlbiBvcnBoYW5lZC4g
+ICovDQorCXNrYi0+dHJ1ZXNpemUgKz0gc2l6ZW9mKCpydGhkcik7DQorDQogCW1lbXNldChydGhk
+ciwgMCwgc2l6ZW9mKCpydGhkcikpOw0KIAlydGhkci0+aGRyLml0X2xlbiA9IGNwdV90b19sZTE2
+KHNpemVvZigqcnRoZHIpKTsNCiAJcnRoZHItPmhkci5pdF9wcmVzZW50ID0NCg==
