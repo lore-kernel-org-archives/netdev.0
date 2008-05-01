@@ -1,61 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] Disable forwarding of LRO skbs
-Date: Thu, 01 May 2008 02:51:37 -0700 (PDT)
-Message-ID: <20080501.025137.95203112.davem@davemloft.net>
-References: <20080430214845.GC14219@solarflare.com>
-	<20080430215125.GD14219@solarflare.com>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c
+Date: Thu, 01 May 2008 10:54:10 +0100
+Message-ID: <48199342.9010406@andyfurniss.entadsl.com>
+References: <4815BCDF.6070704@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804281714090.1888@wrl-59.cs.helsinki.fi> <48162070.4030405@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804282210390.16635@wrl-59.cs.helsinki.fi> <481986FD.8070108@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805011216230.19286@wrl-59.cs.helsinki.fi>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kmansley@solarflare.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50150
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757317AbYEAJvk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 05:51:40 -0400
-In-Reply-To: <20080430215125.GD14219@solarflare.com>
+Received: from mx1.ukfsn.org ([77.75.108.10]:59177 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758525AbYEAJyR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2008 05:54:17 -0400
+In-Reply-To: <Pine.LNX.4.64.0805011216230.19286@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 30 Apr 2008 22:51:26 +0100
+Ilpo J=E4rvinen wrote:
+> On Thu, 1 May 2008, Andy Furniss wrote:
+>=20
+>> Caught one -
+>>
+>>
+>> May  1 03:35:45 noki kernel: 4l2_common ir_kbd_i2c ir_common tveepro=
+m
+>=20
+> Things above this got lost somewhere?
 
-> Add skb_warn_if_lro() to test whether an skb was received with LRO and
-> warn if so.
-> 
-> Change br_forward(), ip_forward() and ip6_forward() to call
-> skb_warn_if_lro() and discard the skb if it returns true.
+No - well not by the paste, I selected either side when pasting and=20
+edited them out of the mail. I did notice that and double checked - it=20
+is the first May 1 in my kernel log.
 
-This skb_is_gso() test should be inline.
-
-So, instead make this something like:
-
-include/linux/skbuff.h:
-
-extern bool __skb_warn_if_lro(const struct sk_buff *skb);
-
-static inline bool skb_warn_if_lro(const struct sk_buff *skb)
-{
-	if (unlikely(skb_is_gso(skb)))
-		return __skb_warn_if_lro(skb);
-	return false;
-}
-
-net/core/skbuff.c:
-
-bool skb_warn_if_lro(const struct sk_buff *skb)
-{
-	if (net_ratelimit())
-		pr_warning("%s: received packets cannot be forwarded"
-			   " while LRO is enabled\n", skb->dev->name);
-	return true;
-}
-
-Can you make this correction and resubmit this patch?
-
-The second one looks fine to me, you don't need to resubmit
-that one.
-
-Thanks!
+Apr 30 21:23:13 noki kernel: br0: topology change detected, propagating
+Apr 30 21:23:13 noki kernel: br0: port 2(eth1) entering forwarding stat=
+e
+May  1 03:35:45 noki kernel: 4l2_common ir_kbd_i2c ir_common tveeprom=20
+videobuf_dvb dvb_core videobuf_dma_sg videobuf_core nxt200x isl6421=20
+tda1004x firmware_class tda827x cls_flow sch_ingress xt_mark xt_length=20
+xt_MARK cls_u32 sch_sfq cls_fw sch_htb ipt_REJECT xt_state=20
+iptable_filter xt_TCPMSS xt_tcpmss xt_tcpudp iptable_mangle nf_nat_ftp=20
+nf_conntrack_ftp iptable_nat ip_tables nf_nat x_tables nf_conntrack_ipv=
+4=20
+nf_conntrack bridge llc container fan thermal processor button tulip
+May  1 03:35:45 noki kernel: Pid: 0, comm: swapper Not tainted 2.6.25 #=
+2
+May  1 03:35:45 noki kernel:  [warn_on_slowpath+95/144]=20
+warn_on_slowpath+0x5f/0x90
+May  1 03:35:45 noki kernel:  [tcp_transmit_skb+1149/1840]=20
+tcp_transmit_skb+0x47d/0x730
