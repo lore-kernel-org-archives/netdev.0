@@ -1,75 +1,167 @@
-From: Jan 'yanek' Bortl <yanek@ya.bofh.cz>
-Subject: PROBLEM: kernel lockup while changing TC rules
-Date: Thu, 1 May 2008 17:49:14 +0200
-Message-ID: <20080501145239.GA20284__27061.693944461$1209657574$gmane$org@atlantis.mitranet.cz>
+From: "Kuchimanchi,
+	Ramachandra \(Contractor - \)" <ramachandra.kuchimanchi@qlogic.com>
+Subject: [ofa-general] RE: [PATCH 08/13] QLogic VNIC: sysfs interface
+	implementation for the driver
+Date: Thu, 1 May 2008 11:02:14 -0500
+Message-ID: <C07C40DB2364324799506DE8FF12F8D8590EE0@EPEXCH1.qlogic.org>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain><20080430171955.31725.7771.stgit@localhost.localdomain>
+	<20080501075606.4963afa3@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlantis.mitranet.cz ([62.240.190.34]:34933 "EHLO
-	atlantis.mitranet.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758283AbYEAP6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 11:58:14 -0400
+Content-Type: multipart/mixed; boundary="===============1660661233=="
+Cc: netdev@vger.kernel.org, rdreier@cisco.com,
+	"Poornima Kamath \(Contractor - \)" <poornima.kamath@qlogic.com>,
+	general@lists.openfabrics.org,
+	"Amar Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-class: urn:content-classes:message
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Mime-version: 1.0
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+
+--===============1660661233==
+Content-class: urn:content-classes:message
+Content-Type: multipart/alternative;
+	boundary="----_=_NextPart_001_01C8ABA4.B899E4BA"
+
+This is a multi-part message in MIME format.
+
+------_=_NextPart_001_01C8ABA4.B899E4BA
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+Stephen,
+
+Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
+
+>> On Wed, 30 Apr 2008 22:49:55 +0530
+>> Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
+
+<snip>
+
+>> +static match_table_t vnic_opt_tokens =3D {
+>> +	{VNIC_OPT_IOC_GUID, "ioc_guid=3D%s"},
+>> +	{VNIC_OPT_DGID, "dgid=3D%s"},
+>> +	{VNIC_OPT_PKEY, "pkey=3D%x"},
+>> +	{VNIC_OPT_NAME, "name=3D%s"},
+>> +	{VNIC_OPT_INSTANCE, "instance=3D%d"},
+>> +	{VNIC_OPT_RXCSUM, "rx_csum=3D%s"},
+>> +	{VNIC_OPT_TXCSUM, "tx_csum=3D%s"},
+>> +	{VNIC_OPT_HEARTBEAT, "heartbeat=3D%d"},
+>> +	{VNIC_OPT_IOC_STRING, "ioc_string=3D\"%s"},
+>> +	{VNIC_OPT_IB_MULTICAST, "ib_multicast=3D%s"},
+>> +	{VNIC_OPT_ERR, NULL}
+>> +};
+>>=20
+
+> NO
+> 1. Most of this shouldn't be done via sysfs (rx_csum, tx_csum, ...)
+> 2. Sysfs is one value per file not name=3Dvalue
+
+The VNIC driver needs multiple parameters (IOCGUID, DGID etc) from user =
+space
+to connect to the EVIC. For this the "name=3Dvalue" mechanism is used =
+for
+a write-only sysfs file as an input method to the driver.
+
+The driver follows the one value per file sysfs rule when it returns any =
+data
+with each readable file returning only a single value.
+
+Regards,
+Ram
+
+------_=_NextPart_001_01C8ABA4.B899E4BA
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
+charset=3Diso-8859-1">
+<META NAME=3D"Generator" CONTENT=3D"MS Exchange Server version =
+6.5.7651.59">
+<TITLE>RE: [PATCH 08/13] QLogic VNIC: sysfs interface implementation for =
+the driver</TITLE>
+</HEAD>
+<BODY>
+<!-- Converted from text/plain format -->
+
+<P><FONT SIZE=3D2>Stephen,<BR>
+<BR>
+Stephen Hemminger [<A =
+HREF=3D"mailto:shemminger@vyatta.com">mailto:shemminger@vyatta.com</A>] =
+wrote:<BR>
+<BR>
+&gt;&gt; On Wed, 30 Apr 2008 22:49:55 +0530<BR>
+&gt;&gt; Ramachandra K &lt;ramachandra.kuchimanchi@qlogic.com&gt; =
+wrote:<BR>
+<BR>
+&lt;snip&gt;<BR>
+<BR>
+&gt;&gt; +static match_table_t vnic_opt_tokens =3D {<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_IOC_GUID, =
+&quot;ioc_guid=3D%s&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_DGID, &quot;dgid=3D%s&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_PKEY, &quot;pkey=3D%x&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_NAME, &quot;name=3D%s&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_INSTANCE, =
+&quot;instance=3D%d&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_RXCSUM, =
+&quot;rx_csum=3D%s&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_TXCSUM, =
+&quot;tx_csum=3D%s&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_HEARTBEAT, =
+&quot;heartbeat=3D%d&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_IOC_STRING, =
+&quot;ioc_string=3D\&quot;%s&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_IB_MULTICAST, =
+&quot;ib_multicast=3D%s&quot;},<BR>
+&gt;&gt; +&nbsp;&nbsp;&nbsp; {VNIC_OPT_ERR, NULL}<BR>
+&gt;&gt; +};<BR>
+&gt;&gt;<BR>
+<BR>
+&gt; NO<BR>
+&gt; 1. Most of this shouldn't be done via sysfs (rx_csum, tx_csum, =
+...)<BR>
+&gt; 2. Sysfs is one value per file not name=3Dvalue<BR>
+<BR>
+The VNIC driver needs multiple parameters (IOCGUID, DGID etc) from user =
+space<BR>
+to connect to the EVIC. For this the &quot;name=3Dvalue&quot; mechanism =
+is used for<BR>
+a write-only sysfs file as an input method to the driver.<BR>
+<BR>
+The driver follows the one value per file sysfs rule when it returns any =
+data<BR>
+with each readable file returning only a single value.<BR>
+<BR>
+Regards,<BR>
+Ram</FONT>
+</P>
+
+</BODY>
+</HTML>
+------_=_NextPart_001_01C8ABA4.B899E4BA--
+
+--===============1660661233==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I have found this problem with today's git (2.6.25-00000-ge4c576b) and 2.6.25:
-
-Network configuration:
-
-+--------+         vlan20 +---------+ vlan80
-| laptop |----------------| router  |-----
-+--------+                +---------+ 
-laptop has address 192.168.243.10
-
-Reproduce HOWTO:
-
-1. run http://ya.bofh.cz/archive/kernel-2.6-htbcrash/init.sh
-2. start packet generator on laptop (any traffic targetted to router's vlan80)
-3. run http://ya.bofh.cz/archive/kernel-2.6-htbcrash/crash.sh
-
-Then machine lockup and afterwhile print these messages:
-
-[  395.137697] BUG: soft lockup - CPU#0 stuck for 61s! [ksoftirqd/0:4]
-...
-[  395.139871] Call Trace:
-[  395.139940]  <IRQ>  [<ffffffff8035ea7c>] ? rb_insert_color+0xbc/0xf0
-[  395.140012]  [<ffffffffa01f9cf6>] ? :sch_htb:htb_add_to_wait_tree+0xa6/0xc0
-[  395.140061]  [<ffffffffa01fb46f>] ? :sch_htb:htb_dequeue+0x47f/0x7f0
-[  395.140111]  [<ffffffffa01f9ec2>] ? :sch_htb:htb_activate_prios+0x122/0x140
-[  395.140160]  [<ffffffff804682f6>] ? __qdisc_run+0x216/0x240
-[  395.140207]  [<ffffffff804584e3>] ? dev_queue_xmit+0x2c3/0x390
-[  395.140253]  [<ffffffff8047db07>] ? ip_finish_output+0x117/0x2a0
-[  395.140300]  [<ffffffff8047dfe0>] ? ip_output+0x70/0xb0
-[  395.140344]  [<ffffffff8047ac68>] ? ip_forward_finish+0x38/0x50
-
-and
-
-[  527.210416] BUG: soft lockup - CPU#1 stuck for 61s! [tc:2848]
-...
-[  527.212644] Call Trace:
-[  527.212715]  [<ffffffff803617ff>] ? __delay+0xf/0x30
-[  527.212759]  [<ffffffff80365a4c>] ? _raw_spin_lock+0x10c/0x180
-[  527.212805]  [<ffffffff804d90a6>] ? _spin_lock_bh+0x56/0x70
-[  527.212849]  [<ffffffff80467a3f>] ? qdisc_lock_tree+0x1f/0x30
-[  527.212895]  [<ffffffffa0228bb4>] ? :sch_sfq:sfq_init+0xf4/0x240
-[  527.212942]  [<ffffffff804693e4>] ? qdisc_create+0x154/0x250
-[  527.212987]  [<ffffffff804710d3>] ? nla_parse+0x33/0xf0
-[  527.213031]  [<ffffffff80469fd0>] ? tc_modify_qdisc+0x90/0x420
-[  527.213079]  [<ffffffff804603d9>] ? rtnetlink_rcv_msg+0x1e9/0x230
-[  527.213125]  [<ffffffff804601f0>] ? rtnetlink_rcv_msg+0x0/0x230
-
-(full output here: http://ya.bofh.cz/archive/kernel-2.6-htbcrash/netconsole.txt)
-
-kernel's config here: http://ya.bofh.cz/archive/kernel-2.6-htbcrash/config.txt
-dmesg after boot here: http://ya.bofh.cz/archive/kernel-2.6-htbcrash/dmesg.txt
-
--- 
-Jan 'yanek' Bortl <yanek [at] ya.bofh. cz>
-http://ya.bofh.cz/ | jab: yanek [at] mitranet. cz
------------------------------------------------------------------
-"Maybe one day you will learn that your way is not the only way."
-                                        Opher [StarGate: The Nox]
+--===============1660661233==--
