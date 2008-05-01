@@ -1,13 +1,13 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [ofa-general] Re: [RESEND] RE: [PATCH 08/13] QLogic VNIC: sysfs
- interface implementation for the driver
-Date: Thu, 1 May 2008 11:22:52 -0700
-Message-ID: <20080501112252.167695c7@extreme>
+Subject: Re: [ofa-general] RE: [PATCH 11/13] QLogic VNIC: Driver utility
+	file - implements various utility macros
+Date: Thu, 1 May 2008 11:26:33 -0700
+Message-ID: <20080501112633.7e272dcc@extreme>
 References: <20080430171028.31725.86190.stgit@localhost.localdomain>
-	<20080430171955.31725.7771.stgit@localhost.localdomain>
-	<20080501075606.4963afa3@extreme>
-	<C07C40DB2364324799506DE8FF12F8D8590EE0@EPEXCH1.qlogic.org>
-	<71d336490805010943s79f01e01u9b4566165c4fba3f@mail.gmail.com>
+	<20080430172126.31725.48554.stgit@localhost.localdomain>
+	<20080501075816.1010ec3a@extreme>
+	<C07C40DB2364324799506DE8FF12F8D8590EE1@EPEXCH1.qlogic.org>
+	<71d336490805011001he7359dfw831470986d87b385@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -17,7 +17,7 @@ Cc: netdev@vger.kernel.org, rdreier@cisco.com, "Amar
 	- \)" <poornima.kamath@qlogic.com>
 To: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <71d336490805010943s79f01e01u9b4566165c4fba3f@mail.gmail.com>
+In-Reply-To: <71d336490805011001he7359dfw831470986d87b385@mail.gmail.com>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -29,51 +29,36 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 1 May 2008 22:13:08 +0530
+On Thu, 1 May 2008 22:31:10 +0530
 "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com> wrote:
 
-> Sorry for the resend. Original mail got bounced from netdev.
+> Sorry for the resend. Original mail bounced from netdev.
 > 
-> On Thu, May 1, 2008 at 9:32 PM,  <ramachandra.kuchimanchi@qlogic.com> wrote:
-> >
+> On Thu, May 1, 2008 at 9:48 PM <ramachandra.kuchimanchi@qlogic.com> wrote:
 > > Stephen,
 > >
 > >
 > >  Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
 > >
-> >  >> On Wed, 30 Apr 2008 22:49:55 +0530
-> >  >> Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
+> >  > Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
 > >
-> >  <snip>
+> >  >> +#define is_power_of2(value) (((value) & ((value - 1))) == 0)
+> >  >> +#define ALIGN_DOWN(x, a)    ((x)&(~((a)-1)))
+> >
+> >  > In kernel.h already
+> >
+> >  Will fix this. Thanks.
 > >
 > >
-> >  >> +static match_table_t vnic_opt_tokens = {
-> >  >> +    {VNIC_OPT_IOC_GUID, "ioc_guid=%s"},
-> >  >> +    {VNIC_OPT_DGID, "dgid=%s"},
-> >  >> +    {VNIC_OPT_PKEY, "pkey=%x"},
-> >  >> +    {VNIC_OPT_NAME, "name=%s"},
-> >  >> +    {VNIC_OPT_INSTANCE, "instance=%d"},
-> >  >> +    {VNIC_OPT_RXCSUM, "rx_csum=%s"},
-> >  >> +    {VNIC_OPT_TXCSUM, "tx_csum=%s"},
-> >  >> +    {VNIC_OPT_HEARTBEAT, "heartbeat=%d"},
-> >  >> +    {VNIC_OPT_IOC_STRING, "ioc_string=\"%s"},
-> >  >> +    {VNIC_OPT_IB_MULTICAST, "ib_multicast=%s"},
-> >  >> +    {VNIC_OPT_ERR, NULL}
-> >  >> +};
-> >  >>
+> >  >> +extern u32 vnic_debug;
 > >
-> >  > NO
-> >  > 1. Most of this shouldn't be done via sysfs (rx_csum, tx_csum, ...)
-> >  > 2. Sysfs is one value per file not name=value
-> >
-> >  The VNIC driver needs multiple parameters (IOCGUID, DGID etc) from user space
-> >  to connect to the EVIC. For this the "name=value" mechanism is used for
-> >  a write-only sysfs file as an input method to the driver.
-> >
-> >  The driver follows the one value per file sysfs rule when it returns any data
-> >  with each readable file returning only a single value.
-> >
-> >  Regards,
-> >  Ram
+> >  > Use msg level macros instead?
 
-The undocumented style rule of sysfs is one value (ascii) per file.
+There is a ethtool mechanism to set message level for debug method, read other
+network drivers and look at netif_msg_timer(x), netif_msg_probe(x), etc in
+include/linux/netdevice.h
+
+The goal here is to not have any special configuration for each different type
+of hardware.  It is bad user design to have each hardware vendor choosing different
+mechanism and values to enable debugging. You can argue that the existing infrastructure
+is inadequate, in which case extend the infrastructure for all devices.
