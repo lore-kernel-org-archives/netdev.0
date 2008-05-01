@@ -1,31 +1,79 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: fix panic when using unlisted MAC
-Date: Thu, 1 May 2008 22:32:49 +0200
-Message-ID: <20080501203249.GA3808@electric-eye.fr.zoreil.com>
-References: <20080428172209.GE26591@gospo.usersys.redhat.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 00/10] sysfs tagged directories
+Date: Thu, 1 May 2008 16:05:50 -0500
+Message-ID: <20080501210550.GA22534@sergelap.austin.ibm.com>
+References: <20080429171015.473938697@theryb.frec.bull.fr> <20080429173621.GA16625@suse.de> <20080429180445.GA18110@sergelap.austin.ibm.com> <20080429184151.GA19794@suse.de> <20080429193417.GA19282@sergelap.austin.ibm.com> <20080501031341.GD4911@suse.de> <20080501151051.GB16038@sergelap.austin.ibm.com> <m11w4lho08.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>, Greg KH <gregkh@suse.de>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54191 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760037AbYEAUwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 16:52:47 -0400
+Received: from e34.co.us.ibm.com ([32.97.110.152]:56642 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758686AbYEAVFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 17:05:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20080428172209.GE26591@gospo.usersys.redhat.com>
+In-Reply-To: <m11w4lho08.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek <andy@greyhouse.net> :
-[...]
-> When using the r8169 driver with an unlisted MAC, the system will
-> panic in rtl8169_get_mac_version since it will try to access tp->pci_dev
-> when it's unset.  Moving the call to set pci_dev earlier in
-> rtnl8169_init_one will resolve this and should not introduce any other
-> problems.
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> "Serge E. Hallyn" <serue@us.ibm.com> writes:
+> 
+> > Quoting Greg KH (gregkh@suse.de):
+> > Now before moving veth1 to the new netns, we have in the container:
+> > /sys/class/net:
+> > lo  sit0
+> >
+> > /sys/devices/virtual/net:
+> > lo  sit0
+> >
+> > and after moving veth1, we have in the container:
+> >
+> > /sys/class/net:
+> > lo  sit0  veth1
+> >
+> > /sys/devices/virtual/net:
+> > lo  sit0
+> >
+> > In the parent network namespace, veth1 is removed from /sys/class/net
+> > but remains in /sys/devices/virtual/net.
+> 
+> The symlink is gone by the real directory remains?
+> 
+> > I'm not sure whether this is the renaming bug that Daniel Lezcano's
+> > patch addresses.  If not (as I suspect) then that clearly needs to be
+> > fixed.
+> >
+> > Benjamin can you play around with this and test it with Daniel's
+> > patch?
+> 
+> Darn.  It appears we have a regression in this patchset.
+> That part used to work.
+> 
+> I was thinking of blaming sysfs_rename_link.  But it the
+> links are fine so it looks more likely that sysfs has morphed once
+> again and we have  a reference counting issue or something similar.
+> Yuck. d_move and the other moves should have worked.
+> 
+> >From a purely get the good less controversial parts of this
+> patchset in.  I suggest we look at patches 7/10 and 8/10 (without
+> the tag_ops).  And introduce and start using sysfs_delete_link
+> and sysfs_rename_link.  That code seems pretty stable and is
+> generally a code reduction all by itself by reducing a common
+> idiom into a single function.
+> 
+> Eric
 
-This change has already been committed in Linus's tree.
+Ok as it turns out Benjamin Thery does in fact have a patch to fix this.
+Benjamin, please send your renaming patch out tomorrow if you can?
 
--- 
-Ueimor
+I guess this is why I didn't really see the problem Benjamin said there
+was - it just works with SYSFS_DEPRECATED  :)
+
+-serge
