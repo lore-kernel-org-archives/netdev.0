@@ -1,97 +1,67 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: mac80211 truesize bugs
-Date: Thu, 01 May 2008 12:45:13 +0200
-Message-ID: <1209638713.4008.32.camel@johannes.berg>
-References: <1209635299.4008.21.camel@johannes.berg>
-	 <20080501.025635.216053297.davem@davemloft.net>
-	 <1209636494.4008.24.camel@johannes.berg>
-	 <20080501.033221.193705040.davem@davemloft.net>
+Date: Thu, 01 May 2008 03:49:50 -0700 (PDT)
+Message-ID: <20080501.034950.261408566.davem@davemloft.net>
+References: <20080501.024320.212547875.davem@davemloft.net>
+	<E1JrW9h-0001tI-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-gmfiKpb7HG1wU42IwC2F"
-Cc: mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080501.033221.193705040.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net, mb@bu3sch.de, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47793
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752563AbYEAKtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 06:49:51 -0400
+In-Reply-To: <E1JrW9h-0001tI-00@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 01 May 2008 18:36:49 +0800
 
---=-gmfiKpb7HG1wU42IwC2F
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> David Miller <davem@davemloft.net> wrote:
+> > +       /* This is safe because the buffer has been orphaned.  */
+> > +       skb->truesize += sizeof(*rthdr);
+> 
+> skb->truesize should always account the skb->head area in its
+> entirety so we should never need to adjust it when pushing or
+> pulling.  So I suggest we find the place that expanded the head
+> area and make the adjustment there.  Alternative we could adjust
+> it right after the orphan call if the expansion occurs where we
+> can't adjust the truesize.
 
-On Thu, 2008-05-01 at 03:32 -0700, David Miller wrote:
+That makes more sense, good catch Herbert.
 
-> Right you are.
->=20
-> So, I wonder what's causing the problem...  Could you "remember" the
-> length and truesize at the skb_orphan() point in mac80211, right
-> after the skb_push(), then in the truesize warning, print those
-> "remembered" values as well as the current ones.
+I guess it's the pskb_expand_head() calls done by net/mac80211/tx.c
+I suspect we'll need to orphan early in order to accomodate these
+adjustments, otherwise socket memory buffer allocations will
+be corrupted.
 
-I was just playing with af_packet and added some debugging there that
-prints out the len of all packets it gets (for a certain ifidx)
+Once that is cured, I think we can detect this better, by adding a
+carefully constructed assertion to pskb_expand_head().  Basically, the
+idea is, if "nhead" or "ntail" are non-zero, and there is a socket
+still attached to the SKB, print a warning message.
 
-That's confusing me even more now. I get
+Something like:
 
-[ 7650.792004] packet_recv eda9e8c0 (len=3D137)
-[ 7650.792015] snaplen(eda9e8c0)=3D137
-[ 7650.792027] free eda9e8c0, len =3D 137
-[ 7650.792031] new skb: eda9e540
-[ 7650.792039] packet_recv eda9e8c0 (len=3D137)
-[ 7650.792044] snaplen(eda9e8c0)=3D137
-[ 7650.792048] new skb: eda9e8c0
-[ 7650.819464] packet_recv d1f4e9a0 (len=3D124)
-[ 7650.819478] snaplen(d1f4e9a0)=3D124
-[ 7650.819489] free d1f4e9a0, len =3D 124
-[ 7650.819493] new skb: d1f4e8c0
-[ 7650.819502] packet_recv d1f4e9a0 (len=3D124)
-[ 7650.819507] snaplen(d1f4e9a0)=3D124
-[ 7650.819511] new skb: d1f4e9a0
-[ 7651.215631] packet_recv e9ecc2a0 (len=3D376)
-[ 7651.215645] snaplen(e9ecc2a0)=3D376
-[ 7651.215657] free e9ecc2a0, len =3D 376
-[ 7651.215662] new skb: ede04b60
-[ 7651.215671] packet_recv e9ecc2a0 (len=3D376)
-[ 7651.215675] snaplen(e9ecc2a0)=3D376
-[ 7651.215680] new skb: e9ecc2a0
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 4fe605f..9bfca08 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -699,6 +699,12 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	if (skb_shared(skb))
+ 		BUG();
+ 
++	if (unlikely((nhead || ntail) && skb->sk)) {
++		printk(KERN_ERR "SKB BUG: Illegal pskb expand (%d:%d) "
++		       "with socket attached\n",
++		       nhead, ntail);
++	}
++
+ 	size = SKB_DATA_ALIGN(size);
+ 
+ 	data = kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
 
-[ 7651.760751] SKB BUG: Invalid truesize (528) len=3D357, sizeof(sk_buff)=
-=3D176
-
-
-528-176 is 352 which doesn't occur in that list... Maybe I should print
-it in mac80211.
-
-
-johannes
-
---=-gmfiKpb7HG1wU42IwC2F
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASBmfOKVg1VMiehFYAQKQpg//Z9t1bgHdH1mIqnDO8X+fBbCoZX4WMIhz
-jsKFvc1EYuNeI9Rsg06/aY5iMmwTra+6rBiBhdTPE0gEyOa04cipXrvZnLm/jLD6
-/cTXS1hw+tgtxYt2hzu1LBSBY7ksUQdWLZ9xJZ7VLbLjHrbDIyRcHchM5C2Qbv+S
-3PdeEAukm+1xiRwtZUu2s+44dYMpIqii01E/vhmVACBJ3ZoePOxmuGdyat4D0YCv
-Vxn6KaQeXgnvN5GkAwUnBOpCZint73bnlKBWr66yXJIxKRDTq4oaB3dReuTT8KsZ
-pePV4XKDfgyNu8i5NibLZfg+ihaYHsMBBQRus18HybLrgn54tyBh6ck5hJdlS0BO
-vG66PmzYXRDsQzamajKilaBBt1s3Yqn3zp87cgqYFu6Obx6M9G7tgkZn8957Wuz/
-3TCRGmeG62KdwSCg21nr+nBlkXia3ZDJypI/EcwEMykDsQMH1vysWzSanpnXppJI
-YYkDbF1Et/ncWpza0mpchJF06ZLaE5JVvdTPPqCXWF+JRv0yggQy0RUCHB+NEAL8
-Oc6z97s5NdQmOacTWQ3cUxAFoPQKPBR3MxbPODUN9OE4USLSzlZScx+75YUiHth2
-UiFhyneNa6E4hOXRegDCfjzLHHQXE518nqWlRaC1bZNSGI4tMW3MhZSaz3lhKakp
-pZeMBEFMMyc=
-=Apgk
------END PGP SIGNATURE-----
-
---=-gmfiKpb7HG1wU42IwC2F--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
