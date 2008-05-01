@@ -1,82 +1,74 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] [POWERPC] mpc5200: Allow for fixed speed MII configurations
-Date: Thu, 01 May 2008 18:38:11 +0200
-Message-ID: <4819F1F3.2000406@grandegger.com>
-References: <20080429230620.11248.25729.stgit@trillian.secretlab.ca> <fa686aa40805010733o6bb5b522hd16669b732f1892@mail.gmail.com>
+From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Subject: [ofa-general] [RESEND] RE: [PATCH 08/13] QLogic VNIC: sysfs
+	interface implementation for the driver
+Date: Thu, 1 May 2008 22:13:08 +0530
+Message-ID: <71d336490805010943s79f01e01u9b4566165c4fba3f@mail.gmail.com>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain>
+	<20080430171955.31725.7771.stgit@localhost.localdomain>
+	<20080501075606.4963afa3@extreme>
+	<C07C40DB2364324799506DE8FF12F8D8590EE0@EPEXCH1.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, paulus@samba.org, netdev@vger.kernel.org,
-	wd@denx.de, Domen Puncer <domen@coderock.org>,
-	Sylvain Munaut <tnt@246tnt.com>
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:46889 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758003AbYEAQiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 12:38:17 -0400
-In-Reply-To: <fa686aa40805010733o6bb5b522hd16669b732f1892@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com,
+	"Amar Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>,
+	general@lists.openfabrics.org,
+	"Poornima Kamath \(Contractor - \)" <poornima.kamath@qlogic.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <C07C40DB2364324799506DE8FF12F8D8590EE0@EPEXCH1.qlogic.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Hi Grant,
+Sorry for the resend. Original mail got bounced from netdev.
 
-Grant Likely wrote:
-> On Tue, Apr 29, 2008 at 5:06 PM, Grant Likely <grant.likely@secretlab.ca> wrote:
->> From: Grant Likely <grant.likely@secretlab.ca>
->>
->>  Various improvements for configuring the MPC5200 MII link from the
->>  device tree:
->>  * Look for 'current-speed' property for fixed speed MII links
->>  * Look for 'fsl,7-wire-mode' property for boards using the 7 wire mode
->>  * move definition of private data structure out of the header file
->>
->>  Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
-> 
-> Any more comments on this patch?  I want to push it to Paulus, but I'd
-> like to have someone ack it first.
-> 
-> Wolfgang, you used the previous version of this patch.  Does this one
-> work for you?
-
-Sorry for the late answer. The patch works fine (under Linux 2.6.24) on
-my board with a 3-port Micrel ethernet switch. There is still a minor
-issue, though:
-
-[...deletions...]
->>  diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
->>  index d21b7ab..eeb4433 100644
->>  --- a/drivers/net/fec_mpc52xx.c
->>  +++ b/drivers/net/fec_mpc52xx.c
-[...deletions...]
->>  @@ -950,24 +976,36 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
->>         priv->msg_enable = netif_msg_init(debug, MPC52xx_MESSAGES_DEFAULT);
->>         priv->duplex = DUPLEX_FULL;
-
-More concerning this line below.
-
->>
->>  -       /* is the phy present in device tree? */
->>  -       ph = of_get_property(op->node, "phy-handle", NULL);
->>  -       if (ph) {
->>  -               const unsigned int *prop;
->>  -               struct device_node *phy_dn;
->>  -               priv->has_phy = 1;
->>  -
->>  -               phy_dn = of_find_node_by_phandle(*ph);
->>  -               prop = of_get_property(phy_dn, "reg", NULL);
->>  -               priv->phy_addr = *prop;
->>  +       /*
->>  +        * Link mode configuration
->>  +        */
->>
->>  -               of_node_put(phy_dn);
->>  +       /* Start with safe defaults for link connection */
->>  +       priv->phy_addr = FEC5200_PHYADDR_NONE;
->>  +       priv->speed = 100;
->>  +       priv->duplex = 0;
-
-priv->duplex is re-defined here. And instead of "0" we should use
-DUPLEX_HALF.
-
-Wolfgang.
+On Thu, May 1, 2008 at 9:32 PM,  <ramachandra.kuchimanchi@qlogic.com> wrote:
+>
+> Stephen,
+>
+>
+>  Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
+>
+>  >> On Wed, 30 Apr 2008 22:49:55 +0530
+>  >> Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
+>
+>  <snip>
+>
+>
+>  >> +static match_table_t vnic_opt_tokens = {
+>  >> +    {VNIC_OPT_IOC_GUID, "ioc_guid=%s"},
+>  >> +    {VNIC_OPT_DGID, "dgid=%s"},
+>  >> +    {VNIC_OPT_PKEY, "pkey=%x"},
+>  >> +    {VNIC_OPT_NAME, "name=%s"},
+>  >> +    {VNIC_OPT_INSTANCE, "instance=%d"},
+>  >> +    {VNIC_OPT_RXCSUM, "rx_csum=%s"},
+>  >> +    {VNIC_OPT_TXCSUM, "tx_csum=%s"},
+>  >> +    {VNIC_OPT_HEARTBEAT, "heartbeat=%d"},
+>  >> +    {VNIC_OPT_IOC_STRING, "ioc_string=\"%s"},
+>  >> +    {VNIC_OPT_IB_MULTICAST, "ib_multicast=%s"},
+>  >> +    {VNIC_OPT_ERR, NULL}
+>  >> +};
+>  >>
+>
+>  > NO
+>  > 1. Most of this shouldn't be done via sysfs (rx_csum, tx_csum, ...)
+>  > 2. Sysfs is one value per file not name=value
+>
+>  The VNIC driver needs multiple parameters (IOCGUID, DGID etc) from user space
+>  to connect to the EVIC. For this the "name=value" mechanism is used for
+>  a write-only sysfs file as an input method to the driver.
+>
+>  The driver follows the one value per file sysfs rule when it returns any data
+>  with each readable file returning only a single value.
+>
+>  Regards,
+>  Ram
