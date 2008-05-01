@@ -1,175 +1,82 @@
-From: "Kuchimanchi,
-	Ramachandra \(Contractor - \)" <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] RE: [PATCH 11/13] QLogic VNIC: Driver utility file -
-	implements various utility macros
-Date: Thu, 1 May 2008 11:18:53 -0500
-Message-ID: <C07C40DB2364324799506DE8FF12F8D8590EE1@EPEXCH1.qlogic.org>
-References: <20080430171028.31725.86190.stgit@localhost.localdomain><20080430172126.31725.48554.stgit@localhost.localdomain>
-	<20080501075816.1010ec3a@extreme>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] [POWERPC] mpc5200: Allow for fixed speed MII configurations
+Date: Thu, 01 May 2008 18:38:11 +0200
+Message-ID: <4819F1F3.2000406@grandegger.com>
+References: <20080429230620.11248.25729.stgit@trillian.secretlab.ca> <fa686aa40805010733o6bb5b522hd16669b732f1892@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1063738993=="
-Cc: netdev@vger.kernel.org, rdreier@cisco.com,
-	"Poornima Kamath \(Contractor - \)" <poornima.kamath@qlogic.com>,
-	general@lists.openfabrics.org,
-	"Amar Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-class: urn:content-classes:message
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Mime-version: 1.0
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
-
---===============1063738993==
-Content-class: urn:content-classes:message
-Content-Type: multipart/alternative;
-	boundary="----_=_NextPart_001_01C8ABA7.0C5333A4"
-
-This is a multi-part message in MIME format.
-
-------_=_NextPart_001_01C8ABA7.0C5333A4
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-Stephen,
-
-Stephen Hemminger [mailto:shemminger@vyatta.com] wrote:
-
-> Ramachandra K <ramachandra.kuchimanchi@qlogic.com> wrote:
-
->> +#define is_power_of2(value)	(((value) & ((value - 1))) =3D=3D 0)
->> +#define ALIGN_DOWN(x, a)	((x)&(~((a)-1)))
-
-> In kernel.h already
-
-Will fix this. Thanks.
-
->> +extern u32 vnic_debug;
-
-> Use msg level macros instead?
-
-I am sorry, I did not understand this comment.
-
-> +
-> +#define SYS_INFO(fmt, arg...)					\
-> +	 PRINT_CONDITIONAL(KERN_INFO,				\
-> +			   "SYS",				\
-> +			   (vnic_debug & DEBUG_SYS_INFO),	\
-> +			   fmt, ##arg)
-> +
-> +#endif	/* VNIC_UTIL_H_INCLUDED */
-
-
-> Many of these are already in standard macros pr_info, pr_err etc.
-
-These macros are for providing a debug log level functionality through
-the vnic_debug module parameter.
-
-Regards,
-Ram
-
-------_=_NextPart_001_01C8ABA7.0C5333A4
-Content-Type: text/html;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
-<HTML>
-<HEAD>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
-charset=3Diso-8859-1">
-<META NAME=3D"Generator" CONTENT=3D"MS Exchange Server version =
-6.5.7651.59">
-<TITLE>RE: [PATCH 11/13] QLogic VNIC: Driver utility file - implements =
-various utility macros</TITLE>
-</HEAD>
-<BODY>
-<!-- Converted from text/plain format -->
-
-<P><FONT SIZE=3D2>Stephen,<BR>
-<BR>
-Stephen Hemminger [<A =
-HREF=3D"mailto:shemminger@vyatta.com">mailto:shemminger@vyatta.com</A>] =
-wrote:<BR>
-<BR>
-&gt; Ramachandra K &lt;ramachandra.kuchimanchi@qlogic.com&gt; wrote:<BR>
-<BR>
-&gt;&gt; +#define is_power_of2(value) (((value) &amp; ((value - 1))) =
-=3D=3D 0)<BR>
-&gt;&gt; +#define ALIGN_DOWN(x, a)&nbsp;&nbsp;&nbsp; =
-((x)&amp;(~((a)-1)))<BR>
-<BR>
-&gt; In kernel.h already<BR>
-<BR>
-Will fix this. Thanks.<BR>
-<BR>
-&gt;&gt; +extern u32 vnic_debug;<BR>
-<BR>
-&gt; Use msg level macros instead?<BR>
-<BR>
-I am sorry, I did not understand this comment.<BR>
-<BR>
-&gt; +<BR>
-&gt; +#define SYS_INFO(fmt, =
-arg...)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \<BR>
-&gt; +&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-PRINT_CONDITIONAL(KERN_INFO,&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \<BR>
-&gt; +&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; =
-&quot;SYS&quot;,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \<BR>
-&gt; +&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; (vnic_debug =
-&amp; DEBUG_SYS_INFO),&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \<BR>
-&gt; +&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; fmt, ##arg)<BR>
-&gt; +<BR>
-&gt; +#endif&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* VNIC_UTIL_H_INCLUDED =
-*/<BR>
-<BR>
-<BR>
-&gt; Many of these are already in standard macros pr_info, pr_err =
-etc.<BR>
-<BR>
-These macros are for providing a debug log level functionality =
-through<BR>
-the vnic_debug module parameter.<BR>
-<BR>
-Regards,<BR>
-Ram</FONT>
-</P>
-
-</BODY>
-</HTML>
-------_=_NextPart_001_01C8ABA7.0C5333A4--
-
---===============1063738993==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: linuxppc-dev@ozlabs.org, paulus@samba.org, netdev@vger.kernel.org,
+	wd@denx.de, Domen Puncer <domen@coderock.org>,
+	Sylvain Munaut <tnt@246tnt.com>
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:46889 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758003AbYEAQiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 12:38:17 -0400
+In-Reply-To: <fa686aa40805010733o6bb5b522hd16669b732f1892@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Grant,
 
---===============1063738993==--
+Grant Likely wrote:
+> On Tue, Apr 29, 2008 at 5:06 PM, Grant Likely <grant.likely@secretlab.ca> wrote:
+>> From: Grant Likely <grant.likely@secretlab.ca>
+>>
+>>  Various improvements for configuring the MPC5200 MII link from the
+>>  device tree:
+>>  * Look for 'current-speed' property for fixed speed MII links
+>>  * Look for 'fsl,7-wire-mode' property for boards using the 7 wire mode
+>>  * move definition of private data structure out of the header file
+>>
+>>  Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+> 
+> Any more comments on this patch?  I want to push it to Paulus, but I'd
+> like to have someone ack it first.
+> 
+> Wolfgang, you used the previous version of this patch.  Does this one
+> work for you?
+
+Sorry for the late answer. The patch works fine (under Linux 2.6.24) on
+my board with a 3-port Micrel ethernet switch. There is still a minor
+issue, though:
+
+[...deletions...]
+>>  diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+>>  index d21b7ab..eeb4433 100644
+>>  --- a/drivers/net/fec_mpc52xx.c
+>>  +++ b/drivers/net/fec_mpc52xx.c
+[...deletions...]
+>>  @@ -950,24 +976,36 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+>>         priv->msg_enable = netif_msg_init(debug, MPC52xx_MESSAGES_DEFAULT);
+>>         priv->duplex = DUPLEX_FULL;
+
+More concerning this line below.
+
+>>
+>>  -       /* is the phy present in device tree? */
+>>  -       ph = of_get_property(op->node, "phy-handle", NULL);
+>>  -       if (ph) {
+>>  -               const unsigned int *prop;
+>>  -               struct device_node *phy_dn;
+>>  -               priv->has_phy = 1;
+>>  -
+>>  -               phy_dn = of_find_node_by_phandle(*ph);
+>>  -               prop = of_get_property(phy_dn, "reg", NULL);
+>>  -               priv->phy_addr = *prop;
+>>  +       /*
+>>  +        * Link mode configuration
+>>  +        */
+>>
+>>  -               of_node_put(phy_dn);
+>>  +       /* Start with safe defaults for link connection */
+>>  +       priv->phy_addr = FEC5200_PHYADDR_NONE;
+>>  +       priv->speed = 100;
+>>  +       priv->duplex = 0;
+
+priv->duplex is re-defined here. And instead of "0" we should use
+DUPLEX_HALF.
+
+Wolfgang.
