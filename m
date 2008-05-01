@@ -1,28 +1,27 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [RFT 0/6] sis190 branch info
-Date: Thu, 1 May 2008 16:10:26 -0700
-Message-ID: <20080501161026.445dd3a1.akpm@linux-foundation.org>
-References: <20080427170023.GA26953@electric-eye.fr.zoreil.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-05-01
+Date: Thu, 01 May 2008 16:13:34 -0700 (PDT)
+Message-ID: <20080501.161334.227855567.davem@davemloft.net>
+References: <20080501221822.GA13489@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, shemminger@vyatta.com,
-	linux-next@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39569 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933887AbYEAXKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 19:10:51 -0400
-In-Reply-To: <20080427170023.GA26953@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080501221822.GA13489-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 27 Apr 2008 19:00:23 +0200
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 1 May 2008 18:18:22 -0400
 
-> The 'sis190' branch in repository
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git sis190
+> Another quick round of wireless fixes for 2.6.26...let me know if there
+> are problems!
 
-snarfed.  Should this be in linux-next?
+Pulled and pushed back out to net-2.6, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
