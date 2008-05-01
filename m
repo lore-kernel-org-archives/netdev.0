@@ -1,43 +1,48 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: mac80211 truesize bugs
-Date: Thu, 01 May 2008 18:36:49 +0800
-Message-ID: <E1JrW9h-0001tI-00@gondolin.me.apana.org.au>
-References: <20080501.024320.212547875.davem@davemloft.net>
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org (David Miller)
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080501.024320.212547875.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/2] Disable forwarding of LRO skbs
+Date: Thu, 1 May 2008 18:38:54 +0800
+Message-ID: <20080501103854.GA7285@gondor.apana.org.au>
+References: <20080430.145820.50450486.davem@davemloft.net> <E1JrVtK-0001pb-00@gondolin.me.apana.org.au> <20080501.033414.132094744.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: bhutchings@solarflare.com, kmansley@solarflare.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:58798 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752595AbYEAKjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 06:39:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20080501.033414.132094744.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+On Thu, May 01, 2008 at 03:34:14AM -0700, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 01 May 2008 18:19:54 +0800
 > 
-> diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-> index 9ad4e36..de2e904 100644
-> --- a/net/mac80211/main.c
-> +++ b/net/mac80211/main.c
-> @@ -1485,6 +1485,9 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb,
->        rthdr = (struct ieee80211_tx_status_rtap_hdr*)
->                                skb_push(skb, sizeof(*rthdr));
-> ^M
-> +       /* This is safe because the buffer has been orphaned.  */
-> +       skb->truesize += sizeof(*rthdr);
+> > This patch completely breaks forwarding of GSO packets in a
+> > virtualised environment where we explicitly want to forward
+> > them as is to reduce per-packet overhead.  So if LRO is causing
+> > problems then I suggest we find a better way around that that
+> > does not penalise all forms of GSO.
+> 
+> I assume you mean forwarding via a bridge?
 
-skb->truesize should always account the skb->head area in its
-entirety so we should never need to adjust it when pushing or
-pulling.  So I suggest we find the place that expanded the head
-area and make the adjustment there.  Alternative we could adjust
-it right after the orphan call if the expansion occurs where we
-can't adjust the truesize.
+Not necessarily.  For example we could be forwarding in a guest
+that's acting as a firewall appliance for other guests.
+
+> I think we'll need to add a device attribute for what
+> you want.
+
+I still don't understand why we can't forward LRO packets.  It
+should be no different to forwarding GSO packets if it's properly
+constructed.
 
 Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
