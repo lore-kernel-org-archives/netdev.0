@@ -1,41 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/2] Disable forwarding of LRO skbs
-Date: Thu, 01 May 2008 18:19:54 +0800
-Message-ID: <E1JrVtK-0001pb-00@gondolin.me.apana.org.au>
-References: <20080430.145820.50450486.davem@davemloft.net>
-Cc: bhutchings@solarflare.com, kmansley@solarflare.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: davem@davemloft.net (David Miller)
+From: David Miller <davem@davemloft.net>
+Subject: Re: mac80211 truesize bugs
+Date: Thu, 01 May 2008 03:32:21 -0700 (PDT)
+Message-ID: <20080501.033221.193705040.davem@davemloft.net>
+References: <1209635299.4008.21.camel@johannes.berg>
+	<20080501.025635.216053297.davem@davemloft.net>
+	<1209636494.4008.24.camel@johannes.berg>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mb@bu3sch.de, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40318 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751009AbYEAKUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 06:20:05 -0400
-In-Reply-To: <20080430.145820.50450486.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54816
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751542AbYEAKcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2008 06:32:23 -0400
+In-Reply-To: <1209636494.4008.24.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Wed, 30 Apr 2008 22:48:46 +0100
-> 
->> Large Receive Offload (LRO) destroys packet headers that should be
->> preserved when forwarding.  Currently it also triggers a BUG() or WARN()
->> in skb_gso_segment().  We should disable it wherever forwarding is
->> enabled, and discard LRO skbs with a warning if it is turned back on.
-> 
-> Thanks for reposting your work, I'll take a closer look at these
-> two patches later today.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Thu, 01 May 2008 12:08:14 +0200
 
-This patch completely breaks forwarding of GSO packets in a
-virtualised environment where we explicitly want to forward
-them as is to reduce per-packet overhead.  So if LRO is causing
-problems then I suggest we find a better way around that that
-does not penalise all forms of GSO.
+> > Grrr, I bet it's coming from a combination of the
+> > skb_set_mac_header(skb, 0); call done by mac80211 and the skb_push()
+> > calls in net/packet/af_packet.c
+> > 
+> > davem@sunset:~/src/GIT/net-2.6$ egrep skb_push net/packet/af_packet.c
+> > 	skb_push(skb, skb->data - skb_mac_header(skb));
+> > 			skb_push(skb, skb->data - skb_mac_header(skb));
+> > 			skb_push(skb, skb->data - skb_mac_header(skb));
+> 
+> But mac80211 does set_mac_header(0) so this should just push zero bytes,
+> no?
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Right you are.
+
+So, I wonder what's causing the problem...  Could you "remember" the
+length and truesize at the skb_orphan() point in mac80211, right
+after the skb_push(), then in the truesize warning, print those
+"remembered" values as well as the current ones.
+
