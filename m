@@ -1,44 +1,32 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 1/3] ixgbe: Add Data Center Bridging netlink listener for DCB runtime changes.
-Date: Fri, 2 May 2008 13:08:21 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290501D2E7@orsmsx414.amr.corp.intel.com>
-References: <20080502004254.14392.7599.stgit@localhost.localdomain> <20080502004300.14392.87943.stgit@localhost.localdomain> <481AF501.3030507@pobox.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [ofa-general] Re: [PATCH 2.6.26 1/3] RDMA/cxgb3: QP flush fixes
+Date: Fri, 02 May 2008 15:16:23 -0500
+Message-ID: <481B7697.2080500@opengridcomputing.com>
+References: <20080502161741.30500.95337.stgit@dell3.ogc.int>
+	<adamyn84mh9.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Jeff Garzik" <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38888 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756277AbYEBUIU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:08:20 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <481AF501.3030507@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adamyn84mh9.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-> Seems to me we don't want each driver supporting this 
-> technology to create their own netlink interface...
+Roland Dreier wrote:
+> thanks, applied all 3... (1/3 was against a slightly old tree, so I had
+> to fix up __FUNCTION__ -> __func__ in the context of the diffs)
+>   
+Sorry about that.  Someday I'll learn __func__.
 
-Definitely reasonable.  However, even with an ethtool interface, there's
-going to be a good chunk of development.  Is the issue just the
-non-generic netlink family we're implementing, or is it something else?
-
-> This seems more appropriate via ethtool, or ethtool-netlink 
-> (Thomas Graf posted an RFC)
-
-Oddly enough, we made the decision early on in development not to use
-ethtool.  We would be adding a rather large number of ioctls for this
-technology, and our initial thoughts were that the community would
-reject that large of a change to the ethtool interface.
-
-I'm very interested in the ethtool-netlink interface, which would
-probably help us get rid of the ixgbe_is_ixgbe() call in the DCB driver.
-
-Aside from the netlink issues, how does the rest of the code appear?
-Thanks for the feedback Jeff.
-
-Cheers,
--PJ Waskiewicz
+;-)
