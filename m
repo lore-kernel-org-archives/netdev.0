@@ -1,66 +1,73 @@
 From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v2.6.26] phylib: Fix some sparse warnings
-Date: Fri,  2 May 2008 13:00:51 -0500
-Message-ID: <1209751251-25508-1-git-send-email-afleming@freescale.com>
+Subject: [PATCH v2.6.26] ucc_geth: Fix arguments to dma map/unmap functions
+Date: Fri,  2 May 2008 13:01:30 -0500
+Message-ID: <1209751290-25557-1-git-send-email-afleming@freescale.com>
 Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:46396 "EHLO
+Received: from az33egw01.freescale.net ([192.88.158.102]:46688 "EHLO
 	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758045AbYEBSAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 14:00:54 -0400
+	with ESMTP id S1756364AbYEBSBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 14:01:33 -0400
 Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
-	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m42I0qsn008389
-	for <netdev@vger.kernel.org>; Fri, 2 May 2008 11:00:52 -0700 (MST)
+	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m42I1V2h008701
+	for <netdev@vger.kernel.org>; Fri, 2 May 2008 11:01:32 -0700 (MST)
 Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
-	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m42I0p3j013352
-	for <netdev@vger.kernel.org>; Fri, 2 May 2008 13:00:51 -0500 (CDT)
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m42I1Ui0013520
+	for <netdev@vger.kernel.org>; Fri, 2 May 2008 13:01:30 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Declared some things static, declared some things in the header.
+We were passing NULL as the device.  When we actually start supporting
+more interesting memory configurations, this will break things, so
+we proactively are fixing the bug.
 
 Signed-off-by: Andy Fleming <afleming@freescale.com>
 ---
- drivers/net/phy/phy.c |    2 +-
- include/linux/phy.h   |    5 +++++
- 2 files changed, 6 insertions(+), 1 deletions(-)
+ drivers/net/ucc_geth.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 3c18bb5..45cc291 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -547,7 +547,7 @@ static void phy_force_reduction(struct phy_device *phydev)
-  * Must not be called from interrupt context, or while the
-  * phydev->lock is held.
-  */
--void phy_error(struct phy_device *phydev)
-+static void phy_error(struct phy_device *phydev)
- {
- 	mutex_lock(&phydev->lock);
- 	phydev->state = PHY_HALTED;
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 02df20f..7224c40 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -412,6 +412,8 @@ int mdiobus_register(struct mii_bus *bus);
- void mdiobus_unregister(struct mii_bus *bus);
- void phy_sanitize_settings(struct phy_device *phydev);
- int phy_stop_interrupts(struct phy_device *phydev);
-+int phy_enable_interrupts(struct phy_device *phydev);
-+int phy_disable_interrupts(struct phy_device *phydev);
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index b3bbb2d..28e6450 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -237,7 +237,7 @@ static struct sk_buff *get_new_skb(struct ucc_geth_private *ugeth,
+ 	skb->dev = ugeth->dev;
  
- static inline int phy_read_status(struct phy_device *phydev) {
- 	return phydev->drv->read_status(phydev);
-@@ -447,5 +449,8 @@ int phy_register_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask,
- 		int (*run)(struct phy_device *));
- int phy_scan_fixups(struct phy_device *phydev);
+ 	out_be32(&((struct qe_bd __iomem *)bd)->buf,
+-		      dma_map_single(NULL,
++		      dma_map_single(&ugeth->dev->dev,
+ 				     skb->data,
+ 				     ugeth->ug_info->uf_info.max_rx_buf_length +
+ 				     UCC_GETH_RX_DATA_BUF_ALIGNMENT,
+@@ -2158,7 +2158,7 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 			continue;
+ 		for (j = 0; j < ugeth->ug_info->bdRingLenTx[i]; j++) {
+ 			if (ugeth->tx_skbuff[i][j]) {
+-				dma_unmap_single(NULL,
++				dma_unmap_single(&ugeth->dev->dev,
+ 						 in_be32(&((struct qe_bd __iomem *)bd)->buf),
+ 						 (in_be32((u32 __iomem *)bd) &
+ 						  BD_LENGTH_MASK),
+@@ -2186,7 +2186,7 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 			bd = ugeth->p_rx_bd_ring[i];
+ 			for (j = 0; j < ugeth->ug_info->bdRingLenRx[i]; j++) {
+ 				if (ugeth->rx_skbuff[i][j]) {
+-					dma_unmap_single(NULL,
++					dma_unmap_single(&ugeth->dev->dev,
+ 						in_be32(&((struct qe_bd __iomem *)bd)->buf),
+ 						ugeth->ug_info->
+ 						uf_info.max_rx_buf_length +
+@@ -3406,7 +3406,8 @@ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
  
-+int __init mdio_bus_init(void);
-+void mdio_bus_exit(void);
-+
- extern struct bus_type mdio_bus_type;
- #endif /* __PHY_H */
+ 	/* set up the buffer descriptor */
+ 	out_be32(&((struct qe_bd __iomem *)bd)->buf,
+-		      dma_map_single(NULL, skb->data, skb->len, DMA_TO_DEVICE));
++		      dma_map_single(&ugeth->dev->dev, skb->data,
++			      skb->len, DMA_TO_DEVICE));
+ 
+ 	/* printk(KERN_DEBUG"skb->data is 0x%x\n",skb->data); */
+ 
 -- 
 1.5.4.GIT
 
