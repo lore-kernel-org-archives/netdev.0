@@ -1,56 +1,51 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked
-	version of Tomasz's patch set
-Date: Fri, 2 May 2008 21:56:54 +0100
-Message-ID: <20080502205654.GB5116@gerrit.erg.abdn.ac.uk>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804282303.40673.tomasz@grobelny.oswiecenia.net> <20080430075332.GA4277@gerrit.erg.abdn.ac.uk> <200805022239.58699.tomasz@grobelny.oswiecenia.net>
+From: Ondrej Zajicek <santiago@crfreenet.org>
+Subject: Re: [PATCH] via-rhine: suspend/resume bugfix
+Date: Fri, 2 May 2008 22:57:35 +0200
+Message-ID: <20080502205734.GA5988@localhost.localdomain>
+References: <20080427071351.GA20561@localhost.localdomain> <4814406B.8000907@gmail.com> <20080427095843.GA28784@localhost.localdomain> <20080503002655.GA3956@ucw.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Cc: Ondrej Zajicek <santiago@crfreenet.org>,
+	Jiri Slaby <jirislaby@gmail.com>, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rl@hellgate.ch
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:44422 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1762092AbYEBU47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 May 2008 16:56:59 -0400
+Received: from smtp.dkm.cz ([62.24.64.34]:59545 "HELO slimak.dkm.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1758932AbYEBVER (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 May 2008 17:04:17 -0400
 Content-Disposition: inline
-In-Reply-To: <200805022239.58699.tomasz@grobelny.oswiecenia.net>
+In-Reply-To: <20080503002655.GA3956@ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > | c) allow qpolicy to use each cmsg header as different parameter. So that
-| > (...)
-| > I think (c) is best, here is what I'd support.
-| > (...)
-| Seems we are getting closer in our views, see the just sent patch.
-| 
-That would be good - what I would like to do is to replace the 12 or so
-patches in git://eden-feed.erg.abdn.ac.uk/dccp_exp [qpolicy subtree]
-with a single patch and then put it into the test tree.
+On Fri, May 02, 2008 at 10:32:46PM +0200, Pavel Machek wrote:
+> > Hmm, i will fix it. And i found that the patch might break
+> > wakeup-on-LAN. So please discard it.
+> 
+> IRQ line should not be neccessary for WoL...?
 
-Will answer regarding the other patch separately and then resubmit the 
-combined patch to the list - if you are ok with it, you can add your
-signed-off or point out where you disagree. It remains your patch.
+IRQ line is not neccessary (i hope), but the patch puts this to
+suspend path:
 
-What I'd still like to do is some testing on different architectures.
+/* Switch to loopback mode to avoid hardware races. */
+iowrite8(rp->tx_thresh | 0x02, ioaddr + TxConfig);
 
-| > I.e. to answer the question, I think it is best to implement "timeout"
-| > first, solve the problems it brings up; when that is done,
-| > "priority+timeout" will be easy to do - it could be constructed just out of
-| > the existing functions defined for "priority" and "timeout".
-| >
-| > In that manner, other policies can be modularly constructed - for instance
-| > by combining "timeout" with a different form of the "priority" policy.
-| >
-| I'm not entirely sure if such modular constructions would be possible. I 
-| prefer to think of "timeout policy" and "prio policy" as a special cases 
-| of "timeout+prio policy" with respectively DCCP_SCM_PRIORITY and 
-| DCCP_SCM_TIMEOUT not supplied (and thus set to their default values: 0 and 
-| INFINITY).
-| -- 
-It depends on the way one looks at it. Your view is top-down, mine is
-bottom-up, both can work. Agree with the parameters.
+/* Disable interrupts by clearing the interrupt mask. */
+iowrite16(0x0000, ioaddr + IntrEnable);
 
+/* Stop the chip's Tx and Rx processes. */
+iowrite16(CmdStop, ioaddr + ChipCmd);
 
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
+(this was copied from shutdown path of the driver)
 
+I suppose that the first one might break WoL. Unfortunately
+on my hardware the WoL don't work even without the patch.
+
+-- 
+Elen sila lumenn' omentielvo
+
+Ondrej 'SanTiago' Zajicek (email: santiago@crfreenet.org)
+OpenPGP encrypted e-mails preferred (KeyID 0x11DEADC3, wwwkeys.pgp.net)
+"To err is human -- to blame it on a computer is even more so."
