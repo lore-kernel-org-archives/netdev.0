@@ -1,82 +1,83 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/5] forcedeth: power down phy when interface is down
-Date: Fri, 02 May 2008 13:40:48 -0700
-Message-ID: <200805022040.m42Kend6013672@imap1.linux-foundation.org>
+Subject: [patch 1/2] smsc-ircc2: wrap PNP probe code in #ifdef CONFIG_PNP
+Date: Fri, 02 May 2008 13:40:23 -0700
+Message-ID: <200805022040.m42KeN16013646@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	eswierk@arastra.com, aabdulla@nvidia.com
-To: jeff@garzik.org
+	bjorn.helgaas@hp.com, kamalesh@linux.vnet.ibm.com,
+	sfr@canb.auug.org.au
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39243 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39194 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764242AbYEBUlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:41:23 -0400
+	by vger.kernel.org with ESMTP id S1764242AbYEBUlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:41:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ed Swierk" <eswierk@arastra.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Bring the physical link down when the interface is down by placing the PHY
-in power-down state, unless WOL is enabled.  This mirrors the behavior of
-other drivers including e1000 and tg3.
+Wrap PNP probe code in #ifdef CONFIG_PNP.
 
-Without the patch, ifconfig down leaves the physical link up, which confuses
-datacenter users who expect the link lights both on the NIC and the switch to
-go out when they bring an interface down.
+Without this change, we'll have unresolved references to pnp_get_resource()
+function when CONFIG_PNP=n.  (This is a new interface that's not in mainline
+yet.)
 
-Furthermore, even though the phy is powered on, autonegotiation stops working,
-so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
-interface goes down, and become gigabit when it comes up again.
-
-Ayaz said:
-
-  I would not include this patch until further testing is performed.  NVIDIA
-  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
-  have adverse affects on certain phys.
-
-Signed-off-by: Ed Swierk <eswierk@arastra.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Cc: Samuel Ortiz <samuel@sortiz.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/irda/smsc-ircc2.c |   14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
-+++ a/drivers/net/forcedeth.c
-@@ -1371,9 +1371,9 @@ static int phy_init(struct net_device *d
- 	/* some phys clear out pause advertisment on reset, set it back */
- 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+diff -puN drivers/net/irda/smsc-ircc2.c~smsc-ircc2-wrap-pnp-probe-code-in-ifdef-config_pnp drivers/net/irda/smsc-ircc2.c
+--- a/drivers/net/irda/smsc-ircc2.c~smsc-ircc2-wrap-pnp-probe-code-in-ifdef-config_pnp
++++ a/drivers/net/irda/smsc-ircc2.c
+@@ -79,9 +79,13 @@ MODULE_AUTHOR("Daniele Peri <peri@csai.u
+ MODULE_DESCRIPTION("SMC IrCC SIR/FIR controller driver");
+ MODULE_LICENSE("GPL");
  
--	/* restart auto negotiation */
-+	/* restart auto negotiation, power down phy */
- 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
--	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-+	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
- 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
- 		return PHY_ERROR;
- 	}
-@@ -5077,6 +5077,10 @@ static int nv_open(struct net_device *de
++#ifdef CONFIG_PNP
+ static int smsc_nopnp = 1;
+ module_param_named(nopnp, smsc_nopnp, bool, 0);
+ MODULE_PARM_DESC(nopnp, "Do not use PNP to detect controller settings, defaults to true");
++#else
++#define smsc_nopnp 1
++#endif
  
- 	dprintk(KERN_DEBUG "nv_open: begin\n");
+ #define DMA_INVAL 255
+ static int ircc_dma = DMA_INVAL;
+@@ -366,6 +370,10 @@ static inline void register_bank(int iob
+                iobase + IRCC_MASTER);
+ }
  
-+	/* power up phy */
-+	mii_rw(dev, np->phyaddr, MII_BMCR,
-+	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++static int pnp_driver_registered;
 +
- 	/* erase previous misconfiguration */
- 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
- 		nv_mac_reset(dev);
-@@ -5270,6 +5274,10 @@ static int nv_close(struct net_device *d
- 	if (np->wolenabled) {
- 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	} else {
-+		/* power down phy */
-+		mii_rw(dev, np->phyaddr, MII_BMCR,
-+		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
- 	}
++#ifdef CONFIG_PNP
++
+ /* PNP hotplug support */
+ static const struct pnp_device_id smsc_ircc_pnp_table[] = {
+ 	{ .id = "SMCf010", .driver_data = 0 },
+@@ -374,8 +382,6 @@ static const struct pnp_device_id smsc_i
+ };
+ MODULE_DEVICE_TABLE(pnp, smsc_ircc_pnp_table);
  
- 	/* FIXME: power down nic */
+-static int pnp_driver_registered;
+-
+ static int __init smsc_ircc_pnp_probe(struct pnp_dev *dev,
+ 				      const struct pnp_device_id *dev_id)
+ {
+@@ -403,6 +409,10 @@ static struct pnp_driver smsc_ircc_pnp_d
+ 	.probe		= smsc_ircc_pnp_probe,
+ };
+ 
++#else
++static struct pnp_driver smsc_ircc_pnp_driver;
++#endif
++
+ 
+ /*******************************************************************************
+  *
 _
