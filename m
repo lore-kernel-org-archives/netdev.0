@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NET] print skb pointer in truesize bug
-Date: Fri, 02 May 2008 16:42:26 -0700 (PDT)
-Message-ID: <20080502.164226.16189190.davem@davemloft.net>
-References: <1209639656.7067.2.camel@johannes.berg>
+Subject: Re: [patch 1/2] net: remove NR_CPUS arrays in net/core/dev.c
+Date: Fri, 02 May 2008 16:43:23 -0700 (PDT)
+Message-ID: <20080502.164323.36054038.davem@davemloft.net>
+References: <200805022039.m42KdQA3013598@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, travis@sgi.com, jmorris@namei.org,
+	kaber@trash.net, kuznet@ms2.inr.ac.ru
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33809
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33813
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759481AbYEBXm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 19:42:27 -0400
-In-Reply-To: <1209639656.7067.2.camel@johannes.berg>
+	by vger.kernel.org with ESMTP id S1765796AbYEBXnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 19:43:23 -0400
+In-Reply-To: <200805022039.m42KdQA3013598@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 01 May 2008 13:00:56 +0200
+From: akpm@linux-foundation.org
+Date: Fri, 02 May 2008 13:39:26 -0700
 
-> While debugging the mac80211 truesize problem I always wished
-> that I knew exactly which skb showed the problem, this makes
-> skb_truesize_bug() print out the pointer.
+> Remove the fixed size channels[NR_CPUS] array in net/core/dev.c and
+> dynamically allocate array based on nr_cpu_ids.
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Signed-off-by: Mike Travis <travis@sgi.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-This information only is useful relative to something else.
-Ie. another debugging message that prints out the SKB pointer
-and with which you can try and compare things.
-
-I assume you're adding such things while you try to debug
-this, and like those local changes, this hack can stay local
-to your tree too.
+Applied, thanks.
