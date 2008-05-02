@@ -1,8 +1,7 @@
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH 1/3] ixgbe: Add Data Center Bridging netlink listener for DCB
-	runtime changes.
-Date: Thu, 01 May 2008 17:43:00 -0700
-Message-ID: <20080502004300.14392.87943.stgit@localhost.localdomain>
+Subject: [PATCH 2/3] ixgbe: Add DCB hardware initialization routines
+Date: Thu, 01 May 2008 17:43:05 -0700
+Message-ID: <20080502004305.14392.78170.stgit@localhost.localdomain>
 References: <20080502004254.14392.7599.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,36 +9,39 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:6552 "EHLO mga11.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:29852 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760367AbYEBHlo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 May 2008 03:41:44 -0400
+	id S1754106AbYEBHmU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 May 2008 03:42:20 -0400
 In-Reply-To: <20080502004254.14392.7599.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces a new generic netlink subsystem for Data Center
-Bridging, aka DCB.  The interface will allow userspace applications to
-configure the DCB parameters in the driver required to make the technology
-work.
+This patch adds the shared code functions for DCB functionality.  These
+routines take care of the bandwidth credit calculations for the hardware
+arbiters, takes care of priority grouping changes, and all the hardware
+writes to enable these features in 82598.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_dcb_nl.c | 1273 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 1273 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_dcb.c       |  330 +++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_dcb.h       |  168 +++++++++++++++
+ drivers/net/ixgbe/ixgbe_dcb_82598.c |  400 +++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_dcb_82598.h |   98 +++++++++
+ 4 files changed, 996 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+diff --git a/drivers/net/ixgbe/ixgbe_dcb.c b/drivers/net/ixgbe/ixgbe_dcb.c
 new file mode 100644
-index 0000000..95920fb
+index 0000000..28f190a
 --- /dev/null
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -0,0 +1,1273 @@
++++ b/drivers/net/ixgbe/ixgbe_dcb.c
+@@ -0,0 +1,330 @@
 +/*******************************************************************************
 +
 +  Intel 10 Gigabit PCI Express Linux driver
-+  Copyright(c) 1999 - 2008 Intel Corporation.
++  Copyright(c) 1999 - 2007 Intel Corporation.
 +
 +  This program is free software; you can redistribute it and/or modify it
 +  under the terms and conditions of the GNU General Public License,
@@ -57,1256 +59,997 @@ index 0000000..95920fb
 +  The full GNU General Public License is included in this distribution in
 +  the file called "COPYING".
 +
++  Contact Information:
++  Linux NICS <linux.nics@intel.com>
 +  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
 +  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 +
 +*******************************************************************************/
 +
++
 +#include "ixgbe.h"
-+
-+#include <linux/netlink.h>
-+#include <linux/genetlink.h>
-+#include <net/genetlink.h>
-+#include <linux/netdevice.h>
-+
-+/* DCB configuration commands */
-+enum {
-+	DCB_C_UNDEFINED,
-+	DCB_C_GSTATE,
-+	DCB_C_SSTATE,
-+	DCB_C_PG_STATS,
-+	DCB_C_PGTX_GCFG,
-+	DCB_C_PGTX_SCFG,
-+	DCB_C_PGRX_GCFG,
-+	DCB_C_PGRX_SCFG,
-+	DCB_C_PFC_GCFG,
-+	DCB_C_PFC_SCFG,
-+	DCB_C_PFC_STATS,
-+	DCB_C_GLINK_SPD,
-+	DCB_C_SLINK_SPD,
-+	DCB_C_SET_ALL,
-+	DCB_C_GPERM_HWADDR,
-+	__DCB_C_ENUM_MAX,
-+};
-+
-+#define IXGBE_DCB_C_MAX               (__DCB_C_ENUM_MAX - 1)
-+
-+/* DCB configuration attributes */
-+enum {
-+	DCB_A_UNDEFINED = 0,
-+	DCB_A_IFNAME,
-+	DCB_A_STATE,
-+	DCB_A_PFC_STATS,
-+	DCB_A_PFC_CFG,
-+	DCB_A_PG_STATS,
-+	DCB_A_PG_CFG,
-+	DCB_A_LINK_SPD,
-+	DCB_A_SET_ALL,
-+	DCB_A_PERM_HWADDR,
-+	__DCB_A_ENUM_MAX,
-+};
-+
-+#define IXGBE_DCB_A_MAX               (__DCB_A_ENUM_MAX - 1)
-+
-+/* PERM HWADDR attributes */
-+enum {
-+	PERM_HW_A_UNDEFINED,
-+	PERM_HW_A_0,
-+	PERM_HW_A_1,
-+	PERM_HW_A_2,
-+	PERM_HW_A_3,
-+	PERM_HW_A_4,
-+	PERM_HW_A_5,
-+	PERM_HW_A_ALL,
-+	__PERM_HW_A_ENUM_MAX,
-+};
-+
-+#define IXGBE_DCB_PERM_HW_A_MAX        (__PERM_HW_A_ENUM_MAX - 1)
-+
-+/* PFC configuration attributes */
-+enum {
-+	PFC_A_UP_UNDEFINED,
-+	PFC_A_UP_0,
-+	PFC_A_UP_1,
-+	PFC_A_UP_2,
-+	PFC_A_UP_3,
-+	PFC_A_UP_4,
-+	PFC_A_UP_5,
-+	PFC_A_UP_6,
-+	PFC_A_UP_7,
-+	PFC_A_UP_MAX, /* Used as an iterator cap */
-+	PFC_A_UP_ALL,
-+	__PFC_A_UP_ENUM_MAX,
-+};
-+
-+#define IXGBE_DCB_PFC_A_UP_MAX        (__PFC_A_UP_ENUM_MAX - 1)
-+
-+/* Priority Group Traffic Class and Bandwidth Group
-+ * configuration attributes
-+ */
-+enum {
-+	PG_A_UNDEFINED,
-+	PG_A_TC_0,
-+	PG_A_TC_1,
-+	PG_A_TC_2,
-+	PG_A_TC_3,
-+	PG_A_TC_4,
-+	PG_A_TC_5,
-+	PG_A_TC_6,
-+	PG_A_TC_7,
-+	PG_A_TC_MAX, /* Used as an iterator cap */
-+	PG_A_TC_ALL,
-+	PG_A_BWG_0,
-+	PG_A_BWG_1,
-+	PG_A_BWG_2,
-+	PG_A_BWG_3,
-+	PG_A_BWG_4,
-+	PG_A_BWG_5,
-+	PG_A_BWG_6,
-+	PG_A_BWG_7,
-+	PG_A_BWG_MAX, /* Used as an iterator cap */
-+	PG_A_BWG_ALL,
-+	__PG_A_ENUM_MAX,
-+};
-+
-+#define IXGBE_DCB_PG_A_MAX     (__PG_A_ENUM_MAX - 1)
-+
-+enum {
-+	TC_A_PARAM_UNDEFINED,
-+	TC_A_PARAM_STRICT_PRIO,
-+	TC_A_PARAM_BW_GROUP_ID,
-+	TC_A_PARAM_BW_PCT_IN_GROUP,
-+	TC_A_PARAM_UP_MAPPING,
-+	TC_A_PARAM_MAX, /* Used as an iterator cap */
-+	TC_A_PARAM_ALL,
-+	__TC_A_PARAM_ENUM_MAX,
-+};
-+
-+#define IXGBE_DCB_TC_A_PARAM_MAX      (__TC_A_PARAM_ENUM_MAX - 1)
-+
-+#define DCB_PROTO_VERSION             0x1
-+#define is_pci_device(dev) ((dev)->bus == &pci_bus_type)
-+
-+#define BIT_DCB_MODE   0x01
-+#define BIT_PFC        0x02
-+#define BIT_PG_RX      0x04
-+#define BIT_PG_TX      0x08
-+#define BIT_LINKSPEED  0x10
-+
-+static struct genl_family dcb_family = {
-+    .id = GENL_ID_GENERATE,
-+    .hdrsize = 0,
-+    .name = "IXGBE_DCB",
-+    .version = DCB_PROTO_VERSION,
-+    .maxattr = IXGBE_DCB_A_MAX,
-+};
-+
-+/* DCB NETLINK attributes policy */
-+static struct nla_policy dcb_genl_policy[IXGBE_DCB_A_MAX + 1] = {
-+	[DCB_A_IFNAME]    = {.type = NLA_STRING, .len = IFNAMSIZ - 1},
-+	[DCB_A_STATE]     = {.type = NLA_U8},
-+	[DCB_A_PG_CFG]    = {.type = NLA_NESTED},
-+	[DCB_A_PFC_CFG]   = {.type = NLA_NESTED},
-+	[DCB_A_PFC_STATS] = {.type = NLA_NESTED},
-+	[DCB_A_PG_STATS]  = {.type = NLA_NESTED},
-+	[DCB_A_LINK_SPD]  = {.type = NLA_U8},
-+	[DCB_A_SET_ALL]   = {.type = NLA_U8},
-+	[DCB_A_PERM_HWADDR] = {.type = NLA_NESTED},
-+};
-+
-+/* DCB_A_PERM_HWADDR nested attributes... an array. */
-+static struct nla_policy dcb_perm_hwaddr_nest[IXGBE_DCB_PERM_HW_A_MAX + 1] = {
-+	[PERM_HW_A_0] = {.type = NLA_U8},
-+	[PERM_HW_A_1] = {.type = NLA_U8},
-+	[PERM_HW_A_2] = {.type = NLA_U8},
-+	[PERM_HW_A_3] = {.type = NLA_U8},
-+	[PERM_HW_A_4] = {.type = NLA_U8},
-+	[PERM_HW_A_5] = {.type = NLA_U8},
-+	[PERM_HW_A_ALL] = {.type = NLA_FLAG},
-+};
-+
-+/* DCB_A_PFC_CFG nested attributes...like an array. */
-+static struct nla_policy dcb_pfc_up_nest[IXGBE_DCB_PFC_A_UP_MAX + 1] = {
-+	[PFC_A_UP_0]   = {.type = NLA_U8},
-+	[PFC_A_UP_1]   = {.type = NLA_U8},
-+	[PFC_A_UP_2]   = {.type = NLA_U8},
-+	[PFC_A_UP_3]   = {.type = NLA_U8},
-+	[PFC_A_UP_4]   = {.type = NLA_U8},
-+	[PFC_A_UP_5]   = {.type = NLA_U8},
-+	[PFC_A_UP_6]   = {.type = NLA_U8},
-+	[PFC_A_UP_7]   = {.type = NLA_U8},
-+	[PFC_A_UP_ALL] = {.type = NLA_FLAG},
-+};
-+
-+/* DCB_A_PG_CFG nested attributes...like a struct. */
-+static struct nla_policy dcb_pg_nest[IXGBE_DCB_PG_A_MAX + 1] = {
-+	[PG_A_TC_0]   = {.type = NLA_NESTED},
-+	[PG_A_TC_1]   = {.type = NLA_NESTED},
-+	[PG_A_TC_2]   = {.type = NLA_NESTED},
-+	[PG_A_TC_3]   = {.type = NLA_NESTED},
-+	[PG_A_TC_4]   = {.type = NLA_NESTED},
-+	[PG_A_TC_5]   = {.type = NLA_NESTED},
-+	[PG_A_TC_6]   = {.type = NLA_NESTED},
-+	[PG_A_TC_7]   = {.type = NLA_NESTED},
-+	[PG_A_TC_ALL] = {.type = NLA_NESTED},
-+	[PG_A_BWG_0]  = {.type = NLA_U8},
-+	[PG_A_BWG_1]  = {.type = NLA_U8},
-+	[PG_A_BWG_2]  = {.type = NLA_U8},
-+	[PG_A_BWG_3]  = {.type = NLA_U8},
-+	[PG_A_BWG_4]  = {.type = NLA_U8},
-+	[PG_A_BWG_5]  = {.type = NLA_U8},
-+	[PG_A_BWG_6]  = {.type = NLA_U8},
-+	[PG_A_BWG_7]  = {.type = NLA_U8},
-+	[PG_A_BWG_ALL]= {.type = NLA_FLAG},
-+};
-+
-+/* TC_A_CLASS_X nested attributes. */
-+static struct nla_policy dcb_tc_param_nest[IXGBE_DCB_TC_A_PARAM_MAX + 1] = {
-+	[TC_A_PARAM_STRICT_PRIO]     = {.type = NLA_U8},
-+	[TC_A_PARAM_BW_GROUP_ID]     = {.type = NLA_U8},
-+	[TC_A_PARAM_BW_PCT_IN_GROUP] = {.type = NLA_U8},
-+	[TC_A_PARAM_UP_MAPPING]      = {.type = NLA_U8},
-+	[TC_A_PARAM_ALL]             = {.type = NLA_FLAG},
-+};
-+
-+static int ixgbe_dcb_check_adapter(struct net_device *netdev)
-+{
-+	struct device *busdev;
-+	struct pci_dev *pcidev;
-+
-+	busdev = netdev->dev.parent;
-+	if (!busdev)
-+		return -EINVAL;
-+
-+	if (!is_pci_device(busdev))
-+		return -EINVAL;
-+
-+	pcidev = to_pci_dev(busdev);
-+	if (!pcidev)
-+		return -EINVAL;
-+
-+	if (ixgbe_is_ixgbe(pcidev))
-+		return 0;
-+	else
-+		return -EINVAL;
-+}
-+
-+static int ixgbe_copy_dcb_cfg(struct ixgbe_dcb_config *src_dcb_cfg,
-+			      struct ixgbe_dcb_config *dst_dcb_cfg, int tc_max)
-+{
-+	struct tc_configuration *src_tc_cfg = NULL;
-+	struct tc_configuration *dst_tc_cfg = NULL;
-+	int i;
-+
-+	if (!src_dcb_cfg || !dst_dcb_cfg)
-+		return -EINVAL;
-+
-+	dst_dcb_cfg->link_speed = src_dcb_cfg->link_speed;
-+
-+	for (i = PG_A_TC_0; i < tc_max + PG_A_TC_0; i++) {
-+		src_tc_cfg = &src_dcb_cfg->tc_config[i - PG_A_TC_0];
-+		dst_tc_cfg = &dst_dcb_cfg->tc_config[i - PG_A_TC_0];
-+
-+		dst_tc_cfg->path[DCB_TX_CONFIG].prio_type =
-+				src_tc_cfg->path[DCB_TX_CONFIG].prio_type;
-+
-+		dst_tc_cfg->path[DCB_TX_CONFIG].bwg_id =
-+				src_tc_cfg->path[DCB_TX_CONFIG].bwg_id;
-+
-+		dst_tc_cfg->path[DCB_TX_CONFIG].bwg_percent =
-+				src_tc_cfg->path[DCB_TX_CONFIG].bwg_percent;
-+
-+		dst_tc_cfg->path[DCB_TX_CONFIG].up_to_tc_bitmap =
-+				src_tc_cfg->path[DCB_TX_CONFIG].up_to_tc_bitmap;
-+
-+		dst_tc_cfg->path[DCB_RX_CONFIG].prio_type =
-+				src_tc_cfg->path[DCB_RX_CONFIG].prio_type;
-+
-+		dst_tc_cfg->path[DCB_RX_CONFIG].bwg_id =
-+				src_tc_cfg->path[DCB_RX_CONFIG].bwg_id;
-+
-+		dst_tc_cfg->path[DCB_RX_CONFIG].bwg_percent =
-+				src_tc_cfg->path[DCB_RX_CONFIG].bwg_percent;
-+
-+		dst_tc_cfg->path[DCB_RX_CONFIG].up_to_tc_bitmap =
-+				src_tc_cfg->path[DCB_RX_CONFIG].up_to_tc_bitmap;
-+	}
-+
-+	for (i = PG_A_BWG_0; i < PG_A_BWG_MAX; i++) {
-+		dst_dcb_cfg->bw_percentage[DCB_TX_CONFIG][i - PG_A_BWG_0] =
-+		    src_dcb_cfg->bw_percentage[DCB_TX_CONFIG][i - PG_A_BWG_0];
-+		dst_dcb_cfg->bw_percentage[DCB_RX_CONFIG][i - PG_A_BWG_0] =
-+	            src_dcb_cfg->bw_percentage[DCB_RX_CONFIG][i - PG_A_BWG_0];
-+	}
-+
-+	for (i = PFC_A_UP_0; i < PFC_A_UP_MAX; i++) {
-+		dst_dcb_cfg->tc_config[i - PFC_A_UP_0].dcb_pfc =
-+			src_dcb_cfg->tc_config[i - PFC_A_UP_0].dcb_pfc;
-+	}
-+
-+	return 0;
-+}
-+
-+static int ixgbe_nl_reply(u8 value, u8 cmd, u8 attr, struct genl_info *info)
-+{
-+	struct sk_buff *dcb_skb = NULL;
-+	void *data;
-+	int ret;
-+
-+	dcb_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcb_skb)
-+		return -EINVAL;
-+
-+	data =  genlmsg_put_reply(dcb_skb, info, &dcb_family, 0, cmd);
-+	if (!data)
-+		goto err;
-+
-+	ret = nla_put_u8(dcb_skb, attr, value);
-+	if (ret)
-+        	goto err;
-+
-+	/* end the message, assign the nlmsg_len. */
-+	genlmsg_end(dcb_skb, data);
-+	ret = genlmsg_reply(dcb_skb, info);
-+	if (ret)
-+        	goto err;
-+
-+	return 0;
-+
-+err:
-+	kfree(dcb_skb);
-+	return -EINVAL;
-+}
-+
-+static int ixgbe_dcb_gstate(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int ret = -ENOMEM;
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+
-+	if (!info->attrs[DCB_A_IFNAME])
-+		return -EINVAL;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		return -EINVAL;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err_out;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	ret = ixgbe_nl_reply(!!(adapter->flags & IXGBE_FLAG_DCB_ENABLED),
-+				DCB_C_GSTATE, DCB_A_STATE, info);
-+	if (ret)
-+		goto err_out;
-+
-+	DPRINTK(DRV, INFO, "Get DCB Admin Mode.\n");
-+
-+err_out:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_sstate(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+	int ret = -EINVAL;
-+	u8 value;
-+
-+	if (!info->attrs[DCB_A_IFNAME] || !info->attrs[DCB_A_STATE])
-+		goto err;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		goto err;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err_out;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	value = nla_get_u8(info->attrs[DCB_A_STATE]);
-+	if ((value & 1) != value) {
-+		DPRINTK(DRV, INFO, "Value is not 1 or 0, it is %d.\n", value);
-+	} else {
-+		switch (value) {
-+		case 0:
-+			if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
-+				set_bit(__IXGBE_DOWN, &adapter->state);
-+				if (netdev->flags & IFF_UP)
-+					ixgbe_close(netdev);
-+				ixgbe_reset_interrupt_capability(adapter);
-+				kfree(adapter->tx_ring);
-+				kfree(adapter->rx_ring);
-+
-+				adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
-+				adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
-+				ixgbe_init_interrupt_scheme(adapter);
-+				if (netdev->flags & IFF_UP)
-+					ixgbe_open(netdev);
-+				clear_bit(__IXGBE_DOWN, &adapter->state);
-+				break;
-+			} else {
-+				/* Nothing to do, already off */
-+				goto out;
-+			}
-+		case 1:
-+			if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
-+				/* Nothing to do, already on */
-+				goto out;
-+			} else {
-+				set_bit(__IXGBE_DOWN, &adapter->state);
-+				if (netdev->flags & IFF_UP)
-+					ixgbe_close(netdev);
-+				ixgbe_reset_interrupt_capability(adapter);
-+				kfree(adapter->tx_ring);
-+				kfree(adapter->rx_ring);
-+
-+				adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
-+				adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
-+				ixgbe_init_interrupt_scheme(adapter);
-+				if (netdev->flags & IFF_UP)
-+					ixgbe_open(netdev);
-+				clear_bit(__IXGBE_DOWN, &adapter->state);
-+				break;
-+			}
-+		}
-+	}
-+
-+out:
-+	ret = ixgbe_nl_reply(0, DCB_C_SSTATE, DCB_A_STATE, info);
-+	if (ret)
-+		goto err_out;
-+
-+	DPRINTK(DRV, INFO, "Set DCB Admin Mode.\n");
-+
-+err_out:
-+	dev_put(netdev);
-+err:
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_glink_spd(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int ret = -ENOMEM;
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+
-+	if (!info->attrs[DCB_A_IFNAME])
-+		return -EINVAL;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		return -EINVAL;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err_out;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	ret = ixgbe_nl_reply(adapter->dcb_cfg.link_speed & 0xff,
-+				DCB_C_GLINK_SPD, DCB_A_LINK_SPD, info);
-+	if (ret)
-+		goto err_out;
-+
-+	DPRINTK(DRV, INFO, "Get DCB Link Speed.\n");
-+
-+err_out:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_slink_spd(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+	int ret = -EINVAL;
-+	u8 value;
-+
-+	if (!info->attrs[DCB_A_IFNAME] || !info->attrs[DCB_A_LINK_SPD])
-+		goto err;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		goto err;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err_out;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	value = nla_get_u8(info->attrs[DCB_A_LINK_SPD]);
-+	if (value > 9) {
-+		DPRINTK(DRV, ERR, "Value is not 0 thru 9, it is %d.\n", value);
-+	} else {
-+		if (!adapter->dcb_set_bitmap &&
-+		   ixgbe_copy_dcb_cfg(&adapter->dcb_cfg, &adapter->temp_dcb_cfg,
-+				adapter->ring_feature[RING_F_DCB].indices)) {
-+			ret = -EINVAL;
-+			goto err_out;
-+		}
-+
-+		adapter->temp_dcb_cfg.link_speed = value;
-+		adapter->dcb_set_bitmap |= BIT_LINKSPEED;
-+	}
-+
-+	ret = ixgbe_nl_reply(0, DCB_C_SLINK_SPD, DCB_A_LINK_SPD, info);
-+	if (ret)
-+		goto err_out;
-+
-+	DPRINTK(DRV, INFO, "Set DCB Link Speed to %d.\n", value);
-+
-+err_out:
-+	dev_put(netdev);
-+err:
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_gperm_hwaddr(struct sk_buff *skb, struct genl_info *info)
-+{
-+	void *data;
-+	struct sk_buff *dcb_skb = NULL;
-+	struct nlattr *tb[IXGBE_DCB_PERM_HW_A_MAX + 1], *nest;
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+	struct ixgbe_hw *hw = NULL;
-+	int ret = -ENOMEM;
-+	int i;
-+
-+	if (!info->attrs[DCB_A_IFNAME] || !info->attrs[DCB_A_PERM_HWADDR])
-+		return -EINVAL;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		return -EINVAL;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err_out;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	hw = &adapter->hw;
-+
-+	ret = nla_parse_nested(tb, IXGBE_DCB_PERM_HW_A_MAX,
-+				info->attrs[DCB_A_PERM_HWADDR],
-+				dcb_perm_hwaddr_nest);
-+	if (ret)
-+		goto err;
-+
-+	dcb_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcb_skb)
-+		goto err;
-+
-+	data =  genlmsg_put_reply(dcb_skb, info, &dcb_family, 0,
-+				  DCB_C_GPERM_HWADDR);
-+	if (!data)
-+		goto err;
-+
-+	nest = nla_nest_start(dcb_skb, DCB_A_PERM_HWADDR);
-+	if (!nest)
-+		goto err;
-+
-+	for (i = 0; i < netdev->addr_len; i++) {
-+		if (!tb[i+PERM_HW_A_0] && !tb[PERM_HW_A_ALL])
-+			goto err;
-+
-+		ret = nla_put_u8(dcb_skb, DCB_A_PERM_HWADDR,
-+				 hw->mac.perm_addr[i]);
-+
-+		if (ret) {
-+			nla_nest_cancel(dcb_skb, nest);
-+			goto err;
-+		}
-+	}
-+
-+	nla_nest_end(dcb_skb, nest);
-+
-+	genlmsg_end(dcb_skb, data);
-+
-+	ret = genlmsg_reply(dcb_skb, info);
-+	if (ret)
-+		goto err;
-+
-+	dev_put(netdev);
-+	return 0;
-+
-+err:
-+	DPRINTK(DRV, ERR, "Error in get permanent hwaddr.\n");
-+	kfree(dcb_skb);
-+err_out:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_pg_scfg(struct sk_buff *skb, struct genl_info *info,
-+				int dir)
-+{
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+	struct tc_configuration *tc_config = NULL;
-+	struct tc_configuration *tc_tmpcfg = NULL;
-+	struct nlattr *pg_tb[IXGBE_DCB_PG_A_MAX + 1];
-+	struct nlattr *param_tb[IXGBE_DCB_TC_A_PARAM_MAX + 1];
-+	int i, ret, tc_max;
-+	u8 value;
-+	u8 changed = 0;
-+
-+	if (!info->attrs[DCB_A_IFNAME] || !info->attrs[DCB_A_PG_CFG])
-+		return -EINVAL;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		return -EINVAL;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	ret = nla_parse_nested(pg_tb, IXGBE_DCB_PG_A_MAX,
-+			       info->attrs[DCB_A_PG_CFG], dcb_pg_nest);
-+	if (ret)
-+		goto err;
-+
-+	if (!adapter->dcb_set_bitmap &&
-+	    ixgbe_copy_dcb_cfg(&adapter->dcb_cfg, &adapter->temp_dcb_cfg,
-+			       adapter->ring_feature[RING_F_DCB].indices))
-+		goto err;
-+
-+	tc_max = adapter->ring_feature[RING_F_DCB].indices;
-+	for (i = PG_A_TC_0; i < tc_max + PG_A_TC_0; i++) {
-+		if (!pg_tb[i])
-+			continue;
-+
-+		ret = nla_parse_nested(param_tb, IXGBE_DCB_TC_A_PARAM_MAX,
-+				       pg_tb[i], dcb_tc_param_nest);
-+		if (ret)
-+			goto err;
-+
-+		tc_config = &adapter->dcb_cfg.tc_config[i - PG_A_TC_0];
-+		tc_tmpcfg = &adapter->temp_dcb_cfg.tc_config[i - PG_A_TC_0];
-+		if (param_tb[TC_A_PARAM_STRICT_PRIO]) {
-+			value = nla_get_u8(param_tb[TC_A_PARAM_STRICT_PRIO]);
-+			tc_tmpcfg->path[dir].prio_type = value;
-+			if (tc_tmpcfg->path[dir].prio_type !=
-+				tc_config->path[dir].prio_type)
-+				changed = 1;
-+		}
-+		if (param_tb[TC_A_PARAM_BW_GROUP_ID]) {
-+			value = nla_get_u8(param_tb[TC_A_PARAM_BW_GROUP_ID]);
-+			tc_tmpcfg->path[dir].bwg_id = value;
-+			if (tc_tmpcfg->path[dir].bwg_id !=
-+				tc_config->path[dir].bwg_id)
-+				changed = 1;
-+		}
-+		if (param_tb[TC_A_PARAM_BW_PCT_IN_GROUP]) {
-+			value = nla_get_u8(param_tb[TC_A_PARAM_BW_PCT_IN_GROUP]);
-+			tc_tmpcfg->path[dir].bwg_percent = value;
-+			if (tc_tmpcfg->path[dir].bwg_percent !=
-+				tc_config->path[dir].bwg_percent)
-+				changed = 1;
-+		}
-+		if (param_tb[TC_A_PARAM_UP_MAPPING]) {
-+			value = nla_get_u8(param_tb[TC_A_PARAM_UP_MAPPING]);
-+			tc_tmpcfg->path[dir].up_to_tc_bitmap = value;
-+			if (tc_tmpcfg->path[dir].up_to_tc_bitmap !=
-+				tc_config->path[dir].up_to_tc_bitmap)
-+				changed = 1;
-+		}
-+	}
-+
-+	for (i = PG_A_BWG_0; i < PG_A_BWG_MAX; i++) {
-+		if (!pg_tb[i])
-+			continue;
-+
-+		value = nla_get_u8(pg_tb[i]);
-+		adapter->temp_dcb_cfg.bw_percentage[dir][i-PG_A_BWG_0] = value;
-+
-+		if (adapter->temp_dcb_cfg.bw_percentage[dir][i-PG_A_BWG_0] !=
-+			adapter->dcb_cfg.bw_percentage[dir][i-PG_A_BWG_0])
-+			changed = 1;
-+	}
-+
-+	adapter->temp_dcb_cfg.round_robin_enable = false;
-+
-+	if (changed) {
-+		if (dir == DCB_TX_CONFIG)
-+			adapter->dcb_set_bitmap |= BIT_PG_TX;
-+		else
-+			adapter->dcb_set_bitmap |= BIT_PG_RX;
-+
-+		DPRINTK(DRV, INFO, "Set DCB PG\n");
-+	} else {
-+		DPRINTK(DRV, INFO, "Set DCB PG - no changes\n");
-+	}
-+
-+	ret = ixgbe_nl_reply(0, (dir? DCB_C_PGRX_SCFG : DCB_C_PGTX_SCFG),
-+			     DCB_A_PG_CFG, info);
-+	if (ret)
-+		goto err;
-+
-+err:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_pgtx_scfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	return ixgbe_dcb_pg_scfg(skb, info, DCB_TX_CONFIG);
-+}
-+
-+static int ixgbe_dcb_pgrx_scfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	return ixgbe_dcb_pg_scfg(skb, info, DCB_RX_CONFIG);
-+}
-+
-+static int ixgbe_dcb_pg_gcfg(struct sk_buff *skb, struct genl_info *info,
-+				int dir)
-+{
-+	void *data;
-+	struct sk_buff *dcb_skb = NULL;
-+	struct nlattr *pg_nest, *param_nest, *tb;
-+	struct nlattr *pg_tb[IXGBE_DCB_PG_A_MAX + 1];
-+	struct nlattr *param_tb[IXGBE_DCB_TC_A_PARAM_MAX + 1];
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+	struct tc_configuration *tc_config = NULL;
-+	struct tc_bw_alloc *tc = NULL;
-+	int ret  = -ENOMEM;
-+	int i, tc_max;
-+
-+	if (!info->attrs[DCB_A_IFNAME] || !info->attrs[DCB_A_PG_CFG])
-+		return -EINVAL;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		return -EINVAL;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err_out;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	ret = nla_parse_nested(pg_tb, IXGBE_DCB_PG_A_MAX,
-+			       info->attrs[DCB_A_PG_CFG], dcb_pg_nest);
-+	if (ret)
-+		goto err;
-+
-+	dcb_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcb_skb)
-+		goto err;
-+
-+	data =  genlmsg_put_reply(dcb_skb, info, &dcb_family, 0,
-+				 (dir) ? DCB_C_PGRX_GCFG : DCB_C_PGTX_GCFG);
-+
-+	if (!data)
-+		goto err;
-+
-+	pg_nest = nla_nest_start(dcb_skb, DCB_A_PG_CFG);
-+	if (!pg_nest)
-+		goto err;
-+
-+	tc_max = adapter->ring_feature[RING_F_DCB].indices;
-+	for (i = PG_A_TC_0; i < tc_max + PG_A_TC_0; i++) {
-+		if (!pg_tb[i] && !pg_tb[PG_A_TC_ALL])
-+			continue;
-+
-+		if (pg_tb[PG_A_TC_ALL])
-+			tb = pg_tb[PG_A_TC_ALL];
-+		else
-+			tb = pg_tb[i];
-+		ret = nla_parse_nested(param_tb, IXGBE_DCB_TC_A_PARAM_MAX,
-+				       tb, dcb_tc_param_nest);
-+		if (ret)
-+			goto err_pg;
-+
-+		param_nest = nla_nest_start(dcb_skb, i);
-+		if (!param_nest)
-+			goto err_pg;
-+
-+		tc_config = &adapter->dcb_cfg.tc_config[i - PG_A_TC_0];
-+		tc = &adapter->dcb_cfg.tc_config[i - PG_A_TC_0].path[dir];
-+
-+		if (param_tb[TC_A_PARAM_STRICT_PRIO] ||
-+		    param_tb[TC_A_PARAM_ALL]) {
-+			ret = nla_put_u8(dcb_skb, TC_A_PARAM_STRICT_PRIO,
-+					 tc->prio_type);
-+			if (ret)
-+				goto err_param;
-+		}
-+		if (param_tb[TC_A_PARAM_BW_GROUP_ID] ||
-+		    param_tb[TC_A_PARAM_ALL]) {
-+			ret = nla_put_u8(dcb_skb, TC_A_PARAM_BW_GROUP_ID,
-+					 tc->bwg_id);
-+			if (ret)
-+				goto err_param;
-+		}
-+		if (param_tb[TC_A_PARAM_BW_PCT_IN_GROUP] ||
-+		    param_tb[TC_A_PARAM_ALL]) {
-+			ret = nla_put_u8(dcb_skb, TC_A_PARAM_BW_PCT_IN_GROUP,
-+					 tc->bwg_percent);
-+			if (ret)
-+				goto err_param;
-+		}
-+		if (param_tb[TC_A_PARAM_UP_MAPPING] ||
-+		    param_tb[TC_A_PARAM_ALL]) {
-+			ret = nla_put_u8(dcb_skb, TC_A_PARAM_UP_MAPPING,
-+					 tc->up_to_tc_bitmap);
-+			if (ret)
-+				goto err_param;
-+		}
-+		nla_nest_end(dcb_skb, param_nest);
-+	}
-+
-+	for (i = PG_A_BWG_0; i < PG_A_BWG_MAX; i++) {
-+		if (!pg_tb[i] && !pg_tb[PG_A_BWG_ALL])
-+			continue;
-+
-+		ret = nla_put_u8(dcb_skb, i,
-+		            adapter->dcb_cfg.bw_percentage[dir][i-PG_A_BWG_0]);
-+
-+		if (ret)
-+			goto err_pg;
-+	}
-+
-+	nla_nest_end(dcb_skb, pg_nest);
-+
-+	genlmsg_end(dcb_skb, data);
-+	ret = genlmsg_reply(dcb_skb, info);
-+	if (ret)
-+		goto err;
-+
-+	DPRINTK(DRV, INFO, "Get PG %s Attributes.\n", dir?"RX":"TX");
-+	dev_put(netdev);
-+	return 0;
-+
-+err_param:
-+	DPRINTK(DRV, ERR, "Error in get pg %s.\n", dir?"rx":"tx");
-+	nla_nest_cancel(dcb_skb, param_nest);
-+err_pg:
-+	nla_nest_cancel(dcb_skb, pg_nest);
-+err:
-+	kfree(dcb_skb);
-+err_out:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_pgtx_gcfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	return ixgbe_dcb_pg_gcfg(skb, info, DCB_TX_CONFIG);
-+}
-+
-+static int ixgbe_dcb_pgrx_gcfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	return ixgbe_dcb_pg_gcfg(skb, info, DCB_RX_CONFIG);
-+}
-+
-+static int ixgbe_dcb_spfccfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct nlattr *tb[IXGBE_DCB_PFC_A_UP_MAX + 1];
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+	int i, ret = -ENOMEM;
-+	u8 setting;
-+	u8 changed = 0;
-+
-+	if (!info->attrs[DCB_A_IFNAME] || !info->attrs[DCB_A_PFC_CFG]) {
-+		DPRINTK(DRV, INFO, "set pfc: ifname:%d pfc_cfg:%d\n",
-+			!info->attrs[DCB_A_IFNAME],
-+			!info->attrs[DCB_A_PFC_CFG]);
-+		return -EINVAL;
-+	}
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		return -EINVAL;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	ret = nla_parse_nested(tb, IXGBE_DCB_PFC_A_UP_MAX,
-+		               info->attrs[DCB_A_PFC_CFG],
-+		               dcb_pfc_up_nest);
-+	if (ret)
-+		goto err;
-+
-+	if (!adapter->dcb_set_bitmap &&
-+	    ixgbe_copy_dcb_cfg(&adapter->dcb_cfg, &adapter->temp_dcb_cfg,
-+			       adapter->ring_feature[RING_F_DCB].indices)) {
-+		ret = -EINVAL;
-+		goto err;
-+	}
-+
-+	for (i = PFC_A_UP_0; i < PFC_A_UP_MAX; i++) {
-+		if (!tb[i])
-+			continue;
-+
-+		setting = nla_get_u8(tb[i]);
-+		adapter->temp_dcb_cfg.tc_config[i-PFC_A_UP_0].dcb_pfc = setting;
-+
-+		if (adapter->temp_dcb_cfg.tc_config[i-PFC_A_UP_0].dcb_pfc !=
-+			adapter->dcb_cfg.tc_config[i-PFC_A_UP_0].dcb_pfc)
-+			changed = 1;
-+	}
-+
-+	if (changed) {
-+		adapter->dcb_set_bitmap |= BIT_PFC;
-+		DPRINTK(DRV, INFO, "Set DCB PFC\n");
-+	} else {
-+		DPRINTK(DRV, INFO, "Set DCB PFC - no changes\n");
-+	}
-+
-+	ret = ixgbe_nl_reply(0, DCB_C_PFC_SCFG, DCB_A_PFC_CFG, info);
-+	if (ret)
-+		goto err;
-+
-+err:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_gpfccfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	void *data;
-+	struct sk_buff *dcb_skb = NULL;
-+	struct nlattr *tb[IXGBE_DCB_PFC_A_UP_MAX + 1], *nest;
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+	int ret = -ENOMEM;
-+	int i;
-+
-+	if (!info->attrs[DCB_A_IFNAME] || !info->attrs[DCB_A_PFC_CFG])
-+		return -EINVAL;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		return -EINVAL;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err_out;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	ret = nla_parse_nested(tb, IXGBE_DCB_PFC_A_UP_MAX,
-+			       info->attrs[DCB_A_PFC_CFG], dcb_pfc_up_nest);
-+	if (ret)
-+		goto err;
-+
-+	dcb_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcb_skb)
-+		goto err;
-+
-+	data =  genlmsg_put_reply(dcb_skb, info, &dcb_family, 0,
-+				  DCB_C_PFC_GCFG);
-+	if (!data)
-+		goto err;
-+
-+	nest = nla_nest_start(dcb_skb, DCB_A_PFC_CFG);
-+	if (!nest)
-+		goto err;
-+
-+	for (i = PFC_A_UP_0; i < PFC_A_UP_MAX; i++) {
-+		if (!tb[i] && !tb[PFC_A_UP_ALL])
-+			continue;
-+
-+		ret = nla_put_u8(dcb_skb, i,
-+			      adapter->dcb_cfg.tc_config[i-PFC_A_UP_0].dcb_pfc);
-+		if (ret) {
-+			nla_nest_cancel(dcb_skb, nest);
-+			goto err;
-+		}
-+	}
-+
-+	nla_nest_end(dcb_skb, nest);
-+
-+	genlmsg_end(dcb_skb, data);
-+
-+	ret = genlmsg_reply(dcb_skb, info);
-+	if (ret)
-+		goto err;
-+
-+	DPRINTK(DRV, INFO, "Get PFC CFG.\n");
-+	dev_put(netdev);
-+	return 0;
-+
-+err:
-+	DPRINTK(DRV, ERR, "Error in get pfc stats.\n");
-+	kfree(dcb_skb);
-+err_out:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int ixgbe_dcb_set_all(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *netdev = NULL;
-+	struct ixgbe_adapter *adapter = NULL;
-+	int ret = -ENOMEM;
-+	u8 value;
-+	u8 retval = 0;
-+
-+	if (!info->attrs[DCB_A_IFNAME] || !info->attrs[DCB_A_SET_ALL])
-+		goto err;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_A_IFNAME]));
-+	if (!netdev)
-+		goto err;
-+
-+	ret = ixgbe_dcb_check_adapter(netdev);
-+	if (ret)
-+		goto err_out;
-+	else
-+		adapter = netdev_priv(netdev);
-+
-+	value = nla_get_u8(info->attrs[DCB_A_SET_ALL]);
-+	if ((value & 1) != value) {
-+		DPRINTK(DRV, INFO, "Value is not 1 or 0, it is %d.\n", value);
-+	} else {
-+		if (!adapter->dcb_set_bitmap) {
-+			retval = 1;
-+			goto out;
-+		}
-+
-+		while (test_and_set_bit(__IXGBE_RESETTING, &adapter->state))
-+			msleep(1);
-+
-+		ret = ixgbe_copy_dcb_cfg(&adapter->temp_dcb_cfg,
-+				&adapter->dcb_cfg,
-+				adapter->ring_feature[RING_F_DCB].indices);
-+		if (ret) {
-+			clear_bit(__IXGBE_RESETTING, &adapter->state);
-+			goto err_out;
-+		}
-+
-+		ixgbe_down(adapter);
-+		ixgbe_up(adapter);
-+		adapter->dcb_set_bitmap = 0x00;
-+		clear_bit(__IXGBE_RESETTING, &adapter->state);
-+	}
-+
-+out:
-+	ret = ixgbe_nl_reply(retval, DCB_C_SET_ALL, DCB_A_SET_ALL, info);
-+	if (ret)
-+		goto err_out;
-+
-+	DPRINTK(DRV, INFO, "Set all pfc pg and link speed configuration.\n");
-+
-+err_out:
-+	dev_put(netdev);
-+err:
-+	return ret;
-+}
-+
-+
-+/* DCB Generic NETLINK command Definitions */
-+/* Get DCB Admin Mode */
-+static struct genl_ops ixgbe_dcb_genl_c_gstate = {
-+    .cmd = DCB_C_GSTATE,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_gstate,
-+    .dumpit =  NULL,
-+};
-+
-+/* Set DCB Admin Mode */
-+static struct genl_ops ixgbe_dcb_genl_c_sstate = {
-+    .cmd = DCB_C_SSTATE,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_sstate,
-+    .dumpit =  NULL,
-+};
-+
-+/* Set TX Traffic Attributes */
-+static struct genl_ops ixgbe_dcb_genl_c_spgtx = {
-+    .cmd = DCB_C_PGTX_SCFG,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_pgtx_scfg,
-+    .dumpit =  NULL,
-+};
-+
-+/* Set RX Traffic Attributes */
-+static struct genl_ops ixgbe_dcb_genl_c_spgrx = {
-+    .cmd = DCB_C_PGRX_SCFG,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_pgrx_scfg,
-+    .dumpit =  NULL,
-+};
-+
-+/* Set PFC CFG */
-+static struct genl_ops ixgbe_dcb_genl_c_spfc = {
-+    .cmd = DCB_C_PFC_SCFG,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_spfccfg,
-+    .dumpit =  NULL,
-+};
-+
-+/* Get TX Traffic Attributes */
-+static struct genl_ops ixgbe_dcb_genl_c_gpgtx = {
-+    .cmd = DCB_C_PGTX_GCFG,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_pgtx_gcfg,
-+    .dumpit =  NULL,
-+};
-+
-+/* Get RX Traffic Attributes */
-+static struct genl_ops ixgbe_dcb_genl_c_gpgrx = {
-+    .cmd = DCB_C_PGRX_GCFG,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_pgrx_gcfg,
-+    .dumpit =  NULL,
-+};
-+
-+/* Get PFC CFG */
-+static struct genl_ops ixgbe_dcb_genl_c_gpfc = {
-+    .cmd = DCB_C_PFC_GCFG,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_gpfccfg,
-+    .dumpit =  NULL,
-+};
-+
-+
-+/* Get Link Speed setting */
-+static struct genl_ops ixgbe_dcb_genl_c_glink_spd = {
-+    .cmd = DCB_C_GLINK_SPD,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_glink_spd,
-+    .dumpit =  NULL,
-+};
-+
-+/* Set Link Speed setting */
-+static struct genl_ops ixgbe_dcb_genl_c_slink_spd = {
-+    .cmd = DCB_C_SLINK_SPD,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_slink_spd,
-+    .dumpit =  NULL,
-+};
-+
-+/* Set all "set" feature */
-+static struct genl_ops ixgbe_dcb_genl_c_set_all= {
-+    .cmd = DCB_C_SET_ALL,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_set_all,
-+    .dumpit =  NULL,
-+};
-+
-+/* Get permanent HW address */
-+static struct genl_ops ixgbe_dcb_genl_c_gperm_hwaddr = {
-+    .cmd = DCB_C_GPERM_HWADDR,
-+    .flags = GENL_ADMIN_PERM,
-+    .policy = dcb_genl_policy,
-+    .doit = ixgbe_dcb_gperm_hwaddr,
-+    .dumpit =  NULL,
-+};
++#include "ixgbe_type.h"
++#include "ixgbe_dcb.h"
++#include "ixgbe_dcb_82598.h"
 +
 +/**
-+ * ixgbe_dcb_netlink_register - Initialize the NETLINK communication channel
++ * ixgbe_dcb_config - Struct containing DCB settings.
++ * @dcb_config: Pointer to DCB config structure
 + *
-+ * Description:
-+ * Call out to the DCB components so they can register their families and
-+ * commands with Generic NETLINK mechanism.  Return zero on success and
-+ * non-zero on failure.
-+ *
++ * This function checks DCB rules for DCB settings.
++ * The following rules are checked:
++ * 1. The sum of bandwidth percentages of all Bandwidth Groups must total 100%.
++ * 2. The sum of bandwidth percentages of all Traffic Classes within a Bandwidth
++ *    Group must total 100.
++ * 3. A Traffic Class should not be set to both Link Strict Priority
++ *    and Group Strict Priority.
++ * 4. Link strict Bandwidth Groups can only have link strict traffic classes
++ *    with zero bandwidth.
 + */
-+int ixgbe_dcb_netlink_register(void)
++s32 ixgbe_dcb_check_config(struct ixgbe_dcb_config *dcb_config)
 +{
-+	int ret = 1;
++	struct tc_bw_alloc *p;
++	s32 ret_val = 0;
++	u8 i, j, bw = 0, bw_id;
++	u8 bw_sum[2][MAX_BW_GROUP];
++	bool link_strict[2][MAX_BW_GROUP];
 +
-+	ret = genl_register_family(&dcb_family);
-+	if (ret)
-+		return ret;
++	memset(bw_sum, 0, sizeof(bw_sum));
++	memset(link_strict, 0, sizeof(link_strict));
 +
-+	ret =  genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_gstate);
-+	if (ret)
-+		goto err;
++	/* First Tx, then Rx */
++	for (i = 0; i < 2; i++) {
++		/* Check each traffic class for rule violation */
++		for (j = 0; j < MAX_TRAFFIC_CLASS; j++) {
++			p = &dcb_config->tc_config[j].path[i];
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_sstate);
-+	if (ret)
-+		goto err;
++			bw = p->bwg_percent;
++			bw_id = p->bwg_id;
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_spgtx);
-+	if (ret)
-+		goto err;
++			if (bw_id >= MAX_BW_GROUP) {
++				ret_val = DCB_ERR_CONFIG;
++				goto err_config;
++			}
++			if (p->prio_type == prio_link) {
++				link_strict[i][bw_id] = true;
++				/* Link strict should have zero bandwidth */
++				if (bw) {
++					ret_val = DCB_ERR_LS_BW_NONZERO;
++					goto err_config;
++				}
++			} else if (!bw) {
++				/*
++				 * Traffic classes without link strict
++				 * should have non-zero bandwidth.
++				 */
++				ret_val = DCB_ERR_TC_BW_ZERO;
++				goto err_config;
++			}
++			bw_sum[i][bw_id] += bw;
++		}
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_spgrx);
-+	if (ret)
-+		goto err;
++		bw = 0;
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_spfc);
-+	if (ret)
-+		goto err;
++		/* Check each bandwidth group for rule violation */
++		for (j = 0; j < MAX_BW_GROUP; j++) {
++			bw += dcb_config->bw_percentage[i][j];
++			/*
++			 * Sum of bandwidth percentages of all traffic classes
++			 * within a Bandwidth Group must total 100 except for
++			 * link strict group (zero bandwidth).
++			 */
++			if (link_strict[i][j]) {
++				if (bw_sum[i][j]) {
++					/*
++					 * Link strict group should have zero
++					 * bandwidth.
++					 */
++					ret_val = DCB_ERR_LS_BWG_NONZERO;
++					goto err_config;
++				}
++			} else if (bw_sum[i][j] != BW_PERCENT &&
++			           bw_sum[i][j] != 0) {
++				ret_val = DCB_ERR_TC_BW;
++				goto err_config;
++			}
++		}
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_gpfc);
-+	if (ret)
-+		goto err;
++		if (bw != BW_PERCENT) {
++			ret_val = DCB_ERR_BW_GROUP;
++			goto err_config;
++		}
++	}
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_gpgtx);
-+	if (ret)
-+		goto err;
++err_config:
++	return ret_val;
++}
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_gpgrx);
-+	if (ret)
-+		goto err;
++/**
++ * ixgbe_dcb_calculate_tc_credits - Calculates traffic class credits
++ * @ixgbe_dcb_config: Struct containing DCB settings.
++ * @direction: Configuring either Tx or Rx.
++ *
++ * This function calculates the credits allocated to each traffic class.
++ * It should be called only after the rules are checked by
++ * ixgbe_dcb_check_config().
++ */
++s32 ixgbe_dcb_calculate_tc_credits(struct ixgbe_dcb_config *dcb_config,
++                                   u8 direction)
++{
++	struct tc_bw_alloc *p;
++	s32 ret_val = 0;
++	/* Initialization values default for Tx settings */
++	u32 credit_refill       = 0;
++	u32 credit_max          = 0;
++	u16 link_percentage     = 0;
++	u8  bw_percent          = 0;
++	u8  i;
 +
++	if (dcb_config == NULL) {
++		ret_val = DCB_ERR_CONFIG;
++		goto out;
++	}
 +
-+	ret =  genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_glink_spd);
-+	if (ret)
-+		goto err;
++	/* Find out the link percentage for each TC first */
++	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
++		p = &dcb_config->tc_config[i].path[direction];
++		bw_percent = dcb_config->bw_percentage[direction][p->bwg_id];
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_slink_spd);
-+	if (ret)
-+		goto err;
++		link_percentage = p->bwg_percent;
++		/* Must be careful of integer division for very small nums */
++		link_percentage = (link_percentage * bw_percent) / 100;
++		if (p->bwg_percent > 0 && link_percentage == 0)
++			link_percentage = 1;
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_set_all);
-+	if (ret)
-+		goto err;
++		/* Save link_percentage for reference */
++		p->link_percent = (u8)link_percentage;
 +
-+	ret = genl_register_ops(&dcb_family, &ixgbe_dcb_genl_c_gperm_hwaddr);
-+	if (ret)
-+		goto err;
++		/* Calculate credit refill and save it */
++		credit_refill = link_percentage * MINIMUM_CREDIT_REFILL;
++		p->data_credits_refill = (u16)credit_refill;
 +
-+	return 0;
++		/* Calculate maximum credit for the TC */
++		credit_max = (link_percentage * MAX_CREDIT) / 100;
 +
-+err:
-+	genl_unregister_family(&dcb_family);
++		/*
++		 * Adjustment based on rule checking, if the percentage
++		 * of a TC is too small, the maximum credit may not be
++		 * enough to send out a jumbo frame in data plane arbitration.
++		 */
++		if (credit_max && credit_max < MINIMUM_CREDIT_FOR_JUMBO)
++			credit_max = MINIMUM_CREDIT_FOR_JUMBO;
++
++		if (direction == DCB_TX_CONFIG) {
++			/*
++			 * Adjustment based on rule checking, if the
++			 * percentage of a TC is too small, the maximum
++			 * credit may not be enough to send out a TSO
++			 * packet in descriptor plane arbitration.
++			 */
++			if (credit_max &&
++			    (credit_max < MINIMUM_CREDIT_FOR_TSO))
++				credit_max = MINIMUM_CREDIT_FOR_TSO;
++
++			dcb_config->tc_config[i].desc_credits_max = (u16)credit_max;
++		}
++
++		p->data_credits_max = (u16)credit_max;
++	}
++
++out:
++	return ret_val;
++}
++
++/**
++ * ixgbe_dcb_get_tc_stats - Returns status of each traffic class
++ * @hw: pointer to hardware structure
++ * @stats: pointer to statistics structure
++ * @tc_count:  Number of elements in bwg_array.
++ *
++ * This function returns the status data for each of the Traffic Classes in use.
++ */
++s32 ixgbe_dcb_get_tc_stats(struct ixgbe_hw *hw, struct ixgbe_hw_stats *stats,
++                           u8 tc_count)
++{
++	s32 ret = 0;
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		ret = ixgbe_dcb_get_tc_stats_82598(hw, stats, tc_count);
 +	return ret;
 +}
 +
-+int ixgbe_dcb_netlink_unregister(void)
++/**
++ * ixgbe_dcb_get_pfc_stats - Returns CBFC status of each traffic class
++ * hw - pointer to hardware structure
++ * stats - pointer to statistics structure
++ * tc_count -  Number of elements in bwg_array.
++ *
++ * This function returns the CBFC status data for each of the Traffic Classes.
++ */
++s32 ixgbe_dcb_get_pfc_stats(struct ixgbe_hw *hw, struct ixgbe_hw_stats *stats,
++                            u8 tc_count)
 +{
-+	return genl_unregister_family(&dcb_family);
++	s32 ret = 0;
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		ret = ixgbe_dcb_get_pfc_stats_82598(hw, stats, tc_count);
++	return ret;
 +}
++
++/**
++ * ixgbe_dcb_config_rx_arbiter - Config Rx arbiter
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure Rx Data Arbiter and credits for each traffic class.
++ */
++s32 ixgbe_dcb_config_rx_arbiter(struct ixgbe_hw *hw,
++                                struct ixgbe_dcb_config *dcb_config)
++{
++	s32 ret = 0;
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		ret = ixgbe_dcb_config_rx_arbiter_82598(hw, dcb_config);
++	return ret;
++}
++
++/**
++ * ixgbe_dcb_config_tx_desc_arbiter - Config Tx Desc arbiter
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure Tx Descriptor Arbiter and credits for each traffic class.
++ */
++s32 ixgbe_dcb_config_tx_desc_arbiter(struct ixgbe_hw *hw,
++                                     struct ixgbe_dcb_config *dcb_config)
++{
++	s32 ret = 0;
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		ret = ixgbe_dcb_config_tx_desc_arbiter_82598(hw, dcb_config);
++	return ret;
++}
++
++/**
++ * ixgbe_dcb_config_tx_data_arbiter - Config Tx data arbiter
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure Tx Data Arbiter and credits for each traffic class.
++ */
++s32 ixgbe_dcb_config_tx_data_arbiter(struct ixgbe_hw *hw,
++                                     struct ixgbe_dcb_config *dcb_config)
++{
++	s32 ret = 0;
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		ret = ixgbe_dcb_config_tx_data_arbiter_82598(hw, dcb_config);
++	return ret;
++}
++
++/**
++ * ixgbe_dcb_config_pfc - Config priority flow control
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure Priority Flow Control for each traffic class.
++ */
++s32 ixgbe_dcb_config_pfc(struct ixgbe_hw *hw,
++                         struct ixgbe_dcb_config *dcb_config)
++{
++	s32 ret = 0;
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		ret = ixgbe_dcb_config_pfc_82598(hw, dcb_config);
++	return ret;
++}
++
++/**
++ * ixgbe_dcb_config_tc_stats - Config traffic class statistics
++ * @hw: pointer to hardware structure
++ *
++ * Configure queue statistics registers, all queues belonging to same traffic
++ * class uses a single set of queue statistics counters.
++ */
++s32 ixgbe_dcb_config_tc_stats(struct ixgbe_hw *hw)
++{
++	s32 ret = 0;
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		ret = ixgbe_dcb_config_tc_stats_82598(hw);
++	return ret;
++}
++
++/**
++ * ixgbe_dcb_hw_config - Config and enable DCB
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure dcb settings and enable dcb mode.
++ */
++s32 ixgbe_dcb_hw_config(struct ixgbe_hw *hw,
++                        struct ixgbe_dcb_config *dcb_config)
++{
++	s32 ret = 0;
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		ret = ixgbe_dcb_hw_config_82598(hw, dcb_config);
++	return ret;
++}
+diff --git a/drivers/net/ixgbe/ixgbe_dcb.h b/drivers/net/ixgbe/ixgbe_dcb.h
+new file mode 100644
+index 0000000..e19a5f4
+--- /dev/null
++++ b/drivers/net/ixgbe/ixgbe_dcb.h
+@@ -0,0 +1,168 @@
++/*******************************************************************************
++
++  Intel 10 Gigabit PCI Express Linux driver
++  Copyright(c) 1999 - 2007 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++#ifndef _DCB_CONFIG_H_
++#define _DCB_CONFIG_H_
++
++#include "ixgbe_type.h"
++
++/* DCB data structures */
++
++#define IXGBE_MAX_PACKET_BUFFERS 8
++#define MAX_USER_PRIORITY        8
++#define MAX_TRAFFIC_CLASS        8
++#define MAX_BW_GROUP             8
++#define BW_PERCENT               100
++
++#define DCB_TX_CONFIG            0
++#define DCB_RX_CONFIG            1
++
++/* DCB error Codes */
++#define DCB_SUCCESS              0
++#define DCB_ERR_CONFIG           -1
++#define DCB_ERR_PARAM            -2
++
++/* Transmit and receive Errors */
++/* Error in bandwidth group allocation */
++#define DCB_ERR_BW_GROUP        -3
++/* Error in traffic class bandwidth allocation */
++#define DCB_ERR_TC_BW           -4
++/* Traffic class has both link strict and group strict enabled */
++#define DCB_ERR_LS_GS           -5
++/* Link strict traffic class has non zero bandwidth */
++#define DCB_ERR_LS_BW_NONZERO   -6
++/* Link strict bandwidth group has non zero bandwidth */
++#define DCB_ERR_LS_BWG_NONZERO  -7
++/*  Traffic class has zero bandwidth */
++#define DCB_ERR_TC_BW_ZERO      -8
++
++#define DCB_NOT_IMPLEMENTED      0x7FFFFFFF
++
++struct dcb_pfc_tc_debug
++{
++	u8  tc;
++	u8  pause_status;
++	u64 pause_quanta;
++};
++
++enum strict_prio_type {
++	prio_none = 0,
++	prio_group,
++	prio_link
++};
++
++/* Traffic class bandwidth allocation per direction */
++struct tc_bw_alloc
++{
++	u8 bwg_id;                /* Bandwidth Group (BWG) ID */
++	u8 bwg_percent;           /* % of BWG's bandwidth */
++	u8 link_percent;          /* % of link bandwidth */
++	u8 up_to_tc_bitmap;       /* User Priority to Traffic Class mapping */
++	u16 data_credits_refill;  /* Credit refill amount in 64B granularity */
++	u16 data_credits_max;     /* Max credits for a configured packet buffer
++	                           * in 64B granularity.*/
++	enum strict_prio_type prio_type; /* Link or Group Strict Priority */
++};
++
++enum dcb_pfc_type {
++	pfc_disabled = 0,
++	pfc_enabled_full,
++	pfc_enabled_tx,
++	pfc_enabled_rx
++};
++
++/* Traffic class configuration */
++struct tc_configuration
++{
++	struct tc_bw_alloc path[2]; /* One each for Tx/Rx */
++	enum dcb_pfc_type  dcb_pfc; /* Class based flow control setting */
++
++	u16 desc_credits_max; /* For Tx Descriptor arbitration */
++	u8 tc; /* Traffic class (TC) */
++};
++
++enum dcb_rx_pba_cfg {
++	pba_equal,     /* PBA[0-7] each use 64KB FIFO */
++	pba_80_48      /* PBA[0-3] each use 80KB, PBA[4-7] each use 48KB */
++};
++
++struct ixgbe_dcb_config
++{
++	struct tc_configuration tc_config[MAX_TRAFFIC_CLASS];
++	u8     bw_percentage[2][MAX_BW_GROUP]; /* One each for Tx/Rx */
++
++	bool  round_robin_enable;
++
++	enum dcb_rx_pba_cfg rx_pba_cfg;
++
++	u32  dcb_cfg_version; /* Not used...OS-specific? */
++	u32  link_speed; /* For bandwidth allocation validation purpose */
++};
++
++
++/* DCB driver APIs */
++
++/* DCB rule checking function.*/
++s32 ixgbe_dcb_check_config(struct ixgbe_dcb_config *config);
++
++/* DCB credits calculation */
++s32 ixgbe_dcb_calculate_tc_credits(struct ixgbe_dcb_config *config,
++                                   u8 direction);
++
++/* DCB PFC functions */
++s32 ixgbe_dcb_config_pfc(struct ixgbe_hw *hw,
++                         struct ixgbe_dcb_config *dcb_config);
++s32 ixgbe_dcb_get_pfc_stats(struct ixgbe_hw *hw, struct ixgbe_hw_stats *stats,
++                            u8 tc_count);
++
++/* DCB traffic class stats */
++s32 ixgbe_dcb_config_tc_stats(struct ixgbe_hw *);
++s32 ixgbe_dcb_get_tc_stats(struct ixgbe_hw *hw, struct ixgbe_hw_stats *stats,
++                           u8 tc_count);
++
++/* DCB config arbiters */
++s32 ixgbe_dcb_config_tx_desc_arbiter(struct ixgbe_hw *hw,
++                                     struct ixgbe_dcb_config *dcb_config);
++s32 ixgbe_dcb_config_tx_data_arbiter(struct ixgbe_hw *hw,
++                                     struct ixgbe_dcb_config *dcb_config);
++s32 ixgbe_dcb_config_rx_arbiter(struct ixgbe_hw *hw,
++                                struct ixgbe_dcb_config *dcb_config);
++
++/* DCB hw initialization */
++s32 ixgbe_dcb_hw_config(struct ixgbe_hw *hw, struct ixgbe_dcb_config *config);
++
++
++/* DCB definitions for credit calculation */
++#define MAX_CREDIT_REFILL       511  /* 0x1FF * 64B = 32704B */
++#define MINIMUM_CREDIT_REFILL   5    /* 5*64B = 320B */
++#define MINIMUM_CREDIT_FOR_JUMBO 145  /* 145= UpperBound((9*1024+54)/64B) for 9KB jumbo frame */
++#define DCB_MAX_TSO_SIZE        32*1024 /* MAX TSO packet size supported in DCB mode */
++#define MINIMUM_CREDIT_FOR_TSO  (DCB_MAX_TSO_SIZE/64 + 1) /* 513 for 32KB TSO packet */
++#define MAX_CREDIT              4095 /* Maximum credit supported: 256KB * 1204 / 64B */
++
++#endif /* _DCB_CONFIG_H */
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ixgbe/ixgbe_dcb_82598.c
+new file mode 100644
+index 0000000..39b63ee
+--- /dev/null
++++ b/drivers/net/ixgbe/ixgbe_dcb_82598.c
+@@ -0,0 +1,400 @@
++/*******************************************************************************
++
++  Intel 10 Gigabit PCI Express Linux driver
++  Copyright(c) 1999 - 2007 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++
++#include "ixgbe_type.h"
++#include "ixgbe_dcb.h"
++#include "ixgbe_dcb_82598.h"
++
++/**
++ * ixgbe_dcb_get_tc_stats_82598 - Return status data for each traffic class
++ * @hw: pointer to hardware structure
++ * @stats: pointer to statistics structure
++ * @tc_count:  Number of elements in bwg_array.
++ *
++ * This function returns the status data for each of the Traffic Classes in use.
++ */
++s32 ixgbe_dcb_get_tc_stats_82598(struct ixgbe_hw *hw,
++                                 struct ixgbe_hw_stats *stats,
++                                 u8 tc_count)
++{
++	int tc;
++
++	if (tc_count > MAX_TRAFFIC_CLASS)
++		return DCB_ERR_PARAM;
++
++	/* Statistics pertaining to each traffic class */
++	for (tc = 0; tc < tc_count; tc++) {
++		/* Transmitted Packets */
++		stats->qptc[tc] += IXGBE_READ_REG(hw, IXGBE_QPTC(tc));
++		/* Transmitted Bytes */
++		stats->qbtc[tc] += IXGBE_READ_REG(hw, IXGBE_QBTC(tc));
++		/* Received Packets */
++		stats->qprc[tc] += IXGBE_READ_REG(hw, IXGBE_QPRC(tc));
++		/* Received Bytes */
++		stats->qbrc[tc] += IXGBE_READ_REG(hw, IXGBE_QBRC(tc));
++	}
++
++	return 0;
++}
++
++/**
++ * ixgbe_dcb_get_pfc_stats_82598 - Returns CBFC status data
++ * @hw: pointer to hardware structure
++ * @stats: pointer to statistics structure
++ * @tc_count:  Number of elements in bwg_array.
++ *
++ * This function returns the CBFC status data for each of the Traffic Classes.
++ */
++s32 ixgbe_dcb_get_pfc_stats_82598(struct ixgbe_hw *hw,
++                                  struct ixgbe_hw_stats *stats,
++                                  u8 tc_count)
++{
++	int tc;
++
++	if (tc_count > MAX_TRAFFIC_CLASS)
++		return DCB_ERR_PARAM;
++
++	for (tc = 0; tc < tc_count; tc++) {
++		/* Priority XOFF Transmitted */
++		stats->pxofftxc[tc] += IXGBE_READ_REG(hw, IXGBE_PXOFFTXC(tc));
++		/* Priority XOFF Received */
++		stats->pxoffrxc[tc] += IXGBE_READ_REG(hw, IXGBE_PXOFFRXC(tc));
++	}
++
++	return 0;
++}
++
++/**
++ * ixgbe_dcb_config_packet_buffers_82598 - Configure packet buffers
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure packet buffers for DCB mode.
++ */ 
++s32 ixgbe_dcb_config_packet_buffers_82598(struct ixgbe_hw *hw,
++                                          struct ixgbe_dcb_config *dcb_config)
++{
++	s32 ret_val = 0;
++	u32 value = IXGBE_RXPBSIZE_64KB;
++	u8  i = 0;
++
++	/* Setup Rx packet buffer sizes */
++	switch (dcb_config->rx_pba_cfg) {
++	case pba_80_48:
++		/* Setup the first four at 80KB */
++		value = IXGBE_RXPBSIZE_80KB;
++		for (; i < 4; i++) {
++			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), value);
++		}
++		/* Setup the last four at 48KB...don't re-init i */
++		value = IXGBE_RXPBSIZE_48KB;
++		/* Fall Through */
++	case pba_equal:
++	default:
++		for (; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
++			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), value);
++		}
++
++		/* Setup Tx packet buffer sizes */
++		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
++			IXGBE_WRITE_REG(hw, IXGBE_TXPBSIZE(i),
++			                IXGBE_TXPBSIZE_40KB);
++		}
++		break;
++	}
++
++	return ret_val;
++}
++
++/**
++ * ixgbe_dcb_config_rx_arbiter_82598 - Config Rx data arbiter
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure Rx Data Arbiter and credits for each traffic class.
++ */
++s32 ixgbe_dcb_config_rx_arbiter_82598(struct ixgbe_hw *hw,
++                                      struct ixgbe_dcb_config *dcb_config)
++{
++	struct tc_bw_alloc    *p;
++	u32    reg           = 0;
++	u32    credit_refill = 0;
++	u32    credit_max    = 0;
++	u8     i             = 0;
++
++	reg = IXGBE_READ_REG(hw, IXGBE_RUPPBMR) | IXGBE_RUPPBMR_MQA;
++	IXGBE_WRITE_REG(hw, IXGBE_RUPPBMR, reg);
++
++	reg = IXGBE_READ_REG(hw, IXGBE_RMCS);
++	/* Enable Arbiter */
++	reg &= ~IXGBE_RMCS_ARBDIS;
++	/* Enable Receive Recycle within the BWG */
++	reg |= IXGBE_RMCS_RRM;
++	/* Enable Deficit Fixed Priority arbitration*/
++	reg |= IXGBE_RMCS_DFP;
++
++	IXGBE_WRITE_REG(hw, IXGBE_RMCS, reg);
++
++	/* Configure traffic class credits and priority */
++	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
++		p = &dcb_config->tc_config[i].path[DCB_RX_CONFIG];
++		credit_refill = p->data_credits_refill;
++		credit_max    = p->data_credits_max;
++
++		reg = credit_refill | (credit_max << IXGBE_RT2CR_MCL_SHIFT);
++
++		if (p->prio_type == prio_link)
++			reg |= IXGBE_RT2CR_LSP;
++
++		IXGBE_WRITE_REG(hw, IXGBE_RT2CR(i), reg);
++	}
++
++	reg = IXGBE_READ_REG(hw, IXGBE_RDRXCTL);
++	reg |= IXGBE_RDRXCTL_RDMTS_1_2;
++	reg |= IXGBE_RDRXCTL_MPBEN;
++	reg |= IXGBE_RDRXCTL_MCEN;
++	IXGBE_WRITE_REG(hw, IXGBE_RDRXCTL, reg);
++
++	reg = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
++	/* Make sure there is enough descriptors before arbitration */
++	reg &= ~IXGBE_RXCTRL_DMBYPS;
++	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, reg);
++
++	return 0;
++}
++
++/**
++ * ixgbe_dcb_config_tx_desc_arbiter_82598 - Config Tx Desc. arbiter
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure Tx Descriptor Arbiter and credits for each traffic class.
++ */
++s32 ixgbe_dcb_config_tx_desc_arbiter_82598(struct ixgbe_hw *hw,
++                                           struct ixgbe_dcb_config *dcb_config)
++{
++	struct tc_bw_alloc *p;
++	u32    reg, max_credits;
++	u8     i;
++
++	reg = IXGBE_READ_REG(hw, IXGBE_DPMCS);
++
++	/* Enable arbiter */
++	reg &= ~IXGBE_DPMCS_ARBDIS;
++	if (!(dcb_config->round_robin_enable)) {
++		/* Enable DFP and Recycle mode */
++		reg |= (IXGBE_DPMCS_TDPAC | IXGBE_DPMCS_TRM);
++	}
++	reg |= IXGBE_DPMCS_TSOEF;
++	/* Configure Max TSO packet size 34KB including payload and headers */
++	reg |= (0x4 << IXGBE_DPMCS_MTSOS_SHIFT);
++
++	IXGBE_WRITE_REG(hw, IXGBE_DPMCS, reg);
++
++	/* Configure traffic class credits and priority */
++	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
++		p = &dcb_config->tc_config[i].path[DCB_TX_CONFIG];
++		max_credits = dcb_config->tc_config[i].desc_credits_max;
++		reg = max_credits << IXGBE_TDTQ2TCCR_MCL_SHIFT;
++		reg |= p->data_credits_refill;
++		reg |= (u32)(p->bwg_id) << IXGBE_TDTQ2TCCR_BWG_SHIFT;
++
++		if (p->prio_type == prio_group)
++			reg |= IXGBE_TDTQ2TCCR_GSP;
++
++		if (p->prio_type == prio_link)
++			reg |= IXGBE_TDTQ2TCCR_LSP;
++
++		IXGBE_WRITE_REG(hw, IXGBE_TDTQ2TCCR(i), reg);
++	}
++
++	return 0;
++}
++
++/**
++ * ixgbe_dcb_config_tx_data_arbiter_82598 - Config Tx data arbiter
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure Tx Data Arbiter and credits for each traffic class.
++ */
++s32 ixgbe_dcb_config_tx_data_arbiter_82598(struct ixgbe_hw *hw,
++                                           struct ixgbe_dcb_config *dcb_config)
++{
++	struct tc_bw_alloc *p;
++	u32 reg;
++	u8 i;
++
++	reg = IXGBE_READ_REG(hw, IXGBE_PDPMCS);
++	/* Enable Data Plane Arbiter */
++	reg &= ~IXGBE_PDPMCS_ARBDIS;
++	/* Enable DFP and Transmit Recycle Mode */
++	reg |= (IXGBE_PDPMCS_TPPAC | IXGBE_PDPMCS_TRM);
++
++	IXGBE_WRITE_REG(hw, IXGBE_PDPMCS, reg);
++
++	/* Configure traffic class credits and priority */
++	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
++		p = &dcb_config->tc_config[i].path[DCB_TX_CONFIG];
++		reg = p->data_credits_refill;
++		reg |= (u32)(p->data_credits_max) << IXGBE_TDPT2TCCR_MCL_SHIFT;
++		reg |= (u32)(p->bwg_id) << IXGBE_TDPT2TCCR_BWG_SHIFT;
++
++		if (p->prio_type == prio_group)
++			reg |= IXGBE_TDPT2TCCR_GSP;
++
++		if (p->prio_type == prio_link)
++			reg |= IXGBE_TDPT2TCCR_LSP;
++
++		IXGBE_WRITE_REG(hw, IXGBE_TDPT2TCCR(i), reg);
++	}
++
++	/* Enable Tx packet buffer division */
++	reg = IXGBE_READ_REG(hw, IXGBE_DTXCTL);
++	reg |= IXGBE_DTXCTL_ENDBUBD;
++	IXGBE_WRITE_REG(hw, IXGBE_DTXCTL, reg);
++
++	return 0;
++}
++
++/**
++ * ixgbe_dcb_config_pfc_82598 - Config priority flow control
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure Priority Flow Control for each traffic class.
++ */
++s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw,
++                               struct ixgbe_dcb_config *dcb_config)
++{
++	u32 reg, rx_pba_size;
++	u8  i;
++
++	/* Enable Transmit Priority Flow Control */
++	reg = IXGBE_READ_REG(hw, IXGBE_RMCS);
++	reg &= ~IXGBE_RMCS_TFCE_802_3X;
++	/* correct the reporting of our flow control status */
++	hw->fc.type = ixgbe_fc_none;
++	reg |= IXGBE_RMCS_TFCE_PRIORITY;
++	IXGBE_WRITE_REG(hw, IXGBE_RMCS, reg);
++
++	/* Enable Receive Priority Flow Control */
++	reg = IXGBE_READ_REG(hw, IXGBE_FCTRL);
++	reg &= ~IXGBE_FCTRL_RFCE;
++	reg |= IXGBE_FCTRL_RPFCE;
++	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, reg);
++
++	/*
++	 * Configure flow control thresholds and enable priority flow control
++	 * for each traffic class.
++	 */
++	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
++		if (dcb_config->rx_pba_cfg == pba_equal) {
++			rx_pba_size = IXGBE_RXPBSIZE_64KB;
++		} else {
++			rx_pba_size = (i < 4) ? IXGBE_RXPBSIZE_80KB
++			                      : IXGBE_RXPBSIZE_48KB;
++		}
++
++		reg = ((rx_pba_size >> 5) &  0xFFF0);
++		if (dcb_config->tc_config[i].dcb_pfc == pfc_enabled_tx ||
++		    dcb_config->tc_config[i].dcb_pfc == pfc_enabled_full)
++			reg |= IXGBE_FCRTL_XONE;
++
++		IXGBE_WRITE_REG(hw, IXGBE_FCRTL(i), reg);
++
++		reg = ((rx_pba_size >> 2) & 0xFFF0);
++		if (dcb_config->tc_config[i].dcb_pfc == pfc_enabled_tx ||
++		    dcb_config->tc_config[i].dcb_pfc == pfc_enabled_full)
++			reg |= IXGBE_FCRTH_FCEN;
++
++		IXGBE_WRITE_REG(hw, IXGBE_FCRTH(i), reg);
++	}
++
++	/* Configure pause time */
++	for (i = 0; i < (MAX_TRAFFIC_CLASS >> 1); i++)
++		IXGBE_WRITE_REG(hw, IXGBE_FCTTV(i), 0x68006800);
++
++	/* Configure flow control refresh threshold value */
++	IXGBE_WRITE_REG(hw, IXGBE_FCRTV, 0x3400);
++
++	return 0;
++}
++
++/**
++ * ixgbe_dcb_config_tc_stats_82598 - Configure traffic class statistics
++ * @hw: pointer to hardware structure
++ *
++ * Configure queue statistics registers, all queues belonging to same traffic
++ * class uses a single set of queue statistics counters.
++ */
++s32 ixgbe_dcb_config_tc_stats_82598(struct ixgbe_hw *hw)
++{
++	u32 reg = 0;
++	u8  i   = 0;
++	u8  j   = 0;
++
++	/* Receive Queues stats setting -  8 queues per statistics reg */
++	for (i = 0, j = 0; i < 15 && j < 8; i = i + 2, j++) {
++		reg = IXGBE_READ_REG(hw, IXGBE_RQSMR(i));
++		reg |= ((0x1010101) * j);
++		IXGBE_WRITE_REG(hw, IXGBE_RQSMR(i), reg);
++		reg = IXGBE_READ_REG(hw, IXGBE_RQSMR(i + 1));
++		reg |= ((0x1010101) * j);
++		IXGBE_WRITE_REG(hw, IXGBE_RQSMR(i + 1), reg);
++	}
++	/* Transmit Queues stats setting -  4 queues per statistics reg */
++	for (i = 0; i < 8; i++) {
++		reg = IXGBE_READ_REG(hw, IXGBE_TQSMR(i));
++		reg |= ((0x1010101) * i);
++		IXGBE_WRITE_REG(hw, IXGBE_TQSMR(i), reg);
++	}
++
++	return 0;
++}
++
++/**
++ * ixgbe_dcb_hw_config_82598 - Config and enable DCB
++ * @hw: pointer to hardware structure
++ * @dcb_config: pointer to ixgbe_dcb_config structure
++ *
++ * Configure dcb settings and enable dcb mode.
++ */
++s32 ixgbe_dcb_hw_config_82598(struct ixgbe_hw *hw,
++                              struct ixgbe_dcb_config *dcb_config)
++{
++	ixgbe_dcb_config_packet_buffers_82598(hw, dcb_config);
++	ixgbe_dcb_config_rx_arbiter_82598(hw, dcb_config);
++	ixgbe_dcb_config_tx_desc_arbiter_82598(hw, dcb_config);
++	ixgbe_dcb_config_tx_data_arbiter_82598(hw, dcb_config);
++	ixgbe_dcb_config_pfc_82598(hw, dcb_config);
++	ixgbe_dcb_config_tc_stats_82598(hw);
++
++	return 0;
++}
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.h b/drivers/net/ixgbe/ixgbe_dcb_82598.h
+new file mode 100644
+index 0000000..d550944
+--- /dev/null
++++ b/drivers/net/ixgbe/ixgbe_dcb_82598.h
+@@ -0,0 +1,98 @@
++/*******************************************************************************
++
++  Intel 10 Gigabit PCI Express Linux driver
++  Copyright(c) 1999 - 2007 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++#ifndef _DCB_82598_CONFIG_H_
++#define _DCB_82598_CONFIG_H_
++
++/* DCB register definitions */
++
++#define IXGBE_DPMCS_MTSOS_SHIFT 16
++#define IXGBE_DPMCS_TDPAC       0x00000001 /* 0 Round Robin, 1 DFP - Deficit Fixed Priority */
++#define IXGBE_DPMCS_TRM         0x00000010 /* Transmit Recycle Mode */
++#define IXGBE_DPMCS_ARBDIS      0x00000040 /* DCB arbiter disable */
++#define IXGBE_DPMCS_TSOEF       0x00080000 /* TSO Expand Factor: 0=x4, 1=x2 */
++
++#define IXGBE_RUPPBMR_MQA       0x80000000 /* Enable UP to queue mapping */
++
++#define IXGBE_RT2CR_MCL_SHIFT   12 /* Offset to Max Credit Limit setting */
++#define IXGBE_RT2CR_LSP         0x80000000 /* LSP enable bit */
++
++#define IXGBE_RDRXCTL_MPBEN     0x00000010 /* DMA config for multiple packet buffers enable */
++#define IXGBE_RDRXCTL_MCEN      0x00000040 /* DMA config for multiple cores (RSS) enable */
++
++#define IXGBE_TDTQ2TCCR_MCL_SHIFT   12
++#define IXGBE_TDTQ2TCCR_BWG_SHIFT   9
++#define IXGBE_TDTQ2TCCR_GSP     0x40000000
++#define IXGBE_TDTQ2TCCR_LSP     0x80000000
++
++#define IXGBE_TDPT2TCCR_MCL_SHIFT   12
++#define IXGBE_TDPT2TCCR_BWG_SHIFT   9
++#define IXGBE_TDPT2TCCR_GSP     0x40000000
++#define IXGBE_TDPT2TCCR_LSP     0x80000000
++
++#define IXGBE_PDPMCS_TPPAC      0x00000020 /* 0 Round Robin, 1 for DFP - Deficit Fixed Priority */
++#define IXGBE_PDPMCS_ARBDIS     0x00000040 /* Arbiter disable */
++#define IXGBE_PDPMCS_TRM        0x00000100 /* Transmit Recycle Mode enable */
++
++#define IXGBE_DTXCTL_ENDBUBD    0x00000004 /* Enable DBU buffer division */
++
++#define IXGBE_TXPBSIZE_40KB     0x0000A000 /* 40KB Packet Buffer */
++#define IXGBE_RXPBSIZE_48KB     0x0000C000 /* 48KB Packet Buffer */
++#define IXGBE_RXPBSIZE_64KB     0x00010000 /* 64KB Packet Buffer */
++#define IXGBE_RXPBSIZE_80KB     0x00014000 /* 80KB Packet Buffer */
++
++#define IXGBE_RDRXCTL_RDMTS_1_2 0x00000000
++
++/* DCB hardware-specific driver APIs */
++
++/* DCB PFC functions */
++s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw,
++                               struct ixgbe_dcb_config *dcb_config);
++s32 ixgbe_dcb_get_pfc_stats_82598(struct ixgbe_hw *hw,
++                                  struct ixgbe_hw_stats *stats,
++                                  u8 tc_count);
++
++/* DCB traffic class stats */
++s32 ixgbe_dcb_config_tc_stats_82598(struct ixgbe_hw *hw);
++s32 ixgbe_dcb_get_tc_stats_82598(struct ixgbe_hw *hw,
++                                 struct ixgbe_hw_stats *stats,
++                                 u8 tc_count);
++
++/* DCB config arbiters */
++s32 ixgbe_dcb_config_tx_desc_arbiter_82598(struct ixgbe_hw *hw,
++                                           struct ixgbe_dcb_config *dcb_config);
++s32 ixgbe_dcb_config_tx_data_arbiter_82598(struct ixgbe_hw *hw,
++                                           struct ixgbe_dcb_config *dcb_config);
++s32 ixgbe_dcb_config_rx_arbiter_82598(struct ixgbe_hw *hw,
++                                      struct ixgbe_dcb_config *dcb_config);
++
++/* DCB hw initialization */
++s32 ixgbe_dcb_hw_config_82598(struct ixgbe_hw *hw,
++                              struct ixgbe_dcb_config *config);
++
++#endif /* _DCB_82598_CONFIG_H */
 
