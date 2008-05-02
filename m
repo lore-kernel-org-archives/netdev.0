@@ -1,83 +1,102 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/2] smsc-ircc2: wrap PNP probe code in #ifdef CONFIG_PNP
-Date: Fri, 02 May 2008 13:40:23 -0700
-Message-ID: <200805022040.m42KeN16013646@imap1.linux-foundation.org>
+Subject: [patch 5/5] IPv6 to Intel EtherExpress 16 fails - multicast problems
+Date: Fri, 02 May 2008 13:40:53 -0700
+Message-ID: <200805022040.m42KesxY013686@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	bjorn.helgaas@hp.com, kamalesh@linux.vnet.ibm.com,
-	sfr@canb.auug.org.au
-To: samuel@sortiz.org
+	bns_robson@hotmail.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39194 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49993 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764242AbYEBUlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:41:20 -0400
+	by vger.kernel.org with ESMTP id S933823AbYEBUle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:41:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+From: Bruce Robson <bns_robson@hotmail.com>
 
-Wrap PNP probe code in #ifdef CONFIG_PNP.
+Taken from http://bugzilla.kernel.org/show_bug.cgi?id=10577
 
-Without this change, we'll have unresolved references to pnp_get_resource()
-function when CONFIG_PNP=n.  (This is a new interface that's not in mainline
-yet.)
+I was unable to access a computer containing an Intel EtherExpress 16 network
+card using IPv6.
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>
+I traced this to failure of neighbour discovery.  When I used an "ip -6 neigh
+add" command, on the computer attempting access, to insert a binding between
+the IPv6 address of the computer with the Intel EtherExpress 16 network card
+and the card's ethernet address, I was able to access that computer using
+IPv6.
+
+Neighbour discovery requires working multicast.  The driver sources file
+eexpress.c contains an approximately 30 line function eexp_setup_filter used
+when loading multicast addresses.
+
+I found 3 problems in this function
+
+1) It wrote the number of multicast addresses to the card instead of the
+    number of bytes in the multicast addresses.
+
+2) When loading multiple multicast addresses it loaded the first one
+    provided multiple times instead of loading each one once.
+
+3) The setting of pointer 'data' from 'dmi->dmi_addr' occured before the
+    test for the error situation of 'dmi' being NULL.
+
+Correcting these problems allows the computer with the Intel EtherExpress 16
+network card to found by IPv6 neighbour discovery.
+
+p.s. There is some information on the Intel EtherExpress 16 at
+http://www.intel.com/support/etherexpress/vintage/sb/cs-013500.htm
+Datasheet for the Intel 82586 ethernet controller used by the card
+http://www.datasheetcatalog.com/datasheets_pdf/8/2/5/8/82586.shtml
+
+Signed-off-by: Bruce Robson <bns_robson@hotmail.com>
+Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/irda/smsc-ircc2.c |   14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/eexpress.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff -puN drivers/net/irda/smsc-ircc2.c~smsc-ircc2-wrap-pnp-probe-code-in-ifdef-config_pnp drivers/net/irda/smsc-ircc2.c
---- a/drivers/net/irda/smsc-ircc2.c~smsc-ircc2-wrap-pnp-probe-code-in-ifdef-config_pnp
-+++ a/drivers/net/irda/smsc-ircc2.c
-@@ -79,9 +79,13 @@ MODULE_AUTHOR("Daniele Peri <peri@csai.u
- MODULE_DESCRIPTION("SMC IrCC SIR/FIR controller driver");
- MODULE_LICENSE("GPL");
+diff -puN drivers/net/eexpress.c~ipv6-to-intel-etherexpress-16-fails-multicast-problems drivers/net/eexpress.c
+--- a/drivers/net/eexpress.c~ipv6-to-intel-etherexpress-16-fails-multicast-problems
++++ a/drivers/net/eexpress.c
+@@ -202,7 +202,7 @@ static unsigned short start_code[] = {
+ 	0x0000,Cmd_MCast,
+ 	0x0076,                 /* link to next command */
+ #define CONF_NR_MULTICAST 0x44
+-	0x0000,                 /* number of multicast addresses */
++	0x0000,                 /* number of bytes in multicast address(es) */
+ #define CONF_MULTICAST 0x46
+ 	0x0000, 0x0000, 0x0000, /* some addresses */
+ 	0x0000, 0x0000, 0x0000,
+@@ -1569,7 +1569,7 @@ static void eexp_hw_init586(struct net_d
  
-+#ifdef CONFIG_PNP
- static int smsc_nopnp = 1;
- module_param_named(nopnp, smsc_nopnp, bool, 0);
- MODULE_PARM_DESC(nopnp, "Do not use PNP to detect controller settings, defaults to true");
-+#else
-+#define smsc_nopnp 1
-+#endif
- 
- #define DMA_INVAL 255
- static int ircc_dma = DMA_INVAL;
-@@ -366,6 +370,10 @@ static inline void register_bank(int iob
-                iobase + IRCC_MASTER);
- }
- 
-+static int pnp_driver_registered;
-+
-+#ifdef CONFIG_PNP
-+
- /* PNP hotplug support */
- static const struct pnp_device_id smsc_ircc_pnp_table[] = {
- 	{ .id = "SMCf010", .driver_data = 0 },
-@@ -374,8 +382,6 @@ static const struct pnp_device_id smsc_i
- };
- MODULE_DEVICE_TABLE(pnp, smsc_ircc_pnp_table);
- 
--static int pnp_driver_registered;
--
- static int __init smsc_ircc_pnp_probe(struct pnp_dev *dev,
- 				      const struct pnp_device_id *dev_id)
+ static void eexp_setup_filter(struct net_device *dev)
  {
-@@ -403,6 +409,10 @@ static struct pnp_driver smsc_ircc_pnp_d
- 	.probe		= smsc_ircc_pnp_probe,
- };
+-	struct dev_mc_list *dmi = dev->mc_list;
++	struct dev_mc_list *dmi;
+ 	unsigned short ioaddr = dev->base_addr;
+ 	int count = dev->mc_count;
+ 	int i;
+@@ -1580,9 +1580,9 @@ static void eexp_setup_filter(struct net
+ 	}
  
-+#else
-+static struct pnp_driver smsc_ircc_pnp_driver;
-+#endif
-+
- 
- /*******************************************************************************
-  *
+ 	outw(CONF_NR_MULTICAST & ~31, ioaddr+SM_PTR);
+-	outw(count, ioaddr+SHADOW(CONF_NR_MULTICAST));
+-	for (i = 0; i < count; i++) {
+-		unsigned short *data = (unsigned short *)dmi->dmi_addr;
++	outw(6*count, ioaddr+SHADOW(CONF_NR_MULTICAST));
++	for (i = 0, dmi = dev->mc_list; i < count; i++, dmi = dmi->next) {
++		unsigned short *data;
+ 		if (!dmi) {
+ 			printk(KERN_INFO "%s: too few multicast addresses\n", dev->name);
+ 			break;
+@@ -1591,6 +1591,7 @@ static void eexp_setup_filter(struct net
+ 			printk(KERN_INFO "%s: invalid multicast address length given.\n", dev->name);
+ 			continue;
+ 		}
++		data = (unsigned short *)dmi->dmi_addr;
+ 		outw((CONF_MULTICAST+(6*i)) & ~31, ioaddr+SM_PTR);
+ 		outw(data[0], ioaddr+SHADOW(CONF_MULTICAST+(6*i)));
+ 		outw((CONF_MULTICAST+(6*i)+2) & ~31, ioaddr+SM_PTR);
 _
