@@ -1,85 +1,84 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/2] net: remove NR_CPUS arrays in net/core/dev.c
-Date: Fri, 02 May 2008 13:39:26 -0700
-Message-ID: <200805022039.m42KdQA3013598@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, travis@sgi.com,
-	jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru
-To: davem@davemloft.net
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
+Date: Fri, 2 May 2008 22:39:58 +0200
+Message-ID: <200805022239.58699.tomasz@grobelny.oswiecenia.net>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804282303.40673.tomasz@grobelny.oswiecenia.net> <20080430075332.GA4277@gerrit.erg.abdn.ac.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48634 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S936564AbYEBUks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:40:48 -0400
+Received: from oswiecenia.net ([83.13.108.58]:2412 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936588AbYEBUkx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:40:53 -0400
+In-Reply-To: <20080430075332.GA4277@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Travis <travis@sgi.com>
+Dnia Wednesday 30 of April 2008, Gerrit Renker napisa=B3:
+> | c) allow qpolicy to use each cmsg header as different parameter. So=
+ that
+> (...)
+> I think (c) is best, here is what I'd support.
+> (...)
+Seems we are getting closer in our views, see the just sent patch.
 
-Remove the fixed size channels[NR_CPUS] array in net/core/dev.c and
-dynamically allocate array based on nr_cpu_ids.
+> Ok, but this is a separate question and it is about a yet non-existin=
+g
+> policy.
+>
+Hopefully someone, someday will implement it. So it is good to have a b=
+asic=20
+idea how it might work.
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Mike Travis <travis@sgi.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+> So far there is a "priority" policy, for which I think we agree that =
+32
+> bits are enough.
+>
+=46or storing just priority - yes. I'd even say that it is too much...
 
- net/core/dev.c |   15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+> And both associated parameters can be parsed differently, in particul=
+ar
+> there is no requirement to restrict DCCP_SCM_TIMEOUT to use 32 bits -=
+ it
+> could even pass a struct timeval or struct timespec.
+>
+Yes, that's nice.
 
-diff -puN net/core/dev.c~net-remove-nr_cpus-arrays-in-net-core-devc-v2 net/core/dev.c
---- a/net/core/dev.c~net-remove-nr_cpus-arrays-in-net-core-devc-v2
-+++ a/net/core/dev.c
-@@ -162,7 +162,7 @@ struct net_dma {
- 	struct dma_client client;
- 	spinlock_t lock;
- 	cpumask_t channel_mask;
--	struct dma_chan *channels[NR_CPUS];
-+	struct dma_chan **channels;
- };
- 
- static enum dma_state_client
-@@ -2444,7 +2444,7 @@ static struct netif_rx_stats *softnet_ge
- {
- 	struct netif_rx_stats *rc = NULL;
- 
--	while (*pos < NR_CPUS)
-+	while (*pos < nr_cpu_ids)
- 		if (cpu_online(*pos)) {
- 			rc = &per_cpu(netdev_rx_stat, *pos);
- 			break;
-@@ -4324,7 +4324,7 @@ netdev_dma_event(struct dma_client *clie
- 	spin_lock(&net_dma->lock);
- 	switch (state) {
- 	case DMA_RESOURCE_AVAILABLE:
--		for (i = 0; i < NR_CPUS; i++)
-+		for (i = 0; i < nr_cpu_ids; i++)
- 			if (net_dma->channels[i] == chan) {
- 				found = 1;
- 				break;
-@@ -4339,7 +4339,7 @@ netdev_dma_event(struct dma_client *clie
- 		}
- 		break;
- 	case DMA_RESOURCE_REMOVED:
--		for (i = 0; i < NR_CPUS; i++)
-+		for (i = 0; i < nr_cpu_ids; i++)
- 			if (net_dma->channels[i] == chan) {
- 				found = 1;
- 				pos = i;
-@@ -4366,6 +4366,13 @@ netdev_dma_event(struct dma_client *clie
-  */
- static int __init netdev_dma_register(void)
- {
-+	net_dma.channels = kzalloc(nr_cpu_ids * sizeof(struct net_dma),
-+								GFP_KERNEL);
-+	if (unlikely(!net_dma.channels)) {
-+		printk(KERN_NOTICE
-+				"netdev_dma: no memory for net_dma.channels\n");
-+		return -ENOMEM;
-+	}
- 	spin_lock_init(&net_dma.lock);
- 	dma_cap_set(DMA_MEMCPY, net_dma.client.cap_mask);
- 	dma_async_client_register(&net_dma.client);
-_
+> Then there is a yet non-existing "timeout" policy, which has no assoc=
+iated
+> field yet. If we can assume that e.g. the skb->tstamp field can be us=
+ed
+> to store timeouts, then there are separate fields associated with sep=
+arate
+> policies.
+>
+> Thirdly, there is the aggregate policy "priority+timeout", which can
+> then use both skb->priority and skb->tstamp.
+>
+> I.e. to answer the question, I think it is best to implement "timeout=
+"
+> first, solve the problems it brings up; when that is done,
+> "priority+timeout" will be easy to do - it could be constructed just =
+out of
+> the existing functions defined for "priority" and "timeout".
+>
+> In that manner, other policies can be modularly constructed - for ins=
+tance
+> by combining "timeout" with a different form of the "priority" policy=
+=2E
+>
+I'm not entirely sure if such modular constructions would be possible. =
+I=20
+prefer to think of "timeout policy" and "prio policy" as a special case=
+s=20
+of "timeout+prio policy" with respectively DCCP_SCM_PRIORITY and=20
+DCCP_SCM_TIMEOUT not supplied (and thus set to their default values: 0 =
+and=20
+INFINITY).
+--=20
+Regards,
+Tomasz Grobelny
