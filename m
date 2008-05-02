@@ -1,55 +1,72 @@
-From: akpm@linux-foundation.org
-Subject: [patch 2/2] dccp: ccid2.c, ccid3.c use clamp(), clamp_t()
-Date: Fri, 02 May 2008 13:39:28 -0700
-Message-ID: <200805022039.m42KdTeq013605@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	harvey.harrison@gmail.com, acme@ghostprotocols.net
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:46030 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756194AbYEBUkT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:40:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Subject: [patch 1/1] hci_usb.h: fix hard-to-trigger race
+Date: Fri, 02 May 2008 13:39:55 -0700
+Message-ID: <200805022039.m42KdtYe013613@imap1.linux-foundation.org>
+Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	pavel-+ZI9xUNit7I@public.gmane.org, pavel-AlSwsSmVLrQ@public.gmane.org
+To: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
 
-Makes the intention of the nested min/max clear.
+If someone tries to _urb_unlink while _urb_queue_head is running, he'll see
+_urb->queue == NULL and fail to do any locking.  Prevent that from happening
+by strategically placed barriers.
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 ---
 
- net/dccp/ccids/ccid2.c |    2 +-
- net/dccp/ccids/ccid3.c |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/bluetooth/hci_usb.h |   21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
-diff -puN net/dccp/ccids/ccid2.c~dccp-ccid2c-ccid3c-use-clamp-clamp_t net/dccp/ccids/ccid2.c
---- a/net/dccp/ccids/ccid2.c~dccp-ccid2c-ccid3c-use-clamp-clamp_t
-+++ a/net/dccp/ccids/ccid2.c
-@@ -716,7 +716,7 @@ static int ccid2_hc_tx_init(struct ccid 
- 	 * packets for new connections, following the rules from [RFC3390]".
- 	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
- 	 */
--	hctx->ccid2hctx_cwnd = min(4U, max(2U, 4380U / dp->dccps_mss_cache));
-+	hctx->ccid2hctx_cwnd = clamp(4380U / dp->dccps_mss_cache, 2U, 4U);
- 
- 	/* Make sure that Ack Ratio is enabled and within bounds. */
- 	max_ratio = DIV_ROUND_UP(hctx->ccid2hctx_cwnd, 2);
-diff -puN net/dccp/ccids/ccid3.c~dccp-ccid2c-ccid3c-use-clamp-clamp_t net/dccp/ccids/ccid3.c
---- a/net/dccp/ccids/ccid3.c~dccp-ccid2c-ccid3c-use-clamp-clamp_t
-+++ a/net/dccp/ccids/ccid3.c
-@@ -88,8 +88,8 @@ static void ccid3_hc_tx_set_state(struct
- static inline u64 rfc3390_initial_rate(struct sock *sk)
+diff -puN drivers/bluetooth/hci_usb.h~hci_usbh-fix-hard-to-trigger-race drivers/bluetooth/hci_usb.h
+--- a/drivers/bluetooth/hci_usb.h~hci_usbh-fix-hard-to-trigger-race
++++ a/drivers/bluetooth/hci_usb.h
+@@ -70,7 +70,8 @@ static inline void _urb_queue_head(struc
  {
- 	const struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
--	const __u32 w_init = min_t(__u32, 4 * hctx->ccid3hctx_s,
--				   max_t(__u32, 2 * hctx->ccid3hctx_s, 4380));
-+	const __u32 w_init = clamp_t(__u32, 4380U,
-+			2 * hctx->ccid3hctx_s, 4 * hctx->ccid3hctx_s);
- 
- 	return scaled_div(w_init << 6, hctx->ccid3hctx_rtt);
+ 	unsigned long flags;
+ 	spin_lock_irqsave(&q->lock, flags);
+-	list_add(&_urb->list, &q->head); _urb->queue = q;
++	/* _urb_unlink needs to know which spinlock to use, thus mb(). */
++	_urb->queue = q; mb(); list_add(&_urb->list, &q->head);
+ 	spin_unlock_irqrestore(&q->lock, flags);
  }
+ 
+@@ -78,19 +79,23 @@ static inline void _urb_queue_tail(struc
+ {
+ 	unsigned long flags;
+ 	spin_lock_irqsave(&q->lock, flags);
+-	list_add_tail(&_urb->list, &q->head); _urb->queue = q;
++	/* _urb_unlink needs to know which spinlock to use, thus mb(). */
++	_urb->queue = q; mb(); list_add_tail(&_urb->list, &q->head);
+ 	spin_unlock_irqrestore(&q->lock, flags);
+ }
+ 
+ static inline void _urb_unlink(struct _urb *_urb)
+ {
+-	struct _urb_queue *q = _urb->queue;
++	struct _urb_queue *q;
+ 	unsigned long flags;
+-	if (q) {
+-		spin_lock_irqsave(&q->lock, flags);
+-		list_del(&_urb->list); _urb->queue = NULL;
+-		spin_unlock_irqrestore(&q->lock, flags);
+-	}
++
++	mb();
++	q = _urb->queue;
++	/* If q is NULL, it will die at easy-to-debug NULL pointer dereference.
++	   No need to BUG(). */
++	spin_lock_irqsave(&q->lock, flags);
++	list_del(&_urb->list); _urb->queue = NULL;
++	spin_unlock_irqrestore(&q->lock, flags);
+ }
+ 
+ struct hci_usb {
 _
