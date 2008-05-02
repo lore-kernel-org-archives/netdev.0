@@ -1,102 +1,155 @@
 From: akpm@linux-foundation.org
-Subject: [patch 5/5] IPv6 to Intel EtherExpress 16 fails - multicast problems
-Date: Fri, 02 May 2008 13:40:53 -0700
-Message-ID: <200805022040.m42KesxY013686@imap1.linux-foundation.org>
+Subject: [patch 3/5] sundance: set carrier status on link change events
+Date: Fri, 02 May 2008 13:40:51 -0700
+Message-ID: <200805022040.m42KeqxN013680@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	bns_robson@hotmail.com
+	dbn.lists@gmail.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49993 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50357 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933823AbYEBUle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:41:34 -0400
+	by vger.kernel.org with ESMTP id S933501AbYEBUl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:41:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Robson <bns_robson@hotmail.com>
+From: Dan Nicholson <dbn.lists@gmail.com>
 
-Taken from http://bugzilla.kernel.org/show_bug.cgi?id=10577
+Check if the link is available when a changed interrupt has been received and
+set the carrier status appropriately.  The code is copied nearly verbatim from
+the dl2k module.  The link status could be used in more places in the driver,
+but this is enough to get the carrier status reported to userspace.  Fixes
+kernel bug #7487:
 
-I was unable to access a computer containing an Intel EtherExpress 16 network
-card using IPv6.
+    http://bugzilla.kernel.org/show_bug.cgi?id=7487
 
-I traced this to failure of neighbour discovery.  When I used an "ip -6 neigh
-add" command, on the computer attempting access, to insert a binding between
-the IPv6 address of the computer with the Intel EtherExpress 16 network card
-and the card's ethernet address, I was able to access that computer using
-IPv6.
-
-Neighbour discovery requires working multicast.  The driver sources file
-eexpress.c contains an approximately 30 line function eexp_setup_filter used
-when loading multicast addresses.
-
-I found 3 problems in this function
-
-1) It wrote the number of multicast addresses to the card instead of the
-    number of bytes in the multicast addresses.
-
-2) When loading multiple multicast addresses it loaded the first one
-    provided multiple times instead of loading each one once.
-
-3) The setting of pointer 'data' from 'dmi->dmi_addr' occured before the
-    test for the error situation of 'dmi' being NULL.
-
-Correcting these problems allows the computer with the Intel EtherExpress 16
-network card to found by IPv6 neighbour discovery.
-
-p.s. There is some information on the Intel EtherExpress 16 at
-http://www.intel.com/support/etherexpress/vintage/sb/cs-013500.htm
-Datasheet for the Intel 82586 ethernet controller used by the card
-http://www.datasheetcatalog.com/datasheets_pdf/8/2/5/8/82586.shtml
-
-Signed-off-by: Bruce Robson <bns_robson@hotmail.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+[akpm@linux-foundation.org: coding-style fixes]
+Signed-off-by: Dan Nicholson <dbn.lists@gmail.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/eexpress.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/sundance.c |   95 +++++++++++++++++++++++++--------------
+ 1 file changed, 62 insertions(+), 33 deletions(-)
 
-diff -puN drivers/net/eexpress.c~ipv6-to-intel-etherexpress-16-fails-multicast-problems drivers/net/eexpress.c
---- a/drivers/net/eexpress.c~ipv6-to-intel-etherexpress-16-fails-multicast-problems
-+++ a/drivers/net/eexpress.c
-@@ -202,7 +202,7 @@ static unsigned short start_code[] = {
- 	0x0000,Cmd_MCast,
- 	0x0076,                 /* link to next command */
- #define CONF_NR_MULTICAST 0x44
--	0x0000,                 /* number of multicast addresses */
-+	0x0000,                 /* number of bytes in multicast address(es) */
- #define CONF_MULTICAST 0x46
- 	0x0000, 0x0000, 0x0000, /* some addresses */
- 	0x0000, 0x0000, 0x0000,
-@@ -1569,7 +1569,7 @@ static void eexp_hw_init586(struct net_d
+diff -puN drivers/net/sundance.c~sundance-set-carrier-status-on-link-change-events drivers/net/sundance.c
+--- a/drivers/net/sundance.c~sundance-set-carrier-status-on-link-change-events
++++ a/drivers/net/sundance.c
+@@ -409,6 +409,7 @@ static int  change_mtu(struct net_device
+ static int  eeprom_read(void __iomem *ioaddr, int location);
+ static int  mdio_read(struct net_device *dev, int phy_id, int location);
+ static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
++static int  mdio_wait_link(struct net_device *dev, int wait);
+ static int  netdev_open(struct net_device *dev);
+ static void check_duplex(struct net_device *dev);
+ static void netdev_timer(unsigned long data);
+@@ -785,6 +786,24 @@ static void mdio_write(struct net_device
+ 	return;
+ }
  
- static void eexp_setup_filter(struct net_device *dev)
++static int mdio_wait_link(struct net_device *dev, int wait)
++{
++	int bmsr;
++	int phy_id;
++	struct netdev_private *np;
++
++	np = netdev_priv(dev);
++	phy_id = np->phys[0];
++
++	do {
++		bmsr = mdio_read(dev, phy_id, MII_BMSR);
++		if (bmsr & 0x0004)
++			return 0;
++		mdelay(1);
++	} while (--wait > 0);
++	return -1;
++}
++
+ static int netdev_open(struct net_device *dev)
  {
--	struct dev_mc_list *dmi = dev->mc_list;
-+	struct dev_mc_list *dmi;
- 	unsigned short ioaddr = dev->base_addr;
- 	int count = dev->mc_count;
- 	int i;
-@@ -1580,9 +1580,9 @@ static void eexp_setup_filter(struct net
- 	}
+ 	struct netdev_private *np = netdev_priv(dev);
+@@ -1393,41 +1412,51 @@ static void netdev_error(struct net_devi
+ 	int speed;
  
- 	outw(CONF_NR_MULTICAST & ~31, ioaddr+SM_PTR);
--	outw(count, ioaddr+SHADOW(CONF_NR_MULTICAST));
--	for (i = 0; i < count; i++) {
--		unsigned short *data = (unsigned short *)dmi->dmi_addr;
-+	outw(6*count, ioaddr+SHADOW(CONF_NR_MULTICAST));
-+	for (i = 0, dmi = dev->mc_list; i < count; i++, dmi = dmi->next) {
-+		unsigned short *data;
- 		if (!dmi) {
- 			printk(KERN_INFO "%s: too few multicast addresses\n", dev->name);
- 			break;
-@@ -1591,6 +1591,7 @@ static void eexp_setup_filter(struct net
- 			printk(KERN_INFO "%s: invalid multicast address length given.\n", dev->name);
- 			continue;
+ 	if (intr_status & LinkChange) {
+-		if (np->an_enable) {
+-			mii_advertise = mdio_read (dev, np->phys[0], MII_ADVERTISE);
+-			mii_lpa= mdio_read (dev, np->phys[0], MII_LPA);
+-			mii_advertise &= mii_lpa;
+-			printk (KERN_INFO "%s: Link changed: ", dev->name);
+-			if (mii_advertise & ADVERTISE_100FULL) {
+-				np->speed = 100;
+-				printk ("100Mbps, full duplex\n");
+-			} else if (mii_advertise & ADVERTISE_100HALF) {
+-				np->speed = 100;
+-				printk ("100Mbps, half duplex\n");
+-			} else if (mii_advertise & ADVERTISE_10FULL) {
+-				np->speed = 10;
+-				printk ("10Mbps, full duplex\n");
+-			} else if (mii_advertise & ADVERTISE_10HALF) {
+-				np->speed = 10;
+-				printk ("10Mbps, half duplex\n");
+-			} else
+-				printk ("\n");
++		if (mdio_wait_link(dev, 10) == 0) {
++			printk(KERN_INFO "%s: Link up\n", dev->name);
++			if (np->an_enable) {
++				mii_advertise = mdio_read(dev, np->phys[0],
++							   MII_ADVERTISE);
++				mii_lpa = mdio_read(dev, np->phys[0], MII_LPA);
++				mii_advertise &= mii_lpa;
++				printk(KERN_INFO "%s: Link changed: ",
++					dev->name);
++				if (mii_advertise & ADVERTISE_100FULL) {
++					np->speed = 100;
++					printk("100Mbps, full duplex\n");
++				} else if (mii_advertise & ADVERTISE_100HALF) {
++					np->speed = 100;
++					printk("100Mbps, half duplex\n");
++				} else if (mii_advertise & ADVERTISE_10FULL) {
++					np->speed = 10;
++					printk("10Mbps, full duplex\n");
++				} else if (mii_advertise & ADVERTISE_10HALF) {
++					np->speed = 10;
++					printk("10Mbps, half duplex\n");
++				} else
++					printk("\n");
+ 
++			} else {
++				mii_ctl = mdio_read(dev, np->phys[0], MII_BMCR);
++				speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
++				np->speed = speed;
++				printk(KERN_INFO "%s: Link changed: %dMbps ,",
++					dev->name, speed);
++				printk("%s duplex.\n",
++					(mii_ctl & BMCR_FULLDPLX) ?
++						"full" : "half");
++			}
++			check_duplex(dev);
++			if (np->flowctrl && np->mii_if.full_duplex) {
++				iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
++					ioaddr + MulticastFilter1+2);
++				iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
++					ioaddr + MACCtrl0);
++			}
++			netif_carrier_on(dev);
+ 		} else {
+-			mii_ctl = mdio_read (dev, np->phys[0], MII_BMCR);
+-			speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
+-			np->speed = speed;
+-			printk (KERN_INFO "%s: Link changed: %dMbps ,",
+-				dev->name, speed);
+-			printk ("%s duplex.\n", (mii_ctl & BMCR_FULLDPLX) ?
+-				"full" : "half");
+-		}
+-		check_duplex (dev);
+-		if (np->flowctrl && np->mii_if.full_duplex) {
+-			iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
+-				ioaddr + MulticastFilter1+2);
+-			iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
+-				ioaddr + MACCtrl0);
++			printk(KERN_INFO "%s: Link down\n", dev->name);
++			netif_carrier_off(dev);
  		}
-+		data = (unsigned short *)dmi->dmi_addr;
- 		outw((CONF_MULTICAST+(6*i)) & ~31, ioaddr+SM_PTR);
- 		outw(data[0], ioaddr+SHADOW(CONF_MULTICAST+(6*i)));
- 		outw((CONF_MULTICAST+(6*i)+2) & ~31, ioaddr+SM_PTR);
+ 	}
+ 	if (intr_status & StatsMax) {
 _
