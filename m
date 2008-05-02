@@ -1,40 +1,2192 @@
-From: Michael Brown <mbrown@fensystems.co.uk>
-Subject: Re: New driver "sfc" for Solarstorm SFC4000 controller.
-Date: Fri, 2 May 2008 20:10:53 +0100 (BST)
-Message-ID: <Pine.LNX.4.62.0805022004350.13626@dolphin.home>
-References: <200804301925.m3UJPc72001651@hera.kernel.org>
- <20080501120858.207b6dd6.akpm@linux-foundation.org>
+From: Becky Bruce <bgill@freescale.com>
+Subject: [PATCH] Delete unused fec_8xx net driver
+Date: Fri, 2 May 2008 14:40:38 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0805021320360.24806@monty.am.freescale.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, scottwood@freescale.com,
+	jengelh@medozas.de, vitb@kernel.crashing.org
+To: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprocket.fensystems.co.uk ([212.13.204.53]:34973 "EHLO
-	sprocket.fensystems.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932269AbYEBTnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 15:43:16 -0400
-Received: from cpc2-cmbg6-0-0-cust113.cmbg.cable.ntl.com (cpc2-cmbg6-0-0-cust113.cmbg.cable.ntl.com [81.107.32.114])
-	by sprocket.fensystems.co.uk (Postfix) with ESMTP id DBC1F1E12A
-	for <netdev@vger.kernel.org>; Fri,  2 May 2008 20:10:53 +0100 (BST)
-In-Reply-To: <20080501120858.207b6dd6.akpm@linux-foundation.org>
+Received: from de01egw02.freescale.net ([192.88.165.103]:60887 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762926AbYEBTq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 15:46:26 -0400
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by de01egw02.freescale.net (8.12.11/de01egw02) with ESMTP id m42JkA8b001034
+	for <netdev@vger.kernel.org>; Fri, 2 May 2008 12:46:11 -0700 (MST)
+Received: from monty.am.freescale.net (monty.am.freescale.net [10.82.19.26])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id m42Jk8BS003803
+	for <netdev@vger.kernel.org>; Fri, 2 May 2008 14:46:10 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 May 2008, Andrew Morton wrote:
-> >
-> > ...
-> >
-> > --- /dev/null
-> > +++ b/drivers/net/sfc/i2c-direct.h
-> 
-> There is no linkage with the kernel's own i2c layer?  Should there be?
 
-Last time I checked (i.e. when I originally wrote this bit of the code), 
-the kernel's own i2c layer didn't provide any clean way for kernel code 
-(rather than user code) to access i2c devices.
+This driver has been superseded by fs_enet and is no longer in use.
 
-As originally written, there was also a link to the kernel's i2c layer so 
-that the NIC's onboard i2c bus could be exposed to e.g. lm_sensors for 
-temperature monitoring.  I believe that this part of the driver was 
-expunged since it made the patch "too large", but I may be wrong.
+Signed-off-by: Becky Bruce <becky.bruce@freescale.com>
+---
+ drivers/net/Kconfig                 |    1 -
+ drivers/net/Makefile                |    1 -
+ drivers/net/fec_8xx/Kconfig         |   20 -
+ drivers/net/fec_8xx/Makefile        |   12 -
+ drivers/net/fec_8xx/fec_8xx-netta.c |  151 -----
+ drivers/net/fec_8xx/fec_8xx.h       |  220 ------
+ drivers/net/fec_8xx/fec_main.c      | 1264 -----------------------------------
+ drivers/net/fec_8xx/fec_mii.c       |  418 ------------
+ 8 files changed, 0 insertions(+), 2087 deletions(-)
+ delete mode 100644 drivers/net/fec_8xx/Kconfig
+ delete mode 100644 drivers/net/fec_8xx/Makefile
+ delete mode 100644 drivers/net/fec_8xx/fec_8xx-netta.c
+ delete mode 100644 drivers/net/fec_8xx/fec_8xx.h
+ delete mode 100644 drivers/net/fec_8xx/fec_main.c
+ delete mode 100644 drivers/net/fec_8xx/fec_mii.c
 
-Michael
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index f90a86b..388ba79 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1898,7 +1898,6 @@ config NE_H8300
+ 	  Say Y here if you want to use the NE2000 compatible
+ 	  controller on the Renesas H8/300 processor.
+ 
+-source "drivers/net/fec_8xx/Kconfig"
+ source "drivers/net/fs_enet/Kconfig"
+ 
+ endif # NET_ETHERNET
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 2f1f3f2..b58bd60 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -217,7 +217,6 @@ obj-$(CONFIG_SMC91X) += smc91x.o
+ obj-$(CONFIG_SMC911X) += smc911x.o
+ obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+-obj-$(CONFIG_FEC_8XX) += fec_8xx/
+ obj-$(CONFIG_PASEMI_MAC) += pasemi_mac_driver.o
+ pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
+ obj-$(CONFIG_MLX4_CORE) += mlx4/
+diff --git a/drivers/net/fec_8xx/Kconfig b/drivers/net/fec_8xx/Kconfig
+deleted file mode 100644
+index afb34de..0000000
+--- a/drivers/net/fec_8xx/Kconfig
++++ /dev/null
+@@ -1,20 +0,0 @@
+-config FEC_8XX
+-	tristate "Motorola 8xx FEC driver"
+-	depends on 8XX
+-	select MII
+-
+-config FEC_8XX_GENERIC_PHY
+-	bool "Support any generic PHY"
+-	depends on FEC_8XX
+-	default y
+-
+-config FEC_8XX_DM9161_PHY
+-	bool "Support DM9161 PHY"
+-	depends on FEC_8XX
+-	default n
+-
+-config FEC_8XX_LXT971_PHY
+-	bool "Support LXT971/LXT972 PHY"
+-	depends on FEC_8XX
+-	default n
+-
+diff --git a/drivers/net/fec_8xx/Makefile b/drivers/net/fec_8xx/Makefile
+deleted file mode 100644
+index 70c54f8..0000000
+--- a/drivers/net/fec_8xx/Makefile
++++ /dev/null
+@@ -1,12 +0,0 @@
+-#
+-# Makefile for the Motorola 8xx FEC ethernet controller
+-#
+-
+-obj-$(CONFIG_FEC_8XX) += fec_8xx.o
+-
+-fec_8xx-objs := fec_main.o fec_mii.o
+-
+-# the platform instantatiation objects
+-ifeq ($(CONFIG_NETTA),y)
+-fec_8xx-objs	+= fec_8xx-netta.o
+-endif
+diff --git a/drivers/net/fec_8xx/fec_8xx-netta.c b/drivers/net/fec_8xx/fec_8xx-netta.c
+deleted file mode 100644
+index 79deee2..0000000
+--- a/drivers/net/fec_8xx/fec_8xx-netta.c
++++ /dev/null
+@@ -1,151 +0,0 @@
+-/*
+- * FEC instantatiation file for NETTA
+- */
+-
+-#include <linux/kernel.h>
+-#include <linux/types.h>
+-#include <linux/string.h>
+-#include <linux/ptrace.h>
+-#include <linux/errno.h>
+-#include <linux/ioport.h>
+-#include <linux/slab.h>
+-#include <linux/interrupt.h>
+-#include <linux/pci.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/skbuff.h>
+-#include <linux/spinlock.h>
+-#include <linux/mii.h>
+-#include <linux/ethtool.h>
+-#include <linux/bitops.h>
+-
+-#include <asm/8xx_immap.h>
+-#include <asm/pgtable.h>
+-#include <asm/mpc8xx.h>
+-#include <asm/irq.h>
+-#include <asm/uaccess.h>
+-#include <asm/cpm1.h>
+-
+-#include "fec_8xx.h"
+-
+-/*************************************************/
+-
+-static struct fec_platform_info fec1_info = {
+-	.fec_no = 0,
+-	.use_mdio = 1,
+-	.phy_addr = 8,
+-	.fec_irq = SIU_LEVEL1,
+-	.phy_irq = CPM_IRQ_OFFSET + CPMVEC_PIO_PC6,
+-	.rx_ring = 128,
+-	.tx_ring = 16,
+-	.rx_copybreak = 240,
+-	.use_napi = 1,
+-	.napi_weight = 17,
+-};
+-
+-static struct fec_platform_info fec2_info = {
+-	.fec_no = 1,
+-	.use_mdio = 1,
+-	.phy_addr = 2,
+-	.fec_irq = SIU_LEVEL3,
+-	.phy_irq = CPM_IRQ_OFFSET + CPMVEC_PIO_PC7,
+-	.rx_ring = 128,
+-	.tx_ring = 16,
+-	.rx_copybreak = 240,
+-	.use_napi = 1,
+-	.napi_weight = 17,
+-};
+-
+-static struct net_device *fec1_dev;
+-static struct net_device *fec2_dev;
+-
+-/* XXX custom u-boot & Linux startup needed */
+-extern const char *__fw_getenv(const char *var);
+-
+-/* access ports */
+-#define setbits32(_addr, _v) __fec_out32(&(_addr), __fec_in32(&(_addr)) |  (_v))
+-#define clrbits32(_addr, _v) __fec_out32(&(_addr), __fec_in32(&(_addr)) & ~(_v))
+-
+-#define setbits16(_addr, _v) __fec_out16(&(_addr), __fec_in16(&(_addr)) |  (_v))
+-#define clrbits16(_addr, _v) __fec_out16(&(_addr), __fec_in16(&(_addr)) & ~(_v))
+-
+-int fec_8xx_platform_init(void)
+-{
+-	immap_t *immap = (immap_t *)IMAP_ADDR;
+-	bd_t *bd = (bd_t *) __res;
+-	const char *s;
+-	char *e;
+-	int i;
+-
+-	/* use MDC for MII */
+-	setbits16(immap->im_ioport.iop_pdpar, 0x0080);
+-	clrbits16(immap->im_ioport.iop_pddir, 0x0080);
+-
+-	/* configure FEC1 pins */
+-	setbits16(immap->im_ioport.iop_papar, 0xe810);
+-	setbits16(immap->im_ioport.iop_padir, 0x0810);
+-	clrbits16(immap->im_ioport.iop_padir, 0xe000);
+-
+-	setbits32(immap->im_cpm.cp_pbpar, 0x00000001);
+-	clrbits32(immap->im_cpm.cp_pbdir, 0x00000001);
+-
+-	setbits32(immap->im_cpm.cp_cptr, 0x00000100);
+-	clrbits32(immap->im_cpm.cp_cptr, 0x00000050);
+-
+-	clrbits16(immap->im_ioport.iop_pcpar, 0x0200);
+-	clrbits16(immap->im_ioport.iop_pcdir, 0x0200);
+-	clrbits16(immap->im_ioport.iop_pcso, 0x0200);
+-	setbits16(immap->im_ioport.iop_pcint, 0x0200);
+-
+-	/* configure FEC2 pins */
+-	setbits32(immap->im_cpm.cp_pepar, 0x00039620);
+-	setbits32(immap->im_cpm.cp_pedir, 0x00039620);
+-	setbits32(immap->im_cpm.cp_peso, 0x00031000);
+-	clrbits32(immap->im_cpm.cp_peso, 0x00008620);
+-
+-	setbits32(immap->im_cpm.cp_cptr, 0x00000080);
+-	clrbits32(immap->im_cpm.cp_cptr, 0x00000028);
+-
+-	clrbits16(immap->im_ioport.iop_pcpar, 0x0200);
+-	clrbits16(immap->im_ioport.iop_pcdir, 0x0200);
+-	clrbits16(immap->im_ioport.iop_pcso, 0x0200);
+-	setbits16(immap->im_ioport.iop_pcint, 0x0200);
+-
+-	/* fill up */
+-	fec1_info.sys_clk = bd->bi_intfreq;
+-	fec2_info.sys_clk = bd->bi_intfreq;
+-
+-	s = __fw_getenv("ethaddr");
+-	if (s != NULL) {
+-		for (i = 0; i < 6; i++) {
+-			fec1_info.macaddr[i] = simple_strtoul(s, &e, 16);
+-			if (*e)
+-				s = e + 1;
+-		}
+-	}
+-
+-	s = __fw_getenv("eth1addr");
+-	if (s != NULL) {
+-		for (i = 0; i < 6; i++) {
+-			fec2_info.macaddr[i] = simple_strtoul(s, &e, 16);
+-			if (*e)
+-				s = e + 1;
+-		}
+-	}
+-
+-	fec_8xx_init_one(&fec1_info, &fec1_dev);
+-	fec_8xx_init_one(&fec2_info, &fec2_dev);
+-
+-	return fec1_dev != NULL && fec2_dev != NULL ? 0 : -1;
+-}
+-
+-void fec_8xx_platform_cleanup(void)
+-{
+-	if (fec2_dev != NULL)
+-		fec_8xx_cleanup_one(fec2_dev);
+-
+-	if (fec1_dev != NULL)
+-		fec_8xx_cleanup_one(fec1_dev);
+-}
+diff --git a/drivers/net/fec_8xx/fec_8xx.h b/drivers/net/fec_8xx/fec_8xx.h
+deleted file mode 100644
+index f3b1c6f..0000000
+--- a/drivers/net/fec_8xx/fec_8xx.h
++++ /dev/null
+@@ -1,220 +0,0 @@
+-#ifndef FEC_8XX_H
+-#define FEC_8XX_H
+-
+-#include <linux/mii.h>
+-#include <linux/netdevice.h>
+-
+-#include <linux/types.h>
+-
+-/* HW info */
+-
+-/* CRC polynomium used by the FEC for the multicast group filtering */
+-#define FEC_CRC_POLY   0x04C11DB7
+-
+-#define MII_ADVERTISE_HALF	(ADVERTISE_100HALF | \
+-				 ADVERTISE_10HALF | ADVERTISE_CSMA)
+-#define MII_ADVERTISE_ALL	(ADVERTISE_100FULL | \
+-				 ADVERTISE_10FULL | MII_ADVERTISE_HALF)
+-
+-/* Interrupt events/masks.
+-*/
+-#define FEC_ENET_HBERR	0x80000000U	/* Heartbeat error          */
+-#define FEC_ENET_BABR	0x40000000U	/* Babbling receiver        */
+-#define FEC_ENET_BABT	0x20000000U	/* Babbling transmitter     */
+-#define FEC_ENET_GRA	0x10000000U	/* Graceful stop complete   */
+-#define FEC_ENET_TXF	0x08000000U	/* Full frame transmitted   */
+-#define FEC_ENET_TXB	0x04000000U	/* A buffer was transmitted */
+-#define FEC_ENET_RXF	0x02000000U	/* Full frame received      */
+-#define FEC_ENET_RXB	0x01000000U	/* A buffer was received    */
+-#define FEC_ENET_MII	0x00800000U	/* MII interrupt            */
+-#define FEC_ENET_EBERR	0x00400000U	/* SDMA bus error           */
+-
+-#define FEC_ECNTRL_PINMUX	0x00000004
+-#define FEC_ECNTRL_ETHER_EN	0x00000002
+-#define FEC_ECNTRL_RESET	0x00000001
+-
+-#define FEC_RCNTRL_BC_REJ	0x00000010
+-#define FEC_RCNTRL_PROM		0x00000008
+-#define FEC_RCNTRL_MII_MODE	0x00000004
+-#define FEC_RCNTRL_DRT		0x00000002
+-#define FEC_RCNTRL_LOOP		0x00000001
+-
+-#define FEC_TCNTRL_FDEN		0x00000004
+-#define FEC_TCNTRL_HBC		0x00000002
+-#define FEC_TCNTRL_GTS		0x00000001
+-
+-/* values for MII phy_status */
+-
+-#define PHY_CONF_ANE	0x0001	/* 1 auto-negotiation enabled     */
+-#define PHY_CONF_LOOP	0x0002	/* 1 loopback mode enabled        */
+-#define PHY_CONF_SPMASK	0x00f0	/* mask for speed                 */
+-#define PHY_CONF_10HDX	0x0010	/* 10 Mbit half duplex supported  */
+-#define PHY_CONF_10FDX	0x0020	/* 10 Mbit full duplex supported  */
+-#define PHY_CONF_100HDX	0x0040	/* 100 Mbit half duplex supported */
+-#define PHY_CONF_100FDX	0x0080	/* 100 Mbit full duplex supported */
+-
+-#define PHY_STAT_LINK	0x0100	/* 1 up - 0 down                  */
+-#define PHY_STAT_FAULT	0x0200	/* 1 remote fault                 */
+-#define PHY_STAT_ANC	0x0400	/* 1 auto-negotiation complete    */
+-#define PHY_STAT_SPMASK	0xf000	/* mask for speed                 */
+-#define PHY_STAT_10HDX	0x1000	/* 10 Mbit half duplex selected   */
+-#define PHY_STAT_10FDX	0x2000	/* 10 Mbit full duplex selected   */
+-#define PHY_STAT_100HDX	0x4000	/* 100 Mbit half duplex selected  */
+-#define PHY_STAT_100FDX	0x8000	/* 100 Mbit full duplex selected  */
+-
+-typedef struct phy_info {
+-	unsigned int id;
+-	const char *name;
+-	void (*startup) (struct net_device * dev);
+-	void (*shutdown) (struct net_device * dev);
+-	void (*ack_int) (struct net_device * dev);
+-} phy_info_t;
+-
+-/* The FEC stores dest/src/type, data, and checksum for receive packets.
+- */
+-#define MAX_MTU 1508		/* Allow fullsized pppoe packets over VLAN */
+-#define MIN_MTU 46		/* this is data size */
+-#define CRC_LEN 4
+-
+-#define PKT_MAXBUF_SIZE		(MAX_MTU+ETH_HLEN+CRC_LEN)
+-#define PKT_MINBUF_SIZE		(MIN_MTU+ETH_HLEN+CRC_LEN)
+-
+-/* Must be a multiple of 4 */
+-#define PKT_MAXBLR_SIZE		((PKT_MAXBUF_SIZE+3) & ~3)
+-/* This is needed so that invalidate_xxx wont invalidate too much */
+-#define ENET_RX_FRSIZE		L1_CACHE_ALIGN(PKT_MAXBUF_SIZE)
+-
+-/* platform interface */
+-
+-struct fec_platform_info {
+-	int fec_no;		/* FEC index                  */
+-	int use_mdio;		/* use external MII           */
+-	int phy_addr;		/* the phy address            */
+-	int fec_irq, phy_irq;	/* the irq for the controller */
+-	int rx_ring, tx_ring;	/* number of buffers on rx    */
+-	int sys_clk;		/* system clock               */
+-	__u8 macaddr[6];	/* mac address                */
+-	int rx_copybreak;	/* limit we copy small frames */
+-	int use_napi;		/* use NAPI                   */
+-	int napi_weight;	/* NAPI weight                */
+-};
+-
+-/* forward declaration */
+-struct fec;
+-
+-struct fec_enet_private {
+-	spinlock_t lock;	/* during all ops except TX pckt processing */
+-	spinlock_t tx_lock;	/* during fec_start_xmit and fec_tx         */
+-	struct net_device *dev;
+-	struct napi_struct napi;
+-	int fecno;
+-	struct fec *fecp;
+-	const struct fec_platform_info *fpi;
+-	int rx_ring, tx_ring;
+-	dma_addr_t ring_mem_addr;
+-	void *ring_base;
+-	struct sk_buff **rx_skbuff;
+-	struct sk_buff **tx_skbuff;
+-	cbd_t *rx_bd_base;	/* Address of Rx and Tx buffers.    */
+-	cbd_t *tx_bd_base;
+-	cbd_t *dirty_tx;	/* ring entries to be free()ed.     */
+-	cbd_t *cur_rx;
+-	cbd_t *cur_tx;
+-	int tx_free;
+-	struct net_device_stats stats;
+-	struct timer_list phy_timer_list;
+-	const struct phy_info *phy;
+-	unsigned int fec_phy_speed;
+-	__u32 msg_enable;
+-	struct mii_if_info mii_if;
+-};
+-
+-/***************************************************************************/
+-
+-void fec_restart(struct net_device *dev, int duplex, int speed);
+-void fec_stop(struct net_device *dev);
+-
+-/***************************************************************************/
+-
+-int fec_mii_read(struct net_device *dev, int phy_id, int location);
+-void fec_mii_write(struct net_device *dev, int phy_id, int location, int value);
+-
+-int fec_mii_phy_id_detect(struct net_device *dev);
+-void fec_mii_startup(struct net_device *dev);
+-void fec_mii_shutdown(struct net_device *dev);
+-void fec_mii_ack_int(struct net_device *dev);
+-
+-void fec_mii_link_status_change_check(struct net_device *dev, int init_media);
+-
+-/***************************************************************************/
+-
+-#define FEC1_NO	0x00
+-#define FEC2_NO	0x01
+-#define FEC3_NO	0x02
+-
+-int fec_8xx_init_one(const struct fec_platform_info *fpi,
+-		     struct net_device **devp);
+-int fec_8xx_cleanup_one(struct net_device *dev);
+-
+-/***************************************************************************/
+-
+-#define DRV_MODULE_NAME		"fec_8xx"
+-#define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"0.1"
+-#define DRV_MODULE_RELDATE	"May 6, 2004"
+-
+-/***************************************************************************/
+-
+-int fec_8xx_platform_init(void);
+-void fec_8xx_platform_cleanup(void);
+-
+-/***************************************************************************/
+-
+-/* FEC access macros */
+-#if defined(CONFIG_8xx)
+-/* for a 8xx __raw_xxx's are sufficient */
+-#define __fec_out32(addr, x)	__raw_writel(x, addr)
+-#define __fec_out16(addr, x)	__raw_writew(x, addr)
+-#define __fec_in32(addr)	__raw_readl(addr)
+-#define __fec_in16(addr)	__raw_readw(addr)
+-#else
+-/* for others play it safe */
+-#define __fec_out32(addr, x)	out_be32(addr, x)
+-#define __fec_out16(addr, x)	out_be16(addr, x)
+-#define __fec_in32(addr)	in_be32(addr)
+-#define __fec_in16(addr)	in_be16(addr)
+-#endif
+-
+-/* write */
+-#define FW(_fecp, _reg, _v) __fec_out32(&(_fecp)->fec_ ## _reg, (_v))
+-
+-/* read */
+-#define FR(_fecp, _reg)	__fec_in32(&(_fecp)->fec_ ## _reg)
+-
+-/* set bits */
+-#define FS(_fecp, _reg, _v) FW(_fecp, _reg, FR(_fecp, _reg) | (_v))
+-
+-/* clear bits */
+-#define FC(_fecp, _reg, _v) FW(_fecp, _reg, FR(_fecp, _reg) & ~(_v))
+-
+-/* buffer descriptor access macros */
+-
+-/* write */
+-#define CBDW_SC(_cbd, _sc) 		__fec_out16(&(_cbd)->cbd_sc, (_sc))
+-#define CBDW_DATLEN(_cbd, _datlen)	__fec_out16(&(_cbd)->cbd_datlen, (_datlen))
+-#define CBDW_BUFADDR(_cbd, _bufaddr)	__fec_out32(&(_cbd)->cbd_bufaddr, (_bufaddr))
+-
+-/* read */
+-#define CBDR_SC(_cbd) 			__fec_in16(&(_cbd)->cbd_sc)
+-#define CBDR_DATLEN(_cbd)		__fec_in16(&(_cbd)->cbd_datlen)
+-#define CBDR_BUFADDR(_cbd)		__fec_in32(&(_cbd)->cbd_bufaddr)
+-
+-/* set bits */
+-#define CBDS_SC(_cbd, _sc) 		CBDW_SC(_cbd, CBDR_SC(_cbd) | (_sc))
+-
+-/* clear bits */
+-#define CBDC_SC(_cbd, _sc) 		CBDW_SC(_cbd, CBDR_SC(_cbd) & ~(_sc))
+-
+-/***************************************************************************/
+-
+-#endif
+diff --git a/drivers/net/fec_8xx/fec_main.c b/drivers/net/fec_8xx/fec_main.c
+deleted file mode 100644
+index ca8d2e8..0000000
+--- a/drivers/net/fec_8xx/fec_main.c
++++ /dev/null
+@@ -1,1264 +0,0 @@
+-/*
+- * Fast Ethernet Controller (FEC) driver for Motorola MPC8xx.
+- *
+- * Copyright (c) 2003 Intracom S.A. 
+- *  by Pantelis Antoniou <panto@intracom.gr>
+- *
+- * Heavily based on original FEC driver by Dan Malek <dan@embeddededge.com>
+- * and modifications by Joakim Tjernlund <joakim.tjernlund@lumentis.se>
+- *
+- * Released under the GPL
+- */
+-
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/types.h>
+-#include <linux/string.h>
+-#include <linux/ptrace.h>
+-#include <linux/errno.h>
+-#include <linux/ioport.h>
+-#include <linux/slab.h>
+-#include <linux/interrupt.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/skbuff.h>
+-#include <linux/spinlock.h>
+-#include <linux/mii.h>
+-#include <linux/ethtool.h>
+-#include <linux/bitops.h>
+-#include <linux/dma-mapping.h>
+-
+-#include <asm/8xx_immap.h>
+-#include <asm/pgtable.h>
+-#include <asm/mpc8xx.h>
+-#include <asm/irq.h>
+-#include <asm/uaccess.h>
+-#include <asm/cpm1.h>
+-
+-#include "fec_8xx.h"
+-
+-/*************************************************/
+-
+-#define FEC_MAX_MULTICAST_ADDRS	64
+-
+-/*************************************************/
+-
+-static char version[] __devinitdata =
+-    DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")" "\n";
+-
+-MODULE_AUTHOR("Pantelis Antoniou <panto@intracom.gr>");
+-MODULE_DESCRIPTION("Motorola 8xx FEC ethernet driver");
+-MODULE_LICENSE("GPL");
+-
+-int fec_8xx_debug = -1;		/* -1 == use FEC_8XX_DEF_MSG_ENABLE as value */
+-module_param(fec_8xx_debug, int, 0);
+-MODULE_PARM_DESC(fec_8xx_debug,
+-		 "FEC 8xx bitmapped debugging message enable value");
+-
+-
+-/*************************************************/
+-
+-/*
+- * Delay to wait for FEC reset command to complete (in us) 
+- */
+-#define FEC_RESET_DELAY		50
+-
+-/*****************************************************************************************/
+-
+-static void fec_whack_reset(fec_t * fecp)
+-{
+-	int i;
+-
+-	/*
+-	 * Whack a reset.  We should wait for this.  
+-	 */
+-	FW(fecp, ecntrl, FEC_ECNTRL_PINMUX | FEC_ECNTRL_RESET);
+-	for (i = 0;
+-	     (FR(fecp, ecntrl) & FEC_ECNTRL_RESET) != 0 && i < FEC_RESET_DELAY;
+-	     i++)
+-		udelay(1);
+-
+-	if (i == FEC_RESET_DELAY)
+-		printk(KERN_WARNING "FEC Reset timeout!\n");
+-
+-}
+-
+-/****************************************************************************/
+-
+-/*
+- * Transmitter timeout.  
+- */
+-#define TX_TIMEOUT (2*HZ)
+-
+-/****************************************************************************/
+-
+-/*
+- * Returns the CRC needed when filling in the hash table for
+- * multicast group filtering
+- * pAddr must point to a MAC address (6 bytes)
+- */
+-static __u32 fec_mulicast_calc_crc(char *pAddr)
+-{
+-	u8 byte;
+-	int byte_count;
+-	int bit_count;
+-	__u32 crc = 0xffffffff;
+-	u8 msb;
+-
+-	for (byte_count = 0; byte_count < 6; byte_count++) {
+-		byte = pAddr[byte_count];
+-		for (bit_count = 0; bit_count < 8; bit_count++) {
+-			msb = crc >> 31;
+-			crc <<= 1;
+-			if (msb ^ (byte & 0x1)) {
+-				crc ^= FEC_CRC_POLY;
+-			}
+-			byte >>= 1;
+-		}
+-	}
+-	return (crc);
+-}
+-
+-/*
+- * Set or clear the multicast filter for this adaptor.
+- * Skeleton taken from sunlance driver.
+- * The CPM Ethernet implementation allows Multicast as well as individual
+- * MAC address filtering.  Some of the drivers check to make sure it is
+- * a group multicast address, and discard those that are not.  I guess I
+- * will do the same for now, but just remove the test if you want
+- * individual filtering as well (do the upper net layers want or support
+- * this kind of feature?).
+- */
+-static void fec_set_multicast_list(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	fec_t *fecp = fep->fecp;
+-	struct dev_mc_list *pmc;
+-	__u32 crc;
+-	int temp;
+-	__u32 csrVal;
+-	int hash_index;
+-	__u32 hthi, htlo;
+-	unsigned long flags;
+-
+-
+-	if ((dev->flags & IFF_PROMISC) != 0) {
+-
+-		spin_lock_irqsave(&fep->lock, flags);
+-		FS(fecp, r_cntrl, FEC_RCNTRL_PROM);
+-		spin_unlock_irqrestore(&fep->lock, flags);
+-
+-		/*
+-		 * Log any net taps. 
+-		 */
+-		printk(KERN_WARNING DRV_MODULE_NAME
+-		       ": %s: Promiscuous mode enabled.\n", dev->name);
+-		return;
+-
+-	}
+-
+-	if ((dev->flags & IFF_ALLMULTI) != 0 ||
+-	    dev->mc_count > FEC_MAX_MULTICAST_ADDRS) {
+-		/*
+-		 * Catch all multicast addresses, set the filter to all 1's.
+-		 */
+-		hthi = 0xffffffffU;
+-		htlo = 0xffffffffU;
+-	} else {
+-		hthi = 0;
+-		htlo = 0;
+-
+-		/*
+-		 * Now populate the hash table 
+-		 */
+-		for (pmc = dev->mc_list; pmc != NULL; pmc = pmc->next) {
+-			crc = fec_mulicast_calc_crc(pmc->dmi_addr);
+-			temp = (crc & 0x3f) >> 1;
+-			hash_index = ((temp & 0x01) << 4) |
+-				     ((temp & 0x02) << 2) |
+-				     ((temp & 0x04)) |
+-				     ((temp & 0x08) >> 2) |
+-				     ((temp & 0x10) >> 4);
+-			csrVal = (1 << hash_index);
+-			if (crc & 1)
+-				hthi |= csrVal;
+-			else
+-				htlo |= csrVal;
+-		}
+-	}
+-
+-	spin_lock_irqsave(&fep->lock, flags);
+-	FC(fecp, r_cntrl, FEC_RCNTRL_PROM);
+-	FW(fecp, hash_table_high, hthi);
+-	FW(fecp, hash_table_low, htlo);
+-	spin_unlock_irqrestore(&fep->lock, flags);
+-}
+-
+-static int fec_set_mac_address(struct net_device *dev, void *addr)
+-{
+-	struct sockaddr *mac = addr;
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	struct fec *fecp = fep->fecp;
+-	int i;
+-	__u32 addrhi, addrlo;
+-	unsigned long flags;
+-
+-	/* Get pointer to SCC area in parameter RAM. */
+-	for (i = 0; i < 6; i++)
+-		dev->dev_addr[i] = mac->sa_data[i];
+-
+-	/*
+-	 * Set station address. 
+-	 */
+-	addrhi = ((__u32) dev->dev_addr[0] << 24) |
+-		 ((__u32) dev->dev_addr[1] << 16) |
+-	   	 ((__u32) dev->dev_addr[2] <<  8) |
+-	    	  (__u32) dev->dev_addr[3];
+-	addrlo = ((__u32) dev->dev_addr[4] << 24) |
+-	    	 ((__u32) dev->dev_addr[5] << 16);
+-
+-	spin_lock_irqsave(&fep->lock, flags);
+-	FW(fecp, addr_low, addrhi);
+-	FW(fecp, addr_high, addrlo);
+-	spin_unlock_irqrestore(&fep->lock, flags);
+-
+-	return 0;
+-}
+-
+-/*
+- * This function is called to start or restart the FEC during a link
+- * change.  This only happens when switching between half and full
+- * duplex.
+- */
+-void fec_restart(struct net_device *dev, int duplex, int speed)
+-{
+-#ifdef CONFIG_DUET
+-	immap_t *immap = (immap_t *) IMAP_ADDR;
+-	__u32 cptr;
+-#endif
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	struct fec *fecp = fep->fecp;
+-	const struct fec_platform_info *fpi = fep->fpi;
+-	cbd_t *bdp;
+-	struct sk_buff *skb;
+-	int i;
+-	__u32 addrhi, addrlo;
+-
+-	fec_whack_reset(fep->fecp);
+-
+-	/*
+-	 * Set station address. 
+-	 */
+-	addrhi = ((__u32) dev->dev_addr[0] << 24) |
+-		 ((__u32) dev->dev_addr[1] << 16) |
+-		 ((__u32) dev->dev_addr[2] <<  8) |
+-		 (__u32) dev->dev_addr[3];
+-	addrlo = ((__u32) dev->dev_addr[4] << 24) |
+-		 ((__u32) dev->dev_addr[5] << 16);
+-	FW(fecp, addr_low, addrhi);
+-	FW(fecp, addr_high, addrlo);
+-
+-	/*
+-	 * Reset all multicast. 
+-	 */
+-	FW(fecp, hash_table_high, 0);
+-	FW(fecp, hash_table_low, 0);
+-
+-	/*
+-	 * Set maximum receive buffer size. 
+-	 */
+-	FW(fecp, r_buff_size, PKT_MAXBLR_SIZE);
+-	FW(fecp, r_hash, PKT_MAXBUF_SIZE);
+-
+-	/*
+-	 * Set receive and transmit descriptor base. 
+-	 */
+-	FW(fecp, r_des_start, iopa((__u32) (fep->rx_bd_base)));
+-	FW(fecp, x_des_start, iopa((__u32) (fep->tx_bd_base)));
+-
+-	fep->dirty_tx = fep->cur_tx = fep->tx_bd_base;
+-	fep->tx_free = fep->tx_ring;
+-	fep->cur_rx = fep->rx_bd_base;
+-
+-	/*
+-	 * Reset SKB receive buffers 
+-	 */
+-	for (i = 0; i < fep->rx_ring; i++) {
+-		if ((skb = fep->rx_skbuff[i]) == NULL)
+-			continue;
+-		fep->rx_skbuff[i] = NULL;
+-		dev_kfree_skb(skb);
+-	}
+-
+-	/*
+-	 * Initialize the receive buffer descriptors. 
+-	 */
+-	for (i = 0, bdp = fep->rx_bd_base; i < fep->rx_ring; i++, bdp++) {
+-		skb = dev_alloc_skb(ENET_RX_FRSIZE);
+-		if (skb == NULL) {
+-			printk(KERN_WARNING DRV_MODULE_NAME
+-			       ": %s Memory squeeze, unable to allocate skb\n",
+-			       dev->name);
+-			fep->stats.rx_dropped++;
+-			break;
+-		}
+-		fep->rx_skbuff[i] = skb;
+-		skb->dev = dev;
+-		CBDW_BUFADDR(bdp, dma_map_single(NULL, skb->data,
+-					 L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
+-					 DMA_FROM_DEVICE));
+-		CBDW_DATLEN(bdp, 0);	/* zero */
+-		CBDW_SC(bdp, BD_ENET_RX_EMPTY |
+-			((i < fep->rx_ring - 1) ? 0 : BD_SC_WRAP));
+-	}
+-	/*
+-	 * if we failed, fillup remainder 
+-	 */
+-	for (; i < fep->rx_ring; i++, bdp++) {
+-		fep->rx_skbuff[i] = NULL;
+-		CBDW_SC(bdp, (i < fep->rx_ring - 1) ? 0 : BD_SC_WRAP);
+-	}
+-
+-	/*
+-	 * Reset SKB transmit buffers.  
+-	 */
+-	for (i = 0; i < fep->tx_ring; i++) {
+-		if ((skb = fep->tx_skbuff[i]) == NULL)
+-			continue;
+-		fep->tx_skbuff[i] = NULL;
+-		dev_kfree_skb(skb);
+-	}
+-
+-	/*
+-	 * ...and the same for transmit.  
+-	 */
+-	for (i = 0, bdp = fep->tx_bd_base; i < fep->tx_ring; i++, bdp++) {
+-		fep->tx_skbuff[i] = NULL;
+-		CBDW_BUFADDR(bdp, virt_to_bus(NULL));
+-		CBDW_DATLEN(bdp, 0);
+-		CBDW_SC(bdp, (i < fep->tx_ring - 1) ? 0 : BD_SC_WRAP);
+-	}
+-
+-	/*
+-	 * Enable big endian and don't care about SDMA FC. 
+-	 */
+-	FW(fecp, fun_code, 0x78000000);
+-
+-	/*
+-	 * Set MII speed. 
+-	 */
+-	FW(fecp, mii_speed, fep->fec_phy_speed);
+-
+-	/*
+-	 * Clear any outstanding interrupt. 
+-	 */
+-	FW(fecp, ievent, 0xffc0);
+-	FW(fecp, ivec, (fpi->fec_irq / 2) << 29);
+-
+-	/*
+-	 * adjust to speed (only for DUET & RMII) 
+-	 */
+-#ifdef CONFIG_DUET
+-	cptr = in_be32(&immap->im_cpm.cp_cptr);
+-	switch (fpi->fec_no) {
+-	case 0:
+-		/*
+-		 * check if in RMII mode 
+-		 */
+-		if ((cptr & 0x100) == 0)
+-			break;
+-
+-		if (speed == 10)
+-			cptr |= 0x0000010;
+-		else if (speed == 100)
+-			cptr &= ~0x0000010;
+-		break;
+-	case 1:
+-		/*
+-		 * check if in RMII mode 
+-		 */
+-		if ((cptr & 0x80) == 0)
+-			break;
+-
+-		if (speed == 10)
+-			cptr |= 0x0000008;
+-		else if (speed == 100)
+-			cptr &= ~0x0000008;
+-		break;
+-	default:
+-		break;
+-	}
+-	out_be32(&immap->im_cpm.cp_cptr, cptr);
+-#endif
+-
+-	FW(fecp, r_cntrl, FEC_RCNTRL_MII_MODE);	/* MII enable */
+-	/*
+-	 * adjust to duplex mode 
+-	 */
+-	if (duplex) {
+-		FC(fecp, r_cntrl, FEC_RCNTRL_DRT);
+-		FS(fecp, x_cntrl, FEC_TCNTRL_FDEN);	/* FD enable */
+-	} else {
+-		FS(fecp, r_cntrl, FEC_RCNTRL_DRT);
+-		FC(fecp, x_cntrl, FEC_TCNTRL_FDEN);	/* FD disable */
+-	}
+-
+-	/*
+-	 * Enable interrupts we wish to service. 
+-	 */
+-	FW(fecp, imask, FEC_ENET_TXF | FEC_ENET_TXB |
+-	   FEC_ENET_RXF | FEC_ENET_RXB);
+-
+-	/*
+-	 * And last, enable the transmit and receive processing. 
+-	 */
+-	FW(fecp, ecntrl, FEC_ECNTRL_PINMUX | FEC_ECNTRL_ETHER_EN);
+-	FW(fecp, r_des_active, 0x01000000);
+-}
+-
+-void fec_stop(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	fec_t *fecp = fep->fecp;
+-	struct sk_buff *skb;
+-	int i;
+-
+-	if ((FR(fecp, ecntrl) & FEC_ECNTRL_ETHER_EN) == 0)
+-		return;		/* already down */
+-
+-	FW(fecp, x_cntrl, 0x01);	/* Graceful transmit stop */
+-	for (i = 0; ((FR(fecp, ievent) & 0x10000000) == 0) &&
+-	     i < FEC_RESET_DELAY; i++)
+-		udelay(1);
+-
+-	if (i == FEC_RESET_DELAY)
+-		printk(KERN_WARNING DRV_MODULE_NAME
+-		       ": %s FEC timeout on graceful transmit stop\n",
+-		       dev->name);
+-	/*
+-	 * Disable FEC. Let only MII interrupts. 
+-	 */
+-	FW(fecp, imask, 0);
+-	FW(fecp, ecntrl, ~FEC_ECNTRL_ETHER_EN);
+-
+-	/*
+-	 * Reset SKB transmit buffers.  
+-	 */
+-	for (i = 0; i < fep->tx_ring; i++) {
+-		if ((skb = fep->tx_skbuff[i]) == NULL)
+-			continue;
+-		fep->tx_skbuff[i] = NULL;
+-		dev_kfree_skb(skb);
+-	}
+-
+-	/*
+-	 * Reset SKB receive buffers 
+-	 */
+-	for (i = 0; i < fep->rx_ring; i++) {
+-		if ((skb = fep->rx_skbuff[i]) == NULL)
+-			continue;
+-		fep->rx_skbuff[i] = NULL;
+-		dev_kfree_skb(skb);
+-	}
+-}
+-
+-/* common receive function */
+-static int fec_enet_rx_common(struct fec_enet_private *ep,
+-			      struct net_device *dev, int budget)
+-{
+-	fec_t *fecp = fep->fecp;
+-	const struct fec_platform_info *fpi = fep->fpi;
+-	cbd_t *bdp;
+-	struct sk_buff *skb, *skbn, *skbt;
+-	int received = 0;
+-	__u16 pkt_len, sc;
+-	int curidx;
+-
+-	/*
+-	 * First, grab all of the stats for the incoming packet.
+-	 * These get messed up if we get called due to a busy condition.
+-	 */
+-	bdp = fep->cur_rx;
+-
+-	/* clear RX status bits for napi*/
+-	if (fpi->use_napi)
+-		FW(fecp, ievent, FEC_ENET_RXF | FEC_ENET_RXB);
+-
+-	while (((sc = CBDR_SC(bdp)) & BD_ENET_RX_EMPTY) == 0) {
+-
+-		curidx = bdp - fep->rx_bd_base;
+-
+-		/*
+-		 * Since we have allocated space to hold a complete frame,
+-		 * the last indicator should be set.
+-		 */
+-		if ((sc & BD_ENET_RX_LAST) == 0)
+-			printk(KERN_WARNING DRV_MODULE_NAME
+-			       ": %s rcv is not +last\n",
+-			       dev->name);
+-
+-		/*
+-		 * Check for errors. 
+-		 */
+-		if (sc & (BD_ENET_RX_LG | BD_ENET_RX_SH | BD_ENET_RX_CL |
+-			  BD_ENET_RX_NO | BD_ENET_RX_CR | BD_ENET_RX_OV)) {
+-			fep->stats.rx_errors++;
+-			/* Frame too long or too short. */
+-			if (sc & (BD_ENET_RX_LG | BD_ENET_RX_SH))
+-				fep->stats.rx_length_errors++;
+-			/* Frame alignment */
+-			if (sc & (BD_ENET_RX_NO | BD_ENET_RX_CL))
+-				fep->stats.rx_frame_errors++;
+-			/* CRC Error */
+-			if (sc & BD_ENET_RX_CR)
+-				fep->stats.rx_crc_errors++;
+-			/* FIFO overrun */
+-			if (sc & BD_ENET_RX_OV)
+-				fep->stats.rx_crc_errors++;
+-
+-			skbn = fep->rx_skbuff[curidx];
+-			BUG_ON(skbn == NULL);
+-
+-		} else {
+-			skb = fep->rx_skbuff[curidx];
+-			BUG_ON(skb == NULL);
+-
+-			/*
+-			 * Process the incoming frame.
+-			 */
+-			fep->stats.rx_packets++;
+-			pkt_len = CBDR_DATLEN(bdp) - 4;	/* remove CRC */
+-			fep->stats.rx_bytes += pkt_len + 4;
+-
+-			if (pkt_len <= fpi->rx_copybreak) {
+-				/* +2 to make IP header L1 cache aligned */
+-				skbn = dev_alloc_skb(pkt_len + 2);
+-				if (skbn != NULL) {
+-					skb_reserve(skbn, 2);	/* align IP header */
+-					skb_copy_from_linear_data(skb,
+-								  skbn->data,
+-								  pkt_len);
+-					/* swap */
+-					skbt = skb;
+-					skb = skbn;
+-					skbn = skbt;
+-				}
+-			} else
+-				skbn = dev_alloc_skb(ENET_RX_FRSIZE);
+-
+-			if (skbn != NULL) {
+-				skb_put(skb, pkt_len);	/* Make room */
+-				skb->protocol = eth_type_trans(skb, dev);
+-				received++;
+-				if (!fpi->use_napi)
+-					netif_rx(skb);
+-				else
+-					netif_receive_skb(skb);
+-			} else {
+-				printk(KERN_WARNING DRV_MODULE_NAME
+-				       ": %s Memory squeeze, dropping packet.\n",
+-				       dev->name);
+-				fep->stats.rx_dropped++;
+-				skbn = skb;
+-			}
+-		}
+-
+-		fep->rx_skbuff[curidx] = skbn;
+-		CBDW_BUFADDR(bdp, dma_map_single(NULL, skbn->data,
+-						 L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
+-						 DMA_FROM_DEVICE));
+-		CBDW_DATLEN(bdp, 0);
+-		CBDW_SC(bdp, (sc & ~BD_ENET_RX_STATS) | BD_ENET_RX_EMPTY);
+-
+-		/*
+-		 * Update BD pointer to next entry. 
+-		 */
+-		if ((sc & BD_ENET_RX_WRAP) == 0)
+-			bdp++;
+-		else
+-			bdp = fep->rx_bd_base;
+-
+-		/*
+-		 * Doing this here will keep the FEC running while we process
+-		 * incoming frames.  On a heavily loaded network, we should be
+-		 * able to keep up at the expense of system resources.
+-		 */
+-		FW(fecp, r_des_active, 0x01000000);
+-
+-		if (received >= budget)
+-			break;
+-
+-	}
+-
+-	fep->cur_rx = bdp;
+-
+-	if (fpi->use_napi) {
+-		if (received < budget) {
+-			netif_rx_complete(dev, &fep->napi);
+-
+-			/* enable RX interrupt bits */
+-			FS(fecp, imask, FEC_ENET_RXF | FEC_ENET_RXB);
+-		}
+-	}
+-
+-	return received;
+-}
+-
+-static void fec_enet_tx(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	cbd_t *bdp;
+-	struct sk_buff *skb;
+-	int dirtyidx, do_wake;
+-	__u16 sc;
+-
+-	spin_lock(&fep->lock);
+-	bdp = fep->dirty_tx;
+-
+-	do_wake = 0;
+-	while (((sc = CBDR_SC(bdp)) & BD_ENET_TX_READY) == 0) {
+-
+-		dirtyidx = bdp - fep->tx_bd_base;
+-
+-		if (fep->tx_free == fep->tx_ring)
+-			break;
+-
+-		skb = fep->tx_skbuff[dirtyidx];
+-
+-		/*
+-		 * Check for errors. 
+-		 */
+-		if (sc & (BD_ENET_TX_HB | BD_ENET_TX_LC |
+-			  BD_ENET_TX_RL | BD_ENET_TX_UN | BD_ENET_TX_CSL)) {
+-			fep->stats.tx_errors++;
+-			if (sc & BD_ENET_TX_HB)	/* No heartbeat */
+-				fep->stats.tx_heartbeat_errors++;
+-			if (sc & BD_ENET_TX_LC)	/* Late collision */
+-				fep->stats.tx_window_errors++;
+-			if (sc & BD_ENET_TX_RL)	/* Retrans limit */
+-				fep->stats.tx_aborted_errors++;
+-			if (sc & BD_ENET_TX_UN)	/* Underrun */
+-				fep->stats.tx_fifo_errors++;
+-			if (sc & BD_ENET_TX_CSL)	/* Carrier lost */
+-				fep->stats.tx_carrier_errors++;
+-		} else
+-			fep->stats.tx_packets++;
+-
+-		if (sc & BD_ENET_TX_READY)
+-			printk(KERN_WARNING DRV_MODULE_NAME
+-			       ": %s HEY! Enet xmit interrupt and TX_READY.\n",
+-			       dev->name);
+-
+-		/*
+-		 * Deferred means some collisions occurred during transmit,
+-		 * but we eventually sent the packet OK.
+-		 */
+-		if (sc & BD_ENET_TX_DEF)
+-			fep->stats.collisions++;
+-
+-		/*
+-		 * Free the sk buffer associated with this last transmit. 
+-		 */
+-		dev_kfree_skb_irq(skb);
+-		fep->tx_skbuff[dirtyidx] = NULL;
+-
+-		/*
+-		 * Update pointer to next buffer descriptor to be transmitted. 
+-		 */
+-		if ((sc & BD_ENET_TX_WRAP) == 0)
+-			bdp++;
+-		else
+-			bdp = fep->tx_bd_base;
+-
+-		/*
+-		 * Since we have freed up a buffer, the ring is no longer
+-		 * full.
+-		 */
+-		if (!fep->tx_free++)
+-			do_wake = 1;
+-	}
+-
+-	fep->dirty_tx = bdp;
+-
+-	spin_unlock(&fep->lock);
+-
+-	if (do_wake && netif_queue_stopped(dev))
+-		netif_wake_queue(dev);
+-}
+-
+-/*
+- * The interrupt handler.
+- * This is called from the MPC core interrupt.
+- */
+-static irqreturn_t
+-fec_enet_interrupt(int irq, void *dev_id)
+-{
+-	struct net_device *dev = dev_id;
+-	struct fec_enet_private *fep;
+-	const struct fec_platform_info *fpi;
+-	fec_t *fecp;
+-	__u32 int_events;
+-	__u32 int_events_napi;
+-
+-	if (unlikely(dev == NULL))
+-		return IRQ_NONE;
+-
+-	fep = netdev_priv(dev);
+-	fecp = fep->fecp;
+-	fpi = fep->fpi;
+-
+-	/*
+-	 * Get the interrupt events that caused us to be here.
+-	 */
+-	while ((int_events = FR(fecp, ievent) & FR(fecp, imask)) != 0) {
+-
+-		if (!fpi->use_napi)
+-			FW(fecp, ievent, int_events);
+-		else {
+-			int_events_napi = int_events & ~(FEC_ENET_RXF | FEC_ENET_RXB);
+-			FW(fecp, ievent, int_events_napi);
+-		}
+-
+-		if ((int_events & (FEC_ENET_HBERR | FEC_ENET_BABR |
+-				   FEC_ENET_BABT | FEC_ENET_EBERR)) != 0)
+-			printk(KERN_WARNING DRV_MODULE_NAME
+-			       ": %s FEC ERROR(s) 0x%x\n",
+-			       dev->name, int_events);
+-
+-		if ((int_events & FEC_ENET_RXF) != 0) {
+-			if (!fpi->use_napi)
+-				fec_enet_rx_common(fep, dev, ~0);
+-			else {
+-				if (netif_rx_schedule_prep(dev, &fep->napi)) {
+-					/* disable rx interrupts */
+-					FC(fecp, imask, FEC_ENET_RXF | FEC_ENET_RXB);
+-					__netif_rx_schedule(dev, &fep->napi);
+-				} else {
+-					printk(KERN_ERR DRV_MODULE_NAME
+-					       ": %s driver bug! interrupt while in poll!\n",
+-					       dev->name);
+-					FC(fecp, imask, FEC_ENET_RXF | FEC_ENET_RXB);
+-				}
+-			}
+-		}
+-
+-		if ((int_events & FEC_ENET_TXF) != 0)
+-			fec_enet_tx(dev);
+-	}
+-
+-	return IRQ_HANDLED;
+-}
+-
+-/* This interrupt occurs when the PHY detects a link change. */
+-static irqreturn_t
+-fec_mii_link_interrupt(int irq, void *dev_id)
+-{
+-	struct net_device *dev = dev_id;
+-	struct fec_enet_private *fep;
+-	const struct fec_platform_info *fpi;
+-
+-	if (unlikely(dev == NULL))
+-		return IRQ_NONE;
+-
+-	fep = netdev_priv(dev);
+-	fpi = fep->fpi;
+-
+-	if (!fpi->use_mdio)
+-		return IRQ_NONE;
+-
+-	/*
+-	 * Acknowledge the interrupt if possible. If we have not
+-	 * found the PHY yet we can't process or acknowledge the
+-	 * interrupt now. Instead we ignore this interrupt for now,
+-	 * which we can do since it is edge triggered. It will be
+-	 * acknowledged later by fec_enet_open().
+-	 */
+-	if (!fep->phy)
+-		return IRQ_NONE;
+-
+-	fec_mii_ack_int(dev);
+-	fec_mii_link_status_change_check(dev, 0);
+-
+-	return IRQ_HANDLED;
+-}
+-
+-
+-/**********************************************************************************/
+-
+-static int fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	fec_t *fecp = fep->fecp;
+-	cbd_t *bdp;
+-	int curidx;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&fep->tx_lock, flags);
+-
+-	/*
+-	 * Fill in a Tx ring entry 
+-	 */
+-	bdp = fep->cur_tx;
+-
+-	if (!fep->tx_free || (CBDR_SC(bdp) & BD_ENET_TX_READY)) {
+-		netif_stop_queue(dev);
+-		spin_unlock_irqrestore(&fep->tx_lock, flags);
+-
+-		/*
+-		 * Ooops.  All transmit buffers are full.  Bail out.
+-		 * This should not happen, since the tx queue should be stopped.
+-		 */
+-		printk(KERN_WARNING DRV_MODULE_NAME
+-		       ": %s tx queue full!.\n", dev->name);
+-		return 1;
+-	}
+-
+-	curidx = bdp - fep->tx_bd_base;
+-	/*
+-	 * Clear all of the status flags. 
+-	 */
+-	CBDC_SC(bdp, BD_ENET_TX_STATS);
+-
+-	/*
+-	 * Save skb pointer. 
+-	 */
+-	fep->tx_skbuff[curidx] = skb;
+-
+-	fep->stats.tx_bytes += skb->len;
+-
+-	/*
+-	 * Push the data cache so the CPM does not get stale memory data. 
+-	 */
+-	CBDW_BUFADDR(bdp, dma_map_single(NULL, skb->data,
+-					 skb->len, DMA_TO_DEVICE));
+-	CBDW_DATLEN(bdp, skb->len);
+-
+-	dev->trans_start = jiffies;
+-
+-	/*
+-	 * If this was the last BD in the ring, start at the beginning again. 
+-	 */
+-	if ((CBDR_SC(bdp) & BD_ENET_TX_WRAP) == 0)
+-		fep->cur_tx++;
+-	else
+-		fep->cur_tx = fep->tx_bd_base;
+-
+-	if (!--fep->tx_free)
+-		netif_stop_queue(dev);
+-
+-	/*
+-	 * Trigger transmission start 
+-	 */
+-	CBDS_SC(bdp, BD_ENET_TX_READY | BD_ENET_TX_INTR |
+-		BD_ENET_TX_LAST | BD_ENET_TX_TC);
+-	FW(fecp, x_des_active, 0x01000000);
+-
+-	spin_unlock_irqrestore(&fep->tx_lock, flags);
+-
+-	return 0;
+-}
+-
+-static void fec_timeout(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fep->stats.tx_errors++;
+-
+-	if (fep->tx_free)
+-		netif_wake_queue(dev);
+-
+-	/* check link status again */
+-	fec_mii_link_status_change_check(dev, 0);
+-}
+-
+-static int fec_enet_open(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	const struct fec_platform_info *fpi = fep->fpi;
+-	unsigned long flags;
+-
+-	napi_enable(&fep->napi);
+-
+-	/* Install our interrupt handler. */
+-	if (request_irq(fpi->fec_irq, fec_enet_interrupt, 0, "fec", dev) != 0) {
+-		printk(KERN_ERR DRV_MODULE_NAME
+-		       ": %s Could not allocate FEC IRQ!", dev->name);
+-		napi_disable(&fep->napi);
+-		return -EINVAL;
+-	}
+-
+-	/* Install our phy interrupt handler */
+-	if (fpi->phy_irq != -1 && 
+-		request_irq(fpi->phy_irq, fec_mii_link_interrupt, 0, "fec-phy",
+-				dev) != 0) {
+-		printk(KERN_ERR DRV_MODULE_NAME
+-		       ": %s Could not allocate PHY IRQ!", dev->name);
+-		free_irq(fpi->fec_irq, dev);
+-		napi_disable(&fep->napi);
+-		return -EINVAL;
+-	}
+-
+-	if (fpi->use_mdio) {
+-		fec_mii_startup(dev);
+-		netif_carrier_off(dev);
+-		fec_mii_link_status_change_check(dev, 1);
+-	} else {
+-		spin_lock_irqsave(&fep->lock, flags);
+-		fec_restart(dev, 1, 100);	/* XXX this sucks */
+-		spin_unlock_irqrestore(&fep->lock, flags);
+-
+-		netif_carrier_on(dev);
+-		netif_start_queue(dev);
+-	}
+-	return 0;
+-}
+-
+-static int fec_enet_close(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	const struct fec_platform_info *fpi = fep->fpi;
+-	unsigned long flags;
+-
+-	netif_stop_queue(dev);
+-	napi_disable(&fep->napi);
+-	netif_carrier_off(dev);
+-
+-	if (fpi->use_mdio)
+-		fec_mii_shutdown(dev);
+-
+-	spin_lock_irqsave(&fep->lock, flags);
+-	fec_stop(dev);
+-	spin_unlock_irqrestore(&fep->lock, flags);
+-
+-	/* release any irqs */
+-	if (fpi->phy_irq != -1)
+-		free_irq(fpi->phy_irq, dev);
+-	free_irq(fpi->fec_irq, dev);
+-
+-	return 0;
+-}
+-
+-static struct net_device_stats *fec_enet_get_stats(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	return &fep->stats;
+-}
+-
+-static int fec_enet_poll(struct napi_struct *napi, int budget)
+-{
+-	struct fec_enet_private *fep = container_of(napi, struct fec_enet_private, napi);
+-	struct net_device *dev = fep->dev;
+-
+-	return fec_enet_rx_common(fep, dev, budget);
+-}
+-
+-/*************************************************************************/
+-
+-static void fec_get_drvinfo(struct net_device *dev,
+-			    struct ethtool_drvinfo *info)
+-{
+-	strcpy(info->driver, DRV_MODULE_NAME);
+-	strcpy(info->version, DRV_MODULE_VERSION);
+-}
+-
+-static int fec_get_regs_len(struct net_device *dev)
+-{
+-	return sizeof(fec_t);
+-}
+-
+-static void fec_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+-			 void *p)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	unsigned long flags;
+-
+-	if (regs->len < sizeof(fec_t))
+-		return;
+-
+-	regs->version = 0;
+-	spin_lock_irqsave(&fep->lock, flags);
+-	memcpy_fromio(p, fep->fecp, sizeof(fec_t));
+-	spin_unlock_irqrestore(&fep->lock, flags);
+-}
+-
+-static int fec_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	unsigned long flags;
+-	int rc;
+-
+-	spin_lock_irqsave(&fep->lock, flags);
+-	rc = mii_ethtool_gset(&fep->mii_if, cmd);
+-	spin_unlock_irqrestore(&fep->lock, flags);
+-
+-	return rc;
+-}
+-
+-static int fec_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	unsigned long flags;
+-	int rc;
+-
+-	spin_lock_irqsave(&fep->lock, flags);
+-	rc = mii_ethtool_sset(&fep->mii_if, cmd);
+-	spin_unlock_irqrestore(&fep->lock, flags);
+-
+-	return rc;
+-}
+-
+-static int fec_nway_reset(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	return mii_nway_restart(&fep->mii_if);
+-}
+-
+-static __u32 fec_get_msglevel(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	return fep->msg_enable;
+-}
+-
+-static void fec_set_msglevel(struct net_device *dev, __u32 value)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	fep->msg_enable = value;
+-}
+-
+-static const struct ethtool_ops fec_ethtool_ops = {
+-	.get_drvinfo	= fec_get_drvinfo,
+-	.get_regs_len	= fec_get_regs_len,
+-	.get_settings	= fec_get_settings,
+-	.set_settings	= fec_set_settings,
+-	.nway_reset	= fec_nway_reset,
+-	.get_link	= ethtool_op_get_link,
+-	.get_msglevel	= fec_get_msglevel,
+-	.set_msglevel	= fec_set_msglevel,
+-	.set_tx_csum	= ethtool_op_set_tx_csum,	/* local! */
+-	.set_sg		= ethtool_op_set_sg,
+-	.get_regs	= fec_get_regs,
+-};
+-
+-static int fec_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	struct mii_ioctl_data *mii = (struct mii_ioctl_data *)&rq->ifr_data;
+-	unsigned long flags;
+-	int rc;
+-
+-	if (!netif_running(dev))
+-		return -EINVAL;
+-
+-	spin_lock_irqsave(&fep->lock, flags);
+-	rc = generic_mii_ioctl(&fep->mii_if, mii, cmd, NULL);
+-	spin_unlock_irqrestore(&fep->lock, flags);
+-	return rc;
+-}
+-
+-int fec_8xx_init_one(const struct fec_platform_info *fpi,
+-		     struct net_device **devp)
+-{
+-	immap_t *immap = (immap_t *) IMAP_ADDR;
+-	static int fec_8xx_version_printed = 0;
+-	struct net_device *dev = NULL;
+-	struct fec_enet_private *fep = NULL;
+-	fec_t *fecp = NULL;
+-	int i;
+-	int err = 0;
+-	int registered = 0;
+-	__u32 siel;
+-
+-	*devp = NULL;
+-
+-	switch (fpi->fec_no) {
+-	case 0:
+-		fecp = &((immap_t *) IMAP_ADDR)->im_cpm.cp_fec;
+-		break;
+-#ifdef CONFIG_DUET
+-	case 1:
+-		fecp = &((immap_t *) IMAP_ADDR)->im_cpm.cp_fec2;
+-		break;
+-#endif
+-	default:
+-		return -EINVAL;
+-	}
+-
+-	if (fec_8xx_version_printed++ == 0)
+-		printk(KERN_INFO "%s", version);
+-
+-	i = sizeof(*fep) + (sizeof(struct sk_buff **) *
+-			    (fpi->rx_ring + fpi->tx_ring));
+-
+-	dev = alloc_etherdev(i);
+-	if (!dev) {
+-		err = -ENOMEM;
+-		goto err;
+-	}
+-
+-	fep = netdev_priv(dev);
+-	fep->dev = dev;
+-
+-	/* partial reset of FEC */
+-	fec_whack_reset(fecp);
+-
+-	/* point rx_skbuff, tx_skbuff */
+-	fep->rx_skbuff = (struct sk_buff **)&fep[1];
+-	fep->tx_skbuff = fep->rx_skbuff + fpi->rx_ring;
+-
+-	fep->fecp = fecp;
+-	fep->fpi = fpi;
+-
+-	/* init locks */
+-	spin_lock_init(&fep->lock);
+-	spin_lock_init(&fep->tx_lock);
+-
+-	/*
+-	 * Set the Ethernet address. 
+-	 */
+-	for (i = 0; i < 6; i++)
+-		dev->dev_addr[i] = fpi->macaddr[i];
+-
+-	fep->ring_base = dma_alloc_coherent(NULL,
+-					    (fpi->tx_ring + fpi->rx_ring) *
+-					    sizeof(cbd_t), &fep->ring_mem_addr,
+-					    GFP_KERNEL);
+-	if (fep->ring_base == NULL) {
+-		printk(KERN_ERR DRV_MODULE_NAME
+-		       ": %s dma alloc failed.\n", dev->name);
+-		err = -ENOMEM;
+-		goto err;
+-	}
+-
+-	/*
+-	 * Set receive and transmit descriptor base.
+-	 */
+-	fep->rx_bd_base = fep->ring_base;
+-	fep->tx_bd_base = fep->rx_bd_base + fpi->rx_ring;
+-
+-	/* initialize ring size variables */
+-	fep->tx_ring = fpi->tx_ring;
+-	fep->rx_ring = fpi->rx_ring;
+-
+-	/* SIU interrupt */
+-	if (fpi->phy_irq != -1 &&
+-		(fpi->phy_irq >= SIU_IRQ0 && fpi->phy_irq < SIU_LEVEL7)) {
+-
+-		siel = in_be32(&immap->im_siu_conf.sc_siel);
+-		if ((fpi->phy_irq & 1) == 0)
+-			siel |= (0x80000000 >> fpi->phy_irq);
+-		else
+-			siel &= ~(0x80000000 >> (fpi->phy_irq & ~1));
+-		out_be32(&immap->im_siu_conf.sc_siel, siel);
+-	}
+-
+-	/*
+-	 * The FEC Ethernet specific entries in the device structure. 
+-	 */
+-	dev->open = fec_enet_open;
+-	dev->hard_start_xmit = fec_enet_start_xmit;
+-	dev->tx_timeout = fec_timeout;
+-	dev->watchdog_timeo = TX_TIMEOUT;
+-	dev->stop = fec_enet_close;
+-	dev->get_stats = fec_enet_get_stats;
+-	dev->set_multicast_list = fec_set_multicast_list;
+-	dev->set_mac_address = fec_set_mac_address;
+-	netif_napi_add(dev, &fec->napi,
+-		       fec_enet_poll, fpi->napi_weight);
+-
+-	dev->ethtool_ops = &fec_ethtool_ops;
+-	dev->do_ioctl = fec_ioctl;
+-
+-	fep->fec_phy_speed =
+-	    ((((fpi->sys_clk + 4999999) / 2500000) / 2) & 0x3F) << 1;
+-
+-	init_timer(&fep->phy_timer_list);
+-
+-	/* partial reset of FEC so that only MII works */
+-	FW(fecp, mii_speed, fep->fec_phy_speed);
+-	FW(fecp, ievent, 0xffc0);
+-	FW(fecp, ivec, (fpi->fec_irq / 2) << 29);
+-	FW(fecp, imask, 0);
+-	FW(fecp, r_cntrl, FEC_RCNTRL_MII_MODE);	/* MII enable */
+-	FW(fecp, ecntrl, FEC_ECNTRL_PINMUX | FEC_ECNTRL_ETHER_EN);
+-
+-	netif_carrier_off(dev);
+-
+-	err = register_netdev(dev);
+-	if (err != 0)
+-		goto err;
+-	registered = 1;
+-
+-	if (fpi->use_mdio) {
+-		fep->mii_if.dev = dev;
+-		fep->mii_if.mdio_read = fec_mii_read;
+-		fep->mii_if.mdio_write = fec_mii_write;
+-		fep->mii_if.phy_id_mask = 0x1f;
+-		fep->mii_if.reg_num_mask = 0x1f;
+-		fep->mii_if.phy_id = fec_mii_phy_id_detect(dev);
+-	}
+-
+-	*devp = dev;
+-
+-	return 0;
+-
+-      err:
+-	if (dev != NULL) {
+-		if (fecp != NULL)
+-			fec_whack_reset(fecp);
+-
+-		if (registered)
+-			unregister_netdev(dev);
+-
+-		if (fep != NULL) {
+-			if (fep->ring_base)
+-				dma_free_coherent(NULL,
+-						  (fpi->tx_ring +
+-						   fpi->rx_ring) *
+-						  sizeof(cbd_t), fep->ring_base,
+-						  fep->ring_mem_addr);
+-		}
+-		free_netdev(dev);
+-	}
+-	return err;
+-}
+-
+-int fec_8xx_cleanup_one(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	fec_t *fecp = fep->fecp;
+-	const struct fec_platform_info *fpi = fep->fpi;
+-
+-	fec_whack_reset(fecp);
+-
+-	unregister_netdev(dev);
+-
+-	dma_free_coherent(NULL, (fpi->tx_ring + fpi->rx_ring) * sizeof(cbd_t),
+-			  fep->ring_base, fep->ring_mem_addr);
+-
+-	free_netdev(dev);
+-
+-	return 0;
+-}
+-
+-/**************************************************************************************/
+-/**************************************************************************************/
+-/**************************************************************************************/
+-
+-static int __init fec_8xx_init(void)
+-{
+-	return fec_8xx_platform_init();
+-}
+-
+-static void __exit fec_8xx_cleanup(void)
+-{
+-	fec_8xx_platform_cleanup();
+-}
+-
+-/**************************************************************************************/
+-/**************************************************************************************/
+-/**************************************************************************************/
+-
+-module_init(fec_8xx_init);
+-module_exit(fec_8xx_cleanup);
+diff --git a/drivers/net/fec_8xx/fec_mii.c b/drivers/net/fec_8xx/fec_mii.c
+deleted file mode 100644
+index 3b6ca29..0000000
+--- a/drivers/net/fec_8xx/fec_mii.c
++++ /dev/null
+@@ -1,418 +0,0 @@
+-/*
+- * Fast Ethernet Controller (FEC) driver for Motorola MPC8xx.
+- *
+- * Copyright (c) 2003 Intracom S.A. 
+- *  by Pantelis Antoniou <panto@intracom.gr>
+- *
+- * Heavily based on original FEC driver by Dan Malek <dan@embeddededge.com>
+- * and modifications by Joakim Tjernlund <joakim.tjernlund@lumentis.se>
+- *
+- * Released under the GPL
+- */
+-
+-#include <linux/module.h>
+-#include <linux/types.h>
+-#include <linux/kernel.h>
+-#include <linux/string.h>
+-#include <linux/ptrace.h>
+-#include <linux/errno.h>
+-#include <linux/ioport.h>
+-#include <linux/slab.h>
+-#include <linux/interrupt.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/skbuff.h>
+-#include <linux/spinlock.h>
+-#include <linux/mii.h>
+-#include <linux/ethtool.h>
+-#include <linux/bitops.h>
+-
+-#include <asm/8xx_immap.h>
+-#include <asm/pgtable.h>
+-#include <asm/mpc8xx.h>
+-#include <asm/irq.h>
+-#include <asm/uaccess.h>
+-#include <asm/cpm1.h>
+-
+-/*************************************************/
+-
+-#include "fec_8xx.h"
+-
+-/*************************************************/
+-
+-/* Make MII read/write commands for the FEC.
+-*/
+-#define mk_mii_read(REG)	(0x60020000 | ((REG & 0x1f) << 18))
+-#define mk_mii_write(REG, VAL)	(0x50020000 | ((REG & 0x1f) << 18) | (VAL & 0xffff))
+-#define mk_mii_end		0
+-
+-/*************************************************/
+-
+-/* XXX both FECs use the MII interface of FEC1 */
+-static DEFINE_SPINLOCK(fec_mii_lock);
+-
+-#define FEC_MII_LOOPS	10000
+-
+-int fec_mii_read(struct net_device *dev, int phy_id, int location)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	fec_t *fecp;
+-	int i, ret = -1;
+-	unsigned long flags;
+-
+-	/* XXX MII interface is only connected to FEC1 */
+-	fecp = &((immap_t *) IMAP_ADDR)->im_cpm.cp_fec;
+-
+-	spin_lock_irqsave(&fec_mii_lock, flags);
+-
+-	if ((FR(fecp, r_cntrl) & FEC_RCNTRL_MII_MODE) == 0) {
+-		FS(fecp, r_cntrl, FEC_RCNTRL_MII_MODE);	/* MII enable */
+-		FS(fecp, ecntrl, FEC_ECNTRL_PINMUX | FEC_ECNTRL_ETHER_EN);
+-		FW(fecp, ievent, FEC_ENET_MII);
+-	}
+-
+-	/* Add PHY address to register command.  */
+-	FW(fecp, mii_speed, fep->fec_phy_speed);
+-	FW(fecp, mii_data, (phy_id << 23) | mk_mii_read(location));
+-
+-	for (i = 0; i < FEC_MII_LOOPS; i++)
+-		if ((FR(fecp, ievent) & FEC_ENET_MII) != 0)
+-			break;
+-
+-	if (i < FEC_MII_LOOPS) {
+-		FW(fecp, ievent, FEC_ENET_MII);
+-		ret = FR(fecp, mii_data) & 0xffff;
+-	}
+-
+-	spin_unlock_irqrestore(&fec_mii_lock, flags);
+-
+-	return ret;
+-}
+-
+-void fec_mii_write(struct net_device *dev, int phy_id, int location, int value)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	fec_t *fecp;
+-	unsigned long flags;
+-	int i;
+-
+-	/* XXX MII interface is only connected to FEC1 */
+-	fecp = &((immap_t *) IMAP_ADDR)->im_cpm.cp_fec;
+-
+-	spin_lock_irqsave(&fec_mii_lock, flags);
+-
+-	if ((FR(fecp, r_cntrl) & FEC_RCNTRL_MII_MODE) == 0) {
+-		FS(fecp, r_cntrl, FEC_RCNTRL_MII_MODE);	/* MII enable */
+-		FS(fecp, ecntrl, FEC_ECNTRL_PINMUX | FEC_ECNTRL_ETHER_EN);
+-		FW(fecp, ievent, FEC_ENET_MII);
+-	}
+-
+-	/* Add PHY address to register command.  */
+-	FW(fecp, mii_speed, fep->fec_phy_speed);	/* always adapt mii speed */
+-	FW(fecp, mii_data, (phy_id << 23) | mk_mii_write(location, value));
+-
+-	for (i = 0; i < FEC_MII_LOOPS; i++)
+-		if ((FR(fecp, ievent) & FEC_ENET_MII) != 0)
+-			break;
+-
+-	if (i < FEC_MII_LOOPS)
+-		FW(fecp, ievent, FEC_ENET_MII);
+-
+-	spin_unlock_irqrestore(&fec_mii_lock, flags);
+-}
+-
+-/*************************************************/
+-
+-#ifdef CONFIG_FEC_8XX_GENERIC_PHY
+-
+-/*
+- * Generic PHY support.
+- * Should work for all PHYs, but link change is detected by polling
+- */
+-
+-static void generic_timer_callback(unsigned long data)
+-{
+-	struct net_device *dev = (struct net_device *)data;
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fep->phy_timer_list.expires = jiffies + HZ / 2;
+-
+-	add_timer(&fep->phy_timer_list);
+-
+-	fec_mii_link_status_change_check(dev, 0);
+-}
+-
+-static void generic_startup(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fep->phy_timer_list.expires = jiffies + HZ / 2;	/* every 500ms */
+-	fep->phy_timer_list.data = (unsigned long)dev;
+-	fep->phy_timer_list.function = generic_timer_callback;
+-	add_timer(&fep->phy_timer_list);
+-}
+-
+-static void generic_shutdown(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	del_timer_sync(&fep->phy_timer_list);
+-}
+-
+-#endif
+-
+-#ifdef CONFIG_FEC_8XX_DM9161_PHY
+-
+-/* ------------------------------------------------------------------------- */
+-/* The Davicom DM9161 is used on the NETTA board			     */
+-
+-/* register definitions */
+-
+-#define MII_DM9161_ACR		16	/* Aux. Config Register         */
+-#define MII_DM9161_ACSR		17	/* Aux. Config/Status Register  */
+-#define MII_DM9161_10TCSR	18	/* 10BaseT Config/Status Reg.   */
+-#define MII_DM9161_INTR		21	/* Interrupt Register           */
+-#define MII_DM9161_RECR		22	/* Receive Error Counter Reg.   */
+-#define MII_DM9161_DISCR	23	/* Disconnect Counter Register  */
+-
+-static void dm9161_startup(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fec_mii_write(dev, fep->mii_if.phy_id, MII_DM9161_INTR, 0x0000);
+-}
+-
+-static void dm9161_ack_int(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fec_mii_read(dev, fep->mii_if.phy_id, MII_DM9161_INTR);
+-}
+-
+-static void dm9161_shutdown(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fec_mii_write(dev, fep->mii_if.phy_id, MII_DM9161_INTR, 0x0f00);
+-}
+-
+-#endif
+-
+-#ifdef CONFIG_FEC_8XX_LXT971_PHY
+-
+-/* Support for LXT971/972 PHY */
+-
+-#define MII_LXT971_PCR		16 /* Port Control Register */
+-#define MII_LXT971_SR2		17 /* Status Register 2 */
+-#define MII_LXT971_IER		18 /* Interrupt Enable Register */
+-#define MII_LXT971_ISR		19 /* Interrupt Status Register */
+-#define MII_LXT971_LCR		20 /* LED Control Register */
+-#define MII_LXT971_TCR		30 /* Transmit Control Register */
+-
+-static void lxt971_startup(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fec_mii_write(dev, fep->mii_if.phy_id, MII_LXT971_IER, 0x00F2);
+-}
+-
+-static void lxt971_ack_int(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fec_mii_read(dev, fep->mii_if.phy_id, MII_LXT971_ISR);
+-}
+-
+-static void lxt971_shutdown(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-
+-	fec_mii_write(dev, fep->mii_if.phy_id, MII_LXT971_IER, 0x0000);
+-}
+-#endif
+-
+-/**********************************************************************************/
+-
+-static const struct phy_info phy_info[] = {
+-#ifdef CONFIG_FEC_8XX_DM9161_PHY
+-	{
+-	 .id = 0x00181b88,
+-	 .name = "DM9161",
+-	 .startup = dm9161_startup,
+-	 .ack_int = dm9161_ack_int,
+-	 .shutdown = dm9161_shutdown,
+-	 },
+-#endif
+-#ifdef CONFIG_FEC_8XX_LXT971_PHY
+-	{
+-	 .id = 0x0001378e,
+-	 .name = "LXT971/972",
+-	 .startup = lxt971_startup,
+-	 .ack_int = lxt971_ack_int,
+-	 .shutdown = lxt971_shutdown,
+-	},
+-#endif
+-#ifdef CONFIG_FEC_8XX_GENERIC_PHY
+-	{
+-	 .id = 0,
+-	 .name = "GENERIC",
+-	 .startup = generic_startup,
+-	 .shutdown = generic_shutdown,
+-	 },
+-#endif
+-};
+-
+-/**********************************************************************************/
+-
+-int fec_mii_phy_id_detect(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	const struct fec_platform_info *fpi = fep->fpi;
+-	int i, r, start, end, phytype, physubtype;
+-	const struct phy_info *phy;
+-	int phy_hwid, phy_id;
+-
+-	/* if no MDIO */
+-	if (fpi->use_mdio == 0)
+-		return -1;
+-
+-	phy_hwid = -1;
+-	fep->phy = NULL;
+-
+-	/* auto-detect? */
+-	if (fpi->phy_addr == -1) {
+-		start = 0;
+-		end = 32;
+-	} else {		/* direct */
+-		start = fpi->phy_addr;
+-		end = start + 1;
+-	}
+-
+-	for (phy_id = start; phy_id < end; phy_id++) {
+-		r = fec_mii_read(dev, phy_id, MII_PHYSID1);
+-		if (r == -1 || (phytype = (r & 0xffff)) == 0xffff)
+-			continue;
+-		r = fec_mii_read(dev, phy_id, MII_PHYSID2);
+-		if (r == -1 || (physubtype = (r & 0xffff)) == 0xffff)
+-			continue;
+-		phy_hwid = (phytype << 16) | physubtype;
+-		if (phy_hwid != -1)
+-			break;
+-	}
+-
+-	if (phy_hwid == -1) {
+-		printk(KERN_ERR DRV_MODULE_NAME
+-		       ": %s No PHY detected!\n", dev->name);
+-		return -1;
+-	}
+-
+-	for (i = 0, phy = phy_info; i < ARRAY_SIZE(phy_info); i++, phy++)
+-		if (phy->id == (phy_hwid >> 4) || phy->id == 0)
+-			break;
+-
+-	if (i >= ARRAY_SIZE(phy_info)) {
+-		printk(KERN_ERR DRV_MODULE_NAME
+-		       ": %s PHY id 0x%08x is not supported!\n",
+-		       dev->name, phy_hwid);
+-		return -1;
+-	}
+-
+-	fep->phy = phy;
+-
+-	printk(KERN_INFO DRV_MODULE_NAME
+-	       ": %s Phy @ 0x%x, type %s (0x%08x)\n",
+-	       dev->name, phy_id, fep->phy->name, phy_hwid);
+-
+-	return phy_id;
+-}
+-
+-void fec_mii_startup(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	const struct fec_platform_info *fpi = fep->fpi;
+-
+-	if (!fpi->use_mdio || fep->phy == NULL)
+-		return;
+-
+-	if (fep->phy->startup == NULL)
+-		return;
+-
+-	(*fep->phy->startup) (dev);
+-}
+-
+-void fec_mii_shutdown(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	const struct fec_platform_info *fpi = fep->fpi;
+-
+-	if (!fpi->use_mdio || fep->phy == NULL)
+-		return;
+-
+-	if (fep->phy->shutdown == NULL)
+-		return;
+-
+-	(*fep->phy->shutdown) (dev);
+-}
+-
+-void fec_mii_ack_int(struct net_device *dev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	const struct fec_platform_info *fpi = fep->fpi;
+-
+-	if (!fpi->use_mdio || fep->phy == NULL)
+-		return;
+-
+-	if (fep->phy->ack_int == NULL)
+-		return;
+-
+-	(*fep->phy->ack_int) (dev);
+-}
+-
+-/* helper function */
+-static int mii_negotiated(struct mii_if_info *mii)
+-{
+-	int advert, lpa, val;
+-
+-	if (!mii_link_ok(mii))
+-		return 0;
+-
+-	val = (*mii->mdio_read) (mii->dev, mii->phy_id, MII_BMSR);
+-	if ((val & BMSR_ANEGCOMPLETE) == 0)
+-		return 0;
+-
+-	advert = (*mii->mdio_read) (mii->dev, mii->phy_id, MII_ADVERTISE);
+-	lpa = (*mii->mdio_read) (mii->dev, mii->phy_id, MII_LPA);
+-
+-	return mii_nway_result(advert & lpa);
+-}
+-
+-void fec_mii_link_status_change_check(struct net_device *dev, int init_media)
+-{
+-	struct fec_enet_private *fep = netdev_priv(dev);
+-	unsigned int media;
+-	unsigned long flags;
+-
+-	if (mii_check_media(&fep->mii_if, netif_msg_link(fep), init_media) == 0)
+-		return;
+-
+-	media = mii_negotiated(&fep->mii_if);
+-
+-	if (netif_carrier_ok(dev)) {
+-		spin_lock_irqsave(&fep->lock, flags);
+-		fec_restart(dev, !!(media & ADVERTISE_FULL),
+-			    (media & (ADVERTISE_100FULL | ADVERTISE_100HALF)) ?
+-			    100 : 10);
+-		spin_unlock_irqrestore(&fep->lock, flags);
+-
+-		netif_start_queue(dev);
+-	} else {
+-		netif_stop_queue(dev);
+-
+-		spin_lock_irqsave(&fep->lock, flags);
+-		fec_stop(dev);
+-		spin_unlock_irqrestore(&fep->lock, flags);
+-
+-	}
+-}
+-- 
+1.5.4.1
+
