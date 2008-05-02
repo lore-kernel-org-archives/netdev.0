@@ -1,57 +1,110 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH] Allow building iwl3945 without iwl4965.
-Date: Fri, 2 May 2008 17:07:36 +0200
-Message-ID: <20080502150736.GB23481@uranus.ravnborg.org>
-References: <87zlrgl09s.fsf@sparse.dyndns.org> <1209435597.2624.35.camel@debian.sh.intel.com> <20080429132720.GB4887@tuxdriver.com> <1209521679.2827.23.camel@debian.sh.intel.com> <Pine.LNX.4.64.0804291934470.18219@shark.he.net> <1209548066.2827.42.camel@debian.sh.intel.com>
+From: Soeren Sonnenburg <kernel@nn7.de>
+Subject: Re: 24rc8: unregister_netdevice: waiting for ... to become free
+Date: Fri, 02 May 2008 17:57:12 +0200
+Message-ID: <1209743832.22773.19.camel@localhost>
+References: <005801c8ac37$55e3cb70$6400a8c0@bui.materna.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Randy.Dunlap" <rdunlap@xenotime.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jason Riedy <jason@acm.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Zhu Yi <yi.zhu@intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"\"Andrew Morton\"" <akpm@linux-foundation.org>
+To: Roland <devzero@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:33667 "EHLO pasmtpA.tele.dk"
+Received: from nn7.de ([85.214.94.156]:53027 "EHLO nn7.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759341AbYEBPHD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 May 2008 11:07:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1209548066.2827.42.camel@debian.sh.intel.com>
+	id S1755469AbYEBP5Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 May 2008 11:57:25 -0400
+In-Reply-To: <005801c8ac37$55e3cb70$6400a8c0@bui.materna.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 30, 2008 at 05:34:26PM +0800, Zhu Yi wrote:
-> On Tue, 2008-04-29 at 19:36 -0700, Randy.Dunlap wrote:
-> > On Wed, 30 Apr 2008, Zhu Yi wrote:
-> > 
-> > > On Tue, 2008-04-29 at 09:27 -0400, John W. Linville wrote:
-> > > > 
-> > > > > Do we have a way to make "select IWLWIFI" generate CONFIG_IWLWIFI
-> > > > with
-> > > > > the same state as CONFIG_IWLCORE (or CONFIG_IWL3945)? AFAICS,
-> > > > > CONFIG_IWLWIFI is always 'y' whenever CONFIG_IWLCORE is 'y' or 'm'.
-> > > > If
-> > > > > the latter is 'm', the Makefile will generate a empty built-in.o
-> > > > which
-> > > > > requires vmlinux to update unnecessarily every time we only compile
-> > > > > iwl3945/4965 modules.
-> > > > 
-> > > > Can you do something like  "default IWLCORE'?  Untested, off the top
-> > > > of my head...
-> > > 
-> > > I just realized the kernel now updates vmlinux when I type 'make' even
-> > > if nothing is changed in the source code. Is this a bug or feature?
-> > 
-> > I see files in arch/x86/kernel/acpi/realmode/ always being built.
-> > Is that what you see or is it something else?
-> > 
-> > You can do
-> >   make V=2 all >build.log 2>&1
-> > to see what is being rebuilt and hopefully why.
-> > Then post that and maybe we can fix it (with the right people helping).
+On Fri, 2008-05-02 at 11:31 +0200, Roland wrote:
+> >I am not exactly sure which kernel version Roland (?) is/was using but
+> >from what I can tell this bug is fixed since 2.6.24 (at least). Well I
+> >didn't see it with madwifi nor with the tun devices anymore on any of
+> >the 24.X or 25rc's/25 ...
 > 
-> I found below fixes the problem. Sam, could you take a look?
+> pardon,   2.6.25-git17 in vmware
 
-Fix is in -linus now.
+could you test if this happens with other drivers like tun etc too?
+Maybe the bug re-appeared (I didn't follow 2.6.26 development ...)
 
-	Sam
+Soeren
+
+> >; <netdev@vger.kernel.org>;
+> List:       linux-kernel
+> Subject:    Re: 24rc8: unregister_netdevice: waiting for ... to become free.
+> From:       Soeren Sonnenburg <kernel () nn7 ! de>
+> Date:       2008-05-02 6:15:43
+> Message-ID: 1209708943.23075.52.camel () localhost
+> [Download message RAW]
+> 
+> On Thu, 2008-05-01 at 22:59 -0700, Andrew Morton wrote:
+> > On Fri, 2 May 2008 03:26:28 +0200 "Roland" <devzero@web.de> wrote:
+> >
+> > > i`m also seeing this one, but with pcnet32 - "modprobe -r pcnet32" never
+> > > returns and
+> > >
+> > > "unregister_netdevice: waiting for eth0 to become free. Usage count = 1"
+> > >
+> > > being printed over and over again
+> > >
+> > > lsmod |grep pcnet32 shows
+> > >
+> > > pcnet32            35828    0
+> > > mii                      9344    1    pcnet32
+> > >
+> > > i see stale ssh connection on port 22 and sshd for that session remains
+> > > unkillable process.
+> > >
+> >
+> > here a bug
+> >
+> > >
+> > >
+> > > List:       linux-kernel
+> > > Subject:    Re: 24rc8: unregister_netdevice: waiting for ... to become 
+> > > free.
+> > > From:       Soeren Sonnenburg <kernel () nn7 ! de>
+> > > Date:       2008-01-29 8:59:10
+> > > Message-ID: 1201597150.4973.10.camel () localhost
+> > > [Download message RAW]
+> > >
+> > > On Tue, 2008-01-22 at 22:44 -0800, David Miller wrote:
+> > > > From: Soeren Sonnenburg <kernel@nn7.de>
+> > > > Date: Wed, 23 Jan 2008 07:42:21 +0100
+> > > >
+> > > > > Dear all,
+> > > > >
+> > > > > since some 2.6.24rc version I suddenly experience such messages on
+> > > > > console when trying to shutdown a vpn connection:
+> > > > >
+> > > > > unregister_netdevice: waiting for tun0 to become free. Usage count = 
+> > > > > 1
+> > > > >
+> > > > > or when removing an usb wlan dongle (although it was ifconfig wlan0
+> > > > > down'd before)
+> > > >
+> > > > Current GIT already has a fix for this, attached below:
+> > >
+> > > hmmhhh, I am still seeing this problem on 2.6.24 with at least with the
+> > > madwifi driver...
+> > >
+> > > Soeren
+> >
+> > there a bug.
+> >
+> >
+> > Let's cc netdev@vger.kernel.org - linux-net is dead, afaik.
+> >
+> > Thanks for reporting all these bugs but please do take much mure care over
+> > the cc's.  Be sure to cc every party who was cc'ed on the email to which
+> > you're replying.  I restored Soeren.
+> 
+> I am not exactly sure which kernel version Roland (?) is/was using but
+> from what I can tell this bug is fixed since 2.6.24 (at least). Well I
+> didn't see it with madwifi nor with the tun devices anymore on any of
+> the 24.X or 25rc's/25 ...
+> 
+> Soeren
+> 
