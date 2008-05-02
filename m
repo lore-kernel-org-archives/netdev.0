@@ -1,84 +1,82 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [DCCP] [RFC] [Patchv2 1/1]: Queuing policies -- reworked version of Tomasz's patch set
-Date: Fri, 2 May 2008 22:39:58 +0200
-Message-ID: <200805022239.58699.tomasz@grobelny.oswiecenia.net>
-References: <200804111224.06958.tomasz@grobelny.oswiecenia.net> <200804282303.40673.tomasz@grobelny.oswiecenia.net> <20080430075332.GA4277@gerrit.erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+From: akpm@linux-foundation.org
+Subject: [patch 1/5] forcedeth: power down phy when interface is down
+Date: Fri, 02 May 2008 13:40:48 -0700
+Message-ID: <200805022040.m42Kend6013672@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	eswierk@arastra.com, aabdulla@nvidia.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:2412 "EHLO poczta.oswiecenia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936588AbYEBUkx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:40:53 -0400
-In-Reply-To: <20080430075332.GA4277@gerrit.erg.abdn.ac.uk>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39243 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1764242AbYEBUlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:41:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dnia Wednesday 30 of April 2008, Gerrit Renker napisa=B3:
-> | c) allow qpolicy to use each cmsg header as different parameter. So=
- that
-> (...)
-> I think (c) is best, here is what I'd support.
-> (...)
-Seems we are getting closer in our views, see the just sent patch.
+From: "Ed Swierk" <eswierk@arastra.com>
 
-> Ok, but this is a separate question and it is about a yet non-existin=
-g
-> policy.
->
-Hopefully someone, someday will implement it. So it is good to have a b=
-asic=20
-idea how it might work.
+Bring the physical link down when the interface is down by placing the PHY
+in power-down state, unless WOL is enabled.  This mirrors the behavior of
+other drivers including e1000 and tg3.
 
-> So far there is a "priority" policy, for which I think we agree that =
-32
-> bits are enough.
->
-=46or storing just priority - yes. I'd even say that it is too much...
+Without the patch, ifconfig down leaves the physical link up, which confuses
+datacenter users who expect the link lights both on the NIC and the switch to
+go out when they bring an interface down.
 
-> And both associated parameters can be parsed differently, in particul=
-ar
-> there is no requirement to restrict DCCP_SCM_TIMEOUT to use 32 bits -=
- it
-> could even pass a struct timeval or struct timespec.
->
-Yes, that's nice.
+Furthermore, even though the phy is powered on, autonegotiation stops working,
+so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
+interface goes down, and become gigabit when it comes up again.
 
-> Then there is a yet non-existing "timeout" policy, which has no assoc=
-iated
-> field yet. If we can assume that e.g. the skb->tstamp field can be us=
-ed
-> to store timeouts, then there are separate fields associated with sep=
-arate
-> policies.
->
-> Thirdly, there is the aggregate policy "priority+timeout", which can
-> then use both skb->priority and skb->tstamp.
->
-> I.e. to answer the question, I think it is best to implement "timeout=
-"
-> first, solve the problems it brings up; when that is done,
-> "priority+timeout" will be easy to do - it could be constructed just =
-out of
-> the existing functions defined for "priority" and "timeout".
->
-> In that manner, other policies can be modularly constructed - for ins=
-tance
-> by combining "timeout" with a different form of the "priority" policy=
-=2E
->
-I'm not entirely sure if such modular constructions would be possible. =
-I=20
-prefer to think of "timeout policy" and "prio policy" as a special case=
-s=20
-of "timeout+prio policy" with respectively DCCP_SCM_PRIORITY and=20
-DCCP_SCM_TIMEOUT not supplied (and thus set to their default values: 0 =
-and=20
-INFINITY).
---=20
-Regards,
-Tomasz Grobelny
+Ayaz said:
+
+  I would not include this patch until further testing is performed.  NVIDIA
+  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
+  have adverse affects on certain phys.
+
+Signed-off-by: Ed Swierk <eswierk@arastra.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/net/forcedeth.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
++++ a/drivers/net/forcedeth.c
+@@ -1371,9 +1371,9 @@ static int phy_init(struct net_device *d
+ 	/* some phys clear out pause advertisment on reset, set it back */
+ 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+ 
+-	/* restart auto negotiation */
++	/* restart auto negotiation, power down phy */
+ 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+-	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
+ 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+ 		return PHY_ERROR;
+ 	}
+@@ -5077,6 +5077,10 @@ static int nv_open(struct net_device *de
+ 
+ 	dprintk(KERN_DEBUG "nv_open: begin\n");
+ 
++	/* power up phy */
++	mii_rw(dev, np->phyaddr, MII_BMCR,
++	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -5270,6 +5274,10 @@ static int nv_close(struct net_device *d
+ 	if (np->wolenabled) {
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
++	} else {
++		/* power down phy */
++		mii_rw(dev, np->phyaddr, MII_BMCR,
++		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
+ 	}
+ 
+ 	/* FIXME: power down nic */
+_
