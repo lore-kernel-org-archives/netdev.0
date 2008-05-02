@@ -1,66 +1,39 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [SC92031] [BUG-FIX] [Patch 1/1]: Revert use of skb_padto
-Date: Fri, 2 May 2008 21:29:40 +0100
-Message-ID: <20080502202940.GA5116@gerrit.erg.abdn.ac.uk>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] via-rhine: suspend/resume bugfix
+Date: Fri, 2 May 2008 22:32:46 +0200
+Message-ID: <20080503002655.GA3956@ucw.cz>
+References: <20080427071351.GA20561@localhost.localdomain> <4814406B.8000907@gmail.com> <20080427095843.GA28784@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Jiri Slaby <jirislaby@gmail.com>, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rl@hellgate.ch
+To: Ondrej Zajicek <santiago@crfreenet.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:42137 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758763AbYEBUaB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 May 2008 16:30:01 -0400
+Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:46368 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765928AbYEBUdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:33:05 -0400
 Content-Disposition: inline
+In-Reply-To: <20080427095843.GA28784@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[SC92031]: Revert use of skb_padto (does not update skb->len)
+On Sun 2008-04-27 11:58:44, Ondrej Zajicek wrote:
+> On Sun, Apr 27, 2008 at 10:59:23AM +0200, Jiri Slaby wrote:
+> > >+	/* Disable interrupts by clearing the interrupt mask. */
+> > >+	iowrite16(0x0000, ioaddr + IntrEnable);
+> > >+
+> > >+	/* Stop the chip's Tx and Rx processes. */
+> > >+	iowrite16(CmdStop, ioaddr + ChipCmd);
+> 
+> > What about PCI posting?
+> 
+> Hmm, i will fix it. And i found that the patch might break
+> wakeup-on-LAN. So please discard it.
 
-This reverts use of skb_padto() introduced in 
+IRQ line should not be neccessary for WoL...?
 
- commit 26a17b7bbb36a8552d531bc1ad08472fb5aa3007
- Date:   Wed Apr 2 10:11:11 2008 -0700
- sc92031: start transmit return value bugfix
-
-The padto does not work because the driver code evaluates `len' later on
-and there are cases where skb->len is not updated accordingly.
-
-This was observed with ARP frames (skb->len = 42 bytes, !skb_cloned(),
-skb_tailroom = 84 bytes). Then in skb_pad(), the first condition is true,
-where skb->len is not updated. As a consequence, the driver uses 42 bytes
-instead of the 60 bytes, and the ARP frame never makes it onto the wire.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- sc92031.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
---- a/drivers/net/sc92031.c
-+++ b/drivers/net/sc92031.c
-@@ -953,9 +953,6 @@ static int sc92031_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned entry;
- 	u32 tx_status;
- 
--	if (skb_padto(skb, ETH_ZLEN))
--		return NETDEV_TX_OK;
--
- 	if (unlikely(skb->len > TX_BUF_SIZE)) {
- 		dev->stats.tx_dropped++;
- 		goto out;
-@@ -975,6 +972,11 @@ static int sc92031_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_copy_and_csum_dev(skb, priv->tx_bufs + entry * TX_BUF_SIZE);
- 
- 	len = skb->len;
-+	if (unlikely(len < ETH_ZLEN)) {
-+		memset(priv->tx_bufs + entry * TX_BUF_SIZE + len,
-+				0, ETH_ZLEN - len);
-+		len = ETH_ZLEN;
-+	}
- 
- 	wmb();
- 
-
-
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
-
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
