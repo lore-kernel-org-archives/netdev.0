@@ -1,51 +1,33 @@
-From: Ondrej Zajicek <santiago@crfreenet.org>
-Subject: Re: [PATCH] via-rhine: suspend/resume bugfix
-Date: Fri, 2 May 2008 22:57:35 +0200
-Message-ID: <20080502205734.GA5988@localhost.localdomain>
-References: <20080427071351.GA20561@localhost.localdomain> <4814406B.8000907@gmail.com> <20080427095843.GA28784@localhost.localdomain> <20080503002655.GA3956@ucw.cz>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 1/2] smsc-ircc2: wrap PNP probe code in #ifdef
+ CONFIG_PNP
+Date: Fri, 2 May 2008 14:38:02 -0700
+Message-ID: <20080502143802.8fb86319.akpm@linux-foundation.org>
+References: <200805022040.m42KeN16013646@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ondrej Zajicek <santiago@crfreenet.org>,
-	Jiri Slaby <jirislaby@gmail.com>, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rl@hellgate.ch
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: samuel@sortiz.org, netdev@vger.kernel.org, bjorn.helgaas@hp.com,
+	kamalesh@linux.vnet.ibm.com, sfr@canb.auug.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.dkm.cz ([62.24.64.34]:59545 "HELO slimak.dkm.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1758932AbYEBVER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 May 2008 17:04:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20080503002655.GA3956@ucw.cz>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33380 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1764904AbYEBVjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 17:39:07 -0400
+In-Reply-To: <200805022040.m42KeN16013646@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 02, 2008 at 10:32:46PM +0200, Pavel Machek wrote:
-> > Hmm, i will fix it. And i found that the patch might break
-> > wakeup-on-LAN. So please discard it.
+On Fri, 02 May 2008 13:40:23 -0700
+akpm@linux-foundation.org wrote:
+
+> From: Bjorn Helgaas <bjorn.helgaas@hp.com>
 > 
-> IRQ line should not be neccessary for WoL...?
+> Wrap PNP probe code in #ifdef CONFIG_PNP.
+> 
+> Without this change, we'll have unresolved references to pnp_get_resource()
+> function when CONFIG_PNP=n.  (This is a new interface that's not in mainline
+> yet.)
 
-IRQ line is not neccessary (i hope), but the patch puts this to
-suspend path:
-
-/* Switch to loopback mode to avoid hardware races. */
-iowrite8(rp->tx_thresh | 0x02, ioaddr + TxConfig);
-
-/* Disable interrupts by clearing the interrupt mask. */
-iowrite16(0x0000, ioaddr + IntrEnable);
-
-/* Stop the chip's Tx and Rx processes. */
-iowrite16(CmdStop, ioaddr + ChipCmd);
-
-(this was copied from shutdown path of the driver)
-
-I suppose that the first one might break WoL. Unfortunately
-on my hardware the WoL don't work even without the patch.
-
--- 
-Elen sila lumenn' omentielvo
-
-Ondrej 'SanTiago' Zajicek (email: santiago@crfreenet.org)
-OpenPGP encrypted e-mails preferred (KeyID 0x11DEADC3, wwwkeys.pgp.net)
-"To err is human -- to blame it on a computer is even more so."
+hrm, it turns out that this is already in linux-next, only I'm
+not sure by what route it got there.
