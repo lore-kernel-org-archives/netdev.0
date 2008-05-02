@@ -1,72 +1,85 @@
-From: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Subject: [patch 1/1] hci_usb.h: fix hard-to-trigger race
-Date: Fri, 02 May 2008 13:39:55 -0700
-Message-ID: <200805022039.m42KdtYe013613@imap1.linux-foundation.org>
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	pavel-+ZI9xUNit7I@public.gmane.org, pavel-AlSwsSmVLrQ@public.gmane.org
-To: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: akpm@linux-foundation.org
+Subject: [patch 1/2] net: remove NR_CPUS arrays in net/core/dev.c
+Date: Fri, 02 May 2008 13:39:26 -0700
+Message-ID: <200805022039.m42KdQA3013598@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, travis@sgi.com,
+	jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48634 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S936564AbYEBUks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 16:40:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+From: Mike Travis <travis@sgi.com>
 
-If someone tries to _urb_unlink while _urb_queue_head is running, he'll see
-_urb->queue == NULL and fail to do any locking.  Prevent that from happening
-by strategically placed barriers.
+Remove the fixed size channels[NR_CPUS] array in net/core/dev.c and
+dynamically allocate array based on nr_cpu_ids.
 
-Signed-off-by: Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Mike Travis <travis@sgi.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/bluetooth/hci_usb.h |   21 +++++++++++++--------
- 1 file changed, 13 insertions(+), 8 deletions(-)
+ net/core/dev.c |   15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff -puN drivers/bluetooth/hci_usb.h~hci_usbh-fix-hard-to-trigger-race drivers/bluetooth/hci_usb.h
---- a/drivers/bluetooth/hci_usb.h~hci_usbh-fix-hard-to-trigger-race
-+++ a/drivers/bluetooth/hci_usb.h
-@@ -70,7 +70,8 @@ static inline void _urb_queue_head(struc
- {
- 	unsigned long flags;
- 	spin_lock_irqsave(&q->lock, flags);
--	list_add(&_urb->list, &q->head); _urb->queue = q;
-+	/* _urb_unlink needs to know which spinlock to use, thus mb(). */
-+	_urb->queue = q; mb(); list_add(&_urb->list, &q->head);
- 	spin_unlock_irqrestore(&q->lock, flags);
- }
+diff -puN net/core/dev.c~net-remove-nr_cpus-arrays-in-net-core-devc-v2 net/core/dev.c
+--- a/net/core/dev.c~net-remove-nr_cpus-arrays-in-net-core-devc-v2
++++ a/net/core/dev.c
+@@ -162,7 +162,7 @@ struct net_dma {
+ 	struct dma_client client;
+ 	spinlock_t lock;
+ 	cpumask_t channel_mask;
+-	struct dma_chan *channels[NR_CPUS];
++	struct dma_chan **channels;
+ };
  
-@@ -78,19 +79,23 @@ static inline void _urb_queue_tail(struc
+ static enum dma_state_client
+@@ -2444,7 +2444,7 @@ static struct netif_rx_stats *softnet_ge
  {
- 	unsigned long flags;
- 	spin_lock_irqsave(&q->lock, flags);
--	list_add_tail(&_urb->list, &q->head); _urb->queue = q;
-+	/* _urb_unlink needs to know which spinlock to use, thus mb(). */
-+	_urb->queue = q; mb(); list_add_tail(&_urb->list, &q->head);
- 	spin_unlock_irqrestore(&q->lock, flags);
- }
+ 	struct netif_rx_stats *rc = NULL;
  
- static inline void _urb_unlink(struct _urb *_urb)
+-	while (*pos < NR_CPUS)
++	while (*pos < nr_cpu_ids)
+ 		if (cpu_online(*pos)) {
+ 			rc = &per_cpu(netdev_rx_stat, *pos);
+ 			break;
+@@ -4324,7 +4324,7 @@ netdev_dma_event(struct dma_client *clie
+ 	spin_lock(&net_dma->lock);
+ 	switch (state) {
+ 	case DMA_RESOURCE_AVAILABLE:
+-		for (i = 0; i < NR_CPUS; i++)
++		for (i = 0; i < nr_cpu_ids; i++)
+ 			if (net_dma->channels[i] == chan) {
+ 				found = 1;
+ 				break;
+@@ -4339,7 +4339,7 @@ netdev_dma_event(struct dma_client *clie
+ 		}
+ 		break;
+ 	case DMA_RESOURCE_REMOVED:
+-		for (i = 0; i < NR_CPUS; i++)
++		for (i = 0; i < nr_cpu_ids; i++)
+ 			if (net_dma->channels[i] == chan) {
+ 				found = 1;
+ 				pos = i;
+@@ -4366,6 +4366,13 @@ netdev_dma_event(struct dma_client *clie
+  */
+ static int __init netdev_dma_register(void)
  {
--	struct _urb_queue *q = _urb->queue;
-+	struct _urb_queue *q;
- 	unsigned long flags;
--	if (q) {
--		spin_lock_irqsave(&q->lock, flags);
--		list_del(&_urb->list); _urb->queue = NULL;
--		spin_unlock_irqrestore(&q->lock, flags);
--	}
-+
-+	mb();
-+	q = _urb->queue;
-+	/* If q is NULL, it will die at easy-to-debug NULL pointer dereference.
-+	   No need to BUG(). */
-+	spin_lock_irqsave(&q->lock, flags);
-+	list_del(&_urb->list); _urb->queue = NULL;
-+	spin_unlock_irqrestore(&q->lock, flags);
- }
- 
- struct hci_usb {
++	net_dma.channels = kzalloc(nr_cpu_ids * sizeof(struct net_dma),
++								GFP_KERNEL);
++	if (unlikely(!net_dma.channels)) {
++		printk(KERN_NOTICE
++				"netdev_dma: no memory for net_dma.channels\n");
++		return -ENOMEM;
++	}
+ 	spin_lock_init(&net_dma.lock);
+ 	dma_cap_set(DMA_MEMCPY, net_dma.client.cap_mask);
+ 	dma_async_client_register(&net_dma.client);
 _
