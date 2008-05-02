@@ -1,87 +1,42 @@
-From: Soeren Sonnenburg <kernel@nn7.de>
-Subject: Re: 24rc8: unregister_netdevice: waiting for ... to become free.
-Date: Fri, 02 May 2008 08:15:43 +0200
-Message-ID: <1209708943.23075.52.camel@localhost>
-References: <004701c8abf4$4cefe820$6400a8c0@bui.materna.com>
-	 <20080501225948.f351eab9.akpm@linux-foundation.org>
+From: "David Shwatrz" <dshwatrz@gmail.com>
+Subject: Multicast Routing in IPV4
+Date: Fri, 2 May 2008 09:49:07 +0300
+Message-ID: <31436f4a0805012349j50d0fdeenf2c51603120f7f1a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Roland <devzero@web.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nn7.de ([85.214.94.156]:37230 "EHLO nn7.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756244AbYEBGPx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 May 2008 02:15:53 -0400
-In-Reply-To: <20080501225948.f351eab9.akpm@linux-foundation.org>
+Received: from wa-out-1112.google.com ([209.85.146.178]:33256 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752347AbYEBGtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 02:49:08 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so118297waf.23
+        for <netdev@vger.kernel.org>; Thu, 01 May 2008 23:49:07 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-05-01 at 22:59 -0700, Andrew Morton wrote:
-> On Fri, 2 May 2008 03:26:28 +0200 "Roland" <devzero@web.de> wrote:
-> 
-> > i`m also seeing this one, but with pcnet32 - "modprobe -r pcnet32" never 
-> > returns and
-> > 
-> > "unregister_netdevice: waiting for eth0 to become free. Usage count = 1"
-> > 
-> > being printed over and over again
-> > 
-> > lsmod |grep pcnet32 shows
-> > 
-> > pcnet32            35828    0
-> > mii                      9344    1    pcnet32
-> > 
-> > i see stale ssh connection on port 22 and sshd for that session remains 
-> > unkillable process.
-> > 
-> 
-> here a bug
-> 
-> > 
-> > 
-> > List:       linux-kernel
-> > Subject:    Re: 24rc8: unregister_netdevice: waiting for ... to become free.
-> > From:       Soeren Sonnenburg <kernel () nn7 ! de>
-> > Date:       2008-01-29 8:59:10
-> > Message-ID: 1201597150.4973.10.camel () localhost
-> > [Download message RAW]
-> > 
-> > On Tue, 2008-01-22 at 22:44 -0800, David Miller wrote:
-> > > From: Soeren Sonnenburg <kernel@nn7.de>
-> > > Date: Wed, 23 Jan 2008 07:42:21 +0100
-> > >
-> > > > Dear all,
-> > > >
-> > > > since some 2.6.24rc version I suddenly experience such messages on
-> > > > console when trying to shutdown a vpn connection:
-> > > >
-> > > > unregister_netdevice: waiting for tun0 to become free. Usage count = 1
-> > > >
-> > > > or when removing an usb wlan dongle (although it was ifconfig wlan0
-> > > > down'd before)
-> > >
-> > > Current GIT already has a fix for this, attached below:
-> > 
-> > hmmhhh, I am still seeing this problem on 2.6.24 with at least with the
-> > madwifi driver...
-> > 
-> > Soeren
-> 
-> there a bug.
-> 
-> 
-> Let's cc netdev@vger.kernel.org - linux-net is dead, afaik.
-> 
-> Thanks for reporting all these bugs but please do take much mure care over
-> the cc's.  Be sure to cc every party who was cc'ed on the email to which
-> you're replying.  I restored Soeren.
+Hello,
 
-I am not exactly sure which kernel version Roland (?) is/was using but
-from what I can tell this bug is fixed since 2.6.24 (at least). Well I
-didn't see it with madwifi nor with the tun devices anymore on any of
-the 24.X or 25rc's/25 ...
+I want to use IPV4 multicast routing with Linux ; I want to use Linux
+as the machine which
+runs the PIM daemon ; ccording to
+net/ipv4/ipmr.c it should work with mrouted; but
+mrouted is old and no longer supported.
 
-Soeren
+I had looked for other alternatives;
+PIM (Protocol Independent Multicast) based solutions seems to be the most
+appropriate; and the linux kernel supports PIMSM V1 and
+PIMSM V2 for a long time.
+
+However, PIM based solutions that I found, like netweb.usc.edu/pim are not
+available.  I am not sure about other PIM solutions I encountered.
+
+Could anybody recommend  some PIM based daemon which is known to work
+with IPv4 multicast routing in Linux ?  A  solution which will accomplish
+the basic functionalities of IPV4 multicast routing with 2.6 kernel will do.
+
+
+Regards,
+DS
