@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Wrong list_lock argument in rose_node seqops
-Date: Fri, 02 May 2008 17:03:34 -0700 (PDT)
-Message-ID: <20080502.170334.97648357.davem@davemloft.net>
-References: <200804302208.56925.bpidoux@free.fr>
+Subject: Re: [PATCH 0/8][BONDING]: Some BUGs and deadlocks fixes and a bit
+ of concomitant cleanups.
+Date: Fri, 02 May 2008 17:06:43 -0700 (PDT)
+Message-ID: <20080502.170643.71090198.davem@davemloft.net>
+References: <481735F4.30909@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
-To: bpidoux@free.fr
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <200804302208.56925.bpidoux@free.fr>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: xemul@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54384
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760074AbYECAGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 20:06:44 -0400
+In-Reply-To: <481735F4.30909@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bernard Pidoux <bpidoux@free.fr>
-Date: Wed, 30 Apr 2008 22:08:56 +0200
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 29 Apr 2008 18:51:32 +0400
 
-> In rose_node_start() as well as in rose_node_stop()
-> __acquires() and spin_lock_bh() were wrongly passing
-> rose_neigh_list_lock instead of rose_node_list_lock arguments.
-> 
-> Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+> While looking at the bonding driver I found four bugs visible with
+> the unaided eye. Here are the fixes, but I also cleaned up some
+> places, I just couldn't come by. If you consider those cleanups to
+> be for next merge window, just kick me and I'll resubmit this set
+> without them.
 
-Applied, good catch.
+I think all of these patches are excellent.
 
-Thanks Bernard.
+Jay, et al., can you make sure these go to Jeff and
+get integrated?
+
+Thanks.
