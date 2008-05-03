@@ -1,46 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH REPOST 4/4] bonding: fix enslavement error unwinds
-Date: Fri, 02 May 2008 18:07:21 -0700 (PDT)
-Message-ID: <20080502.180721.97386451.davem@davemloft.net>
-References: <12097757841898-git-send-email-fubar@us.ibm.com>
-	<20080502.175222.220566217.davem@davemloft.net>
-	<21092.1209776762@death>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [patch 1/2] smsc-ircc2: wrap PNP probe code in #ifdef
+ CONFIG_PNP
+Date: Sat, 3 May 2008 11:46:17 +1000
+Message-ID: <20080503114617.1c063759.sfr@canb.auug.org.au>
+References: <200805022040.m42KeN16013646@imap1.linux-foundation.org>
+	<20080502143802.8fb86319.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: fubar@us.ibm.com
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Sat__3_May_2008_11_46_17_+1000_rUDEj461qtpsFK1k"
+Cc: samuel@sortiz.org, netdev@vger.kernel.org, bjorn.helgaas@hp.com,
+	kamalesh@linux.vnet.ibm.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35302
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761075AbYECBHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 21:07:21 -0400
-In-Reply-To: <21092.1209776762@death>
+Received: from chilli.pcug.org.au ([203.10.76.44]:55415 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754622AbYECBqY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 May 2008 21:46:24 -0400
+In-Reply-To: <20080502143802.8fb86319.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Fri, 02 May 2008 18:06:02 -0700
+--Signature=_Sat__3_May_2008_11_46_17_+1000_rUDEj461qtpsFK1k
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> 	As part of:
-> 
-> commit c2edacf80e155ef54ae4774379d461b60896bc2e
-> Author: Jay Vosburgh <fubar@us.ibm.com>
-> Date:   Mon Jul 9 10:42:47 2007 -0700
-> 
->     bonding / ipv6: no addrconf for slaves separately from master
-> 
-> two steps were rearranged in the enslavement process: netdev_set_master
-> is now before the call to dev_open to open the slave.
-> 
-> 	This patch updates the error cases and unwind process at the
-> end of bond_enslave to match the new order.  Without this patch, it is
-> possible for the enslavement to fail, but leave the slave with IFF_SLAVE
-> set in its flags.
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Hi Andrew,
 
-Thanks for fixing up the commit message:
+On Fri, 2 May 2008 14:38:02 -0700 Andrew Morton <akpm@linux-foundation.org>=
+ wrote:
+>
+> On Fri, 02 May 2008 13:40:23 -0700
+> akpm@linux-foundation.org wrote:
+>=20
+> > From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+> >=20
+> > Wrap PNP probe code in #ifdef CONFIG_PNP.
+> >=20
+> > Without this change, we'll have unresolved references to pnp_get_resour=
+ce()
+> > function when CONFIG_PNP=3Dn.  (This is a new interface that's not in m=
+ainline
+> > yet.)
+>=20
+> hrm, it turns out that this is already in linux-next, only I'm
+> not sure by what route it got there.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+I put it there directly at the end so that the tee would build for various
+configs.  I have been carrying it for some time.  I am also carrying a
+similar patch for nsc-ircc.  I will remove them when someone puts them
+into some other tree that I am merging.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Sat__3_May_2008_11_46_17_+1000_rUDEj461qtpsFK1k
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFIG8PuTgG2atn1QN8RAhOIAJ9f4P+Nvv4/3iwdwoLuhEi8cqf9/gCffSOY
+jJGOsYVOBkwt4FJmCz1Xdvc=
+=VsZK
+-----END PGP SIGNATURE-----
+
+--Signature=_Sat__3_May_2008_11_46_17_+1000_rUDEj461qtpsFK1k--
