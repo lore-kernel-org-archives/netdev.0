@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 patch 2/2][NETNS] Fix reassembly timer to use the
- right namespace
-Date: Fri, 02 May 2008 17:02:37 -0700 (PDT)
-Message-ID: <20080502.170237.24392605.davem@davemloft.net>
-References: <20080430213113.410541118@localhost.localdomain>
-	<20080430213322.234776390@localhost.localdomain>
+Subject: Re: [PATCH] Wrong list_lock argument in rose_node seqops
+Date: Fri, 02 May 2008 17:03:34 -0700 (PDT)
+Message-ID: <20080502.170334.97648357.davem@davemloft.net>
+References: <200804302208.56925.bpidoux@free.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48616
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758525AbYECACh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2008 20:02:37 -0400
-In-Reply-To: <20080430213322.234776390@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
+To: bpidoux@free.fr
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <200804302208.56925.bpidoux@free.fr>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Wed, 30 Apr 2008 23:31:15 +0200
+From: Bernard Pidoux <bpidoux@free.fr>
+Date: Wed, 30 Apr 2008 22:08:56 +0200
 
-> This trivial fix retrieves the network namespace from frag queue
-> and use it to get the network device in the right namespace.
+> In rose_node_start() as well as in rose_node_stop()
+> __acquires() and spin_lock_bh() were wrongly passing
+> rose_neigh_list_lock instead of rose_node_list_lock arguments.
 > 
-> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
 
-The one area where ipv4 and ipv6 code didn't get fully
-considated, and voila!  ipv4 got it right and ipv6 had
-the bug :-)
+Applied, good catch.
 
-Patch applied, thanks!
+Thanks Bernard.
