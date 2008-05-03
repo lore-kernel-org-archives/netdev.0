@@ -1,72 +1,72 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: mac80211 truesize bugs
-Date: Sun, 04 May 2008 01:15:39 +0200
-Message-ID: <1209856539.3920.1.camel@johannes.berg>
-References: <20080503125940.GA26199@gondor.apana.org.au>
-	 <1209830582.3673.8.camel@johannes.berg>
-	 <1209855383.3649.3.camel@johannes.berg>
-	 <20080503.160705.78111001.davem@davemloft.net>
+Date: Sun, 04 May 2008 01:24:48 +0200
+Message-ID: <1209857088.3920.4.camel@johannes.berg>
+References: <20080501.024320.212547875.davem@davemloft.net>
+	 <E1JrW9h-0001tI-00@gondolin.me.apana.org.au>
+	 <20080501.034950.261408566.davem@davemloft.net>
+	 <1209641914.3904.0.camel@johannes.berg>
+	 (sfid-20080501_133908_152591_239C8338)
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-uXOp3gDz7F1eHgA2gWf/"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-bhEaexMM3Dfxq7npZmEY"
 Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080503.160705.78111001.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+In-Reply-To: <1209641914.3904.0.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (sfid-20080501_133908_152591_239C8338)
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-uXOp3gDz7F1eHgA2gWf/
-Content-Type: text/plain; charset=utf-8
+--=-bhEaexMM3Dfxq7npZmEY
+Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2008-05-03 at 16:07 -0700, David Miller wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Date: Sun, 04 May 2008 00:56:23 +0200
->=20
-> > This was a stupid mistake, if you do it correctly it actually works and
-> > so far has only triggered a single warning on my system:
-> >=20
-> > [  217.507048] SKB BUG: Invalid truesize (4294964120) size=3D432, sizeo=
-f(sk_buff)=3D176
-> > =EF=BB=BF
-> > that was with my patch though to update skb->truesize during !skb->sk
-> > pskb_expand_head() calls.
->=20
-> Thanks a lot for tracking this down Johannes.
 
-No, no, I haven't. The only thing that was a stupid mistake was my
-change to check the actual allocated skb size in the truesize bug rather
-than do the < len check... That works, when you do it as in that patch,
-but the mac80211 stuff still stands (along with all the questions I
-posted elsewhere in this thread)
+> > @@ -699,6 +699,12 @@ int pskb_expand_head(struct sk_buff *skb, int nhea=
+d, int ntail,
+> >  	if (skb_shared(skb))
+> >  		BUG();
+> > =20
+> > +	if (unlikely((nhead || ntail) && skb->sk)) {
+> > +		printk(KERN_ERR "SKB BUG: Illegal pskb expand (%d:%d) "
+> > +		       "with socket attached\n",
+> > +		       nhead, ntail);
+> > +	}
+> > +
+> >  	size =3D SKB_DATA_ALIGN(size);
+>=20
+> Ok I think I'm starting to understand this a little better. However,
+> shouldn't this function update skb->truesize so if the skb is later
+> attached to a different socket again it has the right size?
+
+Judging from some of the callers, the caller should. Why?!
 
 johannes
 
---=-uXOp3gDz7F1eHgA2gWf/
+--=-bhEaexMM3Dfxq7npZmEY
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIVAwUASBzyGqVg1VMiehFYAQLltRAAksORUg1lPvtZBYKAk37ay7Opwj2xraT4
-IoLYUP6T+Sy7jIHhdnHs3M3yIqtqPhkKbmCV0MysV2h6tsLyKYK8t/1vwgKQT6PH
-AR4A5dVZtwdgq0FB8lC53VaoU19IBVT+H+gjMXrKZnnQY+//ObtYzeNfU3SA4AuO
-RlNhZW8LQxmzBYUPSE6lsBezQewVr/FJq3Y+WETH4ehJPaI8B/pEGK03bS2YAOld
-pAM9qv65mJcF7yg0i49MjQDqTn9lxybtqzVT0wiMGjUkaSRLpJE0Ii20MypiKOTd
-P4Bf4+1yoRi+5HMqjB88GRyg0jDFIeHDHt7HkA+NNYgCojV4VUTaJR6wDBd8hsnY
-/SpqL+WjDjNRwaAmfODOZNcfxRmXYJlp650H99V/DRgcZWYRhlm3HgS+odyUane2
-AE195YLweySs6ff44ehBW9P/fhILueaAe7pndnnTF+fb0RIVQ3Sn+PVs3pyFbUn8
-QAAjMPSoqRDn9cQzsN0WKwG6fR85pDnCa6dIjHnqRedKMvnyAUOcd9I22uH213T0
-gjbnmd0M/f3U/kMscxzyc3FgpfrkTBRRmxelcemDVO+5IatoVQVDBuOVmAbarQWY
-uqR7N8A8/xdheMwVXT24r5GhwKWCS0D1DedQdhwJVYoVAUmebAcf6afuzFJLeGB1
-7QUHcWqYBYs=
-=8kcV
+iQIVAwUASBz0P6Vg1VMiehFYAQK0dxAAtaG6uS5y3ioYDYJZ+zRVaKcNtJWgBz8G
++KNHKHvnQ/khkJFyGvzq5+E9d7bsiuNXmjZXKT0Sc9S9Y1ZpiBk/QGRTjWfuflOm
+lAQJ/Jb/9xYS5L0AtC3lKKtV9r/piDESp+bXuy9F5aLwytHwPLx012tGmkq+/sBi
+K6XYQ+xIBFpYZztYEKfLN8z6h16kSfMTw0k68jnQcgA8xgXzotsd6sziuWgBSaFv
+yrlXTOZ7m/a8jBP1ev0D46xflK7DeGC8p8SqKOAOLTtvq8/PMvRt0abQaFn5Fw9K
+rSwAhRASKVHtTjdd2VW1sRV2uB6h06QYd4nU+/BHtdL1s6vi2k2Ye5TnIdf9ZOVJ
+544vGQBJPx3Dx0DiOsdwQ/rkFWXDDplIspEgrCdWAavU7EXW7XBwOPrGWMduz1oh
+bxCtntSD28XncbIrXHlo6j7VO0Nn5kD68HNmtaM4RPaVjgwsXsXIgDsXeDxAvTXa
+qEyX1MDkt08Yrir9LQ4J5bZ/+yY+bXDwHbns1LrbyBxGpSkeruWpydYbh9EEWie5
+3VFMj3eFxBX5lEqXWiMlOAw0ZGGVvquXNOQ4jlQX9u9rwGt2gu1ne1zi0x+QYks9
+U4BsUsT8nC/AgSR2RYqT+/Kt8N6zfcPn7965qFG7rCeAYa2UV3Uv3x26rMN6QZa4
+SgOiFEVbRD4=
+=EXkM
 -----END PGP SIGNATURE-----
 
---=-uXOp3gDz7F1eHgA2gWf/--
+--=-bhEaexMM3Dfxq7npZmEY--
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
