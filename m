@@ -1,56 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: New driver "sfc" for Solarstorm SFC4000 controller.
-Date: Sat, 3 May 2008 21:01:56 +0100
-Message-ID: <20080503200152.GO14219@solarflare.com>
-References: <200804301925.m3UJPc72001651@hera.kernel.org> <20080501120858.207b6dd6.akpm@linux-foundation.org> <Pine.LNX.4.62.0805022004350.13626@dolphin.home>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] [NET] fix useless comment reference loop
+Date: Sun, 04 May 2008 00:05:42 +0200
+Message-ID: <1209852342.3673.16.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Michael Brown <mbrown@fensystems.co.uk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:46114 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751747AbYECUCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2008 16:02:09 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.62.0805022004350.13626@dolphin.home>
+Received: from xc.sipsolutions.net ([83.246.72.84]:51119 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754711AbYECWFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2008 18:05:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Brown wrote:
-> On Thu, 1 May 2008, Andrew Morton wrote:
-> > >
-> > > ...
-> > >
-> > > --- /dev/null
-> > > +++ b/drivers/net/sfc/i2c-direct.h
-> > 
-> > There is no linkage with the kernel's own i2c layer?  Should there be?
-> 
-> Last time I checked (i.e. when I originally wrote this bit of the code), 
-> the kernel's own i2c layer didn't provide any clean way for kernel code 
-> (rather than user code) to access i2c devices.
+include/linux/skbuff.h says:
+        /* These elements must be at the end, see alloc_skb() for details.  */
 
-You may be thinking of the lm87 sensor driver, which exposes its
-configuration through sysfs (iirc) and not through specific kernel
-functions.  There was an I2C module for EF1 boards that worked with lm87
-and the I2C framework, but it was removed along with all EF1 support.
-Perhaps I should look at adapting that to the Falcon boards.  We would
-still want to do at least the initial programming of the sensors from the
-sfc driver though.
+net/core/skbuff.c says:
+	* See comment in sk_buff definition, just before the 'tail' member
 
-> As originally written, there was also a link to the kernel's i2c layer so 
-> that the NIC's onboard i2c bus could be exposed to e.g. lm_sensors for 
-> temperature monitoring.  I believe that this part of the driver was 
-> expunged since it made the patch "too large", but I may be wrong.
+This patch contains my guess as to the actual reason rather than a
+dead comment reference loop.
 
-The temperature and voltage monitoring was not included.  In the submitted
-driver, the I2C code is needed for power control and setting the over-
-temperature cut-out value on SFE4001 boards.  These use a MAX6647, not an
-LM87.
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+Not that it probably makes much of a difference anyway.
 
-Ben.
+ net/core/skbuff.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+--- everything.orig/net/core/skbuff.c	2008-05-04 00:01:25.000000000 +0200
++++ everything/net/core/skbuff.c	2008-05-04 00:02:41.000000000 +0200
+@@ -206,7 +206,9 @@ struct sk_buff *__alloc_skb(unsigned int
+ 		goto nodata;
+ 
+ 	/*
+-	 * See comment in sk_buff definition, just before the 'tail' member
++	 * Only clear those fields we need to clear, not those that we will
++	 * actually initialise below. Hence, don't put any more fields after
++	 * the tail pointer in struct sk_buff!
+ 	 */
+ 	memset(skb, 0, offsetof(struct sk_buff, tail));
+ 	skb->truesize = size + sizeof(struct sk_buff);
+
+
