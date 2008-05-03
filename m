@@ -1,56 +1,34 @@
-From: Jan 'yanek' Bortl <yanek@ya.bofh.cz>
-Subject: Re: PROBLEM: kernel lockup while changing TC rules
-Date: Sat, 03 May 2008 14:42:24 +0200
-Message-ID: <481C5DB0.4070000@ya.bofh.cz>
-References: <20080503071651.GA3313@ami.dom.local> <481C33D2.2090308@ya.bofh.cz> <20080503121130.GA2921@ami.dom.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: mac80211 truesize bugs
+Date: Sat, 3 May 2008 20:59:40 +0800
+Message-ID: <20080503125940.GA26199@gondor.apana.org.au>
+References: <20080501.024320.212547875.davem@davemloft.net> <E1JrW9h-0001tI-00@gondolin.me.apana.org.au> <20080501.034950.261408566.davem@davemloft.net> <20080501.035335.216935614.davem@davemloft.net> <1209639500.7067.0.camel@johannes.berg> <20080501110341.GD7490@gondor.apana.org.au> <1209818282.3987.23.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, mb@bu3sch.de,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlantis.mitranet.cz ([62.240.190.34]:48792 "EHLO
-	atlantis.mitranet.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763002AbYECMmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2008 08:42:38 -0400
-In-Reply-To: <20080503121130.GA2921@ami.dom.local>
+Received: from rhun.apana.org.au ([64.62.148.172]:56671 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752035AbYECM7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2008 08:59:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1209818282.3987.23.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Sat, May 03, 2008 at 11:43:46AM +0200, Jan 'yanek' Bortl wrote:
->> Jarek Poplawski wrote:
->>> Jan 'yanek' Bortl wrote, On 05/01/2008 05:49 PM:
->>>
->>>> Hi,
->>> Hi,
->>>> I have found this problem with today's git (2.6.25-00000-ge4c576b) and 2.6.25:
->>> Does this mean the bug triggers in 2.6.25 and later, but not in 2.6.24?
->>> If so, is it possible to reproduce this e.g. with 2.6.25-rc6?
->> I firstly discovered this on 2.6.22-6~bpo40+1 (debian's backports), but 
->> I'm not sure if that was same thing (it is long ago).
->>
->> Now i tested on test machine with these kernels:
->> 2.6.24, 2.6.24.6  
->> (http://ya.bofh.cz/archive/kernel-2.6-htbcrash/2/netconsole-2.6.24.6-slon.txt), 
->> 2.6.25
->>
->> I can test anything you want.
-> 
-> Great! I really appreciate! You're very helpful in catching this rare
-> bug. Alas, there is still nothing obvious at least to me, so I need
-> more time for any idea...
-> 
-> BTW, one little doubt: are you really sure vanilla 2.6.24 (without .6
-> etc.) gives the same? (There were some changes backported from 2.6.25
-> which I'd like to exclude.)
+On Sat, May 03, 2008 at 02:38:01PM +0200, Johannes Berg wrote:
+>
+> Why, btw? It's not too hard to check the allocated size, no?
 
-Yes. http://ya.bofh.cz/archive/kernel-2.6-htbcrash/3/netconsole.txt
-(config: http://ya.bofh.cz/archive/kernel-2.6-htbcrash/3/config-2.6.24-slon2)
+Yes that would be a meaningful improvement although we'd need to
+audit/test this to make sure that we don't spam people's logs
+with it.
 
+Cheers,
 -- 
-Jan 'yanek' Bortl <yanek [at] ya.bofh. cz>
-http://ya.bofh.cz/ | jab: yanek [at] mitranet. cz
------------------------------------------------------------------
-"Maybe one day you will learn that your way is not the only way."
-                                         Opher [StarGate: The Nox]
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
