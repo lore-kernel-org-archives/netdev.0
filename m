@@ -1,91 +1,56 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH][NET_SCHED] sch_htb: remove from event queue in
-	htb_parent_to_leaf()
-Date: Sat, 3 May 2008 20:42:45 +0200
-Message-ID: <20080503184245.GB6484@ami.dom.local>
-References: <20080503071651.GA3313@ami.dom.local> <481C33D2.2090308@ya.bofh.cz> <20080503163939.GA6484@ami.dom.local> <481CA037.3000909@ya.bofh.cz>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: New driver "sfc" for Solarstorm SFC4000 controller.
+Date: Sat, 3 May 2008 21:01:56 +0100
+Message-ID: <20080503200152.GO14219@solarflare.com>
+References: <200804301925.m3UJPc72001651@hera.kernel.org> <20080501120858.207b6dd6.akpm@linux-foundation.org> <Pine.LNX.4.62.0805022004350.13626@dolphin.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan 'yanek' Bortl <yanek@ya.bofh.cz>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Michael Brown <mbrown@fensystems.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:5921 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713AbYECSkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2008 14:40:55 -0400
-Received: by ug-out-1314.google.com with SMTP id h3so353248ugf.16
-        for <netdev@vger.kernel.org>; Sat, 03 May 2008 11:40:54 -0700 (PDT)
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:46114 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751747AbYECUCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2008 16:02:09 -0400
 Content-Disposition: inline
-In-Reply-To: <481CA037.3000909@ya.bofh.cz>
+In-Reply-To: <Pine.LNX.4.62.0805022004350.13626@dolphin.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 03, 2008 at 07:26:15PM +0200, Jan 'yanek' Bortl wrote:
-> Jarek Poplawski wrote:
->> ...
->>
->> Here is a suspect #1. (BTW, this place reminds me something...)
->
-> Great! Seems to solve my problem. I'll do some tests.
+Michael Brown wrote:
+> On Thu, 1 May 2008, Andrew Morton wrote:
+> > >
+> > > ...
+> > >
+> > > --- /dev/null
+> > > +++ b/drivers/net/sfc/i2c-direct.h
+> > 
+> > There is no linkage with the kernel's own i2c layer?  Should there be?
+> 
+> Last time I checked (i.e. when I originally wrote this bit of the code), 
+> the kernel's own i2c layer didn't provide any clean way for kernel code 
+> (rather than user code) to access i2c devices.
 
-Hi David,
+You may be thinking of the lm87 sensor driver, which exposes its
+configuration through sysfs (iirc) and not through specific kernel
+functions.  There was an I2C module for EF1 boards that worked with lm87
+and the I2C framework, but it was removed along with all EF1 support.
+Perhaps I should look at adapting that to the Falcon boards.  We would
+still want to do at least the initial programming of the sensors from the
+sfc driver though.
 
-IMHO this patch is needed even if there is something more.
+> As originally written, there was also a link to the kernel's i2c layer so 
+> that the NIC's onboard i2c bus could be exposed to e.g. lm_sensors for 
+> temperature monitoring.  I believe that this part of the driver was 
+> expunged since it made the patch "too large", but I may be wrong.
 
-Thanks,
-Jarek P.
+The temperature and voltage monitoring was not included.  In the submitted
+driver, the I2C code is needed for power control and setting the over-
+temperature cut-out value on SFE4001 boards.  These use a MAX6647, not an
+LM87.
 
--------------------->
+Ben.
 
-[NET_SCHED] sch_htb: remove from event queue in htb_parent_to_leaf()
-
-There is lack of removing a class from the event queue while changing
-from parent to leaf which can cause corruption of this rb tree. This
-patch fixes a bug introduced by my patch: "sch_htb: turn intermediate
-classes into leaves" commit: 160d5e10f87b1dc88fd9b84b31b1718e0fd76398.
-
-Many thanks to Jan 'yanek' Bortl for finding a way to reproduce this
-rare bug and narrowing the test case, which made possible proper
-diagnosing.
-
-This patch is recommended for all kernels starting from 2.6.20.
-
-Reported-and-tested-by: Jan 'yanek' Bortl <yanek@ya.bofh.cz>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
----
-
- net/sched/sch_htb.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 66148cc..5bc1ed4 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1197,12 +1197,16 @@ static inline int htb_parent_last_child(struct htb_class *cl)
- 	return 1;
- }
- 
--static void htb_parent_to_leaf(struct htb_class *cl, struct Qdisc *new_q)
-+static void htb_parent_to_leaf(struct htb_sched *q, struct htb_class *cl,
-+			       struct Qdisc *new_q)
- {
- 	struct htb_class *parent = cl->parent;
- 
- 	BUG_TRAP(!cl->level && cl->un.leaf.q && !cl->prio_activity);
- 
-+	if (parent->cmode != HTB_CAN_SEND)
-+		htb_safe_rb_erase(&parent->pq_node, q->wait_pq + parent->level);
-+
- 	parent->level = 0;
- 	memset(&parent->un.inner, 0, sizeof(parent->un.inner));
- 	INIT_LIST_HEAD(&parent->un.leaf.drop_list);
-@@ -1300,7 +1304,7 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
- 		htb_deactivate(q, cl);
- 
- 	if (last_child)
--		htb_parent_to_leaf(cl, new_q);
-+		htb_parent_to_leaf(q, cl, new_q);
- 
- 	if (--cl->refcnt == 0)
- 		htb_destroy_class(sch, cl);
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
