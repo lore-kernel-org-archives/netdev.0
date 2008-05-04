@@ -1,7 +1,7 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: mac80211 truesize bugs
-Date: Sun, 04 May 2008 13:25:55 +0200
-Message-ID: <1209900355.6210.64.camel@johannes.berg>
+Date: Sun, 04 May 2008 14:28:08 +0200
+Message-ID: <1209904088.4065.11.camel@johannes.berg>
 References: <1209815533.3987.21.camel@johannes.berg>
 	 <20080503.180300.10562559.davem@davemloft.net>
 	 <1209865354.6210.23.camel@johannes.berg>
@@ -14,69 +14,93 @@ References: <1209815533.3987.21.camel@johannes.berg>
 	 <1209892489.6210.56.camel@johannes.berg>
 	 <20080504094444.GA541@gondor.apana.org.au>
 	 <1209894754.6210.58.camel@johannes.berg>
-	 (sfid-20080504_115215_663728_A338AE69)
+	 (sfid-20080504_115215_663728_A338AE69)  <1209900355.6210.64.camel@johannes.berg>
+	 (sfid-20080504_132540_547555_169FA253)
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-49r3pBiJBo59BU3q9l5k"
-Cc: David Miller <davem@davemloft.net>, mb@bu3sch.de,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:33676 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753848AbYEDL0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 07:26:09 -0400
-In-Reply-To: <1209894754.6210.58.camel@johannes.berg> (sfid-20080504_115215_663728_A338AE69)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-W7Um0qbqf+T92OqxLuli"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1209900355.6210.64.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (sfid-20080504_132540_547555_169FA253)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---=-49r3pBiJBo59BU3q9l5k
-Content-Type: text/plain
+--=-W7Um0qbqf+T92OqxLuli
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2008-05-04 at 11:52 +0200, Johannes Berg wrote:
-> On Sun, 2008-05-04 at 17:44 +0800, Herbert Xu wrote:
-> > On Sun, May 04, 2008 at 11:14:49AM +0200, Johannes Berg wrote:
-> > >
-> > > I just re-did the test, and I definitely need 29 more bytes on, for
-> > > example, the IPv6 autodiscovery packets and ICMP packets generated wi=
-th
-> > > ping(8). Some of them even need additional tailroom.
-> >=20
-> > Could you find out the code path that created the skb in the
-> > kernel so we can see why there isn't enough head room?
->=20
-> Yeah I was just considering putting a stacktrace into the skb when it's
-> allocated. Haven't done, lunchtime now.
 
-http://johannes.sipsolutions.net/patches/kernel/all/2008-05-04-11%3a23/027-=
+> http://johannes.sipsolutions.net/patches/kernel/all/2008-05-04-11%3a23/02=
+7-skb-alloc-stackdump.patch
+
+This was broken when cloning, this one works:
+
+http://johannes.sipsolutions.net/patches/kernel/all/2008-05-04-12%3a19/027-=
 skb-alloc-stackdump.patch
 
-will report results after kernel rebuild.
+Now I see the problem. I increased the LL_MAX_HEADER constant, but all
+code uses dev->hard_header_len to allocate the headroom (via
+LL_RESERVED_SPACE), e.g. packet.c:
+
+packet_sendmsg_spkt:
+        skb =3D sock_wmalloc(sk, len + LL_RESERVED_SPACE(dev), 0, GFP_KERNE=
+L); =20
+  =20
+[...]
+        /* FIXME: Save some space for broken drivers that write a
+         * hard header at transmission time by themselves. PPP is the
+         * notable one here. This should really be fixed at the driver leve=
+l.
+         */
+        skb_reserve(skb, LL_RESERVED_SPACE(dev));
+
+This one even complains about "broken drivers" (like PPP, but wireless
+code behaves like this too). This is getting really really really
+frustrating. All kinds of comments all over tell you how this all is
+wrong but NEVER actually tell you how to do it correctly!
+
+As far as I understand, I cannot change dev->hard_header_len because I
+want/need an ethernet header and not more. But then I don't get enough
+headroom.
+
+Oddly enough, I even get a warning from tcp_connect() although that
+actually does
+        /* Reserve space for headers. */
+        skb_reserve(buff, MAX_TCP_HEADER);
+
+which should definitely be sufficient. Maybe the packet gets cloned
+somewhere? On the other hand, IPv4 raw's =EF=BB=BFraw_send_hdrinc reserves
+LL_RESERVED_SPACE(rt->u.dst.dev) like af_packet....
 
 johannes
 
---=-49r3pBiJBo59BU3q9l5k
+--=-W7Um0qbqf+T92OqxLuli
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIVAwUASB2dQqVg1VMiehFYAQIs5w//QlyamBWLEsq6DxEhFwDR1kp83HqLUfto
-p8m3HXcu4icBLFjQSEwXpyYfijYRPsyDIiS8NZZK48JzTMjNuNwcvIhuhERER7Y4
-Y5I2AbVtMBQ6bzq5dZcQt9RNntm/4hz7u40ID5rqANAvXVFdRXNKoiAi2hS8kjTq
-0//MMvVhWq8UKySJoeqCbf6BU/lYwY3tR1RtXRyjWpGYAbrNTMnEcJIChbTYOFGL
-wLhJe781vxOLowpVzbwYyIkhPrKjLTcsGuYWEoE1N87vVrDvreBAi/97AcRxe1w5
-NUXdjTpAzEPdNHGB5vwd8X/utKB2ehwQUB8n1T/aud+UhPN9KjkCrIs0/qG5ywzz
-me6DPxzbW0ClXQ2Ttc7DG7+dhtZfQnSVHLH/Ops9cURr0SwpKZhSr5UudvYvFgv7
-3bFhieaK/4r6ftYBFFPrqzz1rvvEucC9Q20YsCW6m5VwaO2lV9wDvQCSwCBzfCpz
-x0kV7V2Hd9E2A0DuCs3vD93om02wzxiNHGihf7J2IWN/+0quhyKcw5qqAfc2xcfX
-skKg4BHl8wcoI7bY9EumysZMbArTEAkXu8JwNMJbC0NUiJCAVsFo8bpYuJESKnHn
-trxo2/xZTLyVyHT77iA/YnOenBUz13COmx4wsqipS0CeXi3vf8D5ar7nOgB7gc6R
-bt852nvkAUQ=
-=3E9m
+iQIVAwUASB2r16Vg1VMiehFYAQIFMhAAsYkGt890QyUngQpCW1CCkIlJ07k+ggx+
+QZJfxYv9b3vK6VjqJ9ULWcBAZQhkCJjspn78dzZfnIxUO/65Z3tLH9Q4EnOG3luN
+ATCP0IKFplSngF2YlheKyjMceGeBGCczy13sAT571LvjLb9EFSsSs+67fJ9VqgBQ
+zYu702fGy9STMeDiimf14RW+fywWTlR3eOnxBXDNMZJI8qQuHupMS5yw41LqrNyT
+rTLMqCBGNq5gNrnTBtGO63zM9ZUYhn7if9sgTyJrx4TTtKpF5ITHIFIwL4y/YfpV
+tQVuATFB4saEc3Amp0gH6GkjATG6saacGLeVp7epCV+dliPiR9t159tCZh6xfVcE
+08FGnmh1R0XYzSRRqjs9/PZfixOKbuTNQv8c1ES7hzB1lpo97PwHoRDS94burvPg
+56RsIX+97B1oqNzpr1c5f/nH2Gc+FGpz7UhQMpLZ4hE/+Hvw9mm2oX7FFDc0TOw3
+sYg6eCHlHBS8Qzj6oWGmQmH+/1LYFl0JmF/j0L4wmzZrbHR3J3hbwjEv9lUs92nF
+fyFJJyza7KZ+GQfyLOojRVasuNSehhdKFFJdoJX5XaY6XtD/2Y3ub8bcLi1HRcTU
+Dczxr10UFFBeLwSYNhCwkKlFw4xJevwiuG1Y2WP9AWcGw4BzvGcRQ9kBqICUNBQT
++EBN2NebIX4=
+=1Z1l
 -----END PGP SIGNATURE-----
 
---=-49r3pBiJBo59BU3q9l5k--
+--=-W7Um0qbqf+T92OqxLuli--
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
