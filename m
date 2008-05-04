@@ -1,44 +1,44 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 2/2][ATM]: Bad locking on br2684_devs modifications.
-Date: Sun, 04 May 2008 11:39:00 +0400
-Message-ID: <481D6814.6050801@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -mm] __ratelimit rewrite
+Date: Sun, 04 May 2008 00:54:33 -0700 (PDT)
+Message-ID: <20080504.005433.98511912.davem@davemloft.net>
+References: <20080504070738.GA11832@darkstar.te-china.tietoenator.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Chas Williams <chas@cmf.nrl.navy.mil>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: akpm@linux-foundation.org, paulmck@us.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hidave.darkstar@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:43774 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752518AbYEDHlu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 May 2008 03:41:50 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35023
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751795AbYEDHyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 03:54:35 -0400
+In-Reply-To: <20080504070738.GA11832@darkstar.te-china.tietoenator.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The list_del happens under read-locked devs_lock.
+From: Dave Young <hidave.darkstar@gmail.com>
+Date: Sun, 4 May 2008 15:07:38 +0800
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Hi Dave,
 
----
- net/atm/br2684.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> @@ -76,8 +76,8 @@ extern void warn_on_slowpath(const char 
+>  	unlikely(__ret_warn_once);				\
+>  })
+>  
+> -#define WARN_ON_SECS(condition, state, secs)			\
+> -		WARN_ON((condition) && __ratelimit(state))
+> +#define WARN_ON_RATELIMIT(condition, state)			\
+> +		WARN_ON((condition) && __ratelimit(state));
+>  
+>  #ifdef CONFIG_SMP
+>  # define WARN_ON_SMP(x)			WARN_ON(x)
 
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index 3a74ff8..13858e2 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -346,9 +346,9 @@ static void br2684_push(struct atm_vcc *atmvcc, struct sk_buff *skb)
- 		/* skb==NULL means VCC is being destroyed */
- 		br2684_close_vcc(brvcc);
- 		if (list_empty(&brdev->brvccs)) {
--			read_lock(&devs_lock);
-+			write_lock_irq(&devs_lock);
- 			list_del(&brdev->br2684_devs);
--			read_unlock(&devs_lock);
-+			write_unlock_irq(&devs_lock);
- 			unregister_netdev(net_dev);
- 		}
- 		return;
--- 
-1.5.3.4
+Are you sure you want that new semicolon there?
 
+	if (foo)
+		WARN_ON_RATELIMIT(...);
+	else
+
+will result in a compile error.
