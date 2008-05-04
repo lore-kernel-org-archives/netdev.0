@@ -1,157 +1,119 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [ARCHIVE] store skb allocation stacktrace in skb
-Date: Sun, 04 May 2008 21:07:10 +0200
-Message-ID: <1209928030.3655.26.camel@johannes.berg>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: Need help debugging memory corruption
+Date: Sun, 4 May 2008 14:52:40 -0500
+Message-ID: <20080504145240.67754191@osprey.hogchain.net>
+References: <20080503130951.091392ba@osprey.hogchain.net>
+	<e2e108260805040802l4b2bb9dfjce898903fe746a1c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Chris Snook" <csnook@redhat.com>
+To: "Bart Van Assche" <bart.vanassche@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:37601 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752213AbYEDTHT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 15:07:19 -0400
-Received: from [91.5.67.65] (helo=[10.0.0.4])
-	by sipsolutions.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.69)
-	(envelope-from <johannes@sipsolutions.net>)
-	id 1JsjXi-0005gt-JY
-	for netdev@vger.kernel.org; Sun, 04 May 2008 21:06:38 +0200
+Received: from fmailhost03.isp.att.net ([207.115.11.53]:42453 "EHLO
+	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754873AbYEDTwn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 15:52:43 -0400
+In-Reply-To: <e2e108260805040802l4b2bb9dfjce898903fe746a1c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I needed this patch, so here it is for the archive just in case somebody
-else needs some similar debugging feature in the future.
+On Sun, 4 May 2008 17:02:59 +0200
+"Bart Van Assche" <bart.vanassche@gmail.com> wrote:
 
----
- include/linux/skbuff.h |   12 ++++++++++++
- kernel/stacktrace.c    |    3 +++
- net/Kconfig            |   12 ++++++++++++
- net/core/skbuff.c      |   30 ++++++++++++++++++++++++++++++
- 4 files changed, 57 insertions(+)
+> Are you familiar with the kernel command-line option slub_debug=3DFZP=
+U ?
+> If this was not yet enabled, recompiling your kernel with
+> CONFIG_SLUB=3Dy and CONFIG_SLUB_DEBUG=3Dy enabled and specifying
+> slub_debug=3DFZPU on the kernel command line will probably provide mo=
+re
+> detailed information about the cause of the memory corruption.
 
---- everything.orig/include/linux/skbuff.h	2008-05-04 13:21:14.000000000 +0200
-+++ everything/include/linux/skbuff.h	2008-05-04 13:22:41.000000000 +0200
-@@ -28,6 +28,7 @@
- #include <linux/rcupdate.h>
- #include <linux/dmaengine.h>
- #include <linux/hrtimer.h>
-+#include <linux/stacktrace.h>
- 
- #define HAVE_ALLOC_SKB		/* For the drivers to know */
- #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
-@@ -188,6 +189,8 @@ enum {
- #define NET_SKBUFF_DATA_USES_OFFSET 1
- #endif
- 
-+#define NET_SKBUFF_STACKTRACE_ENTRIES	20
-+
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- typedef unsigned int sk_buff_data_t;
- #else
-@@ -245,6 +248,8 @@ typedef unsigned char *sk_buff_data_t;
-  *	@dma_cookie: a cookie to one of several possible DMA operations
-  *		done by skb DMA functions
-  *	@secmark: security marking
-+ *	@stacktrace: allocation stack trace
-+ *	@stacktracedata: allocation stack trace entries
-  */
- 
- struct sk_buff {
-@@ -321,6 +326,11 @@ struct sk_buff {
- 
- 	__u32			mark;
- 
-+#ifdef CONFIG_SKBUFF_ALLOC_TRACE
-+	struct stack_trace	stacktrace;
-+	unsigned long		stacktracedata[NET_SKBUFF_STACKTRACE_ENTRIES];
-+#endif
-+
- 	sk_buff_data_t		transport_header;
- 	sk_buff_data_t		network_header;
- 	sk_buff_data_t		mac_header;
-@@ -341,6 +351,8 @@ struct sk_buff {
- 
- #include <asm/system.h>
- 
-+extern void print_skb_alloc_trace(struct sk_buff *skb);
-+
- extern void kfree_skb(struct sk_buff *skb);
- extern void	       __kfree_skb(struct sk_buff *skb);
- extern struct sk_buff *__alloc_skb(unsigned int size,
---- everything.orig/net/Kconfig	2008-05-04 13:21:14.000000000 +0200
-+++ everything/net/Kconfig	2008-05-04 13:22:41.000000000 +0200
-@@ -35,6 +35,18 @@ config NET_NS
- 	  Allow user space to create what appear to be multiple instances
- 	  of the network stack.
- 
-+config SKBUFF_ALLOC_TRACE
-+	bool "SKB allocation stack tracking"
-+	depends on EXPERIMENTAL && STACKTRACE_SUPPORT
-+	select STACKTRACE
-+	help
-+	  This option makes the skb allocation functions store a stack trace
-+	  into an SKB when allocated so that later one can dump it if
-+	  something is wrong with the SKB to find out where it came from.
-+
-+	  Say N unless you're debugging SKB problems and need this
-+	  information, you can print the trace using print_skb_alloc_trace().
-+
- source "net/packet/Kconfig"
- source "net/unix/Kconfig"
- source "net/xfrm/Kconfig"
---- everything.orig/net/core/skbuff.c	2008-05-04 13:21:14.000000000 +0200
-+++ everything/net/core/skbuff.c	2008-05-04 14:04:07.000000000 +0200
-@@ -227,6 +227,13 @@ struct sk_buff *__alloc_skb(unsigned int
- 	shinfo->ip6_frag_id = 0;
- 	shinfo->frag_list = NULL;
- 
-+#ifdef CONFIG_SKBUFF_ALLOC_TRACE
-+	skb->stacktrace.max_entries = NET_SKBUFF_STACKTRACE_ENTRIES;
-+	skb->stacktrace.entries = skb->stacktracedata;
-+	skb->stacktrace.skip = 1;
-+	save_stack_trace(&skb->stacktrace);
-+#endif
-+
- 	if (fclone) {
- 		struct sk_buff *child = skb + 1;
- 		atomic_t *fclone_ref = (atomic_t *) (child + 1);
-@@ -244,6 +251,24 @@ nodata:
- 	goto out;
- }
- 
-+#ifdef CONFIG_SKBUFF_ALLOC_TRACE
-+/**
-+ * print_skb_alloc_trace - print skbuff allocation trace
-+ * @skb: skb to print trace for
-+ *
-+ * This function prints the stacktrace from the location where
-+ * the skb was allocated.
-+ */
-+void print_skb_alloc_trace(struct sk_buff *skb)
-+{
-+	if (WARN_ON(!skb))
-+		return;
-+
-+	print_stack_trace(&skb->stacktrace, 0);
-+}
-+EXPORT_SYMBOL(print_skb_alloc_trace);
-+#endif
-+
- /**
-  *	__netdev_alloc_skb - allocate an skbuff for rx on a specific device
-  *	@dev: network device to receive on
-@@ -446,6 +471,11 @@ static void __copy_skb_header(struct sk_
- #endif
- #endif
- 	skb_copy_secmark(new, old);
-+#ifdef CONFIG_SKBUFF_ALLOC_TRACE
-+	memcpy(&new->stacktrace, &old->stacktrace, sizeof(old->stacktrace));
-+	memcpy(&new->stacktracedata, &old->stacktracedata, sizeof(old->stacktracedata));
-+	new->stacktrace.entries = new->stacktracedata;
-+#endif
- }
- 
- static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+Bart,
+
+Using slub_debug=3DFZPU didn't seem to add more information.
+CONFIG_SLUB=3Dy and CONFIG_SLUB_DEBUG=3Dy are (and were previously) set=
+=2E
+
+Thanks.
+
+title Fedora (2.6.26-rc1)
+        root (hd0,5)
+        kernel /vmlinuz-2.6.26-rc1 ro root=3DLABEL=3D/1 console=3DttyS0=
+,38400 console=3Dtty0 slub_debug=3DFZPU
+        initrd /initrd-2.6.26-rc1.img
 
 
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D
+BUG kmalloc-2048: Poison overwritten
+-----------------------------------------------------------------------=
+------
+
+INFO: 0xffff81010004297a-0xffff810100042f71. First byte 0x0 instead of =
+0x6b
+INFO: Allocated in dev_alloc_skb+0x16/0x2c age=3D5813 cpu=3D0 pid=3D302=
+9
+INFO: Freed in skb_release_data+0xa8/0xad age=3D201 cpu=3D0 pid=3D0
+INFO: Slab 0xffffe20005801600 objects=3D15 used=3D0 fp=3D0xffff81010004=
+5b18 flags=3D0x8000000000002082
+INFO: Object 0xffff810100042968 @offset=3D10600 fp=3D0xffff8101000418d8
+
+Bytes b4 0xffff810100042958:  aa 91 fd ff 00 00 00 00 5a 5a 5a 5a 5a 5a=
+ 5a 5a =EF=BF=BD.=EF=BF=BD=EF=BF=BD....ZZZZZZZZ
+  Object 0xffff810100042968:  6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b=
+ 6b 6b kkkkkkkkkkkkkkkk
+  Object 0xffff810100042978:  6b 6b 00 17 31 4e 9d 41 00 0f db bc af 14=
+ 08 00 kk..1N.A..=DB=BC=EF=BF=BD...
+  Object 0xffff810100042988:  45 00 00 4e 87 5e 00 00 40 11 6e 82 c0 a8=
+ 01 fe E..N.^..@.n.=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=
+=EF=BF=BD.=EF=BF=BD
+  Object 0xffff810100042998:  c0 a8 01 70 00 89 00 89 00 3a 3b 67 00 09=
+ 00 00 =EF=BF=BD=EF=BF=BD.p.....:;g....
+  Object 0xffff8101000429a8:  00 01 00 00 00 00 00 00 20 43 4b 41 41 41=
+ 41 41 .........CKAAAAA
+  Object 0xffff8101000429b8:  41 41 41 41 41 41 41 41 41 41 41 41 41 41=
+ 41 41 AAAAAAAAAAAAAAAA
+  Object 0xffff8101000429c8:  41 41 41 41 41 41 41 41 41 00 00 21 00 01=
+ f0 53 AAAAAAAAA..!..
+  Object 0xffff8101000429d8:  56 17 df 3e 3b 9f b7 1f 2d 29 f0 68 cf 4d=
+ 61 97 V.=EF=BF=BD>;.=EF=BF=BD.-)=EF=BF=BDh=EF=BF=BDMa.
+ Redzone 0xffff810100043168:  bb bb bb bb bb bb bb bb                  =
+       =EF=BF=BD=F0=B0=BB=BB=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=
+=EF=BF=BD       =20
+ Padding 0xffff8101000431a8:  5a 5a 5a 5a 5a 5a 5a 5a                  =
+       ZZZZZZZZ       =20
+Pid: 3030, comm: ifconfig Not tainted 2.6.26-rc1 #3
+
+Call Trace:
+ [<ffffffff8108cf62>] print_trailer+0x123/0x12c
+ [<ffffffff8108d00f>] check_bytes_and_report+0xa4/0xcb
+ [<ffffffff8108d33e>] check_object+0xca/0x212
+ [<ffffffff8108d6cd>] __free_slab+0x85/0xfd
+ [<ffffffff811e5dd3>] ? skb_release_data+0xa8/0xad
+ [<ffffffff8108d77d>] discard_slab+0x38/0x3a
+ [<ffffffff8108e172>] __slab_free+0xdb/0x2ac
+ [<ffffffff8108e47a>] kfree+0xbc/0xcb
+ [<ffffffff811e5dd3>] ? skb_release_data+0xa8/0xad
+ [<ffffffff811e5dd3>] skb_release_data+0xa8/0xad
+ [<ffffffff811e6494>] skb_release_all+0xc9/0xce
+ [<ffffffff811e5c2e>] __kfree_skb+0x11/0x78
+ [<ffffffff811e5cbc>] kfree_skb+0x27/0x29
+ [<ffffffffa00cc3aa>] :atl1:atl1_clean_rx_ring+0x7e/0xe2
+ [<ffffffffa00cc4d7>] :atl1:atl1_down+0xc9/0xce
+ [<ffffffffa00cedcd>] :atl1:atl1_close+0x18/0x27
+ [<ffffffff811ebe2d>] dev_close+0x57/0x72
+ [<ffffffff811ebb31>] dev_change_flags+0xa8/0x164
+ [<ffffffff8122f44c>] devinet_ioctl+0x26a/0x5f6
+ [<ffffffff8122fc79>] inet_ioctl+0x92/0xaa
+ [<ffffffff811df6d4>] sock_ioctl+0x1da/0x202
+ [<ffffffff8109f252>] vfs_ioctl+0x2a/0x77
+ [<ffffffff8109f501>] do_vfs_ioctl+0x262/0x27f
+ [<ffffffff8109f575>] sys_ioctl+0x57/0x7a
+ [<ffffffff8100bff7>] tracesys+0xd5/0xda
+
+=46IX kmalloc-2048: Restoring 0xffff81010004297a-0xffff810100042f71=3D0=
+x6b
