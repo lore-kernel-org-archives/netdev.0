@@ -1,40 +1,49 @@
-From: Gunnar Larisch <Gunnar.Larisch@gmx.de>
-Subject: [PATCH] [NET]: 3c980-TX needs EXTRA_PREAMBLE
-Date: Sun,  4 May 2008 23:22:11 +0200
-Message-ID: <1209936131-11721-1-git-send-email-Gunnar.Larisch@gmx.de>
-Cc: netdev@vger.kernel.org, Gunnar Larisch <Gunnar.Larisch@gmx.de>
-To: klassert@mathematik.tu-chemnitz.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:37077 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752976AbYEDVWN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 May 2008 17:22:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [RFC] mac80211: assign needed_headroom/tailroom for netdevs
+Date: Sun, 04 May 2008 23:24:13 +0200
+Message-ID: <1209936253.7304.10.camel@johannes.berg>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The ethernet card 3c980-TX needs a mdio_sync() to initialize the ethernet
-properly. This is forced by adding an EXTRA_PREAMBLE to its drv_flags.
+This assigns the netdev's needed_headroom/tailroom members
+to take advantage of pre-allocated space for 802.11 headers.
 
-Without this, the driver did not reconnect after a link loss.
-
-Signed-off-by: Gunnar Larisch <Gunnar.Larisch@gmx.de>
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 ---
- drivers/net/3c59x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Builds on my other patch to add those fields, of course!
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index 6f8e7d4..e93c378 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -319,7 +319,7 @@ static struct vortex_chip_info {
- 	{"3c920B-EMB-WNM (ATI Radeon 9100 IGP)",
- 	 PCI_USES_MASTER, IS_TORNADO|HAS_MII|HAS_HWCKSM, 128, },
- 	{"3c980 Cyclone",
--	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
-+	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+ net/mac80211/iface.c |    8 ++++++++
+ net/mac80211/tx.c    |   14 +++++++++-----
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+--- everything.orig/net/mac80211/iface.c	2008-05-04 15:40:53.000000000 +0200
++++ everything/net/mac80211/iface.c	2008-05-04 16:08:45.000000000 +0200
+@@ -53,6 +53,14 @@ int ieee80211_if_add(struct net_device *
+ 	if (!ndev)
+ 		return -ENOMEM;
  
- 	{"3c980C Python-T",
- 	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
--- 
-1.5.4.2
++	ndev->needed_headroom = local->tx_headroom +
++				4*6 /* four MAC addresses */
++				+ 2 + 2 + 2 + 2 /* ctl, dur, seq, qos */
++				+ 6 /* mesh */
++				- ETH_HLEN /* ethernet hard_header_len */
++				+ IEEE80211_ENCRYPT_HEADROOM;
++	ndev->needed_tailroom = IEEE80211_ENCRYPT_TAILROOM;
++
+ 	ret = dev_alloc_name(ndev, ndev->name);
+ 	if (ret < 0)
+ 		goto fail;
 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
