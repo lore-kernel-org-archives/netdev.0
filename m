@@ -1,91 +1,66 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: mac80211 truesize bugs
-Date: Sun, 04 May 2008 04:08:36 +0200
-Message-ID: <1209866916.6210.39.camel@johannes.berg>
+Date: Sun, 04 May 2008 04:09:46 +0200
+Message-ID: <1209866986.6210.41.camel@johannes.berg>
 References: <1209760731.3608.17.camel@johannes.berg>
 	 <20080502.163334.148944203.davem@davemloft.net>
 	 <1209815533.3987.21.camel@johannes.berg>
 	 <20080503.180300.10562559.davem@davemloft.net>
 	 <1209865354.6210.23.camel@johannes.berg>
-	 <20080504020203.GA30514@gondor.apana.org.au>
+	 (sfid-20080504_034221_325997_0547A6E8)
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-GuQHjY1piMMh7lxTGlRN"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-zfg8D9pxGIM6OLTwM5ek"
+Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080504020203.GA30514-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+In-Reply-To: <1209865354.6210.23.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (sfid-20080504_034221_325997_0547A6E8)
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-GuQHjY1piMMh7lxTGlRN
+--=-zfg8D9pxGIM6OLTwM5ek
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2008-05-04 at 10:02 +0800, Herbert Xu wrote:
-> On Sun, May 04, 2008 at 03:42:34AM +0200, Johannes Berg wrote:
-> >
-> > I'm still not sure about the dependencies between LL_MAX_HEADER,
-> > dev->hard_header_len and similar. Why, for example, does ipip set it to
-> > LL_MAX_HEADER + sizeof(struct iphdr)? Because it doesn't know better
-> > since the packets it creates could be routed anywhere?
->=20
-> The difference between LL_MAX_HEADER and hard_header_len is that
-> the former is a system-wide hint of how big the header can be
-> and the latter is a device-specific value.
->=20
-> In other words, we use the former when we don't know where we
-> create a packet since we don't know where it'll end up.  As such
-> we allocate a generous amount of header space so that hopefully
-> nobody will have to expand the header later.  However, it would
-> be OK for someone to expand it but obviously it this happened
-> for the majority of your traffic then you've done something wrong
-> since expanding it wastes CPU resources by copying the data.
->=20
-> The value of hard_header_len on the other hand is used for two
-> purposes at least.  First of all it is a hint of how much free
-> header space there should be in a packet before it goes into a
-> device (but don't rely on it).  More importantly it's the length
-> of the hardware header in the packet.  The definition of the
-> hardware header varies with each type of device.
 
-Ok, thanks for the explanation. The latter probably means that I cannot
-use hard_header_len since mac80211 really needs devices to show up as
-ethernet devices. However, it wouldn't really help anyway if I cannot
-rely on it being available.
+> Ideally, we'd have enough headroom in the skb to start with, since right
+> now we're apparently reallocating a lot, especially encrypted frames.
+> Not that I understand why we don't get a truesize bug (without the
+> monitors) when we do that.
 
-So, what is mac80211 supposed to do? It needs up to 54 bytes of
-available headroom (for an encrypted mesh packet which currently can't
-really happen, but anyway) yet it cannot pskb_expand_head() either.
-Cloning each packet seems even more expensive, and just like skb_orphan
-subverts the purpose of the socket accounting.
+Hmm. I wonder if the reason might be that the skb itself is long enough,
+but has so much tailroom that it doesn't have enough headroom, but when
+we reallocate it to have more headroom we actually later don't use the
+extra tailroom. That would explain why I don't get truesize bugs
+although I do get a warning (from the modified pskb_expand_head()) that
+I mustn't reallocate the buffer.
 
 johannes
 
---=-GuQHjY1piMMh7lxTGlRN
+--=-zfg8D9pxGIM6OLTwM5ek
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIVAwUASB0ao6Vg1VMiehFYAQLB3hAAqi7ELI0q6fXWP+V4Q2UEoI0fs/lgILJJ
-vUj5H9GTPunylhPneT+1spPVThOPEx7lyJF+vW9KEr65rOQfkbuNhdSBDscR98pp
-HwhTbq5iag7LqgiDBDsI7RHd8bmkKOIgI3lRP6Yc5VeT8p8gZ84XA0yjwl6qudV/
-0aldF+H+4ztCbeBLoYQAcBWUqbUTQatlojrMIgiG8jD2ns91hSZo0Nyv2+2sQVYa
-EqCZeUpqHSiXCYOhX7Ff7lRl5fLdrZdlrSUv3n5VQcebW3E6cF9jdtJT5LO6K82i
-CSYP7GE3ybTAWgdUaf2hxCBgkaj4IuemQjaiw2kMhT4Zh/qIADhNr7VplDf8law0
-DLno8g3Gh17nC/xMUDX/PDLOA40C/oz1PkU45u7Y+rTe1Kfa4/Y6yGULeafjUz3A
-+QEH4GgXDYbRRqek05OWEu21sAU9MqTx24sC5QRWcLhfwnDwJdQjzWG+fcZHh88k
-O0lzIGjP1LZTrT7Q14Vua1gtmqQEG0wlBD74t5oKxC4HfwOHEyWJ6LaU5juDmkYo
-RO0ytPFp7iSFnQPoCv4pe+u3fKv9T0i1d94b9kkqKA8JQIpHZFwQpyb7JPO152rF
-mv55YRhroi/K7pzRYemOzkI7ssJSi3AqWygua3hsyfopd37YHKHweYeMHSNBTEdm
-Cg3nIdEnxdU=
-=rRJK
+iQIVAwUASB0a6aVg1VMiehFYAQKbNBAAth0Q/uwPYlqHMVHmGo7+ouTYVzDgwACH
+Sv+xWVeBjOeeWrJB5aThhWhMKSJQORrsFogUQF1yYriXNPZAWBDW2VOjA/QhKEIP
+imJ5kZC9PvRyai85L8n83AUGM5xIsZwr5AxMCy3/xlxanjFV5Ct8DiD91WELEcpi
+35XEWQxFzB57tDONC5dEJvnLudWE/DeDAnxtwOPxfouxu1rt5ho8lpg0QujH5fWB
+iruGf1/YIUw4RYfjSapK06wfxdP2nYGVia+B6Vex/CHbTrlcHNfJ/k0WYPzuMN/C
+QVoJyoKEJvB2Pu3vXTStvOvVXaSvk7kRxeunNqwVdS6yG6Gaxaws0lOc/yWga8lR
+jOHY+qLTKEyvH5M1JQL4pqH0nZzEIA6qCBBp9toUqgdC7UAXDM/v7ea8lj2diNi2
+sgF9W5WyF5Dn1/Qfl7kQrPA6ASDD2anuZOnrurYvs9BVUovg+T0PGi6GClKPOh4v
+zloBVhuHx0/OC9FRYEM2oWof09pTqCgZ7yzktE7zkU5wmpAAQm9Wp4bUaI51g/8X
+f52cm8jyqE0wJT6XWWsfI1Gl28xBP5JOgn9PvJvVBaSk6uxp0aIjOgI6judKf+q7
+Az5VCgf4nT20URjjqrGKAxhf+U6wWnFM6lSdZ9xD/IApPVuNyd7OepabqdocURqY
+c/y1JbgSZT8=
+=xRH5
 -----END PGP SIGNATURE-----
 
---=-GuQHjY1piMMh7lxTGlRN--
+--=-zfg8D9pxGIM6OLTwM5ek--
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
