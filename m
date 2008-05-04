@@ -1,42 +1,40 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: atl1 64-bit => 32-bit DMA borkage (reproducible, bisected)
-Date: Mon, 5 May 2008 01:15:07 +0400
-Message-ID: <20080504211507.GC1040@martell.zuzino.mipt.ru>
-References: <20080419111719.GA6724@martell.zuzino.mipt.ru> <20080419144535.GA4814@martell.zuzino.mipt.ru> <20080419215444.2d4623f5@osprey.hogchain.net> <20080420111453.GA4902@martell.zuzino.mipt.ru> <20080420060607.2b1be48b@osprey.hogchain.net> <20080420122631.GA4761@martell.zuzino.mipt.ru> <20080420133704.63f5cc10@osprey.hogchain.net> <20080420205500.GA4762@martell.zuzino.mipt.ru> <20080421210821.28053a92@osprey.hogchain.net> <20080425195743.2bfe66ee@osprey.hogchain.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Luca Tettamanti <kronos.it@gmail.com>,
-	Chris Snook <csnook@redhat.com>, Jeff Garzik <jeff@garzik.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Christoph Lameter <clameter@sgi.com>, torvalds@osdl.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+From: Gunnar Larisch <Gunnar.Larisch@gmx.de>
+Subject: [PATCH] [NET]: 3c980-TX needs EXTRA_PREAMBLE
+Date: Sun,  4 May 2008 23:22:11 +0200
+Message-ID: <1209936131-11721-1-git-send-email-Gunnar.Larisch@gmx.de>
+Cc: netdev@vger.kernel.org, Gunnar Larisch <Gunnar.Larisch@gmx.de>
+To: klassert@mathematik.tu-chemnitz.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:56430 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754580AbYEDUTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 16:19:55 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so981496nfc.21
-        for <netdev@vger.kernel.org>; Sun, 04 May 2008 13:19:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080425195743.2bfe66ee@osprey.hogchain.net>
+Received: from mail.gmx.net ([213.165.64.20]:37077 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752976AbYEDVWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 May 2008 17:22:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looking at how other netdevice drivers:
+The ethernet card 3c980-TX needs a mdio_sync() to initialize the ethernet
+properly. This is forced by adding an EXTRA_PREAMBLE to its drv_flags.
 
-8139too and others checks netif_running() in interrupt handler.
+Without this, the driver did not reconnect after a link loss.
 
-r8169 has scary "50k$" question comment re irqs disabled after
-interacting with hardware.
+Signed-off-by: Gunnar Larisch <Gunnar.Larisch@gmx.de>
+---
+ drivers/net/3c59x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-But the r8169 case should be fixed by atlx_irq_disable()?
-
-Writes to REG_IMR, REG_ISR are commented in atl1_reset_hw(), why?
-(I'll test that soon)
-
-Do we have a theory why changing from 64-bit DMA mask to 32-bit mask
-resurrects the bug? NIC here never showed any sort of corruption
-described in commit which banned 64-bit DMA.
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 6f8e7d4..e93c378 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -319,7 +319,7 @@ static struct vortex_chip_info {
+ 	{"3c920B-EMB-WNM (ATI Radeon 9100 IGP)",
+ 	 PCI_USES_MASTER, IS_TORNADO|HAS_MII|HAS_HWCKSM, 128, },
+ 	{"3c980 Cyclone",
+-	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
++	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+ 
+ 	{"3c980C Python-T",
+ 	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
+-- 
+1.5.4.2
 
