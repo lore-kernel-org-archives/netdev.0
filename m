@@ -1,52 +1,63 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] [NET] warn when accounting an skb that already has a
-	destructor
-Date: Sun, 04 May 2008 20:32:20 +0200
-Message-ID: <1209925940.3655.17.camel@johannes.berg>
+Subject: [RFC] [NET] restructure LL_MAX_HEADER code, increase headroom for
+	802.11
+Date: Sun, 04 May 2008 20:44:01 +0200
+Message-ID: <1209926641.3655.20.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:51469 "EHLO
+Received: from xc.sipsolutions.net ([83.246.72.84]:59536 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950AbYEDSc2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 14:32:28 -0400
+	with ESMTP id S1752521AbYEDSoK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 14:44:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This makes the networking layer warn when something tries to
-charge an skb to a socket that already is charged to another
-socket (or has a destructor from somewhere else.)
+This adds new default headroom for 802.11 and restructures the defines
+there to be more readable using #elif.
 
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 ---
-Not sure if the code size increase is prohibitive, haven't really
-checked. Might have helped in early mac80211 days (when we didn't
-have the skb_orphan call) but for normal skb usage this shouldn't
-ever happen.
+ include/linux/netdevice.h |   20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
 
- include/net/sock.h |    2 ++
- 1 file changed, 2 insertions(+)
-
---- everything.orig/include/net/sock.h	2008-05-03 15:51:36.000000000 +0200
-+++ everything/include/net/sock.h	2008-05-03 15:51:56.000000000 +0200
-@@ -1167,6 +1167,7 @@ static inline void skb_set_owner_w(struc
- {
- 	sock_hold(sk);
- 	skb->sk = sk;
-+	WARN_ON(skb->destructor);
- 	skb->destructor = sock_wfree;
- 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
- }
-@@ -1174,6 +1175,7 @@ static inline void skb_set_owner_w(struc
- static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
- {
- 	skb->sk = sk;
-+	WARN_ON(skb->destructor);
- 	skb->destructor = sock_rfree;
- 	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
- 	sk_mem_charge(sk, skb->truesize);
+--- everything.orig/include/linux/netdevice.h	2008-05-04 13:21:27.000000000 +0200
++++ everything/include/linux/netdevice.h	2008-05-04 13:22:34.000000000 +0200
+@@ -91,16 +91,26 @@ struct wireless_dev;
+ /*
+  *	Compute the worst case header length according to the protocols
+  *	used.
++ *
++ *	These must be ordered by decreasing size for obvious reasons.
+  */
+  
+-#if !defined(CONFIG_AX25) && !defined(CONFIG_AX25_MODULE) && !defined(CONFIG_TR)
+-#define LL_MAX_HEADER	32
+-#else
+ #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+ #define LL_MAX_HEADER	96
+-#else
++#elif defined(MAC80211_MESH)
++/* 802.11 (see below) plus 6-byte mesh header */
++#define LL_MAX_HEADER	54
++#elif defined(CONFIG_MAC80211) || defined(CONFIG_MAC80211_module)
++/*
++ * ctl (2), seq (2), addr1 (6), addr2 (6), addr3 (6),
++ * seq (2), addr4 (2), qos (2), extended IV (8),
++ * rfc1042/bridge tunnel (8)
++ */
+ #define LL_MAX_HEADER	48
+-#endif
++#elif defined(CONFIG_TR)
++#define LL_MAX_HEADER	48
++#else
++#define LL_MAX_HEADER	32
+ #endif
+ 
+ #if !defined(CONFIG_NET_IPIP) && !defined(CONFIG_NET_IPIP_MODULE) && \
 
 
