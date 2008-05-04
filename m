@@ -1,63 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC] [NET] restructure LL_MAX_HEADER code, increase headroom for
-	802.11
-Date: Sun, 04 May 2008 20:44:01 +0200
-Message-ID: <1209926641.3655.20.camel@johannes.berg>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: S/G operation, skb checksums, data copying
+Date: Sun, 04 May 2008 20:58:03 +0200
+Message-ID: <1209927483.3655.23.camel@johannes.berg>
+References: <1209925725.3655.15.camel@johannes.berg>
+	 (sfid-20080504_202821_526459_C1C8EB56)
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-UKKlIBWuvwW8SBs5Equa"
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1209925725.3655.15.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (sfid-20080504_202821_526459_C1C8EB56)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-UKKlIBWuvwW8SBs5Equa
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:59536 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752521AbYEDSoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 14:44:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This adds new default headroom for 802.11 and restructures the defines
-there to be more readable using #elif.
-
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
----
- include/linux/netdevice.h |   20 +++++++++++++++-----
- 1 file changed, 15 insertions(+), 5 deletions(-)
-
---- everything.orig/include/linux/netdevice.h	2008-05-04 13:21:27.000000000 +0200
-+++ everything/include/linux/netdevice.h	2008-05-04 13:22:34.000000000 +0200
-@@ -91,16 +91,26 @@ struct wireless_dev;
- /*
-  *	Compute the worst case header length according to the protocols
-  *	used.
-+ *
-+ *	These must be ordered by decreasing size for obvious reasons.
-  */
-  
--#if !defined(CONFIG_AX25) && !defined(CONFIG_AX25_MODULE) && !defined(CONFIG_TR)
--#define LL_MAX_HEADER	32
--#else
- #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- #define LL_MAX_HEADER	96
--#else
-+#elif defined(MAC80211_MESH)
-+/* 802.11 (see below) plus 6-byte mesh header */
-+#define LL_MAX_HEADER	54
-+#elif defined(CONFIG_MAC80211) || defined(CONFIG_MAC80211_module)
-+/*
-+ * ctl (2), seq (2), addr1 (6), addr2 (6), addr3 (6),
-+ * seq (2), addr4 (2), qos (2), extended IV (8),
-+ * rfc1042/bridge tunnel (8)
-+ */
- #define LL_MAX_HEADER	48
--#endif
-+#elif defined(CONFIG_TR)
-+#define LL_MAX_HEADER	48
-+#else
-+#define LL_MAX_HEADER	32
- #endif
- 
- #if !defined(CONFIG_NET_IPIP) && !defined(CONFIG_NET_IPIP_MODULE) && \
+Content-Transfer-Encoding: quoted-printable
 
 
+> However, mac80211 needs to change the skb header before the skb is
+> handed to the hardware. Often enough, the skb it will get is cloned, so
+> it has to copy the header. Hence, it would benefit from having the
+> actual skb data not be in the header, but that is unavoidable currently
+> since we have no checksum features.
+
+I just realised that this wouldn't happen since the extra data is
+actually in a struct page *, so never mind.
+
+johannes
+
+--=-UKKlIBWuvwW8SBs5Equa
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUASB4HOqVg1VMiehFYAQKGoQ//SDoLYkJv6vAIOVoythT9++2WMuCwrYjd
+SIT3NBjq89oWbbSFyG/0LlgzTYH1U365aoX2zSOY+GL4KrT3njI4LSYTSZWaPvyg
+J2hrX5IuI1iwmX5OAPyoMNy78LE2TOy2N4XAFkkraIXik1bKEj4eoVkXsI8tgtaX
+uQvistl487tKt2bMbeWpWLQHItflaUJs81ANaEo/NAC/qHurxbJZ8xzDhSsWYQgc
+tuKfvzrQNqkGYJAHnGSata1OfubaYPdnr9jHUbtyvzVvWPtAxPdOEXPIrvDOx0Hi
+UkJZswW3xe50Po/UALimkOY8lyG6rGB7ILIhEYcOa8hh8xMEt62eP9vxMjgiaJkt
+MxP/VV3GK1XNWH9VamwRfcVAnwpAfeeKpoCCPSus5bQglTnibyD3KekTx/XuV+zQ
+VXxfURv5lzQET/5t/uNjm0glc4CiJ1OFdGihD8OuN8Lt1k3YTW1YN2Xh5gb55HhA
+ATxl2/7Du6xCYECdOduZYW3ssx2EdtonuBD29pNd7T6TY3nxayf3sA/lX+gusSc6
+tYf1jeTxDHhNEMxSB4Vt4KIxdDJPv/nLwqZViOSzaQjgZ9w0vZcmLpt6llvKbwKw
+OQs3VhsPgTGVktoz1DkinP9Tn7tVy7NorpSmEi1+aqKzJzm+rvj14O8MREZV87yr
+uxbx1ayinp8=
+=G7QG
+-----END PGP SIGNATURE-----
+
+--=-UKKlIBWuvwW8SBs5Equa--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
