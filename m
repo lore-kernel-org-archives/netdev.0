@@ -1,68 +1,46 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: mac80211 truesize bugs
-Date: Mon, 05 May 2008 00:48:31 +0200
-Message-ID: <1209941311.3981.13.camel@johannes.berg>
-References: <1209904088.4065.11.camel@johannes.berg>
-	 <20080504124542.GA1455@gondor.apana.org.au>
-	 <1209909990.3753.0.camel@johannes.berg>
-	 <20080504.154540.214129591.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: S/G operation, skb checksums, data copying
+Date: Sun, 04 May 2008 15:50:47 -0700 (PDT)
+Message-ID: <20080504.155047.56630645.davem@davemloft.net>
+References: <1209925725.3655.15.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-wiiaCynr+lpV8e7XFNY+"
-Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080504.154540.214129591.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53824
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751913AbYEDWur (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 18:50:47 -0400
+In-Reply-To: <1209925725.3655.15.camel@johannes.berg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Sun, 04 May 2008 20:28:45 +0200
 
---=-wiiaCynr+lpV8e7XFNY+
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> Should we do IP checksumming in software within mac80211, announce s/g
+> support and hardware checksumming to the rest of the networking layer
+> and hope that we only have to copy the header instead of the data for
+> many packets then, if the underlying hardware is capable enough?
 
-On Sun, 2008-05-04 at 15:45 -0700, David Miller wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Date: Sun, 04 May 2008 16:06:30 +0200
->=20
-> > [  256.241496] KERNEL: assertion (!atomic_read(&sk->sk_wmem_alloc))
-> > failed at net/packet/af_packet.c (225)
-> >=20
-> > any ideas about that?
->=20
-> This is exactly what happens if you change skb->truesize
-> when a socket is still attached to the skb.
+No, this doesn't work.
 
-Ok, that makes sense. Then it also makes sense I never got that warning
-again, I had left one of my test patches in too long.
+There is a correctness reason why we don't allow SG without HW
+checksum support.
 
-johannes
+Those scatter-gather pages could be in the page cache for a sendfile()
+or similar operation.
 
---=-wiiaCynr+lpV8e7XFNY+
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Any process in the system can write into and change the contents of
+those pages while the packet is still in flight to the device.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+So the only way to always generate correct checksums is to enforce
+that the hardware do it once the full packet is in the device FIFO
+after being DMA'd.
 
-iQIVAwUASB49PaVg1VMiehFYAQKJ3RAAoXTvAuBKbxvTD3REHfplf6JKTt1Mf2Mt
-kQNKKA5S3pDEEp3Gl9gD20ALtjT3ascyk/cfbUK+9urThpDwZQ9dfsvK8ykuXIXA
-1kgLxMA+awSav9rhm2xpkzCqqoRxfkMD0dpaS2GeJi/dp/P7eAoxWvi2LkS3ovNb
-3PGa7HKHEcIsgyBCQBwh/ODOzLISW+m7mOBJeJSZK1aJ2Ys37sjD//T8UkKy4KAy
-kct0kklYBbeM2yajRS6B6ImBM61myITPAblvJMJd8qOueqRUuPlIzkx4ezEmBm/5
-qOlPdKd8uTBYpTCxghcxXz7xlaX1ePxuPiPJpWPPslX/2f/AXCwg55wi5l3mZFaj
-e/98gCyJLhkO2dTpSNqD+tOGO5/HXHV7CCrMVBbLvLgHvS6HLjbKRhSkieWYSbNB
-YasnM2EYl69YNU+FSOOxXIKRHFz8oZh6iLvTEwi3SaaKNfvY0Kn8FYzMGs4Ph0P4
-hBpgHo6pHxXQdR8xNWTIToeNZcT/KCq0D0J/O8zdeNmcGPXPk8USGeOgXvCEN7mn
-rLRA+4rww04NgayFeAdl6WKYbE5ClKgE8qXtj7fGL7G/LhKISMEXTlVfmePT5TQK
-xsXQ+xUHLZ0fQw+s2pHDh2AnOSgl3wfzeMNOjhUWcg4psRm1/iMo3rF2dyi17ykr
-TEi3xqBLlYA=
-=9cNC
------END PGP SIGNATURE-----
-
---=-wiiaCynr+lpV8e7XFNY+--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you do the checksum in software, we'll generate incorrect checksums
+if another process is writing into the page at the same time, so we
+must not allow this.
