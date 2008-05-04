@@ -1,166 +1,77 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [NET_CLS_ACT] make act_simple use of netlink policy
-Date: Sun, 04 May 2008 13:47:14 -0400
-Message-ID: <1209923234.6972.95.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: mac80211 truesize bugs
+Date: Sun, 04 May 2008 19:47:40 +0200
+Message-ID: <1209923260.3655.2.camel@johannes.berg>
+References: <1209866916.6210.39.camel@johannes.berg>
+	 <20080504021213.GA30660@gondor.apana.org.au>
+	 <1209867740.6210.46.camel@johannes.berg>
+	 <20080504031652.GA30993@gondor.apana.org.au>
+	 <1209890847.6210.51.camel@johannes.berg>
+	 <1209892489.6210.56.camel@johannes.berg>
+	 <20080504094444.GA541@gondor.apana.org.au>
+	 <1209894754.6210.58.camel@johannes.berg>
+	 <1209900355.6210.64.camel@johannes.berg>
+	 <1209904088.4065.11.camel@johannes.berg>
+	 <20080504124542.GA1455@gondor.apana.org.au>
+	 <1209909990.3753.0.camel@johannes.berg>
+	 (sfid-20080504_160619_267031_C8D61782)  <1209917006.3753.2.camel@johannes.berg>
+	 (sfid-20080504_180307_553231_1D0CF66C)
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-eOTe/n+cWqavEwd93C1N"
-Cc: kaber@trash.net, 12o3l@tiscali.nl, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.234]:2863 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752246AbYEDRrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 13:47:20 -0400
-Received: by wr-out-0506.google.com with SMTP id c48so1144040wra.1
-        for <netdev@vger.kernel.org>; Sun, 04 May 2008 10:47:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-gpAn2hDt8EKy96+lvFWr"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1209917006.3753.2.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (sfid-20080504_180307_553231_1D0CF66C)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---=-eOTe/n+cWqavEwd93C1N
+--=-gpAn2hDt8EKy96+lvFWr
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: quoted-printable
 
-Promised patch - also resolves a leak.
 
-cheers,
-jamal
+> > [  256.241496] KERNEL: assertion (!atomic_read(&sk->sk_wmem_alloc))
+> > failed at net/packet/af_packet.c (225)
+>=20
+> Except for that,=20
 
---=-eOTe/n+cWqavEwd93C1N
-Content-Disposition: attachment; filename=act_simp1
-Content-Type: text/plain; name=act_simp1; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Oddly, I haven't been able to reproduce this, so I'll clean up the
+patches now.
 
-[NET_CLS_ACT] make act_simple use of netlink policy
 
-Convert to netlink helpers by using netlink policy validation.
-As a side effect fixes a leak.
+If I have a device that needs 100 bytes headroom (not unheard of),
+there will of course still be packets that don't have enough headroom.
+Should we skb_orphan them?
 
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+johannes
 
----
-commit a189f0b99f377aeadd1d56046c4c0d2694cd9734
-tree b402736fe9c201b4388933d204f608c186d368a8
-parent afa26be86b65a7183ceac29bdf1f51d6fc6932f0
-author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 04 May 2008 13:42:54 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 04 May 2008 13:42:54 -0400
+--=-gpAn2hDt8EKy96+lvFWr
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
- net/sched/act_simple.c |   34 ++++++++++++++++------------------
- 1 files changed, 16 insertions(+), 18 deletions(-)
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index 64b2d13..269ab51 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -6,7 +6,7 @@
-  *		as published by the Free Software Foundation; either version
-  *		2 of the License, or (at your option) any later version.
-  *
-- * Authors:	Jamal Hadi Salim (2005)
-+ * Authors:	Jamal Hadi Salim (2005-8)
-  *
-  */
- 
-@@ -34,6 +34,7 @@ static struct tcf_hashinfo simp_hash_info = {
- 	.lock	=	&simp_lock,
- };
- 
-+#define SIMP_MAX_DATA	32
- static int tcf_simp(struct sk_buff *skb, struct tc_action *a, struct tcf_result *res)
- {
- 	struct tcf_defact *d = a->priv;
-@@ -69,23 +70,24 @@ static int tcf_simp_release(struct tcf_defact *d, int bind)
- 	return ret;
- }
- 
--static int alloc_defdata(struct tcf_defact *d, u32 datalen, void *defdata)
-+static int alloc_defdata(struct tcf_defact *d, char *defdata)
- {
--	d->tcfd_defdata = kmemdup(defdata, datalen, GFP_KERNEL);
-+	d->tcfd_defdata = kstrndup(defdata, SIMP_MAX_DATA, GFP_KERNEL);
- 	if (unlikely(!d->tcfd_defdata))
- 		return -ENOMEM;
--	d->tcfd_datalen = datalen;
-+
- 	return 0;
- }
- 
--static int realloc_defdata(struct tcf_defact *d, u32 datalen, void *defdata)
-+static int realloc_defdata(struct tcf_defact *d, char *defdata)
- {
- 	kfree(d->tcfd_defdata);
--	return alloc_defdata(d, datalen, defdata);
-+	return alloc_defdata(d, defdata);
- }
- 
- static const struct nla_policy simple_policy[TCA_DEF_MAX + 1] = {
- 	[TCA_DEF_PARMS]	= { .len = sizeof(struct tc_defact) },
-+	[TCA_DEF_DATA]	= { .type = NLA_STRING, .len = SIMP_MAX_DATA },
- };
- 
- static int tcf_simp_init(struct nlattr *nla, struct nlattr *est,
-@@ -95,28 +97,24 @@ static int tcf_simp_init(struct nlattr *nla, struct nlattr *est,
- 	struct tc_defact *parm;
- 	struct tcf_defact *d;
- 	struct tcf_common *pc;
--	void *defdata;
--	u32 datalen = 0;
-+	char *defdata;
- 	int ret = 0, err;
- 
- 	if (nla == NULL)
- 		return -EINVAL;
- 
--	err = nla_parse_nested(tb, TCA_DEF_MAX, nla, NULL);
-+	err = nla_parse_nested(tb, TCA_DEF_MAX, nla, simple_policy);
- 	if (err < 0)
- 		return err;
- 
- 	if (tb[TCA_DEF_PARMS] == NULL)
- 		return -EINVAL;
- 
--	parm = nla_data(tb[TCA_DEF_PARMS]);
--	defdata = nla_data(tb[TCA_DEF_DATA]);
--	if (defdata == NULL)
-+	if (tb[TCA_DEF_DATA] == NULL)
- 		return -EINVAL;
- 
--	datalen = nla_len(tb[TCA_DEF_DATA]);
--	if (datalen == 0)
--		return -EINVAL;
-+	parm = nla_data(tb[TCA_DEF_PARMS]);
-+	defdata = nla_data(tb[TCA_DEF_DATA]);
- 
- 	pc = tcf_hash_check(parm->index, a, bind, &simp_hash_info);
- 	if (!pc) {
-@@ -126,7 +124,7 @@ static int tcf_simp_init(struct nlattr *nla, struct nlattr *est,
- 			return -ENOMEM;
- 
- 		d = to_defact(pc);
--		ret = alloc_defdata(d, datalen, defdata);
-+		ret = alloc_defdata(d, defdata);
- 		if (ret < 0) {
- 			kfree(pc);
- 			return ret;
-@@ -138,7 +136,7 @@ static int tcf_simp_init(struct nlattr *nla, struct nlattr *est,
- 			tcf_simp_release(d, bind);
- 			return -EEXIST;
- 		}
--		realloc_defdata(d, datalen, defdata);
-+		realloc_defdata(d, defdata);
- 	}
- 
- 	spin_lock_bh(&d->tcf_lock);
-@@ -172,7 +170,7 @@ static inline int tcf_simp_dump(struct sk_buff *skb, struct tc_action *a,
- 	opt.bindcnt = d->tcf_bindcnt - bind;
- 	opt.action = d->tcf_action;
- 	NLA_PUT(skb, TCA_DEF_PARMS, sizeof(opt), &opt);
--	NLA_PUT(skb, TCA_DEF_DATA, d->tcfd_datalen, d->tcfd_defdata);
-+	NLA_PUT_STRING(skb, TCA_DEF_DATA, d->tcfd_defdata);
- 	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
+iQIVAwUASB32u6Vg1VMiehFYAQIudw/+Na3Nw9rYuA7K4quD16gDGC+Z+yMKsqe2
+R6mRF9NPpKBnO+RyOEr6IPdA84CcMX8GJAc7lmlPTFq9C8M1qPrTO2cISfnNQbdI
+32T1CYsgbyDubO+N4/KApi1ehFkO7pr3NwRG6rHZvCZ7xFhR88gJI2BcCK0zslwk
+ONlNlh1gs49e7J9eJXUU+8dj6so88+dj6gWHiHjlTRWXwZxQ3RhJUJlJtj3NX8Hq
+71Adx+U5xX1goHLWcsHv8Zxch2jLlS7QI3gbBs+rD0Tw6vlYGrxH007VSzXxMgIE
+gpzVB1vMMidHz75erE7vzjmwlNggVyzlVQItD5TuEqXsPych8c39MyVUde/VoPL1
+3Z4fg31Eug1drNenr2l5RV9+87MvS3WJs9b2axiv2N19IH8auB9ZkJ+WafRoJgTM
+OrgIWcZurc74H+YRaaGkCPd6eoiqjD3fgyGv9kaLB5slovyCty2no5n4mvCAYozl
+4GfcQ83pikpIMRx6zjXhxYlDsRtyHiLsEPmkJohsgTHMwaTwsQbS9wZ418vC0UKd
+O9Nj7OUlp1px2nw+ch94oRSagiTSzarH3TU/sxpeAOJFERSuGqlExoA7GDjvmfOo
+fcYSaTwCRzqc7olvH1Emq3eXx3JAf1EbNhiidI4rdFrC6t16AyuU9ny7PGw+XOWp
+Tsp+CguoP9Q=
+=6eYc
+-----END PGP SIGNATURE-----
 
---=-eOTe/n+cWqavEwd93C1N--
+--=-gpAn2hDt8EKy96+lvFWr--
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
