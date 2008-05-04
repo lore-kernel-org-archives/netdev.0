@@ -1,49 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Neptune regression...
-Date: Sat, 03 May 2008 23:52:12 -0700 (PDT)
-Message-ID: <20080503.235212.140840235.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][MAC80211]: Do not free net device after it is unregistered.
+Date: Sun, 04 May 2008 10:53:45 +0400
+Message-ID: <481D5D79.5080702@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: matheos.worku@sun.com
+Cc: linux-wireless@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57628
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752098AbYEDGwN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 02:52:13 -0400
+Received: from sacred.ru ([62.205.161.221]:49110 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751649AbYEDHBt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 May 2008 03:01:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The error path in ieee80211_register_hw() may call the unregister_netdev()
+and right after it - the free_netdev(), which is wrong, since the
+unregister releases the device itself.
 
-Matheos, this patch of your's:
+So the proposed fix is to NULL the local->mdev after unregister is done
+and check this before calling free_netdev().
 
-commit 7f7c4072ea552f97a0898331322f71986a97299c
-Author: Matheos Worku <matheos.worku@sun.com>
-Date:   Thu Apr 24 21:02:37 2008 -0700
+I checked - no code uses the local->mdev after unregister in this error
+path (but even if some did this would be a BUG).
 
-    niu: Determine the # of ports from the card's VPD data
-    
-    [ Fix minor whitespace and coding style stuff... -DaveM ]
-    
-    Signed-off-by: Matheos Worku <matheos.worku@sun.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Breaks on-board Neptune chips on Maramba systems.
+---
+ net/mac80211/main.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-Previously the code in niu_get_and_validate_port() used a default of
-"4" ports if the various probing methods failed.  Your code removed
-that fallback.
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index 9ad4e36..915afad 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -1766,6 +1766,7 @@ fail_wep:
+ fail_rate:
+ 	ieee80211_debugfs_remove_netdev(IEEE80211_DEV_TO_SUB_IF(local->mdev));
+ 	unregister_netdevice(local->mdev);
++	local->mdev = NULL;
+ fail_dev:
+ 	rtnl_unlock();
+ 	sta_info_stop(local);
+@@ -1773,8 +1774,10 @@ fail_sta_info:
+ 	debugfs_hw_del(local);
+ 	destroy_workqueue(local->hw.workqueue);
+ fail_workqueue:
+-	ieee80211_if_free(local->mdev);
+-	local->mdev = NULL;
++	if (local->mdev != NULL) {
++		ieee80211_if_free(local->mdev);
++		local->mdev = NULL;
++	}
+ fail_mdev_alloc:
+ 	wiphy_unregister(local->hw.wiphy);
+ 	return result;
+-- 
+1.5.3.4
 
-This case seems to be what triggers for on-board Maramba chips.
-
-So, for now, I'm going to put the:
-
-	if (!parent->num_ports)
-		parent->num_ports = 4;
-
-back in there to fix the regression.  I've validated that this fixes
-the problem.
-
-Is there some other mechanism we should be using here to detect the
-port count in the Maramba on-board case?
