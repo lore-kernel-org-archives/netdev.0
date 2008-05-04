@@ -1,46 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: mac80211 truesize bugs
-Date: Sat, 03 May 2008 18:03:00 -0700 (PDT)
-Message-ID: <20080503.180300.10562559.davem@davemloft.net>
-References: <1209760731.3608.17.camel@johannes.berg>
-	<20080502.163334.148944203.davem@davemloft.net>
-	<1209815533.3987.21.camel@johannes.berg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch] (revised) net/xfrm/xfrm_policy.c: replace timer with
+ delayed_work
+Date: Sat, 03 May 2008 18:37:46 -0700 (PDT)
+Message-ID: <20080503.183746.01223933.davem@davemloft.net>
+References: <alpine.LFD.1.10.0805021323470.3349@localhost.localdomain>
+	<20080502.165455.24687234.davem@davemloft.net>
+	<20080503144647.GF3986@hack>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1209815533.3987.21.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	akpm@osdl.org, netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44331
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752027AbYEDBhq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2008 21:37:46 -0400
+In-Reply-To: <20080503144647.GF3986@hack>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Sat, 03 May 2008 13:52:13 +0200
+From: WANG Cong <xiyou.wangcong@gmail.com>
+Date: Sat, 3 May 2008 22:46:49 +0800
 
-> 
-> > We can't update skb->truesize during arbitray skb->data reallocations,
-> > because it could corrupt the socket accounting.
-> > 
-> > On the other hand, if we provide ways for users to subvert the socket
-> > buffer limits, we might as well not try to limit anything.
-> 
-> Why don't we update the socket allocation when doing pskb_expand_head()?
-> Sure, it could become negative, but is that so bad?
+> I thought it can go into -mm so that many other people can help
+> me to test it. Since I didn't have the IPSec environment. ;(
 
-The socket locked state at this time is variable and unknown.
+You don't need an "IPSEC environment" (whatever that is) to test these
+code paths.
 
-The socket must be locked in order to modify these values.
-And such locks cannot be taken, for example, from HW interrupt
-context, amongst other restrictions.
-
-> We need more space though. Should we then just increase the built-in
-> headroom?
-
-I simply don't know what to suggest at this point, that's why
-we are having this discussion :-)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It's very easy to setup simplistic IPSEC states and policies between
+two computers using "setkey" and friends.
