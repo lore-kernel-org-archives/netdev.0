@@ -1,43 +1,38 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: mac80211 truesize bugs
-Date: Sun, 4 May 2008 11:16:52 +0800
-Message-ID: <20080504031652.GA30993@gondor.apana.org.au>
-References: <1209760731.3608.17.camel@johannes.berg> <20080502.163334.148944203.davem@davemloft.net> <1209815533.3987.21.camel@johannes.berg> <20080503.180300.10562559.davem@davemloft.net> <1209865354.6210.23.camel@johannes.berg> <20080504020203.GA30514@gondor.apana.org.au> <1209866916.6210.39.camel@johannes.berg> <20080504021213.GA30660@gondor.apana.org.au> <1209867740.6210.46.camel@johannes.berg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NET] fix useless comment reference loop
+Date: Sat, 03 May 2008 20:57:32 -0700 (PDT)
+Message-ID: <20080503.205732.48777773.davem@davemloft.net>
+References: <1209852342.3673.16.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1209867740.6210.46.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47641
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751403AbYEDD5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2008 23:57:32 -0400
+In-Reply-To: <1209852342.3673.16.camel@johannes.berg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 04, 2008 at 04:22:20AM +0200, Johannes Berg wrote:
->
-> Yes, wireless always needs at least 24 bytes, but more likely 34
-> (encryption+QoS). However, I just increased LL_MAX_HEADER to 54 and that
-> doesn't seem to have helped.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Sun, 04 May 2008 00:05:42 +0200
 
-How did you test it?
+> include/linux/skbuff.h says:
+>         /* These elements must be at the end, see alloc_skb() for details.  */
+> 
+> net/core/skbuff.c says:
+> 	* See comment in sk_buff definition, just before the 'tail' member
+> 
+> This patch contains my guess as to the actual reason rather than a
+> dead comment reference loop.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-> What's wrong with, instead, doing skb_orphan() and then
-> pskb_expand_head()? That seems to have the same effect.
+Patch applied, thanks.
 
-If you packet sticks around for long enough then this skews the
-accounting.  In any case, thinking too much about optimising this
-part is a waste of time because we should be thinking about having
-enough head room in the packet so that we don't have to expand
-it in the first place except for the odd packet.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is an example of why I'm personally a comment minimalist.
+They tend to rot, confuse people, and often just duplicate what
+is obvious from the code (although not in this case).
