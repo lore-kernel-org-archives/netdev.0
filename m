@@ -1,62 +1,157 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: S/G operation, skb checksums, data copying
-Date: Sun, 04 May 2008 20:58:03 +0200
-Message-ID: <1209927483.3655.23.camel@johannes.berg>
-References: <1209925725.3655.15.camel@johannes.berg>
-	 (sfid-20080504_202821_526459_C1C8EB56)
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [ARCHIVE] store skb allocation stacktrace in skb
+Date: Sun, 04 May 2008 21:07:10 +0200
+Message-ID: <1209928030.3655.26.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-UKKlIBWuvwW8SBs5Equa"
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1209925725.3655.15.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (sfid-20080504_202821_526459_C1C8EB56)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---=-UKKlIBWuvwW8SBs5Equa
 Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:37601 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752213AbYEDTHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 15:07:19 -0400
+Received: from [91.5.67.65] (helo=[10.0.0.4])
+	by sipsolutions.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <johannes@sipsolutions.net>)
+	id 1JsjXi-0005gt-JY
+	for netdev@vger.kernel.org; Sun, 04 May 2008 21:06:38 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+I needed this patch, so here it is for the archive just in case somebody
+else needs some similar debugging feature in the future.
+
+---
+ include/linux/skbuff.h |   12 ++++++++++++
+ kernel/stacktrace.c    |    3 +++
+ net/Kconfig            |   12 ++++++++++++
+ net/core/skbuff.c      |   30 ++++++++++++++++++++++++++++++
+ 4 files changed, 57 insertions(+)
+
+--- everything.orig/include/linux/skbuff.h	2008-05-04 13:21:14.000000000 +0200
++++ everything/include/linux/skbuff.h	2008-05-04 13:22:41.000000000 +0200
+@@ -28,6 +28,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/dmaengine.h>
+ #include <linux/hrtimer.h>
++#include <linux/stacktrace.h>
+ 
+ #define HAVE_ALLOC_SKB		/* For the drivers to know */
+ #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
+@@ -188,6 +189,8 @@ enum {
+ #define NET_SKBUFF_DATA_USES_OFFSET 1
+ #endif
+ 
++#define NET_SKBUFF_STACKTRACE_ENTRIES	20
++
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+ typedef unsigned int sk_buff_data_t;
+ #else
+@@ -245,6 +248,8 @@ typedef unsigned char *sk_buff_data_t;
+  *	@dma_cookie: a cookie to one of several possible DMA operations
+  *		done by skb DMA functions
+  *	@secmark: security marking
++ *	@stacktrace: allocation stack trace
++ *	@stacktracedata: allocation stack trace entries
+  */
+ 
+ struct sk_buff {
+@@ -321,6 +326,11 @@ struct sk_buff {
+ 
+ 	__u32			mark;
+ 
++#ifdef CONFIG_SKBUFF_ALLOC_TRACE
++	struct stack_trace	stacktrace;
++	unsigned long		stacktracedata[NET_SKBUFF_STACKTRACE_ENTRIES];
++#endif
++
+ 	sk_buff_data_t		transport_header;
+ 	sk_buff_data_t		network_header;
+ 	sk_buff_data_t		mac_header;
+@@ -341,6 +351,8 @@ struct sk_buff {
+ 
+ #include <asm/system.h>
+ 
++extern void print_skb_alloc_trace(struct sk_buff *skb);
++
+ extern void kfree_skb(struct sk_buff *skb);
+ extern void	       __kfree_skb(struct sk_buff *skb);
+ extern struct sk_buff *__alloc_skb(unsigned int size,
+--- everything.orig/net/Kconfig	2008-05-04 13:21:14.000000000 +0200
++++ everything/net/Kconfig	2008-05-04 13:22:41.000000000 +0200
+@@ -35,6 +35,18 @@ config NET_NS
+ 	  Allow user space to create what appear to be multiple instances
+ 	  of the network stack.
+ 
++config SKBUFF_ALLOC_TRACE
++	bool "SKB allocation stack tracking"
++	depends on EXPERIMENTAL && STACKTRACE_SUPPORT
++	select STACKTRACE
++	help
++	  This option makes the skb allocation functions store a stack trace
++	  into an SKB when allocated so that later one can dump it if
++	  something is wrong with the SKB to find out where it came from.
++
++	  Say N unless you're debugging SKB problems and need this
++	  information, you can print the trace using print_skb_alloc_trace().
++
+ source "net/packet/Kconfig"
+ source "net/unix/Kconfig"
+ source "net/xfrm/Kconfig"
+--- everything.orig/net/core/skbuff.c	2008-05-04 13:21:14.000000000 +0200
++++ everything/net/core/skbuff.c	2008-05-04 14:04:07.000000000 +0200
+@@ -227,6 +227,13 @@ struct sk_buff *__alloc_skb(unsigned int
+ 	shinfo->ip6_frag_id = 0;
+ 	shinfo->frag_list = NULL;
+ 
++#ifdef CONFIG_SKBUFF_ALLOC_TRACE
++	skb->stacktrace.max_entries = NET_SKBUFF_STACKTRACE_ENTRIES;
++	skb->stacktrace.entries = skb->stacktracedata;
++	skb->stacktrace.skip = 1;
++	save_stack_trace(&skb->stacktrace);
++#endif
++
+ 	if (fclone) {
+ 		struct sk_buff *child = skb + 1;
+ 		atomic_t *fclone_ref = (atomic_t *) (child + 1);
+@@ -244,6 +251,24 @@ nodata:
+ 	goto out;
+ }
+ 
++#ifdef CONFIG_SKBUFF_ALLOC_TRACE
++/**
++ * print_skb_alloc_trace - print skbuff allocation trace
++ * @skb: skb to print trace for
++ *
++ * This function prints the stacktrace from the location where
++ * the skb was allocated.
++ */
++void print_skb_alloc_trace(struct sk_buff *skb)
++{
++	if (WARN_ON(!skb))
++		return;
++
++	print_stack_trace(&skb->stacktrace, 0);
++}
++EXPORT_SYMBOL(print_skb_alloc_trace);
++#endif
++
+ /**
+  *	__netdev_alloc_skb - allocate an skbuff for rx on a specific device
+  *	@dev: network device to receive on
+@@ -446,6 +471,11 @@ static void __copy_skb_header(struct sk_
+ #endif
+ #endif
+ 	skb_copy_secmark(new, old);
++#ifdef CONFIG_SKBUFF_ALLOC_TRACE
++	memcpy(&new->stacktrace, &old->stacktrace, sizeof(old->stacktrace));
++	memcpy(&new->stacktracedata, &old->stacktracedata, sizeof(old->stacktracedata));
++	new->stacktrace.entries = new->stacktracedata;
++#endif
+ }
+ 
+ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
 
 
-> However, mac80211 needs to change the skb header before the skb is
-> handed to the hardware. Often enough, the skb it will get is cloned, so
-> it has to copy the header. Hence, it would benefit from having the
-> actual skb data not be in the header, but that is unavoidable currently
-> since we have no checksum features.
-
-I just realised that this wouldn't happen since the extra data is
-actually in a struct page *, so never mind.
-
-johannes
-
---=-UKKlIBWuvwW8SBs5Equa
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASB4HOqVg1VMiehFYAQKGoQ//SDoLYkJv6vAIOVoythT9++2WMuCwrYjd
-SIT3NBjq89oWbbSFyG/0LlgzTYH1U365aoX2zSOY+GL4KrT3njI4LSYTSZWaPvyg
-J2hrX5IuI1iwmX5OAPyoMNy78LE2TOy2N4XAFkkraIXik1bKEj4eoVkXsI8tgtaX
-uQvistl487tKt2bMbeWpWLQHItflaUJs81ANaEo/NAC/qHurxbJZ8xzDhSsWYQgc
-tuKfvzrQNqkGYJAHnGSata1OfubaYPdnr9jHUbtyvzVvWPtAxPdOEXPIrvDOx0Hi
-UkJZswW3xe50Po/UALimkOY8lyG6rGB7ILIhEYcOa8hh8xMEt62eP9vxMjgiaJkt
-MxP/VV3GK1XNWH9VamwRfcVAnwpAfeeKpoCCPSus5bQglTnibyD3KekTx/XuV+zQ
-VXxfURv5lzQET/5t/uNjm0glc4CiJ1OFdGihD8OuN8Lt1k3YTW1YN2Xh5gb55HhA
-ATxl2/7Du6xCYECdOduZYW3ssx2EdtonuBD29pNd7T6TY3nxayf3sA/lX+gusSc6
-tYf1jeTxDHhNEMxSB4Vt4KIxdDJPv/nLwqZViOSzaQjgZ9w0vZcmLpt6llvKbwKw
-OQs3VhsPgTGVktoz1DkinP9Tn7tVy7NorpSmEi1+aqKzJzm+rvj14O8MREZV87yr
-uxbx1ayinp8=
-=G7QG
------END PGP SIGNATURE-----
-
---=-UKKlIBWuvwW8SBs5Equa--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
