@@ -1,46 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: S/G operation, skb checksums, data copying
-Date: Sun, 04 May 2008 15:50:47 -0700 (PDT)
-Message-ID: <20080504.155047.56630645.davem@davemloft.net>
-References: <1209925725.3655.15.camel@johannes.berg>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH 00/10] sysfs tagged directories
+Date: Mon, 05 May 2008 01:13:22 +0200
+Message-ID: <481E4312.9060909@fr.ibm.com>
+References: <20080429171015.473938697@theryb.frec.bull.fr> <20080429173621.GA16625@suse.de> <20080429180445.GA18110@sergelap.austin.ibm.com> <20080429184151.GA19794@suse.de> <20080429193417.GA19282@sergelap.austin.ibm.com> <20080501031341.GD4911@suse.de> <20080501151051.GB16038@sergelap.austin.ibm.com> <m11w4lho08.fsf@frodo.ebiederm.org> <20080501210550.GA22534@sergelap.austin.ibm.com> <m1prs5fzzd.fsf@frodo.ebiederm.org> <20080502174222.GA16493@sergelap.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <gregkh@suse.de>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Tejun Heo <htejun@gmail.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53824
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751913AbYEDWur (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 18:50:47 -0400
-In-Reply-To: <1209925725.3655.15.camel@johannes.berg>
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:44317 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751156AbYEDXQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 19:16:00 -0400
+In-Reply-To: <20080502174222.GA16493@sergelap.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Sun, 04 May 2008 20:28:45 +0200
+Serge E. Hallyn wrote:
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> "Serge E. Hallyn" <serue@us.ibm.com> writes:
+>>
+>>> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>>> Ok as it turns out Benjamin Thery does in fact have a patch to fix this.
+>>> Benjamin, please send your renaming patch out tomorrow if you can?
+>>>
+>>> I guess this is why I didn't really see the problem Benjamin said there
+>>> was - it just works with SYSFS_DEPRECATED  :)
+>> It will be nice to see that patch.  I'm curious what the problem was.
+>>
+>> Eric
+> 
+> Here is the patch he had privately sent.  As the comments indicate he's
+> still refining it so yell at me not him...   but this on top of the
+> tagged dir patchset makes everything work for me.
+> 
+> (I'd *really* like to see network namespaces be generally usable sometime
+> in 2.6.26.)
 
-> Should we do IP checksumming in software within mac80211, announce s/g
-> support and hardware checksumming to the rest of the networking layer
-> and hope that we only have to copy the header instead of the data for
-> many packets then, if the underlying hardware is capable enough?
+Serge,
 
-No, this doesn't work.
+I posted a fix to Dave Miller which was included in net-2.6 and merged 
+in 2.6.26-rc1.
 
-There is a correctness reason why we don't allow SG without HW
-checksum support.
+http://marc.info/?l=linux-netdev&m=120959135229360&w=2
 
-Those scatter-gather pages could be in the page cache for a sendfile()
-or similar operation.
+This one should fix your problem for sysfs.
 
-Any process in the system can write into and change the contents of
-those pages while the packet is still in flight to the device.
+There is another fix to do in order to avoid name conflicts with network 
+interfaces belonging to different namespaces, eg. allows to rename 
+veth1234 to eth0 without conflicting with the network device belonging 
+in init_net, I send this patch to container@ first to have it merged 
+with the sysfs patchset.
 
-So the only way to always generate correct checksums is to enforce
-that the hardware do it once the full packet is in the device FIFO
-after being DMA'd.
+Thanks,
 
-If you do the checksum in software, we'll generate incorrect checksums
-if another process is writing into the page at the same time, so we
-must not allow this.
+   -- Daniel
