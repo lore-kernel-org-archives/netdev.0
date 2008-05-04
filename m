@@ -1,45 +1,32 @@
-From: David Miller <davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: mac80211 truesize bugs
-Date: Sun, 04 May 2008 15:38:43 -0700 (PDT)
-Message-ID: <20080504.153843.218230160.davem@davemloft.net>
-References: <20080504021213.GA30660@gondor.apana.org.au>
-	<1209867740.6210.46.camel@johannes.berg>
-	<20080504031652.GA30993@gondor.apana.org.au>
+Date: Sun, 04 May 2008 15:45:40 -0700 (PDT)
+Message-ID: <20080504.154540.214129591.davem@davemloft.net>
+References: <1209904088.4065.11.camel@johannes.berg>
+	<20080504124542.GA1455@gondor.apana.org.au>
+	<1209909990.3753.0.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, mb@bu3sch.de, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42882
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753537AbYEDWio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 18:38:44 -0400
-In-Reply-To: <20080504031652.GA30993@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1209909990.3753.0.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 4 May 2008 11:16:52 +0800
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Sun, 04 May 2008 16:06:30 +0200
 
-> On Sun, May 04, 2008 at 04:22:20AM +0200, Johannes Berg wrote:
-> >
-> > Yes, wireless always needs at least 24 bytes, but more likely 34
-> > (encryption+QoS). However, I just increased LL_MAX_HEADER to 54 and that
-> > doesn't seem to have helped.
+> [  256.241496] KERNEL: assertion (!atomic_read(&sk->sk_wmem_alloc))
+> failed at net/packet/af_packet.c (225)
 > 
-> How did you test it?
+> any ideas about that?
 
-I know what causes this problem, things like ARP.
-
-They don't use LL_MAX_HEADER, and instead go:
-
-	skb = alloc_skb(arp_hdr_len(dev) + LL_RESERVED_SPACE(dev), GFP_ATOMIC);
-
-because they are reasonably sure what exact device they
-are sending out of :-)
-
-As mentioned elsewhere, there is a disconnect between how some
-of these values are used.  But I'm pretty sure I know why some
-of them are used this way.
+This is exactly what happens if you change skb->truesize
+when a socket is still attached to the skb.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
