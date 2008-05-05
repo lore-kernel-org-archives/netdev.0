@@ -1,71 +1,91 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC/T] [NET] give truesize warning when truesize differs
-Date: Mon, 05 May 2008 17:22:40 +0200
-Message-ID: <1210000960.8245.28.camel@johannes.berg>
-References: <1209924728.3655.7.camel@johannes.berg>
-	 <1209993080.8245.16.camel@johannes.berg>
-	 <20080505150405.GA9626@gondor.apana.org.au>
+From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Subject: Re: [ofa-general] Re: [PATCH 01/13] QLogic VNIC: Driver - netdev implementation
+Date: Mon, 5 May 2008 21:06:58 +0530
+Message-ID: <71d336490805050836o68d745f2k4bab68edcfe1da50@mail.gmail.com>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain>
+	 <20080430171624.31725.98475.stgit@localhost.localdomain>
+	 <adaiqxw4lox.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-WeQ5mSgNimr3XISoXy6U"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, poornima.kamath@qlogic.com,
+	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
+To: "Roland Dreier" <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:47205 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756373AbYEEPXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 11:23:45 -0400
-In-Reply-To: <20080505150405.GA9626@gondor.apana.org.au>
+Received: from gv-out-0910.google.com ([216.239.58.186]:16169 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751682AbYEEPhB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 11:37:01 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so131687gvc.37
+        for <netdev@vger.kernel.org>; Mon, 05 May 2008 08:36:58 -0700 (PDT)
+In-Reply-To: <adaiqxw4lox.fsf@cisco.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Roland,
 
---=-WeQ5mSgNimr3XISoXy6U
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Thanks for the review. Your comments make sense and we will fix the
+things you pointed out. Please see some clarifications in-line.
 
-On Mon, 2008-05-05 at 23:04 +0800, Herbert Xu wrote:
-> On Mon, May 05, 2008 at 03:11:20PM +0200, Johannes Berg wrote:
-> >
-> > >  static inline void skb_truesize_check(struct sk_buff *skb)
-> > >  {
-> > > -	int len =3D sizeof(struct sk_buff) + skb->len;
-> > > +#ifdef NET_SKBUFF_DATA_USES_OFFSET
-> > > +	int len =3D sizeof(struct sk_buff) + skb->end;
-> > > +#else
-> > > +	int len =3D sizeof(struct sk_buff) + (skb->end - skb->head);
-> > > +#endif
-> >=20
-> > Umm, is this even correct? Should it check data_len? I seem to get the
-> > truesize warning a bit now:
->=20
-> It must check data_len.
+On Fri, May 2, 2008 at 11:45 PM, Roland Dreier <rdreier@cisco.com> wrote:
+>  > From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+>   >
+>   > Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
+>   > Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
+>
+>  For the next submission please clean up the From and Signed-off-by
+>  lines.  As it stands now you are saying that you (Ramachandra K) are the
+>  author of the patch, and that Poornima and Amar signed off on it (ie
+>  forwarded it), but you as the person sending the email did not sign off
+>  on it.
+>
 
-I figured. Just add it?
+I will make sure to sign off on all patches. Should I also drop the From line
+for the patches which I developed, since I am mailing them myself ?
 
-johannes
+I am using the Signed-off-by line to indicate the people who were
+involved in the development of the patches at some stage.
 
---=-WeQ5mSgNimr3XISoXy6U
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+>
+>
+>   > +void vnic_stop_xmit(struct vnic *vnic, struct netpath *netpath)
+>   > +{
+>   > +    VNIC_FUNCTION("vnic_stop_xmit()\n");
+>   > +    if (netpath == vnic->current_path) {
+>   > +            if (vnic->xmit_started) {
+>   > +                    netif_stop_queue(vnic->netdevice);
+>   > +                    vnic->xmit_started = 0;
+>   > +            }
+>   > +
+>   > +            vnic_stop_xmit_stats(vnic);
+>   > +    }
+>   > +}
+>
+>  Do you have sufficient locking here?  Could vnic->current_path or
+>  vnic->xmit_started change after they are tested, leading to bad results?
+>  Also do you get anything from having a xmit_started flag that you
+>  couldn't get just by testing with netif_queue_stopped()?
+>
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+You are right, xmit_started might not be required and we will look at
+the locking
+issue too.
 
-iQIVAwUASB8mP6Vg1VMiehFYAQK5bRAAjT4rIJNQLSBqE6uFT6MecueqEZUJFep5
-CTO/KBdB6nQyVcN7sJtuwRTsruvGxVWazYBWnnN9WafunqBgQ7Qr/4kuKkkMY3h8
-0vU3MlxWf6Gq4G3jzDAcpt1iz+JK6kXxuqzqznp5S8+6fxY9sKQVeNm8Xuqm6Lii
-7OHAhZTw13wcGsQDHBIMEPpGhBqLbkAVBGuWr7vJuilRLkBxxUMEcZ0t91HCQYQD
-2k3BgMZ1jGrMbJVGDeNFx4KEgqoj8RPoTKYUmob85su3TjhJJgb3slD/T3SZvaSb
-pAfqa/hs+eFSZNLtaL2VY7+mjL8GIcc54hxi02arua6qxyX80pSeYE3zvo42kahG
-aRgl3NO+S0ltQG3mxpbHyDnyjvJAMYZD9FwyElwuwGNa6oOyaPwBGAGDxle4qaHC
-gW6jCTWbLNluB8Vh/2nw4bJYpCjmRx+9USNcEqnGeKV5xG58T6knLMW4naB4mb+h
-MOsrN9fCCmlk6ErfFdXh0DSAUO6i72/3hkzHAZzhVZ9HEABsargCt22wCO2lqeNL
-ZLmLjjzk7EOXijJHahdADmlkNNB4njmiev+fadxlmIOdxtS7vVs4jJwTjH5JuXGS
-ZIsfAaoiWp9x6CO8JAqx+m2xD/dbdce5V5m+j8gpH6U/FX3SFoWf5yJ2YevsNaeV
-AMmYku5CXgA=
-=g7e3
------END PGP SIGNATURE-----
+>
+>
+>   > +extern cycles_t recv_ref;
+>
+>  seems like too generic a name to make global.  What the heck are you
+>  using cycle_t to keep track of anyway?
+>
 
---=-WeQ5mSgNimr3XISoXy6U--
+This is being used as part of the driver internal statistics
+collection to keep track of the time
+elapsed between a message arriving from the EVIC indicating that it
+has done an RDMA write of
+an Ethernet packet to the driver memory and the driver giving the packet
+to the network stack.  Will fix the variable name.
 
+Regards,
+Ram
