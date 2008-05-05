@@ -1,45 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [NET] Exporting of some IPv6 symbols for HIP and SHIM6
- experimentation
-Date: Mon, 05 May 2008 15:00:45 +0900 (JST)
-Message-ID: <20080505.150045.29715304.yoshfuji@linux-ipv6.org>
-References: <Pine.SOL.4.64.0804292344490.29274@kekkonen.cs.hut.fi>
-	<20080429.152014.00555445.davem@davemloft.net>
-	<Pine.SOL.4.64.0805050847400.8815@kekkonen.cs.hut.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NET] warn when accounting an skb that already has a
+ destructor
+Date: Mon, 05 May 2008 00:20:06 -0700 (PDT)
+Message-ID: <20080505.002006.225975612.davem@davemloft.net>
+References: <1209925940.3655.17.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: miika@iki.fi
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:38625 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753398AbYEEGAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 02:00:39 -0400
-In-Reply-To: <Pine.SOL.4.64.0805050847400.8815@kekkonen.cs.hut.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40227
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752267AbYEEHUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 03:20:06 -0400
+In-Reply-To: <1209925940.3655.17.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <Pine.SOL.4.64.0805050847400.8815@kekkonen.cs.hut.fi> (at Mon, 5 May 2008 08:55:49 +0300 (EEST)), Miika Komu <miika@iki.fi> says:
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Sun, 04 May 2008 20:32:20 +0200
 
-> On Tue, 29 Apr 2008, David Miller wrote:
-:
-> > This is not how we do things.
-> >
-> > When the HIP implementation is submitted for inclusion, the module
-> > exports can be added, not before.
+> This makes the networking layer warn when something tries to
+> charge an skb to a socket that already is charged to another
+> socket (or has a destructor from somewhere else.)
 > 
-> I am sorry but this somewhat conflicts with your earlier statement:
-> 
-> http://www.linux.sgi.com/archives/netdev/2005-03/msg01214.html
-> 
-> We took an huge effort in our project to move the HIP implementation to 
-> the userland. I feel puzzled on how to continue. Please give some advice?
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-Miika, where are your other patches on top of this?
-This kind of change might be okay, but it must be along with
-its users, at least.
+I completely agree that this a correct assertion, that
+absolutely should never happen in the current tree.
 
---yoshfuji
+But if we are going to do this, I'm pretty sure we'll
+need to uninline these two routines.
+
+I'll leave it up to you, if you think it's still worthwhile
+with the uninlining, please resubmit :-)
