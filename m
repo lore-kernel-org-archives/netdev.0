@@ -1,68 +1,68 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC v2] mac80211: assign needed_headroom/tailroom for netdevs
-Date: Sun, 04 May 2008 17:30:51 -0700 (PDT)
-Message-ID: <20080504.173051.133197507.davem@davemloft.net>
-References: <1209936253.7304.10.camel@johannes.berg>
-	<1209936745.7304.16.camel@johannes.berg>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: atl1 64-bit => 32-bit DMA borkage (reproducible, bisected)
+Date: Sun, 4 May 2008 19:31:28 -0500
+Message-ID: <20080504193128.1ea61958@osprey.hogchain.net>
+References: <20080419111719.GA6724@martell.zuzino.mipt.ru>
+	<20080419144535.GA4814@martell.zuzino.mipt.ru>
+	<20080419215444.2d4623f5@osprey.hogchain.net>
+	<20080420111453.GA4902@martell.zuzino.mipt.ru>
+	<20080420060607.2b1be48b@osprey.hogchain.net>
+	<20080420122631.GA4761@martell.zuzino.mipt.ru>
+	<20080420133704.63f5cc10@osprey.hogchain.net>
+	<20080420205500.GA4762@martell.zuzino.mipt.ru>
+	<20080421210821.28053a92@osprey.hogchain.net>
+	<20080425195743.2bfe66ee@osprey.hogchain.net>
+	<20080504211507.GC1040@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1209936745.7304.16.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Luca Tettamanti <kronos.it@gmail.com>,
+	Chris Snook <csnook@redhat.com>, Jeff Garzik <jeff@garzik.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Christoph Lameter <clameter@sgi.com>, torvalds@osdl.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmailhost04.isp.att.net ([207.115.11.54]:35679 "EHLO
+	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750750AbYEEAbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 20:31:33 -0400
+In-Reply-To: <20080504211507.GC1040@martell.zuzino.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Sun, 04 May 2008 23:32:25 +0200
+On Mon, 5 May 2008 01:15:07 +0400
+Alexey Dobriyan <adobriyan@gmail.com> wrote:
 
-> --- everything.orig/net/mac80211/iface.c	2008-05-04 23:24:17.000000000 +0200
-> +++ everything/net/mac80211/iface.c	2008-05-04 23:31:46.000000000 +0200
-> @@ -53,6 +53,15 @@ int ieee80211_if_add(struct net_device *
->  	if (!ndev)
->  		return -ENOMEM;
->  
-> +	ndev->needed_headroom = local->tx_headroom +
-> +				4*6 /* four MAC addresses */
-> +				+ 2 + 2 + 2 + 2 /* ctl, dur, seq, qos */
-> +				+ 6 /* mesh */
-> +				+ 8 /* rfc1042/bridge tunnel */
-> +				- ETH_HLEN /* ethernet hard_header_len */
-> +				+ IEEE80211_ENCRYPT_HEADROOM;
-> +	ndev->needed_tailroom = IEEE80211_ENCRYPT_TAILROOM;
-> +
->  	ret = dev_alloc_name(ndev, ndev->name);
->  	if (ret < 0)
->  		goto fail;
+> Looking at how other netdevice drivers:
+> 
+> 8139too and others checks netif_running() in interrupt handler.
+> 
+> r8169 has scary "50k$" question comment re irqs disabled after
+> interacting with hardware.
+> 
+> But the r8169 case should be fixed by atlx_irq_disable()?
 
-Where is the patch that adds these new members to struct netdevice,
-and where is the code that uses these new values?
+Agreed.
 
-I even searched the netdev archives and couldn't find it.
+> 
+> Writes to REG_IMR, REG_ISR are commented in atl1_reset_hw(), why?
 
-Anyways I see your basic idea and this may be the best way to handle
-the problem.  The invariants would be:
+Came from the vendor that way.
 
-1) LL_MAX_HEADER has to include all of these bits.
+> (I'll test that soon)
+> 
+> Do we have a theory why changing from 64-bit DMA mask to 32-bit mask
+> resurrects the bug? NIC here never showed any sort of corruption
+> described in commit which banned 64-bit DMA.
 
-2) LL_RESERVED_SPACE*() has to take the new needed_headroom
-   into account.
+We had multiple reports of users who encountered repeated memory
+corruption when transferring large files while running with a 64-bit DMA
+mask.  Chris Snook noticed the upper 32 bits of the descriptor address
+register are shared among five other registers, each containing the low
+bits for one of five descriptors.  All the descriptors, therefore, have
+to live within the same 4GB address space.
 
-Your patch which I can't find, which adds netdev->needed_*, probably
-does all of that.  But I'm just making sure :-)
-
-Note that what would be really nice is if we could assert, in
-dev_queue_xmit, that the SKB has all of the necessary headroom, and
-give a WARN_ON_ONCE() backtrace if not.
-
-If we can ensure that, things like mac80211 and others will not need
-to skb_realloc_headroom() or anything like that unless they need to
-modify packet contents after skb->data and the packet is shared
-(ie. the pskb_expand_headroom(skb, 0, 0, GFP_*) case the TSO drivers
-use).
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll keep poking at it as time permits through the week, but I probably
+won't be able to devote a whole lot of time to it until next weekend.
