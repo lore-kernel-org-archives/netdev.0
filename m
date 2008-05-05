@@ -1,167 +1,93 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] 8139cp: use netstats in net_device structure
-Date: Mon, 05 May 2008 16:05:17 +0300
-Message-ID: <481F060D.1080906@teltonika.lt>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC/T] [NET] give truesize warning when truesize differs
+Date: Mon, 05 May 2008 15:11:20 +0200
+Message-ID: <1209993080.8245.16.camel@johannes.berg>
+References: <1209924728.3655.7.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050800010509020802090203"
-Cc: jeff@garzik.org, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3h2r9nCewhkC51MfSQ2n"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:55369 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756646AbYEENFf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2008 09:05:35 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Jt0Nk-0004Z0-LB
-	for netdev@vger.kernel.org; Mon, 05 May 2008 13:05:28 +0000
-Received: from 78-62-85-225.static.zebra.lt ([78.62.85.225])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 05 May 2008 13:05:28 +0000
-Received: from paulius.zaleckas by 78-62-85-225.static.zebra.lt with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 05 May 2008 13:05:28 +0000
+Received: from xc.sipsolutions.net ([83.246.72.84]:39244 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758054AbYEENMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 09:12:22 -0400
+In-Reply-To: <1209924728.3655.7.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050800010509020802090203
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Use net_device_stats from net_device structure instead of local.
+--=-3h2r9nCewhkC51MfSQ2n
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+On Sun, 2008-05-04 at 20:12 +0200, Johannes Berg wrote:
+> This patch makes the truesize warning be printed when the truesize
+> actually changed, not just when the header was increased and the
+> additional size actually used.
+>=20
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> ---
+> It'll trigger with mac80211, should hold it until I fixed that.
+>=20
+>  include/linux/skbuff.h |    8 ++++++--
+>  net/core/skbuff.c      |   10 ++++++++--
+>  2 files changed, 14 insertions(+), 4 deletions(-)
+>=20
+> --- everything.orig/include/linux/skbuff.h	2008-05-03 15:47:00.000000000 =
++0200
+> +++ everything/include/linux/skbuff.h	2008-05-04 00:30:34.000000000 +0200
+> @@ -387,9 +387,13 @@ extern void	      skb_truesize_bug(struc
+> =20
+>  static inline void skb_truesize_check(struct sk_buff *skb)
+>  {
+> -	int len =3D sizeof(struct sk_buff) + skb->len;
+> +#ifdef NET_SKBUFF_DATA_USES_OFFSET
+> +	int len =3D sizeof(struct sk_buff) + skb->end;
+> +#else
+> +	int len =3D sizeof(struct sk_buff) + (skb->end - skb->head);
+> +#endif
 
---------------050800010509020802090203
-Content-Type: text/x-patch;
- name="8139cp_netstats.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="8139cp_netstats.patch"
+Umm, is this even correct? Should it check data_len? I seem to get the
+truesize warning a bit now:
 
-diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-index a453eda..934db35 100644
---- a/drivers/net/8139cp.c
-+++ b/drivers/net/8139cp.c
-@@ -340,7 +340,6 @@ struct cp_private {
- 	u32			rx_config;
- 	u16			cpcmd;
- 
--	struct net_device_stats net_stats;
- 	struct cp_extra_stats	cp_stats;
- 
- 	unsigned		rx_head		____cacheline_aligned;
-@@ -457,8 +456,8 @@ static inline void cp_rx_skb (struct cp_private *cp, struct sk_buff *skb,
- {
- 	skb->protocol = eth_type_trans (skb, cp->dev);
- 
--	cp->net_stats.rx_packets++;
--	cp->net_stats.rx_bytes += skb->len;
-+	cp->dev->stats.rx_packets++;
-+	cp->dev->stats.rx_bytes += skb->len;
- 	cp->dev->last_rx = jiffies;
- 
- #if CP_VLAN_TAG_USED
-@@ -477,17 +476,17 @@ static void cp_rx_err_acct (struct cp_private *cp, unsigned rx_tail,
- 		printk (KERN_DEBUG
- 			"%s: rx err, slot %d status 0x%x len %d\n",
- 			cp->dev->name, rx_tail, status, len);
--	cp->net_stats.rx_errors++;
-+	cp->dev->stats.rx_errors++;
- 	if (status & RxErrFrame)
--		cp->net_stats.rx_frame_errors++;
-+		cp->dev->stats.rx_frame_errors++;
- 	if (status & RxErrCRC)
--		cp->net_stats.rx_crc_errors++;
-+		cp->dev->stats.rx_crc_errors++;
- 	if ((status & RxErrRunt) || (status & RxErrLong))
--		cp->net_stats.rx_length_errors++;
-+		cp->dev->stats.rx_length_errors++;
- 	if ((status & (FirstFrag | LastFrag)) != (FirstFrag | LastFrag))
--		cp->net_stats.rx_length_errors++;
-+		cp->dev->stats.rx_length_errors++;
- 	if (status & RxErrFIFO)
--		cp->net_stats.rx_fifo_errors++;
-+		cp->dev->stats.rx_fifo_errors++;
- }
- 
- static inline unsigned int cp_rx_csum_ok (u32 status)
-@@ -539,7 +538,7 @@ rx_status_loop:
- 			 * that RX fragments are never encountered
- 			 */
- 			cp_rx_err_acct(cp, rx_tail, status, len);
--			cp->net_stats.rx_dropped++;
-+			dev->stats.rx_dropped++;
- 			cp->cp_stats.rx_frags++;
- 			goto rx_next;
- 		}
-@@ -556,7 +555,7 @@ rx_status_loop:
- 		buflen = cp->rx_buf_sz + RX_OFFSET;
- 		new_skb = dev_alloc_skb (buflen);
- 		if (!new_skb) {
--			cp->net_stats.rx_dropped++;
-+			dev->stats.rx_dropped++;
- 			goto rx_next;
- 		}
- 
-@@ -710,20 +709,20 @@ static void cp_tx (struct cp_private *cp)
- 				if (netif_msg_tx_err(cp))
- 					printk(KERN_DEBUG "%s: tx err, status 0x%x\n",
- 					       cp->dev->name, status);
--				cp->net_stats.tx_errors++;
-+				cp->dev->stats.tx_errors++;
- 				if (status & TxOWC)
--					cp->net_stats.tx_window_errors++;
-+					cp->dev->stats.tx_window_errors++;
- 				if (status & TxMaxCol)
--					cp->net_stats.tx_aborted_errors++;
-+					cp->dev->stats.tx_aborted_errors++;
- 				if (status & TxLinkFail)
--					cp->net_stats.tx_carrier_errors++;
-+					cp->dev->stats.tx_carrier_errors++;
- 				if (status & TxFIFOUnder)
--					cp->net_stats.tx_fifo_errors++;
-+					cp->dev->stats.tx_fifo_errors++;
- 			} else {
--				cp->net_stats.collisions +=
-+				cp->dev->stats.collisions +=
- 					((status >> TxColCntShift) & TxColCntMask);
--				cp->net_stats.tx_packets++;
--				cp->net_stats.tx_bytes += skb->len;
-+				cp->dev->stats.tx_packets++;
-+				cp->dev->stats.tx_bytes += skb->len;
- 				if (netif_msg_tx_done(cp))
- 					printk(KERN_DEBUG "%s: tx done, slot %d\n", cp->dev->name, tx_tail);
- 			}
-@@ -956,7 +955,7 @@ static void cp_set_rx_mode (struct net_device *dev)
- static void __cp_get_stats(struct cp_private *cp)
- {
- 	/* only lower 24 bits valid; write any value to clear */
--	cp->net_stats.rx_missed_errors += (cpr32 (RxMissed) & 0xffffff);
-+	cp->dev->stats.rx_missed_errors += (cpr32 (RxMissed) & 0xffffff);
- 	cpw32 (RxMissed, 0);
- }
- 
-@@ -971,7 +970,7 @@ static struct net_device_stats *cp_get_stats(struct net_device *dev)
-  		__cp_get_stats(cp);
- 	spin_unlock_irqrestore(&cp->lock, flags);
- 
--	return &cp->net_stats;
-+	return &dev->stats;
- }
- 
- static void cp_stop_hw (struct cp_private *cp)
-@@ -1142,7 +1141,7 @@ static void cp_clean_rings (struct cp_private *cp)
- 					 PCI_DMA_TODEVICE);
- 			if (le32_to_cpu(desc->opts1) & LastFrag)
- 				dev_kfree_skb(skb);
--			cp->net_stats.tx_dropped++;
-+			cp->dev->stats.tx_dropped++;
- 		}
- 	}
- 
+[11381.081709] SKB BUG: Invalid truesize (16864) size=3D4112, sizeof(sk_buf=
+f)=3D272
+[11381.081725] last reallocate at:
+[11381.081729]  [<c0274194>] __alloc_skb+0xdc/0x140
+[11381.081745]  [<c02aeca8>] sk_stream_alloc_skb+0x38/0x134
+[11381.081758]  [<c02af16c>] tcp_sendmsg+0x3c8/0xcbc
+[11381.081767]  [<c026bcc4>] sock_sendmsg+0xac/0xe4
+[11381.081780]  [<c026c058>] sys_sendto+0xbc/0xec
+[11381.081790]  [<c026cbc8>] sys_socketcall+0x14c/0x1dc
+[11381.081800]  [<c00124cc>] ret_from_syscall+0x0/0x38
 
---------------050800010509020802090203--
+
+johannes
+
+--=-3h2r9nCewhkC51MfSQ2n
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUASB8Hd6Vg1VMiehFYAQIchg//aUGnQ2vtvliZ6zrF0ID7AqPrnhXIU3M7
+XQPXz05cMMb1XemsU3ue4m1BqFUP53vq3k/Q/Lkwgvumz39XXz6SKLioM4kojzJ0
+z18GNG84mpqooatWLBQbzXXW4NbFMDzfovWr61A8f021J0GAB6zQXxtzKjyyCSNm
+IjRZz/jkquFHRjddcBiruQeZBHiPOWUN6PoMS4v4jGX+z/foWrZDl/KKuXWJKp6G
+5721sNPPxAUs0McJNF9gQaUubTPBn3oEQwWctZnDQytvQtVy8S5JoB4ZfpVADWGV
+XaBopKfSag1T5WVGNVeJBmso6Oz4BHyUQOzsxkwFHHYisRUqCyp17TpaI2IxKX76
+zXT3lEh6PeykgynLhn7J0hO9BeM8scGx9Q38Iob+pIQEMYdvfExmX9Bil3PjbnsV
+yAYhcZ0Axhtk0QVBwr0w6j31baJewyDhVvdmjZpmkozQBo6MVbxhT+mJHkcgOaHV
++7yr+uDOHJ+SamgwN3c5mfOxa7eBCrUQ+HYX2khzPcKp11J7rOEpXVdBz7KJboZa
+LiEtIU9KlicLDXU8qyoTCFuacWd0YIUqFeWsGpcWD2kI5l7t4yrNHUIuWJgBOt54
+GJ06EyUG9CTAhxjI6CRp5ltYUIAkqUuAW3O10RMa8uwFf1yccGmHwrDYYHfOAZhk
+6WaPDFQw6+U=
+=NLQc
+-----END PGP SIGNATURE-----
+
+--=-3h2r9nCewhkC51MfSQ2n--
 
