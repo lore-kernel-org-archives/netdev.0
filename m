@@ -1,24 +1,24 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 06/18] flag parameters: eventfd
+Subject: [PATCH 05/18] flag parameters: signalfd
 Date: Sun, 4 May 2008 23:42:46 -0400
-Message-ID: <200805050342.m453gkQF029829@devserv.devel.redhat.com>
+Message-ID: <200805050342.m453gkRB029826@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52511 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:52507 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755801AbYEEDnL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 May 2008 23:43:11 -0400
+	id S1755971AbYEEDnI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 May 2008 23:43:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the new eventfd2 syscall.  It extends the old eventfd
+This patch adds the new signalfd4 syscall.  It extends the old signalfd
 syscall by one parameter which is meant to hold a flag value.  In this
-patch the only flag support is EFD_CLOEXEC which causes the close-on-exec
+patch the only flag support is SFD_CLOEXEC which causes the close-on-exec
 flag for the returned file descriptor to be set.
 
-A new flag EFD_CLOEXEC is used instead of reusing O_CLOEXEC to prevent
+A new flag SFD_CLOEXEC is used instead of reusing O_CLOEXEC to prevent
 exhaustion of the int bit field in case we need more flags.
 
 The following test must be adjusted for architectures other than x86 and
@@ -26,29 +26,33 @@ x86-64 and in case the syscall numbers changed.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#ifndef __NR_eventfd2
+#ifndef __NR_signalfd4
 # ifdef __x86_64__
-#  define __NR_eventfd2 290
+#  define __NR_signalfd4 289
 # elif defined __i386__
-#  define __NR_eventfd2 328
+#  define __NR_signalfd4 327
 # else
-#  error "need __NR_eventfd2"
+#  error "need __NR_signalfd4"
 # endif
 #endif
 
-#define EFD_CLOEXEC (1 << 0)
+#define SFD_CLOEXEC (1 << 0)
 
 int
 main (void)
 {
-  int fd = syscall (__NR_eventfd2, 1, 0);
+  sigset_t ss;
+  sigemptyset (&ss);
+  sigaddset (&ss, SIGUSR1);
+  int fd = syscall (__NR_signalfd4, -1, &ss, 8, 0);
   if (fd == -1)
     {
-      puts ("eventfd2(0) failed");
+      puts ("signalfd4(0) failed");
       return 1;
     }
   int coe = fcntl (fd, F_GETFD);
@@ -59,15 +63,15 @@ main (void)
     }
   if (coe & FD_CLOEXEC)
     {
-      puts ("eventfd2(0) sets close-on-exec flag");
+      puts ("signalfd4(0) set close-on-exec flag");
       return 1;
     }
   close (fd);
 
-  fd = syscall (__NR_eventfd2, 1, EFD_CLOEXEC);
+  fd = syscall (__NR_signalfd4, -1, &ss, 8, SFD_CLOEXEC);
   if (fd == -1)
     {
-      puts ("eventfd2(EFD_CLOEXEC) failed");
+      puts ("signalfd4(SFD_CLOEXEC) failed");
       return 1;
     }
   coe = fcntl (fd, F_GETFD);
@@ -78,7 +82,7 @@ main (void)
     }
   if ((coe & FD_CLOEXEC) == 0)
     {
-      puts ("eventfd2(EFD_CLOEXEC) does not set close-on-exec flag");
+      puts ("signalfd4(SFD_CLOEXEC) does not set close-on-exec flag");
       return 1;
     }
   close (fd);
@@ -91,12 +95,13 @@ main (void)
 
  arch/x86/ia32/ia32entry.S          |    1 +
  arch/x86/kernel/syscall_table_32.S |    1 +
- fs/eventfd.c                       |   20 ++++++++++++++++++--
+ fs/compat.c                        |   14 ++++++++++----
+ fs/signalfd.c                      |   22 ++++++++++++++++++++--
  include/asm-x86/unistd_32.h        |    1 +
  include/asm-x86/unistd_64.h        |    2 ++
- include/linux/eventfd.h            |    3 +++
+ include/linux/signalfd.h           |    3 +++
  include/linux/syscalls.h           |    1 +
- 7 files changed, 27 insertions(+), 2 deletions(-)
+ 8 files changed, 39 insertions(+), 6 deletions(-)
 
 
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
@@ -105,80 +110,118 @@ diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
 index b5e329d..37e4992 100644
 --- a/arch/x86/ia32/ia32entry.S
 +++ b/arch/x86/ia32/ia32entry.S
-@@ -732,4 +732,5 @@ ia32_sys_call_table:
+@@ -731,4 +731,5 @@ ia32_sys_call_table:
+ 	.quad sys32_fallocate
  	.quad compat_sys_timerfd_settime	/* 325 */
  	.quad compat_sys_timerfd_gettime
- 	.quad compat_sys_signalfd4
-+	.quad sys_eventfd2
++	.quad compat_sys_signalfd4
  ia32_syscall_end:
 diff --git a/arch/x86/kernel/syscall_table_32.S b/arch/x86/kernel/syscall_table_32.S
 index adff556..f59aba5 100644
 --- a/arch/x86/kernel/syscall_table_32.S
 +++ b/arch/x86/kernel/syscall_table_32.S
-@@ -327,3 +327,4 @@ ENTRY(sys_call_table)
+@@ -326,3 +326,4 @@ ENTRY(sys_call_table)
+ 	.long sys_fallocate
  	.long sys_timerfd_settime	/* 325 */
  	.long sys_timerfd_gettime
- 	.long sys_signalfd4
-+	.long sys_eventfd2
-diff --git a/fs/eventfd.c b/fs/eventfd.c
-index 343942d..ddb543d 100644
---- a/fs/eventfd.c
-+++ b/fs/eventfd.c
-@@ -16,6 +16,7 @@
++	.long sys_signalfd4
+diff --git a/fs/compat.c b/fs/compat.c
+index 332a869..2ab01c5 100644
+--- a/fs/compat.c
++++ b/fs/compat.c
+@@ -2131,9 +2131,9 @@ asmlinkage long compat_sys_epoll_pwait(int epfd,
+ 
+ #ifdef CONFIG_SIGNALFD
+ 
+-asmlinkage long compat_sys_signalfd(int ufd,
+-				    const compat_sigset_t __user *sigmask,
+-				    compat_size_t sigsetsize)
++asmlinkage long compat_sys_signalfd4(int ufd,
++				     const compat_sigset_t __user *sigmask,
++				     compat_size_t sigsetsize, int flags)
+ {
+ 	compat_sigset_t ss32;
+ 	sigset_t tmp;
+@@ -2148,9 +2148,15 @@ asmlinkage long compat_sys_signalfd(int ufd,
+ 	if (copy_to_user(ksigmask, &tmp, sizeof(sigset_t)))
+ 		return -EFAULT;
+ 
+-	return sys_signalfd(ufd, ksigmask, sizeof(sigset_t));
++	return sys_signalfd4(ufd, ksigmask, sizeof(sigset_t), flags);
+ }
+ 
++asmlinkage long compat_sys_signalfd(int ufd,
++				    const compat_sigset_t __user *sigmask,
++				    compat_size_t sigsetsize)
++{
++	return compat_sys_signalfd4(ufd, sigmask, sigsetsize, 0);
++}
+ #endif /* CONFIG_SIGNALFD */
+ 
+ #ifdef CONFIG_TIMERFD
+diff --git a/fs/signalfd.c b/fs/signalfd.c
+index 6197256..a73333b 100644
+--- a/fs/signalfd.c
++++ b/fs/signalfd.c
+@@ -28,6 +28,7 @@
  #include <linux/anon_inodes.h>
- #include <linux/eventfd.h>
+ #include <linux/signalfd.h>
  #include <linux/syscalls.h>
 +#include <linux/flagsremap.h>
  
- struct eventfd_ctx {
- 	wait_queue_head_t wqh;
-@@ -198,10 +199,20 @@ struct file *eventfd_fget(int fd)
- 	return file;
- }
+ struct signalfd_ctx {
+ 	sigset_t sigmask;
+@@ -205,10 +206,21 @@ static const struct file_operations signalfd_fops = {
+ 	.read		= signalfd_read,
+ };
  
--asmlinkage long sys_eventfd(unsigned int count)
-+static const struct flags_rmap eventfd_file_flags_remap[] = {
-+	{ EFD_CLOEXEC, O_CLOEXEC },
+-asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemask)
++static const struct flags_rmap signalfd_file_flags_remap[] = {
++	{ SFD_CLOEXEC, O_CLOEXEC },
 +};
 +
-+asmlinkage long sys_eventfd2(unsigned int count, int flags)
++asmlinkage long sys_signalfd4(int ufd, sigset_t __user *user_mask,
++			      size_t sizemask, int flags)
  {
- 	int fd;
- 	struct eventfd_ctx *ctx;
+ 	sigset_t sigmask;
+ 	struct signalfd_ctx *ctx;
 +	int fflags;
 +
-+	if (flags_remap(eventfd_file_flags_remap,
-+			ARRAY_SIZE(eventfd_file_flags_remap),
-+			flags, &fflags) != 0)
++	if (flags_remap(signalfd_file_flags_remap,
++			ARRAY_SIZE(signalfd_file_flags_remap),
++			flags, &fflags))
 +		return -EINVAL;
  
- 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
- 	if (!ctx)
-@@ -214,9 +226,14 @@ asmlinkage long sys_eventfd(unsigned int count)
- 	 * When we call this, the initialization must be complete, since
- 	 * anon_inode_getfd() will install the fd.
- 	 */
--	fd = anon_inode_getfd("[eventfd]", &eventfd_fops, ctx, 0);
-+	fd = anon_inode_getfd("[eventfd]", &eventfd_fops, ctx, fflags);
- 	if (fd < 0)
- 		kfree(ctx);
- 	return fd;
- }
+ 	if (sizemask != sizeof(sigset_t) ||
+ 	    copy_from_user(&sigmask, user_mask, sizeof(sigmask)))
+@@ -228,7 +240,7 @@ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemas
+ 		 * anon_inode_getfd() will install the fd.
+ 		 */
+ 		ufd = anon_inode_getfd("[signalfd]", &signalfd_fops, ctx,
+-				       0);
++				       fflags);
+ 		if (ufd < 0)
+ 			kfree(ctx);
+ 	} else {
+@@ -250,3 +262,9 @@ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemas
  
-+asmlinkage long sys_eventfd(unsigned int count)
-+{
-+	return sys_eventfd2(count, 0);
-+}
+ 	return ufd;
+ }
 +
++asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask,
++			     size_t sizemask)
++{
++	return sys_signalfd4(ufd, user_mask, sizemask, 0);
++}
 diff --git a/include/asm-x86/unistd_32.h b/include/asm-x86/unistd_32.h
 index 8317d94..b3daf50 100644
 --- a/include/asm-x86/unistd_32.h
 +++ b/include/asm-x86/unistd_32.h
-@@ -333,6 +333,7 @@
+@@ -332,6 +332,7 @@
+ #define __NR_fallocate		324
  #define __NR_timerfd_settime	325
  #define __NR_timerfd_gettime	326
- #define __NR_signalfd4		327
-+#define __NR_eventfd2		328
++#define __NR_signalfd4		327
  
  #ifdef __KERNEL__
  
@@ -186,38 +229,38 @@ diff --git a/include/asm-x86/unistd_64.h b/include/asm-x86/unistd_64.h
 index fe26e36..5ef6778 100644
 --- a/include/asm-x86/unistd_64.h
 +++ b/include/asm-x86/unistd_64.h
-@@ -643,6 +643,8 @@ __SYSCALL(__NR_fallocate, sys_fallocate)
+@@ -641,6 +641,8 @@ __SYSCALL(__NR_fallocate, sys_fallocate)
+ __SYSCALL(__NR_timerfd_gettime, sys_timerfd_gettime)
+ #define __NR_paccept				288
  __SYSCALL(__NR_paccept, sys_paccept)
- #define __NR_signalfd4				289
- __SYSCALL(__NR_signalfd4, sys_signalfd4)
-+#define __NR_eventfd2				290
-+__SYSCALL(__NR_eventfd2, sys_eventfd2)
++#define __NR_signalfd4				289
++__SYSCALL(__NR_signalfd4, sys_signalfd4)
  
  
  #ifndef __NO_STUBS
-diff --git a/include/linux/eventfd.h b/include/linux/eventfd.h
-index a701399..0c2f68b 100644
---- a/include/linux/eventfd.h
-+++ b/include/linux/eventfd.h
-@@ -10,6 +10,9 @@
+diff --git a/include/linux/signalfd.h b/include/linux/signalfd.h
+index ea037f2..98a749a 100644
+--- a/include/linux/signalfd.h
++++ b/include/linux/signalfd.h
+@@ -9,6 +9,9 @@
+ #define _LINUX_SIGNALFD_H
  
- #ifdef CONFIG_EVENTFD
  
-+/* Flags for eventfd2.  */
-+#define EFD_CLOEXEC (1 << 0)
++/* Flags for signalfd4.  */
++#define SFD_CLOEXEC (1 << 0)
 +
- struct file *eventfd_fget(int fd);
- int eventfd_signal(struct file *file, int n);
- 
+ struct signalfd_siginfo {
+ 	__u32 ssi_signo;
+ 	__s32 ssi_errno;
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
 index 0522f36..aeb2df8 100644
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
-@@ -617,6 +617,7 @@ asmlinkage long sys_set_robust_list(struct robust_list_head __user *head,
- 				    struct itimerspec __user *otmr);
- asmlinkage long sys_timerfd_gettime(int ufd, struct itimerspec __user *otmr);
- asmlinkage long sys_eventfd(unsigned int count);
-+asmlinkage long sys_eventfd2(unsigned int count, int flags);
- asmlinkage long sys_fallocate(int fd, int mode, loff_t offset, loff_t len);
- 
- int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
+@@ -610,6 +610,7 @@ asmlinkage long sys_set_robust_list(struct robust_list_head __user *head,
+ 				    size_t len);
+ asmlinkage long sys_getcpu(unsigned __user *cpu, unsigned __user *node, struct getcpu_cache __user *cache);
+ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemask);
++asmlinkage long sys_signalfd4(int ufd, sigset_t __user *user_mask, size_t sizemask, int flags);
+ asmlinkage long sys_timerfd_create(int clockid, int flags);
+ asmlinkage long sys_timerfd_settime(int ufd, int flags,
+ 				    const struct itimerspec __user *utmr,
