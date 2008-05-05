@@ -1,43 +1,42 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 02/18] flag parameters: socket and socketpair
-Date: Mon, 05 May 2008 13:24:52 +0900 (JST)
-Message-ID: <20080505.132452.98853465.yoshfuji@linux-ipv6.org>
-References: <200805050342.m453gktl029817@devserv.devel.redhat.com>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [PATCH 16/18] flag parameters: NONBLOCK in timerfd_create
+Date: Sun, 4 May 2008 21:40:48 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0805042139570.8307@alien.or.mcafeemobile.com>
+References: <200805050342.m453gkae029859@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, davidel@xmailserver.org,
-	mtk.manpages@gmail.com, torvalds@linux-foundation.org,
-	yoshfuji@linux-ipv6.org
-To: drepper@redhat.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	mtk.manpages@gmail.com,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Ulrich Drepper <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:38614 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752029AbYEEEYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 00:24:46 -0400
-In-Reply-To: <200805050342.m453gktl029817@devserv.devel.redhat.com>
+Received: from x35.xmailserver.org ([64.71.152.41]:39644 "EHLO
+	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbYEEEku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 00:40:50 -0400
+Received: from alien.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.25 ESMTP Server]
+	id <S28A908> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Mon, 5 May 2008 00:40:48 -0400
+In-Reply-To: <200805050342.m453gkae029859@devserv.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <200805050342.m453gktl029817@devserv.devel.redhat.com> (at Sun, 4 May 2008 23:42:46 -0400), Ulrich Drepper <drepper@redhat.com> says:
+On Sun, 4 May 2008, Ulrich Drepper wrote:
 
-> This patch adds support for flag values which are ORed to the type passwd
-> to socket and socketpair.  The additional code is minimal.  Beside
-> decoding the flags with the library function introduced in a prior patch
-> all that has to be done is to pass the new value around.
+> This patch adds support for the TFD_NONBLOCK flag to timerfd_create.  The
+> additional changes needed are minimal thanks to the previous preparation.
 > 
-> The internal functions sock_alloc_fd and sock_map_fd get a new parameters
-> and all callers are changed.
+> The following test must be adjusted for architectures other than x86 and
+> x86-64 and in case the syscall numbers changed.
 
-Well, this seems the only patch that overrides basic context of the
-arguments.  (Or, we have already "flags" argument for other APIs
-that do not require new API.)
+> Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
-To me, it seems overriding 2nd argument is a too ad-hoc workaround,
-and introducing new syscalls with flags is cleaner, e.g.,
-    psocket(family, socktype, protocol, flags);
-    psocketpair(d, type, protocol, int sv[2], flags);
+Acked-by: Davide Libenzi <davidel@xmailserver.org>
 
---yoshfuji
+
+
+- Davide
+
+
