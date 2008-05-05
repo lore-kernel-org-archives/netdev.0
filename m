@@ -1,89 +1,70 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC/T] [NET] make pskb_expand_head warn when called with
-	invalid state
-Date: Mon, 05 May 2008 18:01:14 +0200
-Message-ID: <1210003274.8245.35.camel@johannes.berg>
-References: <1209924962.3655.8.camel@johannes.berg>
-	 <1210002047.8245.31.camel@johannes.berg>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 00/10] sysfs tagged directories
+Date: Mon, 5 May 2008 11:18:00 -0500
+Message-ID: <20080505161800.GC8485@sergelap.austin.ibm.com>
+References: <20080429180445.GA18110@sergelap.austin.ibm.com> <20080429184151.GA19794@suse.de> <20080429193417.GA19282@sergelap.austin.ibm.com> <20080501031341.GD4911@suse.de> <20080501151051.GB16038@sergelap.austin.ibm.com> <m11w4lho08.fsf@frodo.ebiederm.org> <20080501210550.GA22534@sergelap.austin.ibm.com> <m1prs5fzzd.fsf@frodo.ebiederm.org> <20080502174222.GA16493@sergelap.austin.ibm.com> <481E4312.9060909@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-YC4DdZFXseg6LBMjyafd"
-Cc: netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <gregkh@suse.de>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Tejun Heo <htejun@gmail.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:47342 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758925AbYEEQCA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 12:02:00 -0400
-In-Reply-To: <1210002047.8245.31.camel@johannes.berg>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:41208 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754391AbYEEQSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 12:18:04 -0400
+Content-Disposition: inline
+In-Reply-To: <481E4312.9060909@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Quoting Daniel Lezcano (dlezcano@fr.ibm.com):
+> Serge E. Hallyn wrote:
+>> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>>> "Serge E. Hallyn" <serue@us.ibm.com> writes:
+>>>
+>>>> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>>>> Ok as it turns out Benjamin Thery does in fact have a patch to fix this.
+>>>> Benjamin, please send your renaming patch out tomorrow if you can?
+>>>>
+>>>> I guess this is why I didn't really see the problem Benjamin said there
+>>>> was - it just works with SYSFS_DEPRECATED  :)
+>>> It will be nice to see that patch.  I'm curious what the problem was.
+>>>
+>>> Eric
+>> Here is the patch he had privately sent.  As the comments indicate he's
+>> still refining it so yell at me not him...   but this on top of the
+>> tagged dir patchset makes everything work for me.
+>> (I'd *really* like to see network namespaces be generally usable sometime
+>> in 2.6.26.)
+>
+> Serge,
+>
+> I posted a fix to Dave Miller which was included in net-2.6 and merged in 
+> 2.6.26-rc1.
 
---=-YC4DdZFXseg6LBMjyafd
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Cool, I see it in gitweb, thanks.
 
-On Mon, 2008-05-05 at 17:41 +0200, Johannes Berg wrote:
-> On Sun, 2008-05-04 at 20:16 +0200, Johannes Berg wrote:
-> > This makes pskb_expand_head warn when called when a socket is attached.
-> =20
-> > +	WARN_ON((nhead || ntail) && skb->sk);
-> > +
->=20
-> This is triggering now. I think it's a false positive, trace below.
->=20
-> [23194.608011] Badness at net/core/skbuff.c:726
+> http://marc.info/?l=linux-netdev&m=120959135229360&w=2
+>
+> This one should fix your problem for sysfs.
+>
+> There is another fix to do in order to avoid name conflicts with network 
+> interfaces belonging to different namespaces, eg. allows to rename veth1234 
+> to eth0 without conflicting with the network device belonging in init_net, 
+> I send this patch to container@ first to have it merged with the sysfs 
+> patchset.
 
+Ok.
 
-> [23194.608077] [ccf9bba0] [c02735a0] pskb_expand_head+0x58/0x1f8 (unrelia=
-ble)
-> [23194.608082] [ccf9bbc0] [c02737a4] __pskb_pull_tail+0x64/0x374
+Benjamin, what are you doing with Eric's sysfs patchset then?  Are you
+going to re-post it asap on top of whatever tree has these two patches,
+or are you planning to wait longer?
 
-It's actually not really a false positive. What is happening is that
-__pskb_pull_tail does (follow 'eat'):
-
-        /* If skb has not enough free space at tail, get new one
-         * plus 128 bytes for future expansions. If we have enough
-         * room at tail, reallocate without expansion only if skb is cloned=
-.
-         */
-        int i, k, eat =3D (skb->tail + delta) - skb->end;
-
-        if (eat > 0 || skb_cloned(skb)) {
-                if (pskb_expand_head(skb, 0, eat > 0 ? eat + 128 : 0,
-                                     GFP_ATOMIC))
-                        return NULL;
-        }
-
-which of course changes the true size of the skb without accounting it
-to the socket. Now, the reason this hasn't been known before is that the
-data size doesn't change because the stuff that is copied into the
-header is removed from the data_len... or something like that, I think.
-
-johannes
-
---=-YC4DdZFXseg6LBMjyafd
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASB8vSaVg1VMiehFYAQL7Qg/+LtcZcTQPTVSm22kYPQ4rWbXqVuRvRFjG
-/wRXxQWD7LqKxVnxkmx7a9rz0cr61lDw7NTqpO9l88OyBwl4w7J+H65ropRlKdQD
-2pB3k/0qFdhi2BhpjNQYQGTiez433SeGnyaAhJnZwxT5jmZPrwF1UY6IpCtR4mxE
-gDA8Yj2qc6E3IkajUUGlejYaOzfjdV0TgZPonAHOuZhntouNxkWTY1GitzWNGQVm
-x3ssNh+UBR3HhkA29qPhLbmkwBJ2sid3JPLqoxxQ3EOEQvwhh6Lysi6wBNKpshFB
-hjbAv6xD6etsNZQwe2SvWyK50k18zGv1+9X08Q8k8HhHhVDnY7QltTai08WzqIvg
-rqvoeav2b83i5USuLa6p7PikS/wTu6H50LIm1n095qkQNWsC7ax8RUitOxIYg67N
-/gNJOSAeJEGrRpyqIPcNnriGVPAT4k8d1LFn7uBLEQgRJq1fJVA9qDvv0U9a0bey
-iGcxtqkeCaCUQFfflCbtjo0Fedamxm7W/R+GGIVokYOFAbtFC9YxZClfSyyyiO5O
-SYnGmEHPaTthqJvqQ6vqiKEKqvihvhw51Q0o7M1Zj+yMVLgVDrZMDaBaFMfMaaZ1
-v01NU4/UMJm0RlMp+cfdbxM2mfQ615xTxAqPLzQvJCd+a+xcP979+6zp+xtxiVZC
-WRxcJihiMUU=
-=jLU9
------END PGP SIGNATURE-----
-
---=-YC4DdZFXseg6LBMjyafd--
-
+thanks,
+-serge
