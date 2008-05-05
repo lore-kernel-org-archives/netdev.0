@@ -1,358 +1,167 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC] allow netdevices to specify needed head/tailroom
-Date: Mon, 05 May 2008 15:01:26 +0200
-Message-ID: <1209992486.8245.14.camel@johannes.berg>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH] 8139cp: use netstats in net_device structure
+Date: Mon, 05 May 2008 16:05:17 +0300
+Message-ID: <481F060D.1080906@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------050800010509020802090203"
+Cc: jeff@garzik.org, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:35489 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752716AbYEENCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 09:02:33 -0400
+Received: from main.gmane.org ([80.91.229.2]:55369 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756646AbYEENFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2008 09:05:35 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Jt0Nk-0004Z0-LB
+	for netdev@vger.kernel.org; Mon, 05 May 2008 13:05:28 +0000
+Received: from 78-62-85-225.static.zebra.lt ([78.62.85.225])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 05 May 2008 13:05:28 +0000
+Received: from paulius.zaleckas by 78-62-85-225.static.zebra.lt with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 05 May 2008 13:05:28 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Forgot again to post this this morning, sorry.
+This is a multi-part message in MIME format.
+--------------050800010509020802090203
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-This patch adds needed_headroom/needed_tailroom members to struct
-net_device and updates many places that allocate sbks to use them. Not
-all of them can be converted though, and I'm sure I missed some (I
-mostly grepped for LL_RESERVED_SPACE)
+Use net_device_stats from net_device structure instead of local.
 
-johannes
----
- include/linux/netdevice.h  |   14 ++++++++++++--
- net/core/netpoll.c         |    2 +-
- net/econet/af_econet.c     |    2 +-
- net/ipv4/arp.c             |    2 +-
- net/ipv4/igmp.c            |    4 ++--
- net/ipv4/ip_forward.c      |    4 +++-
- net/ipv4/ipconfig.c        |    6 +++---
- net/ipv4/ipip.c            |    1 +
- net/ipv4/ipmr.c            |    1 +
- net/ipv4/ipvs/ip_vs_xmit.c |    1 +
- net/ipv4/raw.c             |   10 ++++------
- net/ipv6/ip6_output.c      |    3 ++-
- net/ipv6/mcast.c           |    4 ++--
- net/ipv6/ndisc.c           |    4 ++--
- net/ipv6/raw.c             |   10 ++++------
- net/ipv6/sit.c             |    2 ++
- net/packet/af_packet.c     |    2 +-
- net/xfrm/xfrm_output.c     |   11 ++++++-----
- 18 files changed, 49 insertions(+), 34 deletions(-)
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 
---- everything.orig/include/linux/netdevice.h	2008-05-04 20:38:58.000000000 +0200
-+++ everything/include/linux/netdevice.h	2008-05-04 20:47:56.000000000 +0200
-@@ -254,11 +254,16 @@ struct hh_cache
-  *
-  * We could use other alignment values, but we must maintain the
-  * relationship HH alignment <= LL alignment.
-+ *
-+ * LL_ALLOCATED_SPACE also takes into account the tailroom the device
-+ * may need.
-  */
- #define LL_RESERVED_SPACE(dev) \
--	(((dev)->hard_header_len&~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-+	((((dev)->hard_header_len+(dev)->needed_headroom)&~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
- #define LL_RESERVED_SPACE_EXTRA(dev,extra) \
--	((((dev)->hard_header_len+extra)&~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-+	((((dev)->hard_header_len+(dev)->needed_headroom+(extra))&~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-+#define LL_ALLOCATED_SPACE(dev) \
-+	((((dev)->hard_header_len+(dev)->needed_headroom+(dev)->needed_tailroom)&~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
+--------------050800010509020802090203
+Content-Type: text/x-patch;
+ name="8139cp_netstats.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="8139cp_netstats.patch"
+
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index a453eda..934db35 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -340,7 +340,6 @@ struct cp_private {
+ 	u32			rx_config;
+ 	u16			cpcmd;
  
- struct header_ops {
- 	int	(*create) (struct sk_buff *skb, struct net_device *dev,
-@@ -576,6 +581,11 @@ struct net_device
- 	unsigned		mtu;	/* interface MTU value		*/
- 	unsigned short		type;	/* interface hardware type	*/
- 	unsigned short		hard_header_len;	/* hardware hdr length	*/
-+	/* extra head- and tailroom the hardware may need, but not in all cases
-+	 * can this be guaranteed, especially tailroom. Some cases also use
-+	 * LL_MAX_HEADER instead to allocate the skb. */
-+	unsigned short		needed_headroom,
-+				needed_tailroom;
+-	struct net_device_stats net_stats;
+ 	struct cp_extra_stats	cp_stats;
  
- 	struct net_device	*master; /* Pointer to master device of a group,
- 					  * which this device is member of.
---- everything.orig/net/core/netpoll.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/core/netpoll.c	2008-05-04 20:44:26.000000000 +0200
-@@ -421,7 +421,7 @@ static void arp_reply(struct sk_buff *sk
- 		return;
- 
- 	size = sizeof(struct arphdr) + 2 * (skb->dev->addr_len + 4);
--	send_skb = find_skb(np, size + LL_RESERVED_SPACE(np->dev),
-+	send_skb = find_skb(np, size + LL_ALLOCATED_SPACE(np->dev),
- 			    LL_RESERVED_SPACE(np->dev));
- 
- 	if (!send_skb)
---- everything.orig/net/econet/af_econet.c	2008-05-04 19:43:07.000000000 +0200
-+++ everything/net/econet/af_econet.c	2008-05-04 20:44:26.000000000 +0200
-@@ -340,7 +340,7 @@ static int econet_sendmsg(struct kiocb *
- 
- 		dev_hold(dev);
- 
--		skb = sock_alloc_send_skb(sk, len+LL_RESERVED_SPACE(dev),
-+		skb = sock_alloc_send_skb(sk, len+LL_ALLOCATED_SPACE(dev),
- 					  msg->msg_flags & MSG_DONTWAIT, &err);
- 		if (skb==NULL)
- 			goto out_unlock;
---- everything.orig/net/ipv4/arp.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/ipv4/arp.c	2008-05-04 20:44:26.000000000 +0200
-@@ -571,7 +571,7 @@ struct sk_buff *arp_create(int type, int
- 	 */
- 
- 	skb = alloc_skb(sizeof(struct arphdr)+ 2*(dev->addr_len+4)
--				+ LL_RESERVED_SPACE(dev), GFP_ATOMIC);
-+				+ LL_ALLOCATED_SPACE(dev), GFP_ATOMIC);
- 	if (skb == NULL)
- 		return NULL;
- 
---- everything.orig/net/ipv4/igmp.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/ipv4/igmp.c	2008-05-04 20:44:26.000000000 +0200
-@@ -292,7 +292,7 @@ static struct sk_buff *igmpv3_newpack(st
- 	struct iphdr *pip;
- 	struct igmpv3_report *pig;
- 
--	skb = alloc_skb(size + LL_RESERVED_SPACE(dev), GFP_ATOMIC);
-+	skb = alloc_skb(size + LL_ALLOCATED_SPACE(dev), GFP_ATOMIC);
- 	if (skb == NULL)
- 		return NULL;
- 
-@@ -653,7 +653,7 @@ static int igmp_send_report(struct in_de
- 		return -1;
- 	}
- 
--	skb=alloc_skb(IGMP_SIZE+LL_RESERVED_SPACE(dev), GFP_ATOMIC);
-+	skb=alloc_skb(IGMP_SIZE+LL_ALLOCATED_SPACE(dev), GFP_ATOMIC);
- 	if (skb == NULL) {
- 		ip_rt_put(rt);
- 		return -1;
---- everything.orig/net/ipv4/ip_forward.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/ipv4/ip_forward.c	2008-05-04 20:44:26.000000000 +0200
-@@ -93,7 +93,9 @@ int ip_forward(struct sk_buff *skb)
- 		goto drop;
- 	}
- 
--	/* We are about to mangle packet. Copy it! */
-+	/* We are about to mangle packet. Copy it!
-+	 * FIXME: account for needed tail length?
-+	 */
- 	if (skb_cow(skb, LL_RESERVED_SPACE(rt->u.dst.dev)+rt->u.dst.header_len))
- 		goto drop;
- 	iph = ip_hdr(skb);
---- everything.orig/net/ipv4/ipconfig.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/ipv4/ipconfig.c	2008-05-04 20:44:26.000000000 +0200
-@@ -713,14 +713,14 @@ static void __init ic_bootp_send_if(stru
- 	struct net_device *dev = d->dev;
- 	struct sk_buff *skb;
- 	struct bootp_pkt *b;
--	int hh_len = LL_RESERVED_SPACE(dev);
- 	struct iphdr *h;
- 
- 	/* Allocate packet */
--	skb = alloc_skb(sizeof(struct bootp_pkt) + hh_len + 15, GFP_KERNEL);
-+	skb = alloc_skb(sizeof(struct bootp_pkt) +
-+			LL_ALLOCATED_SPACE(dev) + 15, GFP_KERNEL);
- 	if (!skb)
- 		return;
--	skb_reserve(skb, hh_len);
-+	skb_reserve(skb, LL_RESERVED_SPACE(dev));
- 	b = (struct bootp_pkt *) skb_put(skb, sizeof(struct bootp_pkt));
- 	memset(b, 0, sizeof(struct bootp_pkt));
- 
---- everything.orig/net/ipv4/ipip.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/ipv4/ipip.c	2008-05-04 20:44:26.000000000 +0200
-@@ -587,6 +587,7 @@ static int ipip_tunnel_xmit(struct sk_bu
- 
- 	/*
- 	 * Okay, now see if we can stuff it in the buffer as-is.
-+	 * FIXME: tail room?
- 	 */
- 	max_headroom = (LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr));
- 
---- everything.orig/net/ipv4/ipmr.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/ipv4/ipmr.c	2008-05-04 20:44:26.000000000 +0200
-@@ -1211,6 +1211,7 @@ static void ipmr_queue_xmit(struct sk_bu
- 		goto out_free;
- 	}
- 
-+	/* FIXME: what about needed tailroom? */
- 	encap += LL_RESERVED_SPACE(dev) + rt->u.dst.header_len;
- 
- 	if (skb_cow(skb, encap)) {
---- everything.orig/net/ipv4/ipvs/ip_vs_xmit.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/ipv4/ipvs/ip_vs_xmit.c	2008-05-04 20:44:26.000000000 +0200
-@@ -363,6 +363,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
- 
- 	/*
- 	 * Okay, now see if we can stuff it in the buffer as-is.
-+	 * FIXME: account for needed tailroom?
- 	 */
- 	max_headroom = LL_RESERVED_SPACE(tdev) + sizeof(struct iphdr);
- 
---- everything.orig/net/ipv4/raw.c	2008-05-04 19:43:08.000000000 +0200
-+++ everything/net/ipv4/raw.c	2008-05-04 20:44:26.000000000 +0200
-@@ -329,7 +329,6 @@ static int raw_send_hdrinc(struct sock *
- 			unsigned int flags)
+ 	unsigned		rx_head		____cacheline_aligned;
+@@ -457,8 +456,8 @@ static inline void cp_rx_skb (struct cp_private *cp, struct sk_buff *skb,
  {
- 	struct inet_sock *inet = inet_sk(sk);
--	int hh_len;
- 	struct iphdr *iph;
- 	struct sk_buff *skb;
- 	unsigned int iphlen;
-@@ -343,13 +342,12 @@ static int raw_send_hdrinc(struct sock *
- 	if (flags&MSG_PROBE)
- 		goto out;
+ 	skb->protocol = eth_type_trans (skb, cp->dev);
  
--	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
--
--	skb = sock_alloc_send_skb(sk, length+hh_len+15,
--				  flags&MSG_DONTWAIT, &err);
-+	skb = sock_alloc_send_skb(
-+		sk, length + LL_ALLOCATED_SPACE(rt->u.dst.dev) + 15,
-+		flags & MSG_DONTWAIT, &err);
- 	if (skb == NULL)
- 		goto error;
--	skb_reserve(skb, hh_len);
-+	skb_reserve(skb, LL_RESERVED_SPACE(rt->u.dst.dev));
+-	cp->net_stats.rx_packets++;
+-	cp->net_stats.rx_bytes += skb->len;
++	cp->dev->stats.rx_packets++;
++	cp->dev->stats.rx_bytes += skb->len;
+ 	cp->dev->last_rx = jiffies;
  
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sk->sk_mark;
---- everything.orig/net/ipv6/ip6_output.c	2008-05-04 19:43:07.000000000 +0200
-+++ everything/net/ipv6/ip6_output.c	2008-05-04 20:44:26.000000000 +0200
-@@ -201,6 +201,7 @@ int ip6_xmit(struct sock *sk, struct sk_
- 
- 		/* First: exthdrs may take lots of space (~8K for now)
- 		   MAX_HEADER is not enough.
-+		   FIXME: LL_ALLOCATED_SPACE?
- 		 */
- 		head_room = opt->opt_nflen + opt->opt_flen;
- 		seg_len += head_room;
-@@ -780,7 +781,7 @@ slow_path:
- 		 *	Allocate buffer.
- 		 */
- 
--		if ((frag = alloc_skb(len+hlen+sizeof(struct frag_hdr)+LL_RESERVED_SPACE(rt->u.dst.dev), GFP_ATOMIC)) == NULL) {
-+		if ((frag = alloc_skb(len+hlen+sizeof(struct frag_hdr)+LL_ALLOCATED_SPACE(rt->u.dst.dev), GFP_ATOMIC)) == NULL) {
- 			NETDEBUG(KERN_INFO "IPv6: frag: no memory for new fragment!\n");
- 			IP6_INC_STATS(ip6_dst_idev(skb->dst),
- 				      IPSTATS_MIB_FRAGFAILS);
---- everything.orig/net/ipv6/mcast.c	2008-05-04 19:43:07.000000000 +0200
-+++ everything/net/ipv6/mcast.c	2008-05-04 20:44:26.000000000 +0200
-@@ -1403,7 +1403,7 @@ static struct sk_buff *mld_newpack(struc
- 		     IPV6_TLV_PADN, 0 };
- 
- 	/* we assume size > sizeof(ra) here */
--	skb = sock_alloc_send_skb(sk, size + LL_RESERVED_SPACE(dev), 1, &err);
-+	skb = sock_alloc_send_skb(sk, size + LL_ALLOCATED_SPACE(dev), 1, &err);
- 
- 	if (!skb)
- 		return NULL;
-@@ -1776,7 +1776,7 @@ static void igmp6_send(struct in6_addr *
- 	payload_len = len + sizeof(ra);
- 	full_len = sizeof(struct ipv6hdr) + payload_len;
- 
--	skb = sock_alloc_send_skb(sk, LL_RESERVED_SPACE(dev) + full_len, 1, &err);
-+	skb = sock_alloc_send_skb(sk, LL_ALLOCATED_SPACE(dev) + full_len, 1, &err);
- 
- 	if (skb == NULL) {
- 		rcu_read_lock();
---- everything.orig/net/ipv6/ndisc.c	2008-05-04 19:43:07.000000000 +0200
-+++ everything/net/ipv6/ndisc.c	2008-05-04 20:44:26.000000000 +0200
-@@ -494,7 +494,7 @@ static void __ndisc_send(struct net_devi
- 
- 	skb = sock_alloc_send_skb(sk,
- 				  (MAX_HEADER + sizeof(struct ipv6hdr) +
--				   len + LL_RESERVED_SPACE(dev)),
-+				   len + LL_ALLOCATED_SPACE(dev)),
- 				  1, &err);
- 	if (!skb) {
- 		ND_PRINTK0(KERN_ERR
-@@ -1494,7 +1494,7 @@ void ndisc_send_redirect(struct sk_buff 
- 
- 	buff = sock_alloc_send_skb(sk,
- 				   (MAX_HEADER + sizeof(struct ipv6hdr) +
--				    len + LL_RESERVED_SPACE(dev)),
-+				    len + LL_ALLOCATED_SPACE(dev)),
- 				   1, &err);
- 	if (buff == NULL) {
- 		ND_PRINTK0(KERN_ERR
---- everything.orig/net/ipv6/raw.c	2008-05-04 19:43:07.000000000 +0200
-+++ everything/net/ipv6/raw.c	2008-05-04 20:44:26.000000000 +0200
-@@ -624,7 +624,6 @@ static int rawv6_send_hdrinc(struct sock
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct ipv6hdr *iph;
- 	struct sk_buff *skb;
--	unsigned int hh_len;
- 	int err;
- 
- 	if (length > rt->u.dst.dev->mtu) {
-@@ -634,13 +633,12 @@ static int rawv6_send_hdrinc(struct sock
- 	if (flags&MSG_PROBE)
- 		goto out;
- 
--	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
--
--	skb = sock_alloc_send_skb(sk, length+hh_len+15,
--				  flags&MSG_DONTWAIT, &err);
-+	skb = sock_alloc_send_skb(
-+		sk, length + LL_ALLOCATED_SPACE(rt->u.dst.dev) + 15,
-+		flags & MSG_DONTWAIT, &err);
- 	if (skb == NULL)
- 		goto error;
--	skb_reserve(skb, hh_len);
-+	skb_reserve(skb, LL_RESERVED_SPACE(rt->u.dst.dev));
- 
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sk->sk_mark;
---- everything.orig/net/ipv6/sit.c	2008-05-04 19:43:07.000000000 +0200
-+++ everything/net/ipv6/sit.c	2008-05-04 20:44:26.000000000 +0200
-@@ -603,6 +603,8 @@ static int ipip6_tunnel_xmit(struct sk_b
- 
- 	/*
- 	 * Okay, now see if we can stuff it in the buffer as-is.
-+	 *
-+	 * XXX: tailroom? LL_ALLOCATED_SPACE?
- 	 */
- 	max_headroom = LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr);
- 
---- everything.orig/net/packet/af_packet.c	2008-05-04 19:43:07.000000000 +0200
-+++ everything/net/packet/af_packet.c	2008-05-04 20:44:26.000000000 +0200
-@@ -743,7 +743,7 @@ static int packet_sendmsg(struct kiocb *
- 	if (len > dev->mtu+reserve)
- 		goto out_unlock;
- 
--	skb = sock_alloc_send_skb(sk, len + LL_RESERVED_SPACE(dev),
-+	skb = sock_alloc_send_skb(sk, len + LL_ALLOCATED_SPACE(dev),
- 				msg->msg_flags & MSG_DONTWAIT, &err);
- 	if (skb==NULL)
- 		goto out_unlock;
---- everything.orig/net/xfrm/xfrm_output.c	2008-05-04 19:43:07.000000000 +0200
-+++ everything/net/xfrm/xfrm_output.c	2008-05-04 20:44:26.000000000 +0200
-@@ -23,13 +23,14 @@ static int xfrm_output2(struct sk_buff *
- static int xfrm_state_check_space(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb->dst;
--	int nhead = dst->header_len + LL_RESERVED_SPACE(dst->dev)
--		- skb_headroom(skb);
-+	int nhead = max_t(int, 0, dst->header_len + LL_RESERVED_SPACE(dst->dev)
-+				  - skb_headroom(skb));
-+	int ntail = max_t(int, 0, dst->dev->needed_tailroom
-+				  - skb_tailroom(skb));
- 
--	if (nhead > 0)
--		return pskb_expand_head(skb, nhead, 0, GFP_ATOMIC);
-+	if (nhead || ntail)
-+		return pskb_expand_head(skb, nhead, ntail, GFP_ATOMIC);
- 
--	/* Check tail too... */
- 	return 0;
+ #if CP_VLAN_TAG_USED
+@@ -477,17 +476,17 @@ static void cp_rx_err_acct (struct cp_private *cp, unsigned rx_tail,
+ 		printk (KERN_DEBUG
+ 			"%s: rx err, slot %d status 0x%x len %d\n",
+ 			cp->dev->name, rx_tail, status, len);
+-	cp->net_stats.rx_errors++;
++	cp->dev->stats.rx_errors++;
+ 	if (status & RxErrFrame)
+-		cp->net_stats.rx_frame_errors++;
++		cp->dev->stats.rx_frame_errors++;
+ 	if (status & RxErrCRC)
+-		cp->net_stats.rx_crc_errors++;
++		cp->dev->stats.rx_crc_errors++;
+ 	if ((status & RxErrRunt) || (status & RxErrLong))
+-		cp->net_stats.rx_length_errors++;
++		cp->dev->stats.rx_length_errors++;
+ 	if ((status & (FirstFrag | LastFrag)) != (FirstFrag | LastFrag))
+-		cp->net_stats.rx_length_errors++;
++		cp->dev->stats.rx_length_errors++;
+ 	if (status & RxErrFIFO)
+-		cp->net_stats.rx_fifo_errors++;
++		cp->dev->stats.rx_fifo_errors++;
  }
  
+ static inline unsigned int cp_rx_csum_ok (u32 status)
+@@ -539,7 +538,7 @@ rx_status_loop:
+ 			 * that RX fragments are never encountered
+ 			 */
+ 			cp_rx_err_acct(cp, rx_tail, status, len);
+-			cp->net_stats.rx_dropped++;
++			dev->stats.rx_dropped++;
+ 			cp->cp_stats.rx_frags++;
+ 			goto rx_next;
+ 		}
+@@ -556,7 +555,7 @@ rx_status_loop:
+ 		buflen = cp->rx_buf_sz + RX_OFFSET;
+ 		new_skb = dev_alloc_skb (buflen);
+ 		if (!new_skb) {
+-			cp->net_stats.rx_dropped++;
++			dev->stats.rx_dropped++;
+ 			goto rx_next;
+ 		}
+ 
+@@ -710,20 +709,20 @@ static void cp_tx (struct cp_private *cp)
+ 				if (netif_msg_tx_err(cp))
+ 					printk(KERN_DEBUG "%s: tx err, status 0x%x\n",
+ 					       cp->dev->name, status);
+-				cp->net_stats.tx_errors++;
++				cp->dev->stats.tx_errors++;
+ 				if (status & TxOWC)
+-					cp->net_stats.tx_window_errors++;
++					cp->dev->stats.tx_window_errors++;
+ 				if (status & TxMaxCol)
+-					cp->net_stats.tx_aborted_errors++;
++					cp->dev->stats.tx_aborted_errors++;
+ 				if (status & TxLinkFail)
+-					cp->net_stats.tx_carrier_errors++;
++					cp->dev->stats.tx_carrier_errors++;
+ 				if (status & TxFIFOUnder)
+-					cp->net_stats.tx_fifo_errors++;
++					cp->dev->stats.tx_fifo_errors++;
+ 			} else {
+-				cp->net_stats.collisions +=
++				cp->dev->stats.collisions +=
+ 					((status >> TxColCntShift) & TxColCntMask);
+-				cp->net_stats.tx_packets++;
+-				cp->net_stats.tx_bytes += skb->len;
++				cp->dev->stats.tx_packets++;
++				cp->dev->stats.tx_bytes += skb->len;
+ 				if (netif_msg_tx_done(cp))
+ 					printk(KERN_DEBUG "%s: tx done, slot %d\n", cp->dev->name, tx_tail);
+ 			}
+@@ -956,7 +955,7 @@ static void cp_set_rx_mode (struct net_device *dev)
+ static void __cp_get_stats(struct cp_private *cp)
+ {
+ 	/* only lower 24 bits valid; write any value to clear */
+-	cp->net_stats.rx_missed_errors += (cpr32 (RxMissed) & 0xffffff);
++	cp->dev->stats.rx_missed_errors += (cpr32 (RxMissed) & 0xffffff);
+ 	cpw32 (RxMissed, 0);
+ }
+ 
+@@ -971,7 +970,7 @@ static struct net_device_stats *cp_get_stats(struct net_device *dev)
+  		__cp_get_stats(cp);
+ 	spin_unlock_irqrestore(&cp->lock, flags);
+ 
+-	return &cp->net_stats;
++	return &dev->stats;
+ }
+ 
+ static void cp_stop_hw (struct cp_private *cp)
+@@ -1142,7 +1141,7 @@ static void cp_clean_rings (struct cp_private *cp)
+ 					 PCI_DMA_TODEVICE);
+ 			if (le32_to_cpu(desc->opts1) & LastFrag)
+ 				dev_kfree_skb(skb);
+-			cp->net_stats.tx_dropped++;
++			cp->dev->stats.tx_dropped++;
+ 		}
+ 	}
+ 
 
+--------------050800010509020802090203--
 
