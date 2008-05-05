@@ -1,53 +1,35 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Need help debugging memory corruption
-Date: Mon, 5 May 2008 07:50:40 +0000
-Message-ID: <20080505075040.GA4142@ff.dom.local>
-References: <20080503130951.091392ba@osprey.hogchain.net> <481DC731.5090303@gmail.com> <481DCE4C.9070805@gmail.com> <20080504145529.2eac672e@osprey.hogchain.net> <20080505072734.GA4069@ff.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 02/18] flag parameters: socket and socketpair
+Date: Mon, 05 May 2008 01:11:14 -0700 (PDT)
+Message-ID: <20080505.011114.218022391.davem@davemloft.net>
+References: <200805050342.m453gktl029817@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Chris Snook <csnook@redhat.com>
-To: Jay Cliburn <jacliburn@bellsouth.net>
+	akpm@linux-foundation.org, davidel@xmailserver.org,
+	mtk.manpages@gmail.com, torvalds@linux-foundation.org
+To: drepper@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:46954 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753324AbYEEHrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 03:47:24 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so31533fgg.17
-        for <netdev@vger.kernel.org>; Mon, 05 May 2008 00:47:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080505072734.GA4069@ff.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50623
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753298AbYEEILO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 04:11:14 -0400
+In-Reply-To: <200805050342.m453gktl029817@devserv.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 05, 2008 at 07:27:34AM +0000, Jarek Poplawski wrote:
-> On Sun, May 04, 2008 at 02:55:29PM -0500, Jay Cliburn wrote:
-> > On Sun, 04 May 2008 16:55:08 +0200
-> > Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > 
-> > > Jarek Poplawski wrote, On 05/04/2008 04:24 PM:
-> > > ...
-> > > 
-> > > > I'm definitely with less experience, so I wonder why it can't be
-> > > > a simple race between atl1_clean_rx_ring() and something (maybe even
-> > > > pending atl1_intr_rx()) on the other cpu writing skb while kfreeing?
-> > > 
-> > > 
-> > > Hmm... atl1_intr_rx() looks impossible, so atl1_alloc_rx_buffers()?
-> > 
-> > I booted with nosmp and the bug is *much* harder to hit, but I still
-> > hit it once out of about 10 tries.  Does the fact that I hit it once
-> > using nosmp disprove the race theory?
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Sun, 4 May 2008 23:42:46 -0400
+
+> This patch adds support for flag values which are ORed to the type passwd
+> to socket and socketpair.  The additional code is minimal.  Beside
+> decoding the flags with the library function introduced in a prior patch
+> all that has to be done is to pass the new value around.
 > 
-> Probably not: I don't know how about preemption model, but especially
-> some maybe unkilled timers/watchdogs or workqueues could be considered.
-> Of course this idea looks very unprobable (should happen with less
-> than 4GB too), but should be quite easy to verify by adding some
-> temporary spinlocks around these rx ring operations?
+> The internal functions sock_alloc_fd and sock_map_fd get a new parameters
+> and all callers are changed.
+...
+> Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
-Hmm#2... Of course for testing without smp disabling local irqs should
-be enough. BTW... since this check is done during __free_slab it seems
-such a corruption could take place before this closing, so maybe this
-atl1_intr_rx() should be considered in these races yet...
-
-Jarek P.
+Acked-by: David S. Miller <davem@davemloft.net>
