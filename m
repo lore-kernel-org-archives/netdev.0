@@ -1,86 +1,110 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC v2] mac80211: assign needed_headroom/tailroom for netdevs
-Date: Mon, 05 May 2008 19:57:34 +0200
-Message-ID: <1210010254.4181.4.camel@johannes.berg>
-References: <1209936253.7304.10.camel@johannes.berg>
-	 <1209936745.7304.16.camel@johannes.berg>
-	 <20080504.173051.133197507.davem@davemloft.net>
-	 <1209972139.3655.9.camel@johannes.berg>
-	 <1ba2fa240805050727r2060b0b4x3a9b3240647b66b1@mail.gmail.com>
-	 <1210000923.8245.26.camel@johannes.berg>
-	 <1ba2fa240805051015t7dfd3bd2nf7bc2fc1ab9799ca@mail.gmail.com>
-	 (sfid-20080505_191442_671116_FFB94097)
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] make IWLWIFI a tristate
+Date: Mon, 5 May 2008 21:25:16 +0300
+Message-ID: <20080505182516.GM17139@cs181133002.pp.htv.fi>
+References: <87zlrgl09s.fsf@sparse.dyndns.org> <1209435597.2624.35.camel@debian.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-BGorA4iwPX8fchrbzD/q"
-Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Tomas Winkler <tomasw@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Jason Riedy <jason@acm.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Zhu Yi <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:38273 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbYEER63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 13:58:29 -0400
-In-Reply-To: <1ba2fa240805051015t7dfd3bd2nf7bc2fc1ab9799ca@mail.gmail.com> (sfid-20080505_191442_671116_FFB94097)
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:54938 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760445AbYEES0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2008 14:26:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1209435597.2624.35.camel@debian.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 29, 2008 at 10:19:57AM +0800, Zhu Yi wrote:
+> On Sat, 2008-04-26 at 15:27 -0700, Jason Riedy wrote:
+> > If IWL3945 ever depends on IWLCORE, the silent, user-invisible
+> > IWLWIFI option can go away.
+> > 
+> > Signed-off-by: Jason Riedy <jason@acm.org>
+> > ---
+> >    The breakage made it to Linus's tree but isn't in the wireless forest
+> >    (as far as I can see).  Commit 49186b4a083655 is a "part 2" without
+> >    a "part 1", so perhaps that "part 1" avoided the problem?
+> > 
+> >  drivers/net/wireless/Makefile        |    2 +-
+> >  drivers/net/wireless/iwlwifi/Kconfig |    6 ++++++
+> >  2 files changed, 7 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+> > index c2642bc..2c343aa 100644
+> > --- a/drivers/net/wireless/Makefile
+> > +++ b/drivers/net/wireless/Makefile
+> > @@ -56,7 +56,7 @@ obj-$(CONFIG_RTL8187)	+= rtl8187.o
+> >  
+> >  obj-$(CONFIG_ADM8211)	+= adm8211.o
+> >  
+> > -obj-$(CONFIG_IWLCORE)	+= iwlwifi/
+> > +obj-$(CONFIG_IWLWIFI)	+= iwlwifi/
+> >  obj-$(CONFIG_RT2X00)	+= rt2x00/
+> >  
+> >  obj-$(CONFIG_P54_COMMON)	+= p54/
+> > diff --git a/drivers/net/wireless/iwlwifi/Kconfig b/drivers/net/wireless/iwlwifi/Kconfig
+> > index c4e631d..9a25f55 100644
+> > --- a/drivers/net/wireless/iwlwifi/Kconfig
+> > +++ b/drivers/net/wireless/iwlwifi/Kconfig
+> > @@ -1,6 +1,11 @@
+> > +config IWLWIFI
+> > +	bool
+> > +	default n
+> > +
+> >  config IWLCORE
+> >  	tristate "Intel Wireless Wifi Core"
+> >  	depends on PCI && MAC80211 && WLAN_80211 && EXPERIMENTAL
+> > +	select IWLWIFI
+> >  
+> >  config IWLWIFI_LEDS
+> >  	bool
+> > @@ -106,6 +111,7 @@ config IWL3945
+> >  	tristate "Intel PRO/Wireless 3945ABG/BG Network Connection"
+> >  	depends on PCI && MAC80211 && WLAN_80211 && EXPERIMENTAL
+> >  	select FW_LOADER
+> > +	select IWLWIFI
+> >  	---help---
+> >  	  Select to build the driver supporting the:
+> 
+> Do we have a way to make "select IWLWIFI" generate CONFIG_IWLWIFI with
+> the same state as CONFIG_IWLCORE (or CONFIG_IWL3945)?
+>...
 
---=-BGorA4iwPX8fchrbzD/q
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Fix below.
+
+> Thanks,
+> -yi
+
+cu
+Adrian
 
 
-> I would set  NETIF_F_SG OR FRAGLIS to features...?  (What actually is
-> the difference?)
+<--  snip  -->
 
-Do you support TCP checksumming in hardware? -> no SG
 
-NETIF_F_FRAGLIST I haven't understood, but it seems to apply mostly for
-IP fragmentation?
+IWLWIFI should be a tristate so that if IWLCORE and/or IWL3945 are m
+and none of them is y kbuild doesn't create an empty 
+drivers/net/wireless/built-in.o
 
-> but even when it does I
-> >  don't see what we can do unless we want to do all this inside mac80211
-> >  which I'd rather not.
->=20
-> Like Sending mac80211 header OOB as xmit function argument?  This will
-> probably affect all the wme code as well...
-> Not good.
+This patch also removes the pointless "default n".
 
-Yep.
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-> Isn't this a requirement that header fits into a continuous buffer ?
-
-which header? The SKB header (skb->data .. skb->tail
-(skb->head..skb->end)) or the 802.11/device header?
-
-> It's sounds strange to me that there is no solution for efficient
-> bridging... Can bridging code handle this if we have native interface?
-
-I don't think so, but I'm not sure.
-
-johannes
-
---=-BGorA4iwPX8fchrbzD/q
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASB9KjKVg1VMiehFYAQLDhhAAxcv2mWWb1tdm6QEev54NGNr8xXIn1jlC
-Ggc71zCD4kZRxBsLn6+fD0gxqYVxMWb+61X+dQyK34YR+lSpnJARqNtlz3uceyUU
-461KqPsAQSu0ZShCDtk2xu6DNqBfjz6s/3V6ccDho/fmuMTHmtbIESpmxgBUJHlV
-hYjV/Lnattiz4IMCPF7FGwla5zOB/0xI6msbjSDDKU0npmyJO6SWuesmpIXaKUKS
-OKuKKFYqJ1gqhDApYuy0mH7tWDgBIaPyOxpIxyOcMQJ3iP+1DU/lrSvAn84YItxZ
-IocI87KEk3RCtKm+uTwj7C6ZHo36xwqwt4O77i5kKBuawmIuMM4GWvBGBBPBmpIj
-kyryxQ2eoSKjSLustXM0BihKWkwjmpMTyzZXp1SCeyAJerW/pTF6V6/ESBKt8hpa
-1xIhoGvqkVPYjixio40rUmkV6Z2s3ARCdJ3R/yPmzXG4DixgBDJLKKVz5Einu4EB
-KE0YcFzU1uZtlekcna180VC3Sv70DxZE2boEyQc4dfY1tVzlPN8gRd510z+BvQu4
-n7vpa5N2gpNTuzEBApahxksDV/gQFhD6JseV0RqUAuio/qdNcdzJJ+4ca4vEO2Zk
-jyrN7vRqLJY05YUcDf1DhQXUv8gXZe3QTIKBCSALm4gNi5tpSwyDq5GchGJwmdUd
-Dkhij3y4NIs=
-=lZAD
------END PGP SIGNATURE-----
-
---=-BGorA4iwPX8fchrbzD/q--
+---
+f9737a109a127754ae7cc35e94d44fb426e0dea1 diff --git a/drivers/net/wireless/iwlwifi/Kconfig b/drivers/net/wireless/iwlwifi/Kconfig
+index d5b7a76..62fb89d 100644
+--- a/drivers/net/wireless/iwlwifi/Kconfig
++++ b/drivers/net/wireless/iwlwifi/Kconfig
+@@ -1,6 +1,5 @@
+ config IWLWIFI
+-	bool
+-	default n
++	tristate
+ 
+ config IWLCORE
+ 	tristate "Intel Wireless Wifi Core"
 
