@@ -1,90 +1,58 @@
-From: Joe Eykholt <jre@nuovasystems.com>
-Subject: [PATCH 0/3] bonding: allow L2 receive on slaves
-Date: Sun, 04 May 2008 20:00:18 -0700
-Message-ID: <20080505025801.18871.89526.stgit@feynman.nuovasystems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: [PATCH 00/18] flag parameters
+Date: Sun, 4 May 2008 23:42:46 -0400
+Message-ID: <200805050342.m453gkv3029811@devserv.devel.redhat.com>
+Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
+	mtk.manpages@gmail.com, torvalds@linux-foundation.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.nuovasystems.com ([67.91.200.194]:7776 "EHLO
-	feynman.nuovasystems.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752202AbYEEDbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 23:31:35 -0400
-Received: from feynman.nuovasystems.com (feynman.nuovasystems.com [127.0.0.1])
-	by feynman.nuovasystems.com (8.14.2/8.14.2) with ESMTP id m4530IYk018907
-	for <netdev@vger.kernel.org>; Sun, 4 May 2008 20:00:18 -0700
+Received: from mx1.redhat.com ([66.187.233.31]:52480 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754068AbYEEDmy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 May 2008 23:42:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series adds the ability for L2 protocols to specificly receive
-on enslaved devices if the packet_type.dev is non-NULL and specifies
-the slave.
+This series replaces the individual patches I sent out before.  They
+introduce changes for all the file descriptor-generating syscalls which
+do not have a flags parameter (or where it is not handled).
 
-This change was first described in my post to this alias on March 11.
-The patch is slightly different for clarity, but has the same effect.
+I think I addressed all the comments people made on the previous patches.
+New in this series is support for pipe and inotify_init.  These are
+straight-forward extensions like the rest.  Both require new userlevel
+interfaces, though.  We need new userlevel interfaces for:
 
-This is for when active/backup mode is used to bond IP, but
-it is still appropriate to handle some L2 protocols (e.g.,
-LLDP and FCoE) on the backup (inactive) links.
+ - paccept
+ - epoll_create2
+ - dup3
+ - pipe2
+ - inotify_init1
 
-The existing Linux bonding hook drops (almost) all traffic
-being received on the inactive slave interface except for
-ARP replies used by bonding itself to test connectivity.
+We do /not/ need new interfaces for
 
-Once we are past the bonding hook, netif_receive_skb()
-delivers the packet to all packet_type structures
-that match the following criteria:
- 1) The type field matches either ETH_P_ALL
-    or the received packet's type AND
- 2) the dev field is NULL or matches the (master)
-    interface dev pointer.
+ - signalfd4
+ - eventfd2
+ - timerfd_create
+ - socket
+ - socketpair
 
-The packet_type.dev field is usually NULL.
-Almost all protocols in the kernel initialize the dev
-field to NULL and don't touch it.  The only exceptions
-are the bonding code itself and AF_PACKET during the bind
-operation.
+These either have flags parameters in the interface exported by glibc
+or (in case of the socket functions) overload a parameter with a bitset.
 
-My proposal is to tweak the semantics so that when the
-packet_type dev field is non-NULL and matches
-the slave device, we deliver the frame to the packet_type
-function even in the case where the bonding driver would've
-dropped it.
+In addition to support for setting the close-on-exec flag I also added
+support to set the non-blocking mode.  This is how most modern, scalable
+code should work and adding the support comes almost for free.  Support
+to enable non-blocking is not added for dup3 (for obvious reasons)
+and epoll_create2.  For the latter I have not found any support in the
+kernel.  In case I missed something let me know and  I'll add the few
+lines of code.
 
-This provides for any L2 protocol and user-level program
-using AF_PACKET bound to the individual slave interface.
-If AF_PACKET is not bound, it'll receive on all interfaces
-still except passive slaves, and will receive from active
-slaves as if the frame arrived on the master (the current
-behavior).
+Each semantic change has a test program.  For archs other than x86 and
+x86-64 you'll have to add the appropriate syscall number.
 
-It's important to note that this is a potential change
-for user programs that bind to slave devices, since they
-wouldn't have received traffic while the slave was bound in
-the past.  I'm not sure how many such programs there might
-be so I'm unsure how concerned to be about this.
-This however is how I think it should work.
+The patches all apply individually in sequence and the source tree
+remains compilable and runnable.
 
-We add a pointer 'null_or_orig' which is NULL in most cases,
-but points to the original device in the inactive slave test.
-In deciding whether to deliver the packet on a particular
-packet_type, now instead of !ptype->dev, we test 
-ptype->dev == null_or_orig.
-
-There are related issues with MAC addresses, but I think
-there are good solutions to them.
-
----
-
-Joe Eykholt (3):
-      bonding: Allow receive on active slaves.
-      bonding:  Allow certain receives on inactive slave.
-      bonding: Uninline skb_bond().
-
-
- net/core/dev.c |   35 +++++++++++++----------------------
- 1 files changed, 13 insertions(+), 22 deletions(-)
-
--- 
-Joe Eykholt <jre@nuovasystems.com>
+Regarding the little mapping tables for the flags.  There are multiple
+copies with the same values (for now).  We could play tricks for mergable
+ELF sections to avoid this minimal duplication.
