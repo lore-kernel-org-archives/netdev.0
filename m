@@ -1,75 +1,71 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC v2] mac80211: assign needed_headroom/tailroom for netdevs
-Date: Mon, 05 May 2008 22:10:14 +0200
-Message-ID: <1210018214.4181.27.camel@johannes.berg>
-References: <1210014316.4181.14.camel@johannes.berg>
-	 <20080505.125013.129139559.davem@davemloft.net>
-	 <1210017456.4181.23.camel@johannes.berg>
-	 <20080505.130225.159803012.davem@davemloft.net>
+From: Matheos Worku <Matheos.Worku@Sun.COM>
+Subject: Re: Neptune regression...
+Date: Mon, 05 May 2008 13:10:50 -0700
+Message-ID: <481F69CA.4070704@sun.com>
+References: <20080503.235212.140840235.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ZTs7XAeDZZT35+d9sBNl"
-Cc: tomasw@gmail.com, linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
+Content-Type: text/plain; format=flowed; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:52702 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759638AbYEEULL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 16:11:11 -0400
-In-Reply-To: <20080505.130225.159803012.davem@davemloft.net>
+Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:63795 "EHLO
+	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751249AbYEEUM0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 16:12:26 -0400
+Received: from fe-sfbay-09.sun.com ([192.18.43.129])
+	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m45KCOIl018607
+	for <netdev@vger.kernel.org>; Mon, 5 May 2008 13:12:25 -0700 (PDT)
+Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
+ (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
+ id <0K0E00801VXP0T00@fe-sfbay-09.sun.com>
+ (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Mon,
+ 05 May 2008 13:12:24 -0700 (PDT)
+In-reply-to: <20080503.235212.140840235.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> Matheos, this patch of your's:
+>
+> commit 7f7c4072ea552f97a0898331322f71986a97299c
+> Author: Matheos Worku <matheos.worku@sun.com>
+> Date:   Thu Apr 24 21:02:37 2008 -0700
+>
+>     niu: Determine the # of ports from the card's VPD data
+>     
+>     [ Fix minor whitespace and coding style stuff... -DaveM ]
+>     
+>     Signed-off-by: Matheos Worku <matheos.worku@sun.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> Breaks on-board Neptune chips on Maramba systems.
+>
+> Previously the code in niu_get_and_validate_port() used a default of
+> "4" ports if the various probing methods failed.  Your code removed
+> that fallback.
+>
+> This case seems to be what triggers for on-board Maramba chips.
+>
+> So, for now, I'm going to put the:
+>
+> 	if (!parent->num_ports)
+> 		parent->num_ports = 4;
+>
+> back in there to fix the regression.  I've validated that this fixes
+> the problem.
+>
+> Is there some other mechanism we should be using here to detect the
+> port count in the Maramba on-board case?
+>   
+Dave,
 
---=-ZTs7XAeDZZT35+d9sBNl
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Sorry I broke the driver.
+I think the clean way to handle this would be to use the "board" 
+property which exists for all Neptune variants, both in OBP properties  
+as well as PCI VPD. I will work on the fix based on that approach  and 
+will generate a patch as soon possible.
+Regards
+Matheos
 
-
-> And the copy is necessary because you need more tailroom or something?
->=20
-> I don't understand why simply having all the space you need is not
-> better and faster :-)
->=20
-> Even if you have a clone, you can muck with the data in the IP and TCP
-> header areas, so long as skb_header_cloned() is false.
-
-I think it's probably all because I don't understand skb_cloned() vs.
-skb_header_cloned() and mac80211 came with checks for skb_cloned() that
-I didn't spot.
-
-So you're saying the check there to see if we can add 802.11 headers
-should depend on skb_header_cloned() and not skb_cloned()?
-
-> So I can only conclude that your problematic case is that of
-> encryption, right?  That's the only situation where I can imagine you
-> need to modify with packet data outside of the protocol headers.
-
-When is protocol header equivalent to skb header and when not?
-
-johannes
-
---=-ZTs7XAeDZZT35+d9sBNl
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASB9ppaVg1VMiehFYAQKrRg/7Bb7CD0xyv81194rsV4HdhdM3bSlelN6D
-XkXYgvWh5/WZwQKWUvzDd0VW+uOOAsPU578KXyGmNjH7XQRHT78DvAgppbxXi2Mb
-acyb4gDM7/FZSBCyrHcdEIZKvRJa5wwt9LSmWMoS7FDxkXkKj8ABmLsc7fiudY99
-YkGFcUe4n+ZsMKVwPQuFnLparqFVW4C3RHi08dwj4jPLTuxgZGxyEx7pJArze0Od
-NmVZTvamTSTiOsmu7mKRyoICqW7/gtZLX8dt8JAqO3Nw6wxDeknGF7oK371aYLOH
-WdJRe8a8VKcs/KC7C3ApfBbvGua0Il2w0KDaHnTQnMz0r1tzkjLm7JMbHDrvC/HP
-ByxosYF1+P0cBeeaB1adO+XlUm3m6nTrXlkQxeKqltt3LKCh7spByLuI4ZL59/sG
-Rd2v1eIUDDKoEg7B7T9DEF1XAyVMQOBWsxia/033OG409NQK+6qAre0tIq1ssXI4
-LW7y5Omy2acVFxornWSBHhmUuk3Go76Qa3Qj6EjJhElrpkX9tYF6uL2/h4pGG1I6
-SbFkeWjYwlhipiSqPgqQZprZqGz7A0x1WQSJyUepOR2DMd7BTUEV2Wf0ZoeozWnK
-yDv8k97LcyzPTJuZABB1CdgScBEe23CxYvaKWwUeS9H1AFIRiHXgylAzqIoQe4W2
-uEOyVnIskGM=
-=LeRX
------END PGP SIGNATURE-----
-
---=-ZTs7XAeDZZT35+d9sBNl--
 
