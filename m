@@ -1,33 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2][ATM]: Do not free already unregistered net device.
-Date: Mon, 05 May 2008 12:37:03 -0700 (PDT)
-Message-ID: <20080505.123703.257416714.davem@davemloft.net>
-References: <1210005880.5716.4.camel@Linux.home>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH] 8139too: use netstats in net_device structure
+Date: Mon, 05 May 2008 22:37:24 +0300
+Message-ID: <481F61F4.8000809@teltonika.lt>
+References: <fvnmeu$jt5$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xemul@openvz.org
-To: pcnet32@verizon.net
+Cc: linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35455
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752073AbYEEThD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 15:37:03 -0400
-In-Reply-To: <1210005880.5716.4.camel@Linux.home>
+Received: from main.gmane.org ([80.91.229.2]:33596 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751290AbYEEThd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2008 15:37:33 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Jt6V9-0007Gj-9s
+	for netdev@vger.kernel.org; Mon, 05 May 2008 19:37:31 +0000
+Received: from 78-62-85-225.static.zebra.lt ([78.62.85.225])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 05 May 2008 19:37:31 +0000
+Received: from paulius.zaleckas by 78-62-85-225.static.zebra.lt with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 05 May 2008 19:37:31 +0000
+In-Reply-To: <fvnmeu$jt5$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Fry <pcnet32@verizon.net>
-Date: Mon, 05 May 2008 09:44:40 -0700
+Paulius Zaleckas wrote:
+> Use net_device_stats from net_device structure instead of local.
+> Changed airo_read_stats function parameter to net_device.
+> 
+> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> 
 
-> I do not understand why this change was accepted.  All of the network
-> drivers I just looked at in 2.6.25 do unregister_netdev() followed
-> sometime soon by free_netdev().  Is there something different about ATM
-> devices?  I did not look at all the drivers.
+Sorry. Posted with wrong subject(copy & paste error)...
+I will repost it.
 
-Indeed, this change does look bogus.
-
-Pavel, please take a look, unregister_netdev() indeed does not free
-the netdevice, and something (usually the caller) needs to do it.
-
-I think I should revert your change.
