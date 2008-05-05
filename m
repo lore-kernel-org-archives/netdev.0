@@ -1,39 +1,35 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: Re: [PATCH] 8139too: use netstats in net_device structure
-Date: Mon, 05 May 2008 22:37:24 +0300
-Message-ID: <481F61F4.8000809@teltonika.lt>
-References: <fvnmeu$jt5$1@ger.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6 patch] make IWLWIFI a tristate
+Date: Mon, 05 May 2008 12:40:20 -0700 (PDT)
+Message-ID: <20080505.124020.173231796.davem@davemloft.net>
+References: <87zlrgl09s.fsf@sparse.dyndns.org>
+	<1209435597.2624.35.camel@debian.sh.intel.com>
+	<20080505182516.GM17139@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: yi.zhu@intel.com, jason@acm.org, netdev@vger.kernel.org
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:33596 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751290AbYEEThd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2008 15:37:33 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Jt6V9-0007Gj-9s
-	for netdev@vger.kernel.org; Mon, 05 May 2008 19:37:31 +0000
-Received: from 78-62-85-225.static.zebra.lt ([78.62.85.225])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 05 May 2008 19:37:31 +0000
-Received: from paulius.zaleckas by 78-62-85-225.static.zebra.lt with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 05 May 2008 19:37:31 +0000
-In-Reply-To: <fvnmeu$jt5$1@ger.gmane.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35462
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752054AbYEETkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 15:40:20 -0400
+In-Reply-To: <20080505182516.GM17139@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paulius Zaleckas wrote:
-> Use net_device_stats from net_device structure instead of local.
-> Changed airo_read_stats function parameter to net_device.
-> 
-> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-> 
+From: Adrian Bunk <bunk@kernel.org>
+Date: Mon, 5 May 2008 21:25:16 +0300
 
-Sorry. Posted with wrong subject(copy & paste error)...
-I will repost it.
+> IWLWIFI should be a tristate so that if IWLCORE and/or IWL3945 are m
+> and none of them is y kbuild doesn't create an empty 
+> drivers/net/wireless/built-in.o
+> 
+> This patch also removes the pointless "default n".
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
+I'll let this sit and cook for a while so that others can
+review and test this patch.  We've had enough churn in this
+area already :-)
