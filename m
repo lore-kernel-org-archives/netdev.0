@@ -1,71 +1,55 @@
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Subject: Re: Neptune regression...
-Date: Mon, 05 May 2008 13:10:50 -0700
-Message-ID: <481F69CA.4070704@sun.com>
-References: <20080503.235212.140840235.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] Re: [PATCH 01/13] QLogic VNIC: Driver - netdev implementation
+Date: Mon, 05 May 2008 13:42:15 -0700
+Message-ID: <adafxsw1o0o.fsf@cisco.com>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain>
+	<20080430171624.31725.98475.stgit@localhost.localdomain>
+	<adaiqxw4lox.fsf@cisco.com>
+	<71d336490805050836o68d745f2k4bab68edcfe1da50@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=ISO-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, poornima.kamath@qlogic.com,
+	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
+To: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:63795 "EHLO
-	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbYEEUM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 16:12:26 -0400
-Received: from fe-sfbay-09.sun.com ([192.18.43.129])
-	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m45KCOIl018607
-	for <netdev@vger.kernel.org>; Mon, 5 May 2008 13:12:25 -0700 (PDT)
-Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- id <0K0E00801VXP0T00@fe-sfbay-09.sun.com>
- (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Mon,
- 05 May 2008 13:12:24 -0700 (PDT)
-In-reply-to: <20080503.235212.140840235.davem@davemloft.net>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:44266 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753297AbYEEUmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 16:42:22 -0400
+In-Reply-To: <71d336490805050836o68d745f2k4bab68edcfe1da50@mail.gmail.com>
+	(Ramachandra K.'s message of "Mon, 5 May 2008 21:06:58 +0530")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Matheos, this patch of your's:
->
-> commit 7f7c4072ea552f97a0898331322f71986a97299c
-> Author: Matheos Worku <matheos.worku@sun.com>
-> Date:   Thu Apr 24 21:02:37 2008 -0700
->
->     niu: Determine the # of ports from the card's VPD data
->     
->     [ Fix minor whitespace and coding style stuff... -DaveM ]
->     
->     Signed-off-by: Matheos Worku <matheos.worku@sun.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> Breaks on-board Neptune chips on Maramba systems.
->
-> Previously the code in niu_get_and_validate_port() used a default of
-> "4" ports if the various probing methods failed.  Your code removed
-> that fallback.
->
-> This case seems to be what triggers for on-board Maramba chips.
->
-> So, for now, I'm going to put the:
->
-> 	if (!parent->num_ports)
-> 		parent->num_ports = 4;
->
-> back in there to fix the regression.  I've validated that this fixes
-> the problem.
->
-> Is there some other mechanism we should be using here to detect the
-> port count in the Maramba on-board case?
->   
-Dave,
+ > I will make sure to sign off on all patches. Should I also drop the From line
+ > for the patches which I developed, since I am mailing them myself ?
 
-Sorry I broke the driver.
-I think the clean way to handle this would be to use the "board" 
-property which exists for all Neptune variants, both in OBP properties  
-as well as PCI VPD. I will work on the fix based on that approach  and 
-will generate a patch as soon possible.
-Regards
-Matheos
+It doesn't hurt to include a From: line if it is the same as the one for
+the email itself, but it isn't necessary.  When I import a patch the
+last From: line will be used.
 
+ > I am using the Signed-off-by line to indicate the people who were
+ > involved in the development of the patches at some stage.
 
+That's fine.  You can read Documentation/SubmittingPatches to see the
+precise legal meaning of Signed-off-by, and make sure that it applies to
+everyone whose signoff you are including.  You can also add less formal
+text like "X <z@foo> helped develop this patch" in the changelog entry.
+
+ > >   > +extern cycles_t recv_ref;
+ > >
+ > >  seems like too generic a name to make global.  What the heck are you
+ > >  using cycle_t to keep track of anyway?
+ > >
+ > 
+ > This is being used as part of the driver internal statistics
+ > collection to keep track of the time
+ > elapsed between a message arriving from the EVIC indicating that it
+ > has done an RDMA write of
+ > an Ethernet packet to the driver memory and the driver giving the packet
+ > to the network stack.
+
+cycles don't track time (eg x86 TSC might stop for a while).  Do you
+*really* need to use cycles, or are jiffies a better replacement?
+
+ - R.
