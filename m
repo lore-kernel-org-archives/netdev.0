@@ -1,286 +1,116 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 02/18] flag parameters: socket and socketpair
-Date: Sun, 4 May 2008 23:42:46 -0400
-Message-ID: <200805050342.m453gktl029817@devserv.devel.redhat.com>
-Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
-	mtk.manpages@gmail.com, torvalds@linux-foundation.org
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: "Satoru SATOH" <satoru.satoh@gmail.com>
+Subject: Re: [PATCH][IP] Make use of the inline function dst_metric_locked()
+Date: Mon, 5 May 2008 12:44:50 +0900
+Message-ID: <d72b7ace0805042044n51c57d31ycc4b00991761acfb@mail.gmail.com>
+References: <4817C8F5.7060101@gmail.com>
+	 <20080429.182443.154118887.davem@davemloft.net>
+	 <4817DF2B.1080701@gmail.com> <4817F140.7000302@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_Part_14770_8236580.1209959090090"
+Cc: netdev@vger.kernel.org, "David Miller" <davem@davemloft.net>
+To: "Wang Chen" <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52530 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757000AbYEEDn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 May 2008 23:43:26 -0400
+Received: from wf-out-1314.google.com ([209.85.200.168]:29528 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757924AbYEEDou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2008 23:44:50 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so973475wfd.4
+        for <netdev@vger.kernel.org>; Sun, 04 May 2008 20:44:50 -0700 (PDT)
+In-Reply-To: <4817F140.7000302@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for flag values which are ORed to the type passwd
-to socket and socketpair.  The additional code is minimal.  Beside
-decoding the flags with the library function introduced in a prior patch
-all that has to be done is to pass the new value around.
+------=_Part_14770_8236580.1209959090090
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-The internal functions sock_alloc_fd and sock_map_fd get a new parameters
-and all callers are changed.
+Thanks for your info.
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
+I don't know the way to fix that problem, so I send it also as an
+attachment to be safe.
 
-#define PORT 57392
+- satoru
 
-#define SOCK_CLOEXEC 0x40000000
+2008/4/30 Wang Chen <wangchen@cn.fujitsu.com>:
+> Satoru SATOH said the following on 2008-4-30 10:53:
+>
+> > # Resend it. I think it fixed.
+>  >
+>  > I found some parts inline function dst_metric_locked should be used but
+>  > not. The following patch fixes these.
+>  >
+>  > Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+>  >
+>  >  include/net/ip.h |    2 +-
+>  >  net/ipv4/route.c |    2 +-
+>  >  2 files changed, 2 insertions(+), 2 deletions(-)
+>  >
+>  > diff --git a/include/net/ip.h b/include/net/ip.h
+>  > index 6d7bcd5..3b40bc2 100644
+>  > --- a/include/net/ip.h
+>  > +++ b/include/net/ip.h
+>  > @@ -210,7 +210,7 @@ int ip_dont_fragment(struct sock *sk, struct
+>  > dst_entry *dst)
+>  >  {
+>  >      return (inet_sk(sk)->pmtudisc == IP_PMTUDISC_DO ||
+>
+>  Still not fixed.
+>  Your mail client converted tab to blank space.
+>
+>  BTW, you need to send this patch to David and cc to netdev list.
+>
+>
+>
+>  >          (inet_sk(sk)->pmtudisc == IP_PMTUDISC_WANT &&
+>  > -         !(dst_metric(dst, RTAX_LOCK)&(1<<RTAX_MTU))));
+>  > +         !(dst_metric_locked(dst, RTAX_MTU))));
+>  >  }
+>  >
+>  >  extern void __ip_select_ident(struct iphdr *iph, struct dst_entry *dst,
+>  > int more);
+>  > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>  > index ce25a13..2fd69b5 100644
+>  > --- a/net/ipv4/route.c
+>  > +++ b/net/ipv4/route.c
+>  > @@ -1607,7 +1607,7 @@ static void rt_set_nexthop(struct rtable *rt,
+>  > struct fib_result *res, u32 itag)
+>  >                 sizeof(rt->u.dst.metrics));
+>  >          if (fi->fib_mtu == 0) {
+>  >              rt->u.dst.metrics[RTAX_MTU-1] = rt->u.dst.dev->mtu;
+>  > -            if (rt->u.dst.metrics[RTAX_LOCK-1] & (1 << RTAX_MTU) &&
+>  > +            if (dst_metric_locked(&rt->u.dst, RTAX_MTU) &&
+>  >                  rt->rt_gateway != rt->rt_dst &&
+>  >                  rt->u.dst.dev->mtu > 576)
+>  >                  rt->u.dst.metrics[RTAX_MTU-1] = 576;
 
-int
-main (void)
-{
-  int fd;
-  fd = socket (PF_INET, SOCK_STREAM, 0);
-  if (fd == -1)
-    {
-      puts ("socket(0) failed");
-      return 1;
-    }
-  int coe = fcntl (fd, F_GETFD);
-  if (coe == -1)
-    {
-      puts ("fcntl failed");
-      return 1;
-    }
-  if (coe & FD_CLOEXEC)
-    {
-      puts ("socket(0) set close-on-exec flag");
-      return 1;
-    }
-  close (fd);
+------=_Part_14770_8236580.1209959090090
+Content-Type: text/x-patch; name=linux-net-2.6-use-dst_metric_locked.patch
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ffuhzm8g0
+Content-Disposition: attachment;
+ filename=linux-net-2.6-use-dst_metric_locked.patch
 
-  fd = socket (PF_INET, SOCK_STREAM|SOCK_CLOEXEC, 0);
-  if (fd == -1)
-    {
-      puts ("socket(SOCK_CLOEXEC) failed");
-      return 1;
-    }
-  coe = fcntl (fd, F_GETFD);
-  if (coe == -1)
-    {
-      puts ("fcntl failed");
-      return 1;
-    }
-  if ((coe & FD_CLOEXEC) == 0)
-    {
-      puts ("socket(SOCK_CLOEXEC) does not set close-on-exec flag");
-      return 1;
-    }
-  close (fd);
-
-  int fds[2];
-  if (socketpair (PF_UNIX, SOCK_STREAM, 0, fds) == -1)
-    {
-      puts ("socketpair(0) failed");
-      return 1;
-    }
-  for (int i = 0; i < 2; ++i)
-    {
-      coe = fcntl (fds[i], F_GETFD);
-      if (coe == -1)
-        {
-          puts ("fcntl failed");
-          return 1;
-        }
-      if (coe & FD_CLOEXEC)
-        {
-          printf ("socketpair(0) set close-on-exec flag for fds[%d]\n", i);
-          return 1;
-        }
-      close (fds[i]);
-    }
-
-  if (socketpair (PF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds) == -1)
-    {
-      puts ("socketpair(SOCK_CLOEXEC) failed");
-      return 1;
-    }
-  for (int i = 0; i < 2; ++i)
-    {
-      coe = fcntl (fds[i], F_GETFD);
-      if (coe == -1)
-        {
-          puts ("fcntl failed");
-          return 1;
-        }
-      if ((coe & FD_CLOEXEC) == 0)
-        {
-          printf ("socketpair(SOCK_CLOEXEC) does not set close-on-exec flag for fds[%d]\n", i);
-          return 1;
-        }
-      close (fds[i]);
-    }
-
-  puts ("OK");
-
-  return 0;
-}
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
- include/linux/net.h |    5 ++++-
- net/9p/trans_fd.c   |    2 +-
- net/sctp/socket.c   |    2 +-
- net/socket.c        |   31 +++++++++++++++++++++++--------
- 4 files changed, 29 insertions(+), 11 deletions(-)
-
-
-Signed-off-by: Ulrich Drepper <drepper@redhat.com>
-
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 71f7dd5..fcd3694 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -91,6 +91,9 @@ enum sock_type {
- 	SOCK_SEQPACKET	= 5,
- 	SOCK_DCCP	= 6,
- 	SOCK_PACKET	= 10,
-+
-+	/* Flag values, ORed to the types above.  */
-+	SOCK_CLOEXEC	= 0x40000000
- };
- 
- #define SOCK_MAX (SOCK_PACKET + 1)
-@@ -208,7 +211,7 @@ extern int   	     sock_sendmsg(struct socket *sock, struct msghdr *msg,
- 				  size_t len);
- extern int	     sock_recvmsg(struct socket *sock, struct msghdr *msg,
- 				  size_t size, int flags);
--extern int 	     sock_map_fd(struct socket *sock);
-+extern int 	     sock_map_fd(struct socket *sock, int flags);
- extern struct socket *sockfd_lookup(int fd, int *err);
- #define		     sockfd_put(sock) fput(sock->file)
- extern int	     net_ratelimit(void);
-diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
-index f624dff..25931c0 100644
---- a/net/9p/trans_fd.c
-+++ b/net/9p/trans_fd.c
-@@ -1173,7 +1173,7 @@ static int p9_socket_open(struct p9_trans *trans, struct socket *csocket)
- 	int fd, ret;
- 
- 	csocket->sk->sk_allocation = GFP_NOIO;
--	fd = sock_map_fd(csocket);
-+	fd = sock_map_fd(csocket, 0);
- 	if (fd < 0) {
- 		P9_EPRINTK(KERN_ERR, "p9_socket_open: failed to map fd\n");
- 		return fd;
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index e7e3baf..5034b1d 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3812,7 +3812,7 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
- 		goto out;
- 
- 	/* Map the socket to an unused fd that can be returned to the user.  */
--	retval = sock_map_fd(newsock);
-+	retval = sock_map_fd(newsock, 0);
- 	if (retval < 0) {
- 		sock_release(newsock);
- 		goto out;
-diff --git a/net/socket.c b/net/socket.c
-index 66c4a8c..1df03ae 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -85,6 +85,7 @@
- #include <linux/audit.h>
- #include <linux/wireless.h>
- #include <linux/nsproxy.h>
-+#include <linux/flagsremap.h>
- 
- #include <asm/uaccess.h>
- #include <asm/unistd.h>
-@@ -348,11 +349,11 @@ static struct dentry_operations sockfs_dentry_operations = {
-  *	but we take care of internal coherence yet.
-  */
- 
--static int sock_alloc_fd(struct file **filep)
-+static int sock_alloc_fd(struct file **filep, int flags)
- {
- 	int fd;
- 
--	fd = get_unused_fd();
-+	fd = get_unused_fd_flags(flags);
- 	if (likely(fd >= 0)) {
- 		struct file *file = get_empty_filp();
- 
-@@ -395,10 +396,10 @@ static int sock_attach_fd(struct socket *sock, struct file *file)
- 	return 0;
- }
- 
--int sock_map_fd(struct socket *sock)
-+int sock_map_fd(struct socket *sock, int flags)
- {
- 	struct file *newfile;
--	int fd = sock_alloc_fd(&newfile);
-+	int fd = sock_alloc_fd(&newfile, flags);
- 
- 	if (likely(fd >= 0)) {
- 		int err = sock_attach_fd(sock, newfile);
-@@ -1213,16 +1214,25 @@ int sock_create_kern(int family, int type, int protocol, struct socket **res)
- 	return __sock_create(&init_net, family, type, protocol, res, 1);
- }
- 
-+static const struct flags_rmap sock_file_flags_remap[] = {
-+	{ SOCK_CLOEXEC, O_CLOEXEC },
-+};
-+
- asmlinkage long sys_socket(int family, int type, int protocol)
- {
- 	int retval;
- 	struct socket *sock;
-+	int fflags;
-+
-+	type = flags_remap(sock_file_flags_remap,
-+			   ARRAY_SIZE(sock_file_flags_remap),
-+			   type, &fflags);
- 
- 	retval = sock_create(family, type, protocol, &sock);
- 	if (retval < 0)
- 		goto out;
- 
--	retval = sock_map_fd(sock);
-+	retval = sock_map_fd(sock, fflags);
- 	if (retval < 0)
- 		goto out_release;
- 
-@@ -1245,6 +1256,11 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
- 	struct socket *sock1, *sock2;
- 	int fd1, fd2, err;
- 	struct file *newfile1, *newfile2;
-+	int fflags;
-+
-+	type = flags_remap(sock_file_flags_remap,
-+			   ARRAY_SIZE(sock_file_flags_remap),
-+			   type, &fflags);
- 
- 	/*
- 	 * Obtain the first socket and check if the underlying protocol
-@@ -1263,13 +1279,13 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
- 	if (err < 0)
- 		goto out_release_both;
- 
--	fd1 = sock_alloc_fd(&newfile1);
-+	fd1 = sock_alloc_fd(&newfile1, fflags);
- 	if (unlikely(fd1 < 0)) {
- 		err = fd1;
- 		goto out_release_both;
- 	}
- 
--	fd2 = sock_alloc_fd(&newfile2);
-+	fd2 = sock_alloc_fd(&newfile2, fflags);
- 	if (unlikely(fd2 < 0)) {
- 		err = fd2;
- 		put_filp(newfile1);
-@@ -1425,7 +1450,7 @@ asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
- 	 */
- 	__module_get(newsock->ops->owner);
- 
--	newfd = sock_alloc_fd(&newfile);
-+	newfd = sock_alloc_fd(&newfile, 0);
- 	if (unlikely(newfd < 0)) {
- 		err = newfd;
- 		sock_release(newsock);
+IGluY2x1ZGUvbmV0L2lwLmggfCAgICAyICstCiBuZXQvaXB2NC9yb3V0ZS5jIHwgICAgMiArLQog
+MiBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0t
+Z2l0IGEvaW5jbHVkZS9uZXQvaXAuaCBiL2luY2x1ZGUvbmV0L2lwLmgKaW5kZXggNmQ3YmNkNS4u
+M2I0MGJjMiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvaXAuaAorKysgYi9pbmNsdWRlL25ldC9p
+cC5oCkBAIC0yMTAsNyArMjEwLDcgQEAgaW50IGlwX2RvbnRfZnJhZ21lbnQoc3RydWN0IHNvY2sg
+KnNrLCBzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QpCiB7CiAJcmV0dXJuIChpbmV0X3NrKHNrKS0+cG10
+dWRpc2MgPT0gSVBfUE1UVURJU0NfRE8gfHwKIAkJKGluZXRfc2soc2spLT5wbXR1ZGlzYyA9PSBJ
+UF9QTVRVRElTQ19XQU5UICYmCi0JCSAhKGRzdF9tZXRyaWMoZHN0LCBSVEFYX0xPQ0spJigxPDxS
+VEFYX01UVSkpKSk7CisJCSAhKGRzdF9tZXRyaWNfbG9ja2VkKGRzdCwgUlRBWF9NVFUpKSkpOwog
+fQogCiBleHRlcm4gdm9pZCBfX2lwX3NlbGVjdF9pZGVudChzdHJ1Y3QgaXBoZHIgKmlwaCwgc3Ry
+dWN0IGRzdF9lbnRyeSAqZHN0LCBpbnQgbW9yZSk7CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9yb3V0
+ZS5jIGIvbmV0L2lwdjQvcm91dGUuYwppbmRleCA1ZTM2ODVjLi45MDg0MDU1IDEwMDY0NAotLS0g
+YS9uZXQvaXB2NC9yb3V0ZS5jCisrKyBiL25ldC9pcHY0L3JvdXRlLmMKQEAgLTE2MTMsNyArMTYx
+Myw3IEBAIHN0YXRpYyB2b2lkIHJ0X3NldF9uZXh0aG9wKHN0cnVjdCBydGFibGUgKnJ0LCBzdHJ1
+Y3QgZmliX3Jlc3VsdCAqcmVzLCB1MzIgaXRhZykKIAkJICAgICAgIHNpemVvZihydC0+dS5kc3Qu
+bWV0cmljcykpOwogCQlpZiAoZmktPmZpYl9tdHUgPT0gMCkgewogCQkJcnQtPnUuZHN0Lm1ldHJp
+Y3NbUlRBWF9NVFUtMV0gPSBydC0+dS5kc3QuZGV2LT5tdHU7Ci0JCQlpZiAocnQtPnUuZHN0Lm1l
+dHJpY3NbUlRBWF9MT0NLLTFdICYgKDEgPDwgUlRBWF9NVFUpICYmCisJCQlpZiAoZHN0X21ldHJp
+Y19sb2NrZWQoJnJ0LT51LmRzdCwgUlRBWF9NVFUpICYmCiAJCQkgICAgcnQtPnJ0X2dhdGV3YXkg
+IT0gcnQtPnJ0X2RzdCAmJgogCQkJICAgIHJ0LT51LmRzdC5kZXYtPm10dSA+IDU3NikKIAkJCQly
+dC0+dS5kc3QubWV0cmljc1tSVEFYX01UVS0xXSA9IDU3NjsK
+------=_Part_14770_8236580.1209959090090--
