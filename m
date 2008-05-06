@@ -1,75 +1,75 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [Bugme-new] [Bug 10600] New: e1000 updates rx_bytes infrequently
-Date: Tue, 6 May 2008 10:22:17 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52051AAF84@orsmsx418.amr.corp.intel.com>
-References: <bug-10600-10286@http.bugzilla.kernel.org/> <20080505155502.3fb16590.akpm@linux-foundation.org> <20080505.161806.267621711.davem@davemloft.net> <481F9E64.6070606@acm.org> <1210036624.7941.183.camel@dell> <481FB33F.3040804@acm.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <akpm@linux-foundation.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	<bugme-daemon@bugzilla.kernel.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Ben Liblit" <liblit@acm.org>, "Michael Chan" <mchan@broadcom.com>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: [RESEND][PATCH 00/11] sysfs tagged directories
+Date: Tue, 06 May 2008 19:30:30 +0200
+Message-ID: <20080506173030.653828076@theryb.frec.bull.fr>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Tejun Heo <htejun@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:47087 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754207AbYEFRWT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 13:22:19 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <481FB33F.3040804@acm.org>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:50088 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759116AbYEFRg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 13:36:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Liblit wrote:
-> Michael Chan wrote:
->> "ethtool -C eth0 stats-block-usecs" can be used to control statistics
->> update frequency on most tg3 and bnx2 devices.
-> 
-> But not on my e1000-driven Intel 82566DC, sadly:
-> 
-> 	# ethtool -C eth0 stats-block-usecs 50
-> 	Cannot get device coalesce settings: Operation not supported
-> 
-> 	# ethtool -c eth0
-> 	Coalesce parameters for eth0:
-> 	Cannot get device coalesce settings: Operation not supported
+This is still the same port of Eric Biederman's patchset to implement
+tagged directories in sysfs that was discussed a few days ago.
 
-e1000/e1000e already has patches upstream that count bytes and packets
-"on the fly" to fix this sort of issue.
+This time it applies on top of 2.6.26-rc1, 
+which includes a fix from Daniel Lezcano to fix net device renaming
+for sysfs (and of course all the network namespaces stuff that was 
+committed in net-2.6.26).
 
-see commit:
-commit ef90e4eca9fcade05dd03f853df75cf459a75422
-Author: Auke Kok <auke-jan.h.kok@intel.com>
-Date:   Tue Nov 13 20:49:15 2007 -0800
+This patchset still contains the patch from Serge Hallyn that implements
+tagging for user namespaces.
 
-    [E1000]: update netstats traffic counters realtime
+It also contains a patch from Daniel Lezcano which allows to have net 
+devices with the same name in two different network namespaces.
 
-    formerly e1000/e1000e only updated traffic counters once every
-    2 seconds with the register values of bytes/packets. With newer
-    code however in the interrupt and polling code we can real-time
-    fill in these values in the netstats struct for users to see.
 
-    Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Here is what I said when I sent the patchset a few days ago:
 
-and for e1000e (which you should be using for 82566)
-commit 419886927796dfeca87c1fd11d1fe2ed442103cc
-Author: Auke Kok <auke-jan.h.kok@intel.com>
-Date:   Tue Nov 13 20:48:36 2007 -0800
+> I re-post this patchset as most of network namespace work has been
+> merged in net-2.6.26 and the issue is it is currently easy to test
+> because of this missing piece.
+> (today sysfs must be disabled to test netns).
+>
+>
+>This feature is needed for network namespaces where we have to be able
+>to have multiple network devices with the same name in different network
+>namespaces. 
+>
+>On top of that, the final patch from Serge Hallyn also implements 
+>tagging for user namespaces.
+>
+> Here is the announcement Eric wrote back in December to introduce his 
+> patchset:
 
-    [E1000E]: update netstats traffic counters realtime
+> "
+> Now that we have network namespace support merged it is time to
+> revisit the sysfs support so we can remove the dependency on !SYSFS.
+> [...]
+> The bulk of the patches are the changes to allow multiple sysfs
+> superblocks.
+>
+> Then comes the tagged directory sysfs support which uses information
+> captured at mount time to decide which object with which tag will
+> appear in a directory.
+>
+> Then the support for renaming and deleting objects where the source
+> may be ambiguous because of tagging.
+>
+> Then finally the network namespace support so it is clear how all
+> of this tied together.
+> "
 
-    formerly e1000/e1000e only updated traffic counters once every
-    2 seconds with the register values of bytes/packets. With newer
-    code however in the interrupt and polling code we can real-time
-    fill in these values in the netstats struct for users to see.
-
-    Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-I'm not sure if this patch is in 2.6.24 and my git foo is lacking... 
-is this patch not working for you?  if so we need to figure out why.
-
-Jesse
+Regards,
+Benjamin
+-- 
