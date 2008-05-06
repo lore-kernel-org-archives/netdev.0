@@ -1,46 +1,69 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 02/18] flag parameters: socket and socketpair
-Date: Mon, 5 May 2008 18:58:50 -0700
-Message-ID: <20080505185850.789d870a.akpm@linux-foundation.org>
-References: <200805050342.m453gktl029817@devserv.devel.redhat.com>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [PATCH 01/18] flag parameters: helper function
+Date: Mon, 5 May 2008 19:09:32 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0805051856550.20837@alien.or.mcafeemobile.com>
+References: <200805050342.m453gkY4029814@devserv.devel.redhat.com>
+ <20080505185103.b9299541.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davidel@xmailserver.org, mtk.manpages@gmail.com,
-	torvalds@linux-foundation.org
-To: Ulrich Drepper <drepper@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ulrich Drepper <drepper@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, mtk.manpages@gmail.com,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:36299 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757000AbYEFB7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 21:59:40 -0400
-In-Reply-To: <200805050342.m453gktl029817@devserv.devel.redhat.com>
+Received: from x35.xmailserver.org ([64.71.152.41]:38268 "EHLO
+	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757344AbYEFCJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 22:09:34 -0400
+Received: from alien.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.25 ESMTP Server]
+	id <S28AEC2> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Mon, 5 May 2008 22:09:33 -0400
+In-Reply-To: <20080505185103.b9299541.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 4 May 2008 23:42:46 -0400 Ulrich Drepper <drepper@redhat.com> wrote:
+On Mon, 5 May 2008, Andrew Morton wrote:
 
-> +static const struct flags_rmap sock_file_flags_remap[] = {
-> +	{ SOCK_CLOEXEC, O_CLOEXEC },
-> +};
-> +
->  asmlinkage long sys_socket(int family, int type, int protocol)
->  {
->  	int retval;
->  	struct socket *sock;
-> +	int fflags;
-> +
-> +	type = flags_remap(sock_file_flags_remap,
-> +			   ARRAY_SIZE(sock_file_flags_remap),
-> +			   type, &fflags);
+> > +int flags_remap(const struct flags_rmap *m, int n,
+> > +		int f, int *rf)
+> > +{
+> > +	int i;
+> > +	for (i = 0, *rf = 0; f && i < n; i++, m++)
+> > +		if (f & m->f) {
+> > +			*rf |= m->of;
+> > +			f &= ~m->f;
+> > +		}
+> > +	return f;
+> > +}
+> 
+> hm, that looks expensive.  The compiler will need to generate a deref of m
+> and rf multiple times around the loop.  Copying them into locals does
+> improve that a lot.
 
-oh, so that's what it does.
+That's not a fast path. The extra cycles in the ldr/str get lost in the 
+overall syscall cost. But I guess Uli (or myself afterward) can change it 
+if you fill picky about it ;)
 
-afaict we only ever remap one or two flags.  Would it not be more efficient
-to do that inline?  Something along the lines of:
 
-	type = flag_remap(type, &fflags, SOCK_whatever, O_whatever);
-	type = flag_remap(type, &fflags, SOCK_whatever2, O_whatever2);
 
-?
+> I'm only on [1/18] so I don't know how often this code gets executed.  If
+> it's "on each open" then ouch, perhaps it might even be worth investigating a
+> table-based implementation.
+> 
+> Also: sorry, but ugh-at-the-naming.  We don't *gain* anything from having
+> idenitifers called f, of, m, n and rf.  And we lose quite a lot in
+> readability and understandability.  It would be much nicer to invest a
+> little bit more typing-time here, IMO.
+
+Why? Don't you like nibble-sized variable names? :)
+Uli took my email-code as is, so either he changes it, or I'll post 
+patches over it later.
+
+
+
+
+- Davide
+
+
