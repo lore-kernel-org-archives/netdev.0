@@ -1,84 +1,55 @@
-From: Mathieu Chouquet-Stringer <mchouque-GANU6spQydw@public.gmane.org>
-Subject: [PATCH] hostap: procfs fix for hostap_fw.c
-Date: Tue, 6 May 2008 17:23:54 +0200
-Message-ID: <20080506152354.GA3680@mobydick>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: New driver "sfc" for Solarstorm SFC4000 controller.
+Date: Tue, 6 May 2008 16:40:43 +0100
+Message-ID: <20080506154042.GD2217@solarflare.com>
+References: <200804301925.m3UJPc72001651@hera.kernel.org> <20080501120858.207b6dd6.akpm@linux-foundation.org> <20080502160530.GN14219@solarflare.com> <20080502110908.93c79d81.akpm@linux-foundation.org> <20080506125008.GA2217@solarflare.com> <20080506072442.82a834c8.akpm@linux-foundation.org> <20080506150450.GB2217@solarflare.com> <20080506081225.637df034.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: j@w1.fi
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:53553 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757479AbYEFPlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 11:41:00 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080506081225.637df034.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-        Hello,
+Andrew Morton wrote:
+> On Tue, 6 May 2008 16:04:53 +0100 Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> > > or
+> > > 
+> > >  	while (*dma_done != FALCON_STATS_DONE) {
+> > > 		udelay(1);
+> > > 		if (++timeout > TIMEOUT)
+> > > 			goto timeout;
+> > > 	}
+> >  
+> > On some architectures udelay() is defined using inline assembly that is not
+> > specified as clobbering memory.  So the compiler need not reload *dma_done
+> > after calling it, and this doesn't work.
+> 
+> So pop a cpu_relax() in there as the document describes?
 
-I've been toying with hostap_pci and found a bug that is triggered when
-you unload/reload the module.
+That changes the timing, though it may not matter that much.
 
-If you don't have PRISM2_NO_PROCFS_DEBUG defined (which is the default,
-as per hostap_config.h), the driver creates a "registers" file in /proc
-used to dump PRISM registers (function prism2_init_local_data):
+Seems to me that this is actually in the last set of "situations where
+volatile makes sense":
 
-#ifndef PRISM2_NO_PROCFS_DEBUG
-        create_proc_read_entry("registers", 0, local->proc,
-                               prism2_registers_proc_read, local);
-#endif /* PRISM2_NO_PROCFS_DEBUG */
+  - Pointers to data structures in coherent memory which might be modified
+    by I/O devices can, sometimes, legitimately be volatile.  A ring buffer
+    used by a network adapter, where that adapter changes pointers to
+    indicate which descriptors have been processed, is an example of this
+    type of situation.
 
-Note that create_proc_read_entry is being called with local->proc which
-isn't defined at the time: "registers" ends up being created as
-/proc/registers.
+So we could add declare dma_done as volatile u32 * and not do anything
+clever in the loop.
 
-When hostap_pci is done initializing the hardware, it calls
-hostap_hw_ready which in turns creates all the files in /proc through
-hostap_init_proc (hostap_proc.c):
+Ben.
 
-        local->proc = NULL;
-
-        if (hostap_proc == NULL) {
-                printk(KERN_WARNING "%s: hostap proc directory not created\n",
-                       local->dev->name);
-                return;
-        }
-
-        local->proc = proc_mkdir(local->ddev->name, hostap_proc);
-
-So far so good, well sort of...  When you unload the module,
-prism2_free_local_data does this:
-
-#ifndef PRISM2_NO_PROCFS_DEBUG
-        if (local->proc != NULL)
-                remove_proc_entry("registers", local->proc);
-#endif /* PRISM2_NO_PROCFS_DEBUG */
-        hostap_remove_proc(local);
-
-Problem is local->proc has now been overwritten by hostap_init_proc
-meaning "registers" isn't removed.  When you reload the module you get
-an error telling you "registers" already exists (and you then get
-duplicate "registers" files in /proc).
-
-So in a nutshell "registers" should be created after calling
-hostap_init_proc (this way it'll be created where it belongs -
-/proc/net/hostap/%s) making it removable at module unload.
-
-Please apply the patch below which does just that: it creates "register"
-in hostap_hw_ready right after creating all the proc entries.
-
-Best,
-Mathieu
-
-Signed-off-by: Mathieu Chouquet-Stringer <mchouque-GANU6spQydw@public.gmane.org>
-
-diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
-index 7be68db..454fcb4 100644
---- a/drivers/net/wireless/hostap/hostap_hw.c
-+++ b/drivers/net/wireless/hostap/hostap_hw.c
-@@ -3276,11 +3276,6 @@ while (0)
- 	}
- 	printk(KERN_INFO "%s: Registered netdevice %s\n", dev_info, dev->name);
- 
--#ifndef PRISM2_NO_PROCFS_DEBUG
--	create_proc_read_entry("registers", 0, local->proc,
--			       prism2_registers_proc_read, local);
--#endif /* PRISM2_NO_PROCFS_DEBUG */
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
