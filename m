@@ -1,7 +1,8 @@
 From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH 05/11] sysfs: sysfs_chmod_file handle multiple superblocks
-Date: Tue, 06 May 2008 19:31:20 +0200
-Message-ID: <20080506173335.166635429@theryb.frec.bull.fr>
+Subject: [PATCH 07/11] sysfs: Implement sysfs_delete_link and
+ sysfs_rename_link
+Date: Tue, 06 May 2008 19:31:40 +0200
+Message-ID: <20080506173335.460883711@theryb.frec.bull.fr>
 References: <20080506173030.653828076@theryb.frec.bull.fr>
 Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Tejun Heo <htejun@gmail.com>,
@@ -13,97 +14,121 @@ Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Benjamin Thery <benjamin.thery@bull.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:50170 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:50240 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760582AbYEFRhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 13:37:16 -0400
+	with ESMTP id S1761788AbYEFRhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 13:37:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sysfs: sysfs_chmod_file handle multiple superblocks
+sysfs: Implement sysfs_delete_link and sysfs_rename_link
 
-Teach sysfs_chmod_file how to handle multiple sysfs
-superblocks.
+When removing a symlink sysfs_remove_link does not provide
+enough information to figure out which tagged directory the symlink
+falls in.  So I need sysfs_delete_link which is passed the target
+of the symlink to delete.
+
+Further half the time when we are removing a symlink the code is
+actually renaming the symlink but not doing so explicitly because
+we don't have a symlink rename method. So I have added sysfs_rename_link
+as well.
+
+Both of these functions now have enough information to find a symlink
+in a tagged directory.  The only restriction is that they must be called
+before the target kobject is renamed or deleted.  If they are called
+later I loose track of which tag the target kobject was marked with
+and can no longer find the old symlink to remove it.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 Acked-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- fs/sysfs/file.c |   54 ++++++++++++++++++++++++++++++------------------------
- 1 file changed, 30 insertions(+), 24 deletions(-)
+ fs/sysfs/symlink.c    |   31 +++++++++++++++++++++++++++++++
+ include/linux/sysfs.h |   17 +++++++++++++++++
+ 2 files changed, 48 insertions(+)
 
-Index: linux-vanilla/fs/sysfs/file.c
+Index: linux-vanilla/fs/sysfs/symlink.c
 ===================================================================
---- linux-vanilla.orig/fs/sysfs/file.c
-+++ linux-vanilla/fs/sysfs/file.c
-@@ -560,7 +560,8 @@ EXPORT_SYMBOL_GPL(sysfs_add_file_to_grou
- int sysfs_chmod_file(struct kobject *kobj, struct attribute *attr, mode_t mode)
- {
- 	struct sysfs_dirent *victim_sd = NULL;
--	struct dentry *victim = NULL;
-+	struct super_block *sb;
-+	struct dentry *victim;
- 	struct inode * inode;
- 	struct iattr newattrs;
- 	int rc;
-@@ -571,31 +572,36 @@ int sysfs_chmod_file(struct kobject *kob
- 		goto out;
- 
- 	mutex_lock(&sysfs_rename_mutex);
--	victim = sysfs_get_dentry(sysfs_sb, victim_sd);
--	mutex_unlock(&sysfs_rename_mutex);
--	if (IS_ERR(victim)) {
--		rc = PTR_ERR(victim);
--		victim = NULL;
--		goto out;
--	}
--
--	inode = victim->d_inode;
-+	sysfs_grab_supers();
-+	list_for_each_entry(sb, &sysfs_fs_type.fs_supers, s_instances) {
-+		victim = sysfs_get_dentry(sb, victim_sd);
-+		if (victim == ERR_PTR(-EXDEV))
-+			continue;
-+		if (IS_ERR(victim)) {
-+			rc = PTR_ERR(victim);
-+			victim = NULL;
-+			goto out_unlock;
-+		}
-+
-+		inode = victim->d_inode;
-+		mutex_lock(&inode->i_mutex);
-+		newattrs.ia_mode = (mode & S_IALLUGO) |
-+				   (inode->i_mode & ~S_IALLUGO);
-+		newattrs.ia_valid = ATTR_MODE | ATTR_CTIME;
-+		rc = notify_change(victim, &newattrs);
-+		if (rc == 0) {
-+			mutex_lock(&sysfs_mutex);
-+			victim_sd->s_mode = newattrs.ia_mode;
-+			mutex_unlock(&sysfs_mutex);
-+		}
-+		mutex_unlock(&inode->i_mutex);
- 
--	mutex_lock(&inode->i_mutex);
--
--	newattrs.ia_mode = (mode & S_IALLUGO) | (inode->i_mode & ~S_IALLUGO);
--	newattrs.ia_valid = ATTR_MODE | ATTR_CTIME;
--	rc = notify_change(victim, &newattrs);
--
--	if (rc == 0) {
--		mutex_lock(&sysfs_mutex);
--		victim_sd->s_mode = newattrs.ia_mode;
--		mutex_unlock(&sysfs_mutex);
-+		dput(victim);
- 	}
--
--	mutex_unlock(&inode->i_mutex);
-- out:
--	dput(victim);
-+out_unlock:
-+	sysfs_release_supers();
-+	mutex_unlock(&sysfs_rename_mutex);
-+out:
- 	sysfs_put(victim_sd);
- 	return rc;
+--- linux-vanilla.orig/fs/sysfs/symlink.c
++++ linux-vanilla/fs/sysfs/symlink.c
+@@ -80,6 +80,21 @@ int sysfs_create_link(struct kobject * k
  }
+ 
+ /**
++ *	sysfs_delete_link - remove symlink in object's directory.
++ *	@kobj:	object we're acting for.
++ *	@targ:	object we're pointing to.
++ *	@name:	name of the symlink to remove.
++ *
++ *	Unlike sysfs_remove_link sysfs_delete_link has enough information
++ *	to successfully delete symlinks in tagged directories.
++ */
++void sysfs_delete_link(struct kobject *kobj, struct kobject *targ,
++			const char *name)
++{
++	sysfs_hash_and_remove(targ, kobj->sd, name);
++}
++
++/**
+  *	sysfs_remove_link - remove symlink in object's directory.
+  *	@kobj:	object we're acting for.
+  *	@name:	name of the symlink to remove.
+@@ -97,6 +112,22 @@ void sysfs_remove_link(struct kobject * 
+ 	sysfs_hash_and_remove(kobj, parent_sd, name);
+ }
+ 
++/**
++ *	sysfs_rename_link - rename symlink in object's directory.
++ *	@kobj:	object we're acting for.
++ *	@targ:	object we're pointing to.
++ *	@old:	previous name of the symlink.
++ *	@new:	new name of the symlink.
++ *
++ *	A helper function for the common rename symlink idiom.
++ */
++int sysfs_rename_link(struct kobject *kobj, struct kobject *targ,
++			const char *old, const char *new)
++{
++	sysfs_delete_link(kobj, targ, old);
++	return sysfs_create_link(kobj, targ, new);
++}
++
+ static int sysfs_get_target_path(struct sysfs_dirent *parent_sd,
+ 				 struct sysfs_dirent *target_sd, char *path)
+ {
+Index: linux-vanilla/include/linux/sysfs.h
+===================================================================
+--- linux-vanilla.orig/include/linux/sysfs.h
++++ linux-vanilla/include/linux/sysfs.h
+@@ -111,6 +111,12 @@ int __must_check sysfs_create_link(struc
+ 				   const char *name);
+ void sysfs_remove_link(struct kobject *kobj, const char *name);
+ 
++int sysfs_rename_link(struct kobject *kobj, struct kobject *target,
++			const char *old_name, const char *new_name);
++
++void sysfs_delete_link(struct kobject *dir, struct kobject *targ,
++			const char *name);
++
+ int __must_check sysfs_create_group(struct kobject *kobj,
+ 				    const struct attribute_group *grp);
+ int sysfs_update_group(struct kobject *kobj,
+@@ -195,6 +201,17 @@ static inline void sysfs_remove_link(str
+ {
+ }
+ 
++static inline int sysfs_rename_link(struct kobject *k, struct kobject *t,
++				    const char *old_name, const char *new_name)
++{
++	return 0;
++}
++
++static inline void sysfs_delete_link(struct kobject *k, struct kobject *t,
++				     const char *name)
++{
++}
++
+ static inline int sysfs_create_group(struct kobject *kobj,
+ 				     const struct attribute_group *grp)
+ {
 
 -- 
