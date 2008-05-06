@@ -1,54 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 1/4] Added ASSERT_RTNL() to dev_open() and dev_close().
-Date: Tue, 6 May 2008 19:34:06 +0100
-Message-ID: <20080506183405.GG2217@solarflare.com>
-References: <20080506182654.GF2217@solarflare.com>
+From: "Benjamin Thery" <ben.thery@gmail.com>
+Subject: Re: [RESEND][PATCH 00/11] sysfs tagged directories
+Date: Tue, 6 May 2008 20:41:33 +0200
+Message-ID: <939d53060805061141g3803a380j50ca89f39dbf0fe6@mail.gmail.com>
+References: <20080506173030.653828076@theryb.frec.bull.fr>
+	 <20080506175331.GA1815@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Benjamin Thery" <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Tejun Heo" <htejun@gmail.com>, "Al Viro" <viro@ftp.linux.org.uk>,
+	"Daniel Lezcano" <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	"Pavel Emelyanov" <xemul@openvz.org>, netdev@vger.kernel.org
+To: "Greg KH" <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:54039 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755040AbYEFSjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 14:39:42 -0400
+Received: from rv-out-0506.google.com ([209.85.198.228]:37958 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759062AbYEFSld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 14:41:33 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so1812890rvb.1
+        for <netdev@vger.kernel.org>; Tue, 06 May 2008 11:41:33 -0700 (PDT)
+In-Reply-To: <20080506175331.GA1815@suse.de>
 Content-Disposition: inline
-In-Reply-To: <20080506182654.GF2217@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dev_open() and dev_close() must be called holding the RTNL, since they
-call device functions and netdevice notifiers that are promised the RTNL.
+On Tue, May 6, 2008 at 7:53 PM, Greg KH <gregkh@suse.de> wrote:
+> On Tue, May 06, 2008 at 07:30:30PM +0200, Benjamin Thery wrote:
+>  > This is still the same port of Eric Biederman's patchset to implement
+>  > tagged directories in sysfs that was discussed a few days ago.
+>  >
+>  > This time it applies on top of 2.6.26-rc1,
+>  > which includes a fix from Daniel Lezcano to fix net device renaming
+>  > for sysfs (and of course all the network namespaces stuff that was
+>  > committed in net-2.6.26).
+>  >
+>  > This patchset still contains the patch from Serge Hallyn that implements
+>  > tagging for user namespaces.
+>  >
+>  > It also contains a patch from Daniel Lezcano which allows to have net
+>  > devices with the same name in two different network namespaces.
+>
+>  Does this all work properly with both CONFIG_SYSFS_DEPRECATED enabled
+>  and disabled?
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- net/core/dev.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Yes.
+I tested both cases and with my limited knowledge of sysfs (I'm mostly
+interested in /sys/class/net population), this looked fine to me.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d334446..e76f4fd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -994,6 +994,8 @@ int dev_open(struct net_device *dev)
- {
- 	int ret = 0;
- 
-+	ASSERT_RTNL();
-+
- 	/*
- 	 *	Is it already up?
- 	 */
-@@ -1060,6 +1062,8 @@ int dev_open(struct net_device *dev)
-  */
- int dev_close(struct net_device *dev)
- {
-+	ASSERT_RTNL();
-+
- 	might_sleep();
- 
- 	if (!(dev->flags & IFF_UP))
+>
+>  Can you show some outputs of 'tree' in both cases on the /sys/class/net/
+>  directory?
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Sure.
+I hope you don't mind if I'll send them tomorrow I'm back home right now
+and have limited access to my test machines.
 
+-benjamin
+
+>
+>  thanks,
+>
+>  greg k-h
+>
+>
+> --
+>  To unsubscribe from this list: send the line "unsubscribe netdev" in
+>  the body of a message to majordomo@vger.kernel.org
+>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
