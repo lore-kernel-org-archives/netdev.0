@@ -1,34 +1,35 @@
-From: Ben Liblit <liblit@acm.org>
-Subject: Re: [Bugme-new] [Bug 10600] New: e1000 updates rx_bytes infrequently
-Date: Mon, 05 May 2008 20:24:15 -0500
-Message-ID: <481FB33F.3040804@acm.org>
-References: <bug-10600-10286@http.bugzilla.kernel.org/> <20080505155502.3fb16590.akpm@linux-foundation.org> <20080505.161806.267621711.davem@davemloft.net> <481F9E64.6070606@acm.org> <1210036624.7941.183.camel@dell>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [RFC v2] mac80211: assign needed_headroom/tailroom for netdevs
+Date: Tue, 6 May 2008 09:32:53 +0800
+Message-ID: <20080506013253.GA13460@gondor.apana.org.au>
+References: <1210027447.8012.15.camel@johannes.berg> <20080505.161458.46071527.davem@davemloft.net> <1210029835.8012.30.camel@johannes.berg> <20080505.163916.239187195.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.sbc.mail.mud.yahoo.com ([68.142.198.203]:20865 "HELO
-	smtp104.sbc.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753043AbYEFBa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 21:30:57 -0400
-In-Reply-To: <1210036624.7941.183.camel@dell>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080505.163916.239187195.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> "ethtool -C eth0 stats-block-usecs" can be used to control statistics
-> update frequency on most tg3 and bnx2 devices.
+On Mon, May 05, 2008 at 04:39:16PM -0700, David Miller wrote:
+> 
+> On free, since skb->nohdr is set, we'll decrement both of (1 <<
+> SKB_DATAREF_SHIFT) and the low 16-bit counter.
 
-But not on my e1000-driven Intel 82566DC, sadly:
+skb->nohdr is cleared for clones.  Only the copy held by TCP
+should have it set.  So this should work correctly, in theory :)
 
-	# ethtool -C eth0 stats-block-usecs 50
-	Cannot get device coalesce settings: Operation not supported
-
-	# ethtool -c eth0
-	Coalesce parameters for eth0:
-	Cannot get device coalesce settings: Operation not supported
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
