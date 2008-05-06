@@ -1,48 +1,46 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 3/4] sky2: Hold RTNL while calling dev_close()
-Date: Tue, 6 May 2008 13:26:53 -0700
-Message-ID: <20080506132653.43806b1b@extreme>
-References: <20080506182654.GF2217@solarflare.com>
-	<20080506183958.GI2217@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [RFC] gianfar: low gigabit throughput
+Date: Tue, 6 May 2008 15:29:06 -0500
+Message-ID: <E82C3C5F-0D93-4190-ADDC-3FA37D13E250@freescale.com>
+References: <20080506192008.GA30148@polina.dev.rtsoft.ru> <4820BA72.3090903@hp.com>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: avorontsov@ru.mvista.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33205 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755600AbYEFU17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 16:27:59 -0400
-In-Reply-To: <20080506183958.GI2217@solarflare.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:48928 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756301AbYEFUa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 16:30:27 -0400
+In-Reply-To: <4820BA72.3090903@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 6 May 2008 19:39:58 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+>>
+>> I've tried to tune gianfar driver in various ways... and it gave
+>> some positive results with this patch:
+>> diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+>> index fd487be..b5943f9 100644
+>> --- a/drivers/net/gianfar.h
+>> +++ b/drivers/net/gianfar.h
+>> @@ -123,8 +123,8 @@ extern const char gfar_driver_version[];
+>> #define GFAR_10_TIME    25600
+>>  #define DEFAULT_TX_COALESCE 1
+>> -#define DEFAULT_TXCOUNT	16
+>> -#define DEFAULT_TXTIME	21
+>> +#define DEFAULT_TXCOUNT	80
+>> +#define DEFAULT_TXTIME	105
+>>  #define DEFAULT_RXTIME	21
+>
+> No ethtool coalescing tuning support for gianfar?-)
 
-> dev_close() must be called holding the RTNL.  Compile-tested only.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/sky2.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index f226bca..9b046dd 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -2952,7 +2952,9 @@ static void sky2_restart(struct work_struct *work)
->  			if (err) {
->  				printk(KERN_INFO PFX "%s: could not restart %d\n",
->  				       dev->name, err);
-> +				rtnl_lock();
->  				dev_close(dev);
-> +				rtnl_unlock();
->  			}
->  		}
->  	}
-> 
+Yeah, there's coalescing tuning in gianfar.
 
-Ack, but this is in a real corner case so no need to send it to stable.
+Anton, those numbers aren't too surprising on a 400 MHz machine, I  
+think.  But I'd be happy to see any analysis on performance  
+bottlenecks in the driver.  And patches to fix those bottlenecks are  
+even better!  :)
+
+Andy
