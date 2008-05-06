@@ -1,67 +1,52 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [Bugme-new] [Bug 10600] New: e1000 updates rx_bytes infrequently
-Date: Tue, 6 May 2008 02:43:24 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0805060235410.6134@bizon.gios.gov.pl>
-References: <bug-10600-10286@http.bugzilla.kernel.org/>
- <20080505155502.3fb16590.akpm@linux-foundation.org>
- <20080505.161806.267621711.davem@davemloft.net> <481F9E64.6070606@acm.org>
- <1210036624.7941.183.camel@dell>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [2.6 patch] make IWLWIFI a tristate
+Date: Tue, 06 May 2008 09:26:18 +0800
+Message-ID: <1210037178.2827.152.camel@debian.sh.intel.com>
+References: <87zlrgl09s.fsf@sparse.dyndns.org>
+	 <1209435597.2624.35.camel@debian.sh.intel.com>
+	 <20080505182516.GM17139@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1823537816-1210034604=:6134"
-Cc: Ben Liblit <liblit@acm.org>, David Miller <davem@davemloft.net>,
-	akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jason Riedy <jason@acm.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:43035 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761482AbYEFBBw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 21:01:52 -0400
-In-Reply-To: <1210036624.7941.183.camel@dell>
+Received: from mga09.intel.com ([134.134.136.24]:55873 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751762AbYEFB1m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2008 21:27:42 -0400
+In-Reply-To: <20080505182516.GM17139@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Mon, 2008-05-05 at 21:25 +0300, Adrian Bunk wrote:
+> 
+> IWLWIFI should be a tristate so that if IWLCORE and/or IWL3945 are m
+> and none of them is y kbuild doesn't create an empty 
+> drivers/net/wireless/built-in.o
+> 
+> This patch also removes the pointless "default n".
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> 
+> ---
+> f9737a109a127754ae7cc35e94d44fb426e0dea1 diff --git
+> a/drivers/net/wireless/iwlwifi/Kconfig
+> b/drivers/net/wireless/iwlwifi/Kconfig
+> index d5b7a76..62fb89d 100644
+> --- a/drivers/net/wireless/iwlwifi/Kconfig
+> +++ b/drivers/net/wireless/iwlwifi/Kconfig
+> @@ -1,6 +1,5 @@
+>  config IWLWIFI
+> -       bool
+> -       default n
+> +       tristate
+>  
+>  config IWLCORE
+>         tristate "Intel Wireless Wifi Core"
 
----187430788-1823537816-1210034604=:6134
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Great. Thank you Adrian!
 
+-yi
 
-
-On Mon, 5 May 2008, Michael Chan wrote:
-
-> On Mon, 2008-05-05 at 18:55 -0500, Ben Liblit wrote:
->> Perhaps userspace needs a way to tweak the update frequency?  Or perhaps
->> the driver needs a way to tell userspace what update frequency it should
->> expect?  Without some kind of coordination, we have the present silly
->> situation: userspace network activity monitors are checking rx_bytes
->> more frequently than could possibly be useful.
->>
->> Do different Ethernet drivers update rx_bytes at the same rate?  Or is
->> this completely ad hoc?
->
-> "ethtool -C eth0 stats-block-usecs" can be used to control statistics
-> update frequency on most tg3 and bnx2 devices.  The default is 1 second
-> on these devices.
-
-Hm... strange - I tested it on 2.6.23.17 with:
-03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Giga=
-bit Ethernet (rev 12)
-
-Setting both:
-  # ethtool -C eth0 stats-block-usecs 50
-and:
-  # ethtool -C eth0 stats-block-usecs 5000000
-gives exactly the same situation - statistics update frequency is still ~1s=
-=2E
-
-# ethtool -c eth1 |grep stats-block-usecs
-stats-block-usecs: 999936
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-1823537816-1210034604=:6134--
