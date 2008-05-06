@@ -1,36 +1,50 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH v2] fs_enet: Fix a memory leak in fs_enet_mdio_probe
-Date: Tue, 06 May 2008 12:23:18 -0400
-Message-ID: <482085F6.5050004@pobox.com>
-References: <20080502184241.GA7527@loki.buserror.net>
+Subject: Re: Please pull for-2.6.26 branch of linux-2.6-mv643xx_eth.git
+Date: Tue, 06 May 2008 12:23:39 -0400
+Message-ID: <4820860B.6000705@pobox.com>
+References: <20080429163452.GA21234@farnsworth.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	Daniel Marjamki <danielm77@spray.se>
-To: Scott Wood <scottwood@freescale.com>
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@marvell.com>
+To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41410 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41437 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751154AbYEFQXV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 12:23:21 -0400
-In-Reply-To: <20080502184241.GA7527@loki.buserror.net>
+	id S1761995AbYEFQXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 12:23:42 -0400
+In-Reply-To: <20080429163452.GA21234@farnsworth.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Scott Wood wrote:
-> There are more memory leaks in the !PPC_CPM_NEW_BINDING case, but that code
-> will disappear soon along with arch/ppc.
+Dale Farnsworth wrote:
+> Hi Jeff,
 > 
-> Reported by Daniel Marjamki <danielm77@spray.se> at
-> http://bugzilla.kernel.org/show_bug.cgi?id=10591
+> The following changes since commit e31a94ed371c70855eb30b77c490d6d85dd4da26:
+>   Linus Torvalds (1):
+>     Merge branch 'upstream' of git://ftp.linux-mips.org/pub/scm/upstream-linus
 > 
-> Signed-off-by: Scott Wood <scottwood@freescale.com>
-> ---
->  drivers/net/fs_enet/mii-fec.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
+> are available in the git repository at:
 > 
+>   git://git.farnsworth.org/dale/linux-2.6-mv643xx_eth.git for-2.6.26
+> 
+> Please pull.
+> 
+> Lennert Buytenhek (5):
+>       mv643xx_eth: get rid of static variables, allow multiple instances
+>       mv643xx_eth: mbus decode window support
+>       mv643xx_eth: configurable t_clk
+>       mv643xx_eth: shorten shared platform driver name
+>       mv643xx_eth: inter-mv643xx SMI port sharing
+> 
+>  arch/arm/mach-orion5x/common.c            |    2 +
+>  arch/powerpc/platforms/chrp/pegasos_eth.c |    4 +
+>  arch/powerpc/sysdev/mv64x60_dev.c         |    2 +
+>  arch/ppc/syslib/mv64x60.c                 |    3 +
+>  drivers/net/mv643xx_eth.c                 |  160 ++++++++++++++++++++++-------
+>  include/linux/mv643xx_eth.h               |   16 +++-
+>  6 files changed, 148 insertions(+), 39 deletions(-)
 
-applied
+pulled
 
 
