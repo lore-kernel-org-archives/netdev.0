@@ -1,56 +1,62 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: fix simple define thinko
-Date: Tue, 6 May 2008 16:18:43 -0700
-Message-ID: <20080506161843.46a8eb83@extreme>
-References: <20080506213435.25259.83781.stgit@jbrandeb-ich9b.jf.intel.com>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [PATCH 08/18] flag parameters: epoll_create
+Date: Tue, 6 May 2008 16:20:00 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0805061618460.25162@alien.or.mcafeemobile.com>
+References: <200805050342.m453gk49029835@devserv.devel.redhat.com>
+ <1210107990.7323.347.camel@localhost.localdomain>
+ <Pine.LNX.4.64.0805061540560.25162@alien.or.mcafeemobile.com>
+ <cfd18e0f0805061610i48146b3fra3ac378643d51c9e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Matthew Helsley <matthltc@us.ibm.com>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	mtk.manpages@gmail.com,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Michael Kerrisk <mtk.manpages@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53425 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753399AbYEFXS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 19:18:57 -0400
-In-Reply-To: <20080506213435.25259.83781.stgit@jbrandeb-ich9b.jf.intel.com>
+Received: from x35.xmailserver.org ([64.71.152.41]:54065 "EHLO
+	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755923AbYEFXUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 19:20:02 -0400
+Received: from alien.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.25 ESMTP Server]
+	id <S28B3E5> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Tue, 6 May 2008 19:20:00 -0400
+In-Reply-To: <cfd18e0f0805061610i48146b3fra3ac378643d51c9e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 06 May 2008 14:34:35 -0700
-Jesse Brandeburg <jesse.brandeburg@intel.com> wrote:
+On Wed, 7 May 2008, Michael Kerrisk wrote:
 
-> noticed while browsing code, apparent thinko.  compile tested only.
+> On Wed, May 7, 2008 at 12:41 AM, Davide Libenzi <davidel@xmailserver.org> wrote:
+> >
+> > On Tue, 6 May 2008, Matthew Helsley wrote:
+> >
+> > >
+> > > On Sun, 2008-05-04 at 23:42 -0400, Ulrich Drepper wrote:
+> > > > This patch adds the new epoll_create2 syscall.  It extends the old epoll_create
+> > > > syscall by one parameter which is meant to hold a flag value.  In this
+> > > > patch the only flag support is EPOLL_CLOEXEC which causes the close-on-exec
+> > > > flag for the returned file descriptor to be set.
+> > >
+> > > Davide, Ulrich,
+> > >
+> > >       A minor question: Why did you choose to pass the seemingly useless
+> > > "size" parameter into the new epoll_create2 system call? I did some
+> > > googling for previous threads with this series and couldn't find a
+> > > discussion on why you chose to keep it.
+> >
+> > The very first implementations were using an hash, and that was a size
+> > hint.
 > 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> CC: Stephen Hemminger <shemminger@linux-foundation.org>
-> ---
-> 
->  drivers/net/sky2.h |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> 
-> diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-> index 7bb3ba9..c0a5eea 100644
-> --- a/drivers/net/sky2.h
-> +++ b/drivers/net/sky2.h
-> @@ -1966,13 +1966,13 @@ struct sky2_status_le {
->  struct tx_ring_info {
->  	struct sk_buff	*skb;
->  	DECLARE_PCI_UNMAP_ADDR(mapaddr);
-> -	DECLARE_PCI_UNMAP_ADDR(maplen);
-> +	DECLARE_PCI_UNMAP_LEN(maplen);
->  };
->  
->  struct rx_ring_info {
->  	struct sk_buff	*skb;
->  	dma_addr_t	data_addr;
-> -	DECLARE_PCI_UNMAP_ADDR(data_size);
-> +	DECLARE_PCI_UNMAP_LEN(data_size);
->  	dma_addr_t	frag_addr[ETH_JUMBO_MTU >> PAGE_SHIFT];
->  };
->  
-> 
+> So, why not simply remove this argument in the new API, since it is now useless?
 
-Yes, this looks okay. We were safe up till now because ADDR > LEN
+I'm more than OK with that.
+
+
+
+- Davide
+
+
