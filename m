@@ -1,36 +1,34 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ucc_geth: Don't use RX clock as TX clock.
-Date: Tue, 06 May 2008 12:28:31 -0400
-Message-ID: <4820872F.1020806@garzik.org>
-References: <1209467037-30612-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Subject: Re: [PATCH] cxgb3: Use CAP_SYS_RAWIO for firmware
+Date: Tue, 06 May 2008 12:28:38 -0400
+Message-ID: <48208736.1050806@garzik.org>
+References: <20080429142930.0181f078@core>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, Li Yang <LeoLi@freescale.com>,
-	Timur Tabi <timur@freescale.com>
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Cc: netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60898 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60911 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765053AbYEFQ2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 12:28:34 -0400
-In-Reply-To: <1209467037-30612-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	id S1753730AbYEFQ2k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 12:28:40 -0400
+In-Reply-To: <20080429142930.0181f078@core>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund wrote:
-> Commit 9fb1e350e16164d56990dde036ae9c0a2fd3f634,
-> ucc_geth: use rx-clock-name and tx-clock-name device tree properties
-> Introduced a typo that made the driver use the RX clock
-> as TX clock, causing massive TX errors.
+Alan Cox wrote:
+> Otherwise theoretically at least
 > 
-> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> ---
+> 	CAP_NET_ADMIN
+> 	Reload new firmware
+> 	Wait..
+> 	Firmware patches kernel
 > 
-> Resending as the first one got rejected du to missing commas.
+> So it should be CAY_SYS_RAWIO - not that I suspect this is in fact a
+> credible attack vector!
 > 
->  drivers/net/ucc_geth.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+> Signed-off-by: Alan Cox <alan@redhat.com>
 
 applied
 
