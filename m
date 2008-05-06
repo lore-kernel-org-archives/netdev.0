@@ -1,84 +1,298 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: [PATCH 00/10] sysfs tagged directories
-Date: Tue, 06 May 2008 18:53:00 +0200
-Message-ID: <48208CEC.2090200@bull.net>
-References: <20080429180445.GA18110@sergelap.austin.ibm.com> <20080429184151.GA19794@suse.de> <20080429193417.GA19282@sergelap.austin.ibm.com> <20080501031341.GD4911@suse.de> <20080501151051.GB16038@sergelap.austin.ibm.com> <m11w4lho08.fsf@frodo.ebiederm.org> <20080501210550.GA22534@sergelap.austin.ibm.com> <m1prs5fzzd.fsf@frodo.ebiederm.org> <20080502174222.GA16493@sergelap.austin.ibm.com> <481E4312.9060909@fr.ibm.com> <20080505161800.GC8485@sergelap.austin.ibm.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Detected Tx Unit Hang in ixgbe, kernel 2.6.25
+Date: Tue, 06 May 2008 10:04:29 -0700
+Message-ID: <48208F9D.1080608@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org,
-	Al Viro <viro@ftp.linux.org.uk>, Tejun Heo <htejun@gmail.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serue@us.ibm.com>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:45838 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760626AbYEFQwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 12:52:42 -0400
-In-Reply-To: <20080505161800.GC8485@sergelap.austin.ibm.com>
+Received: from mail.candelatech.com ([66.165.47.212]:43253 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752613AbYEFREb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 13:04:31 -0400
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id m46H4TpD010172
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 6 May 2008 10:04:30 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Serge E. Hallyn wrote:
-> Quoting Daniel Lezcano (dlezcano@fr.ibm.com):
->> Serge E. Hallyn wrote:
->>> Quoting Eric W. Biederman (ebiederm@xmission.com):
->>>> "Serge E. Hallyn" <serue@us.ibm.com> writes:
->>>>
->>>>> Quoting Eric W. Biederman (ebiederm@xmission.com):
->>>>> Ok as it turns out Benjamin Thery does in fact have a patch to fix this.
->>>>> Benjamin, please send your renaming patch out tomorrow if you can?
->>>>>
->>>>> I guess this is why I didn't really see the problem Benjamin said there
->>>>> was - it just works with SYSFS_DEPRECATED  :)
->>>> It will be nice to see that patch.  I'm curious what the problem was.
->>>>
->>>> Eric
->>> Here is the patch he had privately sent.  As the comments indicate he's
->>> still refining it so yell at me not him...   but this on top of the
->>> tagged dir patchset makes everything work for me.
->>> (I'd *really* like to see network namespaces be generally usable sometime
->>> in 2.6.26.)
->> Serge,
->>
->> I posted a fix to Dave Miller which was included in net-2.6 and merged in 
->> 2.6.26-rc1.
-> 
-> Cool, I see it in gitweb, thanks.
-> 
->> http://marc.info/?l=linux-netdev&m=120959135229360&w=2
->>
->> This one should fix your problem for sysfs.
->>
->> There is another fix to do in order to avoid name conflicts with network 
->> interfaces belonging to different namespaces, eg. allows to rename veth1234 
->> to eth0 without conflicting with the network device belonging in init_net, 
->> I send this patch to container@ first to have it merged with the sysfs 
->> patchset.
-> 
-> Ok.
-> 
-> Benjamin, what are you doing with Eric's sysfs patchset then?  Are you
-> going to re-post it asap on top of whatever tree has these two patches,
-> or are you planning to wait longer?
+I'm using a 10Gbps copper(CX4) dual-port NIC from silicomusa.com.
+It uses the Intel chipset and ixgbe driver.  I'm using
+kernel 2.6.25 plus some hacks (no patches to ixgbe).
 
-I will resend the patchset on top of 2.6.26-rc1,
-with Daniel's last patch merged.
+This particular test case was to create 500 mac-vlans on
+each of the two ports and generate UDP traffic between
+them (I have a version of the send-to-self patch applied
+to my kernel and enabled.)
 
-(If anyone prefer to have it merged on top of net-2.6, say so)
+During the setup for this test, the interfaces would have
+been bounced (effectively ifdown, ifup), so that is the
+reason for the link going up and down.
 
--benjamin
+I noticed 90%+ drop rate when I first started the test,
+and then after maybe 1-2 minutes, things calmed down and
+started working.  I checked /var/log/messages and saw the
+messages below.
 
-> 
-> thanks,
-> -serge
-> 
-> 
+I previously ran 5Gbps of traffic through the two ports
+with them acting like a bridge for more than 24-hours without
+any obvious problems, so I think the hardware is probably OK.
 
+May  6 09:51:41 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:51:41 simech-ice kernel:   TDH                  <1e>
+May  6 09:51:41 simech-ice kernel:   TDT                  <3ff>
+May  6 09:51:41 simech-ice kernel:   next_to_use          <3ff>
+May  6 09:51:41 simech-ice kernel:   next_to_clean        <1a>
+May  6 09:51:41 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:51:41 simech-ice kernel:   time_stamp           <11e035210>
+May  6 09:51:41 simech-ice kernel:   next_to_watch        <1b>
+May  6 09:51:41 simech-ice kernel:   jiffies              <11e035862>
+May  6 09:51:41 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:51:41 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:51:41 simech-ice kernel:   TDH                  <3d6>
+May  6 09:51:41 simech-ice kernel:   TDT                  <3b0>
+May  6 09:51:41 simech-ice kernel:   next_to_use          <3b0>
+May  6 09:51:41 simech-ice kernel:   next_to_clean        <3d2>
+May  6 09:51:41 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:51:41 simech-ice kernel:   time_stamp           <11e035211>
+May  6 09:51:41 simech-ice kernel:   next_to_watch        <3d3>
+May  6 09:51:41 simech-ice kernel:   jiffies              <11e035887>
+May  6 09:51:41 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:51:46 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:51:46 simech-ice kernel:   TDH                  <28d>
+May  6 09:51:46 simech-ice kernel:   TDT                  <26c>
+May  6 09:51:46 simech-ice kernel:   next_to_use          <26c>
+May  6 09:51:46 simech-ice kernel:   next_to_clean        <289>
+May  6 09:51:46 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:51:46 simech-ice kernel:   time_stamp           <11e0363e0>
+May  6 09:51:46 simech-ice kernel:   next_to_watch        <28a>
+May  6 09:51:46 simech-ice kernel:   jiffies              <11e036e8e>
+May  6 09:51:46 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:51:46 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:51:46 simech-ice kernel:   TDH                  <1bd>
+May  6 09:51:46 simech-ice kernel:   TDT                  <19c>
+May  6 09:51:46 simech-ice kernel:   next_to_use          <19c>
+May  6 09:51:46 simech-ice kernel:   next_to_clean        <1b9>
+May  6 09:51:46 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:51:46 simech-ice kernel:   time_stamp           <11e036346>
+May  6 09:51:46 simech-ice kernel:   next_to_watch        <1ba>
+May  6 09:51:46 simech-ice kernel:   jiffies              <11e036e9a>
+May  6 09:51:46 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:51:47 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:51:47 simech-ice kernel:   TDH                  <29e>
+May  6 09:51:47 simech-ice kernel:   TDT                  <27c>
+May  6 09:51:47 simech-ice kernel:   next_to_use          <27c>
+May  6 09:51:47 simech-ice kernel:   next_to_clean        <29a>
+May  6 09:51:47 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:51:47 simech-ice kernel:   time_stamp           <11e0363e0>
+May  6 09:51:47 simech-ice kernel:   next_to_watch        <29b>
+May  6 09:51:47 simech-ice kernel:   jiffies              <11e036fee>
+May  6 09:51:47 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:51:47 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:51:47 simech-ice kernel:   TDH                  <33f>
+May  6 09:51:47 simech-ice kernel:   TDT                  <321>
+May  6 09:51:47 simech-ice kernel:   next_to_use          <321>
+May  6 09:51:47 simech-ice kernel:   next_to_clean        <33b>
+May  6 09:51:47 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:51:47 simech-ice kernel:   time_stamp           <11e0363e2>
+May  6 09:51:47 simech-ice kernel:   next_to_watch        <33c>
+May  6 09:51:47 simech-ice kernel:   jiffies              <11e036ff5>
+May  6 09:51:47 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:51:51 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:51:51 simech-ice kernel:   TDH                  <398>
+May  6 09:51:51 simech-ice kernel:   TDT                  <374>
+May  6 09:51:51 simech-ice kernel:   next_to_use          <374>
+May  6 09:51:51 simech-ice kernel:   next_to_clean        <394>
+May  6 09:51:51 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:51:51 simech-ice kernel:   time_stamp           <11e037748>
+May  6 09:51:51 simech-ice kernel:   next_to_watch        <395>
+May  6 09:51:51 simech-ice kernel:   jiffies              <11e038251>
+May  6 09:51:51 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:51:51 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:51:51 simech-ice kernel:   TDH                  <101>
+May  6 09:51:51 simech-ice kernel:   TDT                  <dd>
+May  6 09:51:51 simech-ice kernel:   next_to_use          <dd>
+May  6 09:51:51 simech-ice kernel:   next_to_clean        <fd>
+May  6 09:51:51 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:51:51 simech-ice kernel:   time_stamp           <11e037743>
+May  6 09:51:51 simech-ice kernel:   next_to_watch        <fe>
+May  6 09:51:51 simech-ice kernel:   jiffies              <11e03825c>
+May  6 09:51:51 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:00 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:52:00 simech-ice kernel:   TDH                  <2b5>
+May  6 09:52:00 simech-ice kernel:   TDT                  <292>
+May  6 09:52:00 simech-ice kernel:   next_to_use          <292>
+May  6 09:52:00 simech-ice kernel:   next_to_clean        <2b1>
+May  6 09:52:00 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:52:00 simech-ice kernel:   time_stamp           <11e038937>
+May  6 09:52:00 simech-ice kernel:   next_to_watch        <2b2>
+May  6 09:52:00 simech-ice kernel:   jiffies              <11e03a29c>
+May  6 09:52:00 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:00 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:52:00 simech-ice kernel:   TDH                  <8>
+May  6 09:52:00 simech-ice kernel:   TDT                  <3e6>
+May  6 09:52:00 simech-ice kernel:   next_to_use          <3e6>
+May  6 09:52:00 simech-ice kernel:   next_to_clean        <4>
+May  6 09:52:00 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:52:00 simech-ice kernel:   time_stamp           <11e038957>
+May  6 09:52:00 simech-ice kernel:   next_to_watch        <5>
+May  6 09:52:00 simech-ice kernel:   jiffies              <11e03a2d5>
+May  6 09:52:00 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:11 simech-ice kernel: NETDEV WATCHDOG: eth3: transmit timed out
+May  6 09:52:11 simech-ice kernel: NETDEV WATCHDOG: eth2: transmit timed out
+May  6 09:52:11 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:11 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:52:11 simech-ice kernel:   TDH                  <18c>
+May  6 09:52:11 simech-ice kernel:   TDT                  <12a>
+May  6 09:52:11 simech-ice kernel:   next_to_use          <12a>
+May  6 09:52:11 simech-ice kernel:   next_to_clean        <188>
+May  6 09:52:11 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:52:11 simech-ice kernel:   time_stamp           <11e03aa83>
+May  6 09:52:11 simech-ice kernel:   next_to_watch        <189>
+May  6 09:52:11 simech-ice kernel:   jiffies              <11e03cde1>
+May  6 09:52:11 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:11 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:11 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:11 simech-ice kernel: ADDRCONF(NETDEV_UP): eth3#435: link is not ready
+May  6 09:52:11 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:11 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:11 simech-ice kernel: ADDRCONF(NETDEV_CHANGE): eth3#435: link becomes ready
+May  6 09:52:22 simech-ice kernel: NETDEV WATCHDOG: eth3: transmit timed out
+May  6 09:52:22 simech-ice kernel: NETDEV WATCHDOG: eth2: transmit timed out
+May  6 09:52:23 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:23 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:52:23 simech-ice kernel:   TDH                  <19b>
+May  6 09:52:23 simech-ice kernel:   TDT                  <173>
+May  6 09:52:23 simech-ice kernel:   next_to_use          <173>
+May  6 09:52:23 simech-ice kernel:   next_to_clean        <197>
+May  6 09:52:23 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:52:23 simech-ice kernel:   time_stamp           <11e03d200>
+May  6 09:52:23 simech-ice kernel:   next_to_watch        <198>
+May  6 09:52:23 simech-ice kernel:   jiffies              <11e03fcd1>
+May  6 09:52:23 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:23 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:23 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:23 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:23 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:23 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:23 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:23 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:23 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:27 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:52:27 simech-ice kernel:   TDH                  <6>
+May  6 09:52:27 simech-ice kernel:   TDT                  <3e4>
+May  6 09:52:27 simech-ice kernel:   next_to_use          <3e4>
+May  6 09:52:27 simech-ice kernel:   next_to_clean        <2>
+May  6 09:52:27 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:52:27 simech-ice kernel:   time_stamp           <11e0400bb>
+May  6 09:52:27 simech-ice kernel:   next_to_watch        <3>
+May  6 09:52:27 simech-ice kernel:   jiffies              <11e040d75>
+May  6 09:52:27 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:34 simech-ice kernel: NETDEV WATCHDOG: eth3: transmit timed out
+May  6 09:52:34 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:34 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:34 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:34 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:34 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:42 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:52:42 simech-ice kernel:   TDH                  <189>
+May  6 09:52:42 simech-ice kernel:   TDT                  <159>
+May  6 09:52:42 simech-ice kernel:   next_to_use          <159>
+May  6 09:52:42 simech-ice kernel:   next_to_clean        <184>
+May  6 09:52:42 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:52:42 simech-ice kernel:   time_stamp           <11e042edb>
+May  6 09:52:42 simech-ice kernel:   next_to_watch        <185>
+May  6 09:52:42 simech-ice kernel:   jiffies              <11e0449ec>
+May  6 09:52:42 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:45 simech-ice kernel: NETDEV WATCHDOG: eth2: transmit timed out
+May  6 09:52:48 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:52:48 simech-ice kernel:   TDH                  <d>
+May  6 09:52:48 simech-ice kernel:   TDT                  <3e6>
+May  6 09:52:48 simech-ice kernel:   next_to_use          <3e6>
+May  6 09:52:48 simech-ice kernel:   next_to_clean        <9>
+May  6 09:52:48 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:52:48 simech-ice kernel:   time_stamp           <11e042de5>
+May  6 09:52:48 simech-ice kernel:   next_to_watch        <a>
+May  6 09:52:48 simech-ice kernel:   jiffies              <11e045e0b>
+May  6 09:52:48 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:48 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:52:48 simech-ice kernel:   TDH                  <78>
+May  6 09:52:48 simech-ice kernel:   TDT                  <52>
+May  6 09:52:48 simech-ice kernel:   next_to_use          <52>
+May  6 09:52:48 simech-ice kernel:   next_to_clean        <73>
+May  6 09:52:48 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:52:48 simech-ice kernel:   time_stamp           <11e042e11>
+May  6 09:52:48 simech-ice kernel:   next_to_watch        <74>
+May  6 09:52:48 simech-ice kernel:   jiffies              <11e045e7c>
+May  6 09:52:48 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:52:48 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:48 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:48 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Down
+May  6 09:52:48 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:48 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:59 simech-ice kernel: NETDEV WATCHDOG: eth3: transmit timed out
+May  6 09:52:59 simech-ice kernel: NETDEV WATCHDOG: eth2: transmit timed out
+May  6 09:52:59 simech-ice kernel: ixgbe: eth2: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:52:59 simech-ice kernel: ixgbe: eth3: ixgbe_watchdog: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+May  6 09:53:07 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:53:07 simech-ice kernel:   TDH                  <28>
+May  6 09:53:07 simech-ice kernel:   TDT                  <3>
+May  6 09:53:07 simech-ice kernel:   next_to_use          <3>
+May  6 09:53:07 simech-ice kernel:   next_to_clean        <23>
+May  6 09:53:07 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:53:07 simech-ice kernel:   time_stamp           <11e049a4d>
+May  6 09:53:07 simech-ice kernel:   next_to_watch        <24>
+May  6 09:53:07 simech-ice kernel:   jiffies              <11e04a866>
+May  6 09:53:07 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:53:07 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:53:07 simech-ice kernel:   TDH                  <2ad>
+May  6 09:53:07 simech-ice kernel:   TDT                  <28c>
+May  6 09:53:07 simech-ice kernel:   next_to_use          <28c>
+May  6 09:53:07 simech-ice kernel:   next_to_clean        <2a7>
+May  6 09:53:07 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:53:07 simech-ice kernel:   time_stamp           <11e04979e>
+May  6 09:53:07 simech-ice kernel:   next_to_watch        <2a8>
+May  6 09:53:07 simech-ice kernel:   jiffies              <11e04a880>
+May  6 09:53:07 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:53:10 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:53:10 simech-ice kernel:   TDH                  <129>
+May  6 09:53:10 simech-ice kernel:   TDT                  <103>
+May  6 09:53:10 simech-ice kernel:   next_to_use          <103>
+May  6 09:53:10 simech-ice kernel:   next_to_clean        <125>
+May  6 09:53:10 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:53:10 simech-ice kernel:   time_stamp           <11e04b236>
+May  6 09:53:10 simech-ice kernel:   next_to_watch        <126>
+May  6 09:53:10 simech-ice kernel:   jiffies              <11e04b61f>
+May  6 09:53:10 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:53:14 simech-ice kernel: ixgbe: eth3: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:53:14 simech-ice kernel:   TDH                  <18e>
+May  6 09:53:14 simech-ice kernel:   TDT                  <165>
+May  6 09:53:14 simech-ice kernel:   next_to_use          <165>
+May  6 09:53:14 simech-ice kernel:   next_to_clean        <189>
+May  6 09:53:14 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:53:14 simech-ice kernel:   time_stamp           <11e04b24c>
+May  6 09:53:14 simech-ice kernel:   next_to_watch        <18a>
+May  6 09:53:14 simech-ice kernel:   jiffies              <11e04c4e4>
+May  6 09:53:14 simech-ice kernel:   next_to_watch.status <17a8209>
+May  6 09:53:14 simech-ice kernel: ixgbe: eth2: ixgbe_check_tx_hang: Detected Tx Unit Hang
+May  6 09:53:14 simech-ice kernel:   TDH                  <3b>
+May  6 09:53:14 simech-ice kernel:   TDT                  <16>
+May  6 09:53:14 simech-ice kernel:   next_to_use          <16>
+May  6 09:53:14 simech-ice kernel:   next_to_clean        <37>
+May  6 09:53:14 simech-ice kernel: tx_buffer_info[next_to_clean]
+May  6 09:53:14 simech-ice kernel:   time_stamp           <11e04b1d7>
+May  6 09:53:14 simech-ice kernel:   next_to_watch        <38>
+May  6 09:53:14 simech-ice kernel:   jiffies              <11e04c6e3>
+May  6 09:53:14 simech-ice kernel:   next_to_watch.status <17a8209>
+
+
+Thanks,
+Ben
 
 -- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-    http://www.bull.com
