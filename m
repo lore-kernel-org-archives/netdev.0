@@ -1,52 +1,34 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [2.6 patch] make IWLWIFI a tristate
-Date: Tue, 06 May 2008 09:26:18 +0800
-Message-ID: <1210037178.2827.152.camel@debian.sh.intel.com>
-References: <87zlrgl09s.fsf@sparse.dyndns.org>
-	 <1209435597.2624.35.camel@debian.sh.intel.com>
-	 <20080505182516.GM17139@cs181133002.pp.htv.fi>
+From: Ben Liblit <liblit@acm.org>
+Subject: Re: [Bugme-new] [Bug 10600] New: e1000 updates rx_bytes infrequently
+Date: Mon, 05 May 2008 20:24:15 -0500
+Message-ID: <481FB33F.3040804@acm.org>
+References: <bug-10600-10286@http.bugzilla.kernel.org/> <20080505155502.3fb16590.akpm@linux-foundation.org> <20080505.161806.267621711.davem@davemloft.net> <481F9E64.6070606@acm.org> <1210036624.7941.183.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jason Riedy <jason@acm.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55873 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751762AbYEFB1m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2008 21:27:42 -0400
-In-Reply-To: <20080505182516.GM17139@cs181133002.pp.htv.fi>
+Received: from smtp104.sbc.mail.mud.yahoo.com ([68.142.198.203]:20865 "HELO
+	smtp104.sbc.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753043AbYEFBa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 21:30:57 -0400
+In-Reply-To: <1210036624.7941.183.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-05-05 at 21:25 +0300, Adrian Bunk wrote:
-> 
-> IWLWIFI should be a tristate so that if IWLCORE and/or IWL3945 are m
-> and none of them is y kbuild doesn't create an empty 
-> drivers/net/wireless/built-in.o
-> 
-> This patch also removes the pointless "default n".
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> 
-> ---
-> f9737a109a127754ae7cc35e94d44fb426e0dea1 diff --git
-> a/drivers/net/wireless/iwlwifi/Kconfig
-> b/drivers/net/wireless/iwlwifi/Kconfig
-> index d5b7a76..62fb89d 100644
-> --- a/drivers/net/wireless/iwlwifi/Kconfig
-> +++ b/drivers/net/wireless/iwlwifi/Kconfig
-> @@ -1,6 +1,5 @@
->  config IWLWIFI
-> -       bool
-> -       default n
-> +       tristate
->  
->  config IWLCORE
->         tristate "Intel Wireless Wifi Core"
+Michael Chan wrote:
+> "ethtool -C eth0 stats-block-usecs" can be used to control statistics
+> update frequency on most tg3 and bnx2 devices.
 
-Great. Thank you Adrian!
+But not on my e1000-driven Intel 82566DC, sadly:
 
--yi
+	# ethtool -C eth0 stats-block-usecs 50
+	Cannot get device coalesce settings: Operation not supported
 
+	# ethtool -c eth0
+	Coalesce parameters for eth0:
+	Cannot get device coalesce settings: Operation not supported
