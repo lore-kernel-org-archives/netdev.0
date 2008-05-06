@@ -1,22 +1,20 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 16/18] flag parameters: NONBLOCK in pipe
+Subject: [PATCH 17/18] flag parameters: NONBLOCK in inotify_init
 Date: Tue, 6 May 2008 17:18:07 -0400
-Message-ID: <200805062118.m46LI7P2004089@devserv.devel.redhat.com>
+Message-ID: <200805062118.m46LI7Ac004093@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48543 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48580 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933020AbYEFVSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 17:18:20 -0400
+	id S932741AbYEFVSt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds O_NONBLOCK support to pipe2.  It is minimally more involved
-than the patches for eventfd et.al but still trivial.  The interfaces of the
-create_write_pipe and create_read_pipe helper functions were changed and the
-one other caller as well.
+This patch adds non-blocking support for inotify_init1.  The
+additional changes needed are minimal.
 
 The following test must be adjusted for architectures other than x86 and
 x86-64 and in case the syscall numbers changed.
@@ -27,61 +25,58 @@ x86-64 and in case the syscall numbers changed.
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#ifndef __NR_pipe2
+#ifndef __NR_inotify_init1
 # ifdef __x86_64__
-#  define __NR_pipe2 293
+#  define __NR_inotify_init1 294
 # elif defined __i386__
-#  define __NR_pipe2 331
+#  define __NR_inotify_init1 332
 # else
-#  error "need __NR_pipe2"
+#  error "need __NR_inotify_init1"
 # endif
 #endif
+
+#define IN_NONBLOCK O_NONBLOCK
 
 int
 main (void)
 {
-  int fds[2];
-  if (syscall (__NR_pipe2, fds, 0) == -1)
+  int fd = syscall (__NR_inotify_init1, 0);
+  if (fd == -1)
     {
-      puts ("pipe2(0) failed");
+      puts ("inotify_init1(0) failed");
       return 1;
     }
-  for (int i = 0; i < 2; ++i)
+  int fl = fcntl (fd, F_GETFL);
+  if (fl == -1)
     {
-      int fl = fcntl (fds[i], F_GETFL);
-      if (fl == -1)
-        {
-          puts ("fcntl failed");
-          return 1;
-        }
-      if (fl & O_NONBLOCK)
-        {
-          printf ("pipe2(0) set non-blocking mode for fds[%d]\n", i);
-          return 1;
-        }
-      close (fds[i]);
+      puts ("fcntl failed");
+      return 1;
     }
+  if (fl & O_NONBLOCK)
+    {
+      puts ("inotify_init1(0) set non-blocking mode");
+      return 1;
+    }
+  close (fd);
 
-  if (syscall (__NR_pipe2, fds, O_NONBLOCK) == -1)
+  fd = syscall (__NR_inotify_init1, IN_NONBLOCK);
+  if (fd == -1)
     {
-      puts ("pipe2(O_NONBLOCK) failed");
+      puts ("inotify_init1(IN_NONBLOCK) failed");
       return 1;
     }
-  for (int i = 0; i < 2; ++i)
+  fl = fcntl (fd, F_GETFL);
+  if (fl == -1)
     {
-      int fl = fcntl (fds[i], F_GETFL);
-      if (fl == -1)
-        {
-          puts ("fcntl failed");
-          return 1;
-        }
-      if ((fl & O_NONBLOCK) == 0)
-        {
-          printf ("pipe2(O_NONBLOCK) does not set non-blocking mode for fds[%d]\n", i);
-          return 1;
-        }
-      close (fds[i]);
+      puts ("fcntl failed");
+      return 1;
     }
+  if ((fl & O_NONBLOCK) == 0)
+    {
+      puts ("inotify_init1(IN_NONBLOCK) set non-blocking mode");
+      return 1;
+    }
+  close (fd);
 
   puts ("OK");
 
@@ -89,102 +84,53 @@ main (void)
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- fs/pipe.c          |   14 +++++++-------
- include/linux/fs.h |    4 ++--
- kernel/kmod.c      |    4 ++--
- 3 files changed, 11 insertions(+), 11 deletions(-)
+ fs/inotify_user.c       |    4 ++--
+ include/linux/inotify.h |    3 ++-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
 
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
-diff --git a/fs/pipe.c b/fs/pipe.c
-index 059411e..796c0a0 100644
---- a/fs/pipe.c
-+++ b/fs/pipe.c
-@@ -949,7 +949,7 @@ fail_inode:
- 	return NULL;
- }
+diff --git a/fs/inotify_user.c b/fs/inotify_user.c
+index 8510059..dc7e1f6 100644
+--- a/fs/inotify_user.c
++++ b/fs/inotify_user.c
+@@ -574,7 +574,7 @@ asmlinkage long sys_inotify_init1(int flags)
+ 	struct file *filp;
+ 	int fd, ret;
  
--struct file *create_write_pipe(void)
-+struct file *create_write_pipe(int flags)
- {
- 	int err;
- 	struct inode *inode;
-@@ -982,7 +982,7 @@ struct file *create_write_pipe(void)
- 		goto err_dentry;
- 	f->f_mapping = inode->i_mapping;
- 
--	f->f_flags = O_WRONLY;
-+	f->f_flags = O_WRONLY | (flags & O_NONBLOCK);
- 	f->f_version = 0;
- 
- 	return f;
-@@ -1007,7 +1007,7 @@ void free_write_pipe(struct file *f)
- 	put_filp(f);
- }
- 
--struct file *create_read_pipe(struct file *wrf)
-+struct file *create_read_pipe(struct file *wrf, int flags)
- {
- 	struct file *f = get_empty_filp();
- 	if (!f)
-@@ -1019,7 +1019,7 @@ struct file *create_read_pipe(struct file *wrf)
- 	f->f_mapping = wrf->f_path.dentry->d_inode->i_mapping;
- 
- 	f->f_pos = 0;
--	f->f_flags = O_RDONLY;
-+	f->f_flags = O_RDONLY | (flags & O_NONBLOCK);
- 	f->f_op = &read_pipe_fops;
- 	f->f_mode = FMODE_READ;
- 	f->f_version = 0;
-@@ -1033,13 +1033,13 @@ int do_pipe_flags(int *fd, int flags)
- 	int error;
- 	int fdw, fdr;
- 
--	if (flags & ~O_CLOEXEC)
-+	if (flags & ~(O_CLOEXEC | O_NONBLOCK))
+-	if (flags & ~IN_CLOEXEC)
++	if (flags & ~(IN_CLOEXEC | IN_NONBLOCK))
  		return -EINVAL;
  
--	fw = create_write_pipe();
-+	fw = create_write_pipe(flags);
- 	if (IS_ERR(fw))
- 		return PTR_ERR(fw);
--	fr = create_read_pipe(fw);
-+	fr = create_read_pipe(fw, flags);
- 	error = PTR_ERR(fr);
- 	if (IS_ERR(fr))
- 		goto err_write_pipe;
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 134d2d5..3694eeb 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -1776,8 +1776,8 @@ static inline void allow_write_access(struct file *file)
- }
- extern int do_pipe(int *);
- extern int do_pipe_flags(int *, int);
--extern struct file *create_read_pipe(struct file *f);
--extern struct file *create_write_pipe(void);
-+extern struct file *create_read_pipe(struct file *f, int flags);
-+extern struct file *create_write_pipe(int flags);
- extern void free_write_pipe(struct file *);
+ 	fd = get_unused_fd_flags(flags & O_CLOEXEC);
+@@ -613,7 +613,7 @@ asmlinkage long sys_inotify_init1(int flags)
+ 	filp->f_path.dentry = dget(inotify_mnt->mnt_root);
+ 	filp->f_mapping = filp->f_path.dentry->d_inode->i_mapping;
+ 	filp->f_mode = FMODE_READ;
+-	filp->f_flags = O_RDONLY;
++	filp->f_flags = O_RDONLY | (flags & O_NONBLOCK);
+ 	filp->private_data = dev;
  
- extern struct file *do_filp_open(int dfd, const char *pathname,
-diff --git a/kernel/kmod.c b/kernel/kmod.c
-index 8df97d3..7356146 100644
---- a/kernel/kmod.c
-+++ b/kernel/kmod.c
-@@ -417,12 +417,12 @@ int call_usermodehelper_stdinpipe(struct subprocess_info *sub_info,
- {
- 	struct file *f;
+ 	INIT_LIST_HEAD(&dev->events);
+diff --git a/include/linux/inotify.h b/include/linux/inotify.h
+index 72ef821..bd57857 100644
+--- a/include/linux/inotify.h
++++ b/include/linux/inotify.h
+@@ -7,7 +7,7 @@
+ #ifndef _LINUX_INOTIFY_H
+ #define _LINUX_INOTIFY_H
  
--	f = create_write_pipe();
-+	f = create_write_pipe(0);
- 	if (IS_ERR(f))
- 		return PTR_ERR(f);
- 	*filp = f;
+-/* For O_CLOEXEC */
++/* For O_CLOEXEC and O_NONBLOCK */
+ #include <linux/fcntl.h>
+ #include <linux/types.h>
  
--	f = create_read_pipe(f);
-+	f = create_read_pipe(f, 0);
- 	if (IS_ERR(f)) {
- 		free_write_pipe(*filp);
- 		return PTR_ERR(f);
+@@ -67,6 +67,7 @@ struct inotify_event {
+ 
+ /* Flags for sys_inotify_init1.  */
+ #define IN_CLOEXEC O_CLOEXEC
++#define IN_NONBLOCK O_NONBLOCK
+ 
+ #ifdef __KERNEL__
+ 
