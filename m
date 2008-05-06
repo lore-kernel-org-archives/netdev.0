@@ -1,24 +1,23 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 07/18] flag parameters: epoll_create
+Subject: [PATCH 06/18] flag parameters: timerfd_create
 Date: Tue, 6 May 2008 17:18:07 -0400
-Message-ID: <200805062118.m46LI7fK004056@devserv.devel.redhat.com>
+Message-ID: <200805062118.m46LI71M004053@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48583 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48566 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933141AbYEFVSu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 17:18:50 -0400
+	id S933069AbYEFVSn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the new epoll_create2 syscall.  It extends the old epoll_create
-syscall by one parameter which is meant to hold a flag value.  In this
-patch the only flag support is EPOLL_CLOEXEC which causes the close-on-exec
-flag for the returned file descriptor to be set.
+The timerfd_create syscall already has a flags parameter.  It just is
+unused so far.  This patch changes this by introducing the TFD_CLOEXEC
+flag to set the close-on-exec flag for the returned file descriptor.
 
-A new name EPOLL_CLOEXEC is introduced which in this implementation must
+A new name TFD_CLOEXEC is introduced which in this implementation must
 have the same value as O_CLOEXEC.
 
 The following test must be adjusted for architectures other than x86 and
@@ -31,25 +30,25 @@ x86-64 and in case the syscall numbers changed.
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#ifndef __NR_epoll_create2
+#ifndef __NR_timerfd_create
 # ifdef __x86_64__
-#  define __NR_epoll_create2 291
+#  define __NR_timerfd_create 283
 # elif defined __i386__
-#  define __NR_epoll_create2 329
+#  define __NR_timerfd_create 322
 # else
-#  error "need __NR_epoll_create2"
+#  error "need __NR_timerfd_create"
 # endif
 #endif
 
-#define EPOLL_CLOEXEC O_CLOEXEC
+#define TFD_CLOEXEC O_CLOEXEC
 
 int
 main (void)
 {
-  int fd = syscall (__NR_epoll_create2, 1, 0);
+  int fd = syscall (__NR_timerfd_create, CLOCK_REALTIME, 0);
   if (fd == -1)
     {
-      puts ("epoll_create2(0) failed");
+      puts ("timerfd_create(0) failed");
       return 1;
     }
   int coe = fcntl (fd, F_GETFD);
@@ -60,15 +59,15 @@ main (void)
     }
   if (coe & FD_CLOEXEC)
     {
-      puts ("epoll_create2(0) set close-on-exec flag");
+      puts ("timerfd_create(0) set close-on-exec flag");
       return 1;
     }
   close (fd);
 
-  fd = syscall (__NR_epoll_create2, 1, EPOLL_CLOEXEC);
+  fd = syscall (__NR_timerfd_create, CLOCK_REALTIME, TFD_CLOEXEC);
   if (fd == -1)
     {
-      puts ("epoll_create2(EPOLL_CLOEXEC) failed");
+      puts ("timerfd_create(TFD_CLOEXEC) failed");
       return 1;
     }
   coe = fcntl (fd, F_GETFD);
@@ -79,7 +78,7 @@ main (void)
     }
   if ((coe & FD_CLOEXEC) == 0)
     {
-      puts ("epoll_create2(EPOLL_CLOEXEC) set close-on-exec flag");
+      puts ("timerfd_create(TFD_CLOEXEC) set close-on-exec flag");
       return 1;
     }
   close (fd);
@@ -90,116 +89,52 @@ main (void)
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- arch/x86/ia32/ia32entry.S          |    1 +
- arch/x86/kernel/syscall_table_32.S |    1 +
- fs/eventpoll.c                     |   13 +++++++++++--
- include/asm-x86/unistd_32.h        |    1 +
- include/asm-x86/unistd_64.h        |    2 ++
- include/linux/eventpoll.h          |    4 ++++
- include/linux/syscalls.h           |    1 +
- 7 files changed, 21 insertions(+), 2 deletions(-)
+ fs/timerfd.c            |    5 +++--
+ include/linux/timerfd.h |    5 +++++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
 
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
---- a/arch/x86/ia32/ia32entry.S
-+++ b/arch/x86/ia32/ia32entry.S
-@@ -733,4 +733,5 @@ ia32_sys_call_table:
- 	.quad compat_sys_timerfd_gettime
- 	.quad compat_sys_signalfd4
- 	.quad sys_eventfd2
-+	.quad sys_epoll_create2
- ia32_syscall_end:
---- a/arch/x86/kernel/syscall_table_32.S
-+++ b/arch/x86/kernel/syscall_table_32.S
-@@ -328,3 +328,4 @@ ENTRY(sys_call_table)
- 	.long sys_timerfd_gettime
- 	.long sys_signalfd4
- 	.long sys_eventfd2
-+	.long sys_epoll_create2
---- a/fs/eventpoll.c
-+++ b/fs/eventpoll.c
-@@ -1046,11 +1046,14 @@ retry:
-  * RB tree. With the current implementation, the "size" parameter is ignored
-  * (besides sanity checks).
-  */
--asmlinkage long sys_epoll_create(int size)
-+asmlinkage long sys_epoll_create2(int size, int flags)
- {
- 	int error, fd = -1;
- 	struct eventpoll *ep;
+diff --git a/fs/timerfd.c b/fs/timerfd.c
+index 77c2bc9..8a59036 100644
+--- a/fs/timerfd.c
++++ b/fs/timerfd.c
+@@ -184,7 +184,7 @@ asmlinkage long sys_timerfd_create(int clockid, int flags)
+ 	int ufd;
+ 	struct timerfd_ctx *ctx;
  
-+	if (flags & ~EPOLL_CLOEXEC)
-+		return -EINVAL;
-+
- 	DNPRINTK(3, (KERN_INFO "[%p] eventpoll: sys_epoll_create(%d)\n",
- 		     current, size));
+-	if (flags)
++	if (flags & ~TFD_CLOEXEC)
+ 		return -EINVAL;
+ 	if (clockid != CLOCK_MONOTONIC &&
+ 	    clockid != CLOCK_REALTIME)
+@@ -198,7 +198,8 @@ asmlinkage long sys_timerfd_create(int clockid, int flags)
+ 	ctx->clockid = clockid;
+ 	hrtimer_init(&ctx->tmr, clockid, HRTIMER_MODE_ABS);
  
-@@ -1068,7 +1071,8 @@ asmlinkage long sys_epoll_create(int size)
- 	 * Creates all the items needed to setup an eventpoll file. That is,
- 	 * a file structure and a free file descriptor.
- 	 */
--	fd = anon_inode_getfd("[eventpoll]", &eventpoll_fops, ep, 0);
-+	fd = anon_inode_getfd("[eventpoll]", &eventpoll_fops, ep,
-+			      flags & O_CLOEXEC);
- 	if (fd < 0)
- 		ep_free(ep);
+-	ufd = anon_inode_getfd("[timerfd]", &timerfd_fops, ctx, 0);
++	ufd = anon_inode_getfd("[timerfd]", &timerfd_fops, ctx,
++			       flags & O_CLOEXEC);
+ 	if (ufd < 0)
+ 		kfree(ctx);
  
-@@ -1079,6 +1083,11 @@ error_return:
- 	return fd;
- }
- 
-+asmlinkage long sys_epoll_create(int size)
-+{
-+	return sys_epoll_create2(size, 0);
-+}
-+
- /*
-  * The following function implements the controller interface for
-  * the eventpoll file that enables the insertion/removal/change of
---- a/include/asm-x86/unistd_32.h
-+++ b/include/asm-x86/unistd_32.h
-@@ -334,6 +334,7 @@
- #define __NR_timerfd_gettime	326
- #define __NR_signalfd4		327
- #define __NR_eventfd2		328
-+#define __NR_epoll_create2	329
- 
- #ifdef __KERNEL__
- 
---- a/include/asm-x86/unistd_64.h
-+++ b/include/asm-x86/unistd_64.h
-@@ -645,6 +645,8 @@ __SYSCALL(__NR_paccept, sys_paccept)
- __SYSCALL(__NR_signalfd4, sys_signalfd4)
- #define __NR_eventfd2				290
- __SYSCALL(__NR_eventfd2, sys_eventfd2)
-+#define __NR_epoll_create2			291
-+__SYSCALL(__NR_epoll_create2, sys_epoll_create2)
- 
- 
- #ifndef __NO_STUBS
---- a/include/linux/eventpoll.h
-+++ b/include/linux/eventpoll.h
-@@ -14,8 +14,12 @@
- #ifndef _LINUX_EVENTPOLL_H
- #define _LINUX_EVENTPOLL_H
+diff --git a/include/linux/timerfd.h b/include/linux/timerfd.h
+index cf2b10d..96ed97d 100644
+--- a/include/linux/timerfd.h
++++ b/include/linux/timerfd.h
+@@ -8,9 +8,14 @@
+ #ifndef _LINUX_TIMERFD_H
+ #define _LINUX_TIMERFD_H
  
 +/* For O_CLOEXEC */
 +#include <linux/fcntl.h>
- #include <linux/types.h>
  
-+/* Flags for epoll_create2.  */
-+#define EPOLL_CLOEXEC O_CLOEXEC
++/* Flags for timerfd_settime.  */
+ #define TFD_TIMER_ABSTIME (1 << 0)
  
- /* Valid opcodes to issue to sys_epoll_ctl() */
- #define EPOLL_CTL_ADD 1
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -430,6 +430,7 @@ asmlinkage long sys_poll(struct pollfd __user *ufds, unsigned int nfds,
- asmlinkage long sys_select(int n, fd_set __user *inp, fd_set __user *outp,
- 			fd_set __user *exp, struct timeval __user *tvp);
- asmlinkage long sys_epoll_create(int size);
-+asmlinkage long sys_epoll_create2(int size, int flags);
- asmlinkage long sys_epoll_ctl(int epfd, int op, int fd,
- 				struct epoll_event __user *event);
- asmlinkage long sys_epoll_wait(int epfd, struct epoll_event __user *events,
++/* Flags for timerfd_create.  */
++#define TFD_CLOEXEC O_CLOEXEC
+ 
+ 
+ #endif /* _LINUX_TIMERFD_H */
