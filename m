@@ -1,44 +1,137 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: mc_loop and multicast traffic with IPv6 over IPv4 tunnels
-Date: Tue, 6 May 2008 23:58:25 +0300
-Message-ID: <200805062358.25834.opurdila@ixiacom.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: [PATCH 13/18] flag parameters: NONBLOCK in signalfd
+Date: Tue, 6 May 2008 17:18:07 -0400
+Message-ID: <200805062118.m46LI7er004075@devserv.devel.redhat.com>
+Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
+	mtk.manpages@gmail.com, torvalds@linux-foundation.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1292 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759661AbYEFVO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 17:14:28 -0400
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:48537 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932946AbYEFVSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch adds support for the SFD_NONBLOCK flag to signalfd4.  The
+additional changes needed are minimal.
 
-Hi,
+The following test must be adjusted for architectures other than x86 and
+x86-64 and in case the syscall numbers changed.
 
-We are using a GRE tunnel module developed in house which can tunnel IPv6 
-traffic over IPv4. The implementation is similar with what the upstream 
-kernel does with GRE, IPIP or SIT tunnels, basically it stuffs the skb with 
-the outer header and NF_HOOKs back to the stack. 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#include <fcntl.h>
+#include <signal.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 
-I've noticed that when using raw6 sockets on these tunnels, the 
-IPV6_MULTICAST_LOOP setsockopt does not take effect, i.e. even if I set 
-mc_loop to 0, I still get the send packets back when using a multicast 
-address.
+#ifndef __NR_signalfd4
+# ifdef __x86_64__
+#  define __NR_signalfd4 289
+# elif defined __i386__
+#  define __NR_signalfd4 327
+# else
+#  error "need __NR_signalfd4"
+# endif
+#endif
 
-This problem seems to be caused by the fact that the when the skb is pushed 
-through the tunnel it reaches the IPv4 layer which checks the mc_loop flag 
-from the IPv4 part of the socket, which was not altered by the IPv6 
-setsockopt. Modifying the IPv4's mc_loop as well in the IPv6's setsockopt 
-seems to fix the problem.
+#define SFD_NONBLOCK O_NONBLOCK
 
-I've looked over the upstream kernel GRE, IPIP and SIT tunnel code, and it 
-seems that this case is not handled. I'll try to reproduce the problem with 
-the upstream kernel as well, but in the meanwhile can somebody tell me if 
-there is something obvious that I've missed?
+int
+main (void)
+{
+  sigset_t ss;
+  sigemptyset (&ss);
+  sigaddset (&ss, SIGUSR1);
+  int fd = syscall (__NR_signalfd4, -1, &ss, 8, 0);
+  if (fd == -1)
+    {
+      puts ("signalfd4(0) failed");
+      return 1;
+    }
+  int fl = fcntl (fd, F_GETFL);
+  if (fl == -1)
+    {
+      puts ("fcntl failed");
+      return 1;
+    }
+  if (fl & O_NONBLOCK)
+    {
+      puts ("signalfd4(0) set non-blocking mode");
+      return 1;
+    }
+  close (fd);
 
-Thanks,
-tavi
+  fd = syscall (__NR_signalfd4, -1, &ss, 8, SFD_NONBLOCK);
+  if (fd == -1)
+    {
+      puts ("signalfd4(SFD_NONBLOCK) failed");
+      return 1;
+    }
+  fl = fcntl (fd, F_GETFL);
+  if (fl == -1)
+    {
+      puts ("fcntl failed");
+      return 1;
+    }
+  if ((fl & O_NONBLOCK) == 0)
+    {
+      puts ("signalfd4(SFD_NONBLOCK) does not set non-blocking mode");
+      return 1;
+    }
+  close (fd);
+
+  puts ("OK");
+
+  return 0;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ fs/signalfd.c            |    4 ++--
+ include/linux/signalfd.h |    3 ++-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+
+Signed-off-by: Ulrich Drepper <drepper@redhat.com>
+
+diff --git a/fs/signalfd.c b/fs/signalfd.c
+index c8609fa..5441a4b 100644
+--- a/fs/signalfd.c
++++ b/fs/signalfd.c
+@@ -211,7 +211,7 @@ asmlinkage long sys_signalfd4(int ufd, sigset_t __user *user_mask,
+ 	sigset_t sigmask;
+ 	struct signalfd_ctx *ctx;
+ 
+-	if (flags & ~SFD_CLOEXEC)
++	if (flags & ~(SFD_CLOEXEC | SFD_NONBLOCK))
+ 		return -EINVAL;
+ 
+ 	if (sizemask != sizeof(sigset_t) ||
+@@ -232,7 +232,7 @@ asmlinkage long sys_signalfd4(int ufd, sigset_t __user *user_mask,
+ 		 * anon_inode_getfd() will install the fd.
+ 		 */
+ 		ufd = anon_inode_getfd("[signalfd]", &signalfd_fops, ctx,
+-				       flags & O_CLOEXEC);
++				       flags & (O_CLOEXEC | O_NONBLOCK));
+ 		if (ufd < 0)
+ 			kfree(ctx);
+ 	} else {
+diff --git a/include/linux/signalfd.h b/include/linux/signalfd.h
+index 8b3f7b7..bef0c46 100644
+--- a/include/linux/signalfd.h
++++ b/include/linux/signalfd.h
+@@ -8,11 +8,12 @@
+ #ifndef _LINUX_SIGNALFD_H
+ #define _LINUX_SIGNALFD_H
+ 
+-/* For O_CLOEXEC */
++/* For O_CLOEXEC and O_NONBLOCK */
+ #include <linux/fcntl.h>
+ 
+ /* Flags for signalfd4.  */
+ #define SFD_CLOEXEC O_CLOEXEC
++#define SFD_NONBLOCK O_NONBLOCK
+ 
+ struct signalfd_siginfo {
+ 	__u32 ssi_signo;
