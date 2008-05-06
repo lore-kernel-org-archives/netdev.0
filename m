@@ -1,45 +1,49 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e: Add support for BM PHYs on ICH9
-Date: Tue, 06 May 2008 12:18:48 -0400
-Message-ID: <482084E8.70803@garzik.org>
-References: <20080429161605.16923.73468.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/2] 3c980-TX needs EXTRA_PREAMBLE
+Date: Tue, 06 May 2008 12:23:01 -0400
+Message-ID: <482085E5.6030900@pobox.com>
+References: <12099888891786-git-send-email-klassert@mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: netdev@vger.kernel.org, Gunnar Larisch <Gunnar.Larisch@gmx.de>
+To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45321 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41395 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752665AbYEFQSv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 12:18:51 -0400
-In-Reply-To: <20080429161605.16923.73468.stgit@localhost.localdomain>
+	id S1752128AbYEFQXG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 12:23:06 -0400
+In-Reply-To: <12099888891786-git-send-email-klassert@mathematik.tu-chemnitz.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: Bruce Allan <bruce.w.allan@intel.com>
+Steffen Klassert wrote:
+> From: Gunnar Larisch <Gunnar.Larisch@gmx.de>
 > 
-> This patch adds support for the BM PHY, a new PHY model being used
-> on ICH9-based implementations.
+> The ethernet card 3c980-TX needs a mdio_sync() to initialize the ethernet
+> properly. This is forced by adding an EXTRA_PREAMBLE to its drv_flags.
 > 
-> This new PHY exposes issues in the ICH9 silicon when receiving
-> jumbo frames large enough to use more than a certain part of the
-> Rx FIFO, and this unfortunately breaks packet split jumbo receives.
-> For this reason we re-introduce (for affected adapters only) the
-> jumbo single-skb receive routine back so that people who do
-> wish to use jumbo frames on these ich9 platforms can do so.
-> Part of this problem has to do with CPU sleep states and to make
-> sure that all the wake up timings are correctly we force them
-> with the recently merged pm_qos infrastructure written by Mark
-> Gross. (See http://lkml.org/lkml/2007/10/4/400).
+> Without this, the driver did not reconnect after a link loss.
 > 
-> To make code read a bit easier we introduce a _IS_ICH flag so
-> that we don't need to do mac type checks over the code.
+> Signed-off-by: Gunnar Larisch <Gunnar.Larisch@gmx.de>
+> Acked-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+> ---
+>  drivers/net/3c59x.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+> index 6f8e7d4..e93c378 100644
+> --- a/drivers/net/3c59x.c
+> +++ b/drivers/net/3c59x.c
+> @@ -319,7 +319,7 @@ static struct vortex_chip_info {
+>  	{"3c920B-EMB-WNM (ATI Radeon 9100 IGP)",
+>  	 PCI_USES_MASTER, IS_TORNADO|HAS_MII|HAS_HWCKSM, 128, },
+>  	{"3c980 Cyclone",
+> -	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+> +	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+>  
+>  	{"3c980C Python-T",
 
-applied
+applied 1-2
 
 
