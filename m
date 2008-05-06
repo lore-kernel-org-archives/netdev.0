@@ -1,114 +1,61 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 4/4 (optional)][MAC80211]: Brush up error paths in mesh_path_add.
-Date: Tue, 06 May 2008 18:53:43 +0400
-Message-ID: <482070F7.5060506@openvz.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 4/4 (optional)][MAC80211]: Brush up error paths in
+	mesh_path_add.
+Date: Tue, 06 May 2008 16:58:00 +0200
+Message-ID: <1210085880.13316.31.camel@johannes.berg>
+References: <482070F7.5060506@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:46053 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750744AbYEFO4x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 10:56:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-T6T++Bww5nLxlKtqwALa"
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Luis Carlos Cobo <luisca-W/OLz77bvjtBDgjK7y7TUQ@public.gmane.org>
+To: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <482070F7.5060506-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There are already tree paths, that do incremental rollbacks, so
-merge them together, rename labels and format the code to look a
-bit nicer.
 
-(I do not mind dropping/delaying this patch however).
+--=-T6T++Bww5nLxlKtqwALa
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+On Tue, 2008-05-06 at 18:53 +0400, Pavel Emelyanov wrote:
+> There are already tree paths, that do incremental rollbacks, so
+> merge them together, rename labels and format the code to look a
+> bit nicer.
 
----
- net/mac80211/mesh_pathtbl.c |   42 ++++++++++++++++++++----------------------
- 1 files changed, 20 insertions(+), 22 deletions(-)
+Looks all (all four patches) good to me, Luis?
 
-diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
-index 99c2d36..7097ef9 100644
---- a/net/mac80211/mesh_pathtbl.c
-+++ b/net/mac80211/mesh_pathtbl.c
-@@ -158,19 +158,14 @@ int mesh_path_add(u8 *dst, struct net_device *dev)
- 	if (atomic_add_unless(&sdata->u.sta.mpaths, 1, MESH_MAX_MPATHS) == 0)
- 		return -ENOSPC;
- 
-+	err = -ENOMEM;
- 	new_mpath = kzalloc(sizeof(struct mesh_path), GFP_KERNEL);
--	if (!new_mpath) {
--		atomic_dec(&sdata->u.sta.mpaths);
--		err = -ENOMEM;
--		goto endadd2;
--	}
-+	if (!new_mpath)
-+		goto err_path_alloc;
-+
- 	new_node = kmalloc(sizeof(struct mpath_node), GFP_KERNEL);
--	if (!new_node) {
--		kfree(new_mpath);
--		atomic_dec(&sdata->u.sta.mpaths);
--		err = -ENOMEM;
--		goto endadd2;
--	}
-+	if (!new_node)
-+		goto err_node_alloc;
- 
- 	read_lock(&pathtbl_resize_lock);
- 	memcpy(new_mpath->dst, dst, ETH_ALEN);
-@@ -189,16 +184,11 @@ int mesh_path_add(u8 *dst, struct net_device *dev)
- 
- 	spin_lock(&mesh_paths->hashwlock[hash_idx]);
- 
-+	err = -EEXIST;
- 	hlist_for_each_entry(node, n, bucket, list) {
- 		mpath = node->mpath;
--		if (mpath->dev == dev && memcmp(dst, mpath->dst, ETH_ALEN)
--				== 0) {
--			err = -EEXIST;
--			atomic_dec(&sdata->u.sta.mpaths);
--			kfree(new_node);
--			kfree(new_mpath);
--			goto endadd;
--		}
-+		if (mpath->dev == dev && memcmp(dst, mpath->dst, ETH_ALEN) == 0)
-+			goto err_exists;
- 	}
- 
- 	hlist_add_head_rcu(&new_node->list, bucket);
-@@ -206,10 +196,9 @@ int mesh_path_add(u8 *dst, struct net_device *dev)
- 		mesh_paths->mean_chain_len * (mesh_paths->hash_mask + 1))
- 		grow = 1;
- 
--endadd:
- 	spin_unlock(&mesh_paths->hashwlock[hash_idx]);
- 	read_unlock(&pathtbl_resize_lock);
--	if (!err && grow) {
-+	if (grow) {
- 		struct mesh_table *oldtbl, *newtbl;
- 
- 		write_lock(&pathtbl_resize_lock);
-@@ -225,7 +214,16 @@ endadd:
- 		synchronize_rcu();
- 		mesh_table_free(oldtbl, false);
- 	}
--endadd2:
-+	return 0;
-+
-+err_exists:
-+	spin_unlock(&mesh_paths->hashwlock[hash_idx]);
-+	read_unlock(&pathtbl_resize_lock);
-+	kfree(new_node);
-+err_node_alloc:
-+	kfree(new_mpath);
-+err_path_alloc:
-+	atomic_dec(&sdata->u.sta.mpaths);
- 	return err;
- }
- 
--- 
-1.5.3.4
+johannes
 
+--=-T6T++Bww5nLxlKtqwALa
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUASCBx96Vg1VMiehFYAQJdjg//VddMnzqzgfBxtREnsl3utB/WzX9167DZ
+IB6zq1D27UBoeslRp/kR2nxrAxmFFHMbzYlzXxYrsNXgag8ydF0JQoQcRNeqOI+q
+ROz0nqFyq4cX785kop+BiIZ0La/oQa0i9IrSeSqoCS6mE15s9FfJaO+VM9gkKI3r
+sh8vlM5214tjzVkjZxHiNf0hXeGVaJAt0NvAnqg8UFVRXSdZDrdue4vLtwe+IP6W
+/NlYNHKdolWBQWNzWt4xokT5zC4sbSH7ngg8JQrvDUDyIgL5t3Y4l/wP2AxI6+ue
+JTXu5xPvI9yybG69UTriMQNQaThmfibEXcndCZ5gbqqkHpnE3y/hHz75yzI5xVrT
+drQf1sQaFe0smJ+xFZYR7H8lXuthMhV3E1o4NXEuNtGnITVnQ5ffVpngO0LDBynG
+8NauAGybHecj2YF0b0yzLcFvDpeOfoM9AcaAsfcz0yXMjOKollrryPzHjY/Zyd8y
+ft2D5Z8XW8OhdfKEiEMNIfyn4+yANP9wWFmznfKSkDx9T66YFIT/aWCEqo+Ue3uV
+a+hiY4nKL8gttwM+mHxrTKW+asr74v4P7f0GrRIMOn+KSZya3duw8A9RbDeropj9
+5mK3Jbt2ujNr4LjDhIwz8dRXIW79QO+9s2gPeFUtPfReRichUW/H42nZIwx+BcMw
+v6YkcmUYlWU=
+=iMwS
+-----END PGP SIGNATURE-----
+
+--=-T6T++Bww5nLxlKtqwALa--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
