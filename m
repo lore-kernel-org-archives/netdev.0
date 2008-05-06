@@ -1,33 +1,53 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 12/18] flag parameters: NONBLOCK in socket and socketpair
+Subject: [PATCH 02/18] flag parameters: paccept
 Date: Tue, 6 May 2008 17:18:07 -0400
-Message-ID: <200805062118.m46LI7im004072@devserv.devel.redhat.com>
+Message-ID: <200805062118.m46LI7SS004041@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48590 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48573 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933079AbYEFVSx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 17:18:53 -0400
+	id S932557AbYEFVSp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces support for the SOCK_NONBLOCK flag in socket,
-socketpair, and  paccept.  To do this the internal function sock_attach_fd
-gets an additional parameter which it uses to set the appropriate flag for
-the file descriptor.
+This patch is by far the most complex in the series.  It adds a new syscall
+paccept.  This syscall differs from accept in that it adds (at the userlevel)
+two additional parameters:
 
-Given that in modern, scalable programs almost all socket connections are
-non-blocking and the minimal additional cost for the new functionality
-I see no reason not to add this code.
+- a signal mask
+- a flags value
+
+The flags parameter can be used to set flag like SOCK_CLOEXEC.  This is
+imlpemented here as well.  Some people argued that this is a property
+which should be inherited from the file desriptor for the server but
+this is against POSIX.  Additionally, we really want the signal mask
+parameter as well (similar to pselect, ppoll, etc).  So an interface
+change in inevitable.
+
+The flag value is the same as for socket and socketpair.  I think
+diverging here will only create confusion.  Similar to the filesystem
+interfaces where the use of the O_* constants differs, it is acceptable
+here.
+
+The signal mask is handled as for pselect etc.  The mask is temporarily
+installed for the thread and removed before the call returns.  I modeled
+the code after pselect.  If there is a problem it's likely also in
+pselect.
+
+For architectures which use socketcall I maintained this interface
+instead of adding a system call.  The symmetry shouldn't be broken.
 
 The following test must be adjusted for architectures other than x86 and
 x86-64 and in case the syscall numbers changed.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <netinet/in.h>
@@ -57,7 +77,7 @@ x86-64 and in case the syscall numbers changed.
 
 #define PORT 57392
 
-#define SOCK_NONBLOCK O_NONBLOCK
+#define SOCK_CLOEXEC O_CLOEXEC
 
 static pthread_barrier_t b;
 
@@ -72,7 +92,6 @@ tf (void *arg)
   sin.sin_port = htons (PORT);
   connect (s, (const struct sockaddr *) &sin, sizeof (sin));
   close (s);
-  pthread_barrier_wait (&b);
 
   pthread_barrier_wait (&b);
   s = socket (AF_INET, SOCK_STREAM, 0);
@@ -81,99 +100,26 @@ tf (void *arg)
   close (s);
   pthread_barrier_wait (&b);
 
+  pthread_barrier_wait (&b);
+  sleep (2);
+  pthread_kill ((pthread_t) arg, SIGUSR1);
+  
   return NULL;
+}
+
+static void
+handler (int s)
+{
 }
 
 int
 main (void)
 {
-  int fd;
-  fd = socket (PF_INET, SOCK_STREAM, 0);
-  if (fd == -1)
-    {
-      puts ("socket(0) failed");
-      return 1;
-    }
-  int fl = fcntl (fd, F_GETFL);
-  if (fl == -1)
-    {
-      puts ("fcntl failed");
-      return 1;
-    }
-  if (fl & O_NONBLOCK)
-    {
-      puts ("socket(0) set non-blocking mode");
-      return 1;
-    }
-  close (fd);
-
-  fd = socket (PF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
-  if (fd == -1)
-    {
-      puts ("socket(SOCK_NONBLOCK) failed");
-      return 1;
-    }
-  fl = fcntl (fd, F_GETFL);
-  if (fl == -1)
-    {
-      puts ("fcntl failed");
-      return 1;
-    }
-  if ((fl & O_NONBLOCK) == 0)
-    {
-      puts ("socket(SOCK_NONBLOCK) does not set non-blocking mode");
-      return 1;
-    }
-  close (fd);
-
-  int fds[2];
-  if (socketpair (PF_UNIX, SOCK_STREAM, 0, fds) == -1)
-    {
-      puts ("socketpair(0) failed");
-      return 1;
-    }
-  for (int i = 0; i < 2; ++i)
-    {
-      fl = fcntl (fds[i], F_GETFL);
-      if (fl == -1)
-        {
-          puts ("fcntl failed");
-          return 1;
-        }
-      if (fl & O_NONBLOCK)
-        {
-          printf ("socketpair(0) set non-blocking mode for fds[%d]\n", i);
-          return 1;
-        }
-      close (fds[i]);
-    }
-
-  if (socketpair (PF_UNIX, SOCK_STREAM|SOCK_NONBLOCK, 0, fds) == -1)
-    {
-      puts ("socketpair(SOCK_NONBLOCK) failed");
-      return 1;
-    }
-  for (int i = 0; i < 2; ++i)
-    {
-      fl = fcntl (fds[i], F_GETFL);
-      if (fl == -1)
-        {
-          puts ("fcntl failed");
-          return 1;
-        }
-      if ((fl & O_NONBLOCK) == 0)
-        {
-          printf ("socketpair(SOCK_NONBLOCK) does not set non-blocking mode for fds[%d]\n", i);
-          return 1;
-        }
-      close (fds[i]);
-    }
-
   pthread_barrier_init (&b, NULL, 2);
 
   struct sockaddr_in sin;
   pthread_t th;
-  if (pthread_create (&th, NULL, tf, NULL) != 0)
+  if (pthread_create (&th, NULL, tf, (void *) pthread_self ()) != 0)
     {
       puts ("pthread_create failed");
       return 1;
@@ -197,164 +143,341 @@ main (void)
       return 1;
     }
 
-  fl = fcntl (s2, F_GETFL);
-  if (fl & O_NONBLOCK)
+  int coe = fcntl (s2, F_GETFD);
+  if (coe & FD_CLOEXEC)
     {
-      puts ("paccept(0) set non-blocking mode");
+      puts ("paccept(0) set close-on-exec-flag");
       return 1;
     }
   close (s2);
-  close (s);
 
   pthread_barrier_wait (&b);
 
-  s = socket (AF_INET, SOCK_STREAM, 0);
-  sin.sin_port = htons (PORT);
-  setsockopt (s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof (reuse));
-  bind (s, (struct sockaddr *) &sin, sizeof (sin));
-  listen (s, SOMAXCONN);
-
-  pthread_barrier_wait (&b);
-
-  s2 = paccept (s, NULL, 0, NULL, SOCK_NONBLOCK);
+  s2 = paccept (s, NULL, 0, NULL, SOCK_CLOEXEC);
   if (s2 < 0)
     {
-      puts ("paccept(SOCK_NONBLOCK) failed");
+      puts ("paccept(SOCK_CLOEXEC) failed");
       return 1;
     }
 
-  fl = fcntl (s2, F_GETFL);
-  if ((fl & O_NONBLOCK) == 0)
+  coe = fcntl (s2, F_GETFD);
+  if ((coe & FD_CLOEXEC) == 0)
     {
-      puts ("paccept(SOCK_NONBLOCK) does not set non-blocking mode");
+      puts ("paccept(SOCK_CLOEXEC) does not set close-on-exec flag");
       return 1;
     }
   close (s2);
-  close (s);
 
   pthread_barrier_wait (&b);
+
+  struct sigaction sa;
+  sa.sa_handler = handler;
+  sa.sa_flags = 0;
+  sigemptyset (&sa.sa_mask);
+  sigaction (SIGUSR1, &sa, NULL);
+
+  sigset_t ss;
+  pthread_sigmask (SIG_SETMASK, NULL, &ss);
+  sigaddset (&ss, SIGUSR1);
+  pthread_sigmask (SIG_SETMASK, &ss, NULL);
+
+  sigdelset (&ss, SIGUSR1);
+  alarm (4);
+  pthread_barrier_wait (&b);
+
+  errno = 0 ;
+  s2 = paccept (s, NULL, 0, &ss, 0);
+  if (s2 != -1 || errno != EINTR)
+    {
+      puts ("paccept did not fail with EINTR");
+      return 1;
+    }
+
+  close (s);
+
   puts ("OK");
 
   return 0;
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- include/linux/net.h |    3 ++-
- net/socket.c        |   20 ++++++++++----------
- 2 files changed, 12 insertions(+), 11 deletions(-)
+ include/asm-x86/unistd_64.h |    2 +
+ include/linux/net.h         |    3 +
+ include/linux/syscalls.h    |    2 +
+ net/compat.c                |   52 +++++++++++++++++++++++++++++---
+ net/socket.c                |   71 +++++++++++++++++++++++++++++++++++++++-----
+ 5 files changed, 118 insertions(+), 12 deletions(-)
 
 
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
+diff --git a/include/asm-x86/unistd_64.h b/include/asm-x86/unistd_64.h
+index fe26e36..d751135 100644
+--- a/include/asm-x86/unistd_64.h
++++ b/include/asm-x86/unistd_64.h
+@@ -639,6 +639,8 @@ __SYSCALL(__NR_fallocate, sys_fallocate)
+ __SYSCALL(__NR_timerfd_settime, sys_timerfd_settime)
+ #define __NR_timerfd_gettime			287
+ __SYSCALL(__NR_timerfd_gettime, sys_timerfd_gettime)
++#define __NR_paccept				288
++__SYSCALL(__NR_paccept, sys_paccept)
+ 
+ 
+ #ifndef __NO_STUBS
 diff --git a/include/linux/net.h b/include/linux/net.h
-index b4ad432..1b35fd5 100644
+index 0c1ad01..b4ad432 100644
 --- a/include/linux/net.h
 +++ b/include/linux/net.h
-@@ -20,7 +20,7 @@
+@@ -47,6 +47,7 @@ struct net;
+ #define SYS_GETSOCKOPT	15		/* sys_getsockopt(2)		*/
+ #define SYS_SENDMSG	16		/* sys_sendmsg(2)		*/
+ #define SYS_RECVMSG	17		/* sys_recvmsg(2)		*/
++#define SYS_PACCEPT	18		/* sys_paccept(2)		*/
  
- #include <linux/wait.h>
- #include <linux/socket.h>
--#include <linux/fcntl.h>	/* For O_CLOEXEC */
-+#include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
- #include <asm/socket.h>
+ typedef enum {
+ 	SS_FREE = 0,			/* not allocated		*/
+@@ -219,6 +220,8 @@ extern int 	     sock_map_fd(struct socket *sock, int flags);
+ extern struct socket *sockfd_lookup(int fd, int *err);
+ #define		     sockfd_put(sock) fput(sock->file)
+ extern int	     net_ratelimit(void);
++extern long	     do_accept(int fd, struct sockaddr __user *upeer_sockaddr,
++			       int __user *upeer_addrlen, int flags);
  
- struct poll_table_struct;
-@@ -102,6 +102,7 @@ enum sock_type {
+ #define net_random()		random32()
+ #define net_srandom(seed)	srandom32((__force u32)seed)
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 0522f36..e022405 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -409,6 +409,8 @@ asmlinkage long sys_getsockopt(int fd, int level, int optname,
+ asmlinkage long sys_bind(int, struct sockaddr __user *, int);
+ asmlinkage long sys_connect(int, struct sockaddr __user *, int);
+ asmlinkage long sys_accept(int, struct sockaddr __user *, int __user *);
++asmlinkage long sys_paccept(int, struct sockaddr __user *, int __user *,
++			    const sigset_t *, size_t, int);
+ asmlinkage long sys_getsockname(int, struct sockaddr __user *, int __user *);
+ asmlinkage long sys_getpeername(int, struct sockaddr __user *, int __user *);
+ asmlinkage long sys_send(int, void __user *, size_t, unsigned);
+diff --git a/net/compat.c b/net/compat.c
+index c823f6f..c9a507c 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -722,9 +722,10 @@ EXPORT_SYMBOL(compat_mc_getsockopt);
  
- /* Flags for socket, socketpair, paccept */
- #define SOCK_CLOEXEC	O_CLOEXEC
-+#define SOCK_NONBLOCK	O_NONBLOCK
+ /* Argument list sizes for compat_sys_socketcall */
+ #define AL(x) ((x) * sizeof(u32))
+-static unsigned char nas[18]={AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
++static unsigned char nas[19]={AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
+ 				AL(3),AL(3),AL(4),AL(4),AL(4),AL(6),
+-				AL(6),AL(2),AL(5),AL(5),AL(3),AL(3)};
++				AL(6),AL(2),AL(5),AL(5),AL(3),AL(3),
++				AL(6)};
+ #undef AL
  
- #endif /* ARCH_HAS_SOCKET_TYPES */
- 
-diff --git a/net/socket.c b/net/socket.c
-index 634ad83..7cb0a5e 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -366,7 +366,7 @@ static int sock_alloc_fd(struct file **filep, int flags)
- 	return fd;
+ asmlinkage long compat_sys_sendmsg(int fd, struct compat_msghdr __user *msg, unsigned flags)
+@@ -737,13 +738,52 @@ asmlinkage long compat_sys_recvmsg(int fd, struct compat_msghdr __user *msg, uns
+ 	return sys_recvmsg(fd, (struct msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
  }
  
--static int sock_attach_fd(struct socket *sock, struct file *file)
-+static int sock_attach_fd(struct socket *sock, struct file *file, int flags)
++asmlinkage long compat_sys_paccept(int fd, struct sockaddr __user *upeer_sockaddr,
++				   int __user *upeer_addrlen,
++				   const compat_sigset_t __user *sigmask,
++				   compat_size_t sigsetsize, int flags)
++{
++	compat_sigset_t ss32;
++	sigset_t ksigmask, sigsaved;
++	int ret;
++
++	if (sigmask) {
++		if (sigsetsize != sizeof(compat_sigset_t))
++			return -EINVAL;
++		if (copy_from_user(&ss32, sigmask, sizeof(ss32)))
++			return -EFAULT;
++		sigset_from_compat(&ksigmask, &ss32);
++
++		sigdelsetmask(&ksigmask, sigmask(SIGKILL)|sigmask(SIGSTOP));
++		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
++	}
++
++	ret = do_accept(fd, upeer_sockaddr, upeer_addrlen, flags);
++
++	if (ret == -ERESTARTNOHAND) {
++		/*
++		 * Don't restore the signal mask yet. Let do_signal() deliver
++		 * the signal on the way back to userspace, before the signal
++		 * mask is restored.
++		 */
++		if (sigmask) {
++			memcpy(&current->saved_sigmask, &sigsaved,
++			       sizeof(sigsaved));
++			set_thread_flag(TIF_RESTORE_SIGMASK);
++		}
++	} else if (sigmask)
++		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
++
++	return ret;
++}
++
+ asmlinkage long compat_sys_socketcall(int call, u32 __user *args)
  {
- 	struct dentry *dentry;
- 	struct qstr name = { .name = "" };
-@@ -388,7 +388,7 @@ static int sock_attach_fd(struct socket *sock, struct file *file)
- 	init_file(file, sock_mnt, dentry, FMODE_READ | FMODE_WRITE,
- 		  &socket_file_ops);
- 	SOCK_INODE(sock)->i_fop = &socket_file_ops;
--	file->f_flags = O_RDWR;
-+	file->f_flags = O_RDWR | (flags & O_NONBLOCK);
- 	file->f_pos = 0;
- 	file->private_data = sock;
+ 	int ret;
+ 	u32 a[6];
+ 	u32 a0, a1;
  
-@@ -401,7 +401,7 @@ int sock_map_fd(struct socket *sock, int flags)
- 	int fd = sock_alloc_fd(&newfile, flags);
- 
- 	if (likely(fd >= 0)) {
--		int err = sock_attach_fd(sock, newfile);
-+		int err = sock_attach_fd(sock, newfile, flags);
- 
- 		if (unlikely(err < 0)) {
- 			put_filp(newfile);
-@@ -1220,7 +1220,7 @@ asmlinkage long sys_socket(int family, int type, int protocol)
- 	int flags;
- 
- 	flags = type & ~SOCK_TYPE_MASK;
--	if (flags & ~SOCK_CLOEXEC)
-+	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+-	if (call < SYS_SOCKET || call > SYS_RECVMSG)
++	if (call < SYS_SOCKET || call > SYS_PACCEPT)
  		return -EINVAL;
- 	type &= SOCK_TYPE_MASK;
+ 	if (copy_from_user(a, args, nas[call]))
+ 		return -EFAULT;
+@@ -764,7 +804,7 @@ asmlinkage long compat_sys_socketcall(int call, u32 __user *args)
+ 		ret = sys_listen(a0, a1);
+ 		break;
+ 	case SYS_ACCEPT:
+-		ret = sys_accept(a0, compat_ptr(a1), compat_ptr(a[2]));
++		ret = do_accept(a0, compat_ptr(a1), compat_ptr(a[2]), 0);
+ 		break;
+ 	case SYS_GETSOCKNAME:
+ 		ret = sys_getsockname(a0, compat_ptr(a1), compat_ptr(a[2]));
+@@ -804,6 +844,10 @@ asmlinkage long compat_sys_socketcall(int call, u32 __user *args)
+ 	case SYS_RECVMSG:
+ 		ret = compat_sys_recvmsg(a0, compat_ptr(a1), a[2]);
+ 		break;
++	case SYS_PACCEPT:
++		ret = compat_sys_paccept(a0, compat_ptr(a1), compat_ptr(a[2]),
++					 compat_ptr(a[3]), a[4], a[5]);
++		break;
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+diff --git a/net/socket.c b/net/socket.c
+index 6d6f406..634ad83 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1412,14 +1412,17 @@ asmlinkage long sys_listen(int fd, int backlog)
+  *	clean when we restucture accept also.
+  */
  
-@@ -1228,7 +1228,7 @@ asmlinkage long sys_socket(int family, int type, int protocol)
- 	if (retval < 0)
- 		goto out;
- 
--	retval = sock_map_fd(sock, flags & O_CLOEXEC);
-+	retval = sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK));
- 	if (retval < 0)
- 		goto out_release;
- 
-@@ -1254,7 +1254,7 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
- 	int flags;
- 
- 	flags = type & ~SOCK_TYPE_MASK;
--	if (flags & ~SOCK_CLOEXEC)
-+	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
- 		return -EINVAL;
- 	type &= SOCK_TYPE_MASK;
- 
-@@ -1289,12 +1289,12 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
- 		goto out_release_both;
- 	}
- 
--	err = sock_attach_fd(sock1, newfile1);
-+	err = sock_attach_fd(sock1, newfile1, flags & O_NONBLOCK);
- 	if (unlikely(err < 0)) {
- 		goto out_fd2;
- 	}
- 
--	err = sock_attach_fd(sock2, newfile2);
-+	err = sock_attach_fd(sock2, newfile2, flags & O_NONBLOCK);
- 	if (unlikely(err < 0)) {
- 		fput(newfile1);
- 		goto out_fd1;
-@@ -1420,7 +1420,7 @@ long do_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+-asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+-			   int __user *upeer_addrlen)
++long do_accept(int fd, struct sockaddr __user *upeer_sockaddr,
++	       int __user *upeer_addrlen, int flags)
+ {
+ 	struct socket *sock, *newsock;
+ 	struct file *newfile;
  	int err, len, newfd, fput_needed;
  	char address[MAX_SOCK_ADDR];
  
--	if (flags & ~SOCK_CLOEXEC)
-+	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
++	if (flags & ~SOCK_CLOEXEC)
++		return -EINVAL;
++
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (!sock)
+ 		goto out;
+@@ -1437,7 +1440,7 @@ asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+ 	 */
+ 	__module_get(newsock->ops->owner);
+ 
+-	newfd = sock_alloc_fd(&newfile, 0);
++	newfd = sock_alloc_fd(&newfile, flags & O_CLOEXEC);
+ 	if (unlikely(newfd < 0)) {
+ 		err = newfd;
+ 		sock_release(newsock);
+@@ -1490,6 +1493,50 @@ out_fd:
+ 	goto out_put;
+ }
+ 
++asmlinkage long sys_paccept(int fd, struct sockaddr __user *upeer_sockaddr,
++			    int __user *upeer_addrlen,
++			    const sigset_t __user *sigmask,
++			    size_t sigsetsize, int flags)
++{
++	sigset_t ksigmask, sigsaved;
++	int ret;
++
++	if (sigmask) {
++		/* XXX: Don't preclude handling different sized sigset_t's.  */
++		if (sigsetsize != sizeof(sigset_t))
++			return -EINVAL;
++		if (copy_from_user(&ksigmask, sigmask, sizeof(ksigmask)))
++			return -EFAULT;
++
++		sigdelsetmask(&ksigmask, sigmask(SIGKILL)|sigmask(SIGSTOP));
++		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
++        }
++
++	ret = do_accept(fd, upeer_sockaddr, upeer_addrlen, flags);
++
++	if (ret < 0 && signal_pending(current)) {
++		/*
++		 * Don't restore the signal mask yet. Let do_signal() deliver
++		 * the signal on the way back to userspace, before the signal
++		 * mask is restored.
++		 */
++		if (sigmask) {
++			memcpy(&current->saved_sigmask, &sigsaved,
++			       sizeof(sigsaved));
++			set_thread_flag(TIF_RESTORE_SIGMASK);
++		}
++	} else if (sigmask)
++		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
++
++	return ret;
++}
++
++asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
++			   int __user *upeer_addrlen)
++{
++	return do_accept(fd, upeer_sockaddr, upeer_addrlen, 0);
++}
++
+ /*
+  *	Attempt to connect to a socket with the server address.  The address
+  *	is in user space so we verify it is OK and move it to kernel space.
+@@ -2000,10 +2047,11 @@ out:
+ 
+ /* Argument list sizes for sys_socketcall */
+ #define AL(x) ((x) * sizeof(unsigned long))
+-static const unsigned char nargs[18]={
++static const unsigned char nargs[19]={
+ 	AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
+ 	AL(3),AL(3),AL(4),AL(4),AL(4),AL(6),
+-	AL(6),AL(2),AL(5),AL(5),AL(3),AL(3)
++	AL(6),AL(2),AL(5),AL(5),AL(3),AL(3),
++	AL(6)
+ };
+ 
+ #undef AL
+@@ -2022,7 +2070,7 @@ asmlinkage long sys_socketcall(int call, unsigned long __user *args)
+ 	unsigned long a0, a1;
+ 	int err;
+ 
+-	if (call < 1 || call > SYS_RECVMSG)
++	if (call < 1 || call > SYS_PACCEPT)
  		return -EINVAL;
  
- 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
-@@ -1447,7 +1447,7 @@ long do_accept(int fd, struct sockaddr __user *upeer_sockaddr,
- 		goto out_put;
- 	}
- 
--	err = sock_attach_fd(newsock, newfile);
-+	err = sock_attach_fd(newsock, newfile, flags & O_NONBLOCK);
- 	if (err < 0)
- 		goto out_fd_simple;
- 
+ 	/* copy_from_user should be SMP safe. */
+@@ -2051,8 +2099,8 @@ asmlinkage long sys_socketcall(int call, unsigned long __user *args)
+ 		break;
+ 	case SYS_ACCEPT:
+ 		err =
+-		    sys_accept(a0, (struct sockaddr __user *)a1,
+-			       (int __user *)a[2]);
++		    do_accept(a0, (struct sockaddr __user *)a1,
++			      (int __user *)a[2], 0);
+ 		break;
+ 	case SYS_GETSOCKNAME:
+ 		err =
+@@ -2099,6 +2147,13 @@ asmlinkage long sys_socketcall(int call, unsigned long __user *args)
+ 	case SYS_RECVMSG:
+ 		err = sys_recvmsg(a0, (struct msghdr __user *)a1, a[2]);
+ 		break;
++	case SYS_PACCEPT:
++		err =
++		    sys_paccept(a0, (struct sockaddr __user *)a1,
++			        (int __user *)a[2],
++				(const sigset_t __user *) a[3],
++				a[4], a[5]);
++		break;
+ 	default:
+ 		err = -EINVAL;
+ 		break;
