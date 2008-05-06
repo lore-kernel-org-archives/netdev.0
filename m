@@ -1,40 +1,190 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 11/18] flag parametersi: NONBLOCK in anon_inode_getfd
+Subject: [PATCH 16/18] flag parameters: NONBLOCK in pipe
 Date: Tue, 6 May 2008 17:18:07 -0400
-Message-ID: <200805062118.m46LI7uC004069@devserv.devel.redhat.com>
+Message-ID: <200805062118.m46LI7P2004089@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48534 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48543 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932920AbYEFVSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 17:18:16 -0400
+	id S933020AbYEFVSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Building on the previous change to anon_inode_getfd, this patch introduces
-support for handling of O_NONBLOCK in addition to the already supported
-O_CLOEXEC.  Following patches will take advantage of this support.  As
-can be seen, the additional support for supporting this functionality is
-minimal.
+This patch adds O_NONBLOCK support to pipe2.  It is minimally more involved
+than the patches for eventfd et.al but still trivial.  The interfaces of the
+create_write_pipe and create_read_pipe helper functions were changed and the
+one other caller as well.
 
- anon_inodes.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The following test must be adjusted for architectures other than x86 and
+x86-64 and in case the syscall numbers changed.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+
+#ifndef __NR_pipe2
+# ifdef __x86_64__
+#  define __NR_pipe2 293
+# elif defined __i386__
+#  define __NR_pipe2 331
+# else
+#  error "need __NR_pipe2"
+# endif
+#endif
+
+int
+main (void)
+{
+  int fds[2];
+  if (syscall (__NR_pipe2, fds, 0) == -1)
+    {
+      puts ("pipe2(0) failed");
+      return 1;
+    }
+  for (int i = 0; i < 2; ++i)
+    {
+      int fl = fcntl (fds[i], F_GETFL);
+      if (fl == -1)
+        {
+          puts ("fcntl failed");
+          return 1;
+        }
+      if (fl & O_NONBLOCK)
+        {
+          printf ("pipe2(0) set non-blocking mode for fds[%d]\n", i);
+          return 1;
+        }
+      close (fds[i]);
+    }
+
+  if (syscall (__NR_pipe2, fds, O_NONBLOCK) == -1)
+    {
+      puts ("pipe2(O_NONBLOCK) failed");
+      return 1;
+    }
+  for (int i = 0; i < 2; ++i)
+    {
+      int fl = fcntl (fds[i], F_GETFL);
+      if (fl == -1)
+        {
+          puts ("fcntl failed");
+          return 1;
+        }
+      if ((fl & O_NONBLOCK) == 0)
+        {
+          printf ("pipe2(O_NONBLOCK) does not set non-blocking mode for fds[%d]\n", i);
+          return 1;
+        }
+      close (fds[i]);
+    }
+
+  puts ("OK");
+
+  return 0;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ fs/pipe.c          |   14 +++++++-------
+ include/linux/fs.h |    4 ++--
+ kernel/kmod.c      |    4 ++--
+ 3 files changed, 11 insertions(+), 11 deletions(-)
 
 
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
-diff --git a/fs/anon_inodes.c b/fs/anon_inodes.c
-index 1a4eee6..3662dd4 100644
---- a/fs/anon_inodes.c
-+++ b/fs/anon_inodes.c
-@@ -116,7 +116,7 @@ int anon_inode_getfd(const char *name, const struct file_operations *fops,
- 	file->f_mapping = anon_inode_inode->i_mapping;
+diff --git a/fs/pipe.c b/fs/pipe.c
+index 059411e..796c0a0 100644
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -949,7 +949,7 @@ fail_inode:
+ 	return NULL;
+ }
  
- 	file->f_pos = 0;
--	file->f_flags = O_RDWR;
-+	file->f_flags = O_RDWR | (flags & O_NONBLOCK);
- 	file->f_version = 0;
- 	file->private_data = priv;
+-struct file *create_write_pipe(void)
++struct file *create_write_pipe(int flags)
+ {
+ 	int err;
+ 	struct inode *inode;
+@@ -982,7 +982,7 @@ struct file *create_write_pipe(void)
+ 		goto err_dentry;
+ 	f->f_mapping = inode->i_mapping;
  
+-	f->f_flags = O_WRONLY;
++	f->f_flags = O_WRONLY | (flags & O_NONBLOCK);
+ 	f->f_version = 0;
+ 
+ 	return f;
+@@ -1007,7 +1007,7 @@ void free_write_pipe(struct file *f)
+ 	put_filp(f);
+ }
+ 
+-struct file *create_read_pipe(struct file *wrf)
++struct file *create_read_pipe(struct file *wrf, int flags)
+ {
+ 	struct file *f = get_empty_filp();
+ 	if (!f)
+@@ -1019,7 +1019,7 @@ struct file *create_read_pipe(struct file *wrf)
+ 	f->f_mapping = wrf->f_path.dentry->d_inode->i_mapping;
+ 
+ 	f->f_pos = 0;
+-	f->f_flags = O_RDONLY;
++	f->f_flags = O_RDONLY | (flags & O_NONBLOCK);
+ 	f->f_op = &read_pipe_fops;
+ 	f->f_mode = FMODE_READ;
+ 	f->f_version = 0;
+@@ -1033,13 +1033,13 @@ int do_pipe_flags(int *fd, int flags)
+ 	int error;
+ 	int fdw, fdr;
+ 
+-	if (flags & ~O_CLOEXEC)
++	if (flags & ~(O_CLOEXEC | O_NONBLOCK))
+ 		return -EINVAL;
+ 
+-	fw = create_write_pipe();
++	fw = create_write_pipe(flags);
+ 	if (IS_ERR(fw))
+ 		return PTR_ERR(fw);
+-	fr = create_read_pipe(fw);
++	fr = create_read_pipe(fw, flags);
+ 	error = PTR_ERR(fr);
+ 	if (IS_ERR(fr))
+ 		goto err_write_pipe;
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 134d2d5..3694eeb 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -1776,8 +1776,8 @@ static inline void allow_write_access(struct file *file)
+ }
+ extern int do_pipe(int *);
+ extern int do_pipe_flags(int *, int);
+-extern struct file *create_read_pipe(struct file *f);
+-extern struct file *create_write_pipe(void);
++extern struct file *create_read_pipe(struct file *f, int flags);
++extern struct file *create_write_pipe(int flags);
+ extern void free_write_pipe(struct file *);
+ 
+ extern struct file *do_filp_open(int dfd, const char *pathname,
+diff --git a/kernel/kmod.c b/kernel/kmod.c
+index 8df97d3..7356146 100644
+--- a/kernel/kmod.c
++++ b/kernel/kmod.c
+@@ -417,12 +417,12 @@ int call_usermodehelper_stdinpipe(struct subprocess_info *sub_info,
+ {
+ 	struct file *f;
+ 
+-	f = create_write_pipe();
++	f = create_write_pipe(0);
+ 	if (IS_ERR(f))
+ 		return PTR_ERR(f);
+ 	*filp = f;
+ 
+-	f = create_read_pipe(f);
++	f = create_read_pipe(f, 0);
+ 	if (IS_ERR(f)) {
+ 		free_write_pipe(*filp);
+ 		return PTR_ERR(f);
