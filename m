@@ -1,65 +1,72 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: New driver "sfc" for Solarstorm SFC4000 controller.
-Date: Tue, 6 May 2008 07:24:42 -0700
-Message-ID: <20080506072442.82a834c8.akpm@linux-foundation.org>
-References: <200804301925.m3UJPc72001651@hera.kernel.org>
-	<20080501120858.207b6dd6.akpm@linux-foundation.org>
-	<20080502160530.GN14219@solarflare.com>
-	<20080502110908.93c79d81.akpm@linux-foundation.org>
-	<20080506125008.GA2217@solarflare.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 1/4][MAC80211]: Fix GFP_KERNEL allocation under read lock.
+Date: Tue, 06 May 2008 18:46:36 +0400
+Message-ID: <48206F4C.5050105@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50343 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751123AbYEFOZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 10:25:15 -0400
-In-Reply-To: <20080506125008.GA2217@solarflare.com>
+Received: from sacred.ru ([62.205.161.221]:50228 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755658AbYEFOtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 10:49:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 6 May 2008 13:50:09 +0100 Ben Hutchings <bhutchings@solarflare.com> wrote:
+The mesh_path_add() read-locks the pathtbl_resize_lock and calls
+kmalloc with GFP_KERNEL mask.
 
-> Andrew Morton wrote:
-> > On Fri, 2 May 2008 17:05:35 +0100 Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > 
-> > > > Oh dear, it found
-> > > > 
-> > > > #5617: FILE: drivers/net/sfc/falcon.c:1877:
-> > > > +               if (*(volatile u32 *)dma_done == FALCON_STATS_DONE)
-> > > > 
-> > > > which was naughty of you.  Perhaps this was already discussed in review
-> > > > with the people who actually know what they're talking about.
-> > > 
-> > > There wasn't any specific discussion of this.  Is it wrong?  We want to
-> > > prevent the compiler from caching *dma_done, which is itself written by DMA.
-> > 
-> > Documentation/volatile-considered-harmful.txt has some dicussion.
-> 
-> Looks like we should be using something like:
-> 
-> 	while (*dma_done != FALCON_STATS_DONE)
-> 		cpu_relax();
-> 
-> But then how do we time-out?
+Fix it and move the endadd2 label lower. It should be _before_ the
+if() beyond, but it makes no sense for it being there, so I move it
+right after this if().
 
-Dunno, something like
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
- 	while (*dma_done != FALCON_STATS_DONE) {
-		if (time_after(jiffies, when_to_timeout))
-			goto timeout;
- 		cpu_relax();
-	}
+---
+ net/mac80211/mesh_pathtbl.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-or
+diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
+index 5845dc2..727aa52 100644
+--- a/net/mac80211/mesh_pathtbl.c
++++ b/net/mac80211/mesh_pathtbl.c
+@@ -158,14 +158,14 @@ int mesh_path_add(u8 *dst, struct net_device *dev)
+ 	if (atomic_add_unless(&sdata->u.sta.mpaths, 1, MESH_MAX_MPATHS) == 0)
+ 		return -ENOSPC;
+ 
+-	read_lock(&pathtbl_resize_lock);
+-
+ 	new_mpath = kzalloc(sizeof(struct mesh_path), GFP_KERNEL);
+ 	if (!new_mpath) {
+ 		atomic_dec(&sdata->u.sta.mpaths);
+ 		err = -ENOMEM;
+ 		goto endadd2;
+ 	}
++
++	read_lock(&pathtbl_resize_lock);
+ 	memcpy(new_mpath->dst, dst, ETH_ALEN);
+ 	new_mpath->dev = dev;
+ 	new_mpath->flags = 0;
+@@ -202,7 +202,6 @@ int mesh_path_add(u8 *dst, struct net_device *dev)
+ 
+ endadd:
+ 	spin_unlock(&mesh_paths->hashwlock[hash_idx]);
+-endadd2:
+ 	read_unlock(&pathtbl_resize_lock);
+ 	if (!err && grow) {
+ 		struct mesh_table *oldtbl, *newtbl;
+@@ -219,6 +218,7 @@ endadd2:
+ 		mesh_table_free(oldtbl, false);
+ 		write_unlock(&pathtbl_resize_lock);
+ 	}
++endadd2:
+ 	return err;
+ }
+ 
+-- 
+1.5.3.4
 
- 	while (*dma_done != FALCON_STATS_DONE) {
-		udelay(1);
-		if (++timeout > TIMEOUT)
-			goto timeout;
-	}
-
-?
