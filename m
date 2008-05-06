@@ -1,85 +1,138 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [DCCP/CCID-3] [PATCH 0/4]: Bug fixes and smaller TX socket
-Date: Tue,  6 May 2008 08:38:01 +0100
-Message-ID: <1210059485-691-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/4] [CCID-3]: Simplify tx_parse_options
+Date: Tue,  6 May 2008 08:38:03 +0100
+Message-ID: <1210059485-691-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid3_bug_fixes_and_reducing_tx_socket_by_18_bytes>
+ <1210059485-691-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1210059485-691-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41616 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751716AbYEFHj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 03:39:27 -0400
-In-Reply-To: <ccid3_bug_fixes_and_reducing_tx_socket_by_18_bytes>
+	id S1753445AbYEFHjr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 03:39:47 -0400
+In-Reply-To: <1210059485-691-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A small set of updates, including a bug fix and, by removing redundancies,
-reducing the size of the CCID-3/4 socket by a further 18 bytes.  
-  
-All changes have been uploaded to
-	git://eden-feed.erg.abdn.ac.uk/dccp_exp	[dccp,ccid4]
-and the `ccid4' subtree has been updated to mirror the changes to CCID-3.	
+This simplifies and consolidates the TX option-parsing code:
 
+ 1. The Loss Intervals option is not currently used, so dead code related to
+    this option is removed. I am aware of no plans to support the option, but
+    if someone wants to implement it (e.g. for inter-op tests), it is better
+    to start afresh than having to also update currently unused code.
 
+ 2. The Loss Event and Receive Rate options have a lot of code in common (both
+    are 32 bit, both have same length etc.), so this is consolidated.
 
-Patch #1: Removes the ugly history-lookup function tfrc_tx_hist_rtt(), since
-          its complex passing of return values triggered ambiguous bug
-	  warnings; further subsuming/replacing an earlier test tree patch.
-	  The code format is thanks to an earlier suggestion by Arnaldo.
+ 3. The test against GSR is not necessary, because
+    - on first loading CCID3, ccid_new() zeroes out all fields in the socket;
+    - ccid3_hc_tx_packet_recv() treats 0 and ~0U equivalently, due to
 
-Patch #2: Removes some redundancies (32 lines) in ccid3_hc_tx_parse_options().
+	pinv = opt_recv->ccid3or_loss_event_rate;
+	if (pinv == ~0U || pinv == 0)
+		hctx->p = 0;
 
-Patch #3: Allows ccid_hc_{tx,rx}_parse_options() to check the packet type on
-          which options where received, as necessitated by RFC 4340, 10.3.
+    - as a result, the sequence number field is removed from opt_recv.
 
-Patch #4: Finds that the `options_received' sub-struct of ccid3_hc_tx_sock
-          is redundant, and removes it altogether. The conversion of received
-	  options now happens directly, in ccid3_hc_tx_parse_options().
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid3.c |   57 +++++++++++------------------------------------
+ net/dccp/ccids/ccid3.h |    3 --
+ 2 files changed, 14 insertions(+), 46 deletions(-)
 
-
-
-                  ---------------------------------  
-                  ***** Test Tree Update Note *****
-                  ---------------------------------
-Work on the last patch further helped to fix an omission in an earlier test tree
-patch  entitled "[CCID-3]: Remove dead states". The difference below includes:
-
- * the unnecessary test ("state != NO_FBACK") was removed (the timer
-   is first started when changing from NO_SENT => NO_FBACK and from
-   then on the state toggles between FBACK and NO_FBACK);
-
- * the timer is instead disarmed when the socket is no longer in the
-   established state: when closing the connection, it is not necessary
-   to restart the nofeedback timer -- the connection is in its last
-   stages anyway, and the relevant retransmissions of Close or CloseReq
-   packets then happen as a matter of course;
-
- * I think that the following BUG_ON in ccid3_hc_tx_no_feedback_timer(),
-	BUG_ON(hctx->p && !hctx->x_calc),
-   is now also redundant since, as long as the TX side receives feedback,
-   tx_packet_recv is called after tx_parse_options, so that p > 0 leads
-   to calling tfrc_calc_x().
-
---- b/net/dccp/ccids/ccid3.c
+--- a/net/dccp/ccids/ccid3.h
++++ b/net/dccp/ccids/ccid3.h
+@@ -60,9 +60,6 @@ enum ccid3_options {
+ };
+ 
+ struct ccid3_options_received {
+-	u64 ccid3or_seqno:48,
+-	    ccid3or_loss_intervals_idx:16;
+-	u16 ccid3or_loss_intervals_len;
+ 	u32 ccid3or_loss_event_rate;
+ 	u32 ccid3or_receive_rate;
+ };
+--- a/net/dccp/ccids/ccid3.c
 +++ b/net/dccp/ccids/ccid3.c
-@@ -213,10 +213,13 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long
- 	ccid3_pr_debug("%s(%p, state=%s) - entry \n", dccp_role(sk), sk,
- 		       ccid3_tx_state_name(hctx->state));
+@@ -478,60 +478,31 @@ static int ccid3_hc_tx_parse_options(struct sock *sk, unsigned char option,
+ 				     unsigned char len, u16 idx,
+ 				     unsigned char *value)
+ {
+-	int rc = 0;
+-	const struct dccp_sock *dp = dccp_sk(sk);
+ 	struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
+ 	struct ccid3_options_received *opt_recv = &hctx->options_received;
+ 	__be32 opt_val;
  
-+	/* Ignore and do not restart after leaving the established state */
-+	if ((1 << sk->sk_state) & ~(DCCPF_OPEN | DCCPF_PARTOPEN))
-+		goto out;
+-	if (opt_recv->ccid3or_seqno != dp->dccps_gsr) {
+-		opt_recv->ccid3or_seqno		     = dp->dccps_gsr;
+-		opt_recv->ccid3or_loss_event_rate    = ~0;
+-		opt_recv->ccid3or_loss_intervals_idx = 0;
+-		opt_recv->ccid3or_loss_intervals_len = 0;
+-		opt_recv->ccid3or_receive_rate	     = 0;
+-	}
+-
+ 	switch (option) {
++	case TFRC_OPT_RECEIVE_RATE:
+ 	case TFRC_OPT_LOSS_EVENT_RATE:
+ 		if (unlikely(len != 4)) {
+-			DCCP_WARN("%s(%p), invalid len %d "
+-				  "for TFRC_OPT_LOSS_EVENT_RATE\n",
+-				  dccp_role(sk), sk, len);
+-			rc = -EINVAL;
+-		} else {
+-			opt_val = get_unaligned((__be32 *)value);
+-			opt_recv->ccid3or_loss_event_rate = ntohl(opt_val);
+-			ccid3_pr_debug("%s(%p), LOSS_EVENT_RATE=%u\n",
+-				       dccp_role(sk), sk,
+-				       opt_recv->ccid3or_loss_event_rate);
++			DCCP_WARN("%s(%p), invalid len %d for %u\n",
++				  dccp_role(sk), sk, len, option);
++			return -EINVAL;
+ 		}
+-		break;
+-	case TFRC_OPT_LOSS_INTERVALS:
+-		opt_recv->ccid3or_loss_intervals_idx = idx;
+-		opt_recv->ccid3or_loss_intervals_len = len;
+-		ccid3_pr_debug("%s(%p), LOSS_INTERVALS=(%u, %u)\n",
+-			       dccp_role(sk), sk,
+-			       opt_recv->ccid3or_loss_intervals_idx,
+-			       opt_recv->ccid3or_loss_intervals_len);
+-		break;
+-	case TFRC_OPT_RECEIVE_RATE:
+-		if (unlikely(len != 4)) {
+-			DCCP_WARN("%s(%p), invalid len %d "
+-				  "for TFRC_OPT_RECEIVE_RATE\n",
+-				  dccp_role(sk), sk, len);
+-			rc = -EINVAL;
+-		} else {
+-			opt_val = get_unaligned((__be32 *)value);
+-			opt_recv->ccid3or_receive_rate = ntohl(opt_val);
++		opt_val = ntohl(get_unaligned((__be32 *)value));
 +
-+	/* Reset feedback state to "no feedback received" */
- 	if (hctx->state == TFRC_SSTATE_FBACK)
- 		ccid3_hc_tx_set_state(sk, TFRC_SSTATE_NO_FBACK);
--	else if (hctx->state != TFRC_SSTATE_NO_FBACK)
--		goto out;
++		if (option == TFRC_OPT_RECEIVE_RATE) {
++			opt_recv->ccid3or_receive_rate = opt_val;
+ 			ccid3_pr_debug("%s(%p), RECEIVE_RATE=%u\n",
+-				       dccp_role(sk), sk,
+-				       opt_recv->ccid3or_receive_rate);
++				       dccp_role(sk), sk, opt_val);
++		} else {
++			opt_recv->ccid3or_loss_event_rate = opt_val;
++			ccid3_pr_debug("%s(%p), LOSS_EVENT_RATE=%u\n",
++				       dccp_role(sk), sk, opt_val);
+ 		}
+-		break;
+ 	}
+-
+-	return rc;
++	return 0;
+ }
  
- 	/*
- 	 * Determine new allowed sending rate X as per draft rfc3448bis-00, 4.4
+ static int ccid3_hc_tx_init(struct ccid *ccid, struct sock *sk)
 
 
 The University of Aberdeen is a charity registered in Scotland, No SC013683.
