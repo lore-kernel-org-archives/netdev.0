@@ -1,23 +1,25 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 10/18] flag parameters: inotify_init
+Subject: [PATCH 07/18] flag parameters: epoll_create
 Date: Tue, 6 May 2008 17:18:07 -0400
-Message-ID: <200805062118.m46LI7EM004065@devserv.devel.redhat.com>
+Message-ID: <200805062118.m46LI7fK004056@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48586 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48583 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933107AbYEFVSw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 17:18:52 -0400
+	id S933141AbYEFVSu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces the new syscall inotify_init1 (note: the 1 stands
-for the one parameter the syscall takes, as opposed to no parameter before).
-The values excepted for this parameter are function-specific and defined
-in the inotify.h header.  Here the values must match the O_* flags, though.
-In this patch CLOEXEC support is introduced.
+This patch adds the new epoll_create2 syscall.  It extends the old epoll_create
+syscall by one parameter which is meant to hold a flag value.  In this
+patch the only flag support is EPOLL_CLOEXEC which causes the close-on-exec
+flag for the returned file descriptor to be set.
+
+A new name EPOLL_CLOEXEC is introduced which in this implementation must
+have the same value as O_CLOEXEC.
 
 The following test must be adjusted for architectures other than x86 and
 x86-64 and in case the syscall numbers changed.
@@ -25,29 +27,29 @@ x86-64 and in case the syscall numbers changed.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include <fcntl.h>
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#ifndef __NR_inotify_init1
+#ifndef __NR_epoll_create2
 # ifdef __x86_64__
-#  define __NR_inotify_init1 294
+#  define __NR_epoll_create2 291
 # elif defined __i386__
-#  define __NR_inotify_init1 332
+#  define __NR_epoll_create2 329
 # else
-#  error "need __NR_inotify_init1"
+#  error "need __NR_epoll_create2"
 # endif
 #endif
 
-#define IN_CLOEXEC O_CLOEXEC
+#define EPOLL_CLOEXEC O_CLOEXEC
 
 int
 main (void)
 {
-  int fd;
-  fd = syscall (__NR_inotify_init1, 0);
+  int fd = syscall (__NR_epoll_create2, 1, 0);
   if (fd == -1)
     {
-      puts ("inotify_init1(0) failed");
+      puts ("epoll_create2(0) failed");
       return 1;
     }
   int coe = fcntl (fd, F_GETFD);
@@ -58,15 +60,15 @@ main (void)
     }
   if (coe & FD_CLOEXEC)
     {
-      puts ("inotify_init1(0) set close-on-exit");
+      puts ("epoll_create2(0) set close-on-exec flag");
       return 1;
     }
   close (fd);
 
-  fd = syscall (__NR_inotify_init1, IN_CLOEXEC);
+  fd = syscall (__NR_epoll_create2, 1, EPOLL_CLOEXEC);
   if (fd == -1)
     {
-      puts ("inotify_init1(IN_CLOEXEC) failed");
+      puts ("epoll_create2(EPOLL_CLOEXEC) failed");
       return 1;
     }
   coe = fcntl (fd, F_GETFD);
@@ -77,7 +79,7 @@ main (void)
     }
   if ((coe & FD_CLOEXEC) == 0)
     {
-      puts ("inotify_init1(O_CLOEXEC) does not set close-on-exit");
+      puts ("epoll_create2(EPOLL_CLOEXEC) set close-on-exec flag");
       return 1;
     }
   close (fd);
@@ -90,129 +92,114 @@ main (void)
 
  arch/x86/ia32/ia32entry.S          |    1 +
  arch/x86/kernel/syscall_table_32.S |    1 +
- fs/inotify_user.c                  |   12 ++++++++++--
+ fs/eventpoll.c                     |   13 +++++++++++--
  include/asm-x86/unistd_32.h        |    1 +
  include/asm-x86/unistd_64.h        |    2 ++
- include/linux/inotify.h            |    5 +++++
+ include/linux/eventpoll.h          |    4 ++++
  include/linux/syscalls.h           |    1 +
  7 files changed, 21 insertions(+), 2 deletions(-)
 
 
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
-diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
-index 34071a2..37e4992 100644
 --- a/arch/x86/ia32/ia32entry.S
 +++ b/arch/x86/ia32/ia32entry.S
-@@ -736,4 +736,5 @@ ia32_sys_call_table:
- 	.quad sys_epoll_create2
- 	.quad sys_dup3			/* 330 */
- 	.quad sys_pipe2
-+	.quad sys_inotify_init1
+@@ -733,4 +733,5 @@ ia32_sys_call_table:
+ 	.quad compat_sys_timerfd_gettime
+ 	.quad compat_sys_signalfd4
+ 	.quad sys_eventfd2
++	.quad sys_epoll_create2
  ia32_syscall_end:
-diff --git a/arch/x86/kernel/syscall_table_32.S b/arch/x86/kernel/syscall_table_32.S
-index 6615476..f59aba5 100644
 --- a/arch/x86/kernel/syscall_table_32.S
 +++ b/arch/x86/kernel/syscall_table_32.S
-@@ -331,3 +331,4 @@ ENTRY(sys_call_table)
- 	.long sys_epoll_create2
- 	.long sys_dup3			/* 330 */
- 	.long sys_pipe2
-+	.long sys_inotify_init1
-diff --git a/fs/inotify_user.c b/fs/inotify_user.c
-index 6676c06..93ab4a6 100644
---- a/fs/inotify_user.c
-+++ b/fs/inotify_user.c
-@@ -566,7 +566,7 @@ static const struct inotify_operations inotify_user_ops = {
- 	.destroy_watch	= free_inotify_user_watch,
- };
- 
--asmlinkage long sys_inotify_init(void)
-+asmlinkage long sys_inotify_init1(int flags)
+@@ -328,3 +328,4 @@ ENTRY(sys_call_table)
+ 	.long sys_timerfd_gettime
+ 	.long sys_signalfd4
+ 	.long sys_eventfd2
++	.long sys_epoll_create2
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -1046,11 +1046,14 @@ retry:
+  * RB tree. With the current implementation, the "size" parameter is ignored
+  * (besides sanity checks).
+  */
+-asmlinkage long sys_epoll_create(int size)
++asmlinkage long sys_epoll_create2(int size, int flags)
  {
- 	struct inotify_device *dev;
- 	struct inotify_handle *ih;
-@@ -574,7 +574,10 @@ asmlinkage long sys_inotify_init(void)
- 	struct file *filp;
- 	int fd, ret;
+ 	int error, fd = -1;
+ 	struct eventpoll *ep;
  
--	fd = get_unused_fd();
-+	if (flags & ~IN_CLOEXEC)
++	if (flags & ~EPOLL_CLOEXEC)
 +		return -EINVAL;
 +
-+	fd = get_unused_fd_flags(flags & O_CLOEXEC);
- 	if (fd < 0)
- 		return fd;
+ 	DNPRINTK(3, (KERN_INFO "[%p] eventpoll: sys_epoll_create(%d)\n",
+ 		     current, size));
  
-@@ -638,6 +641,11 @@ out_put_fd:
- 	return ret;
+@@ -1068,7 +1071,8 @@ asmlinkage long sys_epoll_create(int size)
+ 	 * Creates all the items needed to setup an eventpoll file. That is,
+ 	 * a file structure and a free file descriptor.
+ 	 */
+-	fd = anon_inode_getfd("[eventpoll]", &eventpoll_fops, ep, 0);
++	fd = anon_inode_getfd("[eventpoll]", &eventpoll_fops, ep,
++			      flags & O_CLOEXEC);
+ 	if (fd < 0)
+ 		ep_free(ep);
+ 
+@@ -1079,6 +1083,11 @@ error_return:
+ 	return fd;
  }
  
-+asmlinkage long sys_inotify_init(void)
++asmlinkage long sys_epoll_create(int size)
 +{
-+	return sys_inotify_init1(0);
++	return sys_epoll_create2(size, 0);
 +}
 +
- asmlinkage long sys_inotify_add_watch(int fd, const char __user *path, u32 mask)
- {
- 	struct inode *inode;
-diff --git a/include/asm-x86/unistd_32.h b/include/asm-x86/unistd_32.h
-index 748a05c..b3daf50 100644
+ /*
+  * The following function implements the controller interface for
+  * the eventpoll file that enables the insertion/removal/change of
 --- a/include/asm-x86/unistd_32.h
 +++ b/include/asm-x86/unistd_32.h
-@@ -337,6 +337,7 @@
- #define __NR_epoll_create2	329
- #define __NR_dup3		330
- #define __NR_pipe2		331
-+#define __NR_inotify_init1	332
+@@ -334,6 +334,7 @@
+ #define __NR_timerfd_gettime	326
+ #define __NR_signalfd4		327
+ #define __NR_eventfd2		328
++#define __NR_epoll_create2	329
  
  #ifdef __KERNEL__
  
-diff --git a/include/asm-x86/unistd_64.h b/include/asm-x86/unistd_64.h
-index 6aa423d..5ef6778 100644
 --- a/include/asm-x86/unistd_64.h
 +++ b/include/asm-x86/unistd_64.h
-@@ -651,6 +651,8 @@ __SYSCALL(__NR_epoll_create2, sys_epoll_create2)
- __SYSCALL(__NR_dup3, sys_dup3)
- #define __NR_pipe2				293
- __SYSCALL(__NR_pipe2, sys_pipe2)
-+#define __NR_inotify_init1			294
-+__SYSCALL(__NR_inotify_init1, sys_inotify_init1)
+@@ -645,6 +645,8 @@ __SYSCALL(__NR_paccept, sys_paccept)
+ __SYSCALL(__NR_signalfd4, sys_signalfd4)
+ #define __NR_eventfd2				290
+ __SYSCALL(__NR_eventfd2, sys_eventfd2)
++#define __NR_epoll_create2			291
++__SYSCALL(__NR_epoll_create2, sys_epoll_create2)
  
  
  #ifndef __NO_STUBS
-diff --git a/include/linux/inotify.h b/include/linux/inotify.h
-index 742b917..72ef821 100644
---- a/include/linux/inotify.h
-+++ b/include/linux/inotify.h
-@@ -7,6 +7,8 @@
- #ifndef _LINUX_INOTIFY_H
- #define _LINUX_INOTIFY_H
+--- a/include/linux/eventpoll.h
++++ b/include/linux/eventpoll.h
+@@ -14,8 +14,12 @@
+ #ifndef _LINUX_EVENTPOLL_H
+ #define _LINUX_EVENTPOLL_H
  
 +/* For O_CLOEXEC */
 +#include <linux/fcntl.h>
  #include <linux/types.h>
  
- /*
-@@ -63,6 +65,9 @@ struct inotify_event {
- 			 IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF | \
- 			 IN_MOVE_SELF)
++/* Flags for epoll_create2.  */
++#define EPOLL_CLOEXEC O_CLOEXEC
  
-+/* Flags for sys_inotify_init1.  */
-+#define IN_CLOEXEC O_CLOEXEC
-+
- #ifdef __KERNEL__
- 
- #include <linux/dcache.h>
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index 143d5ee..aeb2df8 100644
+ /* Valid opcodes to issue to sys_epoll_ctl() */
+ #define EPOLL_CTL_ADD 1
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
-@@ -547,6 +547,7 @@ asmlinkage long sys_get_mempolicy(int __user *policy,
- 				unsigned long addr, unsigned long flags);
- 
- asmlinkage long sys_inotify_init(void);
-+asmlinkage long sys_inotify_init1(int flags);
- asmlinkage long sys_inotify_add_watch(int fd, const char __user *path,
- 					u32 mask);
- asmlinkage long sys_inotify_rm_watch(int fd, u32 wd);
+@@ -430,6 +430,7 @@ asmlinkage long sys_poll(struct pollfd __user *ufds, unsigned int nfds,
+ asmlinkage long sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+ 			fd_set __user *exp, struct timeval __user *tvp);
+ asmlinkage long sys_epoll_create(int size);
++asmlinkage long sys_epoll_create2(int size, int flags);
+ asmlinkage long sys_epoll_ctl(int epfd, int op, int fd,
+ 				struct epoll_event __user *event);
+ asmlinkage long sys_epoll_wait(int epfd, struct epoll_event __user *events,
