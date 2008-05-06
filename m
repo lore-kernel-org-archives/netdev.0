@@ -1,135 +1,57 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: [PATCH] arlan: use netstats in net_device structure
-Date: Tue, 06 May 2008 14:44:08 +0300
-Message-ID: <48204488.5030609@teltonika.lt>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 02/18] flag parameters: socket and socketpair
+Date: Tue, 6 May 2008 12:43:15 +0100
+Message-ID: <20080506124315.4567ee73@core>
+References: <200805050342.m453gktl029817@devserv.devel.redhat.com>
+	<20080505185850.789d870a.akpm@linux-foundation.org>
+	<Pine.LNX.4.64.0805051910050.20837@alien.or.mcafeemobile.com>
+	<20080505191725.89faed88.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030807070409040403080809"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------030807070409040403080809
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Davide Libenzi <davidel@xmailserver.org>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, mtk.manpages@gmail.com,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:36710 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755000AbYEFLwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 07:52:42 -0400
+In-Reply-To: <20080505191725.89faed88.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use net_device_stats from net_device structure instead of local.
+> > > 	type = flag_remap(type, &fflags, SOCK_whatever, O_whatever);
+> > > 	type = flag_remap(type, &fflags, SOCK_whatever2, O_whatever2);
+> > > 
+> > > ?
+> > 
+> > I think it is better to keep it able to remap more than one flag, with a 
+> > single call, that is table driven.
+> > 
+> 
+> The table-driven approach is slower for one and probably two bits and it is
+> somewhat less readable.  What do we gain in return for this?
 
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Acute over-engineering ?
 
---------------030807070409040403080809
-Content-Type: text/x-patch;
- name="arlan_netstats.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="arlan_netstats.patch"
+We've got lots of space for flag bits so surely we can do remap with a
+shift and mask.
 
-diff --git a/drivers/net/wireless/arlan-main.c b/drivers/net/wireless/arlan-main.c
-index dbdfc9e..dec5e87 100644
---- a/drivers/net/wireless/arlan-main.c
-+++ b/drivers/net/wireless/arlan-main.c
-@@ -125,7 +125,7 @@ static inline int arlan_drop_tx(struct net_device *dev)
- {
- 	struct arlan_private *priv = netdev_priv(dev);
- 
--	priv->stats.tx_errors++;
-+	dev->stats.tx_errors++;
- 	if (priv->Conf->tx_delay_ms)
- 	{
- 		priv->tx_done_delayed = jiffies + priv->Conf->tx_delay_ms * HZ / 1000 + 1;
-@@ -1269,7 +1269,7 @@ static void arlan_tx_done_interrupt(struct net_device *dev, int status)
- 		{
- 			IFDEBUG(ARLAN_DEBUG_TX_CHAIN)
- 				printk("arlan intr: transmit OK\n");
--			priv->stats.tx_packets++;
-+			dev->stats.tx_packets++;
- 			priv->bad = 0;
- 			priv->reset = 0;
- 			priv->retransmissions = 0;
-@@ -1496,7 +1496,7 @@ static void arlan_rx_interrupt(struct net_device *dev, u_char rxStatus, u_short
- 			if (skb == NULL)
- 			{
- 				printk(KERN_ERR "%s: Memory squeeze, dropping packet.\n", dev->name);
--				priv->stats.rx_dropped++;
-+				dev->stats.rx_dropped++;
- 				break;
- 			}
- 			skb_reserve(skb, 2);
-@@ -1536,14 +1536,14 @@ static void arlan_rx_interrupt(struct net_device *dev, u_char rxStatus, u_short
- 				}
- 			netif_rx(skb);
- 			dev->last_rx = jiffies;
--			priv->stats.rx_packets++;
--			priv->stats.rx_bytes += pkt_len;
-+			dev->stats.rx_packets++;
-+			dev->stats.rx_bytes += pkt_len;
- 		}
- 		break;
- 		
- 		default:
- 			printk(KERN_ERR "arlan intr: received unknown status\n");
--			priv->stats.rx_crc_errors++;
-+			dev->stats.rx_crc_errors++;
- 			break;
- 	}
- 	ARLAN_DEBUG_EXIT("arlan_rx_interrupt");
-@@ -1719,23 +1719,23 @@ static struct net_device_stats *arlan_statistics(struct net_device *dev)
- 
- 	/* Update the statistics from the device registers. */
- 
--	READSHM(priv->stats.collisions, arlan->numReTransmissions, u_int);
--	READSHM(priv->stats.rx_crc_errors, arlan->numCRCErrors, u_int);
--	READSHM(priv->stats.rx_dropped, arlan->numFramesDiscarded, u_int);
--	READSHM(priv->stats.rx_fifo_errors, arlan->numRXBufferOverflows, u_int);
--	READSHM(priv->stats.rx_frame_errors, arlan->numReceiveFramesLost, u_int);
--	READSHM(priv->stats.rx_over_errors, arlan->numRXOverruns, u_int);
--	READSHM(priv->stats.rx_packets, arlan->numDatagramsReceived, u_int);
--	READSHM(priv->stats.tx_aborted_errors, arlan->numAbortErrors, u_int);
--	READSHM(priv->stats.tx_carrier_errors, arlan->numStatusTimeouts, u_int);
--	READSHM(priv->stats.tx_dropped, arlan->numDatagramsDiscarded, u_int);
--	READSHM(priv->stats.tx_fifo_errors, arlan->numTXUnderruns, u_int);
--	READSHM(priv->stats.tx_packets, arlan->numDatagramsTransmitted, u_int);
--	READSHM(priv->stats.tx_window_errors, arlan->numHoldOffs, u_int);
-+	READSHM(dev->stats.collisions, arlan->numReTransmissions, u_int);
-+	READSHM(dev->stats.rx_crc_errors, arlan->numCRCErrors, u_int);
-+	READSHM(dev->stats.rx_dropped, arlan->numFramesDiscarded, u_int);
-+	READSHM(dev->stats.rx_fifo_errors, arlan->numRXBufferOverflows, u_int);
-+	READSHM(dev->stats.rx_frame_errors, arlan->numReceiveFramesLost, u_int);
-+	READSHM(dev->stats.rx_over_errors, arlan->numRXOverruns, u_int);
-+	READSHM(dev->stats.rx_packets, arlan->numDatagramsReceived, u_int);
-+	READSHM(dev->stats.tx_aborted_errors, arlan->numAbortErrors, u_int);
-+	READSHM(dev->stats.tx_carrier_errors, arlan->numStatusTimeouts, u_int);
-+	READSHM(dev->stats.tx_dropped, arlan->numDatagramsDiscarded, u_int);
-+	READSHM(dev->stats.tx_fifo_errors, arlan->numTXUnderruns, u_int);
-+	READSHM(dev->stats.tx_packets, arlan->numDatagramsTransmitted, u_int);
-+	READSHM(dev->stats.tx_window_errors, arlan->numHoldOffs, u_int);
- 
- 	ARLAN_DEBUG_EXIT("arlan_statistics");
- 
--	return &priv->stats;
-+	return &dev->stats;
- }
- 
- 
-diff --git a/drivers/net/wireless/arlan.h b/drivers/net/wireless/arlan.h
-index 3ed1df7..fb3ad51 100644
---- a/drivers/net/wireless/arlan.h
-+++ b/drivers/net/wireless/arlan.h
-@@ -330,7 +330,6 @@ struct TxParam
- #define TX_RING_SIZE 2
- /* Information that need to be kept for each board. */
- struct arlan_private {
--      struct net_device_stats stats;
-       struct arlan_shmem __iomem * card;
-       struct arlan_shmem * conf;
- 
+	flags = (type >> SOCK_FLAG_SHIFT) & SOCK_FLAG_MASK;
+	type = type & SOCK_TYPE_MASK
 
---------------030807070409040403080809--
+For most boxes
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+SOCK_TYPE_MASK can easily be 0xFF
+SOCK_FLAG_MASK O_CLOEXEC
+SOCK_FLAG_SHIFT 0
+
+and tweaked a bit depending what other flags we want.
+
+In Linux we could actually just do SOCK_STREAM|O_CLOEXEC but that would be
+bad news for portability to other OS where the trick might well not work.
+
