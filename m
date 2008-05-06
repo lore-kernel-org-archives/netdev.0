@@ -1,64 +1,48 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] ariadne: use netstats in net_device structure (fwd)
-Date: Tue, 6 May 2008 22:30:15 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0805062230070.6341@anakin>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 10556] New: IPVS sync_backup oops
+Date: Tue, 06 May 2008 13:31:53 -0700 (PDT)
+Message-ID: <20080506.133153.68569175.davem@davemloft.net>
+References: <Pine.LNX.4.58.0804261834450.4615@u.domain.uli>
+	<20080427.164016.01806730.davem@davemloft.net>
+	<20080506131054.fb6196cf.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ja@ssi.bg, netdev@vger.kernel.org, horms@verge.net.au,
+	bugme-daemon@bugzilla.kernel.org, l0op8ack@hotmail.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yorgi.telenet-ops.be ([195.130.133.69]:57290 "EHLO
-	yorgi.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752451AbYEFUbY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 16:31:24 -0400
-Received: from harold.telenet-ops.be (harold.telenet-ops.be [195.130.133.65])
-	by yorgi.telenet-ops.be (Postfix) with ESMTP id DA2F26807A7
-	for <netdev@vger.kernel.org>; Tue,  6 May 2008 22:30:49 +0200 (CEST)
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by harold.telenet-ops.be (Postfix) with SMTP id 5B18F30065
-	for <netdev@vger.kernel.org>; Tue,  6 May 2008 22:30:18 +0200 (CEST)
-Received: from anakin.of.borg (78-21-204-88.access.telenet.be [78.21.204.88])
-	by harold.telenet-ops.be (Postfix) with ESMTP id 4D33030052
-	for <netdev@vger.kernel.org>; Tue,  6 May 2008 22:30:16 +0200 (CEST)
-Received: from anakin.of.borg (localhost [127.0.0.1])
-	by anakin.of.borg (8.14.2/8.14.2/Debian-4) with ESMTP id m46KUGhE013401
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 6 May 2008 22:30:16 +0200
-Received: from localhost (geert@localhost)
-	by anakin.of.borg (8.14.2/8.14.2/Submit) with ESMTP id m46KUGgb013398
-	for <netdev@vger.kernel.org>; Tue, 6 May 2008 22:30:16 +0200
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43560
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932605AbYEFUb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 16:31:58 -0400
+In-Reply-To: <20080506131054.fb6196cf.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----------- Forwarded message ----------
-Date: Tue, 6 May 2008 09:28:14 +0200 (CEST)
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Cc: Linux/m68k <linux-m68k@vger.kernel.org>
-Subject: Re: [PATCH] ariadne: use netstats in net_device structure
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 6 May 2008 13:10:54 -0700
 
-On Tue, 6 May 2008, Paulius Zaleckas wrote:
-> Use net_device_stats from net_device structure instead of local.
+> On Sun, 27 Apr 2008 16:40:16 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> Haven't tried to compile it. Need ack from m68k people!
+> > From: Julian Anastasov <ja@ssi.bg>
+> > Date: Sat, 26 Apr 2008 20:48:46 +0300 (EEST)
+> > 
+> > > 	Result from ip_vs_proto_get() should be checked because
+> > > protocol value can be invalid or unsupported in backup. Also, add
+> > > checks to validate message limits and connection state.
+> > > 
+> > > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> > 
+> > This patch looks great, and fixes real bugs regardless of the
+> > effect upon the bug report in question.
+> > 
+> > I would really like to see this fix tested, because if it fixes
+> > the specific bug, all the better, and we should indicate this in
+> > the changelog message.
 > 
-> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> The reporter (L0op8ack <l0op8ack@hotmail.com>) has used the bugzilla web
+> interface to confirm that this patch fixes 2.6.24.4.
 
-Thanks!
-
-I slightly changed your patch to remove 2 instances of `priv' that are
-no longer used.
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
---
-To unsubscribe from this list: send the line "unsubscribe linux-m68k" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Great, thanks for the update.
