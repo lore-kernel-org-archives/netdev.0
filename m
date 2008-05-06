@@ -1,68 +1,116 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] [NET] warn when accounting an skb that already has a
- destructor
-Date: Tue, 6 May 2008 11:39:11 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805060951290.26897@wrl-59.cs.helsinki.fi>
-References: <1209972675.3655.15.camel@johannes.berg>
- <20080505.004017.247102504.davem@davemloft.net>
- <Pine.LNX.4.64.0805051241240.21115@wrl-59.cs.helsinki.fi>
- <20080505.120811.211603587.davem@davemloft.net> <20080505215744.GD21070@ghostprotocols.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Tue, 06 May 2008 02:33:54 -0700 (PDT)
+Message-ID: <20080506.023354.19323725.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-1758750675-1210056746=:26897"
-Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
-	Netdev <netdev@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36800 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753653AbYEFIjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 04:39:15 -0400
-In-Reply-To: <20080505215744.GD21070@ghostprotocols.net>
-Content-ID: <Pine.LNX.4.64.0805061107430.1888@wrl-59.cs.helsinki.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36202
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755078AbYEFJdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 05:33:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696208474-1758750675-1210056746=:26897
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0805061107431.1888@wrl-59.cs.helsinki.fi>
+More fixes, as usual:
 
-On Mon, 5 May 2008, Arnaldo Carvalho de Melo wrote:
+1) When DCCP socket option feature length is invalid, return
+   real error code to userspace instead of "1".  From Chris
+   Wright.
 
-> Em Mon, May 05, 2008 at 12:08:11PM -0700, David Miller escreveu:
-> > From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> > Date: Mon, 5 May 2008 12:43:25 +0300 (EEST)
-> > 
-> > > On Mon, 5 May 2008, David Miller wrote:
-> > > 
-> > > > From: Johannes Berg <johannes@sipsolutions.net>
-> > > > Date: Mon, 05 May 2008 09:31:15 +0200
-> > > > 
-> > > > > If we decide to uninline those functions for another reason (used too
-> > > > > much, code size, ...) then we can still do that.
-> > > > 
-> > > > Agreed.
-> > > 
-> > > According to my measurements the size bloat of those two is
-> > > (x86/32bit, gcc 4.1.2 redhat something):
-> > > 
-> > > -1091  40 funcs, 89 +, 1180 -, diff: -1091 --- skb_set_owner_r
-> > > -495  46 funcs, 70 +, 565 -, diff: -495 --- skb_set_owner_w
-> > 
-> > That's not too bad, but adding the WARN_ON() we're discussing
-> > will plump that up a bit, percentage wise, which is why I
-> > said we should inline it in such a case.
-> 
-> s/inline/uninline/g
-> 
-> According to some long e-mail today its worth ~198 unexport patches! 8-)
+2) IRDA + !PNP driver build fixes from Ingo.
 
-...and there would be hundreths of similar with that order of magnitude,
-thus one could, for starters, multiply that by ~200 or so... 8-D
+3) lapbeth leaks netdevice references, leading to module unload
+   etc. hangs
 
--- 
- i.
----696208474-1758750675-1210056746=:26897--
+4) Fix NIU device probing regression.
+
+5) Two classifier actions fixes from Jamal Hadi Salim.
+
+6) Fix tree handling in HTB classifier, from Jarek Poplawski.
+
+7) Kill build warnings in IPSEC when auditing is disabled.
+   From Marcin Slusarz.
+
+8) Several device leak and double-free fixes from Pavel Emelyanov.
+   These cure the cases where the driver registered a destructor
+   that freed the device, but would then again free it anyways.
+
+9) Get rid of open coded references to route metrics, use existing
+   helper functions.
+
+10 IWLWIFI should be a tristate, from Adrian Bunk.
+
+Please pull, thanks a lot!
+
+The following changes since commit f37f2c62a28e848e06399ea2f9be1e098212625c:
+  Bernard Pidoux (1):
+        rose: Wrong list_lock argument in rose_node seqops
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Adrian Bunk (1):
+      iwlwifi: make IWLWIFI a tristate
+
+Chris Wright (1):
+      dccp: return -EINVAL on invalid feature length
+
+David S. Miller (3):
+      lapbeth: Release ->ethdev when unregistering device.
+      niu: Fix probing regression for maramba on-board chips.
+      Revert "atm: Do not free already unregistered net device."
+
+Ingo Molnar (2):
+      irda: fix !PNP support in drivers/net/irda/nsc-ircc.c
+      irda: fix !PNP support for drivers/net/irda/smsc-ircc2.c
+
+Jamal Hadi Salim (2):
+      net_cls_act: Make act_simple use of netlink policy.
+      net_cls_act: act_simple dont ignore realloc code
+
+Jarek Poplawski (1):
+      sch_htb: remove from event queue in htb_parent_to_leaf()
+
+Johannes Berg (1):
+      net: Fix useless comment reference loop.
+
+Marcin Slusarz (1):
+      xfrm: convert empty xfrm_audit_* macros to functions
+
+Pavel Emelyanov (5):
+      bridge: Net device leak in br_add_bridge().
+      bridge: Consolidate error paths in br_add_bridge().
+      mac80211: Do not free net device after it is unregistered.
+      atm: Do not free already unregistered net device.
+      atm: Bad locking on br2684_devs modifications.
+
+Satoru SATOH (2):
+      ip: Make use of the inline function dst_metric_locked()
+      ip: Use inline function dst_metric() instead of direct access to dst->metric[]
+
+ drivers/net/irda/nsc-ircc.c          |    6 ++++
+ drivers/net/irda/smsc-ircc2.c        |    5 +++-
+ drivers/net/niu.c                    |   11 +++++---
+ drivers/net/wan/lapbether.c          |    1 +
+ drivers/net/wireless/iwlwifi/Kconfig |    3 +-
+ include/net/ip.h                     |    2 +-
+ include/net/xfrm.h                   |   48 ++++++++++++++++++++++++++++-----
+ net/atm/br2684.c                     |    4 +-
+ net/bridge/br_if.c                   |   12 +++++---
+ net/core/skbuff.c                    |    4 ++-
+ net/dccp/feat.c                      |    2 +-
+ net/decnet/dn_route.c                |   12 ++++----
+ net/ipv4/route.c                     |   18 ++++++------
+ net/ipv4/tcp_input.c                 |   15 +++++-----
+ net/ipv6/route.c                     |    6 ++--
+ net/mac80211/main.c                  |    7 +++-
+ net/sched/act_simple.c               |   45 +++++++++++++++----------------
+ net/sched/sch_htb.c                  |    8 ++++-
+ 18 files changed, 132 insertions(+), 77 deletions(-)
