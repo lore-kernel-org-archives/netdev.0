@@ -1,111 +1,187 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH] [2.6.26] [CAN] Fix can_send() handling on dev_queue_xmit()
- failures
-Date: Tue, 06 May 2008 21:49:57 +0200
-Message-ID: <4820B665.6070609@hartkopp.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] gianfar: low gigabit throughput
+Date: Tue, 06 May 2008 13:07:14 -0700
+Message-ID: <4820BA72.3090903@hp.com>
+References: <20080506192008.GA30148@polina.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080707080306070803080009"
-Cc: Urs Thuermann <urs@isnogud.escape.de>, nautsch@gmail.com,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:14562 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761955AbYEFTuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 15:50:05 -0400
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:9189 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756854AbYEFUHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 16:07:17 -0400
+In-Reply-To: <20080506192008.GA30148@polina.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080707080306070803080009
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Anton Vorontsov wrote:
+> Hi all,
+> 
+> Down here few question regarding networking throughput, I would
+> appreciate any thoughts or ideas.
+> 
+> On the MPC8315E-RDB board (CPU at 400MHz, CSB at 133 MHz) I'm observing
+> relatively low TCP throughput using gianfar driver...
 
-from Oliver Hartkopp <oliver@hartkopp.net>
+What is the "target" of the test - is it another of those boards, or 
+something else?
 
-The tx packet counting and the local loopback of CAN frames should
-only happen in the case that the CAN frame has been enqueued to the
-netdevice tx queue successfully.
+> 
+> The maximum value I've seen with the current kernels is 142 Mb/s of TCP
+> and 354 Mb/s of UDP (NAPI and interrupts coalescing enabled):
+> 
+>   root@b1:~# netperf -l 10 -H 10.0.1.1 -t TCP_STREAM -- -m 32768 -s 157344 -S 157344
+>   TCP STREAM TEST to 10.0.1.1
+>   #Cpu utilization 0.10
+>   Recv   Send    Send
+>   Socket Socket  Message  Elapsed
+>   Size   Size    Size     Time     Throughput
+>   bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>   206848 212992  32768    10.00     142.40
+> 
+>   root@b1:~# netperf -l 10 -H 10.0.1.1 -t UDP_STREAM -- -m 32768 -s 157344 -S 157344
+>   UDP UNIDIRECTIONAL SEND TEST to 10.0.1.1
+>   #Cpu utilization 100.00
+>   Socket  Message  Elapsed      Messages
+>   Size    Size     Time         Okay Errors   Throughput
+>   bytes   bytes    secs            #      #   10^6bits/sec
+> 
+>   212992   32768   10.00       13539      0     354.84
+>   206848           10.00       13539            354.84
+> 
 
-Thanks to Andre Naujoks <nautsch@gmail.com> for reporting this issue.
+I have _got_ to make CPU utilization enabled by default one of these 
+days :)  At least for mechanisms which don't require calibration.
 
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-Signed-off-by: Urs Thuermann <urs@isnogud.escape.de>
+> Is this normal?
 
----
+Does gianfar do TSO?  If not, what happens when you tell UDP_STREAM to 
+send 1472 byte messages to bypass IP fragmentation?
 
-Hello Dave,
+While stock netperf won't report what the socket buffer size becomes 
+when you allow autotuning to rear its head, you can take the top of 
+trunk and enable the "omni" tests (./configure --enable-omni) and those 
+versions of *_STREAM etc can report what the socket buffer size was at 
+the beginning and at the end of the test. You can let the stack autotune 
+and see if anything changes there.  You can do the same with stock 
+netperf, just it will only report the initial socket buffer sizes...
 
-this patch should go into 2.6.26 and also applies fine on 2.6.25.1.
+> netperf running in loopback gives me 329 Mb/s of TCP throughput:
+> 
+>   root@b1:~# netperf -l 10 -H 127.0.0.1 -t TCP_STREAM -- -m 32768 -s 157344 -S 157344
+>   TCP STREAM TEST to 127.0.0.1
+>   #Cpu utilization 100.00
+>   #Cpu utilization 100.00
+>   Recv   Send    Send
+>   Socket Socket  Message  Elapsed
+>   Size   Size    Size     Time     Throughput
+>   bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>   212992 212992  32768    10.00     329.60
+> 
+> 
+> May I consider this as a something that is close to the Linux'
+> theoretical maximum for this setup? Or this isn't reliable test?
 
-IMO this issue is not that 'critical' that it *requires* to become
-part of 2.6.25.2. Please forward the patch to Greg at your own opinion.
+I'm always leery of using a loopback number.  It excercises both send 
+and receive at the same time, but without the driver.  Also, lo tends to 
+have a much larger MTU than a "standard" NIC and if that NIC doesn't to 
+TSO and LRO that can be a big difference in the number of times up and 
+down the stack per KB transferred.
 
-Many Thanks!
-Oliver
+> I can compare with teh MPC8377E-RDB (very similar board - exactly the same
+> ethernet phy, the same drivers are used, i.e. everything is the same from
+> the ethernet stand point), but running at 666 MHz, CSB at 333MHz:
+> 
+>          |CPU MHz|BUS MHz|UDP Mb/s|TCP Mb/s|
+>   ------------------------------------------
+>   MPC8377|    666|    333|     646|     264|
+>   MPC8315|    400|    133|     354|     142|
+>   ------------------------------------------
+>   RATIO  |    1.6|    2.5|     1.8|     1.8|
+> 
+> It seems that things are really dependant on the CPU/CSB speed.
 
+What is the nature of the DMA stream between the two tests?  I find it 
+interesting that the TCP Mb/s went up by more than the CPU MHz and 
+wonder how much the Bus MHz came into play there - perhaps there were 
+more DMA's to setup or across a broader memory footprint for TCP than 
+for UDP.
 
+> 
+> I've tried to tune gianfar driver in various ways... and it gave
+> some positive results with this patch:
+> 
+> diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+> index fd487be..b5943f9 100644
+> --- a/drivers/net/gianfar.h
+> +++ b/drivers/net/gianfar.h
+> @@ -123,8 +123,8 @@ extern const char gfar_driver_version[];
+>  #define GFAR_10_TIME    25600
+>  
+>  #define DEFAULT_TX_COALESCE 1
+> -#define DEFAULT_TXCOUNT	16
+> -#define DEFAULT_TXTIME	21
+> +#define DEFAULT_TXCOUNT	80
+> +#define DEFAULT_TXTIME	105
+>  
+>  #define DEFAULT_RXTIME	21
 
+No ethtool coalescing tuning support for gianfar?-)
 
---------------080707080306070803080009
-Content-Type: text/x-diff;
- name="can_send.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="can_send.diff"
+> Basically this raises the tx interrupts coalescing threshold (raising
+> it more didn't help, as well as didn't help raising rx thresholds).
+> Now:
+> 
+> root@b1:~# netperf -l 3 -H 10.0.1.1 -t TCP_STREAM -- -m 32768 -s 157344 -S 157344
+> TCP STREAM TEST to 10.0.1.1
+> #Cpu utilization 100.00
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+> 206848 212992  32768    3.00      163.04
+> 
+> 
+> That is +21 Mb/s (14% up). Not fantastic, but good anyway.
+> 
+> As expected, the latency increased too:
+> 
+> Before the patch:
+> 
+> --- 10.0.1.1 ping statistics ---
+> 20 packets transmitted, 20 received, 0% packet loss, time 18997ms
+> rtt min/avg/max/mdev = 0.108/0.124/0.173/0.022 ms
+> 
+> After:
+> 
+> --- 10.0.1.1 ping statistics ---
+> 22 packets transmitted, 22 received, 0% packet loss, time 20997ms
+> rtt min/avg/max/mdev = 0.158/0.167/0.182/0.004 ms
+> 
+> 
+> 34% up... heh. Should we sacrifice the latency in favour of throughput?
+> Is 34% latency growth bad thing? What is worse, lose 21 Mb/s or 34% of
+> latency? ;-)
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 2759b76..7e8ca28 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -208,6 +208,7 @@ static int can_create(struct net *net, struct socket *sock, int protocol)
-  */
- int can_send(struct sk_buff *skb, int loop)
- {
-+	struct sk_buff *newskb = NULL;
- 	int err;
- 
- 	if (skb->dev->type != ARPHRD_CAN) {
-@@ -244,8 +245,7 @@ int can_send(struct sk_buff *skb, int loop)
- 			 * If the interface is not capable to do loopback
- 			 * itself, we do it here.
- 			 */
--			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
--
-+			newskb = skb_clone(skb, GFP_ATOMIC);
- 			if (!newskb) {
- 				kfree_skb(skb);
- 				return -ENOMEM;
-@@ -254,7 +254,6 @@ int can_send(struct sk_buff *skb, int loop)
- 			newskb->sk = skb->sk;
- 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
- 			newskb->pkt_type = PACKET_BROADCAST;
--			netif_rx(newskb);
- 		}
- 	} else {
- 		/* indication for the CAN driver: no loopback required */
-@@ -266,11 +265,20 @@ int can_send(struct sk_buff *skb, int loop)
- 	if (err > 0)
- 		err = net_xmit_errno(err);
- 
-+	if (err) {
-+		if (newskb)
-+			kfree_skb(newskb);
-+		return err;
-+	}
-+
-+	if (newskb)
-+		netif_rx(newskb);
-+
- 	/* update statistics */
- 	can_stats.tx_frames++;
- 	can_stats.tx_frames_delta++;
- 
--	return err;
-+	return 0;
- }
- EXPORT_SYMBOL(can_send);
- 
+Well, I'm not always fond of that sort of trade-off:
 
---------------080707080306070803080009--
+ftp://ftp.cup.hp.com/dist/networking/briefs/
+
+there should be a nic latency vs tput writeup there.
+
+> 
+> 
+> Thanks in advance,
+> 
+> p.s. Btw, the patch above helps even better on the on the -rt kernels,
+> since on the -rt kernels the throughput is near 100 Mb/s, with the
+> patch the throughput is close to 140 Mb/s.
+> 
+
