@@ -1,78 +1,154 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: New driver "sfc" for Solarstorm SFC4000 controller.
-Date: Tue, 6 May 2008 13:50:09 +0100
-Message-ID: <20080506125008.GA2217@solarflare.com>
-References: <200804301925.m3UJPc72001651@hera.kernel.org> <20080501120858.207b6dd6.akpm@linux-foundation.org> <20080502160530.GN14219@solarflare.com> <20080502110908.93c79d81.akpm@linux-foundation.org>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH v2] at91_ether: use netstats in net_device structure
+Date: Tue, 06 May 2008 16:03:42 +0300
+Message-ID: <4820572E.7010304@teltonika.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:52897 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753128AbYEFMuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 08:50:52 -0400
+Content-Type: multipart/mixed; boundary="------------000604040403050802010303"
+Cc: netdev@vger.kernel.org
+To: linux-arm-kernel@lists.arm.linux.org.uk
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
+List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
+List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
+List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
+List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
+List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------000604040403050802010303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Use net_device_stats from net_device structure instead of local.
+
+v2: Removed unused variable 'lp' in at91ether_stats function.
+
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Tested-by: Marc Pignat <marc.pignat@hevs.ch>
+
+--------------000604040403050802010303
+Content-Type: text/x-patch;
+ name="at91_ether_netstats.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="at91_ether_netstats.patch"
+
+diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/arm/at91_ether.c
+index 1e39e78..49c320b 100644
+--- a/drivers/net/arm/at91_ether.c
++++ b/drivers/net/arm/at91_ether.c
+@@ -820,7 +820,7 @@ static int at91ether_tx(struct sk_buff *skb, struct net_device *dev)
+ 		lp->skb = skb;
+ 		lp->skb_length = skb->len;
+ 		lp->skb_physaddr = dma_map_single(NULL, skb->data, skb->len, DMA_TO_DEVICE);
+-		lp->stats.tx_bytes += skb->len;
++		dev->stats.tx_bytes += skb->len;
+ 
+ 		/* Set address of the data in the Transmit Address register */
+ 		at91_emac_write(AT91_EMAC_TAR, lp->skb_physaddr);
+@@ -843,34 +843,33 @@ static int at91ether_tx(struct sk_buff *skb, struct net_device *dev)
+  */
+ static struct net_device_stats *at91ether_stats(struct net_device *dev)
+ {
+-	struct at91_private *lp = netdev_priv(dev);
+ 	int ale, lenerr, seqe, lcol, ecol;
+ 
+ 	if (netif_running(dev)) {
+-		lp->stats.rx_packets += at91_emac_read(AT91_EMAC_OK);		/* Good frames received */
++		dev->stats.rx_packets += at91_emac_read(AT91_EMAC_OK);		/* Good frames received */
+ 		ale = at91_emac_read(AT91_EMAC_ALE);
+-		lp->stats.rx_frame_errors += ale;				/* Alignment errors */
++		dev->stats.rx_frame_errors += ale;				/* Alignment errors */
+ 		lenerr = at91_emac_read(AT91_EMAC_ELR) + at91_emac_read(AT91_EMAC_USF);
+-		lp->stats.rx_length_errors += lenerr;				/* Excessive Length or Undersize Frame error */
++		dev->stats.rx_length_errors += lenerr;				/* Excessive Length or Undersize Frame error */
+ 		seqe = at91_emac_read(AT91_EMAC_SEQE);
+-		lp->stats.rx_crc_errors += seqe;				/* CRC error */
+-		lp->stats.rx_fifo_errors += at91_emac_read(AT91_EMAC_DRFC);	/* Receive buffer not available */
+-		lp->stats.rx_errors += (ale + lenerr + seqe
++		dev->stats.rx_crc_errors += seqe;				/* CRC error */
++		dev->stats.rx_fifo_errors += at91_emac_read(AT91_EMAC_DRFC);	/* Receive buffer not available */
++		dev->stats.rx_errors += (ale + lenerr + seqe
+ 			+ at91_emac_read(AT91_EMAC_CDE) + at91_emac_read(AT91_EMAC_RJB));
+ 
+-		lp->stats.tx_packets += at91_emac_read(AT91_EMAC_FRA);		/* Frames successfully transmitted */
+-		lp->stats.tx_fifo_errors += at91_emac_read(AT91_EMAC_TUE);	/* Transmit FIFO underruns */
+-		lp->stats.tx_carrier_errors += at91_emac_read(AT91_EMAC_CSE);	/* Carrier Sense errors */
+-		lp->stats.tx_heartbeat_errors += at91_emac_read(AT91_EMAC_SQEE);/* Heartbeat error */
++		dev->stats.tx_packets += at91_emac_read(AT91_EMAC_FRA);		/* Frames successfully transmitted */
++		dev->stats.tx_fifo_errors += at91_emac_read(AT91_EMAC_TUE);	/* Transmit FIFO underruns */
++		dev->stats.tx_carrier_errors += at91_emac_read(AT91_EMAC_CSE);	/* Carrier Sense errors */
++		dev->stats.tx_heartbeat_errors += at91_emac_read(AT91_EMAC_SQEE);/* Heartbeat error */
+ 
+ 		lcol = at91_emac_read(AT91_EMAC_LCOL);
+ 		ecol = at91_emac_read(AT91_EMAC_ECOL);
+-		lp->stats.tx_window_errors += lcol;			/* Late collisions */
+-		lp->stats.tx_aborted_errors += ecol;			/* 16 collisions */
++		dev->stats.tx_window_errors += lcol;			/* Late collisions */
++		dev->stats.tx_aborted_errors += ecol;			/* 16 collisions */
+ 
+-		lp->stats.collisions += (at91_emac_read(AT91_EMAC_SCOL) + at91_emac_read(AT91_EMAC_MCOL) + lcol + ecol);
++		dev->stats.collisions += (at91_emac_read(AT91_EMAC_SCOL) + at91_emac_read(AT91_EMAC_MCOL) + lcol + ecol);
+ 	}
+-	return &lp->stats;
++	return &dev->stats;
+ }
+ 
+ /*
+@@ -896,16 +895,16 @@ static void at91ether_rx(struct net_device *dev)
+ 
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 			dev->last_rx = jiffies;
+-			lp->stats.rx_bytes += pktlen;
++			dev->stats.rx_bytes += pktlen;
+ 			netif_rx(skb);
+ 		}
+ 		else {
+-			lp->stats.rx_dropped += 1;
++			dev->stats.rx_dropped += 1;
+ 			printk(KERN_NOTICE "%s: Memory squeeze, dropping packet.\n", dev->name);
+ 		}
+ 
+ 		if (dlist->descriptors[lp->rxBuffIndex].size & EMAC_MULTICAST)
+-			lp->stats.multicast++;
++			dev->stats.multicast++;
+ 
+ 		dlist->descriptors[lp->rxBuffIndex].addr &= ~EMAC_DESC_DONE;	/* reset ownership bit */
+ 		if (lp->rxBuffIndex == MAX_RX_DESCR-1)				/* wrap after last buffer */
+@@ -934,7 +933,7 @@ static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
+ 	if (intstatus & AT91_EMAC_TCOM) {	/* Transmit complete */
+ 		/* The TCOM bit is set even if the transmission failed. */
+ 		if (intstatus & (AT91_EMAC_TUND | AT91_EMAC_RTRY))
+-			lp->stats.tx_errors += 1;
++			dev->stats.tx_errors += 1;
+ 
+ 		if (lp->skb) {
+ 			dev_kfree_skb_irq(lp->skb);
+diff --git a/drivers/net/arm/at91_ether.h b/drivers/net/arm/at91_ether.h
+index a38fd2d..353f4da 100644
+--- a/drivers/net/arm/at91_ether.h
++++ b/drivers/net/arm/at91_ether.h
+@@ -84,7 +84,6 @@ struct recv_desc_bufs
+ 
+ struct at91_private
+ {
+-	struct net_device_stats stats;
+ 	struct mii_if_info mii;			/* ethtool support */
+ 	struct at91_eth_data board_data;	/* board-specific configuration */
+ 	struct clk *ether_clk;			/* clock */
+
+--------------000604040403050802010303
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-In-Reply-To: <20080502110908.93c79d81.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> On Fri, 2 May 2008 17:05:35 +0100 Ben Hutchings <bhutchings@solarflare.com> wrote:
-> 
-> > > Oh dear, it found
-> > > 
-> > > #5617: FILE: drivers/net/sfc/falcon.c:1877:
-> > > +               if (*(volatile u32 *)dma_done == FALCON_STATS_DONE)
-> > > 
-> > > which was naughty of you.  Perhaps this was already discussed in review
-> > > with the people who actually know what they're talking about.
-> > 
-> > There wasn't any specific discussion of this.  Is it wrong?  We want to
-> > prevent the compiler from caching *dma_done, which is itself written by DMA.
-> 
-> Documentation/volatile-considered-harmful.txt has some dicussion.
-
-Looks like we should be using something like:
-
-	while (*dma_done != FALCON_STATS_DONE)
-		cpu_relax();
-
-But then how do we time-out?
-
-> > > > +static inline int efx_init_rx_buffer_page(struct efx_rx_queue *rx_queue,
-> > > > +					  struct efx_rx_buffer *rx_buf)
-> > > > +{
-> > > > +	struct efx_nic *efx = rx_queue->efx;
-> > > > +	int bytes, space, offset;
-> > > > +
-> > > > +	bytes = efx->rx_buffer_len - EFX_PAGE_IP_ALIGN;
-> > > > +
-> > > > +	/* If there is space left in the previously allocated page,
-> > > > +	 * then use it. Otherwise allocate a new one */
-> > > > +	rx_buf->page = rx_queue->buf_page;
-> > > > +	if (rx_buf->page == NULL) {
-> > > > +		dma_addr_t dma_addr;
-> > > > +
-> > > > +		rx_buf->page = alloc_pages(__GFP_COLD | __GFP_COMP | GFP_ATOMIC,
-> > > > +					   efx->rx_buffer_order);
-> > > 
-> > > I don't think we should be using the open-coded __GFP_COMP here.  That's
-> > > more an mm-internal thing.
-> > 
-> > What's the alternative?
-> 
-> Just remove the __GFP_COMP, I expect.  __GFP_COMP will ask the page
-> allocator to add extra book-keeping info to the pageframe (via
-> prep_compound_page()).  I doubt if the driver uses that information.
-
-It looks like this flag was used by mistake, based on past experience with
-a driver that needed buffers to be mapped into user space.  The original
-author of the RX page-allocation code is away at the moment, so I will
-have to wait to ask why he used it.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+-------------------------------------------------------------------
+List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+--------------000604040403050802010303--
