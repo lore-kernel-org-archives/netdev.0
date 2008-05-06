@@ -1,41 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch] (revised) net/xfrm/xfrm_policy.c: replace timer with delayed_work
-Date: Tue, 6 May 2008 11:08:22 +0800
-Message-ID: <20080506030822.GA14111@gondor.apana.org.au>
-References: <20080216.235534.237382205.xiyou.wangcong@gmail.com> <20080427011809.GA662@gondor.apana.org.au> <20080428.225312.58450957.xiyou.wangcong@gmail.com> <20080428151342.GA12007@gondor.apana.org.au> <alpine.LFD.1.10.0804302355120.2940@localhost.localdomain> <20080501011123.GA4060@gondor.apana.org.au> <alpine.LFD.1.10.0805021323470.3349@localhost.localdomain>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [PATCH 02/18] flag parameters: socket and socketpair
+Date: Mon, 05 May 2008 20:10:46 -0700
+Message-ID: <481FCC36.2010801@redhat.com>
+References: <200805050342.m453gktl029817@devserv.devel.redhat.com>	<20080505185850.789d870a.akpm@linux-foundation.org>	<481FC38A.6070805@redhat.com>	<20080505194221.4349418b.akpm@linux-foundation.org>	<481FC94C.8090203@redhat.com> <20080505200500.0d1018df.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net, akpm@osdl.org,
-	netdev@vger.kernel.org
-To: WANG Cong <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davidel@xmailserver.org, mtk.manpages@gmail.com,
+	torvalds@linux-foundation.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48235 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750885AbYEFDIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 23:08:32 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.1.10.0805021323470.3349@localhost.localdomain>
+Received: from mx1.redhat.com ([66.187.233.31]:60482 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754557AbYEFDK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2008 23:10:58 -0400
+In-Reply-To: <20080505200500.0d1018df.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 02, 2008 at 01:35:55PM +0800, WANG Cong wrote:
->
-> @@ -209,16 +210,16 @@ static void xfrm_policy_timer(unsigned long data)
->  	if (warn)
->  		km_policy_expired(xp, dir, 0, 0);
->  	if (next != LONG_MAX &&
-> -	    !mod_timer(&xp->timer, jiffies + make_jiffies(next)))
-> +	    !schedule_delayed_work(&xp->work, make_jiffies(next)))
->  		xfrm_pol_hold(xp);
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-I tried it and it pretty much crashed immediately :)
+Andrew Morton wrote:
+> What I meant was "what does this whole patchset do"?  Believe it or n=
+ot,
+> for a new reader, that is somewhat unobvious.  Perhaps one could work=
+ it out
+> with sufficient googling and thread-trolling.
 
-The problem is that schedule_delayed_work's return value is the
-opposite of mod_timer.  So you'll need to reverse the tests.
+It adds flag parameters in all the places where none is present to
+control aspects of the returned file descriptor(s).  So far atomic
+close-on-exec and setting non-blocking mode are implemented.  More can
+follow if wanted.  Similar to the O_CLOEXEC and F_DUPFD_CLOEXEC
+extensions which I wrote several moons ago.  Just two weeks ago I point=
+ed at
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+   http://bugzilla.redhat.com/show_bug.cgi?id=3D443321
+
+as a case which we cannot really fix without these kind of extensions.
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFIH8w22ijCOnn/RHQRAjNvAJkBJxBR3uI8HfPIUqcMezLjFK/d2QCfXS4v
+IH7T6AFb/j9V4tWtlWi0Bcs=3D
+=3DlLFY
+-----END PGP SIGNATURE-----
