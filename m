@@ -1,48 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 10556] New: IPVS sync_backup oops
-Date: Tue, 06 May 2008 13:31:53 -0700 (PDT)
-Message-ID: <20080506.133153.68569175.davem@davemloft.net>
-References: <Pine.LNX.4.58.0804261834450.4615@u.domain.uli>
-	<20080427.164016.01806730.davem@davemloft.net>
-	<20080506131054.fb6196cf.akpm@linux-foundation.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/4][MAC80211]: Fix GFP_KERNEL allocation under read
+ lock.
+Date: Tue, 06 May 2008 13:40:47 -0700 (PDT)
+Message-ID: <20080506.134047.86330538.davem@davemloft.net>
+References: <48206F4C.5050105@openvz.org>
+	<200805061840.37713.netdev@axxeo.de>
+	<4820997E.1070305@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org, horms@verge.net.au,
-	bugme-daemon@bugzilla.kernel.org, l0op8ack@hotmail.com
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43560
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932605AbYEFUb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 16:31:58 -0400
-In-Reply-To: <20080506131054.fb6196cf.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-BkyiQQGWkgE@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4820997E.1070305-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 6 May 2008 13:10:54 -0700
+From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Date: Tue, 06 May 2008 21:46:38 +0400
 
-> On Sun, 27 Apr 2008 16:40:16 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Julian Anastasov <ja@ssi.bg>
-> > Date: Sat, 26 Apr 2008 20:48:46 +0300 (EEST)
-> > 
-> > > 	Result from ip_vs_proto_get() should be checked because
-> > > protocol value can be invalid or unsupported in backup. Also, add
-> > > checks to validate message limits and connection state.
-> > > 
-> > > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > 
-> > This patch looks great, and fixes real bugs regardless of the
-> > effect upon the bug report in question.
-> > 
-> > I would really like to see this fix tested, because if it fixes
-> > the specific bug, all the better, and we should indicate this in
-> > the changelog message.
-> 
-> The reporter (L0op8ack <l0op8ack@hotmail.com>) has used the bugzilla web
-> interface to confirm that this patch fixes 2.6.24.4.
+> I do not quite like doing so. Since this relies on fact that kfree bears
+> NULL pointers. But if we ever switch from kmalloc to kmem_cache_alloc,
+> this will result in an oops.
 
-Great, thanks for the update.
+The whole reason we made kfree allow NULL points is so that
+checks for it would be ommitted at kfree calls sides, whether
+they be direct or indirect.
+
+Adding the check for some theoretical-or-not future change is
+rediculious.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
