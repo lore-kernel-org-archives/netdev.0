@@ -1,394 +1,360 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 09/18] flag parameters: pipe
+Subject: [PATCH 12/18] flag parameters: NONBLOCK in socket and socketpair
 Date: Tue, 6 May 2008 17:18:07 -0400
-Message-ID: <200805062118.m46LI7cg004061@devserv.devel.redhat.com>
+Message-ID: <200805062118.m46LI7im004072@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48582 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48590 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933128AbYEFVSt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 17:18:49 -0400
+	id S933079AbYEFVSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces the new syscall pipe2 which is like pipe but it also
-takes an additional parameter which takes a flag value.  This patch
-implements the handling of O_CLOEXEC for the flag.  I did not add support
-for the new syscall for the architectures which have a special sys_pipe
-implementation.  I think the maintainers of those archs have the chance
-to go with the unified implementation but that's up to them.
+This patch introduces support for the SOCK_NONBLOCK flag in socket,
+socketpair, and  paccept.  To do this the internal function sock_attach_fd
+gets an additional parameter which it uses to set the appropriate flag for
+the file descriptor.
 
-The implementation introduces do_pipe_flags.  I did that instead of changing
-all callers of do_pipe because some of the callers are written in assembler.
-I would probably screw up changing the assembly code.  To avoid breaking
-code do_pipe is now a small wrapper around do_pipe_flags.  Once all callers
-are changed over to do_pipe_flags the old do_pipe function can be removed.
+Given that in modern, scalable programs almost all socket connections are
+non-blocking and the minimal additional cost for the new functionality
+I see no reason not to add this code.
 
 The following test must be adjusted for architectures other than x86 and
 x86-64 and in case the syscall numbers changed.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/syscall.h>
 
-#ifndef __NR_pipe2
+#ifndef __NR_paccept
 # ifdef __x86_64__
-#  define __NR_pipe2 293
+#  define __NR_paccept 288
 # elif defined __i386__
-#  define __NR_pipe2 331
+#  define SYS_PACCEPT 18
+#  define USE_SOCKETCALL 1
 # else
-#  error "need __NR_pipe2"
+#  error "need __NR_paccept"
 # endif
 #endif
+
+#ifdef USE_SOCKETCALL
+# define paccept(fd, addr, addrlen, mask, flags) \
+  ({ long args[6] = { \
+       (long) fd, (long) addr, (long) addrlen, (long) mask, 8, (long) flags }; \
+     syscall (__NR_socketcall, SYS_PACCEPT, args); })
+#else
+# define paccept(fd, addr, addrlen, mask, flags) \
+  syscall (__NR_paccept, fd, addr, addrlen, mask, 8, flags)
+#endif
+
+#define PORT 57392
+
+#define SOCK_NONBLOCK O_NONBLOCK
+
+static pthread_barrier_t b;
+
+static void *
+tf (void *arg)
+{
+  pthread_barrier_wait (&b);
+  int s = socket (AF_INET, SOCK_STREAM, 0);
+  struct sockaddr_in sin;
+  sin.sin_family = AF_INET;
+  sin.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+  sin.sin_port = htons (PORT);
+  connect (s, (const struct sockaddr *) &sin, sizeof (sin));
+  close (s);
+  pthread_barrier_wait (&b);
+
+  pthread_barrier_wait (&b);
+  s = socket (AF_INET, SOCK_STREAM, 0);
+  sin.sin_port = htons (PORT);
+  connect (s, (const struct sockaddr *) &sin, sizeof (sin));
+  close (s);
+  pthread_barrier_wait (&b);
+
+  return NULL;
+}
 
 int
 main (void)
 {
-  int fd[2];
-  if (syscall (__NR_pipe2, fd, 0) != 0)
+  int fd;
+  fd = socket (PF_INET, SOCK_STREAM, 0);
+  if (fd == -1)
     {
-      puts ("pipe2(0) failed");
+      puts ("socket(0) failed");
+      return 1;
+    }
+  int fl = fcntl (fd, F_GETFL);
+  if (fl == -1)
+    {
+      puts ("fcntl failed");
+      return 1;
+    }
+  if (fl & O_NONBLOCK)
+    {
+      puts ("socket(0) set non-blocking mode");
+      return 1;
+    }
+  close (fd);
+
+  fd = socket (PF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
+  if (fd == -1)
+    {
+      puts ("socket(SOCK_NONBLOCK) failed");
+      return 1;
+    }
+  fl = fcntl (fd, F_GETFL);
+  if (fl == -1)
+    {
+      puts ("fcntl failed");
+      return 1;
+    }
+  if ((fl & O_NONBLOCK) == 0)
+    {
+      puts ("socket(SOCK_NONBLOCK) does not set non-blocking mode");
+      return 1;
+    }
+  close (fd);
+
+  int fds[2];
+  if (socketpair (PF_UNIX, SOCK_STREAM, 0, fds) == -1)
+    {
+      puts ("socketpair(0) failed");
       return 1;
     }
   for (int i = 0; i < 2; ++i)
     {
-      int coe = fcntl (fd[i], F_GETFD);
-      if (coe == -1)
+      fl = fcntl (fds[i], F_GETFL);
+      if (fl == -1)
         {
           puts ("fcntl failed");
           return 1;
         }
-      if (coe & FD_CLOEXEC)
+      if (fl & O_NONBLOCK)
         {
-          printf ("pipe2(0) set close-on-exit for fd[%d]\n", i);
+          printf ("socketpair(0) set non-blocking mode for fds[%d]\n", i);
           return 1;
         }
+      close (fds[i]);
     }
-  close (fd[0]);
-  close (fd[1]);
 
-  if (syscall (__NR_pipe2, fd, O_CLOEXEC) != 0)
+  if (socketpair (PF_UNIX, SOCK_STREAM|SOCK_NONBLOCK, 0, fds) == -1)
     {
-      puts ("pipe2(O_CLOEXEC) failed");
+      puts ("socketpair(SOCK_NONBLOCK) failed");
       return 1;
     }
   for (int i = 0; i < 2; ++i)
     {
-      int coe = fcntl (fd[i], F_GETFD);
-      if (coe == -1)
+      fl = fcntl (fds[i], F_GETFL);
+      if (fl == -1)
         {
           puts ("fcntl failed");
           return 1;
         }
-      if ((coe & FD_CLOEXEC) == 0)
+      if ((fl & O_NONBLOCK) == 0)
         {
-          printf ("pipe2(O_CLOEXEC) does not set close-on-exit for fd[%d]\n", i);
+          printf ("socketpair(SOCK_NONBLOCK) does not set non-blocking mode for fds[%d]\n", i);
           return 1;
         }
+      close (fds[i]);
     }
-  close (fd[0]);
-  close (fd[1]);
 
+  pthread_barrier_init (&b, NULL, 2);
+
+  struct sockaddr_in sin;
+  pthread_t th;
+  if (pthread_create (&th, NULL, tf, NULL) != 0)
+    {
+      puts ("pthread_create failed");
+      return 1;
+    }
+
+  int s = socket (AF_INET, SOCK_STREAM, 0);
+  int reuse = 1;
+  setsockopt (s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof (reuse));
+  sin.sin_family = AF_INET;
+  sin.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+  sin.sin_port = htons (PORT);
+  bind (s, (struct sockaddr *) &sin, sizeof (sin));
+  listen (s, SOMAXCONN);
+
+  pthread_barrier_wait (&b);
+
+  int s2 = paccept (s, NULL, 0, NULL, 0);
+  if (s2 < 0)
+    {
+      puts ("paccept(0) failed");
+      return 1;
+    }
+
+  fl = fcntl (s2, F_GETFL);
+  if (fl & O_NONBLOCK)
+    {
+      puts ("paccept(0) set non-blocking mode");
+      return 1;
+    }
+  close (s2);
+  close (s);
+
+  pthread_barrier_wait (&b);
+
+  s = socket (AF_INET, SOCK_STREAM, 0);
+  sin.sin_port = htons (PORT);
+  setsockopt (s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof (reuse));
+  bind (s, (struct sockaddr *) &sin, sizeof (sin));
+  listen (s, SOMAXCONN);
+
+  pthread_barrier_wait (&b);
+
+  s2 = paccept (s, NULL, 0, NULL, SOCK_NONBLOCK);
+  if (s2 < 0)
+    {
+      puts ("paccept(SOCK_NONBLOCK) failed");
+      return 1;
+    }
+
+  fl = fcntl (s2, F_GETFL);
+  if ((fl & O_NONBLOCK) == 0)
+    {
+      puts ("paccept(SOCK_NONBLOCK) does not set non-blocking mode");
+      return 1;
+    }
+  close (s2);
+  close (s);
+
+  pthread_barrier_wait (&b);
   puts ("OK");
 
   return 0;
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- arch/cris/kernel/sys_cris.c        |    2 +-
- arch/ia64/ia32/sys_ia32.c          |    2 +-
- arch/ia64/kernel/sys_ia64.c        |    2 +-
- arch/m32r/kernel/sys_m32r.c        |    2 +-
- arch/mips/kernel/syscall.c         |    2 +-
- arch/parisc/hpux/sys_hpux.c        |    2 +-
- arch/sh/kernel/sys_sh32.c          |    2 +-
- arch/sparc/kernel/sys_sparc.c      |    2 +-
- arch/sparc64/kernel/sys_sparc.c    |    2 +-
- arch/x86/ia32/ia32entry.S          |    1 +
- arch/x86/ia32/sys_ia32.c           |    2 +-
- arch/x86/kernel/syscall_table_32.S |    1 +
- arch/xtensa/kernel/syscall.c       |    2 +-
- fs/pipe.c                          |   23 ++++++++++++++++++-----
- include/asm-x86/unistd_32.h        |    1 +
- include/asm-x86/unistd_64.h        |    2 ++
- include/linux/fs.h                 |    1 +
- 17 files changed, 35 insertions(+), 16 deletions(-)
+ include/linux/net.h |    3 ++-
+ net/socket.c        |   20 ++++++++++----------
+ 2 files changed, 12 insertions(+), 11 deletions(-)
 
 
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
-diff --git a/arch/cris/kernel/sys_cris.c b/arch/cris/kernel/sys_cris.c
-index 8b99841..e32ef68 100644
---- a/arch/cris/kernel/sys_cris.c
-+++ b/arch/cris/kernel/sys_cris.c
-@@ -37,7 +37,7 @@ asmlinkage int sys_pipe(unsigned long __user * fildes)
-         int error;
+diff --git a/include/linux/net.h b/include/linux/net.h
+index b4ad432..1b35fd5 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -20,7 +20,7 @@
  
-         lock_kernel();
--        error = do_pipe(fd);
-+        error = do_pipe_flags(fd, 0);
-         unlock_kernel();
-         if (!error) {
-                 if (copy_to_user(fildes, fd, 2*sizeof(int)))
-diff --git a/arch/ia64/ia32/sys_ia32.c b/arch/ia64/ia32/sys_ia32.c
-index 7e028ce..465116a 100644
---- a/arch/ia64/ia32/sys_ia32.c
-+++ b/arch/ia64/ia32/sys_ia32.c
-@@ -1139,7 +1139,7 @@ sys32_pipe (int __user *fd)
- 	int retval;
- 	int fds[2];
+ #include <linux/wait.h>
+ #include <linux/socket.h>
+-#include <linux/fcntl.h>	/* For O_CLOEXEC */
++#include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
+ #include <asm/socket.h>
  
--	retval = do_pipe(fds);
-+	retval = do_pipe_flags(fds, 0);
- 	if (retval)
- 		goto out;
- 	if (copy_to_user(fd, fds, sizeof(fds)))
-diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
-index 1eda194..bcbb6d8 100644
---- a/arch/ia64/kernel/sys_ia64.c
-+++ b/arch/ia64/kernel/sys_ia64.c
-@@ -160,7 +160,7 @@ sys_pipe (void)
- 	int fd[2];
- 	int retval;
+ struct poll_table_struct;
+@@ -102,6 +102,7 @@ enum sock_type {
  
--	retval = do_pipe(fd);
-+	retval = do_pipe_flags(fd, 0);
- 	if (retval)
- 		goto out;
- 	retval = fd[0];
-diff --git a/arch/m32r/kernel/sys_m32r.c b/arch/m32r/kernel/sys_m32r.c
-index 6d7a80f..fc90b8b 100644
---- a/arch/m32r/kernel/sys_m32r.c
-+++ b/arch/m32r/kernel/sys_m32r.c
-@@ -88,7 +88,7 @@ sys_pipe(unsigned long r0, unsigned long r1, unsigned long r2,
- 	int fd[2];
- 	int error;
+ /* Flags for socket, socketpair, paccept */
+ #define SOCK_CLOEXEC	O_CLOEXEC
++#define SOCK_NONBLOCK	O_NONBLOCK
  
--	error = do_pipe(fd);
-+	error = do_pipe_flags(fd, 0);
- 	if (!error) {
- 		if (copy_to_user((void __user *)r0, fd, 2*sizeof(int)))
- 			error = -EFAULT;
-diff --git a/arch/mips/kernel/syscall.c b/arch/mips/kernel/syscall.c
-index af1bdc8..20d5391 100644
---- a/arch/mips/kernel/syscall.c
-+++ b/arch/mips/kernel/syscall.c
-@@ -45,7 +45,7 @@ asmlinkage int sys_pipe(nabi_no_regargs volatile struct pt_regs regs)
- 	int fd[2];
- 	int error, res;
+ #endif /* ARCH_HAS_SOCKET_TYPES */
  
--	error = do_pipe(fd);
-+	error = do_pipe_flags(fd, 0);
- 	if (error) {
- 		res = error;
- 		goto out;
-diff --git a/arch/parisc/hpux/sys_hpux.c b/arch/parisc/hpux/sys_hpux.c
-index 0c5b9da..be255eb 100644
---- a/arch/parisc/hpux/sys_hpux.c
-+++ b/arch/parisc/hpux/sys_hpux.c
-@@ -448,7 +448,7 @@ int hpux_pipe(int *kstack_fildes)
- 	int error;
- 
- 	lock_kernel();
--	error = do_pipe(kstack_fildes);
-+	error = do_pipe_flags(kstack_fildes, 0);
- 	unlock_kernel();
- 	return error;
- }
-diff --git a/arch/sh/kernel/sys_sh32.c b/arch/sh/kernel/sys_sh32.c
-index 125e493..f0aa5c3 100644
---- a/arch/sh/kernel/sys_sh32.c
-+++ b/arch/sh/kernel/sys_sh32.c
-@@ -29,7 +29,7 @@ asmlinkage int sys_pipe(unsigned long r4, unsigned long r5,
- 	int fd[2];
- 	int error;
- 
--	error = do_pipe(fd);
-+	error = do_pipe_flags(fd, 0);
- 	if (!error) {
- 		regs->regs[1] = fd[1];
- 		return fd[0];
-diff --git a/arch/sparc/kernel/sys_sparc.c b/arch/sparc/kernel/sys_sparc.c
-index f188b5d..681fdf2 100644
---- a/arch/sparc/kernel/sys_sparc.c
-+++ b/arch/sparc/kernel/sys_sparc.c
-@@ -97,7 +97,7 @@ asmlinkage int sparc_pipe(struct pt_regs *regs)
- 	int fd[2];
- 	int error;
- 
--	error = do_pipe(fd);
-+	error = do_pipe_flags(fd, 0);
- 	if (error)
- 		goto out;
- 	regs->u_regs[UREG_I1] = fd[1];
-diff --git a/arch/sparc64/kernel/sys_sparc.c b/arch/sparc64/kernel/sys_sparc.c
-index 8d4761f..936178d 100644
---- a/arch/sparc64/kernel/sys_sparc.c
-+++ b/arch/sparc64/kernel/sys_sparc.c
-@@ -418,7 +418,7 @@ asmlinkage long sparc_pipe(struct pt_regs *regs)
- 	int fd[2];
- 	int error;
- 
--	error = do_pipe(fd);
-+	error = do_pipe_flags(fd, 0);
- 	if (error)
- 		goto out;
- 	regs->u_regs[UREG_I1] = fd[1];
-diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
-index bec604b..34071a2 100644
---- a/arch/x86/ia32/ia32entry.S
-+++ b/arch/x86/ia32/ia32entry.S
-@@ -735,4 +735,5 @@ ia32_sys_call_table:
- 	.quad sys_eventfd2
- 	.quad sys_epoll_create2
- 	.quad sys_dup3			/* 330 */
-+	.quad sys_pipe2
- ia32_syscall_end:
-diff --git a/arch/x86/ia32/sys_ia32.c b/arch/x86/ia32/sys_ia32.c
-index f00afdf..d3c6408 100644
---- a/arch/x86/ia32/sys_ia32.c
-+++ b/arch/x86/ia32/sys_ia32.c
-@@ -238,7 +238,7 @@ asmlinkage long sys32_pipe(int __user *fd)
- 	int retval;
- 	int fds[2];
- 
--	retval = do_pipe(fds);
-+	retval = do_pipe_flags(fds, 0);
- 	if (retval)
- 		goto out;
- 	if (copy_to_user(fd, fds, sizeof(fds)))
-diff --git a/arch/x86/kernel/syscall_table_32.S b/arch/x86/kernel/syscall_table_32.S
-index 24a3f1e..6615476 100644
---- a/arch/x86/kernel/syscall_table_32.S
-+++ b/arch/x86/kernel/syscall_table_32.S
-@@ -330,3 +330,4 @@ ENTRY(sys_call_table)
- 	.long sys_eventfd2
- 	.long sys_epoll_create2
- 	.long sys_dup3			/* 330 */
-+	.long sys_pipe2
-diff --git a/arch/xtensa/kernel/syscall.c b/arch/xtensa/kernel/syscall.c
-index f3e16ef..ac15ecb 100644
---- a/arch/xtensa/kernel/syscall.c
-+++ b/arch/xtensa/kernel/syscall.c
-@@ -49,7 +49,7 @@ asmlinkage long xtensa_pipe(int __user *userfds)
- 	int fd[2];
- 	int error;
- 
--	error = do_pipe(fd);
-+	error = do_pipe_flags(fd, 0);
- 	if (!error) {
- 		if (copy_to_user(userfds, fd, 2 * sizeof(int)))
- 			error = -EFAULT;
-diff --git a/fs/pipe.c b/fs/pipe.c
-index 3499f9f..059411e 100644
---- a/fs/pipe.c
-+++ b/fs/pipe.c
-@@ -1027,12 +1027,15 @@ struct file *create_read_pipe(struct file *wrf)
- 	return f;
+diff --git a/net/socket.c b/net/socket.c
+index 634ad83..7cb0a5e 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -366,7 +366,7 @@ static int sock_alloc_fd(struct file **filep, int flags)
+ 	return fd;
  }
  
--int do_pipe(int *fd)
-+int do_pipe_flags(int *fd, int flags)
+-static int sock_attach_fd(struct socket *sock, struct file *file)
++static int sock_attach_fd(struct socket *sock, struct file *file, int flags)
  {
- 	struct file *fw, *fr;
- 	int error;
- 	int fdw, fdr;
+ 	struct dentry *dentry;
+ 	struct qstr name = { .name = "" };
+@@ -388,7 +388,7 @@ static int sock_attach_fd(struct socket *sock, struct file *file)
+ 	init_file(file, sock_mnt, dentry, FMODE_READ | FMODE_WRITE,
+ 		  &socket_file_ops);
+ 	SOCK_INODE(sock)->i_fop = &socket_file_ops;
+-	file->f_flags = O_RDWR;
++	file->f_flags = O_RDWR | (flags & O_NONBLOCK);
+ 	file->f_pos = 0;
+ 	file->private_data = sock;
  
-+	if (flags & ~O_CLOEXEC)
-+		return -EINVAL;
-+
- 	fw = create_write_pipe();
- 	if (IS_ERR(fw))
- 		return PTR_ERR(fw);
-@@ -1041,12 +1044,12 @@ int do_pipe(int *fd)
- 	if (IS_ERR(fr))
- 		goto err_write_pipe;
+@@ -401,7 +401,7 @@ int sock_map_fd(struct socket *sock, int flags)
+ 	int fd = sock_alloc_fd(&newfile, flags);
  
--	error = get_unused_fd();
-+	error = get_unused_fd_flags(flags);
- 	if (error < 0)
- 		goto err_read_pipe;
- 	fdr = error;
+ 	if (likely(fd >= 0)) {
+-		int err = sock_attach_fd(sock, newfile);
++		int err = sock_attach_fd(sock, newfile, flags);
  
--	error = get_unused_fd();
-+	error = get_unused_fd_flags(flags);
- 	if (error < 0)
- 		goto err_fdr;
- 	fdw = error;
-@@ -1075,16 +1078,21 @@ int do_pipe(int *fd)
- 	return error;
- }
+ 		if (unlikely(err < 0)) {
+ 			put_filp(newfile);
+@@ -1220,7 +1220,7 @@ asmlinkage long sys_socket(int family, int type, int protocol)
+ 	int flags;
  
-+int do_pipe(int *fd)
-+{
-+	return do_pipe_flags(fd, 0);
-+}
-+
- /*
-  * sys_pipe() is the normal C calling standard for creating
-  * a pipe. It's not the way Unix traditionally does this, though.
-  */
--asmlinkage long __weak sys_pipe(int __user *fildes)
-+asmlinkage long __weak sys_pipe2(int __user *fildes, int flags)
- {
- 	int fd[2];
- 	int error;
+ 	flags = type & ~SOCK_TYPE_MASK;
+-	if (flags & ~SOCK_CLOEXEC)
++	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+ 		return -EINVAL;
+ 	type &= SOCK_TYPE_MASK;
  
--	error = do_pipe(fd);
-+	error = do_pipe_flags(fd, flags);
- 	if (!error) {
- 		if (copy_to_user(fildes, fd, sizeof(fd)))
- 			error = -EFAULT;
-@@ -1092,6 +1100,11 @@ asmlinkage long __weak sys_pipe(int __user *fildes)
- 	return error;
- }
+@@ -1228,7 +1228,7 @@ asmlinkage long sys_socket(int family, int type, int protocol)
+ 	if (retval < 0)
+ 		goto out;
  
-+asmlinkage long __weak sys_pipe(int __user *fildes)
-+{
-+	return sys_pipe2(fildes, 0);
-+}
-+
- /*
-  * pipefs should _never_ be mounted by userland - too much of security hassle,
-  * no real gain from having the whole whorehouse mounted. So we don't need
-diff --git a/include/asm-x86/unistd_32.h b/include/asm-x86/unistd_32.h
-index a1f6383..748a05c 100644
---- a/include/asm-x86/unistd_32.h
-+++ b/include/asm-x86/unistd_32.h
-@@ -336,6 +336,7 @@
- #define __NR_eventfd2		328
- #define __NR_epoll_create2	329
- #define __NR_dup3		330
-+#define __NR_pipe2		331
+-	retval = sock_map_fd(sock, flags & O_CLOEXEC);
++	retval = sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK));
+ 	if (retval < 0)
+ 		goto out_release;
  
- #ifdef __KERNEL__
+@@ -1254,7 +1254,7 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
+ 	int flags;
  
-diff --git a/include/asm-x86/unistd_64.h b/include/asm-x86/unistd_64.h
-index 9eb303e..6aa423d 100644
---- a/include/asm-x86/unistd_64.h
-+++ b/include/asm-x86/unistd_64.h
-@@ -649,6 +649,8 @@ __SYSCALL(__NR_eventfd2, sys_eventfd2)
- __SYSCALL(__NR_epoll_create2, sys_epoll_create2)
- #define __NR_dup3				292
- __SYSCALL(__NR_dup3, sys_dup3)
-+#define __NR_pipe2				293
-+__SYSCALL(__NR_pipe2, sys_pipe2)
+ 	flags = type & ~SOCK_TYPE_MASK;
+-	if (flags & ~SOCK_CLOEXEC)
++	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+ 		return -EINVAL;
+ 	type &= SOCK_TYPE_MASK;
  
+@@ -1289,12 +1289,12 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
+ 		goto out_release_both;
+ 	}
  
- #ifndef __NO_STUBS
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index a1ba005..134d2d5 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -1775,6 +1775,7 @@ static inline void allow_write_access(struct file *file)
- 		atomic_inc(&file->f_path.dentry->d_inode->i_writecount);
- }
- extern int do_pipe(int *);
-+extern int do_pipe_flags(int *, int);
- extern struct file *create_read_pipe(struct file *f);
- extern struct file *create_write_pipe(void);
- extern void free_write_pipe(struct file *);
+-	err = sock_attach_fd(sock1, newfile1);
++	err = sock_attach_fd(sock1, newfile1, flags & O_NONBLOCK);
+ 	if (unlikely(err < 0)) {
+ 		goto out_fd2;
+ 	}
+ 
+-	err = sock_attach_fd(sock2, newfile2);
++	err = sock_attach_fd(sock2, newfile2, flags & O_NONBLOCK);
+ 	if (unlikely(err < 0)) {
+ 		fput(newfile1);
+ 		goto out_fd1;
+@@ -1420,7 +1420,7 @@ long do_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+ 	int err, len, newfd, fput_needed;
+ 	char address[MAX_SOCK_ADDR];
+ 
+-	if (flags & ~SOCK_CLOEXEC)
++	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+ 		return -EINVAL;
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+@@ -1447,7 +1447,7 @@ long do_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+ 		goto out_put;
+ 	}
+ 
+-	err = sock_attach_fd(newsock, newfile);
++	err = sock_attach_fd(newsock, newfile, flags & O_NONBLOCK);
+ 	if (err < 0)
+ 		goto out_fd_simple;
+ 
