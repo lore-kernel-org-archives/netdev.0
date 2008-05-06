@@ -1,35 +1,112 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [RFC v2] mac80211: assign needed_headroom/tailroom for netdevs
-Date: Tue, 6 May 2008 09:32:53 +0800
-Message-ID: <20080506013253.GA13460@gondor.apana.org.au>
-References: <1210027447.8012.15.camel@johannes.berg> <20080505.161458.46071527.davem@davemloft.net> <1210029835.8012.30.camel@johannes.berg> <20080505.163916.239187195.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 01/18] flag parameters: helper function
+Date: Mon, 5 May 2008 18:51:03 -0700
+Message-ID: <20080505185103.b9299541.akpm@linux-foundation.org>
+References: <200805050342.m453gkY4029814@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080505.163916.239187195.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davidel@xmailserver.org, mtk.manpages@gmail.com,
+	torvalds@linux-foundation.org
+To: Ulrich Drepper <drepper@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59353 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754331AbYEFBvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2008 21:51:25 -0400
+In-Reply-To: <200805050342.m453gkY4029814@devserv.devel.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 05, 2008 at 04:39:16PM -0700, David Miller wrote:
+On Sun, 4 May 2008 23:42:46 -0400 Ulrich Drepper <drepper@redhat.com> wrote:
+
+> In the following patches we have to map one set of flags to another one
+> in numerous locations.  This patch provides a generic implementation for
+> this.  It is basically the code Davide Libenzi suggested on 4/27/08.
 > 
-> On free, since skb->nohdr is set, we'll decrement both of (1 <<
-> SKB_DATAREF_SHIFT) and the low 16-bit counter.
+> I haven't checked whether this functionality can be applied to any existing
+> code.
+> 
+> 
+>  include/linux/flagsremap.h |   15 +++++++++++++++
+>  lib/Makefile               |    2 +-
+>  lib/flagsremap.c           |   17 +++++++++++++++++
+>  3 files changed, 33 insertions(+), 1 deletion(-)
+> 
+> 
+> Signed-off-by: Ulrich Drepper <drepper@redhat.com>
+> 
+> diff --git a/include/linux/flagsremap.h b/include/linux/flagsremap.h
+> new file mode 100644
+> index 0000000..6ea0ee3
+> --- /dev/null
+> +++ b/include/linux/flagsremap.h
+> @@ -0,0 +1,15 @@
+> +/*
+> + * Generic flag remapping functionality.
+> + */
+> +#ifndef _LINUX_FLAPREMAP_H
+> +#define _LINUX_FLAGREMAP_H
+> +
+> +struct flags_rmap {
+> +	int f;
+> +	int of;
+> +};
 
-skb->nohdr is cleared for clones.  Only the copy held by TCP
-should have it set.  So this should work correctly, in theory :)
+In kernel world, the abbreviation "rmap" means "reverse mapping".  I think
+"flags_remapping" would be a better identifier here.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +extern int flags_remap(const struct flags_rmap *m, int n,
+> +		       int f, int *rf);
+> +
+> +#endif /* _LINUX_FLAGREMAP_H */
+> diff --git a/lib/Makefile b/lib/Makefile
+> index 74b0cfb..ab861ad 100644
+> --- a/lib/Makefile
+> +++ b/lib/Makefile
+> @@ -6,7 +6,7 @@ lib-y := ctype.o string.o vsprintf.o cmdline.o \
+>  	 rbtree.o radix-tree.o dump_stack.o \
+>  	 idr.o int_sqrt.o extable.o prio_tree.o \
+>  	 sha1.o irq_regs.o reciprocal_div.o argv_split.o \
+> -	 proportions.o prio_heap.o ratelimit.o
+> +	 proportions.o prio_heap.o ratelimit.o flagsremap.o
+>  
+>  lib-$(CONFIG_MMU) += ioremap.o
+>  lib-$(CONFIG_SMP) += cpumask.o
+> diff --git a/lib/flagsremap.c b/lib/flagsremap.c
+> new file mode 100644
+> index 0000000..7dbe8f5
+> --- /dev/null
+> +++ b/lib/flagsremap.c
+> @@ -0,0 +1,17 @@
+> +/*
+> + * Implement generic flag remapping.
+> + */
+> +#include <linux/flagsremap.h>
+> +
+> +
+> +int flags_remap(const struct flags_rmap *m, int n,
+> +		int f, int *rf)
+> +{
+> +	int i;
+> +	for (i = 0, *rf = 0; f && i < n; i++, m++)
+> +		if (f & m->f) {
+> +			*rf |= m->of;
+> +			f &= ~m->f;
+> +		}
+> +	return f;
+> +}
+
+hm, that looks expensive.  The compiler will need to generate a deref of m
+and rf multiple times around the loop.  Copying them into locals does
+improve that a lot.
+
+I'm only on [1/18] so I don't know how often this code gets executed.  If
+it's "on each open" then ouch, perhaps it might even be worth investigating a
+table-based implementation.
+
+Also: sorry, but ugh-at-the-naming.  We don't *gain* anything from having
+idenitifers called f, of, m, n and rf.  And we lose quite a lot in
+readability and understandability.  It would be much nicer to invest a
+little bit more typing-time here, IMO.
