@@ -1,91 +1,97 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 04/18] flag parameters: signalfd
+Subject: [PATCH 09/18] flag parameters: pipe
 Date: Tue, 6 May 2008 17:18:07 -0400
-Message-ID: <200805062118.m46LI7hn004047@devserv.devel.redhat.com>
+Message-ID: <200805062118.m46LI7cg004061@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48568 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48582 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933079AbYEFVSo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 17:18:44 -0400
+	id S933128AbYEFVSt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the new signalfd4 syscall.  It extends the old signalfd
-syscall by one parameter which is meant to hold a flag value.  In this
-patch the only flag support is SFD_CLOEXEC which causes the close-on-exec
-flag for the returned file descriptor to be set.
+This patch introduces the new syscall pipe2 which is like pipe but it also
+takes an additional parameter which takes a flag value.  This patch
+implements the handling of O_CLOEXEC for the flag.  I did not add support
+for the new syscall for the architectures which have a special sys_pipe
+implementation.  I think the maintainers of those archs have the chance
+to go with the unified implementation but that's up to them.
 
-A new name SFD_CLOEXEC is introduced which in this implementation must
-have the same value as O_CLOEXEC.
+The implementation introduces do_pipe_flags.  I did that instead of changing
+all callers of do_pipe because some of the callers are written in assembler.
+I would probably screw up changing the assembly code.  To avoid breaking
+code do_pipe is now a small wrapper around do_pipe_flags.  Once all callers
+are changed over to do_pipe_flags the old do_pipe function can be removed.
 
 The following test must be adjusted for architectures other than x86 and
 x86-64 and in case the syscall numbers changed.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#ifndef __NR_signalfd4
+#ifndef __NR_pipe2
 # ifdef __x86_64__
-#  define __NR_signalfd4 289
+#  define __NR_pipe2 293
 # elif defined __i386__
-#  define __NR_signalfd4 327
+#  define __NR_pipe2 331
 # else
-#  error "need __NR_signalfd4"
+#  error "need __NR_pipe2"
 # endif
 #endif
-
-#define SFD_CLOEXEC O_CLOEXEC
 
 int
 main (void)
 {
-  sigset_t ss;
-  sigemptyset (&ss);
-  sigaddset (&ss, SIGUSR1);
-  int fd = syscall (__NR_signalfd4, -1, &ss, 8, 0);
-  if (fd == -1)
+  int fd[2];
+  if (syscall (__NR_pipe2, fd, 0) != 0)
     {
-      puts ("signalfd4(0) failed");
+      puts ("pipe2(0) failed");
       return 1;
     }
-  int coe = fcntl (fd, F_GETFD);
-  if (coe == -1)
+  for (int i = 0; i < 2; ++i)
     {
-      puts ("fcntl failed");
-      return 1;
+      int coe = fcntl (fd[i], F_GETFD);
+      if (coe == -1)
+        {
+          puts ("fcntl failed");
+          return 1;
+        }
+      if (coe & FD_CLOEXEC)
+        {
+          printf ("pipe2(0) set close-on-exit for fd[%d]\n", i);
+          return 1;
+        }
     }
-  if (coe & FD_CLOEXEC)
-    {
-      puts ("signalfd4(0) set close-on-exec flag");
-      return 1;
-    }
-  close (fd);
+  close (fd[0]);
+  close (fd[1]);
 
-  fd = syscall (__NR_signalfd4, -1, &ss, 8, SFD_CLOEXEC);
-  if (fd == -1)
+  if (syscall (__NR_pipe2, fd, O_CLOEXEC) != 0)
     {
-      puts ("signalfd4(SFD_CLOEXEC) failed");
+      puts ("pipe2(O_CLOEXEC) failed");
       return 1;
     }
-  coe = fcntl (fd, F_GETFD);
-  if (coe == -1)
+  for (int i = 0; i < 2; ++i)
     {
-      puts ("fcntl failed");
-      return 1;
+      int coe = fcntl (fd[i], F_GETFD);
+      if (coe == -1)
+        {
+          puts ("fcntl failed");
+          return 1;
+        }
+      if ((coe & FD_CLOEXEC) == 0)
+        {
+          printf ("pipe2(O_CLOEXEC) does not set close-on-exit for fd[%d]\n", i);
+          return 1;
+        }
     }
-  if ((coe & FD_CLOEXEC) == 0)
-    {
-      puts ("signalfd4(SFD_CLOEXEC) does not set close-on-exec flag");
-      return 1;
-    }
-  close (fd);
+  close (fd[0]);
+  close (fd[1]);
 
   puts ("OK");
 
@@ -93,162 +99,296 @@ main (void)
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+ arch/cris/kernel/sys_cris.c        |    2 +-
+ arch/ia64/ia32/sys_ia32.c          |    2 +-
+ arch/ia64/kernel/sys_ia64.c        |    2 +-
+ arch/m32r/kernel/sys_m32r.c        |    2 +-
+ arch/mips/kernel/syscall.c         |    2 +-
+ arch/parisc/hpux/sys_hpux.c        |    2 +-
+ arch/sh/kernel/sys_sh32.c          |    2 +-
+ arch/sparc/kernel/sys_sparc.c      |    2 +-
+ arch/sparc64/kernel/sys_sparc.c    |    2 +-
  arch/x86/ia32/ia32entry.S          |    1 +
+ arch/x86/ia32/sys_ia32.c           |    2 +-
  arch/x86/kernel/syscall_table_32.S |    1 +
- fs/compat.c                        |   14 ++++++++++----
- fs/signalfd.c                      |   14 ++++++++++++--
+ arch/xtensa/kernel/syscall.c       |    2 +-
+ fs/pipe.c                          |   23 ++++++++++++++++++-----
  include/asm-x86/unistd_32.h        |    1 +
  include/asm-x86/unistd_64.h        |    2 ++
- include/linux/signalfd.h           |    5 +++++
- include/linux/syscalls.h           |    1 +
- 8 files changed, 33 insertions(+), 6 deletions(-)
+ include/linux/fs.h                 |    1 +
+ 17 files changed, 35 insertions(+), 16 deletions(-)
 
 
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
 
+diff --git a/arch/cris/kernel/sys_cris.c b/arch/cris/kernel/sys_cris.c
+index 8b99841..e32ef68 100644
+--- a/arch/cris/kernel/sys_cris.c
++++ b/arch/cris/kernel/sys_cris.c
+@@ -37,7 +37,7 @@ asmlinkage int sys_pipe(unsigned long __user * fildes)
+         int error;
+ 
+         lock_kernel();
+-        error = do_pipe(fd);
++        error = do_pipe_flags(fd, 0);
+         unlock_kernel();
+         if (!error) {
+                 if (copy_to_user(fildes, fd, 2*sizeof(int)))
+diff --git a/arch/ia64/ia32/sys_ia32.c b/arch/ia64/ia32/sys_ia32.c
+index 7e028ce..465116a 100644
+--- a/arch/ia64/ia32/sys_ia32.c
++++ b/arch/ia64/ia32/sys_ia32.c
+@@ -1139,7 +1139,7 @@ sys32_pipe (int __user *fd)
+ 	int retval;
+ 	int fds[2];
+ 
+-	retval = do_pipe(fds);
++	retval = do_pipe_flags(fds, 0);
+ 	if (retval)
+ 		goto out;
+ 	if (copy_to_user(fd, fds, sizeof(fds)))
+diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
+index 1eda194..bcbb6d8 100644
+--- a/arch/ia64/kernel/sys_ia64.c
++++ b/arch/ia64/kernel/sys_ia64.c
+@@ -160,7 +160,7 @@ sys_pipe (void)
+ 	int fd[2];
+ 	int retval;
+ 
+-	retval = do_pipe(fd);
++	retval = do_pipe_flags(fd, 0);
+ 	if (retval)
+ 		goto out;
+ 	retval = fd[0];
+diff --git a/arch/m32r/kernel/sys_m32r.c b/arch/m32r/kernel/sys_m32r.c
+index 6d7a80f..fc90b8b 100644
+--- a/arch/m32r/kernel/sys_m32r.c
++++ b/arch/m32r/kernel/sys_m32r.c
+@@ -88,7 +88,7 @@ sys_pipe(unsigned long r0, unsigned long r1, unsigned long r2,
+ 	int fd[2];
+ 	int error;
+ 
+-	error = do_pipe(fd);
++	error = do_pipe_flags(fd, 0);
+ 	if (!error) {
+ 		if (copy_to_user((void __user *)r0, fd, 2*sizeof(int)))
+ 			error = -EFAULT;
+diff --git a/arch/mips/kernel/syscall.c b/arch/mips/kernel/syscall.c
+index af1bdc8..20d5391 100644
+--- a/arch/mips/kernel/syscall.c
++++ b/arch/mips/kernel/syscall.c
+@@ -45,7 +45,7 @@ asmlinkage int sys_pipe(nabi_no_regargs volatile struct pt_regs regs)
+ 	int fd[2];
+ 	int error, res;
+ 
+-	error = do_pipe(fd);
++	error = do_pipe_flags(fd, 0);
+ 	if (error) {
+ 		res = error;
+ 		goto out;
+diff --git a/arch/parisc/hpux/sys_hpux.c b/arch/parisc/hpux/sys_hpux.c
+index 0c5b9da..be255eb 100644
+--- a/arch/parisc/hpux/sys_hpux.c
++++ b/arch/parisc/hpux/sys_hpux.c
+@@ -448,7 +448,7 @@ int hpux_pipe(int *kstack_fildes)
+ 	int error;
+ 
+ 	lock_kernel();
+-	error = do_pipe(kstack_fildes);
++	error = do_pipe_flags(kstack_fildes, 0);
+ 	unlock_kernel();
+ 	return error;
+ }
+diff --git a/arch/sh/kernel/sys_sh32.c b/arch/sh/kernel/sys_sh32.c
+index 125e493..f0aa5c3 100644
+--- a/arch/sh/kernel/sys_sh32.c
++++ b/arch/sh/kernel/sys_sh32.c
+@@ -29,7 +29,7 @@ asmlinkage int sys_pipe(unsigned long r4, unsigned long r5,
+ 	int fd[2];
+ 	int error;
+ 
+-	error = do_pipe(fd);
++	error = do_pipe_flags(fd, 0);
+ 	if (!error) {
+ 		regs->regs[1] = fd[1];
+ 		return fd[0];
+diff --git a/arch/sparc/kernel/sys_sparc.c b/arch/sparc/kernel/sys_sparc.c
+index f188b5d..681fdf2 100644
+--- a/arch/sparc/kernel/sys_sparc.c
++++ b/arch/sparc/kernel/sys_sparc.c
+@@ -97,7 +97,7 @@ asmlinkage int sparc_pipe(struct pt_regs *regs)
+ 	int fd[2];
+ 	int error;
+ 
+-	error = do_pipe(fd);
++	error = do_pipe_flags(fd, 0);
+ 	if (error)
+ 		goto out;
+ 	regs->u_regs[UREG_I1] = fd[1];
+diff --git a/arch/sparc64/kernel/sys_sparc.c b/arch/sparc64/kernel/sys_sparc.c
+index 8d4761f..936178d 100644
+--- a/arch/sparc64/kernel/sys_sparc.c
++++ b/arch/sparc64/kernel/sys_sparc.c
+@@ -418,7 +418,7 @@ asmlinkage long sparc_pipe(struct pt_regs *regs)
+ 	int fd[2];
+ 	int error;
+ 
+-	error = do_pipe(fd);
++	error = do_pipe_flags(fd, 0);
+ 	if (error)
+ 		goto out;
+ 	regs->u_regs[UREG_I1] = fd[1];
 diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
-index b5e329d..f556678 100644
+index bec604b..34071a2 100644
 --- a/arch/x86/ia32/ia32entry.S
 +++ b/arch/x86/ia32/ia32entry.S
-@@ -731,4 +731,5 @@ ia32_sys_call_table:
- 	.quad sys32_fallocate
- 	.quad compat_sys_timerfd_settime	/* 325 */
- 	.quad compat_sys_timerfd_gettime
-+	.quad compat_sys_signalfd4
+@@ -735,4 +735,5 @@ ia32_sys_call_table:
+ 	.quad sys_eventfd2
+ 	.quad sys_epoll_create2
+ 	.quad sys_dup3			/* 330 */
++	.quad sys_pipe2
  ia32_syscall_end:
+diff --git a/arch/x86/ia32/sys_ia32.c b/arch/x86/ia32/sys_ia32.c
+index f00afdf..d3c6408 100644
+--- a/arch/x86/ia32/sys_ia32.c
++++ b/arch/x86/ia32/sys_ia32.c
+@@ -238,7 +238,7 @@ asmlinkage long sys32_pipe(int __user *fd)
+ 	int retval;
+ 	int fds[2];
+ 
+-	retval = do_pipe(fds);
++	retval = do_pipe_flags(fds, 0);
+ 	if (retval)
+ 		goto out;
+ 	if (copy_to_user(fd, fds, sizeof(fds)))
 diff --git a/arch/x86/kernel/syscall_table_32.S b/arch/x86/kernel/syscall_table_32.S
-index adff556..c12a36c 100644
+index 24a3f1e..6615476 100644
 --- a/arch/x86/kernel/syscall_table_32.S
 +++ b/arch/x86/kernel/syscall_table_32.S
-@@ -326,3 +326,4 @@ ENTRY(sys_call_table)
- 	.long sys_fallocate
- 	.long sys_timerfd_settime	/* 325 */
- 	.long sys_timerfd_gettime
-+	.long sys_signalfd4
-diff --git a/fs/compat.c b/fs/compat.c
-index 332a869..2ab01c5 100644
---- a/fs/compat.c
-+++ b/fs/compat.c
-@@ -2131,9 +2131,9 @@ asmlinkage long compat_sys_epoll_pwait(int epfd,
+@@ -330,3 +330,4 @@ ENTRY(sys_call_table)
+ 	.long sys_eventfd2
+ 	.long sys_epoll_create2
+ 	.long sys_dup3			/* 330 */
++	.long sys_pipe2
+diff --git a/arch/xtensa/kernel/syscall.c b/arch/xtensa/kernel/syscall.c
+index f3e16ef..ac15ecb 100644
+--- a/arch/xtensa/kernel/syscall.c
++++ b/arch/xtensa/kernel/syscall.c
+@@ -49,7 +49,7 @@ asmlinkage long xtensa_pipe(int __user *userfds)
+ 	int fd[2];
+ 	int error;
  
- #ifdef CONFIG_SIGNALFD
- 
--asmlinkage long compat_sys_signalfd(int ufd,
--				    const compat_sigset_t __user *sigmask,
--				    compat_size_t sigsetsize)
-+asmlinkage long compat_sys_signalfd4(int ufd,
-+				     const compat_sigset_t __user *sigmask,
-+				     compat_size_t sigsetsize, int flags)
- {
- 	compat_sigset_t ss32;
- 	sigset_t tmp;
-@@ -2148,9 +2148,15 @@ asmlinkage long compat_sys_signalfd(int ufd,
- 	if (copy_to_user(ksigmask, &tmp, sizeof(sigset_t)))
- 		return -EFAULT;
- 
--	return sys_signalfd(ufd, ksigmask, sizeof(sigset_t));
-+	return sys_signalfd4(ufd, ksigmask, sizeof(sigset_t), flags);
+-	error = do_pipe(fd);
++	error = do_pipe_flags(fd, 0);
+ 	if (!error) {
+ 		if (copy_to_user(userfds, fd, 2 * sizeof(int)))
+ 			error = -EFAULT;
+diff --git a/fs/pipe.c b/fs/pipe.c
+index 3499f9f..059411e 100644
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -1027,12 +1027,15 @@ struct file *create_read_pipe(struct file *wrf)
+ 	return f;
  }
  
-+asmlinkage long compat_sys_signalfd(int ufd,
-+				    const compat_sigset_t __user *sigmask,
-+				    compat_size_t sigsetsize)
-+{
-+	return compat_sys_signalfd4(ufd, sigmask, sigsetsize, 0);
-+}
- #endif /* CONFIG_SIGNALFD */
- 
- #ifdef CONFIG_TIMERFD
-diff --git a/fs/signalfd.c b/fs/signalfd.c
-index ddb328b..29d12f8 100644
---- a/fs/signalfd.c
-+++ b/fs/signalfd.c
-@@ -205,11 +205,15 @@ static const struct file_operations signalfd_fops = {
- 	.read		= signalfd_read,
- };
- 
--asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemask)
-+asmlinkage long sys_signalfd4(int ufd, sigset_t __user *user_mask,
-+			      size_t sizemask, int flags)
+-int do_pipe(int *fd)
++int do_pipe_flags(int *fd, int flags)
  {
- 	sigset_t sigmask;
- 	struct signalfd_ctx *ctx;
+ 	struct file *fw, *fr;
+ 	int error;
+ 	int fdw, fdr;
  
-+	if (flags & ~SFD_CLOEXEC)
++	if (flags & ~O_CLOEXEC)
 +		return -EINVAL;
 +
- 	if (sizemask != sizeof(sigset_t) ||
- 	    copy_from_user(&sigmask, user_mask, sizeof(sigmask)))
- 		return -EINVAL;
-@@ -228,7 +232,7 @@ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemas
- 		 * anon_inode_getfd() will install the fd.
- 		 */
- 		ufd = anon_inode_getfd("[signalfd]", &signalfd_fops, ctx,
--				       0);
-+				       flags & O_CLOEXEC);
- 		if (ufd < 0)
- 			kfree(ctx);
- 	} else {
-@@ -250,3 +254,9 @@ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemas
+ 	fw = create_write_pipe();
+ 	if (IS_ERR(fw))
+ 		return PTR_ERR(fw);
+@@ -1041,12 +1044,12 @@ int do_pipe(int *fd)
+ 	if (IS_ERR(fr))
+ 		goto err_write_pipe;
  
- 	return ufd;
+-	error = get_unused_fd();
++	error = get_unused_fd_flags(flags);
+ 	if (error < 0)
+ 		goto err_read_pipe;
+ 	fdr = error;
+ 
+-	error = get_unused_fd();
++	error = get_unused_fd_flags(flags);
+ 	if (error < 0)
+ 		goto err_fdr;
+ 	fdw = error;
+@@ -1075,16 +1078,21 @@ int do_pipe(int *fd)
+ 	return error;
  }
-+
-+asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask,
-+			     size_t sizemask)
+ 
++int do_pipe(int *fd)
 +{
-+	return sys_signalfd4(ufd, user_mask, sizemask, 0);
++	return do_pipe_flags(fd, 0);
 +}
++
+ /*
+  * sys_pipe() is the normal C calling standard for creating
+  * a pipe. It's not the way Unix traditionally does this, though.
+  */
+-asmlinkage long __weak sys_pipe(int __user *fildes)
++asmlinkage long __weak sys_pipe2(int __user *fildes, int flags)
+ {
+ 	int fd[2];
+ 	int error;
+ 
+-	error = do_pipe(fd);
++	error = do_pipe_flags(fd, flags);
+ 	if (!error) {
+ 		if (copy_to_user(fildes, fd, sizeof(fd)))
+ 			error = -EFAULT;
+@@ -1092,6 +1100,11 @@ asmlinkage long __weak sys_pipe(int __user *fildes)
+ 	return error;
+ }
+ 
++asmlinkage long __weak sys_pipe(int __user *fildes)
++{
++	return sys_pipe2(fildes, 0);
++}
++
+ /*
+  * pipefs should _never_ be mounted by userland - too much of security hassle,
+  * no real gain from having the whole whorehouse mounted. So we don't need
 diff --git a/include/asm-x86/unistd_32.h b/include/asm-x86/unistd_32.h
-index 8317d94..c310371 100644
+index a1f6383..748a05c 100644
 --- a/include/asm-x86/unistd_32.h
 +++ b/include/asm-x86/unistd_32.h
-@@ -332,6 +332,7 @@
- #define __NR_fallocate		324
- #define __NR_timerfd_settime	325
- #define __NR_timerfd_gettime	326
-+#define __NR_signalfd4		327
+@@ -336,6 +336,7 @@
+ #define __NR_eventfd2		328
+ #define __NR_epoll_create2	329
+ #define __NR_dup3		330
++#define __NR_pipe2		331
  
  #ifdef __KERNEL__
  
 diff --git a/include/asm-x86/unistd_64.h b/include/asm-x86/unistd_64.h
-index d751135..69795bf 100644
+index 9eb303e..6aa423d 100644
 --- a/include/asm-x86/unistd_64.h
 +++ b/include/asm-x86/unistd_64.h
-@@ -641,6 +641,8 @@ __SYSCALL(__NR_timerfd_settime, sys_timerfd_settime)
- __SYSCALL(__NR_timerfd_gettime, sys_timerfd_gettime)
- #define __NR_paccept				288
- __SYSCALL(__NR_paccept, sys_paccept)
-+#define __NR_signalfd4				289
-+__SYSCALL(__NR_signalfd4, sys_signalfd4)
+@@ -649,6 +649,8 @@ __SYSCALL(__NR_eventfd2, sys_eventfd2)
+ __SYSCALL(__NR_epoll_create2, sys_epoll_create2)
+ #define __NR_dup3				292
+ __SYSCALL(__NR_dup3, sys_dup3)
++#define __NR_pipe2				293
++__SYSCALL(__NR_pipe2, sys_pipe2)
  
  
  #ifndef __NO_STUBS
-diff --git a/include/linux/signalfd.h b/include/linux/signalfd.h
-index ea037f2..8b3f7b7 100644
---- a/include/linux/signalfd.h
-+++ b/include/linux/signalfd.h
-@@ -8,6 +8,11 @@
- #ifndef _LINUX_SIGNALFD_H
- #define _LINUX_SIGNALFD_H
- 
-+/* For O_CLOEXEC */
-+#include <linux/fcntl.h>
-+
-+/* Flags for signalfd4.  */
-+#define SFD_CLOEXEC O_CLOEXEC
- 
- struct signalfd_siginfo {
- 	__u32 ssi_signo;
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index e022405..da99ae4 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -610,6 +610,7 @@ asmlinkage long sys_set_robust_list(struct robust_list_head __user *head,
- 				    size_t len);
- asmlinkage long sys_getcpu(unsigned __user *cpu, unsigned __user *node, struct getcpu_cache __user *cache);
- asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemask);
-+asmlinkage long sys_signalfd4(int ufd, sigset_t __user *user_mask, size_t sizemask, int flags);
- asmlinkage long sys_timerfd_create(int clockid, int flags);
- asmlinkage long sys_timerfd_settime(int ufd, int flags,
- 				    const struct itimerspec __user *utmr,
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index a1ba005..134d2d5 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -1775,6 +1775,7 @@ static inline void allow_write_access(struct file *file)
+ 		atomic_inc(&file->f_path.dentry->d_inode->i_writecount);
+ }
+ extern int do_pipe(int *);
++extern int do_pipe_flags(int *, int);
+ extern struct file *create_read_pipe(struct file *f);
+ extern struct file *create_write_pipe(void);
+ extern void free_write_pipe(struct file *);
