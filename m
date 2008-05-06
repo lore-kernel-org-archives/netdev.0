@@ -1,26 +1,44 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 0/4] dev_open() and dev_close() require RTNL
-Date: Tue, 6 May 2008 19:26:55 +0100
-Message-ID: <20080506182654.GF2217@solarflare.com>
+Subject: [PATCH 2/4] qla3xxx: Hold RTNL while calling dev_close()
+Date: Tue, 6 May 2008 19:36:26 +0100
+Message-ID: <20080506183626.GH2217@solarflare.com>
+References: <20080506182654.GF2217@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>, David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Ron Mercer <linux-driver@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:54011 "EHLO
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:54034 "EHLO
 	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753203AbYEFS1s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 14:27:48 -0400
+	by vger.kernel.org with ESMTP id S1755040AbYEFShM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 14:37:12 -0400
 Content-Disposition: inline
+In-Reply-To: <20080506182654.GF2217@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dev_open() and dev_close() clearly require the RTNL, but this isn't
-commented or asserted.  The following series adds assertions and fixes
-three drivers that call dev_close() without holding the RTNL.  The
-driver changes are only compile-tested.
+dev_close() must be called holding the RTNL.  Compile-tested only.
 
-Ben.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/qla3xxx.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
+index b7f7b22..bccee68 100644
+--- a/drivers/net/qla3xxx.c
++++ b/drivers/net/qla3xxx.c
+@@ -3701,7 +3701,9 @@ static int ql_cycle_adapter(struct ql3_adapter *qdev, int reset)
+ 		printk(KERN_ERR PFX
+ 				"%s: Driver up/down cycle failed, "
+ 				"closing device\n",qdev->ndev->name);
++		rtnl_lock();
+ 		dev_close(qdev->ndev);
++		rtnl_unlock();
+ 		return -1;
+ 	}
+ 	return 0;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
