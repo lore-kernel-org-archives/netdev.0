@@ -1,207 +1,71 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/4] [CCID3]: Remove ugly RTT-sampling history lookup
-Date: Tue,  6 May 2008 08:38:02 +0100
-Message-ID: <1210059485-691-2-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <ccid3_bug_fixes_and_reducing_tx_socket_by_18_bytes>
- <1210059485-691-1-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Miika Komu <miika@iki.fi>
+Subject: Re: [PATCH] [NET] Exporting of some IPv6 symbols for HIP and SHIM6
+ experimentation
+Date: Tue, 6 May 2008 11:07:49 +0300 (EEST)
+Message-ID: <Pine.SOL.4.64.0805061052470.28110@kekkonen.cs.hut.fi>
+References: <Pine.SOL.4.64.0804292344490.29274@kekkonen.cs.hut.fi>
+ <20080429.152014.00555445.davem@davemloft.net> <Pine.SOL.4.64.0805050847400.8815@kekkonen.cs.hut.fi>
+ <20080505.150045.29715304.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: acme@redhat.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-559023410-1144747756-1210061269=:28110"
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41731 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753821AbYEFHkP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 03:40:15 -0400
-In-Reply-To: <1210059485-691-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from twilight.cs.hut.fi ([130.233.40.5]:50134 "EHLO
+	twilight.cs.hut.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754657AbYEFIHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 04:07:51 -0400
+In-Reply-To: <20080505.150045.29715304.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the RTT-sampling function tfrc_tx_hist_rtt(), since
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
- 1. it suffered from complex passing of return values (the return value both
-    indicated successful lookup and at the same time doubled as RTT sample);
+---559023410-1144747756-1210061269=:28110
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
 
- 2. when for some odd reason the sample value equalled 0, this triggered a bug
-    warning about "bogus Ack", due to the ambiguity of the return value;
+On Mon, 5 May 2008, YOSHIFUJI Hideaki / µÈÆ£±ÑÌÀ wrote:
 
- 3. on a passive host which has not sent anything the TX history is empty and
-    thus will lead to unwanted "bogus Ack" warnings such as
-    ccid3_hc_tx_packet_recv: server(e7b7d518): DATAACK with bogus ACK-28197148
-    ccid3_hc_tx_packet_recv: server(e7b7d518): DATAACK with bogus ACK-26641606.
+Hi,
 
-So this patch makes everything explicit that previously was implicit.
+> In article <Pine.SOL.4.64.0805050847400.8815@kekkonen.cs.hut.fi> (at Mon, 5 May 2008 08:55:49 +0300 (EEST)), Miika Komu <miika@iki.fi> says:
+>
+>> On Tue, 29 Apr 2008, David Miller wrote:
+> :
+>>> This is not how we do things.
+>>>
+>>> When the HIP implementation is submitted for inclusion, the module
+>>> exports can be added, not before.
+>>
+>> I am sorry but this somewhat conflicts with your earlier statement:
+>>
+>> http://www.linux.sgi.com/archives/netdev/2005-03/msg01214.html
+>>
+>> We took an huge effort in our project to move the HIP implementation to
+>> the userland. I feel puzzled on how to continue. Please give some advice?
+>
+> Miika, where are your other patches on top of this?
+> This kind of change might be okay, but it must be along with
+> its users, at least.
 
-Furthermore, the "bogus Ack" warning has been removed, since it can actually be
-triggered due to several reasons (network reordering, old packet, (3) above),
-hence it is not very useful.
+we are maintaining a separate kernel module (GPLv2) for the HIP socket 
+handler for experimentation purposes. If you want to have a look it, you 
+can e.g. download the nightly tarball and have a look at the hipsock 
+directory:
 
-The format of this code is thanks to a suggestion by Arnaldo doing an earlier
-discussion -- which is in fact the clearer variant.
+http://infrahip.hiit.fi/hipl/hipl.tar.gz
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/ccid3.c              |   34 ++++++++++++++++-------------
- net/dccp/ccids/lib/packet_history.c |   40 -----------------------------------
- net/dccp/ccids/lib/packet_history.h |   22 ++++++++++++++++--
- 3 files changed, 38 insertions(+), 58 deletions(-)
+The kernel module is currently out of synch with the latest draft, so I 
+need to update it. The purpose of the kernel module is to be a "wrapper" 
+for IPv6 socket calls because HIP can use ORCHID IPv6 addresses. We would 
+like to experiment with various socket options for HIP and SHIM6. 
+Exporting the symbols would make HIPL developers and users life easier. 
+Once we have a clear set of requirements for the kernel module, we can 
+contribute the changes to the vanilla kernel.
 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -367,6 +367,7 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
- 	struct ccid3_options_received *opt_recv = &hctx->options_received;
-+	struct tfrc_tx_hist_entry *acked;
- 	ktime_t now;
- 	unsigned long t_nfb;
- 	u32 pinv, r_sample;
-@@ -380,17 +381,24 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 	    hctx->state != TFRC_SSTATE_NO_FBACK)
- 		return;
- 
--	now = ktime_get_real();
--
--	/* Estimate RTT from history if ACK number is valid */
--	r_sample = tfrc_tx_hist_rtt(hctx->hist,
--				    DCCP_SKB_CB(skb)->dccpd_ack_seq, now);
--	if (r_sample == 0) {
--		DCCP_WARN("%s(%p): %s with bogus ACK-%llu\n", dccp_role(sk), sk,
--			  dccp_packet_name(DCCP_SKB_CB(skb)->dccpd_type),
--			  (unsigned long long)DCCP_SKB_CB(skb)->dccpd_ack_seq);
-+	/*
-+	 * Locate the acknowledged packet in the TX history.
-+	 *
-+	 * Returning "entry not found" here can for instance happen when
-+	 *  - the host has not sent out anything (e.g. a passive server),
-+	 *  - the Ack is outdated (packet with higher Ack number was received),
-+	 *  - it is a bogus Ack (for a packet not sent on this connection).
-+	 */
-+	acked = tfrc_tx_hist_find_entry(hctx->hist, dccp_hdr_ack_seq(skb));
-+	if (acked == NULL)
- 		return;
--	}
-+	/* For the sake of RTT sampling, ignore/remove all older entries */
-+	tfrc_tx_hist_purge(&acked->next);
-+
-+	/* Update the moving average for the RTT estimate (RFC 3448, 4.3) */
-+	now	  = ktime_get_real();
-+	r_sample  = dccp_sample_rtt(sk, ktime_us_delta(now, acked->stamp));
-+	hctx->rtt = tfrc_ewma(hctx->rtt, r_sample, 9);
- 
- 	/* Update receive rate in units of 64 * bytes/second */
- 	hctx->x_recv = opt_recv->ccid3or_receive_rate;
-@@ -402,11 +410,7 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 		hctx->p = 0;
- 	else				       /* can not exceed 100% */
- 		hctx->p = scaled_div(1, pinv);
--	/*
--	 * Validate new RTT sample and update moving average
--	 */
--	r_sample = dccp_sample_rtt(sk, r_sample);
--	hctx->rtt = tfrc_ewma(hctx->rtt, r_sample, 9);
-+
- 	/*
- 	 * Update allowed sending rate X as per draft rfc3448bis-00, 4.2/3
- 	 */
---- a/net/dccp/ccids/lib/packet_history.h
-+++ b/net/dccp/ccids/lib/packet_history.h
-@@ -40,12 +40,28 @@
- #include <linux/slab.h>
- #include "tfrc.h"
- 
--struct tfrc_tx_hist_entry;
-+/**
-+ *  tfrc_tx_hist_entry  -  Simple singly-linked TX history list
-+ *  @next:  next oldest entry (LIFO order)
-+ *  @seqno: sequence number of this entry
-+ *  @stamp: send time of packet with sequence number @seqno
-+ */
-+struct tfrc_tx_hist_entry {
-+	struct tfrc_tx_hist_entry *next;
-+	u64			  seqno;
-+	ktime_t			  stamp;
-+};
-+
-+static inline struct tfrc_tx_hist_entry *
-+	tfrc_tx_hist_find_entry(struct tfrc_tx_hist_entry *head, u64 seqno)
-+{
-+	while (head != NULL && head->seqno != seqno)
-+		head = head->next;
-+	return head;
-+}
- 
- extern int  tfrc_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno);
- extern void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp);
--extern u32  tfrc_tx_hist_rtt(struct tfrc_tx_hist_entry *head,
--			     const u64 seqno, const ktime_t now);
- 
- /* Subtraction a-b modulo-16, respects circular wrap-around */
- #define SUB16(a, b) (((a) + 16 - (b)) & 0xF)
---- a/net/dccp/ccids/lib/packet_history.c
-+++ b/net/dccp/ccids/lib/packet_history.c
-@@ -40,18 +40,6 @@
- #include "packet_history.h"
- #include "../../dccp.h"
- 
--/**
-- *  tfrc_tx_hist_entry  -  Simple singly-linked TX history list
-- *  @next:  next oldest entry (LIFO order)
-- *  @seqno: sequence number of this entry
-- *  @stamp: send time of packet with sequence number @seqno
-- */
--struct tfrc_tx_hist_entry {
--	struct tfrc_tx_hist_entry *next;
--	u64			  seqno;
--	ktime_t			  stamp;
--};
--
- /*
-  * Transmitter History Routines
-  */
-@@ -73,15 +61,6 @@ void tfrc_tx_packet_history_exit(void)
- 	}
- }
- 
--static struct tfrc_tx_hist_entry *
--	tfrc_tx_hist_find_entry(struct tfrc_tx_hist_entry *head, u64 seqno)
--{
--	while (head != NULL && head->seqno != seqno)
--		head = head->next;
--
--	return head;
--}
--
- int tfrc_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno)
- {
- 	struct tfrc_tx_hist_entry *entry = kmem_cache_alloc(tfrc_tx_hist_slab, gfp_any());
-@@ -111,25 +90,6 @@ void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp)
- }
- EXPORT_SYMBOL_GPL(tfrc_tx_hist_purge);
- 
--u32 tfrc_tx_hist_rtt(struct tfrc_tx_hist_entry *head, const u64 seqno,
--		     const ktime_t now)
--{
--	u32 rtt = 0;
--	struct tfrc_tx_hist_entry *packet = tfrc_tx_hist_find_entry(head, seqno);
--
--	if (packet != NULL) {
--		rtt = ktime_us_delta(now, packet->stamp);
--		/*
--		 * Garbage-collect older (irrelevant) entries:
--		 */
--		tfrc_tx_hist_purge(&packet->next);
--	}
--
--	return rtt;
--}
--EXPORT_SYMBOL_GPL(tfrc_tx_hist_rtt);
--
--
- /*
-  * 	Receiver History Routines
-  */
-
-
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
-
+-- 
+Miika Komu                                       http://www.iki.fi/miika/
+---559023410-1144747756-1210061269=:28110--
