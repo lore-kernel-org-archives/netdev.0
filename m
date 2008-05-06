@@ -1,67 +1,44 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 1/4][MAC80211]: Fix GFP_KERNEL allocation under read
-	lock.
-Date: Tue, 06 May 2008 23:12:00 +0200
-Message-ID: <1210108320.9305.4.camel@johannes.berg>
-References: <48206F4C.5050105@openvz.org>
-	 <200805061840.37713.netdev@axxeo.de>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: mc_loop and multicast traffic with IPv6 over IPv4 tunnels
+Date: Tue, 6 May 2008 23:58:25 +0300
+Message-ID: <200805062358.25834.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-xrBEP1cDTObt5DmJCrqK"
-Cc: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ingo Oeser <netdev-BkyiQQGWkgE@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200805061840.37713.netdev-BkyiQQGWkgE@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1292 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759661AbYEFVO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2008 17:14:28 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-xrBEP1cDTObt5DmJCrqK
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
+We are using a GRE tunnel module developed in house which can tunnel IPv6 
+traffic over IPv4. The implementation is similar with what the upstream 
+kernel does with GRE, IPIP or SIT tunnels, basically it stuffs the skb with 
+the outer header and NF_HOOKs back to the stack. 
 
-> What about doing both allocations in succession to local variables,
-> share the failure path if an error occours an kfree them unconditionally=20
-> like this?
->=20
-> new_node =3D kmalloc(sizeof(struct mpath_node), GFP_KERNEL);
-> new_mpath =3D kzalloc(sizeof(struct mesh_path), GFP_KERNEL);
+I've noticed that when using raw6 sockets on these tunnels, the 
+IPV6_MULTICAST_LOOP setsockopt does not take effect, i.e. even if I set 
+mc_loop to 0, I still get the send packets back when using a multicast 
+address.
 
-If the system is under enough pressure to fail the first allocation, do
-we really want to try another one just to free things again right away?
-I'm with Pavel here, let's rather clean up the failure code path.
+This problem seems to be caused by the fact that the when the skb is pushed 
+through the tunnel it reaches the IPv4 layer which checks the mc_loop flag 
+from the IPv4 part of the socket, which was not altered by the IPv6 
+setsockopt. Modifying the IPv4's mc_loop as well in the IPv6's setsockopt 
+seems to fix the problem.
 
-johannes
+I've looked over the upstream kernel GRE, IPIP and SIT tunnel code, and it 
+seems that this case is not handled. I'll try to reproduce the problem with 
+the upstream kernel as well, but in the meanwhile can somebody tell me if 
+there is something obvious that I've missed?
 
---=-xrBEP1cDTObt5DmJCrqK
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASCDJnqVg1VMiehFYAQJZNQ/+LbbTTgghcC95yxYyiidrrN3H6AWGuDZc
-cqoLIa0Mz5uyLPe1sOYefWd7M7nR/CDHxdB5ouOizFfDR7HrRf/2NcTKwdiD7pgM
-n4B3MYXaiL2LEuXzeRwoKoI1Q8rog8iV+KXPM1lO0f8xNkP9YXlCZ6tiNnJEqYJ2
-rdewLsUVS+ngyxRZWlLkszXkIsnDtQzEOmHxVZVY1V0Uc44WZxKVv60BjEVbh0sx
-L4lmddHKF1pr4YMTo6q/N00JZnM1/pFlhqwwfkV8Q31uP9N0IcJToiNK+YynWXnR
-TtTuqUGyc4ctqP0Dh+5i6Zztsk9PjYJxvJKdmRVOtYcvZlub0g79r4kw9mRJ2rrA
-mseqJ6HDqOlR3ADh1oiDvCcE0kXKfEMYtmqx/1ZWEGHGD5oMNZ9L1gbahJVccvbV
-MTqZuMmZOQjnlWav9DYsCzpaLTbpBBxORN28xm+9Pom0SLvyQhx+eHPETp56SrFw
-Bs9nOmS9z0f9urYCjbZaRAK2L61qB1NOuWmLLNPLIOiob0EGXIHE7AQkSHhFMFxn
-/M+7u+UTg01U3qtOTGEZ2RIn+NZge00hTs+f69M48TwHggpw0eU3nNCkYLsqfBYq
-4GzQHksDiwsUgToP8o7yuRQK/zl+vWyrEjDry1J3gIwbUbmpmQJ4FEeOIoYyajGY
-HDmXjM8JprE=
-=eCJY
------END PGP SIGNATURE-----
-
---=-xrBEP1cDTObt5DmJCrqK--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+tavi
