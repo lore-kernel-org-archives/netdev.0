@@ -1,41 +1,32 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/4] bonding: Do not call free_netdev for already registered
- device.
-Date: Tue, 06 May 2008 12:17:29 -0400
-Message-ID: <48208499.3000501@pobox.com>
-References: <12097757801056-git-send-email-fubar@us.ibm.com> <12097757822222-git-send-email-fubar@us.ibm.com>
+Subject: Re: [PATCH v2.6.26] ucc_geth: Fix arguments to dma map/unmap functions
+Date: Tue, 06 May 2008 12:18:18 -0400
+Message-ID: <482084CA.70104@pobox.com>
+References: <1209751290-25557-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pavel Emelyanov <xemul@openvz.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45255 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45292 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751788AbYEFQRe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 12:17:34 -0400
-In-Reply-To: <12097757822222-git-send-email-fubar@us.ibm.com>
+	id S1753132AbYEFQSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 12:18:20 -0400
+In-Reply-To: <1209751290-25557-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> From: Pavel Emelyanov <xemul@openvz.org>
+Andy Fleming wrote:
+> We were passing NULL as the device.  When we actually start supporting
+> more interesting memory configurations, this will break things, so
+> we proactively are fixing the bug.
 > 
-> If the call to bond_create_sysfs_entry in bond_create fails, the
-> proper rollback is to call unregister_netdevice, not free_netdev.
-> Otherwise - kernel BUG at net/core/dev.c:4057!
-> 
-> Checked with artificial failures injected into bond_create_sysfs_entry.
-> 
-> Pavel's original patch modified by Jay Vosburgh to move code around
-> for clarity (remove goto-hopping within the unwind block).
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
 > ---
->  drivers/net/bonding/bond_main.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
+>  drivers/net/ucc_geth.c |    9 +++++----
+>  1 files changed, 5 insertions(+), 4 deletions(-)
 
-applied 1-4
+ACK but failed to apply
 
 
