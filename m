@@ -1,68 +1,284 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH 00/18] flag parameters
+Subject: [PATCH 01/18] flag parameters: socket and socketpair
 Date: Tue, 6 May 2008 17:18:07 -0400
-Message-ID: <200805062118.m46LI7AF004035@devserv.devel.redhat.com>
+Message-ID: <200805062118.m46LI7ZP004038@devserv.devel.redhat.com>
 Cc: akpm@linux-foundation.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48561 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48572 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933043AbYEFVSm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2008 17:18:42 -0400
+	id S932773AbYEFVSo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2008 17:18:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an update for the previous series which should address the
-comments Andrew had.  The controversial function Davide wrote is gone.
-There is no flag conversion anymore.  We still introduce new names for
-the constants but the values are the same as the O_* constants.
+This patch adds support for flag values which are ORed to the type passwd
+to socket and socketpair.  The additional code is minimal.  The flag
+values in this implementation can and must match the O_* flags.  This
+avoids overhead in the conversion.
 
-This leads to some strange-looking code where we in one moment check
-for, say, SOCK_CLOEXEC, and in the next for O_CLOEXEC.  But I added
-in a separate, new patch code which checks for the consistency of the
-constants.
+The internal functions sock_alloc_fd and sock_map_fd get a new parameters
+and all callers are changed.
 
-I modified the headers in <linux/*> to define the new values by
-include <linux/fcntl.h> and then simply define the new constants
-based on the O_* constants.  That's the safest a nd least troublesome
-way.  Otherwise we would have to create arch-specific headers.  None
-of the modified headers should be used by userlevel code.  Therefore
-the namespace pollution is no issue.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
-For those who just turn in, these patches add flags to various functions
-so that new file descriptors can be created with atomically setting the
-close-on-exec flag.  This is critical, in multi-threaded apps we otherwise
-can have file descriptor leakage or worse.  Since it is so either and
-often needed, I also added code to create new file descriptors with
-O_NONBLOCK set.
+#define PORT 57392
 
-In future there will be other uses.  Like a O_* flag to enable the use
-of non-sequential descriptors.
+/* For Linux these must be the same.  */
+#define SOCK_CLOEXEC O_CLOEXEC
 
-Some interfaces are not exported at userlevel with enough flexibility
-to allow extending them.  For those we need new userlevel interface.
-This is the case for:
+int
+main (void)
+{
+  int fd;
+  fd = socket (PF_INET, SOCK_STREAM, 0);
+  if (fd == -1)
+    {
+      puts ("socket(0) failed");
+      return 1;
+    }
+  int coe = fcntl (fd, F_GETFD);
+  if (coe == -1)
+    {
+      puts ("fcntl failed");
+      return 1;
+    }
+  if (coe & FD_CLOEXEC)
+    {
+      puts ("socket(0) set close-on-exec flag");
+      return 1;
+    }
+  close (fd);
 
- - paccept
- - epoll_create2
- - dup3
- - pipe2
- - inotify_init1
+  fd = socket (PF_INET, SOCK_STREAM|SOCK_CLOEXEC, 0);
+  if (fd == -1)
+    {
+      puts ("socket(SOCK_CLOEXEC) failed");
+      return 1;
+    }
+  coe = fcntl (fd, F_GETFD);
+  if (coe == -1)
+    {
+      puts ("fcntl failed");
+      return 1;
+    }
+  if ((coe & FD_CLOEXEC) == 0)
+    {
+      puts ("socket(SOCK_CLOEXEC) does not set close-on-exec flag");
+      return 1;
+    }
+  close (fd);
 
-We do /not/ need new interfaces for
+  int fds[2];
+  if (socketpair (PF_UNIX, SOCK_STREAM, 0, fds) == -1)
+    {
+      puts ("socketpair(0) failed");
+      return 1;
+    }
+  for (int i = 0; i < 2; ++i)
+    {
+      coe = fcntl (fds[i], F_GETFD);
+      if (coe == -1)
+        {
+          puts ("fcntl failed");
+          return 1;
+        }
+      if (coe & FD_CLOEXEC)
+        {
+          printf ("socketpair(0) set close-on-exec flag for fds[%d]\n", i);
+          return 1;
+        }
+      close (fds[i]);
+    }
 
- - signalfd4
- - eventfd2
- - timerfd_create
- - socket
- - socketpair
+  if (socketpair (PF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds) == -1)
+    {
+      puts ("socketpair(SOCK_CLOEXEC) failed");
+      return 1;
+    }
+  for (int i = 0; i < 2; ++i)
+    {
+      coe = fcntl (fds[i], F_GETFD);
+      if (coe == -1)
+        {
+          puts ("fcntl failed");
+          return 1;
+        }
+      if ((coe & FD_CLOEXEC) == 0)
+        {
+          printf ("socketpair(SOCK_CLOEXEC) does not set close-on-exec flag for fds[%d]\n", i);
+          return 1;
+        }
+      close (fds[i]);
+    }
 
-These either have flags parameters in the interface exported by glibc
-or (in case of the socket functions) overload a parameter with a bitset.
+  puts ("OK");
 
-Each semantic change has a test program.  For archs other than x86 and
-x86-64 you'll have to add the appropriate syscall number.
+  return 0;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The patches all apply individually in sequence and the source tree
-remains compilable and runnable.
+ include/linux/net.h |    9 ++++++++-
+ net/9p/trans_fd.c   |    2 +-
+ net/sctp/socket.c   |    2 +-
+ net/socket.c        |   28 ++++++++++++++++++++--------
+ 4 files changed, 30 insertions(+), 11 deletions(-)
+
+
+Signed-off-by: Ulrich Drepper <drepper@redhat.com>
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 71f7dd5..0c1ad01 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -20,6 +20,7 @@
+ 
+ #include <linux/wait.h>
+ #include <linux/socket.h>
++#include <linux/fcntl.h>	/* For O_CLOEXEC */
+ #include <asm/socket.h>
+ 
+ struct poll_table_struct;
+@@ -94,6 +95,12 @@ enum sock_type {
+ };
+ 
+ #define SOCK_MAX (SOCK_PACKET + 1)
++/* Mask which covers at least up to SOCK_MASK-1.  The
++ * remaining bits are used as flags. */
++#define SOCK_TYPE_MASK 0xf
++
++/* Flags for socket, socketpair, paccept */
++#define SOCK_CLOEXEC	O_CLOEXEC
+ 
+ #endif /* ARCH_HAS_SOCKET_TYPES */
+ 
+@@ -208,7 +215,7 @@ extern int   	     sock_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				  size_t len);
+ extern int	     sock_recvmsg(struct socket *sock, struct msghdr *msg,
+ 				  size_t size, int flags);
+-extern int 	     sock_map_fd(struct socket *sock);
++extern int 	     sock_map_fd(struct socket *sock, int flags);
+ extern struct socket *sockfd_lookup(int fd, int *err);
+ #define		     sockfd_put(sock) fput(sock->file)
+ extern int	     net_ratelimit(void);
+diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
+index f624dff..25931c0 100644
+--- a/net/9p/trans_fd.c
++++ b/net/9p/trans_fd.c
+@@ -1173,7 +1173,7 @@ static int p9_socket_open(struct p9_trans *trans, struct socket *csocket)
+ 	int fd, ret;
+ 
+ 	csocket->sk->sk_allocation = GFP_NOIO;
+-	fd = sock_map_fd(csocket);
++	fd = sock_map_fd(csocket, 0);
+ 	if (fd < 0) {
+ 		P9_EPRINTK(KERN_ERR, "p9_socket_open: failed to map fd\n");
+ 		return fd;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index e7e3baf..5034b1d 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3812,7 +3812,7 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
+ 		goto out;
+ 
+ 	/* Map the socket to an unused fd that can be returned to the user.  */
+-	retval = sock_map_fd(newsock);
++	retval = sock_map_fd(newsock, 0);
+ 	if (retval < 0) {
+ 		sock_release(newsock);
+ 		goto out;
+diff --git a/net/socket.c b/net/socket.c
+index 66c4a8c..6d6f406 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -348,11 +348,11 @@ static struct dentry_operations sockfs_dentry_operations = {
+  *	but we take care of internal coherence yet.
+  */
+ 
+-static int sock_alloc_fd(struct file **filep)
++static int sock_alloc_fd(struct file **filep, int flags)
+ {
+ 	int fd;
+ 
+-	fd = get_unused_fd();
++	fd = get_unused_fd_flags(flags);
+ 	if (likely(fd >= 0)) {
+ 		struct file *file = get_empty_filp();
+ 
+@@ -395,10 +395,10 @@ static int sock_attach_fd(struct socket *sock, struct file *file)
+ 	return 0;
+ }
+ 
+-int sock_map_fd(struct socket *sock)
++int sock_map_fd(struct socket *sock, int flags)
+ {
+ 	struct file *newfile;
+-	int fd = sock_alloc_fd(&newfile);
++	int fd = sock_alloc_fd(&newfile, flags);
+ 
+ 	if (likely(fd >= 0)) {
+ 		int err = sock_attach_fd(sock, newfile);
+@@ -1217,12 +1217,18 @@ asmlinkage long sys_socket(int family, int type, int protocol)
+ {
+ 	int retval;
+ 	struct socket *sock;
++	int flags;
++
++	flags = type & ~SOCK_TYPE_MASK;
++	if (flags & ~SOCK_CLOEXEC)
++		return -EINVAL;
++	type &= SOCK_TYPE_MASK;
+ 
+ 	retval = sock_create(family, type, protocol, &sock);
+ 	if (retval < 0)
+ 		goto out;
+ 
+-	retval = sock_map_fd(sock);
++	retval = sock_map_fd(sock, flags & O_CLOEXEC);
+ 	if (retval < 0)
+ 		goto out_release;
+ 
+@@ -1245,6 +1251,12 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
+ 	struct socket *sock1, *sock2;
+ 	int fd1, fd2, err;
+ 	struct file *newfile1, *newfile2;
++	int flags;
++
++	flags = type & ~SOCK_TYPE_MASK;
++	if (flags & ~SOCK_CLOEXEC)
++		return -EINVAL;
++	type &= SOCK_TYPE_MASK;
+ 
+ 	/*
+ 	 * Obtain the first socket and check if the underlying protocol
+@@ -1263,13 +1275,13 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
+ 	if (err < 0)
+ 		goto out_release_both;
+ 
+-	fd1 = sock_alloc_fd(&newfile1);
++	fd1 = sock_alloc_fd(&newfile1, flags & O_CLOEXEC);
+ 	if (unlikely(fd1 < 0)) {
+ 		err = fd1;
+ 		goto out_release_both;
+ 	}
+ 
+-	fd2 = sock_alloc_fd(&newfile2);
++	fd2 = sock_alloc_fd(&newfile2, flags & O_CLOEXEC);
+ 	if (unlikely(fd2 < 0)) {
+ 		err = fd2;
+ 		put_filp(newfile1);
+@@ -1425,7 +1437,7 @@ asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+ 	 */
+ 	__module_get(newsock->ops->owner);
+ 
+-	newfd = sock_alloc_fd(&newfile);
++	newfd = sock_alloc_fd(&newfile, 0);
+ 	if (unlikely(newfd < 0)) {
+ 		err = newfd;
+ 		sock_release(newsock);
