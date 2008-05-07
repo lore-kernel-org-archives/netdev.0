@@ -1,71 +1,46 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10611] New: Incorrect RFC section reference in
- comment
-Date: Tue, 6 May 2008 23:33:51 -0700
-Message-ID: <20080506233351.1fe19fe6.akpm@linux-foundation.org>
-References: <bug-10611-10286@http.bugzilla.kernel.org/>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC/RFT 3/4] mac80211: use GSO for fragmentation
+Date: Wed, 7 May 2008 15:10:26 +0800
+Message-ID: <20080507071026.GA24407@gondor.apana.org.au>
+References: <20080430124055.091382000@sipsolutions.net> <20080430130050.105344000@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: jdassen@debian.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Ron Rindjunsky <ron.rindjunsky@intel.com>,
+	Tomas Winkler <tomasw@gmail.com>,
+	Ivo van Doorn <ivdoorn@gmail.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44375 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752380AbYEGGeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 02:34:09 -0400
-In-Reply-To: <bug-10611-10286@http.bugzilla.kernel.org/>
+Received: from rhun.apana.org.au ([64.62.148.172]:48458 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1763555AbYEGHKb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 03:10:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20080430130050.105344000@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+On Wed, Apr 30, 2008 at 02:40:58PM +0200, Johannes Berg wrote:
+> This patch makes mac80211 use the GSO infrastructure for segmentation,
+> but not really all of it because we do not register a protocol handler
+> (nor can do that easily since a lot of functions need to be done before
+> segmentation and another bunch afterwards, and we need to keep rcu-
+> protected structures for both.)
 
-On Tue,  6 May 2008 23:25:14 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+Your idea of using skb_segment to remove duplicate code is great.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10611
-> 
->            Summary: Incorrect RFC section reference in comment
->            Product: Networking
->            Version: 2.5
->      KernelVersion: master branch
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: jdassen@debian.org
-> 
-> 
-> Problem Description:
-> 
-> RFC 1122 does not have a section 3.1.2.2. The requirement to silently
-> discard packets with a bad checksum is in section 3.2.1.2 instead.
-> 
-> Proposed patch:
-> 
-> diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-> index 212734c..5bdb8f4 100644
-> --- a/net/ipv4/ip_input.c
-> +++ b/net/ipv4/ip_input.c
-> @@ -394,7 +394,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev,
-> struct packet_type *pt,
->         iph = skb->nh.iph;
-> 
->         /*
-> -        *      RFC1122: 3.1.2.2 MUST silently discard any IP frame that fails
-> the checksum.
-> +        *      RFC1122: 3.2.1.2 MUST silently discard any IP frame that fails
-> the checksum.
->          *
->          *      Is the datagram acceptable?
->          *
-> 
-> 
+However, using skb->gso_skb for the push-back doesn't work.  For
+example, what is going to happen when I enable software GSO on a
+wireless device and then send a real GSO packet to it where each
+GSO fragment also required wireless fragmentation?
 
-Thanks, but we much prefer that patches be handled via email.  Can you
-please resend the patch as a reply-to-all to this email, along with a
-signed-off-by: as per Documentation/SubmittingPatches?
+I suggest that you just use skb_segment for the actual fragmentation
+but keep the original infrastructure for handling the fragments.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
