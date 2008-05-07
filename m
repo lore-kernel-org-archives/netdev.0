@@ -1,44 +1,75 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 10/11] avoid kobject name conflict with different
-	namespaces
-Date: Wed, 7 May 2008 12:08:38 -0700
-Message-ID: <20080507190838.GA4467@suse.de>
-References: <20080506173030.653828076@theryb.frec.bull.fr> <20080506173335.922289888@theryb.frec.bull.fr> <m13aoueyq8.fsf@frodo.ebiederm.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] mac80211: rewrite fragmentation code
+Date: Wed, 07 May 2008 21:19:49 +0200
+Message-ID: <1210187989.5642.28.camel@johannes.berg>
+References: <20080430124055.091382000@sipsolutions.net>
+	 <20080430130050.105344000@sipsolutions.net>
+	 <20080507071026.GA24407@gondor.apana.org.au>
+	 <1210150217.9305.39.camel@johannes.berg>
+	 <20080507090040.GA25186@gondor.apana.org.au>
+	 <1210159339.5642.13.camel@johannes.berg>
+	 <20080507114123.GA26073@gondor.apana.org.au>
+	 <1210161133.5642.19.camel@johannes.berg>
+	 <20080507130548.GA26977@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Thery <benjamin.thery@bull.net>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:42530 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763671AbYEGTO2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 15:14:28 -0400
-Content-Disposition: inline
-In-Reply-To: <m13aoueyq8.fsf@frodo.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-9Axcf3WAuzXZ5Exyb1Em"
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ron Rindjunsky <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080507130548.GA26977-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 07, 2008 at 11:49:19AM -0700, Eric W. Biederman wrote:
-> Unless there is another path I think placing an additional pointer in
-> kobj_type so we can find it through ktype is the simplest solution.
-> Although using the kset is also sane.
 
-Ick, ick, ick :)
+--=-9Axcf3WAuzXZ5Exyb1Em
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> The easiest and most trivially correct thing to do would be to simply
-> remove the unnecessary check from kobject_rename.  We perform the
-> check at the upper levels in the network anyway.  And kobject_rename
-> is only used by the network stack.
+On Wed, 2008-05-07 at 21:05 +0800, Herbert Xu wrote:
+> On Wed, May 07, 2008 at 01:52:13PM +0200, Johannes Berg wrote:
+> >
+> > Hmm. Why does busy exist then? Historical accident? I really really
+>=20
+> Yes it's historical baggage.  These days the biggest users would
+> be LLTX drivers which should all be converted to non-LLTX and
+> drivers that don't keep track of queue status properly.
 
-Wireless uses it also for some things, and it requires that it fail if a
-duplicate is found.  I thought that s390 also used it, but I don't see
-that usage in the tree anymore, perhaps they switched to something else.
+Hmmm mmmm. I'll clean it up later, it gets easier with my patch that
+puts the control info into skb->cb so I'll do that later in a separate
+patch. The way I see it, this is actually *correct* from a "what hits
+the air" point of view and the current code is crappy.
 
-good luck,
+johannes
 
-greg k-h
+--=-9Axcf3WAuzXZ5Exyb1Em
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUASCIA1KVg1VMiehFYAQKD2RAAhYKiUA0L9xunXFOq5N5Fq0jGs7oupoKa
+d6JTl1GcPVCqRocOrFAzmYdIxePvJpx59fUp4r58/4oSU2HOAYX2jkzQhYPqxytS
+r8/6Bx3kqsjlp0AdcMd636HtYquaG5vrxw8rbSgSF+5UqY/led5PTug8DIee8Ng3
+2AjrY49ZDUcDGknb2wxxCsVigwO+Qyejf9W60hH/8pe/9vsqkR5aY3ihYC76b2lo
+erHX31JrXVsaTFXlYpBVSaEpHZusyeufCGgD8PxsbfRwLON1iT9zJWaKhSpt+fzF
+A2o/tQFN00TPvA2u7kEaOenJ2GpFGOHehi9PxZPWqxh9P7GszOmdrhofPc9k1MaG
+ipWN9tsseFhLN5RFYoDzrfKPuqbKS3qJ4G9saK2/h3ojW3CYw8l8xfH4G+8V6EXN
+2EWN71QMw9ruNnALHmG3P/aVI9GKydDXbDSg/jSWN1c0n+D9oNSlHf1/KgOqW8wn
+bH211qdMmaCHoLkp8FtdeyZDkzEDH1xQjR0/elX4UsSC1nsCEjV6gvpyW5EJ5O39
+b8ohxbe0S+DJOAMzlPfvvWemUl4tsaElFuNQnEIAWubtlu20Y6nmbEVHAyxah11S
+PamYmt9fduuc5TEjk3+ZdlkrulBGBUdLdETH/9EGnsarzkgZaqLJzFwIcGPOqHrG
++zYEhdi+zFU=
+=HlvZ
+-----END PGP SIGNATURE-----
+
+--=-9Axcf3WAuzXZ5Exyb1Em--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
