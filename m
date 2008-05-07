@@ -1,49 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: New driver "sfc" for Solarstorm SFC4000 controller.
-Date: Wed, 7 May 2008 18:55:19 +0100
-Message-ID: <20080507175518.GY2217@solarflare.com>
-References: <200804301925.m3UJPc72001651@hera.kernel.org> <20080501120858.207b6dd6.akpm@linux-foundation.org> <20080502160530.GN14219@solarflare.com> <20080502110908.93c79d81.akpm@linux-foundation.org> <20080506125008.GA2217@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH v2.6.26] gianfar: Fix a bug where the pointer never moves for dma_unmap...
+Date: Wed,  7 May 2008 13:20:55 -0500
+Message-ID: <1210184455-28477-1-git-send-email-afleming@freescale.com>
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:56598 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751656AbYEGRzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 13:55:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20080506125008.GA2217@solarflare.com>
+Received: from az33egw01.freescale.net ([192.88.158.102]:61254 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755001AbYEGSU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 14:20:58 -0400
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m47IKuni014784
+	for <netdev@vger.kernel.org>; Wed, 7 May 2008 11:20:56 -0700 (MST)
+Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m47IKtZ6003776
+	for <netdev@vger.kernel.org>; Wed, 7 May 2008 13:20:55 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> Andrew Morton wrote:
-> > On Fri, 2 May 2008 17:05:35 +0100 Ben Hutchings <bhutchings@solarflare.com> wrote:
-<snip>
-> > > > > +		rx_buf->page = alloc_pages(__GFP_COLD | __GFP_COMP | GFP_ATOMIC,
-> > > > > +					   efx->rx_buffer_order);
-> > > > 
-> > > > I don't think we should be using the open-coded __GFP_COMP here.  That's
-> > > > more an mm-internal thing.
-> > > 
-> > > What's the alternative?
-> > 
-> > Just remove the __GFP_COMP, I expect.  __GFP_COMP will ask the page
-> > allocator to add extra book-keeping info to the pageframe (via
-> > prep_compound_page()).  I doubt if the driver uses that information.
-> 
-> It looks like this flag was used by mistake, based on past experience with
-> a driver that needed buffers to be mapped into user space.  The original
-> author of the RX page-allocation code is away at the moment, so I will
-> have to wait to ask why he used it.
+The loop that unmaps all of the TX Buffer Descriptors never actually
+moves the txbd pointer, so we were just repeatedly unmapping the first one.
 
-This is not a mistake.   We need multi-page buffers to be treated as
-compound pages because once they are attached to an skbuff they will
-be freed by skb_release_data() calling put_page(), not __free_pages().
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+---
+ drivers/net/gianfar.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 6f22f06..25bdd08 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -635,6 +635,8 @@ static void free_skb_resources(struct gfar_private *priv)
+ 			dev_kfree_skb_any(priv->tx_skbuff[i]);
+ 			priv->tx_skbuff[i] = NULL;
+ 		}
++
++		txbdp++;
+ 	}
+ 
+ 	kfree(priv->tx_skbuff);
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+1.5.4.GIT
+
