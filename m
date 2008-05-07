@@ -1,64 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Wed, 07 May 2008 14:15:21 -0700 (PDT)
-Message-ID: <20080507.141521.193714938.davem@davemloft.net>
-References: <4821F3B7.2090702@krogh.cc>
-	<86802c440805071130m62c1f4edydb3316dac4a2aba2@mail.gmail.com>
+Subject: Re: Socket buffer sizes with autotuning
+Date: Wed, 07 May 2008 14:18:35 -0700 (PDT)
+Message-ID: <20080507.141835.229114942.davem@davemloft.net>
+References: <d1c2719f0805062057q62decefcg7c3de96271c4b26d@mail.gmail.com>
+	<20080506.212722.225900091.davem@davemloft.net>
+	<d1c2719f0805071136i3414755cv6e72e7bd5a0d41ad@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesper@krogh.cc, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: yhlu.kernel@gmail.com
+Cc: netdev@vger.kernel.org
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42662
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42666
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751154AbYEGVP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 17:15:27 -0400
-In-Reply-To: <86802c440805071130m62c1f4edydb3316dac4a2aba2@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1756898AbYEGVSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 17:18:41 -0400
+In-Reply-To: <d1c2719f0805071136i3414755cv6e72e7bd5a0d41ad@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Date: Wed, 7 May 2008 11:30:18 -0700
+From: "Jerry Chu" <hkchu@google.com>
+Date: Wed, 7 May 2008 11:36:59 -0700
 
-> On Wed, May 7, 2008 at 11:23 AM, Jesper Krogh <jesper@krogh.cc> wrote:
-> > Hi.
-> >
-> >  I get errors like this after a few minutes of traffic on a Sun Neptune 10g
-> > ethernet card. (with nice 500MB/s throughput).
-> >
-> >  Then the server seems too busy with something, so it doesn't even respont
-> > to a serial terminal login.
-> >
-> >  May  7 16:16:33 hest kernel: [  166.948958] niu: niu_get_parent:
-> > platform_type[1] port[3]
-> >  May  7 16:16:33 hest kernel: [  166.949366] niu: niu_get_and_validate_port:
-> > port[3] num_ports[2]
-> >  May  7 16:16:33 hest kernel: [  166.949886] niu: niu_put_parent: port[3]
-> >  .. bootup ends here ..
-> >  May  7 17:13:54 hest kernel: [ 3670.128178] niu 0000:84:00.0: niu: eth4:
-> > Transmit timed out, resetting
-> >  May  7 17:14:04 hest kernel: [ 3680.108614] niu 0000:84:00.0: niu: eth4:
-> > Transmit timed out, resetting
-> >  May  7 17:14:14 hest kernel: [ 3690.093089] niu 0000:84:00.0: niu: eth4:
-> > Transmit timed out, resetting
-> >  May  7 17:14:19 hest kernel: [ 3695.079254] niu 0000:84:00.0: niu: eth4:
-> > Transmit timed out, resetting
-> >  May  7 17:14:24 hest kernel: [ 3700.073525] niu 0000:84:00.0: niu: eth4:
-> > Transmit timed out, resetting
-> >  May  7 17:14:29 hest kernel: [ 3705.063744] niu 0000:84:00.0: niu: eth4:
-> > Transmit timed out, resetting
-> >  May  7 17:14:34 hest kernel: [ 3710.049918] niu 0000:84:00.0: niu: eth4:
-> > Transmit timed out, resetting
-> >
-> >
-> >  Any suggestions?
-> >
-> >  The system is an Ubuntu Hardy (2.6.24-17-server) amd64.
-> 
-> can you try 2.6.25 or current git?
+> No I haven't tested your patch. I tried to understand skb better before
+> applying your patch. After I studied bunch of code, I come to the conclusion
+> that your patch won't work for me. First it tracks # of clones, which is not
+> what I need. E.g., tcpdump will cause host_inflight to be grossly wrong.
 
-Also, please always CC: netdev@vger.kernel.org on networking reports.
+We can make sub-clones not count.
 
-Thank you.
+Also, we already can distinguish this case, because all SKB clones
+made by TCP are fast-clones.  So we could only bump the counter for
+fast clones.  If tcpdump clones it again, it won't be a fast clone and
+therefore we can avoid bumping the counter in that case.  Similarly
+for other features that want to clone.
+
+Please try to get your idea working with my infrastructure.  We
+can modify it to behave however you need it to, but at the core
+it's the idea that tracks the state most directly and properly.
