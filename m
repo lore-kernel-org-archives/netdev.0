@@ -1,188 +1,256 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [RESEND][PATCH 00/11] sysfs tagged directories
-Date: Wed, 07 May 2008 15:19:06 +0200
-Message-ID: <4821AC4A.1010905@fr.ibm.com>
-References: <20080506173030.653828076@theryb.frec.bull.fr> <20080506175331.GA1815@suse.de>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [RFC] gianfar: low gigabit throughput
+Date: Wed, 7 May 2008 17:28:23 +0400
+Message-ID: <20080507132823.GA10988@polina.dev.rtsoft.ru>
+References: <20080506192008.GA30148@polina.dev.rtsoft.ru> <4820BA72.3090903@hp.com>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Thery <benjamin.thery@bull.net>,
-	linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Tejun Heo <htejun@gmail.com>, Al Viro <viro@ftp.linux.org.uk>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
+Content-Type: text/plain; charset=utf8
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:23628 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbYEGNVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 09:21:04 -0400
-In-Reply-To: <20080506175331.GA1815@suse.de>
+Received: from rtsoft2.corbina.net ([85.21.88.2]:38536 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with SMTP id S1751050AbYEGN21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 09:28:27 -0400
+Content-Disposition: inline
+In-Reply-To: <4820BA72.3090903@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg KH wrote:
-> On Tue, May 06, 2008 at 07:30:30PM +0200, Benjamin Thery wrote:
->> This is still the same port of Eric Biederman's patchset to implement
->> tagged directories in sysfs that was discussed a few days ago.
+On Tue, May 06, 2008 at 01:07:14PM -0700, Rick Jones wrote:
+> Anton Vorontsov wrote:
+>> Hi all,
 >>
->> This time it applies on top of 2.6.26-rc1, 
->> which includes a fix from Daniel Lezcano to fix net device renaming
->> for sysfs (and of course all the network namespaces stuff that was 
->> committed in net-2.6.26).
+>> Down here few question regarding networking throughput, I would
+>> appreciate any thoughts or ideas.
 >>
->> This patchset still contains the patch from Serge Hallyn that implements
->> tagging for user namespaces.
+>> On the MPC8315E-RDB board (CPU at 400MHz, CSB at 133 MHz) I'm observing
+>> relatively low TCP throughput using gianfar driver...
+>
+> What is the "target" of the test - is it another of those boards, or  
+> something else?
+
+I've tried in various ways (except for another of these boards, I don't
+have any), for example really fast machine with gbit ethernet, but most
+of the time I'm testing with MPC8315 and MPC8377 interconnected.
+
+The other interesting thing is that when netserver is running on the
+MPC8315 (slow) target, and netperf on the MPC8377 (fast), the TCP
+and UDP throughput increases.
+
+root@mpc837x_rdb:~# netperf -l 3 -H 10.0.1.2 -t TCP_STREAM -- -m 32768 -s 157344 -S 157344
+TCP STREAM TEST to 10.0.1.2
+#Cpu utilization 40.66
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+212992 206848  32768    3.00      309.87   
+
+So the slow target can receive TCP packets with 300 Mb/s, but TCP
+packet generation (or transmitting) is slower.
+
 >>
->> It also contains a patch from Daniel Lezcano which allows to have net 
->> devices with the same name in two different network namespaces.
-> 
-> Does this all work properly with both CONFIG_SYSFS_DEPRECATED enabled
-> and disabled?
-> 
-> Can you show some outputs of 'tree' in both cases on the /sys/class/net/
-> directory?
-> 
-> thanks,
-> 
-> greg k-h
+>> The maximum value I've seen with the current kernels is 142 Mb/s of TCP
+>> and 354 Mb/s of UDP (NAPI and interrupts coalescing enabled):
+>>
+>>   root@b1:~# netperf -l 10 -H 10.0.1.1 -t TCP_STREAM -- -m 32768 -s 157344 -S 157344
+>>   TCP STREAM TEST to 10.0.1.1
+>>   #Cpu utilization 0.10
+>>   Recv   Send    Send
+>>   Socket Socket  Message  Elapsed
+>>   Size   Size    Size     Time     Throughput
+>>   bytes  bytes   bytes    secs.    10^6bits/sec
+>>
+>>   206848 212992  32768    10.00     142.40
+>>
+>>   root@b1:~# netperf -l 10 -H 10.0.1.1 -t UDP_STREAM -- -m 32768 -s 157344 -S 157344
+>>   UDP UNIDIRECTIONAL SEND TEST to 10.0.1.1
+>>   #Cpu utilization 100.00
+>>   Socket  Message  Elapsed      Messages
+>>   Size    Size     Time         Okay Errors   Throughput
+>>   bytes   bytes    secs            #      #   10^6bits/sec
+>>
+>>   212992   32768   10.00       13539      0     354.84
+>>   206848           10.00       13539            354.84
+>>
+>
+> I have _got_ to make CPU utilization enabled by default one of these  
+> days :)  At least for mechanisms which don't require calibration.
 
-Here is the output from an ls -l of /sys/class/net. I tryed with 
-different configurations and checked the renamed network devices are 
-propagated to the sysfs.
+Heh, I've skipped the calibration chapter in the netperf manual. :-D
+Should revert to it.
 
-1) CONFIG_SYSFS_DEPRECATED && CONFIG_SYS && CONFIG_NET_NS
-=========================================================
+>> Is this normal?
+>
+> Does gianfar do TSO?
 
-Outside a namespace:
---------------------
+Afaik, it doesn't. The hardware can do header recognition/verification
+including checksums, and also could generate checksums for the TCP/IP.
 
-qemu:~> ip l
-1: lo: <LOOPBACK,UP,10000> mtu 16436 qdisc noqueue
-     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
-     link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
-3: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop
-     link/ether 1e:43:9e:1f:1f:55 brd ff:ff:ff:ff:ff:ff
-4: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
-     link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
-16: veth1: <BROADCAST,MULTICAST,PROMISC> mtu 1500 qdisc pfifo_fast qlen 1000
-     link/ether 8e:94:e6:72:63:cf brd ff:ff:ff:ff:ff:ff
+But IP fragmentation and re-assembly on the software's shoulders.
 
-qemu:~/lxc> ll /sys/class/net/
-total 0
-drwxr-xr-x 5 root root 0 2008-05-07 15:24 br0
-drwxr-xr-x 3 root root 0 2008-05-07 13:16 dummy0
-drwxr-xr-x 4 root root 0 2008-05-07 15:24 eth0
-drwxr-xr-x 3 root root 0 2008-05-07 13:16 lo
-drwxr-xr-x 4 root root 0 2008-05-07 15:26 veth1
+> If not, what happens when you tell UDP_STREAM to  
+> send 1472 byte messages to bypass IP fragmentation?
 
+A bit worse throughput:
 
-Inside the namespace:
-----------------------
+root@b1:~# netperf -l 3 -H 10.0.1.1 -t UDP_STREAM -- -m 1472 -s 157344 -S 157344
+UDP UNIDIRECTIONAL SEND TEST to 10.0.1.1
+#Cpu utilization 100.00
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
 
-qemu:~> ip l
-14: lo: <LOOPBACK,UP,10000> mtu 16436 qdisc noqueue
-     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-15: veth2: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 
-1000
-     link/ether 46:85:e5:76:90:05 brd ff:ff:ff:ff:ff:ff
+212992    1472   3.00        73377      0     287.86
+206848           3.00        73377            287.86
 
-virtnode:~lxc # ll /sys/class/net/
-total 0
-drwxr-xr-x 3 root root 0 May  7 15:28 lo
-drwxr-xr-x 3 root root 0 May  7 15:26 veth2
+And 32 * 1472:
 
-2) CONFIG_SYSFS && CONFIG_NET_NS
-================================
+root@b1:~# netperf -l 3 -H 10.0.1.1 -t UDP_STREAM -- -m 47104 -s 157344 -S 157344
+UDP UNIDIRECTIONAL SEND TEST to 10.0.1.1
+#Cpu utilization 100.00
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
 
+212992   47104   3.00         3124      0     392.13
+206848           3.00         3124            392.13
 
-Outside the namespace:
-----------------------
+So things becomes much better when the message size increases
+(I think the netperf then eating less cpu, and gives some precessing
+time to the kernel?).
 
-qemu:~> ip l
-1: lo: <LOOPBACK,UP,10000> mtu 16436 qdisc noqueue
-     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
-     link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
-3: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop
-     link/ether 72:16:3d:88:11:70 brd ff:ff:ff:ff:ff:ff
-4: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
-     link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
-13: veth1: <BROADCAST,MULTICAST,PROMISC> mtu 1500 qdisc pfifo_fast qlen 1000
-     link/ether aa:6f:e8:dd:b8:ba brd ff:ff:ff:ff:ff:ff
+The same for TCP packets with mlen of 1448.
 
-  * Content of /sys/class/net:
+> While stock netperf won't report what the socket buffer size becomes  
+> when you allow autotuning to rear its head, you can take the top of  
+> trunk and enable the "omni" tests (./configure --enable-omni) and those  
+> versions of *_STREAM etc can report what the socket buffer size was at  
+> the beginning and at the end of the test. You can let the stack autotune  
+> and see if anything changes there.  You can do the same with stock  
+> netperf, just it will only report the initial socket buffer sizes...
 
-qemu:~/lxc> ll /sys/class/net/
-total 0
-lrwxrwxrwx 1 root root 0 2008-05-07 14:31 br0 -> 
-../../devices/virtual/net/br0
-lrwxrwxrwx 1 root root 0 2008-05-07 14:28 dummy0 -> 
-../../devices/virtual/net/dummy0
-lrwxrwxrwx 1 root root 0 2008-05-07 14:28 eth0 -> 
-../../devices/pci0000:00/0000:00:03.0/net/eth0
-lrwxrwxrwx 1 root root 0 2008-05-07 14:28 lo -> ../../devices/virtual/net/lo
-lrwxrwxrwx 1 root root 0 2008-05-07 14:35 veth1 -> 
-../../devices/virtual/net/veth1
+Thanks, will try.
 
-Inside the namespace:
-----------------------
+>> netperf running in loopback gives me 329 Mb/s of TCP throughput:
+>>
+>>   root@b1:~# netperf -l 10 -H 127.0.0.1 -t TCP_STREAM -- -m 32768 -s 157344 -S 157344
+>>   TCP STREAM TEST to 127.0.0.1
+>>   #Cpu utilization 100.00
+>>   #Cpu utilization 100.00
+>>   Recv   Send    Send
+>>   Socket Socket  Message  Elapsed
+>>   Size   Size    Size     Time     Throughput
+>>   bytes  bytes   bytes    secs.    10^6bits/sec
+>>
+>>   212992 212992  32768    10.00     329.60
+>>
+>>
+>> May I consider this as a something that is close to the Linux'
+>> theoretical maximum for this setup? Or this isn't reliable test?
+>
+> I'm always leery of using a loopback number.  It excercises both send  
+> and receive at the same time, but without the driver.  Also, lo tends to  
+> have a much larger MTU than a "standard" NIC and if that NIC doesn't to  
+> TSO and LRO that can be a big difference in the number of times up and  
+> down the stack per KB transferred.
 
-qemu:~> ip l
-11: lo: <LOOPBACK,UP,10000> mtu 16436 qdisc noqueue
-     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-12: veth2: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 
-1000
-     link/ether ee:c5:a3:7c:58:bd brd ff:ff:ff:ff:ff:ff
+I see. Will be cautious with it, too. ;-)
 
-virtnode:~/lxc # ll /sys/class/net/
-total 0
-lrwxrwxrwx 1 root root 0 May  7 14:40 lo -> ../../devices/virtual/net/lo
-lrwxrwxrwx 1 root root 0 May  7 14:40 veth2 -> 
-../../devices/virtual/net/veth2
+>> I can compare with teh MPC8377E-RDB (very similar board - exactly the same
+>> ethernet phy, the same drivers are used, i.e. everything is the same from
+>> the ethernet stand point), but running at 666 MHz, CSB at 333MHz:
+>>
+>>          |CPU MHz|BUS MHz|UDP Mb/s|TCP Mb/s|
+>>   ------------------------------------------
+>>   MPC8377|    666|    333|     646|     264|
+>>   MPC8315|    400|    133|     354|     142|
+>>   ------------------------------------------
+>>   RATIO  |    1.6|    2.5|     1.8|     1.8|
+>>
+>> It seems that things are really dependant on the CPU/CSB speed.
+>
+> What is the nature of the DMA stream between the two tests?  I find it  
+> interesting that the TCP Mb/s went up by more than the CPU MHz and  
+> wonder how much the Bus MHz came into play there - perhaps there were  
+> more DMA's to setup or across a broader memory footprint for TCP than  
+> for UDP.
 
+The gianfar indeed does a lot of dma on the "buffer descriptors", so
+probably the bus speed matters a lot. And combination of CPU and Bus
+gives the final result.
 
-3) CONFIG_SYSFS
-===============
+>>
+>> I've tried to tune gianfar driver in various ways... and it gave
+>> some positive results with this patch:
+>>
+>> diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+>> index fd487be..b5943f9 100644
+>> --- a/drivers/net/gianfar.h
+>> +++ b/drivers/net/gianfar.h
+>> @@ -123,8 +123,8 @@ extern const char gfar_driver_version[];
+>>  #define GFAR_10_TIME    25600
+>>   #define DEFAULT_TX_COALESCE 1
+>> -#define DEFAULT_TXCOUNT	16
+>> -#define DEFAULT_TXTIME	21
+>> +#define DEFAULT_TXCOUNT	80
+>> +#define DEFAULT_TXTIME	105
+>>   #define DEFAULT_RXTIME	21
+>
+> No ethtool coalescing tuning support for gianfar?-)
 
-qemu:~> ip l
-1: lo: <LOOPBACK,UP,10000> mtu 16436 qdisc noqueue
-     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
-     link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
-3: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop
-     link/ether 6e:3a:5f:2f:fa:cb brd ff:ff:ff:ff:ff:ff
-4: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
-     link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
+Heh. :-) I should have looked into gianfar_ethtool.c before editing
+anything. Yes, there is.
 
-qemu:~/lxc> ll /sys/class/net/
-total 0
-lrwxrwxrwx 1 root root 0 2008-05-07 15:01 br0 -> 
-../../devices/virtual/net/br0
-lrwxrwxrwx 1 root root 0 2008-05-07 14:59 dummy0 -> 
-../../devices/virtual/net/dummy0
-lrwxrwxrwx 1 root root 0 2008-05-07 14:59 eth0 -> 
-../../devices/pci0000:00/0000:00:03.0/net/eth0
-lrwxrwxrwx 1 root root 0 2008-05-07 14:59 lo -> ../../devices/virtual/net/lo
+>> Basically this raises the tx interrupts coalescing threshold (raising
+>> it more didn't help, as well as didn't help raising rx thresholds).
+>> Now:
+>>
+>> root@b1:~# netperf -l 3 -H 10.0.1.1 -t TCP_STREAM -- -m 32768 -s 157344 -S 157344
+>> TCP STREAM TEST to 10.0.1.1
+>> #Cpu utilization 100.00
+>> Recv   Send    Send
+>> Socket Socket  Message  Elapsed
+>> Size   Size    Size     Time     Throughput
+>> bytes  bytes   bytes    secs.    10^6bits/sec
+>>
+>> 206848 212992  32768    3.00      163.04
+>>
+>>
+>> That is +21 Mb/s (14% up). Not fantastic, but good anyway.
+>>
+>> As expected, the latency increased too:
+>>
+>> Before the patch:
+>>
+>> --- 10.0.1.1 ping statistics ---
+>> 20 packets transmitted, 20 received, 0% packet loss, time 18997ms
+>> rtt min/avg/max/mdev = 0.108/0.124/0.173/0.022 ms
+>>
+>> After:
+>>
+>> --- 10.0.1.1 ping statistics ---
+>> 22 packets transmitted, 22 received, 0% packet loss, time 20997ms
+>> rtt min/avg/max/mdev = 0.158/0.167/0.182/0.004 ms
+>>
+>>
+>> 34% up... heh. Should we sacrifice the latency in favour of throughput?
+>> Is 34% latency growth bad thing? What is worse, lose 21 Mb/s or 34% of
+>> latency? ;-)
+>
+> Well, I'm not always fond of that sort of trade-off:
+>
+> ftp://ftp.cup.hp.com/dist/networking/briefs/
+>
+> there should be a nic latency vs tput writeup there.
 
-4) CONFIG_SYSFS_DEPRECATED && CONFIG_SYSFS
-==========================================
+Thanks!
 
-qemu:~> ip l
-1: lo: <LOOPBACK,UP,10000> mtu 16436 qdisc noqueue
-     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
-     link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
-3: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop
-     link/ether 16:85:f0:a8:34:44 brd ff:ff:ff:ff:ff:ff
-4: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
-     link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
-
-qemu:~> ll /sys/class/net/
-total 0
-drwxr-xr-x 5 root root 0 2008-05-07 15:07 br0
-drwxr-xr-x 3 root root 0 2008-05-07 15:06 dummy0
-drwxr-xr-x 4 root root 0 2008-05-07 15:07 eth0
-drwxr-xr-x 3 root root 0 2008-05-07 15:06 lo
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
