@@ -1,65 +1,41 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] gianfar: low gigabit throughput
-Date: Wed, 07 May 2008 09:33:25 -0700
-Message-ID: <4821D9D5.9000103@hp.com>
-References: <20080506192008.GA30148@polina.dev.rtsoft.ru>	<4820BA72.3090903@hp.com> <20080507132823.GA10988@polina.dev.rtsoft.ru>
+From: Marin Mitov <mitov@issp.bas.bg>
+Subject: CONFIG_HIGHMEM or CONFIG_HIGHMEM64G in illegal_highdma()
+Date: Wed, 7 May 2008 19:49:54 +0300
+Message-ID: <200805071949.54583.mitov@issp.bas.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Andy Fleming <afleming@freescale.com>
-To: avorontsov@ru.mvista.com
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:37910 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752990AbYEGQd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 12:33:28 -0400
-In-Reply-To: <20080507132823.GA10988@polina.dev.rtsoft.ru>
+Received: from mail.issp.bas.bg ([195.96.236.10]:45727 "EHLO mail.issp.bas.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751747AbYEGQt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 May 2008 12:49:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>I have _got_ to make CPU utilization enabled by default one of these  
->>days :)  At least for mechanisms which don't require calibration.
-> 
-> 
-> Heh, I've skipped the calibration chapter in the netperf manual. :-D
-> Should revert to it.
+Hi all,
 
-Under linux, the CPU utilization mechanism in netperf does not require 
-calibration, so you can add a -c (and -C if the remote is also linux) to 
-the global command line options.  Netperf will the report CPU util and 
-calculate the "service demand" which will be the quantity of CPU 
-consumed per unit of work.
+The usage of NETIF_F_HIGHDMA in drivers/net/* make me think its 
+purpose is to declare drivers's capability to address RAM above 4GB, OK?
 
-> So things becomes much better when the message size increases
-> (I think the netperf then eating less cpu, and gives some precessing
-> time to the kernel?).
+For x86_64 CONFIG_HIGHMEM is not defined, so the function 
+illegal_highdma() found in net/core/dev.c returns 0 because 
+x86_64 has IOMMU mapping all RAM.
 
-Unless the compiler isn't doing a very good job, or perhaps if you've 
-enabled histograms (./configure --enable-histogram) and set verbosity to 
-2 or more (not the case here), netperf itself shouldn't be consuming 
-very much CPU at all up in user space.  Now, as the size of the buffers 
-passed to the transport increases, it does mean fewer system calls per 
-KB transferred, which should indeed be more efficient.
+For x86_32 CONFIG_HIGHMEM is defined as 
+(CONFIG_HIGHMEM4G || CONFIG_HIGHMEM64G)
+While CONFIG_HIGHMEM4G insures RAM is bellow 4GB some checks
+are unnecessarily done. 
 
->>What is the nature of the DMA stream between the two tests?  I find it  
->>interesting that the TCP Mb/s went up by more than the CPU MHz and  
->>wonder how much the Bus MHz came into play there - perhaps there were  
->>more DMA's to setup or across a broader memory footprint for TCP than  
->>for UDP.
-> 
-> 
-> The gianfar indeed does a lot of dma on the "buffer descriptors", so
-> probably the bus speed matters a lot. And combination of CPU and Bus
-> gives the final result.
+Should we have CONFIG_HIGHMEM64G in illegal_highdma()
+instead of CONFIG_HIGHMEM? If so should I post a patch?
 
-Do you have any way to calculate bus utilization - logic analyzer, or 
-perhaps some performance counters in the hardware?
+Regards.
 
-If you have an HP-UX or Solaris system handy to act as a receiver, you 
-might give that a try - it would be interesting to see the effect of 
-their ACK avoidance heuristics on TCP throughput.  One non-trivial 
-difference I keep forgetting to mention is that TCP will have that 
-returning ACK stream that UDP will not.
+Marin Mitov
 
-rick jones
+P.S. This is a resend, due to recent problems with http://lkml.org/
