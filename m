@@ -1,119 +1,83 @@
-From: "M. Asselstine" <Mark.Asselstine@windriver.com>
-Subject: Re: [PATCH] Remove cli()/sti() calls from HYSDN driver.
-Date: Wed, 7 May 2008 12:25:23 -0400
-Message-ID: <200805071225.23643.Mark.Asselstine@windriver.com>
-References: <1209673012-10500-1-git-send-email-mark.asselstine@windriver.com> <20080502131529.GA12635@pingi.kke.suse.de>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 7/7][MAC80211]: Consolidate hash kfree-ing in mesh.c.
+Date: Wed, 07 May 2008 20:24:54 +0400
+Message-ID: <4821D7D6.1040005@openvz.org>
+References: <4821D157.90403@openvz.org> <200805071803.11291.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <kkeil@suse.de>, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39341 "EHLO mail.wrs.com"
+Received: from sacred.ru ([62.205.161.221]:57148 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754713AbYEGQZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 12:25:56 -0400
-In-Reply-To: <20080502131529.GA12635@pingi.kke.suse.de>
-Content-Disposition: inline
+	id S1755612AbYEGQ1v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 May 2008 12:27:51 -0400
+In-Reply-To: <200805071803.11291.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 02 May 2008, Karsten Keil wrote:
-> On Thu, May 01, 2008 at 04:16:52PM -0400, Mark Asselstine wrote:
-> > >From looking at this driver the use of cli()/sti() within the do/while
-> >
-> > was a way to ensure interrupts were only disabled for short periods of
-> > time while the bulk of the time interrupts were free to occur. The
-> > use of the spin lock has eliminated the need to play with interrupts
-> > in this way while still allowing for IO to be protected.
-> >
-> > The remaining 3 sti() calls seem unneeded now that at no other point
-> > in the driver is there a call to cli().
-> >
-> > Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
->
->   Acked-by: Karsten Keil <kkeil@suse.de>
->
-Andrew, 
+Michael Buesch wrote:
+> On Wednesday 07 May 2008 17:57:11 Pavel Emelyanov wrote:
+>> There are already two places, that kfree the mesh_table and
+>> its buckets.
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>>
+>> ---
+>>  net/mac80211/mesh.c |   15 +++++++++------
+>>  1 files changed, 9 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
+>> index f46fbdb..876ec18 100644
+>> --- a/net/mac80211/mesh.c
+>> +++ b/net/mac80211/mesh.c
+>> @@ -315,6 +315,13 @@ struct mesh_table *mesh_table_alloc(int size_order)
+>>  	return newtbl;
+>>  }
+>>  
+>> +static void __mesh_table_free(struct mesh_table *tbl)
+> 
+> Why is this __double_underscored?
 
-Would it be possible to include this commit in your tree. It is the last of 
-the cli()/sti() calls and I would love to get his work completed. The patch 
-has been vetted in kernel-janitors and netdev but no one has picked it up 
-yet. unfortunately.
+To show, that this one is to be used "with care", i.e. - with all
+entries previously flushed.
 
-Thanks,
-Mark
-> > ---
-> >  drivers/isdn/hysdn/boardergo.c |   14 +++++---------
-> >  1 files changed, 5 insertions(+), 9 deletions(-)
-> >
-> > diff --git a/drivers/isdn/hysdn/boardergo.c
-> > b/drivers/isdn/hysdn/boardergo.c index 6cdbad3..3eb096f 100644
-> > --- a/drivers/isdn/hysdn/boardergo.c
-> > +++ b/drivers/isdn/hysdn/boardergo.c
-> > @@ -64,10 +64,11 @@ ergo_interrupt(int intno, void *dev_id)
-> >  }				/* ergo_interrupt */
-> >
-> > 
-> > /************************************************************************
-> >******/ -/* ergo_irq_bh is the function called by the immediate kernel
-> > task list after */ -/* being activated with queue_task and no interrupts
-> > active. This task is the */ -/* only one handling data transfer from or
-> > to the card after booting. The task */ -/* may be queued from everywhere
-> > (interrupts included).                       */ +/* ergo_irq_bh will be
-> > called as part of the kernel clearing its shared work  */ +/* queue
-> > sometime after a call to schedule_work has been made passing our     */
-> > +/* work_struct. This task is the only one handling data transfer from or
-> > to   */ +/* the card after booting. The task may be queued from
-> > everywhere             */ +/* (interrupts included).                     
-> >                                */
-> > /************************************************************************
-> >******/ static void
-> >  ergo_irq_bh(struct work_struct *ugli_api)
-> > @@ -90,7 +91,6 @@ ergo_irq_bh(struct work_struct *ugli_api)
-> >  	card->hw_lock = 1;	/* we now lock the hardware */
-> >
-> >  	do {
-> > -		sti();		/* reenable other ints */
-> >  		again = 0;	/* assume loop not to be repeated */
-> >
-> >  		if (!dpr->ToHyFlag) {
-> > @@ -110,7 +110,6 @@ ergo_irq_bh(struct work_struct *ugli_api)
-> >  				again = 1;	/* restart loop */
-> >  			}
-> >  		}		/* a message has arrived for us */
-> > -		cli();		/* no further ints */
-> >  		if (again) {
-> >  			dpr->ToHyInt = 1;
-> >  			dpr->ToPcInt = 1;	/* interrupt to E1 for all cards */
-> > @@ -242,7 +241,6 @@ ergo_writebootimg(struct HYSDN_CARD *card, unsigned
-> > char *buf, byteout(card->iobase + PCI9050_USER_IO, PCI9050_E1_RUN);	/*
-> > start E1 processor */ /* the interrupts are still masked */
-> >
-> > -		sti();
-> >  		msleep_interruptible(20);		/* Timeout 20ms */
-> >
-> >  		if (((tDpramBootSpooler *) card->dpram)->Len !=
-> > DPRAM_SPOOLER_DATA_SIZE) { @@ -276,7 +274,6 @@ ergo_writebootseq(struct
-> > HYSDN_CARD *card, unsigned char *buf, int len) dst = sp->Data;		/* point
-> > to data in spool structure */
-> >  	buflen = sp->Len;	/* maximum len of spooled data */
-> >  	wr_mirror = sp->WrPtr;	/* only once read */
-> > -	sti();
-> >
-> >  	/* try until all bytes written or error */
-> >  	i = 0x1000;		/* timeout value */
-> > @@ -380,7 +377,6 @@ ergo_waitpofready(struct HYSDN_CARD *card)
-> >  #endif /* CONFIG_HYSDN_CAPI */
-> >  			return (0);	/* success */
-> >  		}		/* data has arrived */
-> > -		sti();
-> >  		msleep_interruptible(50);		/* Timeout 50ms */
-> >  	}			/* wait until timeout */
-> >
-> > --
-> > 1.5.5.1
-
+>> +{
+>> +	kfree(tbl->hash_buckets);
+>> +	kfree(tbl->hashwlock);
+>> +	kfree(tbl);
+>> +}
+>> +
+>>  void mesh_table_free(struct mesh_table *tbl, bool free_leafs)
+>>  {
+>>  	struct hlist_head *mesh_hash;
+>> @@ -330,9 +337,7 @@ void mesh_table_free(struct mesh_table *tbl, bool free_leafs)
+>>  		}
+>>  		spin_unlock(&tbl->hashwlock[i]);
+>>  	}
+>> -	kfree(tbl->hash_buckets);
+>> -	kfree(tbl->hashwlock);
+>> -	kfree(tbl);
+>> +	__mesh_table_free(tbl);
+>>  }
+>>  
+>>  static void ieee80211_mesh_path_timer(unsigned long data)
+>> @@ -378,9 +383,7 @@ errcopy:
+>>  		hlist_for_each_safe(p, q, &newtbl->hash_buckets[i])
+>>  			tbl->free_node(p, 0);
+>>  	}
+>> -	kfree(newtbl->hash_buckets);
+>> -	kfree(newtbl->hashwlock);
+>> -	kfree(newtbl);
+>> +	__mesh_table_free(tbl);
+>>  endgrow:
+>>  	return NULL;
+>>  }
+> 
+> 
+> 
 
