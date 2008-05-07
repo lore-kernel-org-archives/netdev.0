@@ -1,42 +1,47 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 1/4][MAC80211]: Fix GFP_KERNEL allocation under read lock.
-Date: Wed, 07 May 2008 09:54:53 +0400
-Message-ID: <4821442D.8010801@openvz.org>
-References: <48206F4C.5050105@openvz.org>	<200805061840.37713.netdev@axxeo.de>	<4820997E.1070305@openvz.org> <20080506.134047.86330538.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4][MAC80211]: Fix GFP_KERNEL allocation under read
+ lock.
+Date: Tue, 06 May 2008 22:59:50 -0700 (PDT)
+Message-ID: <20080506.225950.181623233.davem@davemloft.net>
+References: <4820997E.1070305@openvz.org>
+	<20080506.134047.86330538.davem@davemloft.net>
+	<4821442D.8010801@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@axxeo.de, linville@tuxdriver.com,
+Cc: johannes@sipsolutions.net, netdev@axxeo.de, linville@tuxdriver.com,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, johannes@sipsolutions.net
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:43136 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761317AbYEGF62 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 01:58:28 -0400
-In-Reply-To: <20080506.134047.86330538.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55729
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751893AbYEGF74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 01:59:56 -0400
+In-Reply-To: <4821442D.8010801@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Pavel Emelyanov <xemul@openvz.org>
-> Date: Tue, 06 May 2008 21:46:38 +0400
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Wed, 07 May 2008 09:54:53 +0400
+
+> David Miller wrote:
+> > The whole reason we made kfree allow NULL points is so that
+> > checks for it would be ommitted at kfree calls sides, whether
+> > they be direct or indirect.
 > 
->> I do not quite like doing so. Since this relies on fact that kfree bears
->> NULL pointers. But if we ever switch from kmalloc to kmem_cache_alloc,
->> this will result in an oops.
-> 
-> The whole reason we made kfree allow NULL points is so that
-> checks for it would be ommitted at kfree calls sides, whether
-> they be direct or indirect.
+> Hm... I really thought that this check in kfree is just for sanity 
+> against some 3rd part code. But why kmem_cache_free() is not such then?
 
-Hm... I really thought that this check in kfree is just for sanity 
-against some 3rd part code. But why kmem_cache_free() is not such then?
+That's not what the check was added for.
 
-> Adding the check for some theoretical-or-not future change is
-> rediculious.
+If you look in the history, there are lots of changes that
+are of the form "don't check for NULL, kfree() does that"
+and it decreases kernel text size.  That was why the check
+was added to kfree(), so we could do that.
 
-Well, this makes sense. Shall I resubmit the set?
+There have been some discussions about kmem_cache_free() NULL
+checks, but that tends to keep getting stalled in the mud
+for whatever reason.
 
-Thanks,
-Pavel
+Whether you should resubmit your patch is up to the wireless
+folks :-)
