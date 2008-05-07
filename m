@@ -1,83 +1,208 @@
-From: "Jerry Chu" <hkchu@google.com>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Wed, 7 May 2008 11:36:59 -0700
-Message-ID: <d1c2719f0805071136i3414755cv6e72e7bd5a0d41ad@mail.gmail.com>
-References: <d1c2719f0804231629p4536e98do668b812e34d2b92c@mail.gmail.com>
-	 <20080425.000547.152086801.davem@davemloft.net>
-	 <d1c2719f0805062057q62decefcg7c3de96271c4b26d@mail.gmail.com>
-	 <20080506.212722.225900091.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 10/11] avoid kobject name conflict with different namespaces
+Date: Wed, 07 May 2008 11:49:19 -0700
+Message-ID: <m13aoueyq8.fsf@frodo.ebiederm.org>
+References: <20080506173030.653828076@theryb.frec.bull.fr>
+	<20080506173335.922289888@theryb.frec.bull.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: Benjamin Thery <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:8441 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754392AbYEGShF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 14:37:05 -0400
-Received: from zps36.corp.google.com (zps36.corp.google.com [172.25.146.36])
-	by smtp-out.google.com with ESMTP id m47Ib1iv025965
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 19:37:01 +0100
-Received: from wx-out-0506.google.com (wxdi26.prod.google.com [10.70.135.26])
-	by zps36.corp.google.com with ESMTP id m47Ib0hi028525
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 11:37:00 -0700
-Received: by wx-out-0506.google.com with SMTP id i26so351113wxd.8
-        for <netdev@vger.kernel.org>; Wed, 07 May 2008 11:36:59 -0700 (PDT)
-In-Reply-To: <20080506.212722.225900091.davem@davemloft.net>
-Content-Disposition: inline
+Received: from out01.mta.xmission.com ([166.70.13.231]:39669 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757278AbYEGSuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 14:50:06 -0400
+In-Reply-To: <20080506173335.922289888@theryb.frec.bull.fr> (Benjamin Thery's
+	message of "Tue, 06 May 2008 19:32:10 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 6, 2008 at 9:27 PM, David Miller <davem@davemloft.net> wrote:
+Benjamin Thery <benjamin.thery@bull.net> writes:
 
+> The renaming of a kobject will fail if there is another kobject
+> with the same name belonging to another namespace.
 >
-> From: "Jerry Chu" <hkchu@google.com>
-> Date: Tue, 6 May 2008 20:57:46 -0700
->
->
-> > I fail to see how adding shinfo->in_flight to count how many
-> > outstanding clones are there can help accounting for how many
-> > "host_inflight" pkts. Part of the problems, as you've mentioned
-> > before, is that the driver may not always get a clone.
->
-> Sure but it will get one %99.9999 of the time.
+> This patch makes the kobject lookup in kobject_rename to check if
+> the object exists _and_ belongs to the same namespace.
 
-I couldn't care less about some rare boundary case either. What I'm
-concerned about is if there is some popular below-IP module/feature that,
-when turned on, will render my host_inflight check (using dataref==1 as
-an indication that the pkt has left the host) completely bogus. Turning on
-pkt tapping (e.g., tcpdump) seems to be one such case, although one
-may argue that belongs to those edge usage conditions that we don't
-need to worry about. (OTOH it may be undesirable for tcpdump to have
-significant performance side effect for those who try to use tcpdump to
-debug performance problem.) Turning on GSO but not TSO seems to
-be another case where the driver gets a copy all the time (kernel version
-2.6.18).
+Ok so we are dealing with fallout from:
 
-If there is no other popular below-IP module/feature that will break the
-dataref==1 then perhaps my initial concern was invalid. In either case, I
-don't see your patch any better than my dataref==1 check. Neither one
-address the below-IP module/feature concern described before.
+commit 34358c26a2c96b2a068dc44e0ac602106a466bce
+Author: Greg Kroah-Hartman <gregkh@suse.de>
+Date:   Wed Oct 24 16:52:31 2007 -0700
 
->
->
-> With TCP, as long as that clone is alive the driver has it.  And the
-> counter only counts the clones.
->
-> Anyways, did you even test my patch and try to use it for your needs
-> or is this analysis purely from your inspection of it? :-/
+    kobject: check for duplicate names in kobject_rename
+    
+    This should catch any duplicate names before we try to tell sysfs to
+    rename the object.  This happens a lot with older versions of udev and
+    the network rename scripts.
+    
+    Cc: David Miller <davem@davemloft.net>
+    Cc: Kay Sievers <kay.sievers@vrfy.org>
+    Cc: Rafael J. Wysocki <rjw@sisk.pl>
+    Cc: Tejun Heo <htejun@gmail.com>
+    Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-No I haven't tested your patch. I tried to understand skb better before
-applying your patch. After I studied bunch of code, I come to the conclusion
-that your patch won't work for me. First it tracks # of clones, which is not
-what I need. E.g., tcpdump will cause host_inflight to be grossly wrong.
-Ok, maybe we can ignore tcpdump, your patch counts # of cloned skb
-whereas I need a count of # of pkts. Perhaps this can be fixed also, but it
-then dawned on me that wouldn't it be more desirable to add the space
-overhead per tcp_sock than per skb?
+Which added the check in kobject_rename to prevent problems, and
+seems to be causing a few.
 
-Jerry
+I believe this earlier? patch addresses the problem:
 
+commit c8d90dca3211966ba5189e0f3d4bccd558d9ae08
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Fri Oct 26 03:53:42 2007 -0700
+
+    [NET] dev_change_name: ignore changes to same name
+    
+    Prevent error/backtrace from dev_rename() when changing
+    name of network device to the same name. This is a common
+    situation with udev and other scripts that bind addr to device.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+And the challenge is that we are getting false positives in the check
+to see if renames will fail.
+
+	/* see if this name is already in use */
+	if (kobj->kset) {
+		struct kobject *temp_kobj;
+		temp_kobj = kset_find_obj(kobj->kset, new_name);
+		if (temp_kobj) {
+			printk(KERN_WARNING "kobject '%s' can not be renamed 
+				"to '%s' as '%s' is already in existance.\n",
+				kobject_name(kobj), new_name, new_name);
+			kobject_put(temp_kobj);
+			return -EINVAL;
+		}
+	}
+
+If the kobject layer wants to perform the test above how do we support
+it by giving it enough information to perform the test without false
+positives.
+
+Certainly we can go to the sysfs layer but that has the problem
+of being a layering violation and not working when sysfs is not
+compiled in.  Ouch!
+
+
+I believe what the sanity check should look like is:
+	/* see if this name is already in use */
+	if (kobj->kset) {
+		struct kobject *temp_kobj;
+*               void *tag;
+*               tag = kobject_tag(kobj);
+*		temp_kobj = kset_find_tagged_obj(kobj->kset, tag, new_name);
+*		if (temp_kobj && (temp_kobj != kobj)) {
+			printk(KERN_WARNING "kobject '%s' can not be renamed 
+				"to '%s' as '%s' is already in existance.\n",
+				kobject_name(kobj), new_name, new_name);
+			kobject_put(temp_kobj);
+			return -EINVAL;
+		}
+	}
+
+The tricky part is how do we get to kobject_tag (from the
+sysfs_tagged_dir_operations).
+
+Unless there is another path I think placing an additional pointer in
+kobj_type so we can find it through ktype is the simplest solution.
+Although using the kset is also sane.
+
+The easiest and most trivially correct thing to do would be to simply
+remove the unnecessary check from kobject_rename.  We perform the
+check at the upper levels in the network anyway.  And kobject_rename
+is only used by the network stack.
+
+....
+
+As for the actual patch itself I have two nits to pick.
+
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Acked-by: Benjamin Thery <benjamin.thery@bull.net>
+> ---
+>  fs/sysfs/dir.c        |   10 ++++++++++
+>  include/linux/sysfs.h |    7 +++++++
+>  lib/kobject.c         |    2 +-
+>  3 files changed, 18 insertions(+), 1 deletion(-)
 >
+> Index: linux-vanilla/fs/sysfs/dir.c
+> ===================================================================
+> --- linux-vanilla.orig/fs/sysfs/dir.c
+> +++ linux-vanilla/fs/sysfs/dir.c
+> @@ -902,6 +902,16 @@ err_out:
+>  	return error;
+>  }
+>  
+> +int sysfs_tag_cmp(struct kobject *kobj1, struct kobject *kobj2)
+> +{
+> +	struct sysfs_dirent *sd1 = kobj1->sd;
+> +	struct sysfs_dirent *sd2 = kobj2->sd;
+> +	const void *tag1 = sysfs_dirent_tag(sd1);
+> +	const void *tag2 = sysfs_dirent_tag(sd2);
+
+The new name should be compared with sysfs_creation_tag in
+case we are dealing with the case of renaming across network
+namespaces.    We could use sysfs_creation_tag for both as
+the only time the dirent_tag and creation_tag should differ
+is during a rename operation.
+
+> +
+> +	return tag1 != tag2;
+> +}
+> +
+>  int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
+>  {
+>  	struct sysfs_dirent *sd = kobj->sd;
+> Index: linux-vanilla/include/linux/sysfs.h
+> ===================================================================
+> --- linux-vanilla.orig/include/linux/sysfs.h
+> +++ linux-vanilla/include/linux/sysfs.h
+> @@ -95,6 +95,8 @@ int sysfs_schedule_callback(struct kobje
+>  
+>  int __must_check sysfs_create_dir(struct kobject *kobj);
+>  void sysfs_remove_dir(struct kobject *kobj);
+> +int sysfs_tag_cmp(struct kobject *kobj1, struct kobject *kobj2);
+> +
+>  int __must_check sysfs_rename_dir(struct kobject *kobj, const char *new_name);
+>  int __must_check sysfs_move_dir(struct kobject *kobj,
+>  				struct kobject *new_parent_kobj);
+> @@ -154,6 +156,11 @@ static inline void sysfs_remove_dir(stru
+>  {
+>  }
+>  
+> +static inline int sysfs_tag_cmp(struct kobject *kobj1, struct kobject *kobj2)
+> +{
+> +	return 0;
+> +}
+> +
+
+Either I am blind or this implementation breaks when we are using
+kobjects and sysfs support is not compiled in.  It might be that
+we don't do this work but still in principle this is a small bug.
+
+>  static inline int sysfs_rename_dir(struct kobject *kobj, const char *new_name)
+>  {
+>  	return 0;
+> Index: linux-vanilla/lib/kobject.c
+> ===================================================================
+> --- linux-vanilla.orig/lib/kobject.c
+> +++ linux-vanilla/lib/kobject.c
+> @@ -401,7 +401,7 @@ int kobject_rename(struct kobject *kobj,
+>  	if (kobj->kset) {
+>  		struct kobject *temp_kobj;
+>  		temp_kobj = kset_find_obj(kobj->kset, new_name);
+> -		if (temp_kobj) {
+> +		if (temp_kobj && !sysfs_tag_cmp(temp_kobj, kobj)) {
+>  			printk(KERN_WARNING "kobject '%s' cannot be renamed "
+>  			       "to '%s' as '%s' is already in existence.\n",
+>  			       kobject_name(kobj), new_name, new_name);
 >
+> -- 
