@@ -1,69 +1,42 @@
-From: "Shigeo N" <shigeonx@gmail.com>
-Subject: Re: XTP for 2.6.25
-Date: Wed, 7 May 2008 13:32:01 +0900
-Message-ID: <18b669d80805062132m618e0e1fwf92bbb2ced393cb@mail.gmail.com>
-References: <18b669d80804240314t7b2f6e4cpc9a9f2690c6d21b4@mail.gmail.com>
-	 <873apbijb9.fsf@basil.nowhere.org>
-	 <18b669d80804240606n47854939x94278f8d974034c1@mail.gmail.com>
-	 <18b669d80804250059m793f3f56xc4fdb8bad949fa3@mail.gmail.com>
-	 <Pine.LNX.4.64.0804251115470.2363@wrl-59.cs.helsinki.fi>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 1/4][MAC80211]: Fix GFP_KERNEL allocation under read lock.
+Date: Wed, 07 May 2008 09:54:53 +0400
+Message-ID: <4821442D.8010801@openvz.org>
+References: <48206F4C.5050105@openvz.org>	<200805061840.37713.netdev@axxeo.de>	<4820997E.1070305@openvz.org> <20080506.134047.86330538.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: "Andi Kleen" <andi@firstfloor.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@axxeo.de, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:42129 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751436AbYEGEcC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 00:32:02 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so135367fkq.5
-        for <netdev@vger.kernel.org>; Tue, 06 May 2008 21:32:01 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0804251115470.2363@wrl-59.cs.helsinki.fi>
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:43136 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761317AbYEGF62 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 May 2008 01:58:28 -0400
+In-Reply-To: <20080506.134047.86330538.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSB0ZXN0ZWQgYWdhaW4gb24gTGludXggMi42LjI1IHdpdGggVENQIHJlb3JkZXJpbmcgcGF0Y2gu
-Ck9mIGNvdXJzZSwgVENQIHBlcmZvcm1hbmNlIHdhcyBpbXByb3ZlZC4KCkhlcmUgaXMgdGhlIHJl
-c3VsdC4KCiBjYXNlMi0yKSByYW5kb20gZGVsYXkgKHdpdGggVENQIHJlb3JkZXJpbmcgcGF0Y2gp
-CgogIEluIHRoaXMgY2FzZSwgYWRkIGEgZml4ZWQgYW1vdW50IG9mIGRlbGF5ICsgMTAlIHJhbmRv
-bSBkZWxheSBieSBjb21tYW5kLAogICJ0YyBjaGFuZ2UgZGV2IGV0aDAgcm9vdCBuZXRlbSBkZWxh
-eSAxMDBtcyAxMG1zIDI1JSIuCgogICAgZml4ZWQgZGVsYXkgICAgVURQL1RDUC9YVFAgdGhyb2do
-cHV0CiAgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAgICAgIDEwbXMg
-ICAgICAgICA4OC84NS85MiBNYnBzCiAgICAgIDMwbXMgICAgICAgICA4OC82Ny85MSBNYnBzCiAg
-ICAgIDUwbXMgICAgICAgICA4OC81OC84OSBNYnBzCiAgICAgIDcwbXMgICAgICAgICA4OC80My84
-MCBNYnBzCiAgICAgMTAwbXMgICAgICAgICA4OC8yNi82NiBNYnBzCgogY2FzZTIpIHJhbmRvbSBk
-ZWxheSAod2l0aG91dCBUQ1AgcmVvcmRlcmluZyBwYXRjaCkKCiAgSW4gdGhpcyBjYXNlLCBhZGQg
-YSBmaXhlZCBhbW91bnQgb2YgZGVsYXkgKyAxMCUgcmFuZG9tIGRlbGF5IGJ5IGNvbW1hbmQsCiAg
-InRjIGNoYW5nZSBkZXYgZXRoMCByb290IG5ldGVtIGRlbGF5IDEwMG1zIDEwbXMgMjUlIi4KCiAg
-ICBmaXhlZCBkZWxheSAgICBVRFAvVENQL1hUUCB0aHJvZ2hwdXQKICAtLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgICAgMTBtcyAgICAgICAgIDg4LzgwLzkyIE1icHMK
-ICAgICAgMzBtcyAgICAgICAgIDg4LzUxLzkxIE1icHMKICAgICAgNTBtcyAgICAgICAgIDg4LzQx
-Lzg5IE1icHMKICAgICAgNzBtcyAgICAgICAgIDg4LzI4LzgwIE1icHMKICAgICAxMDBtcyAgICAg
-ICAgIDg4LzE5LzY2IE1icHMKCiAgY2FzZTEpIGZpeGVkIGRlbGF5CgogICAgSW4gdGhpcyBjYXNl
-LCBqdXN0IGFkZHMgYSBmaXhlZCBhbW91bnQgb2YgZGVsYXkgdG8gYWxsIHBhY2tldHMgZ29pbmcg
-b3V0IGJ5CiAgY29tbWFuZCwgInRjIHFkaXNjIGFkZCBkZXYgZXRoMCByb290IG5ldGVtIGRlbGF5
-IDEwMG1zIi4KCiAgICBmaXhlZCBkZWxheSAgICBVRFAvVENQL1hUUCB0aHJvZ2hwdXQKICAtLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgICAgMTBtcyAgICAgICAgIDg4
-Lzg1LzkyIE1icHMKICAgICAgMzBtcyAgICAgICAgIDg4LzcwLzkxIE1icHMKICAgICAgNTBtcyAg
-ICAgICAgIDg4LzYzLzg5IE1icHMKICAgICAgNzBtcyAgICAgICAgIDg4LzUyLzg0IE1icHMKICAg
-ICAxMDBtcyAgICAgICAgIDg4LzM2LzcwIE1icHMKClRoYW5rcywKCk9uIEZyaSwgQXByIDI1LCAy
-MDA4IGF0IDU6MjMgUE0sIElscG8gSsOkcnZpbmVuCjxpbHBvLmphcnZpbmVuQGhlbHNpbmtpLmZp
-PiB3cm90ZToKPiBPbiBGcmksIDI1IEFwciAyMDA4LCBTaGlnZW8gTiB3cm90ZToKPgo+PiBjYXNl
-MikgcmFuZG9tIGRlbGF5Cj4+Cj4+ICBJbiB0aGlzIGNhc2UsIGFkZCBhIGZpeGVkIGFtb3VudCBv
-ZiBkZWxheSArIDEwJSByYW5kb20gZGVsYXkgYnkKPj4gY29tbWFuZCwgInRjIGNoYW5nZSBkZXYg
-ZXRoMCByb290IG5ldGVtIGRlbGF5IDEwMG1zIDEwbXMgMjUlIi4KPj4KPj4gIEhlcmUgaXMgdGhl
-IHJlc3VsdC4KPj4KPj4gICAgIGZpeGVkIGRlbGF5ICAgIFVEUC9UQ1AvWFRQIHRocm9naHB1dAo+
-PiAgIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+PiAgICAgICAxMG1z
-ICAgICAgICAgODgvODAvOTIgTWJwcwo+PiAgICAgICAzMG1zICAgICAgICAgODgvNTEvOTEgTWJw
-cwo+PiAgICAgICA1MG1zICAgICAgICAgODgvNDEvODkgTWJwcwo+PiAgICAgICA3MG1zICAgICAg
-ICAgODgvMjgvODAgTWJwcwo+PiAgICAgIDEwMG1zICAgICAgICAgODgvMTkvNjYgTWJwcwo+Pgo+
-PiAgVENQJ3MgcGVyZm9tYW5jZSBsb29rcyB2ZXJ5IHBvb3Igd2hlbiBkZWxheSBpcyBsb25nIGFu
-ZCB2YXJpYWJsZS4KPgo+IFdoZXJlIHRoZXNlIHJlc3VsdHMgd2l0aCAyLjYuMjUgYXMgd2VsbD8g
-Li4uSm9obiBIZWZmbmVyIGp1c3QgY291cGxlIG9mCj4gZGF5cyBhZ28gZml4ZWQgcmVvcmRlcmlu
-ZyByZWxhdGVkIHByb2JsZW0gaW4gVENQIChpbiBjYXNlIHRoYXQgbmV0ZW0KPiBwYXJhbWV0cml6
-YXRpb24gY2F1c2VzIHJlb3JkZXJpbmcpLCB0aGUgZml4IGlzIG5vdCBldmVuIGluIDIuNi4yNC55
-LCBJCj4gdGhpbmsuLi4KPgo+IC0tCj4gIGkuCj4K
+David Miller wrote:
+> From: Pavel Emelyanov <xemul@openvz.org>
+> Date: Tue, 06 May 2008 21:46:38 +0400
+> 
+>> I do not quite like doing so. Since this relies on fact that kfree bears
+>> NULL pointers. But if we ever switch from kmalloc to kmem_cache_alloc,
+>> this will result in an oops.
+> 
+> The whole reason we made kfree allow NULL points is so that
+> checks for it would be ommitted at kfree calls sides, whether
+> they be direct or indirect.
+
+Hm... I really thought that this check in kfree is just for sanity 
+against some 3rd part code. But why kmem_cache_free() is not such then?
+
+> Adding the check for some theoretical-or-not future change is
+> rediculious.
+
+Well, this makes sense. Shall I resubmit the set?
+
+Thanks,
+Pavel
