@@ -1,33 +1,55 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH][NETNS]: Fix arbitrary net_device-s corruptions on net_ns
- stop.
-Date: Wed, 07 May 2008 19:37:55 +0400
-Message-ID: <4821CCD3.5020502@openvz.org>
-References: <48216398.9050509@openvz.org> <4821CBE5.5090801@fr.ibm.com>
+From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 1/7][MAC8021]: Fix one more call to synchronize_rcu in atomic
+ context.
+Date: Wed, 07 May 2008 19:44:20 +0400
+Message-ID: <4821CE54.9000401@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:49656 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755070AbYEGPnW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 11:43:22 -0400
-In-Reply-To: <4821CBE5.5090801@fr.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->> +		sprintf(fb_name, "dev%d", dev->ifindex);
-> 
-> The computed interface name can not exceed IFNAMSIZ, 3 ('dev') + 10 (max 
-> int) + 1 ('\0'). In this case there is no risk to corrupt the stack but 
-> may be it is more secure to change that to snprintf(fb_name, IFNAMSIZ, 
-> "dev%d", dev->ifindex), just in case, no ?
+(This set applies OK without the previous one of 4 patches,
+ but with some fuzz in the 7th one)
 
-But you have just noticed, that "there is no risk to corrupt the stack"!
-What else can be "more secure" then :) ?
 
-Thanks,
-Pavel
+The mesh_path_node_free() does so under hashwlock.
+
+But, this one is called
+1. from mesh_path_add() after an old hash is hidden and
+   synchronize_rcu() is calld
+2. mesh_pathtbl_unregister(), when the module is being
+   unloaded and no devices exist to mess with this hash.
+
+So, it seems to me, that simply removing the call is OK.
+
+Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+
+---
+ net/mac80211/mesh_pathtbl.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
+index 7097ef9..0b6c4bf 100644
+--- a/net/mac80211/mesh_pathtbl.c
++++ b/net/mac80211/mesh_pathtbl.c
+@@ -458,7 +458,6 @@ static void mesh_path_node_free(struct hlist_node *p, bool free_leafs)
+ 	struct mpath_node *node = hlist_entry(p, struct mpath_node, list);
+ 	mpath = node->mpath;
+ 	hlist_del_rcu(p);
+-	synchronize_rcu();
+ 	if (free_leafs)
+ 		kfree(mpath);
+ 	kfree(node);
+-- 
+1.5.3.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
