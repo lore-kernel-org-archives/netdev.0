@@ -1,52 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: State of TCP segmentation offload to NIC in linux
-Date: Wed, 7 May 2008 22:51:07 +0100
-Message-ID: <20080507215105.GB13470@solarflare.com>
-References: <49c0ff980805011056q25d24616vf4cea6d8b387b717@mail.gmail.com> <D5C1322C3E673F459512FB59E0DDC3290501C9EA@orsmsx414.amr.corp.intel.com> <49c0ff980805071426h54073ddcw89ebe37a3d4e95b4@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [MACVLAN]: Fix memleak on device removal/crash on module removal
+Date: Wed, 07 May 2008 15:03:19 -0700
+Message-ID: <48222727.2090606@candelatech.com>
+References: <48215DAC.1070704@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org
-To: prodyut hazarika <prodyuth@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:56720 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754770AbYEGVvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 17:51:16 -0400
-Content-Disposition: inline
-In-Reply-To: <49c0ff980805071426h54073ddcw89ebe37a3d4e95b4@mail.gmail.com>
+Received: from mail.candelatech.com ([66.165.47.212]:41727 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755796AbYEGWDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 18:03:25 -0400
+In-Reply-To: <48215DAC.1070704@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-prodyut hazarika wrote:
-> Thanks for your reply, Peter. I would appreciate if you could clarify
-> little more.
+Patrick McHardy wrote:
 > 
+> ------------------------------------------------------------------------
 > 
-> > The IP layer does not need to be bypassed.  The TCP layer will set the
-> > proper headers for TSO to work properly and continue sending the skb
-> > down the stack.  IP will not fragment a packet on transmit.
+> commit 2fe876e51d1f053b55d8d50c3733b136b6add016
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Wed May 7 09:43:05 2008 +0200
 > 
-> Which flag/header does the TCP layer set to indicate to IP that it
-> should not fragment a 64K segment, but rather offload the whole
-> segment to NIC?
+>     [MACVLAN]: Fix memleak on device removal/crash on module removal
 
-It sets skb_shinfo(skb)->gso_size to the desired segment size.
+Thanks.  I just tested this on 2.6.23 and it seems to fix the crash.
 
-> I tried to look at the TCP code in linux stack, but
-> could not figure the flag or the logic that sets the flag/header you
-> mentioned. The NIC driver must indicate that it is capable of doing
-> TSO by setting NETIF_F_TSO flag, but NETIF_F_TSO capability is not
-> checked in IP/TCP layer.
- 
-It's checked using sk_can_gso() (defined in <net/sock.h>) which
-calls net_gso_ok() (defined in <linux/netdevice.h>).
-
-> I would really appreciate if you could point me to the function in TCP
-> code in linux.
-
-Ben.
+Ben
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
