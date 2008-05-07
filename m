@@ -1,41 +1,54 @@
-From: Marin Mitov <mitov@issp.bas.bg>
-Subject: CONFIG_HIGHMEM or CONFIG_HIGHMEM64G in illegal_highdma()
-Date: Wed, 7 May 2008 19:49:54 +0300
-Message-ID: <200805071949.54583.mitov@issp.bas.bg>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] Remove cli()/sti() calls from HYSDN driver.
+Date: Wed, 7 May 2008 10:05:17 -0700
+Message-ID: <20080507100517.c51cbda6.akpm@linux-foundation.org>
+References: <1209673012-10500-1-git-send-email-mark.asselstine@windriver.com>
+	<20080502131529.GA12635@pingi.kke.suse.de>
+	<200805071225.23643.Mark.Asselstine@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: Karsten Keil <kkeil@suse.de>, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "M. Asselstine" <Mark.Asselstine@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.issp.bas.bg ([195.96.236.10]:45727 "EHLO mail.issp.bas.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751747AbYEGQt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 12:49:57 -0400
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:53333 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753197AbYEGRFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 13:05:23 -0400
+In-Reply-To: <200805071225.23643.Mark.Asselstine@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Wed, 7 May 2008 12:25:23 -0400 "M. Asselstine" <Mark.Asselstine@windriver.com> wrote:
 
-The usage of NETIF_F_HIGHDMA in drivers/net/* make me think its 
-purpose is to declare drivers's capability to address RAM above 4GB, OK?
+> On Friday 02 May 2008, Karsten Keil wrote:
+> > On Thu, May 01, 2008 at 04:16:52PM -0400, Mark Asselstine wrote:
+> > > >From looking at this driver the use of cli()/sti() within the do/while
+> > >
+> > > was a way to ensure interrupts were only disabled for short periods of
+> > > time while the bulk of the time interrupts were free to occur. The
+> > > use of the spin lock has eliminated the need to play with interrupts
+> > > in this way while still allowing for IO to be protected.
+> > >
+> > > The remaining 3 sti() calls seem unneeded now that at no other point
+> > > in the driver is there a call to cli().
+> > >
+> > > Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
+> >
+> >   Acked-by: Karsten Keil <kkeil@suse.de>
+> >
+> Andrew, 
+> 
+> Would it be possible to include this commit in your tree. It is the last of 
+> the cli()/sti() calls and I would love to get his work completed.
 
-For x86_64 CONFIG_HIGHMEM is not defined, so the function 
-illegal_highdma() found in net/core/dev.c returns 0 because 
-x86_64 has IOMMU mapping all RAM.
+Sure, I'll take a look at it.
 
-For x86_32 CONFIG_HIGHMEM is defined as 
-(CONFIG_HIGHMEM4G || CONFIG_HIGHMEM64G)
-While CONFIG_HIGHMEM4G insures RAM is bellow 4GB some checks
-are unnecessarily done. 
+> The patch 
+> has been vetted in kernel-janitors and netdev but no one has picked it up 
+> yet. unfortunately.
 
-Should we have CONFIG_HIGHMEM64G in illegal_highdma()
-instead of CONFIG_HIGHMEM? If so should I post a patch?
+I don't troll netdev for unloved patches.  A Cc:linux-kernel is often a
+good idea...
 
-Regards.
-
-Marin Mitov
-
-P.S. This is a resend, due to recent problems with http://lkml.org/
