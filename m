@@ -1,39 +1,35 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH] NET: Remove PACKET_FASTROUTE
-Date: Wed, 07 May 2008 17:07:10 +0800
-Message-ID: <4821713E.7050308@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: Remove PACKET_FASTROUTE
+Date: Wed, 07 May 2008 02:35:24 -0700 (PDT)
+Message-ID: <20080507.023524.193709565.davem@davemloft.net>
+References: <4821713E.7050308@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NETDEV <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51341 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753827AbYEGJJN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 05:09:13 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32790
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751497AbYEGJfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 05:35:30 -0400
+In-Reply-To: <4821713E.7050308@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since we do not support fastroute anymore, remove macro PACKET_FASTROUTE.
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Wed, 07 May 2008 17:07:10 +0800
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- include/linux/if_packet.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> Since we do not support fastroute anymore, remove macro PACKET_FASTROUTE.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
-index ad09609..d109a0f 100644
---- a/include/linux/if_packet.h
-+++ b/include/linux/if_packet.h
-@@ -30,7 +30,6 @@ struct sockaddr_ll
- #define PACKET_OUTGOING		4		/* Outgoing of any type */
- /* These ones are invisible by user level */
- #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
--#define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
- 
- /* Packet socket options */
- 
--- 
-1.5.3.4
+We should leave it there so that this value is not accidently
+allocatod to another purpose.
 
+If you really really want to remove it, at least add a comment
+there that value "6" used to be allocated to PACKET_FASTROUTE,
+and therefore cannot be reused.
+
+But, to be honest, keeping the define there serves that purpose just
+as well.
