@@ -1,31 +1,37 @@
-From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
-Subject: (unknown)
-Date: Wed, 7 May 2008 14:54:53 +0200
-Message-ID: <200805071454.53845.hannes.hering@linux.vnet.ibm.com>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH] mac80211: rewrite fragmentation code
+Date: Wed, 7 May 2008 21:05:48 +0800
+Message-ID: <20080507130548.GA26977@gondor.apana.org.au>
+References: <20080430124055.091382000@sipsolutions.net> <20080430130050.105344000@sipsolutions.net> <20080507071026.GA24407@gondor.apana.org.au> <1210150217.9305.39.camel@johannes.berg> <20080507090040.GA25186@gondor.apana.org.au> <1210159339.5642.13.camel@johannes.berg> <20080507114123.GA26073@gondor.apana.org.au> <1210161133.5642.19.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:47144 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbYEGMz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 08:55:27 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id m47Csr5f250498
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 12:54:53 GMT
-Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m47CsrAC2597048
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 14:54:53 +0200
-Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m47Csr5d031891
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 14:54:53 +0200
-Received: from dyn-9-152-217-45.boeblingen.de.ibm.com (dyn-9-152-217-45.boeblingen.de.ibm.com [9.152.217.45])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id m47CsrCr031882
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 14:54:53 +0200
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ron Rindjunsky <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1210161133.5642.19.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-subscribe netdev
+On Wed, May 07, 2008 at 01:52:13PM +0200, Johannes Berg wrote:
+>
+> Hmm. Why does busy exist then? Historical accident? I really really
+
+Yes it's historical baggage.  These days the biggest users would
+be LLTX drivers which should all be converted to non-LLTX and
+drivers that don't keep track of queue status properly.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
