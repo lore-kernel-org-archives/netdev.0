@@ -1,48 +1,90 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 3/7][MAC80211]: Report allocation failure from mesh_path_node_copy.
-Date: Wed, 07 May 2008 19:48:14 +0400
-Message-ID: <4821CF3E.1050301@openvz.org>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH] Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs in preparation for IPv6 support
+Date: Wed, 7 May 2008 17:51:54 +0200
+Message-ID: <f4845fc0805070851y7f1f00d0xd2dfcc7feb79c173@mail.gmail.com>
+References: <f4845fc0805070732v516fc8c6y2cdddfd4f99c8f96@mail.gmail.com>
+	 <Pine.LNX.4.64.0805070734580.6164@wm7d.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: "Joseph Mack NA3T" <jmack@wm7d.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:46638 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756533AbYEGPvC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 11:51:02 -0400
+Received: from smtp-out.google.com ([216.239.33.17]:38771 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757126AbYEGPwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 11:52:04 -0400
+Received: from zps76.corp.google.com (zps76.corp.google.com [172.25.146.76])
+	by smtp-out.google.com with ESMTP id m47FpvtT011598
+	for <netdev@vger.kernel.org>; Wed, 7 May 2008 16:51:57 +0100
+Received: from el-out-1112.google.com (elfj27.prod.google.com [10.126.186.27])
+	by zps76.corp.google.com with ESMTP id m47FptXm003544
+	for <netdev@vger.kernel.org>; Wed, 7 May 2008 08:51:56 -0700
+Received: by el-out-1112.google.com with SMTP id j27so74483elf.18
+        for <netdev@vger.kernel.org>; Wed, 07 May 2008 08:51:55 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0805070734580.6164@wm7d.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now - return the -ENOMEM in case kmalloc fails.
+Hi Joe,
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+On Wed, May 7, 2008, Joseph Mack NA3T wrote:
+>  With the little time lvs developers have had for ipv6 so far, you're not
+> likely to get much feedback from people here I'm sorry to say.
 
----
- net/mac80211/mesh_pathtbl.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+Hm, ok. This patch doesn't touch any functionality though. It only
+moves files from one directory to another, so it's merely cosmetics,
+no IPv6 knowledge required. Of course, we could still do the move
+later, after some IPv6 code is actually in IPVS. If there is no
+reaction, I'll just continue working under net/ipv4/ipvs for now. No
+big deal.
 
-diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
-index 512bfa1..fe1ceee 100644
---- a/net/mac80211/mesh_pathtbl.c
-+++ b/net/mac80211/mesh_pathtbl.c
-@@ -469,9 +469,12 @@ static int mesh_path_node_copy(struct hlist_node *p, struct mesh_table *newtbl)
- 	struct mpath_node *node, *new_node;
- 	u32 hash_idx;
- 
-+	new_node = kmalloc(sizeof(struct mpath_node), GFP_KERNEL);
-+	if (new_node == NULL)
-+		return -ENOMEM;
-+
- 	node = hlist_entry(p, struct mpath_node, list);
- 	mpath = node->mpath;
--	new_node = kmalloc(sizeof(struct mpath_node), GFP_KERNEL);
- 	new_node->mpath = mpath;
- 	hash_idx = mesh_table_hash(mpath->dst, mpath->dev, newtbl);
- 	hlist_add_head(&new_node->list,
+>  The people who are interested in ipv6 have posted to the mailing list. Some
+> of them may still be interested in lvs-ipv6 and in testing patches. Looking
+> for ipv6 in
+>
+>  http://marc.info/?l=linux-virtual-server&m=116664927421172&w=2
+>
+>  [addresses]
+
+Thank you! Good to have interested people for testing later on. We
+also have some, but different people and organizations have different
+setups and edge cases to help testing.
+
+The other code I have at the moment compiles (sometimes), but doesn't
+do much more. It needs much more work to actually do something again
+with either IP version.
+
+>  Seiji Tsuchiike <tsuchiike () yggr-drasill ! com> #the original ipv6
+> implementation for LVS, doesn't respond to e-mail and is not findable with
+> google.
+
+Yes, he and his code seem to have disappeared...
+
+>  "Fernanda G Weiden" <fernanda@softwarelivre.org> #I think she's with you
+
+Yes! :)
+
+>  A pair of people working for a company installing gear at govt sites was
+> interested enough in getting an ipv6 port of LVS to offer Horms some money
+> for his time, but Horms didn't have time at any price. You'd think I'd be
+> able to find the e-mail from these people, but apparently I can't think of
+> the correct grep string.
+
+Ok, thanks. Let me know in case you stumble over it!
+
+>  You might e-mail all these people above and as well put out notices of new
+> releases of code onto the regular LVS mailing list. Someone may be
+> listening, or they'll pick it up from one of the archivers.
+
+Yes, once there is code that does something useful! At the moment, it
+seems like a hamburger too big to get a good first bite at. But I'm
+working on it...
+
+Thanks for responding once again, Joe!
+
+Julius
+
 -- 
-1.5.3.4
-
+Google Switzerland GmbH
