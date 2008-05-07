@@ -1,63 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [MACVLAN]: Fix memleak on device removal/crash on module removal
-Date: Wed, 07 May 2008 09:43:40 +0200
-Message-ID: <48215DAC.1070704@trash.net>
+From: "J.H.M. Dassen (Ray)" <jdassen@debian.org>
+Subject: [PATCH] net/ipv4: Correct RFC 1122 section reference in comment
+Date: Wed, 7 May 2008 09:24:23 +0200
+Message-ID: <20080507072423.GA13556@xinara.org>
+References: <bug-10611-10286@http.bugzilla.kernel.org/> <20080506233351.1fe19fe6.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060609020407020501080301"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, trivial@kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55044 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760737AbYEGHoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 03:44:17 -0400
+Received: from zensunni.xinara.org ([62.212.135.161]:60536 "EHLO
+	zensunni.xinara.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753897AbYEGHvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 03:51:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20080506233351.1fe19fe6.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060609020407020501080301
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+From: J.H.M. Dassen (Ray) <jdassen@debian.org>
 
+RFC 1122 does not have a section 3.1.2.2. The requirement to silently
+discard datagrams with a bad checksum is in section 3.2.1.2 instead.
 
---------------060609020407020501080301
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Signed-off-by: J.H.M. Dassen (Ray) <jdassen@debian.org>
 
-commit 2fe876e51d1f053b55d8d50c3733b136b6add016
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed May 7 09:43:05 2008 +0200
+---
 
-    [MACVLAN]: Fix memleak on device removal/crash on module removal
-    
-    As noticed by Ben Greear, macvlan crashes the kernel when unloading the
-    module. The reason is that it tries to clean up the macvlan_port pointer
-    on the macvlan device itself instead of the underlying device. A non-NULL
-    pointer is taken as indication that the macvlan_handle_frame_hook is
-    valid, when receiving the next packet on the underlying device it tries
-    to call the NULL hook and crashes.
-    
-    Clean up the macvlan_port on the correct device to fix this.
-    
-    Signed-off-by; Patrick McHardy <kaber@trash.net>
+Previously submitted as http://bugzilla.kernel.org/show_bug.cgi?id=10611
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 2056cfc..c36a03a 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -450,7 +450,7 @@ static void macvlan_dellink(struct net_device *dev)
- 	unregister_netdevice(dev);
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 212734c..5bdb8f4 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -394,7 +394,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	iph = skb->nh.iph;
  
- 	if (list_empty(&port->vlans))
--		macvlan_port_destroy(dev);
-+		macvlan_port_destroy(port->dev);
- }
- 
- static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
+ 	/*
+-	 *	RFC1122: 3.1.2.2 MUST silently discard any IP frame that fails the checksum.
++	 *	RFC1122: 3.2.1.2 MUST silently discard any IP frame that fails the checksum.
+ 	 *
+ 	 *	Is the datagram acceptable?
+ 	 *
 
---------------060609020407020501080301--
+-- 
+LEADERSHIP  A form of self-preservation exhibited by people with auto-
+destructive imaginations in order to ensure that when it comes to the crunch
+it'll be someone else's bones which go crack and not their own.
+    - The Hipcrime Vocab by Chad C. Mulligan
