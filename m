@@ -1,40 +1,65 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] NET: Remove PACKET_FASTROUTE
-Date: Wed, 07 May 2008 17:45:50 +0800
-Message-ID: <48217A4E.7060200@cn.fujitsu.com>
-References: <4821713E.7050308@cn.fujitsu.com> <20080507.023524.193709565.davem@davemloft.net>
+From: Miika Komu <miika@iki.fi>
+Subject: Re: [PATCH] [NET] Exporting of some IPv6 symbols for HIP and SHIM6
+ experimentation
+Date: Wed, 7 May 2008 12:51:15 +0300 (EEST)
+Message-ID: <Pine.SOL.4.64.0805071247120.17745@kekkonen.cs.hut.fi>
+References: <Pine.SOL.4.64.0805050847400.8815@kekkonen.cs.hut.fi>
+ <20080505.150045.29715304.yoshfuji@linux-ipv6.org>
+ <Pine.SOL.4.64.0805061052470.28110@kekkonen.cs.hut.fi>
+ <20080506.191848.37229806.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-559023410-342241519-1210153875=:17745"
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51811 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752057AbYEGJrz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 05:47:55 -0400
-In-Reply-To: <20080507.023524.193709565.davem@davemloft.net>
+Received: from twilight.cs.hut.fi ([130.233.40.5]:35070 "EHLO
+	twilight.cs.hut.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751459AbYEGJvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 05:51:18 -0400
+In-Reply-To: <20080506.191848.37229806.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller said the following on 2008-5-7 17:35:
-> From: Wang Chen <wangchen@cn.fujitsu.com>
-> Date: Wed, 07 May 2008 17:07:10 +0800
-> 
->> Since we do not support fastroute anymore, remove macro PACKET_FASTROUTE.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---559023410-342241519-1210153875=:17745
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
+
+On Tue, 6 May 2008, YOSHIFUJI Hideaki / µÈÆ£±ÑÌÀ wrote:
+
+Hi,
+
+> In article <Pine.SOL.4.64.0805061052470.28110@kekkonen.cs.hut.fi> (at Tue, 6 May 2008 11:07:49 +0300 (EEST)), Miika Komu <miika@iki.fi> says:
+>
+>>> Miika, where are your other patches on top of this?
+>>> This kind of change might be okay, but it must be along with
+>>> its users, at least.
 >>
->> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-> 
-> We should leave it there so that this value is not accidently
-> allocatod to another purpose.
-> 
-> If you really really want to remove it, at least add a comment
-> there that value "6" used to be allocated to PACKET_FASTROUTE,
-> and therefore cannot be reused.
-> 
-> But, to be honest, keeping the define there serves that purpose just
-> as well.
-> 
+>> we are maintaining a separate kernel module (GPLv2) for the HIP socket
+>> handler for experimentation purposes. If you want to have a look it, you
+>> can e.g. download the nightly tarball and have a look at the hipsock
+>> directory:
+>>
+>> http://infrahip.hiit.fi/hipl/hipl.tar.gz
+>
+> Even though, we basically do not accept patches without in-kernel users.
+>
+> Anyway, I've quickly looked into the code, and IMHO
+> it is better to avoid using hip_select_socket_handler() and
+> to introduce new hip_ops (or something) in sock{}.
 
-Yes. I agree. So leave it there.
+Ok.
 
+> And, are you working on IPv4 transport?
+
+The IPv6 socket interface is more useful for HIP-aware applications. We 
+are implementing LSI support for non-hip-aware applications. The other HIP 
+implementations (BSD HIP and Boeing) support already LSIs for 
+non-hip-aware applications.
+
+-- 
+Miika Komu                                       http://www.iki.fi/miika/
+---559023410-342241519-1210153875=:17745--
