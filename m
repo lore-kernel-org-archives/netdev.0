@@ -1,39 +1,31 @@
-From: "Andrew Victor" <avictor.za@gmail.com>
-Subject: Re: [PATCH v2] at91_ether: use netstats in net_device structure
-Date: Thu, 8 May 2008 21:50:47 +0200
-Message-ID: <cd73a99e0805081250t79d56f86t5cf1e33f8075b345@mail.gmail.com>
-References: <4820572E.7010304@teltonika.lt>
-	 <200805081740.10061.marc.pignat@hevs.ch>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: DM9000: Use delayed work to update MII PHY state
+Date: Thu, 8 May 2008 13:11:02 -0700
+Message-ID: <20080508131102.2c8c3cab.akpm@linux-foundation.org>
+References: <20080428151309.GA30439@fluff.org.uk>
+	<4820865F.70703@garzik.org>
+	<20080508103642.GE30439@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk,
-	"Paulius Zaleckas" <paulius.zaleckas@teltonika.lt>,
-	netdev@vger.kernel.org, linux@maxim.org.za
-To: "Marc Pignat" <marc.pignat@hevs.ch>
+Cc: jeff@garzik.org, ben-linux@fluff.org, netdev@vger.kernel.org
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.228]:7504 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753535AbYEHTus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 15:50:48 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so1135529rvb.1
-        for <netdev@vger.kernel.org>; Thu, 08 May 2008 12:50:47 -0700 (PDT)
-In-Reply-To: <200805081740.10061.marc.pignat@hevs.ch>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49523 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1765397AbYEHUMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 16:12:16 -0400
+In-Reply-To: <20080508103642.GE30439@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi,
+On Thu, 8 May 2008 11:36:42 +0100
+Ben Dooks <ben-linux@fluff.org> wrote:
 
-> Use net_device_stats from net_device structure instead of local.
->
-> v2: Removed unused variable 'lp' in at91ether_stats function.
->
-> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-> Tested-by: Marc Pignat <marc.pignat@hevs.ch>
+> @@ -879,6 +903,8 @@ dm9000_stop(struct net_device *ndev)
+>  	if (netif_msg_ifdown(db))
+>  		dev_dbg(db->dev, "shutting down %s\n", ndev->name);
+>  
+> +	cancel_delayed_work(&db->phy_poll);
 
-Acked-by: Andrew Victor <linux@maxim.org.za>
-
-
-Regards,
-  Andrew Victor
+I think this should be cancel_delayed_work_sync().
