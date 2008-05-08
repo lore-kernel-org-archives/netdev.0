@@ -1,38 +1,40 @@
-From: Roland McGrath <roland@redhat.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 02/18] flag parameters: paccept
-Date: Thu,  8 May 2008 15:50:43 -0700 (PDT)
-Message-ID: <20080508225043.0A84026FA85@magilla.localdomain>
+Date: Thu, 08 May 2008 15:58:41 -0700 (PDT)
+Message-ID: <20080508.155841.88051498.davem@davemloft.net>
 References: <200805062118.m46LI7SS004041@devserv.devel.redhat.com>
 	<20080508153822.0c4dd6e9.akpm@linux-foundation.org>
+	<20080508225043.0A84026FA85@magilla.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ulrich Drepper <drepper@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davidel@xmailserver.org,
-	mtk.manpages@gmail.com, torvalds@linux-foundation.org,
-	Oleg Nesterov <oleg@tv-sign.ru>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: akpm@linux-foundation.org, drepper@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davidel@xmailserver.org, mtk.manpages@gmail.com,
+	torvalds@linux-foundation.org, oleg@tv-sign.ru
+To: roland@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55950 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762266AbYEHWuu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2008 18:50:50 -0400
-In-Reply-To: Andrew Morton's message of  Thursday, 8 May 2008 15:38:22 -0700 <20080508153822.0c4dd6e9.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55474
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1765761AbYEHW6r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 18:58:47 -0400
+In-Reply-To: <20080508225043.0A84026FA85@magilla.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Some architectures (including x86) do not implement TIF_RESTORE_SIGMASK.
+From: Roland McGrath <roland@redhat.com>
+Date: Thu,  8 May 2008 15:50:43 -0700 (PDT)
 
-It's now spelled:
+> It's now spelled:
+> 
+>        set_restore_sigmask();
+> 
+> For the other syscalls that depend on this (e.g. sys_ppoll),
+> we just put the whole definition in #ifdef HAVE_SET_RESTORE_SIGMASK.
+> 
+> The few machines that don't have RESTORE_SIGMASK support of some flavor,
+> also have not assigned numbers to the syscalls that need it.
 
-       set_restore_sigmask();
-
-For the other syscalls that depend on this (e.g. sys_ppoll),
-we just put the whole definition in #ifdef HAVE_SET_RESTORE_SIGMASK.
-
-The few machines that don't have RESTORE_SIGMASK support of some flavor,
-also have not assigned numbers to the syscalls that need it.
-
-
-Thanks,
-Roland
+I notice that this macro also sets the sigpending bit, although
+some paths that end up calling set_restore_sigmask() already
+do that.
