@@ -1,74 +1,52 @@
-From: Mark Asselstine <mark.asselstine@windriver.com>
-Subject: Re: [PATCH] Remove cli()/sti() calls from HYSDN driver.
-Date: Thu, 8 May 2008 07:53:16 -0400
-Message-ID: <200805080753.16950.mark.asselstine@windriver.com>
-References: <1209673012-10500-1-git-send-email-mark.asselstine@windriver.com> <20080507153800.16537fbc.akpm@linux-foundation.org> <20080508083353.GA18187@pingi.kke.suse.de>
-Reply-To: mark.asselstine@windriver.com
+From: "Van Gelder, Gerrit" <vangelder.gerrit@student.ha.be>
+Subject: (unknown)
+Date: Thu, 8 May 2008 13:54:42 +0200
+Message-ID: <CFF711D2DED238428ED010341FCC5BB7467FDB@srvbe01.ha.be>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org
-To: Karsten Keil <kkeil@suse.de>
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:52836 "EHLO mail.wrs.com"
+Received: from mx1.ha.be ([193.191.129.195]:48615 "EHLO mx1.ha.be"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751139AbYEHLyH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2008 07:54:07 -0400
-In-Reply-To: <20080508083353.GA18187@pingi.kke.suse.de>
-Content-Disposition: inline
+	id S1750885AbYEHMS2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 08:18:28 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mx1.ha.be (Postfix) with ESMTP id 0F275227F35
+	for <netdev@vger.kernel.org>; Thu,  8 May 2008 12:58:07 +0200 (CEST)
+Received: from mx1.ha.be ([127.0.0.1])
+	by localhost (mx1.ha.be [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 3Yg2sdYMl2Ny for <netdev@vger.kernel.org>;
+	Thu,  8 May 2008 12:58:05 +0200 (CEST)
+Received: from srvbe01.ha.be (srvbe01.ha.be [10.41.0.18])
+	by mx1.ha.be (Postfix) with ESMTP id 52344227F34
+	for <netdev@vger.kernel.org>; Thu,  8 May 2008 12:58:05 +0200 (CEST)
+content-class: urn:content-classes:message
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 08 May 2008 04:33:53 Karsten Keil wrote:
-> On Wed, May 07, 2008 at 03:38:00PM -0700, Andrew Morton wrote:
-> > On Thu,  1 May 2008 16:16:52 -0400
-> >
-> > Mark Asselstine <mark.asselstine@windriver.com> wrote:
-> > > >From looking at this driver the use of cli()/sti() within the do/while
-> > >
-> > > was a way to ensure interrupts were only disabled for short periods of
-> > > time while the bulk of the time interrupts were free to occur. The
-> > > use of the spin lock has eliminated the need to play with interrupts
-> > > in this way while still allowing for IO to be protected.
-> >
-> > OK.  If we still want the interrupt-latency optimisation then we should
-> > switch over to using local_irq_disable().  But probably nobody cares.
-> >
+Dear Sir
 
-I had thought about using local_irq_disable() but it never progressed past a 
-thought.
+I'm a student from a college in Antwerp, called "Hogeschool Antwerpen".
+I'm studying for Industrial engineer and I'm now in my third year.
 
-> > > The remaining 3 sti() calls seem unneeded now that at no other point
-> > > in the driver is there a call to cli().
-> > >
-> > > Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
-> > > ---
-> > >  drivers/isdn/hysdn/boardergo.c |   14 +++++---------
-> >
-> > So... can we now do this?
->
-> I think so.
->
+The reason for this mail is a problem I have with PHPnetemGUI. I
+installed an apache webserver with php, and everything seems to work,
+but it doesn't do anything.
 
-I am in agreement here too. From my poking around this driver I see no reason 
-why not.
+What i'm trying to say is: Netem does work in command line, but with the
+use of php scripts it doesn't. Perhaps it is a problem with our =
+restrictions but I don't know if we did something wrong. I just followed 
+your tutorial.
 
-Regards,
-Mark
+Do you know where my problem is situated? What can I do to overcome this
+failure? And is there a possibility to receive extra documentation about
+PHPnetemGUI.
 
-> > --- a/drivers/isdn/hysdn/Kconfig~a
-> > +++ a/drivers/isdn/hysdn/Kconfig
-> > @@ -3,7 +3,7 @@
-> >  #
-> >  config HYSDN
-> >  	tristate "Hypercope HYSDN cards (Champ, Ergo, Metro) support (module
-> > only)" -	depends on m && PROC_FS && PCI && BROKEN_ON_SMP
-> > +	depends on m && PROC_FS && PCI
-> >  	help
-> >  	  Say Y here if you have one of Hypercope's active PCI ISDN cards
-> >  	  Champ, Ergo and Metro. You will then get a module called hysdn.
-> > _
+If you guys don't know or use PHPnetemGUI, is there an other grafical way to add jitter and delays graphically in Ubuntu Linux.
 
+Kind regards,
 
+Gerrit
