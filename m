@@ -1,40 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/18] flag parameters: paccept
-Date: Thu, 08 May 2008 15:58:41 -0700 (PDT)
-Message-ID: <20080508.155841.88051498.davem@davemloft.net>
-References: <200805062118.m46LI7SS004041@devserv.devel.redhat.com>
-	<20080508153822.0c4dd6e9.akpm@linux-foundation.org>
-	<20080508225043.0A84026FA85@magilla.localdomain>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH -mm][v2] ratelimit rewrite
+Date: Thu, 8 May 2008 16:19:52 -0700
+Message-ID: <20080508231952.GC13851@linux.vnet.ibm.com>
+References: <20080506022558.GA2904@darkstar.te-china.tietoenator.com> <20080508122514.63482a06.akpm@linux-foundation.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, drepper@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davidel@xmailserver.org, mtk.manpages@gmail.com,
-	torvalds@linux-foundation.org, oleg@tv-sign.ru
-To: roland@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Dave Young <hidave.darkstar@gmail.com>, joe@perches.com,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55474
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1765761AbYEHW6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 18:58:47 -0400
-In-Reply-To: <20080508225043.0A84026FA85@magilla.localdomain>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:38235 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753895AbYEHXUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 19:20:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20080508122514.63482a06.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland McGrath <roland@redhat.com>
-Date: Thu,  8 May 2008 15:50:43 -0700 (PDT)
+On Thu, May 08, 2008 at 12:25:14PM -0700, Andrew Morton wrote:
+> On Tue, 6 May 2008 10:25:58 +0800
+> Dave Young <hidave.darkstar@gmail.com> wrote:
+> 
+> >  static inline void rcu_enter_nohz(void)
+> >  {
+> > +	static DEFINE_RATELIMIT_STATE(rs, 10 * HZ, 1);
+> >  	smp_mb(); /* CPUs seeing ++ must see prior RCU read-side crit sects */
+> >  	__get_cpu_var(rcu_dyntick_sched).dynticks++;
+> > -	WARN_ON_SECS(__get_cpu_var(rcu_dyntick_sched).dynticks & 0x1, 10);
+> > +	WARN_ON_RATELIMIT(__get_cpu_var(rcu_dyntick_sched).dynticks & 0x1, &rs);
+> >  }
+> >  
+> >  static inline void rcu_exit_nohz(void)
+> >  {
+> > +	static DEFINE_RATELIMIT_STATE(rs, 10 * HZ, 1);
+> >  	__get_cpu_var(rcu_dyntick_sched).dynticks++;
+> >  	smp_mb(); /* CPUs seeing ++ must see later RCU read-side crit sects */
+> > -	WARN_ON_SECS(!(__get_cpu_var(rcu_dyntick_sched).dynticks & 0x1), 10);
+> > +	WARN_ON_RATELIMIT(!(__get_cpu_var(rcu_dyntick_sched).dynticks & 0x1),
+> > +			&rs);
+> 
+> Why are we altering the RCU code in this patch, btw?  It seems fairly
+> random that we happened to choose these particular WARN_ONs.  Do they have
+> a history of triggering?
 
-> It's now spelled:
-> 
->        set_restore_sigmask();
-> 
-> For the other syscalls that depend on this (e.g. sys_ppoll),
-> we just put the whole definition in #ifdef HAVE_SET_RESTORE_SIGMASK.
-> 
-> The few machines that don't have RESTORE_SIGMASK support of some flavor,
-> also have not assigned numbers to the syscalls that need it.
+Yep -- there was a bug in this code a few months ago that was the
+motivation for Dave's WARN_ON_RATELIMIT().  The bug has since been fixed,
+so I would not expect this to trigger anymore, though.
 
-I notice that this macro also sets the sigpending bit, although
-some paths that end up calling set_restore_sigmask() already
-do that.
+							Thanx, Paul
