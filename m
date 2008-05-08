@@ -1,57 +1,65 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [PATCH] [2.6.26] [CAN] Fix can_send() handling on dev_queue_xmit()
- failures
-Date: Thu, 08 May 2008 20:27:49 +0200
-Message-ID: <48234625.5020706@hartkopp.net>
-References: <4820B665.6070609@hartkopp.net> <20080508.025044.124227730.davem@davemloft.net> <482331B7.909@hartkopp.net> <20080508172938.GA7461@uranus.ravnborg.org>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: [PATCH 0/5]: [VLAN] fixes for PACKET
+Date: Thu, 8 May 2008 11:33:29 -0700
+Message-ID: <b25c3fa70805081133v9c91b11s1170475c9de07ff7@mail.gmail.com>
+References: <20080411092523.GA6873@tp64> <47FF61D6.3090206@trash.net>
+	 <b25c3fa70804110705x74e11b5bm2835a558dcf759bf@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, David Miller <davem@davemloft.net>,
-	urs@isnogud.escape.de, netdev@vger.kernel.org
-To: Sam Ravnborg <sam@ravnborg.org>
+Cc: auke-jan.h.kok@intel.com, davem@davemloft.net, jeff@garzik.org,
+	netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:19223 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753028AbYEHS1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 14:27:52 -0400
-In-Reply-To: <20080508172938.GA7461@uranus.ravnborg.org>
+Received: from rv-out-0506.google.com ([209.85.198.234]:15845 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754359AbYEHSda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 14:33:30 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so1102029rvb.1
+        for <netdev@vger.kernel.org>; Thu, 08 May 2008 11:33:30 -0700 (PDT)
+In-Reply-To: <b25c3fa70804110705x74e11b5bm2835a558dcf759bf@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sam Ravnborg wrote:
-> On Thu, May 08, 2008 at 07:00:39PM +0200, Oliver Hartkopp wrote:
->   
+2008/4/11 Joonwoo Park <joonwpark81@gmail.com>:
+> 2008/4/11, Patrick McHardy <kaber@trash.net>:
+>> Joonwoo Park wrote:
+>> > Hi,
+>> > This patchset is the v3 for resolving the issue about VLAN & PACKET.
+>> > It contains some cleanups for vlan as well.
+>> >
+>> > Related previous discussions are below:
+>> > http://bugzilla.kernel.org/show_bug.cgi?id=8218
+>> >
+>> http://thread.gmane.org/gmane.linux.drivers.e1000.devel/2587
+>> > http://thread.gmane.org/gmane.linux.network/88488
+>> >
+>> > [PATCH 1/5] [VLAN]: Unclassified vlan packet
+>> > [PATCH 2/5] [VLAN]: Add vlan tag into PACKET_AUXDATA
+>> > [PATCH 3/5] [VLAN]: Use is_vlan_dev()
+>> > [PATCH 4/5] [E1000]: [VLAN] Turn off the HW vlan filter if promisc
+>> > [PATCH 5/5] [E1000e]: [VLAN] Turn off the HW vlan filter if promisc
+>> >
+>> > Thanks Patrick for the suggestions.
+>> >
+>> > Please review and consider applying.
+>> >
 >>
 >>
->> Maybe we should also consider to push the patch from Sam regarding the 
->> wrong copy_from_user() results interpretation to the stable tree:
+>> Your patches don't seem to have made it to the list or my inbox.
 >>
->> can: Fix copy_from_user() results interpretation
->>
->> author 	Sam Ravnborg <sam@ravnborg.org>
->>
->> 	Sun, 27 Apr 2008 05:57:25 +0000 (22:57 -0700)
->> committer 	David S. Miller <davem@davemloft.net>
->>
->> 	Sun, 27 Apr 2008 21:26:51 +0000 (14:26 -0700)
->> commit 	3f91bd420a955803421f2db17b2e04aacfbb2bb8
->>     
 >
-> I recall tat I considered stable material when I did
-> this patch. But as I merely just did a codingstyle update
-> of the old patch I dropped it.
+> It weird :(
+> I've resent all of them with another mail client.
+> Thanks for notification.
 >
-> But looks like possible -stable materail so I've added
-> stable@kernel.org to the to list so they can judge.
->   
+> Joonwoo,
+>
 
-Yep. Thanks.
+Patrick,
+May I get your ACK, NACK or opinion for this patchset?
+Please forgive my impatience.
 
-Indeed you updated the codingstyle from a patch suggested by Pavel - but 
-his (original) patch fixes the copy_from_user() result interpretation. 
-So it was not only a codingstyle patch which was commited here.
-
-Best regards,
-Oliver
-
+Thanks in advance.
+Joonwoo
