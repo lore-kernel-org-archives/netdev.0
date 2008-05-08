@@ -1,34 +1,56 @@
-From: Vitaly Bordug <vitb@gate.crashing.org>
-Subject: Re: [PATCH] Delete unused fec_8xx net driver
-Date: Thu, 8 May 2008 12:25:19 -0500
-Message-ID: <20080508172519.GA12162@gate.crashing.org>
-References: <Pine.LNX.4.64.0805021320360.24806@monty.am.freescale.net> <48208790.5090508@pobox.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] [2.6.26] [CAN] Fix can_send() handling on dev_queue_xmit() failures
+Date: Thu, 8 May 2008 19:29:38 +0200
+Message-ID: <20080508172938.GA7461@uranus.ravnborg.org>
+References: <4820B665.6070609@hartkopp.net> <20080508.025044.124227730.davem@davemloft.net> <482331B7.909@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Becky Bruce <bgill@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, scottwood@freescale.com,
-	jengelh@medozas.de, vitb@kernel.crashing.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: David Miller <davem@davemloft.net>, urs@isnogud.escape.de,
+	netdev@vger.kernel.org
+To: Oliver Hartkopp <oliver@hartkopp.net>, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:39275 "EHLO gate.crashing.org"
+Received: from pasmtpa.tele.dk ([80.160.77.114]:46555 "EHLO pasmtpA.tele.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758195AbYEHRZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2008 13:25:55 -0400
+	id S1752318AbYEHR3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2008 13:29:04 -0400
 Content-Disposition: inline
-In-Reply-To: <48208790.5090508@pobox.com>
+In-Reply-To: <482331B7.909@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 06, 2008 at 12:30:08PM -0400, Jeff Garzik wrote:
-> Becky Bruce wrote:
-> >This driver has been superseded by fs_enet and is no longer in use.
+On Thu, May 08, 2008 at 07:00:39PM +0200, Oliver Hartkopp wrote:
+> David Miller wrote:
 > >
-> >Signed-off-by: Becky Bruce <becky.bruce@freescale.com>
+> >>this patch should go into 2.6.26 and also applies fine on 2.6.25.1.
+> >>
+> >>IMO this issue is not that 'critical' that it *requires* to become
+> >>part of 2.6.25.2. Please forward the patch to Greg at your own opinion.
+> >>    
+> >
+> >I think I'll push it to -stable, thanks.
+> >
+> >  
 > 
-> I cannot make an informed judgement on this.
+> Thanks!
 > 
-> ACK, and pass through platform tree, if all platform peeps are happy.
+> Maybe we should also consider to push the patch from Sam regarding the 
+> wrong copy_from_user() results interpretation to the stable tree:
+> 
+> can: Fix copy_from_user() results interpretation
+> 
+> author 	Sam Ravnborg <sam@ravnborg.org>
+> 
+> 	Sun, 27 Apr 2008 05:57:25 +0000 (22:57 -0700)
+> committer 	David S. Miller <davem@davemloft.net>
+> 
+> 	Sun, 27 Apr 2008 21:26:51 +0000 (14:26 -0700)
+> commit 	3f91bd420a955803421f2db17b2e04aacfbb2bb8
 
-I'll move thins along.
+I recall tat I considered stable material when I did
+this patch. But as I merely just did a codingstyle update
+of the old patch I dropped it.
 
--Vitaly
+But looks like possible -stable materail so I've added
+stable@kernel.org to the to list so they can judge.
+
+	Sam
