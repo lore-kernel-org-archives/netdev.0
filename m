@@ -1,63 +1,38 @@
-From: Chris Bredesen <cbredesen@redhat.com>
-Subject: Debugging TCP: Treason Uncloaked
-Date: Wed, 07 May 2008 22:29:52 -0400
-Message-ID: <482265A0.8040105@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] mac80211: rewrite fragmentation code
+Date: Thu, 8 May 2008 11:22:08 +0800
+Message-ID: <20080508032208.GA401@gondor.apana.org.au>
+References: <20080430124055.091382000@sipsolutions.net> <1210161133.5642.19.camel@johannes.berg> <20080507130548.GA26977@gondor.apana.org.au> <200805071548.06693.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Ron Rindjunsky <ron.rindjunsky@intel.com>,
+	Tomas Winkler <tomasw@gmail.com>,
+	Ivo van Doorn <ivdoorn@gmail.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:44547 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761504AbYEHCaG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2008 22:30:06 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id m482U50f015522
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 22:30:05 -0400
-Received: from file.rdu.redhat.com (file.rdu.redhat.com [10.11.255.147])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id m482TrcT005836
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 22:30:05 -0400
-Received: from [10.11.15.32] (vpn-15-32.rdu.redhat.com [10.11.15.32])
-	by file.rdu.redhat.com (8.13.1/8.13.1) with ESMTP id m482Tr01007833
-	for <netdev@vger.kernel.org>; Wed, 7 May 2008 22:29:53 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:60228 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756351AbYEHDWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 23:22:21 -0400
+Content-Disposition: inline
+In-Reply-To: <200805071548.06693.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Wed, May 07, 2008 at 03:48:06PM +0200, Michael Buesch wrote:
+>
+> So there's no way to actually fail in a TX handler? Drivers
+> are doomed to drop the packet, if they cannot handle it due to
+> ring overflow?
 
-As per below thread, I'm forwarding to this list/alias.  tcpdump output
-is attached to the forum post.
+You're supposed to stop the queue before the ring overflows.
 
-Thanks!
-
--------- Original Message --------
-Subject: Re: F8 Treason Uncloaked
-Date: Tue, 6 May 2008 20:00:51 +0100
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Organization: Red Hat UK Cyf., Amberley Place, 107-111 Peascod Street,
-Windsor, Berkshire, SL4 1TE, Y Deyrnas Gyfunol. Cofrestrwyd yng Nghymru
-a Lloegr o'r rhif cofrestru 3798903
-To: For users of Fedora <fedora-list@redhat.com>
-CC: cbredesen@redhat.com
-References: <4820A59F.7010005@redhat.com>
-
-On Tue, 06 May 2008 14:38:23 -0400
-Chris Bredesen <cbredesen@redhat.com> wrote:
-
-> Hello list,
-> 
-> I'm trying to get this issue out to a wider audience.  I posted it on 
-> the forum but got no responses:
-> 
-> http://www.fedoraforum.org/forum/showthread.php?t=186331
-> 
-> Sorry to cross post, but I'm not sure where else to turn...
-
-netdev@linux.kernel.org
-
-but the TCP messages really indicate either a Linux bug or that the NAS
-isn't talking proper TCP. Trying turning off window scaling was a good
-test but beyond that tcpdump data will be needed.
-
-Alan
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
