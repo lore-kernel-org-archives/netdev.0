@@ -1,52 +1,63 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: New GIT net tree naming...
-Date: Wed, 7 May 2008 21:43:58 -0400
-Message-ID: <20080508014358.GE3412@tuxdriver.com>
-References: <20080419.173510.257216556.davem@davemloft.net>
+From: Chris Bredesen <cbredesen@redhat.com>
+Subject: Debugging TCP: Treason Uncloaked
+Date: Wed, 07 May 2008 22:29:52 -0400
+Message-ID: <482265A0.8040105@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080419.173510.257216556.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:44547 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761504AbYEHCaG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 May 2008 22:30:06 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id m482U50f015522
+	for <netdev@vger.kernel.org>; Wed, 7 May 2008 22:30:05 -0400
+Received: from file.rdu.redhat.com (file.rdu.redhat.com [10.11.255.147])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id m482TrcT005836
+	for <netdev@vger.kernel.org>; Wed, 7 May 2008 22:30:05 -0400
+Received: from [10.11.15.32] (vpn-15-32.rdu.redhat.com [10.11.15.32])
+	by file.rdu.redhat.com (8.13.1/8.13.1) with ESMTP id m482Tr01007833
+	for <netdev@vger.kernel.org>; Wed, 7 May 2008 22:29:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 19, 2008 at 05:35:10PM -0700, David Miller wrote:
+Hello,
+
+As per below thread, I'm forwarding to this list/alias.  tcpdump output
+is attached to the forum post.
+
+Thanks!
+
+-------- Original Message --------
+Subject: Re: F8 Treason Uncloaked
+Date: Tue, 6 May 2008 20:00:51 +0100
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Organization: Red Hat UK Cyf., Amberley Place, 107-111 Peascod Street,
+Windsor, Berkshire, SL4 1TE, Y Deyrnas Gyfunol. Cofrestrwyd yng Nghymru
+a Lloegr o'r rhif cofrestru 3798903
+To: For users of Fedora <fedora-list@redhat.com>
+CC: cbredesen@redhat.com
+References: <4820A59F.7010005@redhat.com>
+
+On Tue, 06 May 2008 14:38:23 -0400
+Chris Bredesen <cbredesen@redhat.com> wrote:
+
+> Hello list,
 > 
-> Based upon feedback from Andrew and others I'm now starting
-> to use a new naming scheme for my GIT trees:
+> I'm trying to get this issue out to a wider audience.  I posted it on 
+> the forum but got no responses:
 > 
-> For changes against Linus's current tree:
+> http://www.fedoraforum.org/forum/showthread.php?t=186331
 > 
->    master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
-> 
-> For development meant to be merged in the next merge
-> window we have:
-> 
->    master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git
-> 
-> Andrew/Stephen, let me know if this works for you.  This way
-> the tree names will never change.
+> Sorry to cross post, but I'm not sure where else to turn...
 
-I have adopted this same scheme for wireless as well:
+netdev@linux.kernel.org
 
-For changes against Linus's current tree:
+but the TCP messages really indicate either a Linux bug or that the NAS
+isn't talking proper TCP. Trying turning off window scaling was a good
+test but beyond that tcpdump data will be needed.
 
-   master.kernel.org:/pub/scm/linux/kernel/git/linville/wireless-2.6.git
+Alan
 
-For development meant to be merged in the next merge
-window we have:
-
-   master.kernel.org:/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git
-
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
