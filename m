@@ -1,59 +1,34 @@
-From: "Damon L. Chesser" <damon@damtek.com>
-Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
-Date: Thu, 08 May 2008 13:05:38 -0400
-Message-ID: <482332E2.6080104@damtek.com>
-References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi> <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
+From: Vitaly Bordug <vitb@gate.crashing.org>
+Subject: Re: [PATCH] Delete unused fec_8xx net driver
+Date: Thu, 8 May 2008 12:25:19 -0500
+Message-ID: <20080508172519.GA12162@gate.crashing.org>
+References: <Pine.LNX.4.64.0805021320360.24806@monty.am.freescale.net> <48208790.5090508@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bug 213081 <213081@bugs.launchpad.net>, 478062@bugs.debian.org,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Becky Bruce <bgill@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, scottwood@freescale.com,
+	jengelh@medozas.de, vitb@kernel.crashing.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from damtek.com ([72.172.134.65]:34571 "EHLO damtek.com"
+Received: from gate.crashing.org ([63.228.1.57]:39275 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753014AbYEHRFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2008 13:05:16 -0400
-In-Reply-To: <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
+	id S1758195AbYEHRZz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2008 13:25:55 -0400
+Content-Disposition: inline
+In-Reply-To: <48208790.5090508@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen wrote:
+On Tue, May 06, 2008 at 12:30:08PM -0400, Jeff Garzik wrote:
+> Becky Bruce wrote:
+> >This driver has been superseded by fs_enet and is no longer in use.
+> >
+> >Signed-off-by: Becky Bruce <becky.bruce@freescale.com>
+> 
+> I cannot make an informed judgement on this.
+> 
+> ACK, and pass through platform tree, if all platform peeps are happy.
 
-Snip
->
-> Could you next try with tcp_frto set to 1, if my theory proves to be=20
-> correct, it too should be "enough" to fix the problem (in this=20
-> particular case). Of course you can verify the patch below too if you=
-=20
-> want to, the patch should allow cups<->printer to work with tcp_frto =
-=3D=20
-> 2 too. In case you have problem to apply the patch to the particular=20
-> version you're want to try with, just send a note about the version=20
-> number to me so I can adapt the patch for you (space etc. formatting=20
-> issues may show up because I recently run a code style cleanup on the=
-=20
-> tcp code).
->
-Ilpo,
+I'll move thins along.
 
-and all others, please ignore frtoprob1.txt.  I ran the test on the=20
-wrong kernel.  The tested kernel was 2.6.23.17-amd64 and should have=20
-been 2.6.24-1-amd64.  I am re-running the test and will forward the new=
-=20
-dump.  No idea why 2.6.23.17 did not print, it always did before.  I am=
-=20
-sure I did something stupid, feeling a bit under the weather.  Sorry fo=
-r=20
-the confusion.  New test comming shortly.
-
-
-
---=20
-Damon L. Chesser
-damon@damtek.com
-http://www.linkedin.com/in/dchesser
-
-
+-Vitaly
