@@ -1,47 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Fix FRTO+NewReno problem
-Date: Thu, 08 May 2008 01:10:21 -0700 (PDT)
-Message-ID: <20080508.011021.14498289.davem@davemloft.net>
-References: <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi>
-	<4821C37A.7040306@damtek.com>
-	<Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
+Subject: Re: [MACVLAN]: Fix memleak on device removal/crash on module
+ removal
+Date: Thu, 08 May 2008 01:14:05 -0700 (PDT)
+Message-ID: <20080508.011405.223859547.davem@davemloft.net>
+References: <48215DAC.1070704@trash.net>
+	<48222727.2090606@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: damon@damtek.com, 213081@bugs.launchpad.net,
-	478062@bugs.debian.org, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46436
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751453AbYEHIK2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2008 04:10:28 -0400
-In-Reply-To: <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1752465AbYEHIOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 04:14:11 -0400
+In-Reply-To: <48222727.2090606@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 8 May 2008 01:26:59 +0300 (EEST)
+From: Ben Greear <greearb@candelatech.com>
+Date: Wed, 07 May 2008 15:03:19 -0700
 
-> [PATCH] [TCP] FRTO: SACK variant is errorneously used with NewReno
+> Patrick McHardy wrote:
+> > 
+> > ------------------------------------------------------------------------
+> > 
+> > commit 2fe876e51d1f053b55d8d50c3733b136b6add016
+> > Author: Patrick McHardy <kaber@trash.net>
+> > Date:   Wed May 7 09:43:05 2008 +0200
+> > 
+> >     [MACVLAN]: Fix memleak on device removal/crash on module removal
+> 
+> Thanks.  I just tested this on 2.6.23 and it seems to fix the crash.
 
-I applied this with a minor coding style fixup.
+I've applied this to net-2.6, and will queue it up for net-2.6
+as well.
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 8 May 2008 01:26:59 +0300 (EEST)
-
-> +static int tcp_is_sackfrto(const struct tcp_sock *tp) {
-> +	return (sysctl_tcp_frto =3D=3D 0x2) && !tcp_is_reno(tp);
-> +}
-> +
-
-Should be:
-
-static int tcp_is_sackfrto(const struct tcp_sock *tp)
-{
-	return (sysctl_tcp_frto =3D=3D 0x2) && !tcp_is_reno(tp);
-}
-
-I will also queue this up to -stable, thanks so much for
-this bug fix!
+Thanks again!
