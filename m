@@ -1,44 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Wed, 07 May 2008 18:43:11 -0700 (PDT)
-Message-ID: <20080507.184311.196815718.davem@davemloft.net>
-References: <d1c2719f0805071136i3414755cv6e72e7bd5a0d41ad@mail.gmail.com>
-	<20080507.141835.229114942.davem@davemloft.net>
-	<d1c2719f0805071837v5168cee0qa6a3d160e93adb48@mail.gmail.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: New GIT net tree naming...
+Date: Wed, 7 May 2008 21:43:58 -0400
+Message-ID: <20080508014358.GE3412@tuxdriver.com>
+References: <20080419.173510.257216556.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hkchu@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51258
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755292AbYEHBnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 21:43:18 -0400
-In-Reply-To: <d1c2719f0805071837v5168cee0qa6a3d160e93adb48@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080419.173510.257216556.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jerry Chu" <hkchu@google.com>
-Date: Wed, 7 May 2008 18:37:01 -0700
+On Sat, Apr 19, 2008 at 05:35:10PM -0700, David Miller wrote:
+> 
+> Based upon feedback from Andrew and others I'm now starting
+> to use a new naming scheme for my GIT trees:
+> 
+> For changes against Linus's current tree:
+> 
+>    master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+> 
+> For development meant to be merged in the next merge
+> window we have:
+> 
+>    master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+> 
+> Andrew/Stephen, let me know if this works for you.  This way
+> the tree names will never change.
 
-> Ok, will give it a try. First i'll fix your patch to
-> atomic_add()/atomic_sub() by
-> skb_shinfo(skb)->gso_segs rather than always 1, in order for GSO/TSO to work.
+I have adopted this same scheme for wireless as well:
 
-That might not work.  gso_segs can change over time as retransmit
-packets get split up due to SACKs etc.  it needs to be audited,
-at the very least.
+For changes against Linus's current tree:
 
-> One problem came up to my mind - it seems possible for __kfree_skb() to
-> access skb_shinfo(skb)->in_flight whose tp has been freed up since only the
-> original skb's on TCP's rexmit list have the owner set and socket
-> held. One solution
-> is for TCP to zap skb_shinfo(skb)->in_flight field when it's ready to
-> free up skb.
-> I can hack sock_wfree() to do this, but I don't know how to do it right.
+   master.kernel.org:/pub/scm/linux/kernel/git/linville/wireless-2.6.git
 
-There will be references to the socket, so this should be ok.
+For development meant to be merged in the next merge
+window we have:
 
-If it isn't we can adjust the count and zap the pointer in
-skb_orphan().
+   master.kernel.org:/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git
+
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
