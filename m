@@ -1,66 +1,47 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 1/4][MAC80211]: Fix GFP_KERNEL allocation under read
-	lock.
-Date: Thu, 8 May 2008 14:51:23 -0400
-Message-ID: <20080508185123.GA7250@tuxdriver.com>
-References: <4820997E.1070305@openvz.org> <20080506.134047.86330538.davem@davemloft.net> <4821442D.8010801@openvz.org> <20080506.225950.181623233.davem@davemloft.net>
+From: "M. Istehbab" <hariskhan@gmail.com>
+Subject: Re: TCP connection failure in kernel 2.6.25
+Date: Fri, 9 May 2008 00:32:26 +0500
+Message-ID: <c1410bfe0805081232k3be4ddcew2647207fee057e8c@mail.gmail.com>
+References: <c1410bfe0804260217t33139fd2v324af1a149843989@mail.gmail.com>
+	 <1209205136.2929.6.camel@localhost.localdomain>
+	 <c1410bfe0804260516k1149fadaoc06f02b94dcd12e9@mail.gmail.com>
+	 <1209241624.2929.17.camel@localhost.localdomain>
+	 <c1410bfe0804262302p3f283f9k97a04ff11dd2779e@mail.gmail.com>
+	 <1209315362.2934.55.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xemul@openvz.org, johannes@sipsolutions.net, netdev@axxeo.de,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "H. Willstrand" <h.willstrand@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3477 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932859AbYEHTax (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2008 15:30:53 -0400
+Received: from wf-out-1314.google.com ([209.85.200.168]:38011 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756090AbYEHTc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 15:32:27 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so836061wfd.4
+        for <netdev@vger.kernel.org>; Thu, 08 May 2008 12:32:26 -0700 (PDT)
+In-Reply-To: <1209315362.2934.55.camel@localhost.localdomain>
 Content-Disposition: inline
-In-Reply-To: <20080506.225950.181623233.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 06, 2008 at 10:59:50PM -0700, David Miller wrote:
+On 4/27/08, H. Willstrand <h.willstrand@gmail.com> wrote:
+>
+> So, you have the same issue with all tested kernels
+> RHEL 3 works, Debian fails
+>
+> This smells configuration failure, you better compare your working
+> configuration with the others.
+>
+> // H.Willstrand
+>
 
-> Whether you should resubmit your patch is up to the wireless
-> folks :-)
+When I was using RHEL WS3, which comes with kernel 2.4.21-27.EL
+(sorry, the 2.6.9 comes with rhel 4), it worked ok. I haven't tried
+new kernels on rhel ws3 though.
 
-If you don't do it Ingo Oeser's way then it looks like you would need
-a patch like the one below.  And with the patch below, the last hunk
-of your patch will probably need to be fixed-up to match.
+I tried all the mentioned kernel versions on debian. All show the same problem.
 
-Should I apply the patch below and wait for you to rebase and
-resubmit yours?
+Note sure if its config or what, but this problem exists.
 
----
-
-From: John W. Linville <linville@tuxdriver.com>
-Subject: [PATCH] mac80211 mesh: add missing check for kmalloc failure
-
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- net/mac80211/mesh_pathtbl.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
-
-diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
-index 5845dc2..ab54f77 100644
---- a/net/mac80211/mesh_pathtbl.c
-+++ b/net/mac80211/mesh_pathtbl.c
-@@ -171,6 +171,12 @@ int mesh_path_add(u8 *dst, struct net_device *dev)
- 	new_mpath->flags = 0;
- 	skb_queue_head_init(&new_mpath->frame_queue);
- 	new_node = kmalloc(sizeof(struct mpath_node), GFP_KERNEL);
-+	if (!new_node) {
-+		atomic_dec(&sdata->u.sta.mpaths);
-+		kfree(new_mpath);
-+		err = -ENOMEM;
-+		goto endadd2;
-+	}
- 	new_node->mpath = new_mpath;
- 	new_mpath->timer.data = (unsigned long) new_mpath;
- 	new_mpath->timer.function = mesh_path_timer;
--- 
-1.5.3.3
-
--- 
-John W. Linville
-linville@tuxdriver.com
+M. Istehbab
