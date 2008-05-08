@@ -1,64 +1,112 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
-Date: Thu, 8 May 2008 23:42:21 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi>
-References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi>
- <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
- <4823437D.20005@damtek.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] wireless: Add missing locking to cfg80211_dev_rename
+Date: Thu, 08 May 2008 14:30:18 -0700
+Message-ID: <m1ej8ccwlx.fsf_-_@frodo.ebiederm.org>
+References: <20080506173030.653828076@theryb.frec.bull.fr>
+	<20080506173335.922289888@theryb.frec.bull.fr>
+	<m13aoueyq8.fsf@frodo.ebiederm.org> <20080507190838.GA4467@suse.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="=_courier-13210-1210270579-0001-2"
-Cc: Bug 213081 <213081@bugs.launchpad.net>, 478062@bugs.debian.org,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: "Damon L. Chesser" <damon@damtek.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Thery <benjamin.thery@bull.net>,
+	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org,
+	Greg KH <gregkh@suse.de>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53603 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757374AbYEHUmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 16:42:35 -0400
-In-Reply-To: <4823437D.20005@damtek.com>
-Content-ID: <Pine.LNX.4.64.0805082336441.31776@wrl-59.cs.helsinki.fi>
+Received: from out02.mta.xmission.com ([166.70.13.232]:36295 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752997AbYEHVkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 17:40:03 -0400
+In-Reply-To: <20080507190838.GA4467@suse.de> (Greg KH's message of "Wed, 7 May
+	2008 12:08:38 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
---=_courier-13210-1210270579-0001-2
-Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0805082336442.31776@wrl-59.cs.helsinki.fi>
+device_rename only performs useful and race free validity
+checking at the optional sysfs level so depending on it
+for all of the validity checking in cfg80211_dev_rename
+is racy.
 
-On Thu, 8 May 2008, Damon L. Chesser wrote:
+Instead implement all of the needed validity checking
+and locking in cfg80211_dev_rename.
 
-> Ilpo Järvinen wrote:
-> > SNIP
-> 
-> >
-> > Could you next try with tcp_frto set to 1, if my theory proves to be
-> > correct, it too should be "enough" to fix the problem (in this particular
-> > case). Of course you can verify the patch below too if you want to, the
-> > patch should allow cups<->printer to work with tcp_frto = 2 too. In case you
-> > have problem to apply the patch to the particular version you're want to try
-> > with, just send a note about the version number to me so I can adapt the
-> > patch for you (space etc. formatting issues may show up because I recently
-> > run a code style cleanup on the tcp code).
->
-> reran the print job with the correct kernel (for control reasons) and received
-> the same results:  tcp_frto=1 no print.  tcp_frto=0 I can print.  Attached is
-> the output of tcpdump
-> 
-> uname -r = 2.6.24-1-amd64
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/wireless/core.c |   33 ++++++++++++++++++++++++++++-----
+ 1 files changed, 28 insertions(+), 5 deletions(-)
 
-Well, that was a surprise, there must be something else too I didn't yet 
-notice. I don't think it's that necessary for you to test that patch I 
-sent earlier (basically the code paths it would have fixed were already in 
-use with tcp_frto=1). And that patch was "obviously correct" anyway though 
-it wasn't enough to fix this issue.
-
-...I too can probably reproduce this locally with small amount of work 
-because the receiver pattern is dead obvious from the logs.
-
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 80afacd..f1da0b9 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -143,8 +143,11 @@ void cfg80211_put_dev(struct cfg80211_registered_device *drv)
+ int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
+ 			char *newname)
+ {
++	struct cfg80211_registered_device *drv;
+ 	int idx, taken = -1, result, digits;
+ 
++	mutex_lock(&cfg80211_drv_mutex);
++
+ 	/* prohibit calling the thing phy%d when %d is not its number */
+ 	sscanf(newname, PHY_NAME "%d%n", &idx, &taken);
+ 	if (taken == strlen(newname) && idx != rdev->idx) {
+@@ -156,14 +159,30 @@ int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
+ 		 * deny the name if it is phy<idx> where <idx> is printed
+ 		 * without leading zeroes. taken == strlen(newname) here
+ 		 */
++		result = -EINVAL;
+ 		if (taken == strlen(PHY_NAME) + digits)
+-			return -EINVAL;
++			goto out_unlock;
++	}
++
++
++	/* Ignore nop renames */
++	result = 0;
++	if (strcmp(newname, dev_name(&rdev->wiphy.dev)) == 0)
++		goto out_unlock;
++
++	/* Ensure another device does not already have this name. */
++	list_for_each_entry(drv, &cfg80211_drv_list, list) {
++		result = -EINVAL;
++		if (strcmp(newname, dev_name(&drv->wiphy.dev)) == 0)
++			goto out_unlock;
+ 	}
+ 
+-	/* this will check for collisions */
++	/* this will only check for collisions in sysfs
++	 * which is not even always compiled in.
++	 */
+ 	result = device_rename(&rdev->wiphy.dev, newname);
+ 	if (result)
+-		return result;
++		goto out_unlock;
+ 
+ 	if (!debugfs_rename(rdev->wiphy.debugfsdir->d_parent,
+ 			    rdev->wiphy.debugfsdir,
+@@ -172,9 +191,13 @@ int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
+ 		printk(KERN_ERR "cfg80211: failed to rename debugfs dir to %s!\n",
+ 		       newname);
+ 
+-	nl80211_notify_dev_rename(rdev);
++	result = 0;
++out_unlock:
++	mutex_unlock(&cfg80211_drv_mutex);
++	if (result == 0)
++		nl80211_notify_dev_rename(rdev);
+ 
+-	return 0;
++	return result;
+ }
+ 
+ /* exported functions */
 -- 
- i.
---=_courier-13210-1210270579-0001-2--
+1.5.3.rc6.17.g1911
+
