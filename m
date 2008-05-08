@@ -1,7 +1,7 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: DM9000: Add __devinit and __devexit attributes to probe and remove
-Date: Thu, 8 May 2008 11:33:03 +0100
-Message-ID: <20080508103303.GC30439@fluff.org.uk>
+Subject: DM9000: Update and fix driver debugging messages
+Date: Thu, 8 May 2008 11:35:13 +0100
+Message-ID: <20080508103513.GD30439@fluff.org.uk>
 References: <20080428151309.GA30439@fluff.org.uk> <4820865F.70703@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -10,10 +10,10 @@ Cc: Ben Dooks <ben-linux@fluff.org>,
 	akpm@linux-foundation.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:54535 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:54546 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759297AbYEHKdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 06:33:11 -0400
+	with ESMTP id S1760257AbYEHKfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 06:35:18 -0400
 Content-Disposition: inline
 In-Reply-To: <4820865F.70703@garzik.org>
 Sender: netdev-owner@vger.kernel.org
@@ -21,51 +21,44 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
 
-There were missing __dev* annotations for the dm9000_probe() 
-and dm9000_drv_remove() functions.
+There was a missing newline in a dev_dbg() message.  Values read
+from/written into PHY registers might be for interest too, so I added
+new dbg messages there.
 
 Signed-off-by: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
-
 ---
- drivers/net/dm9000.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/dm9000.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index e668b37..7bc16d2 100644
+index 7bc16d2..e4af7a9 100644
 --- a/drivers/net/dm9000.c
 +++ b/drivers/net/dm9000.c
-@@ -503,7 +503,7 @@ dm9000_release_board(struct platform_device *pdev, struct board_info *db)
- /*
-  * Search DM9000 board, allocate space and register it
-  */
--static int
-+static int __devinit
- dm9000_probe(struct platform_device *pdev)
- {
- 	struct dm9000_plat_data *pdata = pdev->dev.platform_data;
-@@ -1376,7 +1376,7 @@ dm9000_drv_resume(struct platform_device *dev)
- 	return 0;
+@@ -525,7 +525,7 @@ dm9000_probe(struct platform_device *pdev)
+ 
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+-	dev_dbg(&pdev->dev, "dm9000_probe()");
++	dev_dbg(&pdev->dev, "dm9000_probe()\n");
+ 
+ 	/* setup board info structure */
+ 	db = (struct board_info *) ndev->priv;
+@@ -1292,6 +1292,8 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+ 	spin_unlock_irqrestore(&db->lock,flags);
+ 
+ 	mutex_unlock(&db->addr_lock);
++
++	dm9000_dbg(db, 5, "phy_read[%02x] -> %04x\n", reg, ret);
+ 	return ret;
  }
  
--static int
-+static int __devexit
- dm9000_drv_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
-@@ -1397,7 +1397,7 @@ static struct platform_driver dm9000_driver = {
- 		.owner	 = THIS_MODULE,
- 	},
- 	.probe   = dm9000_probe,
--	.remove  = dm9000_drv_remove,
-+	.remove  = __devexit_p(dm9000_drv_remove),
- 	.suspend = dm9000_drv_suspend,
- 	.resume  = dm9000_drv_resume,
- };
--- 
-1.5.4.1
+@@ -1305,6 +1307,7 @@ dm9000_phy_write(struct net_device *dev, int phyaddr_unused, int reg, int value)
+ 	unsigned long flags;
+ 	unsigned long reg_save;
+ 
++	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
+ 	mutex_lock(&db->addr_lock);
+ 
+ 	spin_lock_irqsave(&db->lock,flags);
 
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
