@@ -1,52 +1,38 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 10/11] avoid kobject name conflict with different namespaces
-Date: Thu, 08 May 2008 12:28:19 -0700
-Message-ID: <m1myn0d298.fsf@frodo.ebiederm.org>
-References: <20080506173030.653828076@theryb.frec.bull.fr>
-	<20080506173335.922289888@theryb.frec.bull.fr>
-	<m13aoueyq8.fsf@frodo.ebiederm.org> <20080507190838.GA4467@suse.de>
-	<m1hcd9esxo.fsf@frodo.ebiederm.org>
-	<20080508102844.25642ef7@gondolin.boeblingen.de.ibm.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 1/4][MAC80211]: Fix GFP_KERNEL allocation under read
+	lock.
+Date: Thu, 8 May 2008 14:53:23 -0400
+Message-ID: <20080508185323.GB7250@tuxdriver.com>
+References: <4820997E.1070305@openvz.org> <20080506.134047.86330538.davem@davemloft.net> <4821442D.8010801@openvz.org> <20080506.225950.181623233.davem@davemloft.net> <20080508185123.GA7250@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@suse.de>, Benjamin Thery <benjamin.thery@bull.net>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:48718 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752147AbYEHTaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 15:30:04 -0400
-In-Reply-To: <20080508102844.25642ef7@gondolin.boeblingen.de.ibm.com>
-	(Cornelia Huck's message of "Thu, 8 May 2008 10:28:44 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, netdev-BkyiQQGWkgE@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080508185123.GA7250-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Cornelia Huck <cornelia.huck@de.ibm.com> writes:
+On Thu, May 08, 2008 at 02:51:23PM -0400, John W. Linville wrote:
+> On Tue, May 06, 2008 at 10:59:50PM -0700, David Miller wrote:
+> 
+> > Whether you should resubmit your patch is up to the wireless
+> > folks :-)
+> 
+> If you don't do it Ingo Oeser's way then it looks like you would need
+> a patch like the one below.  And with the patch below, the last hunk
+> of your patch will probably need to be fixed-up to match.
 
-> On Wed, 07 May 2008 13:54:27 -0700,
-> ebiederm@xmission.com (Eric W. Biederman) wrote:
->
->> > I thought that s390 also used it, but I don't see
->> > that usage in the tree anymore, perhaps they switched to something else.
->> 
->> That is the device_move -> kobject_move case. 
->
-> Yes. bluetooth also uses it, IIRC.
+Ah, sorry -- I guess I should have read the whole series before
+commenting... :-)
 
-Yes.
-
->> Very similar (and nice
->> if we can figure out how to combine them).
->
-> Sounds like a good idea. I can test the _move() stuff (after I've
-> managed to find some time to try this patchset...)
-
-Do you remember if we have ever sorted out the race between _move
-and module unload/directory teardown at the sysfs level?
-
-Eric
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
