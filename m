@@ -1,47 +1,38 @@
-From: "M. Istehbab" <hariskhan@gmail.com>
-Subject: Re: TCP connection failure in kernel 2.6.25
-Date: Fri, 9 May 2008 00:32:26 +0500
-Message-ID: <c1410bfe0805081232k3be4ddcew2647207fee057e8c@mail.gmail.com>
-References: <c1410bfe0804260217t33139fd2v324af1a149843989@mail.gmail.com>
-	 <1209205136.2929.6.camel@localhost.localdomain>
-	 <c1410bfe0804260516k1149fadaoc06f02b94dcd12e9@mail.gmail.com>
-	 <1209241624.2929.17.camel@localhost.localdomain>
-	 <c1410bfe0804262302p3f283f9k97a04ff11dd2779e@mail.gmail.com>
-	 <1209315362.2934.55.camel@localhost.localdomain>
+From: "Andrew Victor" <avictor.za@gmail.com>
+Subject: Re: [PATCH] at91_ether: late collistions are counted twice
+Date: Thu, 8 May 2008 21:40:21 +0200
+Message-ID: <cd73a99e0805081240x4e697c5aq1c768ff888ce7d13@mail.gmail.com>
+References: <200805081739.02489.marc.pignat@hevs.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "H. Willstrand" <h.willstrand@gmail.com>
-To: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	linux@maxim.org.za
+To: "Marc Pignat" <marc.pignat@hevs.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.168]:38011 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756090AbYEHTc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 15:32:27 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so836061wfd.4
-        for <netdev@vger.kernel.org>; Thu, 08 May 2008 12:32:26 -0700 (PDT)
-In-Reply-To: <1209315362.2934.55.camel@localhost.localdomain>
+Received: from rv-out-0506.google.com ([209.85.198.238]:64549 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754134AbYEHTkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 15:40:22 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so1130889rvb.1
+        for <netdev@vger.kernel.org>; Thu, 08 May 2008 12:40:21 -0700 (PDT)
+In-Reply-To: <200805081739.02489.marc.pignat@hevs.ch>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/27/08, H. Willstrand <h.willstrand@gmail.com> wrote:
->
-> So, you have the same issue with all tested kernels
-> RHEL 3 works, Debian fails
->
-> This smells configuration failure, you better compare your working
-> configuration with the others.
->
-> // H.Willstrand
->
+hi,
 
-When I was using RHEL WS3, which comes with kernel 2.4.21-27.EL
-(sorry, the 2.6.9 comes with rhel 4), it worked ok. I haven't tried
-new kernels on rhel ws3 though.
+> According to the at91rm9200 datasheet, table 36-6, late collisions
+> (AT91_EMAC_LCOL) are already counted in the collision register (in scol, mcol or
+> ecol , depending on the type of error).
+>
+> So don't count them twice in stats.collisions.
+>
+> Signed-off-by: Marc Pignat <marc.pignat@hevs.ch>
 
-I tried all the mentioned kernel versions on debian. All show the same problem.
+Acked-by: Andrew Victor <linux@maxim.org.za>
 
-Note sure if its config or what, but this problem exists.
 
-M. Istehbab
+Regards,
+  Andrew Victor
