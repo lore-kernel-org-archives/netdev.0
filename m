@@ -1,44 +1,65 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH 10/11] avoid kobject name conflict with different
- namespaces
-Date: Thu, 8 May 2008 10:28:44 +0200
-Message-ID: <20080508102844.25642ef7@gondolin.boeblingen.de.ibm.com>
-References: <20080506173030.653828076@theryb.frec.bull.fr>
-	<20080506173335.922289888@theryb.frec.bull.fr>
-	<m13aoueyq8.fsf@frodo.ebiederm.org>
-	<20080507190838.GA4467@suse.de>
-	<m1hcd9esxo.fsf@frodo.ebiederm.org>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: [PATCH] Remove cli()/sti() calls from HYSDN driver.
+Date: Thu, 8 May 2008 10:33:53 +0200
+Message-ID: <20080508083353.GA18187@pingi.kke.suse.de>
+References: <1209673012-10500-1-git-send-email-mark.asselstine@windriver.com> <20080507153800.16537fbc.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>, Benjamin Thery <benjamin.thery@bull.net>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Asselstine <mark.asselstine@windriver.com>,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	kkeil@suse.de, asselsm@gmail.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([195.212.29.135]:6522 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991AbYEHI2y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 04:28:54 -0400
-In-Reply-To: <m1hcd9esxo.fsf@frodo.ebiederm.org>
+Received: from mail.suse.de ([195.135.220.2]:38037 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752415AbYEHId4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2008 04:33:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20080507153800.16537fbc.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 07 May 2008 13:54:27 -0700,
-ebiederm@xmission.com (Eric W. Biederman) wrote:
-
-> > I thought that s390 also used it, but I don't see
-> > that usage in the tree anymore, perhaps they switched to something else.
+On Wed, May 07, 2008 at 03:38:00PM -0700, Andrew Morton wrote:
+> On Thu,  1 May 2008 16:16:52 -0400
+> Mark Asselstine <mark.asselstine@windriver.com> wrote:
 > 
-> That is the device_move -> kobject_move case. 
+> > >From looking at this driver the use of cli()/sti() within the do/while
+> > was a way to ensure interrupts were only disabled for short periods of
+> > time while the bulk of the time interrupts were free to occur. The
+> > use of the spin lock has eliminated the need to play with interrupts
+> > in this way while still allowing for IO to be protected.
+> 
+> OK.  If we still want the interrupt-latency optimisation then we should
+> switch over to using local_irq_disable().  But probably nobody cares.
+> 
+> > The remaining 3 sti() calls seem unneeded now that at no other point
+> > in the driver is there a call to cli().
+> > 
+> > Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
+> > ---
+> >  drivers/isdn/hysdn/boardergo.c |   14 +++++---------
+> 
+> So... can we now do this?
+> 
 
-Yes. bluetooth also uses it, IIRC.
+I think so.
 
-> Very similar (and nice
-> if we can figure out how to combine them).
+> 
+> --- a/drivers/isdn/hysdn/Kconfig~a
+> +++ a/drivers/isdn/hysdn/Kconfig
+> @@ -3,7 +3,7 @@
+>  #
+>  config HYSDN
+>  	tristate "Hypercope HYSDN cards (Champ, Ergo, Metro) support (module only)"
+> -	depends on m && PROC_FS && PCI && BROKEN_ON_SMP
+> +	depends on m && PROC_FS && PCI
+>  	help
+>  	  Say Y here if you have one of Hypercope's active PCI ISDN cards
+>  	  Champ, Ergo and Metro. You will then get a module called hysdn.
+> _
 
-Sounds like a good idea. I can test the _move() stuff (after I've
-managed to find some time to try this patchset...)
+-- 
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
