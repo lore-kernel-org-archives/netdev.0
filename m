@@ -1,148 +1,107 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wireless: Add missing locking to cfg80211_dev_rename
-Date: Fri, 09 May 2008 00:18:20 +0200
-Message-ID: <1210285100.3547.79.camel@johannes.berg>
-References: <20080506173030.653828076@theryb.frec.bull.fr>
-	 <20080506173335.922289888@theryb.frec.bull.fr>
-	 <m13aoueyq8.fsf@frodo.ebiederm.org> <20080507190838.GA4467@suse.de>
-	 <m1ej8ccwlx.fsf_-_@frodo.ebiederm.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 02/18] flag parameters: paccept
+Date: Thu, 8 May 2008 15:38:22 -0700
+Message-ID: <20080508153822.0c4dd6e9.akpm@linux-foundation.org>
+References: <200805062118.m46LI7SS004041@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ud1hiflYVFADckWe6QeR"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org,
-	Greg KH <gregkh@suse.de>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davidel@xmailserver.org, mtk.manpages@gmail.com,
+	torvalds@linux-foundation.org, Roland McGrath <roland@redhat.com>,
+	Oleg Nesterov <oleg@tv-sign.ru>
+To: Ulrich Drepper <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:41612 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762183AbYEHWTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 18:19:51 -0400
-In-Reply-To: <m1ej8ccwlx.fsf_-_@frodo.ebiederm.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55455 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754869AbYEHWjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 18:39:22 -0400
+In-Reply-To: <200805062118.m46LI7SS004041@devserv.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 6 May 2008 17:18:07 -0400
+Ulrich Drepper <drepper@redhat.com> wrote:
 
---=-ud1hiflYVFADckWe6QeR
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> This patch is by far the most complex in the series.  It adds a new syscall
+> paccept.  This syscall differs from accept in that it adds (at the userlevel)
+> two additional parameters:
+> 
+> - a signal mask
+> - a flags value
+> 
+> The flags parameter can be used to set flag like SOCK_CLOEXEC.  This is
+> imlpemented here as well.  Some people argued that this is a property
+> which should be inherited from the file desriptor for the server but
+> this is against POSIX.  Additionally, we really want the signal mask
+> parameter as well (similar to pselect, ppoll, etc).  So an interface
+> change in inevitable.
+> 
+> The flag value is the same as for socket and socketpair.  I think
+> diverging here will only create confusion.  Similar to the filesystem
+> interfaces where the use of the O_* constants differs, it is acceptable
+> here.
+> 
+> The signal mask is handled as for pselect etc.  The mask is temporarily
+> installed for the thread and removed before the call returns.  I modeled
+> the code after pselect.  If there is a problem it's likely also in
+> pselect.
+> 
+> For architectures which use socketcall I maintained this interface
+> instead of adding a system call.  The symmetry shouldn't be broken.
+> 
+> The following test must be adjusted for architectures other than x86 and
+> x86-64 and in case the syscall numbers changed.
+>
 
-On Thu, 2008-05-08 at 14:30 -0700, Eric W. Biederman wrote:
-> device_rename only performs useful and race free validity
-> checking at the optional sysfs level so depending on it
-> for all of the validity checking in cfg80211_dev_rename
-> is racy.
->=20
-> Instead implement all of the needed validity checking
-> and locking in cfg80211_dev_rename.
-
-Makes sense, thanks, I didn't really think about it not being compiled
-in.
-
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
-
-> ---
->  net/wireless/core.c |   33 ++++++++++++++++++++++++++++-----
->  1 files changed, 28 insertions(+), 5 deletions(-)
->=20
-> diff --git a/net/wireless/core.c b/net/wireless/core.c
-> index 80afacd..f1da0b9 100644
-> --- a/net/wireless/core.c
-> +++ b/net/wireless/core.c
-> @@ -143,8 +143,11 @@ void cfg80211_put_dev(struct cfg80211_registered_dev=
-ice *drv)
->  int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
->  			char *newname)
->  {
-> +	struct cfg80211_registered_device *drv;
->  	int idx, taken =3D -1, result, digits;
-> =20
-> +	mutex_lock(&cfg80211_drv_mutex);
+I have a bit of a mystery going on here.
+ 
+> ...
+>
+> +asmlinkage long sys_paccept(int fd, struct sockaddr __user *upeer_sockaddr,
+> +			    int __user *upeer_addrlen,
+> +			    const sigset_t __user *sigmask,
+> +			    size_t sigsetsize, int flags)
+> +{
+> +	sigset_t ksigmask, sigsaved;
+> +	int ret;
 > +
->  	/* prohibit calling the thing phy%d when %d is not its number */
->  	sscanf(newname, PHY_NAME "%d%n", &idx, &taken);
->  	if (taken =3D=3D strlen(newname) && idx !=3D rdev->idx) {
-> @@ -156,14 +159,30 @@ int cfg80211_dev_rename(struct cfg80211_registered_=
-device *rdev,
->  		 * deny the name if it is phy<idx> where <idx> is printed
->  		 * without leading zeroes. taken =3D=3D strlen(newname) here
->  		 */
-> +		result =3D -EINVAL;
->  		if (taken =3D=3D strlen(PHY_NAME) + digits)
-> -			return -EINVAL;
-> +			goto out_unlock;
-> +	}
+> +	if (sigmask) {
+> +		/* XXX: Don't preclude handling different sized sigset_t's.  */
+> +		if (sigsetsize != sizeof(sigset_t))
+> +			return -EINVAL;
+> +		if (copy_from_user(&ksigmask, sigmask, sizeof(ksigmask)))
+> +			return -EFAULT;
 > +
+> +		sigdelsetmask(&ksigmask, sigmask(SIGKILL)|sigmask(SIGSTOP));
+> +		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
+> +        }
 > +
-> +	/* Ignore nop renames */
-> +	result =3D 0;
-> +	if (strcmp(newname, dev_name(&rdev->wiphy.dev)) =3D=3D 0)
-> +		goto out_unlock;
+> +	ret = do_accept(fd, upeer_sockaddr, upeer_addrlen, flags);
 > +
-> +	/* Ensure another device does not already have this name. */
-> +	list_for_each_entry(drv, &cfg80211_drv_list, list) {
-> +		result =3D -EINVAL;
-> +		if (strcmp(newname, dev_name(&drv->wiphy.dev)) =3D=3D 0)
-> +			goto out_unlock;
->  	}
-> =20
-> -	/* this will check for collisions */
-> +	/* this will only check for collisions in sysfs
-> +	 * which is not even always compiled in.
-> +	 */
->  	result =3D device_rename(&rdev->wiphy.dev, newname);
->  	if (result)
-> -		return result;
-> +		goto out_unlock;
-> =20
->  	if (!debugfs_rename(rdev->wiphy.debugfsdir->d_parent,
->  			    rdev->wiphy.debugfsdir,
-> @@ -172,9 +191,13 @@ int cfg80211_dev_rename(struct cfg80211_registered_d=
-evice *rdev,
->  		printk(KERN_ERR "cfg80211: failed to rename debugfs dir to %s!\n",
->  		       newname);
-> =20
-> -	nl80211_notify_dev_rename(rdev);
-> +	result =3D 0;
-> +out_unlock:
-> +	mutex_unlock(&cfg80211_drv_mutex);
-> +	if (result =3D=3D 0)
-> +		nl80211_notify_dev_rename(rdev);
-> =20
-> -	return 0;
-> +	return result;
->  }
-> =20
->  /* exported functions */
+> +	if (ret < 0 && signal_pending(current)) {
+> +		/*
+> +		 * Don't restore the signal mask yet. Let do_signal() deliver
+> +		 * the signal on the way back to userspace, before the signal
+> +		 * mask is restored.
+> +		 */
+> +		if (sigmask) {
+> +			memcpy(&current->saved_sigmask, &sigsaved,
+> +			       sizeof(sigsaved));
+> +			set_thread_flag(TIF_RESTORE_SIGMASK);
+> +		}
+> +	} else if (sigmask)
+> +		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
+> +
+> +	return ret;
+> +}
 
---=-ud1hiflYVFADckWe6QeR
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Some architectures (including x86) do not implement TIF_RESTORE_SIGMASK.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Ah, you must have prepared the patches against something prehistoric like
+2.6.25.  Please prefer to prepare 2.6.x patches against the 2.6.x tree, not
+the 2.6.x-1 tree?
 
-iQIVAwUASCN8K6Vg1VMiehFYAQKfMQ/9EuN7ARC72ab/rxNd4+jGO3XN3UlYPZ+t
-ytHyqNrM1RUjN+2XO+Nxb/6y4astz8POlKKAVl1G+ZPuQAK40YoYNYeQ5jZjGZ3p
-8ACKYeN8Fx+wfoCXfZpSrj7c0lFZ8p+YGPtWoBX7y+PDCVgVHPAwC0M65itdzZNi
-8oG2eNacQBK3hnNgz2syZ7hg1AjyFOYql3HjcldLBF4DzjVbN0egPQNlUut2iGji
-gupM8zNMZLVaFzGsDxGLU8I3V5V5PYQy9179FeWFMpW6OzzfP+3CN12blEpsIamP
-iS48xjn05LBBZoFCHCweNg9x+dsnbeKPLgawTP/tH59RCP96TX3d+LWUacpZTg+b
-oa8hPFG+L+gnezouLmiVpUTkAqEpwxQ6opDzUPMaHDglrFWszyui4uVEVrdwCAPu
-Dj/jqiIXP4ESyeXrFPmvR9qgOoyvKmyovtIXxXtMSO7KqZKLUcXtiVdvEunqZXfC
-tR6iz9+WKgZ9tOhg44+ug2uYt37rl+yu7yVtqUWBA1hg3EUUT0afLjnpqXpjqCSJ
-QRZg2jMLSBpSOf3Cx7xgxjfWWLXYPmViT8DSWY0OeFd1O+FIPG/35JzEQ1xaGLy0
-oOA/LjoarFq//VRe35GU1OUduRjIJmQhzUX0Zm6s7TQJY+qEH0aHsl5h4ctkE4sa
-dwh4rt8hWGw=
-=o7fD
------END PGP SIGNATURE-----
-
---=-ud1hiflYVFADckWe6QeR--
+Whatever you're trying to do here, we'll need to find a non-arch-specific
+way of doing it.
 
