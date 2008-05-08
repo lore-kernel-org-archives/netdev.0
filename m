@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [DEBUG] truesize debugging
-Date: Thu, 08 May 2008 02:57:14 -0700 (PDT)
-Message-ID: <20080508.025714.122771512.davem@davemloft.net>
-References: <1210086195.13316.37.camel@johannes.berg>
+Subject: Re: pull request: wireless-next-2.6 2008-05-07
+Date: Thu, 08 May 2008 03:01:44 -0700 (PDT)
+Message-ID: <20080508.030144.186678800.davem@davemloft.net>
+References: <20080507203011.GA22533@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36481
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36488
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756291AbYEHJ5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 05:57:21 -0400
-In-Reply-To: <1210086195.13316.37.camel@johannes.berg>
+	by vger.kernel.org with ESMTP id S1756690AbYEHKBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 06:01:50 -0400
+In-Reply-To: <20080507203011.GA22533@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 06 May 2008 17:03:15 +0200
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 7 May 2008 16:30:11 -0400
 
-> When I was digging into the truesize stuff and discussed with Herbert he
-> mentioned that we should really check the actual allocation size...
+> Here is the first batch of wireless patches to queue for net-next-2.6.
+> The biggest chunk of them are iwlwifi updates, including support for
+> the latest round of Intel wireless hardware.  The b43 and rt2x00 drivers
+> have some big updates as well, along with a few other patches.
 > 
-> I have a number of questions and sort of todo items, but not really all
-> that much interest right now in pursuing them, so here they are:
- ...
+> Please let me know if there is a problem!
 
-Johannes, I just want to thank you for all of your work
-on this stuff so far.
-
-I also want to let you know that I do plan to resolve
-all of these patches we've written.  It will just take
-me some time as I audit some things and take care of
-some other bug fixing I need to do.
-
-Thanks!
+Pulled and pushed back out to net-next-2.6, thanks John!
