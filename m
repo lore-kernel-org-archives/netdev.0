@@ -1,63 +1,66 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] mac80211: rewrite fragmentation code
-Date: Wed, 07 May 2008 20:26:06 -0700 (PDT)
-Message-ID: <20080507.202606.242037993.davem@davemloft.net>
-References: <20080507130548.GA26977@gondor.apana.org.au>
-	<200805071548.06693.mb@bu3sch.de>
-	<20080508032208.GA401@gondor.apana.org.au>
+From: "Jerry Chu" <hkchu@google.com>
+Subject: Re: Socket buffer sizes with autotuning
+Date: Wed, 7 May 2008 20:33:06 -0700
+Message-ID: <d1c2719f0805072033u38dfffaes71aed3efbc8035c0@mail.gmail.com>
+References: <d1c2719f0805071136i3414755cv6e72e7bd5a0d41ad@mail.gmail.com>
+	 <20080507.141835.229114942.davem@davemloft.net>
+	 <d1c2719f0805071837v5168cee0qa6a3d160e93adb48@mail.gmail.com>
+	 <20080507.184311.196815718.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080508032208.GA401-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:22467 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752871AbYEHDdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2008 23:33:20 -0400
+Received: from zps18.corp.google.com (zps18.corp.google.com [172.25.146.18])
+	by smtp-out.google.com with ESMTP id m483X71g015541
+	for <netdev@vger.kernel.org>; Thu, 8 May 2008 04:33:08 +0100
+Received: from wx-out-0506.google.com (wxdi27.prod.google.com [10.70.135.27])
+	by zps18.corp.google.com with ESMTP id m483WfIR025598
+	for <netdev@vger.kernel.org>; Wed, 7 May 2008 20:33:07 -0700
+Received: by wx-out-0506.google.com with SMTP id i27so522434wxd.6
+        for <netdev@vger.kernel.org>; Wed, 07 May 2008 20:33:06 -0700 (PDT)
+In-Reply-To: <20080507.184311.196815718.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Date: Thu, 8 May 2008 11:22:08 +0800
+There seems to be quite a bit of complexity plus one additional pointer
+field per skb_shared_info to make skb better track when a pkt leaves
+the host. Now I wonder if it's really a better solution than my original,
+simply checking dataref==1 approach which, although not bullet proof,
+may be "good enough" for all practical purposes?
 
-> On Wed, May 07, 2008 at 03:48:06PM +0200, Michael Buesch wrote:
-> >
-> > So there's no way to actually fail in a TX handler? Drivers
-> > are doomed to drop the packet, if they cannot handle it due to
-> > ring overflow?
-> 
-> You're supposed to stop the queue before the ring overflows.
+Jerry
 
-Right, and this is why drivers choose a TX wakeup threshold such
-that they can accept an arbitrarily sized TSO frame.
-
-For example, from drivers/net/tg3.c's ->hard_start_xmit():
-
-	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
-		netif_stop_queue(dev);
-		if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
-			netif_wake_queue(tp->dev);
-	}
-
-The driver is responsible for stopping the queue _before_ it
-enters a state where there is not enough space in the queue
-to accept a packet.
-
-This is why most drivers make the following kind of BUG check
-at the start of their ->hard_start_xmit()
-
-	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
-		if (!netif_queue_stopped(dev)) {
-			netif_stop_queue(dev);
-
-			/* This is a hard error, log it. */
-			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
-			       "queue awake!\n", dev->name);
-		}
-		return NETDEV_TX_BUSY;
-	}
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, May 7, 2008 at 6:43 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Jerry Chu" <hkchu@google.com>
+>  Date: Wed, 7 May 2008 18:37:01 -0700
+>
+>
+>  > Ok, will give it a try. First i'll fix your patch to
+>  > atomic_add()/atomic_sub() by
+>  > skb_shinfo(skb)->gso_segs rather than always 1, in order for GSO/TSO to work.
+>
+>  That might not work.  gso_segs can change over time as retransmit
+>  packets get split up due to SACKs etc.  it needs to be audited,
+>  at the very least.
+>
+>
+>  > One problem came up to my mind - it seems possible for __kfree_skb() to
+>  > access skb_shinfo(skb)->in_flight whose tp has been freed up since only the
+>  > original skb's on TCP's rexmit list have the owner set and socket
+>  > held. One solution
+>  > is for TCP to zap skb_shinfo(skb)->in_flight field when it's ready to
+>  > free up skb.
+>  > I can hack sock_wfree() to do this, but I don't know how to do it right.
+>
+>  There will be references to the socket, so this should be ok.
+>
+>  If it isn't we can adjust the count and zap the pointer in
+>  skb_orphan().
+>
