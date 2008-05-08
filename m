@@ -1,55 +1,59 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [PATCH] [2.6.26] [CAN] Fix can_send() handling on dev_queue_xmit()
- failures
-Date: Thu, 08 May 2008 19:00:39 +0200
-Message-ID: <482331B7.909@hartkopp.net>
-References: <4820B665.6070609@hartkopp.net> <20080508.025044.124227730.davem@davemloft.net>
+From: "Damon L. Chesser" <damon@damtek.com>
+Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
+Date: Thu, 08 May 2008 13:05:38 -0400
+Message-ID: <482332E2.6080104@damtek.com>
+References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi> <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: urs@isnogud.escape.de, Sam Ravnborg <sam@ravnborg.org>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bug 213081 <213081@bugs.launchpad.net>, 478062@bugs.debian.org,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:10058 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762365AbYEHRAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 13:00:42 -0400
-In-Reply-To: <20080508.025044.124227730.davem@davemloft.net>
+Received: from damtek.com ([72.172.134.65]:34571 "EHLO damtek.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753014AbYEHRFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2008 13:05:16 -0400
+In-Reply-To: <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
+Ilpo J=E4rvinen wrote:
+
+Snip
 >
->> this patch should go into 2.6.26 and also applies fine on 2.6.25.1.
->>
->> IMO this issue is not that 'critical' that it *requires* to become
->> part of 2.6.25.2. Please forward the patch to Greg at your own opinion.
->>     
+> Could you next try with tcp_frto set to 1, if my theory proves to be=20
+> correct, it too should be "enough" to fix the problem (in this=20
+> particular case). Of course you can verify the patch below too if you=
+=20
+> want to, the patch should allow cups<->printer to work with tcp_frto =
+=3D=20
+> 2 too. In case you have problem to apply the patch to the particular=20
+> version you're want to try with, just send a note about the version=20
+> number to me so I can adapt the patch for you (space etc. formatting=20
+> issues may show up because I recently run a code style cleanup on the=
+=20
+> tcp code).
 >
-> I think I'll push it to -stable, thanks.
->
->   
+Ilpo,
 
-Thanks!
-
-Maybe we should also consider to push the patch from Sam regarding the 
-wrong copy_from_user() results interpretation to the stable tree:
-
-can: Fix copy_from_user() results interpretation
-
-author 	Sam Ravnborg <sam@ravnborg.org>
-
-	Sun, 27 Apr 2008 05:57:25 +0000 (22:57 -0700)
-committer 	David S. Miller <davem@davemloft.net>
-
-	Sun, 27 Apr 2008 21:26:51 +0000 (14:26 -0700)
-commit 	3f91bd420a955803421f2db17b2e04aacfbb2bb8
+and all others, please ignore frtoprob1.txt.  I ran the test on the=20
+wrong kernel.  The tested kernel was 2.6.23.17-amd64 and should have=20
+been 2.6.24-1-amd64.  I am re-running the test and will forward the new=
+=20
+dump.  No idea why 2.6.23.17 did not print, it always did before.  I am=
+=20
+sure I did something stupid, feeling a bit under the weather.  Sorry fo=
+r=20
+the confusion.  New test comming shortly.
 
 
 
-Regards,
-Oliver
-
+--=20
+Damon L. Chesser
+damon@damtek.com
+http://www.linkedin.com/in/dchesser
 
 
