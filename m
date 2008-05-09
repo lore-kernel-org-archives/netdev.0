@@ -1,46 +1,28 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] net: hso driver uses rfkill functions
-Date: Fri, 9 May 2008 09:51:40 -0700
-Message-ID: <20080509095140.520aa39c.randy.dunlap@oracle.com>
+From: Jan Braunisch <x@r6.se>
+Subject: Small error on web page
+Date: Fri, 9 May 2008 19:42:56 +0200
+Message-ID: <200805091942.56749.x@r6.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>, akpm <akpm@linux-foundation.org>
-To: netdev <netdev@vger.kernel.org>, ajb@spheresystems.co.uk
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:14733 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761323AbYEIQwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 12:52:50 -0400
+Received: from av9-2-sn2.hy.skanova.net ([81.228.8.180]:54192 "EHLO
+	av9-2-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751406AbYEISKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 14:10:20 -0400
+Received: from smtp4-1-sn2.hy.skanova.net (smtp4-1-sn2.hy.skanova.net [81.228.8.92])
+	by av9-2-sn2.hy.skanova.net (Postfix) with ESMTP id 6D47137EA1
+	for <netdev@vger.kernel.org>; Fri,  9 May 2008 19:42:57 +0200 (CEST)
+Received: from d2.ollbox.skanova.net (90-228-231-223-no126.tbcn.telia.com [90.228.231.223])
+	by smtp4-1-sn2.hy.skanova.net (Postfix) with ESMTP id 65D2837E46
+	for <netdev@vger.kernel.org>; Fri,  9 May 2008 19:42:57 +0200 (CEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+Hello!
 
-hso driver uses rfkill functions so should either depend on RFKILL
-or select it.  This patch uses depends on RFKILL.
-
-drivers/built-in.o: In function `hso_disconnect':
-hso.c:(.text+0x868c9): undefined reference to `rfkill_unregister'
-drivers/built-in.o: In function `hso_probe':
-hso.c:(.text+0x88226): undefined reference to `rfkill_allocate'
-hso.c:(.text+0x8829e): undefined reference to `rfkill_register'
-hso.c:(.text+0x8860f): undefined reference to `rfkill_free'
-make[1]: *** [.tmp_vmlinux1] Error 1
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/usb/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- next-20080509.orig/drivers/net/usb/Kconfig
-+++ next-20080509/drivers/net/usb/Kconfig
-@@ -156,7 +156,7 @@ config USB_NET_AX8817X
- 
- config USB_HSO
- 	tristate "Option USB High Speed Mobile Devices"
--	depends on USB
-+	depends on USB && RFKILL
- 	default n
- 	help
- 	  Choose this option if you have an Option HSDPA/HSUPA card.
+http://www.linux-foundation.org/en/Net:Netem says that 2^32 = 0.0000000232%.
+That's obviously wrong :) I think it should be 2^(-32).
