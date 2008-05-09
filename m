@@ -1,54 +1,85 @@
-From: Jason Stubbs <j.stubbs@linkthink.co.jp>
+From: "Julius Volz" <juliusv@google.com>
 Subject: Re: [PATCH] Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs in preparation for IPv6 support
-Date: Fri, 9 May 2008 22:21:56 +0900
-Message-ID: <200805092221.57251.j.stubbs@linkthink.co.jp>
-References: <f4845fc0805070732v516fc8c6y2cdddfd4f99c8f96@mail.gmail.com> <f4845fc0805070851y7f1f00d0xd2dfcc7feb79c173@mail.gmail.com> <Pine.LNX.4.64.0805090536120.22107@wm7d.net>
+Date: Fri, 9 May 2008 15:46:58 +0200
+Message-ID: <f4845fc0805090646i6ff5d7e8p3d52775419dc44a4@mail.gmail.com>
+References: <f4845fc0805070732v516fc8c6y2cdddfd4f99c8f96@mail.gmail.com>
+	 <Pine.LNX.4.64.0805070734580.6164@wm7d.net>
+	 <f4845fc0805070851y7f1f00d0xd2dfcc7feb79c173@mail.gmail.com>
+	 <Pine.LNX.4.64.0805090536120.22107@wm7d.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: lvs-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Horms <horms@vergenet.net>
+To: "Joseph Mack NA3T" <jmack@wm7d.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:32948 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751736AbYEINrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 09:47:05 -0400
+Received: from zps18.corp.google.com (zps18.corp.google.com [172.25.146.18])
+	by smtp-out.google.com with ESMTP id m49Dl0qE006971
+	for <netdev@vger.kernel.org>; Fri, 9 May 2008 14:47:00 +0100
+Received: from wr-out-0506.google.com (wrac49.prod.google.com [10.54.54.49])
+	by zps18.corp.google.com with ESMTP id m49DkxVd018117
+	for <netdev@vger.kernel.org>; Fri, 9 May 2008 06:46:59 -0700
+Received: by wr-out-0506.google.com with SMTP id c49so535757wra.19
+        for <netdev@vger.kernel.org>; Fri, 09 May 2008 06:46:59 -0700 (PDT)
 In-Reply-To: <Pine.LNX.4.64.0805090536120.22107@wm7d.net>
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 09 May 2008 21:49:52 Joseph Mack NA3T wrote:
-> On Wed, 7 May 2008, Julius Volz wrote:
->=20
-> > Hm, ok. This patch doesn't touch any functionality though. It only
-> > moves files from one directory to another, so it's merely cosmetics=
-,
-> > no IPv6 knowledge required.
->=20
-> are you at a stage where it's all split up, after which=20
-> you'll only be working on the ipv6 part and leaving the ipv4=20
-> untouched? Have you tested the ipv4 part to make sure it's=20
-> still OK. ie the code is reorthogonalised but with no change=20
-> in functionality?
+On Fri, May 9, 2008, Joseph Mack NA3T wrote:
+> are you at a stage where it's all split up, after which you'll only be
+> working on the ipv6 part and leaving the ipv4 untouched? Have you tested the
+> ipv4 part to make sure it's still OK. ie the code is reorthogonalised but
+> with no change in functionality?
 
-I haven't applied the patch and done a diff to individual files to be c=
-ertain, but I'm pretty sure that the patch is mainly just a directory c=
-hange. IPVS itself is already fairly well abstracted protocol-wise. Jus=
-t another guess, but it sounds like Julius is submitting the patch as i=
-t would make more meaty patches smaller.
+No, I'm not at this stage yet, I'm approaching the problem from the
+other direction, following your earlier advice: try to come up with
+something that actually does something (hopefully in a couple of
+weeks, due to other obligations), then worry about separation /
+cleanup and more features. So everything is pretty hacky with lots of
+open TODOs and stupid questions. It compiles, but running it wouldn't
+make much sense (partially because of lacking userspace ipsvadm
+support for the changes). I'm not even #ifdef-ing away my IPv6 code at
+the moment...
 
-> If so then this might be a good point to submit to the=20
-> kernel. Also Jason might be interested in the new version of=20
-> the code (hopefully working in different parts of the code,=20
-> you two won't be having many collisions).
+What I did:
 
-Call me crazy, but I plan to put my patch into production in two weeks =
-time without the connect-to-vip-from-director parts. If everything goes=
- well, I'll post patches again with adequate comments (and adjustments =
-to comments). And to make this relevant: My patches don't do anything p=
-rotocol specific other than to change when things are done and so would=
- be fairly easy to update for IPV6 if/when it is integrated.
+I basically copied lots of IPVS functions (yep, too much duplication,
+unfortunately) that depend on the IP version and made corresponding
+IPv6 versions of the function. A lot of this duplication could
+probably be avoided by doing some heavy refactoring, but I tried to
+stay away from that to minimize the chances of breaking the existing
+code. Some few, not often called functions now handle both IP versions
+in one function. The multiplexing of IPv4/IPv6 code is done either by
+implicitly knowing which code path we're in (different paths resulting
+from different NF hooks for IPv4/IPv6) or by looking at the new "af"
+address family (AF_INET or AF_INET6) field introduced into all the
+relevant IPVS data structures.
 
---=20
-Jason Stubbs <j.stubbs@linkthink.co.jp>
-LINKTHINK INC.
-=E6=9D=B1=E4=BA=AC=E9=83=BD=E6=B8=8B=E8=B0=B7=E5=8C=BA=E6=A1=9C=E3=83=B6=
-=E4=B8=98=E7=94=BA22-14 N.E.S S=E6=A3=9F 3F
-TEL 03-5728-4772  FAX 03-5728-4773
+I didn't duplicate any data structures, even the actual hash tables
+contain both IPv4 and IPv6 entries (differentiation done via the "af"
+field). So far, this seems to work quite well... what I don't like
+about this is that you have an additional space-taking IPv6 address
+field in all data structures, even when it is not used. E.g., when
+IPv6 support is compiled as a module, but it is not loaded. A later
+move to use different structs for the cases that actually matter
+(probably only the table of active connections) should be pretty easy,
+though.
+
+> One of the things I worry about (from personal experience) is people working
+> on projects and getting stuck for time and later having to drop the work. If
+> you can submit the reorthogonalised code, and have to stop sometime later,
+> at least we've got that far down the road.
+
+Yes, let's hope that will not happen. But sadly, I'm not at the stage
+of having cleanly separated code, so submitting code isn't possible
+yet :(
+
+Julius
+
+-- 
+Google Switzerland GmbH
