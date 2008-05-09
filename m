@@ -1,51 +1,35 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH] Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs in preparation for IPv6 support
-Date: Fri, 9 May 2008 15:47:30 +0200
-Message-ID: <f4845fc0805090647j64ec5555i46e4af3269db773d@mail.gmail.com>
-References: <f4845fc0805070732v516fc8c6y2cdddfd4f99c8f96@mail.gmail.com>
-	 <f4845fc0805070851y7f1f00d0xd2dfcc7feb79c173@mail.gmail.com>
-	 <Pine.LNX.4.64.0805090536120.22107@wm7d.net>
-	 <200805092221.57251.j.stubbs@linkthink.co.jp>
+From: "Bonitch, Joseph" <Joseph.Bonitch@xerox.com>
+Subject: RE: IPV6 stateless autoconfig: prefix route lifetime issue
+Date: Fri, 9 May 2008 10:03:47 -0400
+Message-ID: <BECE1C148A85274EB554378A3E0EDF4906335F5D@USA0300MS02.na.xerox.net>
+References: <BECE1C148A85274EB554378A3E0EDF4906335DEE@USA0300MS02.na.xerox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: "Jason Stubbs" <j.stubbs@linkthink.co.jp>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:33001 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753076AbYEINrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 09:47:37 -0400
-Received: from zps19.corp.google.com (zps19.corp.google.com [172.25.146.19])
-	by smtp-out.google.com with ESMTP id m49DlVG1005142
-	for <netdev@vger.kernel.org>; Fri, 9 May 2008 14:47:31 +0100
-Received: from wf-out-1314.google.com (wff28.prod.google.com [10.142.6.28])
-	by zps19.corp.google.com with ESMTP id m49DlUtj024495
-	for <netdev@vger.kernel.org>; Fri, 9 May 2008 06:47:30 -0700
-Received: by wf-out-1314.google.com with SMTP id 28so1563303wff.21
-        for <netdev@vger.kernel.org>; Fri, 09 May 2008 06:47:30 -0700 (PDT)
-In-Reply-To: <200805092221.57251.j.stubbs@linkthink.co.jp>
-Content-Disposition: inline
+Received: from wvmler2.mail.xerox.com ([13.8.138.217]:35611 "EHLO
+	wvmler2.mail.xerox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149AbYEIOEZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 10:04:25 -0400
+Received: from wvmlir2.mail.xerox.com (wvmlir2.mail.xerox.com [13.147.8.222])
+	by wvmler2.mail.xerox.com (8.14.2/8.13.8) with ESMTP id m49E4Oik019900
+	for <netdev@vger.kernel.org>; Fri, 9 May 2008 07:04:24 -0700
+Received: from wvmlir2.mail.xerox.com (localhost [127.0.0.1])
+	by wvmlir2.mail.xerox.com (8.13.8/8.13.6) with ESMTP id m49E4Lca016542
+	for <netdev@vger.kernel.org>; Fri, 9 May 2008 07:04:21 -0700
+Received: from USA7061GW002.na.xerox.net (usa7061gw002.na.xerox.net [13.151.210.15])
+	by wvmlir2.mail.xerox.com (8.13.8/8.13.6) with ESMTP id m49E4KiR016477
+	for <netdev@vger.kernel.org>; Fri, 9 May 2008 07:04:21 -0700
+Content-class: urn:content-classes:message
+In-Reply-To: <BECE1C148A85274EB554378A3E0EDF4906335DEE@USA0300MS02.na.xerox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 9, 2008, Jason Stubbs wrote:
-> I haven't applied the patch and done a diff to individual files to be certain, but I'm pretty sure that the patch is mainly just a directory change.
+In my original note:
+> valid lifetime >= 0x7fffffff * HZ
+Should have been
+ Valid lifetime * HZ >= 0x7fffffff
 
-Yes, this is only a directory move of the current code in the kernel
-(with the needed small Kconfig and Makefile adjustments for that, of
-course).
+Joe
 
-Basically, you can arrive at this patch by doing:
-
-$ git mv net/ipv4/ipvs net/netfilter
-change net/ipv4/Kconfig:
-        - source "net/ipv4/ipvs/Kconfig" => move (with adjusted dir)
-to net/netfilter/Kconfig
-change net/ipv4/Makefile:
-        - obj-$(CONFIG_IP_VS) += ipvs/   => move to net/netfilter/Makefile
-
-Julius
-
--- 
-Google Switzerland GmbH
