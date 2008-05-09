@@ -1,77 +1,54 @@
-From: "Bonitch, Joseph" <Joseph.Bonitch@xerox.com>
-Subject: IPV6 stateless autoconfig: prefix route lifetime issue
-Date: Fri, 9 May 2008 08:55:18 -0400
-Message-ID: <BECE1C148A85274EB554378A3E0EDF4906335DEE@USA0300MS02.na.xerox.net>
+From: Jason Stubbs <j.stubbs@linkthink.co.jp>
+Subject: Re: [PATCH] Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs in preparation for IPv6 support
+Date: Fri, 9 May 2008 22:21:56 +0900
+Message-ID: <200805092221.57251.j.stubbs@linkthink.co.jp>
+References: <f4845fc0805070732v516fc8c6y2cdddfd4f99c8f96@mail.gmail.com> <f4845fc0805070851y7f1f00d0xd2dfcc7feb79c173@mail.gmail.com> <Pine.LNX.4.64.0805090536120.22107@wm7d.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wvmler2.mail.xerox.com ([13.8.138.217]:57887 "EHLO
-	wvmler2.mail.xerox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754050AbYEIMzd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 08:55:33 -0400
-Received: from wvmlir3.mail.xerox.com (wvmlir3.mail.xerox.com [13.147.8.223])
-	by wvmler2.mail.xerox.com (8.14.2/8.13.8) with ESMTP id m49CtXwv004319
-	for <netdev@vger.kernel.org>; Fri, 9 May 2008 05:55:33 -0700
-Received: from wvmlir3.mail.xerox.com (localhost.localdomain [127.0.0.1])
-	by wvmlir3.mail.xerox.com (8.13.8/8.13.6) with ESMTP id m49CtP4a003857
-	for <netdev@vger.kernel.org>; Fri, 9 May 2008 05:55:25 -0700
-Received: from USA0300GW002.na.xerox.net (usa0300gw002.na.xerox.net [13.135.210.15])
-	by wvmlir3.mail.xerox.com (8.13.8/8.13.6) with ESMTP id m49CtIIN003711
-	for <netdev@vger.kernel.org>; Fri, 9 May 2008 05:55:24 -0700
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0805090536120.22107@wm7d.net>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In one of our labs we have a router sending RA's where the prefix info
-option has both valid and preferred lifetime set to infinity
-(0xffffffff)
-per RFC4861.
+On Friday 09 May 2008 21:49:52 Joseph Mack NA3T wrote:
+> On Wed, 7 May 2008, Julius Volz wrote:
+>=20
+> > Hm, ok. This patch doesn't touch any functionality though. It only
+> > moves files from one directory to another, so it's merely cosmetics=
+,
+> > no IPv6 knowledge required.
+>=20
+> are you at a stage where it's all split up, after which=20
+> you'll only be working on the ipv6 part and leaving the ipv4=20
+> untouched? Have you tested the ipv4 part to make sure it's=20
+> still OK. ie the code is reorthogonalised but with no change=20
+> in functionality?
 
-On a client configured for stateless address autoconfiguration, the
-addresses and prefix routes are created as expected when the RA is
-received,
-but the prefix routes get expired after < 30 seconds.  After adding some
-debug and further testing I found that when
-    valid lifetime >= 0x7fffffff * HZ (HZ=250, USER_HZ=100 in our
-config)
-this condition occurs and prefix routes are prematurely expired.
+I haven't applied the patch and done a diff to individual files to be c=
+ertain, but I'm pretty sure that the patch is mainly just a directory c=
+hange. IPVS itself is already fairly well abstracted protocol-wise. Jus=
+t another guess, but it sounds like Julius is submitting the patch as i=
+t would make more meaty patches smaller.
 
-We are using 2.6.20 + patches but I also tested with the latest Ubuntu
-using
-2.6.24-16 with the same results.  This is repeatable simply by booting
-into
-the liveCD option using Ubuntu 8.04 desktop.  No config changes
-necessary -
-just plug into an IPV6 network where you can change the RA Prefix Info
-lifetimes.  Do "ip -6 route list" a bunch of times.  You will see the
-routes
-added with huge expiry times and they will count down as expected.  The
-first
-time fib garbage collection runs the routes disappear.  Using valid
-lifetimes
-such as 900, 3600, 86400, etc work just fine.
+> If so then this might be a good point to submit to the=20
+> kernel. Also Jason might be interested in the new version of=20
+> the code (hopefully working in different parts of the code,=20
+> you two won't be having many collisions).
 
-Looking at net/ipv6/addrconf.c the problem appears to be in
-addrconf_prefix_rcv() after the "Avoid arithmetic overflow" comment.
-Before
-the comment the lifetimes have been read into valid_lft and
-preferred_lft.
-Clearly RFC4861 specifies that these are both u32 in units of seconds
-and
-0xffffffff = infinity.  Reading through RFC4862/ADDRCONF 5.5.3, there
-are
-no further limitations placed on the lifetimes other than the rules to
-prevent the DoS case.
+Call me crazy, but I plan to put my patch into production in two weeks =
+time without the connect-to-vip-from-director parts. If everything goes=
+ well, I'll post patches again with adequate comments (and adjustments =
+to comments). And to make this relevant: My patches don't do anything p=
+rotocol specific other than to change when things are done and so would=
+ be fairly easy to update for IPV6 if/when it is integrated.
 
-Problem #1 the infinity case is not specifically handled
-Problem #2 premature expiration when valid_lft > 0x7ffffffff * HZ.
-
-Let me know if further information is needed and if I should submit
-a bug in bugzilla.
-
-Regards,
-
-Joe
+--=20
+Jason Stubbs <j.stubbs@linkthink.co.jp>
+LINKTHINK INC.
+=E6=9D=B1=E4=BA=AC=E9=83=BD=E6=B8=8B=E8=B0=B7=E5=8C=BA=E6=A1=9C=E3=83=B6=
+=E4=B8=98=E7=94=BA22-14 N.E.S S=E6=A3=9F 3F
+TEL 03-5728-4772  FAX 03-5728-4773
