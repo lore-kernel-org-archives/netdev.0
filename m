@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Fri, 09 May 2008 14:43:59 -0700 (PDT)
-Message-ID: <20080509.144359.194792251.davem@davemloft.net>
-References: <alpine.LFD.1.10.0805081848170.2940@woody.linux-foundation.org>
-	<4824606E.3040409@garzik.org>
-	<alpine.LFD.1.10.0805090805210.3142@woody.linux-foundation.org>
+Subject: Re: [PATCH ] [NIU] Resend: Determine the # of ports from the
+ card's VPD data
+Date: Fri, 09 May 2008 14:56:31 -0700 (PDT)
+Message-ID: <20080509.145631.147073993.davem@davemloft.net>
+References: <200805092154.m49LsQfb053337@sr1-umpk-37.sfbay.sun.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: netdev@vger.kernel.org
+To: matheos.worku@sun.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34957
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51457
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751840AbYEIVoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 17:44:04 -0400
-In-Reply-To: <alpine.LFD.1.10.0805090805210.3142@woody.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1751855AbYEIV4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 17:56:37 -0400
+In-Reply-To: <200805092154.m49LsQfb053337@sr1-umpk-37.sfbay.sun.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Fri, 9 May 2008 08:05:47 -0700 (PDT)
+From: Matheos Worku <matheos.worku@sun.com>
+Date: Fri, 9 May 2008 11:08:06 -0700
 
-> On Fri, 9 May 2008, Jeff Garzik wrote:
-> > 
-> > The e1000e change is just a bunch of code additions for a new phy type, not a
-> > bunch of /changes/ really.  Is that the change you're concerned with?
+> Determine the number of physical ports from the card's VPD data.
+> Previous fix failed on Maramba platform which doesn't have the
+> "board-model" property. This fix uses the "model" property which
+> exists on all cards and Neptune based motherboards.
 > 
-> Yes. I saw 800 new lines to a driver I use, and I go "Ugh".
+> cstyle cleanup included. 
+> 
+> Signed-off-by: Matheos Worku <matheos.worku@sun.com>
 
-And if it enabled support for a device you have, for which you've been
-patching the driver for some time, you'd go "Yippie!" :-)))
-
-BTW, this reminds me, did we get that driver in for the device the
-EEPC machines use?  I have this strange feeling like that slipped
-through the cracks.
-
+Applied, thanks a lot Matheos.
