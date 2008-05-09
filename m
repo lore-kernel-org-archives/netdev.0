@@ -1,50 +1,51 @@
-From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH net-2.6] [TIPC]: Increase buffer header to support worst-case device
-Date: Thu,  8 May 2008 20:34:02 -0400
-Message-ID: <1210293242-13387-1-git-send-email-allan.stephens@windriver.com>
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
-To: David Miller <davem@davemloft.net>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 0/16] myri10ge updates
+Date: Fri, 09 May 2008 02:15:31 +0200
+Message-ID: <482397A3.1050604@myri.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60600 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752317AbYEIAiU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2008 20:38:20 -0400
+Received: from mailbox2.myri.com ([64.172.73.26]:1813 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755306AbYEIAqJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2008 20:46:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch increases the headroom TIPC reserves in each sk_buff
-to accommodate the largest possible link level device header.
+Hello Jeff,
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
----
- net/tipc/core.h |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+myri10ge has not been updated for a while, so here's a huge pile of
+patches to fix a couple minor things and add multislices and DCA support:
 
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 325404f..5a0e487 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -279,15 +279,14 @@ static inline void k_term_timer(struct timer_list *timer)
- /*
-  * TIPC message buffer code
-  *
-- * TIPC message buffer headroom reserves space for a link-level header
-- * (in case the message is sent off-node),
-- * while ensuring TIPC header is word aligned for quicker access
-+ * TIPC message buffer headroom reserves space for the worst-case
-+ * link-level device header (in case the message is sent off-node).
-  *
-- * The largest header currently supported is 18 bytes, which is used when
-- * the standard 14 byte Ethernet header has 4 added bytes for VLAN info
-+ * Note: Headroom should be a multiple of 4 to ensure the TIPC header fields
-+ *       are word aligned for quicker access
-  */
- 
--#define BUF_HEADROOM 20u
-+#define BUF_HEADROOM LL_MAX_HEADER
- 
- struct tipc_skb_cb {
- 	void *handle;
--- 
-1.5.3.2
+01 - update firmware headers
+02 - fix module parameter descriptions
+03 - increase and fix handoff timeout
+04 - properly align scratch buffers
+05 - don't warn on rx page allocation failure
+06 - report FIBER in ethtool for XFP based NIC
+07 - add barrier in myri10ge_send_cmd
+08 - trivial formatting fix
+09 - fix potential infinite loop in enable_ecrc
+10 - move data structures into a single slice
+11 - cleanup retrieving of firmware capabilities
+12 - fix the number of interrupt slots
+13 - add routines for multislices
+14 - add multislices support
+15 - add Direct Cache Access support
+16 - update driver version
+
+01-09 are trivial and should easily go into 2.6.26. The other ones are
+much more intrusive, so I'll understand if they have to wait until
+2.6.27. Just make sure you don't pickup anything out of order since
+there are big dependencies among the last ones.
+
+Note that 10-14 are actually mostly the same thing. But a single patch
+for all the multislices support would have been unreviewable, so I tried
+to split it into independent pieces.
+
+thanks,
+Brice
 
