@@ -1,59 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] [NIU] Redo the fix for getting # of ports from
- EEPROM
-Date: Thu, 08 May 2008 17:25:13 -0700 (PDT)
-Message-ID: <20080508.172513.01395291.davem@davemloft.net>
-References: <482398E3.9000206@sun.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Matheos.Worku@Sun.COM
+From: Allan Stephens <allan.stephens@windriver.com>
+Subject: [PATCH net-2.6] [TIPC]: Increase buffer header to support worst-case device
+Date: Thu,  8 May 2008 20:34:02 -0400
+Message-ID: <1210293242-13387-1-git-send-email-allan.stephens@windriver.com>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42123
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753518AbYEIAZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 20:25:19 -0400
-In-Reply-To: <482398E3.9000206@sun.com>
+Received: from mail.windriver.com ([147.11.1.11]:60600 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752317AbYEIAiU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2008 20:38:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Date: Thu, 08 May 2008 17:20:51 -0700
+This patch increases the headroom TIPC reserves in each sk_buff
+to accommodate the largest possible link level device header.
 
-> @@ -8000,6 +7990,11 @@ static int __devinit niu_get_of_props(struct niu *np)
-> 
->   	memcpy(dev->dev_addr, dev->perm_addr, dev->addr_len);
-> 
-> +	model = of_get_property(dp, "model", &prop_len);
-> +
-> +	if (model)
-> +	  strcpy(np->vpd.model, model);
-> +
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+---
+ net/tipc/core.h |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-Please fix the indentation in cases like this.  There should
-be two tab characters in front of the strcpy().
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index 325404f..5a0e487 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -279,15 +279,14 @@ static inline void k_term_timer(struct timer_list *timer)
+ /*
+  * TIPC message buffer code
+  *
+- * TIPC message buffer headroom reserves space for a link-level header
+- * (in case the message is sent off-node),
+- * while ensuring TIPC header is word aligned for quicker access
++ * TIPC message buffer headroom reserves space for the worst-case
++ * link-level device header (in case the message is sent off-node).
+  *
+- * The largest header currently supported is 18 bytes, which is used when
+- * the standard 14 byte Ethernet header has 4 added bytes for VLAN info
++ * Note: Headroom should be a multiple of 4 to ensure the TIPC header fields
++ *       are word aligned for quicker access
+  */
+ 
+-#define BUF_HEADROOM 20u
++#define BUF_HEADROOM LL_MAX_HEADER
+ 
+ struct tipc_skb_cb {
+ 	void *handle;
+-- 
+1.5.3.2
 
-I don't know what editor you use, but in emacs the editor
-can take care of this automatically for you by simply typing
-"M-x c-set-style RET linux RET"
-
-I've been fixing up these coding style issues for you in the past, and
-I've had to do so for every single patch you send me.  Unfortunately,
-it's consuming a lot of my time and I'm not going to do it any more.
-
-Therefore, please have a read up of:
-
-	linux/Documentation/CodingStyle
-
-which should help you in this area.  But generally, if you follow the
-existing conventions in the rest of the niu.[ch] files you'll be OK
-;-)
-
-Another thing I noticed you do is put two blank lines between
-functions, please only use one.
-
-Please also write a full changelog description so people can
-understand what you are doing here.
-
-Thank you.
