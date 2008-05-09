@@ -1,39 +1,40 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [GIT]: Networking
-Date: Fri, 09 May 2008 18:51:20 -0400
-Message-ID: <4824D568.1050900@redhat.com>
-References: <alpine.LFD.1.10.0805081848170.2940@woody.linux-foundation.org>	<4824606E.3040409@garzik.org>	<alpine.LFD.1.10.0805090805210.3142@woody.linux-foundation.org>	<20080509.144359.194792251.davem@davemloft.net> <20080509165832.12488cb8@osprey.hogchain.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [IP] xfrm: Allow replay setting
+Date: Fri, 9 May 2008 15:52:14 -0700
+Message-ID: <20080509155214.35fb4b71@extreme>
+References: <20080423074232.GA29974@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	jeff@garzik.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Cc: netdev@vger.kernel.org, jamal <hadi@cyberus.ca>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42604 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754472AbYEIWxa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 May 2008 18:53:30 -0400
-In-Reply-To: <20080509165832.12488cb8@osprey.hogchain.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46669 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754811AbYEIWyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 18:54:04 -0400
+In-Reply-To: <20080423074232.GA29974@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Cliburn wrote:
-> On Fri, 09 May 2008 14:43:59 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> BTW, this reminds me, did we get that driver in for the device the
->> EEPC machines use?  I have this strange feeling like that slipped
->> through the cracks.
-> 
-> That'd be the Atheros/Attansic L2 NIC.  I don't think it's quite ready
-> yet.
-> 
-> [Adding Chris Snook to the cc list.]
+On Wed, 23 Apr 2008 15:42:32 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-I had a sudden shortage of Copious Free Time for the past few weeks. 
-I'm going to post it this weekend.  Once it's merged with the atlx code, 
-it'll be much easier for others to help out with it.
-
--- Chris
+> Hi Stephen:
+> 
+> [IP] xfrm: Allow replay setting
+> 
+> For certain applications there is a requirement to start the
+> sequence number from a point other than the default.  As it
+> is the kernel provides an interface to do that but it isn't
+> available through the ip(8) command.  Since we're encouraging
+> people to migrate over to ip(8) for manual keying, it is useful
+> to have this ability there.
+> 
+> This patch adds support for setting replay sequence numbers
+> through ip(8).
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Thanks,
+applied, thanks
