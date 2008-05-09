@@ -1,66 +1,35 @@
-From: Jesper Krogh <jesper@krogh.cc>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Fri, 09 May 2008 20:32:53 +0200
-Message-ID: <482498D5.9060008@krogh.cc>
-References: <4821F3B7.2090702@krogh.cc>	<86802c440805071130m62c1f4edydb3316dac4a2aba2@mail.gmail.com> <20080507.141521.193714938.davem@davemloft.net>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH 3/3] [POWERPC] 86xx: mpc8610_hpcd: use ULI526X driver
+ for	on-board ethernet
+Date: Fri, 09 May 2008 13:50:58 -0500
+Message-ID: <48249D12.5060307@freescale.com>
+References: <20080429155333.GC28166@polina.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765943AbYEISd0@vger.kernel.org>
-In-Reply-To: <20080507.141521.193714938.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>, linuxppc-dev@ozlabs.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from de01egw01.freescale.net ([192.88.165.102]:48876 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751490AbYEISva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 14:51:30 -0400
+In-Reply-To: <20080429155333.GC28166@polina.dev.rtsoft.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-> Date: Wed, 7 May 2008 11:30:18 -0700
-> 
->> On Wed, May 7, 2008 at 11:23 AM, Jesper Krogh <jesper@krogh.cc> wrote:
->>> Hi.
->>>
->>>  I get errors like this after a few minutes of traffic on a Sun Neptune 10g
->>> ethernet card. (with nice 500MB/s throughput).
->>>
->>>  Then the server seems too busy with something, so it doesn't even respont
->>> to a serial terminal login.
->>>
->>>  May  7 16:16:33 hest kernel: [  166.948958] niu: niu_get_parent:
->>> platform_type[1] port[3]
->>>  May  7 16:16:33 hest kernel: [  166.949366] niu: niu_get_and_validate_port:
->>> port[3] num_ports[2]
->>>  May  7 16:16:33 hest kernel: [  166.949886] niu: niu_put_parent: port[3]
->>>  .. bootup ends here ..
->>>  May  7 17:13:54 hest kernel: [ 3670.128178] niu 0000:84:00.0: niu: eth4:
->>> Transmit timed out, resetting
->>>  May  7 17:14:04 hest kernel: [ 3680.108614] niu 0000:84:00.0: niu: eth4:
->>> Transmit timed out, resetting
->>>  May  7 17:14:14 hest kernel: [ 3690.093089] niu 0000:84:00.0: niu: eth4:
->>> Transmit timed out, resetting
->>>  May  7 17:14:19 hest kernel: [ 3695.079254] niu 0000:84:00.0: niu: eth4:
->>> Transmit timed out, resetting
->>>  May  7 17:14:24 hest kernel: [ 3700.073525] niu 0000:84:00.0: niu: eth4:
->>> Transmit timed out, resetting
->>>  May  7 17:14:29 hest kernel: [ 3705.063744] niu 0000:84:00.0: niu: eth4:
->>> Transmit timed out, resetting
->>>  May  7 17:14:34 hest kernel: [ 3710.049918] niu 0000:84:00.0: niu: eth4:
->>> Transmit timed out, resetting
->>>
->>>
->>>  Any suggestions?
->>>
->>>  The system is an Ubuntu Hardy (2.6.24-17-server) amd64.
->> can you try 2.6.25 or current git?
-> 
-> Also, please always CC: netdev@vger.kernel.org on networking reports.
+Anton Vorontsov wrote:
+> As of current mainline tree, TULIP driver is unusable on MPC8610HPCD
+> boards. There is a patch[1] floating around (and also included in the
+> BSP), which tries to heal the situation, though the ethernet is still
+> unusable. Practically it takes ages to mount NFS filesystem:
 
-Yes. It is reproducable under 2.6.25.2, when the load get up.. (worked 
-excellent in the <100MB/s range for several hours.
+Acked-By: Timur Tabi <timur@freescale.com>
 
-When it works I doesnt seem to be able to get it pass 500MB/s.
+After applying this patch and Anton's two ULI driver patches, the ULI drivers
+works great on an 8610HPCD.
 
-Jesper
 -- 
-Jesper
+Timur Tabi
+Linux kernel developer at Freescale
