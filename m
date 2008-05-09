@@ -1,165 +1,303 @@
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Subject: [PATCH 1/1] [NIU] Redo the fix for getting # of  ports from EEPROM
-Date: Thu, 08 May 2008 17:20:51 -0700
-Message-ID: <482398E3.9000206@sun.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 13/16] myri10ge: add routines for multislices
+Date: Fri, 09 May 2008 02:21:10 +0200
+Message-ID: <482398F6.3060902@myri.com>
+References: <482397A3.1050604@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=ISO-8859-1
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:56425 "EHLO
-	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754099AbYEIAU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2008 20:20:29 -0400
-Received: from fe-sfbay-09.sun.com ([192.18.43.129])
-	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m490KSx5018255
-	for <netdev@vger.kernel.org>; Thu, 8 May 2008 17:20:29 -0700 (PDT)
-Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- id <0K0K00301RJC6800@fe-sfbay-09.sun.com>
- (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Thu,
- 08 May 2008 17:20:28 -0700 (PDT)
+Received: from mailbox2.myri.com ([64.172.73.26]:1866 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754099AbYEIAUv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2008 20:20:51 -0400
+In-Reply-To: <482397A3.1050604@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add several routines that multislices support will use.
 
-Signed-off-by: Matheos <matheos.worku@sun.com>
+Signed-off-by: Brice Goglin <brice@myri.com>
+Signed-off-by: Andrew Gallatin <gallatin@myri.com>
 ---
-  drivers/net/niu.c |   47 +++++++++++++++++++++--------------------------
-  drivers/net/niu.h |    9 +++++++++
-  2 files changed, 30 insertions(+), 26 deletions(-)
+ drivers/net/myri10ge/myri10ge.c |  256 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 256 insertions(+)
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 57cfd72..c07930c 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -7008,31 +7008,20 @@ static int __devinit 
-niu_phy_type_prop_decode(struct niu *np,
-  	return 0;
-  }
-
--/* niu board models have a trailing dash version incremented
-- * with HW rev change. Need to ingnore the  dash version while
-- * checking for match
-- *
-- * for example, for the 10G card the current vpd.board_model
-- * is 501-5283-04, of which -04 is the  dash version and have
-- * to be ignored
-- */
--static int niu_board_model_match(struct niu *np, const char *model)
--{
--	return !strncmp(np->vpd.board_model, model, strlen(model));
--}
--
-  static int niu_pci_vpd_get_nports(struct niu *np)
-  {
-  	int ports = 0;
-
--	if ((niu_board_model_match(np, NIU_QGC_LP_BM_STR)) ||
--	    (niu_board_model_match(np, NIU_QGC_PEM_BM_STR)) ||
--	    (niu_board_model_match(np, NIU_ALONSO_BM_STR))) {
-+	if ((!strcmp(np->vpd.model, NIU_QGC_LP_MDL_STR)) ||
-+	    (!strcmp(np->vpd.model, NIU_QGC_PEM_MDL_STR)) ||
-+	    (!strcmp(np->vpd.model, NIU_MARAMBA_MDL_STR)) ||
-+	    (!strcmp(np->vpd.model, NIU_KIMI_MDL_STR)) ||
-+	    (!strcmp(np->vpd.model, NIU_ALONSO_MDL_STR))) {
-  		ports = 4;
--	} else if ((niu_board_model_match(np, NIU_2XGF_LP_BM_STR)) ||
--		   (niu_board_model_match(np, NIU_2XGF_PEM_BM_STR)) ||
--		   (niu_board_model_match(np, NIU_FOXXY_BM_STR)) ||
--		   (niu_board_model_match(np, NIU_2XGF_MRVL_BM_STR))) {
-+	} else if ((!strcmp(np->vpd.model, NIU_2XGF_LP_MDL_STR)) ||
-+		   (!strcmp(np->vpd.model, NIU_2XGF_PEM_MDL_STR)) ||
-+		   (!strcmp(np->vpd.model, NIU_FOXXY_MDL_STR)) ||
-+		   (!strcmp(np->vpd.model, NIU_2XGF_MRVL_MDL_STR))) {
-  		ports = 2;
-  	}
-
-@@ -7053,8 +7042,8 @@ static void __devinit niu_pci_vpd_validate(struct 
-niu *np)
-  		return;
-  	}
-
--	if (!strcmp(np->vpd.model, "SUNW,CP3220") ||
--	    !strcmp(np->vpd.model, "SUNW,CP3260")) {
-+	if (!strcmp(np->vpd.model, NIU_ALONSO_MDL_STR) ||
-+	    !strcmp(np->vpd.model, NIU_KIMI_MDL_STR)) {
-  		np->flags |= NIU_FLAGS_10G;
-  		np->flags &= ~NIU_FLAGS_FIBER;
-  		np->flags |= NIU_FLAGS_XCVR_SERDES;
-@@ -7065,7 +7054,7 @@ static void __devinit niu_pci_vpd_validate(struct 
-niu *np)
-  		}
-  		if (np->flags & NIU_FLAGS_10G)
-  			 np->mac_xcvr = MAC_XCVR_XPCS;
--	} else if (niu_board_model_match(np, NIU_FOXXY_BM_STR)) {
-+	} else if (!strcmp(np->vpd.model, NIU_FOXXY_MDL_STR)) {
-  		np->flags |= (NIU_FLAGS_10G | NIU_FLAGS_FIBER |
-  			      NIU_FLAGS_HOTPLUG_PHY);
-  	} else if (niu_phy_type_prop_decode(np, np->vpd.phy_type)) {
-@@ -7541,8 +7530,8 @@ static int __devinit walk_phys(struct niu *np, 
-struct niu_parent *parent)
-  	u32 val;
-  	int err;
-
--	if (!strcmp(np->vpd.model, "SUNW,CP3220") ||
--	    !strcmp(np->vpd.model, "SUNW,CP3260")) {
-+	if (!strcmp(np->vpd.model, NIU_ALONSO_MDL_STR) ||
-+	    !strcmp(np->vpd.model, NIU_KIMI_MDL_STR)) {
-  		num_10g = 0;
-  		num_1g = 2;
-  		parent->plat_type = PLAT_TYPE_ATCA_CP3220;
-@@ -7551,7 +7540,7 @@ static int __devinit walk_phys(struct niu *np, 
-struct niu_parent *parent)
-  		       phy_encode(PORT_TYPE_1G, 1) |
-  		       phy_encode(PORT_TYPE_1G, 2) |
-  		       phy_encode(PORT_TYPE_1G, 3));
--	} else if (niu_board_model_match(np, NIU_FOXXY_BM_STR)) {
-+	} else if (!strcmp(np->vpd.model, NIU_FOXXY_MDL_STR)) {
-  		num_10g = 2;
-  		num_1g = 0;
-  		parent->num_ports = 2;
-@@ -7946,6 +7935,7 @@ static int __devinit niu_get_of_props(struct niu *np)
-  	struct device_node *dp;
-  	const char *phy_type;
-  	const u8 *mac_addr;
-+	const char *model;
-  	int prop_len;
-
-  	if (np->parent->plat_type == PLAT_TYPE_NIU)
-@@ -8000,6 +7990,11 @@ static int __devinit niu_get_of_props(struct niu *np)
-
-  	memcpy(dev->dev_addr, dev->perm_addr, dev->addr_len);
-
-+	model = of_get_property(dp, "model", &prop_len);
+Index: linux-2.6/drivers/net/myri10ge/myri10ge.c
+===================================================================
+--- linux-2.6.orig/drivers/net/myri10ge/myri10ge.c	2008-05-09 00:12:46.000000000 +0200
++++ linux-2.6/drivers/net/myri10ge/myri10ge.c	2008-05-09 00:14:33.000000000 +0200
+@@ -1928,6 +1928,76 @@
+ 	return 0;
+ }
+ 
++#if 0
++static int myri10ge_get_txrx(struct myri10ge_priv *mgp, int slice)
++{
++	struct myri10ge_cmd cmd;
++	struct myri10ge_slice_state *ss;
++	int status;
 +
-+	if (model)
-+	  strcpy(np->vpd.model, model);
++	ss = &mgp->ss[slice];
++	cmd.data0 = 0;		/* single slice for now */
++	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_SEND_OFFSET, &cmd, 0);
++	ss->tx.lanai = (struct mcp_kreq_ether_send __iomem *)
++	    (mgp->sram + cmd.data0);
 +
-  	return 0;
-  #else
-  	return -EINVAL;
-diff --git a/drivers/net/niu.h b/drivers/net/niu.h
-index 97ffbe1..12fd570 100644
---- a/drivers/net/niu.h
-+++ b/drivers/net/niu.h
-@@ -2946,6 +2946,15 @@ struct rx_ring_info {
-  #define	NIU_ALONSO_BM_STR	"373-0202"
-  #define	NIU_FOXXY_BM_STR	"501-7961"
-  #define	NIU_2XGF_MRVL_BM_STR	"SK-6E82"
-+#define	NIU_QGC_LP_MDL_STR	"SUNW,pcie-qgc"
-+#define	NIU_2XGF_LP_MDL_STR	"SUNW,pcie-2xgf"
-+#define	NIU_QGC_PEM_MDL_STR	"SUNW,pcie-qgc-pem"
-+#define	NIU_2XGF_PEM_MDL_STR	"SUNW,pcie-2xgf-pem"
-+#define	NIU_ALONSO_MDL_STR	"SUNW,CP3220"
-+#define	NIU_KIMI_MDL_STR	"SUNW,CP3260"
-+#define	NIU_MARAMBA_MDL_STR	"SUNW,pcie-neptune"
-+#define	NIU_FOXXY_MDL_STR	"SUNW,pcie-rfem"
-+#define	NIU_2XGF_MRVL_MDL_STR	"SysKonnect,pcie-2xgf"
-
-  #define NIU_VPD_MIN_MAJOR	3
-  #define NIU_VPD_MIN_MINOR	4
--- 
-1.5.2
++	cmd.data0 = slice;
++	status |= myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_SMALL_RX_OFFSET,
++				    &cmd, 0);
++	ss->rx_small.lanai = (struct mcp_kreq_ether_recv __iomem *)
++	    (mgp->sram + cmd.data0);
++
++	cmd.data0 = slice;
++	status |= myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_BIG_RX_OFFSET, &cmd, 0);
++	ss->rx_big.lanai = (struct mcp_kreq_ether_recv __iomem *)
++	    (mgp->sram + cmd.data0);
++
++	if (myri10ge_wcfifo && mgp->wc_enabled) {
++		ss->tx.wc_fifo = (u8 __iomem *)
++		    mgp->sram + MXGEFW_ETH_SEND_4 + 64 * slice;
++		ss->rx_small.wc_fifo = (u8 __iomem *)
++		    mgp->sram + MXGEFW_ETH_RECV_SMALL + 64 * slice;
++		ss->rx_big.wc_fifo = (u8 __iomem *)
++		    mgp->sram + MXGEFW_ETH_RECV_BIG + 64 * slice;
++	} else {
++		ss->tx.wc_fifo = NULL;
++		ss->rx_small.wc_fifo = NULL;
++		ss->rx_big.wc_fifo = NULL;
++	}
++	return status;
++
++}
++
++static int myri10ge_set_stats(struct myri10ge_priv *mgp, int slice)
++{
++	struct myri10ge_cmd cmd;
++	struct myri10ge_slice_state *ss;
++	int status;
++
++	ss = &mgp->ss[slice];
++	cmd.data0 = MYRI10GE_LOWPART_TO_U32(ss->fw_stats_bus);
++	cmd.data1 = MYRI10GE_HIGHPART_TO_U32(ss->fw_stats_bus);
++	cmd.data2 = sizeof(struct mcp_irq_data);
++	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_SET_STATS_DMA_V2, &cmd, 0);
++	if (status == -ENOSYS) {
++		dma_addr_t bus = ss->fw_stats_bus;
++		if (slice != 0)
++			return -EINVAL;
++		bus += offsetof(struct mcp_irq_data, send_done_count);
++		cmd.data0 = MYRI10GE_LOWPART_TO_U32(bus);
++		cmd.data1 = MYRI10GE_HIGHPART_TO_U32(bus);
++		status = myri10ge_send_cmd(mgp,
++					   MXGEFW_CMD_SET_STATS_DMA_OBSOLETE,
++					   &cmd, 0);
++		/* Firmware cannot support multicast without STATS_DMA_V2 */
++		mgp->fw_multicast_support = 0;
++	} else {
++		mgp->fw_multicast_support = 1;
++	}
++	return 0;
++}
++#endif
++
+ static int myri10ge_open(struct net_device *dev)
+ {
+ 	struct myri10ge_priv *mgp = netdev_priv(dev);
+@@ -3106,6 +3176,192 @@
+ 	mgp->watchdog_pause = rx_pause_cnt;
+ }
+ 
++#if 0
++static void myri10ge_free_slices(struct myri10ge_priv *mgp)
++{
++	struct myri10ge_slice_state *ss;
++	struct pci_dev *pdev = mgp->pdev;
++	size_t bytes;
++	int i;
++
++	if (mgp->ss == NULL)
++		return;
++
++	for (i = 0; i < mgp->num_slices; i++) {
++		ss = &mgp->ss[i];
++		if (ss->rx_done.entry != NULL) {
++			bytes = mgp->max_intr_slots *
++			    sizeof(*ss->rx_done.entry);
++			dma_free_coherent(&pdev->dev, bytes,
++					  ss->rx_done.entry, ss->rx_done.bus);
++			ss->rx_done.entry = NULL;
++		}
++		if (ss->fw_stats != NULL) {
++			bytes = sizeof(*ss->fw_stats);
++			dma_free_coherent(&pdev->dev, bytes,
++					  ss->fw_stats, ss->fw_stats_bus);
++			ss->fw_stats = NULL;
++		}
++	}
++	kfree(mgp->ss);
++	mgp->ss = NULL;
++}
++
++static int myri10ge_alloc_slices(struct myri10ge_priv *mgp)
++{
++	struct myri10ge_slice_state *ss;
++	struct pci_dev *pdev = mgp->pdev;
++	size_t bytes;
++	int i;
++
++	bytes = sizeof(*mgp->ss) * mgp->num_slices;
++	mgp->ss = kzalloc(bytes, GFP_KERNEL);
++	if (mgp->ss == NULL) {
++		return -ENOMEM;
++	}
++
++	for (i = 0; i < mgp->num_slices; i++) {
++		ss = &mgp->ss[i];
++		bytes = mgp->max_intr_slots * sizeof(*ss->rx_done.entry);
++		ss->rx_done.entry = dma_alloc_coherent(&pdev->dev, bytes,
++						       &ss->rx_done.bus,
++						       GFP_KERNEL);
++		if (ss->rx_done.entry == NULL)
++			goto abort;
++		memset(ss->rx_done.entry, 0, bytes);
++		bytes = sizeof(*ss->fw_stats);
++		ss->fw_stats = dma_alloc_coherent(&pdev->dev, bytes,
++						  &ss->fw_stats_bus,
++						  GFP_KERNEL);
++		if (ss->fw_stats == NULL)
++			goto abort;
++		ss->mgp = mgp;
++		ss->dev = mgp->dev;
++		netif_napi_add(ss->dev, &ss->napi, myri10ge_poll,
++			       myri10ge_napi_weight);
++	}
++	return 0;
++abort:
++	myri10ge_free_slices(mgp);
++	return -ENOMEM;
++}
++
++/*
++ * This function determines the number of slices supported.
++ * The number slices is the minumum of the number of CPUS,
++ * the number of MSI-X irqs supported, the number of slices
++ * supported by the firmware
++ */
++static void myri10ge_probe_slices(struct myri10ge_priv *mgp)
++{
++	struct myri10ge_cmd cmd;
++	struct pci_dev *pdev = mgp->pdev;
++	char *old_fw;
++	int i, status, ncpus, msix_cap;
++
++	mgp->num_slices = 1;
++	msix_cap = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
++	ncpus = num_online_cpus();
++
++	if (myri10ge_max_slices == 1 || msix_cap == 0 ||
++	    (myri10ge_max_slices == -1 && ncpus < 2))
++		return;
++
++	/* try to load the slice aware rss firmware */
++	old_fw = mgp->fw_name;
++	if (old_fw == myri10ge_fw_aligned)
++		mgp->fw_name = myri10ge_fw_rss_aligned;
++	else
++		mgp->fw_name = myri10ge_fw_rss_unaligned;
++	status = myri10ge_load_firmware(mgp, 0);
++	if (status != 0) {
++		dev_info(&pdev->dev, "Rss firmware not found\n");
++		return;
++	}
++
++	/* hit the board with a reset to ensure it is alive */
++	memset(&cmd, 0, sizeof(cmd));
++	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_RESET, &cmd, 0);
++	if (status != 0) {
++		dev_err(&mgp->pdev->dev, "failed reset\n");
++		goto abort_with_fw;
++		return;
++	}
++
++	mgp->max_intr_slots = cmd.data0 / sizeof(struct mcp_slot);
++
++	/* tell it the size of the interrupt queues */
++	cmd.data0 = mgp->max_intr_slots * sizeof(struct mcp_slot);
++	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_SET_INTRQ_SIZE, &cmd, 0);
++	if (status != 0) {
++		dev_err(&mgp->pdev->dev, "failed MXGEFW_CMD_SET_INTRQ_SIZE\n");
++		goto abort_with_fw;
++	}
++
++	/* ask the maximum number of slices it supports */
++	status = myri10ge_send_cmd(mgp, MXGEFW_CMD_GET_MAX_RSS_QUEUES, &cmd, 0);
++	if (status != 0)
++		goto abort_with_fw;
++	else
++		mgp->num_slices = cmd.data0;
++
++	/* Only allow multiple slices if MSI-X is usable */
++	if (!myri10ge_msi) {
++		goto abort_with_fw;
++	}
++
++	/* if the admin did not specify a limit to how many
++	 * slices we should use, cap it automatically to the
++	 * number of CPUs currently online */
++	if (myri10ge_max_slices == -1)
++		myri10ge_max_slices = ncpus;
++
++	if (mgp->num_slices > myri10ge_max_slices)
++		mgp->num_slices = myri10ge_max_slices;
++
++	/* Now try to allocate as many MSI-X vectors as we have
++	 * slices. We give up on MSI-X if we can only get a single
++	 * vector. */
++
++	mgp->msix_vectors = kzalloc(mgp->num_slices *
++				    sizeof(*mgp->msix_vectors), GFP_KERNEL);
++	if (mgp->msix_vectors == NULL)
++		goto disable_msix;
++	for (i = 0; i < mgp->num_slices; i++) {
++		mgp->msix_vectors[i].entry = i;
++	}
++
++	while (mgp->num_slices > 1) {
++		/* make sure it is a power of two */
++		while (!is_power_of_2(mgp->num_slices))
++			mgp->num_slices--;
++		if (mgp->num_slices == 1)
++			goto disable_msix;
++		status = pci_enable_msix(pdev, mgp->msix_vectors,
++					 mgp->num_slices);
++		if (status == 0) {
++			pci_disable_msix(pdev);
++			return;
++		}
++		if (status > 0)
++			mgp->num_slices = status;
++		else
++			goto disable_msix;
++	}
++
++disable_msix:
++	if (mgp->msix_vectors != NULL) {
++		kfree(mgp->msix_vectors);
++		mgp->msix_vectors = NULL;
++	}
++
++abort_with_fw:
++	mgp->num_slices = 1;
++	mgp->fw_name = old_fw;
++	myri10ge_load_firmware(mgp, 0);
++}
++#endif
++
+ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	struct net_device *netdev;
 
 
