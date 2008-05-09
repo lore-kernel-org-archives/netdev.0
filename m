@@ -1,35 +1,25 @@
-From: Jeff Garzik <jeff@garzik.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT]: Networking
-Date: Fri, 09 May 2008 10:32:14 -0400
-Message-ID: <4824606E.3040409@garzik.org>
-References: <20080508.171408.94456716.davem@davemloft.net> <alpine.LFD.1.10.0805081848170.2940@woody.linux-foundation.org>
+Date: Fri, 9 May 2008 08:05:47 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0805090805210.3142@woody.linux-foundation.org>
+References: <20080508.171408.94456716.davem@davemloft.net> <alpine.LFD.1.10.0805081848170.2940@woody.linux-foundation.org> <4824606E.3040409@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49124 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751401AbYEIOcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 May 2008 10:32:18 -0400
-In-Reply-To: <alpine.LFD.1.10.0805081848170.2940@woody.linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Linus Torvalds wrote:
-> It's one thing taking a totally new driver (that couldn't have worked 
-> before and cannot be a regression) or adding new PCI ID's. It's a totally 
-> different thing to take 800 lines of code to an old driver that people 
-> depend on. These things need to happen during the merge window, and just 
-> because they are drivers doesn't mean that they can just do anythign they 
-> want.
-
-The e1000e change is just a bunch of code additions for a new phy type, 
-not a bunch of /changes/ really.  Is that the change you're concerned with?
-
-	Jeff
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759179AbYEIPGk@vger.kernel.org>
+In-Reply-To: <4824606E.3040409@garzik.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
+On Fri, 9 May 2008, Jeff Garzik wrote:
+> 
+> The e1000e change is just a bunch of code additions for a new phy type, not a
+> bunch of /changes/ really.  Is that the change you're concerned with?
+
+Yes. I saw 800 new lines to a driver I use, and I go "Ugh".
+
+		Linus
