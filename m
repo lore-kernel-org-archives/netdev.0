@@ -1,35 +1,45 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [GIT]: Networking
-Date: Fri, 9 May 2008 16:58:32 -0500
-Message-ID: <20080509165832.12488cb8@osprey.hogchain.net>
-References: <alpine.LFD.1.10.0805081848170.2940@woody.linux-foundation.org>
-	<4824606E.3040409@garzik.org>
-	<alpine.LFD.1.10.0805090805210.3142@woody.linux-foundation.org>
-	<20080509.144359.194792251.davem@davemloft.net>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Fri, 09 May 2008 23:59:18 +0200
+Message-ID: <4824C936.9000103@krogh.cc>
+References: <86802c440805071130m62c1f4edydb3316dac4a2aba2@mail.gmail.com>	<20080507.141521.193714938.davem@davemloft.net>	<482498D5.9060008@krogh.cc> <20080509.143229.174354251.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, jeff@garzik.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, csnook@redhat.com
+Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost01.isp.att.net ([204.127.217.101]:44138 "EHLO
-	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751855AbYEIV6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 17:58:36 -0400
-In-Reply-To: <20080509.144359.194792251.davem@davemloft.net>
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:48177 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753104AbYEIV7V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 May 2008 17:59:21 -0400
+In-Reply-To: <20080509.143229.174354251.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 09 May 2008 14:43:59 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+David Miller wrote:
+> From: Jesper Krogh <jesper@krogh.cc>
+> Date: Fri, 09 May 2008 20:32:53 +0200
+> 
+>> When it works I doesnt seem to be able to get it pass 500MB/s.
+> 
+> With this card you really need multiple cpus and multiple threads
+> sending data through the card in order to fill the 10Gb pipe.
+> 
+> Single connections will not fill the pipe.
 
-> BTW, this reminds me, did we get that driver in for the device the
-> EEPC machines use?  I have this strange feeling like that slipped
-> through the cracks.
+The server is a Sun X4600 with 8 x dual-core CPU's, setup with 64
+NFS-threads. The other end of the fiber goes into a switch with gigabit
+ports connected to 48 dual-core cpus. The test was done doing a dd on a
+4.5GB file from the server to /dev/null on the clients.
 
-That'd be the Atheros/Attansic L2 NIC.  I don't think it's quite ready
-yet.
+The number of contextswitches seems enourmous.. over 120.000 sometimes.
+When transmitting around the same amount of data (4xgigabit bonded with
+802.3ad) 4x110MB/s the amount of contextswitches only reaches 3-4.000. I
+have no idea if this has any relevance.
 
-[Adding Chris Snook to the cc list.]
+Should this setup not be able to fill the pipe?
+
+-- 
+Jesper
