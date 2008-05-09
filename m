@@ -1,58 +1,38 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.25 crash: EIP: [<c02e2f14>] xfrm_output_resume+0x64/0x100
-	ss:esp 0068:c03a1e5c
-Date: Fri, 9 May 2008 13:11:30 +0200
-Message-ID: <20080509111130.GA7968@elte.hu>
-References: <E1Jrtxr-0004in-00@gondolin.me.apana.org.au> <BAY103-DAV594320AC93E33D7335927B2DA0@phx.gbl> <BAY103-DAV122A113843FE9574256A0AB2D60@phx.gbl> <BAY103-DAV6446AEC1CBB678E5D0E52B2D30@phx.gbl> <20080509102509.GA11710@gondor.apana.org.au> <BAY103-DAV9DAC70A1FBBEECCCC05E4B2D30@phx.gbl>
+From: "Bonitch, Joseph" <Joseph.Bonitch@xerox.com>
+Subject: IPV6 issue
+Date: Fri, 9 May 2008 07:34:11 -0400
+Message-ID: <BECE1C148A85274EB554378A3E0EDF4906335CC7@USA0300MS02.na.xerox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Marco Berizzi <pupilla@hotmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:53165 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761259AbYEILLq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 May 2008 07:11:46 -0400
-Content-Disposition: inline
-In-Reply-To: <BAY103-DAV9DAC70A1FBBEECCCC05E4B2D30@phx.gbl>
+Received: from wvmler3.mail.xerox.com ([13.8.138.218]:53807 "EHLO
+	wvmler3.mail.xerox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750980AbYEILyD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 07:54:03 -0400
+Received: from wvmlir2.mail.xerox.com (wvmlir2.mail.xerox.com [13.147.8.222])
+	by wvmler3.mail.xerox.com (8.14.2/8.13.8) with ESMTP id m49BYMm1019923
+	for <netdev@vger.kernel.org>; Fri, 9 May 2008 04:34:22 -0700
+Received: from wvmlir2.mail.xerox.com (localhost [127.0.0.1])
+	by wvmlir2.mail.xerox.com (8.13.8/8.13.6) with ESMTP id m49BYDQ0015328
+	for <netdev@vger.kernel.org>; Fri, 9 May 2008 04:34:13 -0700
+Received: from USA0300GW002.na.xerox.net (usa0300gw002.na.xerox.net [13.135.210.15])
+	by wvmlir2.mail.xerox.com (8.13.8/8.13.6) with ESMTP id m49BYCqg015313
+	for <netdev@vger.kernel.org>; Fri, 9 May 2008 04:34:13 -0700
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Is this list appropriate for IPV6 issues?
+Not general user questions but detailed bug level discussion.
+I found the usagi-users list, but they changed the domain name
+of the list server last week and the archives have it xxxxxx'd
+out, including the announce notice regarding the change:
+http://www.linux-ipv6.org/ml/usagi-users/msg04039.html
+And the list web page hasn't been updated yet.
 
-* Marco Berizzi <pupilla@hotmail.com> wrote:
+Regards,
 
-> Herbert Xu wrote:
-> 
-> > On Fri, May 09, 2008 at 11:50:00AM +0200, Marco Berizzi wrote:
-> > >
-> > > I have rebooted the two boxes with slub_debug.
-> > > This is the output taken with network console.
-> > > Herbert does it help you?
-> > >
-> > > BUG: unable to handle kernel paging request at 6b6b6b9f
-> >
-> > Unfortunately this just confirms that your skb has been freed
-> > prematurely because 6b is the poison value.
-> >
-> > However, it doesn't point us at the offender.
-> 
-> :-((
-
-you could try x86.git and enable CONFIG_KMEMCHECK, which catches all 
-sorts of memory corruption bugs at its root:
-
-  http://people.redhat.com/mingo/x86.git/README
-
-it's for 32-bit currently, and depends on the following CONFIG details 
-in your .config:
-
-        depends on X86_32
-        depends on !X86_USE_3DNOW
-        depends on !CC_OPTIMIZE_FOR_SIZE
-        depends on !DEBUG_PAGEALLOC && SLUB
-
-note that CONFIG_DEBUG_PAGEALLOC=y will catch a few types of corruption 
-too. Note that KMEMCHECK and DEBUG_PAGEALLOC are exclusive.
-
-	Ingo
+Joe
