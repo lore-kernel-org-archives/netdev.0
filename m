@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next-2.6 2/3] [SCTP]: Support the new specification of
- sctp_connectx()
-Date: Fri, 09 May 2008 15:15:09 -0700 (PDT)
-Message-ID: <20080509.151509.02016793.davem@davemloft.net>
-References: <1210360481-16599-1-git-send-email-vladislav.yasevich@hp.com>
-	<1210360566-16661-2-git-send-email-vladislav.yasevich@hp.com>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Sat, 10 May 2008 00:15:12 +0200
+Message-ID: <4824CCF0.5050302@krogh.cc>
+References: <86802c440805071130m62c1f4edydb3316dac4a2aba2@mail.gmail.com> <20080507.141521.193714938.davem@davemloft.net> <482498D5.9060008@krogh.cc> <20080509.143229.174354251.davem@davemloft.net> <4824C936.9000103@krogh.cc> <4824CBA1.8040703@sun.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: vladislav.yasevich@hp.com
+Cc: David Miller <davem@davemloft.net>, yhlu.kernel@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Matheos Worku <Matheos.Worku@Sun.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42493
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756403AbYEIWPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 18:15:14 -0400
-In-Reply-To: <1210360566-16661-2-git-send-email-vladislav.yasevich@hp.com>
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:41883 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757857AbYEIWPU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 May 2008 18:15:20 -0400
+In-Reply-To: <4824CBA1.8040703@sun.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Fri,  9 May 2008 15:16:05 -0400
-
-> The specification of sctp_connectx() has been changed to return
-> an association id.  We've added a new socket option that will
-> return the association id as the return value from the setsockopt()
-> call.  The library that implements sctp_connectx() interface will
-> implement both socket options.
+Matheos Worku wrote:
+> Jesper Krogh wrote:
+>> David Miller wrote:
+>>> From: Jesper Krogh <jesper@krogh.cc>
+>>> Date: Fri, 09 May 2008 20:32:53 +0200
+>>>
+>>>> When it works I doesnt seem to be able to get it pass 500MB/s.
+>>>
+>>> With this card you really need multiple cpus and multiple threads
+>>> sending data through the card in order to fill the 10Gb pipe.
+>>>
+>>> Single connections will not fill the pipe.
+>>
+>> The server is a Sun X4600 with 8 x dual-core CPU's, setup with 64
+>> NFS-threads. The other end of the fiber goes into a switch with gigabit
+>> ports connected to 48 dual-core cpus. The test was done doing a dd on a
+>> 4.5GB file from the server to /dev/null on the clients.
 > 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Are you doing a TX or RX (with respect to the 10G if)?
 
-Applied.
+Thats a transmit.. from the NFS server to the clients.
+
+Jesper
+-- 
+Jesper
