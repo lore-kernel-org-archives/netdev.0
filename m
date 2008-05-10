@@ -1,92 +1,78 @@
 From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH 4/4] atl1: bump version number
-Date: Fri,  9 May 2008 22:12:09 -0500
-Message-ID: <1210389129-3868-5-git-send-email-jacliburn@bellsouth.net>
+Subject: [PATCH 1/4] atl1: add PHY power save mode
+Date: Fri,  9 May 2008 22:12:06 -0500
+Message-ID: <1210389129-3868-2-git-send-email-jacliburn@bellsouth.net>
 References: <1210389129-3868-1-git-send-email-jacliburn@bellsouth.net>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	csnook@redhat.com, pelle@dsv.su.se,
 	Jay Cliburn <jacliburn@bellsouth.net>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost06.isp.att.net ([204.127.217.106]:49901 "EHLO
+Received: from fmailhost03.isp.att.net ([204.127.217.103]:54392 "EHLO
 	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759105AbYEJDRR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 23:17:17 -0400
+	with ESMTP id S1761269AbYEJDRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 23:17:20 -0400
 In-Reply-To: <1210389129-3868-1-git-send-email-jacliburn@bellsouth.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-atl1-2.1.3.
+Using vendor-provided magic, add code to enter power save mode
+on the PHY.  We'll need this for suspend and wake-on-lan.
 
 Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 ---
- drivers/net/atlx/atl1.c |    2 +-
- drivers/net/atlx/atl1.h |    2 +-
- drivers/net/atlx/atlx.c |    2 +-
- drivers/net/atlx/atlx.h |    4 ++--
- 4 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/atlx/atl1.c |   19 ++++++++-----------
+ drivers/net/atlx/atlx.h |    3 +++
+ 2 files changed, 11 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index b7092a3..9c2394d 100644
+index 0afe522..3beb44e 100644
 --- a/drivers/net/atlx/atl1.c
 +++ b/drivers/net/atlx/atl1.c
-@@ -1,7 +1,7 @@
+@@ -638,21 +638,18 @@ static s32 atl1_phy_leave_power_saving(struct atl1_hw *hw)
+ }
+ 
  /*
-  * Copyright(c) 2005 - 2006 Attansic Corporation. All rights reserved.
-  * Copyright(c) 2006 - 2007 Chris Snook <csnook@redhat.com>
-- * Copyright(c) 2006 Jay Cliburn <jcliburn@gmail.com>
-+ * Copyright(c) 2006 - 2008 Jay Cliburn <jcliburn@gmail.com>
-  *
-  * Derived from Intel e1000 driver
-  * Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-diff --git a/drivers/net/atlx/atl1.h b/drivers/net/atlx/atl1.h
-index 51893d6..a5015b1 100644
---- a/drivers/net/atlx/atl1.h
-+++ b/drivers/net/atlx/atl1.h
-@@ -1,7 +1,7 @@
- /*
-  * Copyright(c) 2005 - 2006 Attansic Corporation. All rights reserved.
-  * Copyright(c) 2006 - 2007 Chris Snook <csnook@redhat.com>
-- * Copyright(c) 2006 Jay Cliburn <jcliburn@gmail.com>
-+ * Copyright(c) 2006 - 2008 Jay Cliburn <jcliburn@gmail.com>
-  *
-  * Derived from Intel e1000 driver
-  * Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-diff --git a/drivers/net/atlx/atlx.c b/drivers/net/atlx/atlx.c
-index f06b854..b3e7fcf 100644
---- a/drivers/net/atlx/atlx.c
-+++ b/drivers/net/atlx/atlx.c
-@@ -2,7 +2,7 @@
-  *
-  * Copyright(c) 2005 - 2006 Attansic Corporation. All rights reserved.
-  * Copyright(c) 2006 - 2007 Chris Snook <csnook@redhat.com>
-- * Copyright(c) 2006 Jay Cliburn <jcliburn@gmail.com>
-+ * Copyright(c) 2006 - 2008 Jay Cliburn <jcliburn@gmail.com>
-  * Copyright(c) 2007 Atheros Corporation. All rights reserved.
-  *
-  * Derived from Intel e1000 driver
+- *TODO: do something or get rid of this
++ * Force the PHY into power saving mode using vendor magic.
+  */
+ #ifdef CONFIG_PM
+-static s32 atl1_phy_enter_power_saving(struct atl1_hw *hw)
++static void atl1_phy_enter_power_saving(struct atl1_hw *hw)
+ {
+-/*    s32 ret_val;
+- *    u16 phy_data;
+- */
++	atl1_write_phy_reg(hw, MII_DBG_ADDR, 0);
++	atl1_write_phy_reg(hw, MII_DBG_DATA, 0x124E);
++	atl1_write_phy_reg(hw, MII_DBG_ADDR, 2);
++	atl1_write_phy_reg(hw, MII_DBG_DATA, 0x3000);
++	atl1_write_phy_reg(hw, MII_DBG_ADDR, 3);
++	atl1_write_phy_reg(hw, MII_DBG_DATA, 0);
+ 
+-/*
+-    ret_val = atl1_write_phy_reg(hw, ...);
+-    ret_val = atl1_write_phy_reg(hw, ...);
+-    ....
+-*/
+-	return 0;
+ }
+ #endif
+ 
 diff --git a/drivers/net/atlx/atlx.h b/drivers/net/atlx/atlx.h
-index 9672188..297a03d 100644
+index 3be7c09..9672188 100644
 --- a/drivers/net/atlx/atlx.h
 +++ b/drivers/net/atlx/atlx.h
-@@ -2,7 +2,7 @@
-  *
-  * Copyright(c) 2005 - 2006 Attansic Corporation. All rights reserved.
-  * Copyright(c) 2006 - 2007 Chris Snook <csnook@redhat.com>
-- * Copyright(c) 2006 Jay Cliburn <jcliburn@gmail.com>
-+ * Copyright(c) 2006 - 2008 Jay Cliburn <jcliburn@gmail.com>
-  * Copyright(c) 2007 Atheros Corporation. All rights reserved.
-  *
-  * Derived from Intel e1000 driver
-@@ -29,7 +29,7 @@
- #include <linux/module.h>
- #include <linux/types.h>
+@@ -460,6 +460,9 @@ MODULE_VERSION(ATLX_DRIVER_VERSION);
+ #define MII_ATLX_PSSR_100MBS		0x4000	/* 01=100Mbs */
+ #define MII_ATLX_PSSR_1000MBS		0x8000	/* 10=1000Mbs */
  
--#define ATLX_DRIVER_VERSION "2.1.1"
-+#define ATLX_DRIVER_VERSION "2.1.3"
- MODULE_AUTHOR("Xiong Huang <xiong.huang@atheros.com>, \
- 	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>");
- MODULE_LICENSE("GPL");
++#define MII_DBG_ADDR			0x1D
++#define MII_DBG_DATA			0x1E
++
+ /* PCI Command Register Bit Definitions */
+ #define PCI_REG_COMMAND			0x04	/* PCI Command Register */
+ #define CMD_IO_SPACE			0x0001
 -- 
 1.5.4.1
 
