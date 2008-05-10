@@ -1,78 +1,66 @@
 From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH 1/4] atl1: add PHY power save mode
-Date: Fri,  9 May 2008 22:12:06 -0500
-Message-ID: <1210389129-3868-2-git-send-email-jacliburn@bellsouth.net>
+Subject: [PATCH 3/4] atl1: add shutdown callback
+Date: Fri,  9 May 2008 22:12:08 -0500
+Message-ID: <1210389129-3868-4-git-send-email-jacliburn@bellsouth.net>
 References: <1210389129-3868-1-git-send-email-jacliburn@bellsouth.net>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	csnook@redhat.com, pelle@dsv.su.se,
 	Jay Cliburn <jacliburn@bellsouth.net>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost03.isp.att.net ([204.127.217.103]:54392 "EHLO
+Received: from fmailhost05.isp.att.net ([204.127.217.105]:44296 "EHLO
 	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1761269AbYEJDRU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 23:17:20 -0400
+	with ESMTP id S1761269AbYEJDRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2008 23:17:16 -0400
 In-Reply-To: <1210389129-3868-1-git-send-email-jacliburn@bellsouth.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using vendor-provided magic, add code to enter power save mode
-on the PHY.  We'll need this for suspend and wake-on-lan.
+Add a shutdown callback that points to atl1_suspend().  This, along
+with a working suspend function, fixes wake-on-lan.
 
+Tested-by: Per Olofsson <pelle@dsv.su.se>
 Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 ---
- drivers/net/atlx/atl1.c |   19 ++++++++-----------
- drivers/net/atlx/atlx.h |    3 +++
- 2 files changed, 11 insertions(+), 11 deletions(-)
+ drivers/net/atlx/atl1.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 0afe522..3beb44e 100644
+index 12fb3e5..b7092a3 100644
 --- a/drivers/net/atlx/atl1.c
 +++ b/drivers/net/atlx/atl1.c
-@@ -638,21 +638,18 @@ static s32 atl1_phy_leave_power_saving(struct atl1_hw *hw)
- }
- 
- /*
-- *TODO: do something or get rid of this
-+ * Force the PHY into power saving mode using vendor magic.
-  */
- #ifdef CONFIG_PM
--static s32 atl1_phy_enter_power_saving(struct atl1_hw *hw)
-+static void atl1_phy_enter_power_saving(struct atl1_hw *hw)
- {
--/*    s32 ret_val;
-- *    u16 phy_data;
-- */
-+	atl1_write_phy_reg(hw, MII_DBG_ADDR, 0);
-+	atl1_write_phy_reg(hw, MII_DBG_DATA, 0x124E);
-+	atl1_write_phy_reg(hw, MII_DBG_ADDR, 2);
-+	atl1_write_phy_reg(hw, MII_DBG_DATA, 0x3000);
-+	atl1_write_phy_reg(hw, MII_DBG_ADDR, 3);
-+	atl1_write_phy_reg(hw, MII_DBG_DATA, 0);
- 
--/*
--    ret_val = atl1_write_phy_reg(hw, ...);
--    ret_val = atl1_write_phy_reg(hw, ...);
--    ....
--*/
--	return 0;
- }
+@@ -36,7 +36,6 @@
+  * A very incomplete list of things that need to be dealt with:
+  *
+  * TODO:
+- * Wake on LAN.
+  * Add more ethtool functions.
+  * Fix abstruse irq enable/disable condition described here:
+  *	http://marc.theaimsgroup.com/?l=linux-netdev&m=116398508500553&w=2
+@@ -2908,6 +2907,13 @@ static int atl1_resume(struct pci_dev *pdev)
+ #define atl1_resume NULL
  #endif
  
-diff --git a/drivers/net/atlx/atlx.h b/drivers/net/atlx/atlx.h
-index 3be7c09..9672188 100644
---- a/drivers/net/atlx/atlx.h
-+++ b/drivers/net/atlx/atlx.h
-@@ -460,6 +460,9 @@ MODULE_VERSION(ATLX_DRIVER_VERSION);
- #define MII_ATLX_PSSR_100MBS		0x4000	/* 01=100Mbs */
- #define MII_ATLX_PSSR_1000MBS		0x8000	/* 10=1000Mbs */
- 
-+#define MII_DBG_ADDR			0x1D
-+#define MII_DBG_DATA			0x1E
++static void atl1_shutdown(struct pci_dev *pdev)
++{
++#ifdef CONFIG_PM
++	atl1_suspend(pdev, PMSG_SUSPEND);
++#endif
++}
 +
- /* PCI Command Register Bit Definitions */
- #define PCI_REG_COMMAND			0x04	/* PCI Command Register */
- #define CMD_IO_SPACE			0x0001
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void atl1_poll_controller(struct net_device *netdev)
+ {
+@@ -3154,7 +3160,8 @@ static struct pci_driver atl1_driver = {
+ 	.probe = atl1_probe,
+ 	.remove = __devexit_p(atl1_remove),
+ 	.suspend = atl1_suspend,
+-	.resume = atl1_resume
++	.resume = atl1_resume,
++	.shutdown = atl1_shutdown
+ };
+ 
+ /*
 -- 
 1.5.4.1
 
