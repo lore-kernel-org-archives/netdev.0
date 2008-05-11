@@ -1,37 +1,48 @@
-From: Jesper Krogh <jesper@krogh.cc>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Sun, 11 May 2008 07:44:22 +0200
-Message-ID: <482687B6.5070101@krogh.cc>
-References: <20080507.141521.193714938.davem@davemloft.net>	<482498D5.9060008@krogh.cc>	<48258074.7060306@krogh.cc> <20080510.213431.193696750.davem@davemloft.net>
+From: David Brownell <david-b@pacbell.net>
+Subject: [patch 2.6.26-rc1-git] rndis_host:  longer timeout (bugzilla 10590)
+Date: Sat, 10 May 2008 22:54:38 -0700
+Message-ID: <200805102254.38665.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Pierre Ynard <linkfanel@yahoo.fr>
+To: Network development list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:35611 "EHLO
-	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751184AbYEKFo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 May 2008 01:44:29 -0400
-In-Reply-To: <20080510.213431.193696750.davem@davemloft.net>
+Received: from smtp122.sbc.mail.sp1.yahoo.com ([69.147.64.95]:25879 "HELO
+	smtp122.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750920AbYEKFyq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 May 2008 01:54:46 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jesper Krogh <jesper@krogh.cc>
-> Date: Sat, 10 May 2008 13:01:08 +0200
-> 
->> Any good suggestions about the "Transmit timed out" messages. It
->> currently leads to a system that "doesnt die" but doesnt respond within
->> 15 minutes of load of the network adapter.
-> 
-> It's likely some bug in the driver that hangs the card for whatever
-> reason, which we'll need to work out.
+From: Pierre Ynard <linkfanel@yahoo.fr>
 
-What can I do to help out? I'd really like to get the 10g interface
-operational quite soon.
+Some devices running some WinCE firmware (with SC_* Samsung processors
+according to the SynCE project, verified on a HTC P3600 device) fail to
+register because they apparently need extra time to respond correctly
+to requests. Increase the existing delay to satisfy them. Based on code
+from the SynCE project, on a suggestion of David Brownell.
 
-Jesper
--- 
-Jesper
+This patch Works For Me(tm).
+
+  Resoves:  http://bugzilla.kernel.org/show_bug.cgi?id=10590
+
+Signed-off-by: Pierre Ynard <linkfanel@yahoo.fr>
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -194,7 +194,7 @@ int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf)
+ 			dev_dbg(&info->control->dev,
+ 				"rndis response error, code %d\n", retval);
+ 		}
+-		msleep(2);
++		msleep(20);
+ 	}
+ 	dev_dbg(&info->control->dev, "rndis response timeout\n");
+ 	return -ETIMEDOUT;
+
+
