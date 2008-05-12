@@ -1,137 +1,212 @@
-From: "Damon L. Chesser" <damon@damtek.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
-Date: Mon, 12 May 2008 07:55:59 -0400
-Message-ID: <4828304F.4040908@damtek.com>
-References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi> <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi> <4823437D.20005@damtek.com> <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi> <Pine.LNX.4.64.0805120859470.1041@wrl-59.cs.helsinki.fi> <4828279C.3010102@damtek.com> <Pine.LNX.4.64.0805121419330.1888@wrl-59.cs.helsinki.fi>
+Date: Mon, 12 May 2008 15:07:45 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805121503280.1888@wrl-59.cs.helsinki.fi>
+References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi>
+ <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
+ <4823437D.20005@damtek.com> <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0805120859470.1041@wrl-59.cs.helsinki.fi> <4828279C.3010102@damtek.com>
+ <Pine.LNX.4.64.0805121419330.1888@wrl-59.cs.helsinki.fi> <4828304F.4040908@damtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: multipart/mixed; boundary="=_courier-15613-1210594067-0001-2"
 Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: "Damon L. Chesser" <damon@damtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from damtek.com ([72.172.134.65]:58643 "EHLO damtek.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753961AbYELLzq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2008 07:55:46 -0400
-In-Reply-To: <Pine.LNX.4.64.0805121419330.1888@wrl-59.cs.helsinki.fi>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:55451 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753238AbYELMH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 08:07:58 -0400
+In-Reply-To: <4828304F.4040908@damtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen wrote:
-> Big snip
-Ilpo,
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-I ran the first patch and received this error:
+--=_courier-15613-1210594067-0001-2
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-root@dam-main:/usr/src/linux-2.6.24.1# patch -p1 < ../1st_frto_patch.di=
-ff
-patching file net/ipv4/tcp_input.c
-patch: **** malformed patch at line 17: @@ -1685,6 +1683,10 @@ static=20
-inline void tcp_reset_reno_sack(struct tcp_sock *tp)
+On Mon, 12 May 2008, Damon L. Chesser wrote:
 
-root@dam-main:/usr/src/linux-2.6.24.1#
+> I ran the first patch and received this error:
+> 
+> root@dam-main:/usr/src/linux-2.6.24.1# patch -p1 < ../1st_frto_patch.diff
+> patching file net/ipv4/tcp_input.c
+> patch: **** malformed patch at line 17: @@ -1685,6 +1683,10 @@ static inline
+> void tcp_reset_reno_sack(struct tcp_sock *tp)
+> 
+> root@dam-main:/usr/src/linux-2.6.24.1#
+> 
+> below is the text of the patch.diff I have:
 
-below is the text of the patch.diff I have:
+I suppose there was some space-vs-tab or additional-line-break added 
+issue while you saved it. Please try to save from the attached files 
+instead, it should keep the original formatting, they work as is with 
+patch -p1 (no need to cut anything). I tried them into 2.6.24.1 and both 
+of those should apply, though with some fuzz.
 
-net/ipv4/tcp_input.c |   12 +++++++-----
-1 files changed, 7 insertions(+), 5 deletions(-)
+--
+ i.
+--=_courier-15613-1210594067-0001-2
+Content-Type: text/plain; charset=iso-8859-1; name="0001-TCP-FRTO-SACK-variant-is-errorneously-used-with-N.patch"
+Content-Transfer-Encoding: base64
+Content-ID: <Pine.LNX.4.64.0805121507450.1888@wrl-59.cs.helsinki.fi>
+Content-Description: 
+Content-Disposition: attachment; filename=0001-TCP-FRTO-SACK-variant-is-errorneously-used-with-N.patch
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 0298f80..5c503e0 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -113,8 +113,6 @@ int sysctl_tcp_abc __read_mostly;
-#define FLAG_FORWARD_PROGRESS    (FLAG_ACKED|FLAG_DATA_SACKED)
-#define FLAG_ANY_PROGRESS    (FLAG_FORWARD_PROGRESS|FLAG_SND_UNA_ADVANC=
-ED)
+RnJvbSA3ZjE2YTYwOTcyYWJkZmEwZmY4ZmU5YmZiNjc3YWFiOTJiNzE0MzA4
+IE1vbiBTZXAgMTcgMDA6MDA6MDAgMjAwMQ0KRnJvbTogPT9JU08tODg1OS0x
+P3E/SWxwbz0yMEo9RTRydmluZW4/PSA8aWpqYXJ2aW5AcG9pbnRob3BlLmxv
+Y2FsbmV0Lm5ldD4NCkRhdGU6IFdlZCwgNyBNYXkgMjAwOCAyMTozNjo0MiAr
+MDMwMA0KU3ViamVjdDogW1BBVENIXSBbVENQXSBGUlRPOiBTQUNLIHZhcmlh
+bnQgaXMgZXJyb3JuZW91c2x5IHVzZWQgd2l0aCBOZXdSZW5vDQpNSU1FLVZl
+cnNpb246IDEuMA0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0
+PUlTTy04ODU5LTENCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IDhiaXQN
+Cg0KTm90ZTogdGhlcmUncyBhY3R1YWxseSBhbm90aGVyIGJ1ZyBpbiBGUlRP
+J3MgU0FDSyB2YXJpYW50LCB3aGljaA0KaXMgdGhlIGNhdXNpbmcgZmFpbHVy
+ZSBpbiBOZXdSZW5vIGNhc2UgYmVjYXVzZSBvZiB0aGUgZXJyb3INCnRoYXQn
+cyBmaXhlZCBoZXJlLiBJJ2xsIGZpeCB0aGUgU0FDSyBjYXNlIHNlcGFyYXRl
+bHkgKGl0J3MNCmEgc2VwYXJhdGUgYnVnIHJlYWxseSwgdGhvdWdoIHJlbGF0
+ZWQsIGJ1dCBpbiBvcmRlciB0byBmaXggdGhhdA0KSSBuZWVkIHRvIGF1ZGl0
+IHRwLT5zbmRfbnh0IHVzYWdlIGEgYml0KS4NCg0KVGhlcmUgd2VyZSB0d28g
+cGxhY2VzIHdoZXJlIFNBQ0sgdmFyaWFudCBvZiBGUlRPIGlzIGdldHRpbmcN
+CmluY29ycmVjdGx5IHVzZWQgZXZlbiBpZiBTQUNLIHdhc24ndCBuZWdvdGlh
+dGVkIGJ5IHRoZSBUQ1AgZmxvdy4NClRoaXMgbGVhZHMgdG8gaW5jb3JyZWN0
+IHNldHRpbmcgb2YgZnJ0b19oaWdobWFyayB3aXRoIE5ld1Jlbm8NCmlmIGEg
+cHJldmlvdXMgcmVjb3Zlcnkgd2FzIGludGVycnVwdGVkIGJ5IGFub3RoZXIg
+UlRPLg0KDQpBbiBldmVudHVhbCBmYWxsYmFjayB0byBjb252ZW50aW9uYWwg
+cmVjb3ZlcnkgdGhlbiBpbmNvcnJlY3RseQ0KY29uc2lkZXJzIG9uZSBvciBj
+b3VwbGUgb2Ygc2VnbWVudHMgYXMgZm9yd2FyZCB0cmFuc21pc3Npb25zDQp0
+aG91Z2ggdGhleSB3ZXJlbid0LCB3aGljaCB0aGVuIGFyZSBub3QgTE9TVCBt
+YXJrZWQgZHVyaW5nDQpmYWxsYmFjayBtYWtpbmcgdGhlbSAibm9uLXJldHJh
+bnNtaXR0YWJsZSIgdW50aWwgdGhlIG5leHQgUlRPLg0KSW4gYSBiYWQgY2Fz
+ZSwgdGhvc2Ugc2VnbWVudHMgYXJlIHJlYWxseSBsb3N0IGFuZCBhcmUgdGhl
+IG9ubHkNCm9uZSBsZWZ0IGluIHRoZSB3aW5kb3cuIFRodXMgVENQIG5lZWRz
+IGFub3RoZXIgUlRPIHRvIGNvbnRpbnVlLg0KVGhlIG5leHQgRlJUTywgaG93
+ZXZlciwgY291bGQgYWdhaW4gcmVwZWF0IHRoZSBzYW1lIGV2ZW50cw0KbWFr
+aW5nIHRoZSBwcm9ncmVzcyBvZiB0aGUgVENQIGZsb3cgZXh0cmVtZWx5IHNs
+b3cuDQoNCkluIG9yZGVyIGZvciB0aGVzZSBldmVudHMgdG8gb2NjdXIgYXQg
+YWxsLCBGUlRPIG11c3Qgb2NjdXINCmFnYWluIGluIEZSVE9zIHN0ZXAgMyB3
+aGlsZSB0aGUga2V5IHNlZ21lbnRzIG11c3QgYmUgbG9zdCBhcw0Kd2VsbCwg
+d2hpY2ggaXMgbm90IHRvbyBsaWtlbHkgaW4gcHJhY3RpY2UuIEl0IHNlZW1z
+IHRvIG1vc3QNCmZyZXF1ZW50bHkgd2l0aCBzb21lIHNtYWxsIGRldmljZXMg
+c3VjaCBhcyBuZXR3b3JrIHByaW50ZXJzDQp0aGF0ICpzZWVtKiB0byBhY2Nl
+cHQgVENQIHNlZ21lbnRzIG9ubHkgaW4tb3JkZXIuIEluIGNhc2VzDQp3ZXJl
+IGtleSBzZWdtZW50cyB3ZXJlbid0IGxvc3QsIHRoaW5ncyBnZXQgYXV0b21h
+dGljYWxseQ0KcmVzb2x2ZWQgYmVjYXVzZSB0aG9zZSB3cm9uZ2x5IG1hcmtl
+ZCBzZWdtZW50cyBkb24ndCBuZWVkIHRvIGJlDQpyZXRyYW5zbWl0dGVkIGlu
+IG9yZGVyIHRvIGNvbnRpbnVlLg0KDQpJIGZvdW5kIGEgcmVwcm9kdWNlciBh
+ZnRlciBkaWdnaW5nIHVwIHJlbGV2YW50IHJlcG9ydHMgKGZldw0KcmVwb3J0
+cyBpbiB0b3RhbCwgbm9uZSBhdCBuZXRkZXYgb3IgbGttbCBJIGtub3cgb2Yp
+LCBzb21lDQpjYXNlcyBzZWVtZWQgdG8gaW5kaWNhdGUgbWlkZGxlYm94IGlz
+c3VlcyB3aGljaCBzZWVtcyBub3cNCnRvIGJlIGEgZmFsc2UgYXNzdW1wdGlv
+biBzb21lIHBlb3BsZSBoYWQgbWFkZS4gQnVnemlsbGENCiMxMDA2MyBfbWln
+aHRfIGJlIHJlbGF0ZWQuIERhbW9uIEwuIENoZXNzZXIgPGRhbW9uQGRhbXRl
+ay5jb20+DQpoYWQgYSByZXByb2R1Y2FibGUgY2FzZSBhbmQgd2FzIGtpbmQg
+ZW5vdWdoIHRvIHRjcGR1bXAgaXQNCmZvciBtZS4gV2l0aCB0aGUgdGNwZHVt
+cCBsb2cgaXQgd2FzIHF1aXRlIHRyaXZpYWwgdG8gZmlndXJlDQpvdXQuDQoN
+ClNpZ25lZC1vZmYtYnk6IElscG8gSuRydmluZW4gPGlscG8uamFydmluZW5A
+aGVsc2lua2kuZmk+DQotLS0NCiBuZXQvaXB2NC90Y3BfaW5wdXQuYyB8ICAg
+MTMgKysrKysrKystLS0tLQ0KIDEgZmlsZXMgY2hhbmdlZCwgOCBpbnNlcnRp
+b25zKCspLCA1IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvbmV0L2lw
+djQvdGNwX2lucHV0LmMgYi9uZXQvaXB2NC90Y3BfaW5wdXQuYw0KaW5kZXgg
+MDI5OGY4MC4uODFlY2UxZiAxMDA2NDQNCi0tLSBhL25ldC9pcHY0L3RjcF9p
+bnB1dC5jDQorKysgYi9uZXQvaXB2NC90Y3BfaW5wdXQuYw0KQEAgLTExMyw4
+ICsxMTMsNiBAQCBpbnQgc3lzY3RsX3RjcF9hYmMgX19yZWFkX21vc3RseTsN
+CiAjZGVmaW5lIEZMQUdfRk9SV0FSRF9QUk9HUkVTUwkoRkxBR19BQ0tFRHxG
+TEFHX0RBVEFfU0FDS0VEKQ0KICNkZWZpbmUgRkxBR19BTllfUFJPR1JFU1MJ
+KEZMQUdfRk9SV0FSRF9QUk9HUkVTU3xGTEFHX1NORF9VTkFfQURWQU5DRUQp
+DQogDQotI2RlZmluZSBJc1NhY2tGcnRvKCkgKHN5c2N0bF90Y3BfZnJ0byA9
+PSAweDIpDQotDQogI2RlZmluZSBUQ1BfUkVNTkFOVCAoVENQX0ZMQUdfRklO
+fFRDUF9GTEFHX1VSR3xUQ1BfRkxBR19TWU58VENQX0ZMQUdfUFNIKQ0KICNk
+ZWZpbmUgVENQX0hQX0JJVFMgKH4oVENQX1JFU0VSVkVEX0JJVFN8VENQX0ZM
+QUdfUFNIKSkNCiANCkBAIC0xNjg1LDYgKzE2ODMsMTEgQEAgc3RhdGljIGlu
+bGluZSB2b2lkIHRjcF9yZXNldF9yZW5vX3NhY2soc3RydWN0IHRjcF9zb2Nr
+ICp0cCkNCiAJdHAtPnNhY2tlZF9vdXQgPSAwOw0KIH0NCiANCitzdGF0aWMg
+aW50IHRjcF9pc19zYWNrZnJ0byhjb25zdCBzdHJ1Y3QgdGNwX3NvY2sgKnRw
+KQ0KK3sNCisJcmV0dXJuIChzeXNjdGxfdGNwX2ZydG8gPT0gMHgyKSAmJiAh
+dGNwX2lzX3Jlbm8odHApOw0KK30NCisNCiAvKiBGLVJUTyBjYW4gb25seSBi
+ZSB1c2VkIGlmIFRDUCBoYXMgbmV2ZXIgcmV0cmFuc21pdHRlZCBhbnl0aGlu
+ZyBvdGhlciB0aGFuDQogICogaGVhZCAoU0FDSyBlbmhhbmNlZCB2YXJpYW50
+IGZyb20gQXBwZW5kaXggQiBvZiBSRkM0MTM4IGlzIG1vcmUgcm9idXN0IGhl
+cmUpDQogICovDQpAQCAtMTcwMSw3ICsxNzA0LDcgQEAgaW50IHRjcF91c2Vf
+ZnJ0byhzdHJ1Y3Qgc29jayAqc2spDQogCWlmIChpY3NrLT5pY3NrX210dXAu
+cHJvYmVfc2l6ZSkNCiAJCXJldHVybiAwOw0KIA0KLQlpZiAoSXNTYWNrRnJ0
+bygpKQ0KKwlpZiAodGNwX2lzX3NhY2tmcnRvKHRwKSkNCiAJCXJldHVybiAx
+Ow0KIA0KIAkvKiBBdm9pZCBleHBlbnNpdmUgd2Fsa2luZyBvZiByZXhtaXQg
+cXVldWUgaWYgcG9zc2libGUgKi8NCkBAIC0xNzkxLDcgKzE3OTQsNyBAQCB2
+b2lkIHRjcF9lbnRlcl9mcnRvKHN0cnVjdCBzb2NrICpzaykNCiAJLyogRWFy
+bGllciBsb3NzIHJlY292ZXJ5IHVuZGVyd2F5IChzZWUgUkZDNDEzODsgQXBw
+ZW5kaXggQikuDQogCSAqIFRoZSBsYXN0IGNvbmRpdGlvbiBpcyBuZWNlc3Nh
+cnkgYXQgbGVhc3QgaW4gdHAtPmZydG9fY291bnRlciBjYXNlLg0KIAkgKi8N
+Ci0JaWYgKElzU2Fja0ZydG8oKSAmJiAodHAtPmZydG9fY291bnRlciB8fA0K
+KwlpZiAodGNwX2lzX3NhY2tmcnRvKHRwKSAmJiAodHAtPmZydG9fY291bnRl
+ciB8fA0KIAkgICAgKCgxIDw8IGljc2stPmljc2tfY2Ffc3RhdGUpICYgKFRD
+UEZfQ0FfUmVjb3Zlcnl8VENQRl9DQV9Mb3NzKSkpICYmDQogCSAgICBhZnRl
+cih0cC0+aGlnaF9zZXEsIHRwLT5zbmRfdW5hKSkgew0KIAkJdHAtPmZydG9f
+aGlnaG1hcmsgPSB0cC0+aGlnaF9zZXE7DQpAQCAtMzEyMyw3ICszMTI2LDcg
+QEAgc3RhdGljIGludCB0Y3BfcHJvY2Vzc19mcnRvKHN0cnVjdCBzb2NrICpz
+aywgaW50IGZsYWcpDQogCQlyZXR1cm4gMTsNCiAJfQ0KIA0KLQlpZiAoIUlz
+U2Fja0ZydG8oKSB8fCB0Y3BfaXNfcmVubyh0cCkpIHsNCisJaWYgKCF0Y3Bf
+aXNfc2Fja2ZydG8odHApKSB7DQogCQkvKiBSRkM0MTM4IHNob3J0Y29taW5n
+IGluIHN0ZXAgMjsgc2hvdWxkIGFsc28gaGF2ZSBjYXNlIGMpOg0KIAkJICog
+QUNLIGlzbid0IGR1cGxpY2F0ZSBub3IgYWR2YW5jZXMgd2luZG93LCBlLmcu
+LCBvcHBvc2l0ZSBkaXINCiAJCSAqIGRhdGEsIHdpbnVwZGF0ZQ0KLS0gDQox
+LjUuMi4yDQoNCg==
 
--#define IsSackFrto() (sysctl_tcp_frto =3D=3D 0x2)
--
-#define TCP_REMNANT (TCP_FLAG_FIN|TCP_FLAG_URG|TCP_FLAG_SYN|TCP_FLAG_PS=
-H)
-#define TCP_HP_BITS (~(TCP_RESERVED_BITS|TCP_FLAG_PSH))
+--=_courier-15613-1210594067-0001-2
+Content-Type: text/plain; charset=iso-8859-1; name="0002-TCP-FRTO-Fix-fallback-to-conventional-recovery.patch"
+Content-Transfer-Encoding: base64
+Content-ID: <Pine.LNX.4.64.0805121507451.1888@wrl-59.cs.helsinki.fi>
+Content-Description: 
+Content-Disposition: attachment; filename=0002-TCP-FRTO-Fix-fallback-to-conventional-recovery.patch
 
-@@ -1685,6 +1683,10 @@ static inline void tcp_reset_reno_sack(struct=20
-tcp_sock *tp)=20
-    tp->sacked_out =3D 0;
-}
+RnJvbSA1ODBkZGY5NmE0YzNhYmYwNWZlYjY4MzZjNWE2NjAyNjQ3NmNlODhk
+IE1vbiBTZXAgMTcgMDA6MDA6MDAgMjAwMQ0KRnJvbTogPT9JU08tODg1OS0x
+P3E/SWxwbz0yMEo9RTRydmluZW4/PSA8aWxwby5qYXJ2aW5lbkBoZWxzaW5r
+aS5maT4NCkRhdGU6IFN1biwgMTEgTWF5IDIwMDggMjI6NTA6MTMgKzAzMDAN
+ClN1YmplY3Q6IFtQQVRDSF0gW1RDUF0gRlJUTzogRml4IGZhbGxiYWNrIHRv
+IGNvbnZlbnRpb25hbCByZWNvdmVyeQ0KTUlNRS1WZXJzaW9uOiAxLjANCkNv
+bnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgY2hhcnNldD1JU08tODg1OS0xDQpD
+b250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiA4Yml0DQoNCkl0IHNlZW1zIHRo
+YXQgY29tbWl0IDAwOWEyZTNlNGVjICgiW1RDUF0gRlJUTzogSW1wcm92ZQ0K
+aW50ZXJvcGVyYWJpbGl0eSB3aXRoIG90aGVyIHVuZG9fbWFya2VyIHVzZXJz
+IikgcnVuIGludG8NCmFub3RoZXIgbGFuZC1taW5lIHdoaWNoIGNhdXNlZCBm
+YWxsYmFjayB0byBjb252ZW50aW9uYWwNCnJlY292ZXJ5IHRvIGJyZWFrOg0K
+DQoxLiBDdW11bGF0aXZlIEFDSyBhcnJpdmVzIGFmdGVyIEZSVE8gcmV0cmFu
+c21pc3Npb24NCjIuIHRjcF90cnlfdG9fb3BlbiBzZWVzIHplcm8gcmV0cmFu
+c19vdXQsIGNsZWFycyByZXRyYW5zX3N0YW1wDQogICB3aGljaCBzaG91bGQg
+YmUga2VwdCBsaWtlIGluIENBX0xvc3Mgc3RhdGUgaXQgd291bGQgYmUNCjMu
+IHVuZG9fbWFya2VyIGNoYW5nZSBhbGxvd2VkIHRjcF9wYWNrZXRfZGVsYXll
+ZCB0byByZXR1cm4NCiAgIHRydWUgYmVjYXVzZSBvZiB0aGUgY2xlYXJlZCBy
+ZXRyYW5zX3N0YW1wIG9uY2UgRlJUTyBpcw0KICAgdGVybWluYXRlZCBjYXVz
+aW5nIExvc3NVbmRvIHRvIG9jY3VyLCB3aGljaCBtZWFucyBhbGwgbG9zcw0K
+ICAgbWFya2luZ3MgRlJUTyBtYWRlIGFyZSByZXZlcnRlZC4NCg0KVGhpcyBt
+ZWFucyB0aGF0IHRoZSBjb252ZW50aW9uYWwgcmVjb3ZlcnkgYmFzaWNhbGx5
+IHJlY292ZXJlZA0Kb25lIGxvc3MgcGVyIFJUVCwgd2hpY2ggaXMgbm90IHRo
+YXQgZWZmaWNpZW50LiBJdCB3YXMgcXVpdGUNCnVub2J2aW91cyB0aGF0IHRo
+ZSB1bmRvX21hcmtlciBjaGFuZ2UgYnJva2VuIHNvbWV0aGluZyBsaWtlDQp0
+aGlzLCBJIGhhZCBhIHF1aXRlIGxvbmcgc2Vzc2lvbiB0byB0cmFjayBpdCBk
+b3duIGJlY2F1c2Ugb2YNCnRoZSBub24taW50dWl0aXZpbmVzcyBvZiB0aGUg
+YnVnIChsdWNraWx5IEkgaGFkIGEgdHJpdmlhbA0KcmVwcm9kdWNlciBhdCBo
+YW5kIGFuZCBJIHdhcyBhbHNvIGFibGUgdG8gbGVhcm4gdG8gdXNlIGtwcm9i
+ZXMNCmluIHRoZSBwcm9jZXNzIGFzIHdlbGwgOi0pKS4NCg0KVGhpcyB0b2dl
+dGhlciB3aXRoIHRoZSBOZXdSZW5vK0ZSVE8gZml4IHNob3VsZCBmaW5hbGx5
+IGZpeA0KRGFtb24ncyBwcm9ibGVtcy4NCg0KU2lnbmVkLW9mZi1ieTogSWxw
+byBK5HJ2aW5lbiA8aWxwby5qYXJ2aW5lbkBoZWxzaW5raS5maT4NClJlcG9y
+dGVkLWJ5OiBEYW1vbiBMLiBDaGVzc2VyIDxkYW1vbkBkYW10ZWsuY29tPg0K
+LS0tDQogbmV0L2lwdjQvdGNwX2lucHV0LmMgfCAgICAyICstDQogMSBmaWxl
+cyBjaGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25zKC0pDQoN
+CmRpZmYgLS1naXQgYS9uZXQvaXB2NC90Y3BfaW5wdXQuYyBiL25ldC9pcHY0
+L3RjcF9pbnB1dC5jDQppbmRleCA4MWVjZTFmLi40YzIyNTVjIDEwMDY0NA0K
+LS0tIGEvbmV0L2lwdjQvdGNwX2lucHV0LmMNCisrKyBiL25ldC9pcHY0L3Rj
+cF9pbnB1dC5jDQpAQCAtMjQ4MSw3ICsyNDgxLDcgQEAgc3RhdGljIHZvaWQg
+dGNwX3RyeV90b19vcGVuKHN0cnVjdCBzb2NrICpzaywgaW50IGZsYWcpDQog
+DQogCXRjcF92ZXJpZnlfbGVmdF9vdXQodHApOw0KIA0KLQlpZiAodHAtPnJl
+dHJhbnNfb3V0ID09IDApDQorCWlmICghdHAtPmZydG9fY291bnRlciAmJiB0
+cC0+cmV0cmFuc19vdXQgPT0gMCkNCiAJCXRwLT5yZXRyYW5zX3N0YW1wID0g
+MDsNCiANCiAJaWYgKGZsYWcgJiBGTEFHX0VDRSkNCi0tIA0KMS41LjIuMg0K
+DQo=
 
-static int tcp_is_sackfrto(const struct tcp_sock *tp)
-{
-    return (sysctl_tcp_frto =3D=3D 0x2) && !tcp_is_reno(tp);
-}
-/* F-RTO can only be used if TCP has never retransmitted anything other=
- than
- * head (SACK enhanced variant from Appendix B of RFC4138 is more robus=
-t=20
-here)
- */
-@@ -1701,7 +1703,7 @@ int tcp_use_frto(struct sock *sk)
-    if (icsk->icsk_mtup.probe_size)
-        return 0;
-
--    if (IsSackFrto())
-+    if (tcp_is_sackfrto(tp))
-        return 1;
-
-    /* Avoid expensive walking of rexmit queue if possible */
-@@ -1791,7 +1793,7 @@ void tcp_enter_frto(struct sock *sk)
-    /* Earlier loss recovery underway (see RFC4138; Appendix B).
-     * The last condition is necessary at least in tp->frto_counter cas=
-e.
-     */
--    if (IsSackFrto() && (tp->frto_counter ||
-+    if (tcp_is_sackfrto(tp) && (tp->frto_counter ||
-        ((1 << icsk->icsk_ca_state) & (TCPF_CA_Recovery|TCPF_CA_Loss)))=
- &&
-        after(tp->high_seq, tp->snd_una)) {
-        tp->frto_highmark =3D tp->high_seq;
-@@ -3123,7 +3125,7 @@ static int tcp_process_frto(struct sock *sk, int =
-flag)
-        return 1;
-    }
-
--    if (!IsSackFrto() || tcp_is_reno(tp)) {
-+    if (!tcp_is_sackfrto(tp)) {
-        /* RFC4138 shortcoming in step 2; should also have case c):
-         * ACK isn't duplicate nor advances window, e.g., opposite dir
-         * data, winupdate
---=20
-1.5.2.2
-
-
-----------------
-
-and in the name of completeness this is the patch file I have for the=20
-2nd patch (in the event I did not copy all the correct code):
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 81ece1f..4c2255c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2481,7 +2481,7 @@ static void tcp_try_to_open(struct sock *sk, int =
-flag)
-
-    tcp_verify_left_out(tp);
-
--    if (tp->retrans_out =3D=3D 0)
-+    if (!tp->frto_counter && tp->retrans_out =3D=3D 0)
-        tp->retrans_stamp =3D 0;
-
-    if (flag & FLAG_ECE)
---=20
-1.5.2.2
-
---------------------------
-
-Am I doing something wrong or have I missed something?  Patched against=
-=20
-a 2.6.24.1 kernel from kernel.org
-
-
---=20
-Damon L. Chesser
-damon@damtek.com
-http://www.linkedin.com/in/dchesser
-
+--=_courier-15613-1210594067-0001-2--
