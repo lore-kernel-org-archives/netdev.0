@@ -1,65 +1,40 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH next-2.6 3/3] [SCTP]: add sctp/remaddr table to
-	complete RFC remote address table OID
-Date: Mon, 12 May 2008 10:37:36 -0400
-Message-ID: <20080512143736.GA26305@hmsreliant.think-freely.org>
-References: <1210360481-16599-1-git-send-email-vladislav.yasevich@hp.com> <1210360566-16661-3-git-send-email-vladislav.yasevich@hp.com> <20080509.151518.202869638.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/2] Disable forwarding of LRO skbs
+Date: Mon, 12 May 2008 15:48:08 +0100
+Message-ID: <20080512144807.GH13470@solarflare.com>
+References: <20080430214845.GC14219@solarflare.com> <E1JrWFU-0001ue-00@gondolin.me.apana.org.au> <20080501110225.GG14219@solarflare.com> <1209640128.4191.30.camel@moonstone.uk.level5networks.com> <20080501111247.GA7756@gondor.apana.org.au> <1209640688.4191.35.camel@moonstone.uk.level5networks.com> <20080501113716.GA7955@gondor.apana.org.au> <20080501120850.GH14219@solarflare.com> <20080501121945.GA8389@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: vladislav.yasevich@hp.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Cc: Kieran Mansley <kmansley@solarflare.com>, davem@davemloft.net,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3564 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755840AbYELOiE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2008 10:38:04 -0400
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:39358 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751598AbYELOsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 10:48:55 -0400
 Content-Disposition: inline
-In-Reply-To: <20080509.151518.202869638.davem@davemloft.net>
+In-Reply-To: <20080501121945.GA8389@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 09, 2008 at 03:15:18PM -0700, David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Fri,  9 May 2008 15:16:06 -0400
+Herbert Xu wrote:
+> On Thu, May 01, 2008 at 01:08:51PM +0100, Ben Hutchings wrote:
+> >
+> > Depending on the driver, the packets may be received into skbs which are
+> > then attached to frag_list, or into page buffers which go in the frags
+> > array.  If most packets can be merged by LRO, deferring skb allocation
+> > and using the frags array is a performance win.
 > 
-> > Add support for RFC3873 remote address table OID.
-> > 
-> >       +--(5) sctpAssocRemAddrTable
-> >       |   |
-> >       |   |--(-) sctpAssocId (shared index)
-> >       |   |
-> >       |   +--(1) sctpAssocRemAddrType (index)
-> >       .   |
-> >       .   +--(2) sctpAssocRemAddr (index)
-> >       .   |
-> >           +--(3) sctpAssocRemAddrActive
-> >           |
-> >           +--(4) sctpAssocRemAddrHBActive
-> >           |
-> >           +--(5) sctpAssocRemAddrRTO
-> >           |
-> >           +--(6) sctpAssocRemAddrMaxPathRtx
-> >           |
-> >           +--(7) sctpAssocRemAddrRtx
-> >           |
-> >           +--(8) sctpAssocRemAddrStartTime
-> > 
-> > This patch places all the requsite data in /proc/net/sctp/remaddr.
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-> 
-> Applied.
+> But for each packet it's either going to be frag_list or page
+> frags, right? So we could still fragment based on frag_list if
+> it's present.
 
-Dave, where is this applied?  I don't see it in either your net or net-next
-trees?
+Please can you post an implementation of this.  I don't want this bug to
+be left unfixed.
 
-Thanks & Regards
-Neil
+Ben.
 
 -- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
