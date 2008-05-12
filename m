@@ -1,49 +1,62 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [PATCH 2/2] [RFT] [DCCP]: Policy-based packet dequeueing
-Date: Mon, 12 May 2008 10:33:54 +0200
-Message-ID: <200805121033.55262.tomasz@grobelny.oswiecenia.net>
-References: <bug_fix_and_qpolicy_interface> <1210578484-12571-2-git-send-email-gerrit@erg.abdn.ac.uk> <1210578484-12571-3-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH -next] net: hso driver uses rfkill functions
+Date: Mon, 12 May 2008 11:29:20 +0300
+Message-ID: <4827FFE0.1050702@teltonika.lt>
+References: <20080509095140.520aa39c.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, ajb@spheresystems.co.uk,
+	jgarzik <jgarzik@pobox.com>, akpm <akpm@linux-foundation.org>,
+	Greg KH <greg@kroah.com>
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:4040 "EHLO poczta.oswiecenia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751221AbYELIeS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 04:34:18 -0400
-In-Reply-To: <1210578484-12571-3-git-send-email-gerrit@erg.abdn.ac.uk>
-Content-Disposition: inline
+Received: from 82-135-208-232.static.zebra.lt ([82.135.208.232]:53403 "EHLO
+	[82.135.208.232]" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751221AbYELIkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 04:40:03 -0400
+In-Reply-To: <20080509095140.520aa39c.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dnia Monday 12 of May 2008, napisa=B3e=B6:
-> From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
->
-> This patch adds a generic infrastructure for policy-based dequeueing =
-of
-> TX packets and provides two policies:
->  * a simple FIFO policy (which is the default) and
->  * a priority based policy (set via socket options).
-> Both policies honour the tx_qlen sysctl for the maximum size of the w=
-rite
-> queue (can be overridden via socket options).
->
-> The priority policy uses skb->priority internally to assign an u32 pr=
-iority
-> identifier, using the same ranking as SO_PRIORITY. The skb->priority =
-field
-> is set to 0 when the packet leaves DCCP. The priority is supplied as
-> ancillary data using cmsg(3), the patch also provides the requisite p=
-arsing
-> routines.
->
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Signed-off-by: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+AFAIK Greg has (or he is going to do it) patch for rfkill so no more 
+depends or select RFKILL will be needed.
 
-I hope that's how you sign off patches (I'm doing it for the first time=
-).
---=20
-Regards,
-Tomasz Grobelny
+BR,
+Paulius Zaleckas
+
+Randy Dunlap wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> hso driver uses rfkill functions so should either depend on RFKILL
+> or select it.  This patch uses depends on RFKILL.
+> 
+> drivers/built-in.o: In function `hso_disconnect':
+> hso.c:(.text+0x868c9): undefined reference to `rfkill_unregister'
+> drivers/built-in.o: In function `hso_probe':
+> hso.c:(.text+0x88226): undefined reference to `rfkill_allocate'
+> hso.c:(.text+0x8829e): undefined reference to `rfkill_register'
+> hso.c:(.text+0x8860f): undefined reference to `rfkill_free'
+> make[1]: *** [.tmp_vmlinux1] Error 1
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> ---
+>  drivers/net/usb/Kconfig |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> --- next-20080509.orig/drivers/net/usb/Kconfig
+> +++ next-20080509/drivers/net/usb/Kconfig
+> @@ -156,7 +156,7 @@ config USB_NET_AX8817X
+>  
+>  config USB_HSO
+>  	tristate "Option USB High Speed Mobile Devices"
+> -	depends on USB
+> +	depends on USB && RFKILL
+>  	default n
+>  	help
+>  	  Choose this option if you have an Option HSDPA/HSUPA card.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
