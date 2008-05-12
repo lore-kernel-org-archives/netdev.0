@@ -1,34 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.25 crash: EIP: [<c02e2f14>] xfrm_output_resume+0x64/0x100 ss:esp 0068:c03a1e5c
-Date: Mon, 12 May 2008 15:46:42 +0800
-Message-ID: <20080512074642.GA1416@gondor.apana.org.au>
-References: <E1Jrtxr-0004in-00@gondolin.me.apana.org.au> <BAY103-DAV594320AC93E33D7335927B2DA0@phx.gbl> <BAY103-DAV122A113843FE9574256A0AB2D60@phx.gbl> <BAY103-DAV6446AEC1CBB678E5D0E52B2D30@phx.gbl> <20080509102509.GA11710@gondor.apana.org.au> <BAY103-DAV5B5CD83FC6A95A5DD48C9B2CC0@phx.gbl>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 0/2] [RFT] [DCCP]: Bug fix and a new sending-policy interface
+Date: Mon, 12 May 2008 08:48:02 +0100
+Message-ID: <1210578484-12571-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <bug_fix_and_qpolicy_interface>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Marco Berizzi <pupilla@hotmail.com>
+Cc: tomasz@grobelny.oswiecenia.net, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50577 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760154AbYELHqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 03:46:47 -0400
-Content-Disposition: inline
-In-Reply-To: <BAY103-DAV5B5CD83FC6A95A5DD48C9B2CC0@phx.gbl>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63235 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756445AbYELHsd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2008 03:48:33 -0400
+In-Reply-To: <bug_fix_and_qpolicy_interface>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 12, 2008 at 09:14:54AM +0200, Marco Berizzi wrote:
-> 
-> PS: linux version shown by dmesg is 2.6.24 but it
-> is the results of 'git bisect good v2.6.24' and
-> 'git bisect bad v2.6.25'
+One bug fix and a new packet dequeuing interface for DCCP developed by
+Tomasz Grobelny, which has been discussed on dccp@vger.
 
-So what's the changeset hash for the source that produced this
-kernel?
+Patch #1: Bug fix for CCID-3 (ported to CCID-4, too), where a too high t_delta
+          (RFC 3448, 4.6) was used. Analysis shows that the t_delta socket 
+	  field is not meaningful, it is replaced by an appropriate constant.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Patch #2: Provides a new basis/interface for sending packets, allowing the
+          user to set different send policies. This is especially interesting
+	  for multimedia applications which have to interact with the congestion
+	  control part of DCCP, where packets may be have different priorities
+	  (I/P/B video frames, re-synch frames) and may be subject to a
+	  playout.
+
+
+Test tree disclaimer: 
+=====================
+All patches are eventually meant for mainline but are kept in the DCCP test
+tree for testing and possible improvement. Comments and in particular testing
+are therefore especially welcome.
+
+The DCCP test tree contains the most recent bug fixes and code updates. The
+attribute `test' does not indicate minor quality - all patches have been 
+checked, the entire tree is fully bisectable and has been compile-tested on
+several different platforms.
+
+It can be checked out from
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp
+	-> subtree `dccp' for DCCP test tree
+	-> subtree `ccid4' for CCID-4 subtree
+
+Further information is on
+http://www.linux-foundation.org/en/Net:DCCP_Testing#Experimental_DCCP_source_tree
+
+
+The University of Aberdeen is a charity registered in Scotland, No SC013683.
+
