@@ -1,49 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 3/6] drivers/net: remove null pointer dereference
-Date: Mon, 12 May 2008 13:06:30 -0400
-Message-ID: <48287916.2090203@pobox.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] au1000_eth: remove useless check
+Date: Mon, 12 May 2008 18:44:21 +0200
+Message-ID: <20080512164421.GB22190@electric-eye.fr.zoreil.com>
 References: <Pine.LNX.4.64.0805121537320.3694@ask.diku.dk> <20080512161734.GA22190@electric-eye.fr.zoreil.com> <Pine.LNX.4.64.0805121852510.16384@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 To: Julia Lawall <julia@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47616 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752407AbYELRGg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2008 13:06:36 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:60380 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752974AbYELRHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 13:07:08 -0400
+Content-Disposition: inline
 In-Reply-To: <Pine.LNX.4.64.0805121852510.16384@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Julia Lawall wrote:
-> On Mon, 12 May 2008, Francois Romieu wrote:
-> 
->> Julia Lawall <julia@diku.dk> :
->> [...]
->>> diff -u -p a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
->>> --- a/drivers/net/au1000_eth.c	2008-04-27 11:41:11.000000000 +0200
->>> +++ b/drivers/net/au1000_eth.c	2008-05-12 09:32:54.000000000 +0200
->>> @@ -1242,7 +1242,7 @@ static irqreturn_t au1000_interrupt(int 
->>>  	struct net_device *dev = (struct net_device *) dev_id;
->>>  
->>>  	if (dev == NULL) {
->>> -		printk(KERN_ERR "%s: isr: null dev ptr\n", dev->name);
->>> +		printk(KERN_ERR "isr: null dev ptr\n");
->>>  		return IRQ_RETVAL(1);
->>>  	}
->> The lifespan of 'dev' covers the request_irq..free_irq interval in this
->> driver. The whole 'dev == NULL' block can be removed.
-> 
-> Will you do that?
+The lifespan of the device covers the request_irq .. free_irq interval.
 
-It's normal within the Linux community to give feedback on patches, and 
-sometimes the authors need to revise their patches if helpful feedback 
-arises.
+The cast of a void * pointer is not needed either.
 
-	Jeff
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-
-
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+index 3634b5f..7023d77 100644
+--- a/drivers/net/au1000_eth.c
++++ b/drivers/net/au1000_eth.c
+@@ -1239,12 +1239,7 @@ static int au1000_rx(struct net_device *dev)
+  */
+ static irqreturn_t au1000_interrupt(int irq, void *dev_id)
+ {
+-	struct net_device *dev = (struct net_device *) dev_id;
+-
+-	if (dev == NULL) {
+-		printk(KERN_ERR "%s: isr: null dev ptr\n", dev->name);
+-		return IRQ_RETVAL(1);
+-	}
++	struct net_device *dev = dev_id;
+ 
+ 	/* Handle RX interrupts first to minimize chance of overrun */
+ 
