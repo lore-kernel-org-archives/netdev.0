@@ -1,44 +1,82 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] au1000_eth: remove useless check
-Date: Mon, 12 May 2008 18:44:21 +0200
-Message-ID: <20080512164421.GB22190@electric-eye.fr.zoreil.com>
-References: <Pine.LNX.4.64.0805121537320.3694@ask.diku.dk> <20080512161734.GA22190@electric-eye.fr.zoreil.com> <Pine.LNX.4.64.0805121852510.16384@ask.diku.dk>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH 6/6] drivers/net/pppol2tp.c: remove null pointer dereference
+Date: Mon, 12 May 2008 18:12:38 +0100
+Message-ID: <48287A86.1070401@katalix.com>
+References: <Pine.LNX.4.64.0805121538510.3694@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
 To: Julia Lawall <julia@diku.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:60380 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752974AbYELRHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 13:07:08 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0805121852510.16384@ask.diku.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757522AbYELRMw@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0805121538510.3694@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The lifespan of the device covers the request_irq .. free_irq interval.
+Adding netdev to CC list.
 
-The cast of a void * pointer is not needed either.
+Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
+> 
+> If session is NULL, it is not possible to access its name field.  So I have
+> split apart the printing of the error message to drop the printing of the
+> name field in this case.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+I suggest add a note in the patch description that this bug will only be 
+hit if the driver's debug is enabled.
 
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 3634b5f..7023d77 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -1239,12 +1239,7 @@ static int au1000_rx(struct net_device *dev)
-  */
- static irqreturn_t au1000_interrupt(int irq, void *dev_id)
- {
--	struct net_device *dev = (struct net_device *) dev_id;
--
--	if (dev == NULL) {
--		printk(KERN_ERR "%s: isr: null dev ptr\n", dev->name);
--		return IRQ_RETVAL(1);
--	}
-+	struct net_device *dev = dev_id;
- 
- 	/* Handle RX interrupts first to minimize chance of overrun */
- 
+> This problem was found using the following semantic match
+> (http://www.emn.fr/x-info/coccinelle/)
+> 
+> // <smpl>
+> @@
+> expression E, E1;
+> identifier f;
+> statement S1,S2,S3;
+> @@
+> 
+> * if (E == NULL)
+> {
+>   ... when != if (E == NULL) S1 else S2
+>       when != E = E1
+> * E->f
+>   ... when any
+>   return ...;
+> }
+> else S3
+> // </smpl>
+
+Perhaps the above text should be in the additional info section of the 
+patch description?
+
+Since this is a network driver, can you resubmit the patch to netdev?
+
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> ---
+> 
+> diff -u -p a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+> --- linux-2.6/drivers/net/pppol2tp.c	2008-05-09 16:46:57.000000000 +0200
+> +++ linuxcopy/drivers/net/pppol2tp.c	2008-05-12 15:30:52.000000000 +0200
+> @@ -1621,9 +1621,16 @@ out_no_ppp:
+>  end:
+>  	release_sock(sk);
+>  
+> -	if (error != 0)
+> -		PRINTK(session ? session->debug : -1, PPPOL2TP_MSG_CONTROL, KERN_WARNING,
+> -		       "%s: connect failed: %d\n", session->name, error);
+> +	if (error != 0) {
+> +		if (session)
+> +			PRINTK(session->debug,
+> +				PPPOL2TP_MSG_CONTROL, KERN_WARNING,
+> +				"%s: connect failed: %d\n",
+> +				session->name, error);
+> +		else
+> +			PRINTK(-1, PPPOL2TP_MSG_CONTROL, KERN_WARNING,
+> +				"connect failed: %d\n", error);
+> +	}
+>  
+>  	return error;
+>  }
+> 
