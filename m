@@ -1,132 +1,42 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
-Date: Mon, 12 May 2008 19:40:29 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805121935440.13395@wrl-59.cs.helsinki.fi>
-References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi>
- <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
- <4823437D.20005@damtek.com> <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0805120859470.1041@wrl-59.cs.helsinki.fi> <4828279C.3010102@damtek.com>
- <Pine.LNX.4.64.0805121419330.1888@wrl-59.cs.helsinki.fi> <4828304F.4040908@damtek.com>
- <Pine.LNX.4.64.0805121503280.1888@wrl-59.cs.helsinki.fi> <482849C9.30905@damtek.com>
- <Pine.LNX.4.64.0805121656440.1888@wrl-59.cs.helsinki.fi>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: [PATCH 3/6] drivers/net: remove null pointer dereference
+Date: Mon, 12 May 2008 18:53:01 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0805121852510.16384@ask.diku.dk>
+References: <Pine.LNX.4.64.0805121537320.3694@ask.diku.dk>
+ <20080512161734.GA22190@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="=_courier-25840-1210599896-0001-2"
-Cc: Netdev <netdev@vger.kernel.org>
-To: "Damon L. Chesser" <damon@damtek.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36194 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756491AbYELQkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 12:40:31 -0400
-In-Reply-To: <Pine.LNX.4.64.0805121656440.1888@wrl-59.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0805121935441.13395@wrl-59.cs.helsinki.fi>
+Received: from mgw2.diku.dk ([130.225.96.92]:51778 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753548AbYELQxF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2008 12:53:05 -0400
+In-Reply-To: <20080512161734.GA22190@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Mon, 12 May 2008, Francois Romieu wrote:
 
---=_courier-25840-1210599896-0001-2
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0805121656442.1888@wrl-59.cs.helsinki.fi>
+> Julia Lawall <julia@diku.dk> :
+> [...]
+> > diff -u -p a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+> > --- a/drivers/net/au1000_eth.c	2008-04-27 11:41:11.000000000 +0200
+> > +++ b/drivers/net/au1000_eth.c	2008-05-12 09:32:54.000000000 +0200
+> > @@ -1242,7 +1242,7 @@ static irqreturn_t au1000_interrupt(int 
+> >  	struct net_device *dev = (struct net_device *) dev_id;
+> >  
+> >  	if (dev == NULL) {
+> > -		printk(KERN_ERR "%s: isr: null dev ptr\n", dev->name);
+> > +		printk(KERN_ERR "isr: null dev ptr\n");
+> >  		return IRQ_RETVAL(1);
+> >  	}
+> 
+> The lifespan of 'dev' covers the request_irq..free_irq interval in this
+> driver. The whole 'dev == NULL' block can be removed.
 
-On Mon, 12 May 2008, Ilpo Järvinen wrote:
+Will you do that?
 
-> On the bright side, the FRTO problem that was occuring previously is now fixed
-> but there seems to be very few ways to communicate with that device sanely
-> because it assumes in-order arrival and keeps discarding, as it seems, _all_
-> other segments... If you could try with this additional work-around attached
-> (keep the fixes there as well). Turn tcp_frto_inorder_workaround sysctl to 1
-> before testing with FRTO.
-
-I missed one thing with the last workaround patch, please use this one 
-instead if you haven't yet have time to try it.
-
--- 
- i.
---=_courier-25840-1210599896-0001-2
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1; name=0001-TCP-FRTO-workaround-in-order-only-receivers.patch
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.64.0805121940290.13395@wrl-59.cs.helsinki.fi>
-Content-Description: 
-Content-Disposition: attachment; filename=0001-TCP-FRTO-workaround-in-order-only-receivers.patch
-
-RnJvbSA5YmRiYmNhNDE2MmJhODlmMGJlMjdhNzRkNjliMzlhZjk1Y2YyYzk5
-IE1vbiBTZXAgMTcgMDA6MDA6MDAgMjAwMQ0KRnJvbTogPT9JU08tODg1OS0x
-P3E/SWxwbz0yMEo9RTRydmluZW4/PSA8aWxwby5qYXJ2aW5lbkBoZWxzaW5r
-aS5maT4NCkRhdGU6IE1vbiwgMTIgTWF5IDIwMDggMTc6MjQ6MDIgKzAzMDAN
-ClN1YmplY3Q6IFtQQVRDSF0gW1RDUF0gRlJUTzogd29ya2Fyb3VuZCBpbi1v
-cmRlciBvbmx5IHJlY2VpdmVycw0KTUlNRS1WZXJzaW9uOiAxLjANCkNvbnRl
-bnQtVHlwZTogdGV4dC9wbGFpbjsgY2hhcnNldD1JU08tODg1OS0xDQpDb250
-ZW50LVRyYW5zZmVyLUVuY29kaW5nOiA4Yml0DQoNCklmIHJlY2VpdmVyIGNv
-bnN1bWVzIHNlZ21lbnRzIHN1Y2Nlc3NmdWxseSBvbmx5IGluLW9yZGVyLA0K
-RlJUTyBmYWxsYmFjayB0byBjb252ZW50aW9uYWwgcmVjb3ZlcnkgcHJvZHVj
-ZXMgUlRPIGxvb3AgYmVjYXVzZQ0KRlJUTydzIGZvcndhcmQgdHJhbnNtaXNz
-aW9ucyB3aWxsIGFsd2F5cyBnZXQgZHJvcHBlZCBhbmQgbmVlZCB0bw0KYmUg
-cmVzZW50LCB5ZXQgYnkgZGVmYXVsdCB0aGV5J3JlIG5vdCBtYXJrZWQgYXMg
-bG9zdCAod2hpY2ggYXJlDQp0aGUgb25seSBzZWdtZW50cyB3ZSB3aWxsIHJl
-dHJhbnNtaXQgaW4gQ0FfTG9zcykuDQoNClNpZ25lZC1vZmYtYnk6IElscG8g
-SuRydmluZW4gPGlscG8uamFydmluZW5AaGVsc2lua2kuZmk+DQpSZXBvcnRl
-ZC1ieTogRGFtb24gTC4gQ2hlc3NlciA8ZGFtb25AZGFtdGVrLmNvbT4NCi0t
-LQ0KIGluY2x1ZGUvbmV0L3RjcC5oICAgICAgICAgIHwgICAgMSArDQogbmV0
-L2lwdjQvc3lzY3RsX25ldF9pcHY0LmMgfCAgICA4ICsrKysrKysrDQogbmV0
-L2lwdjQvdGNwX2lucHV0LmMgICAgICAgfCAgICA2ICsrKysrLQ0KIDMgZmls
-ZXMgY2hhbmdlZCwgMTQgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbnMoLSkN
-Cg0KZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L3RjcC5oIGIvaW5jbHVkZS9u
-ZXQvdGNwLmgNCmluZGV4IGNiNWIwMzMuLmU2ZTQ0YjggMTAwNjQ0DQotLS0g
-YS9pbmNsdWRlL25ldC90Y3AuaA0KKysrIGIvaW5jbHVkZS9uZXQvdGNwLmgN
-CkBAIC0yMjIsNiArMjIyLDcgQEAgZXh0ZXJuIGludCBzeXNjdGxfdGNwX2Fk
-dl93aW5fc2NhbGU7DQogZXh0ZXJuIGludCBzeXNjdGxfdGNwX3R3X3JldXNl
-Ow0KIGV4dGVybiBpbnQgc3lzY3RsX3RjcF9mcnRvOw0KIGV4dGVybiBpbnQg
-c3lzY3RsX3RjcF9mcnRvX3Jlc3BvbnNlOw0KK2V4dGVybiBpbnQgc3lzY3Rs
-X3RjcF9mcnRvX2lub3JkZXJfd29ya2Fyb3VuZDsNCiBleHRlcm4gaW50IHN5
-c2N0bF90Y3BfbG93X2xhdGVuY3k7DQogZXh0ZXJuIGludCBzeXNjdGxfdGNw
-X2RtYV9jb3B5YnJlYWs7DQogZXh0ZXJuIGludCBzeXNjdGxfdGNwX25vbWV0
-cmljc19zYXZlOw0KZGlmZiAtLWdpdCBhL25ldC9pcHY0L3N5c2N0bF9uZXRf
-aXB2NC5jIGIvbmV0L2lwdjQvc3lzY3RsX25ldF9pcHY0LmMNCmluZGV4IGJl
-YzZmZTguLjljYmRjY2YgMTAwNjQ0DQotLS0gYS9uZXQvaXB2NC9zeXNjdGxf
-bmV0X2lwdjQuYw0KKysrIGIvbmV0L2lwdjQvc3lzY3RsX25ldF9pcHY0LmMN
-CkBAIC03MjMsNiArNzIzLDE0IEBAIGN0bF90YWJsZSBpcHY0X3RhYmxlW10g
-PSB7DQogCQkucHJvY19oYW5kbGVyCT0gJnByb2NfZG9pbnR2ZWMNCiAJfSwN
-CiAJew0KKwkJLmN0bF9uYW1lCT0gQ1RMX1VOTlVNQkVSRUQsDQorCQkucHJv
-Y25hbWUJPSAidGNwX2ZydG9faW5vcmRlcl93b3JrYXJvdW5kIiwNCisJCS5k
-YXRhCQk9ICZzeXNjdGxfdGNwX2ZydG9faW5vcmRlcl93b3JrYXJvdW5kLA0K
-KwkJLm1heGxlbgkJPSBzaXplb2YoaW50KSwNCisJCS5tb2RlCQk9IDA2NDQs
-DQorCQkucHJvY19oYW5kbGVyCT0gJnByb2NfZG9pbnR2ZWMNCisJfSwJDQor
-CXsNCiAJCS5jdGxfbmFtZQk9IE5FVF9UQ1BfTE9XX0xBVEVOQ1ksDQogCQku
-cHJvY25hbWUJPSAidGNwX2xvd19sYXRlbmN5IiwNCiAJCS5kYXRhCQk9ICZz
-eXNjdGxfdGNwX2xvd19sYXRlbmN5LA0KZGlmZiAtLWdpdCBhL25ldC9pcHY0
-L3RjcF9pbnB1dC5jIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMNCmluZGV4IGIz
-OWYwZDguLmZiYWIxNTAgMTAwNjQ0DQotLS0gYS9uZXQvaXB2NC90Y3BfaW5w
-dXQuYw0KKysrIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMNCkBAIC04Nyw2ICs4
-Nyw3IEBAIGludCBzeXNjdGxfdGNwX3JmYzEzMzcgX19yZWFkX21vc3RseTsN
-CiBpbnQgc3lzY3RsX3RjcF9tYXhfb3JwaGFucyBfX3JlYWRfbW9zdGx5ID0g
-TlJfRklMRTsNCiBpbnQgc3lzY3RsX3RjcF9mcnRvIF9fcmVhZF9tb3N0bHkg
-PSAyOw0KIGludCBzeXNjdGxfdGNwX2ZydG9fcmVzcG9uc2UgX19yZWFkX21v
-c3RseTsNCitpbnQgc3lzY3RsX3RjcF9mcnRvX2lub3JkZXJfd29ya2Fyb3Vu
-ZCBfX3JlYWRfbW9zdGx5Ow0KIGludCBzeXNjdGxfdGNwX25vbWV0cmljc19z
-YXZlIF9fcmVhZF9tb3N0bHk7DQogDQogaW50IHN5c2N0bF90Y3BfbW9kZXJh
-dGVfcmN2YnVmIF9fcmVhZF9tb3N0bHkgPSAxOw0KQEAgLTE3MjksNyArMTcz
-MCw4IEBAIHN0YXRpYyB2b2lkIHRjcF9lbnRlcl9mcnRvX2xvc3Moc3RydWN0
-IHNvY2sgKnNrLCBpbnQgYWxsb3dlZF9zZWdtZW50cywgaW50IGZsYWcpDQog
-DQogCQkvKiBEb24ndCBsb3N0IG1hcmsgc2ticyB0aGF0IHdlcmUgZndkIHRy
-YW5zbWl0dGVkIGFmdGVyIFJUTyAqLw0KIAkJaWYgKCEoVENQX1NLQl9DQihz
-a2IpLT5zYWNrZWQmVENQQ0JfU0FDS0VEX0FDS0VEKSAmJg0KLQkJICAgICFh
-ZnRlcihUQ1BfU0tCX0NCKHNrYiktPmVuZF9zZXEsIHRwLT5mcnRvX2hpZ2ht
-YXJrKSkgew0KKwkJICAgIChzeXNjdGxfdGNwX2ZydG9faW5vcmRlcl93b3Jr
-YXJvdW5kIHx8DQorCQkgICAgICFhZnRlcihUQ1BfU0tCX0NCKHNrYiktPmVu
-ZF9zZXEsIHRwLT5mcnRvX2hpZ2htYXJrKSkpIHsNCiAJCQlUQ1BfU0tCX0NC
-KHNrYiktPnNhY2tlZCB8PSBUQ1BDQl9MT1NUOw0KIAkJCXRwLT5sb3N0X291
-dCArPSB0Y3Bfc2tiX3Bjb3VudChza2IpOw0KIAkJfQ0KQEAgLTE3NDYsNiAr
-MTc0OCw4IEBAIHN0YXRpYyB2b2lkIHRjcF9lbnRlcl9mcnRvX2xvc3Moc3Ry
-dWN0IHNvY2sgKnNrLCBpbnQgYWxsb3dlZF9zZWdtZW50cywgaW50IGZsYWcp
-DQogCQkJCQkgICAgIHN5c2N0bF90Y3BfcmVvcmRlcmluZyk7DQogCXRjcF9z
-ZXRfY2Ffc3RhdGUoc2ssIFRDUF9DQV9Mb3NzKTsNCiAJdHAtPmhpZ2hfc2Vx
-ID0gdHAtPmZydG9faGlnaG1hcms7DQorCWlmIChzeXNjdGxfdGNwX2ZydG9f
-aW5vcmRlcl93b3JrYXJvdW5kKQ0KKwkJdHAtPmhpZ2hfc2VxID0gdHAtPnNu
-ZF9ueHQ7DQogCVRDUF9FQ05fcXVldWVfY3dyKHRwKTsNCiANCiAJdGNwX2Ns
-ZWFyX3JldHJhbnNfaGludHNfcGFydGlhbCh0cCk7DQotLSANCjEuNS4yLjIN
-Cg0K
-
---=_courier-25840-1210599896-0001-2--
+julia
