@@ -1,55 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] drivers/net/ehea - remove unnecessary memset after kzalloc
-Date: Mon, 12 May 2008 14:38:17 -0700
-Message-ID: <1210628297.14967.16.camel@localhost>
-References: <20080512213601.626C91C0008F@mwinf2103.orange.fr>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10682] New: (net 8139too) dual ethernet
+ system, any reasonable network causes: NETDEV WATCHDOG: ethN: transmit
+ timed out
+Date: Mon, 12 May 2008 15:11:42 -0700
+Message-ID: <20080512151142.067b98d2.akpm@linux-foundation.org>
+References: <bug-10682-10286@http.bugzilla.kernel.org/>
+	<20080511211055.af2595e9.akpm@linux-foundation.org>
+	<20080512214014.GB27236@ebb.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	Christophe Jaillet <christophe.jaillet@wanadoo.fr>
-To: Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: "Bradley M. Kuhn" <bkuhn@ebb.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1425 "EHLO
-	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1753937AbYELWKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 18:10:34 -0400
-In-Reply-To: <20080512213601.626C91C0008F@mwinf2103.orange.fr>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60487 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754156AbYELWLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 18:11:46 -0400
+In-Reply-To: <20080512214014.GB27236@ebb.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
+On Mon, 12 May 2008 17:40:14 -0400
+"Bradley M. Kuhn" <bkuhn@ebb.org> wrote:
 
----
+> Andrew, thanks so much for your quick reply!
+> 
+> I reported this bug:
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=10682
+> > >
+> > >            Summary: (net 8139too) dual ethernet system, any reasonable
+> > >                     network causes: NETDEV WATCHDOG: ethN: transmit timed
+> > >                     out
+> > >            Product: Drivers
+> > >            Version: 2.5
+> > >      KernelVersion: 2.6.25.3
+> > >           Platform: All
+> > >         OS/Version: Linux
+> > >               Tree: Mainline
+> > >          Component: Network
+> > >         AssignedTo: jgarzik@pobox.com
+> > >         ReportedBy: bkuhn@ebb.org
+> 
+> Andrew Morton replied:
+> 
+> > I really dont' know where to begin with this, sorry.  It's _probably_
+> > some platform-related IRQ delivery problem.  But then again it might be
+> > something else :(
+> 
+> I understand.  FWIW, I tried every BIOS change imaginable to make sure it
+> wasn't some weird BIOS interaction.
+> 
+> > It would certainly be valuable to try some older kernels.
+> 
+> What are you suggestions regarding "how old"?  My plan *was* to install a
+> 2.4 based distribution next, but if there are specific 2.6.x versions you
+> think are worth trying, I'm happy to give a try.  I'd rather try the
+> 2.6.x's you suggest first, of course.
 
- drivers/net/ehea/ehea_main.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+I think an early 2.6 would be a good place to start - 2.6.5. 2.6.9, etc.
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index f9bc21c..fd4be0d 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -2207,18 +2207,16 @@ static void ehea_vlan_rx_register(struct net_device *dev,
- 	port->vgrp = grp;
- 
- 	cb1 = kzalloc(PAGE_SIZE, GFP_KERNEL);
- 	if (!cb1) {
- 		ehea_error("no mem for cb1");
- 		goto out;
- 	}
- 
--	memset(cb1->vlan_filter, 0, sizeof(cb1->vlan_filter));
--
- 	hret = ehea_h_modify_ehea_port(adapter->handle, port->logical_port_id,
- 				       H_PORT_CB1, H_PORT_CB1_ALL, cb1);
- 	if (hret != H_SUCCESS)
- 		ehea_error("modify_ehea_port failed");
- 
- 	kfree(cb1);
- out:
- 	return;
-
-
+If that doesn't help then we can probably safely assume that it's
+always been busted.  If that kernel works OK then we can drill in more
+cloesly, if you're so inclined (which we hope you are ;))
