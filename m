@@ -1,56 +1,91 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 3/3] [POWERPC] 86xx: mpc8610_hpcd: use ULI526X driver for
-	on-board ethernet
-Date: Mon, 12 May 2008 10:39:04 -0500
-Message-ID: <50B6B3D2-CE7F-459F-AF5E-C7D21821EF40@kernel.crashing.org>
-References: <20080429155333.GC28166@polina.dev.rtsoft.ru>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: IPV6 stateless address autoconfiguration
+Date: Tue, 13 May 2008 00:46:20 +0900 (JST)
+Message-ID: <20080513.004620.117676648.yoshfuji@linux-ipv6.org>
+References: <BECE1C148A85274EB554378A3E0EDF4906388342@USA0300MS02.na.xerox.net>
+	<20080512.051454.215453665.davem@davemloft.net>
+	<20080512.235837.12477853.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
-	linuxppc-dev@ozlabs.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20080429155333.GC28166@polina.dev.rtsoft.ru>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net
+To: Joseph.Bonitch@xerox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:40056 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348AbYELPqE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 11:46:04 -0400
+In-Reply-To: <20080512.235837.12477853.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+In article <20080512.235837.12477853.yoshfuji@linux-ipv6.org> (at Mon, 12 May 2008 23:58:37 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+
+> In article <20080512.051454.215453665.davem@davemloft.net> (at Mon, 12 May 2008 05:14:54 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+> 
+> > From: "Bonitch, Joseph" <Joseph.Bonitch@xerox.com>
+> > Date: Mon, 12 May 2008 07:46:11 -0400
+> > 
+> > > I sent a note last week regarding an issue I found with IPV6 stateless
+> > > address autoconfiguration.  I received no responses so I'm wondering if
+> > > there is another list I should be sending this problem too.
+> > 
+> > We've all received it and saw your posting, it's just that everyone is
+> > simply busy with other things.
+> 
+> Just FYI, I'm now looking into it.
+
+Okay, this is my tentative patch.
+Could you test this, please?
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+--- 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index e591e09..266a6bb 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1787,18 +1787,29 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
+ 		rt = rt6_lookup(dev_net(dev), &pinfo->prefix, NULL,
+ 				dev->ifindex, 1);
+ 
+-		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
+-			if (rt->rt6i_flags&RTF_EXPIRES) {
+-				if (valid_lft == 0) {
+-					ip6_del_rt(rt);
+-					rt = NULL;
+-				} else {
+-					rt->rt6i_expires = jiffies + rt_expires;
+-				}
++		if (rt && (rt->rt6i_flags & (RTF_ADDRCONF | RTF_PREFIX_RT)) == (RTF_ADDRCONF | RTF_PREFIX_RT)) {
++			/* Autoconf prefix route */
++			if (valid_lft == 0) {
++				ip6_del_rt(rt);
++				rt = NULL;
++			} else if (~rt_expires) {
++				/* not infinity */
++				rt->rt6i_expires = jiffies + rt_expires;
++				rt->rt6i_flags |= RTF_EXPIRES;
++			} else {
++				rt->rt6i_flags &= ~RTF_EXPIRES;
++				rt->rt6i_expires = 0;
+ 			}
+ 		} else if (valid_lft) {
++			int flags = RTF_ADDRCONF | RTF_PREFIX_RT;
++			clock_t expires = 0;
++			if (~rt_expires) {
++				/* not infinity */
++				flags |= RTF_EXPIRES;
++				expires = jiffies_to_clock_t(rt_expires);
++			}
+ 			addrconf_prefix_route(&pinfo->prefix, pinfo->prefix_len,
+-					      dev, jiffies_to_clock_t(rt_expires), RTF_ADDRCONF|RTF_EXPIRES|RTF_PREFIX_RT);
++					      dev, expires, flags);
+ 		}
+ 		if (rt)
+ 			dst_release(&rt->u.dst);
 
 
-On Apr 29, 2008, at 10:53 AM, Anton Vorontsov wrote:
-
-> As of current mainline tree, TULIP driver is unusable on MPC8610HPCD
-> boards. There is a patch[1] floating around (and also included in the
-> BSP), which tries to heal the situation, though the ethernet is still
-> unusable. Practically it takes ages to mount NFS filesystem:
->
-> VFS: Mounted root (nfs filesystem).
-> Freeing unused kernel memory: 180k init
-> nfs: server 10.0.0.2 not responding, still trying
-> nfs: server 10.0.0.2 OK
-> nfs: server 10.0.0.2 not responding, still trying
-> nfs: server 10.0.0.2 not responding, still trying
-> nfs: server 10.0.0.2 not responding, still trying
-> nfs: server 10.0.0.2 not responding, still trying
-> nfs: server 10.0.0.2 OK
-> nfs: server 10.0.0.2 not responding, still trying
->
-> So, instead of trying to add uli526x functionality into TULIP driver
-> (which is already bloated enough), I fixed existing ULI526X driver
-> and now it works perfectly well here.
->
-> [1] http://www.bitshrine.org/gpp/0024-MPC8610-ETH-Lyra-native-ethernet.txt
->
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> ---
-
-applied.
-
-- k
+--yoshfuji
