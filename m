@@ -1,87 +1,90 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH 05/12] net: use the common ascii hex helpers
-Date: Mon, 12 May 2008 12:05:38 -0700
-Message-ID: <1210619138.24092.56.camel@brick>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
+Date: Mon, 12 May 2008 22:12:47 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805122143080.14152@wrl-59.cs.helsinki.fi>
+References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi>
+ <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
+ <4823437D.20005@damtek.com> <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0805120859470.1041@wrl-59.cs.helsinki.fi> <4828279C.3010102@damtek.com>
+ <Pine.LNX.4.64.0805121419330.1888@wrl-59.cs.helsinki.fi> <4828304F.4040908@damtek.com>
+ <Pine.LNX.4.64.0805121503280.1888@wrl-59.cs.helsinki.fi> <482849C9.30905@damtek.com>
+ <Pine.LNX.4.64.0805121656440.1888@wrl-59.cs.helsinki.fi> <48288EFE.4020708@damtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: MULTIPART/MIXED; boundary=------------030103060709010400020208
+Cc: Netdev <netdev@vger.kernel.org>
+To: "Damon L. Chesser" <damon@damtek.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:39389 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756845AbYELTFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 15:05:43 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so1379070ywe.1
-        for <netdev@vger.kernel.org>; Mon, 12 May 2008 12:05:43 -0700 (PDT)
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45076 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758097AbYELTMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 15:12:50 -0400
+In-Reply-To: <48288EFE.4020708@damtek.com>
+Content-ID: <Pine.LNX.4.64.0805122148560.14152@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
- drivers/net/skfp/smt.c             |   13 ++++++-------
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    5 ++---
- 2 files changed, 8 insertions(+), 10 deletions(-)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-diff --git a/drivers/net/skfp/smt.c b/drivers/net/skfp/smt.c
-index ffbfb1b..805383b 100644
---- a/drivers/net/skfp/smt.c
-+++ b/drivers/net/skfp/smt.c
-@@ -19,6 +19,7 @@
- #include "h/smc.h"
- #include "h/smt_p.h"
- #include <linux/bitrev.h>
-+#include <linux/kernel.h>
- 
- #define KERNEL
- #include "h/smtstate.h"
-@@ -1730,20 +1731,18 @@ void fddi_send_antc(struct s_smc *smc, struct fddi_addr *dest)
- #endif
- 
- #ifdef	DEBUG
--#define hextoasc(x)	"0123456789abcdef"[x]
--
- char *addr_to_string(struct fddi_addr *addr)
- {
- 	int	i ;
- 	static char	string[6*3] = "****" ;
- 
- 	for (i = 0 ; i < 6 ; i++) {
--		string[i*3] = hextoasc((addr->a[i]>>4)&0xf) ;
--		string[i*3+1] = hextoasc((addr->a[i])&0xf) ;
--		string[i*3+2] = ':' ;
-+		string[i * 3] = hex_asc_hi(addr->a[i]);
-+		string[i * 3 + 1] = hex_asc_lo(addr->a[i]);
-+		string[i * 3 + 2] = ':';
- 	}
--	string[5*3+2] = 0 ;
--	return(string) ;
-+	string[5 * 3 + 2] = 0;
-+	return(string);
- }
- #endif
- 
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 1819ad7..fafe8eb 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -475,11 +475,10 @@ static void arp_print(struct arp_payload *payload)
- #define HBUFFERLEN 30
- 	char hbuffer[HBUFFERLEN];
- 	int j,k;
--	const char hexbuf[]= "0123456789abcdef";
- 
- 	for (k=0, j=0; k < HBUFFERLEN-3 && j < ETH_ALEN; j++) {
--		hbuffer[k++]=hexbuf[(payload->src_hw[j]>>4)&15];
--		hbuffer[k++]=hexbuf[payload->src_hw[j]&15];
-+		hbuffer[k++] = hex_asc_hi(payload->src_hw[j]);
-+		hbuffer[k++] = hex_asc_lo(payload->src_hw[j]);
- 		hbuffer[k++]=':';
- 	}
- 	hbuffer[--k]='\0';
+--------------030103060709010400020208
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0805122143082.14152@wrl-59.cs.helsinki.fi>
+
+On Mon, 12 May 2008, Damon L. Chesser wrote:
+
+> Ilpo Järvinen wrote:
+> > On Mon, 12 May 2008, Damon L. Chesser wrote:
+> >
+> > > I applied the patches in order, no errors on that.  I compiled a stock
+> > > 2.4.24-1 kernel with the patches, I saw no errors there.
+> > >
+> > > booted into new kernel, printed with tcp_frto=0.  set tcp_frto =2,
+> > > restarted
+> > > the network (is this required, or is this a dynamic setting?), printed
+> > > from OO
+> > > document.  No joy.  tcpdump log attached (almost 15 min. worth of data)
+> > >
+> > > If you want, I can re-compile and double check for any compilation errors,
+> > > however, if there were any, it was not sever enough to stop the
+> > > compilation.
+> >
+> > On the bright side, the FRTO problem that was occuring previously is now
+> > fixed but there seems to be very few ways to communicate with that device
+> > sanely because it assumes in-order arrival and keeps discarding, as it
+> > seems, _all_ other segments... If you could try with this additional
+> > work-around attached (keep the fixes there as well). Turn
+> > tcp_frto_inorder_workaround sysctl to 1 before testing with FRTO.
+> >
+> > ...Can you please send a dump about working case too, this seems rather
+> > nasty device to work with (tcp_frto = 0 is enough to attain it, no need to
+> > have another kernel booted for that) and I'm interested to see what are the
+> > loss rates without FRTO...
+> >
+> >
+> New patch added in with the first two, tcp_frto_inorder_workaround =1 test
+> printed 5 pages:  This worked.  Attached is the output of tcpdump.  Need
+> anything else?
+
+Thanks a lot for the testing & all. The picture is clear enough already, 
+so no additional help needed (I haven't yet looked the non-frto dump but
+I doubt anything earth-shattering turns out, it's mostly interesting for 
+finding out how efficiently such network printer TCP can consume segments 
+it's receiving once FRTO related "fuzzy" ordering effects are removed, 
+for comparison purposes, mostly interesting and that's for hc tcp guy like 
+me :-)).
+
+
+Then one question for DaveM:
+
+What I'm not fully sure of, is do we want this workaround to be a sysctl 
+or unconditionally enabled which causes potentially up to two unnecessary 
+retransmissions? With SACK one or both of them will get SACKed before they 
+get retransmitted (both cases have common scenarios). (I made that 
+workaround patch for 2.6.24.1, so YMMV if you just plainly try to apply it 
+to net-2.6).
+
 -- 
-1.5.5.1.404.g981f6
-
-
+ i.
+--------------030103060709010400020208--
