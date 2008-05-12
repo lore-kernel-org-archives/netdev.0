@@ -1,75 +1,55 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: kobject: Fix kobject_rename and !CONFIG_SYSFS
-Date: Mon, 12 May 2008 15:02:32 -0700
-Message-ID: <20080512220232.GA16914@kroah.com>
-References: <m163tocw43.fsf_-_@frodo.ebiederm.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] drivers/net/ehea - remove unnecessary memset after kzalloc
+Date: Mon, 12 May 2008 14:38:17 -0700
+Message-ID: <1210628297.14967.16.camel@localhost>
+References: <20080512213601.626C91C0008F@mwinf2103.orange.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756076AbYELWE0@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m163tocw43.fsf_-_@frodo.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+To: Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1425 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1753937AbYELWKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 18:10:34 -0400
+In-Reply-To: <20080512213601.626C91C0008F@mwinf2103.orange.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 08, 2008 at 02:41:00PM -0700, Eric W. Biederman wrote:
-> 
-> From: Eric W. Biederman <ebiederm@xmission.com>
-> 
-> When looking at kobject_rename I found two bugs with
-> that exist when sysfs support is disabled in the kernel.
-> 
-> kobject_rename does not change the name on the kobject when
-> sysfs support is not compiled in.
-> 
-> kobject_rename without locking attempts to check the
-> validity of a rename operation, which the kobject layer
-> simply does not have the infrastructure to do so.
-> 
-> This patch documents the previously unstated requirement of
-> kobject_rename that is the responsibility of the caller to
-> provide mutual exclusion and to be certain that the new_name
-> for the kobject is valid.
-> 
-> This patch modifies sysfs_rename_dir in !CONFIG_SYSFS case
-> to call kobject_set_name to actually change the kobject_name.
-> 
-> This patch removes the bogus and misleading check in kobject_rename
-> that attempts to see if a rename is valid.  The check is bogus
-> because we do not have the proper locking.  The check is misleading
-> because it looks like we can and do perform useful checking at the
-> kobject level that we don't.
-> 
-> The users in net/core/dev.c already have all of the necessary checks
-> in place and don't care.  The other use in net/core/wireless.c
-> as originally implemented is incorrect because it performs no locking
-> and a simple patch has been sent that adds the necessary locking
-> and sanity checks there.  Ensuring this patch will not have an
-> effect on users of kobject_rename or device_rename.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-Eric, Randy Dunlap has found that this patch breaks the build when
-CONFIG_SYSFS is not enabled.  Can you please fix it up before I send it
-to Linus?
+---
 
-The exact error is:
-In file included from /local/linsrc/next-20080509/include/linux/kobject.h:21,
-                 from /local/linsrc/next-20080509/include/linux/module.h:16,
-                 from /local/linsrc/next-20080509/include/linux/crypto.h:21,
-                 from /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets_64.c:7,
-                 from /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets.c:4:
-/local/linsrc/next-20080509/include/linux/sysfs.h: In function 'sysfs_rename_dir':
-/local/linsrc/next-20080509/include/linux/sysfs.h:142: error: implicit declaration of function 'kobject_set_name'
+ drivers/net/ehea/ehea_main.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index f9bc21c..fd4be0d 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -2207,18 +2207,16 @@ static void ehea_vlan_rx_register(struct net_device *dev,
+ 	port->vgrp = grp;
+ 
+ 	cb1 = kzalloc(PAGE_SIZE, GFP_KERNEL);
+ 	if (!cb1) {
+ 		ehea_error("no mem for cb1");
+ 		goto out;
+ 	}
+ 
+-	memset(cb1->vlan_filter, 0, sizeof(cb1->vlan_filter));
+-
+ 	hret = ehea_h_modify_ehea_port(adapter->handle, port->logical_port_id,
+ 				       H_PORT_CB1, H_PORT_CB1_ALL, cb1);
+ 	if (hret != H_SUCCESS)
+ 		ehea_error("modify_ehea_port failed");
+ 
+ 	kfree(cb1);
+ out:
+ 	return;
 
 
-thanks,
-
-greg k-h
