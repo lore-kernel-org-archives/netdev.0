@@ -1,98 +1,126 @@
-From: "Andy Johnson" <johnsonzjo@gmail.com>
-Subject: Re: A question about setting the net device for multicast forwarding in IPv4 and in IPv6
-Date: Mon, 12 May 2008 11:57:05 +0300
-Message-ID: <147a89290805120157y7af3ad9bge6ce23332b9040ca@mail.gmail.com>
-References: <31436f4a0805060638o2f97e3d7v8355fb678454da47@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
+Date: Mon, 12 May 2008 13:08:09 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805120859470.1041@wrl-59.cs.helsinki.fi>
+References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi>
+ <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
+ <4823437D.20005@damtek.com> <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
-	<yoshfuji@linux-ipv6.org>
-To: "David Shwatrz" <dshwatrz@gmail.com>
+Content-Type: MULTIPART/MIXED; boundary="=_courier-13210-1210270579-0001-2"
+Cc: Bug 213081 <213081@bugs.launchpad.net>, 478062@bugs.debian.org,
+	Netdev <netdev@vger.kernel.org>
+To: "Damon L. Chesser" <damon@damtek.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.232]:26997 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754778AbYELI5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 04:57:06 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so2554113rvb.1
-        for <netdev@vger.kernel.org>; Mon, 12 May 2008 01:57:05 -0700 (PDT)
-In-Reply-To: <31436f4a0805060638o2f97e3d7v8355fb678454da47@mail.gmail.com>
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58242 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbYELKIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 06:08:12 -0400
+In-Reply-To: <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi>
+Content-ID: <Pine.LNX.4.64.0805121246450.1888@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, David,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-  - I wanted to note that there is one more difference I had noted
-between IPv4 and IPv6
-regarding multicast forwarding:
+--=_courier-13210-1210270579-0001-2
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0805082336442.31776@wrl-59.cs.helsinki.fi>
 
-  - In IPv4, mc_forwarding is disabled by default (the value is 0). If
-you will try to change it thus:
-echo "1" >  /proc/sys/net/ipv4/conf/eth0/mc_forwarding
-you will get:
+On Thu, 8 May 2008, Ilpo Järvinen wrote:
 
-/proc/sys/net/ipv4/conf/eth0/mc_forwarding: Permission denied.
+> On Thu, 8 May 2008, Damon L. Chesser wrote:
+> 
+> > reran the print job with the correct kernel (for control reasons) and
+> > received
+> > the same results:  tcp_frto=1 no print.  tcp_frto=0 I can print.  Attached
+> > is
+> > the output of tcpdump
+> > 
+> > uname -r = 2.6.24-1-amd64
+> 
+> Well, that was a surprise, there must be something else too I didn't yet
+> notice. I don't think it's that necessary for you to test that patch I sent
+> earlier (basically the code paths it would have fixed were already in use with
+> tcp_frto=1). And that patch was "obviously correct" anyway though it wasn't
+> enough to fix this issue.
+> 
+> ...I too can probably reproduce this locally with small amount of work because
+> the receiver pattern is dead obvious from the logs.
 
-ls -al /proc/sys/net/ipv4/conf/eth0/mc_forwarding
-will show:
--r--r--r-- 1 root root 0 ...
+Yes indeed, some hping3 tcl acting as a clone of that network printer did 
+it :-). Below is the 2nd patch (both are necessary). Besides them there's 
+still SACKFRTO snd_nxt != frto_highmark problem remaining but it is a lot 
+less severe and rare than this problem was and I'm still trying to find a 
+simple way to fix it w/o adding another u32 to tcp_sock. I may need to 
+think this retrans_stamp usage more around the rest of TCP code too as 
+it seems to be somewhat suspicious here and there.
 
-But:
-  chmod 666  /proc/sys/net/ipv4/conf/eth0/mc_forwarding
-gives:
+-- 
+ i.
 
-chmod 666  /proc/sys/net/ipv4/conf/eth0/mc_forwarding
-chmod: changing permissions of
-`/proc/sys/net/ipv4/conf/eth0/mc_forwarding': Operation not permitted
+ps. ...you could have at least considered reporting upstream a bit 
+earlier if some problem goes away/appears by changing kernel version 
+(especially since you already tried some non-distro kernels and found 
+them non-working), it might help to catch devs attention who hardly
+hang much around distro bug trackers :-).
 
-User space daemons (like xorp) will set
-/proc/sys/net/ipv4/conf/all/mc_forwarding  to 1
-(because they call setsockopt with MRT_INIT, which calls
-IPV4_DEVCONF_ALL(sock_net(sk), MC_FORWARDING)++;
-in ip_mroute_setsockopt(), as you mentioned.
+--
+[PATCH] [TCP] FRTO: Fix fallback to conventional recovery
 
- In IPV6, this does not happen.
+It seems that commit 009a2e3e4ec ("[TCP] FRTO: Improve
+interoperability with other undo_marker users") run into
+another land-mine which caused fallback to conventional
+recovery to break:
 
-In IPV6, Multicast Routing is also disabled by default.
+1. Cumulative ACK arrives after FRTO retransmission
+2. tcp_try_to_open sees zero retrans_out, clears retrans_stamp
+   which should be kept like in CA_Loss state it would be
+3. undo_marker change allowed tcp_packet_delayed to return
+   true because of the cleared retrans_stamp once FRTO is
+   terminated causing LossUndo to occur, which means all loss
+   markings FRTO made are reverted.
 
-**But **
+This means that the conventional recovery basically recovered
+one loss per RTO, which is not that efficient. It becomes a
+serious problem to progress of the flow if many segments were
+lost or when losses will persist to the FRTO RTTs as well.
+Retrans_stamp was incorrectly cleared even before that
+particular change (though it's effect is not often significant).
 
-echo "1" >  /proc/sys/net/ipv6/conf/all/mc_forwarding
-**does** work and **does not** give an error (as in IPV4).
+It was quite unobvious that the undo_marker change broken
+something like this, I had a quite long session to track it
+down because of the non-intuitiviness of the bug (luckily I
+had a trivial reproducer at hand and I was also able to learn
+to use kprobes in the process as well :-)).
 
-I wonder what is the reason for it ? Or maybe it should be changed to
-have the same behaviour both in IPV6 and IPV4?
+This together with the NewReno+FRTO fix (62ab22278308a)
+should finally fix Damon's problems.
 
-Regards,
-Andy
+Compile tested (but I did experiment with a similar fix on
+a live kernel with systemtap+kprobes).
 
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Reported-by: Damon L. Chesser <damon@damtek.com>
+---
+ net/ipv4/tcp_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
-
-
-
-On Tue, May 6, 2008 at 4:38 PM, David Shwatrz <dshwatrz@gmail.com> wrote:
-> Hi,
->  I had noticed that in IPV4 we set the net device for multicast
-> forwarding in case
-> it is not already configured so, when the user space app calls
-> setsockopt() with MRT_INIT;
-> this is done by calling IPV4_DEVCONF_ALL(sock_net(sk), MC_FORWARDING)++;
-> in ip_mroute_setsockopt(); (net/ipv4/ipmr.c).
->
-> On the other hand, the parallel method in IPv6 does **not** performs
-> such action, as can be seen
-> from ip6_mroute_setsockopt() in net/ipv6/ip6mr.c.
->
-> My question is : is there any special for it to be so? (In case it
-> should be also in IPv6, I will happy to send such a patch).
->
-> Best Regards,
-> DS
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 81ece1f..4c2255c 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2481,7 +2481,7 @@ static void tcp_try_to_open(struct sock *sk, int flag)
+ 
+ 	tcp_verify_left_out(tp);
+ 
+-	if (tp->retrans_out == 0)
++	if (!tp->frto_counter && tp->retrans_out == 0)
+ 		tp->retrans_stamp = 0;
+ 
+ 	if (flag & FLAG_ECE)
+-- 
+1.5.2.2
+--=_courier-13210-1210270579-0001-2--
