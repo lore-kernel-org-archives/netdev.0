@@ -1,35 +1,46 @@
 From: Jesper Krogh <jesper@krogh.cc>
 Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Mon, 12 May 2008 08:49:51 +0200
-Message-ID: <4827E88F.6040701@krogh.cc>
-References: <86802c440805071130m62c1f4edydb3316dac4a2aba2@mail.gmail.com>	<20080507.141521.193714938.davem@davemloft.net>	<482498D5.9060008@krogh.cc>	<20080509.143229.174354251.davem@davemloft.net>	<4824C936.9000103@krogh.cc> <4824CE43.8060203@hp.com>	<4824D4C0.10201@krogh.cc> <1210374525.21330.6.camel@lap75545.ornl.gov>	<48253F33.3000109@krogh.cc> <adave1mp34l.fsf@cisco.com>
+Date: Mon, 12 May 2008 08:52:32 +0200
+Message-ID: <4827E930.3000008@krogh.cc>
+References: <20080507.141521.193714938.davem@davemloft.net>	<482498D5.9060008@krogh.cc>	<48258074.7060306@krogh.cc> <20080510.213431.193696750.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Dillow <dillowda@ornl.gov>, Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>, yhlu.kernel@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:49314 "EHLO
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:49526 "EHLO
 	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750752AbYELGty (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2008 02:49:54 -0400
-In-Reply-To: <adave1mp34l.fsf@cisco.com>
+	id S1756238AbYELGwj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2008 02:52:39 -0400
+In-Reply-To: <20080510.213431.193696750.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland Dreier wrote:
->  > Ok. It must be x8 then:
->  >                 Link: Supported Speed 2.5Gb/s, Width x8, ASPM L0s, Port 1
+David Miller wrote:
+> From: Jesper Krogh <jesper@krogh.cc>
+> Date: Sat, 10 May 2008 13:01:08 +0200
 > 
-> Actually that line is showing the supported capabilities... you want the
-> second line a few down that shows the actual status.
+>> Any good suggestions about the "Transmit timed out" messages. It
+>> currently leads to a system that "doesnt die" but doesnt respond within
+>> 15 minutes of load of the network adapter.
+> 
+> It's likely some bug in the driver that hangs the card for whatever
+> reason, which we'll need to work out.
 
-Ok it is still x8 then.
+Ok. I have been testing a bit more. It generally works fine, It seems
+the "transmit timed out" thing was provoked by dd in the tests, because
+it was creating a lot of small requests. (default bs=512).(over NFS).
+When the  blocksize went up, the problem dissapered. (and the numer of
+context-switches went down).
 
-                 Link: Speed 2.5Gb/s, Width x8
+When the blocksize went up, the performance likewise raised to 615MB/s.
+I haven't been able to get pass that number.
+
+This is where one of the cpu's are settling at 100% load.
 
 Jesper
+
 -- 
 Jesper
