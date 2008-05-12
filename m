@@ -1,86 +1,39 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
-Date: Mon, 12 May 2008 14:32:39 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805121419330.1888@wrl-59.cs.helsinki.fi>
-References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi>
- <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
- <4823437D.20005@damtek.com> <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0805120859470.1041@wrl-59.cs.helsinki.fi> <4828279C.3010102@damtek.com>
+From: "Bonitch, Joseph" <Joseph.Bonitch@xerox.com>
+Subject: IPV6 stateless address autoconfiguration
+Date: Mon, 12 May 2008 07:46:11 -0400
+Message-ID: <BECE1C148A85274EB554378A3E0EDF4906388342@USA0300MS02.na.xerox.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-355386201-1210591959=:1888"
-Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: "Damon L. Chesser" <damon@damtek.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58815 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbYELLcm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 07:32:42 -0400
-In-Reply-To: <4828279C.3010102@damtek.com>
+Received: from wvmler3.mail.xerox.com ([13.8.138.218]:54143 "EHLO
+	wvmler3.mail.xerox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753209AbYELLqW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 07:46:22 -0400
+Received: from wvmlir3.mail.xerox.com (wvmlir3.mail.xerox.com [13.147.8.223])
+	by wvmler3.mail.xerox.com (8.14.2/8.13.8) with ESMTP id m4CBkL7X016235
+	for <netdev@vger.kernel.org>; Mon, 12 May 2008 04:46:21 -0700
+Received: from wvmlir3.mail.xerox.com (localhost.localdomain [127.0.0.1])
+	by wvmlir3.mail.xerox.com (8.13.8/8.13.6) with ESMTP id m4CBkDZn020102
+	for <netdev@vger.kernel.org>; Mon, 12 May 2008 04:46:13 -0700
+Received: from USA0300GW002.na.xerox.net (usa0300gw002.na.xerox.net [13.135.210.15])
+	by wvmlir3.mail.xerox.com (8.13.8/8.13.6) with ESMTP id m4CBkA2H020037
+	for <netdev@vger.kernel.org>; Mon, 12 May 2008 04:46:13 -0700
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+I sent a note last week regarding an issue I found with IPV6 stateless
+address autoconfiguration.  I received no responses so I'm wondering if
+there is another list I should be sending this problem too.
 
----696208474-355386201-1210591959=:1888
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+If anyone has the information for the usagi-users list, that would be
+helpful - they changed the domain name of the mail list servers but
+have not updated their website yet.  The necessary information is
+xxxxx'd out in the archives.
 
-On Mon, 12 May 2008, Damon L. Chesser wrote:
+Or should I just submit a bug in bugzilla.kernel.org?
 
-> Ilpo Järvinen wrote:
-> > On Thu, 8 May 2008, Ilpo Järvinen wrote:
-> >
-> > > On Thu, 8 May 2008, Damon L. Chesser wrote:
-> > >
-> > > > reran the print job with the correct kernel (for control reasons) and
-> > > > received
-> > > > the same results:  tcp_frto=1 no print.  tcp_frto=0 I can print.  
-> > > Attached
-> > > > is
-> > > > the output of tcpdump
-> > > > > uname -r = 2.6.24-1-amd64
-> > >
-> > > Well, that was a surprise, there must be something else too I didn't yet
-> > > notice. I don't think it's that necessary for you to test that patch I
-> > > sent
-> > > earlier (basically the code paths it would have fixed were already in use
-> > > with
-> > > tcp_frto=1). And that patch was "obviously correct" anyway though it
-> > > wasn't
-> > > enough to fix this issue.
-> > >
-> > > ...I too can probably reproduce this locally with small amount of work
-> > > because
-> > > the receiver pattern is dead obvious from the logs.
-> >
-> > Yes indeed, some hping3 tcl acting as a clone of that network printer did it
-> > :-). Below is the 2nd patch (both are necessary). Besides them there's still
-> > SACKFRTO snd_nxt != frto_highmark problem remaining but it is a lot less
-> > severe and rare than this problem was and I'm still trying to find a simple
-> > way to fix it w/o adding another u32 to tcp_sock. I may need to think this
-> > retrans_stamp usage more around the rest of TCP code too as it seems to be
-> > somewhat suspicious here and there.
-> >
-> on the chance I am being dense:  apply this and the other one with the patch
-> command, then compile as normal to taste?
+Joe
 
-Yes, both are necessary to fully fix it. I'd cut unrelated portions out 
-first though to avoid potential problems before running patch. And if you 
-have a linux git tree instead, then git-am could be used as "a 
-replacement" for patch command (though it would work there too) after 
-trimming away things that are before the patch description (before [PATCH] 
-line). ...Then a normal compile & boot & test should make you a happy 
-person :-).
-
-If you were quick enough (ie., before DaveM does apply the patch upstream) 
-and bother to report the result back to netdev without dropping Ccs, 
-Dave will add Tested-by: tag with your name in it into the permanent 
-commit message which is cool when somebody starts to figure out based on 
-those tags who has done testing work for kernel... ;-)
-
-...Thanks for your efforts with this problem.
-
--- 
- i.
----696208474-355386201-1210591959=:1888--
