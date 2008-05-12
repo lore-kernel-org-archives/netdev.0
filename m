@@ -1,39 +1,50 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Fix FRTO+NewReno problem (Was: Re: This has a work around)
-Date: Mon, 12 May 2008 22:25:15 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805122220520.14152@wrl-59.cs.helsinki.fi>
-References: <48207F06.50306@damtek.com> <Pine.LNX.4.64.0805061912350.8965@wrl-59.cs.helsinki.fi>
- <4821C37A.7040306@damtek.com> <Pine.LNX.4.64.0805072357240.23091@wrl-59.cs.helsinki.fi>
- <4823437D.20005@damtek.com> <Pine.LNX.4.64.0805082336440.31776@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0805120859470.1041@wrl-59.cs.helsinki.fi> <4828279C.3010102@damtek.com>
- <Pine.LNX.4.64.0805121419330.1888@wrl-59.cs.helsinki.fi> <4828304F.4040908@damtek.com>
- <Pine.LNX.4.64.0805121503280.1888@wrl-59.cs.helsinki.fi> <482849C9.30905@damtek.com>
- <Pine.LNX.4.64.0805121656440.1888@wrl-59.cs.helsinki.fi> <48288EFE.4020708@damtek.com>
- <Pine.LNX.4.64.0805122143080.14152@wrl-59.cs.helsinki.fi> <4828981E.1000104@damtek.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: New GIT net tree naming...
+Date: Mon, 12 May 2008 14:47:15 -0400
+Message-ID: <20080512184715.GA18910@tuxdriver.com>
+References: <20080419.173510.257216556.davem@davemloft.net> <20080508014358.GE3412@tuxdriver.com> <200805080906.29603.hs4233@mail.mn-solutions.de> <20080508144046.GA3515@tuxdriver.com> <1ba2fa240805121039u1fc4273eh706c8868748b500c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: "Damon L. Chesser" <damon@damtek.com>
+Cc: Holger Schurig <hs4233@mail.mn-solutions.de>,
+	linux-wireless@vger.kernel.org, David Miller <davem@davemloft.net>,
+	sfr@canb.auug.org.au, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Tomas Winkler <tomasw@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42258 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752386AbYELTZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 15:25:19 -0400
-In-Reply-To: <4828981E.1000104@damtek.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:2651 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751635AbYELTad (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2008 15:30:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1ba2fa240805121039u1fc4273eh706c8868748b500c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 May 2008, Damon L. Chesser wrote:
+On Mon, May 12, 2008 at 08:39:22PM +0300, Tomas Winkler wrote:
 
-> One more question from me, what release will we see these updates in, 2.6.26?
+> How would you want me to handle bug fixes to go both directions
+> wireless-testing and upstream?
+> Because of huge code movement we are now doing in iwlwifi they are
+> currently just not the same.
+> Shell I send two versions or you want to back port them not sure how
+> do you want to track this...somewhere in merging loop it will create a
+> conflict.  Maybe this is maintainer trivia anyhow
+> I would like to make sure there are not glitches.
 
-Yes, 2.6.26 will have it. They will also be included to stable-2.6.25, 
-though I currently don't know yet what the minormost number will then be, 
-likely .4 or .5 but like I said I don't know yet :-). I don't know if 
-2.6.24.y will get some releases, if it does, it might come there as well. 
-...And about when distros acquire it to their kernel, I don't really have 
-any idea :-).
+It is a good question -- thanks for asking!
 
+If you think that two versions of the fix are appropriate, then please
+do send them.  If it is simply because the code moved I'll probably
+be able to figure it out, but if the code has actually changed it
+may be worthwhile.
+
+We are now trying to avoid rebasing "-next" patches as much as possible.
+So the version for the current release will be merged to Linus and I or
+Dave will have to figure-out how to resolve the merge conflicts when
+current is pulled to -next.  Providing a "-next' version of the patch
+can help to make sure that those merge conflicts are handled correctly.
+
+John
 -- 
- i.
+John W. Linville
+linville@tuxdriver.com
