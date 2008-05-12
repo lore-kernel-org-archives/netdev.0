@@ -1,52 +1,67 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 4/6] drivers/net/fs_enet: remove null pointer dereference
-Date: Mon, 12 May 2008 12:22:44 -0500
-Message-ID: <48287CE4.9050304@freescale.com>
-References: <Pine.LNX.4.64.0805121537590.3694@ask.diku.dk>
-	<20080512165142.GC22190@electric-eye.fr.zoreil.com>
+From: "Tomas Winkler" <tomasw@gmail.com>
+Subject: Re: New GIT net tree naming...
+Date: Mon, 12 May 2008 20:39:22 +0300
+Message-ID: <1ba2fa240805121039u1fc4273eh706c8868748b500c@mail.gmail.com>
+References: <20080419.173510.257216556.davem@davemloft.net>
+	 <20080508014358.GE3412@tuxdriver.com>
+	 <200805080906.29603.hs4233@mail.mn-solutions.de>
+	 <20080508144046.GA3515@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Julia Lawall <julia@diku.dk>, vbordug@ru.mvista.com, jgarzik@pobox.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20080512165142.GC22190@electric-eye.fr.zoreil.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: "Holger Schurig" <hs4233@mail.mn-solutions.de>,
+	linux-wireless@vger.kernel.org,
+	"David Miller" <davem@davemloft.net>, sfr@canb.auug.org.au,
+	akpm@linux-foundation.org, netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.177]:56356 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754748AbYELRjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 13:39:23 -0400
+Received: by py-out-1112.google.com with SMTP id u52so2576583pyb.10
+        for <netdev@vger.kernel.org>; Mon, 12 May 2008 10:39:22 -0700 (PDT)
+In-Reply-To: <20080508144046.GA3515@tuxdriver.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> Julia Lawall <julia@diku.dk> :
-> [...]
->> diff -u -p a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
->> --- a/drivers/net/fs_enet/fs_enet-main.c	2008-04-27 11:41:11.000000000 +0200
->> +++ b/drivers/net/fs_enet/fs_enet-main.c	2008-05-12 09:41:52.000000000 +0200
->> @@ -1093,7 +1093,7 @@ err:
->>  		if (registered)
->>  			unregister_netdev(ndev);
->>  
->> -		if (fep != NULL) {
->> +		if (fep && fep->ops) {
->>  			(*fep->ops->free_bd)(ndev);
->>  			(*fep->ops->cleanup_data)(ndev);
->>  		}
-> 
-> Extra cookies for the nice soul who:
-> - removes the 'if (registered)' test (it can not happen)
-> - uses different error lablels and unrolls the error path. I can not claim
->   that the current error path is wrong but it would not hurt if it was more
->   trivially balanced.
-> 
+On Thu, May 8, 2008 at 5:40 PM, John W. Linville <linville@tuxdriver.com> wrote:
+> On Thu, May 08, 2008 at 09:06:29AM +0200, Holger Schurig wrote:
+>> > For changes against Linus's current tree:
+>> ...
+>> > For development meant to be merged in the next merge
+>> > window we have:
+>>
+>> Is this relevant for us, the patch submitters?  Or should we
+>> continue to create patches against wireless-testing?
+>
+> Please continue to use wireless-testing.
+>
+> Thanks!
+>
+John
+How would you want me to handle bug fixes to go both directions
+wireless-testing and upstream?
+Because of huge code movement we are now doing in iwlwifi they are
+currently just not the same.
+Shell I send two versions or you want to back port them not sure how
+do you want to track this...somewhere in merging loop it will create a
+conflict.  Maybe this is maintainer trivia anyhow
+I would like to make sure there are not glitches.
 
-Please note that this code is going away very soon, when arch/ppc dies.
+Thanks
+Tomas
 
--Scott
+Thanks
+Tomas
+
+> JOhn
+> --
+> John W. Linville
+> linville@tuxdriver.com
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
