@@ -1,188 +1,427 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/2] [RFT] [CCID-3]: Bug fix for the inter-packet scheduling algorithm
-Date: Mon, 12 May 2008 08:48:03 +0100
-Message-ID: <1210578484-12571-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/2] [RFT] [DCCP]: Policy-based packet dequeueing
+Date: Mon, 12 May 2008 08:48:04 +0100
+Message-ID: <1210578484-12571-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <bug_fix_and_qpolicy_interface>
  <1210578484-12571-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1210578484-12571-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Cc: tomasz@grobelny.oswiecenia.net, dccp@vger.kernel.org,
 	netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63257 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63301 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757662AbYELHst (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2008 03:48:49 -0400
-In-Reply-To: <1210578484-12571-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754778AbYELHtL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2008 03:49:11 -0400
+In-Reply-To: <1210578484-12571-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a subtle bug in the calculation of the inter-packet gap and shows
-that t_delta, as it is currently used, is not needed. And hence replaced.
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 
-The algorithm from RFC 3448, 4.6 below continually computes a send time t_nom,
-which is initialised with the current time t_now; t_gran = 1E6 / HZ specifies
-the scheduling granularity, s the packet size, and X the sending rate:
+This patch adds a generic infrastructure for policy-based dequeueing of 
+TX packets and provides two policies:
+ * a simple FIFO policy (which is the default) and
+ * a priority based policy (set via socket options).
+Both policies honour the tx_qlen sysctl for the maximum size of the write
+queue (can be overridden via socket options). 
 
-  t_distance = t_nom - t_now;		// in microseconds
-  t_delta    = min(t_ipi, t_gran) / 2;	// `delta' parameter in microseconds
-
-  if (t_distance >= t_delta) {
-	reschedule after (t_distance / 1000) milliseconds;
-  } else {
-  	t_ipi  = s / X;			// inter-packet interval in usec
-	t_nom += t_ipi;			// compute the next send time
-	send packet now;
-  }
-
-
-1) Description of the bug
--------------------------
-Rescheduling requires a conversion into milliseconds, due to this call chain:
-
- * ccid3_hc_tx_send_packet() returns a timeout in milliseconds,
- * this value is converted by msecs_to_jiffies() in dccp_write_xmit(),
- * and finally used as jiffy-expires-value for sk_reset_timer().
-
-The highest jiffy resolution with HZ=1000 is 1 millisecond, so using a higher
-granularity does not seem to make much sense here.
-
-As a consequence, values of t_distance < 1000 are truncated to 0. This issue
-has so far been resolved by using instead
-
-  if (t_distance >= t_delta + 1000)
-	reschedule after (t_distance / 1000) milliseconds;
-
-The bug is in artificially inflating t_delta to t_delta' = t_delta + 1000. This
-is unnecessarily large, a more adequate value is t_delta' = max(t_delta, 1000).
-
-
-2) Consequences of using the corrected t_delta'
------------------------------------------------
-Since t_delta <= t_gran/2 = 10^6/(2*HZ), we have t_delta <= 1000 as long as
-HZ >= 500. This means that t_delta' = max(1000, t_delta) is constant at 1000.
-
-On the other hand, when using a coarse HZ value of HZ < 500, we have three
-sub-cases that can all be reduced to using another constant of t_gran/2.
-
- (a) The first case arises when t_ipi > t_gran. Here t_delta' is the constant
-     t_delta' = max(1000, t_gran/2) = t_gran/2.
-
- (b) If t_ipi <= 2000 < t_gran = 10^6/HZ usec, then t_delta = t_ipi/2 <= 1000,
-     so that t_delta' = max(1000, t_delta) = 1000 < t_gran/2.
-
- (c) If 2000 < t_ipi <= t_gran, we have t_delta' = max(t_delta, 1000) = t_ipi/2.
-
-In the second and third cases we have delay values less than t_gran/2, which is
-in the order of less than or equal to half a jiffy.
-
-How these are treated depends on how fractions of a jiffy are handled: they
-are either always rounded down to 0, or always rounded up to 1 jiffy (assuming
-non-zero values). In both cases the error is on average in the order of 50%.
-
-Thus we are not increasing the error when in the second/third case we replace
-a value less than t_gran/2 with 0, by setting t_delta' to the constant t_gran/2.
-
-
-3) Summary
-----------
-Fixing (1) and considering (2), the patch replaces t_delta with a constant,
-whose value depends on CONFIG_HZ, changing the above algorithm to:
-
-  if (t_distance >= t_delta')
-	reschedule after (t_distance / 1000) milliseconds;
-
-where t_delta' = 10^6/(2*HZ) if HZ < 500, and t_delta' = 1000 otherwise.
+The priority policy uses skb->priority internally to assign an u32 priority
+identifier, using the same ranking as SO_PRIORITY. The skb->priority field
+is set to 0 when the packet leaves DCCP. The priority is supplied as ancillary
+data using cmsg(3), the patch also provides the requisite parsing routines.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.h |   19 ++++++++++++++-----
- net/dccp/ccids/ccid3.c |   17 +++++++----------
- 2 files changed, 21 insertions(+), 15 deletions(-)
+ Documentation/networking/dccp.txt |   19 +++++
+ include/linux/dccp.h              |   19 +++++
+ net/dccp/Makefile                 |    2 
+ net/dccp/dccp.h                   |   12 +++
+ net/dccp/output.c                 |    7 --
+ net/dccp/proto.c                  |   67 +++++++++++++++++++-
+ net/dccp/qpolicy.c                |  126 ++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 244 insertions(+), 8 deletions(-)
 
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -47,12 +47,23 @@
- /* Two seconds as per RFC 3448 4.2 */
- #define TFRC_INITIAL_TIMEOUT	   (2 * USEC_PER_SEC)
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -45,6 +45,25 @@ http://linux-net.osdl.org/index.php/DCCP
  
--/* In usecs - half the scheduling granularity as per RFC3448 4.6 */
--#define TFRC_OPSYS_HALF_TIME_GRAN  (USEC_PER_SEC / (2 * HZ))
--
- /* Parameter t_mbi from [RFC 3448, 4.3]: backoff interval in seconds */
- #define TFRC_T_MBI		   64
+ Socket options
+ ==============
++DCCP_SOCKOPT_QPOLICY_ID sets the dequeuing policy for outgoing packets. It takes
++a policy ID as argument and can only be set before the connection (i.e. changes
++during an established connection are not supported). Currently, two policies are
++defined: the "simple" policy (DCCPQ_POLICY_SIMPLE), which does nothing special,
++and a priority-based variant (DCCPQ_POLICY_PRIO). The latter allows to pass an
++u32 priority value as ancillary data to sendmsg(), where higher numbers indicate
++a higher packet priority (similar to SO_PRIORITY). This ancillary data needs to
++be formatted using a cmsg(3) message header filled in as follows:
++	cmsg->cmsg_level = SOL_DCCP;
++	cmsg->cmsg_type	 = DCCP_SCM_PRIORITY;
++	cmsg->cmsg_len	 = CMSG_LEN(sizeof(uint32_t));	/* or CMSG_LEN(4) */
++
++DCCP_SOCKOPT_QPOLICY_TXQLEN sets the maximum length of the output queue. A zero
++value is always interpreted as unbounded queue length. If different from zero,
++the interpretation of this parameter depends on the current dequeuing policy
++(see above): the "simple" policy will enforce a fixed queue size by returning
++EAGAIN, whereas the "prio" policy enforces a fixed queue length by dropping the
++lowest-priority packet first. The default value for this parameter is
++initialised from /proc/sys/net/dccp/default/tx_qlen.
+ 
+ DCCP_SOCKOPT_SERVICE sets the service. The specification mandates use of
+ service codes (RFC 4340, sec. 8.1.2); if this socket option is not set,
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -215,6 +215,18 @@ extern void dccp_reqsk_send_ack(struct s
+ extern void dccp_send_sync(struct sock *sk, const u64 seq,
+ 			   const enum dccp_pkt_type pkt_type);
  
 +/*
-+ * The t_delta parameter (RFC 3448, 4.6): delays of less than %USEC_PER_MSEC are
-+ * rounded down to 0, since sk_reset_timer() here uses millisecond granularity.
-+ * Hence we can use a constant t_delta = %USEC_PER_MSEC when HZ >= 500. A coarse
-+ * resolution of HZ < 500 means that the error is below one timer tick (t_gran)
-+ * when using the constant t_delta  =  t_gran / 2  =  %USEC_PER_SEC / (2 * HZ).
++ * TX Packet Dequeueing Interface
 + */
-+#if (HZ >= 500)
-+# define TFRC_T_DELTA		   USEC_PER_MSEC
-+#else
-+# define TFRC_T_DELTA		   USEC_PER_SEC / (2 * HZ)
-+# warning Coarse CONFIG_HZ resolution -- higher value recommended for CCID-3.
-+#endif
++extern void		dccp_qpolicy_push(struct sock *sk, struct sk_buff *skb);
++extern bool		dccp_qpolicy_full(struct sock *sk);
++extern void		dccp_qpolicy_drop(struct sock *sk, struct sk_buff *skb);
++extern struct sk_buff	*dccp_qpolicy_top(struct sock *sk);
++extern struct sk_buff	*dccp_qpolicy_pop(struct sock *sk);
 +
- enum ccid3_options {
- 	TFRC_OPT_LOSS_EVENT_RATE = 192,
- 	TFRC_OPT_LOSS_INTERVALS	 = 193,
-@@ -83,7 +94,6 @@ enum ccid3_hc_tx_states {
-  * @no_feedback_timer - Handle to no feedback timer
-  * @t_ld - Time last doubled during slow start
-  * @t_nom - Nominal send time of next packet
-- * @delta - Send timer delta (RFC 3448, 4.6) in usecs
-  * @hist - Packet history
-  */
- struct ccid3_hc_tx_sock {
-@@ -101,7 +111,6 @@ struct ccid3_hc_tx_sock {
- 	struct timer_list		no_feedback_timer;
- 	ktime_t				t_ld;
- 	ktime_t				t_nom;
--	u32				delta;
- 	struct tfrc_tx_hist_entry	*hist;
++/*
++ * TX Packet Output and TX Timers
++ */
+ extern void dccp_write_xmit(struct sock *sk);
+ extern void dccp_write_space(struct sock *sk);
+ extern void dccp_flush_write_queue(struct sock *sk, long *time_budget);
+--- a/net/dccp/Makefile
++++ b/net/dccp/Makefile
+@@ -1,7 +1,7 @@
+ obj-$(CONFIG_IP_DCCP) += dccp.o dccp_ipv4.o
+ 
+ dccp-y := ccid.o feat.o input.o minisocks.o options.o \
+-	  output.o proto.o timer.o ackvec.o
++	  qpolicy.o output.o proto.o timer.o ackvec.o
+ 
+ dccp_ipv4-y := ipv4.o
+ 
+--- /dev/null
++++ b/net/dccp/qpolicy.c
+@@ -0,0 +1,126 @@
++/*
++ *  net/dccp/qpolicy.c
++ *
++ *  Policy-based packet dequeueing interface for DCCP.
++ *
++ *  Copyright (c) 2008 Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
++ *
++ *  This program is free software; you can redistribute it and/or
++ *  modify it under the terms of the GNU General Public License v2
++ *  as published by the Free Software Foundation.
++ */
++#include "dccp.h"
++
++/*
++ *	Simple Dequeueing Policy:
++ *	If tx_qlen is different from 0, enqueue up to tx_qlen elements.
++ */
++static void qpolicy_simple_push(struct sock *sk, struct sk_buff *skb)
++{
++	skb_queue_tail(&sk->sk_write_queue, skb);
++}
++
++static bool qpolicy_simple_full(struct sock *sk)
++{
++	return dccp_sk(sk)->dccps_tx_qlen &&
++	       sk->sk_write_queue.qlen >= dccp_sk(sk)->dccps_tx_qlen;
++}
++
++static struct sk_buff *qpolicy_simple_top(struct sock *sk)
++{
++	return skb_peek(&sk->sk_write_queue);
++}
++
++/*
++ *	Priority-based Dequeueing Policy:
++ *	If tx_qlen is different from 0 and the queue has reached its upper bound
++ *	of tx_qlen elements, replace older packets lowest-priority-first.
++ */
++static struct sk_buff *qpolicy_prio_best_skb(struct sock *sk)
++{
++	struct sk_buff *skb, *best = NULL;
++
++	skb_queue_walk(&sk->sk_write_queue, skb)
++		if (best == NULL || skb->priority > best->priority)
++			best = skb;
++	return best;
++}
++
++static struct sk_buff *qpolicy_prio_worst_skb(struct sock *sk)
++{
++	struct sk_buff *skb, *worst = NULL;
++
++	skb_queue_walk(&sk->sk_write_queue, skb)
++		if (worst == NULL || skb->priority < worst->priority)
++			worst = skb;
++	return worst;
++}
++
++static bool qpolicy_prio_full(struct sock *sk)
++{
++	if (qpolicy_simple_full(sk))
++		dccp_qpolicy_drop(sk, qpolicy_prio_worst_skb(sk));
++	return false;
++}
++
++/**
++ * struct dccp_qpolicy_operations  -  TX Packet Dequeueing Interface
++ * @push: add a new @skb to the write queue
++ * @full: indicates that no more packets will be admitted
++ * @top:  peeks at whatever the queueing policy defines as its `top'
++ */
++static struct dccp_qpolicy_operations {
++	void		(*push)	(struct sock *sk, struct sk_buff *skb);
++	bool		(*full) (struct sock *sk);
++	struct sk_buff*	(*top)  (struct sock *sk);
++
++} qpol_table[DCCPQ_POLICY_MAX] = {
++	[DCCPQ_POLICY_SIMPLE] = {
++		.push = qpolicy_simple_push,
++		.full = qpolicy_simple_full,
++		.top  = qpolicy_simple_top,
++	},
++	[DCCPQ_POLICY_PRIO] = {
++		.push = qpolicy_simple_push,
++		.full = qpolicy_prio_full,
++		.top  = qpolicy_prio_best_skb,
++	},
++};
++
++/*
++ *	Externally visible interface
++ */
++void dccp_qpolicy_push(struct sock *sk, struct sk_buff *skb)
++{
++	qpol_table[dccp_sk(sk)->dccps_qpolicy].push(sk, skb);
++}
++
++bool dccp_qpolicy_full(struct sock *sk)
++{
++	return qpol_table[dccp_sk(sk)->dccps_qpolicy].full(sk);
++}
++
++void dccp_qpolicy_drop(struct sock *sk, struct sk_buff *skb)
++{
++	if (skb != NULL) {
++		skb_unlink(skb, &sk->sk_write_queue);
++		kfree_skb(skb);
++	}
++}
++
++struct sk_buff *dccp_qpolicy_top(struct sock *sk)
++{
++	return qpol_table[dccp_sk(sk)->dccps_qpolicy].top(sk);
++}
++
++struct sk_buff *dccp_qpolicy_pop(struct sock *sk)
++{
++	struct sk_buff *skb = dccp_qpolicy_top(sk);
++
++	/* Clear any skb fields that we used internally */
++	skb->priority = 0;
++
++	if (skb)
++		skb_unlink(skb, &sk->sk_write_queue);
++	return skb;
++}
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -238,7 +238,7 @@ static void dccp_xmit_packet(struct sock
+ {
+ 	int err, len;
+ 	struct dccp_sock *dp = dccp_sk(sk);
+-	struct sk_buff *skb = skb_dequeue(&sk->sk_write_queue);
++	struct sk_buff *skb = dccp_qpolicy_pop(sk);
+ 
+ 	if (unlikely(skb == NULL))
+ 		return;
+@@ -328,7 +328,7 @@ void dccp_write_xmit(struct sock *sk)
+ 	struct dccp_sock *dp = dccp_sk(sk);
+ 	struct sk_buff *skb;
+ 
+-	while ((skb = skb_peek(&sk->sk_write_queue))) {
++	while ((skb = dccp_qpolicy_top(sk))) {
+ 		int rc = ccid_hc_tx_send_packet(dp->dccps_hc_tx_ccid, sk, skb);
+ 
+ 		switch (ccid_packet_dequeue_eval(rc)) {
+@@ -342,8 +342,7 @@ void dccp_write_xmit(struct sock *sk)
+ 			dccp_xmit_packet(sk);
+ 			break;
+ 		case CCID_PACKET_ERR:
+-			skb_dequeue(&sk->sk_write_queue);
+-			kfree_skb(skb);
++			dccp_qpolicy_drop(sk, skb);
+ 			dccp_pr_debug("packet discarded due to err=%d\n", rc);
+ 		}
+ 	}
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -195,6 +195,19 @@ enum dccp_feature_numbers {
+ 	DCCPF_MAX_CCID_SPECIFIC = 255,
  };
  
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -90,19 +90,16 @@ static inline u64 rfc3390_initial_rate(struct sock *sk)
- 	return scaled_div(w_init << 6, hctx->rtt);
- }
++/* DCCP socket control message types for cmsg */
++enum dccp_cmsg_type {
++	DCCP_SCM_PRIORITY = 1,
++	DCCP_SCM_MAX
++};
++
++/* DCCP priorities for outgoing/queued packets */
++enum dccp_packet_dequeueing_policy {
++	DCCPQ_POLICY_SIMPLE,
++	DCCPQ_POLICY_PRIO,
++	DCCPQ_POLICY_MAX
++};
++
+ /* DCCP socket options */
+ #define DCCP_SOCKOPT_PACKET_SIZE	1 /* XXX deprecated, without effect */
+ #define DCCP_SOCKOPT_SERVICE		2
+@@ -208,6 +221,8 @@ enum dccp_feature_numbers {
+ #define DCCP_SOCKOPT_CCID		13
+ #define DCCP_SOCKOPT_TX_CCID		14
+ #define DCCP_SOCKOPT_RX_CCID		15
++#define DCCP_SOCKOPT_QPOLICY_ID		16
++#define DCCP_SOCKOPT_QPOLICY_TXQLEN	17
+ #define DCCP_SOCKOPT_CCID_RX_INFO	128
+ #define DCCP_SOCKOPT_CCID_TX_INFO	192
  
--/*
-- * Recalculate t_ipi and delta (should be called whenever X changes)
-+/**
-+ * ccid3_update_send_interval  -  Calculate new t_ipi = s / X_inst
-+ * This respects the granularity of X_inst (64 * bytes/second).
-  */
- static void ccid3_update_send_interval(struct ccid3_hc_tx_sock *hctx)
+@@ -459,6 +474,8 @@ struct dccp_ackvec;
+  * @dccps_hc_rx_ccid - CCID used for the receiver (or receiving half-connection)
+  * @dccps_hc_tx_ccid - CCID used for the sender (or sending half-connection)
+  * @dccps_options_received - parsed set of retrieved options
++ * @dccps_qpolicy - TX dequeueing policy, one of %dccp_packet_dequeueing_policy
++ * @dccps_tx_qlen - maximum length of the TX queue
+  * @dccps_role - role of this sock, one of %dccp_role
+  * @dccps_hc_rx_insert_options - receiver wants to add options when acking
+  * @dccps_hc_tx_insert_options - sender wants to add options when sending
+@@ -501,6 +518,8 @@ struct dccp_sock {
+ 	struct ccid			*dccps_hc_rx_ccid;
+ 	struct ccid			*dccps_hc_tx_ccid;
+ 	struct dccp_options_received	dccps_options_received;
++	__u8				dccps_qpolicy;
++	__u32				dccps_tx_qlen;
+ 	enum dccp_role			dccps_role:2;
+ 	__u8				dccps_hc_rx_insert_options:1;
+ 	__u8				dccps_hc_tx_insert_options:1;
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -186,6 +186,7 @@ int dccp_init_sock(struct sock *sk, cons
+ 	dp->dccps_rate_last	= jiffies;
+ 	dp->dccps_role		= DCCP_ROLE_UNDEFINED;
+ 	dp->dccps_service	= DCCP_SERVICE_CODE_IS_ABSENT;
++	dp->dccps_tx_qlen	= sysctl_dccp_tx_qlen;
+ 
+ 	INIT_LIST_HEAD(&dp->dccps_featneg);
+ 	/* control socket doesn't need feat nego */
+@@ -539,6 +540,20 @@ static int do_dccp_setsockopt(struct soc
+ 	case DCCP_SOCKOPT_RECV_CSCOV:
+ 		err = dccp_setsockopt_cscov(sk, val, true);
+ 		break;
++	case DCCP_SOCKOPT_QPOLICY_ID:
++		if (sk->sk_state != DCCP_CLOSED)
++			err = -EISCONN;
++		else if (val < 0 || val >= DCCPQ_POLICY_MAX)
++			err = -EINVAL;
++		else
++			dp->dccps_qpolicy = val;
++		break;
++	case DCCP_SOCKOPT_QPOLICY_TXQLEN:
++		if (val < 0)
++			err = -EINVAL;
++		else
++			dp->dccps_tx_qlen = val;
++		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 		break;
+@@ -642,6 +657,12 @@ static int do_dccp_getsockopt(struct soc
+ 	case DCCP_SOCKOPT_RECV_CSCOV:
+ 		val = dp->dccps_pcrlen;
+ 		break;
++	case DCCP_SOCKOPT_QPOLICY_ID:
++		val = dp->dccps_qpolicy;
++		break;
++	case DCCP_SOCKOPT_QPOLICY_TXQLEN:
++		val = dp->dccps_tx_qlen;
++		break;
+ 	case 128 ... 191:
+ 		return ccid_hc_rx_getsockopt(dp->dccps_hc_rx_ccid, sk, optname,
+ 					     len, (u32 __user *)optval, optlen);
+@@ -684,6 +705,43 @@ int compat_dccp_getsockopt(struct sock *
+ EXPORT_SYMBOL_GPL(compat_dccp_getsockopt);
+ #endif
+ 
++static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb)
++{
++	struct cmsghdr *cmsg = CMSG_FIRSTHDR(msg);
++
++	/*
++	 * Assign an (opaque) qpolicy priority value to skb->priority.
++	 *
++	 * We are overloading this skb field for use with the qpolicy subystem.
++	 * The skb->priority is normally used for the SO_PRIORITY option, which
++	 * is initialised from sk_priority. Since the assignment of sk_priority
++	 * to skb->priority happens later (on layer 3), we overload this field
++	 * for use with queueing priorities as long as the skb is on layer 4.
++	 * The default priority value (if nothing is set) is 0.
++	 */
++	skb->priority = 0;
++
++	for (; cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
++
++		if (!CMSG_OK(msg, cmsg))
++			return -EINVAL;
++
++		if (cmsg->cmsg_level != SOL_DCCP)
++			continue;
++
++		switch (cmsg->cmsg_type) {
++		case DCCP_SCM_PRIORITY:
++			if (cmsg->cmsg_len != CMSG_LEN(sizeof(__u32)))
++				return -EINVAL;
++			skb->priority = *(__u32 *)CMSG_DATA(cmsg);
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++	return 0;
++}
++
+ int dccp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		 size_t len)
  {
--	/* Calculate new t_ipi = s / X_inst (X_inst is in 64 * bytes/second) */
- 	hctx->t_ipi = scaled_div32(((u64)hctx->s) << 6, hctx->x);
+@@ -699,8 +757,7 @@ int dccp_sendmsg(struct kiocb *iocb, str
  
--	/* Calculate new delta by delta = min(t_ipi / 2, t_gran / 2) */
--	hctx->delta = min_t(u32, hctx->t_ipi / 2, TFRC_OPSYS_HALF_TIME_GRAN);
--
--	ccid3_pr_debug("t_ipi=%u, delta=%u, s=%u, X=%u\n", hctx->t_ipi,
--		       hctx->delta, hctx->s, (unsigned)(hctx->x >> 6));
-+	ccid3_pr_debug("t_ipi=%u, s=%u, X=%u\n", hctx->t_ipi,
-+		       hctx->s, (unsigned)(hctx->x >> 6));
- }
+ 	lock_sock(sk);
  
- static u32 ccid3_hc_tx_idle_rtt(struct ccid3_hc_tx_sock *hctx, ktime_t now)
-@@ -336,8 +333,8 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
- 		 * else
- 		 *       // send the packet in (t_nom - t_now) milliseconds.
- 		 */
--		if (delay - (s64)hctx->delta >= 1000)
--			return (u32)delay / 1000L;
-+		if (delay >= TFRC_T_DELTA)
-+			return (u32)delay / USEC_PER_MSEC;
- 
- 		ccid3_hc_tx_update_win_count(hctx, now);
+-	if (sysctl_dccp_tx_qlen &&
+-	    (sk->sk_write_queue.qlen >= sysctl_dccp_tx_qlen)) {
++	if (dccp_qpolicy_full(sk)) {
+ 		rc = -EAGAIN;
+ 		goto out_release;
  	}
+@@ -728,7 +785,11 @@ int dccp_sendmsg(struct kiocb *iocb, str
+ 	if (rc != 0)
+ 		goto out_discard;
+ 
+-	skb_queue_tail(&sk->sk_write_queue, skb);
++	rc = dccp_msghdr_parse(msg, skb);
++	if (rc != 0)
++		goto out_discard;
++
++	dccp_qpolicy_push(sk, skb);
+ 	dccp_write_xmit(sk);
+ out_release:
+ 	release_sock(sk);
 
 
 The University of Aberdeen is a charity registered in Scotland, No SC013683.
