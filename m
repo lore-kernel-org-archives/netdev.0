@@ -1,32 +1,66 @@
-From: "Changli Gao" <xiaosuo@gmail.com>
-Subject: Re: TCP receive splice performance
-Date: Mon, 12 May 2008 21:01:16 +0800
-Message-ID: <412e6f7f0805120601h1121deaewd69ecebc744f258d@mail.gmail.com>
-References: <200805121545.50390.opurdila@ixiacom.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 4/6] drivers/net/fs_enet: remove null pointer dereference
+Date: Mon, 12 May 2008 15:38:26 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0805121537590.3694@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Jens Axboe" <jens.axboe@oracle.com>
-To: "Octavian Purdila" <opurdila@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.191]:14620 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758129AbYELNBW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 09:01:22 -0400
-Received: by ti-out-0910.google.com with SMTP id b6so776459tic.23
-        for <netdev@vger.kernel.org>; Mon, 12 May 2008 06:01:16 -0700 (PDT)
-In-Reply-To: <200805121545.50390.opurdila@ixiacom.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752123AbYELNiq@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 12, 2008 at 8:45 PM, Octavian Purdila <opurdila@ixiacom.com> wrote:
->
-> In the second test case the same test was performed, only this time with some
-> modification in the network stack to disable the copying from/to userspace.
-> Throughput was 122-123MB which is practically line-rate.
-It is interesting. Could you show us your modification?
+From: Julia Lawall <julia@diku.dk>
 
--- 
-Regards，
-Changli Gao(xiaosuo@gmail.com)
+The following code appears in the function fs_init_instance in the file drivers/net/fs_enet/fs_enet-main.c.
+
+	if (fep->ops == NULL) {
+		printk(KERN_ERR DRV_MODULE_NAME
+		       ": %s No matching ops found (%d).\n",
+		       ndev->name, fpi->fs_no);
+		err = -EINVAL;
+		goto err;
+	}
+
+This code implies that at the point of err, fep->ops can be NULL, so an
+extra test is needed before dereferencing this value.
+
+
+This problem was found using the following semantic match
+(http://www.emn.fr/x-info/coccinelle/)
+
+// <smpl>
+@@
+expression E, E1;
+identifier f;
+statement S1,S2,S3;
+@@
+
+* if (E == NULL)
+{
+  ... when != if (E == NULL) S1 else S2
+      when != E = E1
+* E->f
+  ... when any
+  return ...;
+}
+else S3
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+
+diff -u -p a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+--- a/drivers/net/fs_enet/fs_enet-main.c	2008-04-27 11:41:11.000000000 +0200
++++ b/drivers/net/fs_enet/fs_enet-main.c	2008-05-12 09:41:52.000000000 +0200
+@@ -1093,7 +1093,7 @@ err:
+ 		if (registered)
+ 			unregister_netdev(ndev);
+ 
+-		if (fep != NULL) {
++		if (fep && fep->ops) {
+ 			(*fep->ops->free_bd)(ndev);
+ 			(*fep->ops->cleanup_data)(ndev);
+ 		}
