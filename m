@@ -1,55 +1,96 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH] DCCP: Fix to reset the connection with Reset Code 5
-	Option Error while receive invalid option
-Date: Tue, 13 May 2008 11:32:19 +0100
-Message-ID: <20080513103218.GA28532@gerrit.erg.abdn.ac.uk>
-References: <48294E9C.4060209@cn.fujitsu.com> <20080513083033.GA11707@gerrit.erg.abdn.ac.uk> <48296623.8040405@cn.fujitsu.com>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH] DCCP: Fix to reset the connection with Reset Code 5	Option
+ Error while receive invalid option
+Date: Tue, 13 May 2008 18:52:21 +0800
+Message-ID: <482972E5.8060703@cn.fujitsu.com>
+References: <48294E9C.4060209@cn.fujitsu.com> <20080513083033.GA11707@gerrit.erg.abdn.ac.uk> <48296623.8040405@cn.fujitsu.com> <20080513103218.GA28532@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>, Arnaldo <acme@redhat.com>,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41975 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752914AbYEMKcz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 06:32:55 -0400
-Content-Disposition: inline
-In-Reply-To: <48296623.8040405@cn.fujitsu.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:61429 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754928AbYEMKwK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 06:52:10 -0400
+In-Reply-To: <20080513103218.GA28532@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Gerrit Renker:
+
+I think your should update your patch to avoid compile error:
+
++#define dccp_feat_print_opt(opt, feat, val, len, mandatory)              \
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++    dccp_pr_debug("%s(%s, ", dccp_feat_oname(opt), dccp_feat_fname(feat));\
++    dccp_feat_printvals(feat, val, len);                      \
++    dccp_pr_debug_cat(") %s\n", mandatory ? "!" : "");
+...snip...
++#else    /* ! CONFIG_IP_DCCP_DEBUG */
++#define dccp_feat_print_opt(opt, feat, fval, mandatory)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The first dccp_feat_print_opt() take 5 parameters when 
+CONFIG_IP_DCCP_DEBUG, but the second one just take 4.
+
+
+Gerrit Renker wrote:
+>> Sorry for my stupid patch since I can get the test git tree.
+>>
+>>     
+> There is nothing at all wrong with the patch and I apologise for the
+> remark, since it is not your fault not to be aware of the test tree.
 >
-> Sorry for my stupid patch since I can get the test git tree.
+> That was my fault - in at least one of the 4 cases David Miller copied the
+> changeset over to dccp@vger. I am working with Arnaldo de Melo (the DCCP
+> maintainer) on a solution for this, to avoid future overlap. It is not
+> your issue, so sorry.
 >
-There is nothing at all wrong with the patch and I apologise for the
-remark, since it is not your fault not to be aware of the test tree.
-
-That was my fault - in at least one of the 4 cases David Miller copied the
-changeset over to dccp@vger. I am working with Arnaldo de Melo (the DCCP
-maintainer) on a solution for this, to avoid future overlap. It is not
-your issue, so sorry.
-
-For the moment the best is to apply this patch and fix the problem in
-the mainline variant of net/dccp.
-
-
-> But, Is there any other way to get the git tree? I download a patch from 
-> following URL:
+> For the moment the best is to apply this patch and fix the problem in
+> the mainline variant of net/dccp.
+>
+>
 >   
-> http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/test-tree/test-tree_2.6.25.diff.gz
-> I used this patch to my linux-2.6.25, there is error happend. and it has 
-> compile error too.
-This is possible since the snapshots are taken on the day a new release
-comes out. Thanks for the notice, the outdated snapshot will be replaced.
-
+>> But, Is there any other way to get the git tree? I download a patch from 
+>> following URL:
+>>   
+>> http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/test-tree/test-tree_2.6.25.diff.gz
+>> I used this patch to my linux-2.6.25, there is error happend. and it has 
+>> compile error too.
+>>     
+> This is possible since the snapshots are taken on the day a new release
+> comes out. Thanks for the notice, the outdated snapshot will be replaced.
 >
-> Is this patch is based on linux-2.6.25? If I want to send a patch, I  
-> must create my patch base on what version of kernel?
+>   
+>> Is this patch is based on linux-2.6.25? If I want to send a patch, I  
+>> must create my patch base on what version of kernel?
+>>
+>>     
+> The test tree tracks the netdev-2.6 kernel and only touches net/dccp. It
+> can be pulled from
+> 	git://eden-feed.erg.abdn.ac.uk/dccp_exp (subtree `dccp')
 >
-The test tree tracks the netdev-2.6 kernel and only touches net/dccp. It
-can be pulled from
-	git://eden-feed.erg.abdn.ac.uk/dccp_exp (subtree `dccp')
+>
+> Gerrit
+>
+>
+>   
 
 
-Gerrit
+-- 
+--------------------------------------------------
+Wei Yongjun
+Development Dept.I
+Nanjing Fujitsu Nanda Software Tech. Co., Ltd.(FNST)
+8/F., Civil Defense Building, No.189 Guangzhou Road,
+Nanjing, 210029, China
+TEL: +86+25-86630523-836
+COINS: 79955-836
+FAX: +86+25-83317685
+MAIL: yjwei@cn.fujitsu.com
+--------------------------------------------------
+This communication is for use by the intended recipient(s) only and may contain information that is privileged, confidential and exempt from disclosure under applicable law. If you are not an intended recipient of this communication, you are hereby notified that any dissemination, distribution or copying hereof is strictly prohibited.  If you have received this communication in error, please notify me by reply e-mail, permanently delete this communication from your system, and destroy any hard copies you may have printed
+
