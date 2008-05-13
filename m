@@ -1,45 +1,55 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c
-Date: Tue, 13 May 2008 11:20:07 +0100
-Message-ID: <48296B57.50006@andyfurniss.entadsl.com>
-References: <4815BCDF.6070704@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804281714090.1888@wrl-59.cs.helsinki.fi> <48162070.4030405@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804282210390.16635@wrl-59.cs.helsinki.fi> <481986FD.8070108@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805011216230.19286@wrl-59.cs.helsinki.fi> <48199342.9010406@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805021342480.30402@wrl-59.cs.helsinki.fi> <481C54AF.1050109@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805121349400.1888@wrl-59.cs.helsinki.fi>
-Reply-To: lists@andyfurniss.entadsl.com
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH] DCCP: Fix to reset the connection with Reset Code 5
+	Option Error while receive invalid option
+Date: Tue, 13 May 2008 11:32:19 +0100
+Message-ID: <20080513103218.GA28532@gerrit.erg.abdn.ac.uk>
+References: <48294E9C.4060209@cn.fujitsu.com> <20080513083033.GA11707@gerrit.erg.abdn.ac.uk> <48296623.8040405@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: =?UTF-8?B?77+9?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.ukfsn.org ([77.75.108.10]:58142 "EHLO mail.ukfsn.org"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41975 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752199AbYEMKUI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 06:20:08 -0400
-In-Reply-To: <Pine.LNX.4.64.0805121349400.1888@wrl-59.cs.helsinki.fi>
+	id S1752914AbYEMKcz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 06:32:55 -0400
+Content-Disposition: inline
+In-Reply-To: <48296623.8040405@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=EF=BF=BD wrote:
-> On Sat, 3 May 2008, Andy Furniss wrote:
->=20
->> Ilpo J=EF=BF=BDrvinen wrote:
->>
->>> Since I've not yet found any other path that could lead to it excep=
-t the
->>> yesterday's false-positive, getting the write queue state more accu=
-rately
->>> captured by the debug patch on the very first occassion might help.=
- Here's
->>> less spammy version of the debug patch (I added one printout as wel=
-l to get
->>> more usefulness to transitional state reported).
->>>
->> OK, increased CONFIG_LOG_BUF_SHIFT from 14 to 18 and reversed old / =
-applied
->> new patch.
->=20
-> Any luck so far?
->=20
+>
+> Sorry for my stupid patch since I can get the test git tree.
+>
+There is nothing at all wrong with the patch and I apologise for the
+remark, since it is not your fault not to be aware of the test tree.
 
-No, nothing yet :-(
+That was my fault - in at least one of the 4 cases David Miller copied the
+changeset over to dccp@vger. I am working with Arnaldo de Melo (the DCCP
+maintainer) on a solution for this, to avoid future overlap. It is not
+your issue, so sorry.
 
+For the moment the best is to apply this patch and fix the problem in
+the mainline variant of net/dccp.
+
+
+> But, Is there any other way to get the git tree? I download a patch from 
+> following URL:
+>   
+> http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/test-tree/test-tree_2.6.25.diff.gz
+> I used this patch to my linux-2.6.25, there is error happend. and it has 
+> compile error too.
+This is possible since the snapshots are taken on the day a new release
+comes out. Thanks for the notice, the outdated snapshot will be replaced.
+
+>
+> Is this patch is based on linux-2.6.25? If I want to send a patch, I  
+> must create my patch base on what version of kernel?
+>
+The test tree tracks the netdev-2.6 kernel and only touches net/dccp. It
+can be pulled from
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp (subtree `dccp')
+
+
+Gerrit
