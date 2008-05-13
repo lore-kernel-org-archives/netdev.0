@@ -1,54 +1,57 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: kobject: Fix kobject_rename and !CONFIG_SYSFS
-Date: Tue, 13 May 2008 00:00:06 -0700
-Message-ID: <m1prrqbseh.fsf@frodo.ebiederm.org>
-References: <m163tocw43.fsf_-_@frodo.ebiederm.org>
-	<20080512220232.GA16914@kroah.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
+Date: Tue, 13 May 2008 08:28:53 +0100
+Message-ID: <20080513072853.GB4514@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Randy Dunlap <randy.dunlap@oracle.com>, Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Cc: Arnaldo <acme@redhat.com>
+To: netdev@vger.kernel.org, dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46012 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756244AbYEMHKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 03:10:13 -0400
-In-Reply-To: <20080512220232.GA16914@kroah.com> (Greg KH's message of "Mon, 12
-	May 2008 15:02:32 -0700")
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63367 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754518AbYEMH3T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 03:29:19 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg KH <greg@kroah.com> writes:
+There is an API and an address resolution problem involved in specifying a
+separate/distinct socket type `SOCK_DCCP'.
 
->
-> Eric, Randy Dunlap has found that this patch breaks the build when
-> CONFIG_SYSFS is not enabled.  Can you please fix it up before I send it
-> to Linus?
->
-> The exact error is:
-> In file included from /local/linsrc/next-20080509/include/linux/kobject.h:21,
->                  from /local/linsrc/next-20080509/include/linux/module.h:16,
->                  from /local/linsrc/next-20080509/include/linux/crypto.h:21,
->                  from
-> /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets_64.c:7,
->                  from
-> /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets.c:4:
-> /local/linsrc/next-20080509/include/linux/sysfs.h: In function
-> 'sysfs_rename_dir':
-> /local/linsrc/next-20080509/include/linux/sysfs.h:142: error: implicit
-> declaration of function 'kobject_set_name'
+The problem is that the default getaddrinfo(3) does not support the `alien'
+SOCK_DCCP socket type (it returns `ai_socktype not supported'), thus requiring
+various cheats/work-arounds in order to bring up a DCCP socket on a dual-stack
+host.
 
-I will take a look in the morning and see if I can see what is wrong.
+In order to get an address at all,
+ * a hint with an ai_socktype=SOCK_DGRAM or SOCK_STREAM needs to be supplied;
+ * using ai_socktype=0 causes IPv4 addresses to be returned first, so that a
+   server on a dual-stack host needs to be coaxed into v6 mode to accept
+   incoming v6 connections.
 
-Which tree was this error against?  I thought I tested this case,
-and I'm wondering if there might be another patch that is hiding
-kobject_set_name.
+The suggestion therefore is to not use a separate SOCK_DCCP socket type,
+and to put DCCP up under SOCK_DGRAM (being in fact datagram-based), i.e.
 
-Eric
+	socket(sd, SOCK_DCCP, 0);	
+
+is replaced by	
+	
+	socket(sd, SOCK_DGRAM, IPPROTO_DCCP);
+
+
+Having also seen the work-arounds in programs that other people wrote,
+I believe that the above change will make it in the long term easier for
+people to write DCCP-enabled applications.
+
+It also relieves the libc writers from having to support another socket type.
+
+A quick look at SCTP shows that they also did not introduce new socket types,
+relying on the existing SOCK_STREAM/SOCK_SEQPACKET ones.
+
+It might be still early enough to resolve this, before it is widely used
+and can then only be supported via work-arounds.
+
+I can't see a disadvantage here and the only work required is to update that
+datagram-based not automatically means connection-less.
+
+Is there support for this change or are there reasons to keep SOCK_DCCP?
