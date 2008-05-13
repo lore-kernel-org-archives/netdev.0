@@ -1,46 +1,94 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
-Date: Tue, 13 May 2008 12:14:07 -0700
-Message-ID: <4829E87F.1070006@redhat.com>
-References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk> <20080513162325.GF15306@ghostprotocols.net> <20080513170325.GB11499@gerrit.erg.abdn.ac.uk> <200805132037.39580.rdenis@simphalempin.com>
+From: "Benjamin Thery " <Benjamin.Thery@bull.net>
+Subject: Re: kobject: Fix kobject_rename and !CONFIG_SYSFS
+Date: Tue, 13 May 2008 21:33:30 +0200
+Message-ID: <20080513213330.utev64tlw4ss0kgw@intran0x.frec.bull.fr>
+References: <m163tocw43.fsf_-_@frodo.ebiederm.org>
+	<20080512220232.GA16914@kroah.com> <m1prrqbseh.fsf@frodo.ebiederm.org>
+	<4829A4BD.3020007@bull.net> <20080513164438.GA31563@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: =?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?= <rdenis@simphalempin.com>
+Content-Type: text/plain; charset=US-ASCII;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:49297 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754809AbYEMTPj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 15:15:39 -0400
-In-Reply-To: <200805132037.39580.rdenis@simphalempin.com>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:45610 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755399AbYEMTdI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 15:33:08 -0400
+In-Reply-To: <20080513164438.GA31563@kroah.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Quoting Greg KH <greg@kroah.com>:
 
-R=C3=A9mi Denis-Courmont wrote:
-> In any case, getaddrinfo() should be patched to
-> [...]
+> On Tue, May 13, 2008 at 04:25:01PM +0200, Benjamin Thery wrote:
+>> Eric W. Biederman wrote:
+>>> Greg KH <greg@kroah.com> writes:
+>>>> Eric, Randy Dunlap has found that this patch breaks the build when
+>>>> CONFIG_SYSFS is not enabled.  Can you please fix it up before I send it
+>>>> to Linus?
+>>>>
+>>>> The exact error is:
+>>>> In file included from
+>>>> /local/linsrc/next-20080509/include/linux/kobject.h:21,
+>>>>                  from
+>>>> /local/linsrc/next-20080509/include/linux/module.h:16,
+>>>>                  from
+>>>> /local/linsrc/next-20080509/include/linux/crypto.h:21,
+>>>>                  from
+>>>> /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets_64.c:7,
+>>>>                  from
+>>>> /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets.c:4:
+>>>> /local/linsrc/next-20080509/include/linux/sysfs.h: In function
+>>>> 'sysfs_rename_dir':
+>>>> /local/linsrc/next-20080509/include/linux/sysfs.h:142: error: implicit
+>>>> declaration of function 'kobject_set_name'
+>>> I will take a look in the morning and see if I can see what is wrong.
+>>> Which tree was this error against?  I thought I tested this case,
+>>> and I'm wondering if there might be another patch that is hiding
+>>> kobject_set_name.
+>>
+>> Argh, headers "cross-dependencies":
+>>
+>> * linux/kobject.h includes linux/sysfs.h before defining
+>>   kobject_set_name()
+>>
+>> * linux/sysfs.h needs to include linux/kobject.h to find
+>>   kobject_set_name() definition (for inlined sysfs_rename_dir() when
+>>   CONFIG_SYSFS=n)
+>>
+>>
+>> sysfs_rename_dir() is only called by kobject.c, kobject_rename().
+>> I guess this kind of patch is not acceptable to fix the depency?
+>
+> Ick, no.  I'd rather add a kobject_set_name() function prototype to
+> sysfs.h in this case, that should remove the error, right?
 
-What should be the behavior is socktype and protocol are zero?  Should
-these two types be returned by default?  What others?  So far we return
-TCP, UDP, and raw socket information.  I'd rather keep the list short
-but since we already have raw sockets in there (because they are in
-POSIX) I won't reject anything that's more useful than raw sockets.
+That's what I did first. But I thought it was worse than the above
+solution.
+Anyway, adding kobject_set_name() to sysfs.h did fix the error.
 
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
+-Benjamin
 
-iD8DBQFIKeh/2ijCOnn/RHQRAhTeAJ9jrv+RS6rkrGJvan9ADq4S86d2XQCggST4
-/MYPzB+2s2/m1VYsmUPAeLg=3D
-=3DFSYf
------END PGP SIGNATURE-----
+>
+> thanks,
+>
+> greg k-h
+>
+>
+
+
+
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
+
