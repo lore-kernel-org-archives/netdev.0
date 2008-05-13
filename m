@@ -1,38 +1,45 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [patch 18/21] Filesystem: Socket inode defragmentation
-Date: Tue, 13 May 2008 17:28:12 +0400
-Message-ID: <20080513132810.GA7152@2ka.mipt.ru>
-References: <20080510030831.796641881@sgi.com> <20080510030918.882272887@sgi.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
+Date: Tue, 13 May 2008 14:46:31 +0100
+Message-ID: <20080513134631.GA7024@gerrit.erg.abdn.ac.uk>
+References: <20080513072853.GB4514@gerrit.erg.abdn.ac.uk> <48a00ddc692de4b7b71273614e61ab17@chewa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Mel Gorman <mel@skynet.ie>, andi@firstfloor.org,
-	Rik van Riel <riel@redhat.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>, mpm@selenic.com
-To: Christoph Lameter <clameter@sgi.com>
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Arnaldo <acme@redhat.com>
+To: Remi Denis-Courmont <rdenis@simphalempin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38402 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754729AbYEMNgE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 09:36:04 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54892 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752299AbYEMNqx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 09:46:53 -0400
 Content-Disposition: inline
-In-Reply-To: <20080510030918.882272887@sgi.com>
+In-Reply-To: <48a00ddc692de4b7b71273614e61ab17@chewa.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Christoph.
+| 
+| DCCP clearly fails the POSIX definition of SOCK_DGRAM in different ways.
+| 
+| I think this is not a good idea.
+| 
+Thanks for the clarification. Even in Posix, datagram = connection-less.
+Plus the issues with older kernel releases. Question resolved, no SOCK_DGRAM.
 
-On Fri, May 09, 2008 at 08:08:49PM -0700, Christoph Lameter (clameter@sgi.com) wrote:
-> Support inode defragmentation for sockets
 
-Out of curiosity, how can you drop socket inode, since it is always
-attached to socket which is removed automatically when connection is
-closed. Any force of dropping socket inode can only result in connection
-drop, i.e. there are no inodes, which are placed in cache and are not
-yet freed, if there are no attached sockets.
+| > It also relieves the libc writers from having to support another socket
+| > type.
+| 
+| As long as SOCK_DCCP-or-whatever is not automatically selected when
+| ai_socktype is nul, this should be both easy to implement in libc *and*
+| backward compatible (applications will not try to use DCCP implicitly).
+| 
+There are two possibilities:
+ * as additional supported protocol (there are many new transport
+   protocols, perhaps there is some kind of modular support),
+ * if DCCP service codes are part of the lookup, then getting library
+   support can take longer (algorithm changes).
 
-So question is how does it work for sockets?
-
--- 
-	Evgeniy Polyakov
+Both may take a while until available. In the meantime it would be good
+to find some smart workaround for getaddrinfo, as changes in the internals
+so far required to fix applications several times.
