@@ -1,27 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
-Date: Tue, 13 May 2008 00:39:24 -0700 (PDT)
-Message-ID: <20080513.003924.170616140.davem@davemloft.net>
-References: <20080513072853.GB4514@gerrit.erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dccp@vger.kernel.org, acme@redhat.com
-To: gerrit@erg.abdn.ac.uk
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: [PATCH] ucc_geth_ethtool: Fix a few HW stats counters.
+Date: Tue, 13 May 2008 10:04:37 +0200
+Message-ID: <1210665877-6590-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: Netdev <netdev@vger.kernel.org>, Li Yang <LeoLi@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49669
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753332AbYEMHj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 03:39:29 -0400
-In-Reply-To: <20080513072853.GB4514@gerrit.erg.abdn.ac.uk>
+Received: from mail.transmode.se ([83.241.175.147]:30917 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754739AbYEMIEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 04:04:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Tue, 13 May 2008 08:28:53 +0100
+Noticed that ethtool -S didn't display tx-xxx-frames correctly.
+Fix it and a few others while I am there. Strangely, the
+rx-jumbo-frames counter still counts pkgs even though I think
+there isn't any packtes above 1518.
 
-> Is there support for this change or are there reasons to keep SOCK_DCCP?
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
 
-You'll have to accept it forever since there have been several
-kernel releases already with DCCP support added and there are
-applications out there.
+Havn't seen this go in or ACK/NACK. Resending.
+
+ drivers/net/ucc_geth_ethtool.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ucc_geth_ethtool.c b/drivers/net/ucc_geth_ethtool.c
+index a995a3a..0eddf50 100644
+--- a/drivers/net/ucc_geth_ethtool.c
++++ b/drivers/net/ucc_geth_ethtool.c
+@@ -60,7 +60,6 @@ static char hw_stat_gstrings[][ETH_GSTRING_LEN] = {
+ 	"rx-broadcast-frames",
+ 	"stats-counter-carry",
+ 	"stats-counter-mask",
+-	"rx-dropped-frames",
+ };
+ 
+ static char tx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
+@@ -73,6 +72,7 @@ static char tx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
+ 	"tx-frames-ok",
+ 	"tx-excessive-differ-frames",
+ 	"tx-256-511-frames",
++	"tx-512-1023-frames",
+ 	"tx-1024-1518-frames",
+ 	"tx-jumbo-frames",
+ };
+@@ -101,7 +101,6 @@ static char rx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
+ 	"rx-vlan-removed",
+ 	"rx-vlan-replaced",
+ 	"rx-vlan-inserted",
+-	"rx-ip-checksum-errors",
+ };
+ 
+ #define UEC_HW_STATS_LEN ARRAY_SIZE(hw_stat_gstrings)
+-- 
+1.5.5.1
+
