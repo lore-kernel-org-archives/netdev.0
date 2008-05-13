@@ -1,115 +1,97 @@
-From: "Shirish Pargaonkar" <shirishpargaonkar@gmail.com>
-Subject: Re: autotuning of send buffer size of a socket
-Date: Tue, 13 May 2008 08:54:31 -0500
-Message-ID: <4a4634330805130654n1aafbf10pa73da07e792f7b@mail.gmail.com>
-References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
-	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: kobject: Fix kobject_rename and !CONFIG_SYSFS
+Date: Tue, 13 May 2008 16:25:01 +0200
+Message-ID: <4829A4BD.3020007@bull.net>
+References: <m163tocw43.fsf_-_@frodo.ebiederm.org>	<20080512220232.GA16914@kroah.com> <m1prrqbseh.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: "Sridhar Samudrala" <sri@us.ibm.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Greg KH <greg@kroah.com>, Randy Dunlap <randy.dunlap@oracle.com>,
+	Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:55231 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756924AbYEMOYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 10:24:40 -0400
+In-Reply-To: <m1prrqbseh.fsf@frodo.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/12/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
-> On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
-> > Hello,
-> >
-> > kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
-> > I still get the same error and do not see the send buffer size of a socket
-> > changing (increasing)
-> >
-> > The initial buffer sizes are 16384 for send side and 87380 for the receive
-> > side but I see receive side buffer tuning but do not see the same with
-> > send side.
-> >
-> > If tcp does not see a need to increase the send buffer size, wonder why I
-> > get EAGAIN error on this non-blocking socket for kernel_sendmsg!
->
-> I think the send buffer auto-tuning doesn't happen here because there is
-> already congestion window worth of packets sent that are not yet acknowledged.
-> See tcp_should_expand_sndbuf().
->
-> Also, the comments for tcp_new_space() says that sndbuf expansion does
-> not work well with largesends. What is the size of your sends?
->
-> Adding netdev to the CC list.
->
-> Thanks
-> Sridhar
->
-> >
-> > I do subscribe to this mailing list so, please send your responses to this
-> > mail address.
-> >
-> > Regards,
-> >
-> > Shirish
-> >
-> > --------------------------------------------------------------------------------------------------
-> > uname -r
-> > 2.6.18-91.el5
-> >
-> >  sysctl -a
-> >
-> > net.ipv4.tcp_rmem = 4096        87380   4194304
-> > net.ipv4.tcp_wmem = 4096        16384   4194304
-> > net.ipv4.tcp_mem = 98304        131072  196608
-> >
-> > net.core.rmem_default = 126976
-> > net.core.wmem_default = 126976
-> > net.core.rmem_max = 131071
-> > net.core.wmem_max = 131071
-> >
-> > net.ipv4.tcp_window_scaling = 1
-> > net.ipv4.tcp_timestamps = 1
-> > net.ipv4.tcp_moderate_rcvbuf = 1
-> >
-> >
-> > cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
-> > 1
-> >
-> >
-> > CIFS VFS: sndbuf 16384 rcvbuf 87380
-> >
-> > CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
-> > stuck for 32 seconds,
-> > error: -11
-> > CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
-> > stuck for 32 seconds,
-> > error: -11
-> >
-> >
-> > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
-> > stuck for 64 seconds,
-> > error: -11
-> >
-> > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
-> > stuck for 256 seconds,
-> > error: -11
-> >
-> > I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
-> > is 1) but not
-> > the socket send buffer size.
-> > The send buffer size remains fixed, the auto-tuning for send side is
-> > enabled by default,so I do not see it happening here no matter how
-> > long the c ode tries to
-> > kernel_sendmsg after receiving EAGAIN return code.
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+Eric W. Biederman wrote:
+> Greg KH <greg@kroah.com> writes:
+> 
+>> Eric, Randy Dunlap has found that this patch breaks the build when
+>> CONFIG_SYSFS is not enabled.  Can you please fix it up before I send it
+>> to Linus?
+>>
+>> The exact error is:
+>> In file included from /local/linsrc/next-20080509/include/linux/kobject.h:21,
+>>                  from /local/linsrc/next-20080509/include/linux/module.h:16,
+>>                  from /local/linsrc/next-20080509/include/linux/crypto.h:21,
+>>                  from
+>> /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets_64.c:7,
+>>                  from
+>> /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets.c:4:
+>> /local/linsrc/next-20080509/include/linux/sysfs.h: In function
+>> 'sysfs_rename_dir':
+>> /local/linsrc/next-20080509/include/linux/sysfs.h:142: error: implicit
+>> declaration of function 'kobject_set_name'
+> 
+> I will take a look in the morning and see if I can see what is wrong.
+> 
+> Which tree was this error against?  I thought I tested this case,
+> and I'm wondering if there might be another patch that is hiding
+> kobject_set_name.
 
-Sridhar,
+Argh, headers "cross-dependencies":
 
-The size of the sends is 56K.
+* linux/kobject.h includes linux/sysfs.h before defining
+   kobject_set_name()
 
-Regards,
+* linux/sysfs.h needs to include linux/kobject.h to find
+   kobject_set_name() definition (for inlined sysfs_rename_dir() when
+   CONFIG_SYSFS=n)
 
-Shirish
+
+sysfs_rename_dir() is only called by kobject.c, kobject_rename().
+I guess this kind of patch is not acceptable to fix the depency?
+
+
+Index: linux-2.6/lib/kobject.c
+===================================================================
+--- linux-2.6.orig/lib/kobject.c        2008-05-13 15:14:38.000000000 +0200
++++ linux-2.6/lib/kobject.c     2008-05-13 15:58:37.000000000 +0200
+@@ -416,8 +416,11 @@ int kobject_rename(struct kobject *kobj,
+         envp[0] = devpath_string;
+         envp[1] = NULL;
+
++#ifdef CONFIG_SYSFS
+         error = sysfs_rename_dir(kobj, new_name);
+-
++#else
++       error = kobject_set_name(kobj, "%s", new_name);
++#endif
+         /* This function is mostly/only used for network interface.
+          * Some hotplug package track interfaces by their name and
+          * therefore want to know when the name is changed by the user. */
+
+
+-Benjamin
+
+> 
+> Eric
+> 
+> 
+
+
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
