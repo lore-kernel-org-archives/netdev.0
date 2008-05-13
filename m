@@ -1,51 +1,47 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] HSO: add option hso driver
-Date: Tue, 13 May 2008 19:26:48 -0400
-Message-ID: <482A23B8.7050705@pobox.com>
-References: <20080513215134.GC6139@kroah.com> <20080513232727.21c74bb2@core>
+From: Matteo Croce <matteo@openwrt.org>
+Subject: Re: [PATCH]: cpmac bugfixes and enhancements
+Date: Wed, 14 May 2008 01:31:16 +0200
+Message-ID: <200805140131.16473.matteo@openwrt.org>
+References: <200805041904.22726.matteo@openwrt.org> <200805140058.32890.matteo@openwrt.org> <20080513160642.a96dccbf.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
-	Andrew Bird <ajb@spheresystems.co.uk>,
-	Javier Marcet <javier@krausbeck.org>,
-	Filip Aben <f.aben@option.com>,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	Oliver Neukum <oliver@neukum.org>, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: jgarzik@pobox.com, ralf@linux-mips.org, nbd@openwrt.org,
+	ejka@imfi.kspu.ru, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49223 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756654AbYEMX0z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 19:26:55 -0400
-In-Reply-To: <20080513232727.21c74bb2@core>
+Received: from smtp-out113.alice.it ([85.37.17.113]:3745 "EHLO
+	smtp-out113.alice.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757250AbYEMXbX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 19:31:23 -0400
+In-Reply-To: <20080513160642.a96dccbf.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Cox wrote:
->> Jeff, please queue this up for 2.6.27 if there are no problems that you
->> can see.  It has been in the linux-next tree for a while, and many users
->> are reporting that it is working for them.
->>
->> Or if you feel it's ok for 2.6.26, I will not object to that either :)
+Il Wednesday 14 May 2008 01:06:42 Andrew Morton ha scritto:
+> On Wed, 14 May 2008 00:58:32 +0200 Matteo Croce <matteo@openwrt.org> wrote:
 > 
-> Can we get it into 2.6.26 - its a driver for new hardware and the driver
-> is going to get a clean up for 2.6.27 anyway.
+> > This one is cleaner:
+> > 
+> > 
+> > Signed-off-by: Matteo Croce <matteo@openwrt.org>
+> > Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 > 
-> Comments below are minor and I don't think blockers
+> It has no changelog.  We can neither effectively review it nor commit
+> it without one.
 > 
-> So for the serial side
+> Each bugfix and each enhancement should be described, please.
 > 
-> Acked-by: Alan Cox <alan@redhat.com>
 
-AFAIK new drivers are OK post-rc1, since no possibility of regression 
-and it enables new users.
+Here's the changelog:
 
-However, an exception to that might be a super-huge driver slipped in at 
-the last minute with no review (clearly not the case here)
-
-	Jeff
-
-
-
+* Resolve some locking issues using atomic_inc/atomic_dec
+* move status code in cpmac_check_status
+* unmark the BROKEN flag in Kconfig
+* move code which should have been in platform code in arch/mips/ar7/platform.c
+* fixed an IRQ storm which lets the kernel hang
+* fixed a double call to netif_start_queue which causes a kernel panic
+* don't fail to register the PHY, works on many devices now
