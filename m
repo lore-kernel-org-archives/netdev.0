@@ -1,70 +1,78 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
-Date: Wed, 14 May 2008 00:51:14 +0400
-Message-ID: <20080513205114.GA16489@2ka.mipt.ru>
-References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: mac80211 truesize bugs
+Date: Tue, 13 May 2008 22:59:16 +0200
+Message-ID: <1210712356.4279.22.camel@johannes.berg>
+References: <20080502.163334.148944203.davem@davemloft.net>
+	 <1209807477.3987.9.camel@johannes.berg>
+	 <1209824720.1475.6.camel@johannes.berg>
+	 <20080512.201751.114868351.davem@davemloft.net>
+	 <20080513203906.GB20269@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-DIUwSI2XblUv5q4YARDa"
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	mb@bu3sch.de, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:57533 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762139AbYEMUvV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 16:51:21 -0400
-Content-Disposition: inline
-In-Reply-To: <4829E752.8030104@garzik.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:41063 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759496AbYEMVA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 17:00:29 -0400
+In-Reply-To: <20080513203906.GB20269@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
 
-On Tue, May 13, 2008 at 03:09:06PM -0400, Jeff Garzik (jeff@garzik.org) wrote:
-> This continues to be a neat and interesting project :)
+--=-DIUwSI2XblUv5q4YARDa
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Thanks :)
+On Tue, 2008-05-13 at 16:39 -0400, John W. Linville wrote:
+> On Mon, May 12, 2008 at 08:17:51PM -0700, David Miller wrote:
+>=20
+> > Based upon them I will adjust LL_MAX_HEADER as follows:
+>=20
+> > @@ -93,14 +93,16 @@ struct wireless_dev;
+> >   *	used.
+> >   */
+> >  =20
+> > -#if !defined(CONFIG_AX25) && !defined(CONFIG_AX25_MODULE) && !defined(=
+CONFIG_TR)
+> > -#define LL_MAX_HEADER	32
+> > +#if defined(CONFIG_WLAN_80211) || defined(CONFIG_AX25) || defined(CONF=
+IG_AX25_MODULE)
+>=20
+> Is WLAN_80211 really the right symbol here?  It applies to more than
+> just mac80211, and I doubt if full MAC devices need higher values.
+> It seems like MAC80211 would be the right symbol to add.
 
-> Where is the best place to look at client<->server protocol?
+Most fullmac devices also need some space, whether they do things that
+way or not is a completely different thing, the ieee80211 stack for
+example copies every packet into a new skb anyway.
 
-Hmm, in sources I think, I need to kick myself to write a somewhat good
-spec for the next release.
+johannes
 
-Basically protocol contains of fixed sized header (struct netfs_cmd) and
-attached data, which size is embedded into above header. Simple commands
-are finished here (essentially all except write/create commands), you
-can check them in approrpiate address space/inode operations.
-Transactions follow netlink (which is very ugly but exceptionally
-extendible) protocol: there is main header (above structure), which
-holds size of the embedded data, which can be dereferenced as header/data
-parts, where each inner header corresponds to any command (except
-transaction header). So one can pack (upto 90 pages of data or different
-commands on x86, this is limit of the page size devoted to headers)
-requested number of commands into single 'frame' and submit it to
-system, which will care about atomicity of that request in regards of
-being either fully processed by one of the servers or dropped.
+--=-DIUwSI2XblUv5q4YARDa
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-> Are you planning to support the case where the server filesystem dataset 
-> does not fit entirely on one server?
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-Sure. First by allowing whole object to be placed on different servers
-(i.e. one subdir is on server1 and another on server2), probably in the
-future there will be added support for the same object being distributed
-to different servers (i.e. half of the big file on server1 and another
-half on server2).
+iQIVAwUASCoBI6Vg1VMiehFYAQLXYA//bCtWG+fbBk8tkUcmme2JAx5PeMVg3ekN
+myRzq/ZPYi/m5MVGECHBRwc09ePZhJlH1oXdZu5TWt3OGPJpCgL+OoQnB5DCy66d
+SDB8nExX0Mh9UniGrv3jC99cswrLE25AoPLoM+PDdVlWe3NpAR/+8pqorR3su+Bh
+NKNALvphmmOCqhq/oKKAva9rOURfkD3Fe6veGgB8vnm1OLce8MV4iqbBGXgcEAZS
+zbok1auNs/DLZRMpBtziVHpZjQ+adS/KoZ6UzmaFiHyretCfDnw1w/i6ZYlX4qGs
+0QiOfCI7UMosI8i7WrUYE2/gqPMqEd0G+HHLSLdpQktPAXpOnRjv7zs8lbH/Ox7J
+feARHFeZReuHQN+nKN62HuGfJCzD6EM8TAtxa6UB0GpbGklwCfNsYVHaUth1Poix
+/t7il0iZkZ0Q+WSZhCnDiDGYjuS1MBuG3OAXHa1uiiSq+cQS/Xp1r20pHjokxX/1
+RvPB+Z6F15Bthp3ji75TNKtGDNLghU0N1QuWRmUSQwzld9YnpKYpWQFhXJKJKUgR
+ct16M6IXSs7OSaquo60mEbZu1Ci1D5E/qNIjrfEnuJey0x2i5cgDOg4PKOpLRmCn
+MVg0qPZTgVqgFfcv3bqZyo2oRSevw/xD8UrM0qt7VInP4IRC9+TrMWBmEJsqb+Nx
+XyfaZ89Qhjg=
+=I6iQ
+-----END PGP SIGNATURE-----
 
-> What is your opinion of the Paxos algorithm?
+--=-DIUwSI2XblUv5q4YARDa--
 
-It is slow. But it does solve failure cases.
-So far POHMELFS does not work as distributed filesystem, so it should
-not care about it at all, i.e. at most in the very nearest future it
-will just have number of acceptors in paxos terminology (metadata
-servers in others) without need for active dynamical reconfiguration,
-so protocol will be greatly reduced, with addition of dynamical
-metadata cluster extension protocol will have to be extended.
-
-As practice shows, the smaller and simpler initial steps are, the better
-results eventually become :)
-
--- 
-	Evgeniy Polyakov
