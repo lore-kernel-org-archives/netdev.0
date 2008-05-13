@@ -1,60 +1,115 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: New GIT net tree naming...
-Date: Tue, 13 May 2008 09:26:30 -0400
-Message-ID: <20080513132630.GC3279@tuxdriver.com>
-References: <20080419.173510.257216556.davem@davemloft.net> <20080508014358.GE3412@tuxdriver.com> <200805080906.29603.hs4233@mail.mn-solutions.de> <20080508144046.GA3515@tuxdriver.com> <1ba2fa240805121039u1fc4273eh706c8868748b500c@mail.gmail.com> <20080512184715.GA18910@tuxdriver.com> <1ba2fa240805130305q207067b0n572b95340a3745d6@mail.gmail.com>
+From: "Shirish Pargaonkar" <shirishpargaonkar@gmail.com>
+Subject: Re: autotuning of send buffer size of a socket
+Date: Tue, 13 May 2008 08:54:31 -0500
+Message-ID: <4a4634330805130654n1aafbf10pa73da07e792f7b@mail.gmail.com>
+References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
+	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: "Sridhar Samudrala" <sri@us.ibm.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <1ba2fa240805130305q207067b0n572b95340a3745d6-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 13, 2008 at 01:05:22PM +0300, Tomas Winkler wrote:
+On 5/12/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
+> On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
+> > Hello,
+> >
+> > kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
+> > I still get the same error and do not see the send buffer size of a socket
+> > changing (increasing)
+> >
+> > The initial buffer sizes are 16384 for send side and 87380 for the receive
+> > side but I see receive side buffer tuning but do not see the same with
+> > send side.
+> >
+> > If tcp does not see a need to increase the send buffer size, wonder why I
+> > get EAGAIN error on this non-blocking socket for kernel_sendmsg!
+>
+> I think the send buffer auto-tuning doesn't happen here because there is
+> already congestion window worth of packets sent that are not yet acknowledged.
+> See tcp_should_expand_sndbuf().
+>
+> Also, the comments for tcp_new_space() says that sndbuf expansion does
+> not work well with largesends. What is the size of your sends?
+>
+> Adding netdev to the CC list.
+>
+> Thanks
+> Sridhar
+>
+> >
+> > I do subscribe to this mailing list so, please send your responses to this
+> > mail address.
+> >
+> > Regards,
+> >
+> > Shirish
+> >
+> > --------------------------------------------------------------------------------------------------
+> > uname -r
+> > 2.6.18-91.el5
+> >
+> >  sysctl -a
+> >
+> > net.ipv4.tcp_rmem = 4096        87380   4194304
+> > net.ipv4.tcp_wmem = 4096        16384   4194304
+> > net.ipv4.tcp_mem = 98304        131072  196608
+> >
+> > net.core.rmem_default = 126976
+> > net.core.wmem_default = 126976
+> > net.core.rmem_max = 131071
+> > net.core.wmem_max = 131071
+> >
+> > net.ipv4.tcp_window_scaling = 1
+> > net.ipv4.tcp_timestamps = 1
+> > net.ipv4.tcp_moderate_rcvbuf = 1
+> >
+> >
+> > cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
+> > 1
+> >
+> >
+> > CIFS VFS: sndbuf 16384 rcvbuf 87380
+> >
+> > CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
+> > stuck for 32 seconds,
+> > error: -11
+> > CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
+> > stuck for 32 seconds,
+> > error: -11
+> >
+> >
+> > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
+> > stuck for 64 seconds,
+> > error: -11
+> >
+> > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
+> > stuck for 256 seconds,
+> > error: -11
+> >
+> > I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
+> > is 1) but not
+> > the socket send buffer size.
+> > The send buffer size remains fixed, the auto-tuning for send side is
+> > enabled by default,so I do not see it happening here no matter how
+> > long the c ode tries to
+> > kernel_sendmsg after receiving EAGAIN return code.
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
 
-> I'm not able to clone neither wireless-2.6.git nor net-2.6.git through http
-> I'm behind a firewall so git protocol is not an option
-> 
-> 
-> git-clone  ttp://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-> Initialized empty Git repository in ....
-> Cannot get remote repository information.
-> Perhaps git-update-server-info needs to be run there?
-> 
-> git-clone  http://www.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.gi
-> Getting pack list for
-> http://www.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
-> Getting index for pack 1c206683ae18d8f0b4833dcee50c8e1c76832df9
-> Getting pack list for
-> http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git/
-> error: Unable to find 090b293b87792a815cf51aeccb590ec37c90cfa3 under
-> http://www.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
-> Cannot obtain needed blob 090b293b87792a815cf51aeccb590ec37c90cfa3
-> while processing commit 6e40a915de82e00d18f75941e531b40c4e0d94c4.
-> Waiting for http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git//objects/9a/eb872460a5dcab8b4baf13125d0177f865f393
-> got 334974abd063c20dc64dd32724425be36b90cebc
-> got 9aeb872460a5dcab8b4baf13125d0177f865f393
-> Waiting for http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git//objects/ab/ef366d1ab8fe2ac484039976600938f6c76db3
-> Received DONE message for unknown request!
+Sridhar,
 
-I got a similar message when trying to clone using http://.  I was
-able to clone using git:// without a problem.
+The size of the sends is 56K.
 
-FWIW I have the post-update hook enabled, and I didn't change my
-normal practices for publishing trees on kernel.org.  I'm not sure
-what is happening.  Anyone have an idea as to what is happening?
+Regards,
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Shirish
