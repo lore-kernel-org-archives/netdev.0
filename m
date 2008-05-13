@@ -1,34 +1,34 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: DM9000: Add __devinit and __devexit attributes to probe and remove
-Date: Tue, 13 May 2008 01:18:17 -0400
-Message-ID: <48292499.1070805@garzik.org>
-References: <20080428151309.GA30439@fluff.org.uk> <4820865F.70703@garzik.org> <20080508103303.GC30439@fluff.org.uk>
+Subject: Re: [PATCH] [MAINTAINERS] New maintainer for Intel ethernet adapters
+Date: Tue, 13 May 2008 01:18:26 -0400
+Message-ID: <482924A2.3070600@garzik.org>
+References: <20080507204233.12837.92852.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Networking <netdev@vger.kernel.org>,
-	akpm@linux-foundation.org
-To: Ben Dooks <ben-linux@fluff.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	greg@kroah.com, jeffrey.t.kirsher@intel.com
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49382 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49391 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753487AbYEMFST (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 01:18:19 -0400
-In-Reply-To: <20080508103303.GC30439@fluff.org.uk>
+	id S1755418AbYEMFS2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 01:18:28 -0400
+In-Reply-To: <20080507204233.12837.92852.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Dooks wrote:
-> From: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
+Auke Kok wrote:
+> I'm handing over maintainership to Jeff Kirsher and moving on
+> to other Linux/Open Source work within Intel. Good luck to Jeff ;)
 > 
-> There were missing __dev* annotations for the dm9000_probe() 
-> and dm9000_drv_remove() functions.
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> ---
 > 
-> Signed-off-by: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
-> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+>  MAINTAINERS |    6 ++----
+>  1 files changed, 2 insertions(+), 4 deletions(-)
 
-applied three dm9000 patches
-
-please number your patches, when submitting multiple ones
+applied
 
 
