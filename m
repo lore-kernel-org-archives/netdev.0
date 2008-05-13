@@ -1,48 +1,26 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH][MAINTAINERS] Add maintainers for myri10ge driver
-Date: Tue, 13 May 2008 20:36:06 +0200
-Message-ID: <4829DF96.7080208@myri.com>
-References: <482397A3.1050604@myri.com> <482398F6.3060902@myri.com> <48292B82.5090304@garzik.org> <4829DF53.3080600@myri.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] [PATCH 2.6.26] RDMA/cxgb3: Wrap the software sq ptr
+	as needed on flush.
+Date: Tue, 13 May 2008 11:53:20 -0700
+Message-ID: <adave1ijasf.fsf@cisco.com>
+References: <20080509201902.13077.53047.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1801 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753100AbYEMSgN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 14:36:13 -0400
-In-Reply-To: <4829DF53.3080600@myri.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080509201902.13077.53047.stgit@dell3.ogc.int> (Steve Wise's
+	message of "Fri, 09 May 2008 15:19:02 -0500")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Add a MAINTAINERS entry for the myri10ge driver.
-
-Signed-off-by: Brice Goglin <brice@myri.com>
----
- MAINTAINERS |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
-Index: linux-2.6.git/MAINTAINERS
-===================================================================
---- linux-2.6.git.orig/MAINTAINERS	2008-05-13 20:29:45.000000000 +0200
-+++ linux-2.6.git/MAINTAINERS	2008-05-13 20:30:32.000000000 +0200
-@@ -2808,6 +2808,15 @@
- L:	linux-kernel@vger.kernel.org
- S:	Maintained
- 
-+MYRICOM MYRI-10G 10GbE DRIVER (MYRI10GE)
-+P:	Andrew Gallatin
-+M:	gallatin@myri.com
-+P:	Brice Goglin
-+M:	brice@myri.com
-+L:	netdev@vger.kernel.org
-+W:	http://www.myri.com/scs/download-Myri10GE.html
-+S:	Supported
-+
- NATSEMI ETHERNET DRIVER (DP8381x)
- P: 	Tim Hockin
- M:	thockin@hockin.org
-
-
+thanks, applied
