@@ -1,41 +1,35 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [PATCH 18/18] flag parameters: check magic constants
-Date: Mon, 12 May 2008 22:42:50 -0700
-Message-ID: <48292A5A.4050606@redhat.com>
-References: <200805062118.m46LI74j004096@devserv.devel.redhat.com>	<20080512201341.9ead6a9a.akpm@linux-foundation.org>	<482910FA.1080703@redhat.com>	<20080512.210225.167924945.davem@davemloft.net>	<20080512220416.ef9a9645.akpm@linux-foundation.org>	<482922E2.3040902@redhat.com> <20080512221917.07cf7b06.akpm@linux-foundation.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 13/16] myri10ge: add routines for multislices
+Date: Tue, 13 May 2008 01:47:46 -0400
+Message-ID: <48292B82.5090304@garzik.org>
+References: <482397A3.1050604@myri.com> <482398F6.3060902@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davidel@xmailserver.org,
-	mtk.manpages@gmail.com, torvalds@linux-foundation.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758127AbYEMFno@vger.kernel.org>
-In-Reply-To: <20080512221917.07cf7b06.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:42925 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755107AbYEMFrr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 01:47:47 -0400
+In-Reply-To: <482398F6.3060902@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Brice Goglin wrote:
+> Add several routines that multislices support will use.
+> 
+> Signed-off-by: Brice Goglin <brice@myri.com>
+> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+> ---
+>  drivers/net/myri10ge/myri10ge.c |  256 ++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 256 insertions(+)
 
-Andrew Morton wrote:
-> Different bug, I think.
->=20
-> net/socket.c: In function 'sys_paccept':
-> net/socket.c:1543: error: implicit declaration of function 'set_resto=
-re_sigmask'
+this is not really appropriate for the bug-fixes-only 2.6.26-rc.
 
-Right, that's the signal mask stuff.  Should be fixed by the other patc=
-h
-I sent.
+I temporarily put patches 13-16 in netdev-2.6.git#upstream-myri, and 
+will shove them into net-next once davem pulls in the myri bugfixes into 
+net-next (or you guys have some alternate suggestions)
 
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
 
-iD8DBQFIKSpa2ijCOnn/RHQRAmPvAJ90D3ZHrIWs1ZE5K9XVEdZBh8vcdQCePcaw
-1Hnyz58x9oizIXe6qiS82xU=3D
-=3Do78L
------END PGP SIGNATURE-----
