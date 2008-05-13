@@ -1,84 +1,68 @@
-From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: New GIT net tree naming...
-Date: Tue, 13 May 2008 13:05:22 +0300
-Message-ID: <1ba2fa240805130305q207067b0n572b95340a3745d6@mail.gmail.com>
-References: <20080419.173510.257216556.davem@davemloft.net>
-	 <20080508014358.GE3412@tuxdriver.com>
-	 <200805080906.29603.hs4233@mail.mn-solutions.de>
-	 <20080508144046.GA3515@tuxdriver.com>
-	 <1ba2fa240805121039u1fc4273eh706c8868748b500c@mail.gmail.com>
-	 <20080512184715.GA18910@tuxdriver.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC v2] mac80211: assign needed_headroom/tailroom for netdevs
+Date: Tue, 13 May 2008 12:07:33 +0200
+Message-ID: <1210673253.3646.62.camel@johannes.berg>
+References: <1209936745.7304.16.camel@johannes.berg>
+	 <20080512.205224.12536510.davem@davemloft.net>
+	 <1210669273.3646.51.camel@johannes.berg>
+	 <20080513.024516.248213393.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Holger Schurig" <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080512184715.GA18910-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On Mon, May 12, 2008 at 9:47 PM, John W. Linville
-<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> On Mon, May 12, 2008 at 08:39:22PM +0300, Tomas Winkler wrote:
->
->  > How would you want me to handle bug fixes to go both directions
->  > wireless-testing and upstream?
->  > Because of huge code movement we are now doing in iwlwifi they are
->  > currently just not the same.
->  > Shell I send two versions or you want to back port them not sure how
->  > do you want to track this...somewhere in merging loop it will create a
->  > conflict.  Maybe this is maintainer trivia anyhow
->  > I would like to make sure there are not glitches.
->
->  It is a good question -- thanks for asking!
->
->  If you think that two versions of the fix are appropriate, then please
->  do send them.  If it is simply because the code moved I'll probably
->  be able to figure it out, but if the code has actually changed it
->  may be worthwhile.
->
->  We are now trying to avoid rebasing "-next" patches as much as possible.
->  So the version for the current release will be merged to Linus and I or
->  Dave will have to figure-out how to resolve the merge conflicts when
->  current is pulled to -next.  Providing a "-next' version of the patch
->  can help to make sure that those merge conflicts are handled correctly.
->
->  John
-
-I'm not able to clone neither wireless-2.6.git nor net-2.6.git through http
-I'm behind a firewall so git protocol is not an option
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Ej6wYmUCugoKRhhFgeIL"
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:49658 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752684AbYEMKHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 06:07:47 -0400
+In-Reply-To: <20080513.024516.248213393.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-git-clone  ttp://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-Initialized empty Git repository in ....
-Cannot get remote repository information.
-Perhaps git-update-server-info needs to be run there?
+--=-Ej6wYmUCugoKRhhFgeIL
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-git-clone  http://www.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.gi
-Getting pack list for
-http://www.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
-Getting index for pack 1c206683ae18d8f0b4833dcee50c8e1c76832df9
-Getting pack list for
-http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git/
-error: Unable to find 090b293b87792a815cf51aeccb590ec37c90cfa3 under
-http://www.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
-Cannot obtain needed blob 090b293b87792a815cf51aeccb590ec37c90cfa3
-while processing commit 6e40a915de82e00d18f75941e531b40c4e0d94c4.
-Waiting for http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git//objects/9a/eb872460a5dcab8b4baf13125d0177f865f393
-got 334974abd063c20dc64dd32724425be36b90cebc
-got 9aeb872460a5dcab8b4baf13125d0177f865f393
-Waiting for http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git//objects/ab/ef366d1ab8fe2ac484039976600938f6c76db3
-Received DONE message for unknown request!
+On Tue, 2008-05-13 at 02:45 -0700, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Tue, 13 May 2008 11:01:13 +0200
+>=20
+> > Will you put in something like the patch that made dev_alloc_skb
+> > reserve more with the bridging headroom as well, or do you want (me)
+> > to look at routing first?
+>=20
+> I'm trying to do this one set of changes at a time. :-)
+>=20
+> I'll get to the netdev_alloc_skb() bits after this stuff
+> has had some time to cook.
 
+Sure, sounds good, thanks.
 
-Thanks
-Tomas
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+johannes
+
+--=-Ej6wYmUCugoKRhhFgeIL
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUASCloZKVg1VMiehFYAQI53Q//RkFGxtkBSPke7T2DolzEr1qQd/Qxr8xP
+/xh1m38ZuOMMy552gg7XtTNfwUxs/wx50nP3pT81pa7iFSuNySPY1ooh1F4FmleY
+MGC6IWLqBdPjAC1Y9lyNsii0LORpOi85H7tGnmVRUFsj5zIi/yjnvwgc7fXlMXEk
+n/uqkoW4jDOR8xFvQbY0PlpcGd5w/tPsU/1eTghPqZ1HK5AHPd+tsFb/b00+rso7
+pHevwpUN2+kpb8bqRM5W9a3Zk1yLFUpL1svdo2zXg//5tp33m+czwvZyhOkOW0GE
+3KvICe+gEIANesxN++/OudNE4C+Ncm+S90ul2ii2pBwYLY28LliwiS+OqACYsjwM
+mNfIm8oOEcDaOgW4KrtdJYIo/vH/fWReCe2UhxyqgPePobcoT4ttR9jhH6CKBGue
+h/XzSLmwQXb94HISVAtmcKSr+sDOlTQtq3oMgwCc/34PuMTsTZV/fC3yZExILKd5
+eyWTbYuOcRA1NsXKYprrimXQXeZ7yC/56Vn0UU0BPxYnrDXGVL8bvc+/oC/v80HF
+LRa3MsUrmhyuL979bPL4T8wUaWoG3LhU4RSzOR79qUrzOgte+Dtipl1iYCCyhEp6
+41V5XU0+gGlIFasJTOyB7sV0p+5jOZhQc1g2z78FC7Pg8wx3X9l6GWdh1X4irOp1
+aKTlYOawjI4=
+=xAz+
+-----END PGP SIGNATURE-----
+
+--=-Ej6wYmUCugoKRhhFgeIL--
+
