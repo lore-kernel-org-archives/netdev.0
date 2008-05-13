@@ -1,58 +1,77 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] [SCTP]: Add address type check while process paramaters
- of ASCONF chunk
-Date: Tue, 13 May 2008 08:48:39 -0400
-Message-ID: <48298E27.40100@hp.com>
-References: <1210360195-16524-1-git-send-email-vladislav.yasevich@hp.com> <1210360195-16524-2-git-send-email-vladislav.yasevich@hp.com> <48297BE9.9020204@trash.net>
+From: Remi Denis-Courmont <rdenis@simphalempin.com>
+Subject: Re: [RFC] [DCCP]: Deprecate =?UTF-8?Q?SOCK=5FDCCP=20in=20favour=20of=20SO?=
+ =?UTF-8?Q?CK=5FDGRAM?=
+Date: Tue, 13 May 2008 14:53:59 +0200
+Message-ID: <48a00ddc692de4b7b71273614e61ab17@chewa.net>
+References: <20080513072853.GB4514@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-sctp@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net,
-	Wei Yongjun <yjwei@cn.fujitsu.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Arnaldo <acme@redhat.com>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:6667 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754304AbYEMMss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 08:48:48 -0400
-In-Reply-To: <48297BE9.9020204@trash.net>
+Received: from yop.chewa.net ([91.121.105.214]:57319 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754929AbYEMMyA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 08:54:00 -0400
+In-Reply-To: <20080513072853.GB4514@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Vlad Yasevich wrote:
->> @@ -2827,6 +2827,19 @@ static __be16 sctp_process_asconf_param(struct 
->> sctp_association *asoc,
->>      union sctp_addr    addr;
->>      union sctp_addr_param *addr_param;
->>  
->> +    switch (addr_param->v4.param_hdr.type) {
-> 
-> ^^^ use of addr_param
-> 
->> +    case SCTP_PARAM_IPV6_ADDRESS:
->> +        if (!asoc->peer.ipv6_address)
->> +            return SCTP_ERROR_INV_PARAM;
->> +        break;
->> +    case SCTP_PARAM_IPV4_ADDRESS:
->> +        if (!asoc->peer.ipv4_address)
->> +            return SCTP_ERROR_INV_PARAM;
->> +        break;
->> +    default:
->> +        return SCTP_ERROR_INV_PARAM;
->> +    }
->> +
->>      addr_param = (union sctp_addr_param *)
->>              ((void *)asconf_param + sizeof(sctp_addip_param_t));
-> 
-> ^^^ initialization of addr_param
-> 
-> The patch is wrong and needs this fix on top.
-> 
 
-Ack.  David, please apply.  I missed this warning in the my builds...
+On Tue, 13 May 2008 08:28:53 +0100, Gerrit Renker <gerrit@erg.abdn.ac.u=
+k>=0D
+wrote:=0D
+> There is an API and an address resolution problem involved in specify=
+ing=0D
+a=0D
+> separate/distinct socket type `SOCK_DCCP'.=0D
+(...)=0D
+> Having also seen the work-arounds in programs that other people wrote=
+,=0D
+> I believe that the above change will make it in the long term easier =
+for=0D
+> people to write DCCP-enabled applications.=0D
+=0D
+DCCP clearly fails the POSIX definition of SOCK_DGRAM in different ways=
+=2E=0D
+=0D
+I think this is not a good idea.=0D
+=0D
+> It also relieves the libc writers from having to support another sock=
+et=0D
+> type.=0D
+=0D
+As long as SOCK_DCCP-or-whatever is not automatically selected when=0D
+ai_socktype is nul, this should be both easy to implement in libc *and*=
+=0D
+backward compatible (applications will not try to use DCCP implicitly).=
+=0D
+=0D
+> A quick look at SCTP shows that they also did not introduce new socke=
+t=0D
+> types, relying on the existing SOCK_STREAM/SOCK_SEQPACKET ones.=0D
+=0D
+But they follow the semantics for them.=0D
+=0D
+> It might be still early enough to resolve this, before it is widely u=
+sed=0D
+> and can then only be supported via work-arounds.=0D
+> =0D
+> I can't see a disadvantage here and the only work required is to upda=
+te=0D
+> that=0D
+> datagram-based not automatically means connection-less.=0D
+> =0D
+> Is there support for this change or are there reasons to keep SOCK_DC=
+CP?=0D
+=0D
+Maybe the name SOCK_DCCP sucks, but I think DCCP needs a "new" socket t=
+ype=0D
+anyway.=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont=0D
+http://www.remlab.net
 
-Thanks
--vlad
