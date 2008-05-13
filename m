@@ -1,35 +1,51 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH]: cpmac bugfixes and enhancements
-Date: Tue, 13 May 2008 16:06:42 -0700
-Message-ID: <20080513160642.a96dccbf.akpm@linux-foundation.org>
-References: <200805041904.22726.matteo@openwrt.org>
-	<20080505161634.6964d46b.akpm@linux-foundation.org>
-	<200805140058.32890.matteo@openwrt.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] HSO: add option hso driver
+Date: Tue, 13 May 2008 19:26:48 -0400
+Message-ID: <482A23B8.7050705@pobox.com>
+References: <20080513215134.GC6139@kroah.com> <20080513232727.21c74bb2@core>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, ralf@linux-mips.org, nbd@openwrt.org,
-	ejka@imfi.kspu.ru, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-To: Matteo Croce <matteo@openwrt.org>
+Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
+	Andrew Bird <ajb@spheresystems.co.uk>,
+	Javier Marcet <javier@krausbeck.org>,
+	Filip Aben <f.aben@option.com>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
+	Oliver Neukum <oliver@neukum.org>, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:47086 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755644AbYEMXHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 19:07:15 -0400
-In-Reply-To: <200805140058.32890.matteo@openwrt.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:49223 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756654AbYEMX0z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 19:26:55 -0400
+In-Reply-To: <20080513232727.21c74bb2@core>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 May 2008 00:58:32 +0200 Matteo Croce <matteo@openwrt.org> wrote:
-
-> This one is cleaner:
+Alan Cox wrote:
+>> Jeff, please queue this up for 2.6.27 if there are no problems that you
+>> can see.  It has been in the linux-next tree for a while, and many users
+>> are reporting that it is working for them.
+>>
+>> Or if you feel it's ok for 2.6.26, I will not object to that either :)
 > 
+> Can we get it into 2.6.26 - its a driver for new hardware and the driver
+> is going to get a clean up for 2.6.27 anyway.
 > 
-> Signed-off-by: Matteo Croce <matteo@openwrt.org>
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+> Comments below are minor and I don't think blockers
+> 
+> So for the serial side
+> 
+> Acked-by: Alan Cox <alan@redhat.com>
 
-It has no changelog.  We can neither effectively review it nor commit
-it without one.
+AFAIK new drivers are OK post-rc1, since no possibility of regression 
+and it enables new users.
 
-Each bugfix and each enhancement should be described, please.
+However, an exception to that might be a super-huge driver slipped in at 
+the last minute with no review (clearly not the case here)
+
+	Jeff
+
+
+
