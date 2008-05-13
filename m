@@ -1,29 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Fix FRTO+NewReno problem
-Date: Tue, 13 May 2008 03:08:37 -0700 (PDT)
-Message-ID: <20080513.030837.248492929.davem@davemloft.net>
-References: <Pine.LNX.4.64.0805130958001.14510@wrl-59.cs.helsinki.fi>
-	<20080513.024915.161125347.davem@davemloft.net>
-	<Pine.LNX.4.64.0805131258070.15369@wrl-59.cs.helsinki.fi>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c
+Date: Tue, 13 May 2008 11:20:07 +0100
+Message-ID: <48296B57.50006@andyfurniss.entadsl.com>
+References: <4815BCDF.6070704@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804281714090.1888@wrl-59.cs.helsinki.fi> <48162070.4030405@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804282210390.16635@wrl-59.cs.helsinki.fi> <481986FD.8070108@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805011216230.19286@wrl-59.cs.helsinki.fi> <48199342.9010406@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805021342480.30402@wrl-59.cs.helsinki.fi> <481C54AF.1050109@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805121349400.1888@wrl-59.cs.helsinki.fi>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Cc: Netdev <netdev@vger.kernel.org>
+To: =?UTF-8?B?77+9?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35115
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753686AbYEMKIn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 06:08:43 -0400
-In-Reply-To: <Pine.LNX.4.64.0805131258070.15369@wrl-59.cs.helsinki.fi>
+Received: from mx1.ukfsn.org ([77.75.108.10]:58142 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752199AbYEMKUI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 06:20:08 -0400
+In-Reply-To: <Pine.LNX.4.64.0805121349400.1888@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Tue, 13 May 2008 13:04:04 +0300 (EEST)
+=EF=BF=BD wrote:
+> On Sat, 3 May 2008, Andy Furniss wrote:
+>=20
+>> Ilpo J=EF=BF=BDrvinen wrote:
+>>
+>>> Since I've not yet found any other path that could lead to it excep=
+t the
+>>> yesterday's false-positive, getting the write queue state more accu=
+rately
+>>> captured by the debug patch on the very first occassion might help.=
+ Here's
+>>> less spammy version of the debug patch (I added one printout as wel=
+l to get
+>>> more usefulness to transitional state reported).
+>>>
+>> OK, increased CONFIG_LOG_BUF_SHIFT from 14 to 18 and reversed old / =
+applied
+>> new patch.
+>=20
+> Any luck so far?
+>=20
 
-> Forgot to mention earlier, these should go to stable too (but you=20
-> probably figured that out anyway).
+No, nothing yet :-(
 
-Yep, I understood that :-)
