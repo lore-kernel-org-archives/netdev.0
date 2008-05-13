@@ -1,48 +1,39 @@
-From: Ulrich Drepper <drepper@redhat.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 18/18] flag parameters: check magic constants
-Date: Mon, 12 May 2008 21:21:29 -0700
-Message-ID: <48291749.1060400@redhat.com>
-References: <200805062118.m46LI74j004096@devserv.devel.redhat.com>	<20080512201341.9ead6a9a.akpm@linux-foundation.org>	<482910FA.1080703@redhat.com> <20080512.210225.167924945.davem@davemloft.net>
+Date: Mon, 12 May 2008 21:39:25 -0700 (PDT)
+Message-ID: <20080512.213925.193699728.davem@davemloft.net>
+References: <482910FA.1080703@redhat.com>
+	<20080512.210225.167924945.davem@davemloft.net>
+	<48291749.1060400@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, davidel@xmailserver.org,
 	mtk.manpages@gmail.com, torvalds@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+To: drepper@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:51932 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753332AbYEMEVn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 00:21:43 -0400
-In-Reply-To: <20080512.210225.167924945.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55618
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753655AbYEMEja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 00:39:30 -0400
+In-Reply-To: <48291749.1060400@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Mon, 12 May 2008 21:21:29 -0700
 
-David Miller wrote:
-> You'll need to handle MIPS and PARISC as well, as they have
-> similar conflicts.
+> Is MIPS really a problem?  The value is 0x80.  128 protocol types should
+> be enough.  Even if not, there is no reason why the numbers should be
+> consecutive.  It's easy enough to skip over a bit.  I.e., after procotol
+> 0x7f the next one would be 0x100.
 
-Is MIPS really a problem?  The value is 0x80.  128 protocol types shoul=
-d
-be enough.  Even if not, there is no reason why the numbers should be
-consecutive.  It's easy enough to skip over a bit.  I.e., after procoto=
-l
-0x7f the next one would be 0x100.
+Indeed, MIPS looks good.
 
-And PA seems to have gotten O_NONBLOCK wrong.  SPARC does it right AFAI=
-CS.
+> And PA seems to have gotten O_NONBLOCK wrong.  SPARC does it right AFAICS.
 
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
+I agree.
 
-iD8DBQFIKRdJ2ijCOnn/RHQRAovKAKDFz2ZJ0E2XYVu5Qn8fME+ieZZopwCgmH4D
-ldfvNrhK8LdvjZzNPViILV0=3D
-=3DZ9Dj
------END PGP SIGNATURE-----
+But that value is compiled into every parisc binary out there,
+limiting what we can do about it in the short term.
