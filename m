@@ -1,47 +1,123 @@
-From: Matteo Croce <matteo@openwrt.org>
-Subject: Re: [PATCH]: cpmac bugfixes and enhancements
-Date: Wed, 14 May 2008 01:31:16 +0200
-Message-ID: <200805140131.16473.matteo@openwrt.org>
-References: <200805041904.22726.matteo@openwrt.org> <200805140058.32890.matteo@openwrt.org> <20080513160642.a96dccbf.akpm@linux-foundation.org>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: autotuning of send buffer size of a socket
+Date: Tue, 13 May 2008 16:48:23 -0700
+Message-ID: <1210722503.11436.9.camel@w-sridhar2.beaverton.ibm.com>
+References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
+	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
+	 <4a4634330805130654n1aafbf10pa73da07e792f7b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, ralf@linux-mips.org, nbd@openwrt.org,
-	ejka@imfi.kspu.ru, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: Shirish Pargaonkar <shirishpargaonkar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out113.alice.it ([85.37.17.113]:3745 "EHLO
-	smtp-out113.alice.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757250AbYEMXbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 19:31:23 -0400
-In-Reply-To: <20080513160642.a96dccbf.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:60365 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753688AbYEMXs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 19:48:26 -0400
+In-Reply-To: <4a4634330805130654n1aafbf10pa73da07e792f7b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Il Wednesday 14 May 2008 01:06:42 Andrew Morton ha scritto:
-> On Wed, 14 May 2008 00:58:32 +0200 Matteo Croce <matteo@openwrt.org> wrote:
-> 
-> > This one is cleaner:
-> > 
-> > 
-> > Signed-off-by: Matteo Croce <matteo@openwrt.org>
-> > Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-> 
-> It has no changelog.  We can neither effectively review it nor commit
-> it without one.
-> 
-> Each bugfix and each enhancement should be described, please.
-> 
+On Tue, 2008-05-13 at 08:54 -0500, Shirish Pargaonkar wrote:
+> On 5/12/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
+> > On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
+> > > Hello,
+> > >
+> > > kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
+> > > I still get the same error and do not see the send buffer size of a socket
+> > > changing (increasing)
+> > >
+> > > The initial buffer sizes are 16384 for send side and 87380 for the receive
+> > > side but I see receive side buffer tuning but do not see the same with
+> > > send side.
+> > >
+> > > If tcp does not see a need to increase the send buffer size, wonder why I
+> > > get EAGAIN error on this non-blocking socket for kernel_sendmsg!
+> >
+> > I think the send buffer auto-tuning doesn't happen here because there is
+> > already congestion window worth of packets sent that are not yet acknowledged.
+> > See tcp_should_expand_sndbuf().
+> >
+> > Also, the comments for tcp_new_space() says that sndbuf expansion does
+> > not work well with largesends. What is the size of your sends?
+> >
+> > Adding netdev to the CC list.
+> >
+> > Thanks
+> > Sridhar
+> >
+> > >
+> > > I do subscribe to this mailing list so, please send your responses to this
+> > > mail address.
+> > >
+> > > Regards,
+> > >
+> > > Shirish
+> > >
+> > > --------------------------------------------------------------------------------------------------
+> > > uname -r
+> > > 2.6.18-91.el5
+> > >
+> > >  sysctl -a
+> > >
+> > > net.ipv4.tcp_rmem = 4096        87380   4194304
+> > > net.ipv4.tcp_wmem = 4096        16384   4194304
+> > > net.ipv4.tcp_mem = 98304        131072  196608
+> > >
+> > > net.core.rmem_default = 126976
+> > > net.core.wmem_default = 126976
+> > > net.core.rmem_max = 131071
+> > > net.core.wmem_max = 131071
+> > >
+> > > net.ipv4.tcp_window_scaling = 1
+> > > net.ipv4.tcp_timestamps = 1
+> > > net.ipv4.tcp_moderate_rcvbuf = 1
+> > >
+> > >
+> > > cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
+> > > 1
+> > >
+> > >
+> > > CIFS VFS: sndbuf 16384 rcvbuf 87380
+> > >
+> > > CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
+> > > stuck for 32 seconds,
+> > > error: -11
+> > > CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
+> > > stuck for 32 seconds,
+> > > error: -11
+> > >
+> > >
+> > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
+> > > stuck for 64 seconds,
+> > > error: -11
+> > >
+> > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
+> > > stuck for 256 seconds,
+> > > error: -11
+> > >
+> > > I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
+> > > is 1) but not
+> > > the socket send buffer size.
+> > > The send buffer size remains fixed, the auto-tuning for send side is
+> > > enabled by default,so I do not see it happening here no matter how
+> > > long the c ode tries to
+> > > kernel_sendmsg after receiving EAGAIN return code.
 
-Here's the changelog:
+> Sridhar,
+> 
+> The size of the sends is 56K.
 
-* Resolve some locking issues using atomic_inc/atomic_dec
-* move status code in cpmac_check_status
-* unmark the BROKEN flag in Kconfig
-* move code which should have been in platform code in arch/mips/ar7/platform.c
-* fixed an IRQ storm which lets the kernel hang
-* fixed a double call to netif_start_queue which causes a kernel panic
-* don't fail to register the PHY, works on many devices now
+As David pointed out, the send size may not be an issue. 
+When do you see these stalls? Do they happen frequently or only under
+stress?
+
+It could be that the receiver is not able to drain the receive queue
+causing the send path to be blocked. You could run netstat -tn on
+the receiver and take a look at 'Recv-Q' output to see if there is
+data pending in the receive queue.
+
+Thanks
+Sridhar
+
