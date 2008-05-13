@@ -1,94 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover,
- performance.
-Date: Tue, 13 May 2008 15:09:06 -0400
-Message-ID: <4829E752.8030104@garzik.org>
-References: <20080513174523.GA1677@2ka.mipt.ru>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
+Date: Tue, 13 May 2008 12:14:07 -0700
+Message-ID: <4829E87F.1070006@redhat.com>
+References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk> <20080513162325.GF15306@ghostprotocols.net> <20080513170325.GB11499@gerrit.erg.abdn.ac.uk> <200805132037.39580.rdenis@simphalempin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: =?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?= <rdenis@simphalempin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38204 "EHLO mail.dvmed.net"
+Received: from mx1.redhat.com ([66.187.233.31]:49297 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756018AbYEMTJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 15:09:12 -0400
-In-Reply-To: <20080513174523.GA1677@2ka.mipt.ru>
+	id S1754809AbYEMTPj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 15:15:39 -0400
+In-Reply-To: <200805132037.39580.rdenis@simphalempin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> Hi.
-> 
-> I'm please to announce POHMEL high performance network filesystem.
-> POHMELFS stands for Parallel Optimized Host Message Exchange Layered File System.
-> 
-> Development status can be tracked in filesystem section [1].
-> 
-> This is a high performance network filesystem with local coherent cache of data
-> and metadata. Its main goal is distributed parallel processing of data. Network 
-> filesystem is a client transport. POHMELFS protocol was proven to be superior to
-> NFS in lots (if not all, then it is in a roadmap) operations.
-> 
-> This release brings following features:
->  * Fast transactions. System will wrap all writings into transactions, which
->  	will be resent to different (or the same) server in case of failure.
-> 	Details in notes [1].
->  * Failover. It is now possible to provide number of servers to be used in
->  	round-robin fasion when one of them dies. System will automatically
-> 	reconnect to others and send transactions to them.
->  * Performance. Super fast (close to wire limit) metadata operations over
->  	the network. By courtesy of writeback cache and transactions the whole
-> 	kernel archive can be untarred by 2-3 seconds (including sync) over
-> 	GigE link (wire limit! Not comparable to NFS).
-> 
-> Basic POHMELFS features:
->     * Local coherent (notes [5]) cache for data and metadata.
->     * Completely async processing of all events (hard and symlinks are the only 
->     	exceptions) including object creation and data reading.
->     * Flexible object architecture optimized for network processing. Ability to
->     	create long pathes to object and remove arbitrary huge directoris in 
-> 	single network command.
->     * High performance is one of the main design goals.
->     * Very fast and scalable multithreaded userspace server. Being in userspace
->     	it works with any underlying filesystem and still is much faster than
-> 	async ni-kernel NFS one.
-> 
-> Roadmap includes:
->     * Server extension to allow storing data on multiple devices (like creating mirroring),
->     	first by saving data in several local directories (think about server, which mounted
-> 	remote dirs over POHMELFS or NFS, and local dirs).
->     * Client/server extension to report lookup and readdir requests not only for local
->     	destination, but also to different addresses, so that reading/writing could be
-> 	done from different nodes in parallel.
->     * Strong authentification and possible data encryption in network channel.
->     * Async writing of the data from receiving kernel thread into
->     	userspace pages via copy_to_user() (check development tracking
-> 	blog for results).
-> 
-> One can grab sources from archive or git [2] or check homepage [3].
-> Benchmark section can be found in the blog [4].
-> 
-> The nearest roadmap (scheduled or the end of the month) includes:
->  * Full transaction support for all operations (only writeback is
->  	guarded by transactions currently, default network state
-> 	just reconnects to the same server).
->  * Data and metadata coherency extensions (in addition to existing
-> 	commented object creation/removal messages). (next week)
->  * Server redundancy.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-This continues to be a neat and interesting project :)
+R=C3=A9mi Denis-Courmont wrote:
+> In any case, getaddrinfo() should be patched to
+> [...]
 
-Where is the best place to look at client<->server protocol?
+What should be the behavior is socktype and protocol are zero?  Should
+these two types be returned by default?  What others?  So far we return
+TCP, UDP, and raw socket information.  I'd rather keep the list short
+but since we already have raw sockets in there (because they are in
+POSIX) I won't reject anything that's more useful than raw sockets.
 
-Are you planning to support the case where the server filesystem dataset 
-does not fit entirely on one server?
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
 
-What is your opinion of the Paxos algorithm?
-
-	Jeff
-
-
-
+iD8DBQFIKeh/2ijCOnn/RHQRAhTeAJ9jrv+RS6rkrGJvan9ADq4S86d2XQCggST4
+/MYPzB+2s2/m1VYsmUPAeLg=3D
+=3DFSYf
+-----END PGP SIGNATURE-----
