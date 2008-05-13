@@ -1,71 +1,108 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Debugging TCP: Treason Uncloaked
-Date: Tue, 13 May 2008 14:21:18 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805121637560.1888@wrl-59.cs.helsinki.fi>
-References: <482265A0.8040105@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] [SCTP]: Add address type check while process paramaters
+ of ASCONF chunk
+Date: Tue, 13 May 2008 13:30:49 +0200
+Message-ID: <48297BE9.9020204@trash.net>
+References: <1210360195-16524-1-git-send-email-vladislav.yasevich@hp.com> <1210360195-16524-2-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Chris Bredesen <cbredesen@redhat.com>
+Content-Type: multipart/mixed;
+ boundary="------------070509050401090605050106"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-sctp@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net,
+	Wei Yongjun <yjwei@cn.fujitsu.com>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43812 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771AbYEMLVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 07:21:19 -0400
-In-Reply-To: <482265A0.8040105@redhat.com>
+Received: from stinky.trash.net ([213.144.137.162]:39560 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750831AbYEMLb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 07:31:27 -0400
+In-Reply-To: <1210360195-16524-2-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 7 May 2008, Chris Bredesen wrote:
+This is a multi-part message in MIME format.
+--------------070509050401090605050106
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Hello,
-> 
-> As per below thread, I'm forwarding to this list/alias.  tcpdump output
-> is attached to the forum post.
-> 
-> Thanks!
-> 
-> -------- Original Message --------
-> Subject: Re: F8 Treason Uncloaked
-> Date: Tue, 6 May 2008 20:00:51 +0100
-> From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-> Organization: Red Hat UK Cyf., Amberley Place, 107-111 Peascod Street,
-> Windsor, Berkshire, SL4 1TE, Y Deyrnas Gyfunol. Cofrestrwyd yng Nghymru
-> a Lloegr o'r rhif cofrestru 3798903
-> To: For users of Fedora <fedora-list@redhat.com>
-> CC: cbredesen@redhat.com
-> References: <4820A59F.7010005@redhat.com>
-> 
-> On Tue, 06 May 2008 14:38:23 -0400
-> Chris Bredesen <cbredesen@redhat.com> wrote:
-> 
-> > Hello list,
-> > 
-> > I'm trying to get this issue out to a wider audience.  I posted it on the
-> > forum but got no responses:
-> > 
-> > http://www.fedoraforum.org/forum/showthread.php?t=186331
-> > 
-> > Sorry to cross post, but I'm not sure where else to turn...
-> 
-> netdev@linux.kernel.org
-> 
-> but the TCP messages really indicate either a Linux bug or that the NAS
-> isn't talking proper TCP. Trying turning off window scaling was a good
-> test but beyond that tcpdump data will be needed.
+Vlad Yasevich wrote:
+> @@ -2827,6 +2827,19 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+>  	union sctp_addr	addr;
+>  	union sctp_addr_param *addr_param;
+>  
+> +	switch (addr_param->v4.param_hdr.type) {
+
+^^^ use of addr_param
+
+> +	case SCTP_PARAM_IPV6_ADDRESS:
+> +		if (!asoc->peer.ipv6_address)
+> +			return SCTP_ERROR_INV_PARAM;
+> +		break;
+> +	case SCTP_PARAM_IPV4_ADDRESS:
+> +		if (!asoc->peer.ipv4_address)
+> +			return SCTP_ERROR_INV_PARAM;
+> +		break;
+> +	default:
+> +		return SCTP_ERROR_INV_PARAM;
+> +	}
+> +
+>  	addr_param = (union sctp_addr_param *)
+>  			((void *)asconf_param + sizeof(sctp_addip_param_t));
+
+^^^ initialization of addr_param
+
+The patch is wrong and needs this fix on top.
 
 
-...This report lacks kernel version (no I won't try to figure out what f8 
-or whatever is using on your box, just tell it :-)) (e.g., ...Some 
-2.6.25-rc had this problem).
 
-Tcp_window_scaling sysctl has nothing to do with window resizing. ...It 
-just decides if scaling factor can be used or not. It won't guarantee you 
-a constant window!
 
-What happened while the window was shrunk is hard to know because the log 
-snippet doesn't have the point where the window was reduced.
 
--- 
- i.
+--------------070509050401090605050106
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit 1beb4530b5bf180d8989993d3050fabdf21522cc
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue May 13 13:27:22 2008 +0200
+
+    [SCTP]: Fix use of uninitialized pointer
+    
+    Introduced by c4492586 (sctp: Add address type check while process
+    paramaters of ASCONF chunk):
+    
+    net/sctp/sm_make_chunk.c: In function 'sctp_process_asconf':
+    net/sctp/sm_make_chunk.c:2828: warning: 'addr_param' may be used uninitialized in this function
+    net/sctp/sm_make_chunk.c:2828: note: 'addr_param' was declared here
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 6eeee53..bbc7107 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2827,6 +2827,9 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+ 	union sctp_addr	addr;
+ 	union sctp_addr_param *addr_param;
+ 
++	addr_param = (union sctp_addr_param *)
++			((void *)asconf_param + sizeof(sctp_addip_param_t));
++
+ 	switch (addr_param->v4.param_hdr.type) {
+ 	case SCTP_PARAM_IPV6_ADDRESS:
+ 		if (!asoc->peer.ipv6_address)
+@@ -2840,9 +2843,6 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+ 		return SCTP_ERROR_INV_PARAM;
+ 	}
+ 
+-	addr_param = (union sctp_addr_param *)
+-			((void *)asconf_param + sizeof(sctp_addip_param_t));
+-
+ 	af = sctp_get_af_specific(param_type2af(addr_param->v4.param_hdr.type));
+ 	if (unlikely(!af))
+ 		return SCTP_ERROR_INV_PARAM;
+
+--------------070509050401090605050106--
