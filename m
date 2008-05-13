@@ -1,7 +1,8 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 1/2] [TCP] FRTO: Fix fallback to conventional recovery
-Date: Tue, 13 May 2008 12:43:53 +0300
-Message-ID: <1210671834-15406-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 2/2] [TCP] FRTO: work-around inorder receivers
+Date: Tue, 13 May 2008 12:43:54 +0300
+Message-ID: <1210671834-15406-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <1210671834-15406-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -9,60 +10,74 @@ Cc: netdev@vger.kernel.org, "Damon L. Chesser" <damon@damtek.com>,
 	"=?utf-8?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33045 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48068 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845AbYEMJnz (ORCPT
+	with ESMTP id S1750937AbYEMJnz (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 05:43:55 -0400
+In-Reply-To: <1210671834-15406-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seems that commit 009a2e3e4ec ("[TCP] FRTO: Improve
-interoperability with other undo_marker users") run into
-another land-mine which caused fallback to conventional
-recovery to break:
+If receiver consumes segments successfully only in-order, FRTO
+fallback to conventional recovery produces RTO loop because
+=46RTO's forward transmissions will always get dropped and need to
+be resent, yet by default they're not marked as lost (which are
+the only segments we will retransmit in CA_Loss).
 
-1. Cumulative ACK arrives after FRTO retransmission
-2. tcp_try_to_open sees zero retrans_out, clears retrans_stamp
-   which should be kept like in CA_Loss state it would be
-3. undo_marker change allowed tcp_packet_delayed to return
-   true because of the cleared retrans_stamp once FRTO is
-   terminated causing LossUndo to occur, which means all loss
-   markings FRTO made are reverted.
+Price to pay about this is occassionally unnecessarily
+retransmitting the forward transmission(s). SACK blocks help
+a bit to avoid this, so it's mainly a concern for NewReno case
+though SACK is not fully immune either.
 
-This means that the conventional recovery basically recovered
-one loss per RTT, which is not that efficient. It was quite
-unobvious that the undo_marker change broken something like
-this, I had a quite long session to track it down because of
-the non-intuitiviness of the bug (luckily I had a trivial
-reproducer at hand and I was also able to learn to use kprobes
-in the process as well :-)).
-
-This together with the NewReno+FRTO fix and FRTO in-order
-workaround this fixes Damon's problems, this and the first
-mentioned are enough to fix Bugzilla #10063.
+This change has a side-effect of fixing SACKFRTO problem where
+it didn't have snd_nxt of the RTO time available anymore when
+fallback become necessary (this problem would have only occured
+when RTO would occur for two or more segments and ECE arrives
+in step 3; no need to figure out how to fix that unless the
+TODO item of selective behavior is considered in future).
 
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 Reported-by: Damon L. Chesser <damon@damtek.com>
 Tested-by: Damon L. Chesser <damon@damtek.com>
-Tested-by: Sebastian Hyrwall <zibbe@cisko.org>
 ---
- net/ipv4/tcp_input.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv4/tcp_input.c |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 81ece1f..4c2255c 100644
+index 4c2255c..4ffd021 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2481,7 +2481,7 @@ static void tcp_try_to_open(struct sock *sk, int =
-flag)
+@@ -1841,9 +1841,16 @@ static void tcp_enter_frto_loss(struct sock *sk,=
+ int allowed_segments, int flag)
+ 			TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_SACKED_RETRANS;
+ 		}
 =20
- 	tcp_verify_left_out(tp);
+-		/* Don't lost mark skbs that were fwd transmitted after RTO */
+-		if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) &&
+-		    !after(TCP_SKB_CB(skb)->end_seq, tp->frto_highmark)) {
++		/* Marking forward transmissions that were made after RTO lost
++		 * can cause unnecessary retransmissions in some scenarios,
++		 * SACK blocks will mitigate that in some but not in all cases.
++		 * We used to not mark them but it was causing break-ups with
++		 * receivers that do only in-order receival.
++		 *
++		 * TODO: we could detect presence of such receiver and select
++		 * different behavior per flow.
++		 */
++		if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)) {
+ 			TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
+ 			tp->lost_out +=3D tcp_skb_pcount(skb);
+ 		}
+@@ -1859,7 +1866,7 @@ static void tcp_enter_frto_loss(struct sock *sk, =
+int allowed_segments, int flag)
+ 	tp->reordering =3D min_t(unsigned int, tp->reordering,
+ 			       sysctl_tcp_reordering);
+ 	tcp_set_ca_state(sk, TCP_CA_Loss);
+-	tp->high_seq =3D tp->frto_highmark;
++	tp->high_seq =3D tp->snd_nxt;
+ 	TCP_ECN_queue_cwr(tp);
 =20
--	if (tp->retrans_out =3D=3D 0)
-+	if (!tp->frto_counter && tp->retrans_out =3D=3D 0)
- 		tp->retrans_stamp =3D 0;
-=20
- 	if (flag & FLAG_ECE)
+ 	tcp_clear_retrans_hints_partial(tp);
 --=20
 1.5.2.2
 
