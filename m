@@ -1,73 +1,71 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: kobject: Fix kobject_rename and !CONFIG_SYSFS
-Date: Tue, 13 May 2008 09:44:38 -0700
-Message-ID: <20080513164438.GA31563@kroah.com>
-References: <m163tocw43.fsf_-_@frodo.ebiederm.org> <20080512220232.GA16914@kroah.com> <m1prrqbseh.fsf@frodo.ebiederm.org> <4829A4BD.3020007@bull.net>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH 01/12] lib: create common ascii hex array
+Date: Tue, 13 May 2008 09:53:27 -0700
+Message-ID: <1210697607.5938.1.camel@brick>
+References: <1210619134.24092.51.camel@brick>
+	 <Pine.LNX.4.64.0805122218240.14152@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: Benjamin Thery <benjamin.thery@bull.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:56754 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751604AbYEMQqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 12:46:16 -0400
-Content-Disposition: inline
-In-Reply-To: <4829A4BD.3020007@bull.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	linux-ide <linux-ide@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>, Ingo Molnar <mingo@elte.hu>,
+	Jason Wessel <jason.wessel@windriver.com>,
+	David Howells <dhowells@redhat.com>,
+	"ralf@linux-mips.org" <ralf@linux-mips.org>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Paul Mackerras <paulus@samba.org>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0805122218240.14152@wrl-59.cs.helsinki.fi>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 13, 2008 at 04:25:01PM +0200, Benjamin Thery wrote:
-> Eric W. Biederman wrote:
->> Greg KH <greg@kroah.com> writes:
->>> Eric, Randy Dunlap has found that this patch breaks the build when
->>> CONFIG_SYSFS is not enabled.  Can you please fix it up before I send it
->>> to Linus?
->>>
->>> The exact error is:
->>> In file included from 
->>> /local/linsrc/next-20080509/include/linux/kobject.h:21,
->>>                  from 
->>> /local/linsrc/next-20080509/include/linux/module.h:16,
->>>                  from 
->>> /local/linsrc/next-20080509/include/linux/crypto.h:21,
->>>                  from
->>> /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets_64.c:7,
->>>                  from
->>> /local/linsrc/next-20080509/arch/x86/kernel/asm-offsets.c:4:
->>> /local/linsrc/next-20080509/include/linux/sysfs.h: In function
->>> 'sysfs_rename_dir':
->>> /local/linsrc/next-20080509/include/linux/sysfs.h:142: error: implicit
->>> declaration of function 'kobject_set_name'
->> I will take a look in the morning and see if I can see what is wrong.
->> Which tree was this error against?  I thought I tested this case,
->> and I'm wondering if there might be another patch that is hiding
->> kobject_set_name.
->
-> Argh, headers "cross-dependencies":
->
-> * linux/kobject.h includes linux/sysfs.h before defining
->   kobject_set_name()
->
-> * linux/sysfs.h needs to include linux/kobject.h to find
->   kobject_set_name() definition (for inlined sysfs_rename_dir() when
->   CONFIG_SYSFS=n)
->
->
-> sysfs_rename_dir() is only called by kobject.c, kobject_rename().
-> I guess this kind of patch is not acceptable to fix the depency?
+On Tue, 2008-05-13 at 12:55 +0300, Ilpo J=C3=A4rvinen wrote:
+> On Mon, 12 May 2008, Harvey Harrison wrote:
+>=20
+> > Add a common hex array in hexdump.c so everyone can use it.
+> >=20
+> > Add a common hi/lo helper to avoid the shifting masking that is
+> > done to get the upper and lower nibbles of a byte value.
+> >=20
+> > Pull the pack_hex_byte helper from kgdb as it is opencoded many
+> > places in the tree that will be consolidated.
+> >=20
+> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> > ---
+> > =20
+> > -#define hex_asc(x)	"0123456789abcdef"[x]
+> > +
+> > +extern const char hex_asc[];
+> > +#define hex_asc_lo(x)	hex_asc[((x) & 0x0f)]
+> > +#define hex_asc_hi(x)	hex_asc[((x) & 0xf0) >> 4]
+> > +
+> > +static inline char *pack_hex_byte(char *buf, u8 byte)
+> > +{
+> > +	*buf++ =3D hex_asc_hi(byte);
+> > +	*buf++ =3D hex_asc_lo(byte);
+> > +	return buf;
+> > +}
+>=20
+> Any idea how much this will bloat kernel once it has, lets say 100=20
+> users? 5k, 10k?
+>=20
 
-Ick, no.  I'd rather add a kobject_set_name() function prototype to
-sysfs.h in this case, that should remove the error, right?
+No more than the existing users do open-coding the same thing all over
+the place.  If it becomes a problem, this can be out-of-lined, but
+the savings are not much.
 
-thanks,
+Harvey
 
-greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
