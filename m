@@ -1,54 +1,64 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH] DCCP: Fix to reset the connection with Reset Code 5	Option
- Error while receive invalid option
-Date: Tue, 13 May 2008 17:57:55 +0800
-Message-ID: <48296623.8040405@cn.fujitsu.com>
-References: <48294E9C.4060209@cn.fujitsu.com> <20080513083033.GA11707@gerrit.erg.abdn.ac.uk>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Fix FRTO+NewReno problem
+Date: Tue, 13 May 2008 13:04:04 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805131258070.15369@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0805122143080.14152@wrl-59.cs.helsinki.fi>
+ <20080512.154838.163999274.davem@davemloft.net>
+ <Pine.LNX.4.64.0805130958001.14510@wrl-59.cs.helsinki.fi>
+ <20080513.024915.161125347.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1818694060-1210673044=:15369"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50910 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751904AbYEMJ5e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 05:57:34 -0400
-In-Reply-To: <20080513083033.GA11707@gerrit.erg.abdn.ac.uk>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58844 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130AbYEMKEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 06:04:06 -0400
+In-Reply-To: <20080513.024915.161125347.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Gerrit Renker:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
- Sorry for my stupid patch since I can get the test git tree.
+---696208474-1818694060-1210673044=:15369
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
- But, Is there any other way to get the git tree? I download a patch 
-from following URL:
-  
-http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/test-tree/test-tree_2.6.25.diff.gz
- I used this patch to my linux-2.6.25, there is error happend. and it 
-has compile error too.
+On Tue, 13 May 2008, David Miller wrote:
 
- Is this patch is based on linux-2.6.25? If I want to send a patch, I 
-must create my patch base on what version of kernel?
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Tue, 13 May 2008 12:42:03 +0300 (EEST)
+> 
+> > On Mon, 12 May 2008, David Miller wrote:
+> > 
+> > > If I understand correctly, it is only non-SACK newreno case that can
+> > > get the unnecessary retransmissions, right?  If so, it's not a big
+> > > deal at all.
+> > 
+> > No, also SACK could get at least one quite easily if TCP has a small 
+> > window, to get two of them with SACK one needs to have a stranger case
+> > unless I missed something. If I just remove that forward transmission LOST 
+> > marking avoidance unconditionally, it fixes that SACKFRTO window of 
+> > failure too which was a pending thing to fix :-).
+> 
+> Ok.
 
-Thanks.
+Hmm, my paragraph was likely ambiguous. So unnecessary transmissions can 
+occur with SACK with that change but another problem that would have 
+required a fix went away with that change.
 
-Gerrit Renker wrote:
-> Quoting Wei Yongjun:
->   
->> If endpoint received invalid option, it must reset the connection with  
->> Reset Code 5 "Option Error", but current kernel send reset with Reset  
->> Code 4 "Packet Error".
->>
->>     
-> Ack. However, this has already been fixed in the test tree where dccp_parse()
-> both sets the Reset code and fills in the Data1..3 fields (not done by this patch).
->
-> Within a span of two weeks this is the fourth DCCP patch which fixes bugs
-> that already have fixes in the DCCP test tree. The same problems are fixed
-> in two different locations.
->
-> If you are doing DCCP work, please consider 
-> http://www.linux-foundation.org/en/Net:DCCP_Testing#How_to_obtai
+> > Btw, the first two fixes (workaround was not included) also fixed bugzilla 
+> > #10063, I just got a confirmation about that as well.
+> > 
+> > I'll send the two patches still pending separately in a minute.
+> 
+> Thank you.
+
+Forgot to mention earlier, these should go to stable too (but you 
+probably figured that out anyway).
+
+-- 
+ i.
+---696208474-1818694060-1210673044=:15369--
