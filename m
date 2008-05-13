@@ -1,44 +1,62 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] Delete unused fec_8xx net driver
-Date: Tue, 13 May 2008 10:12:25 -0500
-Message-ID: <06153BF4-5E1B-44D7-B7DC-D909F2DC8A58@kernel.crashing.org>
-References: <Pine.LNX.4.64.0805021320360.24806@monty.am.freescale.net>
-	<48208790.5090508@pobox.com>
-	<20080508172519.GA12162@gate.crashing.org>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jengelh@medozas.de, linuxppc-dev@ozlabs.org,
-	scottwood@freescale.com, Jeff Garzik <jgarzik@pobox.com>
-To: Vitaly Bordug <vitb@gate.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20080508172519.GA12162@gate.crashing.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+From: "Bradley M. Kuhn" <bkuhn@ebb.org>
+Subject: Re: [Bugme-new] [Bug 10682] New: (net 8139too) dual ethernet   system, any reasonable network causes: NETDEV WATCHDOG: ethN: transmit   timed out
+Date: Tue, 13 May 2008 10:35:26 -0400
+Message-ID: <87y76enufl.fsf@hughes.sflc-vpn>
+References: <bug-10682-10286@http.bugzilla.kernel.org/>
+	<20080511211055.af2595e9.akpm@linux-foundation.org>
+	<20080512214014.GB27236@ebb.org>
+	<20080512151142.067b98d2.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.sflc.info ([216.27.154.199]:53408 "EHLO mail.sflc.info"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753677AbYEMPTs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 11:19:48 -0400
+In-Reply-To: <20080512151142.067b98d2.akpm@linux-foundation.org> (Andrew Morton's message of "Mon\, 12 May 2008 15\:11\:42 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Alex (quoted below) must have seen my bug ticket regarding the 8319too
+WATCHDOG bug and replied to me privately.  I include his message below
+primarily for posterity on the bug ticket and mailing list archives.  He's
+confirming 2.6.23 fails in the same way as well on this particular box
+with the two 8139too cards in it.
 
-On May 8, 2008, at 12:25 PM, Vitaly Bordug wrote:
+I expect to try the older kernel versions Andrew suggested in the next few
+days and will report back when I have.
 
-> On Tue, May 06, 2008 at 12:30:08PM -0400, Jeff Garzik wrote:
->> Becky Bruce wrote:
->>> This driver has been superseded by fs_enet and is no longer in use.
->>>
->>> Signed-off-by: Becky Bruce <becky.bruce@freescale.com>
->>
->> I cannot make an informed judgement on this.
->>
->> ACK, and pass through platform tree, if all platform peeps are happy.
->
-> I'll move thins along.
+Meanwhile, I have vague and more-or-less unfounded theory that this bug is
+specific to having two of the same style card in the same box.  Would it
+be useful, assuming that I can't make an older kernel work, to try seeing
+if I can physically unwire one of the ethernet cards to see if the problem
+occurs with only one card wired up?  (This may be undoable without
+breaking something on this tiny box, but I'm willing to have a go if folks
+think it might help.)
+#########################################################################
+Date: Tue, 13 May 2008 16:40:46 +0800
+To: bkuhn@ebb.org
+Subject: Re: (net 8139too) dual ethernet system, any reasonable network causes: NETDEV
+From: "Alex REDACTED" <redacted@example.com>
 
-I've applied this to my tree and will push via powerpc.git.
+We're using an ebox 4852/4853 with debian linux kernel 2.6.23.
 
-- k
+Today during testing, we found the exact problem that you're reporting -  
+NETDEV WATCHDOG timeouts when any reasonable network load is placed on
+routing between the ethernet ports.
+
+We're using the 8139too driver too, version 0.9.28.
+
+No solutions yet, we will probably look into it as time permits.
+
+Just thought you might appreciate another kernel version data point.
+
+Cheers,
+-- 
+Alex.
+#########################################################################
+-- 
+
+   -- bkuhn
