@@ -1,46 +1,58 @@
-From: "Jerry Chu" <hkchu@google.com>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Mon, 12 May 2008 21:00:08 -0700
-Message-ID: <d1c2719f0805122100u7e550820xff6fcdbc1e538948@mail.gmail.com>
-References: <20080512.152900.220913361.davem@davemloft.net>
-	 <20080512.153114.163063885.davem@davemloft.net>
-	 <d1c2719f0805122056ib4c1af7pfa7f95f6e38c7e32@mail.gmail.com>
-	 <20080512.205837.215391489.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 18/18] flag parameters: check magic constants
+Date: Mon, 12 May 2008 21:01:41 -0700
+Message-ID: <20080512210141.bf00ada4.akpm@linux-foundation.org>
+References: <200805062118.m46LI74j004096@devserv.devel.redhat.com>
+	<20080512201341.9ead6a9a.akpm@linux-foundation.org>
+	<482910FA.1080703@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davidel@xmailserver.org, mtk.manpages@gmail.com,
+	torvalds@linux-foundation.org
+To: Ulrich Drepper <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:55894 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbYEMEAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 00:00:22 -0400
-Received: from zps35.corp.google.com (zps35.corp.google.com [172.25.146.35])
-	by smtp-out.google.com with ESMTP id m4D40Cvi007527
-	for <netdev@vger.kernel.org>; Tue, 13 May 2008 05:00:12 +0100
-Received: from hs-out-0708.google.com (hscm63.prod.google.com [10.44.114.63])
-	by zps35.corp.google.com with ESMTP id m4D409Ae014086
-	for <netdev@vger.kernel.org>; Mon, 12 May 2008 21:00:10 -0700
-Received: by hs-out-0708.google.com with SMTP id m63so2296129hsc.11
-        for <netdev@vger.kernel.org>; Mon, 12 May 2008 21:00:09 -0700 (PDT)
-In-Reply-To: <20080512.205837.215391489.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59664 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750878AbYEMECB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 00:02:01 -0400
+In-Reply-To: <482910FA.1080703@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Does xchg() return the old value? (Can't find any comments on it.)
+On Mon, 12 May 2008 20:54:34 -0700 Ulrich Drepper <drepper@redhat.com> wrote:
 
-Jerry
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> Andrew Morton wrote:
+> >> +	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
+> > 
+> > The fifth assertion triggers with alpha allmodconfig.
+> 
+> This means the simple approach won't work for alpha.
+> 
+> The question is how to solve it?  I suggest the following:
+> 
+> - - define SOCK_NONBLOCK to some value > 16 in include/asm-alpha/socket.h
+> 
+> - - add #ifndef SOCK_NONBLOCK around the definition in include/linux/net.h
 
-On Mon, May 12, 2008 at 8:58 PM, David Miller <davem@davemloft.net> wrote:
-> From: "Jerry Chu" <hkchu@google.com>
->  Date: Mon, 12 May 2008 20:56:16 -0700
->
->
->  > If true, can we use some atomic operation to zap in_flight, but also
->  > return to the caller if in_flight has been nullified already so that
->  > the accounting can be handled correctly?
->
->  xchg() should work for that purpose.
->
+With a comment, please.
+
+> - - in sys_socket, sys_socketpair, sys_paccept
+> 
+>    int fflags = flags;
+>    if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK)) {
+>      fflags &= ~SOCK_NONBLOCK;
+>      fflags |= O_NONBLOCK;
+>    }
+> 
+>   and use fflags instead of flags in the places where we pass it on.
+> 
+> This has no costs on platforms other than alpha.
+> 
+> Shall I sent a patch?
+
+Sounds reasonable.
