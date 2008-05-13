@@ -1,71 +1,47 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH 01/12] lib: create common ascii hex array
-Date: Tue, 13 May 2008 09:53:27 -0700
-Message-ID: <1210697607.5938.1.camel@brick>
-References: <1210619134.24092.51.camel@brick>
-	 <Pine.LNX.4.64.0805122218240.14152@wrl-59.cs.helsinki.fi>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
+Date: Tue, 13 May 2008 09:59:35 -0700
+Message-ID: <OF8AA2B2D0.51E14DBC-ON88257448.005BC2A0-88257448.005D57D0@us.ibm.com>
+References: <20080513162325.GF15306@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	linux-ide <linux-ide@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>, Ingo Molnar <mingo@elte.hu>,
-	Jason Wessel <jason.wessel@windriver.com>,
-	David Howells <dhowells@redhat.com>,
-	"ralf@linux-mips.org" <ralf@linux-mips.org>,
-	Paul Mundt <lethal@linux-sh.org>,
-	Paul Mackerras <paulus@samba.org>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0805122218240.14152@wrl-59.cs.helsinki.fi>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>, netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:47483 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431AbYEMQ7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 12:59:39 -0400
+In-Reply-To: <20080513162325.GF15306@ghostprotocols.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-05-13 at 12:55 +0300, Ilpo J=C3=A4rvinen wrote:
-> On Mon, 12 May 2008, Harvey Harrison wrote:
->=20
-> > Add a common hex array in hexdump.c so everyone can use it.
-> >=20
-> > Add a common hi/lo helper to avoid the shifting masking that is
-> > done to get the upper and lower nibbles of a byte value.
-> >=20
-> > Pull the pack_hex_byte helper from kgdb as it is opencoded many
-> > places in the tree that will be consolidated.
-> >=20
-> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> > ---
-> > =20
-> > -#define hex_asc(x)	"0123456789abcdef"[x]
-> > +
-> > +extern const char hex_asc[];
-> > +#define hex_asc_lo(x)	hex_asc[((x) & 0x0f)]
-> > +#define hex_asc_hi(x)	hex_asc[((x) & 0xf0) >> 4]
-> > +
-> > +static inline char *pack_hex_byte(char *buf, u8 byte)
-> > +{
-> > +	*buf++ =3D hex_asc_hi(byte);
-> > +	*buf++ =3D hex_asc_lo(byte);
-> > +	return buf;
-> > +}
->=20
-> Any idea how much this will bloat kernel once it has, lets say 100=20
-> users? 5k, 10k?
->=20
+Arnaldo Carvalho de Melo <acme@redhat.com> wrote on 05/13/2008 09:23:25 
+AM:
 
-No more than the existing users do open-coding the same thing all over
-the place.  If it becomes a problem, this can be out-of-lined, but
-the savings are not much.
+> Em Tue, May 13, 2008 at 08:50:59AM -0700, David Stevens escreveu:
+> > Are they mutually exclusive?
+> > 
+> > Why not add SOCK_DGRAM/IPPROTO_DCCP support while leaving
+> 
+> Because DCCP is not SOCK_DGRAM at all? :)
 
-Harvey
+        Well, SOCK_STREAM/IPPROTO_DCCP then. :-) But it isn't really that
+either, as Remi said.
+        If you do a connect() on a UDP socket, it doesn't cease to
+be a SOCK_DGRAM socket, so I don't really care about that distinction,
+but if others do, that's ok with me. There are ACKs here, too, so maybe.
+        My point was really that, though not as pretty, the world won't
+end if there are two ways to get to the same kind of socket, and
+especially if adding a new one makes getaddrinfo() easier to deal with.
+If the best way isn't the existing way, we could add it, and keep the
+old way for backward compatibility only.
+        A "0" protocol had better continue to be TCP and UDP, and
+specifying IPPROTO_DCCP makes it clear what the user wants, regardless
+of the type. So "just working" (even with any of SOCK_DGRAM, SOCK_STREAM,
+and SOCK_DCCP) seems perfectly reasonable to me. My $.02.
+        A wrapper sound ok to me too.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+                                                                +-DLS
+
