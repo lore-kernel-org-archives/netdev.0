@@ -1,47 +1,51 @@
-From: David Stevens <dlstevens@us.ibm.com>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
 Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
-Date: Tue, 13 May 2008 09:59:35 -0700
-Message-ID: <OF8AA2B2D0.51E14DBC-ON88257448.005BC2A0-88257448.005D57D0@us.ibm.com>
-References: <20080513162325.GF15306@ghostprotocols.net>
+Date: Tue, 13 May 2008 20:06:34 +0300
+Message-ID: <200805132006.35010.rdenis@simphalempin.com>
+References: <OF8AA2B2D0.51E14DBC-ON88257448.005BC2A0-88257448.005D57D0@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>, netdev@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:47483 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431AbYEMQ7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 12:59:39 -0400
-In-Reply-To: <20080513162325.GF15306@ghostprotocols.net>
+Received: from yop.chewa.net ([91.121.105.214]:37604 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751604AbYEMRGl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 13:06:41 -0400
+In-Reply-To: <OF8AA2B2D0.51E14DBC-ON88257448.005BC2A0-88257448.005D57D0@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnaldo Carvalho de Melo <acme@redhat.com> wrote on 05/13/2008 09:23:25 
-AM:
+Le Tuesday 13 May 2008 19:59:35 David Stevens, vous avez =E9crit=A0:
+>         Well, SOCK_STREAM/IPPROTO_DCCP then. :-) But it isn't really =
+that
+> either, as Remi said.
+>         If you do a connect() on a UDP socket, it doesn't cease to
+> be a SOCK_DGRAM socket, so I don't really care about that distinction=
+,
+> but if others do, that's ok with me. There are ACKs here, too, so may=
+be.
 
-> Em Tue, May 13, 2008 at 08:50:59AM -0700, David Stevens escreveu:
-> > Are they mutually exclusive?
-> > 
-> > Why not add SOCK_DGRAM/IPPROTO_DCCP support while leaving
-> 
-> Because DCCP is not SOCK_DGRAM at all? :)
+But connect() is a _non-blocking_ operation which merely sets the _defa=
+ult_=20
+destination (you can still sendto() someone else).
 
-        Well, SOCK_STREAM/IPPROTO_DCCP then. :-) But it isn't really that
-either, as Remi said.
-        If you do a connect() on a UDP socket, it doesn't cease to
-be a SOCK_DGRAM socket, so I don't really care about that distinction,
-but if others do, that's ok with me. There are ACKs here, too, so maybe.
-        My point was really that, though not as pretty, the world won't
-end if there are two ways to get to the same kind of socket, and
-especially if adding a new one makes getaddrinfo() easier to deal with.
-If the best way isn't the existing way, we could add it, and keep the
-old way for backward compatibility only.
-        A "0" protocol had better continue to be TCP and UDP, and
-specifying IPPROTO_DCCP makes it clear what the user wants, regardless
-of the type. So "just working" (even with any of SOCK_DGRAM, SOCK_STREAM,
-and SOCK_DCCP) seems perfectly reasonable to me. My $.02.
-        A wrapper sound ok to me too.
+Using socket types blindly may also break applications using=20
+getsockopt(SO_TYPE), if they exists (I think I wrote one once...) to=20
+determine how to use a socket.
 
-                                                                +-DLS
+SOCK_DCCP was perhaps a bad idea, but SOCK_DGRAM seems worse. In the en=
+d, it's=20
+more a matter of patching libc getaddrinfo than changing the kernel API=
+=20
+anyway. Did AIX not have a similar socket type as DCCP under a more gen=
+eric=20
+name by the way?
 
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
