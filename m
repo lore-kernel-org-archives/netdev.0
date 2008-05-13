@@ -1,48 +1,71 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: mac80211 truesize bugs
-Date: Tue, 13 May 2008 15:09:26 -0700 (PDT)
-Message-ID: <20080513.150926.114765212.davem@davemloft.net>
-References: <1210712356.4279.22.camel@johannes.berg>
-	<1ba2fa240805131412i3bd1756bhb11d31742b326b2f@mail.gmail.com>
-	<1210714643.4279.27.camel@johannes.berg>
+From: Ack <ackman@gtf.org>
+Subject: Re: RTL8169 driver no longer functioning with 8111b
+Date: Tue, 13 May 2008 18:29:44 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0805131821500.2988@havoc.gtf.org>
+References: <4828D529.3060201@gtf.org> <20080513205140.GA11808@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1210714643.4279.27.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from havoc.gtf.org ([69.61.125.42]:34455 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759475AbYEMW3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 18:29:45 -0400
+In-Reply-To: <20080513205140.GA11808@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 13 May 2008 23:37:23 +0200
+Sorry, I meant to say I couldn't see the box when I was typing up the 
+email, it was indeed 2.6.23-gentoo-r8.
 
-> 
-> > >  Most fullmac devices also need some space, whether they do things that
-> > >  way or not is a completely different thing, the ieee80211 stack for
-> > >  example copies every packet into a new skb anyway.
-> > 
-> > It's really depends on when is the 802.3 to 802.11 header translation
-> > made it doesn't matter whether it's fullmac or softmac. I would say
-> > that WLAN is OK.
-> 
-> True, some devices take 802.3 frames and do the translation and
-> everything themselves. I dunno. I guess it would make sense to make it
-> mac80211 anyway because ieee80211 doesn't care and the other drivers are
-> probably handling this in some other way anyway (if maybe even by using
-> different dma descriptors, or just not caring because transfer speeds
-> are low enough)
+In the interest of saving your time, I managed to fix it, and I'm not 
+entirely sure why, but here's what I continued to do:
 
-We should fix ieee80211 (it's something I planned to look into today
-in fact), and the drivers that copy or do things incorrectly.
+I took the network cable, and connected both onboard ports to it.  This 
+caused the NIC ports to turn on the orange (instead of green) light, as 
+expected normally.  Otherwise, the connection light would only be green 
+prior to the kernel module load from a cold boot (once the module loads, 
+the link light went dead and would stay dead).  Next I connected the port 
+to a 100MB switch and now the link came back up.  Plugged the cable back 
+to the gigabit switch, and link stays down.  Forced the eth0 to 100MB and 
+the link came back up.  Switch back to Autoneg (where ethtool had 
+constantly said it was) and bang my card link stay up when disconnecting 
+and reconnecting.  Honestly, I suppose I should have tried this 
+previously, but I'd not had this problem on reboot any in the past, it's 
+always been autoneg and ethtool was reporting as expected for that option. 
+Very strange.  Thanks for wasting your time though.  Not sure what would 
+need to be done for the driver for this as I'm not really sure how it got 
+to the state it was in just by that reboot.
 
-It doesn't make sense to make this decision based upon which 80211
-stack or which drivers are enabled.  All of them in essence want this
-extra space, so let's give it to them.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-Ack
+
+
+On Tue, 13 May 2008, Francois Romieu wrote:
+
+> ackman <ackman@gtf.org> :
+>> I've spent the better part of a day researching this to no avail.  I run
+>> Gentoo on an Abit AB9 PRO P965 board.  It has two onboard ports for a
+>> Realtek 8111B Gigabit interface.  I have been running 2.6.23-gentoo-r8 (I
+>> think) kernel sources.
+>
+> uname -a should help figuring the exact version.
+>
+> [...]
+>> being turn on.  It just mysteriously has stopped being alive.  lspci shows
+>> the devices, their given eth0 and eth1 as usual, I can disable them in the
+>> bios and watch Linux recognize they're missing, but still I can't for the
+>> life of me get them to act properly.  I've tried turning off ACPI, I've
+>> tried 2.6.24-gentoo-r7 kernel, I've tried the Realtek driver source for
+>> r8168.  ACPI support was the only thing I can think of that has been a
+>> major change on the system anytime recently.
+>> Any suggestions would be helpful.
+>
+> Can you give noapic, pci=nomsi, pci=nommconf a try and send both
+> 'lspci -H1 -vvxx' and 'lspci -vvxx' output ?
+>
+> The 'XID' line produced by dmesg would be welcome too.
+>
+> -- 
+> Ueimor
+>
