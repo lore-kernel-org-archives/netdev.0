@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [SCTP]: Add address type check while process
- paramaters of ASCONF chunk
-Date: Tue, 13 May 2008 15:32:38 -0700 (PDT)
-Message-ID: <20080513.153238.211668684.davem@davemloft.net>
-References: <1210360195-16524-2-git-send-email-vladislav.yasevich@hp.com>
-	<48297BE9.9020204@trash.net>
-	<48298E27.40100@hp.com>
+Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
+Date: Tue, 13 May 2008 15:34:30 -0700 (PDT)
+Message-ID: <20080513.153430.47909155.davem@davemloft.net>
+References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk>
+	<OFDBD6E282.6F00998A-ON88257448.0056D40D-88257448.0057105E@us.ibm.com>
+	<20080513162325.GF15306@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net, yjwei@cn.fujitsu.com
-To: vladislav.yasevich@hp.com
+Cc: dlstevens@us.ibm.com, gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36479
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36484
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750860AbYEMWco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 18:32:44 -0400
-In-Reply-To: <48298E27.40100@hp.com>
+	by vger.kernel.org with ESMTP id S1754790AbYEMWef (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 18:34:35 -0400
+In-Reply-To: <20080513162325.GF15306@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 13 May 2008 08:48:39 -0400
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Tue, 13 May 2008 13:23:25 -0300
 
-> I missed this warning in the my builds...
+> What would be the problem of SOCK_DCCP being handled in glibc in such a
+> fashion?
 
-And in your testing of the patch too, right?
+I don't understand why this isn't exactly what is being done.
+
+We have to update glibc to handle SOCK_DCCP correctly, just
+get over it :-)
