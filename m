@@ -1,66 +1,68 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Fix FRTO+NewReno problem
-Date: Tue, 13 May 2008 12:42:03 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805130958001.14510@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0805121656440.1888@wrl-59.cs.helsinki.fi>
- <48288EFE.4020708@damtek.com> <Pine.LNX.4.64.0805122143080.14152@wrl-59.cs.helsinki.fi>
- <20080512.154838.163999274.davem@davemloft.net>
+Subject: [PATCH 1/2] [TCP] FRTO: Fix fallback to conventional recovery
+Date: Tue, 13 May 2008 12:43:53 +0300
+Message-ID: <1210671834-15406-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-319812498-1210662214=:14510"
-Cc: damon@damtek.com, Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "Damon L. Chesser" <damon@damtek.com>,
+	"=?utf-8?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49959 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33045 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735AbYEMJmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 05:42:06 -0400
-In-Reply-To: <20080512.154838.163999274.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0805131238230.15369@wrl-59.cs.helsinki.fi>
+	with ESMTP id S1750845AbYEMJnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 05:43:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+It seems that commit 009a2e3e4ec ("[TCP] FRTO: Improve
+interoperability with other undo_marker users") run into
+another land-mine which caused fallback to conventional
+recovery to break:
 
----696208474-319812498-1210662214=:14510
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0805131003471.14510@wrl-59.cs.helsinki.fi>
+1. Cumulative ACK arrives after FRTO retransmission
+2. tcp_try_to_open sees zero retrans_out, clears retrans_stamp
+   which should be kept like in CA_Loss state it would be
+3. undo_marker change allowed tcp_packet_delayed to return
+   true because of the cleared retrans_stamp once FRTO is
+   terminated causing LossUndo to occur, which means all loss
+   markings FRTO made are reverted.
 
-On Mon, 12 May 2008, David Miller wrote:
+This means that the conventional recovery basically recovered
+one loss per RTT, which is not that efficient. It was quite
+unobvious that the undo_marker change broken something like
+this, I had a quite long session to track it down because of
+the non-intuitiviness of the bug (luckily I had a trivial
+reproducer at hand and I was also able to learn to use kprobes
+in the process as well :-)).
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 12 May 2008 22:12:47 +0300 (EEST)
-> 
-> > Then one question for DaveM:
-> > 
-> > What I'm not fully sure of, is do we want this workaround to be a sysctl 
-> > or unconditionally enabled which causes potentially up to two unnecessary 
-> > retransmissions? With SACK one or both of them will get SACKed before they 
-> > get retransmitted (both cases have common scenarios). (I made that 
-> > workaround patch for 2.6.24.1, so YMMV if you just plainly try to apply it 
-> > to net-2.6).
-> 
-> I think we will have to handle this behavior, unconditionally, all
-> the time.  Don't even add the sysctl.
+This together with the NewReno+FRTO fix and FRTO in-order
+workaround this fixes Damon's problems, this and the first
+mentioned are enough to fix Bugzilla #10063.
 
-Yes, that's what I was thinking in the second option.
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Reported-by: Damon L. Chesser <damon@damtek.com>
+Tested-by: Damon L. Chesser <damon@damtek.com>
+Tested-by: Sebastian Hyrwall <zibbe@cisko.org>
+---
+ net/ipv4/tcp_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> If I understand correctly, it is only non-SACK newreno case that can
-> get the unnecessary retransmissions, right?  If so, it's not a big
-> deal at all.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 81ece1f..4c2255c 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2481,7 +2481,7 @@ static void tcp_try_to_open(struct sock *sk, int =
+flag)
+=20
+ 	tcp_verify_left_out(tp);
+=20
+-	if (tp->retrans_out =3D=3D 0)
++	if (!tp->frto_counter && tp->retrans_out =3D=3D 0)
+ 		tp->retrans_stamp =3D 0;
+=20
+ 	if (flag & FLAG_ECE)
+--=20
+1.5.2.2
 
-No, also SACK could get at least one quite easily if TCP has a small 
-window, to get two of them with SACK one needs to have a stranger case
-unless I missed something. If I just remove that forward transmission LOST 
-marking avoidance unconditionally, it fixes that SACKFRTO window of 
-failure too which was a pending thing to fix :-).
-
-Btw, the first two fixes (workaround was not included) also fixed bugzilla 
-#10063, I just got a confirmation about that as well.
-
-I'll send the two patches still pending separately in a minute.
-
--- 
- i.
----696208474-319812498-1210662214=:14510--
