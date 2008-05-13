@@ -1,55 +1,64 @@
-From: "Jerry Chu" <hkchu@google.com>
-Subject: Re: Socket buffer sizes with autotuning
-Date: Mon, 12 May 2008 20:56:16 -0700
-Message-ID: <d1c2719f0805122056ib4c1af7pfa7f95f6e38c7e32@mail.gmail.com>
-References: <d1c2719f0805072033u38dfffaes71aed3efbc8035c0@mail.gmail.com>
-	 <d1c2719f0805121522g4767f585h4b33790318f44264@mail.gmail.com>
-	 <20080512.152900.220913361.davem@davemloft.net>
-	 <20080512.153114.163063885.davem@davemloft.net>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [PATCH 18/18] flag parameters: check magic constants
+Date: Mon, 12 May 2008 20:54:34 -0700
+Message-ID: <482910FA.1080703@redhat.com>
+References: <200805062118.m46LI74j004096@devserv.devel.redhat.com> <20080512201341.9ead6a9a.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davidel@xmailserver.org, mtk.manpages@gmail.com,
+	torvalds@linux-foundation.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:55557 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754578AbYEMD4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 23:56:22 -0400
-Received: from zps18.corp.google.com (zps18.corp.google.com [172.25.146.18])
-	by smtp-out.google.com with ESMTP id m4D3uIA0006334
-	for <netdev@vger.kernel.org>; Tue, 13 May 2008 04:56:18 +0100
-Received: from hs-out-0708.google.com (hsn23.prod.google.com [10.44.14.23])
-	by zps18.corp.google.com with ESMTP id m4D3uH3F017890
-	for <netdev@vger.kernel.org>; Mon, 12 May 2008 20:56:17 -0700
-Received: by hs-out-0708.google.com with SMTP id 23so2011927hsn.13
-        for <netdev@vger.kernel.org>; Mon, 12 May 2008 20:56:17 -0700 (PDT)
-In-Reply-To: <20080512.153114.163063885.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:36542 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755995AbYEMD53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2008 23:57:29 -0400
+In-Reply-To: <20080512201341.9ead6a9a.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 12, 2008 at 3:31 PM, David Miller <davem@davemloft.net> wrote:
-> From: David Miller <davem@davemloft.net>
->  Date: Mon, 12 May 2008 15:29:00 -0700 (PDT)
->
->
->  > Simply notice, when we're about to decrement in_flight, that the data
->  > reference is one.  You can take appropriate actions if so.
->
->  Actually, there is an even simpler solution.  Since this is a fast
->  clone, when the parent SKB is freed we can see if the fast-clone child
->  is active and has the in_flight atomic_t pointer.  If so, we decrement
->  in_flight and zap it to NULL.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-I thought about that too. But what happens if the clone is being freed by
-the driver at the same time when TCP is freeing the parent? Isn't there an
-intrinsic race condition here? If true, can we use some atomic operation to
-zap in_flight, but also return to the caller if in_flight has been nullified
-already so that the accounting can be handled correctly? (Although
-tp->host_inflight doesn't need to be super accurate, if there is no simple
-solution above I'll have to reset tp->host_inflight periodically and convince
-myself the pathological case of host_inflight drifting forever won't ever
-happen...)
+Andrew Morton wrote:
+>> +	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
+>=20
+> The fifth assertion triggers with alpha allmodconfig.
 
-Jerry
+This means the simple approach won't work for alpha.
+
+The question is how to solve it?  I suggest the following:
+
+- - define SOCK_NONBLOCK to some value > 16 in include/asm-alpha/socket=
+=2Eh
+
+- - add #ifndef SOCK_NONBLOCK around the definition in include/linux/ne=
+t.h
+
+- - in sys_socket, sys_socketpair, sys_paccept
+
+   int fflags =3D flags;
+   if (SOCK_NONBLOCK !=3D O_NONBLOCK && (flags & SOCK_NONBLOCK)) {
+     fflags &=3D ~SOCK_NONBLOCK;
+     fflags |=3D O_NONBLOCK;
+   }
+
+  and use fflags instead of flags in the places where we pass it on.
+
+This has no costs on platforms other than alpha.
+
+Shall I sent a patch?
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkgpEPoACgkQ2ijCOnn/RHQ38gCgyVOI/urGeoIr7CFIfs8C7OyR
+I80AniPGGWyxZYUQg0pQlySQHqX/UYlx
+=3D5fA2
+-----END PGP SIGNATURE-----
