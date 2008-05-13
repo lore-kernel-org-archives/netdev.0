@@ -1,47 +1,43 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] [2.6.26] memory: Introduce exports for memory notifiers
-Date: Tue, 13 May 2008 01:16:09 -0400
-Message-ID: <48292419.6010302@garzik.org>
-References: <200805071443.02145.hannes.hering@linux.vnet.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/9] Add TSO support
+Date: Tue, 13 May 2008 01:17:46 -0400
+Message-ID: <4829247A.5020407@pobox.com>
+References: <20080507114121.GL2217@solarflare.com> <20080507115112.GM2217@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, ossrosch@linux.vnet.ibm.com,
-	ossthema@de.ibm.com, raisch@de.ibm.com, themann@de.ibm.com,
-	tklein@de.ibm.com
-To: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49351 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49365 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754651AbYEMFQO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 01:16:14 -0400
-In-Reply-To: <200805071443.02145.hannes.hering@linux.vnet.ibm.com>
+	id S1752020AbYEMFRs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 01:17:48 -0400
+In-Reply-To: <20080507115112.GM2217@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Hering wrote:
-> This patch introduces two exports to allow modules to use memory notifiers.
+Ben Hutchings wrote:
+> The SFC4000 controller does not have hardware support for TSO, and the
+> core GSO code incurs a high cost in allocating and freeing skbs.  This
+> TSO implementation uses lightweight packet header structures and is
+> substantially faster.
 > 
-> Signed-off-by: Hannes Hering <hering2@de.ibm.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 > ---
-> 
-> diff --git a/drivers/base/memory.c b/drivers/base/memory.c
-> index 8ce6de5..937e825 100644
-> --- a/drivers/base/memory.c
-> +++ b/drivers/base/memory.c
-> @@ -53,11 +53,13 @@ int register_memory_notifier(struct notifier_block *nb)
->  {
->          return blocking_notifier_chain_register(&memory_chain, nb);
->  }
-> +EXPORT_SYMBOL(register_memory_notifier);
->  
->  void unregister_memory_notifier(struct notifier_block *nb)
->  {
->          blocking_notifier_chain_unregister(&memory_chain, nb);
->  }
-> +EXPORT_SYMBOL(unregister_memory_notifier);
+>  drivers/net/sfc/efx.c        |    4 +-
+>  drivers/net/sfc/ethtool.c    |   27 ++
+>  drivers/net/sfc/net_driver.h |   14 +
+>  drivers/net/sfc/tx.c         |  664 ++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 708 insertions(+), 1 deletions(-)
 
-applied 1-3
+applied 1-9, with two comments:
 
+1) your subject line is missing a useful prefix.  see
+http://linux.yyz.us/patch-format.html
+
+2) normally TSO addition would not be permitting during the 
+bug-fixes-only phase of the kernel development (2.6.26-rc is current), 
+but since the driver is new, it is reasonable because there can be no 
+regressions
 
