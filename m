@@ -1,52 +1,103 @@
-From: ackman <ackman@gtf.org>
-Subject: RTL8169 driver no longer functioning with 8111b
-Date: Mon, 12 May 2008 16:39:21 -0700
-Message-ID: <4828D529.3060201@gtf.org>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: autotuning of send buffer size of a socket
+Date: Mon, 12 May 2008 17:47:27 -0700
+Message-ID: <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
+References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:57157 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756903AbYELXtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2008 19:49:24 -0400
-Received: from [127.0.0.1] (cpe-76-167-243-198.socal.res.rr.com [76.167.243.198])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by havoc.gtf.org (Postfix) with ESMTP id C92CA1F81A2
-	for <netdev@vger.kernel.org>; Mon, 12 May 2008 19:39:23 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: Shirish Pargaonkar <shirishpargaonkar@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I've spent the better part of a day researching this to no avail.  I run 
-Gentoo on an Abit AB9 PRO P965 board.  It has two onboard ports for a 
-Realtek 8111B Gigabit interface.  I have been running 2.6.23-gentoo-r8 
-(I think) kernel sources.  I went to reboot the unit, something I've 
-done many times before, and upon reboot the two NICs were recognized but 
-there was no network.  The link status for one was down (my primary port 
-where the NIC cable has always been), while the other port showed a link 
-status of yes.  Neither change regardless of cable now.  Also, all other 
-values are pretty much *unknown*.  If I turn off the machine, the link 
-status light (both on the port and my switch) is lit until the kernel 
-module for r8169 is loaded, and then the link light goes off (both on 
-the port and my switch).
+On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
+> Hello,
+> 
+> kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
+> I still get the same error and do not see the send buffer size of a socket
+> changing (increasing)
+> 
+> The initial buffer sizes are 16384 for send side and 87380 for the receive
+> side but I see receive side buffer tuning but do not see the same with
+> send side.
+> 
+> If tcp does not see a need to increase the send buffer size, wonder why I
+> get EAGAIN error on this non-blocking socket for kernel_sendmsg!
 
-For the life of me, I don't know what has changed short of general 
-software updates in Gentoo.  I scoured the web, find suggestions about 
-where Windows has turned the NIC off.  The trouble is I don't use 
-Windows period on this box, no do I have the software to even test the 
-theory of the power savings being turn on.  It just mysteriously has 
-stopped being alive.  lspci shows the devices, their given eth0 and eth1 
-as usual, I can disable them in the bios and watch Linux recognize 
-they're missing, but still I can't for the life of me get them to act 
-properly.  I've tried turning off ACPI, I've tried 2.6.24-gentoo-r7 
-kernel, I've tried the Realtek driver source for r8168.  ACPI support 
-was the only thing I can think of that has been a major change on the 
-system anytime recently. 
+I think the send buffer auto-tuning doesn't happen here because there is 
+already congestion window worth of packets sent that are not yet acknowledged. 
+See tcp_should_expand_sndbuf().
 
-Any suggestions would be helpful.
-How might I turn off the power saving feature in the chip via linux?
+Also, the comments for tcp_new_space() says that sndbuf expansion does
+not work well with largesends. What is the size of your sends?
 
--Ack
+Adding netdev to the CC list.
+
+Thanks
+Sridhar
+
+> 
+> I do subscribe to this mailing list so, please send your responses to this
+> mail address.
+> 
+> Regards,
+> 
+> Shirish
+> 
+> --------------------------------------------------------------------------------------------------
+> uname -r
+> 2.6.18-91.el5
+> 
+>  sysctl -a
+> 
+> net.ipv4.tcp_rmem = 4096        87380   4194304
+> net.ipv4.tcp_wmem = 4096        16384   4194304
+> net.ipv4.tcp_mem = 98304        131072  196608
+> 
+> net.core.rmem_default = 126976
+> net.core.wmem_default = 126976
+> net.core.rmem_max = 131071
+> net.core.wmem_max = 131071
+> 
+> net.ipv4.tcp_window_scaling = 1
+> net.ipv4.tcp_timestamps = 1
+> net.ipv4.tcp_moderate_rcvbuf = 1
+> 
+> 
+> cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
+> 1
+> 
+> 
+> CIFS VFS: sndbuf 16384 rcvbuf 87380
+> 
+> CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
+> stuck for 32 seconds,
+> error: -11
+> CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
+> stuck for 32 seconds,
+> error: -11
+> 
+> 
+> CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
+> stuck for 64 seconds,
+> error: -11
+> 
+> CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
+> stuck for 256 seconds,
+> error: -11
+> 
+> I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
+> is 1) but not
+> the socket send buffer size.
+> The send buffer size remains fixed, the auto-tuning for send side is
+> enabled by default,so I do not see it happening here no matter how
+> long the c ode tries to
+> kernel_sendmsg after receiving EAGAIN return code.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
