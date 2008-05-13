@@ -1,67 +1,48 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH] Fix kobject_rename and !CONFIG_SYSFS v2
-Date: Tue, 13 May 2008 11:23:33 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0805131120400.632@shark.he.net>
-References: <m163tocw43.fsf_-_@frodo.ebiederm.org> <20080512220232.GA16914@kroah.com>
- <m1prrqbseh.fsf@frodo.ebiederm.org> <4829A4BD.3020007@bull.net>
- <20080513164438.GA31563@kroah.com> <m18wyeay1q.fsf_-_@frodo.ebiederm.org>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [PATCH 13/16] myri10ge: add routines for multislices
+Date: Tue, 13 May 2008 20:34:59 +0200
+Message-ID: <4829DF53.3080600@myri.com>
+References: <482397A3.1050604@myri.com> <482398F6.3060902@myri.com> <48292B82.5090304@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Greg KH <greg@kroah.com>, Benjamin Thery <benjamin.thery@bull.net>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:55787 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756090AbYEMSXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 14:23:46 -0400
-Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 13 May 2008 11:23:34 -0700
-In-Reply-To: <m18wyeay1q.fsf_-_@frodo.ebiederm.org>
+Received: from mailbox2.myri.com ([64.172.73.26]:1999 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753107AbYEMSfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 14:35:09 -0400
+In-Reply-To: <48292B82.5090304@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 May 2008, Eric W. Biederman wrote:
+Jeff Garzik wrote:
+> Brice Goglin wrote:
+>> Add several routines that multislices support will use.
+>>
+>> Signed-off-by: Brice Goglin <brice@myri.com>
+>> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+>> ---
+>>  drivers/net/myri10ge/myri10ge.c |  256
+>> ++++++++++++++++++++++++++++++++++++++++
+>>  1 file changed, 256 insertions(+)
+>
+> this is not really appropriate for the bug-fixes-only 2.6.26-rc.
+>
+> I temporarily put patches 13-16 in netdev-2.6.git#upstream-myri, and
+> will shove them into net-next once davem pulls in the myri bugfixes
+> into net-next (or you guys have some alternate suggestions)
 
-> Changelog:
-> v2:	Added a declaration of kboject_set_name to sysfs.h
-> 	so the code actually compiles with !CONFIG_SYSFS.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  Documentation/kobject.txt |    4 ++++
->  drivers/base/core.c       |    5 +++++
->  include/linux/sysfs.h     |    4 +++-
->  lib/kobject.c             |   18 +++++-------------
->  4 files changed, 17 insertions(+), 14 deletions(-)
-> 
-> diff --git a/Documentation/kobject.txt b/Documentation/kobject.txt
-> index bf3256e..79184b4 100644
-> --- a/Documentation/kobject.txt
-> +++ b/Documentation/kobject.txt
-> @@ -118,6 +118,10 @@ the name of the kobject, call kobject_rename():
->  
->      int kobject_rename(struct kobject *kobj, const char *new_name);
->  
-> +Note kobject_rename does perform any locking or have a solid notion of
+Actually, if #16 (update driver version) isn't going to Linus soon,
+there is no need to keep it for now. It will very probably be outdated
+when the 2.6.27 release cycle will start. So I'll send an updated one
+for then (and I may send an updated one for 2.6.26 later also). So
+please drop this #16 from upstream-myri.
 
-                           ^not
+By the way, there is no MAINTAINERS entry for myri10ge, so here's one in
+the next patch.
 
-> +what names are valid so the provide must provide their own sanity checking
-                               ~~~~~~~
-                               caller
+thanks,
+Brice
 
-> +and serialization.
-> +
->  There is a function called kobject_set_name() but that is legacy cruft and
->  is being removed.  If your code needs to call this function, it is
->  incorrect and needs to be fixed.
-
--- 
-~Randy
