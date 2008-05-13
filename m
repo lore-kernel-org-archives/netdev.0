@@ -1,58 +1,49 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: [PATCH] ucc_geth_ethtool: Fix a few HW stats counters.
-Date: Tue, 13 May 2008 10:04:37 +0200
-Message-ID: <1210665877-6590-1-git-send-email-Joakim.Tjernlund@transmode.se>
-Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-To: Netdev <netdev@vger.kernel.org>, Li Yang <LeoLi@freescale.com>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] DCCP: Fix to reset the connection with Reset Code 5 Option
+ Error while receive invalid option
+Date: Tue, 13 May 2008 16:17:32 +0800
+Message-ID: <48294E9C.4060209@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:30917 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754739AbYEMIEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 04:04:40 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:54577 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1756693AbYEMIRW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 04:17:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Noticed that ethtool -S didn't display tx-xxx-frames correctly.
-Fix it and a few others while I am there. Strangely, the
-rx-jumbo-frames counter still counts pkgs even though I think
-there isn't any packtes above 1518.
+If endpoint received invalid option, it must reset the connection with 
+Reset Code 5 "Option Error", but current kernel send reset with Reset 
+Code 4 "Packet Error".
 
-Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
----
+This patch fixed this problem. dccp_parse_options() has set reset code 
+to 5 if option is invalid, so just return 1 to let reset be send with 
+this reset code.
 
-Havn't seen this go in or ACK/NACK. Resending.
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
- drivers/net/ucc_geth_ethtool.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ucc_geth_ethtool.c b/drivers/net/ucc_geth_ethtool.c
-index a995a3a..0eddf50 100644
---- a/drivers/net/ucc_geth_ethtool.c
-+++ b/drivers/net/ucc_geth_ethtool.c
-@@ -60,7 +60,6 @@ static char hw_stat_gstrings[][ETH_GSTRING_LEN] = {
- 	"rx-broadcast-frames",
- 	"stats-counter-carry",
- 	"stats-counter-mask",
--	"rx-dropped-frames",
- };
+--- a/net/dccp/input.c	2008-05-02 15:37:25.000000000 -0400
++++ b/net/dccp/input.c	2008-05-02 15:50:01.000000000 -0400
+@@ -428,7 +428,7 @@ static int dccp_rcv_request_sent_state_p
+ 		}
  
- static char tx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
-@@ -73,6 +72,7 @@ static char tx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
- 	"tx-frames-ok",
- 	"tx-excessive-differ-frames",
- 	"tx-256-511-frames",
-+	"tx-512-1023-frames",
- 	"tx-1024-1518-frames",
- 	"tx-jumbo-frames",
- };
-@@ -101,7 +101,6 @@ static char rx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
- 	"rx-vlan-removed",
- 	"rx-vlan-replaced",
- 	"rx-vlan-inserted",
--	"rx-ip-checksum-errors",
- };
+ 		if (dccp_parse_options(sk, NULL, skb))
+-			goto out_invalid_packet;
++			goto out_invalid_option;
  
- #define UEC_HW_STATS_LEN ARRAY_SIZE(hw_stat_gstrings)
--- 
-1.5.5.1
+ 		/* Obtain usec RTT sample from SYN exchange (used by CCID 3) */
+ 		if (likely(dp->dccps_options_received.dccpor_timestamp_echo))
+@@ -508,6 +508,7 @@ static int dccp_rcv_request_sent_state_p
+ out_invalid_packet:
+ 	/* dccp_v4_do_rcv will send a reset */
+ 	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_PACKET_ERROR;
++out_invalid_option:
+ 	return 1;
+ }
+ 
+
+
 
