@@ -1,57 +1,38 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
-Date: Tue, 13 May 2008 08:28:53 +0100
-Message-ID: <20080513072853.GB4514@gerrit.erg.abdn.ac.uk>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [BUG,NETFILTER] nfqnl_mangle() not requesting enough space for bigger reinjected packet.
+Date: Tue, 13 May 2008 09:28:22 +0200
+Message-ID: <874p92br3d.fsf@natisbad.org>
+References: <87skx44lfw.fsf@natisbad.org> <482030F0.5010907@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo <acme@redhat.com>
-To: netdev@vger.kernel.org, dccp@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Debian Kernel Team <debian-kernel@lists.debian.org>,
+	Silviu Vlasceanu <silviuvlasceanu@yahoo.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63367 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754518AbYEMH3T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 03:29:19 -0400
-Content-Disposition: inline
+Received: from moog.chdir.org ([88.191.42.160]:45723 "EHLO moog.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754703AbYEMH3W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 03:29:22 -0400
+In-Reply-To: <482030F0.5010907@trash.net> (Patrick McHardy's message of "Tue,
+	06 May 2008 12:20:32 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is an API and an address resolution problem involved in specifying a
-separate/distinct socket type `SOCK_DCCP'.
+Hi,
 
-The problem is that the default getaddrinfo(3) does not support the `alien'
-SOCK_DCCP socket type (it returns `ai_socktype not supported'), thus requiring
-various cheats/work-arounds in order to bring up a DCCP socket on a dual-stack
-host.
+Patrick McHardy <kaber@trash.net> writes:
 
-In order to get an address at all,
- * a hint with an ai_socktype=SOCK_DGRAM or SOCK_STREAM needs to be supplied;
- * using ai_socktype=0 causes IPv4 addresses to be returned first, so that a
-   server on a dual-stack host needs to be coaxed into v6 mode to accept
-   incoming v6 connections.
+>> To sum it up, all post 2.6.24.4 kernels need the patch (2.6.24.4
+>> included). This includes all 2.6.25.
+>
+> Thanks for the explanation. I'll send it to -stable after running some
+> tests.
 
-The suggestion therefore is to not use a separate SOCK_DCCP socket type,
-and to put DCCP up under SOCK_DGRAM (being in fact datagram-based), i.e.
+Sorry to bother again but is there a chance you can send it for
+inclusion in 2.6.25.4?
 
-	socket(sd, SOCK_DCCP, 0);	
+Cheers,
 
-is replaced by	
-	
-	socket(sd, SOCK_DGRAM, IPPROTO_DCCP);
+a+
 
-
-Having also seen the work-arounds in programs that other people wrote,
-I believe that the above change will make it in the long term easier for
-people to write DCCP-enabled applications.
-
-It also relieves the libc writers from having to support another socket type.
-
-A quick look at SCTP shows that they also did not introduce new socket types,
-relying on the existing SOCK_STREAM/SOCK_SEQPACKET ones.
-
-It might be still early enough to resolve this, before it is widely used
-and can then only be supported via work-arounds.
-
-I can't see a disadvantage here and the only work required is to update that
-datagram-based not automatically means connection-less.
-
-Is there support for this change or are there reasons to keep SOCK_DCCP?
