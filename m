@@ -1,29 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: autotuning of send buffer size of a socket
-Date: Mon, 12 May 2008 17:51:53 -0700 (PDT)
-Message-ID: <20080512.175153.155979702.davem@davemloft.net>
-References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
-	<1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH] net/s2io: set_rxd_buffer_pointer returns -ENOMEM, notENOMEM
+Date: Mon, 12 May 2008 20:56:57 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD770389468A@nekter>
+References: <20080511200421.GK19058@joi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shirishpargaonkar@gmail.com, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: sri@us.ibm.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Rastapur Santosh" <santosh.rastapur@neterion.com>,
+	"Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
+	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
+	<netdev@vger.kernel.org>
+To: "Marcin Slusarz" <marcin.slusarz@gmail.com>,
+	"LKML" <linux-kernel@vger.kernel.org>,
+	"Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35014
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755980AbYEMAwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 20:52:00 -0400
-In-Reply-To: <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
+Received: from mx.neterion.com ([72.1.205.142]:55313 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755626AbYEMA5A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 20:57:00 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080511200421.GK19058@joi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Mon, 12 May 2008 17:47:27 -0700
+Good catch! 
 
-> Also, the comments for tcp_new_space() says that sndbuf expansion does
-> not work well with largesends. What is the size of your sends?
+Jeff,
+Please accept patch.
 
-That's talking about TSO.  It's an obsolete comment that is no longer
-true and thus should be removed.
+Thanks,
+Ram
+
+> -----Original Message-----
+> From: Marcin Slusarz [mailto:marcin.slusarz@gmail.com]
+> Sent: Sunday, May 11, 2008 1:04 PM
+> To: LKML
+> Cc: Ramkrishna Vepa; Rastapur Santosh; Sivakumar Subramani; Sreenivasa
+> Honnur; netdev@vger.kernel.org
+> Subject: [PATCH] net/s2io: set_rxd_buffer_pointer returns -ENOMEM,
+> notENOMEM
+> 
+> Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+> Cc: Ramkrishna Vepa <ram.vepa@neterion.com>
+> Cc: Rastapur Santosh <santosh.rastapur@neterion.com>
+> Cc: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> Cc: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> Cc: netdev@vger.kernel.org
+> ---
+> compile tested only
+> ---
+>  drivers/net/s2io.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+> --- a/drivers/net/s2io.c
+> +++ b/drivers/net/s2io.c
+> @@ -6951,7 +6951,7 @@ static  int rxd_owner_bit_reset(struct s2io_nic
+*sp)
+>  						       &skb,(u64
+*)&temp0_64,
+>  						       (u64 *)&temp1_64,
+>  						       (u64 *)&temp2_64,
+> -							size) == ENOMEM)
+{
+> +							size) ==
+-ENOMEM) {
+>  					return 0;
+>  				}
+> 
+> --
