@@ -1,27 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-05-12
-Date: Mon, 12 May 2008 20:07:58 -0700 (PDT)
-Message-ID: <20080512.200758.181697941.davem@davemloft.net>
-References: <20080513020325.GA4006@tuxdriver.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 18/18] flag parameters: check magic constants
+Date: Mon, 12 May 2008 20:13:41 -0700
+Message-ID: <20080512201341.9ead6a9a.akpm@linux-foundation.org>
+References: <200805062118.m46LI74j004096@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080513020325.GA4006-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davidel@xmailserver.org, mtk.manpages@gmail.com,
+	torvalds@linux-foundation.org
+To: Ulrich Drepper <drepper@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49134 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752989AbYEMDOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2008 23:14:30 -0400
+In-Reply-To: <200805062118.m46LI74j004096@devserv.devel.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 12 May 2008 22:03:25 -0400
+On Tue, 6 May 2008 17:18:07 -0400 Ulrich Drepper <drepper@redhat.com> wrote:
 
-> Here is a round of fixes intended for 2.6.26.  Most of these are fairly
-> obvious -- I don't think there is anything controversial here.
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -1219,6 +1219,13 @@ asmlinkage long sys_socket(int family, int type, int protocol)
+>  	struct socket *sock;
+>  	int flags;
+>  
+> +	/* Check the SOCK_* constants for consistency.  */
+> +	BUILD_BUG_ON(SOCK_CLOEXEC != O_CLOEXEC);
+> +	BUILD_BUG_ON(SOCK_NONBLOCK != O_NONBLOCK);
+> +	BUILD_BUG_ON((SOCK_MAX | SOCK_TYPE_MASK) != SOCK_TYPE_MASK);
+> +	BUILD_BUG_ON(SOCK_CLOEXEC & SOCK_TYPE_MASK);
+> +	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
 
-Pulled and pushed back out to net-2.6, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The fifth assertion triggers with alpha allmodconfig.
