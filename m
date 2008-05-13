@@ -1,33 +1,32 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/4] atl1: add PHY power save mode
-Date: Tue, 13 May 2008 01:14:59 -0400
-Message-ID: <482923D3.8060100@garzik.org>
-References: <1210389129-3868-1-git-send-email-jacliburn@bellsouth.net> <1210389129-3868-2-git-send-email-jacliburn@bellsouth.net>
+Subject: Re: [PATCH 01/16] myri10ge: update firmware headers
+Date: Tue, 13 May 2008 01:15:14 -0400
+Message-ID: <482923E2.1050005@garzik.org>
+References: <482397A3.1050604@myri.com> <482397D3.7090300@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	csnook@redhat.com, pelle@dsv.su.se
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49314 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49326 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754656AbYEMFPG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 01:15:06 -0400
-In-Reply-To: <1210389129-3868-2-git-send-email-jacliburn@bellsouth.net>
+	id S1756066AbYEMFPR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 01:15:17 -0400
+In-Reply-To: <482397D3.7090300@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Cliburn wrote:
-> Using vendor-provided magic, add code to enter power save mode
-> on the PHY.  We'll need this for suspend and wake-on-lan.
+Brice Goglin wrote:
+> Update myri10ge firmware headers.
 > 
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+> Signed-off-by: Brice Goglin <brice@myri.com>
+> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
 > ---
->  drivers/net/atlx/atl1.c |   19 ++++++++-----------
->  drivers/net/atlx/atlx.h |    3 +++
->  2 files changed, 11 insertions(+), 11 deletions(-)
+>  drivers/net/myri10ge/myri10ge_mcp.h            |   56 ++++++++++++++++++++++---
+>  drivers/net/myri10ge/myri10ge_mcp_gen_header.h |   39 ++++++-----------
+>  2 files changed, 64 insertions(+), 31 deletions(-)
 
-applied 1-4
+applied 1-16
 
 
