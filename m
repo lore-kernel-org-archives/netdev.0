@@ -1,41 +1,70 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: mac80211 truesize bugs
-Date: Tue, 13 May 2008 16:39:06 -0400
-Message-ID: <20080513203906.GB20269@tuxdriver.com>
-References: <20080502.163334.148944203.davem@davemloft.net> <1209807477.3987.9.camel@johannes.berg> <1209824720.1475.6.camel@johannes.berg> <20080512.201751.114868351.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
+Date: Wed, 14 May 2008 00:51:14 +0400
+Message-ID: <20080513205114.GA16489@2ka.mipt.ru>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-	mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:57533 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762139AbYEMUvV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 16:51:21 -0400
 Content-Disposition: inline
-In-Reply-To: <20080512.201751.114868351.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4829E752.8030104@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 12, 2008 at 08:17:51PM -0700, David Miller wrote:
+Hi.
 
-> Based upon them I will adjust LL_MAX_HEADER as follows:
+On Tue, May 13, 2008 at 03:09:06PM -0400, Jeff Garzik (jeff@garzik.org) wrote:
+> This continues to be a neat and interesting project :)
 
-> @@ -93,14 +93,16 @@ struct wireless_dev;
->   *	used.
->   */
->   
-> -#if !defined(CONFIG_AX25) && !defined(CONFIG_AX25_MODULE) && !defined(CONFIG_TR)
-> -#define LL_MAX_HEADER	32
-> +#if defined(CONFIG_WLAN_80211) || defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+Thanks :)
 
-Is WLAN_80211 really the right symbol here?  It applies to more than
-just mac80211, and I doubt if full MAC devices need higher values.
-It seems like MAC80211 would be the right symbol to add.
+> Where is the best place to look at client<->server protocol?
 
-John
+Hmm, in sources I think, I need to kick myself to write a somewhat good
+spec for the next release.
+
+Basically protocol contains of fixed sized header (struct netfs_cmd) and
+attached data, which size is embedded into above header. Simple commands
+are finished here (essentially all except write/create commands), you
+can check them in approrpiate address space/inode operations.
+Transactions follow netlink (which is very ugly but exceptionally
+extendible) protocol: there is main header (above structure), which
+holds size of the embedded data, which can be dereferenced as header/data
+parts, where each inner header corresponds to any command (except
+transaction header). So one can pack (upto 90 pages of data or different
+commands on x86, this is limit of the page size devoted to headers)
+requested number of commands into single 'frame' and submit it to
+system, which will care about atomicity of that request in regards of
+being either fully processed by one of the servers or dropped.
+
+> Are you planning to support the case where the server filesystem dataset 
+> does not fit entirely on one server?
+
+Sure. First by allowing whole object to be placed on different servers
+(i.e. one subdir is on server1 and another on server2), probably in the
+future there will be added support for the same object being distributed
+to different servers (i.e. half of the big file on server1 and another
+half on server2).
+
+> What is your opinion of the Paxos algorithm?
+
+It is slow. But it does solve failure cases.
+So far POHMELFS does not work as distributed filesystem, so it should
+not care about it at all, i.e. at most in the very nearest future it
+will just have number of acceptors in paxos terminology (metadata
+servers in others) without need for active dynamical reconfiguration,
+so protocol will be greatly reduced, with addition of dynamical
+metadata cluster extension protocol will have to be extended.
+
+As practice shows, the smaller and simpler initial steps are, the better
+results eventually become :)
+
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Evgeniy Polyakov
