@@ -1,44 +1,59 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: RTL8169 driver no longer functioning with 8111b
-Date: Tue, 13 May 2008 22:51:40 +0200
-Message-ID: <20080513205140.GA11808@electric-eye.fr.zoreil.com>
-References: <4828D529.3060201@gtf.org>
+From: Randy Dunlap <RANDY.DUNLAP@ORACLE.COM>
+Subject: Re: [PATCH] Fix kobject_rename and !CONFIG_SYSFS v3
+Date: Tue, 13 May 2008 16:18:55 -0500 (CDT)
+Message-ID: <24291087.1210713535895.JavaMail.oracle@acsmt301.oracle.com>
+References: <m163tocw43.fsf_-_@frodo.ebiederm.org>
+	<20080512220232.GA16914@kroah.com> <m1prrqbseh.fsf@frodo.ebiederm.org>
+	<4829A4BD.3020007@bull.net> <20080513164438.GA31563@kroah.com>
+	<m18wyeay1q.fsf_-_@frodo.ebiederm.org>
+	<20080513201602.GA31578@kroah.com> <m1od7a9bmr.fsf_-_@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: ackman <ackman@gtf.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Al Viro <viro@ftp.linux.org.uk>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	"Serge E. Hallyn" <serue@us.ibm.com>, Tejun Heo <htejun@gmail.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56521 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758948AbYEMVOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 17:14:08 -0400
-Content-Disposition: inline
-In-Reply-To: <4828D529.3060201@gtf.org>
+Received: from agminet01.oracle.com ([141.146.126.228]:44876 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752429AbYEMVW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 17:22:56 -0400
+In-Reply-To: <m1od7a9bmr.fsf_-_@frodo.ebiederm.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ackman <ackman@gtf.org> :
-> I've spent the better part of a day researching this to no avail.  I run 
-> Gentoo on an Abit AB9 PRO P965 board.  It has two onboard ports for a 
-> Realtek 8111B Gigabit interface.  I have been running 2.6.23-gentoo-r8 (I 
-> think) kernel sources.
+> Changelog:
+> v3:	Documentation typo fixes
 
-uname -a should help figuring the exact version.
+Inserted/attached wrong patch file?
+I don't see any text changes.
 
-[...]
-> being turn on.  It just mysteriously has stopped being alive.  lspci shows 
-> the devices, their given eth0 and eth1 as usual, I can disable them in the 
-> bios and watch Linux recognize they're missing, but still I can't for the 
-> life of me get them to act properly.  I've tried turning off ACPI, I've 
-> tried 2.6.24-gentoo-r7 kernel, I've tried the Realtek driver source for 
-> r8168.  ACPI support was the only thing I can think of that has been a 
-> major change on the system anytime recently. 
-> Any suggestions would be helpful.
 
-Can you give noapic, pci=nomsi, pci=nommconf a try and send both
-'lspci -H1 -vvxx' and 'lspci -vvxx' output ?
+> diff --git a/Documentation/kobject.txt b/Documentation/kobject.txt
+> index bf3256e..79184b4 100644
+> --- a/Documentation/kobject.txt
+> +++ b/Documentation/kobject.txt
+> @@ -118,6 +118,10 @@ the name of the kobject, call kobject_rename():
+>  
+>      int kobject_rename(struct kobject *kobj, const char
+> *new_name);
+>  
+> +Note kobject_rename does perform any locking or have a solid
+> notion of
+> +what names are valid so the provide must provide their own
+> sanity checking
+> +and serialization.
+> +
+>  There is a function called kobject_set_name() but that is
+> legacy cruft and
+>  is being removed.  If your code needs to call this function,
+> it is
+>  incorrect and needs to be fixed.
 
-The 'XID' line produced by dmesg would be welcome too.
-
--- 
-Ueimor
