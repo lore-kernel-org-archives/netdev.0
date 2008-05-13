@@ -1,37 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [BUG,NETFILTER] nfqnl_mangle() not requesting enough space for
- bigger reinjected packet.
-Date: Tue, 13 May 2008 13:45:13 +0200
-Message-ID: <48297F49.8030707@trash.net>
-References: <87skx44lfw.fsf@natisbad.org> <482030F0.5010907@trash.net> <874p92br3d.fsf@natisbad.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] [SCTP]: Add address type check while process paramaters
+ of ASCONF chunk
+Date: Tue, 13 May 2008 08:48:39 -0400
+Message-ID: <48298E27.40100@hp.com>
+References: <1210360195-16524-1-git-send-email-vladislav.yasevich@hp.com> <1210360195-16524-2-git-send-email-vladislav.yasevich@hp.com> <48297BE9.9020204@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Debian Kernel Team <debian-kernel@lists.debian.org>,
-	Silviu Vlasceanu <silviuvlasceanu@yahoo.com>
-To: Arnaud Ebalard <arno@natisbad.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-sctp@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net,
+	Wei Yongjun <yjwei@cn.fujitsu.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40004 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751464AbYEMLpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 07:45:52 -0400
-In-Reply-To: <874p92br3d.fsf@natisbad.org>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:6667 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754304AbYEMMss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 08:48:48 -0400
+In-Reply-To: <48297BE9.9020204@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnaud Ebalard wrote:
-> Hi,
+Patrick McHardy wrote:
+> Vlad Yasevich wrote:
+>> @@ -2827,6 +2827,19 @@ static __be16 sctp_process_asconf_param(struct 
+>> sctp_association *asoc,
+>>      union sctp_addr    addr;
+>>      union sctp_addr_param *addr_param;
+>>  
+>> +    switch (addr_param->v4.param_hdr.type) {
 > 
-> Patrick McHardy <kaber@trash.net> writes:
+> ^^^ use of addr_param
 > 
->>> To sum it up, all post 2.6.24.4 kernels need the patch (2.6.24.4
->>> included). This includes all 2.6.25.
->> Thanks for the explanation. I'll send it to -stable after running some
->> tests.
+>> +    case SCTP_PARAM_IPV6_ADDRESS:
+>> +        if (!asoc->peer.ipv6_address)
+>> +            return SCTP_ERROR_INV_PARAM;
+>> +        break;
+>> +    case SCTP_PARAM_IPV4_ADDRESS:
+>> +        if (!asoc->peer.ipv4_address)
+>> +            return SCTP_ERROR_INV_PARAM;
+>> +        break;
+>> +    default:
+>> +        return SCTP_ERROR_INV_PARAM;
+>> +    }
+>> +
+>>      addr_param = (union sctp_addr_param *)
+>>              ((void *)asconf_param + sizeof(sctp_addip_param_t));
 > 
-> Sorry to bother again but is there a chance you can send it for
-> inclusion in 2.6.25.4?
+> ^^^ initialization of addr_param
+> 
+> The patch is wrong and needs this fix on top.
+> 
 
+Ack.  David, please apply.  I missed this warning in the my builds...
 
-Sorry for the delay, I sent it to -stable a few minutes ago.
+Thanks
+-vlad
