@@ -1,83 +1,67 @@
-From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 1/5 net-next-2.6] [TIPC]: Add support for customized subscription overlap handling
-Date: Tue, 13 May 2008 14:17:41 -0400
-Message-ID: <1210702665-5012-2-git-send-email-allan.stephens@windriver.com>
-References: <1210702665-5012-1-git-send-email-allan.stephens@windriver.com>
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
-To: David Miller <davem@davemloft.net>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: [PATCH] Fix kobject_rename and !CONFIG_SYSFS v2
+Date: Tue, 13 May 2008 11:23:33 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0805131120400.632@shark.he.net>
+References: <m163tocw43.fsf_-_@frodo.ebiederm.org> <20080512220232.GA16914@kroah.com>
+ <m1prrqbseh.fsf@frodo.ebiederm.org> <4829A4BD.3020007@bull.net>
+ <20080513164438.GA31563@kroah.com> <m18wyeay1q.fsf_-_@frodo.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Greg KH <greg@kroah.com>, Benjamin Thery <benjamin.thery@bull.net>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35571 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754831AbYEMSST (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 14:18:19 -0400
-In-Reply-To: <1210702665-5012-1-git-send-email-allan.stephens@windriver.com>
+Received: from xenotime.net ([66.160.160.81]:55787 "HELO xenotime.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1756090AbYEMSXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 14:23:46 -0400
+Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 13 May 2008 11:23:34 -0700
+In-Reply-To: <m18wyeay1q.fsf_-_@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables TIPC's topology server code to do customized
-overlap detection handling on a per-subscription basis.  (This
-capability is needed to support the upcoming introduction of
-multi-cluster TIPC networks.)
+On Tue, 13 May 2008, Eric W. Biederman wrote:
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
----
- net/tipc/subscr.c |    4 +++-
- net/tipc/subscr.h |    8 ++++++++
- 2 files changed, 11 insertions(+), 1 deletions(-)
+> Changelog:
+> v2:	Added a declaration of kboject_set_name to sysfs.h
+> 	so the code actually compiles with !CONFIG_SYSFS.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  Documentation/kobject.txt |    4 ++++
+>  drivers/base/core.c       |    5 +++++
+>  include/linux/sysfs.h     |    4 +++-
+>  lib/kobject.c             |   18 +++++-------------
+>  4 files changed, 17 insertions(+), 14 deletions(-)
+> 
+> diff --git a/Documentation/kobject.txt b/Documentation/kobject.txt
+> index bf3256e..79184b4 100644
+> --- a/Documentation/kobject.txt
+> +++ b/Documentation/kobject.txt
+> @@ -118,6 +118,10 @@ the name of the kobject, call kobject_rename():
+>  
+>      int kobject_rename(struct kobject *kobj, const char *new_name);
+>  
+> +Note kobject_rename does perform any locking or have a solid notion of
 
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 8f8d0a6..81e2bd5 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -157,7 +157,8 @@ void tipc_subscr_report_overlap(struct subscription *sub,
- 		return;
- 	if (!must && !(sub->filter & TIPC_SUB_PORTS))
- 		return;
--	subscr_send_event(sub, found_lower, found_upper, event, port_ref, node);
-+
-+	sub->event_cb(sub, found_lower, found_upper, event, port_ref, node);
- }
- 
- /**
-@@ -372,6 +373,7 @@ static void subscr_subscribe(struct tipc_subscr *s,
- 		subscr_terminate(subscriber);
- 		return;
- 	}
-+	sub->event_cb = subscr_send_event;
- 	memcpy(&sub->evt.s, s, sizeof(struct tipc_subscr));
- 	INIT_LIST_HEAD(&sub->subscription_list);
- 	INIT_LIST_HEAD(&sub->nameseq_list);
-diff --git a/net/tipc/subscr.h b/net/tipc/subscr.h
-index 93a8e67..d955368 100644
---- a/net/tipc/subscr.h
-+++ b/net/tipc/subscr.h
-@@ -37,11 +37,18 @@
- #ifndef _TIPC_SUBSCR_H
- #define _TIPC_SUBSCR_H
- 
-+struct subscription;
-+
-+typedef void (*tipc_subscr_event) (struct subscription *sub,
-+				   u32 found_lower, u32 found_upper,
-+				   u32 event, u32 port_ref, u32 node);
-+
- /**
-  * struct subscription - TIPC network topology subscription object
-  * @seq: name sequence associated with subscription
-  * @timeout: duration of subscription (in ms)
-  * @filter: event filtering to be done for subscription
-+ * @event_cb: routine invoked when a subscription event is detected
-  * @evt: template for events generated by subscription
-  * @subscription_list: adjacent subscriptions in subscriber's subscription list
-  * @nameseq_list: adjacent subscriptions in name sequence's subscription list
-@@ -53,6 +60,7 @@ struct subscription {
- 	struct tipc_name_seq seq;
- 	u32 timeout;
- 	u32 filter;
-+	tipc_subscr_event event_cb;
- 	struct tipc_event evt;
- 	struct list_head subscription_list;
- 	struct list_head nameseq_list;
+                           ^not
+
+> +what names are valid so the provide must provide their own sanity checking
+                               ~~~~~~~
+                               caller
+
+> +and serialization.
+> +
+>  There is a function called kobject_set_name() but that is legacy cruft and
+>  is being removed.  If your code needs to call this function, it is
+>  incorrect and needs to be fixed.
+
 -- 
-1.5.3.2
-
+~Randy
