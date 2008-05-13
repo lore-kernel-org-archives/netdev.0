@@ -1,56 +1,38 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][CIPSO]: Relax too much careful cipso hash function.
-Date: Tue, 13 May 2008 17:11:25 +0400
-Message-ID: <4829937D.9070409@openvz.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [patch 18/21] Filesystem: Socket inode defragmentation
+Date: Tue, 13 May 2008 17:28:12 +0400
+Message-ID: <20080513132810.GA7152@2ka.mipt.ru>
+References: <20080510030831.796641881@sgi.com> <20080510030918.882272887@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Mel Gorman <mel@skynet.ie>, andi@firstfloor.org,
+	Rik van Riel <riel@redhat.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>, mpm@selenic.com
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:38956 "EHLO sacred.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:38402 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752834AbYEMNOY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 09:14:24 -0400
+	id S1754729AbYEMNgE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 09:36:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20080510030918.882272887@sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The cipso_v4_cache is allocated to contain CIPSO_V4_CACHE_BUCKETS
-buckets. The CIPSO_V4_CACHE_BUCKETS = 1 << CIPSO_V4_CACHE_BUCKETBITS,
-where CIPSO_V4_CACHE_BUCKETBITS = 7.
+Hi Christoph.
 
-The bucket-selection function for this hash is calculated like this:
+On Fri, May 09, 2008 at 08:08:49PM -0700, Christoph Lameter (clameter@sgi.com) wrote:
+> Support inode defragmentation for sockets
 
-  bkt = hash & (CIPSO_V4_CACHE_BUCKETBITS - 1);
-                                     ^^^
+Out of curiosity, how can you drop socket inode, since it is always
+attached to socket which is removed automatically when connection is
+closed. Any force of dropping socket inode can only result in connection
+drop, i.e. there are no inodes, which are placed in cache and are not
+yet freed, if there are no attached sockets.
 
-i.e. picking only 4 buckets of possible 128 :)
+So question is how does it work for sockets?
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
- net/ipv4/cipso_ipv4.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index 05afb57..2c0e457 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -338,7 +338,7 @@ static int cipso_v4_cache_check(const unsigned char *key,
- 		return -ENOENT;
- 
- 	hash = cipso_v4_map_cache_hash(key, key_len);
--	bkt = hash & (CIPSO_V4_CACHE_BUCKETBITS - 1);
-+	bkt = hash & (CIPSO_V4_CACHE_BUCKETS - 1);
- 	spin_lock_bh(&cipso_v4_cache[bkt].lock);
- 	list_for_each_entry(entry, &cipso_v4_cache[bkt].list, list) {
- 		if (entry->hash == hash &&
-@@ -417,7 +417,7 @@ int cipso_v4_cache_add(const struct sk_buff *skb,
- 	atomic_inc(&secattr->cache->refcount);
- 	entry->lsm_data = secattr->cache;
- 
--	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETBITS - 1);
-+	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETS - 1);
- 	spin_lock_bh(&cipso_v4_cache[bkt].lock);
- 	if (cipso_v4_cache[bkt].size < cipso_v4_cache_bucketsize) {
- 		list_add(&entry->list, &cipso_v4_cache[bkt].list);
+-- 
+	Evgeniy Polyakov
