@@ -1,36 +1,28 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][PPP]: Do not free not yet unregistered net device.
-Date: Tue, 13 May 2008 19:30:50 +0400
-Message-ID: <4829B42A.8070005@openvz.org>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
+Date: Tue, 13 May 2008 08:50:59 -0700
+Message-ID: <OFDBD6E282.6F00998A-ON88257448.0056D40D-88257448.0057105E@us.ibm.com>
+References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: acme@redhat.com, David Miller <davem@davemloft.net>,
+	dccp@vger.kernel.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:57981 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761251AbYEMPd0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 11:33:26 -0400
+Received: from e31.co.us.ibm.com ([32.97.110.149]:38530 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754044AbYEMPvD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 11:51:03 -0400
+In-Reply-To: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An error path in ppp_create_interface() lacks one and may
-BUG in free_netdev() checking for proper dev->reg_state.
+Are they mutually exclusive?
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Why not add SOCK_DGRAM/IPPROTO_DCCP support while leaving
+the existing stuff alone, and then requiring programs that want to use
+getaddrinfo to use it that way?
 
----
+                                                +-DLS
 
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index d3207c0..1f4ca2b 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -2458,6 +2458,7 @@ ppp_create_interface(int unit, int *retp)
- 
- out3:
- 	atomic_dec(&ppp_unit_count);
-+	unregister_netdev(dev);
- out2:
- 	mutex_unlock(&all_ppp_mutex);
- 	free_netdev(dev);
