@@ -1,33 +1,37 @@
-From: "Bonitch, Joseph" <Joseph.Bonitch@xerox.com>
-Subject: RE: IPV6 stateless address autoconfiguration
-Date: Wed, 14 May 2008 07:15:42 -0400
-Message-ID: <BECE1C148A85274EB554378A3E0EDF490642E200@USA0300MS02.na.xerox.net>
-References: <OFEAF0762D.B7C9C8DD-ON88257447.005CE64E-88257447.005D6A63@us.ibm.com><20080513.021736.125105716.yoshfuji@linux-ipv6.org><BECE1C148A85274EB554378A3E0EDF4906388E17@USA0300MS02.na.xerox.net> <20080513.104215.82952085.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wvmler2.mail.xerox.com ([13.8.138.217]:41853 "EHLO
-	wvmler2.mail.xerox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757197AbYENLQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 07:16:20 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080513.104215.82952085.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 01/12] lib: create common ascii hex array
+Date: Wed, 14 May 2008 12:26:10 +0100
+Message-ID: <1507.1210764370@redhat.com>
+References: <1210619134.24092.51.camel@brick>
+Cc: dhowells@redhat.com, Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	linux-ide <linux-ide@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>, Ingo Molnar <mingo@elte.hu>,
+	Jason Wessel <jason.wessel@windriver.com>,
+	"ralf@linux-mips.org" <ralf@linux-mips.org>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Paul Mackerras <paulus@samba.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1210619134.24092.51.camel@brick>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / 吉藤英明 wrote:
+Harvey Harrison <harvey.harrison@gmail.com> wrote:
+
+> Add a common hex array in hexdump.c so everyone can use it.
 > 
-> Thanks.  I had missed sevral other users of addrconf_prefix_route().
-> Please try this.
+> Add a common hi/lo helper to avoid the shifting masking that is
+> done to get the upper and lower nibbles of a byte value.
 > 
+> Pull the pack_hex_byte helper from kgdb as it is opencoded many
+> places in the tree that will be consolidated.
+> 
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 
-I will test this afternoon and let you know the results.
-
-Regards,
-
-Joe
+Acked-by: David Howells <dhowells@redhat.com>
