@@ -1,41 +1,266 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
-Date: Thu, 15 May 2008 02:50:08 +0400
-Message-ID: <20080514225008.GB3739@2ka.mipt.ru>
-References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514135156.GA23131@2ka.mipt.ru> <482B378C.5070807@garzik.org> <20080514193843.GB10165@2ka.mipt.ru> <20080514215704.GE23758@shareable.org> <482B6259.3070507@garzik.org> <20080514224132.GB19570@2ka.mipt.ru>
+From: Nate Case <ncase@xes-inc.com>
+Subject: [PATCH v2] PHYLIB: Add 1000Base-X support for Broadcom bcm5482
+Date: Wed, 14 May 2008 17:54:04 -0500
+Message-ID: <1210805644.13845.427.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Lokier <jamie@shareable.org>, Sage Weil <sage@newdream.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080514224132.GB19570@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xes-mad.com ([216.165.139.214]:57617 "EHLO xes-mad.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751680AbYENWyN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 18:54:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2008 at 02:41:33AM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > This is the core reason why I am so interested in distributed storage... 
-> >  a single storage device is usually slower than network wire speed. 
-> > Multiple nodes helps remove that limitation and max out the network.
-> > 
-> > I want to be able to stream data _faster_ than a single hard drive can 
-> > handle :)
-> 
-> In that case yes, network will _not_ be saturated and multiple
-> simultaneous streams will have a win, but POHMELFS client design was
-> specially created to increase network performance as much as possible,
-> since we can increase storage speed (add more drives, more RAM
-> for caches, better hardware), but can not easily increase network
-> bandwidth.
+Configure the BCM5482S secondary SerDes for 1000Base-X mode when the
+appropriate dev_flags are passed in to phy_connect().  This is
+needed when the PHY is used for fiber and backplane connections.
 
-Actually experiments with async processing in POHMELFS lead to the
-conclusion, that if protocol waits until request is completed and does
-not proceed with the next one (like CIFS and somewhat NFS), such design
-does not scale to multiple parallel IOs.
-That from different angle shows benefits of caching and aiming at
-getting as much performance as possible from single node connection :)
+Signed-off-by: Nate Case <ncase@xes-inc.com>
+---
+ drivers/net/phy/broadcom.c |  205 +++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 203 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 60c5cfe..abf4e85 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -42,10 +42,130 @@
+ #define MII_BCM54XX_INT_MDIX	0x2000	/* MDIX status change */
+ #define MII_BCM54XX_INT_PSERR	0x4000	/* Pair swap error */
+ 
++#define MII_BCM54XX_EXP_DATA	0x15	/* Expansion register data */
++#define MII_BCM54XX_EXP_SEL	0x17	/* Expansion register select */
++#define MII_BCM54XX_EXP_SEL_SSD	0x0e00	/* Secondary SerDes select */
++#define MII_BCM54XX_EXP_SEL_ER	0x0f00	/* Expansion register select */
++
++#define MII_BCM54XX_AUX_CTL	0x18
++
++#define MII_BCM54XX_SHD		0x1c	/* 0x1c shadow registers */
++#define MII_BCM54XX_SHD_WRITE	0x8000
++#define MII_BCM54XX_SHD_VAL(x)	((x & 0x1f) << 10)
++#define MII_BCM54XX_SHD_DATA(x)	((x & 0x3ff) << 0)
++
++/*
++ * Broadcom LED source encodings.  These are used in BCM5461, BCM5481,
++ * BCM5482, and possibly some others.
++ */
++#define BCM_LED_SRC_LINKSPD1	0x0
++#define BCM_LED_SRC_LINKSPD2	0x1
++#define BCM_LED_SRC_XMITLED	0x2
++#define BCM_LED_SRC_ACTIVITYLED	0x3
++#define BCM_LED_SRC_FDXLED	0x4
++#define BCM_LED_SRC_SLAVE	0x5
++#define BCM_LED_SRC_INTR	0x6
++#define BCM_LED_SRC_QUALITY	0x7
++#define BCM_LED_SRC_RCVLED	0x8
++#define BCM_LED_SRC_MULTICOLOR1	0xa
++#define BCM_LED_SRC_OPENSHORT	0xb
++#define BCM_LED_SRC_OFF		0xe	/* Tied high */
++#define BCM_LED_SRC_ON		0xf	/* Tied low */
++
++/*
++ * BCM5482: Shadow registers
++ * Shadow values go into bits [14:10] of register 0x1c to select a shadow
++ * register to access
++ */
++#define BCM5482_SHD_LEDS1	0x0d	/* 01101: LED Selector 1 */
++					/* LED3 / ~LINKSPD[2] selector */
++#define BCM5482_SHD_LEDS1_LED3(src)	((src & 0xf) << 4)
++					/* LED1 / ~LINKSPD[1] selector */
++#define BCM5482_SHD_LEDS1_LED1(src)	((src & 0xf) << 0)
++#define BCM5482_SHD_SSD		0x14	/* 10100: Secondary SerDes control */
++#define BCM5482_SHD_SSD_LEDM	0x0008	/* SSD LED Mode enable */
++#define BCM5482_SHD_SSD_EN	0x0001	/* SSD enable */
++#define BCM5482_SHD_MODE	0x1f	/* 11111: Mode Control Register */
++#define BCM5482_SHD_MODE_1000BX	0x0001	/* Enable 1000BASE-X registers */
++
++/*
++ * BCM5482: Secondary SerDes registers
++ */
++#define BCM5482_SSD_1000BX_CTL		0x00	/* 1000BASE-X Control */
++#define BCM5482_SSD_1000BX_CTL_PWRDOWN	0x0800	/* Power-down SSD */
++#define BCM5482_SSD_SGMII_SLAVE		0x15	/* SGMII Slave Register */
++#define BCM5482_SSD_SGMII_SLAVE_EN	0x0002	/* Slave mode enable */
++#define BCM5482_SSD_SGMII_SLAVE_AD	0x0001	/* Slave auto-detection */
++
++/*
++ * Device flags for PHYs that can be configured for different operating
++ * modes
++ */
++#define PHY_BCM_FLAGS_VALID		0x80000000
++#define PHY_BCM_FLAGS_INTF_XAUI		0x00000020
++#define PHY_BCM_FLAGS_INTF_SGMII	0x00000010
++#define PHY_BCM_FLAGS_MODE_1000BX	0x00000002
++#define PHY_BCM_FLAGS_MODE_COPPER	0x00000001
++
+ MODULE_DESCRIPTION("Broadcom PHY driver");
+ MODULE_AUTHOR("Maciej W. Rozycki");
+ MODULE_LICENSE("GPL");
+ 
++/*
++ * Indirect register access functions for the 1000BASE-T/100BASE-TX/10BASE-T
++ * 0x1c shadow registers
++ */
++static inline int
++bcm54xx_shadow_read(struct phy_device *phydev, u16 shadow)
++{
++	phy_write(phydev, MII_BCM54XX_SHD, MII_BCM54XX_SHD_VAL(shadow));
++	return MII_BCM54XX_SHD_DATA(phy_read(phydev, MII_BCM54XX_SHD));
++}
++
++static inline int
++bcm54xx_shadow_write(struct phy_device *phydev, u16 shadow, u16 val)
++{
++	return phy_write(phydev, MII_BCM54XX_SHD,
++			 MII_BCM54XX_SHD_WRITE |
++			 MII_BCM54XX_SHD_VAL(shadow) |
++			 MII_BCM54XX_SHD_DATA(val));
++}
++
++/*
++ * Indirect register access functions for the Expansion Registers
++ * and Secondary SerDes registers (when sec_serdes=1)
++ */
++static inline int
++bcm54xx_exp_read(struct phy_device *phydev, int sec_serdes, u8 regnum)
++{
++	int val;
++
++	phy_write(phydev, MII_BCM54XX_EXP_SEL,
++		  (sec_serdes ? MII_BCM54XX_EXP_SEL_SSD :
++				MII_BCM54XX_EXP_SEL_ER) |
++		  regnum);
++	val = phy_read(phydev, MII_BCM54XX_EXP_DATA);
++	phy_write(phydev, MII_BCM54XX_EXP_SEL, regnum);
++
++	return val;
++}
++
++static inline int
++bcm54xx_exp_write(struct phy_device *phydev, int sec_serdes, u8 regnum,
++		  u16 val)
++{
++	int ret;
++
++	phy_write(phydev, MII_BCM54XX_EXP_SEL,
++		  (sec_serdes ? MII_BCM54XX_EXP_SEL_SSD :
++				MII_BCM54XX_EXP_SEL_ER) |
++		  regnum);
++	ret = phy_write(phydev, MII_BCM54XX_EXP_DATA, val);
++	phy_write(phydev, MII_BCM54XX_EXP_SEL, regnum);
++
++	return ret;
++}
++
+ static int bcm54xx_config_init(struct phy_device *phydev)
+ {
+ 	int reg, err;
+@@ -70,6 +190,87 @@ static int bcm54xx_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int bcm5482_config_init(struct phy_device *phydev)
++{
++	int err, reg;
++
++	err = bcm54xx_config_init(phydev);
++
++	if (phydev->dev_flags & PHY_BCM_FLAGS_MODE_1000BX) {
++		/*
++		 * Enable secondary SerDes and its use as an LED source
++		 */
++		reg = bcm54xx_shadow_read(phydev, BCM5482_SHD_SSD);
++		bcm54xx_shadow_write(phydev, BCM5482_SHD_SSD,
++				     reg |
++				     BCM5482_SHD_SSD_LEDM |
++				     BCM5482_SHD_SSD_EN);
++
++		/*
++		 * Enable SGMII slave mode and auto-detection
++		 */
++		reg = bcm54xx_exp_read(phydev, 1, BCM5482_SSD_SGMII_SLAVE);
++		bcm54xx_exp_write(phydev, 1, BCM5482_SSD_SGMII_SLAVE,
++				  reg |
++				  BCM5482_SSD_SGMII_SLAVE_EN |
++				  BCM5482_SSD_SGMII_SLAVE_AD);
++
++		/*
++		 * Disable secondary SerDes powerdown
++		 */
++		reg = bcm54xx_exp_read(phydev, 1, BCM5482_SSD_1000BX_CTL);
++		bcm54xx_exp_write(phydev, 1, BCM5482_SSD_1000BX_CTL,
++				  reg & ~BCM5482_SSD_1000BX_CTL_PWRDOWN);
++
++		/*
++		 * Select 1000BASE-X register set (primary SerDes)
++		 */
++		reg = bcm54xx_shadow_read(phydev, BCM5482_SHD_MODE);
++		bcm54xx_shadow_write(phydev, BCM5482_SHD_MODE,
++				     reg | BCM5482_SHD_MODE_1000BX);
++
++		/*
++		 * LED1=ACTIVITYLED, LED3=LINKSPD[2]
++		 * (Use LED1 as secondary SerDes ACTIVITY LED)
++		 */
++		bcm54xx_shadow_write(phydev, BCM5482_SHD_LEDS1,
++			BCM5482_SHD_LEDS1_LED1(BCM_LED_SRC_ACTIVITYLED) |
++			BCM5482_SHD_LEDS1_LED3(BCM_LED_SRC_LINKSPD2));
++
++		/*
++		 * Auto-negotiation doesn't seem to work quite right
++		 * in this mode, so we disable it and force it to the
++		 * right speed/duplex setting.  Only 'link status'
++		 * is important.
++		 */
++		phydev->autoneg = AUTONEG_DISABLE;
++		phydev->speed = SPEED_1000;
++		phydev->duplex = DUPLEX_FULL;
++	}
++
++	return err;
++}
++
++static int bcm5482_read_status(struct phy_device *phydev)
++{
++	int err;
++
++	err = genphy_read_status(phydev);
++
++	if (phydev->dev_flags & PHY_BCM_FLAGS_MODE_1000BX) {
++		/*
++		 * Only link status matters for 1000Base-X mode, so force
++		 * 1000 Mbit/s full-duplex status
++		 */
++		if (phydev->link) {
++			phydev->speed = SPEED_1000;
++			phydev->duplex = DUPLEX_FULL;
++		}
++	}
++
++	return err;
++}
++
+ static int bcm54xx_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int reg;
+@@ -210,9 +411,9 @@ static struct phy_driver bcm5482_driver = {
+ 	.name		= "Broadcom BCM5482",
+ 	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+-	.config_init	= bcm54xx_config_init,
++	.config_init	= bcm5482_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+-	.read_status	= genphy_read_status,
++	.read_status	= bcm5482_read_status,
+ 	.ack_interrupt	= bcm54xx_ack_interrupt,
+ 	.config_intr	= bcm54xx_config_intr,
+ 	.driver 	= { .owner = THIS_MODULE },
 -- 
-	Evgeniy Polyakov
+1.5.4.4
+
+
+
