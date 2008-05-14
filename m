@@ -1,59 +1,66 @@
-From: Florian Wiessner <ich@netz-guru.de>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover,
- performance.
-Date: Wed, 14 May 2008 03:16:56 +0200
-Message-ID: <482A3D88.2060105@netz-guru.de>
-References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <20080514005223.GE27483@shareable.org>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH] [SCTP]: Add address type check while process paramaters
+ of ASCONF chunk
+Date: Wed, 14 May 2008 09:49:20 +0800
+Message-ID: <482A4520.6010103@cn.fujitsu.com>
+References: <48298E27.40100@hp.com>	<20080513.153238.211668684.davem@davemloft.net>	<482A38B5.5030908@cn.fujitsu.com> <20080513.181415.228379595.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20080514005223.GE27483@shareable.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vladislav.yasevich@hp.com, kaber@trash.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:51295 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752173AbYENBtF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 21:49:05 -0400
+In-Reply-To: <20080513.181415.228379595.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+David Miller wrote:
+> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+> Date: Wed, 14 May 2008 08:56:21 +0800
+>
+>   
+>> Hi David:
+>>
+>>  Sorry for my mistake. This patch is create and tested by me.
+>>
+>>  I tested it used a test tool which is created by me. And this patchset 
+>> resolved the kernel panic problem. It seems that I need to do more 
+>> review my patch and
+>> add more test case to my tool. I will pay more attention to do the 
+>> correct patchs.
+>>     
+>
+> It dereferences an uninitialized pointer, unconditionally.  Therefore,
+> the patch was definitely completely untested.  This function never ran
+> during your tests.
+>
+> Please, no more excuses.
+>
+> You didn't test the patch.
+> The end.
+>   
 
-Jamie Lokier wrote:
+Are you sure you are right?
 
-> 
-> Fwiw, I've been working on what started as a distributed database that
-> is coming to be a filesystem too.  It has many qualities of both,
-> hopefully the best ones.  I'm aiming for high LAN file performance
-> similar to what you report with POHMELFS and would expect from any
-> modern fs, while also supporting database style transactions and
-> coherent queries, in a self-organising distributed system that handles
-> LAN/WAN/Internet each at their best.  Mention of Paxos stirred me to
-> reply - a relative of that is in there somewhere.  I have a long way
-> to go before a release.
-> 
-> If anyone is working on something similar, I would be delighted to
-> hear from them.
-> 
-> It scares me that I'm actually trying to do this.  But very exciting
-> it is too.
-> 
-> It seems there's quite a bit of interesting work on Linux in this area
-> right now, with BTRFS and CRFS too.
+First I am sorry for stupid patch, second I said again, I do test it, 
+but do not enough test.
 
-I am currently working on mysqlfs which is a fuse fs which can be used 
-in conjunction with mysql-ndb cluster.
-
-You can find the details here: http://sourceforge.net/projects/mysqlfs/
-and a howto (in german, though) here: 
-http://www.netz-guru.de/2008/04/03/mysqlfs-mit-mysql-ndb-cluster-als-verteiltes-dateisystem/
-
-It is working quite well, but still lacks of caching which makes it slow
-if your connection between the DB-servers have high latency/many hops.
-
-I don't know BTRFS nor CRFS or POHMELFS but i will take a look at them.
-
-Hope you'll find that usefull.
+uninitialized pointer is not NULL pointer, so it not kernel panic when 
+use "addr_param->v4.param_hdr.type", this patch cause function alaways 
+return SCTP_ERROR_INV_PARAM error, so even if I add IPv6 address to peer 
+which not supported IPv6 address or add IPv4 address to peer which not 
+supported IPv4 address is returned SCTP_ERROR_INV_PARAM, and passed my 
+test case.
+I not do test add IPv4/IPv6 address to peer which supported IPv4/IPv6 
+address, this is my fault .
 
 
---
-Florian Wiessner
+
+
+
 
