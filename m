@@ -1,53 +1,70 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
-Date: Wed, 14 May 2008 15:31:05 +0100
-Message-ID: <20080514143105.GB14987@shareable.org>
-References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514135156.GA23131@2ka.mipt.ru>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
+Date: Wed, 14 May 2008 15:45:18 +0100
+Message-ID: <20080514144518.GA30578@gerrit.erg.abdn.ac.uk>
+References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk> <20080513162325.GF15306@ghostprotocols.net> <20080513170325.GB11499@gerrit.erg.abdn.ac.uk> <200805132037.39580.rdenis@simphalempin.com> <4829E87F.1070006@redhat.com> <20080514080942.GB4462@gerrit.erg.abdn.ac.uk> <482AF1DB.1060608@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sage Weil <sage@newdream.net>, Jeff Garzik <jeff@garzik.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758695AbYENObX@vger.kernel.org>
+Cc: R?mi Denis-Courmont <rdenis@simphalempin.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Ulrich Drepper <drepper@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53983 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757356AbYENOqA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 10:46:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20080514135156.GA23131@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <482AF1DB.1060608@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> > For writes, Paxos is actually more or less optimal (in the non-failure 
-> > cases, at least).  Reads are trickier, but there are ways to keep that 
-> > fast as well.  FWIW, Ceph extends basic Paxos with a leasing mechanism to 
-> > keep reads fast, consistent, and distributed.  It's only used for cluster 
-> > state, though, not file data.
-> 
-> Well, it depends... If we are talking about single node perfromance,
-> then any protocol, which requries to wait for authorization (or any
-> approach, which waits for acknowledge just after data was sent) is slow.
->
-> If we are talking about agregate parallel perfromance, then its basic
-> protocol with 2 messages is (probably) optimal, but still I'm not
-> convinced, that 2 messages case is a good choise, I want one :)
+Quoting Ulrich Drepper:
+| -----BEGIN PGP SIGNED MESSAGE-----
+| Hash: SHA1
+| 
+| Gerrit Renker wrote:
+| > RFC 3493 says that 0 for socktype/protocol means that caller will accept
+| > any socket type / protocol, so presumably this does include DCCP and UDP-Lite.
+| 
+| I know what the RFC says.  But there are a gazillion of protocols out
+| there and I won't create a record for all of them in case socktype and
+| protocol are zero.  That's just overkill in 99.9% of all cases.
+| 
+| I assumption is that UDPlite is just too specialized to be useful to a
+| wide array of people.  Yes, it case be supported if explicitly requested
+| but should be returned if 0/0 is passed in.
+| 
+Sorry I misunderstood your email. Yes the above case is clear: if
+someone supplies 0/0, s/he will probably not want any specialised
+protocols in the return list.
 
-Look up "one-phase commit" or even "zero-phase commit".  (The
-terminology is cheating a bit.)  As I've understood it, all commit
-protocols have a step where each node guarantees it can commit if
-asked and node failure at that point does not invalidate the guarantee
-if the node recovers (if it can't maintain the guarantee, the node
-doesn't recover in a technical sense and a higher level protocol may
-reintegrate the node).  One/zero-phase commit extends that to
-guaranteeing a certain amounts and types of data can be written before
-it knows what the data is, so write messages within that window are
-sufficient for global commits.  Guarantees can be acquired
-asynchronously in advance of need, and can have time and other limits.
-These guarantees are no different in principle from the 1-bit
-guarantee offered by the "can you commit" phase of other commit
-protocols, so they aren't as weak as they seem.
+This didn't appear in Remi's list. I have completed the list and put the
+cases in the table below; `defaults' is interpreted in the way above.
 
-Now combine it with a quorum protocol like Paxos, you can commit with
-async guarantees from a subset of nodes.  Guarantees can be
-piggybacked on earlier requests.  There, single node write
-performance with quorum robustness.
+ +--------------+---------------+---------------+---------------+
+ | ai_socktype	| ai_protocol	| Return type	| Return Proto  |
+ +--------------+---------------+---------------+---------------+
+ | SOCK_DCCP	| IPPROTO_DCCP	| SOCK_DCCP	| IPPROTO_DCCP 	|
+ | SOCK_DCCP	| 0		| SOCK_DCCP	| IPPROTO_DCCP 	|
+ | 0		| IPPROTO_DCCP	| SOCK_DCCP	| IPPROTO_DCCP	|
+ | 0		| 0		| (defaults)	| (defaults)	|
+ +--------------+---------------+---------------+---------------+
 
--- Jamie
+
+If at all possible, for UDP-Lite it is similar. Since UDP-Lite is
+actually just a form of UDP, this seems much less urgent than DCCP -
+one might argue that UDP-Lite falls under SOCK_DGRAM/UDP.
+
+ +-------------+-----------------+-------------+-----------------+
+ | ai_socktype | ai_protocol	 | Return type |  Return Proto   |
+ +-------------+-----------------+-------------+-----------------+
+ | SOCK_DGRAM  | IPPROTO_UDPLITE | SOCK_DGRAM  | IPPROTO_UDPLITE |
+ | SOCK_DGRAM  | 0		 | SOCK_DGRAM  | IPPROTO_UDP	 |
+ | 0	       | IPPROTO_UDPLITE | SOCK_DGRAM  | IPPROTO_UDPLITE |   
+ | 0	       | 0		 | (defaults)  | (defaults)      |
+ +-------------+-----------------+-------------+-----------------+
+
+... but it would still be good to have. 
