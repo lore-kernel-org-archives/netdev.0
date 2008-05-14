@@ -1,50 +1,66 @@
 From: akpm@linux-foundation.org
-Subject: [patch 10/11] rndis_host: increase delay in command response loop
-Date: Wed, 14 May 2008 16:20:16 -0700
-Message-ID: <200805142320.m4ENKGnk026640@imap1.linux-foundation.org>
+Subject: [patch 05/11] ehca: ret is unsigned, ibmebus_request_irq() negative return ignored in hca_create_eq()
+Date: Wed, 14 May 2008 16:20:12 -0700
+Message-ID: <200805142320.m4ENKCQl026623@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linkfanel@yahoo.fr, davem@davemloft.net, david-b@pacbell.net,
-	greg@kroah.com
+	12o3l@tiscali.nl, fenkes@de.ibm.com, hnguyen@de.ibm.com,
+	paulus@samba.org, stefan.roscher@de.ibm.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:41006 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49443 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754575AbYENXU7 (ORCPT
+	by vger.kernel.org with ESMTP id S1754588AbYENXU7 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 19:20:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pierre Ynard <linkfanel@yahoo.fr>
+From: Roel Kluin <12o3l@tiscali.nl>
 
-Some devices running some WinCE firmware (with SC_* Samsung processors
-according to the SynCE project, verified on a HTC P3600 device) fail to
-register because they apparently need extra time to respond correctly to
-requests.  Increase the existing delay to satisfy them.  Based on code
-from the SynCE project, on a suggestion of David Brownell.
 
-This patch Works For Me(tm).
-
-Signed-off-by: Pierre Ynard <linkfanel@yahoo.fr>
-Acked-by: David Brownell <david-b@pacbell.net>
-Cc: Greg KH <greg@kroah.com>
+Cc: Joachim Fenkes <fenkes@de.ibm.com>
+Cc: Hoang-Nam Nguyen <hnguyen@de.ibm.com>
+Cc: Heiko J Schick <schickhj.ibm.com>
+Cc: Stefan Roscher <stefan.roscher@de.ibm.com>
+Cc: Paul Mackerras <paulus@samba.org>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/usb/rndis_host.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/infiniband/hw/ehca/ehca_eq.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff -puN drivers/net/usb/rndis_host.c~rndis_host-increase-delay-in-command-response-loop drivers/net/usb/rndis_host.c
---- a/drivers/net/usb/rndis_host.c~rndis_host-increase-delay-in-command-response-loop
-+++ a/drivers/net/usb/rndis_host.c
-@@ -194,7 +194,7 @@ int rndis_command(struct usbnet *dev, st
- 			dev_dbg(&info->control->dev,
- 				"rndis response error, code %d\n", retval);
- 		}
--		msleep(2);
-+		msleep(20);
- 	}
- 	dev_dbg(&info->control->dev, "rndis response timeout\n");
- 	return -ETIMEDOUT;
+diff -puN drivers/infiniband/hw/ehca/ehca_eq.c~ehca-ret-is-unsigned-ibmebus_request_irq-negative-return-ignored-in-hca_create_eq drivers/infiniband/hw/ehca/ehca_eq.c
+--- a/drivers/infiniband/hw/ehca/ehca_eq.c~ehca-ret-is-unsigned-ibmebus_request_irq-negative-return-ignored-in-hca_create_eq
++++ a/drivers/infiniband/hw/ehca/ehca_eq.c
+@@ -60,6 +60,7 @@ int ehca_create_eq(struct ehca_shca *shc
+ 	u32 i;
+ 	void *vpage;
+ 	struct ib_device *ib_dev = &shca->ib_device;
++	int ret2;
+ 
+ 	spin_lock_init(&eq->spinlock);
+ 	spin_lock_init(&eq->irq_spinlock);
+@@ -122,18 +123,18 @@ int ehca_create_eq(struct ehca_shca *shc
+ 
+ 	/* register interrupt handlers and initialize work queues */
+ 	if (type == EHCA_EQ) {
+-		ret = ibmebus_request_irq(eq->ist, ehca_interrupt_eq,
++		ret2 = ibmebus_request_irq(eq->ist, ehca_interrupt_eq,
+ 					  IRQF_DISABLED, "ehca_eq",
+ 					  (void *)shca);
+-		if (ret < 0)
++		if (ret2 < 0)
+ 			ehca_err(ib_dev, "Can't map interrupt handler.");
+ 
+ 		tasklet_init(&eq->interrupt_task, ehca_tasklet_eq, (long)shca);
+ 	} else if (type == EHCA_NEQ) {
+-		ret = ibmebus_request_irq(eq->ist, ehca_interrupt_neq,
++		ret2 = ibmebus_request_irq(eq->ist, ehca_interrupt_neq,
+ 					  IRQF_DISABLED, "ehca_neq",
+ 					  (void *)shca);
+-		if (ret < 0)
++		if (ret2 < 0)
+ 			ehca_err(ib_dev, "Can't map interrupt handler.");
+ 
+ 		tasklet_init(&eq->interrupt_task, ehca_tasklet_neq, (long)shca);
 _
