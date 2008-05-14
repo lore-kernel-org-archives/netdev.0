@@ -1,65 +1,93 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] PHYLIB: Add 1000Base-X support for Broadcom bcm5482
-Date: Thu, 15 May 2008 00:15:12 +0100 (BST)
-Message-ID: <Pine.LNX.4.55.0805142354530.15223@cliff.in.clinika.pl>
-References: <1210695378.13845.362.camel@localhost.localdomain>
- <Pine.LNX.4.55.0805140018340.7267@cliff.in.clinika.pl>
- <1210804791.13845.423.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@vger.kernel.org>
-To: Nate Case <ncase@xes-inc.com>
+From: akpm@linux-foundation.org
+Subject: [patch 4/8] hysdn: remove cli()/sti() calls
+Date: Wed, 14 May 2008 16:19:43 -0700
+Message-ID: <200805142319.m4ENJh0C026560@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	mark.asselstine@windriver.com, kkeil@suse.de
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirk.serum.com.pl ([213.77.9.205]:62617 "EHLO serum.com.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752868AbYENXPX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2008 19:15:23 -0400
-In-Reply-To: <1210804791.13845.423.camel@localhost.localdomain>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47256 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753945AbYENXUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 19:20:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 May 2008, Nate Case wrote:
+From: Mark Asselstine <mark.asselstine@windriver.com>
 
-> I didn't mention this before, but I did test these myself at least on a
-> board with a BCM5482S in both SGMII->Copper and 1000Base-X modes.
+The use of cli()/sti() within the do/while was a way to ensure interrupts were
+only disabled for short periods of time while the bulk of the time interrupts
+were free to occur.  The use of the spin lock has eliminated the need to play
+with interrupts in this way while still allowing for IO to be protected.
 
- I have assumed it, but wanted to point out to the others the only
-additional testing I can do is to check whether it breaks support or not
-for one of the other PHY chips handled by the driver.
+The remaining 3 sti() calls seem unneeded now that at no other point in the
+driver is there a call to cli().
 
-> I went ahead and revised my patch to include these.  I certainly don't
-> disagree with your reasoning in general.  Laziness is a big factor and
-> it felt faster/easier to get things merged if the change had a smaller
-> footprint :)
+Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
+Acked-by: Karsten Keil <kkeil@suse.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
- Laziness is a virtue -- the main incentive for the humankind to make
-progress after all -- but only if it does not make you work harder later
-on. :-)
+ drivers/isdn/hysdn/boardergo.c |   14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
 
-> FYI: My guess for the 5481 magic bits is that they are accessing shadow
-> values at 0x18 similar to the way my 5481 patch uses the 0x1c shadow
-> registers.  It looks the same as the 5482's "Misc Control
-> Register" (shadow value "111", which is where the 0x7 comes from).
-
- Thanks for the hint -- it looks like your newly introduced
-MII_BCM54XX_AUX_CTL macro could be used here.  Designers tend to reuse
-building blocks in hardware, so chances are it is indeed the same.
-
-> The register map has 0x15 as "reserved", but 0x15 is used for accessing
-> expansion registers.  I agree with your interpretation of how it's used
-> so I renamed it as you did in v2 of my patch.
-
- OK.  One note on this occasion: please keep the registers sorted by the
-index.  I missed it with the original review, but the additional registers
-at 0x15, 0x17 and 0x18 (and the values within) should be placed between
-MII_BCM54XX_ESR at 0x11 and MII_BCM54XX_ISR at 0x1a.
-
-> I did test with 'ethtool' and link detection worked fine.  The only
-> catch is that it will show 1000 mbit/s even when there is no link (many
-> drivers report 10 mbit/s with no link present), but I wouldn't think we
-> should ever trust 'speed' without a link present.
-
- I was a bit worried how it plays with actually trying to force different,
-perhaps incompatible, link parameters.
-
-  Maciej
+diff -puN drivers/isdn/hysdn/boardergo.c~hysdn-remove-cli-sti-calls drivers/isdn/hysdn/boardergo.c
+--- a/drivers/isdn/hysdn/boardergo.c~hysdn-remove-cli-sti-calls
++++ a/drivers/isdn/hysdn/boardergo.c
+@@ -64,10 +64,11 @@ ergo_interrupt(int intno, void *dev_id)
+ }				/* ergo_interrupt */
+ 
+ /******************************************************************************/
+-/* ergo_irq_bh is the function called by the immediate kernel task list after */
+-/* being activated with queue_task and no interrupts active. This task is the */
+-/* only one handling data transfer from or to the card after booting. The task */
+-/* may be queued from everywhere (interrupts included).                       */
++/* ergo_irq_bh will be called as part of the kernel clearing its shared work  */
++/* queue sometime after a call to schedule_work has been made passing our     */
++/* work_struct. This task is the only one handling data transfer from or to   */
++/* the card after booting. The task may be queued from everywhere             */
++/* (interrupts included).                                                     */
+ /******************************************************************************/
+ static void
+ ergo_irq_bh(struct work_struct *ugli_api)
+@@ -90,7 +91,6 @@ ergo_irq_bh(struct work_struct *ugli_api
+ 	card->hw_lock = 1;	/* we now lock the hardware */
+ 
+ 	do {
+-		sti();		/* reenable other ints */
+ 		again = 0;	/* assume loop not to be repeated */
+ 
+ 		if (!dpr->ToHyFlag) {
+@@ -110,7 +110,6 @@ ergo_irq_bh(struct work_struct *ugli_api
+ 				again = 1;	/* restart loop */
+ 			}
+ 		}		/* a message has arrived for us */
+-		cli();		/* no further ints */
+ 		if (again) {
+ 			dpr->ToHyInt = 1;
+ 			dpr->ToPcInt = 1;	/* interrupt to E1 for all cards */
+@@ -242,7 +241,6 @@ ergo_writebootimg(struct HYSDN_CARD *car
+ 		byteout(card->iobase + PCI9050_USER_IO, PCI9050_E1_RUN);	/* start E1 processor */
+ 		/* the interrupts are still masked */
+ 
+-		sti();
+ 		msleep_interruptible(20);		/* Timeout 20ms */
+ 
+ 		if (((tDpramBootSpooler *) card->dpram)->Len != DPRAM_SPOOLER_DATA_SIZE) {
+@@ -276,7 +274,6 @@ ergo_writebootseq(struct HYSDN_CARD *car
+ 	dst = sp->Data;		/* point to data in spool structure */
+ 	buflen = sp->Len;	/* maximum len of spooled data */
+ 	wr_mirror = sp->WrPtr;	/* only once read */
+-	sti();
+ 
+ 	/* try until all bytes written or error */
+ 	i = 0x1000;		/* timeout value */
+@@ -380,7 +377,6 @@ ergo_waitpofready(struct HYSDN_CARD *car
+ #endif /* CONFIG_HYSDN_CAPI */
+ 			return (0);	/* success */
+ 		}		/* data has arrived */
+-		sti();
+ 		msleep_interruptible(50);		/* Timeout 50ms */
+ 	}			/* wait until timeout */
+ 
+_
