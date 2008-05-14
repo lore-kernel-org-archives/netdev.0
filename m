@@ -1,222 +1,147 @@
-From: "Shirish Pargaonkar" <shirishpargaonkar@gmail.com>
-Subject: Re: autotuning of send buffer size of a socket
-Date: Wed, 14 May 2008 13:11:13 -0500
-Message-ID: <4a4634330805141111s585fd928n824e20fc83a74819@mail.gmail.com>
-References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
-	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
-	 <4a4634330805130654n1aafbf10pa73da07e792f7b@mail.gmail.com>
-	 <1210722503.11436.9.camel@w-sridhar2.beaverton.ibm.com>
-	 <4a4634330805140722x3494626bpc78dd92831d384a@mail.gmail.com>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: [PATCH] [ROSE] proper test for routing frames in rose_get_neigh()
+Date: Wed, 14 May 2008 20:14:29 +0200
+Message-ID: <200805142014.29412.bpidoux@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: "Sridhar Samudrala" <sri@us.ibm.com>
+Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-hams" <linux-hams@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:38965 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755186AbYENSLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 14:11:14 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so7628wfd.4
-        for <netdev@vger.kernel.org>; Wed, 14 May 2008 11:11:13 -0700 (PDT)
-In-Reply-To: <4a4634330805140722x3494626bpc78dd92831d384a@mail.gmail.com>
+Received: from smtp5-g19.free.fr ([212.27.42.35]:55291 "EHLO smtp5-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756700AbYENSO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 14:14:26 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/14/08, Shirish Pargaonkar <shirishpargaonkar@gmail.com> wrote:
-> On 5/13/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
-> > On Tue, 2008-05-13 at 08:54 -0500, Shirish Pargaonkar wrote:
-> > > On 5/12/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
-> > > > On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
-> > > > > Hello,
-> > > > >
-> > > > > kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
-> > > > > I still get the same error and do not see the send buffer size of a socket
-> > > > > changing (increasing)
-> > > > >
-> > > > > The initial buffer sizes are 16384 for send side and 87380 for the receive
-> > > > > side but I see receive side buffer tuning but do not see the same with
-> > > > > send side.
-> > > > >
-> > > > > If tcp does not see a need to increase the send buffer size, wonder why I
-> > > > > get EAGAIN error on this non-blocking socket for kernel_sendmsg!
-> > > >
-> > > > I think the send buffer auto-tuning doesn't happen here because there is
-> > > > already congestion window worth of packets sent that are not yet acknowledged.
-> > > > See tcp_should_expand_sndbuf().
-> > > >
-> > > > Also, the comments for tcp_new_space() says that sndbuf expansion does
-> > > > not work well with largesends. What is the size of your sends?
-> > > >
-> > > > Adding netdev to the CC list.
-> > > >
-> > > > Thanks
-> > > > Sridhar
-> > > >
-> > > > >
-> > > > > I do subscribe to this mailing list so, please send your responses to this
-> > > > > mail address.
-> > > > >
-> > > > > Regards,
-> > > > >
-> > > > > Shirish
-> > > > >
-> > > > > --------------------------------------------------------------------------------------------------
-> > > > > uname -r
-> > > > > 2.6.18-91.el5
-> > > > >
-> > > > >  sysctl -a
-> > > > >
-> > > > > net.ipv4.tcp_rmem = 4096        87380   4194304
-> > > > > net.ipv4.tcp_wmem = 4096        16384   4194304
-> > > > > net.ipv4.tcp_mem = 98304        131072  196608
-> > > > >
-> > > > > net.core.rmem_default = 126976
-> > > > > net.core.wmem_default = 126976
-> > > > > net.core.rmem_max = 131071
-> > > > > net.core.wmem_max = 131071
-> > > > >
-> > > > > net.ipv4.tcp_window_scaling = 1
-> > > > > net.ipv4.tcp_timestamps = 1
-> > > > > net.ipv4.tcp_moderate_rcvbuf = 1
-> > > > >
-> > > > >
-> > > > > cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
-> > > > > 1
-> > > > >
-> > > > >
-> > > > > CIFS VFS: sndbuf 16384 rcvbuf 87380
-> > > > >
-> > > > > CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
-> > > > > stuck for 32 seconds,
-> > > > > error: -11
-> > > > > CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
-> > > > > stuck for 32 seconds,
-> > > > > error: -11
-> > > > >
-> > > > >
-> > > > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
-> > > > > stuck for 64 seconds,
-> > > > > error: -11
-> > > > >
-> > > > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
-> > > > > stuck for 256 seconds,
-> > > > > error: -11
-> > > > >
-> > > > > I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
-> > > > > is 1) but not
-> > > > > the socket send buffer size.
-> > > > > The send buffer size remains fixed, the auto-tuning for send side is
-> > > > > enabled by default,so I do not see it happening here no matter how
-> > > > > long the c ode tries to
-> > > > > kernel_sendmsg after receiving EAGAIN return code.
-> >
-> > > Sridhar,
-> > >
-> > > The size of the sends is 56K.
-> >
-> > As David pointed out, the send size may not be an issue.
-> > When do you see these stalls? Do they happen frequently or only under
-> > stress?
-> >
-> > It could be that the receiver is not able to drain the receive queue
-> > causing the send path to be blocked. You could run netstat -tn on
-> > the receiver and take a look at 'Recv-Q' output to see if there is
-> > data pending in the receive queue.
-> >
-> > Thanks
-> > Sridhar
-> >
-> >
->
-> These errors are logged during stress testing, not otherwise.
-> I am running fsstress on 10 shares mounted  on this machine running cifs client
-> which are exported by a samba server on another machine.
->
-> I was running netstat -tn on the machine running samba server in a while loop
-> in a script untill errors started showing up on the cifs client.
-> Some of the entries captured in the file are listed below, rest of them
-> (34345 out of 34356 ) have Recv-Q as 0.
->
-> tcp    10080      0 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp    10080      0 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp    10080     51 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp    10983   7200 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp    11884  10080 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp    11925   1440 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp    12116   7200 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp    12406      0 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp      290      0 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp     5028  11627 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
-> tcp     8640     51 123.456.78.238:445          123.456.78.239:39538
->     ESTABLISHED
->
-> It is hard to match exact netstat -tn output on the machine running
-> samba server
-> with the errors on machine running cifs client but as soon as I saw the errors
-> appearing on the client, I ran netstat -tn command on the server and found
-> Recv-Q entry was 0 (may be the Recv-Q entries were processed/cleared by
-> the samba server by then).
->
-> Regards,
->
-> Shirish
->
+rose_get_neigh() is called either by rose_connect() or by rose_route_frame().
+In the first case it checks f0 timer to find if a connection is in wait state.
+In that case it returns a NULL otherwise it returns the address
+of the neighbour.
 
-So I see high count of bytes not copied by the user program but they are
-read next time netstat -tn is run (within probably less than a
-second), so it is not
-as if the samba server is not reading off data for long periods right?
+When called by rose_route_frame() the idea was to route a packet through an
+adjacent node given a destination rose address.
+However in that case t0 timer does not tell if the adjacent node is
+already connected even if the timer is null.
 
-Active Internet connections (w/o servers)
-Proto Recv-Q Send-Q Local Address               Foreign Address
-     State
-tcp        0    164 123.456.78.238:445          123.456.78.239:39538
-     ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.190:34532 ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.135:50328 ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.135:50333 ESTABLISHED
-Active Internet connections (w/o servers)
-Proto Recv-Q Send-Q Local Address               Foreign Address
-     State
-tcp    12406      0 123.456.78.238:445          123.456.78.239:39538
-     ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.190:34532 ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.135:50328 ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.135:50333 ESTABLISHED
-Active Internet connections (w/o servers)
-Proto Recv-Q Send-Q Local Address               Foreign Address
-     State
-tcp        0      0 123.456.78.238:445          123.456.78.239:39538
-     ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.190:34532 ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.135:50328 ESTABLISHED
-tcp        0      0 ::ffff:123.456.78.238:22
-::ffff:123.456.78.135:50333 ESTABLISHED
+A second conditional loop is added to check rose_neigh "restarted" structure
+field for this is the one that is set when a neighbour is connected.
+When the argument 'new' is null the function knows it is called by
+rose_route frame. If an adjacent node routing the requested route address is
+already connected, rose_get_neigh() returns its address, otherwise it returns
+a NULL. In that case the calling function will initiate a new connection.
 
-So are these occasional and short-lived spikes in unread data on the
-server side
-causing from send buffer from increasing on the client side?
+Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+---
+ include/net/rose.h    |    2 +-
+ net/rose/af_rose.c    |    4 ++--
+ net/rose/rose_route.c |   29 ++++++++++++++++++-----------
+ 3 files changed, 21 insertions(+), 14 deletions(-)
 
-Regards,
+diff --git a/include/net/rose.h b/include/net/rose.h
+index e5bb084..cbd5364 100644
+--- a/include/net/rose.h
++++ b/include/net/rose.h
+@@ -201,7 +201,7 @@ extern void rose_link_device_down(struct net_device *);
+ extern struct net_device *rose_dev_first(void);
+ extern struct net_device *rose_dev_get(rose_address *);
+ extern struct rose_route *rose_route_free_lci(unsigned int, struct rose_neigh *);
+-extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char *, unsigned char *);
++extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char *, unsigned char *, int);
+ extern int  rose_rt_ioctl(unsigned int, void __user *);
+ extern void rose_link_failed(ax25_cb *, int);
+ extern int  rose_route_frame(struct sk_buff *, ax25_cb *);
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index 1ebf652..f7f7ec8 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -759,7 +759,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
+ 	sock->state = SS_UNCONNECTED;
+ 
+ 	rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause,
+-					 &diagnostic);
++					 &diagnostic, 0);
+ 	if (!rose->neighbour) {
+ 		err = -ENETUNREACH;
+ 		goto out_release;
+@@ -855,7 +855,7 @@ rose_try_next_neigh:
+ 
+ 	if (sk->sk_state != TCP_ESTABLISHED) {
+ 	/* Try next neighbour */
+-		rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause, &diagnostic);
++		rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause, &diagnostic, 0);
+ 		if (rose->neighbour)
+ 			goto rose_try_next_neigh;
+ 
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index bd59387..a81066a 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -662,27 +662,34 @@ struct rose_route *rose_route_free_lci(unsigned int lci, struct rose_neigh *neig
+ }
+ 
+ /*
+- *	Find a neighbour given a ROSE address.
++ *	Find a neighbour or a route given a ROSE address.
+  */
+ struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char *cause,
+-	unsigned char *diagnostic)
++	unsigned char *diagnostic, int new)
+ {
+ 	struct rose_neigh *res = NULL;
+ 	struct rose_node *node;
+ 	int failed = 0;
+ 	int i;
+ 
+-	spin_lock_bh(&rose_node_list_lock);
++	if (!new) spin_lock_bh(&rose_node_list_lock);
+ 	for (node = rose_node_list; node != NULL; node = node->next) {
+ 		if (rosecmpm(addr, &node->address, node->mask) == 0) {
+ 			for (i = 0; i < node->count; i++) {
+-				if (!rose_ftimer_running(node->neighbour[i])) {
+-					res = node->neighbour[i];
+-					goto out;
+-				} else
+-					failed = 1;
++				if (new) {
++					if (node->neighbour[i]->restarted) {
++						res = node->neighbour[i];
++						goto out;
++					}
++				}
++				else {
++					if (!rose_ftimer_running(node->neighbour[i])) {
++						res = node->neighbour[i];
++						goto out;
++					} else
++						failed = 1;
++				}
+ 			}
+-			break;
+ 		}
+ 	}
+ 
+@@ -695,7 +702,7 @@ struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char *cause,
+ 	}
+ 
+ out:
+-	spin_unlock_bh(&rose_node_list_lock);
++	if (!new) spin_unlock_bh(&rose_node_list_lock);
+ 
+ 	return res;
+ }
+@@ -1018,7 +1025,7 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+ 		rose_route = rose_route->next;
+ 	}
+ 
+-	if ((new_neigh = rose_get_neigh(dest_addr, &cause, &diagnostic)) == NULL) {
++	if ((new_neigh = rose_get_neigh(dest_addr, &cause, &diagnostic, 1)) == NULL) {
+ 		rose_transmit_clear_request(rose_neigh, lci, cause, diagnostic);
+ 		goto out;
+ 	}
+-- 
+1.5.5
 
-Shirish
