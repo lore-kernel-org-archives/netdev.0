@@ -1,121 +1,94 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] Fix kobject_rename and !CONFIG_SYSFS v4
-Date: Tue, 13 May 2008 22:03:04 -0700
-Message-ID: <20080513220304.b2f5a588.akpm@linux-foundation.org>
-References: <m163tocw43.fsf_-_@frodo.ebiederm.org>
-	<20080512220232.GA16914@kroah.com>
-	<m1prrqbseh.fsf@frodo.ebiederm.org>
-	<4829A4BD.3020007@bull.net>
-	<20080513164438.GA31563@kroah.com>
-	<m18wyeay1q.fsf_-_@frodo.ebiederm.org>
-	<20080513201602.GA31578@kroah.com>
-	<m1od7a9bmr.fsf_-_@frodo.ebiederm.org>
-	<24291087.1210713535895.JavaMail.oracle@acsmt301.oracle.com>
-	<m1hcd1a48e.fsf_-_@frodo.ebiederm.org>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] HSO: add option hso driver
+Date: Tue, 13 May 2008 21:52:26 -0700
+Message-ID: <20080514045226.GB5400@kroah.com>
+References: <20080513215134.GC6139@kroah.com> <20080513232727.21c74bb2@core>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Randy Dunlap <RANDY.DUNLAP@ORACLE.COM>, Greg KH <greg@kroah.com>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Serge E. Hallyn" <serue@us.ibm.com>, Tejun Heo <htejun@gmail.com>
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760262AbYENFGt@vger.kernel.org>
-In-Reply-To: <m1hcd1a48e.fsf_-_@frodo.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>,
+	Javier Marcet <javier-cnb5s7aUzWrdtAWm4Da02A@public.gmane.org>,
+	Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080513232727.21c74bb2@core>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 May 2008 21:39:45 -0700 ebiederm@xmission.com (Eric W. Biederman) wrote:
+On Tue, May 13, 2008 at 11:27:27PM +0100, Alan Cox wrote:
+> > Jeff, please queue this up for 2.6.27 if there are no problems that you
+> > can see.  It has been in the linux-next tree for a while, and many users
+> > are reporting that it is working for them.
+> > 
+> > Or if you feel it's ok for 2.6.26, I will not object to that either :)
+> 
+> Can we get it into 2.6.26 - its a driver for new hardware and the driver
+> is going to get a clean up for 2.6.27 anyway.
+> 
+> Comments below are minor and I don't think blockers
+> 
+> So for the serial side
+> 
+> Acked-by: Alan Cox <alan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> 
+> 
+> > +	termios = serial->tty->termios;
+> 
+> tty is passed why keep using serial->tty (hint: think about parallel
+> hangup versus close/open)
 
-> 
-> When looking at kobject_rename I found two bugs with
-> that exist when sysfs support is disabled in the kernel.
-> 
-> kobject_rename does not change the name on the kobject when
-> sysfs support is not compiled in.
-> 
-> kobject_rename without locking attempts to check the
-> validity of a rename operation, which the kobject layer
-> simply does not have the infrastructure to do.
-> 
-> This patch documents the previously unstated requirement of
-> kobject_rename that is the responsibility of the caller to
-> provide mutual exclusion and to be certain that the new_name
-> for the kobject is valid.
-> 
-> This patch modifies sysfs_rename_dir in !CONFIG_SYSFS case
-> to call kobject_set_name to actually change the kobject_name.
-> 
-> This patch removes the bogus and misleading check in kobject_rename
-> that attempts to see if a rename is valid.  The check is bogus
-> because we do not have the proper locking.  The check is misleading
-> because it looks like we can and do perform checking at the kobject
-> level that we don't.
-> 
-> Changelog:
-> v4:	Documentation typo fixes
-> 
-> v2:	Added a declaration of kboject_set_name to sysfs.h
-> 	so the code actually compiles with !CONFIG_SYSFS.
-> 
-> 	Unscrambling the header dependencies so everything looks
-> 	beautiful is a project for another day.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  Documentation/kobject.txt |    4 ++++
->  drivers/base/core.c       |    5 +++++
->  include/linux/sysfs.h     |    4 +++-
->  lib/kobject.c             |   18 +++++-------------
->  4 files changed, 17 insertions(+), 14 deletions(-)
-> 
-> diff --git a/Documentation/kobject.txt b/Documentation/kobject.txt
-> index bf3256e..ac80d82 100644
-> --- a/Documentation/kobject.txt
-> +++ b/Documentation/kobject.txt
-> @@ -118,6 +118,10 @@ the name of the kobject, call kobject_rename():
->  
->      int kobject_rename(struct kobject *kobj, const char *new_name);
->  
-> +Note kobject_rename does not perform any locking or have a solid notion of
-> +what names are valid so the caller must provide their own sanity checking
-> +and serialization.
-> +
->  There is a function called kobject_set_name() but that is legacy cruft and
->  is being removed.  If your code needs to call this function, it is
->  incorrect and needs to be fixed.
-> diff --git a/drivers/base/core.c b/drivers/base/core.c
-> index be288b5..ad68f4c 100644
-> --- a/drivers/base/core.c
-> +++ b/drivers/base/core.c
-> @@ -1171,6 +1171,11 @@ EXPORT_SYMBOL_GPL(device_destroy);
->   * device_rename - renames a device
->   * @dev: the pointer to the struct device to be renamed
->   * @new_name: the new name of the device
-> + *
-> + * It is the responsibility of the caller to provide mutual
-> + * exclusion between two different calls of device_rename
-> + * on the same device to ensure that new_name is valid and
-> + * won't conflict with other devices.
->   */
->  int device_rename(struct device *dev, char *new_name)
->  {
-> diff --git a/include/linux/sysfs.h b/include/linux/sysfs.h
-> index 7858eac..6e61033 100644
-> --- a/include/linux/sysfs.h
-> +++ b/include/linux/sysfs.h
-> @@ -20,6 +20,8 @@
->  struct kobject;
->  struct module;
->  
-> +extern int kobject_set_name(struct kobject *kobj, const char *name, ...)
-> +			    __attribute__((format(printf, 2, 3)));
+Ick, now fixed.
 
-Duplicating the kobject_set_name() declaration in sysfs.h is rather a hack.
+> > +/* close the requested serial port */
+> > +static void hso_serial_close(struct tty_struct *tty, struct file *filp)
+> > +{
+> > +	struct hso_serial *serial = tty->driver_data;
+> > +	u8 usb_gone;
+> > +
+> > +	D1("Closing serial port");
+> > +
+> > +	/* sanity check */
+> > +	if (tty == NULL || serial == NULL) {
+> > +		D1("(tty == NULL || tty->driver_data == NULL)");
+> > +		return;
+> > +	}
+> 
+> tty cannot be NULL here
 
-It'd be better to move it into a new header file, included by both
-sysfs.h and kobject.h.  Perhaps there are other declarations which can
-be moved with it.
+removed.
+
+> > +static int hso_serial_write(struct tty_struct *tty, const unsigned char *buf,
+> > +			    int count)
+> > +{
+> > +	struct hso_serial *serial = get_serial_by_tty(tty);
+> > +	int space, tx_bytes;
+> > +	unsigned long flags;
+> > +
+> > +	/* sanity check */
+> > +	if (serial == NULL) {
+> > +		printk(KERN_ERR "%s: tty or tty->driver_data is NULL\n",
+> 
+> Checks one thing printks another 8)
+
+Fixed.
+
+> > +	/* the actual setup */
+> > +	spin_lock_irqsave(&serial->serial_lock, flags);
+> > +	if (serial->open_count)
+> > +		_hso_serial_set_termios(tty, old);
+> 
+> (else *tty->termios = *old_termios)
+
+Added.
+
+Thanks for the review, I really appreciate it.
+
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
