@@ -1,70 +1,84 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
-Date: Wed, 14 May 2008 15:45:18 +0100
-Message-ID: <20080514144518.GA30578@gerrit.erg.abdn.ac.uk>
-References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk> <20080513162325.GF15306@ghostprotocols.net> <20080513170325.GB11499@gerrit.erg.abdn.ac.uk> <200805132037.39580.rdenis@simphalempin.com> <4829E87F.1070006@redhat.com> <20080514080942.GB4462@gerrit.erg.abdn.ac.uk> <482AF1DB.1060608@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: R?mi Denis-Courmont <rdenis@simphalempin.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ulrich Drepper <drepper@redhat.com>
+From: Brian King <brking@linux.vnet.ibm.com>
+Subject: [PATCH 1/1] ehea: Fix use after free on reboot
+Date: Wed, 14 May 2008 09:48:25 -0500
+Message-ID: <3341.44217563352$1210776686@news.gmane.org>
+Cc: tklein@de.ibm.com, raisch@de.ibm.com, hering2@de.ibm.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	brking@linux.vnet.ibm.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53983 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757356AbYENOqA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2008 10:46:00 -0400
-Content-Disposition: inline
-In-Reply-To: <482AF1DB.1060608@redhat.com>
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:56806 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755761AbYENOsa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 10:48:30 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m4EEocTR022583
+	for <netdev@vger.kernel.org>; Wed, 14 May 2008 10:50:38 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m4EEmShO128406
+	for <netdev@vger.kernel.org>; Wed, 14 May 2008 10:48:28 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m4EEmR14003652
+	for <netdev@vger.kernel.org>; Wed, 14 May 2008 10:48:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Ulrich Drepper:
-| -----BEGIN PGP SIGNED MESSAGE-----
-| Hash: SHA1
-| 
-| Gerrit Renker wrote:
-| > RFC 3493 says that 0 for socktype/protocol means that caller will accept
-| > any socket type / protocol, so presumably this does include DCCP and UDP-Lite.
-| 
-| I know what the RFC says.  But there are a gazillion of protocols out
-| there and I won't create a record for all of them in case socktype and
-| protocol are zero.  That's just overkill in 99.9% of all cases.
-| 
-| I assumption is that UDPlite is just too specialized to be useful to a
-| wide array of people.  Yes, it case be supported if explicitly requested
-| but should be returned if 0/0 is passed in.
-| 
-Sorry I misunderstood your email. Yes the above case is clear: if
-someone supplies 0/0, s/he will probably not want any specialised
-protocols in the return list.
 
-This didn't appear in Remi's list. I have completed the list and put the
-cases in the table below; `defaults' is interpreted in the way above.
+Fixes the following use after free oops:
 
- +--------------+---------------+---------------+---------------+
- | ai_socktype	| ai_protocol	| Return type	| Return Proto  |
- +--------------+---------------+---------------+---------------+
- | SOCK_DCCP	| IPPROTO_DCCP	| SOCK_DCCP	| IPPROTO_DCCP 	|
- | SOCK_DCCP	| 0		| SOCK_DCCP	| IPPROTO_DCCP 	|
- | 0		| IPPROTO_DCCP	| SOCK_DCCP	| IPPROTO_DCCP	|
- | 0		| 0		| (defaults)	| (defaults)	|
- +--------------+---------------+---------------+---------------+
+ehea: Reboot: freeing all eHEA resources
+Unable to handle kernel paging request for data at address 0x6b6b6b6b6b6b6c5b
+Faulting instruction address: 0xd000000000354488
+cpu 0x0: Vector: 300 (Data Access) at [c00000002ec6f310]
+    pc: d000000000354488: .ehea_shutdown_single_port+0x50/0x78 [ehea]
+    lr: d00000000035447c: .ehea_shutdown_single_port+0x44/0x78 [ehea]
+    sp: c00000002ec6f590
+   msr: 8000000000009032
+   dar: 6b6b6b6b6b6b6c5b
+ dsisr: 40000000
+  current = 0xc0000000281412e0
+  paca    = 0xc0000000006df300
+    pid   = 10930, comm = reboot
+enter ? for help
+[c00000002ec6f590] d00000000035d64c .ehea_remove+0x44/0x124 [ehea] (unreliable)
+[c00000002ec6f630] c000000000319f88 .of_platform_device_remove+0x40/0x58
+[c00000002ec6f6a0] c000000000291018 .__device_release_driver+0xb0/0xf0
+[c00000002ec6f730] c000000000291120 .driver_detach+0xc8/0xfc
+[c00000002ec6f7c0] c00000000028fe24 .bus_remove_driver+0xb4/0x114
+[c00000002ec6f850] c000000000291768 .driver_unregister+0x54/0x74
+[c00000002ec6f8e0] c00000000031a0c8 .of_unregister_driver+0x14/0x28
+[c00000002ec6f950] c000000000023ba0 .ibmebus_unregister_driver+0x10/0x24
+[c00000002ec6f9c0] d000000000354180 .ehea_reboot_notifier+0x30/0x4c [ehea]
+[c00000002ec6fa40] c0000000003c95a8 .notifier_call_chain+0x5c/0xcc
+[c00000002ec6fae0] c000000000082cd4 .__blocking_notifier_call_chain+0x70/0xb0
+[c00000002ec6fb90] c000000000075cf8 .kernel_restart_prepare+0x24/0x58
+[c00000002ec6fc10] c000000000075f0c .kernel_restart+0x20/0x6c
+[c00000002ec6fc90] c000000000078674 .sys_reboot+0x1d4/0x290
+[c00000002ec6fe30] c0000000000086ac syscall_exit+0x0/0x40
+--- Exception: c01 (System Call) at 000000000ff63a40
+SP (ffceea50) is in userspace
 
+Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+---
 
-If at all possible, for UDP-Lite it is similar. Since UDP-Lite is
-actually just a form of UDP, this seems much less urgent than DCCP -
-one might argue that UDP-Lite falls under SOCK_DGRAM/UDP.
+ linux-2.6-bjking1/drivers/net/ehea/ehea_main.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- +-------------+-----------------+-------------+-----------------+
- | ai_socktype | ai_protocol	 | Return type |  Return Proto   |
- +-------------+-----------------+-------------+-----------------+
- | SOCK_DGRAM  | IPPROTO_UDPLITE | SOCK_DGRAM  | IPPROTO_UDPLITE |
- | SOCK_DGRAM  | 0		 | SOCK_DGRAM  | IPPROTO_UDP	 |
- | 0	       | IPPROTO_UDPLITE | SOCK_DGRAM  | IPPROTO_UDPLITE |   
- | 0	       | 0		 | (defaults)  | (defaults)      |
- +-------------+-----------------+-------------+-----------------+
-
-... but it would still be good to have. 
+diff -puN drivers/net/ehea/ehea_main.c~ehea_useafter_free_fix drivers/net/ehea/ehea_main.c
+--- linux-2.6/drivers/net/ehea/ehea_main.c~ehea_useafter_free_fix	2008-05-14 09:38:10.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ehea/ehea_main.c	2008-05-14 09:38:10.000000000 -0500
+@@ -3177,11 +3177,12 @@ out_err:
+ 
+ static void ehea_shutdown_single_port(struct ehea_port *port)
+ {
++	struct ehea_adapter *adapter = port->adapter;
+ 	unregister_netdev(port->netdev);
+ 	ehea_unregister_port(port);
+ 	kfree(port->mc_list);
+ 	free_netdev(port->netdev);
+-	port->adapter->active_ports--;
++	adapter->active_ports--;
+ }
+ 
+ static int ehea_setup_ports(struct ehea_adapter *adapter)
+_
