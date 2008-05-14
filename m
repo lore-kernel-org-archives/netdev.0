@@ -1,123 +1,60 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] HSO: add option hso driver
-Date: Wed, 14 May 2008 17:58:27 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0805141746150.5292@fbirervta.pbzchgretzou.qr>
-References: <20080513215134.GC6139@kroah.com>
+From: Sage Weil <sage@newdream.net>
+Subject: Re: POHMELFS high performance network filesystem. Transactions,
+ failover, performance.
+Date: Wed, 14 May 2008 09:09:58 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0805140900460.23143@cobra.newdream.net>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org>
+ <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net>
+ <20080514140908.GA14987@shareable.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Andrew Bird <ajb@spheresystems.co.uk>,
-	Javier Marcet <javier@krausbeck.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Filip Aben <f.aben@option.com>,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	Oliver Neukum <oliver@neukum.org>, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761028AbYENP6n@vger.kernel.org>
-In-Reply-To: <20080513215134.GC6139@kroah.com>
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763473AbYENQKV@vger.kernel.org>
+In-Reply-To: <20080514140908.GA14987@shareable.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 14 May 2008, Jamie Lokier wrote:
+> > Similarly, if only 1 out of 3 replicas is surviving, most people want to 
+> > be able to read their data, while Paxos demands a majority to ensure it is 
+> > correct.
+> 
+> (Generalising to any "quorum" (majority vote) protocol).
+> 
+> That's true if you require that all results are guaranteed consistent
+> or blocked, in the event of any kind of network failure.
+> 
+> But if you prefer incoherent results in the event of a network split
+> (and those are often mergable later), and only want to protect against
+> media/node failures to the best extent possible at any given time,
+> then quorum protocols can gracefully degrade so you still have access
+> without a majority of working nodes.
 
-On Tuesday 2008-05-13 23:51, Greg KH wrote:
->+#define MOD_AUTHOR			"Option Wireless"
->+#define MOD_DESCRIPTION			"USB High Speed Option driver"
->+#define MOD_LICENSE			"GPL"
->...
-That MODULE_DESCRIPTION(MOD_DESCRIPTION) looks so redundant. [Same
-for MOD_AUTHOR and MOD_LICENSE.]
-Just write MODULE_DESCRIPTION("USB High Speed Option driver"), no?
+Right.  In my case, I require guaranteed consistent results for critical 
+cluster state, and use (slightly modified) Paxos for that.  For file data, 
+I leverage that cluster state to still maintain perfect consistency in 
+most failure scenarios, while also degrading gracefully to a read/write 
+access to a single replica.
 
-Also, "Option" sounds a bit misleading. Is Option a company name,
-a product name, or the original English word "option"? It's confusing.
+When problem situations arise (e.g., replicating to A+B, A fails, 
+read/write to just B for a while, B fails, A recovers), an administrator 
+can step in and explicitly indicate we want to relax consistency to 
+continue (e.g., if B is found to be unsalvageable and a stale A is the 
+best we can do).
 
->+struct hso_device {
->+	union {
->+		struct hso_serial *dev_serial;
->+		struct hso_net *dev_net;
->+	} port_data;
+> In that model, neighbour sensing is used to find the largest coherency
+> domains fitting a set of parameters (such as "replicate datum X to N
+> nodes with maximum comms latency T").  If the parameters are able to
+> be met, quorum gives you the desired robustness in the event of
+> node/network failures.  During any time while the coherency parameters
+> cannot be met, the robustness reduces to the best it can do
+> temporarily, and recovers when possible later.  As a bonus, you have
+> some timing guarantees if they are more important.
 
-This does not really need a name, since it is an anon union anyway.
+Anything that silently relaxes consistency like that scares me.  Does 
+anybody really do that in practice?
 
->+};
->+
-
-The usual bunch of \s.. er, has this gone through checkpatch? [Seems 
-mostly clean though.]
-
->+/* Type of interface */
->+#define HSO_INTF_MASK		0xFF00
->+#define	HSO_INTF_MUX		0x0100
->+#define	HSO_INTF_BULK   	0x0200
->+
->+/* Type of port */
->+#define HSO_PORT_MASK		0xFF
->+#define HSO_PORT_NO_PORT	0x0
->+#define	HSO_PORT_CONTROL	0x1
->+#define	HSO_PORT_APP		0x2
->+#define	HSO_PORT_GPS		0x3
->+#define	HSO_PORT_PCSC		0x4
->+#define	HSO_PORT_APP2		0x5
->+#define HSO_PORT_GPS_CONTROL	0x6
->+#define HSO_PORT_MSD		0x7
->+#define HSO_PORT_VOICE		0x8
->+#define HSO_PORT_DIAG2		0x9
->+#define	HSO_PORT_DIAG		0x10
->+#define	HSO_PORT_MODEM		0x11
->+#define	HSO_PORT_NETWORK	0x12
->+
->+/* Additional device info */
->+#define HSO_INFO_MASK		0xFF000000
->+#define HSO_INFO_CRC_BUG	0x01000000
->+
->+/* Sysfs attribute */
->+static ssize_t hso_sysfs_show_porttype(struct device *dev,
->+				       struct device_attribute *attr,
->+				       char *buf)
->+{
->+	struct hso_device *hso_dev = dev->driver_data;
->+	char *port_name;
-	const char *port_name;
-
->...
->+	case HSO_PORT_DIAG2:
->+		port_name = "Diagnostic2";
->+		break;
->+	case HSO_PORT_MODEM:
->+		port_name = "Modem";
->+		break;
->+	case HSO_PORT_NETWORK:
->+		port_name = "Network";
->+		break;
->+	default:
->+		port_name = "Unknown";
->+		break;
->+	}
->+
->+	return sprintf(buf, "%s\n", port_name);
->+}
-
-You could refactor this using a static array mapping from port to 
-string. Same for the following three functions (hso_port_to_mux and 
-hso_mux_to_port).
-
-	static const char *const names[] = {
-		[HSO_PORT_xxx] = "xxx";
-	};
-
->+static struct ethtool_ops ops = {
-const?
-
->+	.get_drvinfo = hso_get_drvinfo,
->+	.get_link = ethtool_op_get_link
->+};
->+
->+static void hso_serial_set_termios(struct tty_struct *tty, struct ktermios *old)
->+{
-[...]
->+	/* done */
->+	return;
->+}
-
-I would have never thought! (Also elsewhere.)
+sage
