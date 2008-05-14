@@ -1,49 +1,44 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
-Date: Wed, 14 May 2008 11:07:11 -0700
-Message-ID: <482B2A4F.7030908@redhat.com>
-References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk> <482B0DF8.9060001@redhat.com> <1210786780.31221.8.camel@w-sridhar2.beaverton.ibm.com> <200805142049.19466.rdenis@simphalempin.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: POHMELFS high performance network filesystem. Transactions,
+ failover, performance.
+Date: Wed, 14 May 2008 10:56:54 -0700
+Message-ID: <20080514105654.673aee98.akpm@linux-foundation.org>
+References: <20080513174523.GA1677@2ka.mipt.ru>
+	<20080513233341.47edea7f.akpm@linux-foundation.org>
+	<20080514074028.GA28330@2ka.mipt.ru>
+	<20080514080801.GE28330@2ka.mipt.ru>
+	<Pine.LNX.4.64.0805140638450.14334@cobra.newdream.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: =?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?= <rdenis@simphalempin.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47569 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752088AbYENSId (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2008 14:08:33 -0400
-In-Reply-To: <200805142049.19466.rdenis@simphalempin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Sage Weil <sage@newdream.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762377AbYENSKd@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0805140638450.14334@cobra.newdream.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Wed, 14 May 2008 06:41:53 -0700 (PDT) Sage Weil <sage@newdream.net> wrote:
 
-R=C3=A9mi Denis-Courmont wrote:
-> Yeah but I don't think ai_socktype =3D=3D SOCK_STREAM and ai_protocol=
- =3D=3D 0 should=20
-> return IPPROTO_SCTP. Me fears this will break to many TCP application=
-s in the=20
-> field.
+> > On Wed, May 14, 2008 at 11:40:28AM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> > > > If any thread takes more than one kmap() at a time, it is deadlockable.
+> > > > Because there is a finite pool of kmaps.  Everyone can end up holding
+> > > > one or more kmaps, then waiting for someone else to release one.
+> > > 
+> > > It never takes the whole LAST_PKMAP maps. So the same can be applied to
+> > > any user who kmaps at least one page - while user waits for free slot,
+> > > it can be reused by someone else and so on.
+> > 
+> > Actually CIFS uses the same logic: maps multiple pages in wrteback path
+> > and release them after received reply.
+> 
+> Yes.  Only a pagevec at a time, though... apparently 14 is a small enough 
+> number not to bite too many people in practice?
+> 
 
-That's not happening.  For SOCK_STREAM TCP is returned.
-
-On the other hand, in the moment, for SOCK_SEQPACKET I return SCTP.  If
-this is not the preferred solution let me know now.
-
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFIKypP2ijCOnn/RHQRAvxYAJ9EqfwRsQq+SuRmkbtdmVs8aDiyGACeMoqx
-KqOzlMnpDpzMz+ccEB6oxBA=3D
-=3DDHB9
------END PGP SIGNATURE-----
+In practice you need a large number of threads performing writeout to
+trigger this.  iirc that's how it was demonstrated back in the 2.4
+days.  Say, thousands of processes/threads doing write+fsync to
+separate files.
