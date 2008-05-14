@@ -1,52 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: L2TP: skb truesize bug in recent kernels
-Date: Wed, 14 May 2008 03:12:56 -0700 (PDT)
-Message-ID: <20080514.031256.180455080.davem@davemloft.net>
-References: <482AB9D4.7050800@katalix.com>
+From: "Li Yang" <LeoLi@freescale.com>
+Subject: RE: [PATCH] ucc_geth_ethtool: Fix a few HW stats counters.
+Date: Wed, 14 May 2008 18:37:13 +0800
+Message-ID: <989B956029373F45A0B8AF0297081890022E13C3@zch01exm26.fsl.freescale.net>
+References: <1210665877-6590-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Joakim Tjernlund" <Joakim.Tjernlund@transmode.se>,
+	"Netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38495
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754809AbYENKNB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 06:13:01 -0400
-In-Reply-To: <482AB9D4.7050800@katalix.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:43720 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753612AbYENKhU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 06:37:20 -0400
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m4EAbGsX017259
+	for <netdev@vger.kernel.org>; Wed, 14 May 2008 03:37:17 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m4EAbEQc013717
+	for <netdev@vger.kernel.org>; Wed, 14 May 2008 05:37:15 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1210665877-6590-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Wed, 14 May 2008 11:07:16 +0100
+Hi Joakim,
 
-> The pppol2tp driver uses skb_cow_head() to make headroom for IP, UDP, 
-> L2TP and PPP headers. As GRE is being used, it is more likely that there 
-> will be insufficient headroom. Does the pppol2tp driver need to adjust 
-> truesize if pskb_expand_head() is called?
+I admit that I missed one in tx firmware stats.  But why are you
+deleting the other two?
+
+- Leo
+
+> -----Original Message-----
+> From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
+> Sent: Tuesday, May 13, 2008 4:05 PM
+> To: Netdev; Li Yang
+> Cc: Joakim Tjernlund
+> Subject: [PATCH] ucc_geth_ethtool: Fix a few HW stats counters.
 > 
-> I tried the following hack which stopped the skb truesize bug but caused 
-> a kernel assert when the socket was closed:
+> Noticed that ethtool -S didn't display tx-xxx-frames correctly.
+> Fix it and a few others while I am there. Strangely, the 
+> rx-jumbo-frames counter still counts pkgs even though I think 
+> there isn't any packtes above 1518.
 > 
-> KERN: assertion (!atomic_read(&sk->sk_wmem_alloc)) failed at 
-> net/ipv4/af_inet.c (155)
-
-You can't adjust the truesize when there is a socket associated
-with the SKB.
-
-We just had a weeklong thread on this list about these issues
-wrt. the wireless stack :-)
-
-skb->truesize records how much memory was charged to the assosicated
-socket, so when the socket is freed, the destructor goes
-
-	atomic_dec(&sk->sk_{r,w}mem_alloc, skb->truesize);
-
-so if you increase truesize, the counter will be decremented
-more than it was initially incremented.
-
-You cannot change the size of the packet substantially when there is a
-socket associated with it, because this makes the truesize inaccurate,
-and thus provides a vector for a user's socket to use up more memory
-than we were originally going to let it use based upon it's send and
-receive buffer limits.
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> ---
+> 
+> Havn't seen this go in or ACK/NACK. Resending.
+> 
+>  drivers/net/ucc_geth_ethtool.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ucc_geth_ethtool.c 
+> b/drivers/net/ucc_geth_ethtool.c index a995a3a..0eddf50 100644
+> --- a/drivers/net/ucc_geth_ethtool.c
+> +++ b/drivers/net/ucc_geth_ethtool.c
+> @@ -60,7 +60,6 @@ static char hw_stat_gstrings[][ETH_GSTRING_LEN] = {
+>  	"rx-broadcast-frames",
+>  	"stats-counter-carry",
+>  	"stats-counter-mask",
+> -	"rx-dropped-frames",
+>  };
+>  
+>  static char tx_fw_stat_gstrings[][ETH_GSTRING_LEN] = { @@ 
+> -73,6 +72,7 @@ static char tx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
+>  	"tx-frames-ok",
+>  	"tx-excessive-differ-frames",
+>  	"tx-256-511-frames",
+> +	"tx-512-1023-frames",
+>  	"tx-1024-1518-frames",
+>  	"tx-jumbo-frames",
+>  };
+> @@ -101,7 +101,6 @@ static char 
+> rx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
+>  	"rx-vlan-removed",
+>  	"rx-vlan-replaced",
+>  	"rx-vlan-inserted",
+> -	"rx-ip-checksum-errors",
+>  };
+>  
+>  #define UEC_HW_STATS_LEN ARRAY_SIZE(hw_stat_gstrings)
+> --
+> 1.5.5.1
+> 
+> 
