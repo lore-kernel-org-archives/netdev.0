@@ -1,42 +1,82 @@
 From: akpm@linux-foundation.org
-Subject: [patch 08/11] drivers/net/tokenring/3c359.c: squish a warning
-Date: Wed, 14 May 2008 16:20:15 -0700
-Message-ID: <200805142320.m4ENKF7C026632@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, greg@kroah.com
+Subject: [patch 01/11] forcedeth: power down phy when interface is down
+Date: Wed, 14 May 2008 16:20:07 -0700
+Message-ID: <200805142320.m4ENK8fr026602@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	eswierk@arastra.com, aabdulla@nvidia.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59806 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41431 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755324AbYENX0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 19:26:20 -0400
+	by vger.kernel.org with ESMTP id S1754726AbYENX0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 19:26:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+From: "Ed Swierk" <eswierk@arastra.com>
 
-When dev_name() is changed to return `const char *':
+Bring the physical link down when the interface is down by placing the PHY
+in power-down state, unless WOL is enabled.  This mirrors the behavior of
+other drivers including e1000 and tg3.
 
-drivers/net/tokenring/3c359.c: In function 'xl_probe':
-drivers/net/tokenring/3c359.c:318: warning: assignment discards qualifiers from pointer target type
+Without the patch, ifconfig down leaves the physical link up, which confuses
+datacenter users who expect the link lights both on the NIC and the switch to
+go out when they bring an interface down.
 
+Furthermore, even though the phy is powered on, autonegotiation stops working,
+so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
+interface goes down, and become gigabit when it comes up again.
+
+Ayaz said:
+
+  I would not include this patch until further testing is performed.  NVIDIA
+  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
+  have adverse affects on certain phys.
+
+Signed-off-by: Ed Swierk <eswierk@arastra.com>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Greg KH <greg@kroah.com>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/tokenring/3c359.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/forcedeth.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/tokenring/3c359.h~drivers-net-tokenring-3c359c-squish-a-warning drivers/net/tokenring/3c359.h
---- a/drivers/net/tokenring/3c359.h~drivers-net-tokenring-3c359c-squish-a-warning
-+++ a/drivers/net/tokenring/3c359.h
-@@ -264,7 +264,7 @@ struct xl_private {
- 	u16 asb;
+diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
++++ a/drivers/net/forcedeth.c
+@@ -1371,9 +1371,9 @@ static int phy_init(struct net_device *d
+ 	/* some phys clear out pause advertisment on reset, set it back */
+ 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
  
- 	u8 __iomem *xl_mmio;
--	char *xl_card_name;
-+	const char *xl_card_name;
- 	struct pci_dev *pdev ; 
- 	
- 	spinlock_t xl_lock ; 
+-	/* restart auto negotiation */
++	/* restart auto negotiation, power down phy */
+ 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+-	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
+ 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+ 		return PHY_ERROR;
+ 	}
+@@ -5077,6 +5077,10 @@ static int nv_open(struct net_device *de
+ 
+ 	dprintk(KERN_DEBUG "nv_open: begin\n");
+ 
++	/* power up phy */
++	mii_rw(dev, np->phyaddr, MII_BMCR,
++	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -5270,6 +5274,10 @@ static int nv_close(struct net_device *d
+ 	if (np->wolenabled) {
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
++	} else {
++		/* power down phy */
++		mii_rw(dev, np->phyaddr, MII_BMCR,
++		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
+ 	}
+ 
+ 	/* FIXME: power down nic */
 _
