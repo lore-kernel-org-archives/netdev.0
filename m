@@ -1,34 +1,117 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
-Date: Wed, 14 May 2008 17:56:52 +0400
-Message-ID: <20080514135652.GB23131@2ka.mipt.ru>
-References: <20080513174523.GA1677@2ka.mipt.ru> <20080513233341.47edea7f.akpm@linux-foundation.org> <20080514074028.GA28330@2ka.mipt.ru> <20080514080801.GE28330@2ka.mipt.ru> <Pine.LNX.4.64.0805140638450.14334@cobra.newdream.net>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: HSO: add option hso driver
+Date: Wed, 14 May 2008 16:59:52 +0300
+Message-ID: <482AF058.3020505@teltonika.lt>
+References: <20080513215134.GC6139@kroah.com> <20080513232727.21c74bb2@core> <482A23B8.7050705@pobox.com> <20080514015815.GA29785@kroah.com> <20080514045712.GA2843@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Sage Weil <sage@newdream.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762418AbYENN5Y@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0805140638450.14334@cobra.newdream.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080514045712.GA2843-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 14, 2008 at 06:41:53AM -0700, Sage Weil (sage@newdream.net) wrote:
-> Yes.  Only a pagevec at a time, though... apparently 14 is a small enough 
-> number not to bite too many people in practice?
+Greg Kroah-Hartman wrote:
+> +#define DRIVER_VERSION			"1.2"
 
-Well, POHMELFS can use up to 90 out of 512 or 1024 on x86, but that just
-moves a problem a bit closer.
+Maybe we should bump the version?
+Now it is the same as the different driver at PHARscape.
 
-IMHO problem can be in fact, that copy can be more significant overhead
-than per page sockt lock and direct DMA (I belive most of the GigE and
-above (and of course RDMA) links have scatter-gather and RX checksumming),
-it has to be tested, so I will change writeback path for POHMELFS to test
-things. If there will not be any performance degradataion (and I believe
-there will not be, as long as no improvements, since tests were always
-network bound), I will use that approach.
+> +/* called once for each interface upon device insertion */
+> +static int hso_probe(struct usb_interface *interface,
+> +		     const struct usb_device_id *id)
+> +{
+> +	int mux, i, if_num, port_spec;
+> +	unsigned char port_mask;
+> +	struct hso_device *hso_dev = NULL;
+> +	struct hso_shared_int *shared_int;
+> +	struct hso_device *tmp_dev = NULL;
+> +
+> +	if_num = interface->altsetting->desc.bInterfaceNumber;
+> +
+> +	/* Get the interface/port specification from either driver_info or from
+> +	 * the device itself */
+> +	if (id->driver_info)
+> +		port_spec = ((u32 *)(id->driver_info))[if_num];
+> +	else
+> +		port_spec = hso_get_config_data(interface);
+> +
+> +	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
+> +		dev_err(&interface->dev, "Not our interface\n");
+> +		return -ENODEV;
+> +	}
+> +	/* Check if we need to switch to alt interfaces prior to port
+> +	 * configuration */
+> +	if (interface->num_altsetting > 1)
+> +		usb_set_interface(interface_to_usbdev(interface), if_num, 1);
+> +	interface->needs_remote_wakeup = 1;
+> +
+> +	/* Allocate new hso device(s) */
+> +	switch (port_spec & HSO_INTF_MASK) {
+> +	case HSO_INTF_MUX:
+> +		if ((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) {
+> +			/* Create the network device */
+> +			if (!disable_net) {
+> +				hso_dev = hso_create_net_device(interface);
+> +				if (!hso_dev)
+> +					goto exit;
+> +				tmp_dev = hso_dev;
+> +			}
+> +		}
+> +
+> +		if (hso_get_mux_ports(interface, &port_mask))
+> +			/* TODO: de-allocate everything */
+> +			goto exit;
+> +
+> +		shared_int = hso_create_shared_int(interface);
+> +		if (!shared_int)
+> +			goto exit;
+> +
+> +		for (i = 1, mux = 0; i < 0x100; i = i << 1, mux++) {
+> +			if (port_mask & i) {
+> +				hso_dev = hso_create_mux_serial_device(
+> +						interface, i, shared_int);
+> +				if (!hso_dev)
+> +					goto exit;
+> +			}
+> +		}
+> +
+> +		if (tmp_dev)
+> +			hso_dev = tmp_dev;
+> +		break;
+> +
+> +	case HSO_INTF_BULK:
+> +		/* It's a regular bulk interface */
+> +		if (((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK)
+> +		    && !disable_net)
+> +			hso_dev = hso_create_net_device(interface);
+> +		else
+> +			hso_dev =
+> +			    hso_create_bulk_serial_device(interface, port_spec);
+> +		if (!hso_dev)
+> +			goto exit;
+> +		break;
+> +	default:
+> +		goto exit;
+> +	}
+> +
+> +	usb_driver_claim_interface(&hso_driver, interface, hso_dev);
 
--- 
-	Evgeniy Polyakov
+Is usb_driver_claim_interface really needed?
+
+> +	/* save our data pointer in this device */
+> +	usb_set_intfdata(interface, hso_dev);
+> +
+> +	/* done */
+> +	return 0;
+> +exit:
+> +	hso_free_interface(interface);
+> +	return -ENODEV;
+> +}
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
