@@ -1,27 +1,24 @@
 From: Brian King <brking@linux.vnet.ibm.com>
 Subject: [PATCH 1/1] ehea: Fix use after free on reboot
 Date: Wed, 14 May 2008 09:48:25 -0500
-Message-ID: <3341.44217563352$1210776686@news.gmane.org>
-Cc: tklein@de.ibm.com, raisch@de.ibm.com, hering2@de.ibm.com,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	brking@linux.vnet.ibm.com
+Message-ID: <21976.9494062804$1210776698@news.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tklein@de.ibm.com, hering2@de.ibm.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, raisch@de.ibm.com, brking@linux.vnet.ibm.com
 To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:56806 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755761AbYENOsa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2008 10:48:30 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m4EEocTR022583
-	for <netdev@vger.kernel.org>; Wed, 14 May 2008 10:50:38 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m4EEmShO128406
-	for <netdev@vger.kernel.org>; Wed, 14 May 2008 10:48:28 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m4EEmR14003652
-	for <netdev@vger.kernel.org>; Wed, 14 May 2008 10:48:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
 
 Fixes the following use after free oops:
