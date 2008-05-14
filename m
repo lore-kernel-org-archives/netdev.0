@@ -1,68 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: SFC driver implements its own I2C support
-Date: Wed, 14 May 2008 22:58:20 +0100
-Message-ID: <20080514215818.GH28241@solarflare.com>
-References: <20080513103325.1ab317cf@hyperion.delvare>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
+Date: Thu, 15 May 2008 02:02:52 +0400
+Message-ID: <20080514220252.GA14378@2ka.mipt.ru>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514135156.GA23131@2ka.mipt.ru> <20080514143105.GB14987@shareable.org> <20080514150052.GA15826@2ka.mipt.ru> <20080514213251.GB23758@shareable.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@redhat.com>, netdev@vger.kernel.org,
-	Linux I2C <i2c@lm-sensors.org>,
-	linux-net-drivers@solarflare.com
-To: Jean Delvare <khali@linux-fr.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:46238 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751322AbYENWA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 18:00:28 -0400
+Cc: Sage Weil <sage@newdream.net>, Jeff Garzik <jeff@garzik.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20080513103325.1ab317cf@hyperion.delvare>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20080514213251.GB23758@shareable.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jean Delvare wrote:
-> Hi Ben, hi Jeff,
+On Wed, May 14, 2008 at 10:32:51PM +0100, Jamie Lokier (jamie@shareable.org) wrote:
+> Look up Bittorrent, and bandwidth diffusion generally.  Also look up
+> multicast trees.
+> 
+> Sometimes it's faster for a client to send to many servers; sometimes
+> it's faster to send fewer and have them relayed by intermediaries -
+> because every packet takes time to transmit, and network topologies
+> aren't always homogenous or symmetric.
+> 
+> There is no simple answer which is optimal for all networks.
 
-Please use the address linux-net-drivers@solarflare.com, as listed in
-MAINTAINERS, which goes to everyone working on the sfc driver here.
+Yep, having multiple connections is worse for high-performance networks
+and is a great win for long latency links. If client to server
+connection is slower than server-server one, than having single gate
+server, which broadcasts data to others is a win over multiple
+connection to different servers. But if communication is roughly the
+same over all links, than... I think I agree that client-to-many is a
+better approach, since perormance of client-to-many will be the same as
+client-to-gate-to-others (since link is the same everywhere), but if
+gate server fails, reconnection and other management tasks introduce
+huge latency here (new gate server, new connection and so on), while
+with client-to-many we just proceed with other connections.
 
-> My attention was brought to the drivers/net/sfc/i2c-direct.c file which
-> appeared recently in the Linux kernel. Apparently this is a custom
-> implementation of I2C support, including software bit-banging. All this
-> is already available in the Linux kernel in:
->   drivers/i2c/i2c-core.c
->   drivers/i2c/algos/i2c-algo-bit.c
-> So it really doesn't make sense to duplicate the code in the sfc
-> network driver.
->
-> Can you please get rid of this custom I2C implementation and use the
-> standard one?
+> > Another approach, which seems also intersting is leader election (per
+> > client), so that leader would broadcast all the data.
+> 
+> Leader election is part of standard Paxos too :-)
 
-We intend to do so, but may not be able to do it before 2.6.26.
+But that's a different leader :)
 
-> It should be really easy, all you have to do is include
-> <linux/i2c.h> and <linux/i2c-algo-bit.h>, pack your SDA and SCL get/set
-> functions in a struct i2c_algo_bit_data, and call i2c_bit_add_bus() on
-> it. See drivers/video/intelfb/intelfb_i2c.c (or any framebuffer driver
-> with I2C/DDC support) for an example.
+> If you have a single data forwarder elected per client, then if one
+> client generates a lot of traffic, you concentrate a lot of traffic to
+> one network link and one CPU.  Sometimes it's better to elect several
+> leaders per client, and hash requests onto them.  You diffuse CPU and
+> traffic, but reduce opportunities to aggregate transactions into fewer
+> message.  It's an interesting problem, again probably with different
+> optimal results for different networks.
 
-I have made a start on this, and it looked like it would be a bit more
-difficult than that.  But then perhaps I was doing more work than I
-really needed to.
-
-Also, see comments from the original author of our I2C code in
-<http://thread.gmane.org/gmane.linux.kernel.commits.head/145999/focus=92866>.
-
-> Using the standard I2C implementation will give you access to all the
-> i2c debugging tools, user-space access to the I2C bus if needed, and
-> compatibility with all the Linux i2c device drivers, including hardware
-> monitoring and GPIO drivers which apparently the SFC hardware uses.
-
-Right.  But the most immediate requirement is that we be able to
-configure I2C devices from the sfc driver.  Most of our reference
-designs require that as part of their initialisation.
-
-Ben.
+Probably idea I described in other mail to Jeff, when client just
+connects to number of servers and can process command of adding/dropping
+server from that group, and balances reading between them and sends
+writes/metadata update to all of them, and all logic behind that group
+selection is hidded in the servers cloud, is the best choice...
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+	Evgeniy Polyakov
