@@ -1,22 +1,32 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: 2.6.25 crash: EIP: [<c02e2f14>] xfrm_output_resume+0x64/0x100 ss:esp 0068:c03a1e5c
-Date: Wed, 14 May 2008 14:32:18 +0200
-Message-ID: <BAY103-DAV93FF6F8B9D646F584F69CB2CE0@phx.gbl>
-References: <BAY103-DAV122A113843FE9574256A0AB2D60@phx.gbl> <BAY103-DAV6446AEC1CBB678E5D0E52B2D30@phx.gbl> <20080509102509.GA11710@gondor.apana.org.au> <BAY103-DAV5B5CD83FC6A95A5DD48C9B2CC0@phx.gbl> <20080512074642.GA1416@gondor.apana.org.au> <BAY103-DAV521435E26209347B7646FB2CC0@phx.gbl> <BAY103-DAV2A04E519F35401C98403FB2CC0@phx.gbl> <BAY103-DAV20B0EEFFB30A41A8020C8B2CC0@phx.gbl> <BAY103-DAV88950FC99CDE9EAAE27B2B2CE0@phx.gbl> <BAY103-DAV745BB1E190B27DAD19A19B2CE0@phx.gbl> <20080514122100.GA22726@gondor.apana.org.au>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
+Date: Wed, 14 May 2008 14:45:24 +0200
+Message-ID: <m3lk2djbq3.fsf@maximus.localdomain>
+References: <20080424.065555.30390704.davem@davemloft.net>
+	<m3ve27nfpx.fsf@maximus.localdomain>
+	<20080424214457.1d5a1655@the-village.bc.nu>
+	<20080512.033244.153113922.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: alan@lxorguk.ukuu.org.uk, jeff@garzik.org, paulkf@microgate.com,
+	jchapman@katalix.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s10.bay0.hotmail.com ([65.54.246.146]:8319 "EHLO
-	bay0-omc2-s10.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759007AbYENMev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 08:34:51 -0400
+Received: from OSB1387.piap.pl ([195.187.100.11]:60505 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761432AbYENMp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 08:45:27 -0400
+In-Reply-To: <20080512.033244.153113922.davem@davemloft.net> (David Miller's message of "Mon\, 12 May 2008 03\:32\:44 -0700 \(PDT\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
+David Miller <davem@davemloft.net> writes:
 
-> This patch should let you test that kernel:
+> No
+> locking at all over the HDLC protocol list, yikes!
 
-yes it works. Thanks.
-
-
+Right, I didn't think about ioctl() vs insmod/rmmod races. Will fix
+when I'm back home and can test it, in few days.
+-- 
+Krzysztof Halasa
