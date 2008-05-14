@@ -1,79 +1,30 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10694] New: Sis 191 not responding when
- mount.cifs
-Date: Wed, 14 May 2008 10:26:28 -0700
-Message-ID: <20080514102628.02115aa1.akpm@linux-foundation.org>
-References: <bug-10694-10286@http.bugzilla.kernel.org/>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
+Date: Wed, 14 May 2008 18:22:04 +0100
+Message-ID: <20080514172204.GA1036@gerrit.erg.abdn.ac.uk>
+References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk> <20080513162325.GF15306@ghostprotocols.net> <20080513170325.GB11499@gerrit.erg.abdn.ac.uk> <200805132037.39580.rdenis@simphalempin.com> <4829E87F.1070006@redhat.com> <20080514080942.GB4462@gerrit.erg.abdn.ac.uk> <482AF1DB.1060608@redhat.com> <20080514144518.GA30578@gerrit.erg.abdn.ac.uk> <482B0DF8.9060001@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org,
-	Steven French <sfrench@us.ibm.com>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: juanjo@apertus.es
+Content-Type: text/plain; charset=us-ascii
+Cc: R?mi Denis-Courmont <rdenis@simphalempin.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Ulrich Drepper <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58565 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752959AbYENR0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 13:26:39 -0400
-In-Reply-To: <bug-10694-10286@http.bugzilla.kernel.org/>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61312 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755735AbYENRdc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 13:33:32 -0400
+Content-Disposition: inline
+In-Reply-To: <482B0DF8.9060001@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+| The question is: is either DCCP or UDPlite important enough to be
+| returned in the default list when socktype and protocol are zero?
+They are probably both not important enough to be returned in the
+default list.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Wed, 14 May 2008 03:55:57 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=10694
-> 
->            Summary: Sis 191 not responding when mount.cifs
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.25.3
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: juanjo@apertus.es
-> 
-> 
-> Latest working kernel version: non
-> Earliest failing kernel version: 2.6.24
-> Distribution: Other
-> Hardware Environment: Acer Extensa E261 (SIS191 on ISA bridge SIS968 with
-> RLT8211BL transceiver)
-> Software Environment: linux boot to allow an unattended installation.
-> http://unattended.cvs.sourceforge.net/unattended/unattended/linuxboot/
-> Problem Description: mounting a network share with mount.cfis gets an error
-> about the server not responding. Modifying the mtu of the ethernet interface
-> make it to work.
-> 
-> Steps to reproduce:
-> 
-> mount.cifs \\ntinstall\install /z -o "username=guest,ro,nocase"
-> 
-> An error on the Screen:
-> --------------------------------------
-> CIFS VFS: server not responding 
-> CIFS VFS: No responde to cmd 46 mid 10
-> --------------------------------------
-> execute:
-> ifconfig eth0 mtu 1942
-> 
-> Then the network share is accessible. And the error disappear.
-> 
-
-How strange.  Good detective work, btw.
-
-Did we a) change the MTU size with 2.6.25 or b) break larger MTUs in 2.6.25?
-
-Can you find out what the MTU size was with 2.6.24?  And what size is
-the MTU in 2.6.25 before you reset it?
-
-Thanks.
+But either is important be considered when a user unambiguously specifies
+ai_socktype and/or ai_protocol; to avoid bad/brittle workarounds.
