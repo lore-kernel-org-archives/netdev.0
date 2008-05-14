@@ -1,117 +1,72 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: Re: HSO: add option hso driver
-Date: Wed, 14 May 2008 16:59:52 +0300
-Message-ID: <482AF058.3020505@teltonika.lt>
-References: <20080513215134.GC6139@kroah.com> <20080513232727.21c74bb2@core> <482A23B8.7050705@pobox.com> <20080514015815.GA29785@kroah.com> <20080514045712.GA2843@kroah.com>
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
+Date: Wed, 14 May 2008 15:09:08 +0100
+Message-ID: <20080514140908.GA14987@shareable.org>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080514045712.GA2843-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Sage Weil <sage@newdream.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.shareable.org ([80.68.89.115]:45162 "EHLO
+	mail2.shareable.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751847AbYENOJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 10:09:17 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greg Kroah-Hartman wrote:
-> +#define DRIVER_VERSION			"1.2"
+Sage Weil wrote:
+> I think the larger issue with Paxos is that I've yet to meet anyone who 
+> wants their data replicated 3 ways (this despite newfangled 1TB+ disks not 
+> having enough bandwidth to actualy _use_ the data they store).
 
-Maybe we should bump the version?
-Now it is the same as the different driver at PHARscape.
+For critical metadata which is needed to access a lot of data, it's
+done: even ext3 replicates superblocks.
 
-> +/* called once for each interface upon device insertion */
-> +static int hso_probe(struct usb_interface *interface,
-> +		     const struct usb_device_id *id)
-> +{
-> +	int mux, i, if_num, port_spec;
-> +	unsigned char port_mask;
-> +	struct hso_device *hso_dev = NULL;
-> +	struct hso_shared_int *shared_int;
-> +	struct hso_device *tmp_dev = NULL;
-> +
-> +	if_num = interface->altsetting->desc.bInterfaceNumber;
-> +
-> +	/* Get the interface/port specification from either driver_info or from
-> +	 * the device itself */
-> +	if (id->driver_info)
-> +		port_spec = ((u32 *)(id->driver_info))[if_num];
-> +	else
-> +		port_spec = hso_get_config_data(interface);
-> +
-> +	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
-> +		dev_err(&interface->dev, "Not our interface\n");
-> +		return -ENODEV;
-> +	}
-> +	/* Check if we need to switch to alt interfaces prior to port
-> +	 * configuration */
-> +	if (interface->num_altsetting > 1)
-> +		usb_set_interface(interface_to_usbdev(interface), if_num, 1);
-> +	interface->needs_remote_wakeup = 1;
-> +
-> +	/* Allocate new hso device(s) */
-> +	switch (port_spec & HSO_INTF_MASK) {
-> +	case HSO_INTF_MUX:
-> +		if ((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) {
-> +			/* Create the network device */
-> +			if (!disable_net) {
-> +				hso_dev = hso_create_net_device(interface);
-> +				if (!hso_dev)
-> +					goto exit;
-> +				tmp_dev = hso_dev;
-> +			}
-> +		}
-> +
-> +		if (hso_get_mux_ports(interface, &port_mask))
-> +			/* TODO: de-allocate everything */
-> +			goto exit;
-> +
-> +		shared_int = hso_create_shared_int(interface);
-> +		if (!shared_int)
-> +			goto exit;
-> +
-> +		for (i = 1, mux = 0; i < 0x100; i = i << 1, mux++) {
-> +			if (port_mask & i) {
-> +				hso_dev = hso_create_mux_serial_device(
-> +						interface, i, shared_int);
-> +				if (!hso_dev)
-> +					goto exit;
-> +			}
-> +		}
-> +
-> +		if (tmp_dev)
-> +			hso_dev = tmp_dev;
-> +		break;
-> +
-> +	case HSO_INTF_BULK:
-> +		/* It's a regular bulk interface */
-> +		if (((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK)
-> +		    && !disable_net)
-> +			hso_dev = hso_create_net_device(interface);
-> +		else
-> +			hso_dev =
-> +			    hso_create_bulk_serial_device(interface, port_spec);
-> +		if (!hso_dev)
-> +			goto exit;
-> +		break;
-> +	default:
-> +		goto exit;
-> +	}
-> +
-> +	usb_driver_claim_interface(&hso_driver, interface, hso_dev);
+These days there are content and search indexes, and journals.  They
+aren't replication but are related in some ways since parts of the
+data are duplicated and voting protocols can feed into that.
 
-Is usb_driver_claim_interface really needed?
+There's also RAID6 and similar parity/coding.  The data is not fully
+replicated, saving space, but the coordination is similar to N>=3 way
+replication.  Now apply that over a network.  Or even local disks, if
+you were looking to boost RAID write-commit performance.
 
-> +	/* save our data pointer in this device */
-> +	usb_set_intfdata(interface, hso_dev);
-> +
-> +	/* done */
-> +	return 0;
-> +exit:
-> +	hso_free_interface(interface);
-> +	return -ENODEV;
-> +}
+> Similarly, if only 1 out of 3 replicas is surviving, most people want to 
+> be able to read their data, while Paxos demands a majority to ensure it is 
+> correct.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+(Generalising to any "quorum" (majority vote) protocol).
+
+That's true if you require that all results are guaranteed consistent
+or blocked, in the event of any kind of network failure.
+
+But if you prefer incoherent results in the event of a network split
+(and those are often mergable later), and only want to protect against
+media/node failures to the best extent possible at any given time,
+then quorum protocols can gracefully degrade so you still have access
+without a majority of working nodes.
+
+That is a very useful property.  (I think it more closely mimics the
+way some human organisations work too: we try to coordinate, but when
+communications are down, we do the best we can and sync up later.)
+
+In that model, neighbour sensing is used to find the largest coherency
+domains fitting a set of parameters (such as "replicate datum X to N
+nodes with maximum comms latency T").  If the parameters are able to
+be met, quorum gives you the desired robustness in the event of
+node/network failures.  During any time while the coherency parameters
+cannot be met, the robustness reduces to the best it can do
+temporarily, and recovers when possible later.  As a bonus, you have
+some timing guarantees if they are more important.
+
+This is pretty much the same as RAID durability.  You have robustness
+against failures, still have access in the event of disk failures, and
+degraded robustness (and performance) temporarily while awaiting a new
+disk and resynchronising it.
+
+-- Jamie
