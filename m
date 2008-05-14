@@ -1,66 +1,49 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH] [SCTP]: Add address type check while process paramaters
- of ASCONF chunk
-Date: Wed, 14 May 2008 09:49:20 +0800
-Message-ID: <482A4520.6010103@cn.fujitsu.com>
-References: <48298E27.40100@hp.com>	<20080513.153238.211668684.davem@davemloft.net>	<482A38B5.5030908@cn.fujitsu.com> <20080513.181415.228379595.davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] HSO: add option hso driver
+Date: Tue, 13 May 2008 18:58:15 -0700
+Message-ID: <20080514015815.GA29785@kroah.com>
+References: <20080513215134.GC6139@kroah.com> <20080513232727.21c74bb2@core> <482A23B8.7050705@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, kaber@trash.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
+	Andrew Bird <ajb@spheresystems.co.uk>,
+	Javier Marcet <javier@krausbeck.org>,
+	Filip Aben <f.aben@option.com>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
+	Oliver Neukum <oliver@neukum.org>, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51295 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752173AbYENBtF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 21:49:05 -0400
-In-Reply-To: <20080513.181415.228379595.davem@davemloft.net>
+Received: from pentafluge.infradead.org ([213.146.154.40]:35320 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755549AbYENB6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2008 21:58:38 -0400
+Content-Disposition: inline
+In-Reply-To: <482A23B8.7050705@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Wei Yongjun <yjwei@cn.fujitsu.com>
-> Date: Wed, 14 May 2008 08:56:21 +0800
->
->   
->> Hi David:
->>
->>  Sorry for my mistake. This patch is create and tested by me.
->>
->>  I tested it used a test tool which is created by me. And this patchset 
->> resolved the kernel panic problem. It seems that I need to do more 
->> review my patch and
->> add more test case to my tool. I will pay more attention to do the 
->> correct patchs.
->>     
->
-> It dereferences an uninitialized pointer, unconditionally.  Therefore,
-> the patch was definitely completely untested.  This function never ran
-> during your tests.
->
-> Please, no more excuses.
->
-> You didn't test the patch.
-> The end.
->   
+On Tue, May 13, 2008 at 07:26:48PM -0400, Jeff Garzik wrote:
+> Alan Cox wrote:
+>>> Jeff, please queue this up for 2.6.27 if there are no problems that you
+>>> can see.  It has been in the linux-next tree for a while, and many users
+>>> are reporting that it is working for them.
+>>>
+>>> Or if you feel it's ok for 2.6.26, I will not object to that either :)
+>> Can we get it into 2.6.26 - its a driver for new hardware and the driver
+>> is going to get a clean up for 2.6.27 anyway.
+>> Comments below are minor and I don't think blockers
+>> So for the serial side
+>> Acked-by: Alan Cox <alan@redhat.com>
 
-Are you sure you are right?
+Thanks, I'll provide a clean-up patch based on this review in a few
+hours.
 
-First I am sorry for stupid patch, second I said again, I do test it, 
-but do not enough test.
+Unless Jeff would just like a whole new patch?
 
-uninitialized pointer is not NULL pointer, so it not kernel panic when 
-use "addr_param->v4.param_hdr.type", this patch cause function alaways 
-return SCTP_ERROR_INV_PARAM error, so even if I add IPv6 address to peer 
-which not supported IPv6 address or add IPv4 address to peer which not 
-supported IPv4 address is returned SCTP_ERROR_INV_PARAM, and passed my 
-test case.
-I not do test add IPv4/IPv6 address to peer which supported IPv4/IPv6 
-address, this is my fault .
+> AFAIK new drivers are OK post-rc1, since no possibility of regression and 
+> it enables new users.
 
+Thanks, I appreciate it.
 
-
-
-
-
+greg k-h
