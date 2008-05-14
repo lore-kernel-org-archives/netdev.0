@@ -1,45 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover,
- performance.
-Date: Wed, 14 May 2008 15:11:11 -0400
-Message-ID: <482B394F.6070700@garzik.org>
-References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514140908.GA14987@shareable.org> <Pine.LNX.4.64.0805140900460.23143@cobra.newdream.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
+Date: Wed, 14 May 2008 23:32:35 +0400
+Message-ID: <20080514193234.GA10165@2ka.mipt.ru>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514135156.GA23131@2ka.mipt.ru> <20080514143105.GB14987@shareable.org> <20080514150052.GA15826@2ka.mipt.ru> <482B3899.9070008@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamie Lokier <jamie@shareable.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamie Lokier <jamie@shareable.org>, Sage Weil <sage@newdream.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-fsdevel@vger.kernel.org
-To: Sage Weil <sage@newdream.net>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0805140900460.23143@cobra.newdream.net>
+Content-Disposition: inline
+In-Reply-To: <482B3899.9070008@garzik.org>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sage Weil wrote:
-> On Wed, 14 May 2008, Jamie Lokier wrote:
->> In that model, neighbour sensing is used to find the largest coherency
->> domains fitting a set of parameters (such as "replicate datum X to N
->> nodes with maximum comms latency T").  If the parameters are able to
->> be met, quorum gives you the desired robustness in the event of
->> node/network failures.  During any time while the coherency parameters
->> cannot be met, the robustness reduces to the best it can do
->> temporarily, and recovers when possible later.  As a bonus, you have
->> some timing guarantees if they are more important.
+On Wed, May 14, 2008 at 03:08:09PM -0400, Jeff Garzik (jeff@garzik.org) wrote:
+> Evgeniy Polyakov wrote:
+> >That can be the case if client connects to some gate server, which in
+> >turn broadcasts data further, that is how I plan to implement things at
+> >first.
 > 
-> Anything that silently relaxes consistency like that scares me.  Does 
-> anybody really do that in practice?
+> That means you are less optimal than the direct-to-storage-server path 
+> in NFSv4.1, then........
 
-Well, there's Amazon Dynamo, a distributed system that places most 
-importance on writes succeeding, if inconsistent.  They choose to relax 
-consistency up front, and on the backend absorb the cost of merging 
-multiple versions of objects:
+No, server to connect is the server, which stores data. By addition it
+will also store it to some other places according to distributed
+algorithm (like weaver, raid, mirror, whatever).
 
-http://www.allthingsdistributed.com/2007/10/amazons_dynamo.html
-(full paper)
+> <waves red flag in front of the bull>
+> 
+> If access controls permit, the ideal would be for the client to avoid an 
+> intermediary when storing data.  The client only _needs_ a consensus 
+> reply that their transaction was committed.  They don't necessarily need 
+> an intermediary to do the boring data transfer work.
 
-	Jeff
+Sure the less number of machines between client and storage we have, the
+faster and more robust we are.
 
+Either client has to write data to all servers, or it has to write it to
+one and wait utill that server will broadcast it further (to quorum or any
+number of machines it wants). Having pure client to think to what
+servers it has to put its data is a bit wrong (if not saying more),
+since it has to join not only data network, but also control one, to
+check that some servers are alive or not, to be able not to race, when
+server is recovering and so on...
 
-
+-- 
+	Evgeniy Polyakov
