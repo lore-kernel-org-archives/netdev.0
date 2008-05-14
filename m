@@ -1,123 +1,132 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: autotuning of send buffer size of a socket
-Date: Tue, 13 May 2008 16:48:23 -0700
-Message-ID: <1210722503.11436.9.camel@w-sridhar2.beaverton.ibm.com>
-References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
-	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
-	 <4a4634330805130654n1aafbf10pa73da07e792f7b@mail.gmail.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH] PHYLIB: Add 1000Base-X support for Broadcom bcm5482
+Date: Wed, 14 May 2008 01:02:51 +0100 (BST)
+Message-ID: <Pine.LNX.4.55.0805140018340.7267@cliff.in.clinika.pl>
+References: <1210695378.13845.362.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: Shirish Pargaonkar <shirishpargaonkar@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@vger.kernel.org>
+To: Nate Case <ncase@xes-inc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:60365 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753688AbYEMXs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2008 19:48:26 -0400
-In-Reply-To: <4a4634330805130654n1aafbf10pa73da07e792f7b@mail.gmail.com>
+Received: from kirk.serum.com.pl ([213.77.9.205]:64816 "EHLO serum.com.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754828AbYENACy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2008 20:02:54 -0400
+In-Reply-To: <1210695378.13845.362.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-05-13 at 08:54 -0500, Shirish Pargaonkar wrote:
-> On 5/12/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
-> > On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
-> > > Hello,
-> > >
-> > > kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
-> > > I still get the same error and do not see the send buffer size of a socket
-> > > changing (increasing)
-> > >
-> > > The initial buffer sizes are 16384 for send side and 87380 for the receive
-> > > side but I see receive side buffer tuning but do not see the same with
-> > > send side.
-> > >
-> > > If tcp does not see a need to increase the send buffer size, wonder why I
-> > > get EAGAIN error on this non-blocking socket for kernel_sendmsg!
-> >
-> > I think the send buffer auto-tuning doesn't happen here because there is
-> > already congestion window worth of packets sent that are not yet acknowledged.
-> > See tcp_should_expand_sndbuf().
-> >
-> > Also, the comments for tcp_new_space() says that sndbuf expansion does
-> > not work well with largesends. What is the size of your sends?
-> >
-> > Adding netdev to the CC list.
-> >
-> > Thanks
-> > Sridhar
-> >
-> > >
-> > > I do subscribe to this mailing list so, please send your responses to this
-> > > mail address.
-> > >
-> > > Regards,
-> > >
-> > > Shirish
-> > >
-> > > --------------------------------------------------------------------------------------------------
-> > > uname -r
-> > > 2.6.18-91.el5
-> > >
-> > >  sysctl -a
-> > >
-> > > net.ipv4.tcp_rmem = 4096        87380   4194304
-> > > net.ipv4.tcp_wmem = 4096        16384   4194304
-> > > net.ipv4.tcp_mem = 98304        131072  196608
-> > >
-> > > net.core.rmem_default = 126976
-> > > net.core.wmem_default = 126976
-> > > net.core.rmem_max = 131071
-> > > net.core.wmem_max = 131071
-> > >
-> > > net.ipv4.tcp_window_scaling = 1
-> > > net.ipv4.tcp_timestamps = 1
-> > > net.ipv4.tcp_moderate_rcvbuf = 1
-> > >
-> > >
-> > > cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
-> > > 1
-> > >
-> > >
-> > > CIFS VFS: sndbuf 16384 rcvbuf 87380
-> > >
-> > > CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
-> > > stuck for 32 seconds,
-> > > error: -11
-> > > CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
-> > > stuck for 32 seconds,
-> > > error: -11
-> > >
-> > >
-> > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
-> > > stuck for 64 seconds,
-> > > error: -11
-> > >
-> > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
-> > > stuck for 256 seconds,
-> > > error: -11
-> > >
-> > > I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
-> > > is 1) but not
-> > > the socket send buffer size.
-> > > The send buffer size remains fixed, the auto-tuning for send side is
-> > > enabled by default,so I do not see it happening here no matter how
-> > > long the c ode tries to
-> > > kernel_sendmsg after receiving EAGAIN return code.
+Hi Nate,
 
-> Sridhar,
+> Configure the BCM5482S secondary SerDes for 1000Base-X mode when the
+> appropriate dev_flags are passed in to phy_connect().  This is
+> needed when the PHY is used for fiber and backplane connections.
 > 
-> The size of the sends is 56K.
+> Signed-off-by: Nate Case <ncase@xes-inc.com>
+> ---
 
-As David pointed out, the send size may not be an issue. 
-When do you see these stalls? Do they happen frequently or only under
-stress?
+ Thanks for your changes -- they do not seem to break my system, but I
+have no way to verify your additions at the run time as I only have
+BCM5421 PHYs to try with.  A few comments follow.
 
-It could be that the receiver is not able to drain the receive queue
-causing the send path to be blocked. You could run netstat -tn on
-the receiver and take a look at 'Recv-Q' output to see if there is
-data pending in the receive queue.
+> Note: This contains a few "magic" numbers/bits which are documented
+> in the comments.  I neglected making #defines for all of these to
+> keep the change size down, but I'm willing to make them if people want
+> it enough.  Most are probably 5482 specific.
 
-Thanks
-Sridhar
+ Please do provide these macros!  The size does not matter (duh, what a
+truism!).  What really matters is the meaning of the numbers.  What seems
+obvious now, may not be such a couple of changes into the future.  
+Besides, it is much more effective to grep, etc. for macros than for
+numbers.
 
+ We have magic numbers elsewhere, true, but they are results of
+reverse-engineering, so the exact meaning is unknown.  Of course if you
+have a possibility to document them properly, you are welcome to do so.
+But for everything that's known, let's keep the code as it should be from
+the beginning.
+
+> +#define MII_BCM54XX_RSV0	0x15	/* Reserved / Expansion registers */
+
+ Hmm, the name seems confusing -- is it the manufacturer's official name
+of the register?  Based on the semantics I would call it
+MII_BCM54XX_EXP_DATA or suchlike.
+
+> +#define MII_BCM54XX_EXP		0x17	/* Expansion register access */
+
+ And then perhaps MII_BCM54XX_EXP_SEL for consistency.
+
+> +	return phy_write(phydev, MII_BCM54XX_SHD, MII_BCM54XX_SHD_WRITE
+> +		| MII_BCM54XX_SHD_VAL(shadow)
+> +		| MII_BCM54XX_SHD_DATA(val));
+
+ Formatting, please -- Linux wants operators at the end of the line and 
+indentation to mark where the continuation correlates to the line above.  
+In this case either:
+
+	return phy_write(phydev, MII_BCM54XX_SHD, MII_BCM54XX_SHD_WRITE |
+						  MII_BCM54XX_SHD_VAL(shadow) |
+						  MII_BCM54XX_SHD_DATA(val));
+
+or:
+
+	return phy_write(phydev, MII_BCM54XX_SHD,
+			 MII_BCM54XX_SHD_WRITE | MII_BCM54XX_SHD_VAL(shadow) |
+			 MII_BCM54XX_SHD_DATA(val));
+
+I have a preference within the two and there are other acceptable
+variations, but I won't influence you. ;-)
+
+> +	phy_write(phydev, MII_BCM54XX_EXP,
+> +			(sec_serdes ? MII_BCM54XX_EXP_SSD : MII_BCM54XX_EXP_ER)
+> +			| regnum);
+
+ Likewise:
+
+	phy_write(phydev, MII_BCM54XX_EXP, (sec_serdes ? MII_BCM54XX_EXP_SSD :
+						         MII_BCM54XX_EXP_ER) |
+					   regnum);
+
+or:
+
+	phy_write(phydev, MII_BCM54XX_EXP,
+		  (sec_serdes ? MII_BCM54XX_EXP_SSD : MII_BCM54XX_EXP_ER) |
+		  regnum);
+
+
+> +static inline int
+> +bcm54xx_exp_write(struct phy_device *phydev, int sec_serdes, u8 regnum, u16 val)
+
+ Hmm, you have reached the 80th column -- that causes problems sometimes,
+I would wrap the arguments.
+
+> +		bcm54xx_shadow_write(phydev, 0x14,
+> +			bcm54xx_shadow_read(phydev, 0x14) | 0x9);
+
+ Similarly:
+
+		bcm54xx_shadow_write(phydev, 0x14,
+				     bcm54xx_shadow_read(phydev, 0x14) | 0x9);
+
+I think these all fit, but:
+
+		reg = bcm54xx_shadow_read(phydev, 0x14);
+		bcm54xx_shadow_write(phydev, 0x14, reg | 0x9);
+
+would be good otherwise.
+
+> +	if (phydev->dev_flags & PHY_BCM_FLAGS_MODE_1000BX) {
+> +		/*
+> +		 * Only link status matters for 1000Base-X mode, so force
+> +		 * 1000 Mbit/s full-duplex status
+> +		 */
+> +		if (phydev->link) {
+> +			phydev->speed = SPEED_1000;
+> +			phydev->duplex = DUPLEX_FULL;
+> +		}
+> +	}
+
+ Hmm, out of curiosity -- does such enforcement play well with tools like 
+ethtool or mii-tool?
+
+  Maciej
