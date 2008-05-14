@@ -1,35 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [SCTP]: Add address type check while process
- paramaters of ASCONF chunk
-Date: Tue, 13 May 2008 23:25:17 -0700 (PDT)
-Message-ID: <20080513.232517.119421000.davem@davemloft.net>
-References: <1210360195-16524-2-git-send-email-vladislav.yasevich@hp.com>
-	<48297BE9.9020204@trash.net>
-	<48298E27.40100@hp.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: POHMELFS high performance network filesystem. Transactions,
+ failover, performance.
+Date: Tue, 13 May 2008 23:33:41 -0700
+Message-ID: <20080513233341.47edea7f.akpm@linux-foundation.org>
+References: <20080513174523.GA1677@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net, yjwei@cn.fujitsu.com
-To: vladislav.yasevich@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60296
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752114AbYENGZX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 02:25:23 -0400
-In-Reply-To: <48298E27.40100@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20080513174523.GA1677@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 13 May 2008 08:48:39 -0400
+On Tue, 13 May 2008 21:45:24 +0400 Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-> Patrick McHardy wrote:
-> > The patch is wrong and needs this fix on top.
-> > 
-> 
-> Ack.  David, please apply.
+> I'm please to announce POHMEL high performance network filesystem.
 
-Done, thanks everyone.
+If any thread takes more than one kmap() at a time, it is deadlockable.
+Because there is a finite pool of kmaps.  Everyone can end up holding
+one or more kmaps, then waiting for someone else to release one.
 
+Duplicating page_waitqueue() is bad.  Exporting it is probably bad too.
+Better would be to help us work out why the core kernel infrastructure is
+unsuitable, then make it suitable.
