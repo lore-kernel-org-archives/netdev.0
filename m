@@ -1,94 +1,61 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] HSO: add option hso driver
-Date: Tue, 13 May 2008 21:52:26 -0700
-Message-ID: <20080514045226.GB5400@kroah.com>
-References: <20080513215134.GC6139@kroah.com> <20080513232727.21c74bb2@core>
+From: Prashanth <bshanth@gmail.com>
+Subject: Re: ip_finish_outpu2 question
+Date: Wed, 14 May 2008 10:53:36 +0530
+Message-ID: <7aa53e090805132223q5f1bef51re636cde33f5dfde4@mail.gmail.com>
+References: <7aa53e090805132042k5476eaf6lb66e534232154bf5@mail.gmail.com>
+	 <20080513.213425.03637016.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>,
-	Javier Marcet <javier-cnb5s7aUzWrdtAWm4Da02A@public.gmane.org>,
-	Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
-	Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hs-out-0708.google.com ([64.233.178.242]:17270 "EHLO
+	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752683AbYENFXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 01:23:37 -0400
+Received: by hs-out-0708.google.com with SMTP id 4so2463384hsl.5
+        for <netdev@vger.kernel.org>; Tue, 13 May 2008 22:23:36 -0700 (PDT)
+In-Reply-To: <20080513.213425.03637016.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20080513232727.21c74bb2@core>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 13, 2008 at 11:27:27PM +0100, Alan Cox wrote:
-> > Jeff, please queue this up for 2.6.27 if there are no problems that you
-> > can see.  It has been in the linux-next tree for a while, and many users
-> > are reporting that it is working for them.
-> > 
-> > Or if you feel it's ok for 2.6.26, I will not object to that either :)
-> 
-> Can we get it into 2.6.26 - its a driver for new hardware and the driver
-> is going to get a clean up for 2.6.27 anyway.
-> 
-> Comments below are minor and I don't think blockers
-> 
-> So for the serial side
-> 
-> Acked-by: Alan Cox <alan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> 
-> 
-> > +	termios = serial->tty->termios;
-> 
-> tty is passed why keep using serial->tty (hint: think about parallel
-> hangup versus close/open)
+So skb->data will be pointing to an unaligned memory address; atleast
+for the ethernet case which has 14 Bytes header length.
+because of this my chip is not allowing to do DMA for unaligned memory address.
 
-Ick, now fixed.
+If we take the case of ethernet , The hh->hh_data will be pointing to
+the ethernet header by leaving the first 2 bytes.
+HH_DATA_OFF() macro is used for this purpose.
 
-> > +/* close the requested serial port */
-> > +static void hso_serial_close(struct tty_struct *tty, struct file *filp)
-> > +{
-> > +	struct hso_serial *serial = tty->driver_data;
-> > +	u8 usb_gone;
-> > +
-> > +	D1("Closing serial port");
-> > +
-> > +	/* sanity check */
-> > +	if (tty == NULL || serial == NULL) {
-> > +		D1("(tty == NULL || tty->driver_data == NULL)");
-> > +		return;
-> > +	}
-> 
-> tty cannot be NULL here
+By doing skb_push() only for 14 bytes and making skb->data to point to
+unaligned memory will have performance hit,
+In my case i was not even  able to xmit the packet.So is it not better
+to do skb_push() for 16 bytes and make skb->data aligned?
 
-removed.
+In ip_finish_output2() function  it's better to do skb_push() for
+aligned length. And let others access the ethernet header
+by adding HH_DATA_OFF() to it. Do we face any problems by doing this.
 
-> > +static int hso_serial_write(struct tty_struct *tty, const unsigned char *buf,
-> > +			    int count)
-> > +{
-> > +	struct hso_serial *serial = get_serial_by_tty(tty);
-> > +	int space, tx_bytes;
-> > +	unsigned long flags;
-> > +
-> > +	/* sanity check */
-> > +	if (serial == NULL) {
-> > +		printk(KERN_ERR "%s: tty or tty->driver_data is NULL\n",
-> 
-> Checks one thing printks another 8)
+Please fix me if i'm wrong.
 
-Fixed.
+Thanks
 
-> > +	/* the actual setup */
-> > +	spin_lock_irqsave(&serial->serial_lock, flags);
-> > +	if (serial->open_count)
-> > +		_hso_serial_set_termios(tty, old);
-> 
-> (else *tty->termios = *old_termios)
-
-Added.
-
-Thanks for the review, I really appreciate it.
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, May 14, 2008 at 10:04 AM, David Miller <davem@davemloft.net> wrote:
+> From: Prashanth <bshanth@gmail.com>
+> Date: Wed, 14 May 2008 09:12:54 +0530
+>
+>> hi, In the following function at line 189 , we are getting aligned
+>> length (hh_alen) for the hardware header , but while doing a
+>> skb_push() why are we using the hh->hh_len;for ethernet hh_alen would
+>> be 16 , and hh->hh_len would be 14, since we are doing skb_push() with
+>> 14 (i.e hh->hh_len), the skb->data will not be aligned right? Can
+>> someone please shed some light on this. thanks.
+>
+> We are using 16 for the copy so that we do an aligned
+> copy.  But the ethernet header size is only 14 bytes.
+>
+> It's safe to copy those extra 2 bytes at the front
+> since we always will have some extra slack space there.
+>
