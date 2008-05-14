@@ -1,34 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ip_finish_outpu2 question
-Date: Tue, 13 May 2008 21:34:25 -0700 (PDT)
-Message-ID: <20080513.213425.03637016.davem@davemloft.net>
-References: <7aa53e090805132042k5476eaf6lb66e534232154bf5@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 18/18] flag parameters: check magic constants
+Date: Tue, 13 May 2008 21:43:02 -0700
+Message-ID: <20080513214302.876c5f47.akpm@linux-foundation.org>
+References: <200805062118.m46LI74j004096@devserv.devel.redhat.com>
+	<20080512201341.9ead6a9a.akpm@linux-foundation.org>
+	<482910FA.1080703@redhat.com>
+	<20080512.210225.167924945.davem@davemloft.net>
+	<20080512220416.ef9a9645.akpm@linux-foundation.org>
+	<482922E2.3040902@redhat.com>
+	<20080512221917.07cf7b06.akpm@linux-foundation.org>
+	<48292A5A.4050606@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bshanth@gmail.com
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davidel@xmailserver.org,
+	mtk.manpages@gmail.com, torvalds@linux-foundation.org
+To: Ulrich Drepper <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55425
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751253AbYENEeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 00:34:31 -0400
-In-Reply-To: <7aa53e090805132042k5476eaf6lb66e534232154bf5@mail.gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48360 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751712AbYENEnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 00:43:25 -0400
+In-Reply-To: <48292A5A.4050606@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prashanth <bshanth@gmail.com>
-Date: Wed, 14 May 2008 09:12:54 +0530
+On Mon, 12 May 2008 22:42:50 -0700 Ulrich Drepper <drepper@redhat.com> wrote:
 
-> hi, In the following function at line 189 , we are getting aligned
-> length (hh_alen) for the hardware header , but while doing a
-> skb_push() why are we using the hh->hh_len;for ethernet hh_alen would
-> be 16 , and hh->hh_len would be 14, since we are doing skb_push() with
-> 14 (i.e hh->hh_len), the skb->data will not be aligned right? Can
-> someone please shed some light on this. thanks.
+> Andrew Morton wrote:
+> > Different bug, I think.
+> > 
+> > net/socket.c: In function 'sys_paccept':
+> > net/socket.c:1543: error: implicit declaration of function 'set_restore_sigmask'
+> 
+> Right, that's the signal mask stuff.  Should be fixed by the other patch
+> I sent.
 
-We are using 16 for the copy so that we do an aligned
-copy.  But the ethernet header size is only 14 bytes.
+mips allmodconfig is unhappy still.
 
-It's safe to copy those extra 2 bytes at the front
-since we always will have some extra slack space there.
+
+net/socket.c: In function `sys_socket':
+net/socket.c:1225: error: `SOCK_CLOEXEC' undeclared (first use in this function)
+net/socket.c:1225: error: (Each undeclared identifier is reported only once
+net/socket.c:1225: error: for each function it appears in.)
+net/socket.c:1226: error: `SOCK_NONBLOCK' undeclared (first use in this function)
+net/socket.c:1227: error: `SOCK_TYPE_MASK' undeclared (first use in this function)
+net/socket.c: In function `sys_socketpair':
+net/socket.c:1268: error: `SOCK_TYPE_MASK' undeclared (first use in this function)
+net/socket.c:1269: error: `SOCK_CLOEXEC' undeclared (first use in this function)
+net/socket.c:1269: error: `SOCK_NONBLOCK' undeclared (first use in this function)
+net/socket.c: In function `do_accept':
+net/socket.c:1438: error: `SOCK_CLOEXEC' undeclared (first use in this function)
+net/socket.c:1438: error: `SOCK_NONBLOCK' undeclared (first use in this function)
