@@ -1,53 +1,57 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFC] [DCCP]: Deprecate SOCK_DCCP in favour of SOCK_DGRAM
-Date: Wed, 14 May 2008 09:09:42 +0100
-Message-ID: <20080514080942.GB4462@gerrit.erg.abdn.ac.uk>
-References: <20080513093718.GA24185@gerrit.erg.abdn.ac.uk> <20080513162325.GF15306@ghostprotocols.net> <20080513170325.GB11499@gerrit.erg.abdn.ac.uk> <200805132037.39580.rdenis@simphalempin.com> <4829E87F.1070006@redhat.com>
+From: Sylvain Munaut <tnt@246tnt.com>
+Subject: Re: [PATCH] fec_mpc52xx: MPC52xx_MESSAGES_DEFAULT: 2nd NETIF_MSG_IFDOWN
+ => IFUP
+Date: Wed, 14 May 2008 10:30:11 +0200
+Message-ID: <482AA313.7060409@246tnt.com>
+References: <482A05E7.90204@gmail.com> <482A8DFD.3080805@246tnt.com> <482A9E83.6060703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: R?mi Denis-Courmont <rdenis@simphalempin.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ulrich Drepper <drepper@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Roel Kluin <roel.kluin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33231 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759846AbYENIYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2008 04:24:44 -0400
-Content-Disposition: inline
-In-Reply-To: <4829E87F.1070006@redhat.com>
+Received: from mailrelay010.isp.belgacom.be ([195.238.6.177]:17509 "EHLO
+	mailrelay010.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751909AbYENIaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 04:30:12 -0400
+In-Reply-To: <482A9E83.6060703@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-|=20
-| R=E9mi Denis-Courmont wrote:
-| > In any case, getaddrinfo() should be patched to
-| > [...]
-|=20
-| What should be the behavior is socktype and protocol are zero?  Shoul=
-d
-| these two types be returned by default?  What others?  So far we retu=
-rn
-| TCP, UDP, and raw socket information.  I'd rather keep the list short
-| but since we already have raw sockets in there (because they are in
-| POSIX) I won't reject anything that's more useful than raw sockets.
-|=20
-| - --
-RFC 3493 says that 0 for socktype/protocol means that caller will accep=
-t
-any socket type / protocol, so presumably this does include DCCP and UD=
-P-Lite.
+Roel Kluin wrote:
+>> Yes but I remember seeing a patch for this already ... What kernel
+>> version / revision do you have ?
+>>
+>> Sylvain
+>>     
+>
+> Indeed I already sent the patch, see http://lkml.org/lkml/2008/1/30/252 (my
+> emailaddress changed), but there was no response and the patch isn't included in
+> current Linus' git. maybe if you could add your ack?
+>   
 
-It would be just _great_ if getaddrinfo() could support Remi's cases fo=
-r DCCP
-(RFC 4340) and UDP-Lite (RFC 3828). So far it is only possible to get a=
-n
-address by "cheating", i.e. pretending to getaddrinfo to be TCP or UDP.=
- This
-does not really work well and still causes lots of problems/broken appl=
-ications.
+Sure thing.
 
-Gerrit
+Acked-by: Sylvain Munaut <tnt@246tNt.com>
+
+> ---
+> duplicate NETIF_MSG_IFDOWN, 2nd should be NETIF_MSG_IFUP
+>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> ---
+> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+> index 5f9c42e..329edd9 100644
+> --- a/drivers/net/fec_mpc52xx.c
+> +++ b/drivers/net/fec_mpc52xx.c
+> @@ -78,7 +78,7 @@ module_param_array_named(mac, mpc52xx_fec_mac_addr, byte, NULL, 0);
+>  MODULE_PARM_DESC(mac, "six hex digits, ie. 0x1,0x2,0xc0,0x01,0xba,0xbe");
+>  
+>  #define MPC52xx_MESSAGES_DEFAULT ( NETIF_MSG_DRV | NETIF_MSG_PROBE | \
+> -		NETIF_MSG_LINK | NETIF_MSG_IFDOWN | NETIF_MSG_IFDOWN )
+> +		NETIF_MSG_LINK | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP)
+>  static int debug = -1;	/* the above default */
+>  module_param(debug, int, 0);
+>  MODULE_PARM_DESC(debug, "debugging messages level");
+>
+>   
+
