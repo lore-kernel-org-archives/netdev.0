@@ -1,32 +1,36 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Wed, 14 May 2008 14:45:24 +0200
-Message-ID: <m3lk2djbq3.fsf@maximus.localdomain>
-References: <20080424.065555.30390704.davem@davemloft.net>
-	<m3ve27nfpx.fsf@maximus.localdomain>
-	<20080424214457.1d5a1655@the-village.bc.nu>
-	<20080512.033244.153113922.davem@davemloft.net>
+From: Sage Weil <sage@newdream.net>
+Subject: Re: POHMELFS high performance network filesystem. Transactions,
+ failover, performance.
+Date: Wed, 14 May 2008 06:35:19 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org>
+ <20080513205114.GA16489@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alan@lxorguk.ukuu.org.uk, jeff@garzik.org, paulkf@microgate.com,
-	jchapman@katalix.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from OSB1387.piap.pl ([195.187.100.11]:60505 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761432AbYENMp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2008 08:45:27 -0400
-In-Reply-To: <20080512.033244.153113922.davem@davemloft.net> (David Miller's message of "Mon\, 12 May 2008 03\:32\:44 -0700 \(PDT\)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20080513205114.GA16489@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+> > What is your opinion of the Paxos algorithm?
+> 
+> It is slow. But it does solve failure cases.
 
-> No
-> locking at all over the HDLC protocol list, yikes!
+For writes, Paxos is actually more or less optimal (in the non-failure 
+cases, at least).  Reads are trickier, but there are ways to keep that 
+fast as well.  FWIW, Ceph extends basic Paxos with a leasing mechanism to 
+keep reads fast, consistent, and distributed.  It's only used for cluster 
+state, though, not file data.
 
-Right, I didn't think about ioctl() vs insmod/rmmod races. Will fix
-when I'm back home and can test it, in few days.
--- 
-Krzysztof Halasa
+I think the larger issue with Paxos is that I've yet to meet anyone who 
+wants their data replicated 3 ways (this despite newfangled 1TB+ disks not 
+having enough bandwidth to actualy _use_ the data they store).  
+Similarly, if only 1 out of 3 replicas is surviving, most people want to 
+be able to read their data, while Paxos demands a majority to ensure it is 
+correct.  (This is why Paxos is typically used only for critical cluster 
+configuration/state, not regular data.)
+
+sage
