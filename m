@@ -1,37 +1,41 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
-Date: Wed, 14 May 2008 12:31:31 +0400
-Message-ID: <20080514083131.GA31506@2ka.mipt.ru>
-References: <20080513174523.GA1677@2ka.mipt.ru> <20080513233341.47edea7f.akpm@linux-foundation.org> <20080514074028.GA28330@2ka.mipt.ru> <20080514010101.8ef541b3.akpm@linux-foundation.org>
+From: "kalash nainwal" <kalash.nainwal@gmail.com>
+Subject: Re: ip_finish_outpu2 question
+Date: Wed, 14 May 2008 14:17:58 +0530
+Message-ID: <416aa1ad0805140147m2efff9b1v6a5f8c3d0ee701c6@mail.gmail.com>
+References: <7aa53e090805132042k5476eaf6lb66e534232154bf5@mail.gmail.com>
+	 <20080513.213425.03637016.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: bshanth@gmail.com, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fk-out-0910.google.com ([209.85.128.185]:22064 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752700AbYENIsA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 04:48:00 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so2628845fkq.5
+        for <netdev@vger.kernel.org>; Wed, 14 May 2008 01:47:59 -0700 (PDT)
+In-Reply-To: <20080513.213425.03637016.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20080514010101.8ef541b3.akpm@linux-foundation.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 14, 2008 at 01:01:01AM -0700, Andrew Morton (akpm@linux-foundation.org) wrote:
-> > When ->writepage() is used, it has to wait until page is written (remote
-> > side sent acknowledge), so if multiple pages are being written
-> > simultaneously we either have to allocate shared structure or use
-> > per-page wait.
-> 
-> That sounds exactly like wait_on_page_writeback()?
+On Wed, May 14, 2008 at 10:04 AM, David Miller <davem@davemloft.net> wrote:
+> From: Prashanth <bshanth@gmail.com>
+> Date: Wed, 14 May 2008 09:12:54 +0530
+>
+>> hi, In the following function at line 189 , we are getting aligned
+>> length (hh_alen) for the hardware header , but while doing a
+>> skb_push() why are we using the hh->hh_len;for ethernet hh_alen would
+>> be 16 , and hh->hh_len would be 14, since we are doing skb_push() with
+>> 14 (i.e hh->hh_len), the skb->data will not be aligned right? Can
+>> someone please shed some light on this. thanks.
+>
+> We are using 16 for the copy so that we do an aligned
+> copy.  But the ethernet header size is only 14 bytes.
+>
 
-Except that we can interrupt waiting and have a timeout, which is
-allowed there (page will be unlocked sometime in the future, but we
-return error now).
+I thought memcpy in linux is anyway always alignment safe. no?
 
-> > Will lock_page_killable()/__lock_page_killable() be exported to modules?
-> 
-> Maybe, if there's a need.  I see no particular problem with that.
-
-Every good boys, who write own ->writepages() and locks pages there,
-want that.
-
--- 
-	Evgeniy Polyakov
+-Kalash
