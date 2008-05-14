@@ -1,53 +1,61 @@
 From: akpm@linux-foundation.org
-Subject: [patch 8/8] isdn/capi: return proper errnos on module init
-Date: Wed, 14 May 2008 16:19:46 -0700
-Message-ID: <200805142319.m4ENJlhA026572@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	marcin.slusarz@gmail.com, kkeil@suse.de
+Subject: [patch 7/8] gigaset: gigaset_isowbuf_getbytes() may return signed unnoticed
+Date: Wed, 14 May 2008 16:19:45 -0700
+Message-ID: <200805142319.m4ENJj6b026569@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, tilman@imap.cc,
+	12o3l@tiscali.nl
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57110 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54112 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754176AbYENXUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 19:20:23 -0400
+	by vger.kernel.org with ESMTP id S1754532AbYENXUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 19:20:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
+From: Tilman Schmidt <tilman@imap.cc>
 
-cdebug_init() is called from kcapi_init() which is module initialization
-function, so it must return negative values on errors.
+ifd->offset is unsigned.  gigaset_isowbuf_getbytes() may return signed
+unnoticed.  Revised version of patch originally submitted by Roel Kluin
+<12o3l@tiscali.nl>.
 
-Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-Acked-by: Karsten Keil <kkeil@suse.de>
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/isdn/capi/capiutil.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/isdn/gigaset/bas-gigaset.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff -puN drivers/isdn/capi/capiutil.c~isdn-capi-return-proper-errnos-on-module-init drivers/isdn/capi/capiutil.c
---- a/drivers/isdn/capi/capiutil.c~isdn-capi-return-proper-errnos-on-module-init
-+++ a/drivers/isdn/capi/capiutil.c
-@@ -948,17 +948,17 @@ int __init cdebug_init(void)
- {
- 	g_cmsg= kmalloc(sizeof(_cmsg), GFP_KERNEL);
- 	if (!g_cmsg)
--		return ENOMEM;
-+		return -ENOMEM;
- 	g_debbuf = kmalloc(sizeof(_cdebbuf), GFP_KERNEL);
- 	if (!g_debbuf) {
- 		kfree(g_cmsg);
--		return ENOMEM;
-+		return -ENOMEM;
- 	}
- 	g_debbuf->buf = kmalloc(CDEBUG_GSIZE, GFP_KERNEL);
- 	if (!g_debbuf->buf) {
- 		kfree(g_cmsg);
- 		kfree(g_debbuf);
--		return ENOMEM;;
-+		return -ENOMEM;;
- 	}
- 	g_debbuf->size = CDEBUG_GSIZE;
- 	g_debbuf->buf[0] = 0;
+diff -puN drivers/isdn/gigaset/bas-gigaset.c~gigaset-gigaset_isowbuf_getbytes-may-return-signed-unnoticed drivers/isdn/gigaset/bas-gigaset.c
+--- a/drivers/isdn/gigaset/bas-gigaset.c~gigaset-gigaset_isowbuf_getbytes-may-return-signed-unnoticed
++++ a/drivers/isdn/gigaset/bas-gigaset.c
+@@ -1050,10 +1050,9 @@ static int submit_iso_write_urb(struct i
+ 		}
+ 
+ 		/* retrieve block of data to send */
+-		ifd->offset = gigaset_isowbuf_getbytes(ubc->isooutbuf,
+-						       ifd->length);
+-		if (ifd->offset < 0) {
+-			if (ifd->offset == -EBUSY) {
++		rc = gigaset_isowbuf_getbytes(ubc->isooutbuf, ifd->length);
++		if (rc < 0) {
++			if (rc == -EBUSY) {
+ 				gig_dbg(DEBUG_ISO,
+ 					"%s: buffer busy at frame %d",
+ 					__func__, nframe);
+@@ -1062,11 +1061,12 @@ static int submit_iso_write_urb(struct i
+ 			} else {
+ 				dev_err(ucx->bcs->cs->dev,
+ 					"%s: buffer error %d at frame %d\n",
+-					__func__, ifd->offset, nframe);
+-				return ifd->offset;
++					__func__, rc, nframe);
++				return rc;
+ 			}
+ 			break;
+ 		}
++		ifd->offset = rc;
+ 		ucx->limit = ubc->isooutbuf->nextread;
+ 		ifd->status = 0;
+ 		ifd->actual_length = 0;
 _
