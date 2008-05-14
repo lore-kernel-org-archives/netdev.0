@@ -1,37 +1,31 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 01/12] lib: create common ascii hex array
-Date: Wed, 14 May 2008 12:26:10 +0100
-Message-ID: <1507.1210764370@redhat.com>
-References: <1210619134.24092.51.camel@brick>
-Cc: dhowells@redhat.com, Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	linux-ide <linux-ide@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>, Ingo Molnar <mingo@elte.hu>,
-	Jason Wessel <jason.wessel@windriver.com>,
-	"ralf@linux-mips.org" <ralf@linux-mips.org>,
-	Paul Mundt <lethal@linux-sh.org>,
-	Paul Mackerras <paulus@samba.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1210619134.24092.51.camel@brick>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: some netdev merges coming...
+Date: Wed, 14 May 2008 04:52:39 -0700 (PDT)
+Message-ID: <20080514.045239.34646782.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42550
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753183AbYENLwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 07:52:45 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 0C9AFC8C1F2
+	for <netdev@vger.kernel.org>; Wed, 14 May 2008 04:52:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Harvey Harrison <harvey.harrison@gmail.com> wrote:
 
-> Add a common hex array in hexdump.c so everyone can use it.
-> 
-> Add a common hi/lo helper to avoid the shifting masking that is
-> done to get the upper and lower nibbles of a byte value.
-> 
-> Pull the pack_hex_byte helper from kgdb as it is opencoded many
-> places in the tree that will be consolidated.
-> 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+Once all of the pending bug fixes in net-2.6 make their way to Linus's
+tree.  I plan to do some merging.
 
-Acked-by: David Howells <dhowells@redhat.com>
+First, I'll pull Linus's tree into net-2.6 This will be the base for
+future bug fixes, as usual.
+
+Next, I'll pull net-2.6 into net-next-2.6
+
+I got distracted today by some bugs and therefore didn't process
+as many patches in my backlog as I would have liked to.  I hope
+to make up for that tomorrow after I do the merging.
