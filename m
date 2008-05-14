@@ -1,45 +1,65 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Jamie Lokier <jamie@shareable.org>
 Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
-Date: Thu, 15 May 2008 01:19:19 +0400
-Message-ID: <20080514211919.GA13513@2ka.mipt.ru>
-References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514135156.GA23131@2ka.mipt.ru> <20080514143105.GB14987@shareable.org> <20080514150052.GA15826@2ka.mipt.ru> <482B3899.9070008@garzik.org> <20080514193234.GA10165@2ka.mipt.ru> <482B4D80.5080808@garzik.org>
+Date: Wed, 14 May 2008 22:19:40 +0100
+Message-ID: <20080514211940.GA23758@shareable.org>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514140908.GA14987@shareable.org> <Pine.LNX.4.64.0805140900460.23143@cobra.newdream.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Lokier <jamie@shareable.org>, Sage Weil <sage@newdream.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Sage Weil <sage@newdream.net>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <482B4D80.5080808@garzik.org>
+In-Reply-To: <Pine.LNX.4.64.0805140900460.23143@cobra.newdream.net>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 14, 2008 at 04:37:20PM -0400, Jeff Garzik (jeff@garzik.org) wrote:
-> That said, the biggest distributed systems seem to inevitably grow their 
-> own "front end server" layer.  Clients connect to N caching/application 
-> servers, each of which behaves as you describe:  the caching/app server 
-> connects to the control and data networks, and performs the necessary 
-> load/store operations.
+Sage Weil wrote:
+> > In that model, neighbour sensing is used to find the largest coherency
+> > domains fitting a set of parameters (such as "replicate datum X to N
+> > nodes with maximum comms latency T").  If the parameters are able to
+> > be met, quorum gives you the desired robustness in the event of
+> > node/network failures.  During any time while the coherency parameters
+> > cannot be met, the robustness reduces to the best it can do
+> > temporarily, and recovers when possible later.  As a bonus, you have
+> > some timing guarantees if they are more important.
 > 
-> Personally, I think the most simple thing for _users_ is where 
-> semi-smart clients open multiple connections to an amorphous cloud of 
-> servers, where the cloud is self-optimizing, self-balancing, and 
-> self-repairing internally.
+> Anything that silently relaxes consistency like that scares me.  Does 
+> anybody really do that in practice?
 
-Well, that's how things exist today - POHMELFS client connects to number
-of servers and can send data to all of them (currently it doest that for
-only 'active' server, i.e. that which was not failed, but that can be
-trivially changed). It should be extended to receive 'add/remove server
-to the group' command and liekly that's all (modulo other todo items
-which are not yet resolved). Then that group becomes quorum and client
-has to get response from them. Kind of that...
+I'm doing it on a 2000 node system across a country.  There are so
+many links down at any given time, we have to handle long stretches of
+inconsistency, and have strategies for merging local changes when
+possible to reduce manual overhead.  But we like opportunistic
+consistency so that people at site A can phone people at site B and
+view/change the same things in real time if a path between them is up
+and fast enough (great for support and demos), otherwise their actions
+are queued or refused depending on policy.
 
-What I do not like, is putting lots of logic into client, like following
-inner server state changes (sync/not sync, quorum election and so on).
-With above dumb scheme it should not, but some other magic in the server
-land will tell client with whom to start working.
+It makes sense to configure which data and/or operations require
+global consistency or block, and which data it's ok to modify locally
+and merge automatically in a netsplit scenario.  Think DVCS during
+splits and coherent when possible.
 
+E.g. as a filesystem, during netsplits you might configure the system
+to allow changes to /home/* locally if global coherency is down.  If
+all changes (or generally, transaction traces) to /home/user1 are in
+just one coherent subgroup, on recovery they can be distributed
+silently to the others, unaffected by changes to /home/user2
+elsewhere.  But if multiple separated coherent subgroups all change
+/home/user1, recovery might be configured to flag them as conflicts,
+queue them for manual inspection, and maybe have a policy for the
+values used until a person gets involved.
 
--- 
-	Evgeniy Polyakov
+Or instead of paths you might distinguish on user ids, or by explicit
+flags in requests (you should really allow that anyway).  Or by
+tracing causal relationships requiring programs to follow some rules
+(see "virtual synchrony"; the rule is "don't depend on hidden
+communications").
+
+That's a policy choice, but in some systems, typically those with many
+nodes and fluctuating communications, it's really worth it.  It
+increases some kinds of robustness, at cost of others.
+
+-- Jamie
