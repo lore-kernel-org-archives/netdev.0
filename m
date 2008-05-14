@@ -1,48 +1,60 @@
-From: "Shirish Pargaonkar" <shirishpargaonkar@gmail.com>
-Subject: Re: autotuning of send buffer size of a socket
-Date: Wed, 14 May 2008 13:37:38 -0500
-Message-ID: <4a4634330805141137y25c54b1t19992e777c00d8b5@mail.gmail.com>
-References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
-	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
-	 <4a4634330805130654n1aafbf10pa73da07e792f7b@mail.gmail.com>
-	 <1210722503.11436.9.camel@w-sridhar2.beaverton.ibm.com>
-	 <4a4634330805140722x3494626bpc78dd92831d384a@mail.gmail.com>
-	 <4a4634330805141111s585fd928n824e20fc83a74819@mail.gmail.com>
-	 <1210789577.6956.9.camel@ragnarok>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: POHMELFS high performance network filesystem. Transactions, failover,
+ performance.
+Date: Wed, 14 May 2008 15:03:40 -0400
+Message-ID: <482B378C.5070807@garzik.org>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514135156.GA23131@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Sridhar Samudrala" <sri@us.ibm.com>, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Jeremy Jackson" <jerj@coplanar.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <1210789577.6956.9.camel@ragnarok>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sage Weil <sage@newdream.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:58142 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755515AbYENTDo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 15:03:44 -0400
+In-Reply-To: <20080514135156.GA23131@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/14/08, Jeremy Jackson <jerj@coplanar.net> wrote:
-> Sorry if this has been covered already, but doesn't Samba set the write
-> buffer size, thereby disabling autotuning?
->
-> --
-> Jeremy Jackson
-> Coplanar Networks
-> (519)489-4903
-> http://www.coplanar.net
-> jerj@coplanar.net
->
->
+Evgeniy Polyakov wrote:
+> Hi Sage.
+> 
+> On Wed, May 14, 2008 at 06:35:19AM -0700, Sage Weil (sage@newdream.net) wrote:
+>>>> What is your opinion of the Paxos algorithm?
+>>> It is slow. But it does solve failure cases.
+>> For writes, Paxos is actually more or less optimal (in the non-failure 
+>> cases, at least).  Reads are trickier, but there are ways to keep that 
+>> fast as well.  FWIW, Ceph extends basic Paxos with a leasing mechanism to 
+>> keep reads fast, consistent, and distributed.  It's only used for cluster 
+>> state, though, not file data.
+> 
+> Well, it depends... If we are talking about single node perfromance,
+> then any protocol, which requries to wait for authorization (or any
+> approach, which waits for acknowledge just after data was sent) is slow.
 
-Jeremy,
+Quite true, but IMO single-node performance is largely an academic 
+exercise today.  What production system is run without backups or 
+replication?
 
-I would like auto-tuning to happen on the machine running cifs/samba client.
-That is where the errors are logged.  The auto-tune happens on the client side,
-just not good enough to ward off the delays (and subsequent errors logged
-by cifs client and reconnects initated by cifs client to samba server
-running on other
-machine.) for reasons.
 
-Regards,
+> If we are talking about agregate parallel perfromance, then its basic
+> protocol with 2 messages is (probably) optimal, but still I'm not
+> convinced, that 2 messages case is a good choise, I want one :)
 
-Shirish
+I think part of Paxos' attraction is that it is provably correct for the 
+chosen goal, which historically has not been true for hand-rolled 
+consensus algorithms often found these days.
+
+There are a bunch of variants (fast paxos, byzantine paxos, fast 
+byzantine paxos, etc., etc.) based on Classical Paxos which make 
+improvements in the performance/latency areas.  There is even a Paxos 
+Commit which appears to be more efficient than the standard transaction 
+two-phase commit used by several existing clustered databases.
+
+	Jeff
+
+
+
