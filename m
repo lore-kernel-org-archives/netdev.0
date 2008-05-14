@@ -1,35 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] irnet_irda.c must #include <asm/unaligned.h>
-Date: Wed, 14 May 2008 15:30:03 -0700 (PDT)
-Message-ID: <20080514.153003.77372633.davem@davemloft.net>
-References: <20080514202709.GB21795@cs181133002.pp.htv.fi>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
+Date: Thu, 15 May 2008 02:32:03 +0400
+Message-ID: <20080514223155.GA19570@2ka.mipt.ru>
+References: <20080513174523.GA1677@2ka.mipt.ru> <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514135156.GA23131@2ka.mipt.ru> <482B378C.5070807@garzik.org> <20080514193843.GB10165@2ka.mipt.ru> <20080514215704.GE23758@shareable.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: graf.yang@analog.com, cooloney@kernel.org,
-	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: bunk@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44562
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753067AbYENWaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 18:30:09 -0400
-In-Reply-To: <20080514202709.GB21795@cs181133002.pp.htv.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, Sage Weil <sage@newdream.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080514215704.GE23758@shareable.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWRyaWFuIEJ1bmsgPGJ1bmtAa2VybmVsLm9yZz4NCkRhdGU6IFdlZCwgMTQgTWF5IDIw
-MDggMjM6Mjc6MDkgKzAzMDANCg0KPiBUaGlzIHBhdGNoIGZpeGVzIHRoZSBmb2xsb3dpbmcgY29t
-cGlsZSBlcnJvciBjYXVzZWQgYnkNCj4gY29tbWl0IDMzMjIyMzgzMWU4NmIyZTE3YjQ4YjRhZmFm
-YWQwN2Q4ZTNiNzM4NjENCj4gKGlyZGE6IEZpeCBhIG1pc2FsaWduIGFjY2VzcyBpc3N1ZS4gKHYy
-KSk6DQo+IA0KPiA8LS0gIHNuaXAgIC0tPg0KPiANCj4gLi4uDQo+ICAgQ0MgICAgICBuZXQvaXJk
-YS9pcm5ldC9pcm5ldF9pcmRhLm8NCj4gL2hvbWUvYnVuay9saW51eC9rZXJuZWwtMi42L2dpdC9s
-aW51eC0yLjYvbmV0L2lyZGEvaXJuZXQvaXJuZXRfaXJkYS5jOiBJbiBmdW5jdGlvbiDigJhpcm5l
-dF9kaXNjb3ZlcnlfaW5kaWNhdGlvbuKAmToNCj4gL2hvbWUvYnVuay9saW51eC9rZXJuZWwtMi42
-L2dpdC9saW51eC0yLjYvbmV0L2lyZGEvaXJuZXQvaXJuZXRfaXJkYS5jOjE2NzY6IGVycm9yOiBp
-bXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhnZXRfdW5hbGlnbmVk4oCZDQo+IG1h
-a2VbNF06ICoqKiBbbmV0L2lyZGEvaXJuZXQvaXJuZXRfaXJkYS5vXSBFcnJvciAxDQo+IA0KPiA8
-LS0gIHNuaXAgIC0tPg0KPiANCj4gUmVwb3J0ZWQtYnk6IEFkcmlhbiBCdW5rIDxidW5rQGtlcm5l
-bC5vcmc+DQo+IFNpZ25lZC1vZmYtYnk6IEFkcmlhbiBCdW5rIDxidW5rQGtlcm5lbC5vcmc+DQoN
-CkFwcGxpZWQsIHRoYW5rcyBhIGxvdCBBZHJpYW4uDQo=
+On Wed, May 14, 2008 at 10:57:06PM +0100, Jamie Lokier (jamie@shareable.org) wrote:
+> 
+> If desired, arrange it in a tree to reduce even the microseconds.
+> 
+> Such network hardware is quite feasible, indeed quite easy with an
+> FPGA based NIC.
+> 
+> Enjoy the speed :-)
+
+And if client-server link is fully saturated by messages
+we do not win :) We also lose if client-server is slower than
+server-server... I completely agree that there are cases where each
+approach is more beneficial, and likely client-to-many os better in
+terms of management and/or failover, but for speed there is always a
+different side of the coin.
+
+-- 
+	Evgeniy Polyakov
