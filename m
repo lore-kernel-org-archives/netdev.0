@@ -1,35 +1,33 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: IPV6 stateless address autoconfiguration
-Date: Thu, 15 May 2008 17:10:24 +0900 (JST)
-Message-ID: <20080515.171024.120368160.yoshfuji@linux-ipv6.org>
-References: <BECE1C148A85274EB554378A3E0EDF4906388E17@USA0300MS02.na.xerox.net>
-	<20080513.104215.82952085.yoshfuji@linux-ipv6.org>
-	<BECE1C148A85274EB554378A3E0EDF490642ED58@USA0300MS02.na.xerox.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 1/3] net: handle errors from device_rename
+Date: Thu, 15 May 2008 16:41:40 +0800
+Message-ID: <482BF744.6060106@cn.fujitsu.com>
+References: <20080514170316.672f809d@extreme> <20080514181543.744b8286@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Joseph.Bonitch@xerox.com
+Cc: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
+	fubar@us.ibm.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:44207 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754797AbYEOIKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 04:10:06 -0400
-In-Reply-To: <BECE1C148A85274EB554378A3E0EDF490642ED58@USA0300MS02.na.xerox.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:62171 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752861AbYEOIoK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2008 04:44:10 -0400
+In-Reply-To: <20080514181543.744b8286@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <BECE1C148A85274EB554378A3E0EDF490642ED58@USA0300MS02.na.xerox.net> (at Wed, 14 May 2008 16:05:08 -0400), "Bonitch, Joseph" <Joseph.Bonitch@xerox.com> says:
-
-> I tested your latest patch to addrconf.c.  It worked but I still had the
-> problem that the prefix routes had an expiry time until the second
-> RA was received.
-> 
-> I tracked it down to ip6_route_add() inside route.c: lifetime passed
-> in was not checked for 0.  I made a minor change (see below) and
-> now it is working as expected.
-
-Okay, thank you.  I'll send the final version soon.
-
---yoshfuji
+Stephen Hemminger said the following on 2008-5-15 9:15:
+>  rollback:
+> -	device_rename(&dev->dev, dev->name);
+> +	err = device_rename(&dev->dev, dev->name);
+> +	if (err) {
+> +		memcpy(dev->name, oldname, IFNAMSIZ);
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+no need, dev->name didn't change in device_rename().
+ 
+> +		return err;
+> +	}
+>  
