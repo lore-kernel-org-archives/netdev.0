@@ -1,181 +1,44 @@
-From: "Shirish Pargaonkar" <shirishpargaonkar@gmail.com>
-Subject: Re: autotuning of send buffer size of a socket
-Date: Thu, 15 May 2008 10:00:18 -0500
-Message-ID: <4a4634330805150800h42414f48l3c0b36e261d803b9@mail.gmail.com>
-References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
-	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
-	 <4a4634330805142118l47d023caxf79a45273f4f7a28@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: dead network on JS21 with tg3 driver after flowcontrol
+ changes
+Date: Thu, 15 May 2008 08:10:16 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC002AABCEE@nt-irva-0751.brcm.ad.broadcom.com>
+References: <20080515121340.GA23033@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: "Sridhar Samudrala" <sri@us.ibm.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <4a4634330805142118l47d023caxf79a45273f4f7a28@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: "Olaf Hering" <olaf@aepfle.de>,
+	"Matthew Carlson" <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2752 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756723AbYEOPKh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 11:10:37 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080515121340.GA23033@aepfle.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/14/08, Shirish Pargaonkar <shirishpargaonkar@gmail.com> wrote:
-> On 5/12/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
-> > On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
-> > > Hello,
-> > >
-> > > kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
-> > > I still get the same error and do not see the send buffer size of a socket
-> > > changing (increasing)
-> > >
-> > > The initial buffer sizes are 16384 for send side and 87380 for the receive
-> > > side but I see receive side buffer tuning but do not see the same with
-> > > send side.
-> > >
-> > > If tcp does not see a need to increase the send buffer size, wonder why I
-> > > get EAGAIN error on this non-blocking socket for kernel_sendmsg!
-> >
-> > I think the send buffer auto-tuning doesn't happen here because there is
-> > already congestion window worth of packets sent that are not yet acknowledged.
-> > See tcp_should_expand_sndbuf().
->
-> Sridhar,
->
-> The unacked (packets_out) is 7 and snd_cwnd is 9, so that should not be
-> the case for tcp_should_expand_sndbuf to return 0 right?
->
-> >
-> > Also, the comments for tcp_new_space() says that sndbuf expansion does
-> > not work well with largesends. What is the size of your sends?
-> >
-> > Adding netdev to the CC list.
-> >
-> > Thanks
-> > Sridhar
-> >
-> > >
-> > > I do subscribe to this mailing list so, please send your responses to this
-> > > mail address.
-> > >
-> > > Regards,
-> > >
-> > > Shirish
-> > >
-> > > --------------------------------------------------------------------------------------------------
-> > > uname -r
-> > > 2.6.18-91.el5
-> > >
-> > >  sysctl -a
-> > >
-> > > net.ipv4.tcp_rmem = 4096        87380   4194304
-> > > net.ipv4.tcp_wmem = 4096        16384   4194304
-> > > net.ipv4.tcp_mem = 98304        131072  196608
-> > >
-> > > net.core.rmem_default = 126976
-> > > net.core.wmem_default = 126976
-> > > net.core.rmem_max = 131071
-> > > net.core.wmem_max = 131071
-> > >
-> > > net.ipv4.tcp_window_scaling = 1
-> > > net.ipv4.tcp_timestamps = 1
-> > > net.ipv4.tcp_moderate_rcvbuf = 1
-> > >
-> > >
-> > > cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
-> > > 1
-> > >
-> > >
-> > > CIFS VFS: sndbuf 16384 rcvbuf 87380
-> > >
-> > > CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
-> > > stuck for 32 seconds,
-> > > error: -11
-> > > CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
-> > > stuck for 32 seconds,
-> > > error: -11
-> > >
-> > >
-> > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
-> > > stuck for 64 seconds,
-> > > error: -11
-> > >
-> > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
-> > > stuck for 256 seconds,
-> > > error: -11
-> > >
-> > > I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
-> > > is 1) but not
-> > > the socket send buffer size.
-> > > The send buffer size remains fixed, the auto-tuning for send side is
-> > > enabled by default,so I do not see it happening here no matter how
-> > > long the c ode tries to
-> > > kernel_sendmsg after receiving EAGAIN return code.
-> > > --
-> > > To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> >
->
+Olaf Hering wrote:
 
-I put some printk in tcp.c (in function tcp_sendmsg)
-sndbuf grows from 16384 to 34776 but never beyond it.
+> Any ideas how to fix this?
+> What info do you need from the system?
+
+Are you using eth0 or eth1?  The dmesg below shows that
+link came up on eth1 and IP address from DHCP was received.
 
 
-CIFS VFS: sndbuf 16384 rcvbuf 87380 rcvtimeo 0x7fffffffffffffff
+> Sending DHCP requests .<6>tg3: eth1: Link is up at 1000 Mbps, 
+> full duplex.
+> tg3: eth1: Flow control is off for TX and off for RX.
+> ., OK
+> IP-Config: Got DHCP answer from 10.10.4.97, my address is 10.10.1.110
+> IP-Config: Complete:
 
-!sk_stream_memory_free queued 18288, sndbuf 16384
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 28448, sndbuf 27048
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 28448, sndbuf 27048
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 32512, sndbuf 30912
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
-!sk_stream_memory_free queued 36576, sndbuf 34776
-sk_stream_wait_memory with 0 returned -11
+If you're using eth0 and link did not come up, please provide
+mii-tool -vvv eth0.
 
-and so on and the sndbuf does not grow beyond 34776
+Thanks.
+
