@@ -1,27 +1,37 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
-Date: Thu, 15 May 2008 10:29:13 +0000
-Message-ID: <20080515102913.GA6753@ff.dom.local>
-References: <20080515091216.GA6550@ff.dom.local> <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 9/15] BE NIC driver - Linux system abstraction files
+Date: Thu, 15 May 2008 13:33:05 +0200
+Message-ID: <87mymrztse.fsf@basil.nowhere.org>
+References: <20080515092638.a9ce4c89@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Kingsley Foreman <kingsley@internode.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758285AbYEOKZ7@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Subbu Seetharaman" <subbus@serverengines.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out03.alice-dsl.net ([88.44.63.5]:54672 "EHLO
+	smtp-out03.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754265AbYEOLeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 07:34:08 -0400
+In-Reply-To: <20080515092638.a9ce4c89@mailhost.serverengines.com> (Subbu Seetharaman's message of "Thu, 15 May 2008 02:26:38 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2008 at 07:36:54PM +0930, Kingsley Foreman wrote:
-...
-> i just rolled back the kernel to 2.6.24 and im seeing the same thing,
->
-> I was using 2.6.22 before and didn't see the problem, txqueuelen on the  
-> bond0 interface is 0 (the default)
+"Subbu Seetharaman" <subbus@serverengines.com> writes:
+> + */
+> +/*
+> + * system abstraction functions / macros for Linux
 
-So, could you try if the size matters here...?
+Sorry, pretty much this complete file has to go and the callers 
+be fixed to use the native Linux functions directly. Some of it
+was even wrong, like it's not legal to cast atomic_t like you did.
 
-Jarek P.
+Also a lot of facilities you reimplement here exist already in Linux
+anyways under other names.
+
+> This message, together with any attachment(s), contains confidential and proprietary information of
+> ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+> review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+
+Hmm was i even allowed to read it?
+
+-Andi
