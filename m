@@ -1,51 +1,38 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
- IRQF_SAMPLE_RANDOM
-Date: Thu, 15 May 2008 13:39:54 -0700
-Message-ID: <482C9F9A.5070302@intel.com>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>	 <20080515142154.0595e475@core>	 <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>	 <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com>	 <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com>	 <482C8D4D.3040702@garzik.org> <a24804730805151301s3c6644d0hc2c78b8008fe035d@mail.gmail.com> <482C9A0E.3020305@garzik.org>
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: Re: [PATCH] [NET] uli526x: add support for netpoll
+Date: Thu, 15 May 2008 22:51:23 +0200
+Message-ID: <200805152251.24137.florian.fainelli@telecomint.eu>
+References: <20080515151255.GA12408@polina.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Chris Peterson <cpeterso@cpeterso.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764801AbYEOUm7@vger.kernel.org>
-In-Reply-To: <482C9A0E.3020305@garzik.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.int-evry.fr ([157.159.10.71]:58502 "EHLO
+	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752177AbYEOUve convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 16:51:34 -0400
+In-Reply-To: <20080515151255.GA12408@polina.dev.rtsoft.ru>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Chris Peterson wrote:
->> Please correct me if I'm wrong, but this thread's conclusions seem to be:
->>
->> * network interrupts are an inappropriate source of entropy (see my
->> patch)
->> * headless servers need entropy, but should seek a better solution,
->> such as EGD, hardware RNG, or other kernel entropy sources (but that
->> is a separate task)
->> * TPM RNG is a separate task and, if implemented, should be in
->> drivers/char/hw_random/
-> 
-> That's my own opinion, yes.  But not necessarily a consensus opinion :)
+Hello Anton,
 
-I agree it's by far the _best_ solution.
+Le Thursday 15 May 2008 17:12:55 Anton Vorontsov, vous avez =C3=A9crit=C2=
+=A0:
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +static void uli526x_poll(struct net_device *dev)
+> +{
+> +	/* ISR grabs the irqsave lock, so this should be safe */
+> +	uli526x_interrupt(dev->irq, dev);
+> +}
+> +#endif
 
-I think that some embedded devices that do not have any RNG hardware should be
-able to turn off NAPI/irq mitigation and possibly fall back on IRQF_SA_RANDOM.
-It's not as good as the above solution at all, but may be sufficient for headless
-embedded devices that are dying for some entropy.
-
-of course, with most of the network drivers being NAPI enabled by default this
-pretty much is not realistic (as Jeff G. pointed out). Unless someone writes an
-(e.g.) ethtool parameter to turn NAPI on/off :)
-
-Auke
-
-> 
->     Jeff
-> 
-> 
+You do not need to wrap this function into the ifdef, since setting the=
+ poll=20
+callback is between ifdef. Otherwise patch looks good.
+--=20
+Cordialement, Florian Fainelli
+------------------------------
