@@ -1,75 +1,107 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: [patch] resource leak in error case in rtl8187 #2
-Date: Thu, 15 May 2008 21:49:16 +0200
-Message-ID: <200805152149.16876.oliver@neukum.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [PATCH] Re: [PATCH] drivers/net: remove network drivers' last few
+ uses of IRQF_SAMPLE_RANDOM
+Date: Thu, 15 May 2008 15:55:38 -0400
+Message-ID: <482C953A.4080205@garzik.org>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>	<20080515142154.0595e475@core>	<36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <20080515173939.1ec968be@core> <482C7DA3.1090809@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: multipart/mixed;
+ boundary="------------050705040308050407000605"
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	tpmdd-devel@lists.sourceforge.net, tpm@selhorst.net,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:51285 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764914AbYEOTzn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2008 15:55:43 -0400
+In-Reply-To: <482C7DA3.1090809@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------050705040308050407000605
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
-	Andrea Merello <andreamrl-IWqWACnzNjyonA0d6jMUrA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-Hi,
+Jeff Garzik wrote:
+> Someone (hi Jesse?) should implement support for TPM_GetRandom.
 
-this fixes resource leaks in error cases due to urb submission failures.
+Here's an example patch (compile-tested only) to get people started.
 
-	Regards
-		Oliver
+This function calls the TPM command, and returns TPM header + RNG data 
+in the supplied buffer.
 
-Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+A hw_random driver for TPM still needs to (a) parse the TPM header for 
+return code, (b) extract RNG bytes out at offset 14, and (c) figure out 
+some way to get a tpm_chip pointer.
 
----
+Spec at 
+https://www.trustedcomputinggroup.org/specs/TPM/TCPA_Main_TCG_Architecture_v1_1b.pdf 
+describes TPM_GetRandom on page 215.
 
---- linux-2.6.26-rc1/drivers/net/wireless/rtl8187_dev.c.alt	2008-05-15 15:53:58.000000000 +0200
-+++ linux-2.6.26-rc1/drivers/net/wireless/rtl8187_dev.c	2008-05-15 21:42:02.000000000 +0200
-@@ -92,6 +92,7 @@ static void rtl8187_iowrite_async(struct
- 		u8 data[4];
- 		struct usb_ctrlrequest dr;
- 	} *buf;
-+	int rc;
- 
- 	buf = kmalloc(sizeof(*buf), GFP_ATOMIC);
- 	if (!buf)
-@@ -116,7 +117,11 @@ static void rtl8187_iowrite_async(struct
- 	usb_fill_control_urb(urb, priv->udev, usb_sndctrlpipe(priv->udev, 0),
- 			     (unsigned char *)dr, buf, len,
- 			     rtl8187_iowrite_async_cb, buf);
--	usb_submit_urb(urb, GFP_ATOMIC);
-+	rc = usb_submit_urb(urb, GFP_ATOMIC);
-+	if (rc < 0) {
-+		kfree(buf);
-+		usb_free_urb(urb);
-+	}
+	Jeff
+
+
+
+--------------050705040308050407000605
+Content-Type: text/plain;
+ name="patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch"
+
+diff --git a/drivers/char/tpm/tpm.c b/drivers/char/tpm/tpm.c
+index a5d8bcb..4c3963b 100644
+--- a/drivers/char/tpm/tpm.c
++++ b/drivers/char/tpm/tpm.c
+@@ -579,6 +579,31 @@ void tpm_continue_selftest(struct tpm_chip *chip)
  }
+ EXPORT_SYMBOL_GPL(tpm_continue_selftest);
  
- static inline void rtl818x_iowrite32_async(struct rtl8187_priv *priv,
-@@ -169,6 +174,7 @@ static int rtl8187_tx(struct ieee80211_h
- 	struct urb *urb;
- 	__le16 rts_dur = 0;
- 	u32 flags;
-+	int rc;
- 
- 	urb = usb_alloc_urb(0, GFP_ATOMIC);
- 	if (!urb) {
-@@ -208,7 +214,11 @@ static int rtl8187_tx(struct ieee80211_h
- 	info->dev = dev;
- 	usb_fill_bulk_urb(urb, priv->udev, usb_sndbulkpipe(priv->udev, 2),
- 			  hdr, skb->len, rtl8187_tx_cb, skb);
--	usb_submit_urb(urb, GFP_ATOMIC);
-+	rc = usb_submit_urb(urb, GFP_ATOMIC);
-+	if (rc < 0) {
-+		usb_free_urb(urb);
-+		kfree_skb(skb);
-+	}
- 
- 	return 0;
- }
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++int tpm_getrandom(struct tpm_chip *chip, void *buf, size_t buflen)
++{
++	u8 rng_cmd[] = {
++		0, 193,			/* TPM_TAG_RQU_COMMAND */
++		0, 0, 0, 14,		/* length */
++		0, 0, 0, 70,		/* TPM_ORD_GetRandom */
++		0, 0, 0, 0,		/* number of bytes to return */
++	};
++	size_t tmp;
++
++	if (buflen <= sizeof(rng_cmd))
++		return -ENOSPC;
++
++	/* patch in requested/returned byte count.  TODO: more than 8-bit */
++	tmp = buflen - sizeof(rng_cmd);
++	if (tmp > 255)
++		tmp = 255;
++	rng_cmd[13] = tmp;
++
++	memcpy(buf, rng_cmd, sizeof(rng_cmd));
++
++	return tpm_transmit(chip, buf, buflen);
++}
++EXPORT_SYMBOL_GPL(tpm_getrandom);
++
+ ssize_t tpm_show_enabled(struct device * dev, struct device_attribute * attr,
+ 			char *buf)
+ {
+diff --git a/drivers/char/tpm/tpm.h b/drivers/char/tpm/tpm.h
+index e885148..bbab3c8 100644
+--- a/drivers/char/tpm/tpm.h
++++ b/drivers/char/tpm/tpm.h
+@@ -127,6 +127,7 @@ static inline void tpm_write_index(int base, int index, int value)
+ extern void tpm_get_timeouts(struct tpm_chip *);
+ extern void tpm_gen_interrupt(struct tpm_chip *);
+ extern void tpm_continue_selftest(struct tpm_chip *);
++extern int tpm_getrandom(struct tpm_chip *, void *, size_t);
+ extern unsigned long tpm_calc_ordinal_duration(struct tpm_chip *, u32);
+ extern struct tpm_chip* tpm_register_hardware(struct device *,
+ 				 const struct tpm_vendor_specific *);
+
+--------------050705040308050407000605--
