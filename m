@@ -1,57 +1,32 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [i2c] SFC driver implements its own I2C support
-Date: Thu, 15 May 2008 14:58:16 +0200
-Message-ID: <20080515125816.GB4302@pengutronix.de>
-References: <20080513103325.1ab317cf@hyperion.delvare> <20080514215818.GH28241@solarflare.com> <20080515112416.55ffd328@hyperion.delvare> <Pine.LNX.4.62.0805151258150.13626@dolphin.home> <20080515143954.15bc4170@hyperion.delvare>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Thu, 15 May 2008 14:21:54 +0100
+Message-ID: <20080515142154.0595e475@core>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="yEPQxsgoJgBvi8ip"
-Cc: Michael Brown <mbrown@fensystems.co.uk>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Linux I2C <i2c@lm-sensors.org>
-To: Jean Delvare <khali@linux-fr.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.extern.pengutronix.de ([83.236.181.26]:49448 "EHLO
-	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752049AbYEOM60 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 08:58:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20080515143954.15bc4170@hyperion.delvare>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chris Peterson <cpeterso@cpeterso.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759482AbYEONdV@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 15 May 2008 00:11:10 -0700 (PDT)
+Chris Peterson <cpeterso@cpeterso.com> wrote:
 
---yEPQxsgoJgBvi8ip
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> 
+> I know Jeff Garzik says he's not interested in an anti-entropy pogrom for existing net drivers, but here is the patch if anyone else is interested..? :)
+> 
+> Only 12 net drivers are affected, the last of the theoretically-exploitable network entropy.
 
-On Thu, May 15, 2008 at 02:39:54PM +0200, Jean Delvare wrote:
-> Apparently there are a lot of people interested in this so I will have
-> to find some time to finally review and merge the driver if it is ready
-> to go. Help with testing and review is welcome.
-Will send another version today (updated and ported to 2.6.26).
-Promised!
+Looks fine to me. If Jeff doesn't want to touch them then send them
+direct to Andrew/Linus.
 
-   Wolfram
+A more interesting alternative might be to mark things like network
+drivers with a new flag say IRQF_SAMPLE_DUBIOUS so that users can be
+given a switch to enable/disable their use depending upon the environment.
 
---=20
-  Dipl.-Ing. Wolfram Sang | http://www.pengutronix.de
- Pengutronix - Linux Solutions for Science and Industry
-
---yEPQxsgoJgBvi8ip
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFILDNoD27XaX1/VRsRArC7AKCjcbgpMBgoIKdz+tZMSqGEraUlOQCgvkAE
-2MLlokHlTmbRB08oHp2lPzg=
-=r3b/
------END PGP SIGNATURE-----
-
---yEPQxsgoJgBvi8ip--
+Alan
