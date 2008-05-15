@@ -1,39 +1,120 @@
-From: Theodore Tso <tytso@mit.edu>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
-	IRQF_SAMPLE_RANDOM
-Date: Thu, 15 May 2008 19:33:05 -0400
-Message-ID: <20080515233305.GS18825@mit.edu>
-References: <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org> <a24804730805151301s3c6644d0hc2c78b8008fe035d@mail.gmail.com> <20080515214721.GP18825@mit.edu> <482CB1FB.7080807@garzik.org> <20080515222941.GB20976@khazad-dum.debian.net> <482CBCC6.6010905@garzik.org>
+From: <glenn_engel@agilent.com>
+Subject: natsemi.c ioctl fix or mii register access
+Date: Thu, 15 May 2008 17:23:50 -0600
+Message-ID: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
-	Chris Peterson <cpeterso@cpeterso.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759508AbYEOXdh@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <482CBCC6.6010905@garzik.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <jgarzik@pobox.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aglcosbs05.cos.agilent.com ([192.25.218.36]:35430 "EHLO
+	aglsgpbs05.sgp.agilent.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750860AbYEOXfF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2008 19:35:05 -0400
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2008 at 06:44:22PM -0400, Jeff Garzik wrote:
->
-> Neat.  I always did prefer VIA padlock in userspace.
->
-> I just sorta assumed a buffering, interrupt-driver TPM RNG driver would be 
-> better than doing it from userspace, but maybe that was a bad assumption to 
-> make on my part.  It should be quite doable to support TPM RNG entirely via 
-> userspace, at any rate.
+Hi,
 
-If I recall correctly, you need access to a magic TPM key just to
-*talk* to the TPM.  Normally that key is stored in a file, and of
-course we can have a userspace helper pull that key into the kernel,
-but given the extensive Trousers infrastructure that can do this
-already, it seemed to make more sense to do it all in userspace, and
-not require any more kernel code.
+I recently discovered the ioctl implementation in natsemi.c had a few bugs in dealing with the user ioctls to send and receive MII commands (SIOCGMIIPHY and SIOCSMIIPHY).
+ 
+The specific problems noted and fixed:
 
-						- Ted
+1. The if_mii macro casts it's return to be (struct mii_ioctl_data *) but in reality it returns a pointer to the user space pointer (struct mii_ioctl_data**).   This looks to be a problem with the mii_macro to me.  I changed this to use the ifr_data macro instead.
+
+2. Since the mii_ioctl_data structure resides in user space, it must be copied into kernel space before access and copied back for read results.  References to the pointer were changed to point to the local copy (data-> changed to mii_data.)
+
+--
+Glenn
+
+--- linux-2.6.25.4.orig/drivers/net/natsemi.c	2008-05-15 14:05:37.000000000 -0700
++++ linux-2.6.25.4/drivers/net/natsemi.c	2008-05-15 14:29:28.000000000 -0700
+@@ -3043,13 +3043,18 @@
+ 
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	struct mii_ioctl_data *data = if_mii(rq);
++	struct mii_ioctl_data *data = (struct mii_ioctl_data*)rq->ifr_data;
+ 	struct netdev_private *np = netdev_priv(dev);
++	struct mii_ioctl_data mii_data;
++    
++	if (cmd == SIOCGMIIPHY || cmd == SIOCGMIIREG || cmd == SIOCSMIIREG) {
++		copy_from_user(&mii_data, data, sizeof(mii_data));
++	}
+ 
+ 	switch(cmd) {
+ 	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
+ 	case SIOCDEVPRIVATE:		/* for binary compat, remove in 2.5 */
+-		data->phy_id = np->phy_addr_external;
++		mii_data.phy_id = np->phy_addr_external;
+ 		/* Fall Through */
+ 
+ 	case SIOCGMIIREG:		/* Read MII PHY register. */
+@@ -3059,16 +3064,17 @@
+ 		 * the given mii on the current port.
+ 		 */
+ 		if (dev->if_port == PORT_TP) {
+-			if ((data->phy_id & 0x1f) == np->phy_addr_external)
+-				data->val_out = mdio_read(dev,
+-							data->reg_num & 0x1f);
++			if ((mii_data.phy_id & 0x1f) == np->phy_addr_external)
++				mii_data.val_out = mdio_read(dev,
++							mii_data.reg_num & 0x1f);
+ 			else
+-				data->val_out = 0;
++				mii_data.val_out = 0;
+ 		} else {
+-			move_int_phy(dev, data->phy_id & 0x1f);
+-			data->val_out = miiport_read(dev, data->phy_id & 0x1f,
+-							data->reg_num & 0x1f);
++			move_int_phy(dev, mii_data.phy_id & 0x1f);
++			mii_data.val_out = miiport_read(dev, mii_data.phy_id & 0x1f,
++							mii_data.reg_num & 0x1f);
+ 		}
++		copy_to_user(data, &mii_data, sizeof(mii_data));
+ 		return 0;
+ 
+ 	case SIOCSMIIREG:		/* Write MII PHY register. */
+@@ -3076,21 +3082,21 @@
+ 		if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+ 		if (dev->if_port == PORT_TP) {
+-			if ((data->phy_id & 0x1f) == np->phy_addr_external) {
+- 				if ((data->reg_num & 0x1f) == MII_ADVERTISE)
+-					np->advertising = data->val_in;
+-				mdio_write(dev, data->reg_num & 0x1f,
+-							data->val_in);
++			if ((mii_data.phy_id & 0x1f) == np->phy_addr_external) {
++ 				if ((mii_data.reg_num & 0x1f) == MII_ADVERTISE)
++					np->advertising = mii_data.val_in;
++				mdio_write(dev, mii_data.reg_num & 0x1f,
++							mii_data.val_in);
+ 			}
+ 		} else {
+-			if ((data->phy_id & 0x1f) == np->phy_addr_external) {
+- 				if ((data->reg_num & 0x1f) == MII_ADVERTISE)
+-					np->advertising = data->val_in;
++			if ((mii_data.phy_id & 0x1f) == np->phy_addr_external) {
++ 				if ((mii_data.reg_num & 0x1f) == MII_ADVERTISE)
++					np->advertising = mii_data.val_in;
+ 			}
+-			move_int_phy(dev, data->phy_id & 0x1f);
+-			miiport_write(dev, data->phy_id & 0x1f,
+-						data->reg_num & 0x1f,
+-						data->val_in);
++			move_int_phy(dev, mii_data.phy_id & 0x1f);
++			miiport_write(dev, mii_data.phy_id & 0x1f,
++						mii_data.reg_num & 0x1f,
++						mii_data.val_in);
+ 		}
+ 		return 0;
+ 	default:
+
+
+
+
+
