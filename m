@@ -1,51 +1,33 @@
-From: "Kingsley Foreman" <kingsley@internode.com.au>
-Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
-Date: Thu, 15 May 2008 19:36:54 +0930
-Message-ID: <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk>
-References: <20080515091216.GA6550@ff.dom.local>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 2/3] sysfs: remove error messages for -EEXIST case
+Date: Thu, 15 May 2008 12:06:19 +0200
+Message-ID: <20080515120619.6c867bfb@gondolin.boeblingen.de.ibm.com>
+References: <20080515095246.3b6a0d1d@gondolin.boeblingen.de.ibm.com>
+	<20080515.010139.219194657.davem@davemloft.net>
+	<20080515113131.2cea2bce@gondolin.boeblingen.de.ibm.com>
+	<20080515.030054.247673168.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <dada1@cosmosbay.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Jarek Poplawski" <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757484AbYEOKHd@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, greg@kroah.com, fubar@us.ibm.com,
+	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:45985 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752318AbYEOKIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 06:08:50 -0400
+In-Reply-To: <20080515.030054.247673168.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-i just rolled back the kernel to 2.6.24 and im seeing the same thing,
+On Thu, 15 May 2008 03:00:54 -0700 (PDT),
+David Miller <davem@davemloft.net> wrote:
 
-I was using 2.6.22 before and didn't see the problem, txqueuelen on the 
-bond0 interface is 0 (the default)
+> No, the idea is that the __sysfs_add_one() wouldn't need a parameter
+> at all.  sysfs_add_one() just needs to check for -EEXIST from
+> __sysfs_add_one() to decide whether to warn or not.
 
---------------------------------------------------
-From: "Jarek Poplawski" <jarkao2@gmail.com>
-Sent: Thursday, May 15, 2008 6:42 PM
-To: "Kingsley Foreman" <kingsley@internode.com.au>
-Cc: "Eric Dumazet" <dada1@cosmosbay.com>; "Andrew Morton" 
-<akpm@linux-foundation.org>; <linux-kernel@vger.kernel.org>; 
-<netdev@vger.kernel.org>
-Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
-
-> On 15-05-2008 08:16, Kingsley Foreman wrote:
-> ...
->>>>> Ive been using qdisc for quite a while without any problems,
->>>>> I just rebuilt a gentoo box with 2.6.25 kernel that does a lot of
->>>>> traffic
->>>>> ~1000mbits+ over a bonded interface
->>>>>
->>>>> Im however seeing a big problem with cbq class dropping packets for no
->>>>> reason i can see, and it is causing a lot of speed issues.
-> ...
->
-> Do you mean the same box with the same config but the previous kernel
-> (2.6.24) doesn't show this problem? BTW, what is txqueuelen on this
-> bond0?
->
-> Regards,
-> Jarek P.
-> 
+But that is what the patch does? Only the upper layers need to pass a
+flag around.
