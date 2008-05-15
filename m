@@ -1,114 +1,57 @@
-From: "Li Yang" <LeoLi@freescale.com>
-Subject: RE: [PATCH] ucc_geth_ethtool: Fix a few HW stats counters.
-Date: Thu, 15 May 2008 11:03:24 +0800
-Message-ID: <989B956029373F45A0B8AF0297081890022E142D@zch01exm26.fsl.freescale.net>
-References: <1210665877-6590-1-git-send-email-Joakim.Tjernlund@transmode.se> <989B956029373F45A0B8AF0297081890022E13C3@zch01exm26.fsl.freescale.net> <1210762175.32216.295.camel@gentoo-jocke.transmode.se>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 2/3] sysfs: remove error messages for -EEXIST case
+Date: Wed, 14 May 2008 20:14:58 -0700
+Message-ID: <20080515031458.GA4423@kroah.com>
+References: <20080514170316.672f809d@extreme> <20080514181257.74fbb5aa@extreme> <20080514181603.411e834f@extreme> <20080514.182637.211478588.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Netdev" <netdev@vger.kernel.org>
-To: <joakim.tjernlund@transmode.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, fubar@us.ibm.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:44702 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750708AbYEODDf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 23:03:35 -0400
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by de01egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m4F33Up4022351
-	for <netdev@vger.kernel.org>; Wed, 14 May 2008 20:03:31 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id m4F33SnO023547
-	for <netdev@vger.kernel.org>; Wed, 14 May 2008 22:03:29 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1210762175.32216.295.camel@gentoo-jocke.transmode.se>
+Received: from pentafluge.infradead.org ([213.146.154.40]:36304 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751406AbYEODP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 23:15:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20080514.182637.211478588.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se] 
-> Sent: Wednesday, May 14, 2008 6:50 PM
-> To: Li Yang
-> Cc: Netdev
-> Subject: RE: [PATCH] ucc_geth_ethtool: Fix a few HW stats counters.
+On Wed, May 14, 2008 at 06:26:37PM -0700, David Miller wrote:
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Wed, 14 May 2008 18:16:03 -0700
 > 
-> I didn't see them in my manual so I figured they were extra. 
-> If you find them please let me know where.
-
-I'm reading from MPC8360ERM Rev. 2.  They have the following definition:
-
-UCCx_BASE+0x1C4  Frames discarded due to overrun condition in the
-RxFIFO.
-REBASE+5C Counts the total number of fames that have an IPChecsum Error.
-
-Which manual are you using?
-
-- Leo
+> > It is possible that the entry in sysfs already exists, one case of this is
+> > when a network device is renamed to bonding_masters. Anyway, in this case
+> > the proper error path is for device_rename to return an error code, not to
+> > generate bogus backtrace and errors.
+> > 
+> > Also, to avoid possible races, the create link should be done before the
+> > remove link. This makes a device rename atomic operation like other renames.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> On Wed, 2008-05-14 at 18:37 +0800, Li Yang wrote:
-> > Hi Joakim,
-> > 
-> > I admit that I missed one in tx firmware stats.  But why are you 
-> > deleting the other two?
-> > 
-> > - Leo
-> > 
-> > > -----Original Message-----
-> > > From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se]
-> > > Sent: Tuesday, May 13, 2008 4:05 PM
-> > > To: Netdev; Li Yang
-> > > Cc: Joakim Tjernlund
-> > > Subject: [PATCH] ucc_geth_ethtool: Fix a few HW stats counters.
-> > > 
-> > > Noticed that ethtool -S didn't display tx-xxx-frames correctly.
-> > > Fix it and a few others while I am there. Strangely, the 
-> > > rx-jumbo-frames counter still counts pkgs even though I 
-> think there 
-> > > isn't any packtes above 1518.
-> > > 
-> > > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > > ---
-> > > 
-> > > Havn't seen this go in or ACK/NACK. Resending.
-> > > 
-> > >  drivers/net/ucc_geth_ethtool.c |    3 +--
-> > >  1 files changed, 1 insertions(+), 2 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/ucc_geth_ethtool.c 
-> > > b/drivers/net/ucc_geth_ethtool.c index a995a3a..0eddf50 100644
-> > > --- a/drivers/net/ucc_geth_ethtool.c
-> > > +++ b/drivers/net/ucc_geth_ethtool.c
-> > > @@ -60,7 +60,6 @@ static char 
-> hw_stat_gstrings[][ETH_GSTRING_LEN] = {
-> > >  	"rx-broadcast-frames",
-> > >  	"stats-counter-carry",
-> > >  	"stats-counter-mask",
-> > > -	"rx-dropped-frames",
-> > >  };
-> > >  
-> > >  static char tx_fw_stat_gstrings[][ETH_GSTRING_LEN] = { @@
-> > > -73,6 +72,7 @@ static char 
-> tx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
-> > >  	"tx-frames-ok",
-> > >  	"tx-excessive-differ-frames",
-> > >  	"tx-256-511-frames",
-> > > +	"tx-512-1023-frames",
-> > >  	"tx-1024-1518-frames",
-> > >  	"tx-jumbo-frames",
-> > >  };
-> > > @@ -101,7 +101,6 @@ static char
-> > > rx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
-> > >  	"rx-vlan-removed",
-> > >  	"rx-vlan-replaced",
-> > >  	"rx-vlan-inserted",
-> > > -	"rx-ip-checksum-errors",
-> > >  };
-> > >  
-> > >  #define UEC_HW_STATS_LEN ARRAY_SIZE(hw_stat_gstrings)
-> > > --
-> > > 1.5.5.1
-> > > 
-> > > 
-> > 
-> > 
+> I definitely agree with this change.
 > 
+> We have several cases where device names are user configurable,
+> yet the devices live in a directory which also has subdirectories
+> created by other subsystems.
+> 
+> It's pointless to require the top-level guy to look for any
+> purge out any subdirectory cases, that's none of it's business.
+> 
+> I realize the backtrace is useful for finding bugs, but in this
+> case it's definitely not appropriate.
+
+Fair enough, I have no objection to these.
+
+David, do you want me to take them through my tree?  Or are they
+dependant on the network core changes as well?  If so, I have no
+problem you taking them.  Feel free to add a:
+	Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+to them in that case.
+
+thanks,
+
+greg k-h
