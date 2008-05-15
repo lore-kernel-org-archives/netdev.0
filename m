@@ -1,192 +1,46 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-2.6 3/4] [IPV6] ADDRCONF: Allow infinite prefix
- lifetime.
-Date: Thu, 15 May 2008 18:18:07 +0900 (JST)
-Message-ID: <20080515.181807.93609970.yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-2.6 2/4] [IPV6] ROUTE: Fix lifetime in netlink.
+Date: Thu, 15 May 2008 18:18:02 +0900 (JST)
+Message-ID: <20080515.181802.13113123.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Joseph.Bonitch@xerox.com, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:44226 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:44222 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753330AbYEOJRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 05:17:47 -0400
+	with ESMTP id S1750832AbYEOJRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 05:17:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to handle infinite prefix lifetime specially.
-With help from original reporter "Bonitch, Joseph"
-<Joseph.Bonitch@xerox.com>.
+We could not see appropriate lifetime if the route had been scheduled
+to expired at 0 (in jiffies).  We should check rt6i_flags instead of
+rt6i_expires to determine whether lifetime is valid or not.
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv6/addrconf.c |   73 ++++++++++++++++++++++++++++++++++----------------
- net/ipv6/route.c    |    4 ++-
- 2 files changed, 52 insertions(+), 25 deletions(-)
+ net/ipv6/route.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index e591e09..3a78021 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1764,14 +1764,16 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
- 	 *	2) Configure prefixes with the auto flag set
- 	 */
- 
--	/* Avoid arithmetic overflow. Really, we could
--	   save rt_expires in seconds, likely valid_lft,
--	   but it would require division in fib gc, that it
--	   not good.
--	 */
--	if (valid_lft >= 0x7FFFFFFF/HZ)
-+	if (valid_lft == INFINITY_LIFE_TIME)
-+		rt_expires = ~0UL;
-+	else if (valid_lft >= 0x7FFFFFFF/HZ) {
-+		/* Avoid arithmetic overflow. Really, we could
-+		 * save rt_expires in seconds, likely valid_lft,
-+		 * but it would require division in fib gc, that it
-+		 * not good.
-+		 */
- 		rt_expires = 0x7FFFFFFF - (0x7FFFFFFF % HZ);
--	else
-+	} else
- 		rt_expires = valid_lft * HZ;
- 
- 	/*
-@@ -1779,7 +1781,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
- 	 * Avoid arithmetic overflow there as well.
- 	 * Overflow can happen only if HZ < USER_HZ.
- 	 */
--	if (HZ < USER_HZ && rt_expires > 0x7FFFFFFF / USER_HZ)
-+	if (HZ < USER_HZ && ~rt_expires && rt_expires > 0x7FFFFFFF / USER_HZ)
- 		rt_expires = 0x7FFFFFFF / USER_HZ;
- 
- 	if (pinfo->onlink) {
-@@ -1788,17 +1790,28 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
- 				dev->ifindex, 1);
- 
- 		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
--			if (rt->rt6i_flags&RTF_EXPIRES) {
--				if (valid_lft == 0) {
--					ip6_del_rt(rt);
--					rt = NULL;
--				} else {
--					rt->rt6i_expires = jiffies + rt_expires;
--				}
-+			/* Autoconf prefix route */
-+			if (valid_lft == 0) {
-+				ip6_del_rt(rt);
-+				rt = NULL;
-+			} else if (~rt_expires) {
-+				/* not infinity */
-+				rt->rt6i_expires = jiffies + rt_expires;
-+				rt->rt6i_flags |= RTF_EXPIRES;
-+			} else {
-+				rt->rt6i_flags &= ~RTF_EXPIRES;
-+				rt->rt6i_expires = 0;
- 			}
- 		} else if (valid_lft) {
-+			int flags = RTF_ADDRCONF | RTF_PREFIX_RT;
-+			clock_t expires = 0;
-+			if (~rt_expires) {
-+				/* not infinity */
-+				flags |= RTF_EXPIRES;
-+				expires = jiffies_to_clock_t(rt_expires);
-+			}
- 			addrconf_prefix_route(&pinfo->prefix, pinfo->prefix_len,
--					      dev, jiffies_to_clock_t(rt_expires), RTF_ADDRCONF|RTF_EXPIRES|RTF_PREFIX_RT);
-+					      dev, expires, flags);
- 		}
- 		if (rt)
- 			dst_release(&rt->u.dst);
-@@ -2021,7 +2034,8 @@ static int inet6_addr_add(struct net *net, int ifindex, struct in6_addr *pfx,
- 	struct inet6_dev *idev;
- 	struct net_device *dev;
- 	int scope;
--	u32 flags = RTF_EXPIRES;
-+	u32 flags;
-+	clock_t expires;
- 
- 	ASSERT_RTNL();
- 
-@@ -2041,8 +2055,13 @@ static int inet6_addr_add(struct net *net, int ifindex, struct in6_addr *pfx,
- 	if (valid_lft == INFINITY_LIFE_TIME) {
- 		ifa_flags |= IFA_F_PERMANENT;
- 		flags = 0;
--	} else if (valid_lft >= 0x7FFFFFFF/HZ)
--		valid_lft = 0x7FFFFFFF/HZ;
-+		expires = 0;
-+	} else {
-+		if (valid_lft >= 0x7FFFFFFF/HZ)
-+			valid_lft = 0x7FFFFFFF/HZ;
-+		flags = RTF_EXPIRES;
-+		expires = jiffies_to_clock_t(valid_lft * HZ);
-+	}
- 
- 	if (prefered_lft == 0)
- 		ifa_flags |= IFA_F_DEPRECATED;
-@@ -2060,7 +2079,7 @@ static int inet6_addr_add(struct net *net, int ifindex, struct in6_addr *pfx,
- 		spin_unlock_bh(&ifp->lock);
- 
- 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
--				      jiffies_to_clock_t(valid_lft * HZ), flags);
-+				      expires, flags);
- 		/*
- 		 * Note that section 3.1 of RFC 4429 indicates
- 		 * that the Optimistic flag should not be set for
-@@ -3148,7 +3167,8 @@ inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
- 			     u32 prefered_lft, u32 valid_lft)
- {
--	u32 flags = RTF_EXPIRES;
-+	u32 flags;
-+	clock_t expires;
- 
- 	if (!valid_lft || (prefered_lft > valid_lft))
- 		return -EINVAL;
-@@ -3156,8 +3176,13 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
- 	if (valid_lft == INFINITY_LIFE_TIME) {
- 		ifa_flags |= IFA_F_PERMANENT;
- 		flags = 0;
--	} else if (valid_lft >= 0x7FFFFFFF/HZ)
--		valid_lft = 0x7FFFFFFF/HZ;
-+		expires = 0;
-+	} else {
-+		if (valid_lft >= 0x7FFFFFFF/HZ)
-+			valid_lft = 0x7FFFFFFF/HZ;
-+		flags = RTF_EXPIRES;
-+		expires = jiffies_to_clock_t(valid_lft * HZ);
-+	}
- 
- 	if (prefered_lft == 0)
- 		ifa_flags |= IFA_F_DEPRECATED;
-@@ -3176,7 +3201,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
- 		ipv6_ifa_notify(0, ifp);
- 
- 	addrconf_prefix_route(&ifp->addr, ifp->prefix_len, ifp->idev->dev,
--			      jiffies_to_clock_t(valid_lft * HZ), flags);
-+			      expires, flags);
- 	addrconf_verify(0);
- 
- 	return 0;
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index b45a7c0..b7a4a87 100644
+index 98aa50c..b45a7c0 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -1106,7 +1106,9 @@ int ip6_route_add(struct fib6_config *cfg)
- 	}
+@@ -2200,7 +2200,9 @@ static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
  
- 	rt->u.dst.obsolete = -1;
--	rt->rt6i_expires = jiffies + clock_t_to_jiffies(cfg->fc_expires);
-+	rt->rt6i_expires = (cfg->fc_flags & RTF_EXPIRES) ?
-+				jiffies + clock_t_to_jiffies(cfg->fc_expires) :
-+				0;
+ 	NLA_PUT_U32(skb, RTA_PRIORITY, rt->rt6i_metric);
  
- 	if (cfg->fc_protocol == RTPROT_UNSPEC)
- 		cfg->fc_protocol = RTPROT_BOOT;
+-	expires = rt->rt6i_expires ? rt->rt6i_expires - jiffies : 0;
++	expires = (rt->rt6i_flags & RTF_EXPIRES) ?
++			rt->rt6i_expires - jiffies : 0;
++
+ 	if (rtnl_put_cacheinfo(skb, &rt->u.dst, 0, 0, 0,
+ 			       expires, rt->u.dst.error) < 0)
+ 		goto nla_put_failure;
 -- 
 1.4.4.4
+
 
