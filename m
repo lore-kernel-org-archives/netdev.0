@@ -1,58 +1,40 @@
-From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
-	IRQF_SAMPLE_RANDOM
-Date: Thu, 15 May 2008 19:29:41 -0300
-Message-ID: <20080515222941.GB20976@khazad-dum.debian.net>
-References: <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org> <a24804730805151301s3c6644d0hc2c78b8008fe035d@mail.gmail.com> <20080515214721.GP18825@mit.edu> <482CB1FB.7080807@garzik.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 12/13] QLogic VNIC: Driver Kconfig and Makefile.
+Date: Thu, 15 May 2008 15:31:55 -0700
+Message-ID: <adafxsjdwro.fsf@cisco.com>
+References: <20080430171028.31725.86190.stgit@localhost.localdomain>
+	<20080430172156.31725.94843.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Theodore Tso <tytso@mit.edu>,
-	Chris Peterson <cpeterso@cpeterso.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: general@lists.openfabrics.org, netdev@vger.kernel.org,
+	amar.mudrankit@qlogic.com, poornima.kamath@qlogic.com
+To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.smtp.messagingengine.com ([66.111.4.25]:59295 "EHLO
-	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752253AbYEOW3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 18:29:45 -0400
-Content-Disposition: inline
-In-Reply-To: <482CB1FB.7080807@garzik.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:56829 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754072AbYEOWb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 18:31:57 -0400
+In-Reply-To: <20080430172156.31725.94843.stgit@localhost.localdomain>
+	(Ramachandra K.'s message of "Wed, 30 Apr 2008 22:51:56 +0530")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 May 2008, Jeff Garzik wrote:
-> rngd is already deployed in most distros, via rng-tools.  Motivated  
-> people are welcome to steal maintainership from me...
+ > +config INFINIBAND_QLGC_VNIC_DEBUG
+ > +	bool "QLogic VNIC Verbose debugging"
+ > +	depends on INFINIBAND_QLGC_VNIC
+ > +	default n
+ > +	---help---
+ > +	  This option causes verbose debugging code to be compiled
+ > +	  into the QLogic VNIC driver.  The output can be turned on via the
+ > +	  vnic_debug module parameter.
 
-I was, once.  But I got into the trap of getting too out of sync from
-upsteam rngd, and suddenly, packaging all those changes into incremental
-patches become too much non-fun work for me to find the energy to do so.
+If you have runtime control of this, I suggest making it default to on,
+like mthca does with:
 
-It has been a few years since I really looked at that code, except for a
-few minor Debian packaging fixes.  It is old code, and if my C is not
-world-class now, it was even worse at that time.  But at least valgrind
-tells me I fixed the worst bugs, and FIPS 140-2 (the old version of it
-that still had criteria for non-deterministic RNGs) and DIEHARD couldn't
-find any issues with its output after several runs on gigabyte-sized
-files produced both from an Intel FWH RNG, and from a VIA PadLock RNG.
+	config INFINIBAND_MTHCA_DEBUG
+		bool "Verbose debugging output" if EMBEDDED
+		depends on INFINIBAND_MTHCA
+		default y
 
-If anyone wants to poke at it, get the Debian rng-tools source package.
-It directly supports the VIA PadLock in userspace in a suitably paranoid
-mode (checks that the RNG was not reprogrammed at every read), and does
-multithreading so that FIPS and output processing does not block (nor
-gets blocked) by /dev/hw_random reading, etc.
-
-Lots of cowebs on it, though.  And you probably need to get the version
-in Debian unstable AND the version in Debian experimental, to get the
-full code.  If someone really wants to work on it, I can send the VC
-repo for them to play with.
-
--- 
-  "One disk to rule them all, One disk to find them. One disk to bring
-  them all and in the darkness grind them. In the Land of Redmond
-  where the shadows lie." -- The Silicon Valley Tarot
-  Henrique Holschuh
+otherwise distros will leave the option off and it becomes a pain to
+debug problems because you force users to do compiles.
