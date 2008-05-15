@@ -1,61 +1,49 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
- IRQF_SAMPLE_RANDOM
-Date: Thu, 15 May 2008 14:04:08 -0400
-Message-ID: <482C7B18.6060003@garzik.org>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
+Date: Thu, 15 May 2008 20:09:14 +0200
+Message-ID: <20080515180914.GA2936@ami.dom.local>
+References: <20080515091216.GA6550@ff.dom.local> <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk> <482C6040.9030808@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43079 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751350AbYEOSEN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2008 14:04:13 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kingsley Foreman <kingsley@internode.com.au>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761056AbYEOSK4@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <482C6040.9030808@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse wrote:
-> we've been hearing rumblings of big customers wanting (maybe requiring)
-> wired network drivers from Intel to  advertise this flag.  Jeff have you
-> heard of such?
+On Thu, May 15, 2008 at 06:09:36PM +0200, Patrick McHardy wrote:
+> Kingsley Foreman wrote:
+>> i just rolled back the kernel to 2.6.24 and im seeing the same thing,
+>>
+>> I was using 2.6.22 before and didn't see the problem, txqueuelen on the 
+>> bond0 interface is 0 (the default)
+>
+> That might explain things, although it shouldn't have worked before
+> either.
+>
+> CBQ creates default pfifo qdiscs for its leaves, these use a limit
+> of txqueuelen or 1 if it is zero. So even small bursts will cause
+> drops. Do things improve if you set txqueuelen to a larger value
+> *before* configuring the qdiscs?
 
-I do indeed hear requests all the time, from people who want to make 
-their boxes externally exploitable.  :)
+Kingsley wrote to me that even after changing txqueuelen to 1000 the
+"dropped" number didn't change much. A debugging patch with printks
+around all "sch->qstats.dropps++" showed only the end of cbq_enqueue().
+I've asked to check tomorrow "pfifo limit 1000" for these drops too.
 
+> Another thing is that CBQ on bond will probably not work properly
+> at all, it needs a real device since it measures the timing between
+> dequeue events for idle time estimation. On software devices this
+> doesn't work.
 
-> I think the argument is that a headless system (no keyboard/mouse, no
-> soundcard, probably no video) with a libata based driver and a network
-> driver without IRQF_SAMPLE_RANDOM has *no* sources of entropy.  In this
-> case the argument is very strong for at least *some* source of entropy
-> from interrupts so that randomness can get some external input.  Just
-> try rebuilding a kernel RPM over an ssh session and you'll see what I
-> mean.
+Right, but these drops without any sign of overactions or overlimits
+seem to show it's not about shaping (or it's not counted/documented
+enough).
 
-There are entropy sources on a headless box, even one without audio and 
-video, that are more secure than adding IRQF_SAMPLE_RANDOM to network 
-drivers.
-
-EGD demonstrates this, for example:  http://egd.sourceforge.net/  It 
-looks at snmp, w, last, uptime, iostats, vmstats, etc.
-
-And there are plenty of untapped entropy sources even so, such as 
-reading temperature sensors, fan speed sensors on variable-speed fans, etc.
-
-Heck, "smartctl -d ata -a /dev/FOO" produces output that could be hashed 
-and added as entropy.
-
-I'm interested to hear peoples' opinion of Chris P's patch, but 
-definitely do not want to go in the other direction and start adding 
-IRQF_SAMPLE_RANDOM, thus moving randomness in the direction of being 
-externally exploitable.
-
-	Jeff
-
-
-
+Regards,
+Jarek P.
