@@ -1,83 +1,49 @@
-From: Adrian Bunk <bunk@kernel.org>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
-	IRQF_SAMPLE_RANDOM
-Date: Fri, 16 May 2008 00:55:17 +0300
-Message-ID: <20080515215517.GI1936@cs181133002.pp.htv.fi>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
+ IRQF_SAMPLE_RANDOM
+Date: Thu, 15 May 2008 17:58:19 -0400
+Message-ID: <482CB1FB.7080807@garzik.org>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org> <a24804730805151301s3c6644d0hc2c78b8008fe035d@mail.gmail.com> <20080515214721.GP18825@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Chris Peterson <cpeterso@cpeterso.com>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mpm@selenic.com
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763597AbYEOV5S@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Theodore Tso <tytso@mit.edu>,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@i
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:43865 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752239AbYEOV6g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2008 17:58:36 -0400
+In-Reply-To: <20080515214721.GP18825@mit.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2008 at 09:07:52AM -0700, Brandeburg, Jesse wrote:
-> Alan Cox wrote:
-> > Chris Peterson <cpeterso@cpeterso.com> wrote:
-> >> I know Jeff Garzik says he's not interested in an anti-entropy
-> >> pogrom for existing net drivers, but here is the patch if anyone
-> >> else is interested..? :)  
-> >> 
-> >> Only 12 net drivers are affected, the last of the
-> >> theoretically-exploitable network entropy. 
-> > 
-> > Looks fine to me. If Jeff doesn't want to touch them then send them
-> > direct to Andrew/Linus.
-> > 
-> > A more interesting alternative might be to mark things like network
-> > drivers with a new flag say IRQF_SAMPLE_DUBIOUS so that users can be
-> > given a switch to enable/disable their use depending upon the
-> > environment. 
+Theodore Tso wrote:
+> On Thu, May 15, 2008 at 01:01:36PM -0700, Chris Peterson wrote:
+>> Please correct me if I'm wrong, but this thread's conclusions seem to be:
+>>
+>> * network interrupts are an inappropriate source of entropy (see my patch)
+>> * headless servers need entropy, but should seek a better solution,
+>> such as EGD, hardware RNG, or other kernel entropy sources (but that
+>> is a separate task)
+>> * TPM RNG is a separate task and, if implemented, should be in
+>> drivers/char/hw_random/
 > 
-> we've been hearing rumblings of big customers wanting (maybe requiring)
-> wired network drivers from Intel to  advertise this flag.  Jeff have you
-> heard of such?
+> The TPM RNG task is probably best done in a user space process, which
+> might also do other things like pulling environmental noise from the
+> sound card's microphone, etc.
 > 
-> I think the argument is that a headless system (no keyboard/mouse, no
-> soundcard, probably no video) with a libata based driver and a network
-> driver without IRQF_SAMPLE_RANDOM has *no* sources of entropy.  In this
-> case the argument is very strong for at least *some* source of entropy
-> from interrupts so that randomness can get some external input.  Just
-> try rebuilding a kernel RPM over an ssh session and you'll see what I
-> mean.
-> 
-> In short, I agree with Alan's IRQF_SAMPLE_DUBIOUS, and know of Linux
-> customers who also want the same.
+> The problem is finding someone with the skills, time, and energy to
+> create the appropriate user space daemon.  All of the kernel
+> interfaces already exist; it's just matter of implementing the user
+> space support.
 
-We have two random number interfaces:
-- /dev/random
-- /dev/urandom
+rngd is already deployed in most distros, via rng-tools.  Motivated 
+people are welcome to steal maintainership from me...
 
-If a customer wants to get data from /dev/random although there's not 
-enough entropy that's not a problem we can solve (we can only try to 
-gather more real entropy if possible).
+	Jeff
 
-If he can live with dubious data he can simply use /dev/urandom .
 
-If a customer wants to use /dev/random and demands to get dubious data 
-there if nothing better is available fulfilling his wish only moves 
-the security bug from his crappy application to the Linux kernel.
-
-But what we could perhaps do with some kind of IRQF_SAMPLE_DUBIOUS would 
-be to improve the quality of the data in /dev/urandom if there's not 
-enough entropy available?
-
-I have seen embedded systems with zero entropy, and dubious entropy 
-might there be better than no entropy at all.
-Or am I wrong on the latter?
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
