@@ -1,43 +1,50 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: POHMELFS high performance network filesystem. Transactions, failover, performance.
-Date: Thu, 15 May 2008 02:10:09 +0100
-Message-ID: <20080515011009.GA28687@shareable.org>
-References: <4829E752.8030104@garzik.org> <20080513205114.GA16489@2ka.mipt.ru> <Pine.LNX.4.64.0805140623001.14334@cobra.newdream.net> <20080514135156.GA23131@2ka.mipt.ru> <20080514143105.GB14987@shareable.org> <20080514150052.GA15826@2ka.mipt.ru> <20080514213251.GB23758@shareable.org> <20080514220252.GA14378@2ka.mipt.ru> <20080514222837.GF23758@shareable.org> <20080514224519.GA3739@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 3/3] bonding: handle case of device named bonding_master
+Date: Wed, 14 May 2008 18:15:28 -0700
+Message-ID: <20080514181528.1ff1791a@extreme>
+References: <20080514170316.672f809d@extreme>
+	<20080514181257.74fbb5aa@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sage Weil <sage@newdream.net>, Jeff Garzik <jeff@garzik.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080514224519.GA3739@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, fubar@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([216.93.170.194]:50089 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755514AbYEOBQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 21:16:16 -0400
+In-Reply-To: <20080514181257.74fbb5aa@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> > It's possible that implementing server cloud protocol _and_ simple
-> > client protocol may be more work than just server cloud protocol.  I'm
-> > not sure.  Thoughts welcome.
-> 
-> Well, getting that client protocol is mostly ready, and its design
-> allows infinite (blah!) extensions and extremely (blah!) flexible
-> processing, we are close to just difficult server one :)
+If device already exists named bonding_masters, then fail. This is a wierd
+corner case only a QA group could love.
 
-That's what I thought when I had my system working fine with just one
-server.  The client was very simple. :-)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+Note: bonding is not yet network namespace aware, it will need lots of
+work to get this to happen.
 
-Since, I learned that my clients need to have parts of the complex
-server protocol for fast, safe transactions (think ACID (or ACI)) over
-relatively slow links, especially with multiple servers.
-
-Also, efficiently recovering from a link/server failure, when clients
-have large zero-latency caches (using leases), appears similar to the
-synchronising protocol between recovering servers.
-
-But, on the bright side, these things are only necessary for
-performance in scenarios you might not encounter or care about :-)
-
-I'm finding it's a really interesting but large problem.
-
--- Jamie
+--- a/drivers/net/bonding/bond_sysfs.c	2008-05-14 17:49:29.000000000 -0700
++++ b/drivers/net/bonding/bond_sysfs.c	2008-05-14 18:02:36.000000000 -0700
+@@ -1437,8 +1437,16 @@ int bond_create_sysfs(void)
+ 	 * configure multiple bonding devices.
+ 	 */
+ 	if (ret == -EEXIST) {
+-		netdev_class = NULL;
+-		return 0;
++		/* Is someone being kinky and naming a device bonding_master? */
++		if (__dev_get_by_name(&init_net,
++				      class_attr_bonding_masters.attr.name))
++			printk(KERN_ERR
++			       "network device named %s already exists in sysfs",
++			       class_attr_bonding_masters.attr.name);
++		else {
++			netdev_class = NULL;
++			return 0;
++		}
+ 	}
+ 
+ 	return ret;
