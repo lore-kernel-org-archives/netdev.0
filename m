@@ -1,131 +1,34 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
-Date: Thu, 15 May 2008 07:21:18 +0200
-Message-ID: <482BC84E.3000401@cosmosbay.com>
-References: <B28DA1911F61434C804723B7EE8A5C67@uglypunk> <20080514205604.e669a28f.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] sysfs: remove error messages for -EEXIST case
+Date: Wed, 14 May 2008 22:26:28 -0700 (PDT)
+Message-ID: <20080514.222628.237901651.davem@davemloft.net>
+References: <20080514181603.411e834f@extreme>
+	<20080514.182637.211478588.davem@davemloft.net>
+	<20080515031458.GA4423@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Kingsley Foreman <kingsley@internode.com.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, fubar@us.ibm.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.112]:27962 "EHLO smtp2e.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750751AbYEOFVi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 01:21:38 -0400
-In-Reply-To: <20080514205604.e669a28f.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42401
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751514AbYEOF0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 01:26:33 -0400
+In-Reply-To: <20080515031458.GA4423@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton a =E9crit :
-> (cc netdev)
->
-> On Thu, 15 May 2008 12:25:19 +0930 "Kingsley Foreman" <kingsley@inter=
-node.com.au> wrote:
->
->  =20
->> Ive been using qdisc for quite a while without any problems,
->> I just rebuilt a gentoo box with 2.6.25 kernel that does a lot of tr=
-affic
->> ~1000mbits+ over a bonded interface
->>
->> Im however seeing a big problem with cbq class dropping packets for =
-no
->> reason i can see, and it is causing a lot of speed issues.
->>
->> the basic config is this
->> ____________________________________________________________________=
-_
->> /sbin/tc qdisc del dev bond0 root
->> /sbin/tc qdisc add dev bond0 root handle 1 cbq bandwidth 2000Mbit av=
-pkt 1000
->> cell 8
->> /sbin/tc class change dev bond0 root cbq weight 200Mbit allot 1514
->>
->> /sbin/tc class add dev bond0 parent 1: classid 1:1280 cbq bandwidth =
-2000Mbit
->> rate 1200Mbit weight 120Mbit prio 1 allot 1514 cell 8 maxburst 120 m=
-inburst
->> 1 minidle 0 avpkt 1000 bounded
->> /sbin/tc filter add dev bond0 parent 1:0 protocol ip prio 300 route =
-to 5
->> classid 1:1280
->>
->> /sbin/tc class add dev bond0 parent 1: classid 1:1281 cbq bandwidth =
-2000Mbit
->> rate 400Mbit weight 40Mbit prio 6 allot 1514 cell 8 maxburst 120 min=
-burst 1
->> minidle 0 avpkt 1000 bounded
->> /sbin/tc filter add dev bond0 parent 1:0 protocol ip prio 300 route =
-to 6
->> classid 1:1281
->> ____________________________________________________________________
->>
->> So there is a lot of bandwidth handed out but it is still dropping a=
- lot of
->> packets  for very small ammounts of traffic eg 300mbits.
->>
->> However the biggest problem im seeing is if i just do this
->>
->> __________________________________________________________________
->> /sbin/tc qdisc del dev bond0 root
->> /sbin/tc qdisc add dev bond0 root handle 1 cbq bandwidth 2000Mbit av=
-pkt 1000
->> cell 8
->> /sbin/tc class change dev bond0 root cbq weight 200Mbit allot 1514
->> ___________________________________________________________________
->>
->> after 30sec I get results like
->> ___________________________________________________________________
->>
->> ### bond0: queueing disciplines
->>
->> qdisc cbq 1: root rate 2000Mbit (bounded,isolated) prio no-transmit
->>  Sent 574230043 bytes 407156 pkt (dropped 2524, overlimits 0 requeue=
-s 0)
->>  rate 0bit 0pps backlog 0b 0p requeues 0
->>   borrowed 0 overactions 0 avgidle 3 undertime 0
->>
->> ### bond0: traffic classes
->>
->> class cbq 1: root rate 2000Mbit (bounded,isolated) prio no-transmit
->>  Sent 574330783 bytes 407225 pkt (dropped 2525, overlimits 0 requeue=
-s 0)
->>  rate 0bit 0pps backlog 0b 0p requeues 0
->>   borrowed 0 overactions 0 avgidle 3 undertime 0
->> __________________________________________________________________
->>
->> I can't for the life if me work out why it is dropping so many packe=
-ts for=20
->> while doing so little traffic when i enable  cbq the transfer rate d=
-rops by=20
->> approx 30%, any help would be great, and any improvements to my comm=
-and=20
->> lines would be good also.
->>
->>
->> Kingsley Foreman
->>    =20
->
->
->
->  =20
-Could you provide your linux-2.6.25 .config file please ?
+From: Greg KH <greg@kroah.com>
+Date: Wed, 14 May 2008 20:14:58 -0700
 
-What kind of hardware is your box ? (CPU, network interfaces)
+> Fair enough, I have no objection to these.
+> 
+> David, do you want me to take them through my tree?  Or are they
+> dependant on the network core changes as well?  If so, I have no
+> problem you taking them.  Feel free to add a:
+> 	Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> to them in that case.
 
-CBQ and other packet schedulers depend on a fast ktime_get() interface,=
-=20
-so maybe
-slowdown you notice has its root on core kernel facilities
-(CONFIG_HZ, SCHED_HRTICK, HIGH_RES_TIMERS, ...)
-
-If you remove CBQ, do you get same slowdown if you have a tcpdump=20
-running on your machine ?
-
-
-
-
-
+I'll take them, thanks for reviewing and the signoff Greg.
