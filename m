@@ -1,40 +1,68 @@
 From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATCH 2/15] BE NIC driver - interrupt, ethtool, stack i/f functions
-Date: Thu, 15 May 2008 02:06:13 -0700
-Message-ID: <20080515090613.03bf6fa6@mailhost.serverengines.com>
+Subject: [PATCH 3/15] BE NIC driver - net_object i/f functions, Makefile
+Date: Thu, 15 May 2008 02:12:43 -0700
+Message-ID: <20080515091243.8441f315@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:61324 "EHLO
-	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751630AbYEOJBd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 05:01:33 -0400
+Received: from mail96.messagelabs.com ([216.82.254.19]:40030 "EHLO
+	mail96.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222AbYEOJIE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 05:08:04 -0400
 Received: from 124.30.166.146 ([124.30.166.146])
 	by mailhost.serverengines.com
 	for netdev@vger.kernel.org;
-	Thu, 15 May 2008 02:06:13 -0700
+	Thu, 15 May 2008 02:12:43 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
 ---
- drivers/net/benet/be_ethtool.c |  381 +++++++++++++++++
- drivers/net/benet/be_int.c     |  893 ++++++++++++++++++++++++++++++++++++++++
- drivers/net/benet/be_netif.c   |  721 ++++++++++++++++++++++++++++++++
- 3 files changed, 1995 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/benet/be_ethtool.c
- create mode 100644 drivers/net/benet/be_int.c
- create mode 100644 drivers/net/benet/be_netif.c
+ drivers/net/benet/Makefile |   24 +
+ drivers/net/benet/bni.c    | 1458 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 1482 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/benet/Makefile
+ create mode 100644 drivers/net/benet/bni.c
 
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+diff --git a/drivers/net/benet/Makefile b/drivers/net/benet/Makefile
 new file mode 100644
-index 0000000..721d392
+index 0000000..acac5af
 --- /dev/null
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -0,0 +1,381 @@
++++ b/drivers/net/benet/Makefile
+@@ -0,0 +1,24 @@
++#
++# Makefile to build the network driver for ServerEngine's BladeEngine.
++#
++BECLIBPATH = $(src)/../../message/beclib
++
++EXTRA_CFLAGS = -Wno-unknown-pragmas -DFUNCTION_NIC \
++	-I$(BECLIBPATH) -I$(BECLIBPATH)/sa \
++	-I$(BECLIBPATH)/fw -I$(BECLIBPATH)/fw/amap -I$(BECLIBPATH)/fw/bmap 
++
++obj-$(CONFIG_BENET) 	:= benet.o
++
++benet-objs	:=  be_init.o be_int.o be_netif.o be_ethtool.o bni.o \
++	../../message/beclib/funcobj_ll.o  \
++	../../message/beclib/chipobj_ll.o \
++	../../message/beclib/cq_ll.o \
++	../../message/beclib/eq_ll.o \
++	../../message/beclib/main_ll.o \
++	../../message/beclib/mpu_ll.o \
++	../../message/beclib/ethrx_ll.o \
++	../../message/beclib/ethtx_ll.o \
++	../../message/beclib/rxf_ll.o \
++	../../message/beclib/sa/sa.o 
++
++clean-files := ../../message/beclib/*.o  ../../message/beclib/sa/*.o 
+diff --git a/drivers/net/benet/bni.c b/drivers/net/benet/bni.c
+new file mode 100644
+index 0000000..a397b85
+--- /dev/null
++++ b/drivers/net/benet/bni.c
+@@ -0,0 +1,1458 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -67,1980 +95,1431 @@ index 0000000..721d392
 + *
 + */
 +/*
-+ * be_ethtool.c
-+ *
-+ * 	This file contains various functions that ethtool can use
-+ * 	to talk to the driver and the BE H/W.
++
++@file
++    bni.c
++
++@brief
++    This file contains finctions that will be used by the BladeEngine
++    Network drivers to access BladeEngine Hardware. All code in
++    this file must be completely OS neutral.
++
++*/
++
++#include "bni.h"
++
++/*!
++   This function initializes the data structures in BNI / BECLIB for network
++   operation.  The OSM driver must call this function before making any other
++   BNI call.
++
++   If this functions succeeds, the caller must call bni_cleanup() as part
++   of driver cleanup procedure.
++
++@param
++    chipobj      -  Address of the space allocated by OSM for chip object
++			(struct BE_CHIP_OBJECT).  The space for this is
++			allocated by OSM, but this object is maintained
++			by BECLIB and is opaque to OSM.
++@return
++    BESTATUS - (0 if successful, non-zero status code if not successful)
++
 + */
-+
-+#include <linux/pci.h>
-+#include "be.h"
-+
-+#include <linux/ethtool.h>
-+
-+static const char benet_gstrings_stats[][ETH_GSTRING_LEN] = {
-+/*net_device_stats */
-+	"irq",
-+	"rx_packets",
-+	"tx_packets",
-+	"rx_bytes",
-+	"tx_bytes",
-+	"rx_errors",
-+	"tx_errors",
-+	"rx_dropped",
-+	"tx_dropped",
-+	"multicast",
-+	"collisions",
-+	"rx_length_errors",
-+	"rx_over_errors",
-+	"rx_crc_errors",
-+	"rx_frame_errors",
-+	"rx_fifo_errors",
-+	"rx_missed_errors",
-+	"tx_aborted_errors",
-+	"tx_carrier_errors",
-+	"tx_fifo_errors",
-+	"tx_heartbeat_errors",
-+	"tx_window_errors",
-+	"rx_compressed",
-+	"tc_compressed",
-+/*BE driver Stats */
-+	"bes_tx_reqs",
-+	"bes_tx_fails",
-+	"bes_fwd_reqs",
-+	"bes_tx_wrbs",
-+	"bes_interrupts",
-+	"bes_events",
-+	"bes_tx_events",
-+	"bes_ucrx_events",
-+	"bes_bcrx_events",
-+	"bes_tx_compl",
-+	"bes_ucrx_compl",
-+	"bes_bcrx_compl",
-+	"bes_ethrx_post_fail",
-+	"bes_802_3_dropped_frames",
-+	"bes_802_3_malformed_frames",
-+	"bes_rx_misc_pkts",
-+	"bes_eth_tx_rate",
-+	"bes_eth_rx_rate",
-+	"Num Packets collected",
-+	"Num Times Flushed",
-+};
-+
-+#define NET_DEV_STATS_LEN \
-+	(sizeof(struct net_device_stats)/sizeof(unsigned long))
-+#define BENET_STATS_LEN  sizeof(benet_gstrings_stats) / ETH_GSTRING_LEN
-+
-+static void
-+be_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
++BESTATUS bni_init(struct BE_CHIP_OBJECT *chipobj)
 +{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+
-+	strncpy(drvinfo->driver, be_driver_name, 32);
-+	strncpy(drvinfo->version, be_drvr_ver, 32);
-+	strncpy(drvinfo->fw_version, be_fw_ver, 32);
-+	strcpy(drvinfo->bus_info, pci_name(adapter->pdev));
-+	drvinfo->testinfo_len = 0;
-+	drvinfo->regdump_len = 0;
-+	drvinfo->eedump_len = 0;
++	int r;
++	r = be_initialize_library();
++	if (r != BE_SUCCESS)
++		goto error;
++	r = be_chip_object_create(chipobj);
++	if (r != BE_SUCCESS)
++		goto error;
++error:
++	return (r);
 +}
 +
-+static int
-+be_get_coalesce(struct net_device *netdev,
-+		struct ethtool_coalesce *coalesce)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
++/*!
++   This function initializes the data structures in BNI / BECLIB for network
++   operation.  The OSM driver must call this function before making any other
++   BNI call.
 +
-+	coalesce->rx_max_coalesced_frames = adapter->max_rx_coal;
-+
-+	coalesce->rx_coalesce_usecs = adapter->cur_eqd;
-+	coalesce->rx_coalesce_usecs_high = adapter->max_eqd;
-+	coalesce->rx_coalesce_usecs_low = adapter->min_eqd;
-+
-+	coalesce->tx_coalesce_usecs = adapter->cur_eqd;
-+	coalesce->tx_coalesce_usecs_high = adapter->max_eqd;
-+	coalesce->tx_coalesce_usecs_low = adapter->min_eqd;
-+
-+	coalesce->use_adaptive_rx_coalesce = adapter->enable_aic;
-+	coalesce->use_adaptive_tx_coalesce = adapter->enable_aic;
-+
-+	return 0;
-+}
-+
-+static int
-+be_set_coalesce(struct net_device *netdev,
-+		struct ethtool_coalesce *coalesce)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	u32 max, min, cur;
-+
-+	adapter->max_rx_coal = coalesce->rx_max_coalesced_frames;
-+	if (adapter->max_rx_coal < 0)
-+		adapter->max_rx_coal = 0;
-+	if (adapter->max_rx_coal >= BE_LRO_MAX_PKTS)
-+		adapter->max_rx_coal = BE_LRO_MAX_PKTS;
-+
-+	if (adapter->enable_aic == 0 &&
-+	    coalesce->use_adaptive_rx_coalesce == 1) {
-+		/* if AIC is being turned on now, start with an EQD of 0 */
-+		adapter->cur_eqd = 0;
-+	}
-+	adapter->enable_aic = coalesce->use_adaptive_rx_coalesce;
-+
-+	/* round off to nearest multiple of 8 */
-+	max = (((coalesce->rx_coalesce_usecs_high + 4) >> 3) << 3);
-+	min = (((coalesce->rx_coalesce_usecs_low + 4) >> 3) << 3);
-+	cur = (((coalesce->rx_coalesce_usecs + 4) >> 3) << 3);
-+
-+	if (adapter->enable_aic) {
-+		/* accept low and high if AIC is enabled */
-+		if (max > MAX_EQD)
-+			min = MAX_EQD;
-+		if (min > max)
-+			min = max;
-+		adapter->max_eqd = max;
-+		adapter->min_eqd = min;
-+		if (adapter->cur_eqd > max)
-+			adapter->cur_eqd = max;
-+		if (adapter->cur_eqd < min)
-+			adapter->cur_eqd = min;
-+	} else {
-+		/* accept specified coalesce_usecs only if AIC is disabled */
-+		if (cur > MAX_EQD)
-+			cur = MAX_EQD;
-+		if (bni_change_eqd(pnob, cur) == BE_SUCCESS)
-+			adapter->cur_eqd = cur;
-+	}
-+
-+	return 0;
-+}
-+
-+static u32 be_get_rx_csum(struct net_device *netdev)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	return adapter->rx_csum;
-+}
-+
-+static int be_set_rx_csum(struct net_device *netdev, uint32_t data)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	if (data)
-+		adapter->rx_csum = 1;
-+	else
-+		adapter->rx_csum = 0;
-+
-+	return 0;
-+}
-+
-+static void
-+be_get_strings(struct net_device *netdev, uint32_t stringset,
-+	       uint8_t *data)
-+{
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		memcpy(data, *benet_gstrings_stats,
-+		       sizeof(benet_gstrings_stats));
-+		break;
-+	}
-+}
-+
-+static int be_get_stats_count(struct net_device *netdev)
-+{
-+	return BENET_STATS_LEN;
-+}
-+
-+static void
-+be_get_ethtool_stats(struct net_device *netdev,
-+		     struct ethtool_stats *stats, uint64_t *data)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	int i;
-+
-+	data[0] = adapter->pdev->irq;
-+
-+	benet_get_stats(netdev);
-+
-+	for (i = 1; i <= NET_DEV_STATS_LEN; i++)
-+		data[i] = ((unsigned long *)&adapter->benet_stats)[i - 1];
-+
-+	data[i++] = adapter->be_stat.bes_tx_reqs;
-+	data[i++] = adapter->be_stat.bes_tx_fails;
-+	data[i++] = adapter->be_stat.bes_fwd_reqs;
-+	data[i++] = adapter->be_stat.bes_tx_wrbs;
-+
-+	data[i++] = adapter->be_stat.bes_ints;
-+	data[i++] = adapter->be_stat.bes_events;
-+	data[i++] = adapter->be_stat.bes_tx_events;
-+	data[i++] = adapter->be_stat.bes_ucrx_events;
-+	data[i++] = adapter->be_stat.bes_bcrx_events;
-+	data[i++] = adapter->be_stat.bes_tx_compl;
-+	data[i++] = adapter->be_stat.bes_ucrx_compl;
-+	data[i++] = adapter->be_stat.bes_bcrx_compl;
-+	data[i++] = adapter->be_stat.bes_ethrx_post_fail;
-+	data[i++] = adapter->be_stat.bes_802_3_dropped_frames;
-+	data[i++] = adapter->be_stat.bes_802_3_malformed_frames;
-+	data[i++] = adapter->be_stat.bes_rx_misc_pkts;
-+	data[i++] = adapter->be_stat.bes_eth_tx_rate;
-+	data[i++] = adapter->be_stat.bes_eth_rx_rate;
-+	data[i++] = adapter->be_stat.bes_rx_coal;
-+	data[i++] = adapter->be_stat.bes_rx_flush;
-+
-+}
-+
-+static int
-+be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+
-+	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
-+	ecmd->advertising = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
-+	ecmd->port = PORT_FIBRE;
-+	ecmd->transceiver = XCVR_EXTERNAL;
-+
-+	if (netif_carrier_ok(OSM_NOB(pnob)->os_handle)) {
-+		ecmd->speed = SPEED_10000;
-+		ecmd->duplex = DUPLEX_FULL;
-+	} else {
-+		ecmd->speed = -1;
-+		ecmd->duplex = -1;
-+	}
-+
-+	ecmd->autoneg = AUTONEG_DISABLE;
-+	return 0;
-+}
-+
-+/*Get the Ring parameters from the pnob */
-+static void
-+be_get_ringparam(struct net_device *netdev, struct ethtool_ringparam *ring)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+
-+	/*Pre Set Maxims */
-+	ring->rx_max_pending = pnob->rx_q_len;
-+	ring->rx_mini_max_pending = ring->rx_mini_max_pending;
-+	ring->rx_jumbo_max_pending = ring->rx_jumbo_max_pending;
-+	ring->tx_max_pending = pnob->tx_q_len;
-+
-+	/*Current hardware Settings                */
-+	ring->rx_pending = pnob->rx_q_posted;
-+	ring->rx_mini_pending = ring->rx_mini_pending;
-+	ring->rx_jumbo_pending = ring->rx_jumbo_pending;
-+	ring->tx_pending = pnob->tx_q_used;
-+
-+}
-+
-+static void
-+be_get_pauseparam(struct net_device *netdev,
-+		  struct ethtool_pauseparam *ecmd)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	bool rxfc = FALSE;
-+	bool txfc = FALSE;
-+	BESTATUS status;
-+	if (ecmd->cmd != ETHTOOL_GPAUSEPARAM)
-+		return;
-+
-+	status = bni_get_flow_ctl(&pnob->fn_obj, &txfc, &rxfc);
-+	if (status != BE_SUCCESS)
-+		printk(KERN_WARNING "Unable to get pause frame settings\n");
-+
-+	if (txfc == TRUE)
-+		ecmd->tx_pause = 1;
-+	else
-+		ecmd->tx_pause = 0;
-+
-+	if (rxfc == TRUE)
-+		ecmd->rx_pause = 1;
-+	else
-+		ecmd->rx_pause = 0;
-+
-+	/* Always setting autoneg to TRUE */
-+	ecmd->autoneg = 1;
-+
-+	return;
-+}
-+
-+static int
-+be_set_pauseparam(struct net_device *netdev,
-+		  struct ethtool_pauseparam *ecmd)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	bool txfc = FALSE;
-+	bool rxfc = FALSE;
-+	BESTATUS status;
-+
-+	if (ecmd->cmd != ETHTOOL_SPAUSEPARAM)
-+		return -EINVAL;
-+
-+	if (ecmd->tx_pause)
-+		txfc = TRUE;
-+	else
-+		txfc = FALSE;
-+
-+	if (ecmd->rx_pause)
-+		rxfc = TRUE;
-+	else
-+		rxfc = FALSE;
-+
-+	status = bni_set_flow_ctll(&pnob->fn_obj, txfc, rxfc);
-+	if (status != BE_SUCCESS)
-+		printk(KERN_ERR "Unable to set pause frame settings\n");
-+	return 0;
-+}
-+
-+struct ethtool_ops be_ethtool_ops = {
-+	.get_settings = be_get_settings,
-+	.get_drvinfo = be_get_drvinfo,
-+	.get_link = ethtool_op_get_link,
-+	.get_coalesce = be_get_coalesce,
-+	.set_coalesce = be_set_coalesce,
-+	.get_ringparam = be_get_ringparam,
-+	.get_pauseparam = be_get_pauseparam,
-+	.set_pauseparam = be_set_pauseparam,
-+	.get_rx_csum = be_get_rx_csum,	/*Yes */
-+	.set_rx_csum = be_set_rx_csum,
-+	.get_tx_csum = ethtool_op_get_tx_csum,	/*Yes */
-+	.set_tx_csum = ethtool_op_set_tx_csum,	/*Yes */
-+	.get_sg = ethtool_op_get_sg,	/*Yes */
-+	.set_sg = ethtool_op_set_sg,	/*Yes */
-+	.get_tso = ethtool_op_get_tso,
-+	.set_tso = ethtool_op_set_tso,
-+	.get_strings = be_get_strings,
-+	.get_stats_count = be_get_stats_count,
-+	.get_ethtool_stats = be_get_ethtool_stats,
-+};
-diff --git a/drivers/net/benet/be_int.c b/drivers/net/benet/be_int.c
-new file mode 100644
-index 0000000..4560d61
---- /dev/null
-+++ b/drivers/net/benet/be_int.c
-@@ -0,0 +1,893 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ *
++@param
++    chipobj        -  Pointer to the chip object passed as argument
++			to bni_init().
 + */
-+
-+#include <linux/pci.h>
-+#include <linux/if_vlan.h>
-+
-+#include <linux/inet_lro.h>
-+
-+#include "be.h"
-+
-+/* number of bytes of RX frame that are copied to skb->data */
-+#define BE_HDR_LEN 64
-+
-+#ifdef CONFIG_BENET_NAPI
-+#define VLAN_ACCEL_RX(skb, pnob, vt) \
-+		vlan_hwaccel_receive_skb(skb, OSM_NOB(pnob)->vlan_grp, vt);
-+#else
-+#define VLAN_ACCEL_RX(skb, pnob, vt) \
-+		vlan_hwaccel_rx(skb, OSM_NOB(pnob)->vlan_grp, vt);
-+#endif
-+
-+#ifdef CONFIG_BENET_NAPI
-+#define NETIF_RX(skb) netif_receive_skb(skb);
-+#else
-+#define NETIF_RX(skb) netif_rx(skb);
-+#endif
-+
-+/*
-+ * adds additional receive frags indicated by BE starting from given
-+ * frag index (fi) to specified skb's frag list
-+ */
-+static inline void
-+add_skb_frags(struct bni_net_object *pnob, struct sk_buff *skb,
-+		int nresid, u32 fi)
++void bni_cleanup(struct BE_CHIP_OBJECT *chipobj)
 +{
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	u32 sk_frag_idx, n;
-+	struct be_rx_page_info *rx_page_info;
-+	u32 frag_sz = pnob->rx_buf_size;
++	SA_ASSERT(chipobj);
 +
-+	sk_frag_idx = skb_shinfo(skb)->nr_frags;
-+	while (nresid) {
-+		fi = (fi + 1) % pnob->rx_q_len; /* frag index */
-+
-+		rx_page_info = (struct be_rx_page_info *) pnob->rx_ctxt[fi];
-+		pnob->rx_ctxt[fi] = (void *)NULL;
-+		if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+			pci_unmap_page(adapter->pdev,
-+				       pci_unmap_addr(rx_page_info, bus),
-+				       frag_sz, PCI_DMA_FROMDEVICE);
-+		}
-+
-+		n = MIN(nresid, frag_sz);
-+		skb_shinfo(skb)->frags[sk_frag_idx].page
-+		    = rx_page_info->page;
-+		skb_shinfo(skb)->frags[sk_frag_idx].page_offset
-+		    = rx_page_info->page_offset;
-+		skb_shinfo(skb)->frags[sk_frag_idx].size = n;
-+
-+		sk_frag_idx++;
-+		skb->len += n;
-+		skb->data_len += n;
-+		skb_shinfo(skb)->nr_frags++;
-+		nresid -= n;
-+
-+		memset(rx_page_info, 0, sizeof(struct be_rx_page_info));
-+		sa_atomic_decrement(&pnob->rx_q_posted);
-+	}
++	be_chip_object_destroy(chipobj);
 +}
 +
-+/*
-+ * This function processes incoming nic packets over various Rx queues.
-+ * This function takes the adapter, the current Rx status descriptor
-+ * entry and the Rx completion queue ID as argument.
-+ */
-+static inline int process_nic_rx_completion(struct bni_net_object *pnob,
-+					    struct ETH_RX_COMPL_AMAP *rxcp)
++/*!
++@brief
++    This function initializes the bni_net_object for subsequent
++    network operations. As part of the initialization, this function
++    registers this device with beclib and creates the
++    required set of queues (rings) that are needed to interact
++    with BaldeEngine as a network NIC device and registers them
++    with BladeEngine.
++
++    Before calling this function, the OSM driver  must have allocated
++    space for the NetObject structure, initialized the structure,
++    allocated DMAable memory for all the network queues that form
++    part of the NetObject and populated the start address (virtual)
++    and number of entries allocated for each queue in the NetObject structure.
++
++    The OSM driver must also have allocated memory to hold the
++    mailbox structure (MCC_MAILBOX) and post the physical address,
++    virtual addresses and the size of the mailbox memory in the
++    NetObj.mb_sgl.  This structure is used by BECLIB for
++    initial communication with the embedded MCC processor. BECLIB
++    uses the mailbox until MCC rings are created for  more  efficient
++    communication with the MCC processor.
++
++    If the OSM driver wants to create multiple network interface for more
++    than one protection domain, it can call bni_create_netobj()
++    multiple times  once for each protection domain.  A Maximum of
++    32 protection domains are supported.
++
++@param
++    pnob - Pointer to the NetObject structure
++    pbars         -  Pointer to the BAR address structure containing
++			the addresses assigned OS to various BARS of the
++			network PCI function of BladeEngine.
++
++    nbars         -  Number of BARs in the BAR structure.
++
++    sa_devp        -  Address of the space allocated for SA_DEVICE structure.
++			This structure is initialized by the BECLIB and is
++			opaque to the OSM drivers.
++
++    chipobj      -  Address of the space allocated by OSM for chip object
++			(struct BE_CHIP_OBJECT).  The space for this is
++			allocated by OSM, but this object is maintained
++			by BECLIB and is opaque to OSM.
++@return
++    BESTATUS - (0 if successful, non-zero status code if not successful)
++*/
++BESTATUS
++bni_create_netobj(struct bni_net_object *pnob,
++		struct SA_DEV_BAR_LOCATIONS *pbars, u32 nbars,
++		struct SA_DEV *sa_devp, struct BE_CHIP_OBJECT *chipobj)
 +{
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	struct sk_buff *skb;
-+	int udpcksm, tcpcksm;
-+	int n, fi;
-+	int nresid;
-+	unsigned int frag_sz = pnob->rx_buf_size;
-+	u8 *va;
-+	struct be_rx_page_info *rx_page_info;
-+	u32 numfrags, vtp, vtm, vlan_tag, pktsize;
-+
-+	fi  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, fragndx, rxcp);
-+	SA_ASSERT(fi < (int)pnob->rx_q_len);
-+	SA_ASSERT(fi >= 0);
-+
-+	rx_page_info = (struct be_rx_page_info *) pnob->rx_ctxt[fi];
-+	SA_ASSERT(rx_page_info->page);
-+	pnob->rx_ctxt[fi] = (void *)NULL;
-+
-+	/*
-+	 * If one page is used per fragment or if this is the second half of
-+	 *  of the page, unmap the page here
-+	 */
-+	if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+		pci_unmap_page(adapter->pdev,
-+			       pci_unmap_addr(rx_page_info, bus), frag_sz,
-+			       PCI_DMA_FROMDEVICE);
-+	}
-+
-+	sa_atomic_decrement(&pnob->rx_q_posted);
-+	udpcksm = AMAP_GET_BITS_PTR(ETH_RX_COMPL, udpcksm, rxcp);
-+	tcpcksm = AMAP_GET_BITS_PTR(ETH_RX_COMPL, tcpcksm, rxcp);
-+	pktsize = AMAP_GET_BITS_PTR(ETH_RX_COMPL, pktsize, rxcp);
-+	/*
-+	 * get rid of RX flush completions first.
-+	 */
-+	if ((tcpcksm) && (udpcksm) && (pktsize == 32)) {
-+		put_page(rx_page_info->page);
-+		memset(rx_page_info, 0, sizeof(struct be_rx_page_info));
-+		return 0;
-+	}
-+	skb = alloc_skb(BE_HDR_LEN + 16, GFP_ATOMIC);
-+	if (skb == NULL) {
-+		printk(KERN_WARNING "alloc_skb() failed\n");
-+		put_page(rx_page_info->page);
-+		memset(rx_page_info, 0, sizeof(struct be_rx_page_info));
-+		goto free_frags;
-+	}
-+	skb_reserve(skb, NET_IP_ALIGN);
-+
-+	skb->dev = OSM_NOB(pnob)->os_handle;
-+
-+	n = MIN(pktsize, frag_sz);
-+
-+	va = page_address(rx_page_info->page) + rx_page_info->page_offset;
-+	prefetch(va);
-+
-+	skb->len = skb->data_len = n;
-+	if (n <= BE_HDR_LEN) {
-+		memcpy(skb->data, va, n);
-+		put_page(rx_page_info->page);
-+		skb->data_len -= n;
-+		skb->tail += n;
-+	} else {
-+
-+		/* Setup the SKB with page buffer information */
-+		skb_shinfo(skb)->frags[0].page = rx_page_info->page;
-+		skb_shinfo(skb)->nr_frags++;
-+
-+		/* Copy the header into the skb_data */
-+		memcpy(skb->data, va, BE_HDR_LEN);
-+		skb_shinfo(skb)->frags[0].page_offset =
-+		    rx_page_info->page_offset + BE_HDR_LEN;
-+		skb_shinfo(skb)->frags[0].size = n - BE_HDR_LEN;
-+		skb->data_len -= BE_HDR_LEN;
-+		skb->tail += BE_HDR_LEN;
-+	}
-+	memset(rx_page_info, 0, sizeof(struct be_rx_page_info));
-+	nresid = pktsize - n;
-+
-+	skb->protocol = eth_type_trans(skb, OSM_NOB(pnob)->os_handle);
-+
-+	if ((tcpcksm || udpcksm) && adapter->rx_csum)
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	else
-+		skb->ip_summed = CHECKSUM_NONE;
-+	/*
-+	 * if we have more bytes left, the frame has been
-+	 * given to us in multiple fragments.  This happens
-+	 * with Jumbo frames. Add the remaining fragments to
-+	 * skb->frags[] array.
-+	 */
-+	if (nresid)
-+		add_skb_frags(pnob, skb, nresid, fi);
-+
-+	/* update the the true size of the skb. */
-+	skb->truesize = skb->len + sizeof(struct sk_buff);
-+
-+	/*
-+	 * If a 802.3 frame or 802.2 LLC frame
-+	 * (i.e) contains length field in MAC Hdr
-+	 * and frame len is greater than 64 bytes
-+	 */
-+	if (((skb->protocol == ntohs(ETH_P_802_2)) ||
-+	     (skb->protocol == ntohs(ETH_P_802_3)))
-+	    && (pktsize > BE_HDR_LEN)) {
-+		/*
-+		 * If the length given in Mac Hdr is less than frame size
-+		 * Erraneous frame, Drop it
-+		 */
-+		if ((ntohs(*(u16 *) (va + 12)) + ETH_HLEN) < pktsize) {
-+			/* Increment Non Ether type II frames dropped */
-+			adapter->be_stat.bes_802_3_dropped_frames++;
-+
-+			kfree_skb(skb);
-+			return 0;
-+		}
-+		/*
-+		 * else if the length given in Mac Hdr is greater than
-+		 * frame size, should not be seeing this sort of frames
-+		 * dump the pkt and pass to stack
-+		 */
-+		else if ((ntohs(*(u16 *) (va + 12)) + ETH_HLEN) > pktsize) {
-+			/* Increment Non Ether type II frames malformed */
-+			adapter->be_stat.bes_802_3_malformed_frames++;
-+		}
-+	}
-+
-+	vtp  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, vtp, rxcp);
-+	vtm  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, vtm, rxcp);
-+	if (vtp && vtm) {
-+		/* Vlan tag present in pkt and BE found
-+		 * that the tag matched an entry in VLAN table
-+		 */
-+		if (!(OSM_NOB(pnob)->vlan_grp) ||
-+				OSM_NOB(pnob)->num_vlans == 0) {
-+			/* But we have no VLANs configured.
-+			 * This should never happen.  Drop the packet.
-+			 */
-+			printk(KERN_ERR
-+				"BladeEngine: Unexpected vlan tagged packet\n");
-+			kfree_skb(skb);
-+			return 0;
-+		}
-+		/* pass the VLAN packet to stack */
-+		vlan_tag  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, vlan_tag, rxcp);
-+		VLAN_ACCEL_RX(skb, pnob, be16_to_cpu(vlan_tag));
-+
-+	} else {
-+		NETIF_RX(skb);
-+	}
-+
-+	return 0;
-+free_frags:
-+	/* free all frags associated with the current rxcp */
-+	numfrags  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, numfrags, rxcp);
-+	while (numfrags-- > 1) {
-+		fi = (fi + 1) % pnob->rx_q_len;
-+
-+		rx_page_info = (struct be_rx_page_info *)
-+		    pnob->rx_ctxt[fi];
-+		pnob->rx_ctxt[fi] = (void *)NULL;
-+		if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+			pci_unmap_page(adapter->pdev,
-+				       pci_unmap_addr(rx_page_info, bus),
-+				       frag_sz, PCI_DMA_FROMDEVICE);
-+		}
-+
-+		put_page(rx_page_info->page);
-+		memset(rx_page_info, 0, sizeof(struct be_rx_page_info));
-+		sa_atomic_decrement(&pnob->rx_q_posted);
-+	}
-+	return -ENOMEM;
-+}
-+
-+
-+/*
-+ * Process unicast completions
-+ */
-+static void process_ucast_rx_completion(struct bni_net_object *pnob)
-+{
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	struct ETH_RX_COMPL_AMAP *rxcp;
-+	u32 nc = 0;
-+	unsigned int pktsize;
-+#ifdef CONFIG_INET_LRO
-+	struct skb_frag_struct rx_frags[BE_MAX_FRAGS_PER_FRAME];
-+	unsigned int udpcksm, tcpcksm;
-+	u32 numfrags, vlanf, vtm, vlan_tag, nresid;
-+	u16 vlant;
-+	unsigned int fi, idx, n;
-+	struct be_rx_page_info *rx_page_info;
-+	unsigned int frag_sz = pnob->rx_buf_size;
-+	bool rx_coal = (adapter->max_rx_coal <= 1) ? 0 : 1;
-+	u8 err, *va;
-+	__wsum csum = 0;
-+#endif
-+	int rearm = 1;
-+
-+#ifdef CONFIG_BENET_NAPI
-+	if (OSM_NOB(pnob)->work_quota == 0)
-+		/*
-+		 * We were called from process_events without quota
-+		 * because the device is not open yet.  Give ourselves
-+		 * a large quota.
-+		 */
-+		OSM_NOB(pnob)->work_quota = 128;
-+	while ((OSM_NOB(pnob)->work_quota) &&
-+	       (rxcp = bni_get_ucrx_cmpl(pnob)))
-+#else
-+	while ((rxcp = bni_get_ucrx_cmpl(pnob)))
-+#endif
-+	{
-+		prefetch(rxcp);
-+		pktsize  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, pktsize, rxcp);
-+#ifdef CONFIG_INET_LRO
-+		if (AMAP_GET_BITS_PTR(ETH_RX_COMPL, ipsec, rxcp)) {
-+			/*
-+			 * Drop the pkt and move to the next completion.
-+			 */
-+			adapter->be_stat.bes_rx_misc_pkts++;
-+			goto next_compl;
-+		}
-+		err  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, err, rxcp);
-+		if (err || !rx_coal) {
-+			/*
-+			 * We won't coalesce Rx pkts
-+			 * if they have the err bit set.
-+			 * take the path of normal completion processing
-+			 */
-+			process_nic_rx_completion(pnob, rxcp);
-+			goto next_compl;
-+		}
-+
-+		fi  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, fragndx, rxcp);
-+		SA_ASSERT(fi < (int)pnob->rx_q_len);
-+		SA_ASSERT(fi >= 0);
-+		rx_page_info = (struct be_rx_page_info *)
-+		    pnob->rx_ctxt[fi];
-+		SA_ASSERT(rx_page_info);
-+		SA_ASSERT(rx_page_info->page);
-+		pnob->rx_ctxt[fi] = (void *)NULL;
-+		/*
-+		 * If one page is used per fragment or if this is the
-+		 * second half of the page, unmap the page here
-+		 */
-+		if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+			pci_unmap_page(adapter->pdev,
-+				       pci_unmap_addr(rx_page_info, bus),
-+				       frag_sz, PCI_DMA_FROMDEVICE);
-+		}
-+
-+		numfrags  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, numfrags, rxcp);
-+		udpcksm  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, udpcksm, rxcp);
-+		tcpcksm  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, tcpcksm, rxcp);
-+		vlan_tag  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, vlan_tag, rxcp);
-+		vlant = be16_to_cpu(vlan_tag);
-+		vlanf  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, vtp, rxcp);
-+		vtm  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, vtm, rxcp);
-+
-+		sa_atomic_decrement(&pnob->rx_q_posted);
-+
-+		if (tcpcksm && udpcksm && pktsize == 32) {
-+			/* flush completion entries */
-+			put_page(rx_page_info->page);
-+			memset(rx_page_info, 0, sizeof(struct be_rx_page_info));
-+			goto next_compl;
-+		}
-+		/* Only one of udpcksum and tcpcksum can be set */
-+		SA_ASSERT(!(udpcksm && tcpcksm));
-+
-+		/* jumbo frames could come in multiple fragments */
-+		SA_ASSERT(numfrags == ((pktsize + (frag_sz - 1)) / frag_sz));
-+		n = MIN(pktsize, frag_sz);
-+		nresid = pktsize - n;	/* will be useful for jumbo pkts */
-+		idx = 0;
-+
-+		va = page_address(rx_page_info->page) +
-+					rx_page_info->page_offset;
-+		prefetch(va);
-+
-+		rx_frags[idx].page = rx_page_info->page;
-+		rx_frags[idx].page_offset = (rx_page_info->page_offset);
-+		rx_frags[idx].size = n;
-+		memset(rx_page_info, 0, sizeof(struct be_rx_page_info));
-+
-+		/*
-+		 * If we got multiple fragments, we have more data.
-+		 */
-+		while (nresid) {
-+			idx++;
-+			fi = (fi + 1) % pnob->rx_q_len; /* Update frag index */
-+
-+			rx_page_info =
-+				(struct be_rx_page_info *) pnob->rx_ctxt[fi];
-+			pnob->rx_ctxt[fi] = (void *)NULL;
-+			if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+				pci_unmap_page(adapter->pdev,
-+				       pci_unmap_addr(rx_page_info, bus),
-+				       frag_sz, PCI_DMA_FROMDEVICE);
-+			}
-+
-+			n = MIN(nresid, frag_sz);
-+
-+			rx_frags[idx].page = rx_page_info->page;
-+			rx_frags[idx].page_offset = (rx_page_info->page_offset);
-+			rx_frags[idx].size = n;
-+
-+			nresid -= n;
-+
-+			memset(rx_page_info, 0, sizeof(struct be_rx_page_info));
-+			sa_atomic_decrement(&pnob->rx_q_posted);
-+		}
-+
-+		if (likely(!(vlanf && vtm))) {
-+			lro_receive_frags(&OSM_NOB(pnob)->lro_mgr, rx_frags,
-+						pktsize, pktsize,
-+						(void *)(unsigned long)csum,
-+						csum);
-+		} else {
-+			/* Vlan tag present in pkt and BE found
-+			 * that the tag matched an entry in VLAN table
-+			 */
-+			if (unlikely(!(OSM_NOB(pnob)->vlan_grp) ||
-+				OSM_NOB(pnob)->num_vlans == 0)) {
-+				/* But we have no VLANs configured.
-+				 * This should never happen.  Drop the packet.
-+				 */
-+				printk(KERN_ERR "BladeEngine: Unexpected" \
-+					" vlan tagged packet\n");
-+				goto next_compl;
-+			}
-+			/* pass the VLAN packet to stack */
-+			lro_vlan_hwaccel_receive_frags(&OSM_NOB(pnob)->lro_mgr,
-+						rx_frags, pktsize, pktsize,
-+						OSM_NOB(pnob)->vlan_grp, vlant,
-+						(void *)(unsigned long)csum,
-+						csum);
-+		}
-+
-+		adapter->be_stat.bes_rx_coal++;
-+next_compl:
-+#else
-+		process_nic_rx_completion(pnob, rxcp);
-+#endif
-+		adapter->eth_rx_bytes += pktsize;
-+		/*
-+		 * RX rate calculation.
-+		 */
-+		update_rx_rate(adapter);
-+		nc++;	/* number of cq entries that we have processed */
-+		adapter->be_stat.bes_ucrx_compl++;
-+#ifdef CONFIG_BENET_NAPI
-+		OSM_NOB(pnob)->work_quota--;
-+#endif
-+	}
-+#ifdef CONFIG_INET_LRO
-+	if (likely(rx_coal)) {
-+		adapter->be_stat.bes_rx_flush++;
-+		lro_flush_all(&OSM_NOB(pnob)->lro_mgr);
-+	}
-+#endif
-+#ifdef CONFIG_BENET_NAPI
-+	if (OSM_NOB(pnob)->work_quota == 0) {
-+		/* we ran out of work budget */
-+		rearm = 0;
-+	} else {
-+		/* we finished all work.  We are  in interrupt mode */
-+		rearm = 1;
-+	}
-+#endif
-+	/*
-+	 * we call notfiy completions even when nc is zero, since
-+	 * rearm value needs to take effect
-+	 */
-+	bni_notify_cmpl(pnob, nc, pnob->ucrx_cq_id, rearm);
-+}
-+
-+/*
-+ * Process broadcast and multicat completions
-+ */
-+static void process_bcast_rx_completion(struct bni_net_object *pnob)
-+{
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	struct ETH_RX_COMPL_AMAP *rxcp;
-+
-+	u32 nc = 0;
-+
-+	adapter->be_stat.bes_bcrx_events++;
-+
-+	nc = 0;
-+	while ((rxcp = (bni_get_bcrx_cmpl(pnob)))) {
-+		process_nic_rx_completion(pnob, rxcp);
-+		nc++;
-+		adapter->be_stat.bes_bcrx_compl++;
-+	}
-+	bni_notify_cmpl(pnob, nc, pnob->bcrx_cq_id, 1);
-+
-+}
-+
-+/* Process NIC TX COMPLETIONS */
-+static void process_nic_tx_completions(struct bni_net_object *pnob)
-+{
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	struct ETH_TX_COMPL_AMAP *txcp;	/* Eth Tx completion entry  */
-+	struct net_device *netdev = (struct net_device *)
-+	    OSM_NOB(pnob)->os_handle;
-+	int num_processed = 0, cur_index, tx_wrbs_completed = 0, exp_index;
-+	struct sk_buff *skb;
-+	u64 busaddr, pa, pa_lo, pa_hi;
-+	struct ETH_WRB_AMAP *curr_wrb;
-+	u32 frag_len, wrb_index;
-+
-+	adapter->be_stat.bes_tx_events++;
-+	/*
-+	 * there is no need to take an SMP lock here since currently
-+	 * we have only one instance of the tasklet that does completion
-+	 * processing.
-+	 */
-+
-+	/* process each valid completion entry */
-+	while ((txcp = bni_get_tx_cmpl(pnob))) {
-+		/* Get the expected completion index */
-+		exp_index = (pnob->tx_q_tl +
-+			     ((int)pnob->tx_ctxt[pnob->tx_q_tl] - 1))
-+				    % pnob->tx_q_len;
-+		pnob->tx_ctxt[pnob->tx_q_tl] = NULL;
-+		wrb_index = AMAP_GET_BITS_PTR(ETH_TX_COMPL, wrb_index, txcp);
-+		if (exp_index != wrb_index) {
-+			printk(KERN_ERR "Expected Wrb Index (=%d) does not"
-+				"match with completion Wrb Index (=%d)\n",
-+				exp_index, wrb_index);
-+		}
-+		/*
-+		 * All reqs in the TX ring from the current tail index upto
-+		 * the one indicated in this completion entry's wrb_index
-+		 * are now completed.
-+		 */
-+		do {
-+			cur_index = pnob->tx_q_tl;
-+
-+			curr_wrb = &pnob->tx_q[cur_index];
-+			pa_hi = AMAP_GET_BITS_PTR(ETH_WRB, frag_pa_hi,
-+						curr_wrb);
-+			pa_lo = AMAP_GET_BITS_PTR(ETH_WRB, frag_pa_lo,
-+						curr_wrb);
-+			frag_len = AMAP_GET_BITS_PTR(ETH_WRB, frag_len,
-+						curr_wrb);
-+			busaddr = (pa_hi << 32) | pa_lo;
-+			if (busaddr != 0) {
-+				pa = le64_to_cpu(busaddr);
-+				pci_unmap_single(adapter->pdev, pa,
-+					 frag_len, PCI_DMA_TODEVICE);
-+			}
-+			/*
-+			 * this Tx request is complete.  The OSM context
-+			 * we stored is the skb address. free  this skb.
-+			 */
-+			skb = (struct sk_buff *) pnob->tx_ctxt[cur_index];
-+			if (skb) {
-+				unsigned int j;
-+
-+				for (j = 0; j < skb_shinfo(skb)->nr_frags;
-+				     j++) {
-+					struct skb_frag_struct *frag;
-+					frag = &skb_shinfo(skb)->frags[j];
-+					pci_unmap_page(adapter->pdev,
-+						       (ulong) frag->page,
-+						       frag->size,
-+						       PCI_DMA_TODEVICE);
-+				}
-+				kfree_skb(skb);
-+				pnob->tx_ctxt[cur_index] = NULL;
-+			}
-+
-+			tx_wrbs_completed++;
-+			bni_adv_txq_tl(pnob);
-+		} while (cur_index != wrb_index);
-+
-+		num_processed++;
-+		adapter->be_stat.bes_tx_compl++;
-+	}
-+	sa_atomic_sub(tx_wrbs_completed, &pnob->tx_q_used);
-+	bni_notify_cmpl(pnob, num_processed, pnob->tx_cq_id, 1);
-+	/*
-+	 * We got Tx completions and have usable WRBs.
-+	 * If the netdev's queue has been stopped
-+	 * because we had run out of WRBs, wake it now.
-+	 */
-+	spin_lock(&adapter->txq_lock);
-+	if (netif_queue_stopped(netdev)
-+	    && (pnob->tx_q_used < pnob->tx_q_len / 2)) {
-+		netif_wake_queue(netdev);
-+	}
-+	spin_unlock(&adapter->txq_lock);
-+}
-+
-+/*
-+ * posts receive buffers to the Eth receive queue.
-+ */
-+void post_eth_rx_buffs(struct bni_net_object *pnob)
-+{
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	u32 num_bufs, r;
-+	u64 busaddr = 0, tmp_pa;
-+	u32 max_bufs, pg_hd;
-+	u32 frag_size;
-+	struct BNI_RECV_BUFFER *rxbp;
-+	SA_LIST_ENTRY rxbl;
-+	struct be_rx_page_info *rx_page_info;
-+	struct page *page = NULL;
-+	u32 page_order = 0;
-+	gfp_t alloc_flags = (gfp_t)GFP_ATOMIC;
-+
-+	SA_ASSERT(adapter);
-+
-+	max_bufs = (u32) 64;	/* should be even # <= 255. */
-+	SA_ASSERT(max_bufs < 255 && (max_bufs & 1) == 0);
-+
-+	frag_size = pnob->rx_buf_size;
-+
-+	if (frag_size == 8192) {
-+		page_order = 1;
-+		alloc_flags |= (gfp_t)__GFP_COMP;
-+	}
-+
-+	/*
-+	 * Form a linked list of RECV_BUFFFER structure to be be posted.
-+	 * We will post even number of buffer so that pages can be
-+	 * shared.
-+	 */
-+	sa_initialize_list_head(&rxbl);
-+
-+	for (num_bufs = 0; num_bufs < max_bufs; ++num_bufs) {
-+
-+		rxbp = &(OSM_NOB(pnob)->eth_rx_bufs[num_bufs]);
-+		pg_hd = OSM_NOB(pnob)->rx_pg_info_hd;
-+		rx_page_info = &OSM_NOB(pnob)->rx_page_info[pg_hd];
-+
-+		if (!page) {
-+			/*
-+			 * before we allocate a page make sure that we
-+			 * have space in the RX queue to post the buffer.
-+			 * We check for two vacant slots since with
-+			 * 2K frags, we will need two slots.
-+			 */
-+			if ((pnob->rx_ctxt[(pnob->rx_q_hd +
-+				      num_bufs) % pnob->rx_q_len] != NULL)
-+			    || (pnob->rx_ctxt[(pnob->rx_q_hd + num_bufs + 1) %
-+				    pnob->rx_q_len] != NULL)) {
-+				break;
-+			}
-+			page = alloc_pages(alloc_flags, page_order);
-+			if (unlikely(page == NULL)) {
-+				adapter->be_stat.bes_ethrx_post_fail++;
-+				OSM_NOB(pnob)->rxbuf_post_fail++;
-+				break;
-+			}
-+			OSM_NOB(pnob)->rxbuf_post_fail = 0;
-+			busaddr = pci_map_page(adapter->pdev, page, 0,
-+						  frag_size,
-+						  PCI_DMA_FROMDEVICE);
-+			rx_page_info->page_offset = 0;
-+			rx_page_info->page = page;
-+			/*
-+			 * If we are sharing a page among two skbs,
-+			 * alloc a new one on the next iteration
-+			 */
-+			if (OSM_NOB(pnob)->rx_pg_shared == FALSE)
-+				page = NULL;
-+		} else {
-+			get_page(page);
-+			rx_page_info->page_offset += frag_size;
-+			rx_page_info->page = page;
-+			/*
-+			 * We are finished with the alloced page,
-+			 * Alloc a new one on the next iteration
-+			 */
-+			page = NULL;
-+		}
-+		rxbp->rxb_ctxt = (void *)rx_page_info;
-+		OSM_NOB(pnob)->rx_pg_info_hd =
-+		    (OSM_NOB(pnob)->rx_pg_info_hd + 1) % pnob->rx_q_len;
-+
-+		pci_unmap_addr_set(rx_page_info, bus, busaddr);
-+		tmp_pa = busaddr + rx_page_info->page_offset;
-+		rxbp->rxb_pa_lo = (tmp_pa & 0xFFFFFFFF);
-+		rxbp->rxb_pa_hi = (tmp_pa >> 32);
-+		rxbp->rxb_len = frag_size;
-+		InsertTailList(&rxbl, &rxbp->rxb_list);
-+	}			/* End of for */
-+
-+	r = bni_post_rx_buffs(pnob, &rxbl);
-+	SA_ASSERT(r == num_bufs);
-+	return;
-+}
-+
-+/*
-+ * Interrupt service for network function.  We just schedule the
-+ * tasklet which does all completion processing.
-+ */
-+irqreturn_t be_int(int irq, void *dev, struct pt_regs *regs)
-+{
-+	struct net_device *netdev = dev;
-+	struct bni_net_object *pnob = (struct bni_net_object *) (netdev->priv);
-+	struct be_adapter *adapter = (struct be_adapter *)
-+					OSM_NOB(pnob)->adapter;
-+	u32 isr;
-+
-+	/*
-+	 * If not our interrupt, just return.
-+	 */
-+	isr = bni_get_isr(pnob);
-+	if (unlikely(!isr))
-+		return 0;
-+
-+	spin_lock(&adapter->int_lock);
-+	adapter->isr |= isr;
-+	spin_unlock(&adapter->int_lock);
-+
-+	adapter->be_stat.bes_ints++;
-+
-+	tasklet_schedule(&adapter->sts_handler);
-+	return 1;
-+}
-+
-+#ifdef CONFIG_BENET_NAPI
-+/*
-+ * Poll function called by NAPI with a work budget.
-+ * We process as many UC. BC and MC receive completions
-+ * as the budget allows and return the actual number of
-+ * RX ststutses processed.
-+ */
-+int be_poll(struct napi_struct *napi, int budget)
-+{
-+	struct net_device *netdev = napi->dev;
-+	struct bni_net_object *pnob = (struct bni_net_object *) netdev->priv;
-+	struct be_adapter *adapter = (struct be_adapter *)
-+						OSM_NOB(pnob)->adapter;
-+	u32 work_done;
-+
-+	adapter->be_stat.bes_polls++;
-+	OSM_NOB(pnob)->work_quota = budget;
-+	process_ucast_rx_completion(pnob);
-+	process_bcast_rx_completion(pnob);
-+	if (pnob->rx_q_posted < 900)
-+		post_eth_rx_buffs(pnob);
-+
-+	work_done = (budget - OSM_NOB(pnob)->work_quota);
-+
-+	if (OSM_NOB(pnob)->work_quota == 0)
-+		return budget;
-+	netif_rx_complete(netdev, napi);
-+
-+	/* If another rx was attempted while we were in poll, schedule again */
-+	spin_lock_bh(&OSM_NOB(pnob)->rx_lock);
-+	if (OSM_NOB(pnob)->rx_sched) {
-+		OSM_NOB(pnob)->rx_sched = FALSE;
-+		if (netif_rx_schedule_prep(netdev, napi))
-+			__netif_rx_schedule(netdev, napi);
-+	}
-+	spin_unlock_bh(&OSM_NOB(pnob)->rx_lock);
-+	return (budget - OSM_NOB(pnob)->work_quota);
-+}
-+
-+#define SCHEDULE_NAPI_RX(no, nd) 				\
-+		{						\
-+			spin_lock_bh(&OSM_NOB(no)->rx_lock);	\
-+			if (netif_rx_schedule_prep(nd, 		\
-+					&OSM_NOB(no)->napi)) {	\
-+				__netif_rx_schedule(nd, 	\
-+					&OSM_NOB(no)->napi);	\
-+				OSM_NOB(no)->rx_sched = FALSE; 	\
-+			}					\
-+			else {					\
-+				OSM_NOB(no)->rx_sched = TRUE;	\
-+			}					\
-+			spin_unlock_bh(&OSM_NOB(no)->rx_lock);	\
-+		}
-+#endif
-+
-+/*
-+ * Processes all valid events in the event ring associated with given
-+ * NetObject.  Also, notifies BE the number of events processed.
-+ */
-+static inline u32 process_events(struct bni_net_object *pnob)
-+{
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	struct EQ_ENTRY_AMAP *eqp;
-+	u32 rid, num_events = 0;
-+
-+#ifdef CONFIG_BENET_NAPI
-+	struct net_device *netdev = OSM_NOB(pnob)->os_handle;
-+#endif
-+
-+	while ((eqp = bni_get_event(pnob)) != NULL) {
-+		adapter->be_stat.bes_events++;
-+		rid = AMAP_GET_BITS_PTR(EQ_ENTRY, ResourceID, eqp);
-+
-+		if (rid == pnob->ucrx_cq_id) {
-+			adapter->be_stat.bes_ucrx_events++;
-+#ifdef CONFIG_BENET_NAPI
-+			if (adapter->dev_state == BE_DEV_STATE_OPEN)
-+				SCHEDULE_NAPI_RX(pnob, netdev)
-+			else
-+#endif
-+				process_ucast_rx_completion(pnob);
-+		} else if (rid == pnob->bcrx_cq_id) {
-+			adapter->be_stat.bes_bcrx_events++;
-+#ifdef CONFIG_BENET_NAPI
-+			if (adapter->dev_state == BE_DEV_STATE_OPEN)
-+				SCHEDULE_NAPI_RX(pnob, netdev)
-+			else
-+#endif
-+				process_bcast_rx_completion(pnob);
-+		} else if (rid == pnob->tx_cq_id) {
-+			process_nic_tx_completions(pnob);
-+		} else if (rid == pnob->mcc_cq_id) {
-+			bni_process_mcc_cmpl(&pnob->mcc_q_obj);
-+		} else {
-+			printk("Invalid EQ ResourceID %d\n", rid);
-+		}
-+		AMAP_SET_BITS_PTR(EQ_ENTRY, Valid, eqp, 0);
-+		AMAP_SET_BITS_PTR(EQ_ENTRY, ResourceID, eqp, 0);
-+		num_events++;
-+	}
-+	return (num_events);
-+}
-+
-+/*
-+ * Called from the tasklet scheduled by ISR.  All real interrupt processing
-+ * is done here.
-+ */
-+void osm_process_sts(unsigned long context)
-+{
-+	struct be_adapter *adapter = (struct be_adapter *) context;
-+	struct bni_net_object *pnob;
-+	u32 isr, n;
-+	ulong flags = 0;
-+
-+	SA_ASSERT(adapter);
-+
-+	isr = adapter->isr;
-+
-+	/*
-+	 * we create only one NIC event queue in Linux. Event is
-+	 * expected only in the first event queue
-+	 */
-+	SA_ASSERT((isr & 0xfffffffe) == 0)
-+	if ((isr & 1) == 0)
-+		return;		/* not our interrupt */
-+	pnob = adapter->net_obj;
-+	n = process_events(pnob);
-+	/*
-+	 * Clear the event bit. adapter->isr is  set by
-+	 * hard interrupt.  Prevent race with lock.
-+	 */
-+	spin_lock_irqsave(&adapter->int_lock, flags);
-+	adapter->isr &= ~1;
-+	spin_unlock_irqrestore(&adapter->int_lock, flags);
-+	bni_notify_event(pnob, n, 1);
-+
-+#ifdef CONFIG_BENET_NAPI
-+	/*
-+	 * In NAPI, posting of rx bufs is normally done
-+	 * in poll. However, if the device is not open
-+	 * or if previous allocation attempts had failed and
-+	 * BE has used up all posted buffers, we need to
-+	 * post here, since be_poll may never be called.
-+	 */
-+	if ((adapter->dev_state != BE_DEV_STATE_OPEN &&
-+		pnob->rx_q_posted < 900) ||
-+	    ((OSM_NOB(pnob)->rxbuf_post_fail) && (pnob->rx_q_posted == 0))) {
-+		post_eth_rx_buffs(pnob);
-+	}
-+#else
-+	if (pnob->rx_q_posted < 900)
-+		post_eth_rx_buffs(pnob);
-+#endif
-+	update_eqd(adapter, pnob);
-+	return;
-+}
-diff --git a/drivers/net/benet/be_netif.c b/drivers/net/benet/be_netif.c
-new file mode 100644
-index 0000000..881aa82
---- /dev/null
-+++ b/drivers/net/benet/be_netif.c
-@@ -0,0 +1,721 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ *
-+ */
-+/*
-+ * be_netif.c
-+ *
-+ * This file contains various entry points of drivers seen by tcp/ip stack.
-+ */
-+
-+#include <linux/pci.h>
-+#include <linux/if_vlan.h>
-+#include <linux/in.h>
-+#include "be.h"
-+#include <linux/ip.h>
-+#include <linux/inet_lro.h>
-+
-+/* Strings to print Link properties */
-+static char *link_speed[] = {
-+	"Invalid link Speed Value",
-+	"10 Mbps",
-+	"100 Mbps",
-+	"1 Gbps",
-+	"10 Gbps"
-+};
-+
-+static char *link_duplex[] = {
-+	"Invalid Duplex Value",
-+	"Half Duplex",
-+	"Full Duplex"
-+};
-+
-+static char *link_state[] = {
-+	"",
-+	"(active)"
-+};
-+
-+
-+void be_print_link_info(struct BE_LINK_STATUS *lnk_status)
-+{
-+	u16 si, di, ai;
-+
-+	/* Port 0 */
-+	if (lnk_status->mac0_speed && lnk_status->mac0_duplex) {
-+		/* Port is up and running */
-+		si = (lnk_status->mac0_speed < 5) ?
-+			lnk_status->mac0_speed : 0;
-+		di = (lnk_status->mac0_duplex < 3) ?
-+			lnk_status->mac0_duplex : 0;
-+		ai = (lnk_status->active_port == 0) ?  1 : 0;
-+		printk(KERN_INFO "PortNo. 0: Speed - %s %s %s\n",
-+			link_speed[si], link_duplex[di], link_state[ai]);
-+	} else
-+		printk(KERN_INFO "PortNo. 0: Down\n");
-+
-+	/* Port 1 */
-+	if (lnk_status->mac1_speed && lnk_status->mac1_duplex) {
-+		/* Port is up and running */
-+		si = (lnk_status->mac1_speed < 5) ?
-+			lnk_status->mac1_speed : 0;
-+		di = (lnk_status->mac1_duplex < 3) ?
-+			lnk_status->mac1_duplex : 0;
-+		ai = (lnk_status->active_port == 0) ?  1 : 0;
-+		printk(KERN_INFO "PortNo. 1: Speed - %s %s %s\n",
-+			link_speed[si], link_duplex[di], link_state[ai]);
-+	} else
-+		printk(KERN_INFO "PortNo. 1: Down\n");
-+
-+	return;
-+}
-+
-+#ifdef CONFIG_INET_LRO
-+static int
-+be_get_frag_header(struct skb_frag_struct *frag, void **mac_hdr,
-+			 void **ip_hdr, void **tcpudp_hdr,
-+			 u64 *hdr_flags, void *priv)
-+{
-+	struct ethhdr *eh;
-+	struct vlan_ethhdr *veh;
-+	struct iphdr *iph;
-+	u8 *va = page_address(frag->page) + frag->page_offset;
-+	unsigned long ll_hlen;
-+
-+	/* find the mac header, abort if not IPv4 */
-+
-+	prefetch(va);
-+	eh = (struct ethhdr *)va;
-+	*mac_hdr = eh;
-+	ll_hlen = ETH_HLEN;
-+	if (eh->h_proto != htons(ETH_P_IP)) {
-+		if (eh->h_proto == htons(ETH_P_8021Q)) {
-+			veh = (struct vlan_ethhdr *)va;
-+			if (veh->h_vlan_encapsulated_proto != htons(ETH_P_IP))
-+				return -1;
-+
-+			ll_hlen += VLAN_HLEN;
-+
-+		} else {
-+			return -1;
-+		}
-+	}
-+	*hdr_flags = LRO_IPV4;
-+
-+	iph = (struct iphdr *)(va + ll_hlen);
-+	*ip_hdr = iph;
-+	if (iph->protocol != IPPROTO_TCP)
-+		return -1;
-+	*hdr_flags |= LRO_TCP;
-+	*tcpudp_hdr = (u8 *) (*ip_hdr) + (iph->ihl << 2);
-+
-+	return 0;
-+}
-+#endif
-+
-+static int benet_open(struct net_device *netdev)
-+{
-+	struct bni_net_object *pnob = (struct bni_net_object *) netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+#ifdef CONFIG_INET_LRO
-+	struct net_lro_mgr *lro_mgr;
-+#endif
-+
-+	if (adapter->dev_state < BE_DEV_STATE_INIT)
-+		return -EAGAIN;
-+
-+#ifdef CONFIG_INET_LRO
-+	lro_mgr = &OSM_NOB(pnob)->lro_mgr;
-+	lro_mgr->dev = netdev;
-+
-+#ifdef CONFIG_BENET_NAPI
-+	lro_mgr->features = LRO_F_NAPI;
-+#endif
-+	lro_mgr->ip_summed = CHECKSUM_UNNECESSARY;
-+	lro_mgr->ip_summed_aggr = CHECKSUM_UNNECESSARY;
-+	lro_mgr->max_desc = BE_MAX_LRO_DESCRIPTORS;
-+	lro_mgr->lro_arr = OSM_NOB(pnob)->lro_desc;
-+	lro_mgr->get_frag_header = be_get_frag_header;
-+	lro_mgr->max_aggr = adapter->max_rx_coal;
-+	lro_mgr->frag_align_pad = 2;
-+	if (lro_mgr->max_aggr > MAX_SKB_FRAGS)
-+		lro_mgr->max_aggr = MAX_SKB_FRAGS;
-+#endif
-+
-+	be_update_link_status(adapter);
-+
-+	/*
-+	 * Set carrier on only if Physical Link up
-+	 * Either of the port link status up signifies this
-+	 */
-+	if ((adapter->port0_link_sts == BE_PORT_LINK_UP) ||
-+	    (adapter->port1_link_sts == BE_PORT_LINK_UP)) {
-+		netif_start_queue(netdev);
-+		netif_carrier_on(netdev);
-+	}
-+
-+	bni_enable_eq_intr(pnob);
-+	adapter->dev_state = BE_DEV_STATE_OPEN;
-+
-+#ifdef CONFIG_BENET_NAPI
-+	napi_enable(&OSM_NOB(pnob)->napi);
-+#endif
-+	return 0;
-+}
-+
-+static int benet_close(struct net_device *netdev)
-+{
-+	struct bni_net_object *pnob = (struct bni_net_object *) netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+
-+	/* Stop Transmitting */
-+	netif_stop_queue(netdev);
-+
-+	synchronize_irq(netdev->irq);
-+
-+	/* Wait until no more pending transmits  */
-+	wait_nic_tx_cmpl(pnob);
-+
-+	adapter->dev_state = BE_DEV_STATE_INIT;
-+
-+	netif_carrier_off(netdev);
-+
-+	adapter->port0_link_sts = BE_PORT_LINK_DOWN;
-+	adapter->port1_link_sts = BE_PORT_LINK_DOWN;
-+
-+#ifdef CONFIG_BENET_NAPI
-+	napi_disable(&OSM_NOB(pnob)->napi);
-+#endif
-+	return 0;
-+}
-+
-+/*
-+ * Setting a Mac Address for BE
-+ * Takes netdev and a void pointer as arguments.
-+ * The pointer holds the new addres to be used.
-+ */
-+static int benet_set_mac_addr(struct net_device *netdev, void *p)
-+{
-+	struct sockaddr *addr = p;
-+	struct bni_net_object *pnob;
-+	struct SA_MAC_ADDRESS mac_addr;
-+
-+	SA_ASSERT(netdev);
-+	pnob = (struct bni_net_object *) netdev->priv;
-+	SA_ASSERT(pnob);
-+
-+	memcpy(pnob->mac_address, addr->sa_data, netdev->addr_len);
-+	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-+	memcpy(mac_addr.bytes, pnob->mac_address, SA_MAC_ADDRESS_SIZE);
-+	bni_set_uc_mac_adr(pnob, 0, 0, OSM_NOB(pnob)->devno,
-+			   &mac_addr, NULL, NULL);
-+	/*
-+	 * Since we are doing Active-Passive failover, both
-+	 * ports should have matching MAC addresses everytime.
-+	 */
-+	bni_set_uc_mac_adr(pnob, 1, 0, OSM_NOB(pnob)->devno,
-+			   &mac_addr, NULL, NULL);
-+
-+	return 0;
-+}
-+
-+void get_stats_timer_handler(unsigned long context)
-+{
-+	struct be_timer_ctxt *ctxt = (struct be_timer_ctxt *) context;
-+
-+	if (atomic_read(&ctxt->get_stat_flag)) {
-+		atomic_dec(&ctxt->get_stat_flag);
-+		up((void *) ctxt->get_stat_sem);
-+	}
-+	del_timer(&ctxt->get_stats_timer);
-+	return;
-+}
-+
-+void get_stat_cb(void *context, BESTATUS status,
-+				struct MCC_WRB_AMAP *optional_wrb)
-+{
-+	struct be_timer_ctxt *ctxt = (struct be_timer_ctxt *) context;
-+	/*
-+	 * just up the semaphore if the get_stat_flag
-+	 * reads 1. so that the waiter can continue.
-+	 * If it is 0, then it was handled by the timer handler.
-+	 */
-+	del_timer(&ctxt->get_stats_timer);
-+	if (atomic_read(&ctxt->get_stat_flag)) {
-+		atomic_dec(&ctxt->get_stat_flag);
-+		up((void *) ctxt->get_stat_sem);
-+	}
-+}
-+
-+struct net_device_stats *benet_get_stats(struct net_device *dev)
-+{
-+	struct bni_net_object *pnob = dev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	u64 pa;
-+	struct be_timer_ctxt *ctxt = &adapter->timer_ctxt;
-+
-+	if (adapter->dev_state != BE_DEV_STATE_OPEN || (adapter->pm_resume)) {
-+		/* Return previously read stats */
-+		return &(adapter->benet_stats);
-+	}
-+	/* Get Physical Addr */
-+	pa = pci_map_single(adapter->pdev, adapter->eth_statsp,
-+			    sizeof(struct IOCTL_ETH_GET_STATISTICS),
-+			    PCI_DMA_FROMDEVICE);
-+	pa = cpu_to_le64(pa);
-+	ctxt->get_stat_sem = (unsigned long)&adapter->get_eth_stat_sem;
-+	atomic_inc(&ctxt->get_stat_flag);
-+	bni_get_stats(adapter->net_obj, adapter->eth_statsp,
-+		      pa, get_stat_cb, (void *) ctxt);
-+	ctxt->get_stats_timer.data = (unsigned long)ctxt;
-+	mod_timer(&ctxt->get_stats_timer, (jiffies + (HZ * 2)));
-+	down((void *) ctxt->get_stat_sem); /* block till callback is called */
-+
-+	/*Adding port0 and port1 stats. */
-+	adapter->benet_stats.rx_packets =
-+	    adapter->eth_statsp->params.response.p0recvdtotalframes +
-+	    adapter->eth_statsp->params.response.p1recvdtotalframes;
-+	adapter->benet_stats.tx_packets =
-+	    adapter->eth_statsp->params.response.p0xmitunicastframes +
-+	    adapter->eth_statsp->params.response.p1xmitunicastframes;
-+	adapter->benet_stats.tx_bytes =
-+	    adapter->eth_statsp->params.response.p0xmitbyteslsd +
-+	    adapter->eth_statsp->params.response.p1xmitbyteslsd;
-+	adapter->benet_stats.rx_errors =
-+	    adapter->eth_statsp->params.response.p0crcerrors +
-+	    adapter->eth_statsp->params.response.p1crcerrors;
-+	adapter->benet_stats.rx_errors +=
-+	    adapter->eth_statsp->params.response.p0alignmentsymerrs +
-+	    adapter->eth_statsp->params.response.p1alignmentsymerrs;
-+	adapter->benet_stats.rx_errors +=
-+	    adapter->eth_statsp->params.response.p0inrangelenerrors +
-+	    adapter->eth_statsp->params.response.p1inrangelenerrors;
-+	adapter->benet_stats.rx_bytes =
-+	    adapter->eth_statsp->params.response.p0recvdtotalbytesLSD +
-+	    adapter->eth_statsp->params.response.p1recvdtotalbytesLSD;
-+	adapter->benet_stats.rx_crc_errors =
-+	    adapter->eth_statsp->params.response.p0crcerrors +
-+	    adapter->eth_statsp->params.response.p1crcerrors;
-+
-+	adapter->benet_stats.tx_packets +=
-+	    adapter->eth_statsp->params.response.p0xmitmulticastframes +
-+	    adapter->eth_statsp->params.response.p1xmitmulticastframes;
-+	adapter->benet_stats.tx_packets +=
-+	    adapter->eth_statsp->params.response.p0xmitbroadcastframes +
-+	    adapter->eth_statsp->params.response.p1xmitbroadcastframes;
-+	adapter->benet_stats.tx_errors = 0;
-+
-+	adapter->benet_stats.multicast =
-+	    adapter->eth_statsp->params.response.p0xmitmulticastframes +
-+	    adapter->eth_statsp->params.response.p1xmitmulticastframes;
-+
-+	adapter->benet_stats.rx_fifo_errors =
-+	    adapter->eth_statsp->params.response.p0rxfifooverflowdropped +
-+	    adapter->eth_statsp->params.response.p1rxfifooverflowdropped;
-+	adapter->benet_stats.rx_frame_errors =
-+	    adapter->eth_statsp->params.response.p0alignmentsymerrs +
-+	    adapter->eth_statsp->params.response.p1alignmentsymerrs;
-+	adapter->benet_stats.rx_length_errors =
-+	    adapter->eth_statsp->params.response.p0inrangelenerrors +
-+	    adapter->eth_statsp->params.response.p1inrangelenerrors;
-+	adapter->benet_stats.rx_length_errors +=
-+	    adapter->eth_statsp->params.response.p0outrangeerrors +
-+	    adapter->eth_statsp->params.response.p1outrangeerrors;
-+	adapter->benet_stats.rx_length_errors +=
-+	    adapter->eth_statsp->params.response.p0frametoolongerrors +
-+	    adapter->eth_statsp->params.response.p1frametoolongerrors;
-+
-+	pci_unmap_single(adapter->pdev, (ulong) adapter->eth_statsp,
-+			 sizeof(struct IOCTL_ETH_GET_STATISTICS),
-+			 PCI_DMA_FROMDEVICE);
-+	return &(adapter->benet_stats);
-+
-+}
-+
-+/* Transmit Function */
-+int betx_ether_frame(struct be_adapter *adapter, struct bni_net_object *pnob,
-+		     struct sk_buff *skb, u8 proto, u8 forward,
-+		     u16 lso_mss)
-+{
-+	unsigned int nfrags = 0, j, frame_size = 0;
-+	struct BNI_TX_FRAG_LIST tx_frag_list[BE_MAX_TX_FRAG_COUNT];
-+	unsigned int tx_flags;
-+	void *ctxtp;
-+	unsigned short vlant = 0;
-+	unsigned short tx_mss = 0;
-+	u64 busaddr;
-+	int status;
-+
-+	tx_flags = ETHCOMPLETE;
-+
-+	if (OSM_NOB(pnob)->vlan_grp && vlan_tx_tag_present(skb)) {
-+		tx_flags |= ETHVLAN;
-+		vlant = vlan_tx_tag_get(skb);
-+	}
-+	ctxtp = (void *)skb;
-+
-+	if (proto == IPPROTO_TCP)
-+		tx_flags |= TCPCS;
-+
-+	if (proto == IPPROTO_UDP)
-+		tx_flags |= UDPCS;
-+
-+	if (forward) {
-+		tx_flags |= FORWARD;
-+		adapter->be_stat.bes_fwd_reqs++;
-+	}
-+
-+	if (lso_mss) {
-+		tx_flags |= LSO;
-+		tx_mss = lso_mss;
-+	}
-+
-+	adapter->be_stat.bes_tx_reqs++;
-+	/* populate the fragment (SG) list for this request */
-+	while (skb) {
-+		/*
-+		 * Check whether Fragment count goes above
-+		 * BE_MAX_TX_FRAG_COUNT
-+		 */
-+		if ((nfrags + 1) > BE_MAX_TX_FRAG_COUNT)
-+			goto max_tx_frag_error;
-+
-+		/*
-+		 * Get required info from main fragment of skb
-+		 * First get Quad Address
-+		 */
-+		busaddr = pci_map_single(adapter->pdev, skb->data,
-+					    (skb->len - skb->data_len),
-+					    PCI_DMA_TODEVICE);
-+		busaddr = cpu_to_le64(busaddr);
-+		tx_frag_list[nfrags].txb_pa_lo = (busaddr & 0xFFFFFFFF);
-+		tx_frag_list[nfrags].txb_pa_hi = busaddr >> 32;
-+		/* Next get Length */
-+		tx_frag_list[nfrags].txb_len = skb->len - skb->data_len;
-+		frame_size += tx_frag_list[nfrags].txb_len;
-+		nfrags++;
-+
-+		/* For all the data fragments in this skb */
-+		for (j = 0; j < skb_shinfo(skb)->nr_frags; j++) {
-+			struct skb_frag_struct *frag;
-+			/*
-+			 * Check whether Fragment count goes
-+			 * above BE_MAX_TX_FRAG_COUNT
-+			 */
-+			if ((nfrags + 1) > BE_MAX_TX_FRAG_COUNT)
-+				goto max_tx_frag_error;
-+
-+			/* For each fragment get required info */
-+			frag = &skb_shinfo(skb)->frags[j];
-+			/* First get Quad Address */
-+			busaddr = pci_map_page(adapter->pdev,
-+						  frag->page,
-+						  frag->page_offset,
-+						  frag->size,
-+						  PCI_DMA_TODEVICE);
-+			busaddr = cpu_to_le64(busaddr);
-+			tx_frag_list[nfrags].txb_pa_lo = busaddr & 0xFFFFFFFF;
-+			tx_frag_list[nfrags].txb_pa_hi = busaddr >> 32;
-+			/* Next get Length */
-+			tx_frag_list[nfrags].txb_len = frag->size;
-+			frame_size += tx_frag_list[nfrags].txb_len;
-+			nfrags++;
-+		}
-+
-+		/*
-+		 * If the skb shared info points to another
-+		 * sk_buff then traverse this pointed
-+		 * skbuff in the same way till the end of the list
-+		 */
-+		skb = skb_shinfo(skb)->frag_list;
-+	}
-+
-+	spin_lock_bh(&adapter->txq_lock);
-+
-+	/* Transmit the packet */
-+	status = bni_tx_pkt(pnob, tx_frag_list,
-+			     tx_flags, vlant, tx_mss, ctxtp, nfrags);
++	BESTATUS status = 0;
++	bool  eventable = FALSE, tx_no_delay = FALSE, rx_no_delay =
++	    FALSE;
++	struct BE_EQ_OBJECT *eq_objectp = NULL;
++	struct BE_FUNCTION_OBJECT *pfob = &pnob->fn_obj;
++	struct SA_SGL sgl;
++	SA_STATUS r;
++	u32 tempSz;
++	u32 tx_cmpl_wm = CEV_WMARK_96;	/* 0xffffffff to disable */
++	u32 rx_cmpl_wm = CEV_WMARK_160;	/* 0xffffffff to disable */
++	u32 eq_delay = 0; /* delay in 8usec units. 0xffffffff to disable */
++
++	memset(&sgl, 0, sizeof(struct SA_SGL));
++	r = sa_dev_create(pbars, nbars, (SA_DEV_OS_HANDLE)0, sa_devp);
++	if (r != SA_SUCCESS)
++		return r;
++
++	status = be_function_object_create(sa_devp, BE_FUNCTION_TYPE_NETWORK,
++					&pnob->mb_sgl, pfob, chipobj);
 +	if (status != BE_SUCCESS) {
-+		/* Tell the stack that Tx failed. */
-+		netif_stop_queue((struct net_device *)
-+				 OSM_NOB(pnob)->os_handle);
-+		adapter->be_stat.bes_tx_fails++;
-+		spin_unlock_bh(&adapter->txq_lock);
-+		return BE_ETH_TX_ERROR;
++		return status;
++		/*
++		 * the function object is ZERO'd so nothing to do after
++		 * this .
++		 */
 +	}
-+	adapter->eth_tx_bytes += frame_size;	/* for rate calculation */
++
++	if (tx_cmpl_wm == 0xffffffff)
++		tx_no_delay = TRUE;
++	if (rx_cmpl_wm == 0xffffffff)
++		rx_no_delay = TRUE;
 +	/*
-+	 * TX rate calculation.  If one second has passed since
-+	 * last calculation update the rate now.
++	 * now create the necessary rings
++	 * Event Queue first.
 +	 */
-+	update_tx_rate(adapter);
-+	if (nfrags & 1)
-+		nfrags++;
++	if (pnob->event_q_len) {
++		(void)sa_sgl_create_contiguous(pnob->event_q, pnob->event_q_pa,
++			pnob->event_q_len * sizeof(struct EQ_ENTRY_AMAP),
++			&sgl);
 +
-+	adapter->be_stat.bes_tx_wrbs += nfrags;
-+
-+	/* Ring the send doorbell */
-+	bni_start_tx(pnob, nfrags);
-+	spin_unlock_bh(&adapter->txq_lock);
-+
-+	return BE_SUCCESS;
-+
-+max_tx_frag_error:
++		status = be_eq_create(pfob, &sgl, 4, pnob->event_q_len,
++				(u32) -1,	/* CEV_WMARK_* or -1 */
++				eq_delay,	/* in 8us units, or -1 */
++				&pnob->event_q_obj);
++		if (status != BE_SUCCESS)
++			goto error_ret;
++		pnob->event_q_id = be_eq_get_id(&pnob->event_q_obj);
++		pnob->event_q_created = 1;
++		eventable = TRUE;
++		eq_objectp = &pnob->event_q_obj;
++	}
 +	/*
-+	 * This skb cannot be transmitted since it exceeds max tx frag count
-+	 * Return with appropriate error
++	 * Now Eth Tx Compl. queue.
 +	 */
-+	printk(KERN_WARNING "%s: Exceeds Max Tx Frags\n", __func__);
-+	return BE_ETH_TX_ERROR;
-+}
++	if (pnob->txcq_len) {
 +
-+/*
-+ * function called by the stack for transmitting an ether frame
-+ */
-+static int benet_xmit(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+	u8 proto;
-+	struct iphdr *ip;
-+	u16 lso_mss;
-+	u32 segs;
++		(void)sa_sgl_create_contiguous(pnob->tx_cq, pnob->tx_cq_pa,
++			pnob->txcq_len * sizeof(struct ETH_TX_COMPL_AMAP),
++			&sgl);
++		status = be_cq_create(pfob, &sgl,
++			pnob->txcq_len * sizeof(struct ETH_TX_COMPL_AMAP),
++			FALSE,	/* solicted events,  */
++			tx_no_delay,	/* nodelay  */
++			tx_cmpl_wm,	/* Watermark encodings */
++			eq_objectp, &pnob->tx_cq_obj);
++		if (status != BE_SUCCESS)
++			goto error_ret;
 +
-+	lso_mss = skb_shinfo(skb)->gso_size;
-+	segs = skb_shinfo(skb)->gso_segs;
++		pnob->tx_cq_id = be_cq_get_id(&pnob->tx_cq_obj);
++		pnob->tx_cq_created = 1;
++	}
 +	/*
-+	 * bug# 3356.
-+	 * If a LSO request translates into a single segment,
-+	 * it should be posted as a ethernet WRB with no LSO.
++	 * Eth Tx queue
 +	 */
-+	if (segs == 1)
-+		lso_mss = 0;
++	if (pnob->tx_q_len) {
++		struct BE_ETH_SQ_PARAMETERS ex_params = { 0 };
++		u32 type;
 +
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		ip = (struct iphdr *)ip_hdr(skb);
-+		proto = ip->protocol;
++		if (pnob->tx_q_port) {
++			/* TXQ to be bound to a specific port */
++			type = BE_ETH_TX_RING_TYPE_BOUND;
++			ex_params.port = pnob->tx_q_port - 1;
++		} else
++			type = BE_ETH_TX_RING_TYPE_STANDARD;
++
++		(void)sa_sgl_create_contiguous(pnob->tx_q, pnob->tx_q_pa,
++				pnob->tx_q_len * sizeof(struct ETH_WRB_AMAP),
++				&sgl);
++		status = be_eth_sq_create_ex(pfob, &sgl,
++				pnob->tx_q_len * sizeof(struct ETH_WRB_AMAP),
++				type, 2, &pnob->tx_cq_obj,
++				&ex_params, &pnob->tx_q_obj);
++
++		if (status != BE_SUCCESS)
++			goto error_ret;
++
++		pnob->tx_q_id = be_eth_sq_get_id(&pnob->tx_q_obj);
++		pnob->tx_q_created = 1;
++	}
++	/*
++	 * Now Eth Broadcast Rx compl. Queue.  VM NetObjects will not need this
++	 */
++	if (pnob->bcrx_cq_len) {
++
++		(void)sa_sgl_create_contiguous(pnob->bcrx_cq, pnob->bcrx_cq_pa,
++			pnob->bcrx_cq_len * sizeof(struct ETH_RX_COMPL_AMAP),
++			&sgl);
++
++		status = be_cq_create(pfob, &sgl,
++			pnob->bcrx_cq_len * sizeof(struct ETH_RX_COMPL_AMAP),
++			FALSE,	/* solicted events,  */
++			rx_no_delay,	/* nodelay  */
++			rx_cmpl_wm,	/* Watermark encodings */
++			eq_objectp, &pnob->bcrx_cq_obj);
++
++		if (status != BE_SUCCESS)
++			goto error_ret;
++
++		pnob->bcrx_cq_id = be_cq_get_id(&pnob->bcrx_cq_obj);
++		pnob->bcrx_cq_created = 1;
++	}
++	/*
++	 * Now Eth Unicast Rx compl. queue.  Always needed.
++	 */
++	(void)sa_sgl_create_contiguous(pnob->ucrx_cq, pnob->ucrx_cq_pa,
++			pnob->ucrx_cq_len * sizeof(struct ETH_RX_COMPL_AMAP),
++			&sgl);
++	status = be_cq_create(pfob, &sgl,
++			pnob->ucrx_cq_len * sizeof(struct ETH_RX_COMPL_AMAP),
++			FALSE,	/* solicted events,  */
++			rx_no_delay,	/* nodelay  */
++			rx_cmpl_wm,	/* Watermark encodings */
++			eq_objectp, &pnob->ucrx_cq_obj);
++	if (status != BE_SUCCESS)
++		goto error_ret;
++
++	pnob->ucrx_cq_id = be_cq_get_id(&pnob->ucrx_cq_obj);
++	pnob->ucrx_cq_created = 1;
++
++	status = be_eth_rq_set_frag_size(pfob,
++			pnob->rx_buf_size,	/* desired frag size in bytes */
++			(u32 *) &tempSz);	/* actual frag size set */
++	if (status != BE_SUCCESS) {
++		be_eth_rq_get_frag_size(pfob, (u32 *) &pnob->rx_buf_size);
++		if ((pnob->rx_buf_size != 2048)
++		    && (pnob->rx_buf_size != 4096)
++		    && (pnob->rx_buf_size != 8192))
++			goto error_ret;
 +	} else {
-+		proto = 0;
++		/*be_eth_rq_get_frag_size (pfob, (u32*)&pnob->rx_buf_size); */
++		if (pnob->rx_buf_size != tempSz)
++			pnob->rx_buf_size = tempSz;
 +	}
-+
-+	if (betx_ether_frame(adapter, pnob, skb, proto, 0, lso_mss) !=
-+						BE_SUCCESS) {
-+		return NETDEV_TX_BUSY;
-+	}
-+
-+	netdev->trans_start = jiffies;
-+	return NETDEV_TX_OK;
-+
-+}
-+
-+/*
-+ * This is the driver entry point to change the mtu of the device
-+ * Returns 0 for success and errno for failure.
-+ */
-+static int benet_change_mtu(struct net_device *netdev, int new_mtu)
-+{
 +	/*
-+	 * BE supports jumbo frame size upto 9000 bytes including the link layer
-+	 * header. Considering the different variants of frame formats possible
-+	 * like VLAN, SNAP/LLC, the maximum possible value for MTU is 8974 bytes
++	 * Eth RX queue. be_eth_rq_create() always assumes 2 pages size
 +	 */
++	(void)sa_sgl_create_contiguous(pnob->rx_q, pnob->rx_q_pa,
++				pnob->rx_q_len * sizeof(struct ETH_RX_D_AMAP),
++				&sgl);
++	status = be_eth_rq_create(pfob, &sgl, &pnob->ucrx_cq_obj,
++			     pnob->bcrx_cq_len ? &pnob->bcrx_cq_obj : NULL,
++			     &pnob->rx_q_obj);
 +
-+	if (new_mtu < (ETH_ZLEN + ETH_FCS_LEN) || (new_mtu > BE_MAX_MTU)) {
-+		printk(KERN_WARNING "Invalid MTU requested. "
-+		       "Must be between %d and %d bytes\n",
-+		       (ETH_ZLEN+ETH_FCS_LEN), BE_MAX_MTU);
-+		return -EINVAL;
-+	}
-+	printk(KERN_INFO "MTU changed from %d to %d\n", netdev->mtu,
-+	       new_mtu);
-+	netdev->mtu = new_mtu;
-+	return 0;
++	if (status != BE_SUCCESS)
++		goto error_ret;
++
++	pnob->rx_q_id = be_eth_rq_get_id(&pnob->rx_q_obj);
++	pnob->rx_q_created = 1;
++
++	return BE_SUCCESS;	/* All required queues created. */
++
++error_ret:
++	/*
++	 *  Some queue creation failed.  Clean up any we successfully created.
++	 */
++	bni_destroy_netobj(pnob, sa_devp);
++	return status;
 +}
 +
-+/*
-+ * This is the driver entry point to register a vlan with the device
-+ */
-+static void benet_vlan_register(struct net_device *netdev,
-+			struct vlan_group *grp)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
++/*!
++@brief
++   This function changes the EQ delay - the interval that BladeEngine
++   should wait after an event entry is made in an EQ before the host
++   is interrupted.
 +
-+	bni_disable_eq_intr(pnob);
-+	OSM_NOB(pnob)->vlan_grp = grp;
-+	OSM_NOB(pnob)->num_vlans = 0;
-+	bni_enable_eq_intr(pnob);
++@param
++    pnob - Pointer to the NetObject structure
++    Delay   - The delay in microseconds.  Must be between 0 and 240 and
++		must be a multiple of 8.
++
++@return
++    None
++*/
++BESTATUS bni_change_eqd(struct bni_net_object *pnob, u32 delay)
++{
++	BESTATUS status = 0;
++	struct BE_EQ_OBJECT *eq_objectp = NULL;
++	struct BE_FUNCTION_OBJECT *pfob = &pnob->fn_obj;
++
++	eq_objectp = &pnob->event_q_obj;
++	/*
++	 * Caller must ensure Delay <= 240 and is a multiple of 8.
++	 */
++	status = be_eq_modify_delay(pfob, 1, &eq_objectp, &delay,
++				    NULL, NULL, NULL);
++	return status;
 +}
 +
-+/*
-+ * This is the driver entry point to add a vlan vlan_id
-+ * with the device netdev
-+ */
-+static void benet_vlan_add_vid(struct net_device *netdev, u16 vlan_id)
++/*!
++@brief
++    This function creates the MCC request and completion ring required
++    for communicating with the ARM processor.  The caller must have
++    allocated required amount of memory for the MCC ring and MCC
++    completion ring and posted the virtual address and number of
++    entries in the corresponding members (mcc_q and mcc_cq) in the
++    NetObject struture.
++
++    When this call is completed, all further communication with
++    ARM will switch from mailbox to this ring.
++
++@param
++    pnob - Pointer to the NetObject structure.  This NetObject
++		should have been created using a previous call to
++		bni_create_netobj()
++
++@return
++    BESTATUS - (0 if successful, non-zero status code if not successful)
++*/
++struct BE_MCC_OBJECT *benet_mcc;	/* BECLIB's MCC ring Object */
++BESTATUS bni_create_mcc_rings(struct bni_net_object *pnob)
 +{
-+	struct bni_net_object *pnob = netdev->priv;
++	BESTATUS status = 0;
++	struct SA_SGL sgl;
++	struct BE_FUNCTION_OBJECT *pfob = &pnob->fn_obj;
 +
-+	if (OSM_NOB(pnob)->num_vlans == (BE_NUM_VLAN_SUPPORTED-1)) {
-+		/* no  way to return an error */
-+		printk(KERN_ERR
-+			"BladeEngine: Cannot configure more than %d Vlans\n",
-+				BE_NUM_VLAN_SUPPORTED);
-+		return;
-+	}
-+	/*The new vlan tag will be in the slot indicated by num_vlans. */
-+	OSM_NOB(pnob)->vlan_tag[OSM_NOB(pnob)->num_vlans++] = vlan_id;
-+	bni_config_vlan(pnob, OSM_NOB(pnob)->vlan_tag,
-+			OSM_NOB(pnob)->num_vlans, NULL, NULL, 0);
-+}
-+
-+/*
-+ * This is the driver entry point to remove a vlan vlan_id
-+ * with the device netdev
-+ */
-+static void benet_vlan_rem_vid(struct net_device *netdev, u16 vlan_id)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+
-+	u32 i, value;
++	memset(&sgl, 0, sizeof(struct SA_SGL));
 +
 +	/*
-+	 * In Blade Engine, we support 32 vlan tag filters across both ports.
-+	 * To program a vlan tag, the RXF_RTPR_CSR register is used.
-+	 * Each 32-bit value of RXF_RTDR_CSR can address 2 vlan tag entries.
-+	 * The Vlan table is of depth 16. thus we support 32 tags.
++	 * Create the MCC completion ring.
 +	 */
++	if (pnob->mcc_cq_len) {
++		(void)sa_sgl_create_contiguous(pnob->mcc_cq, pnob->mcc_cq_pa,
++			pnob->mcc_cq_len * sizeof(struct MCC_CQ_ENTRY_AMAP),
++				&sgl);
 +
-+	value = vlan_id | VLAN_VALID_BIT;
-+	for (i = 0; i < BE_NUM_VLAN_SUPPORTED; i++) {
-+		if (OSM_NOB(pnob)->vlan_tag[i] == vlan_id)
-+			break;
++		status = be_cq_create(pfob, &sgl,
++			pnob->mcc_cq_len * sizeof(struct MCC_CQ_ENTRY_AMAP),
++			FALSE,	/* solicted events,  */
++			TRUE,	/* nodelay  */
++			0,	/* 0 Watermark since Nodelay is true */
++			&pnob->event_q_obj,
++			&pnob->mcc_cq_obj);
++
++		if (status != BE_SUCCESS)
++			return (status);
++
++		pnob->mcc_cq_id = be_cq_get_id(&pnob->mcc_cq_obj);
++		pnob->mcc_cq_created = 1;
++	}
++	if (pnob->mcc_q_len) {
++		(void)sa_sgl_create_contiguous(pnob->mcc_q, pnob->mcc_q_pa,
++			pnob->mcc_q_len * sizeof(struct MCC_WRB_AMAP), &sgl);
++
++		status = be_mcc_ring_create(pfob, &sgl,
++				pnob->mcc_q_len * sizeof(struct MCC_WRB_AMAP),
++				pnob->mcc_wrb_ctxt, pnob->mcc_wrb_ctxtLen,
++				&pnob->mcc_cq_obj, &pnob->mcc_q_obj);
++
++		if (status != BE_SUCCESS)
++			return (status);
++
++		/* be_mcc_get_id() is not exposed to drivers since we
++		 * do not need post any commands directly.  BECLib
++		 * does it for us.
++		 */
++		pnob->mcc_q_created = 1;
++		benet_mcc = &pnob->mcc_q_obj;
++	}
++	return (BE_SUCCESS);
++}
++
++/*!
++@brief
++    This function destroys a NetObject created using a previous call to
++    BeCreateNetObject().  All the queues associated with the NetObject are
++    de-registered from BladeEngine.  The actual memory allocated for the
++    queues as well as the space allocated for the NetObject must be freed
++    by the OSM driver after this call returns.
++
++@param
++    pnob - Pointer to the NetObject structure
++
++@return
++    None
++
++*/
++void bni_destroy_netobj(struct bni_net_object *pnob, struct SA_DEV *sa_devp)
++{
++
++	BESTATUS status;
++
++	/* free the queues */
++
++	if (pnob->tx_q_created) {
++		status = be_eth_sq_destroy(&pnob->tx_q_obj);
++		pnob->tx_q_created = 0;
 +	}
 +
-+	if (i == BE_NUM_VLAN_SUPPORTED)
-+		return;
-+	/* Now compact the vlan tag array by removing hole created. */
-+	while ((i + 1) < BE_NUM_VLAN_SUPPORTED) {
-+		OSM_NOB(pnob)->vlan_tag[i] = OSM_NOB(pnob)->vlan_tag[i + 1];
++	if (pnob->rx_q_created) {
++		status = be_eth_rq_destroy(&pnob->rx_q_obj);
++		if (status != 0) {
++			status =
++			    be_eth_rq_destroy_options(&pnob->rx_q_obj, 0,
++						      NULL, NULL);
++			SA_ASSERT(0 == status);
++		}
++		pnob->rx_q_created = 0;
++	}
++
++	bni_process_rx_flush_cmpl(pnob);
++
++	if (pnob->tx_cq_created) {
++		status = be_cq_destroy(&pnob->tx_cq_obj);
++		pnob->tx_cq_created = 0;
++	}
++
++	if (pnob->bcrx_cq_created) {
++		status = be_cq_destroy(&pnob->bcrx_cq_obj);
++		pnob->bcrx_cq_created = 0;
++	}
++
++	if (pnob->ucrx_cq_created) {
++		status = be_cq_destroy(&pnob->ucrx_cq_obj);
++		pnob->ucrx_cq_created = 0;
++	}
++
++	if (pnob->mcc_q_created) {
++		status = be_mcc_ring_destroy(&pnob->mcc_q_obj);
++		pnob->mcc_q_created = 0;
++	}
++	if (pnob->mcc_cq_created) {
++		status = be_cq_destroy(&pnob->mcc_cq_obj);
++		pnob->mcc_cq_created = 0;
++	}
++
++	if (pnob->event_q_created) {
++		status = be_eq_destroy(&pnob->event_q_obj);
++		pnob->event_q_created = 0;
++	}
++	be_function_cleanup(&pnob->fn_obj);
++
++	/* Cleanup the SA device object. */
++	sa_dev_destroy(sa_devp);
++
++}
++
++/*!
++
++@brief
++    This function processes the Flush Completions that are issued by the
++    ARM F/W, when a Recv Ring is destroyed.
++    A flush completion is identified when a Rx COmpl descriptor has
++    the tcpcksum and udpcksum set and the pktsize is 32.
++    These completions are received on the Unicast Rx Completion Queue.
++
++@param
++    pnob - Pointer to the NetObject structure
++
++@return
++    Number of Flush Completions processed.
++
++*/
++u32 bni_process_rx_flush_cmpl(struct bni_net_object *pnob)
++{
++	struct ETH_RX_COMPL_AMAP *rxcp;
++	unsigned int i = 0;
++	while ((rxcp = bni_get_ucrx_cmpl(pnob)) != NULL) {
++		bni_notify_cmpl(pnob, 1, pnob->ucrx_cq_id, 1);
 +		i++;
 +	}
-+	if ((i + 1) == BE_NUM_VLAN_SUPPORTED)
-+		OSM_NOB(pnob)->vlan_tag[i] = (u16) 0x0;
-+	OSM_NOB(pnob)->num_vlans--;
-+	bni_config_vlan(pnob, OSM_NOB(pnob)->vlan_tag,
-+			OSM_NOB(pnob)->num_vlans, NULL, NULL, 0);
++	return i;
 +}
 +
-+/*
-+ * This function is called to program multicast
-+ * address in the multicast filter of the ASIC.
-+ */
-+static void be_set_multicast_filter(struct net_device *netdev)
++/*!
++@brief
++    This Function fills in required number of WRBs in the ether send ring
++    for transmitting the given ether frame.  The entire ether frame can be
++    in one or more scattered locations. The physical address of the
++    fragments and the count of the bytes in each fragment are indicated
++    by a fragment list pointer.  Pointer to an opaque context is also
++    passed to this function. This context is stored in the array
++    NetObj.tx_ctxt[] at the same index as that of the
++    last WRB entry used for this request.  OSM driver can retrieve
++    this context from this array at the wrb_index indicated by the
++    completion status entry for this transmit and use it to identify
++    the request and do appropriate processing when the transmit is completed.
++
++@param
++    pnob       - Pointer to the NetObject structure
++
++    txb_list   - Pointer to the fragment list describing the ether
++		frame fragments to be transmitted
++
++    flags         - A 32 bit flag indicating a required transmit option.  The
++		Valid options are :
++
++		IPCS         - Enable IP checksum offload
++		UDPCS        - Enable UDP checksum offload
++		TCPCS        - Enable TCP checksum offload
++		LSO          - Enable Large Segmnet offload
++		ETHVLAN      - Insert VLAN
++		ETHEVENT     - Enable event generation on completion
++		ETHCOMPLETE  - Enable completion generation on completion
++		IPSEC        - Enable IPSEC
++		FORWARD      - Send in the Forwarding Path
++
++    vlant       - VLAN tag to be inserted (if ETHVLAN set in flags)
++
++    mss           - Mss to be used if LSO is enabled.
++
++    ctxtp      - An OSM context handle that the OSM can use to
++		identify a completion with a send request.
++
++    nfrags      - Number of fragments in the txb_list (1 to 15)
++
++@return
++    BESTATUS - (0 if successful, non-zero status code if not successful)
++
++*/
++BESTATUS
++bni_tx_pkt(struct bni_net_object *pnob,
++	   struct BNI_TX_FRAG_LIST *txb_list,
++	   u32 flags, u32 vlant, u32 mss, void *ctxtp, u32 nfrags)
 +{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct dev_mc_list *mc_ptr;
-+	struct SA_MAC_ADDRESS mac_addr[32];
-+	int i;
++	struct ETH_WRB_AMAP *first_wrb, *curr_wrb;
++	int txq_hd;
++	u32 fi, total_frags;
 +
-+	if (netdev->flags & IFF_ALLMULTI) {
-+		/* set BE in Multicast promiscuous */
-+		bni_set_mc_filter(pnob, 0, TRUE, NULL, NULL, NULL);
-+		return;
-+	}
-+
-+	for (mc_ptr = netdev->mc_list, i = 0; mc_ptr;
-+	     mc_ptr = mc_ptr->next, i++) {
-+		memcpy(mac_addr[i].bytes, mc_ptr->dmi_addr,
-+		       SA_MAC_ADDRESS_SIZE);
-+	}
-+	/* reset the promiscuous mode also. */
-+	bni_set_mc_filter(pnob, i, FALSE, mac_addr, NULL, NULL);
-+
-+}
-+
-+/*
-+ * This is the driver entry point to set multicast list
-+ * with the device netdev. This function will be used to
-+ * set promiscuous mode or multicast promiscuous mode
-+ * or multicast mode....
-+ */
-+static void benet_set_multicast_list(struct net_device *netdev)
-+{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
-+
-+	if (netdev->flags & IFF_PROMISC) {
-+		bni_set_promisc(adapter->net_obj);
-+
-+	} else if (netdev->flags & IFF_ALLMULTI) {
-+		bni_reset_promisc(adapter->net_obj);
-+		be_set_multicast_filter(netdev);
++	if (((pnob->tx_q_len - 2) - pnob->tx_q_used) > nfrags) {
++		if (nfrags & 1)
++			total_frags = nfrags + 1;
++		else
++			total_frags = nfrags;
 +	} else {
-+		bni_reset_promisc(adapter->net_obj);
-+		be_set_multicast_filter(netdev);
++		return BE_NOT_OK;
++	}
++
++	sa_atomic_add((u32) total_frags, (u32 *) &pnob->tx_q_used);
++
++	/* Store number of WRBS for this pkt in 1st WRb of this pkt */
++	*(u32 *) (&(pnob->tx_ctxt[pnob->tx_q_hd])) = total_frags;
++
++	/*
++	 * fill in the first WRB depending on the options passed to us,
++	 */
++	txq_hd = pnob->tx_q_hd;
++	curr_wrb = &pnob->tx_q[txq_hd];
++	first_wrb = curr_wrb;
++
++	*((u32 *) curr_wrb + 2) = 0x00000000;
++	*((u32 *) curr_wrb + 3) = 0x00000000;
++
++	AMAP_SET_BITS_PTR(ETH_WRB, crc, curr_wrb, 1);
++
++	if (flags & LSO) {
++		AMAP_SET_BITS_PTR(ETH_WRB, lso, curr_wrb, 1);
++		AMAP_SET_BITS_PTR(ETH_WRB, lso_mss, curr_wrb, mss);
++	} else {
++		if (flags & TCPCS)
++			AMAP_SET_BITS_PTR(ETH_WRB, tcpcs, curr_wrb, 1);
++
++		if (flags & IPCS)
++			AMAP_SET_BITS_PTR(ETH_WRB, ipcs, curr_wrb, 1);
++
++		if (flags & UDPCS)
++			AMAP_SET_BITS_PTR(ETH_WRB, udpcs, curr_wrb, 1);
++	}
++
++	/* Transmit the packet in forwarding path for loopback packet */
++	if (flags & FORWARD)
++		AMAP_SET_BITS_PTR(ETH_WRB, forward, curr_wrb, 1);
++
++	AMAP_SET_BITS_PTR(ETH_WRB, vlan_tag, curr_wrb, vlant);
++	if (flags & ETHVLAN)
++		AMAP_SET_BITS_PTR(ETH_WRB, vlan, curr_wrb, 1);
++
++	if (flags & ETHEVENT)
++		AMAP_SET_BITS_PTR(ETH_WRB, event, curr_wrb, 1);
++
++	AMAP_SET_BITS_PTR(ETH_WRB, last, curr_wrb, 0);
++	AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_hi, curr_wrb, txb_list[0].txb_pa_hi);
++	AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_lo, curr_wrb, txb_list[0].txb_pa_lo);
++	AMAP_SET_BITS_PTR(ETH_WRB, frag_len, curr_wrb, txb_list[0].txb_len);
++	/*
++	 * Fill in rest of the WRBs.  Only the fragment address and count
++	 * are different from the first WRB. So just copy other words from
++	 * the first WRB.
++	 *
++	 */
++	for (fi = 1; fi < nfrags; fi++) {
++		bni_adv_txq_hd(pnob);
++		txq_hd = pnob->tx_q_hd;
++		curr_wrb = &pnob->tx_q[txq_hd];
++
++		*((u32 *) curr_wrb + 2) = *((u32 *) first_wrb + 2);
++		*((u32 *) curr_wrb + 3) = *((u32 *) first_wrb + 3);
++		AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_hi, curr_wrb,
++				txb_list[fi].txb_pa_hi);
++		AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_lo, curr_wrb,
++				txb_list[fi].txb_pa_lo);
++		AMAP_SET_BITS_PTR(ETH_WRB, frag_len, curr_wrb,
++				txb_list[fi].txb_len);
++	}
++	/*
++	 * BladeEngine does not like odd number of WRBs. make it even
++	 * with a dummy entry
++	 */
++	if (nfrags & 1) {
++		bni_adv_txq_hd(pnob);
++		txq_hd = pnob->tx_q_hd;
++		curr_wrb = &pnob->tx_q[txq_hd];
++
++		*((u32 *) curr_wrb + 2) = *((u32 *) first_wrb + 2);
++		*((u32 *) curr_wrb + 3) = *((u32 *) first_wrb + 3);
++		AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_hi, curr_wrb, 0);
++		AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_lo, curr_wrb, 0);
++		AMAP_SET_BITS_PTR(ETH_WRB, frag_len, curr_wrb, 0);
++	}
++	/*
++	 * Fix up the last fragment
++	 */
++	if (flags & ETHCOMPLETE)
++		AMAP_SET_BITS_PTR(ETH_WRB, complete, curr_wrb, 1);
++
++	AMAP_SET_BITS_PTR(ETH_WRB, last, curr_wrb, 1);
++
++	/*
++	 * pnob->tx_q_hd-1 represents the last wrb index of
++	 * this packet. That will be the wrb index that we will get
++	 * in Tx completion
++	 */
++	pnob->tx_ctxt[pnob->tx_q_hd] = ctxtp;
++	bni_adv_txq_hd(pnob);
++
++	return BE_SUCCESS;
++}
++
++/*!
++
++@brief
++   This function writes the number of posted WRBs into the doorbell
++   to kick off the actual transmit of the ether frames whose
++   addresses are filled in the ether send ring by the function
++   bni_tx_pkt().
++
++@param
++    pnob   - Pointer to the NetObject structure
++
++    nposted - Number of WRBs filled in.
++
++*/
++void bni_start_tx(struct bni_net_object *pnob, u32 nposted)
++{
++#define CSR_ETH_MAX_SQPOSTS 255
++	struct SQ_DB_AMAP sqdb;
++
++	TOU32(sqdb) = 0;
++
++	AMAP_SET_BITS_PTR(SQ_DB, cid, &sqdb, pnob->tx_q_id);
++	while (nposted) {
++		if (nposted > CSR_ETH_MAX_SQPOSTS) {
++			AMAP_SET_BITS_PTR(SQ_DB, numPosted, &sqdb,
++							CSR_ETH_MAX_SQPOSTS);
++			nposted -= CSR_ETH_MAX_SQPOSTS;
++		} else {
++			AMAP_SET_BITS_PTR(SQ_DB, numPosted, &sqdb, nposted);
++			nposted = 0;
++		}
++		PD_WRITE(NET_FH(pnob), etx_sq_db, sqdb);
++	}
++
++	return;
++}
++
++/*!
++
++@brief
++    This function posts  receive buffers to the ether receive queue.
++    The caller must allocate  the buffers, populate the addresses in
++    list of BNI_RECV_BUFFER structures and pass the address of this
++    list. The number of the receive buffers in the list should not be
++    more than 255.  If the list has more than 255 receive buffers or
++    the RX ring has less free slots than the number of buffers in
++    the list, the function will post whatever buffers it can in the
++    available free slots in the RX ring and remove these entries from
++    the list.  The caller is responsible for freeing the remaining
++    buffers in the list.
++
++    The OSM driver must have filled in the context handle for each
++    BNI_RECV_BUFFER entry in the member context1. This function stores
++    the handle in the array NetObj.rx_ctxt at the index
++    corresponding to the entry in the recieve buffer queue where the
++    buffer was posted. OSM driver can retrieve this context information
++    using the fragndx field in the RX completion descriptor and use it
++    for the receive completion processing.
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++    rxb_list  - A List of BNI_RECV_BUFFER structures that hold the
++		free recv buffer address.
++
++@return
++    Number of buffers that were posted to this queue
++
++*/
++u32 bni_post_rx_buffs(struct bni_net_object *pnob, SA_LIST_ENTRY *rxb_list)
++{
++	SA_LIST_ENTRY *list_element;
++	u32 nposted = 0;
++	struct ETH_RX_D_AMAP *pRxDescr = NULL;
++	struct BNI_RECV_BUFFER *rxbp;
++	void **rx_ctxp;
++	struct RQ_DB_AMAP rqdb;
++
++	rx_ctxp = pnob->rx_ctxt;
++
++	SA_ASSERT(rx_ctxp);
++
++	while (!IsListEmpty(rxb_list) &&
++	       (rx_ctxp[pnob->rx_q_hd] == NULL) && nposted < 255) {
++
++		list_element = RemoveHeadList(rxb_list);
++
++		rxbp = SA_CONTAINING_RECORD(list_element,
++				struct BNI_RECV_BUFFER, rxb_list);
++
++		pRxDescr = pnob->rx_q + pnob->rx_q_hd;
++		AMAP_SET_BITS_PTR(ETH_RX_D, fragpa_lo, pRxDescr,
++				rxbp->rxb_pa_lo);
++		AMAP_SET_BITS_PTR(ETH_RX_D, fragpa_hi, pRxDescr,
++				rxbp->rxb_pa_hi);
++
++		rx_ctxp[pnob->rx_q_hd] = rxbp->rxb_ctxt;
++		bni_adv_rxq_hd(pnob);
++
++		nposted++;
++
++	}
++
++	if (nposted) {
++		/* Now press the door bell to notify BladeEngine. */
++		TOU32(rqdb) = 0;
++		AMAP_SET_BITS_PTR(RQ_DB, numPosted, &rqdb, nposted);
++		AMAP_SET_BITS_PTR(RQ_DB, rq, &rqdb, pnob->rx_q_id);
++		PD_WRITE(NET_FH(pnob), erx_rq_db, rqdb);
++	}
++
++	pnob->rx_q_posted += nposted;
++	return nposted;
++}
++
++/*!
++
++@brief
++    This function checks the Eth send completion queue and returns
++    the address of the TX completion entry at the tail of the completion
++    queue.  If no valid completion is present, this function returns NULL.
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++@return
++    If a valid entry is found, it returns the pointer to ETH_TX_COMPL_AMAP
++    If no valid entry is found, NULL is returned
++
++*/
++struct ETH_TX_COMPL_AMAP *bni_get_tx_cmpl(struct bni_net_object *pnob)
++{
++	struct ETH_TX_COMPL_AMAP *txcp = &pnob->tx_cq[pnob->tx_cq_tl];
++	u32 valid;
++
++	valid  = AMAP_GET_BITS_PTR(ETH_TX_COMPL, valid, txcp);
++	if (valid == 0)
++		return (NULL);
++
++	AMAP_SET_BITS_PTR(ETH_TX_COMPL, valid, txcp, 0);
++	bni_adv_txcq_tl(pnob);
++	return (txcp);
++
++}
++
++/*!
++
++@brief
++    This function checks the Eth unicast receive completion queue and returns
++    the address of the RX completion entry at the tail of the completion
++    queue.  If no valid completion is present, this function returns NULL.
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++@return
++    If a valid entry is found, it returns the pointer to ETH_RX_COMPL
++    If no valid entry is found, NULL is returned
++
++*/
++struct ETH_RX_COMPL_AMAP *bni_get_ucrx_cmpl(struct bni_net_object *pnob)
++{
++	struct ETH_RX_COMPL_AMAP *rxcp = &pnob->ucrx_cq[pnob->ucrx_cq_tl];
++	u32 valid, ct;
++
++	valid  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, valid, rxcp);
++	if (valid == 0)
++		return (NULL);
++
++	ct  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, ct, rxcp);
++	if (ct != 0) {
++		/* Invalid chute #. treat as error */
++		AMAP_SET_BITS_PTR(ETH_RX_COMPL, err, rxcp, 1);
++	}
++
++	bni_adv_ucrxcq_tl(pnob);
++	AMAP_SET_BITS_PTR(ETH_RX_COMPL, valid, rxcp, 0);
++	return (rxcp);
++}
++
++/*!
++
++@brief
++    This function checks the Eth broadcast receive completion queue and returns
++    the address of the RX completion entry at the tail of the completion
++    queue.  If no valid completion is present, this function returns NULL.
++
++@param
++    pnob    - Pointer to NetObject
++
++@return
++    If a valid entry is found, it returns the pointer to ETH_RX_COMPL
++    If no valid entry is found, NULL is returned
++
++*/
++struct ETH_RX_COMPL_AMAP *bni_get_bcrx_cmpl(struct bni_net_object *pnob)
++{
++	struct ETH_RX_COMPL_AMAP *rxcp = &pnob->bcrx_cq[pnob->bcrx_cq_tl];
++	u32 valid;
++
++	valid  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, valid, rxcp);
++	if (valid == 0)
++		return (NULL);
++
++	bni_adv_bcrxcq_tl(pnob);
++	AMAP_SET_BITS_PTR(ETH_RX_COMPL, valid, rxcp, 0);
++	return (rxcp);
++}
++
++/*!
++
++@brief
++    This function notifies BladeEngine of the number of completion
++    entries processed from the specified completion queue by writing
++    the number of popped entries to the door bell.
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++    n    - Number of completion entries processed
++
++    cq_id         - Queue ID of the completion queue for which notification
++			is being done.
++
++    re_arm 	 - 1  - rearm the completion ring to generate an event.
++		 - 0  - dont rearm the completion ring to generate an event
++
++*/
++void bni_notify_cmpl(struct bni_net_object *pnob, int n, int cq_id, int re_arm)
++{
++
++	struct CQ_DB_AMAP cqdb;
++
++	cqdb.dw[0] = 0;
++	AMAP_SET_BITS_PTR(CQ_DB, qid, &cqdb, cq_id);
++	AMAP_SET_BITS_PTR(CQ_DB, rearm, &cqdb, re_arm);
++	AMAP_SET_BITS_PTR(CQ_DB, num_popped, &cqdb, n);
++
++	PD_WRITE(NET_FH(pnob), cq_db, cqdb);
++}
++
++/*!
++@brief
++   This function enables the interrupt corresponding to the Event
++   queue ID for the given NetObject
++
++@param
++    pnob      - Pointer to the NetObject structure
++*/
++
++/*
++ * Doorbell, enable/disable of EQ interrupts.
++ */
++void bni_enable_eq_intr(struct bni_net_object *pnob)
++{
++	struct CQ_DB_AMAP cqdb;
++
++	SA_ASSERT(pnob);
++
++	cqdb.dw[0] = 0;		/* clear entire doorbell */
++
++	AMAP_SET_BITS_PTR(CQ_DB, event, &cqdb, 1);
++	AMAP_SET_BITS_PTR(CQ_DB, rearm, &cqdb, 1);
++	AMAP_SET_BITS_PTR(CQ_DB, num_popped, &cqdb, 0);
++	AMAP_SET_BITS_PTR(CQ_DB, qid, &cqdb, pnob->event_q_id);
++
++	PD_WRITE(NET_FH(pnob), cq_db, cqdb);
++}
++
++/*!
++@brief
++   This function disables the interrupt corresponding to the Event
++   queue ID for the given NetObject
++
++@param
++    pnob      - Pointer to the NetObject structure
++*/
++void bni_disable_eq_intr(struct bni_net_object *pnob)
++{
++	struct CQ_DB_AMAP cqdb;
++
++	SA_ASSERT(pnob);
++
++	cqdb.dw[0] = 0;		/* clear entire doorbell */
++
++	AMAP_SET_BITS_PTR(CQ_DB, event, &cqdb, 1);
++	AMAP_SET_BITS_PTR(CQ_DB, rearm, &cqdb, 0);
++	AMAP_SET_BITS_PTR(CQ_DB, num_popped, &cqdb, 0);
++	AMAP_SET_BITS_PTR(CQ_DB, qid, &cqdb, pnob->event_q_id);
++
++	PD_WRITE(NET_FH(pnob), cq_db, cqdb);
++}
++
++/*!
++
++@brief
++    This function enables the interrupt from the  network function
++    of the BladeEngine. Use the function bni_disable_eq_intr()
++    to enable the interrupt from the event queue of only one specific
++    NetObject
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++*/
++void bni_enable_intr(struct bni_net_object *pnob)
++{
++
++	struct PCICFG_HOST_TIMER_INT_CTRL_CSR_AMAP ctrl;
++	u32 host_intr;
++
++	SA_ASSERT(pnob);
++
++	ctrl.dw[0] = PCICFG1_READ(NET_FH(pnob), host_timer_int_ctrl);
++
++	host_intr = AMAP_GET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR,
++							hostintr, ctrl.dw);
++	if (!host_intr) {
++		AMAP_SET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR,
++						hostintr, ctrl.dw, 1);
++		PCICFG1_WRITE_CONST(NET_FH(pnob), host_timer_int_ctrl,
++								ctrl.dw[0]);
 +	}
 +}
 +
++/*!
++
++@brief
++   This function disables the interrupt from the network function of
++   the BladeEngine.  Use the function bni_disable_eq_intr() to
++   disable the interrupt from the event queue of only one specific NetObject
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++*/
++void bni_disable_intr(struct bni_net_object *pnob)
++{
++
++	struct PCICFG_HOST_TIMER_INT_CTRL_CSR_AMAP ctrl;
++	u32 host_intr;
++
++	SA_ASSERT(pnob);
++
++	ctrl.dw[0] = PCICFG1_READ(NET_FH(pnob), host_timer_int_ctrl);
++	host_intr = AMAP_GET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR,
++							hostintr, ctrl.dw);
++	if (host_intr) {
++		AMAP_SET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR, hostintr,
++						ctrl.dw, 0);
++		PCICFG1_WRITE_CONST(NET_FH(pnob), host_timer_int_ctrl,
++						ctrl.dw[0]);
++	}
++}
 +
 +/*
-+ * standard entry point functions for all Linux network interface drivers
-+ */
-+int benet_probe(struct net_device *netdev)
++
++@brief
++   This function reads the ISR and returns the value read.  ISR is
++   a clear-on-read register
++
++@param
++    pnob      - Pointer to the NetObject structure
++@return
++    Returns the 32 bit value in the ISR
++
++*/
++u32 bni_get_isr(struct bni_net_object *pnob)
 +{
-+	struct bni_net_object *pnob = netdev->priv;
-+	struct be_adapter *adapter = OSM_NOB(pnob)->adapter;
++	return (CSR_READ(NET_FH(pnob), cev.isr1));
++}
 +
-+	ether_setup(netdev);
++/*!
 +
-+	netdev->open = &benet_open;
-+	netdev->stop = &benet_close;
-+	netdev->hard_start_xmit = &benet_xmit;
++@brief
++    This function checks the event queue for a valid event. If a valid
++    entry is found, it returns pointer to the entry.  The client is
++    responsible for tracking the number of event queue items popped
++    out of this queue for subsequently ringing the event queue doorbell.
 +
-+	netdev->get_stats = &benet_get_stats;
++@param
++    pnob      - Pointer to the NetObject structure
 +
-+	netdev->set_multicast_list = &benet_set_multicast_list;
++@return
++    Pointer to next valid event queue entry if one is found.
++    NULL if no valid entry is found.
++*/
++struct EQ_ENTRY_AMAP *bni_get_event(struct bni_net_object *pnob)
++{
++	struct EQ_ENTRY_AMAP *eqp = &(pnob->event_q[pnob->event_q_tl]);
++	u32 valid;
 +
-+	netdev->change_mtu = &benet_change_mtu;
-+	netdev->set_mac_address = &benet_set_mac_addr;
++	valid  = AMAP_GET_BITS_PTR(EQ_ENTRY, Valid, eqp);
++	if (!valid)
++		return (NULL);
++	/*
++	 * We got a Valid Event. Now increment the Event queue
++	 * index to next event.
++	 */
++	bni_adv_eq_tl(pnob);
++	return eqp;
++}
 +
-+	netdev->vlan_rx_register = benet_vlan_register;
-+	netdev->vlan_rx_add_vid = benet_vlan_add_vid;
-+	netdev->vlan_rx_kill_vid = benet_vlan_rem_vid;
++/*!
 +
-+	netdev->features =
-+	    NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_HW_VLAN_RX | NETIF_F_TSO |
-+	    NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER | NETIF_F_IP_CSUM;
++@brief
++    This function notifies BladeEngine of how many events were processed
++    from the event queue by ringing the corresponding door bell and
++    optionally re-arms the event queue.
 +
-+	netdev->flags |= IFF_MULTICAST;
 +
-+	/* If device is DAC Capable, set the HIGHDMA flag for netdevice. */
-+	if (adapter->dma_64bit_cap)
-+		netdev->features |= NETIF_F_HIGHDMA;
++@param
++    pnob      - Pointer to the NetObject structure
++    n    - number of events processed
++    re_arm        - 1 - re-arm the EQ, 0 - do not re-arm the EQ
 +
-+	SET_ETHTOOL_OPS(netdev, &be_ethtool_ops);
-+	return 0;
++*/
++void bni_notify_event(struct bni_net_object *pnob, int n, int re_arm)
++{
++	struct CQ_DB_AMAP eqdb;
++
++	TOU32(eqdb) = 0;
++
++	AMAP_SET_BITS_PTR(CQ_DB, qid, &eqdb, pnob->event_q_id);
++	AMAP_SET_BITS_PTR(CQ_DB, rearm, &eqdb, re_arm);
++	AMAP_SET_BITS_PTR(CQ_DB, event, &eqdb, 1);
++	AMAP_SET_BITS_PTR(CQ_DB, num_popped, &eqdb, n);
++	/*
++	 * Under some situations we see an interrupt and no valid
++	 * EQ entry.  To keep going, we need to ring the DB even if
++	 * numPOsted is 0.
++	 */
++	PD_WRITE(NET_FH(pnob), cq_db, eqdb);
++
++	return;
++}
++
++/*!
++
++@brief
++   This function gets the current link status.
++
++@param
++   pnob           - Pointer to the NetObject structure
++
++   lsp       - Pointer to the stucture LINK_STATUS where the Link
++			status is to be returned.
++
++   cbf        - Pointer to a function that will be called on completion.
++			If NULL, the call will block waiting for completion.
++
++   cbc         - Opaque context argument that will be passed to the
++			completion call back function
++
++
++@return
++    none
++*/
++
++BESTATUS
++bni_get_link_sts(struct bni_net_object *pnob, struct BE_LINK_STATUS *lsp,
++		 MCC_WRB_CQE_CALLBACK cbf, void *cbc)
++{
++	BESTATUS r;
++
++	r = be_rxf_link_status(NET_FH(pnob), lsp, cbf, cbc, NULL);
++
++	return (r);
++}
++
++/*!
++
++@brief
++   This function gets the specified MAC address from BladeEngine's MAC address
++   table.
++
++@param
++   pnob           - Pointer to the NetObject structure
++
++   port              - 0 for first port, 1 for second port.
++
++   instance          - 0 for the first MAC address of the port, 1 for
++			the second instance of the AMC address for the port.
++
++   pd                - The protection domain number (used only for
++			virtual machine)
++
++   mac_addr           - Address the strcuture SA_MAC_ADDRESS where to return
++			the MAC address.
++
++   cbf        - Pointer to a function that will be called on completion.
++			If NULL, the call will block waiting for completion.
++
++   cbc         - Opaque context argument that will be passed to the
++			completion call back function.
++@return
++    BESTATUS         - (0 if successful, non-zero status code if not successful)
++*/
++
++BESTATUS
++bni_get_uc_mac_adrr(struct bni_net_object *pnob, u8 port,
++		    u8 instance, u8 pd,
++		    struct SA_MAC_ADDRESS *mac_addr,
++		    MCC_WRB_CQE_CALLBACK cbf, void *cbc)
++{
++	BESTATUS status;
++
++	if (pd) {
++		/* this call is for setting the VM MAC address */
++		port = 0;
++		instance = 0;
++	}
++
++	status = be_rxf_mac_address_read_write(NET_FH(pnob),
++			port,
++			instance,
++			FALSE,	/* Not  Management Mac */
++			FALSE,	/* False for Read */
++			FALSE, mac_addr, cbf, cbc);
++
++	return status;
++}
++
++/*!
++
++@brief
++   This function sets the specified MAC address from BladeEngine's MAC address
++   table.
++
++@param
++   pnob           - Pointer to the NetObject structure
++
++   port              - 0 for first port, 1 for second port.
++
++   instance          - 0 for the first MAC address of the port, 1 for
++			the second instance of the AMC address for the port.
++
++   pd                - The protection domain number (used only for
++			virtual machie)
++
++   mac_addr           - Address the strcuture SA_MAC_ADDRESS where the
++			MAC address to be set is stored.
++
++   cbf        - Pointer to a function that will be called on completion.
++			If NULL, the call will block waiting for completion.
++
++   cbc         - Opaque context argument that will be passed to the
++			completion call back function.
++@return
++    BESTATUS         - (0 if successful, non-zero status code if not successful)
++*/
++BESTATUS
++bni_set_uc_mac_adr(struct bni_net_object *pnob, u8 port,
++		   u8 instance, u8 pd,
++		   struct SA_MAC_ADDRESS *mac_addr,
++		   MCC_WRB_CQE_CALLBACK cbf, void *cbc)
++{
++	BESTATUS status;
++
++	if (pd) {
++		/* this call is for setting the VM MAC address */
++		port = 0;
++		instance = 0;
++	}
++
++	status = be_rxf_mac_address_read_write(NET_FH(pnob), port,
++			       instance,
++			       FALSE,	/* Not  Management Mac */
++			       TRUE,	/* TRUE for set */
++			       FALSE, mac_addr, cbf, cbc);
++
++	return status;
++}
++
++/*!
++
++@brief
++    This function adds the given multicast MAC addresses into BE's
++    multicast filter table.   The maximum number of multicast addresses
++    that can be added  using this call is 32.  More than 32 addresses
++    can be added through multiple calls.
++
++@param
++    pnob     - Pointer to the NetObject structure
++
++    nmac      - number of MAC sddresses to be added - maximum is 32
++
++    promiscuous - Whether to enable multicast promiscuous mode or not.
++		If 1,  multicast promiscuous mode is enabled and the
++		  parameters NumMac  and mac_addr are ignored.
++		  If this is not enabled, the multicast addresses in
++		  the array mac_addr will programmed
++
++    mac_addr     - Pointer to an address an array of type SA_MAC_ADDRESS
++
++    cbf  - Pointer to a function that will be called on completion.
++		If NULL, the call will block waiting for completion.
++
++    cbc   - Opaque context argument that will be passed to the
++		completion call back function.
++@return
++    none
++
++*/
++BESTATUS
++bni_set_mc_filter(struct bni_net_object *pnob, u32 nmac, bool  promiscuous,
++		struct SA_MAC_ADDRESS *mac_addr,
++		MCC_WRB_CQE_CALLBACK cbf, void *cbc)
++{
++	BESTATUS status;
++
++	status = be_rxf_multicast_config(NET_FH(pnob), promiscuous,
++			nmac, mac_addr, cbf, cbc, NULL);
++	return status;
++}
++
++/*!
++
++@brief
++    This function sets BE's network port into promiscuous mode.
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++*/
++void bni_set_promisc(struct bni_net_object *pnob)
++{
++	/* Set promiscuous mode on both ports. */
++	be_rxf_promiscuous(NET_FH(pnob), 1, 1, NULL, NULL, NULL);
++}
++
++/*!
++
++@brief
++    This function takes BE's network port out of promiscuous mode.
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++*/
++void bni_reset_promisc(struct bni_net_object *pnob)
++{
++	/* Reset promiscuous mode on both ports. */
++	be_rxf_promiscuous(NET_FH(pnob), 0, 0, NULL, NULL, NULL);
++}
++
++/*!
++
++@brief
++    This function configures the VLAN Id table of BladeEngine.  If the table
++    has any VLAN, Vlan filtering is turned on.  If there no VLANN Ids  in the
++    table, VLAN filtering is turned off. BladeEngine supports a maximum of
++    32 VLans.
++
++@param
++    pnob      - Pointer to the NetObject structure
++
++    vlanp       - pointer to an array containing the VLAN IDs to be
++		configured.
++
++    nv     - Number of Vlan IDs in the array.
++
++   cbf    - Pointer to a function that will be called on completion.
++		If NULL, the call will block waiting for completion.
++
++   cbc     - Opaque context argument that will be passed to the
++		completion call back function
++
++   promiscuous   - Enable vlan Promiscuous mode or not. TRUE=Enable.
++
++@return
++    BESTATUS - (0 if successful, non-zero status code if not successful)
++
++*/
++BESTATUS
++bni_config_vlan(struct bni_net_object *pnob, u16 *vlanp, u32 nv,
++		MCC_WRB_CQE_CALLBACK cbf, void *cbc, bool  promiscuous)
++{
++	BESTATUS status;
++
++	status = be_rxf_vlan_config(NET_FH(pnob), promiscuous, nv, vlanp,
++				    cbf, cbc, NULL);
++
++	return status;
++}
++
++/*!
++
++@brief
++    This function gets the ethernet port statistics from the ASIC
++
++@param
++    pnob       - Pointer to the NetObject structure
++
++    ioctl_va       - Virtual address of structure IOCTL_ETH_GET_STATISTICS
++
++    ioctl_pa       - Physical address of structure IOCTL_ETH_GET_STATISTICS
++
++    cbf    - Pointer to a function that will be
++		called on completion. If NULL, the call will block
++		    waiting for completion.
++
++    cbc     - Opaque context argument that will be passed to
++		the completion call back function
++
++
++*/
++BESTATUS
++bni_get_stats(struct bni_net_object *pnob,
++	      struct IOCTL_ETH_GET_STATISTICS *ioctl_va,
++	      u64 ioctl_pa, MCC_WRB_CQE_CALLBACK cbf, void *cbc)
++{
++	BESTATUS s;
++
++	SA_ASSERT(pnob);
++	SA_ASSERT(ioctl_va);
++	SA_ASSERT(ioctl_pa);
++
++	s = be_rxf_query_eth_statistics(NET_FH(pnob), ioctl_va, ioctl_pa,
++					cbf, cbc, NULL);
++
++	return (s);
++
++}
++
++/*!
++@brief
++    Wrapper function to Set Pause frame control
++@param
++    pfob     - Pointer to the function object to read from.
++@param
++    txfc_enable	- Boolean variable - 0 if TX flow control is to be
++		disabled, 1 if  TX flow control is to be disabled.
++
++    rxfc_enable	- Boolean variable - 0 if RX flow control is to be
++		disabled, 1 if  XX flow control is to be disabled
++@return
++*/
++BESTATUS
++bni_set_flow_ctll(struct BE_FUNCTION_OBJECT *pfob, bool txfc_enable,
++		  bool rxfc_enable)
++{
++	return be_eth_set_flow_control(pfob, txfc_enable, rxfc_enable);
++}
++
++/*!
++@brief
++    Wrapper function to Get Pause frame control
++@param
++    pfob     - Pointer to the function object to read from.
++@param
++
++    txfc_enable	- Pointer to a Boolean variable where the TX flow
++			control setting will be returned.  0 if the flow
++			control is disabled, 1 if  flow control is disabled.
++
++    rxfc_enable	- Pointer to a Boolean variable where the RX flow
++			control setting will be returned.  0 if the flow
++			control is disabled, 1 if  flow control is disabled
++
++@return
++*/
++BESTATUS
++bni_get_flow_ctl(struct BE_FUNCTION_OBJECT *pfob, bool *txfc_enable,
++					bool *rxfc_enable)
++{
++	return be_eth_get_flow_control(pfob, txfc_enable, rxfc_enable);
 +}
 -- 
 1.5.5
