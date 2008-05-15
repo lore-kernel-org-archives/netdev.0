@@ -1,81 +1,114 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/5] sky2: restore vlan acceleration on reset
-Date: Wed, 14 May 2008 17:04:13 -0700
-Message-ID: <20080515000432.887028646@vyatta.com>
+Subject: [PATCH 3/5] sky2: split phy power into two functions
+Date: Wed, 14 May 2008 17:04:15 -0700
+Message-ID: <20080515000433.062985443@vyatta.com>
 References: <20080515000412.984337700@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([69.59.150.140]:49972 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([69.59.150.140]:49974 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760303AbYEOAI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2008 20:08:27 -0400
-Content-Disposition: inline; filename=sky2-vlan-restore.patch
+	id S1760314AbYEOAI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2008 20:08:29 -0400
+Content-Disposition: inline; filename=sky2-power-split.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If device has to be reset by sky2_restart, then need to restore
-the VLAN acceleration settings.
+Later changes add more code to PHY power changes so refactor now.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
-Please apply to 2.6.26
+This can wait for next release (#upstream) and go in -mm
 
-
---- a/drivers/net/sky2.c	2008-05-14 16:28:22.000000000 -0700
-+++ b/drivers/net/sky2.c	2008-05-14 16:29:39.000000000 -0700
-@@ -1159,17 +1159,9 @@ static int sky2_ioctl(struct net_device 
+--- a/drivers/net/sky2.c	2008-05-14 16:29:44.000000000 -0700
++++ b/drivers/net/sky2.c	2008-05-14 16:29:46.000000000 -0700
+@@ -619,28 +619,35 @@ static void sky2_phy_init(struct sky2_hw
+ 		gm_phy_write(hw, port, PHY_MARV_INT_MASK, PHY_M_DEF_MSK);
  }
  
- #ifdef SKY2_VLAN_TAG_USED
--static void sky2_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
-+static void sky2_set_vlan_mode(struct sky2_hw *hw, u16 port, bool onoff)
+-static void sky2_phy_power(struct sky2_hw *hw, unsigned port, int onoff)
++static const u32 phy_power[] = { PCI_Y2_PHY1_POWD, PCI_Y2_PHY2_POWD };
++static const u32 coma_mode[] = { PCI_Y2_PHY1_COMA, PCI_Y2_PHY2_COMA };
++
++static void sky2_phy_power_up(struct sky2_hw *hw, unsigned port)
  {
--	struct sky2_port *sky2 = netdev_priv(dev);
--	struct sky2_hw *hw = sky2->hw;
--	u16 port = sky2->port;
--
--	netif_tx_lock_bh(dev);
--	napi_disable(&hw->napi);
--
--	sky2->vlgrp = grp;
--	if (grp) {
-+	if (onoff) {
- 		sky2_write32(hw, SK_REG(port, RX_GMF_CTRL_T),
- 			     RX_VLAN_STRIP_ON);
- 		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
-@@ -1180,6 +1172,19 @@ static void sky2_vlan_rx_register(struct
- 		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
- 			     TX_VLAN_TAG_OFF);
- 	}
+ 	u32 reg1;
+-	static const u32 phy_power[] = { PCI_Y2_PHY1_POWD, PCI_Y2_PHY2_POWD };
+-	static const u32 coma_mode[] = { PCI_Y2_PHY1_COMA, PCI_Y2_PHY2_COMA };
+ 
+ 	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
+ 	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
+-	/* Turn on/off phy power saving */
+-	if (onoff)
+-		reg1 &= ~phy_power[port];
+-	else
+-		reg1 |= phy_power[port];
++	reg1 &= ~phy_power[port];
+ 
+-	if (onoff && hw->chip_id == CHIP_ID_YUKON_XL && hw->chip_rev > 1)
++	if (hw->chip_id == CHIP_ID_YUKON_XL && hw->chip_rev > 1)
+ 		reg1 |= coma_mode[port];
+ 
+ 	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
+ 	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+ 	sky2_pci_read32(hw, PCI_DEV_REG1);
 +}
 +
-+static void sky2_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
++static void sky2_phy_power_down(struct sky2_hw *hw, unsigned port)
 +{
-+	struct sky2_port *sky2 = netdev_priv(dev);
-+	struct sky2_hw *hw = sky2->hw;
-+	u16 port = sky2->port;
++	u32 reg1;
 +
-+	netif_tx_lock_bh(dev);
-+	napi_disable(&hw->napi);
-+
-+	sky2->vlgrp = grp;
-+	sky2_set_vlan_mode(hw, port, grp != NULL);
++	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
++	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
++	reg1 |= phy_power[port];
  
- 	sky2_read32(hw, B0_Y2_SP_LISR);
- 	napi_enable(&hw->napi);
-@@ -1418,6 +1423,10 @@ static int sky2_up(struct net_device *de
- 	sky2_prefetch_init(hw, txqaddr[port], sky2->tx_le_map,
- 			   TX_RING_SIZE - 1);
+-	udelay(100);
++	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
++	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+ }
  
-+#ifdef SKY2_VLAN_TAG_USED
-+	sky2_set_vlan_mode(hw, port, sky2->vlgrp != NULL);
-+#endif
+ /* Force a renegotiation */
+@@ -675,8 +682,11 @@ static void sky2_wol_init(struct sky2_po
+ 
+ 	sky2->advertising &= ~(ADVERTISED_1000baseT_Half|ADVERTISED_1000baseT_Full);
+ 	sky2->flow_mode = FC_NONE;
+-	sky2_phy_power(hw, port, 1);
+-	sky2_phy_reinit(sky2);
 +
- 	err = sky2_rx_start(sky2);
- 	if (err)
++	spin_lock_bh(&sky2->phy_lock);
++	sky2_phy_power_up(hw, port);
++	sky2_phy_init(hw, port);
++	spin_unlock_bh(&sky2->phy_lock);
+ 
+ 	sky2->flow_mode = save_mode;
+ 	sky2->advertising = ctrl;
+@@ -781,6 +791,7 @@ static void sky2_mac_init(struct sky2_hw
+ 	sky2_write8(hw, SK_REG(port, GMAC_IRQ_MSK), GMAC_DEF_MSK);
+ 
+ 	spin_lock_bh(&sky2->phy_lock);
++	sky2_phy_power_up(hw, port);
+ 	sky2_phy_init(hw, port);
+ 	spin_unlock_bh(&sky2->phy_lock);
+ 
+@@ -1385,8 +1396,6 @@ static int sky2_up(struct net_device *de
+ 	if (!sky2->rx_ring)
  		goto err_out;
+ 
+-	sky2_phy_power(hw, port, 1);
+-
+ 	sky2_mac_init(hw, port);
+ 
+ 	/* Register is number of 4K blocks on internal RAM buffer. */
+@@ -1767,7 +1776,7 @@ static int sky2_down(struct net_device *
+ 	sky2_write8(hw, SK_REG(port, RX_GMF_CTRL_T), GMF_RST_SET);
+ 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
+ 
+-	sky2_phy_power(hw, port, 0);
++	sky2_phy_power_down(hw, port);
+ 
+ 	netif_carrier_off(dev);
+ 
 
 -- 
 
