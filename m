@@ -1,40 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 9/15] BE NIC driver - Linux system abstraction files
-Date: Thu, 15 May 2008 13:33:28 -0400
-Message-ID: <482C73E8.6090208@garzik.org>
-References: <20080515092638.a9ce4c89@mailhost.serverengines.com> <87mymrztse.fsf@basil.nowhere.org>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [patch 18/21] Filesystem: Socket inode defragmentation
+Date: Thu, 15 May 2008 10:40:11 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0805151039060.18708@schroedinger.engr.sgi.com>
+References: <20080510030831.796641881@sgi.com> <20080510030918.882272887@sgi.com>
+ <20080513132810.GA7152@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Subbu Seetharaman <subbus@serverengines.com>,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Mel Gorman <mel@skynet.ie>, andi@firstfloor.org,
+	Rik van Riel <riel@redhat.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>, mpm@selenic.com
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38014 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750844AbYEORdd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2008 13:33:33 -0400
-In-Reply-To: <87mymrztse.fsf@basil.nowhere.org>
+Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:57102 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751553AbYEORkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 13:40:14 -0400
+In-Reply-To: <20080513132810.GA7152@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> "Subbu Seetharaman" <subbus@serverengines.com> writes:
->> + */
->> +/*
->> + * system abstraction functions / macros for Linux
+On Tue, 13 May 2008, Evgeniy Polyakov wrote:
+
+> Out of curiosity, how can you drop socket inode, since it is always
+> attached to socket which is removed automatically when connection is
+> closed. Any force of dropping socket inode can only result in connection
+> drop, i.e. there are no inodes, which are placed in cache and are not
+> yet freed, if there are no attached sockets.
 > 
-> Sorry, pretty much this complete file has to go and the callers 
-> be fixed to use the native Linux functions directly. Some of it
-> was even wrong, like it's not legal to cast atomic_t like you did.
-> 
-> Also a lot of facilities you reimplement here exist already in Linux
-> anyways under other names.
+> So question is how does it work for sockets?
 
-Quite agreed (speaking as net driver maintainer)
-
-	Jeff
-
-
+All inodes are inactivated and put on a lru before they are freed. Those 
+could be reclaimed by inode defrag. Socket inode defrag is not that 
+important. Just shows that this can be applied in a general way.
 
 
