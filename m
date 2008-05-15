@@ -1,38 +1,26 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: dead network on JS21 with tg3 driver after flowcontrol changes
-Date: Thu, 15 May 2008 17:49:48 +0200
-Message-ID: <20080515154948.GA23647@aepfle.de>
-References: <20080515121340.GA23033@aepfle.de>
-	<1551EAE59135BE47B544934E30FC4FC002AABCEE@nt-irva-0751.brcm.ad.broadcom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
+Date: Thu, 15 May 2008 17:59:57 +0200
+Message-ID: <482C5DFD.9020602@trash.net>
+References: <20080515091216.GA6550@ff.dom.local> <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Matthew Carlson <mcarlson@broadcom.com>,
-	netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABCEE@nt-irva-0751.brcm.ad.broadcom.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Kingsley Foreman <kingsley@internode.com.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761488AbYEOQAT@vger.kernel.org>
+In-Reply-To: <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 15, Michael Chan wrote:
-
-> Olaf Hering wrote:
+Kingsley Foreman wrote:
+> i just rolled back the kernel to 2.6.24 and im seeing the same thing,
 > 
-> > Any ideas how to fix this?
-> > What info do you need from the system?
-> 
-> Are you using eth0 or eth1?  The dmesg below shows that
-> link came up on eth1 and IP address from DHCP was received.
+> I was using 2.6.22 before and didn't see the problem, txqueuelen on the 
+> bond0 interface is 0 (the default)
 
-I'm using eth1.
-The log was done with the patch reverted.
+
+Did you also update iproute when moving to a newer kernel?
