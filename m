@@ -1,31 +1,153 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] bonding: handle case of device named bonding_master
-Date: Wed, 14 May 2008 22:35:16 -0700 (PDT)
-Message-ID: <20080514.223516.71667347.davem@davemloft.net>
-References: <20080514170316.672f809d@extreme>
-	<20080514181257.74fbb5aa@extreme>
-	<20080514181528.1ff1791a@extreme>
+From: "Kingsley Foreman" <kingsley@internode.com.au>
+Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
+Date: Thu, 15 May 2008 15:46:11 +0930
+Message-ID: <B0A599AA8CD34E47901804F014F15903@uglypunk>
+References: <B28DA1911F61434C804723B7EE8A5C67@uglypunk> <20080514205604.e669a28f.akpm@linux-foundation.org> <482BC84E.3000401@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36415
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751184AbYEOFfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 01:35:21 -0400
-In-Reply-To: <20080514181528.1ff1791a@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1;
+	format=flowed	reply-type=response
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Eric Dumazet" <dada1@cosmosbay.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754557AbYEOGQw@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 14 May 2008 18:15:28 -0700
 
-> If device already exists named bonding_masters, then fail. This is a wierd
-> corner case only a QA group could love.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Also applied, thanks a lot Stephen.
+--------------------------------------------------
+=46rom: "Eric Dumazet" <dada1@cosmosbay.com>
+Sent: Thursday, May 15, 2008 2:51 PM
+To: "Kingsley Foreman" <kingsley@internode.com.au>
+Cc: "Andrew Morton" <akpm@linux-foundation.org>;=20
+<linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>
+Subject: Re: NET_SCHED cbq dropping too many packets on a bonding inter=
+face
+
+> Andrew Morton a =E9crit :
+>> (cc netdev)
+>>
+>> On Thu, 15 May 2008 12:25:19 +0930 "Kingsley Foreman"=20
+>> <kingsley@internode.com.au> wrote:
+>>
+>>
+>>> Ive been using qdisc for quite a while without any problems,
+>>> I just rebuilt a gentoo box with 2.6.25 kernel that does a lot of=20
+>>> traffic
+>>> ~1000mbits+ over a bonded interface
+>>>
+>>> Im however seeing a big problem with cbq class dropping packets for=
+ no
+>>> reason i can see, and it is causing a lot of speed issues.
+>>>
+>>> the basic config is this
+>>> ___________________________________________________________________=
+__
+>>> /sbin/tc qdisc del dev bond0 root
+>>> /sbin/tc qdisc add dev bond0 root handle 1 cbq bandwidth 2000Mbit a=
+vpkt=20
+>>> 1000
+>>> cell 8
+>>> /sbin/tc class change dev bond0 root cbq weight 200Mbit allot 1514
+>>>
+>>> /sbin/tc class add dev bond0 parent 1: classid 1:1280 cbq bandwidth=
+=20
+>>> 2000Mbit
+>>> rate 1200Mbit weight 120Mbit prio 1 allot 1514 cell 8 maxburst 120=20
+>>> minburst
+>>> 1 minidle 0 avpkt 1000 bounded
+>>> /sbin/tc filter add dev bond0 parent 1:0 protocol ip prio 300 route=
+ to 5
+>>> classid 1:1280
+>>>
+>>> /sbin/tc class add dev bond0 parent 1: classid 1:1281 cbq bandwidth=
+=20
+>>> 2000Mbit
+>>> rate 400Mbit weight 40Mbit prio 6 allot 1514 cell 8 maxburst 120=20
+>>> minburst 1
+>>> minidle 0 avpkt 1000 bounded
+>>> /sbin/tc filter add dev bond0 parent 1:0 protocol ip prio 300 route=
+ to 6
+>>> classid 1:1281
+>>> ___________________________________________________________________=
+_
+>>>
+>>> So there is a lot of bandwidth handed out but it is still dropping =
+a lot=20
+>>> of
+>>> packets  for very small ammounts of traffic eg 300mbits.
+>>>
+>>> However the biggest problem im seeing is if i just do this
+>>>
+>>> __________________________________________________________________
+>>> /sbin/tc qdisc del dev bond0 root
+>>> /sbin/tc qdisc add dev bond0 root handle 1 cbq bandwidth 2000Mbit a=
+vpkt=20
+>>> 1000
+>>> cell 8
+>>> /sbin/tc class change dev bond0 root cbq weight 200Mbit allot 1514
+>>> ___________________________________________________________________
+>>>
+>>> after 30sec I get results like
+>>> ___________________________________________________________________
+>>>
+>>> ### bond0: queueing disciplines
+>>>
+>>> qdisc cbq 1: root rate 2000Mbit (bounded,isolated) prio no-transmit
+>>>  Sent 574230043 bytes 407156 pkt (dropped 2524, overlimits 0 requeu=
+es 0)
+>>>  rate 0bit 0pps backlog 0b 0p requeues 0
+>>>   borrowed 0 overactions 0 avgidle 3 undertime 0
+>>>
+>>> ### bond0: traffic classes
+>>>
+>>> class cbq 1: root rate 2000Mbit (bounded,isolated) prio no-transmit
+>>>  Sent 574330783 bytes 407225 pkt (dropped 2525, overlimits 0 requeu=
+es 0)
+>>>  rate 0bit 0pps backlog 0b 0p requeues 0
+>>>   borrowed 0 overactions 0 avgidle 3 undertime 0
+>>> __________________________________________________________________
+>>>
+>>> I can't for the life if me work out why it is dropping so many pack=
+ets=20
+>>> for while doing so little traffic when i enable  cbq the transfer r=
+ate=20
+>>> drops by approx 30%, any help would be great, and any improvements =
+to my=20
+>>> command lines would be good also.
+>>>
+>>>
+>>> Kingsley Foreman
+>>>
+>>
+>>
+>>
+>>
+> Could you provide your linux-2.6.25 .config file please ?
+>
+> What kind of hardware is your box ? (CPU, network interfaces)
+>
+> CBQ and other packet schedulers depend on a fast ktime_get() interfac=
+e, so=20
+> maybe
+> slowdown you notice has its root on core kernel facilities
+> (CONFIG_HZ, SCHED_HRTICK, HIGH_RES_TIMERS, ...)
+>
+> If you remove CBQ, do you get same slowdown if you have a tcpdump run=
+ning=20
+> on your machine ?
+>
+Im seeing it on a sun v20z and a sun x220m2, both multicore Opteron bot=
+h tg3
+Im not seeing a slowdown if tcpdump is running on the same machine with=
+out=20
+CBQ
+
+you can grab the config here
+http://games.internode.on.net/ker-config.txt
+
+
+
+
+=20
