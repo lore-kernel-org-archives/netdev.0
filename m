@@ -1,42 +1,279 @@
 From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATCH 13/15] BE NIC driver - f/w header files
-Date: Thu, 15 May 2008 02:51:55 -0700
-Message-ID: <20080515095155.531ced17@mailhost.serverengines.com>
+Subject: [PATCH 14/15] BE NIC driver - f/w header files
+Date: Thu, 15 May 2008 02:53:41 -0700
+Message-ID: <20080515095341.44b87fb2@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:22259 "EHLO
-	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753191AbYEOJrO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 05:47:14 -0400
+Received: from mail192.messagelabs.com ([216.82.245.99]:16826 "EHLO
+	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752449AbYEOJtC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 05:49:02 -0400
 Received: from 124.30.166.146 ([124.30.166.146])
 	by mailhost.serverengines.com
 	for netdev@vger.kernel.org;
-	Thu, 15 May 2008 02:51:55 -0700
+	Thu, 15 May 2008 02:53:41 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
 ---
- drivers/message/beclib/fw/bmap/be_common_bmap.h    |   99 +++
- drivers/message/beclib/fw/bmap/ioctl_common_bmap.h |  921 ++++++++++++++++++++
- drivers/message/beclib/fw/bmap/ioctl_hdr_bmap.h    |   68 ++
- drivers/message/beclib/fw/bmap/ioctl_types_bmap.h  |   43 +
- 4 files changed, 1131 insertions(+), 0 deletions(-)
- create mode 100644 drivers/message/beclib/fw/bmap/be_common_bmap.h
- create mode 100644 drivers/message/beclib/fw/bmap/ioctl_common_bmap.h
- create mode 100644 drivers/message/beclib/fw/bmap/ioctl_hdr_bmap.h
- create mode 100644 drivers/message/beclib/fw/bmap/ioctl_types_bmap.h
+ drivers/message/beclib/fw/be_gen_id_ranges.h      |  231 +++++++++++++
+ drivers/message/beclib/fw/bmap/host_struct_bmap.h |   38 +++
+ drivers/message/beclib/fw/bmap/ioctl_eth_bmap.h   |  359 +++++++++++++++++++++
+ drivers/message/beclib/fw/bmap/ioctl_top_bmap.h   |   40 +++
+ 4 files changed, 668 insertions(+), 0 deletions(-)
+ create mode 100755 drivers/message/beclib/fw/be_gen_id_ranges.h
+ create mode 100644 drivers/message/beclib/fw/bmap/host_struct_bmap.h
+ create mode 100644 drivers/message/beclib/fw/bmap/ioctl_eth_bmap.h
+ create mode 100644 drivers/message/beclib/fw/bmap/ioctl_top_bmap.h
 
-diff --git a/drivers/message/beclib/fw/bmap/be_common_bmap.h b/drivers/message/beclib/fw/bmap/be_common_bmap.h
-new file mode 100644
-index 0000000..6605b1a
+diff --git a/drivers/message/beclib/fw/be_gen_id_ranges.h b/drivers/message/beclib/fw/be_gen_id_ranges.h
+new file mode 100755
+index 0000000..800bc4f
 --- /dev/null
-+++ b/drivers/message/beclib/fw/bmap/be_common_bmap.h
-@@ -0,0 +1,99 @@
++++ b/drivers/message/beclib/fw/be_gen_id_ranges.h
+@@ -0,0 +1,231 @@
++/*
++ * Copyright (C) 2005 - 2007 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*!
++@file
++    be_gen_id_ranges.h
++
++@brief
++    Provides ID ranges and conversion macros between the types of ID numbers.
++
++*/
++#ifndef __be_gen_id_ranges_h__
++#define __be_gen_id_ranges_h__
++
++#ifndef BE_CONFIG
++#pragma message("WARNING: configuration not defined. Assuming BE_CONFIG=0"
++		" by default.")
++#define BE_CONFIG 0
++#endif
++
++/*/////////////////////////////////////////////////////////////////////// */
++/*
++ * For each BE_CONFIG value, define the CID ranges for the ULP protocol
++ * firmware.
++ *
++ * The BE_CONFIG definitions must match the description of the
++ * configuration under the fw\config\readme.txt file.
++ * The MAX_* literals must all be multiples of 32!!! This is an implementation
++ * restriction in the software that makes use of these literals for bitvector
++ * classes. Having a non-32 multiple MAX_* literal will cause an compile-time
++ * assert! At some point in the future this restriction may be removed (along
++ * with this comment blurb). Note: if the desired range is not an even multiple
++ * of 32, the developer must ensure the extra/invalid bits are not used.
++ */
++/*//////////////////////////////////////////////////////////////////// */
++
++#if (BE_CONFIG == 0)
++
++/* --- CID_START_ENUM --- */
++#define ISCSI_CID_START                 (0)     /* Start of connection
++							ID range for ISCSI */
++#define DEFPDU_CID_START                (0)     /* Start of connection
++							ID range for iSCSI
++							default pdu queue */
++#define ETX_CID_START                   (1024)  /* Start of connection
++							ID range for ETX */
++#define RDMA_CID_START                  (0)     /* Start of connection
++						       ID range for RDMA */
++
++/* --- MAX_CIDS_ENUM --- */
++#define MAX_DEFPDU_CIDS                 (32)    /* Maximum number of
++						       iSCSI DEF pdu cids */
++#define MAX_ETX_CIDS                    (64)    /* Maximum number of ETX
++						       connections */
++#define MAX_ISCSI_CIDS                  (512)   /* Maximum number of
++						       ISCSI connections */
++#define MAX_ISCSI_CIDS_CT               (512)   /* Maximum number of
++						       ISCSI connections
++						       per chute */
++#define MAX_RDMA_CIDS                   (0)     /* Maximum number of
++						       RDMA connections */
++
++#elif (BE_CONFIG == 1)
++
++/* --- CID_START_ENUM --- */
++#define ISCSI_CID_START                 (0)     /* Start of connection
++						       ID range for ISCSI */
++#define DEFPDU_CID_START                (0)     /* Start of connection
++						       ID range for iSCSI
++						       default pdu queue */
++#define RDMA_CID_START                  (64)    /* Start of connection
++						       ID range for RDMA */
++#define ETX_CID_START                   (1024)  /* Start of connection
++						       ID range for ETX */
++
++/* --- MAX_CIDS_ENUM --- */
++#define MAX_DEFPDU_CIDS                 (32)    /* Maximum number of
++						       iSCSI DEF pdu cids */
++#define MAX_ISCSI_CIDS                  (64)    /* Maximum number
++						       of ISCSI connections */
++#define MAX_ISCSI_CIDS_CT               (64)    /* Maximum number
++						       of ISCSI connections
++						       per chute */
++#define MAX_ETX_CIDS                    (64)    /* Maximum number of
++						       ETX connections */
++#define MAX_RDMA_CIDS                   (512)   /* Maximum number
++						       of RDMA connections */
++
++#elif (BE_CONFIG == 2)
++
++/* --- CID_START_ENUM --- */
++#define DEFPDU_CID_START                (0)     /* Start of connection
++						       ID range for iSCSI
++						       default pdu queue */
++#define ISCSI_TGT_CID_START             (448)   /* Start of connection
++						       ID range for ISCSI */
++#define ISCSI_CID_START                 (ISCSI_TGT_CID_START)
++#define ETX_CID_START                   (1024)  /* Start of connection
++						       ID range for ETX */
++#define RDMA_CID_START                  (0)     /* Start of connection
++						       ID range for RDMA */
++
++/* --- MAX_CIDS_ENUM --- */
++#define MAX_DEFPDU_CIDS                 (32)    /* Maximum number of
++						       iSCSI DEF pdu cids */
++#define MAX_ETX_CIDS                    (64)    /* Maximum number of
++						       ETX cids */
++#define MAX_ISCSI_TGT_CIDS              (512)   /* Maximum number
++						       of ISCSI connections */
++#define MAX_ISCSI_CIDS                  (MAX_ISCSI_TGT_CIDS)
++#define MAX_ISCSI_CIDS_CT               (256)   /* Maximum number of
++						       ISCSI connections
++						       per chute */
++#define MAX_RDMA_CIDS                   (0)     /* Maximum number of
++						       RDMA connections */
++
++#elif (BE_CONFIG == 3)
++
++/* --- CID_START_ENUM --- */
++#define DEFPDU_CID_START                (0)     /* Start of connection
++						       ID range for iSCSI
++						       default pdu queue */
++#define ISCSI_TGT_CID_START             (0)     /* Start of connection
++						       ID range for ISCSI */
++#define ISCSI_CID_START                 (ISCSI_TGT_CID_START)
++#define ETX_CID_START                   (1024)  /* Start of connection
++						       ID range for ETX */
++#define RDMA_CID_START                  (1024)     /* Start of connection
++							  ID range for RDMA */
++
++/* --- MAX_CIDS_ENUM --- */
++#define MAX_DEFPDU_CIDS                 (32)    /* Maximum number
++						       of iSCSI DEF pdu cids */
++#define MAX_ETX_CIDS                    (64)    /* Maximum number
++						       of ETX cids */
++#define MAX_ISCSI_TGT_CIDS              (1024)  /* Maximum number
++						       of ISCSI connections
++						       supported. */
++#define MAX_ISCSI_CIDS                  (MAX_ISCSI_TGT_CIDS)
++#define MAX_ISCSI_CIDS_CT               (512)   /* Maximum number of
++						       ISCSI connections per
++						       chute */
++#define MAX_RDMA_CIDS                   (0)     /* Maximum number of
++						       RDMA connections */
++
++#elif (BE_CONFIG == 4)
++
++/* --- CID_START_ENUM --- */
++#define ISCSI_CID_START                 (0)     /* Start of connection
++						       ID range for ISCSI */
++#define DEFPDU_CID_START                (0)     /* Start of connection
++						       ID range for iSCSI
++						       default pdu queue */
++#define ETX_CID_START                   (1024)  /* Start of connection
++						       ID range for ETX */
++#define RDMA_CID_START                  (0)     /* Start of connection
++						       ID range for RDMA */
++
++/* --- MAX_CIDS_ENUM --- */
++#define MAX_DEFPDU_CIDS                 (32)    /* Maximum number of
++						       iSCSI DEF pdu cids */
++#define MAX_ETX_CIDS                    (64)    /* Maximum number of
++						       ETX connections */
++#define MAX_ISCSI_CIDS                  (512)   /* Maximum number of
++						       ISCSI connections */
++#define MAX_ISCSI_CIDS_CT               (256)   /* Maximum number of
++						       ISCSI connections per
++						       chute */
++#define MAX_RDMA_CIDS                   (0)     /* Maximum number of
++						       RDMA connections */
++
++
++#else
++#error Error: Invalid configuration (BE_CONFIG unrecognized).
++#endif
++
++
++/* Define the ethernet CIDs used for iSCSI OOO packet replay. Currently
++ * the maximum number of iSCSI chutes/ulps is 2. Each iSCSI chute
++ * requries one reserved CID number.  We have chosen the following
++ * format for these literals:
++ * a) ISCSI_OOO_CID - used for replay from iSCSI chute A (rxulp0),
++ * 		must be an even number
++ * b) ISCSI_OOO_CID1 - used for replay from iSCSI chute B (rxulp1),
++ * 		must be adjacent to
++ *    chute A's CID, only applicable on dual-chute iSCSI
++ */
++#define ISCSI_OOO_CID                       (1086)
++#define ISCSI_OOO_CID1                      (1087)
++
++
++/* Define the ethernet CIDs that have higher priority over normal
++ * ethernet transmit rings. Each etx ULP requires one reserved super
++ * CID number.  Currently the maximum number of ethernet chutes is 2.
++ * We have chosen the following format for these literals:
++ * a) ETX_SUPER_CID_ULP2 - used for etx with txulp2
++ * b) ETX_SUPER_CID_ULP1 - used for etx with txulp1
++ *
++ */
++#define ETX_SUPER_CID_ULP2                  (ETX_CID_START)
++#define ETX_SUPER_CID_ULP1                  (ETX_CID_START + 1)
++
++#endif /* __be_gen_id_ranges_h__ */
++
+diff --git a/drivers/message/beclib/fw/bmap/host_struct_bmap.h b/drivers/message/beclib/fw/bmap/host_struct_bmap.h
+new file mode 100644
+index 0000000..717e507
+--- /dev/null
++++ b/drivers/message/beclib/fw/bmap/host_struct_bmap.h
+@@ -0,0 +1,38 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -70,78 +307,17 @@ index 0000000..6605b1a
 +/*
 + * Autogenerated by srcgen version: 0127
 + */
-+#ifndef __be_common_bmap_h__
-+#define __be_common_bmap_h__
++#ifndef __host_struct_bmap_h__
++#define __host_struct_bmap_h__
++#include "be_common_bmap.h"
 +
-+#ifndef SG_C_ASSERT
-+#define SG_C_ASSERT(_name_, _condition_)
-+#endif
-+
-+#if defined(__BIG_ENDIAN)
-+   /* Physical Address. */
-+struct PHYS_ADDR {
-+	union {
-+		struct {
-+			u32 lo;	/* DWORD 0 */
-+			u32 hi;	/* DWORD 1 */
-+		} SG_PACK;	/* unnamed struct */
-+		u32 dw[2];	/* dword union */
-+	};			/* unnamed union */
-+} SG_PACK ;
-+
-+SG_C_ASSERT(__sizeof__PHYS_ADDR, sizeof(struct PHYS_ADDR) == 8);
-+
-+#else
-+   /* Physical Address. */
-+struct PHYS_ADDR {
-+	union {
-+		struct {
-+			u32 lo;	/* DWORD 0 */
-+			u32 hi;	/* DWORD 1 */
-+		} SG_PACK;	/* unnamed struct */
-+		u32 dw[2];	/* dword union */
-+	};			/* unnamed union */
-+} SG_PACK ;
-+
-+SG_C_ASSERT(__sizeof__PHYS_ADDR, sizeof(struct PHYS_ADDR) == 8);
-+#endif
-+
-+#if defined(__BIG_ENDIAN)
-+   /* Virtual Address. */
-+struct VIRT_ADDR {
-+	union {
-+		struct {
-+			u32 lo;	/* DWORD 0 */
-+			u32 hi;	/* DWORD 1 */
-+		} SG_PACK;	/* unnamed struct */
-+		u32 dw[2];	/* dword union */
-+	};			/* unnamed union */
-+} SG_PACK ;
-+
-+SG_C_ASSERT(__sizeof__VIRT_ADDR, sizeof(struct VIRT_ADDR) == 8);
-+
-+#else
-+   /* Virtual Address. */
-+struct VIRT_ADDR {
-+	union {
-+		struct {
-+			u32 lo;	/* DWORD 0 */
-+			u32 hi;	/* DWORD 1 */
-+		} SG_PACK;	/* unnamed struct */
-+		u32 dw[2];	/* dword union */
-+	};			/* unnamed union */
-+} SG_PACK ;
-+
-+SG_C_ASSERT(__sizeof__VIRT_ADDR, sizeof(struct VIRT_ADDR) == 8);
-+#endif
-+
-+#endif /* __be_common_bmap_h__ */
-diff --git a/drivers/message/beclib/fw/bmap/ioctl_common_bmap.h b/drivers/message/beclib/fw/bmap/ioctl_common_bmap.h
++#endif /* __host_struct_bmap_h__ */
+diff --git a/drivers/message/beclib/fw/bmap/ioctl_eth_bmap.h b/drivers/message/beclib/fw/bmap/ioctl_eth_bmap.h
 new file mode 100644
-index 0000000..5807736
+index 0000000..c27529e
 --- /dev/null
-+++ b/drivers/message/beclib/fw/bmap/ioctl_common_bmap.h
-@@ -0,0 +1,921 @@
++++ b/drivers/message/beclib/fw/bmap/ioctl_eth_bmap.h
+@@ -0,0 +1,359 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -175,900 +351,338 @@ index 0000000..5807736
 +/*
 + * Autogenerated by srcgen version: 0127
 + */
-+#ifndef __ioctl_common_bmap_h__
-+#define __ioctl_common_bmap_h__
-+#include "ioctl_types_bmap.h"
++#ifndef __ioctl_eth_bmap_h__
++#define __ioctl_eth_bmap_h__
 +#include "ioctl_hdr_bmap.h"
++#include "ioctl_types_bmap.h"
 +
-+struct BE_LINK_STATUS {
-+	u8 mac0_duplex;
-+	u8 mac0_speed;
-+	u8 mac1_duplex;
-+	u8 mac1_speed;
-+	u8 mgmt_mac_duplex;
-+	u8 mgmt_mac_speed;
-+	u8 active_port;
-+	u8 rsvd0;
-+	u8 mac0_fault;
-+	u8 mac1_fault;
-+	u16 rsvd1;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_170_REQUEST {
++struct MIB_ETH_STATISTICS_PARAMS_IN {
 +	u32 rsvd0;
 +} SG_PACK;
 +
-+union LINK_STATUS_QUERY_PARAMS {
-+	struct BE_LINK_STATUS response;
-+	struct IOCTL_COMMON_ANON_170_REQUEST request;
++struct BE_RXF_STATS {
++	u32 p0recvdtotalbytesLSD;	/* DWORD 0 */
++	u32 p0recvdtotalbytesMSD;	/* DWORD 1 */
++	u32 p0recvdtotalframes;	/* DWORD 2 */
++	u32 p0recvdunicastframes;	/* DWORD 3 */
++	u32 p0recvdmulticastframes;	/* DWORD 4 */
++	u32 p0recvdbroadcastframes;	/* DWORD 5 */
++	u32 p0crcerrors;	/* DWORD 6 */
++	u32 p0alignmentsymerrs;	/* DWORD 7 */
++	u32 p0pauseframesrecvd;	/* DWORD 8 */
++	u32 p0controlframesrecvd;	/* DWORD 9 */
++	u32 p0inrangelenerrors;	/* DWORD 10 */
++	u32 p0outrangeerrors;	/* DWORD 11 */
++	u32 p0frametoolongerrors;	/* DWORD 12 */
++	u32 p0droppedaddressmatch;	/* DWORD 13 */
++	u32 p0droppedvlanmismatch;	/* DWORD 14 */
++	u32 p0ipdroppedtoosmall;	/* DWORD 15 */
++	u32 p0ipdroppedtooshort;	/* DWORD 16 */
++	u32 p0ipdroppedhdrtoosmall;	/* DWORD 17 */
++	u32 p0tcpdroppedlen;	/* DWORD 18 */
++	u32 p0droppedrunt;	/* DWORD 19 */
++	u32 p0recvd64;		/* DWORD 20 */
++	u32 p0recvd65_127;	/* DWORD 21 */
++	u32 p0recvd128_256;	/* DWORD 22 */
++	u32 p0recvd256_511;	/* DWORD 23 */
++	u32 p0recvd512_1023;	/* DWORD 24 */
++	u32 p0recvd1518_1522;	/* DWORD 25 */
++	u32 p0recvd1522_2047;	/* DWORD 26 */
++	u32 p0recvd2048_4095;	/* DWORD 27 */
++	u32 p0recvd4096_8191;	/* DWORD 28 */
++	u32 p0recvd8192_9216;	/* DWORD 29 */
++	u32 p0rcvdipcksmerrs;	/* DWORD 30 */
++	u32 p0recvdtcpcksmerrs;	/* DWORD 31 */
++	u32 p0recvdudpcksmerrs;	/* DWORD 32 */
++	u32 p0recvdnonrsspackets;	/* DWORD 33 */
++	u32 p0recvdippackets;	/* DWORD 34 */
++	u32 p0recvdchute1packets;	/* DWORD 35 */
++	u32 p0recvdchute2packets;	/* DWORD 36 */
++	u32 p0recvdchute3packets;	/* DWORD 37 */
++	u32 p0recvdipsecpackets;	/* DWORD 38 */
++	u32 p0recvdmanagementpackets;	/* DWORD 39 */
++	u32 p0xmitbyteslsd;	/* DWORD 40 */
++	u32 p0xmitbytesmsd;	/* DWORD 41 */
++	u32 p0xmitunicastframes;	/* DWORD 42 */
++	u32 p0xmitmulticastframes;	/* DWORD 43 */
++	u32 p0xmitbroadcastframes;	/* DWORD 44 */
++	u32 p0xmitpauseframes;	/* DWORD 45 */
++	u32 p0xmitcontrolframes;	/* DWORD 46 */
++	u32 p0xmit64;		/* DWORD 47 */
++	u32 p0xmit65_127;	/* DWORD 48 */
++	u32 p0xmit128_256;	/* DWORD 49 */
++	u32 p0xmit256_511;	/* DWORD 50 */
++	u32 p0xmit512_1023;	/* DWORD 51 */
++	u32 p0xmit1518_1522;	/* DWORD 52 */
++	u32 p0xmit1522_2047;	/* DWORD 53 */
++	u32 p0xmit2048_4095;	/* DWORD 54 */
++	u32 p0xmit4096_8191;	/* DWORD 55 */
++	u32 p0xmit8192_9216;	/* DWORD 56 */
++	u32 p0rxfifooverflowdropped;	/* DWORD 57 */
++	u32 p0ipseclookupfaileddropped;	/* DWORD 58 */
++	u32 p1recvdtotalbytesLSD;	/* DWORD 59 */
++	u32 p1recvdtotalbytesMSD;	/* DWORD 60 */
++	u32 p1recvdtotalframes;	/* DWORD 61 */
++	u32 p1recvdunicastframes;	/* DWORD 62 */
++	u32 p1recvdmulticastframes;	/* DWORD 63 */
++	u32 p1recvdbroadcastframes;	/* DWORD 64 */
++	u32 p1crcerrors;	/* DWORD 65 */
++	u32 p1alignmentsymerrs;	/* DWORD 66 */
++	u32 p1pauseframesrecvd;	/* DWORD 67 */
++	u32 p1controlframesrecvd;	/* DWORD 68 */
++	u32 p1inrangelenerrors;	/* DWORD 69 */
++	u32 p1outrangeerrors;	/* DWORD 70 */
++	u32 p1frametoolongerrors;	/* DWORD 71 */
++	u32 p1droppedaddressmatch;	/* DWORD 72 */
++	u32 p1droppedvlanmismatch;	/* DWORD 73 */
++	u32 p1ipdroppedtoosmall;	/* DWORD 74 */
++	u32 p1ipdroppedtooshort;	/* DWORD 75 */
++	u32 p1ipdroppedhdrtoosmall;	/* DWORD 76 */
++	u32 p1tcpdroppedlen;	/* DWORD 77 */
++	u32 p1droppedrunt;	/* DWORD 78 */
++	u32 p1recvd64;		/* DWORD 79 */
++	u32 p1recvd65_127;	/* DWORD 80 */
++	u32 p1recvd128_256;	/* DWORD 81 */
++	u32 p1recvd256_511;	/* DWORD 82 */
++	u32 p1recvd512_1023;	/* DWORD 83 */
++	u32 p1recvd1518_1522;	/* DWORD 84 */
++	u32 p1recvd1522_2047;	/* DWORD 85 */
++	u32 p1recvd2048_4095;	/* DWORD 86 */
++	u32 p1recvd4096_8191;	/* DWORD 87 */
++	u32 p1recvd8192_9216;	/* DWORD 88 */
++	u32 p1rcvdipcksmerrs;	/* DWORD 89 */
++	u32 p1recvdtcpcksmerrs;	/* DWORD 90 */
++	u32 p1recvdudpcksmerrs;	/* DWORD 91 */
++	u32 p1recvdnonrsspackets;	/* DWORD 92 */
++	u32 p1recvdippackets;	/* DWORD 93 */
++	u32 p1recvdchute1packets;	/* DWORD 94 */
++	u32 p1recvdchute2packets;	/* DWORD 95 */
++	u32 p1recvdchute3packets;	/* DWORD 96 */
++	u32 p1recvdipsecpackets;	/* DWORD 97 */
++	u32 p1recvdmanagementpackets;	/* DWORD 98 */
++	u32 p1xmitbyteslsd;	/* DWORD 99 */
++	u32 p1xmitbytesmsd;	/* DWORD 100 */
++	u32 p1xmitunicastframes;	/* DWORD 101 */
++	u32 p1xmitmulticastframes;	/* DWORD 102 */
++	u32 p1xmitbroadcastframes;	/* DWORD 103 */
++	u32 p1xmitpauseframes;	/* DWORD 104 */
++	u32 p1xmitcontrolframes;	/* DWORD 105 */
++	u32 p1xmit64;		/* DWORD 106 */
++	u32 p1xmit65_127;	/* DWORD 107 */
++	u32 p1xmit128_256;	/* DWORD 108 */
++	u32 p1xmit256_511;	/* DWORD 109 */
++	u32 p1xmit512_1023;	/* DWORD 110 */
++	u32 p1xmit1518_1522;	/* DWORD 111 */
++	u32 p1xmit1522_2047;	/* DWORD 112 */
++	u32 p1xmit2048_4095;	/* DWORD 113 */
++	u32 p1xmit4096_8191;	/* DWORD 114 */
++	u32 p1xmit8192_9216;	/* DWORD 115 */
++	u32 p1rxfifooverflowdropped;	/* DWORD 116 */
++	u32 p1ipseclookupfaileddropped;	/* DWORD 117 */
++	u32 pxdroppednopbuf;	/* DWORD 118 */
++	u32 pxdroppednotxpb;	/* DWORD 119 */
++	u32 pxdroppednoipsecbuf;	/* DWORD 120 */
++	u32 pxdroppednoerxdescr;	/* DWORD 121 */
++	u32 pxdroppednotpredescr;	/* DWORD 122 */
++	u32 pxrecvdmanagementportpackets;	/* DWORD 123 */
++	u32 pxrecvdmanagementportbytes;	/* DWORD 124 */
++	u32 pxrecvdmanagementportpauseframes;	/* DWORD 125 */
++	u32 pxrecvdmanagementporterrors;	/* DWORD 126 */
++	u32 pxxmitmanagementportpackets;	/* DWORD 127 */
++	u32 pxxmitmanagementportbytes;	/* DWORD 128 */
++	u32 pxxmitmanagementportpause;	/* DWORD 129 */
++	u32 pxxmitmanagementportrxfifooverflow;	/* DWORD 130 */
++	u32 pxrecvdipsecipcksmerrs;	/* DWORD 131 */
++	u32 pxrecvdtcpsecipcksmerrs;	/* DWORD 132 */
++	u32 pxrecvdudpsecipcksmerrs;	/* DWORD 133 */
++	u32 pxipsecrunt;	/* DWORD 134 */
++	u32 pxipsecaddressmismatchdropped;	/* DWORD 135 */
++	u32 pxipsecrxfifooverflowdropped;	/* DWORD 136 */
++	u32 pxipsecframestoolong;	/* DWORD 137 */
++	u32 pxipsectotalipframes;	/* DWORD 138 */
++	u32 pxipseciptoosmall;	/* DWORD 139 */
++	u32 pxipseciptooshort;	/* DWORD 140 */
++	u32 pxipseciphdrtoosmall;	/* DWORD 141 */
++	u32 pxipsectcphdrbad;	/* DWORD 142 */
++	u32 pxrecvdipsecchute1;	/* DWORD 143 */
++	u32 pxrecvdipsecchute2;	/* DWORD 144 */
++	u32 pxrecvdipsecchute3;	/* DWORD 145 */
++	u32 pxdropped7frags;	/* DWORD 146 */
++	u32 pxdroppedfrags;	/* DWORD 147 */
++	u32 pxdroppedinvalidfragring;	/* DWORD 148 */
++	u32 pxnumforwardedpackets;	/* DWORD 149 */
++} SG_PACK;
++
++union MIB_ETH_STATISTICS_PARAMS {
++	struct MIB_ETH_STATISTICS_PARAMS_IN request;
++	struct BE_RXF_STATS response;
 +} SG_PACK;
 +
 +/*
-+ *  Queries the the link status for all ports.  The valid values below
-+ *  DO NOT indicate that  a particular duplex or speed is supported by
-+ *  BladeEngine. These enumerations simply  list all possible duplexes
-+ *  and speeds for any port. Consult BladeEngine product  documentation
-+ *  for the supported parameters.
++ *  Query ethernet statistics. All domains may issue this IOCTL. The
++ *  host domain drivers  may optionally reset internal statistic counters
++ *  with a query.
 + */
-+struct IOCTL_COMMON_NTWK_LINK_STATUS_QUERY {
++struct IOCTL_ETH_GET_STATISTICS {
 +	union IOCTL_HEADER header;
-+	union LINK_STATUS_QUERY_PARAMS params;
++	union MIB_ETH_STATISTICS_PARAMS params;
 +} SG_PACK;
 +
-+struct IOCTL_COMMON_ANON_171_REQUEST {
-+	u8 type;
-+	u8 port;
-+	u8 mac1;
-+	u8 permanent;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_172_RESPONSE {
-+	struct MAC_ADDRESS_FORMAT mac;
-+} SG_PACK;
-+
-+union NTWK_MAC_QUERY_PARAMS {
-+	struct IOCTL_COMMON_ANON_171_REQUEST request;
-+	struct IOCTL_COMMON_ANON_172_RESPONSE response;
-+} SG_PACK;
-+
-+/* Queries one MAC address.  */
-+struct IOCTL_COMMON_NTWK_MAC_QUERY {
-+	union IOCTL_HEADER header;
-+	union NTWK_MAC_QUERY_PARAMS params;
-+} SG_PACK;
-+
-+struct MAC_SET_PARAMS_IN {
-+	u8 type;
-+	u8 port;
-+	u8 mac1;
-+	u8 invalidate;
-+	struct MAC_ADDRESS_FORMAT mac;
-+} SG_PACK;
-+
-+struct MAC_SET_PARAMS_OUT {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union MAC_SET_PARAMS {
-+	struct MAC_SET_PARAMS_IN request;
-+	struct MAC_SET_PARAMS_OUT response;
-+} SG_PACK;
-+
-+/* Sets a MAC address.  */
-+struct IOCTL_COMMON_NTWK_MAC_SET {
-+	union IOCTL_HEADER header;
-+	union MAC_SET_PARAMS params;
-+} SG_PACK;
-+
-+/* MAC address list. */
-+struct NTWK_MULTICAST_MAC_LIST {
-+	u8 byte[6];
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_NTWK_MULTICAST_SET_REQUEST_PAYLOAD {
-+	u16 num_mac;
-+	u8 promiscuous;
-+	u8 rsvd0;
-+	struct NTWK_MULTICAST_MAC_LIST mac[32];
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_174_RESPONSE {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_173_PARAMS {
-+	struct IOCTL_COMMON_NTWK_MULTICAST_SET_REQUEST_PAYLOAD request;
-+	struct IOCTL_COMMON_ANON_174_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  Sets multicast address hash. The MPU will merge the MAC address lists
-+ *  from all clients,  including the networking and storage functions.
-+ *  This ioctl may fail if the final merged  list of MAC addresses exceeds
-+ *  32 entries.
-+ */
-+struct IOCTL_COMMON_NTWK_MULTICAST_SET {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_173_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_NTWK_VLAN_CONFIG_REQUEST_PAYLOAD {
-+	u16 num_vlan;
-+	u8 promiscuous;
-+	u8 rsvd0;
-+	u16 vlan_tag[32];
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_176_RESPONSE {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_175_PARAMS {
-+	struct IOCTL_COMMON_NTWK_VLAN_CONFIG_REQUEST_PAYLOAD request;
-+	struct IOCTL_COMMON_ANON_176_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  Sets VLAN tag filter. The MPU will merge the VLAN tag list from all
-+ *  clients, including  the networking and storage functions. This ioctl
-+ *  may fail if the final vlan_tag array  (from all functions) is longer
-+ *  than 32 entries.
-+ */
-+struct IOCTL_COMMON_NTWK_VLAN_CONFIG {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_175_PARAMS params;
-+} SG_PACK;
-+
-+struct RING_DESTROY_REQUEST {
-+	u16 ring_type;
-+	u16 id;
-+	u8 bypass_flush;
-+	u8 rsvd0;
-+	u16 rsvd1;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_190_RESPONSE {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_189_PARAMS {
-+	struct RING_DESTROY_REQUEST request;
-+	struct IOCTL_COMMON_ANON_190_RESPONSE response;
-+} SG_PACK;
-+/*
-+ *  IOCTL for destroying any ring. The connection(s) using the ring should
-+ *  be quiesced  before destroying the ring.
-+ */
-+struct IOCTL_COMMON_RING_DESTROY {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_189_PARAMS params;
-+} SG_PACK;
-+
-+
-+struct IOCTL_COMMON_ANON_195_REQUEST {
-+	u16 num_pages;
-+	u16 new_cq_len;
-+	u32 cq_threshold;
-+	struct PHYS_ADDR pages[8];
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_196_RESPONSE {
-+	u16 pidx_old;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_194_PARAMS {
-+	struct IOCTL_COMMON_ANON_195_REQUEST request;
-+	struct IOCTL_COMMON_ANON_196_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  IOCTL to modify select attributes of a completion queue without needing
-+ *  to destroy and  create a new one.
-+ */
-+struct IOCTL_COMMON_CQ_MODIFY {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_194_PARAMS params;
-+} SG_PACK;
-+
-+
-+struct IOCTL_COMMON_ANON_201_REQUEST {
-+	u16 cq_id;
-+	u16 bcmc_cq_id;
-+	u16 num_pages;
++struct BE_RSS_CONFIG {
++	u16 enable_rss;
++	u16 cpu_table_size_log2;
++	u16 cqid0;
++	u16 cqid1;
++	u16 cqid2;
++	u16 cqid3;
++	u32 hash[4];
++	u8 cpu_table[128];
++	u16 cq_flush_mask;
 +	u16 rsvd0;
-+	struct PHYS_ADDR pages[2];
++	u32 flush_value;
 +} SG_PACK;
 +
-+struct IOCTL_COMMON_ANON_202_RESPONSE {
-+	u16 id;
++struct IOCTL_ETH_ANON_171_RESPONSE {
++	u32 rsvd0;
 +} SG_PACK;
 +
-+union IOCTL_COMMON_ANON_200_PARAMS {
-+	struct IOCTL_COMMON_ANON_201_REQUEST request;
-+	struct IOCTL_COMMON_ANON_202_RESPONSE response;
++union IOCTL_ETH_ANON_170_PARAMS {
++	struct BE_RSS_CONFIG request;
++	struct IOCTL_ETH_ANON_171_RESPONSE response;
 +} SG_PACK;
 +
 +/*
-+ *  IOCTL for creating Ethernet receive ring.  An ERX ring contains ETH_RX_D
-+ *  entries (8  bytes each). An ERX ring must be 1024 entries deep
-+ *  (corresponding to 2 pages).
++ *  Configures or disables receive side scaling (RSS), which distributes
++ *  ethernet receive  completions among (up to 4) completion queues.
++ *  This is in addition to the default  ethernet receive completion queue.
++ *  Presumably, the host driver processes each  completion queue with
++ *  a DPC running on a different processor. This IOCTL can only be  issued
++ *  by domain 0 network drivers.
 + */
-+struct IOCTL_COMMON_ETH_RX_CREATE {
++struct IOCTL_ETH_RSS_CONFIG {
 +	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_200_PARAMS params;
++	union IOCTL_ETH_ANON_170_PARAMS params;
 +} SG_PACK;
 +
-+
-+struct IOCTL_COMMON_ANON_210_REQUEST {
-+	u16 num_pages;
-+	u16 rsvd0;
-+	struct PHYS_ADDR pages[8];
++struct IOCTL_ETH_ACPI_CONFIG_PARAMS {
++	u8 index;
++	u8 port0;
++	u8 port1;
++	u8 magic_packet;
++	u8 byte_pattern[128];
++	u32 bit_mask[4];
 +} SG_PACK;
 +
-+struct IOCTL_COMMON_ANON_211_RESPONSE {
-+	u16 cid;
++struct IOCTL_ETH_ANON_173_RESPONSE {
++	u32 rsvd0;
 +} SG_PACK;
 +
-+union IOCTL_COMMON_ANON_209_PARAMS {
-+	struct IOCTL_COMMON_ANON_210_REQUEST request;
-+	struct IOCTL_COMMON_ANON_211_RESPONSE response;
++union IOCTL_ETH_ANON_172_PARAMS {
++	struct IOCTL_ETH_ACPI_CONFIG_PARAMS request;
++	struct IOCTL_ETH_ANON_173_RESPONSE response;
 +} SG_PACK;
 +
 +/*
-+ *  IOCTL for creating iSCSI WRB ring. An iSCSI WRB (transmit) ring must
-+ *  be at least 128  entries deep (corresponding to 1 page) and at most
-+ *  2k entries deep (corresponding to 4  pages). When the connection
-+ *  is offloaded, the encoded ring size in the context must  result in
-+ *  a ring fitting within the number of pages posted with this IOCTL.
++ *  Sets the magic packet or interesting packet byte pattern and mask
++ *  * for wake-on-lan.  Only host drivers are allowed to modify magic
++ *  packet * settings. Only the host  networking driver is allowed to
++ *  modify the * interesting packet byte pattern and mask  settings.
 + *
 + */
-+struct IOCTL_COMMON_ISCSI_WRBQ_CREATE {
++struct IOCTL_ETH_ACPI_CONFIG {
 +	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_209_PARAMS params;
++	union IOCTL_ETH_ANON_172_PARAMS params;
 +} SG_PACK;
 +
-+struct GET_QOS_IN {
-+	u32 qos_params_rsvd;
-+} SG_PACK;
-+
-+struct GET_QOS_OUT {
-+	u32 max_bits_per_second_NIC;
-+	u32 max_packets_per_second_NIC;
-+	u32 max_ios_per_second_iSCSI;
-+	u32 max_bytes_per_second_iSCSI;
-+	u16 domain_VLAN_tag;
-+	u16 fabric_domain_ID;
-+	u32 qos_params_oem[4];
-+} SG_PACK;
-+
-+union GET_QOS_PARAMS {
-+	struct GET_QOS_IN request;
-+	struct GET_QOS_OUT response;
-+} SG_PACK;
-+
-+/* QOS/Bandwidth settings per domain. Applicable only in VMs.  */
-+struct IOCTL_COMMON_GET_QOS {
-+	union IOCTL_HEADER header;
-+	union GET_QOS_PARAMS params;
-+} SG_PACK;
-+
-+struct SET_QOS_IN {
-+	u32 valid_flags;
-+	u32 max_bits_per_second_NIC;
-+	u32 max_packets_per_second_NIC;
-+	u32 max_ios_per_second_iSCSI;
-+	u32 max_bytes_per_second_iSCSI;
-+	u16 domain_VLAN_tag;
-+	u16 fabric_domain_ID;
-+	u32 qos_params_oem[4];
-+} SG_PACK;
-+
-+struct SET_QOS_OUT {
-+	u32 qos_params_rsvd;
-+} SG_PACK;
-+
-+union SET_QOS_PARAMS {
-+	struct SET_QOS_IN request;
-+	struct SET_QOS_OUT response;
-+} SG_PACK;
-+
-+/* QOS/Bandwidth settings per domain. Applicable only in VMs.  */
-+struct IOCTL_COMMON_SET_QOS {
-+	union IOCTL_HEADER header;
-+	union SET_QOS_PARAMS params;
-+} SG_PACK;
-+
-+struct SET_FRAME_SIZE_IN {
-+	u32 max_tx_frame_size;
-+	u32 max_rx_frame_size;
-+} SG_PACK;
-+
-+struct SET_FRAME_SIZE_OUT {
-+	u32 chip_max_tx_frame_size;
-+	u32 chip_max_rx_frame_size;
-+} SG_PACK;
-+
-+union SET_FRAME_SIZE_PARAMS {
-+	struct SET_FRAME_SIZE_IN request;
-+	struct SET_FRAME_SIZE_OUT response;
-+} SG_PACK;
-+
-+/* Set frame size IOCTL. Only host domain may issue this IOCTL.  */
-+struct IOCTL_COMMON_SET_FRAME_SIZE {
-+	union IOCTL_HEADER header;
-+	union SET_FRAME_SIZE_PARAMS params;
-+} SG_PACK;
-+
-+struct FORCE_FAILOVER_IN {
-+	u32 move_to_port;
-+	u32 failover_config;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_231_RESPONSE {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_230_PARAMS {
-+	struct FORCE_FAILOVER_IN request;
-+	struct IOCTL_COMMON_ANON_231_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  Use this IOCTL to control failover in BladeEngine. It may be used
-+ *  to failback to a  restored port or to forcibly move traffic from
-+ *  one port to another. It may also be used  to enable or disable the
-+ *  automatic failover feature. This IOCTL can only be issued by  domain
-+ *  0.
-+ */
-+struct IOCTL_COMMON_FORCE_FAILOVER {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_230_PARAMS params;
-+} SG_PACK;
-+
-+struct QUERY_MAX_IOCTL_BUFFER_SIZE_PARAMS_OUT {
-+	u32 max_ioctl_buffer_size;
-+} SG_PACK;
-+
-+/*
-+ *  IOCTL_QUERY_MAX_IOCTL_BUFFER_SIZE MILI uses this IOCTL to find out
-+ *  the maximum buffer  size that can be accepted by the host OS or the
-+ *  OSM. During MILI initialization, MILI  should send this IOCTL to
-+ *  find out the maximum IOCTL buffer size allowed. For all the  IOCTLs
-+ *  in the future, MILI should not allocate a buffer larger than this
-+ *  value. In  Windows, the OS doesn't deliver the IOCTL request when
-+ *  the buffer size allocated by  MILI is larger than the maximum I/O
-+ *  size allowed by OSM.
-+ */
-+struct IOCTL_COMMON_QUERY_MAX_IOCTL_BUFFER_SIZE {
-+	union IOCTL_HEADER header;
-+	struct QUERY_MAX_IOCTL_BUFFER_SIZE_PARAMS_OUT response;
-+} SG_PACK;
-+
-+struct FLASHROM_PARAMS {
-+	u32 op_code;
-+	u32 op_type;
-+	u32 data_buffer_size;
-+	u32 offset;
-+	u8 data_buffer[4];
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_FLASHROM {
-+	union IOCTL_HEADER header;
-+	struct FLASHROM_PARAMS params;
-+} SG_PACK;
-+
-+struct FLASH_ROM_INFO {
-+	u8 manuf_code;
-+	u8 device_code;
-+	u8 id[3];
-+	u8 device_size;
-+	u8 device_interface[2];
-+	u8 buffer_size[2];
-+	u8 is_block_oriented;
-+	u8 num_regions[2];
-+	u8 region_size[2];
-+} SG_PACK;
-+
-+struct SEEPROM_DATA {
-+	u32 jmp_addr_for_ISM;
-+	u8 seeprom_version[2];
-+	u8 supported_modes;
-+	u8 max_domains_supported;
-+	u8 storage_MAC0_port0[6];
-+	u8 storage_MAC1_port0[6];
-+	u8 storage_MAC0_port1[6];
-+	u8 storage_MAC1_port1[6];
-+	u8 ntwk_MAC0_port0[6];
-+	u8 ntwk_MAC1_port0[6];
-+	u8 ntwk_MAC0_port1[6];
-+	u8 ntwk_MAC1_port1[6];
-+	u8 ntwk_MAC_VMs[186];
-+	u8 mgmt_MAC[6];
-+	u8 flash_ROM_type;
-+	u8 flash_ROM_size;
-+	struct FLASH_ROM_INFO flash_cfi_data;
-+	u8 DDR_type;
-+	u8 DDR_size;
-+	u8 DDR_mode;
-+	u8 xml_config;
-+	u8 interface_10Gb_type;
-+	u16 max_iscsi_sessions;
-+	u8 rsvd0[44];
-+	u8 rsvd1[4];
-+	u32 emph_lev_sel_port0;
-+	u32 emph_lev_sel_port1;
-+	u8 xaui_vo_sel;
-+	u8 xaui_state;
-+	u16 rsvd2;
-+	u32 xaui_eq_vector;
-+	u32 hba_mtu;
-+	u8 vld_mode;
-+	u8 pad[171];
-+	u8 ism_code[508];
-+	u32 digest;
-+} SG_PACK;
-+
-+struct SEEPROM_READ_PARAMS_OUT {
-+	struct SEEPROM_DATA seeprom_data;
-+} SG_PACK;
-+
-+union SEEPROM_READ_PARAMS {
-+	struct SEEPROM_READ_PARAMS_OUT response;
-+} SG_PACK;
-+
-+/*
-+ *  Use this IOCTL to retrieve BE HBA/instance specific information
-+ *  - Functionality (or  combinations of functions) supported (NIC/iSCSI/VM/RDMA
-+ *  etc.)  - Manufacturer  assigned MAC addresses for the various functions
-+ *   - Flash ROM type and size
-+ */
-+struct IOCTL_COMMON_SEEPROM_READ {
-+	union IOCTL_HEADER header;
-+	union SEEPROM_READ_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_240_REQUEST {
-+	u64 context;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_241_RESPONSE {
-+	u64 context;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_239_PARAMS {
-+	struct IOCTL_COMMON_ANON_240_REQUEST request;
-+	struct IOCTL_COMMON_ANON_241_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  This ioctl can be used by clients as a no-operation request. Typical
-+ *  uses for drivers  are as a heartbeat mechanism, or deferred processing
-+ *  catalyst. The ARM will always  complete this IOCTL with a good completion.
-+ *  The 64-bit parameter is not touched by the  ARM processor.
-+ */
-+struct IOCTL_COMMON_NOP {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_239_PARAMS params;
-+} SG_PACK;
-+
-+struct NTWK_RX_FILTER_SETTINGS {
-+	u8 promiscuous;
-+	u8 ip_cksum;
-+	u8 tcp_cksum;
-+	u8 udp_cksum;
-+	u8 pass_err;
-+	u8 pass_ckerr;
-+	u8 strip_crc;
-+	u8 mcast_en;
-+	u8 bcast_en;
-+	u8 mcast_promiscuous_en;
-+	u8 unicast_en;
-+	u8 vlan_promiscuous;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_242_PARAMS {
-+	struct NTWK_RX_FILTER_SETTINGS request;
-+	struct NTWK_RX_FILTER_SETTINGS response;
-+} SG_PACK;
-+
-+/*
-+ *  This IOCTL is used to modify the ethernet receive filter configuration.
-+ *  Only domain 0  network function drivers may issue this IOCTL. The
-+ *  applied configuration is returned in  the response payload. Note:
-+ *  Some receive packet filter settings are global on  BladeEngine and
-+ *  can affect both the storage and network function clients that the
-+ *   BladeEngine hardware and firmware serve. Additionaly, depending
-+ *  on the revision of  BladeEngine, some ethernet receive filter settings
-+ *  are dependent on others. If a  dependency exists between settings
-+ *  for the BladeEngine revision, and the IOCTL request  settings do
-+ *  not meet the dependency requirement, the invalid settings will not
-+ *  be  applied despite the IOCTL succeeding. For example: a driver may
-+ *  request to enable  broadcast packets, but not enable multicast packets.
-+ *  On early revisions of BladeEngine,  there may be no distinction between
-+ *  broadcast and multicast filters, so broadcast could  not be enabled
-+ *  without enabling multicast. In this scenario, the IOCTL would still
-+ *   succeed, but the response payload would indicate the previously
-+ *  configured broadcast  and multicast setting.
-+ */
-+struct IOCTL_COMMON_NTWK_RX_FILTER {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_242_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_244_REQUEST {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_GET_FW_VERSION_RESPONSE_PAYLOAD {
-+	u8 firmware_version_string[32];
-+	u8 fw_on_flash_version_string[32];
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_243_PARAMS {
-+	struct IOCTL_COMMON_ANON_244_REQUEST request;
-+	struct IOCTL_COMMON_GET_FW_VERSION_RESPONSE_PAYLOAD response;
-+} SG_PACK;
-+
-+/* This IOCTL retrieves the firmware version.  */
-+struct IOCTL_COMMON_GET_FW_VERSION {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_243_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_246_REQUEST {
-+	u16 tx_flow_control;
-+	u16 rx_flow_control;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_247_RESPONSE {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_245_PARAMS {
-+	struct IOCTL_COMMON_ANON_246_REQUEST request;
-+	struct IOCTL_COMMON_ANON_247_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  This IOCTL is used to program BladeEngine flow control behavior.
-+ *  Only the host  networking driver is allowed to use this IOCTL.
-+ */
-+struct IOCTL_COMMON_SET_FLOW_CONTROL {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_245_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_249_REQUEST {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_250_RESPONSE {
-+	u16 tx_flow_control;
-+	u16 rx_flow_control;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_248_PARAMS {
-+	struct IOCTL_COMMON_ANON_249_REQUEST request;
-+	struct IOCTL_COMMON_ANON_250_RESPONSE response;
-+} SG_PACK;
-+
-+/* This IOCTL is used to read BladeEngine flow control settings.  */
-+struct IOCTL_COMMON_GET_FLOW_CONTROL {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_248_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_255_REQUEST {
-+	u8 clear_log;
-+	u8 num_pages;
-+	u16 page_offset;
-+	struct PHYS_ADDR buffer_addr[27];
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_256_RESPONSE {
-+	u32 log_size;
-+	u32 bytes_transferred;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_254_PARAMS {
-+	struct IOCTL_COMMON_ANON_255_REQUEST request;
-+	struct IOCTL_COMMON_ANON_256_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  This IOCTL retrieves a Fault Analaysis Tool (FAT) log. The log data
-+ *  can be anaylzed by  BladeEngine support tools to diagnose faults.
-+ *  Only host domains may issue this IOCTL.
-+ */
-+struct IOCTL_COMMON_GET_FAT {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_254_PARAMS params;
-+} SG_PACK;
-+
-+struct ENABLE_DISABLE_DOMAINS_PARAMS_IN {
-+	u8 domain_function;
-+	u8 enable_disable;
++struct IOCTL_ETH_ANON_175_REQUEST {
++	u8 port0_promiscuous;
++	u8 port1_promiscuous;
 +	u16 rsvd0;
 +} SG_PACK;
 +
-+struct ENABLE_DISABLE_DOMAINS_PARAMS_OUT {
++struct IOCTL_ETH_ANON_176_RESPONSE {
 +	u32 rsvd0;
 +} SG_PACK;
 +
-+union ENABLE_DISABLE_DOMAINS_PARAMS {
-+	struct ENABLE_DISABLE_DOMAINS_PARAMS_IN request;
-+	struct ENABLE_DISABLE_DOMAINS_PARAMS_OUT response;
++union IOCTL_ETH_ANON_174_PARAMS {
++	struct IOCTL_ETH_ANON_175_REQUEST request;
++	struct IOCTL_ETH_ANON_176_RESPONSE response;
++} SG_PACK;
++
++/* Enables/Disables promiscuous ethernet receive mode.  */
++struct IOCTL_ETH_PROMISCUOUS {
++	union IOCTL_HEADER header;
++	union IOCTL_ETH_ANON_174_PARAMS params;
++} SG_PACK;
++
++struct IOCTL_ETH_ANON_178_REQUEST {
++	u32 new_fragsize_log2;
++} SG_PACK;
++
++struct IOCTL_ETH_ANON_179_RESPONSE {
++	u32 actual_fragsize_log2;
++} SG_PACK;
++
++union IOCTL_ETH_ANON_177_PARAMS {
++	struct IOCTL_ETH_ANON_178_REQUEST request;
++	struct IOCTL_ETH_ANON_179_RESPONSE response;
 +} SG_PACK;
 +
 +/*
-+ *  This IOCTL enables or disables a domain for NIC or iSCSI functionality.
-+ *  If a  particular domain is enabled, management utilities like SMCLP
-+ *  expose a logicalHBA to  the user allowing the QoS, iSCSI (iqn) name
-+ *  etc to be set for that domain. The domain  number is specified in
-+ *  the IOCTL_HEADER. This IOCTL can only originate from domain 0.  <break>
-+ *  This IOCTL may return one of the following status values in the response
-+ *   -  MGMT_STATUS_SUCCESS  - MGMT_STATUS_FAILED with additional status
-+ *  set to  MGMT_ADDI_STATUS_INVALID_DOMAIN
++ *  Sets the Ethernet RX fragment size. Only host (domain 0) networking
++ *  drivers may issue  this IOCTL.  This call will fail for non-host
++ *  protection domains. In this situation the  MCC CQ status will indicate
++ *  a failure due to insufficient priviledges. The response  should be
++ *  ignored, and the driver should use the IOCTL_ETH_GET_FRAG_SIZE to
++ *  query the  existing ethernet receive fragment size. It must use this
++ *  fragment size for all  fragments in the ethernet receive ring.  If
++ *  the IOCTL succeeds, the driver must use the  frag size indicated
++ *  in the IOCTL response since the requested frag size may not be  applied
++ *  until the next reboot. When the requested fragsize matches the response
++ *   fragsize, this indicates the request was applied immediately.
 + */
-+struct IOCTL_COMMON_ENABLE_DISABLE_DOMAINS {
++struct IOCTL_ETH_SET_RX_FRAG_SIZE {
 +	union IOCTL_HEADER header;
-+	union ENABLE_DISABLE_DOMAINS_PARAMS params;
++	union IOCTL_ETH_ANON_177_PARAMS params;
 +} SG_PACK;
 +
-+struct GET_DOMAIN_CONFIG_PARAMS_IN {
-+	u8 domain_function;
-+	u8 enable_disable;
-+	u16 rsvd0;
-+} SG_PACK;
-+
-+struct GET_DOMAIN_CONFIG_PARAMS_OUT {
-+	u32 domain_bitmap;
-+} SG_PACK;
-+
-+union GET_DOMAIN_CONFIG_PARAMS {
-+	struct GET_DOMAIN_CONFIG_PARAMS_IN request;
-+	struct GET_DOMAIN_CONFIG_PARAMS_OUT response;
-+} SG_PACK;
-+
-+/*
-+ *  This IOCTL returns a bitmap indicating the current status of the
-+ *  NIC or iSCSI  functionality for all the domains supported on a given
-+ *  BladeEngine. The domain number  in the IOCTL header is ignored. This
-+ *  IOCTL can only originate from domain 0. This IOCTL  will always return
-+ *  MGMT_STATUS_SUCCESS
-+ */
-+struct IOCTL_COMMON_GET_DOMAIN_CONFIG {
-+	union IOCTL_HEADER header;
-+	union GET_DOMAIN_CONFIG_PARAMS params;
-+} SG_PACK;
-+
-+struct SET_VLD_CONFIG_PARAMS_IN {
-+	u8 enable_disable;
-+	u8 rsvd0;
-+	u16 rsvd1;
-+} SG_PACK;
-+
-+struct SET_VLD_CONFIG_PARAMS_OUT {
++struct IOCTL_ETH_ANON_181_REQUEST {
 +	u32 rsvd0;
 +} SG_PACK;
 +
-+union SET_VLD_CONFIG_PARAMS {
-+	struct SET_VLD_CONFIG_PARAMS_IN request;
-+	struct SET_VLD_CONFIG_PARAMS_OUT response;
++struct IOCTL_ETH_ANON_182_RESPONSE {
++	u32 actual_fragsize_log2;
++} SG_PACK;
++
++union IOCTL_ETH_ANON_180_PARAMS {
++	struct IOCTL_ETH_ANON_181_REQUEST request;
++	struct IOCTL_ETH_ANON_182_RESPONSE response;
 +} SG_PACK;
 +
 +/*
-+ *  Enable/Disable Virtual Link Down (VLD) if this feature is enabled
-+ *  on your BladeEngine.  Use IOCTL_COMMON_GET_CNTL_ATTRIBUTES to determine
-+ *  whether VLD can be enabled. This  IOCTL can only originate from domain
-+ *  0. The VLD setting applies to the entire  BladeEngine and affects
-+ *  all NIC/iSCSI drivers.
++ *  Queries the Ethernet RX fragment size. All domains may issue this
++ *  IOCTL.  The driver  should call this IOCTL to determine the minimum
++ *  required fragment size for the ethernet  RX ring buffers. Drivers
++ *  may choose to use a larger size for each fragment buffer, but  BladeEngine
++ *  will use up to the configured minimum required fragsize in each ethernet
++ *   receive fragment buffer. For example, if the ethernet receive fragment
++ *  size is  configured to 4kB, and a driver uses 8kB fragments, a 6kB
++ *  ethernet packet received by  BladeEngine will be split accross two
++ *  of the driver's receive framgents (4kB in one  fragment buffer, and
++ *  2kB in the subsequent fragment buffer).
 + */
-+struct IOCTL_COMMON_SET_VLD_CONFIG {
++struct IOCTL_ETH_GET_RX_FRAG_SIZE {
 +	union IOCTL_HEADER header;
-+	union SET_VLD_CONFIG_PARAMS params;
++	union IOCTL_ETH_ANON_180_PARAMS params;
 +} SG_PACK;
 +
-+struct GET_VLD_CONFIG_PARAMS_IN {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+struct GET_VLD_CONFIG_PARAMS_OUT {
-+	u8 enable_disable;
-+	u8 rsvd0;
-+	u16 rsvd1;
-+} SG_PACK;
-+
-+union GET_VLD_CONFIG_PARAMS {
-+	struct GET_VLD_CONFIG_PARAMS_IN request;
-+	struct GET_VLD_CONFIG_PARAMS_OUT response;
-+} SG_PACK;
-+
-+/*
-+ *  Use this IOCTL to determine whether Virtual Link Down (VLD) is currently
-+ *  enabled or  disabled. Use IOCTL_COMMON_GET_CNTL_ATTRIBUTES to determine
-+ *  whether VLD can be  enabled/disabled. This IOCTL can only originate
-+ *  from domain 0. The VLD setting applies  to the entire BladeEngine
-+ *  and affects all NIC/iSCSI drivers.
-+ */
-+struct IOCTL_COMMON_GET_VLD_CONFIG {
-+	union IOCTL_HEADER header;
-+	union GET_VLD_CONFIG_PARAMS params;
-+} SG_PACK;
-+
-+struct EQ_DELAY_PARAMS {
-+	u32 eq_id;
-+	u32 delay_in_microseconds;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_257_REQUEST {
-+	u32 num_eq;
-+	u32 rsvd0;
-+	struct EQ_DELAY_PARAMS delay[16];
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_258_RESPONSE {
-+	u32 delay_resolution_in_microseconds;
-+	u32 delay_max_in_microseconds;
-+} SG_PACK;
-+
-+union MODIFY_EQ_DELAY_PARAMS {
-+	struct IOCTL_COMMON_ANON_257_REQUEST request;
-+	struct IOCTL_COMMON_ANON_258_RESPONSE response;
-+} SG_PACK;
-+
-+/* This IOCTL changes the EQ delay for a given set of EQs.  */
-+struct IOCTL_COMMON_MODIFY_EQ_DELAY {
-+	union IOCTL_HEADER header;
-+	union MODIFY_EQ_DELAY_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_260_REQUEST {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+struct BE_FIRMWARE_CONFIG {
-+	u16 be_config_number;
-+	u16 asic_revision;
-+	u32 nic_ulp_mask;
-+	u32 tulp_mask;
-+	u32 iscsi_ulp_mask;
-+	u32 rdma_ulp_mask;
-+	u32 rsvd0[4];
-+	u32 eth_tx_id_start;
-+	u32 eth_tx_id_count;
-+	u32 eth_rx_id_start;
-+	u32 eth_rx_id_count;
-+	u32 tpm_wrbq_id_start;
-+	u32 tpm_wrbq_id_count;
-+	u32 tpm_defq_id_start;
-+	u32 tpm_defq_id_count;
-+	u32 iscsi_wrbq_id_start;
-+	u32 iscsi_wrbq_id_count;
-+	u32 iscsi_defq_id_start;
-+	u32 iscsi_defq_id_count;
-+	u32 rdma_qp_id_start;
-+	u32 rdma_qp_id_count;
-+	u32 rsvd1[8];
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_259_PARAMS {
-+	struct IOCTL_COMMON_ANON_260_REQUEST request;
-+	struct BE_FIRMWARE_CONFIG response;
-+} SG_PACK;
-+
-+/*
-+ *  This IOCTL queries the current firmware configuration parameters.
-+ *   The static  configuration type is defined by be_config_number. This
-+ *  differentiates different  BladeEngine builds, such as iSCSI Initiator
-+ *  versus iSCSI Target.  For a given static  configuration, the Upper
-+ *  Layer Protocol (ULP) processors may be reconfigured to support  different
-+ *  protocols. Each ULP processor supports one or more protocols. The
-+ *  masks  indicate which processors are configured for each protocol.
-+ *   For a given static  configuration, the number of TCP connections
-+ *  supported for each protocol may vary. The  *_id_start and *_id_count
-+ *  variables define a linear range of IDs that are available for  each
-+ *  supported protocol. The *_id_count may be used by the driver to allocate
-+ *  the  appropriate number of connection resources. The *_id_start may
-+ *  be used to map the  arbitrary range of IDs to a zero-based range
-+ *  of indices.
-+ */
-+struct IOCTL_COMMON_FIRMWARE_CONFIG {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_259_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_PORT_EQUALIZATION_PARAMS {
-+	u32 emph_lev_sel_port0;
-+	u32 emph_lev_sel_port1;
-+	u8 xaui_vo_sel;
-+	u8 xaui_state;
-+	u16 rsvd0;
-+	u32 xaui_eq_vector;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_262_REQUEST {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_261_PARAMS {
-+	struct IOCTL_COMMON_ANON_262_REQUEST request;
-+	struct IOCTL_COMMON_PORT_EQUALIZATION_PARAMS response;
-+} SG_PACK;
-+
-+/*
-+ *  This IOCTL can be used to read XAUI equalization parameters. The
-+ *  ARM firmware applies  default equalization parameters during initialization.
-+ *  These parameters may be  customer-specific when derived from the
-+ *  SEEPROM. See SEEPROM_DATA for equalization  specific fields.
-+ */
-+struct IOCTL_COMMON_GET_PORT_EQUALIZATION {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_261_PARAMS params;
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_264_RESPONSE {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_263_PARAMS {
-+	struct IOCTL_COMMON_PORT_EQUALIZATION_PARAMS request;
-+	struct IOCTL_COMMON_ANON_264_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  This IOCTL can be used to set XAUI equalization parameters. The ARM
-+ *  firmware applies  default equalization parameters during initialization.
-+ *  These parameters may be  customer-specific when derived from the
-+ *  SEEPROM. See SEEPROM_DATA for equalization  specific fields.
-+ */
-+struct IOCTL_COMMON_SET_PORT_EQUALIZATION {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_263_PARAMS params;
-+} SG_PACK;
-+
-+struct BE_RED_CHUTE_PARAMETERS {
-+	u8 enable;
-+	u8 w1;
-+	u8 w2;
-+	u8 slope;
-+	u8 mtu_integer;
-+	u8 mtu_exponent;
-+	u16 rsvd0;
-+	u16 min_pbuf;
-+	u16 max_pbuf;
-+} SG_PACK;
-+
-+struct BE_RED_PARAMETERS {
-+	struct BE_RED_CHUTE_PARAMETERS chute[3];
-+} SG_PACK;
-+
-+struct IOCTL_COMMON_ANON_266_RESPONSE {
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+union IOCTL_COMMON_ANON_265_PARAMS {
-+	struct BE_RED_PARAMETERS request;
-+	struct IOCTL_COMMON_ANON_266_RESPONSE response;
-+} SG_PACK;
-+
-+/*
-+ *  This IOCTL configures the Random Early Discard (RED) functionality
-+ *  for the PCI  function. Only the chutes owned by the given PCI function
-+ *  are configured. The other  chutes are ignored.
-+ */
-+struct IOCTL_COMMON_RED_CONFIG {
-+	union IOCTL_HEADER header;
-+	union IOCTL_COMMON_ANON_265_PARAMS params;
-+} SG_PACK;
-+
-+#endif /* __ioctl_common_bmap_h__ */
-diff --git a/drivers/message/beclib/fw/bmap/ioctl_hdr_bmap.h b/drivers/message/beclib/fw/bmap/ioctl_hdr_bmap.h
++#endif /* __ioctl_eth_bmap_h__ */
+diff --git a/drivers/message/beclib/fw/bmap/ioctl_top_bmap.h b/drivers/message/beclib/fw/bmap/ioctl_top_bmap.h
 new file mode 100644
-index 0000000..a028025
+index 0000000..bdb247c
 --- /dev/null
-+++ b/drivers/message/beclib/fw/bmap/ioctl_hdr_bmap.h
-@@ -0,0 +1,68 @@
++++ b/drivers/message/beclib/fw/bmap/ioctl_top_bmap.h
+@@ -0,0 +1,40 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -1102,90 +716,13 @@ index 0000000..a028025
 +/*
 + * Autogenerated by srcgen version: 0127
 + */
-+#ifndef __ioctl_hdr_bmap_h__
-+#define __ioctl_hdr_bmap_h__
++#ifndef __ioctl_top_bmap_h__
++#define __ioctl_top_bmap_h__
++#include "ioctl_types_bmap.h"
++#include "ioctl_common_bmap.h"
++#include "ioctl_eth_bmap.h"
 +
-+struct IOCTL_REQUEST_HEADER {
-+	u8 opcode;
-+	u8 subsystem;
-+	u8 port_number;
-+	u8 domain;
-+	u32 timeout;
-+	u32 request_length;
-+	u32 rsvd0;
-+} SG_PACK;
-+
-+struct IOCTL_RESPONSE_HEADER {
-+	u8 opcode;
-+	u8 subsystem;
-+	u8 rsvd0;
-+	u8 domain;
-+	u8 status;
-+	u8 additional_status;
-+	u16 rsvd1;
-+	u32 response_length;
-+	u32 actual_response_length;
-+} SG_PACK;
-+
-+/*
-+ *  The firmware/driver overwrites the input IOCTL_REQUEST_HEADER with
-+ *  the output  IOCTL_RESPONSE_HEADER.
-+ */
-+union IOCTL_HEADER {
-+	struct IOCTL_REQUEST_HEADER request;
-+	struct IOCTL_RESPONSE_HEADER response;
-+} SG_PACK;
-+
-+#endif /* __ioctl_hdr_bmap_h__ */
-diff --git a/drivers/message/beclib/fw/bmap/ioctl_types_bmap.h b/drivers/message/beclib/fw/bmap/ioctl_types_bmap.h
-new file mode 100644
-index 0000000..055db83
---- /dev/null
-+++ b/drivers/message/beclib/fw/bmap/ioctl_types_bmap.h
-@@ -0,0 +1,43 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __ioctl_types_bmap_h__
-+#define __ioctl_types_bmap_h__
-+
-+/* MAC address format  */
-+struct MAC_ADDRESS_FORMAT {
-+	u16 SizeOfStructure;
-+	u8 MACAddress[6];
-+} SG_PACK;
-+
-+#endif /* __ioctl_types_bmap_h__ */
++#endif /* __ioctl_top_bmap_h__ */
 -- 
 1.5.5
 
