@@ -1,1775 +1,202 @@
-From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATCH 10/15] BE NIC driver - f/w header files
-Date: Thu, 15 May 2008 02:30:34 -0700
-Message-ID: <20080515093034.454d9cb4@mailhost.serverengines.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 2/3] sysfs: remove error messages for -EEXIST case
+Date: Thu, 15 May 2008 11:31:31 +0200
+Message-ID: <20080515113131.2cea2bce@gondolin.boeblingen.de.ibm.com>
+References: <20080514181257.74fbb5aa@extreme>
+	<20080514181603.411e834f@extreme>
+	<20080515095246.3b6a0d1d@gondolin.boeblingen.de.ibm.com>
+	<20080515.010139.219194657.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, greg@kroah.com, fubar@us.ibm.com,
+	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail96.messagelabs.com ([216.82.254.19]:27835 "EHLO
-	mail96.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757290AbYEOJZy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 05:25:54 -0400
-Received: from 124.30.166.146 ([124.30.166.146])
-	by mailhost.serverengines.com
-	for netdev@vger.kernel.org;
-	Thu, 15 May 2008 02:30:35 -0700
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:52734 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751331AbYEOJcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 05:32:33 -0400
+In-Reply-To: <20080515.010139.219194657.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
----
- drivers/message/beclib/fw/amap/asyncmesg.h   |   98 ++++++++++
- drivers/message/beclib/fw/amap/be_cm.h       |  148 +++++++++++++++
- drivers/message/beclib/fw/amap/be_common.h   |   67 +++++++
- drivers/message/beclib/fw/amap/cev.h         |  261 ++++++++++++++++++++++++++
- drivers/message/beclib/fw/amap/descriptors.h |   85 +++++++++
- drivers/message/beclib/fw/amap/doorbells.h   |  193 +++++++++++++++++++
- drivers/message/beclib/fw/amap/ep.h          |   84 ++++++++
- drivers/message/beclib/fw/amap/etx_context.h |   79 ++++++++
- drivers/message/beclib/fw/amap/host_struct.h |  197 +++++++++++++++++++
- drivers/message/beclib/fw/amap/mpu.h         |   88 +++++++++
- drivers/message/beclib/fw/amap/mpu_context.h |   60 ++++++
- drivers/message/beclib/fw/amap/nativedefs.h  |   61 ++++++
- drivers/message/beclib/fw/amap/post_codes.h  |  125 ++++++++++++
- drivers/message/beclib/fw/amap/regmap.h      |   82 ++++++++
- 14 files changed, 1628 insertions(+), 0 deletions(-)
- create mode 100644 drivers/message/beclib/fw/amap/asyncmesg.h
- create mode 100644 drivers/message/beclib/fw/amap/be_cm.h
- create mode 100644 drivers/message/beclib/fw/amap/be_common.h
- create mode 100644 drivers/message/beclib/fw/amap/cev.h
- create mode 100644 drivers/message/beclib/fw/amap/descriptors.h
- create mode 100644 drivers/message/beclib/fw/amap/doorbells.h
- create mode 100644 drivers/message/beclib/fw/amap/ep.h
- create mode 100644 drivers/message/beclib/fw/amap/etx_context.h
- create mode 100644 drivers/message/beclib/fw/amap/host_struct.h
- create mode 100644 drivers/message/beclib/fw/amap/mpu.h
- create mode 100644 drivers/message/beclib/fw/amap/mpu_context.h
- create mode 100644 drivers/message/beclib/fw/amap/nativedefs.h
- create mode 100644 drivers/message/beclib/fw/amap/post_codes.h
- create mode 100644 drivers/message/beclib/fw/amap/regmap.h
+On Thu, 15 May 2008 01:01:39 -0700 (PDT),
+David Miller <davem@davemloft.net> wrote:
 
-diff --git a/drivers/message/beclib/fw/amap/asyncmesg.h b/drivers/message/beclib/fw/amap/asyncmesg.h
-new file mode 100644
-index 0000000..d136225
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/asyncmesg.h
-@@ -0,0 +1,98 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated file. Do not edit!
-+ * srcgen version: 0127
-+ */
-+#ifndef __asyncmesg_amap_h__
-+#define __asyncmesg_amap_h__
-+#include "nativedefs.h"
-+#include "ioctl_common.h"
-+
-+/* --- ASYNC_EVENT_CODES --- */
-+#define ASYNC_EVENT_CODE_LINK_STATE     (1)
-+#define ASYNC_EVENT_CODE_ISCSI          (2)
-+
-+/* --- ASYNC_LINK_STATES --- */
-+#define ASYNC_EVENT_LINK_DOWN           (0)	/* Link Down on a port */
-+#define ASYNC_EVENT_LINK_UP             (1)	/* Link Up on a port */
-+
-+/*
-+ * The last 4 bytes of the async events have this common format.  It allows
-+ * the driver to distinguish [link]MCC_CQ_ENTRY[/link] structs from
-+ * asynchronous events.  Both arrive on the same completion queue.  This
-+ * structure also contains the common fields used to decode the async event.
-+ */
-+struct BE_ASYNC_EVENT_TRAILER_AMAP {
-+	BE_BIT rsvd0[8];	/* DWORD 0 */
-+	BE_BIT event_code[8];	/* DWORD 0 */
-+	BE_BIT event_type[8];	/* DWORD 0 */
-+	BE_BIT rsvd1[6];	/* DWORD 0 */
-+	BE_BIT async_event;	/* DWORD 0 */
-+	BE_BIT valid;		/* DWORD 0 */
-+} SG_PACK;
-+struct ASYNC_EVENT_TRAILER_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ * Applicable in Initiator, Target and NIC modes.
-+ * A link state async event is seen by all device drivers as soon they
-+ * create an MCC ring. Thereafter, anytime the link status changes the
-+ * drivers will receive a link state async event. Notifications continue to
-+ * be sent until a driver destroys its MCC ring. A link down event is
-+ * reported when either port loses link. A link up event is reported
-+ * when either port regains link. When BE's failover mechanism is enabled, a
-+ * link down on the active port causes traffic to be diverted to the standby
-+ * port by the BE's ARM firmware (assuming the standby port has link). In
-+ * this case, the standy port assumes the active status. Note: when link is
-+ * restored on the failed port, traffic continues on the currently active
-+ * port. The ARM firmware does not attempt to 'fail back' traffic to
-+ * the restored port.
-+ */
-+struct BE_ASYNC_EVENT_LINK_STATE_AMAP {
-+	struct BE_UEXACT8_AMAP port0_link_status;
-+	struct BE_UEXACT8_AMAP port1_link_status;
-+	struct BE_UEXACT8_AMAP active_port;
-+	BE_BIT rsvd0[8];	/* DWORD 0 */
-+	struct BE_UEXACT8_AMAP port0_duplex;
-+	struct BE_UEXACT8_AMAP port0_speed;
-+	struct BE_UEXACT8_AMAP port1_duplex;
-+	struct BE_UEXACT8_AMAP port1_speed;
-+	struct BE_UEXACT8_AMAP port0_fault;
-+	struct BE_UEXACT8_AMAP port1_fault;
-+	BE_BIT rsvd1[2][8];	/* DWORD 2 */
-+	struct BE_ASYNC_EVENT_TRAILER_AMAP trailer;
-+} SG_PACK;
-+struct ASYNC_EVENT_LINK_STATE_AMAP {
-+	u32 dw[4];
-+};
-+#endif /* __asyncmesg_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/be_cm.h b/drivers/message/beclib/fw/amap/be_cm.h
-new file mode 100644
-index 0000000..d5e60c8
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/be_cm.h
-@@ -0,0 +1,148 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __be_cm_amap_h__
-+#define __be_cm_amap_h__
-+#include "be_common.h"
-+#include "etx_context.h"
-+#include "mpu_context.h"
-+
-+/*
-+ * --- CEV_WATERMARK_ENUM ---
-+ * CQ/EQ Watermark Encodings. Encoded as number of free entries in
-+ * Queue when Watermark is reached.
-+ */
-+#define CEV_WMARK_0        (0)	/* Watermark when Queue full */
-+#define CEV_WMARK_16       (1)	/* Watermark at 16 free entries */
-+#define CEV_WMARK_32       (2)	/* Watermark at 32 free entries */
-+#define CEV_WMARK_48       (3)	/* Watermark at 48 free entries */
-+#define CEV_WMARK_64       (4)	/* Watermark at 64 free entries */
-+#define CEV_WMARK_80       (5)	/* Watermark at 80 free entries */
-+#define CEV_WMARK_96       (6)	/* Watermark at 96 free entries */
-+#define CEV_WMARK_112      (7)	/* Watermark at 112 free entries */
-+#define CEV_WMARK_128      (8)	/* Watermark at 128 free entries */
-+#define CEV_WMARK_144      (9)	/* Watermark at 144 free entries */
-+#define CEV_WMARK_160      (10)	/* Watermark at 160 free entries */
-+#define CEV_WMARK_176      (11)	/* Watermark at 176 free entries */
-+#define CEV_WMARK_192      (12)	/* Watermark at 192 free entries */
-+#define CEV_WMARK_208      (13)	/* Watermark at 208 free entries */
-+#define CEV_WMARK_224      (14)	/* Watermark at 224 free entries */
-+#define CEV_WMARK_240      (15)	/* Watermark at 240 free entries */
-+
-+/*
-+ * --- CQ_CNT_ENUM ---
-+ * Completion Queue Count Encodings.
-+ */
-+#define CEV_CQ_CNT_256                  (0)	/* CQ has 256 entries */
-+#define CEV_CQ_CNT_512                  (1)	/* CQ has 512 entries */
-+#define CEV_CQ_CNT_1024                 (2)	/* CQ has 1024 entries */
-+
-+/*
-+ * --- EQ_CNT_ENUM ---
-+ * Event Queue Count Encodings.
-+ */
-+#define CEV_EQ_CNT_256     (0)	/* EQ has 256 entries (16-byte EQEs only) */
-+#define CEV_EQ_CNT_512     (1)	/* EQ has 512 entries (16-byte EQEs only) */
-+#define CEV_EQ_CNT_1024    (2)	/* EQ has 1024 entries (4-byte or */
-+				/* 16-byte EQEs only) */
-+#define CEV_EQ_CNT_2048    (3)	/* EQ has 2048 entries (4-byte or */
-+				/* 16-byte EQEs only) */
-+#define CEV_EQ_CNT_4096    (4)	/* EQ has 4096 entries (4-byte EQEs only) */
-+
-+/*
-+ * --- EQ_SIZE_ENUM ---
-+ * Event Queue Entry Size Encoding.
-+ */
-+#define CEV_EQ_SIZE_4                   (0)	/* EQE is 4 bytes */
-+#define CEV_EQ_SIZE_16                  (1)	/* EQE is 16 bytes */
-+
-+/*
-+ * Completion Queue Context Table Entry. Contains the state of a CQ.
-+ * Located in RAM within the CEV block.
-+ */
-+struct BE_CQ_CONTEXT_AMAP {
-+	BE_BIT Cidx[11];	/* DWORD 0 */
-+	BE_BIT Watermark[4];	/* DWORD 0 */
-+	BE_BIT NoDelay;		/* DWORD 0 */
-+	BE_BIT EPIdx[11];	/* DWORD 0 */
-+	BE_BIT Count[2];	/* DWORD 0 */
-+	BE_BIT valid;		/* DWORD 0 */
-+	BE_BIT SolEvent;	/* DWORD 0 */
-+	BE_BIT Eventable;	/* DWORD 0 */
-+	BE_BIT Pidx[11];	/* DWORD 1 */
-+	BE_BIT PD[10];		/* DWORD 1 */
-+	BE_BIT EQID[7];		/* DWORD 1 */
-+	BE_BIT Func;		/* DWORD 1 */
-+	BE_BIT WME;		/* DWORD 1 */
-+	BE_BIT Stalled;		/* DWORD 1 */
-+	BE_BIT Armed;		/* DWORD 1 */
-+} SG_PACK;
-+struct CQ_CONTEXT_AMAP {
-+	u32 dw[2];
-+};
-+
-+/*
-+ * Event Queue Context Table Entry. Contains the state of an EQ.
-+ * Located in RAM in the CEV block.
-+ */
-+struct BE_EQ_CONTEXT_AMAP {
-+	BE_BIT Cidx[13];	/* DWORD 0 */
-+	BE_BIT rsvd0[2];	/* DWORD 0 */
-+	BE_BIT Func;		/* DWORD 0 */
-+	BE_BIT EPIdx[13];	/* DWORD 0 */
-+	BE_BIT valid;		/* DWORD 0 */
-+	BE_BIT rsvd1;		/* DWORD 0 */
-+	BE_BIT Size;		/* DWORD 0 */
-+	BE_BIT Pidx[13];	/* DWORD 1 */
-+	BE_BIT rsvd2[3];	/* DWORD 1 */
-+	BE_BIT PD[10];		/* DWORD 1 */
-+	BE_BIT Count[3];	/* DWORD 1 */
-+	BE_BIT SolEvent;	/* DWORD 1 */
-+	BE_BIT Stalled;		/* DWORD 1 */
-+	BE_BIT Armed;		/* DWORD 1 */
-+	BE_BIT Watermark[4];	/* DWORD 2 */
-+	BE_BIT WME;		/* DWORD 2 */
-+	BE_BIT rsvd3[3];	/* DWORD 2 */
-+	BE_BIT EventVect[6];	/* DWORD 2 */
-+	BE_BIT rsvd4[2];	/* DWORD 2 */
-+	BE_BIT Delay[8];	/* DWORD 2 */
-+	BE_BIT rsvd5[6];	/* DWORD 2 */
-+	BE_BIT TMR;		/* DWORD 2 */
-+	BE_BIT rsvd6;		/* DWORD 2 */
-+	BE_BIT rsvd7[32];	/* DWORD 3 */
-+} SG_PACK;
-+struct EQ_CONTEXT_AMAP {
-+	u32 dw[4];
-+};
-+
-+#endif /* __be_cm_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/be_common.h b/drivers/message/beclib/fw/amap/be_common.h
-new file mode 100644
-index 0000000..e75c086
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/be_common.h
-@@ -0,0 +1,67 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __be_common_amap_h__
-+#define __be_common_amap_h__
-+
-+/* Physical Address. */
-+struct BE_PHYS_ADDR_AMAP {
-+	BE_BIT lo[32];		/* DWORD 0 */
-+	BE_BIT hi[32];		/* DWORD 1 */
-+} SG_PACK;
-+struct PHYS_ADDR_AMAP {
-+	u32 dw[2];
-+};
-+
-+/* Virtual Address. */
-+struct BE_VIRT_ADDR_AMAP {
-+	BE_BIT lo[32];		/* DWORD 0 */
-+	BE_BIT hi[32];		/* DWORD 1 */
-+} SG_PACK;
-+struct VIRT_ADDR_AMAP {
-+	u32 dw[2];
-+};
-+
-+/* Scatter gather element. */
-+struct BE_SGE_AMAP {
-+	BE_BIT addr_hi[32];	/* DWORD 0 */
-+	BE_BIT addr_lo[32];	/* DWORD 1 */
-+	BE_BIT rsvd0[32];	/* DWORD 2 */
-+	BE_BIT len[16];		/* DWORD 3 */
-+	BE_BIT rsvd1[16];	/* DWORD 3 */
-+} SG_PACK;
-+struct SGE_AMAP {
-+	u32 dw[4];
-+};
-+
-+#endif /* __be_common_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/cev.h b/drivers/message/beclib/fw/amap/cev.h
-new file mode 100644
-index 0000000..2edf32b
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/cev.h
-@@ -0,0 +1,261 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __cev_amap_h__
-+#define __cev_amap_h__
-+#include "ep.h"
-+
-+/*
-+ * Host Interrupt Status Register 0. The first of four application
-+ * interrupt status registers. This register contains the interrupts
-+ * for Event Queues EQ0 through EQ31.
-+ */
-+struct BE_CEV_ISR0_CSR_AMAP {
-+	BE_BIT interrupt0;	/* DWORD 0 */
-+	BE_BIT interrupt1;	/* DWORD 0 */
-+	BE_BIT interrupt2;	/* DWORD 0 */
-+	BE_BIT interrupt3;	/* DWORD 0 */
-+	BE_BIT interrupt4;	/* DWORD 0 */
-+	BE_BIT interrupt5;	/* DWORD 0 */
-+	BE_BIT interrupt6;	/* DWORD 0 */
-+	BE_BIT interrupt7;	/* DWORD 0 */
-+	BE_BIT interrupt8;	/* DWORD 0 */
-+	BE_BIT interrupt9;	/* DWORD 0 */
-+	BE_BIT interrupt10;	/* DWORD 0 */
-+	BE_BIT interrupt11;	/* DWORD 0 */
-+	BE_BIT interrupt12;	/* DWORD 0 */
-+	BE_BIT interrupt13;	/* DWORD 0 */
-+	BE_BIT interrupt14;	/* DWORD 0 */
-+	BE_BIT interrupt15;	/* DWORD 0 */
-+	BE_BIT interrupt16;	/* DWORD 0 */
-+	BE_BIT interrupt17;	/* DWORD 0 */
-+	BE_BIT interrupt18;	/* DWORD 0 */
-+	BE_BIT interrupt19;	/* DWORD 0 */
-+	BE_BIT interrupt20;	/* DWORD 0 */
-+	BE_BIT interrupt21;	/* DWORD 0 */
-+	BE_BIT interrupt22;	/* DWORD 0 */
-+	BE_BIT interrupt23;	/* DWORD 0 */
-+	BE_BIT interrupt24;	/* DWORD 0 */
-+	BE_BIT interrupt25;	/* DWORD 0 */
-+	BE_BIT interrupt26;	/* DWORD 0 */
-+	BE_BIT interrupt27;	/* DWORD 0 */
-+	BE_BIT interrupt28;	/* DWORD 0 */
-+	BE_BIT interrupt29;	/* DWORD 0 */
-+	BE_BIT interrupt30;	/* DWORD 0 */
-+	BE_BIT interrupt31;	/* DWORD 0 */
-+} SG_PACK;
-+struct CEV_ISR0_CSR_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ * Host Interrupt Status Register 1. The second of four application
-+ * interrupt status registers. This register contains the interrupts
-+ * for Event Queues EQ32 through EQ63.
-+ */
-+struct BE_CEV_ISR1_CSR_AMAP {
-+	BE_BIT interrupt32;	/* DWORD 0 */
-+	BE_BIT interrupt33;	/* DWORD 0 */
-+	BE_BIT interrupt34;	/* DWORD 0 */
-+	BE_BIT interrupt35;	/* DWORD 0 */
-+	BE_BIT interrupt36;	/* DWORD 0 */
-+	BE_BIT interrupt37;	/* DWORD 0 */
-+	BE_BIT interrupt38;	/* DWORD 0 */
-+	BE_BIT interrupt39;	/* DWORD 0 */
-+	BE_BIT interrupt40;	/* DWORD 0 */
-+	BE_BIT interrupt41;	/* DWORD 0 */
-+	BE_BIT interrupt42;	/* DWORD 0 */
-+	BE_BIT interrupt43;	/* DWORD 0 */
-+	BE_BIT interrupt44;	/* DWORD 0 */
-+	BE_BIT interrupt45;	/* DWORD 0 */
-+	BE_BIT interrupt46;	/* DWORD 0 */
-+	BE_BIT interrupt47;	/* DWORD 0 */
-+	BE_BIT interrupt48;	/* DWORD 0 */
-+	BE_BIT interrupt49;	/* DWORD 0 */
-+	BE_BIT interrupt50;	/* DWORD 0 */
-+	BE_BIT interrupt51;	/* DWORD 0 */
-+	BE_BIT interrupt52;	/* DWORD 0 */
-+	BE_BIT interrupt53;	/* DWORD 0 */
-+	BE_BIT interrupt54;	/* DWORD 0 */
-+	BE_BIT interrupt55;	/* DWORD 0 */
-+	BE_BIT interrupt56;	/* DWORD 0 */
-+	BE_BIT interrupt57;	/* DWORD 0 */
-+	BE_BIT interrupt58;	/* DWORD 0 */
-+	BE_BIT interrupt59;	/* DWORD 0 */
-+	BE_BIT interrupt60;	/* DWORD 0 */
-+	BE_BIT interrupt61;	/* DWORD 0 */
-+	BE_BIT interrupt62;	/* DWORD 0 */
-+	BE_BIT interrupt63;	/* DWORD 0 */
-+} SG_PACK;
-+struct CEV_ISR1_CSR_AMAP {
-+	u32 dw[1];
-+};
-+/*
-+ * Host Interrupt Status Register 2. The third of four application
-+ * interrupt status registers. This register contains the interrupts
-+ * for Event Queues EQ64 through EQ95.
-+ */
-+struct BE_CEV_ISR2_CSR_AMAP {
-+	BE_BIT interrupt64;	/* DWORD 0 */
-+	BE_BIT interrupt65;	/* DWORD 0 */
-+	BE_BIT interrupt66;	/* DWORD 0 */
-+	BE_BIT interrupt67;	/* DWORD 0 */
-+	BE_BIT interrupt68;	/* DWORD 0 */
-+	BE_BIT interrupt69;	/* DWORD 0 */
-+	BE_BIT interrupt70;	/* DWORD 0 */
-+	BE_BIT interrupt71;	/* DWORD 0 */
-+	BE_BIT interrupt72;	/* DWORD 0 */
-+	BE_BIT interrupt73;	/* DWORD 0 */
-+	BE_BIT interrupt74;	/* DWORD 0 */
-+	BE_BIT interrupt75;	/* DWORD 0 */
-+	BE_BIT interrupt76;	/* DWORD 0 */
-+	BE_BIT interrupt77;	/* DWORD 0 */
-+	BE_BIT interrupt78;	/* DWORD 0 */
-+	BE_BIT interrupt79;	/* DWORD 0 */
-+	BE_BIT interrupt80;	/* DWORD 0 */
-+	BE_BIT interrupt81;	/* DWORD 0 */
-+	BE_BIT interrupt82;	/* DWORD 0 */
-+	BE_BIT interrupt83;	/* DWORD 0 */
-+	BE_BIT interrupt84;	/* DWORD 0 */
-+	BE_BIT interrupt85;	/* DWORD 0 */
-+	BE_BIT interrupt86;	/* DWORD 0 */
-+	BE_BIT interrupt87;	/* DWORD 0 */
-+	BE_BIT interrupt88;	/* DWORD 0 */
-+	BE_BIT interrupt89;	/* DWORD 0 */
-+	BE_BIT interrupt90;	/* DWORD 0 */
-+	BE_BIT interrupt91;	/* DWORD 0 */
-+	BE_BIT interrupt92;	/* DWORD 0 */
-+	BE_BIT interrupt93;	/* DWORD 0 */
-+	BE_BIT interrupt94;	/* DWORD 0 */
-+	BE_BIT interrupt95;	/* DWORD 0 */
-+} SG_PACK;
-+struct CEV_ISR2_CSR_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ * Host Interrupt Status Register 3. The fourth of four application
-+ * interrupt status registers. This register contains the interrupts
-+ * for Event Queues EQ96 through EQ127.
-+ */
-+struct BE_CEV_ISR3_CSR_AMAP {
-+	BE_BIT interrupt96;	/* DWORD 0 */
-+	BE_BIT interrupt97;	/* DWORD 0 */
-+	BE_BIT interrupt98;	/* DWORD 0 */
-+	BE_BIT interrupt99;	/* DWORD 0 */
-+	BE_BIT interrupt100;	/* DWORD 0 */
-+	BE_BIT interrupt101;	/* DWORD 0 */
-+	BE_BIT interrupt102;	/* DWORD 0 */
-+	BE_BIT interrupt103;	/* DWORD 0 */
-+	BE_BIT interrupt104;	/* DWORD 0 */
-+	BE_BIT interrupt105;	/* DWORD 0 */
-+	BE_BIT interrupt106;	/* DWORD 0 */
-+	BE_BIT interrupt107;	/* DWORD 0 */
-+	BE_BIT interrupt108;	/* DWORD 0 */
-+	BE_BIT interrupt109;	/* DWORD 0 */
-+	BE_BIT interrupt110;	/* DWORD 0 */
-+	BE_BIT interrupt111;	/* DWORD 0 */
-+	BE_BIT interrupt112;	/* DWORD 0 */
-+	BE_BIT interrupt113;	/* DWORD 0 */
-+	BE_BIT interrupt114;	/* DWORD 0 */
-+	BE_BIT interrupt115;	/* DWORD 0 */
-+	BE_BIT interrupt116;	/* DWORD 0 */
-+	BE_BIT interrupt117;	/* DWORD 0 */
-+	BE_BIT interrupt118;	/* DWORD 0 */
-+	BE_BIT interrupt119;	/* DWORD 0 */
-+	BE_BIT interrupt120;	/* DWORD 0 */
-+	BE_BIT interrupt121;	/* DWORD 0 */
-+	BE_BIT interrupt122;	/* DWORD 0 */
-+	BE_BIT interrupt123;	/* DWORD 0 */
-+	BE_BIT interrupt124;	/* DWORD 0 */
-+	BE_BIT interrupt125;	/* DWORD 0 */
-+	BE_BIT interrupt126;	/* DWORD 0 */
-+	BE_BIT interrupt127;	/* DWORD 0 */
-+} SG_PACK;
-+struct CEV_ISR3_CSR_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*  Completions and Events block Registers.  */
-+struct BE_CEV_CSRMAP_AMAP {
-+	BE_BIT rsvd0[32];	/* DWORD 0 */
-+	BE_BIT rsvd1[32];	/* DWORD 1 */
-+	BE_BIT rsvd2[32];	/* DWORD 2 */
-+	BE_BIT rsvd3[32];	/* DWORD 3 */
-+	struct BE_CEV_ISR0_CSR_AMAP isr0;
-+	struct BE_CEV_ISR1_CSR_AMAP isr1;
-+	struct BE_CEV_ISR2_CSR_AMAP isr2;
-+	struct BE_CEV_ISR3_CSR_AMAP isr3;
-+	BE_BIT rsvd4[32];	/* DWORD 8 */
-+	BE_BIT rsvd5[32];	/* DWORD 9 */
-+	BE_BIT rsvd6[32];	/* DWORD 10 */
-+	BE_BIT rsvd7[32];	/* DWORD 11 */
-+	BE_BIT rsvd8[32];	/* DWORD 12 */
-+	BE_BIT rsvd9[32];	/* DWORD 13 */
-+	BE_BIT rsvd10[32];	/* DWORD 14 */
-+	BE_BIT rsvd11[32];	/* DWORD 15 */
-+	BE_BIT rsvd12[32];	/* DWORD 16 */
-+	BE_BIT rsvd13[32];	/* DWORD 17 */
-+	BE_BIT rsvd14[32];	/* DWORD 18 */
-+	BE_BIT rsvd15[32];	/* DWORD 19 */
-+	BE_BIT rsvd16[32];	/* DWORD 20 */
-+	BE_BIT rsvd17[32];	/* DWORD 21 */
-+	BE_BIT rsvd18[32];	/* DWORD 22 */
-+	BE_BIT rsvd19[32];	/* DWORD 23 */
-+	BE_BIT rsvd20[32];	/* DWORD 24 */
-+	BE_BIT rsvd21[32];	/* DWORD 25 */
-+	BE_BIT rsvd22[32];	/* DWORD 26 */
-+	BE_BIT rsvd23[32];	/* DWORD 27 */
-+	BE_BIT rsvd24[32];	/* DWORD 28 */
-+	BE_BIT rsvd25[32];	/* DWORD 29 */
-+	BE_BIT rsvd26[32];	/* DWORD 30 */
-+	BE_BIT rsvd27[32];	/* DWORD 31 */
-+	BE_BIT rsvd28[32];	/* DWORD 32 */
-+	BE_BIT rsvd29[32];	/* DWORD 33 */
-+	BE_BIT rsvd30[192];	/* DWORD 34 */
-+	BE_BIT rsvd31[192];	/* DWORD 40 */
-+	BE_BIT rsvd32[160];	/* DWORD 46 */
-+	BE_BIT rsvd33[160];	/* DWORD 51 */
-+	BE_BIT rsvd34[160];	/* DWORD 56 */
-+	BE_BIT rsvd35[96];	/* DWORD 61 */
-+	BE_BIT rsvd36[192][32];	/* DWORD 64 */
-+} SG_PACK;
-+struct CEV_CSRMAP_AMAP {
-+	u32 dw[256];
-+};
-+
-+#ifdef SG_PRAGMA_PACK
-+#pragma pack(pop)
-+#endif
-+
-+#endif /* __cev_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/descriptors.h b/drivers/message/beclib/fw/amap/descriptors.h
-new file mode 100644
-index 0000000..e606d47
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/descriptors.h
-@@ -0,0 +1,85 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __descriptors_amap_h__
-+#define __descriptors_amap_h__
-+
-+/*
-+ * --- IPC_NODE_ID_ENUM ---
-+ * IPC processor id values
-+ */
-+#define TPOST_NODE_ID                   (0)	/* TPOST ID */
-+#define TPRE_NODE_ID                    (1)	/* TPRE ID */
-+#define TXULP0_NODE_ID                  (2)	/* TXULP0 ID */
-+#define TXULP1_NODE_ID                  (3)	/* TXULP1 ID */
-+#define TXULP2_NODE_ID                  (4)	/* TXULP2 ID */
-+#define RXULP0_NODE_ID                  (5)	/* RXULP0 ID */
-+#define RXULP1_NODE_ID                  (6)	/* RXULP1 ID */
-+#define RXULP2_NODE_ID                  (7)	/* RXULP2 ID */
-+#define MPU_NODE_ID                     (15)	/* MPU ID */
-+
-+/*
-+ * --- MAC_ID_ENUM ---
-+ * Meaning of the mac_id field in rxpp_eth_d
-+ */
-+#define PORT0_HOST_MAC0    (0)  /* PD 0, Port 0, host networking, MAC 0. */
-+#define PORT0_HOST_MAC1    (1)	/* PD 0, Port 0, host networking, MAC 1. */
-+#define PORT0_STORAGE_MAC0 (2)	/* PD 0, Port 0, host storage, MAC 0. */
-+#define PORT0_STORAGE_MAC1 (3)	/* PD 0, Port 0, host storage, MAC 1. */
-+#define PORT1_HOST_MAC0    (4)	/* PD 0, Port 1 host networking, MAC 0. */
-+#define PORT1_HOST_MAC1    (5)	/* PD 0, Port 1 host networking, MAC 1. */
-+#define PORT1_STORAGE_MAC0 (6)	/* PD 0, Port 1 host storage, MAC 0. */
-+#define PORT1_STORAGE_MAC1 (7)	/* PD 0, Port 1 host storage, MAC 1. */
-+#define FIRST_VM_MAC       (8)	/* PD 1 MAC. Protection domains have IDs */
-+				/* from 0x8-0x26, one per PD. */
-+#define LAST_VM_MAC        (38)	/* PD 31 MAC. */
-+#define MGMT_MAC           (39)	/* Management port MAC. */
-+#define MARBLE_MAC0        (59)	/* Used for flushing function 0 receive */
-+				  /*
-+				   * queues before re-using a torn-down
-+				   * receive ring. the DA =
-+				   * 00-00-00-00-00-00, and the MSB of the
-+				   * SA = 00
-+				   */
-+#define MARBLE_MAC1        (60)	/* Used for flushing function 1 receive */
-+				  /*
-+				   * queues before re-using a torn-down
-+				   * receive ring. the DA =
-+				   * 00-00-00-00-00-00, and the MSB of the
-+				   * SA != 00
-+				   */
-+#define NULL_MAC           (61)	/* Promiscuous mode, indicates no match */
-+#define MCAST_MAC          (62)	/* Multicast match. */
-+#define BCAST_MATCH        (63)	/* Broadcast match. */
-+
-+#endif /* __descriptors_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/doorbells.h b/drivers/message/beclib/fw/amap/doorbells.h
-new file mode 100644
-index 0000000..b7460e7
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/doorbells.h
-@@ -0,0 +1,193 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __doorbells_amap_h__
-+#define __doorbells_amap_h__
-+
-+/* The TX/RDMA send queue doorbell. */
-+struct BE_SQ_DB_AMAP {
-+	BE_BIT cid[11];		/* DWORD 0 */
-+	BE_BIT rsvd0[5];	/* DWORD 0 */
-+	BE_BIT numPosted[14];	/* DWORD 0 */
-+	BE_BIT rsvd1[2];	/* DWORD 0 */
-+} SG_PACK;
-+struct SQ_DB_AMAP {
-+	u32 dw[1];
-+};
-+
-+/* The receive queue doorbell. */
-+struct BE_RQ_DB_AMAP {
-+	BE_BIT rq[10];		/* DWORD 0 */
-+	BE_BIT rsvd0[13];	/* DWORD 0 */
-+	BE_BIT Invalidate;	/* DWORD 0 */
-+	BE_BIT numPosted[8];	/* DWORD 0 */
-+} SG_PACK;
-+struct RQ_DB_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ * The CQ/EQ doorbell. Software MUST set reserved fields in this
-+ * descriptor to zero, otherwise (CEV) hardware will not execute the
-+ * doorbell (flagging a bad_db_qid error instead).
-+ */
-+struct BE_CQ_DB_AMAP {
-+	BE_BIT qid[10];		/* DWORD 0 */
-+	BE_BIT rsvd0[4];	/* DWORD 0 */
-+	BE_BIT rearm;		/* DWORD 0 */
-+	BE_BIT event;		/* DWORD 0 */
-+	BE_BIT num_popped[13];	/* DWORD 0 */
-+	BE_BIT rsvd1[3];	/* DWORD 0 */
-+} SG_PACK;
-+struct CQ_DB_AMAP {
-+	u32 dw[1];
-+};
-+
-+struct BE_TPM_RQ_DB_AMAP {
-+	BE_BIT qid[10];		/* DWORD 0 */
-+	BE_BIT rsvd0[6];	/* DWORD 0 */
-+	BE_BIT numPosted[11];	/* DWORD 0 */
-+	BE_BIT mss_cnt[5];	/* DWORD 0 */
-+} SG_PACK;
-+struct TPM_RQ_DB_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ * Post WRB Queue Doorbell Register used by the host Storage stack
-+ * to notify the controller of a posted Work Request Block
-+ */
-+struct BE_WRB_POST_DB_AMAP {
-+	BE_BIT wrb_cid[10];	/* DWORD 0 */
-+	BE_BIT rsvd0[6];	/* DWORD 0 */
-+	BE_BIT wrb_index[8];	/* DWORD 0 */
-+	BE_BIT numberPosted[8];	/* DWORD 0 */
-+} SG_PACK;
-+struct WRB_POST_DB_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ * Update Default PDU Queue Doorbell Register used to communicate
-+ * to the controller that the driver has stopped processing the queue
-+ * and where in the queue it stopped, this is
-+ * a CQ Entry Type. Used by storage driver.
-+ */
-+struct BE_DEFAULT_PDU_DB_AMAP {
-+	BE_BIT qid[10];		/* DWORD 0 */
-+	BE_BIT rsvd0[4];	/* DWORD 0 */
-+	BE_BIT rearm;		/* DWORD 0 */
-+	BE_BIT event;		/* DWORD 0 */
-+	BE_BIT cqproc[14];	/* DWORD 0 */
-+	BE_BIT rsvd1[2];	/* DWORD 0 */
-+} SG_PACK;
-+struct DEFAULT_PDU_DB_AMAP {
-+	u32 dw[1];
-+};
-+
-+/* Management Command and Controller default fragment ring */
-+struct BE_MCC_DB_AMAP {
-+	BE_BIT rid[11];		/* DWORD 0 */
-+	BE_BIT rsvd0[5];	/* DWORD 0 */
-+	BE_BIT numPosted[14];	/* DWORD 0 */
-+	BE_BIT rsvd1[2];	/* DWORD 0 */
-+} SG_PACK;
-+struct MCC_DB_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ * Used for bootstrapping the Host interface. This register is
-+ * used for driver communication with the MPU when no MCC Rings exist.
-+ * The software must write this register twice to post any MCC
-+ * command. First, it writes the register with hi=1 and the upper bits of
-+ * the  physical address for the MCC_MAILBOX structure.  Software must poll
-+ * the ready bit until this is acknowledged.  Then, sotware writes the
-+ * register with hi=0 with the lower bits in the address.  It must
-+ * poll the ready bit until the MCC command is complete.  Upon completion,
-+ * the MCC_MAILBOX will contain a valid completion queue  entry.
-+ */
-+struct BE_MPU_MAILBOX_DB_AMAP {
-+	BE_BIT ready;		/* DWORD 0 */
-+	BE_BIT hi;		/* DWORD 0 */
-+	BE_BIT address[30];	/* DWORD 0 */
-+} SG_PACK;
-+struct MPU_MAILBOX_DB_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ *  This is the protection domain doorbell register map. Note that
-+ *  while this map shows doorbells for all Blade Engine supported
-+ *  protocols, not all of these may be valid in a given function or
-+ *  protection domain. It is the responsibility of the application
-+ *  accessing the doorbells to know which are valid. Each doorbell
-+ *  occupies 32 bytes of space, but unless otherwise specified,
-+ *  only the first 4 bytes should be written.  There are 32 instances
-+ *  of these doorbells for the host and 31 virtual machines respectively.
-+ *  The host and VMs will only map the doorbell pages belonging to its
-+ *  protection domain. It will not be able to touch the doorbells for
-+ *  another VM. The doorbells are the only registers directly accessible
-+ *  by a virtual machine. Similarly, there are 511 additional
-+ *  doorbells for RDMA protection domains. PD 0 for RDMA shares
-+ *  the same physical protection domain doorbell page as ETH/iSCSI.
-+ *
-+ */
-+struct BE_PROTECTION_DOMAIN_DBMAP_AMAP {
-+	BE_BIT rsvd0[512];	/* DWORD 0 */
-+	struct BE_SQ_DB_AMAP rdma_sq_db;
-+	BE_BIT rsvd1[7][32];	/* DWORD 17 */
-+	struct BE_WRB_POST_DB_AMAP iscsi_wrb_post_db;
-+	BE_BIT rsvd2[7][32];	/* DWORD 25 */
-+	struct BE_SQ_DB_AMAP etx_sq_db;
-+	BE_BIT rsvd3[7][32];	/* DWORD 33 */
-+	struct BE_RQ_DB_AMAP rdma_rq_db;
-+	BE_BIT rsvd4[7][32];	/* DWORD 41 */
-+	struct BE_DEFAULT_PDU_DB_AMAP iscsi_default_pdu_db;
-+	BE_BIT rsvd5[7][32];	/* DWORD 49 */
-+	struct BE_TPM_RQ_DB_AMAP tpm_rq_db;
-+	BE_BIT rsvd6[7][32];	/* DWORD 57 */
-+	struct BE_RQ_DB_AMAP erx_rq_db;
-+	BE_BIT rsvd7[7][32];	/* DWORD 65 */
-+	struct BE_CQ_DB_AMAP cq_db;
-+	BE_BIT rsvd8[7][32];	/* DWORD 73 */
-+	struct BE_MCC_DB_AMAP mpu_mcc_db;
-+	BE_BIT rsvd9[7][32];	/* DWORD 81 */
-+	struct BE_MPU_MAILBOX_DB_AMAP mcc_bootstrap_db;
-+	BE_BIT rsvd10[935][32];	/* DWORD 89 */
-+} SG_PACK;
-+struct PROTECTION_DOMAIN_DBMAP_AMAP {
-+	u32 dw[1024];
-+};
-+
-+#endif /* __doorbells_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/ep.h b/drivers/message/beclib/fw/amap/ep.h
-new file mode 100644
-index 0000000..7a3a3e1
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/ep.h
-@@ -0,0 +1,84 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __ep_amap_h__
-+#define __ep_amap_h__
-+
-+/* General Control and Status Register. */
-+struct BE_EP_CONTROL_CSR_AMAP {
-+	BE_BIT m0_RxPbuf;	/* DWORD 0 */
-+	BE_BIT m1_RxPbuf;	/* DWORD 0 */
-+	BE_BIT m2_RxPbuf;	/* DWORD 0 */
-+	BE_BIT ff_en;		/* DWORD 0 */
-+	BE_BIT rsvd0[27];	/* DWORD 0 */
-+	BE_BIT CPU_reset;	/* DWORD 0 */
-+} SG_PACK;
-+struct EP_CONTROL_CSR_AMAP {
-+	u32 dw[1];
-+};
-+
-+/* Semaphore Register. */
-+struct BE_EP_SEMAPHORE_CSR_AMAP {
-+	BE_BIT value[32];	/* DWORD 0 */
-+} SG_PACK;
-+struct EP_SEMAPHORE_CSR_AMAP {
-+	u32 dw[1];
-+};
-+
-+/* Embedded Processor Specific Registers. */
-+struct BE_EP_CSRMAP_AMAP {
-+	struct BE_EP_CONTROL_CSR_AMAP ep_control;
-+	BE_BIT rsvd0[32];	/* DWORD 1 */
-+	BE_BIT rsvd1[32];	/* DWORD 2 */
-+	BE_BIT rsvd2[32];	/* DWORD 3 */
-+	BE_BIT rsvd3[32];	/* DWORD 4 */
-+	BE_BIT rsvd4[32];	/* DWORD 5 */
-+	BE_BIT rsvd5[8][128];	/* DWORD 6 */
-+	BE_BIT rsvd6[32];	/* DWORD 38 */
-+	BE_BIT rsvd7[32];	/* DWORD 39 */
-+	BE_BIT rsvd8[32];	/* DWORD 40 */
-+	BE_BIT rsvd9[32];	/* DWORD 41 */
-+	BE_BIT rsvd10[32];	/* DWORD 42 */
-+	struct BE_EP_SEMAPHORE_CSR_AMAP ep_semaphore;
-+	BE_BIT rsvd11[32];	/* DWORD 44 */
-+	BE_BIT rsvd12[19][32];	/* DWORD 45 */
-+} SG_PACK;
-+struct EP_CSRMAP_AMAP {
-+	u32 dw[64];
-+};
-+
-+#ifdef SG_PRAGMA_PACK
-+#pragma pack(pop)
-+#endif
-+
-+#endif /* __ep_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/etx_context.h b/drivers/message/beclib/fw/amap/etx_context.h
-new file mode 100644
-index 0000000..de71a85
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/etx_context.h
-@@ -0,0 +1,79 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __etx_context_amap_h__
-+#define __etx_context_amap_h__
-+
-+#undef SG_PACK
-+#if defined(SG_PRAGMA_PACK)
-+#pragma pack(push, 1)
-+#define SG_PACK
-+#elif defined(SG_ATTRIBUTE_PACK)
-+#define SG_PACK __attribute__ ((packed))
-+#else
-+#define SG_PACK
-+#endif
-+
-+/* ETX ring  context structure. */
-+struct BE_ETX_CONTEXT_AMAP {
-+	BE_BIT tx_cidx[11];	/* DWORD 0 */
-+	BE_BIT rsvd0[5];	/* DWORD 0 */
-+	BE_BIT rsvd1[16];	/* DWORD 0 */
-+	BE_BIT tx_pidx[11];	/* DWORD 1 */
-+	BE_BIT rsvd2;		/* DWORD 1 */
-+	BE_BIT tx_ring_size[4];	/* DWORD 1 */
-+	BE_BIT pd_id[5];	/* DWORD 1 */
-+	BE_BIT pd_id_not_valid;	/* DWORD 1 */
-+	BE_BIT cq_id_send[10];	/* DWORD 1 */
-+	BE_BIT rsvd3[32];	/* DWORD 2 */
-+	BE_BIT rsvd4[32];	/* DWORD 3 */
-+	BE_BIT cur_bytes[32];	/* DWORD 4 */
-+	BE_BIT max_bytes[32];	/* DWORD 5 */
-+	BE_BIT time_stamp[32];	/* DWORD 6 */
-+	BE_BIT rsvd5[11];	/* DWORD 7 */
-+	BE_BIT func;		/* DWORD 7 */
-+	BE_BIT rsvd6[20];	/* DWORD 7 */
-+	BE_BIT cur_txd_count[32];	/* DWORD 8 */
-+	BE_BIT max_txd_count[32];	/* DWORD 9 */
-+	BE_BIT rsvd7[32];	/* DWORD 10 */
-+	BE_BIT rsvd8[32];	/* DWORD 11 */
-+	BE_BIT rsvd9[32];	/* DWORD 12 */
-+	BE_BIT rsvd10[32];	/* DWORD 13 */
-+	BE_BIT rsvd11[32];	/* DWORD 14 */
-+	BE_BIT rsvd12[32];	/* DWORD 15 */
-+} SG_PACK;
-+struct ETX_CONTEXT_AMAP {
-+	u32 dw[16];
-+};
-+
-+#endif /* __etx_context_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/host_struct.h b/drivers/message/beclib/fw/amap/host_struct.h
-new file mode 100644
-index 0000000..a858300
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/host_struct.h
-@@ -0,0 +1,197 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated file. Do not edit!
-+ * srcgen version: 0127
-+ */
-+#ifndef __host_struct_amap_h__
-+#define __host_struct_amap_h__
-+#include "be_cm.h"
-+#include "be_common.h"
-+#include "descriptors.h"
-+
-+/* --- EQ_COMPLETION_MAJOR_CODE_ENUM --- */
-+#define EQ_MAJOR_CODE_COMPLETION        (0)	/* Completion event on a */
-+						  /* qcompletion ueue. */
-+#define EQ_MAJOR_CODE_ETH               (1)	/* Affiliated Ethernet Event. */
-+#define EQ_MAJOR_CODE_RESERVED          (2)	/* Reserved */
-+#define EQ_MAJOR_CODE_RDMA              (3)	/* Affiliated RDMA Event. */
-+#define EQ_MAJOR_CODE_ISCSI             (4)	/* Affiliated ISCSI Event */
-+#define EQ_MAJOR_CODE_UNAFFILIATED      (5)	/* Unaffiliated Event */
-+
-+/* --- EQ_COMPLETION_MINOR_CODE_ENUM --- */
-+#define EQ_MINOR_CODE_COMPLETION        (0)	/* Completion event on a */
-+						  /* completion queue. */
-+#define EQ_MINOR_CODE_OTHER             (1)	/* Other Event (TBD). */
-+
-+/* Queue Entry Definition for all 4 byte event queue types. */
-+struct BE_EQ_ENTRY_AMAP {
-+	BE_BIT Valid;		/* DWORD 0 */
-+	BE_BIT MajorCode[3];	/* DWORD 0 */
-+	BE_BIT MinorCode[12];	/* DWORD 0 */
-+	BE_BIT ResourceID[16];	/* DWORD 0 */
-+} SG_PACK;
-+struct EQ_ENTRY_AMAP {
-+	u32 dw[1];
-+};
-+
-+/*
-+ * --- ETH_EVENT_CODE ---
-+ * These codes are returned by the MPU when one of these events has occurred,
-+ * and the event is configured to report to an Event Queue when an event
-+ * is detected.
-+ */
-+#define ETH_EQ_LINK_STATUS              (0)	/* Link status change event */
-+						  /* detected. */
-+#define ETH_EQ_WATERMARK                (1)	/* watermark event detected. */
-+#define ETH_EQ_MAGIC_PKT                (2)	/* magic pkt event detected. */
-+#define ETH_EQ_ACPI_PKT0                (3)	/* ACPI interesting packet */
-+						  /* detected. */
-+#define ETH_EQ_ACPI_PKT1                (3)	/* ACPI interesting packet */
-+						  /* detected. */
-+#define ETH_EQ_ACPI_PKT2                (3)	/* ACPI interesting packet */
-+						  /* detected. */
-+#define ETH_EQ_ACPI_PKT3                (3)	/* ACPI interesting packet */
-+						  /* detected. */
-+
-+/*
-+ * --- ETH_TX_COMPL_STATUS_ENUM ---
-+ * Status codes contained in Ethernet TX completion descriptors.
-+ */
-+#define ETH_COMP_VALID                  (0)
-+#define ETH_COMP_ERROR                  (1)
-+#define ETH_COMP_INVALID                (15)
-+
-+/*
-+ * --- ETH_TX_COMPL_PORT_ENUM ---
-+ * Port indicator contained in Ethernet TX completion descriptors.
-+ */
-+#define ETH_COMP_PORT0                  (0)
-+#define ETH_COMP_PORT1                  (1)
-+#define ETH_COMP_MGMT                   (2)
-+
-+/*
-+ * --- ETH_TX_COMPL_CT_ENUM ---
-+ * Completion type indicator contained in Ethernet TX completion descriptors.
-+ */
-+#define ETH_COMP_ETH                    (0)
-+
-+/*
-+ * Work request block that the driver issues to the chip for
-+ * Ethernet transmissions. All control fields must be valid in each WRB for
-+ * a message. The controller, as specified by the flags, optionally writes
-+ * an entry to the Completion Ring and generate an event.
-+ */
-+struct BE_ETH_WRB_AMAP {
-+	BE_BIT frag_pa_hi[32];	/* DWORD 0 */
-+	BE_BIT frag_pa_lo[32];	/* DWORD 1 */
-+	BE_BIT complete;	/* DWORD 2 */
-+	BE_BIT event;		/* DWORD 2 */
-+	BE_BIT crc;		/* DWORD 2 */
-+	BE_BIT forward;		/* DWORD 2 */
-+	BE_BIT ipsec;		/* DWORD 2 */
-+	BE_BIT mgmt;		/* DWORD 2 */
-+	BE_BIT ipcs;		/* DWORD 2 */
-+	BE_BIT udpcs;		/* DWORD 2 */
-+	BE_BIT tcpcs;		/* DWORD 2 */
-+	BE_BIT lso;		/* DWORD 2 */
-+	BE_BIT last;		/* DWORD 2 */
-+	BE_BIT vlan;		/* DWORD 2 */
-+	BE_BIT dbg[3];		/* DWORD 2 */
-+	BE_BIT hash_val[3];	/* DWORD 2 */
-+	BE_BIT lso_mss[14];	/* DWORD 2 */
-+	BE_BIT frag_len[16];	/* DWORD 3 */
-+	BE_BIT vlan_tag[16];	/* DWORD 3 */
-+} SG_PACK;
-+struct ETH_WRB_AMAP {
-+	u32 dw[4];
-+};
-+
-+/* This is an Ethernet transmit completion descriptor */
-+struct BE_ETH_TX_COMPL_AMAP {
-+	BE_BIT user_bytes[16];	/* DWORD 0 */
-+	BE_BIT nwh_bytes[8];	/* DWORD 0 */
-+	BE_BIT lso;		/* DWORD 0 */
-+	BE_BIT rsvd0[7];	/* DWORD 0 */
-+	BE_BIT wrb_index[16];	/* DWORD 1 */
-+	BE_BIT ct[2];		/* DWORD 1 */
-+	BE_BIT port[2];		/* DWORD 1 */
-+	BE_BIT rsvd1[8];	/* DWORD 1 */
-+	BE_BIT status[4];	/* DWORD 1 */
-+	BE_BIT rsvd2[16];	/* DWORD 2 */
-+	BE_BIT ringid[11];	/* DWORD 2 */
-+	BE_BIT hash_val[4];	/* DWORD 2 */
-+	BE_BIT valid;		/* DWORD 2 */
-+	BE_BIT rsvd3[32];	/* DWORD 3 */
-+} SG_PACK;
-+struct ETH_TX_COMPL_AMAP {
-+	u32 dw[4];
-+};
-+
-+/* Ethernet Receive Buffer descriptor */
-+struct BE_ETH_RX_D_AMAP {
-+	BE_BIT fragpa_hi[32];	/* DWORD 0 */
-+	BE_BIT fragpa_lo[32];	/* DWORD 1 */
-+} SG_PACK;
-+struct ETH_RX_D_AMAP {
-+	u32 dw[2];
-+};
-+
-+/* This is an Ethernet Receive Completion Descriptor */
-+struct BE_ETH_RX_COMPL_AMAP {
-+	BE_BIT vlan_tag[16];	/* DWORD 0 */
-+	BE_BIT pktsize[14];	/* DWORD 0 */
-+	BE_BIT port;		/* DWORD 0 */
-+	BE_BIT rsvd0;		/* DWORD 0 */
-+	BE_BIT err;		/* DWORD 1 */
-+	BE_BIT rsshp;		/* DWORD 1 */
-+	BE_BIT ipf;		/* DWORD 1 */
-+	BE_BIT tcpf;		/* DWORD 1 */
-+	BE_BIT udpf;		/* DWORD 1 */
-+	BE_BIT ipcksm;		/* DWORD 1 */
-+	BE_BIT tcpcksm;		/* DWORD 1 */
-+	BE_BIT udpcksm;		/* DWORD 1 */
-+	BE_BIT macdst[6];	/* DWORD 1 */
-+	BE_BIT vtp;		/* DWORD 1 */
-+	BE_BIT vtm;		/* DWORD 1 */
-+	BE_BIT fragndx[10];	/* DWORD 1 */
-+	BE_BIT ct[2];		/* DWORD 1 */
-+	BE_BIT ipsec;		/* DWORD 1 */
-+	BE_BIT numfrags[3];	/* DWORD 1 */
-+	BE_BIT rsvd1[31];	/* DWORD 2 */
-+	BE_BIT valid;		/* DWORD 2 */
-+	BE_BIT rsshash[32];	/* DWORD 3 */
-+} SG_PACK;
-+struct ETH_RX_COMPL_AMAP {
-+	u32 dw[4];
-+};
-+
-+#endif /* __host_struct_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/mpu.h b/drivers/message/beclib/fw/amap/mpu.h
-new file mode 100644
-index 0000000..0564e7f
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/mpu.h
-@@ -0,0 +1,88 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __mpu_amap_h__
-+#define __mpu_amap_h__
-+#include "ep.h"
-+
-+/* Provide control parameters for the Managment Processor Unit. */
-+struct BE_MPU_CSRMAP_AMAP {
-+	struct BE_EP_CSRMAP_AMAP ep;
-+	BE_BIT rsvd0[128];	/* DWORD 64 */
-+	BE_BIT rsvd1[32];	/* DWORD 68 */
-+	BE_BIT rsvd2[192];	/* DWORD 69 */
-+	BE_BIT rsvd3[192];	/* DWORD 75 */
-+	BE_BIT rsvd4[32];	/* DWORD 81 */
-+	BE_BIT rsvd5[32];	/* DWORD 82 */
-+	BE_BIT rsvd6[32];	/* DWORD 83 */
-+	BE_BIT rsvd7[32];	/* DWORD 84 */
-+	BE_BIT rsvd8[32];	/* DWORD 85 */
-+	BE_BIT rsvd9[32];	/* DWORD 86 */
-+	BE_BIT rsvd10[32];	/* DWORD 87 */
-+	BE_BIT rsvd11[32];	/* DWORD 88 */
-+	BE_BIT rsvd12[32];	/* DWORD 89 */
-+	BE_BIT rsvd13[32];	/* DWORD 90 */
-+	BE_BIT rsvd14[32];	/* DWORD 91 */
-+	BE_BIT rsvd15[32];	/* DWORD 92 */
-+	BE_BIT rsvd16[32];	/* DWORD 93 */
-+	BE_BIT rsvd17[32];	/* DWORD 94 */
-+	BE_BIT rsvd18[32];	/* DWORD 95 */
-+	BE_BIT rsvd19[32];	/* DWORD 96 */
-+	BE_BIT rsvd20[32];	/* DWORD 97 */
-+	BE_BIT rsvd21[32];	/* DWORD 98 */
-+	BE_BIT rsvd22[32];	/* DWORD 99 */
-+	BE_BIT rsvd23[32];	/* DWORD 100 */
-+	BE_BIT rsvd24[32];	/* DWORD 101 */
-+	BE_BIT rsvd25[32];	/* DWORD 102 */
-+	BE_BIT rsvd26[32];	/* DWORD 103 */
-+	BE_BIT rsvd27[32];	/* DWORD 104 */
-+	BE_BIT rsvd28[96];	/* DWORD 105 */
-+	BE_BIT rsvd29[32];	/* DWORD 108 */
-+	BE_BIT rsvd30[32];	/* DWORD 109 */
-+	BE_BIT rsvd31[32];	/* DWORD 110 */
-+	BE_BIT rsvd32[32];	/* DWORD 111 */
-+	BE_BIT rsvd33[32];	/* DWORD 112 */
-+	BE_BIT rsvd34[96];	/* DWORD 113 */
-+	BE_BIT rsvd35[32];	/* DWORD 116 */
-+	BE_BIT rsvd36[32];	/* DWORD 117 */
-+	BE_BIT rsvd37[32];	/* DWORD 118 */
-+	BE_BIT rsvd38[32];	/* DWORD 119 */
-+	BE_BIT rsvd39[32];	/* DWORD 120 */
-+	BE_BIT rsvd40[32];	/* DWORD 121 */
-+	BE_BIT rsvd41[134][32];	/* DWORD 122 */
-+} SG_PACK;
-+struct MPU_CSRMAP_AMAP {
-+	u32 dw[256];
-+};
-+
-+#endif /* __mpu_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/mpu_context.h b/drivers/message/beclib/fw/amap/mpu_context.h
-new file mode 100644
-index 0000000..31286af
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/mpu_context.h
-@@ -0,0 +1,60 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __mpu_context_amap_h__
-+#define __mpu_context_amap_h__
-+
-+/*
-+ * Management command and control ring context. The MPUs BTLR_CTRL1 CSR
-+ * controls the writeback behavior of the producer and consumer index values.
-+ */
-+struct BE_MCC_RING_CONTEXT_AMAP {
-+	BE_BIT con_index[16];	/* DWORD 0 */
-+	BE_BIT ring_size[4];	/* DWORD 0 */
-+	BE_BIT cq_id[11];	/* DWORD 0 */
-+	BE_BIT rsvd0;		/* DWORD 0 */
-+	BE_BIT prod_index[16];	/* DWORD 1 */
-+	BE_BIT pdid[15];	/* DWORD 1 */
-+	BE_BIT invalid;		/* DWORD 1 */
-+	BE_BIT cmd_pending_current[7];	/* DWORD 2 */
-+	BE_BIT rsvd1[25];	/* DWORD 2 */
-+	BE_BIT hpi_port_cq_id[11];	/* DWORD 3 */
-+	BE_BIT rsvd2[5];	/* DWORD 3 */
-+	BE_BIT cmd_pending_max[7];	/* DWORD 3 */
-+	BE_BIT rsvd3[9];	/* DWORD 3 */
-+} SG_PACK;
-+struct MCC_RING_CONTEXT_AMAP {
-+	u32 dw[4];
-+};
-+
-+#endif /* __mpu_context_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/nativedefs.h b/drivers/message/beclib/fw/amap/nativedefs.h
-new file mode 100644
-index 0000000..daeccfe
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/nativedefs.h
-@@ -0,0 +1,61 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __nativedefs_amap_h__
-+#define __nativedefs_amap_h__
-+
-+struct BE_EXACT8_AMAP {
-+	BE_BIT native[8];
-+};
-+
-+struct BE_UEXACT8_AMAP {
-+	BE_BIT native[8];
-+};
-+
-+struct BE_EXACT16_AMAP {
-+	BE_BIT native[16];
-+};
-+
-+struct BE_UEXACT16_AMAP {
-+	BE_BIT native[16];
-+};
-+
-+struct BE_UEXACT32_AMAP {
-+	BE_BIT native[32];
-+};
-+
-+struct BE_UEXACT64_AMAP {
-+	BE_BIT native[64];
-+};
-+
-+#endif /* __nativedefs_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/post_codes.h b/drivers/message/beclib/fw/amap/post_codes.h
-new file mode 100644
-index 0000000..06a6c60
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/post_codes.h
-@@ -0,0 +1,125 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __post_codes_amap_h__
-+#define __post_codes_amap_h__
-+
-+/* --- MGMT_HBA_POST_STAGE_ENUM --- */
-+#define POST_STAGE_POWER_ON_RESET   (0)	/* State after a cold or warm boot. */
-+#define POST_STAGE_AWAITING_HOST_RDY (1)	/* ARM boot code awaiting a
-+						go-ahed from  the host. */
-+#define POST_STAGE_HOST_RDY (2)	/* Host has given go-ahed to ARM. */
-+#define POST_STAGE_BE_RESET (3)	/* Host wants to reset chip, this is a  chip
-+						workaround  */
-+#define POST_STAGE_SEEPROM_CS_START (256)	/* SEEPROM checksum
-+						test start. */
-+#define POST_STAGE_SEEPROM_CS_DONE  (257)	/* SEEPROM checksum test
-+							done. */
-+#define POST_STAGE_DDR_CONFIG_START (512)	/* DDR configuration start. */
-+#define POST_STAGE_DDR_CONFIG_DONE  (513)	/* DDR configuration done. */
-+#define POST_STAGE_DDR_CALIBRATE_START  (768)	/* DDR calibration start. */
-+#define POST_STAGE_DDR_CALIBRATE_DONE   (769)	/* DDR calibration done. */
-+#define POST_STAGE_DDR_TEST_START   (1024)	/* DDR memory test start. */
-+#define POST_STAGE_DDR_TEST_DONE    (1025)	/* DDR memory test done. */
-+#define POST_STAGE_REDBOOT_INIT_START   (1536)	/* Redboot starts execution. */
-+#define POST_STAGE_REDBOOT_INIT_DONE (1537)	/* Redboot done execution. */
-+#define POST_STAGE_FW_IMAGE_LOAD_START (1792)	/* Firmware image load to
-+							DDR start. */
-+#define POST_STAGE_FW_IMAGE_LOAD_DONE   (1793)	/* Firmware image load
-+							to DDR done. */
-+#define POST_STAGE_ARMFW_START          (2048)	/* ARMfw runtime code
-+						starts execution. */
-+#define POST_STAGE_DHCP_QUERY_START     (2304)	/* DHCP server query start. */
-+#define POST_STAGE_DHCP_QUERY_DONE      (2305)	/* DHCP server query done. */
-+#define POST_STAGE_BOOT_TARGET_DISCOVERY_START (2560)	/* Boot Target
-+						Discovery Start. */
-+#define POST_STAGE_BOOT_TARGET_DISCOVERY_DONE (2561)	/* Boot Target
-+						Discovery Done. */
-+#define POST_STAGE_RC_OPTION_SET        (2816)	/* Remote configuration
-+						option is set in  SEEPROM  */
-+#define POST_STAGE_SWITCH_LINK          (2817)	/* Wait for link up on switch */
-+#define POST_STAGE_SEND_ICDS_MESSAGE    (2818)	/* Send the ICDS message
-+						to switch */
-+#define POST_STAGE_PERFROM_TFTP         (2819)	/* Download xml using TFTP */
-+#define POST_STAGE_PARSE_XML            (2820)	/* Parse XML file */
-+#define POST_STAGE_DOWNLOAD_IMAGE       (2821)	/* Download IMAGE from
-+						TFTP server */
-+#define POST_STAGE_FLASH_IMAGE          (2822)	/* Flash the IMAGE */
-+#define POST_STAGE_RC_DONE              (2823)	/* Remote configuration
-+						complete */
-+#define POST_STAGE_REBOOT_SYSTEM        (2824)	/* Upgrade IMAGE done,
-+						reboot required */
-+#define POST_STAGE_MAC_ADDRESS          (3072)	/* MAC Address Check */
-+#define POST_STAGE_ARMFW_READY          (49152)	/* ARMfw is done with POST
-+						and ready. */
-+#define POST_STAGE_ARMFW_UE             (61440)	/* ARMfw has asserted an
-+						unrecoverable error. The
-+						lower 3 hex digits of the
-+						stage code identify the
-+						unique error code.
-+						*/
-+
-+/* This structure defines the format of the MPU semaphore
-+ * register when used for POST.
-+ */
-+struct BE_MGMT_HBA_POST_STATUS_STRUCT_AMAP {
-+	BE_BIT stage[16];	/* DWORD 0 */
-+	BE_BIT rsvd0[10];	/* DWORD 0 */
-+	BE_BIT iscsi_driver_loaded;	/* DWORD 0 */
-+	BE_BIT option_rom_installed;	/* DWORD 0 */
-+	BE_BIT iscsi_ip_conflict;	/* DWORD 0 */
-+	BE_BIT iscsi_no_ip;	/* DWORD 0 */
-+	BE_BIT backup_fw;	/* DWORD 0 */
-+	BE_BIT error;		/* DWORD 0 */
-+} SG_PACK;
-+struct MGMT_HBA_POST_STATUS_STRUCT_AMAP {
-+	u32 dw[1];
-+};
-+
-+/* --- MGMT_HBA_POST_DUMMY_BITS_ENUM --- */
-+#define POST_BIT_ISCSI_LOADED           (26)
-+#define POST_BIT_OPTROM_INST            (27)
-+#define POST_BIT_BAD_IP_ADDR            (28)
-+#define POST_BIT_NO_IP_ADDR             (29)
-+#define POST_BIT_BACKUP_FW              (30)
-+#define POST_BIT_ERROR                  (31)
-+
-+/* --- MGMT_HBA_POST_DUMMY_VALUES_ENUM --- */
-+#define POST_ISCSI_DRIVER_LOADED        (67108864)
-+#define POST_OPTROM_INSTALLED           (134217728)
-+#define POST_ISCSI_IP_ADDRESS_CONFLICT  (268435456)
-+#define POST_ISCSI_NO_IP_ADDRESS        (536870912)
-+#define POST_BACKUP_FW_LOADED           (1073741824)
-+#define POST_FATAL_ERROR                (2147483648)
-+
-+#endif /* __post_codes_amap_h__ */
-diff --git a/drivers/message/beclib/fw/amap/regmap.h b/drivers/message/beclib/fw/amap/regmap.h
-new file mode 100644
-index 0000000..d90f162
---- /dev/null
-+++ b/drivers/message/beclib/fw/amap/regmap.h
-@@ -0,0 +1,82 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ */
-+/*
-+ * Autogenerated by srcgen version: 0127
-+ */
-+#ifndef __regmap_amap_h__
-+#define __regmap_amap_h__
-+#include "pcicfg.h"
-+#include "ep.h"
-+#include "cev.h"
-+#include "mpu.h"
-+#include "doorbells.h"
-+
-+/*
-+ * This is the control and status register map for BladeEngine, showing
-+ * the relative size and offset of each sub-module. The CSR registers
-+ * are identical for the network and storage PCI functions. The
-+ * CSR map is shown below, followed by details of each block,
-+ * in sub-sections.  The sub-sections begin with a description
-+ * of CSRs that are instantiated in multiple blocks.
-+ */
-+struct BE_BLADE_ENGINE_CSRMAP_AMAP {
-+	struct BE_MPU_CSRMAP_AMAP mpu;
-+	BE_BIT rsvd0[8192];	/* DWORD 256 */
-+	BE_BIT rsvd1[8192];	/* DWORD 512 */
-+	struct BE_CEV_CSRMAP_AMAP cev;
-+	BE_BIT rsvd2[8192];	/* DWORD 1024 */
-+	BE_BIT rsvd3[8192];	/* DWORD 1280 */
-+	BE_BIT rsvd4[8192];	/* DWORD 1536 */
-+	BE_BIT rsvd5[8192];	/* DWORD 1792 */
-+	BE_BIT rsvd6[8192];	/* DWORD 2048 */
-+	BE_BIT rsvd7[8192];	/* DWORD 2304 */
-+	BE_BIT rsvd8[8192];	/* DWORD 2560 */
-+	BE_BIT rsvd9[8192];	/* DWORD 2816 */
-+	BE_BIT rsvd10[8192];	/* DWORD 3072 */
-+	BE_BIT rsvd11[8192];	/* DWORD 3328 */
-+	BE_BIT rsvd12[8192];	/* DWORD 3584 */
-+	BE_BIT rsvd13[8192];	/* DWORD 3840 */
-+	BE_BIT rsvd14[8192];	/* DWORD 4096 */
-+	BE_BIT rsvd15[8192];	/* DWORD 4352 */
-+	BE_BIT rsvd16[8192];	/* DWORD 4608 */
-+	BE_BIT rsvd17[8192];	/* DWORD 4864 */
-+	BE_BIT rsvd18[8192];	/* DWORD 5120 */
-+	BE_BIT rsvd19[8192];	/* DWORD 5376 */
-+	BE_BIT rsvd20[8192];	/* DWORD 5632 */
-+	BE_BIT rsvd21[8192];	/* DWORD 5888 */
-+	BE_BIT rsvd22[8192];	/* DWORD 6144 */
-+	BE_BIT rsvd23[17152][32];	/* DWORD 6400 */
-+} SG_PACK;
-+struct BLADE_ENGINE_CSRMAP_AMAP {
-+	u32 dw[23552];
-+};
-+
-+#endif /* __regmap_amap_h__ */
--- 
-1.5.5
+> From: Cornelia Huck <cornelia.huck@de.ibm.com>
+> Date: Thu, 15 May 2008 09:52:46 +0200
+> 
+> > >  int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
+> > >  {
+> > > -	if (sysfs_find_dirent(acxt->parent_sd, sd->s_name)) {
+> > > -		printk(KERN_WARNING "sysfs: duplicate filename '%s' "
+> > > -		       "can not be created\n", sd->s_name);
+> > > -		WARN_ON(1);
+> > > +	if (sysfs_find_dirent(acxt->parent_sd, sd->s_name))
+> > >  		return -EEXIST;
+> > > -	}
+> > > 
+> > >  	sd->s_parent = sysfs_get(acxt->parent_sd);
+> > 
+> > ...but this will cause many useful warnings to disappear.
+> > 
+> > What to do here?
+> 
+> Make a __sysfs_add_one() that doesn't warn.   Make
+> sysfs_add_one() be a wrapper around __sysfs_add_one()
+> that warns.
+> 
+> Change networking to call __sysfs_add_one().
 
-___________________________________________________________________________________
-This message, together with any attachment(s), contains confidential and proprietary information of
-ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by reply email message and
-delete all copies of this message and any attachment(s). Thank you.
+Like this (not even compile tested)? This depends on being able to
+properly isolate the functions called though, or we need to get the
+nowarn flag one level further up.
 
+diff --git a/drivers/base/core.c b/drivers/base/core.c
+index be288b5..a9058f4 100644
+--- a/drivers/base/core.c
++++ b/drivers/base/core.c
+@@ -1209,8 +1209,8 @@ #ifdef CONFIG_SYSFS_DEPRECATED
+ 	if (old_class_name) {
+ 		new_class_name = make_class_name(dev->class->name, &dev->kobj);
+ 		if (new_class_name) {
+-			error = sysfs_create_link(&dev->parent->kobj,
+-						  &dev->kobj, new_class_name);
++			error = __sysfs_create_link(&dev->parent->kobj,
++						  &dev->kobj, new_class_name, 1);
+ 			if (error)
+ 				goto out;
+ 			sysfs_remove_link(&dev->parent->kobj, old_class_name);
+@@ -1219,8 +1219,8 @@ #ifdef CONFIG_SYSFS_DEPRECATED
+ #else
+ 	if (dev->class) {
+ 		sysfs_remove_link(&dev->class->subsys.kobj, old_device_name);
+-		error = sysfs_create_link(&dev->class->subsys.kobj, &dev->kobj,
+-					  dev->bus_id);
++		error = __sysfs_create_link(&dev->class->subsys.kobj, &dev->kobj,
++					  dev->bus_id, 1);
+ 		if (error) {
+ 			dev_err(dev, "%s: sysfs_create_symlink failed (%d)\n",
+ 				__func__, error);
+diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
+index a1c3a1f..b7914a0 100644
+--- a/fs/sysfs/dir.c
++++ b/fs/sysfs/dir.c
+@@ -397,6 +397,23 @@ void sysfs_addrm_start(struct sysfs_addr
+ 		iput(inode);
+ }
+ 
++int __sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
++{
++	if (sysfs_find_dirent(acxt->parent_sd, sd->s_name))
++		return -EEXIST;
++
++	sd->s_parent = sysfs_get(acxt->parent_sd);
++
++	if (sysfs_type(sd) == SYSFS_DIR && acxt->parent_inode)
++		inc_nlink(acxt->parent_inode);
++
++	acxt->cnt++;
++
++	sysfs_link_sibling(sd);
++
++	return 0;
++}
++
+ /**
+  *	sysfs_add_one - add sysfs_dirent to parent
+  *	@acxt: addrm context to use
+@@ -419,23 +436,14 @@ void sysfs_addrm_start(struct sysfs_addr
+  */
+ int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
+ {
+-	if (sysfs_find_dirent(acxt->parent_sd, sd->s_name)) {
++	int err = __sysfs_add_one(acxt, sd);
++
++	if (err == -EEXIST) {
+ 		printk(KERN_WARNING "sysfs: duplicate filename '%s' "
+ 		       "can not be created\n", sd->s_name);
+ 		WARN_ON(1);
+-		return -EEXIST;
+ 	}
+-
+-	sd->s_parent = sysfs_get(acxt->parent_sd);
+-
+-	if (sysfs_type(sd) == SYSFS_DIR && acxt->parent_inode)
+-		inc_nlink(acxt->parent_inode);
+-
+-	acxt->cnt++;
+-
+-	sysfs_link_sibling(sd);
+-
+-	return 0;
++	return err;
+ }
+ 
+ /**
+diff --git a/fs/sysfs/symlink.c b/fs/sysfs/symlink.c
+index 817f596..c08184d 100644
+--- a/fs/sysfs/symlink.c
++++ b/fs/sysfs/symlink.c
+@@ -25,7 +25,8 @@ #include "sysfs.h"
+  *	@target:	object we're pointing to.
+  *	@name:		name of the symlink.
+  */
+-int sysfs_create_link(struct kobject * kobj, struct kobject * target, const char * name)
++int __sysfs_create_link(struct kobject * kobj, struct kobject * target,
++			const char * name, int nowarn)
+ {
+ 	struct sysfs_dirent *parent_sd = NULL;
+ 	struct sysfs_dirent *target_sd = NULL;
+@@ -65,7 +66,10 @@ int sysfs_create_link(struct kobject * k
+ 	target_sd = NULL;	/* reference is now owned by the symlink */
+ 
+ 	sysfs_addrm_start(&acxt, parent_sd);
+-	error = sysfs_add_one(&acxt, sd);
++	if (nowarn)
++		error = __sysfs_add_one(&acxt, sd);
++	else
++		error = sysfs_add_one(&acxt, sd);
+ 	sysfs_addrm_finish(&acxt);
+ 
+ 	if (error)
+@@ -79,6 +83,12 @@ int sysfs_create_link(struct kobject * k
+ 	return error;
+ }
+ 
++int sysfs_create_link(struct kobject * kobj, struct kobject * target,
++		      const char * name)
++{
++	return sysfs_create_link(kobj, target, name, 0);
++}
++
+ /**
+  *	sysfs_remove_link - remove symlink in object's directory.
+  *	@kobj:	object we're acting for.
+diff --git a/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
+index ce4e15f..1d459f5 100644
+--- a/fs/sysfs/sysfs.h
++++ b/fs/sysfs/sysfs.h
+@@ -108,6 +108,7 @@ void sysfs_put_active_two(struct sysfs_d
+ void sysfs_addrm_start(struct sysfs_addrm_cxt *acxt,
+ 		       struct sysfs_dirent *parent_sd);
+ int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd);
++int __sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd);
+ void sysfs_remove_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd);
+ void sysfs_addrm_finish(struct sysfs_addrm_cxt *acxt);
+ 
+diff --git a/include/linux/sysfs.h b/include/linux/sysfs.h
+index 7858eac..3ef8ae7 100644
+--- a/include/linux/sysfs.h
++++ b/include/linux/sysfs.h
+@@ -101,6 +101,8 @@ void sysfs_remove_bin_file(struct kobjec
+ 
+ int __must_check sysfs_create_link(struct kobject *kobj, struct kobject *target,
+ 				   const char *name);
++int __sysfs_create_link(struct kobject *kobj, struct kobject *target,
++			const char *name, int nowarn);
+ void sysfs_remove_link(struct kobject *kobj, const char *name);
+ 
+ int __must_check sysfs_create_group(struct kobject *kobj,
