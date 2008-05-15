@@ -1,40 +1,36 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: dead network on JS21 with tg3 driver after flowcontrol
- changes
-Date: Thu, 15 May 2008 10:37:07 -0700
-Message-ID: <1210873027.22745.0.camel@dell>
-References: <20080515121340.GA23033@aepfle.de>
- <1551EAE59135BE47B544934E30FC4FC002AABCEE@nt-irva-0751.brcm.ad.broadcom.com>
- <20080515154948.GA23647@aepfle.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Thu, 15 May 2008 17:39:39 +0100
+Message-ID: <20080515173939.1ec968be@core>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
+	<20080515142154.0595e475@core>
+	<36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>, linuxppc-dev@ozlabs.org,
-	netdev <netdev@vger.kernel.org>
-To: "Olaf Hering" <olaf@aepfle.de>
+Cc: "Chris Peterson" <cpeterso@cpeterso.com>, <jeff@garzik.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1976 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757315AbYEOQc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2008 12:32:29 -0400
-In-Reply-To: <20080515154948.GA23647@aepfle.de>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:59638 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754007AbYEOQuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 12:50:46 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-05-15 at 17:49 +0200, Olaf Hering wrote:
-> On Thu, May 15, Michael Chan wrote:
-> 
-> > Olaf Hering wrote:
-> > 
-> > > Any ideas how to fix this?
-> > > What info do you need from the system?
-> > 
-> > Are you using eth0 or eth1?  The dmesg below shows that
-> > link came up on eth1 and IP address from DHCP was received.
-> 
-> I'm using eth1.
-> The log was done with the patch reverted.
-> 
+> In short, I agree with Alan's IRQF_SAMPLE_DUBIOUS, and know of Linux
+> customers who also want the same.
 
-In that case, please re-apply the patch and provide mii-tool -vvv eth1.
+They should be made to read the Debian ssh security report - three times
+and understand the same would apply to them if something did cause their
+network packet arrivals to be observed or non-random
 
+Far better would be to get your CPU guys to put an RNG back into the
+systems or on the CPU die ala VIA. Given I've even seen people using VIA
+boxes as a random number feeder (streaming random numbers over SSL) there
+is clearly a demand 8)
+
+Alan
