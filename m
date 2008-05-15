@@ -1,44 +1,58 @@
-From: Theodore Tso <tytso@mit.edu>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
 Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
 	IRQF_SAMPLE_RANDOM
-Date: Thu, 15 May 2008 18:27:41 -0400
-Message-ID: <20080515222741.GQ18825@mit.edu>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <20080515215517.GI1936@cs181133002.pp.htv.fi> <482CB354.3010205@garzik.org>
+Date: Thu, 15 May 2008 19:29:41 -0300
+Message-ID: <20080515222941.GB20976@khazad-dum.debian.net>
+References: <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org> <a24804730805151301s3c6644d0hc2c78b8008fe035d@mail.gmail.com> <20080515214721.GP18825@mit.edu> <482CB1FB.7080807@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@kernel.org>,
+Cc: Theodore Tso <tytso@mit.edu>,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Rick Jones <rick.jones2@hp.com>,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mpm@selenic.com
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.church-of-our-saviour.org ([69.25.196.31]:58336 "EHLO
-	thunker.thunk.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751867AbYEOW2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 18:28:12 -0400
+Received: from out1.smtp.messagingengine.com ([66.111.4.25]:59295 "EHLO
+	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752253AbYEOW3p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 18:29:45 -0400
 Content-Disposition: inline
-In-Reply-To: <482CB354.3010205@garzik.org>
+In-Reply-To: <482CB1FB.7080807@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2008 at 06:04:04PM -0400, Jeff Garzik wrote:
->> I have seen embedded systems with zero entropy, and dubious entropy might 
->> there be better than no entropy at all.
->> Or am I wrong on the latter?
->
-> It's also relevant to the discussion to note that input data to kernel 
-> devrandom is mixed, and we can control the amount of "credit" applied to 
-> incoming entropy.
+On Thu, 15 May 2008, Jeff Garzik wrote:
+> rngd is already deployed in most distros, via rng-tools.  Motivated  
+> people are welcome to steal maintainership from me...
 
-Sure, and one possible thing to do is to simply always input the
-interrupt information to the random number generator, but give it a
-"entropy credit" of 0.  That has the net result of potentially
-improving the entropy found in /dev/random and /dev/urandom, but not
-necessarily compromising /dev/random, since /dev/random's output is
-throttled by the entropy estimate.
+I was, once.  But I got into the trap of getting too out of sync from
+upsteam rngd, and suddenly, packaging all those changes into incremental
+patches become too much non-fun work for me to find the energy to do so.
 
-The only cost of doing this would be the overhead in sending the
-information into the entropy pool.
+It has been a few years since I really looked at that code, except for a
+few minor Debian packaging fixes.  It is old code, and if my C is not
+world-class now, it was even worse at that time.  But at least valgrind
+tells me I fixed the worst bugs, and FIPS 140-2 (the old version of it
+that still had criteria for non-deterministic RNGs) and DIEHARD couldn't
+find any issues with its output after several runs on gigabyte-sized
+files produced both from an Intel FWH RNG, and from a VIA PadLock RNG.
 
-						- Ted
+If anyone wants to poke at it, get the Debian rng-tools source package.
+It directly supports the VIA PadLock in userspace in a suitably paranoid
+mode (checks that the RNG was not reprogrammed at every read), and does
+multithreading so that FIPS and output processing does not block (nor
+gets blocked) by /dev/hw_random reading, etc.
+
+Lots of cowebs on it, though.  And you probably need to get the version
+in Debian unstable AND the version in Debian experimental, to get the
+full code.  If someone really wants to work on it, I can send the VC
+repo for them to play with.
+
+-- 
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
