@@ -1,120 +1,48 @@
-From: <glenn_engel@agilent.com>
-Subject: natsemi.c ioctl fix or mii register access
-Date: Thu, 15 May 2008 17:23:50 -0600
-Message-ID: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com>
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+	IRQF_SAMPLE_RANDOM
+Date: Thu, 15 May 2008 19:36:42 -0400
+Message-ID: <20080515233642.GT18825@mit.edu>
+References: <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org> <a24804730805151301s3c6644d0hc2c78b8008fe035d@mail.gmail.com> <20080515214721.GP18825@mit.edu> <482CB1FB.7080807@garzik.org> <20080515222941.GB20976@khazad-dum.debian.net> <482CBCC6.6010905@garzik.org> <20080515230221.GC20976@khazad-dum.debian.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jgarzik@pobox.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aglcosbs05.cos.agilent.com ([192.25.218.36]:35430 "EHLO
-	aglsgpbs05.sgp.agilent.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750860AbYEOXfF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2008 19:35:05 -0400
-Content-class: urn:content-classes:message
+Received: from www.church-of-our-saviour.org ([69.25.196.31]:34205 "EHLO
+	thunker.thunk.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754585AbYEOXgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 19:36:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20080515230221.GC20976@khazad-dum.debian.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, May 15, 2008 at 08:02:21PM -0300, Henrique de Moraes Holschuh wrote:
+> I will tell you what.  If someone manages to get trousers to actually
+> *work* for data binding and sealing to the TPM in a ThinkPad T43 with an
+> NSC/Winbond TPM (their "sup3r s3kr1t TPM-inside-the-SuperIO 8394T" crap
+> one needs a NDA to get the documentation for), and I manage to duplicate
+> it (i.e. make it work here too), I will write the rng-tools trousers
+> interface code (at least for the Debian version) :-)
+> 
+> The kernel TPM driver works, the BIOS works, and I have the PCRs updated
+> properly during boot, but trousers get the tpm pubek key wrong for some
+> reason (the kernel driver can read it just fine).  The chip is good,
+> IBM's stuff worked just fine with it.
 
-I recently discovered the ioctl implementation in natsemi.c had a few bugs in dealing with the user ioctls to send and receive MII commands (SIOCGMIIPHY and SIOCSMIIPHY).
- 
-The specific problems noted and fixed:
+There were some web pages on this subject that seemed imply that IBM
+used a non-standard string-to-key algorithm, and that caused the
+incompatibility with Trousers.  So if you initialized the TPM using
+the IBM Windows drivers, you have to mess around with TSS to get it to
+work correctly with Thinkpads.  I tried for a bit to try to get it to
+work a while ago, but the few things I tried didn't work, and I
+eventually lost interest.
 
-1. The if_mii macro casts it's return to be (struct mii_ioctl_data *) but in reality it returns a pointer to the user space pointer (struct mii_ioctl_data**).   This looks to be a problem with the mii_macro to me.  I changed this to use the ifr_data macro instead.
-
-2. Since the mii_ioctl_data structure resides in user space, it must be copied into kernel space before access and copied back for read results.  References to the pointer were changed to point to the local copy (data-> changed to mii_data.)
-
---
-Glenn
-
---- linux-2.6.25.4.orig/drivers/net/natsemi.c	2008-05-15 14:05:37.000000000 -0700
-+++ linux-2.6.25.4/drivers/net/natsemi.c	2008-05-15 14:29:28.000000000 -0700
-@@ -3043,13 +3043,18 @@
- 
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
--	struct mii_ioctl_data *data = if_mii(rq);
-+	struct mii_ioctl_data *data = (struct mii_ioctl_data*)rq->ifr_data;
- 	struct netdev_private *np = netdev_priv(dev);
-+	struct mii_ioctl_data mii_data;
-+    
-+	if (cmd == SIOCGMIIPHY || cmd == SIOCGMIIREG || cmd == SIOCSMIIREG) {
-+		copy_from_user(&mii_data, data, sizeof(mii_data));
-+	}
- 
- 	switch(cmd) {
- 	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
- 	case SIOCDEVPRIVATE:		/* for binary compat, remove in 2.5 */
--		data->phy_id = np->phy_addr_external;
-+		mii_data.phy_id = np->phy_addr_external;
- 		/* Fall Through */
- 
- 	case SIOCGMIIREG:		/* Read MII PHY register. */
-@@ -3059,16 +3064,17 @@
- 		 * the given mii on the current port.
- 		 */
- 		if (dev->if_port == PORT_TP) {
--			if ((data->phy_id & 0x1f) == np->phy_addr_external)
--				data->val_out = mdio_read(dev,
--							data->reg_num & 0x1f);
-+			if ((mii_data.phy_id & 0x1f) == np->phy_addr_external)
-+				mii_data.val_out = mdio_read(dev,
-+							mii_data.reg_num & 0x1f);
- 			else
--				data->val_out = 0;
-+				mii_data.val_out = 0;
- 		} else {
--			move_int_phy(dev, data->phy_id & 0x1f);
--			data->val_out = miiport_read(dev, data->phy_id & 0x1f,
--							data->reg_num & 0x1f);
-+			move_int_phy(dev, mii_data.phy_id & 0x1f);
-+			mii_data.val_out = miiport_read(dev, mii_data.phy_id & 0x1f,
-+							mii_data.reg_num & 0x1f);
- 		}
-+		copy_to_user(data, &mii_data, sizeof(mii_data));
- 		return 0;
- 
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
-@@ -3076,21 +3082,21 @@
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 		if (dev->if_port == PORT_TP) {
--			if ((data->phy_id & 0x1f) == np->phy_addr_external) {
-- 				if ((data->reg_num & 0x1f) == MII_ADVERTISE)
--					np->advertising = data->val_in;
--				mdio_write(dev, data->reg_num & 0x1f,
--							data->val_in);
-+			if ((mii_data.phy_id & 0x1f) == np->phy_addr_external) {
-+ 				if ((mii_data.reg_num & 0x1f) == MII_ADVERTISE)
-+					np->advertising = mii_data.val_in;
-+				mdio_write(dev, mii_data.reg_num & 0x1f,
-+							mii_data.val_in);
- 			}
- 		} else {
--			if ((data->phy_id & 0x1f) == np->phy_addr_external) {
-- 				if ((data->reg_num & 0x1f) == MII_ADVERTISE)
--					np->advertising = data->val_in;
-+			if ((mii_data.phy_id & 0x1f) == np->phy_addr_external) {
-+ 				if ((mii_data.reg_num & 0x1f) == MII_ADVERTISE)
-+					np->advertising = mii_data.val_in;
- 			}
--			move_int_phy(dev, data->phy_id & 0x1f);
--			miiport_write(dev, data->phy_id & 0x1f,
--						data->reg_num & 0x1f,
--						data->val_in);
-+			move_int_phy(dev, mii_data.phy_id & 0x1f);
-+			miiport_write(dev, mii_data.phy_id & 0x1f,
-+						mii_data.reg_num & 0x1f,
-+						mii_data.val_in);
- 		}
- 		return 0;
- 	default:
-
-
-
-
-
+							- Ted
