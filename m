@@ -1,64 +1,61 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][IRDA]: Sock leak on error path in irda_create.
-Date: Thu, 15 May 2008 21:58:41 +0400
-Message-ID: <482C79D1.8000601@openvz.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Thu, 15 May 2008 14:04:08 -0400
+Message-ID: <482C7B18.6060003@garzik.org>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Samuel Ortiz <samuel@sortiz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58111 "EHLO sacred.ru"
+Received: from srv5.dvmed.net ([207.36.208.214]:43079 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751003AbYEOSDp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2008 14:03:45 -0400
+	id S1751350AbYEOSEN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2008 14:04:13 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bad type/protocol specified result in sk leak.
+Brandeburg, Jesse wrote:
+> we've been hearing rumblings of big customers wanting (maybe requiring)
+> wired network drivers from Intel to  advertise this flag.  Jeff have you
+> heard of such?
 
-Fix is simple - release the sk if bad values are given,
-but to make it possible just to call sk_free(), I move
-some sk initialization a bit lower.
+I do indeed hear requests all the time, from people who want to make 
+their boxes externally exploitable.  :)
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
----
+> I think the argument is that a headless system (no keyboard/mouse, no
+> soundcard, probably no video) with a libata based driver and a network
+> driver without IRQF_SAMPLE_RANDOM has *no* sources of entropy.  In this
+> case the argument is very strong for at least *some* source of entropy
+> from interrupts so that randomness can get some external input.  Just
+> try rebuilding a kernel RPM over an ssh session and you'll see what I
+> mean.
 
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index ae54b20..3eb5bcc 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -1093,11 +1093,6 @@ static int irda_create(struct net *net, struct socket *sock, int protocol)
- 
- 	init_waitqueue_head(&self->query_wait);
- 
--	/* Initialise networking socket struct */
--	sock_init_data(sock, sk);	/* Note : set sk->sk_refcnt to 1 */
--	sk->sk_family = PF_IRDA;
--	sk->sk_protocol = protocol;
--
- 	switch (sock->type) {
- 	case SOCK_STREAM:
- 		sock->ops = &irda_stream_ops;
-@@ -1124,13 +1119,20 @@ static int irda_create(struct net *net, struct socket *sock, int protocol)
- 			self->max_sdu_size_rx = TTP_SAR_UNBOUND;
- 			break;
- 		default:
-+			sk_free(sk);
- 			return -ESOCKTNOSUPPORT;
- 		}
- 		break;
- 	default:
-+		sk_free(sk);
- 		return -ESOCKTNOSUPPORT;
- 	}
- 
-+	/* Initialise networking socket struct */
-+	sock_init_data(sock, sk);	/* Note : set sk->sk_refcnt to 1 */
-+	sk->sk_family = PF_IRDA;
-+	sk->sk_protocol = protocol;
-+
- 	/* Register as a client with IrLMP */
- 	self->ckey = irlmp_register_client(0, NULL, NULL, NULL);
- 	self->mask.word = 0xffff;
+There are entropy sources on a headless box, even one without audio and 
+video, that are more secure than adding IRQF_SAMPLE_RANDOM to network 
+drivers.
+
+EGD demonstrates this, for example:  http://egd.sourceforge.net/  It 
+looks at snmp, w, last, uptime, iostats, vmstats, etc.
+
+And there are plenty of untapped entropy sources even so, such as 
+reading temperature sensors, fan speed sensors on variable-speed fans, etc.
+
+Heck, "smartctl -d ata -a /dev/FOO" produces output that could be hashed 
+and added as entropy.
+
+I'm interested to hear peoples' opinion of Chris P's patch, but 
+definitely do not want to go in the other direction and start adding 
+IRQF_SAMPLE_RANDOM, thus moving randomness in the direction of being 
+externally exploitable.
+
+	Jeff
+
+
+
