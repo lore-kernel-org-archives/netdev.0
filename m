@@ -1,40 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/3] net: handle errors from device_rename
-Date: Wed, 14 May 2008 18:15:43 -0700
-Message-ID: <20080514181543.744b8286@extreme>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] sysfs: remove error messages for -EEXIST case
+Date: Wed, 14 May 2008 18:26:37 -0700 (PDT)
+Message-ID: <20080514.182637.211478588.davem@davemloft.net>
 References: <20080514170316.672f809d@extreme>
+	<20080514181257.74fbb5aa@extreme>
+	<20080514181603.411e834f@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
-	fubar@us.ibm.com
+Cc: greg@kroah.com, fubar@us.ibm.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:50096 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755898AbYEOBQS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2008 21:16:18 -0400
-In-Reply-To: <20080514170316.672f809d@extreme>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33881
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751284AbYEOB0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 21:26:42 -0400
+In-Reply-To: <20080514181603.411e834f@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-device_rename can fail with -EEXIST or -ENOMEM, so handle any problems.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 14 May 2008 18:16:03 -0700
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> It is possible that the entry in sysfs already exists, one case of this is
+> when a network device is renamed to bonding_masters. Anyway, in this case
+> the proper error path is for device_rename to return an error code, not to
+> generate bogus backtrace and errors.
+> 
+> Also, to avoid possible races, the create link should be done before the
+> remove link. This makes a device rename atomic operation like other renames.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/net/core/dev.c	2008-05-14 17:49:37.000000000 -0700
-+++ b/net/core/dev.c	2008-05-14 17:51:21.000000000 -0700
-@@ -903,7 +903,11 @@ int dev_change_name(struct net_device *d
- 		strlcpy(dev->name, newname, IFNAMSIZ);
- 
- rollback:
--	device_rename(&dev->dev, dev->name);
-+	err = device_rename(&dev->dev, dev->name);
-+	if (err) {
-+		memcpy(dev->name, oldname, IFNAMSIZ);
-+		return err;
-+	}
- 
- 	write_lock_bh(&dev_base_lock);
- 	hlist_del(&dev->name_hlist);
+I definitely agree with this change.
+
+We have several cases where device names are user configurable,
+yet the devices live in a directory which also has subdirectories
+created by other subsystems.
+
+It's pointless to require the top-level guy to look for any
+purge out any subdirectory cases, that's none of it's business.
+
+I realize the backtrace is useful for finding bugs, but in this
+case it's definitely not appropriate.
