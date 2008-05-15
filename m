@@ -1,44 +1,47 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] [PATCH 09/13] QLogic VNIC: IB Multicast for
-	Ethernet broadcast/multicast
-Date: Thu, 15 May 2008 15:38:00 -0700
-Message-ID: <ada7idvdwhj.fsf@cisco.com>
-References: <20080430171028.31725.86190.stgit@localhost.localdomain>
-	<20080430172025.31725.97795.stgit@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Thu, 15 May 2008 18:42:06 -0400
+Message-ID: <482CBC3E.8060305@garzik.org>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, amar.mudrankit@qlogic.com,
-	general@lists.openfabrics.org, poornima.kamath@qlogic.com
-To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20080430172025.31725.97795.stgit@localhost.localdomain>
-	(Ramachandra K.'s message of "Wed, 30 Apr 2008 22:50:25 +0530")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:36902 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753916AbYEOWmL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2008 18:42:11 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > +#define SET_MCAST_STATE_INVALID \
- > +do { \
- > +	viport->mc_info.state = MCAST_STATE_INVALID; \
- > +	viport->mc_info.mc = NULL; \
- > +	memset(&viport->mc_info.mgid, 0, sizeof(union ib_gid)); \
- > +} while (0);
+Brandeburg, Jesse wrote:
+> we've been hearing rumblings of big customers wanting (maybe requiring)
+> wired network drivers from Intel to  advertise this flag.  Jeff have you
+> heard of such?
+> 
+> I think the argument is that a headless system (no keyboard/mouse, no
+> soundcard, probably no video) with a libata based driver and a network
+> driver without IRQF_SAMPLE_RANDOM has *no* sources of entropy.  In this
+> case the argument is very strong for at least *some* source of entropy
+> from interrupts so that randomness can get some external input.  Just
+> try rebuilding a kernel RPM over an ssh session and you'll see what I
+> mean.
+> 
+> In short, I agree with Alan's IRQF_SAMPLE_DUBIOUS, and know of Linux
+> customers who also want the same.
 
-Seems like this could be profitably implemented in C instead of CPP.
 
- > +		spin_lock_irqsave(&viport->mc_info.lock, flags);
- > +		viport->mc_info.state = MCAST_STATE_INVALID;
- > +		spin_unlock_irqrestore(&viport->mc_info.lock, flags);
+So I guess a good message for customers might be:
 
-This pattern makes me uneasy about the locking... setting the state
-member will already be atomic, so what do you think you're protecting
-against here by taking the lock?
+Don't depend on an entropy source whose volume decreases as workload and 
+network traffic increase.
 
- - R.
+	Jeff
+
+
