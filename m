@@ -1,68 +1,41 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [patch] resource leak in error case in rtl8187
-Date: Thu, 15 May 2008 14:57:24 -0400
-Message-ID: <20080515185724.GA17690@tuxdriver.com>
-References: <200805151617.37968.oliver@neukum.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Thu, 15 May 2008 15:21:49 -0400
+Message-ID: <482C8D4D.3040702@garzik.org>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>	<20080515142154.0595e475@core>	<36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
-	Andrea Merello <andreamrl-IWqWACnzNjyonA0d6jMUrA@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200805151617.37968.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:38624 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750800AbYEOTV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2008 15:21:57 -0400
+In-Reply-To: <482C8550.5000909@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2008 at 04:17:36PM +0200, Oliver Neukum wrote:
-> Hi,
-> 
-> this fixes a resource leak in the error case of the write code path.
-> 
-> 	Regards
-> 		Oliver
-> 
-> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-> 
-> ---
-> 
-> --- linux-2.6.26-rc1/drivers/net/wireless/rtl8187_dev.c.alt	2008-05-15 15:53:58.000000000 +0200
-> +++ linux-2.6.26-rc1/drivers/net/wireless/rtl8187_dev.c	2008-05-15 15:57:35.000000000 +0200
-> @@ -169,6 +169,7 @@ static int rtl8187_tx(struct ieee80211_h
->  	struct urb *urb;
->  	__le16 rts_dur = 0;
->  	u32 flags;
-> +	int rv;
->  
->  	urb = usb_alloc_urb(0, GFP_ATOMIC);
->  	if (!urb) {
-> @@ -208,7 +209,11 @@ static int rtl8187_tx(struct ieee80211_h
->  	info->dev = dev;
->  	usb_fill_bulk_urb(urb, priv->udev, usb_sndbulkpipe(priv->udev, 2),
->  			  hdr, skb->len, rtl8187_tx_cb, skb);
-> -	usb_submit_urb(urb, GFP_ATOMIC);
-> +	rv = usb_submit_urb(urb, GFP_ATOMIC);
-> +	if (rv < 0) {
-> +		usb_free_urb(urb);
-> +		kfree_skb(skb);
-> +	}
->  
->  	return 0;
->  }
+Kok, Auke wrote:
+> How about the non-NAPI and non-throttled case? I would argue that without any irq
+> mitigation we can still use SA_RANDOM. Many (e.g. embedded) devices will want some
 
-Don't we need the same type of fix applied to rtl8187_iowrite_async
-as well?  Would you like to resubmit (or submit a second patch)
-with that fix included?
+When was the last time we added a new driver for new hardware, and it 
+didn't support NAPI and/or hw mitigation?  They are few and far between, 
+and getting ever more rare.
 
-Also, a nit: I would prefer "rc" instead of "rv" just for idiomatic
-purposes.
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> extra form of entropy, and providing them it in this form will be very beneficial
+> as these devices more commonly have no other form of entropy anymore.
+
+"no other form of entropy"?   See examples in this thread.
+
+	Jeff
+
+
