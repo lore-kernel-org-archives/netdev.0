@@ -1,201 +1,44 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: autotuning of send buffer size of a socket
-Date: Thu, 15 May 2008 10:40:15 -0700
-Message-ID: <1210873215.22262.14.camel@w-sridhar2.beaverton.ibm.com>
-References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
-	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
-	 <4a4634330805142118l47d023caxf79a45273f4f7a28@mail.gmail.com>
-	 <4a4634330805150800h42414f48l3c0b36e261d803b9@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 9/15] BE NIC driver - Linux system abstraction files
+Date: Thu, 15 May 2008 19:49:27 +0200
+Message-ID: <20080515174927.GC30216@one.firstfloor.org>
+References: <87mymrztse.fsf@basil.nowhere.org> <20080515173841.A0A48189004A@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: Shirish Pargaonkar <shirishpargaonkar@gmail.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <4a4634330805150800h42414f48l3c0b36e261d803b9@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Andi Kleen' <andi@firstfloor.org>, netdev@vger.kernel.org
+To: subbu <subbus@serverengines.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:38362 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751948AbYEORlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 13:41:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20080515173841.A0A48189004A@one.firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-05-15 at 10:00 -0500, Shirish Pargaonkar wrote:
-> On 5/14/08, Shirish Pargaonkar <shirishpargaonkar@gmail.com> wrote:
-> > On 5/12/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
-> > > On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
-> > > > Hello,
-> > > >
-> > > > kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
-> > > > I still get the same error and do not see the send buffer size of a socket
-> > > > changing (increasing)
-> > > >
-> > > > The initial buffer sizes are 16384 for send side and 87380 for the receive
-> > > > side but I see receive side buffer tuning but do not see the same with
-> > > > send side.
-> > > >
-> > > > If tcp does not see a need to increase the send buffer size, wonder why I
-> > > > get EAGAIN error on this non-blocking socket for kernel_sendmsg!
-> > >
-> > > I think the send buffer auto-tuning doesn't happen here because there is
-> > > already congestion window worth of packets sent that are not yet acknowledged.
-> > > See tcp_should_expand_sndbuf().
-> >
-> > Sridhar,
-> >
-> > The unacked (packets_out) is 7 and snd_cwnd is 9, so that should not be
-> > the case for tcp_should_expand_sndbuf to return 0 right?
+On Thu, May 15, 2008 at 11:00:46PM +0530, subbu wrote:
+> The reason why we have these abstractions is 
+> because beclib functions are written as 
+> OS neutral code and that needs a helper to
+> do OS specific functions.  By eliminating
+> SA, we will need to make  beclib Linux
+> dependent - something that we would like avoid
+> for ease of maintenance.  Is this approach
+> not acceptable ?  What will is the recommended
+> way to have part so a driver OS independent ?
 
-It looks like sndbuf expansion via tcp_should_expand_sndbuf() happens
-only in response to acks/data from the receiver.
-   tcp_rcv_established/tcp_rcv_state_process
-     tcp_data_snd_check
-        tcp_check_space
-          tcp_new_space
-            tcp_should_expand_sndbuf
-auto-tuning doesn't increase sndbuf when trying to send more data.
+We do not recommend it,  but recommend to write Linux
+specific drivers. Operating systems are quite different and you
+get far better drivers if you really optimize them for specific OS.
+That's especially important for performance critical drivers like
+yours for high speed networking.
 
-> >
-> > >
-> > > Also, the comments for tcp_new_space() says that sndbuf expansion does
-> > > not work well with largesends. What is the size of your sends?
-> > >
-> > > Adding netdev to the CC list.
-> > >
-> > > Thanks
-> > > Sridhar
-> > >
-> > > >
-> > > > I do subscribe to this mailing list so, please send your responses to this
-> > > > mail address.
-> > > >
-> > > > Regards,
-> > > >
-> > > > Shirish
-> > > >
-> > > > --------------------------------------------------------------------------------------------------
-> > > > uname -r
-> > > > 2.6.18-91.el5
-> > > >
-> > > >  sysctl -a
-> > > >
-> > > > net.ipv4.tcp_rmem = 4096        87380   4194304
-> > > > net.ipv4.tcp_wmem = 4096        16384   4194304
-> > > > net.ipv4.tcp_mem = 98304        131072  196608
-> > > >
-> > > > net.core.rmem_default = 126976
-> > > > net.core.wmem_default = 126976
-> > > > net.core.rmem_max = 131071
-> > > > net.core.wmem_max = 131071
-> > > >
-> > > > net.ipv4.tcp_window_scaling = 1
-> > > > net.ipv4.tcp_timestamps = 1
-> > > > net.ipv4.tcp_moderate_rcvbuf = 1
-> > > >
-> > > >
-> > > > cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
-> > > > 1
-> > > >
-> > > >
-> > > > CIFS VFS: sndbuf 16384 rcvbuf 87380
-> > > >
-> > > > CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
-> > > > stuck for 32 seconds,
-> > > > error: -11
-> > > > CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
-> > > > stuck for 32 seconds,
-> > > > error: -11
-> > > >
-> > > >
-> > > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
-> > > > stuck for 64 seconds,
-> > > > error: -11
-> > > >
-> > > > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
-> > > > stuck for 256 seconds,
-> > > > error: -11
-> > > >
-> > > > I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
-> > > > is 1) but not
-> > > > the socket send buffer size.
-> > > > The send buffer size remains fixed, the auto-tuning for send side is
-> > > > enabled by default,so I do not see it happening here no matter how
-> > > > long the c ode tries to
-> > > > kernel_sendmsg after receiving EAGAIN return code.
-> > > > --
-> > > > To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> > > > the body of a message to majordomo@vger.kernel.org
-> > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > >
-> > >
-> >
-> 
-> I put some printk in tcp.c (in function tcp_sendmsg)
-> sndbuf grows from 16384 to 34776 but never beyond it.
-> 
-> 
-> CIFS VFS: sndbuf 16384 rcvbuf 87380 rcvtimeo 0x7fffffffffffffff
-> 
-> !sk_stream_memory_free queued 18288, sndbuf 16384
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 28448, sndbuf 27048
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 28448, sndbuf 27048
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 32512, sndbuf 30912
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> !sk_stream_memory_free queued 36576, sndbuf 34776
-> sk_stream_wait_memory with 0 returned -11
-> 
-> and so on and the sndbuf does not grow beyond 34776
+Also splitting drivers into generic and OS specific parts typically
+leads to poor and overcomplicated design.
 
-So there is outstanding data(sk_wmem_queued) that is not getting
-acked.
-If you set the sndbuf manually to a higher value, does it solve
-the problem or only delay the stalls?
+Anyways if you really want abstraction elsewhere then use the Linux
+names for it. But it's really not recommended.
 
-Thanks
-Sridhar
+-Andi
 
