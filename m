@@ -1,89 +1,119 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
-Date: Wed, 14 May 2008 20:56:04 -0700
-Message-ID: <20080514205604.e669a28f.akpm@linux-foundation.org>
-References: <B28DA1911F61434C804723B7EE8A5C67@uglypunk>
+From: "Shirish Pargaonkar" <shirishpargaonkar@gmail.com>
+Subject: Re: autotuning of send buffer size of a socket
+Date: Wed, 14 May 2008 23:18:08 -0500
+Message-ID: <4a4634330805142118l47d023caxf79a45273f4f7a28@mail.gmail.com>
+References: <4a4634330805121200m739e67bdife66c3ad81af1ceb@mail.gmail.com>
+	 <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: "Kingsley Foreman" <kingsley@internode.com.au>
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: "Sridhar Samudrala" <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49075 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754323AbYEOD4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2008 23:56:17 -0400
-In-Reply-To: <B28DA1911F61434C804723B7EE8A5C67@uglypunk>
+Received: from wf-out-1314.google.com ([209.85.200.172]:55108 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844AbYEOESJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 00:18:09 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so209656wfd.4
+        for <netdev@vger.kernel.org>; Wed, 14 May 2008 21:18:08 -0700 (PDT)
+In-Reply-To: <1210639647.2753.10.camel@w-sridhar2.beaverton.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 5/12/08, Sridhar Samudrala <sri@us.ibm.com> wrote:
+> On Mon, 2008-05-12 at 14:00 -0500, Shirish Pargaonkar wrote:
+> > Hello,
+> >
+> > kernel_sendmsg fails with error EAGAIN, yet I no matter how long I try,
+> > I still get the same error and do not see the send buffer size of a socket
+> > changing (increasing)
+> >
+> > The initial buffer sizes are 16384 for send side and 87380 for the receive
+> > side but I see receive side buffer tuning but do not see the same with
+> > send side.
+> >
+> > If tcp does not see a need to increase the send buffer size, wonder why I
+> > get EAGAIN error on this non-blocking socket for kernel_sendmsg!
+>
+> I think the send buffer auto-tuning doesn't happen here because there is
+> already congestion window worth of packets sent that are not yet acknowledged.
+> See tcp_should_expand_sndbuf().
 
-(cc netdev)
+Sridhar,
 
-On Thu, 15 May 2008 12:25:19 +0930 "Kingsley Foreman" <kingsley@internode.com.au> wrote:
+The unacked (packets_out) is 7 and snd_cwnd is 9, so that should not be
+the case for tcp_should_expand_sndbuf to return 0 right?
 
-> Ive been using qdisc for quite a while without any problems,
-> I just rebuilt a gentoo box with 2.6.25 kernel that does a lot of traffic
-> ~1000mbits+ over a bonded interface
-> 
-> Im however seeing a big problem with cbq class dropping packets for no
-> reason i can see, and it is causing a lot of speed issues.
-> 
-> the basic config is this
-> _____________________________________________________________________
-> /sbin/tc qdisc del dev bond0 root
-> /sbin/tc qdisc add dev bond0 root handle 1 cbq bandwidth 2000Mbit avpkt 1000
-> cell 8
-> /sbin/tc class change dev bond0 root cbq weight 200Mbit allot 1514
-> 
-> /sbin/tc class add dev bond0 parent 1: classid 1:1280 cbq bandwidth 2000Mbit
-> rate 1200Mbit weight 120Mbit prio 1 allot 1514 cell 8 maxburst 120 minburst
-> 1 minidle 0 avpkt 1000 bounded
-> /sbin/tc filter add dev bond0 parent 1:0 protocol ip prio 300 route to 5
-> classid 1:1280
-> 
-> /sbin/tc class add dev bond0 parent 1: classid 1:1281 cbq bandwidth 2000Mbit
-> rate 400Mbit weight 40Mbit prio 6 allot 1514 cell 8 maxburst 120 minburst 1
-> minidle 0 avpkt 1000 bounded
-> /sbin/tc filter add dev bond0 parent 1:0 protocol ip prio 300 route to 6
-> classid 1:1281
-> ____________________________________________________________________
-> 
-> So there is a lot of bandwidth handed out but it is still dropping a lot of
-> packets  for very small ammounts of traffic eg 300mbits.
-> 
-> However the biggest problem im seeing is if i just do this
-> 
-> __________________________________________________________________
-> /sbin/tc qdisc del dev bond0 root
-> /sbin/tc qdisc add dev bond0 root handle 1 cbq bandwidth 2000Mbit avpkt 1000
-> cell 8
-> /sbin/tc class change dev bond0 root cbq weight 200Mbit allot 1514
-> ___________________________________________________________________
-> 
-> after 30sec I get results like
-> ___________________________________________________________________
-> 
-> ### bond0: queueing disciplines
-> 
-> qdisc cbq 1: root rate 2000Mbit (bounded,isolated) prio no-transmit
->  Sent 574230043 bytes 407156 pkt (dropped 2524, overlimits 0 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
->   borrowed 0 overactions 0 avgidle 3 undertime 0
-> 
-> ### bond0: traffic classes
-> 
-> class cbq 1: root rate 2000Mbit (bounded,isolated) prio no-transmit
->  Sent 574330783 bytes 407225 pkt (dropped 2525, overlimits 0 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
->   borrowed 0 overactions 0 avgidle 3 undertime 0
-> __________________________________________________________________
-> 
-> I can't for the life if me work out why it is dropping so many packets for 
-> while doing so little traffic when i enable  cbq the transfer rate drops by 
-> approx 30%, any help would be great, and any improvements to my command 
-> lines would be good also.
-> 
-> 
-> Kingsley Foreman
-
+>
+> Also, the comments for tcp_new_space() says that sndbuf expansion does
+> not work well with largesends. What is the size of your sends?
+>
+> Adding netdev to the CC list.
+>
+> Thanks
+> Sridhar
+>
+> >
+> > I do subscribe to this mailing list so, please send your responses to this
+> > mail address.
+> >
+> > Regards,
+> >
+> > Shirish
+> >
+> > --------------------------------------------------------------------------------------------------
+> > uname -r
+> > 2.6.18-91.el5
+> >
+> >  sysctl -a
+> >
+> > net.ipv4.tcp_rmem = 4096        87380   4194304
+> > net.ipv4.tcp_wmem = 4096        16384   4194304
+> > net.ipv4.tcp_mem = 98304        131072  196608
+> >
+> > net.core.rmem_default = 126976
+> > net.core.wmem_default = 126976
+> > net.core.rmem_max = 131071
+> > net.core.wmem_max = 131071
+> >
+> > net.ipv4.tcp_window_scaling = 1
+> > net.ipv4.tcp_timestamps = 1
+> > net.ipv4.tcp_moderate_rcvbuf = 1
+> >
+> >
+> > cat /proc/sys/net/ipv4/tcp_moderate_rcvbuf
+> > 1
+> >
+> >
+> > CIFS VFS: sndbuf 16384 rcvbuf 87380
+> >
+> > CIFS VFS: sends on sock 0000000009903100, sendbuf 34776, rcvbuf 190080
+> > stuck for 32 seconds,
+> > error: -11
+> > CIFS VFS: sends on sock 0000000009903a00, sndbuf 34776, rcvbuf 138240
+> > stuck for 32 seconds,
+> > error: -11
+> >
+> >
+> > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 126720
+> > stuck for 64 seconds,
+> > error: -11
+> >
+> > CIFS VFS: sends on sock 0000000009903100, sndbuf 34776, rcvbuf 222720
+> > stuck for 256 seconds,
+> > error: -11
+> >
+> > I see the socket receive buffer size fluctuating (tcp_moderate_rcvbuf
+> > is 1) but not
+> > the socket send buffer size.
+> > The send buffer size remains fixed, the auto-tuning for send side is
+> > enabled by default,so I do not see it happening here no matter how
+> > long the c ode tries to
+> > kernel_sendmsg after receiving EAGAIN return code.
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
