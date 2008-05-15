@@ -1,11 +1,11 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
  IRQF_SAMPLE_RANDOM
-Date: Thu, 15 May 2008 11:50:46 -0700
-Message-ID: <482C8606.6000308@hp.com>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>	<20080515142154.0595e475@core>	<36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>	<20080515173939.1ec968be@core> <482C7DA3.1090809@garzik.org>
+Date: Thu, 15 May 2008 11:47:40 -0700
+Message-ID: <482C854C.7070405@intel.com>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>	<20080515142154.0595e475@core>	<36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <20080515173939.1ec968be@core> <482C7DA3.1090809@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -13,28 +13,34 @@ Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	linux-kernel@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:40124 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763856AbYEOSut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2008 14:50:49 -0400
+Received: from mga02.intel.com ([134.134.136.20]:11635 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763383AbYEOSud (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2008 14:50:33 -0400
 In-Reply-To: <482C7DA3.1090809@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Jeff Garzik wrote:
-> 
+> Alan Cox wrote:
+>>> In short, I agree with Alan's IRQF_SAMPLE_DUBIOUS, and know of Linux
+>>> customers who also want the same.
+>>
+>> They should be made to read the Debian ssh security report - three times
+>> and understand the same would apply to them if something did cause their
+>> network packet arrivals to be observed or non-random
+>>
+>> Far better would be to get your CPU guys to put an RNG back into the
+>> systems or on the CPU die ala VIA. Given I've even seen people using VIA
+>> boxes as a random number feeder (streaming random numbers over SSL) there
+>> is clearly a demand 8)
 > 
 > The Treacherous Platform Module includes an RNG.
 > 
 > Someone (hi Jesse?) should implement support for TPM_GetRandom.
-> 
-> All the specs are public, and the hardware is already in users' hands.
 
-I will not pretend to understand everything mentioned, but having web 
-searched on "TPM RNG" I came across this:
+Sounds like something he should neither use in the e1000 driver nor implement :)
 
-http://www.mail-archive.com/cryptography@metzdowd.com/msg06299.html
+This would be an interesting thing to the generic rng support in linux though
 
-which may either encourage or discourage depending on one's point of view.
-
-rick jones
+Auke
