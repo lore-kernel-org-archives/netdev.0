@@ -1,56 +1,67 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: Top kernel oopses/warnings for the week of May 16th 2008
-Date: Fri, 16 May 2008 21:04:26 +0300
-Message-ID: <20080516180426.GA3284@cs181133002.pp.htv.fi>
-References: <482DB93B.2080100@linux.intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Subject: Re: [PATCH -next] 3c515: fix using pnp_get_resource when CONFIG_ISAPNP=n
+Date: Fri, 16 May 2008 12:15:05 -0600
+Message-ID: <200805161215.06046.bjorn.helgaas@hp.com>
+References: <20080516103524.0b00ffb6.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, jgarzik <jgarzik@pobox.com>,
+	linux-next@vger.kernel.org, akpm <akpm@linux-foundation.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:35058 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751409AbYEPSGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2008 14:06:15 -0400
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:20006 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751824AbYEPSPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 14:15:05 -0400
+In-Reply-To: <20080516103524.0b00ffb6.randy.dunlap@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <482DB93B.2080100@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2008 at 09:41:31AM -0700, Arjan van de Ven wrote:
->...
-> Bug of the week
-> ---------------
-> Not in the top 10 (but barely not so), but upcoming fast is a bug that has a very
-> distinct pattern.
-> The backtraces are at http://www.kerneloops.org/searchweek.php?search=fput
->
-> The pattern is that the kernel gets an invalid pointer passed to fput(),
-> coming down from a select() system call done by the "wpa_supplicant" program.
-> The fact that it is ONLY wpa_supplicant implicates the wireless/network stack.
-> Another observation is that this only happens with 64 bit kernels, even though
-> a large portion of the users uses 32 bit kernels. This implies that this is a 64-bit
-> type of bug. It appears that the top 32 bit of the pointers is getting corrupted
-> (the bottom part at least looks valid).
->...
+On Friday 16 May 2008 11:35:24 am Randy Dunlap wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> 3c515.c uses pnp_irq(), which calls pnp_get_resource(),
+> which is not defined when CONFIG_PNP=n, so in that case,
+> get the IRQ from a hardware register.
+> 
+> 3c515.c:(.text+0x3adc0): undefined reference to `pnp_get_resource'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Unless I misunderstand your webinterface another pattern is a "fc9" in 
-the version string.
+Hmm, wonder why my allyesconfig didn't catch this one.
+I prefer CONFIG_PNP to __ISAPNP__ in general, but I see
+you're just following the other tests in the same file.
 
-My first guess would be that it might be a problem in some code that is 
-only in Fedora kernels?
+Thanks!
 
-cu
-Adrian
+Acked-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
--- 
+> ---
+>  drivers/net/3c515.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> --- next-20080516.orig/drivers/net/3c515.c
+> +++ next-20080516/drivers/net/3c515.c
+> @@ -572,12 +572,16 @@ static int corkscrew_setup(struct net_de
+>  	int irq;
+>  	DECLARE_MAC_BUF(mac);
+>  
+> +#ifdef __ISAPNP__
+>  	if (idev) {
+>  		irq = pnp_irq(idev, 0);
+>  		vp->dev = &idev->dev;
+>  	} else {
+>  		irq = inw(ioaddr + 0x2002) & 15;
+>  	}
+> +#else
+> +	irq = inw(ioaddr + 0x2002) & 15;
+> +#endif
+>  
+>  	dev->base_addr = ioaddr;
+>  	dev->irq = irq;
+> 
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
 
