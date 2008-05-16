@@ -1,39 +1,73 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
-Date: Fri, 16 May 2008 07:01:02 +0000
-Message-ID: <20080516070102.GB3992@ff.dom.local>
-References: <20080515091216.GA6550@ff.dom.local> <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk> <482C6040.9030808@trash.net> <20080515182504.GB2936@ami.dom.local> <482C81CC.7000305@trash.net> <20080515184646.GC2936@ami.dom.local> <1A70765F4B30462EB21A3B3A8A442633@uglypunk> <20080516054959.GA3918@ff.dom.local> <05be01c8b71b$cbb0c9e0$f903a33a@SABINE>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: linux-next: Tree for May 14
+Date: Fri, 16 May 2008 09:12:51 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0805160911400.22059@anakin>
+References: <20080514170106.3cbcb201.sfr@canb.auug.org.au>
+ <Pine.LNX.4.64.0805142237240.11631@anakin> <20080514135008.60e5df96.randy.dunlap@oracle.com>
+ <20080514210447.GK20457@bakeyournoodle.com> <20080515010550.GL20457@bakeyournoodle.com>
+ <Pine.LNX.4.64.0805150914220.11631@anakin> <20080516021009.GS20457@bakeyournoodle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Kingsley Foreman <kingsley@internode.com.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jgarzik@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux/m68k <linux-m68k@vger.kernel.org>
+To: Tony Breeds <tony@bakeyournoodle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:22641 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196AbYEPG5c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 02:57:32 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so303232nfc.21
-        for <netdev@vger.kernel.org>; Thu, 15 May 2008 23:57:30 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <05be01c8b71b$cbb0c9e0$f903a33a@SABINE>
+Received: from harold.telenet-ops.be ([195.130.133.65]:39500 "EHLO
+	harold.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740AbYEPHMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 03:12:55 -0400
+In-Reply-To: <20080516021009.GS20457@bakeyournoodle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2008 at 03:42:18PM +0930, Kingsley Foreman wrote:
-...
-> ok after some playing a bit if i use
->
-> tc qdisc change dev bond0 parent 1: pfifo limit 30
->
-> the dropped packets go away, im not sure if that is considered normal or  
-> not, however any number under 30 gives me issues.
+On Fri, 16 May 2008, Tony Breeds wrote:
+> On Thu, May 15, 2008 at 09:17:15AM +0200, Geert Uytterhoeven wrote:
+> > Technically, it could also happen on PPC (APUS), but all APUS support got
+> > removed a few months ago.
+> > So maybe CONFIG_ZORRO is more appropriate?
+> 
+> Well as it turns out it can happen in a few other plcaes (the same error
+> is visible on sh aswell:
+> 	http://kisskb.ellerman.id.au/kisskb/buildresult/27769/ )
+> 
+> Below is a new fix. Thoughts?.
 
-If there are no significant differences in configs between these 2.6.22
-and 2.6.24/25 (e.g. things mentionned earlier by Eric) IMHO it's "more
-than normal", but as I've written it would need a lot of your time and
-work to check the rason.
+Looks OK to me!
 
-Jarek P.
+> --- a/drivers/net/lib8390.c
+> +++ b/drivers/net/lib8390.c
+> @@ -553,6 +553,9 @@ static void __ei_poll(struct net_device *dev)
+>  static void ei_tx_err(struct net_device *dev)
+>  {
+>  	unsigned long e8390_base = dev->base_addr;
+> +	/* ei_local is used on some platforms via the EI_SHIFT macro */
+> +	struct ei_device *ei_local __maybe_unused =
+> +		(struct ei_device *) netdev_priv(dev);
+                ^^^^^^^^^^^^^^^^^^^^
+But please don't reintroduce the casts. netdev_priv() returns a void *.
+
+>  	unsigned char txsr = ei_inb_p(e8390_base+EN0_TSR);
+>  	unsigned char tx_was_aborted = txsr & (ENTSR_ABT+ENTSR_FU);
+>  
+> @@ -815,6 +818,9 @@ static void ei_rx_overrun(struct net_device *dev)
+>  {
+>  	unsigned long e8390_base = dev->base_addr;
+>  	unsigned char was_txing, must_resend = 0;
+> +	/* ei_local is used on some platforms via the EI_SHIFT macro */
+> +	struct ei_device *ei_local __maybe_unused =
+> +		(struct ei_device *) netdev_priv(dev);
+                ^^^^^^^^^^^^^^^^^^^^
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
