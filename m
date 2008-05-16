@@ -1,55 +1,1374 @@
-From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/7][MAC8021]: Fix one more call to synchronize_rcu in
- atomic context.
-Date: Fri, 16 May 2008 19:53:39 +0400
-Message-ID: <482DAE03.9070902@openvz.org>
-References: <4821CE54.9000401@openvz.org> <482D6A80.6030804@openvz.org> <20080516151620.GC6510@tuxdriver.com>
+From: "Subbu Seetharaman" <subbus@serverengines.com>
+Subject: Re: [PATCH 12/15] BE NIC driver - f/w header files
+Date: Fri, 16 May 2008 09:21:18 -0700
+Message-ID: <20080516162118.8c8a9e5e@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080516151620.GC6510-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail192.messagelabs.com ([216.82.245.99]:17394 "EHLO
+	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753652AbYEPQQ0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 12:16:26 -0400
+In-Reply-To: 20080515132519.7ccbd080@extreme
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John W. Linville wrote:
-> On Fri, May 16, 2008 at 03:05:36PM +0400, Pavel Emelyanov wrote:
-> 
->> Sorry for bothering you, I guess that you're very busy now, 
->> but what are you plans about this set?
->>
->> After I saw my first set included in some wireless git update,
->> I thought this one would be in some of the next ones (since
->> this set fixes some bugs in mesh tables), and started waiting.
->>
->> Here's a new wireless git update and this set is still not in.
->> Shall I resubmit one?
-> 
-> Pavel,
-> 
-> I still have your patchset.  I'm still working on clearing my
-> backlog, as well as waiting for some fixes to make the round-trip
-> net-2.6->linux-2.6->net-next-2.6.  The combination of that and the
-> fact that your patch hit locking and "the usual suspects" had not
-> yet commented on it made me decide to wait until the next round.
-> 
-> If you are desperate to see them sooner, I could probably put them
-> in the -testing tree early?  Let me know if you would like that.
+Stephen,
 
-No, this is not critical for me. You may keep this set in any
-place in your queue. I just wanted to make sure, that this set
-didn't get accidentally lost and no additional help from me is
-required (at least for now).
+ioctl is a misleading name here.
+These are not interfaces between the driver and
+the OS or driver and applications like what ioctls
+normally do.  Like standard NIC drivers,
+ethtool is the only mechanism implemented by this 
+driver to configure the NIC.  These defines pertain 
+to low level messages that are passed between beclib and 
+the NIC f/w to initialize and configure the NIC.   
+Several of these  low level messages are not necessary
+to use this card as a NIC and we could
+probably remove them.  Does it make things better ?
 
-> John
+Thanks.
 
-Thanks,
-Pavel
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Subbu
+
+
+----- Original Message -----
+From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+To: Subbu Seetharaman [mailto:subbus@serverengines.com]
+Cc: netdev@vger.kernel.org
+Sent: Thu, 15 May 2008 13:25:19 -0700
+Subject: Re: [PATCH 12/15] BE NIC driver - f/w header files
+
+
+On Thu, 15 May 2008 02:46:14 -0700
+"Subbu Seetharaman" <subbus@serverengines.com> wrote:
+
+> Signed-off-by: Subbu Seetharaman <subbus@serverengines.com> 
+> ---
+>  drivers/message/beclib/fw/amap/ioctl_defs.h    |  101 +++
+>  drivers/message/beclib/fw/amap/ioctl_eth.h     |   72 +++
+>  drivers/message/beclib/fw/amap/ioctl_hdr.h     |   80 +++
+>  drivers/message/beclib/fw/amap/ioctl_mcc.h     |  109 ++++
+>  drivers/message/beclib/fw/amap/ioctl_opcodes.h |  791 ++++++++++++++++++++++++
+>  drivers/message/beclib/fw/amap/ioctl_top.h     |   44 ++
+>  drivers/message/beclib/fw/amap/ioctl_types.h   |  450 ++++++++++++++
+>  7 files changed, 1647 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/message/beclib/fw/amap/ioctl_defs.h
+>  create mode 100644 drivers/message/beclib/fw/amap/ioctl_eth.h
+>  create mode 100644 drivers/message/beclib/fw/amap/ioctl_hdr.h
+>  create mode 100644 drivers/message/beclib/fw/amap/ioctl_mcc.h
+>  create mode 100644 drivers/message/beclib/fw/amap/ioctl_opcodes.h
+>  create mode 100644 drivers/message/beclib/fw/amap/ioctl_top.h
+>  create mode 100644 drivers/message/beclib/fw/amap/ioctl_types.h
+> 
+> diff --git a/drivers/message/beclib/fw/amap/ioctl_defs.h b/drivers/message/beclib/fw/amap/ioctl_defs.h
+> new file mode 100644
+> index 0000000..e6208ef
+> --- /dev/null
+> +++ b/drivers/message/beclib/fw/amap/ioctl_defs.h
+> @@ -0,0 +1,101 @@
+> +/*
+> + * Copyright (C) 2005 - 2008 ServerEngines
+> + * All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * as published by the Free Software Foundation; either version 2
+> + * of the License, or at your option any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin Street, 5th Floor
+> + * Boston, MA 02110-1301 USA
+> + *
+> + *
+> + * The full GNU General Public License is included in this distribution
+> + * in the file called GPL.
+> + *
+> + * Contact Information:
+> + * linux-drivers@serverengines.com
+> + *
+> + * ServerEngines
+> + * 209 N. Fair Oaks Ave
+> + * Sunnyvale, CA 94085
+> + */
+> +/*
+> + * Autogenerated by srcgen version: 0127
+> + */
+> +#ifndef __ioctl_defs_amap_h__
+> +#define __ioctl_defs_amap_h__
+> +
+> +/* --- IOCTLDEF_DEFINED_ENUMS --- */
+> +#define MGMT_MAX_CONNECTIONS_PER_SESSION (1)
+> +#define MGMT_MAX_INITIATOR_PORTALS      (1)
+> +#define MGMT_MAX_NIC_PORTS              (2)
+> +#define MGMT_MAX_ISCSI_PORTS            (2)
+> +#define MGMT_MAX_PORTALS_PER_PG         (4)
+> +#define MGMT_IPV4_ADDRESS_LEN           (4)
+> +#define MGMT_IPV4_SUBNET_MASK_LEN       (4)
+> +#define MGMT_MAX_DNS_SERVER             (5)
+> +#define MGMT_MAX_MULTICAST_TIMEOUT_ENTRIES (5)
+> +#define MGMT_ISID_LENGTH                (6)
+> +#define MGMT_MAX_SCSI_CHANNELS          (8)
+> +#define MGMT_MAX_BOOTABLE_LUN           (8)
+> +#define MGMT_LUN_SIZE                   (8)
+> +#define MGMT_IOCTL_MIN_SRB_TIMEOUT_VALUE (10)
+> +#define MGMT_DIGEST_KEY_LEN             (12)
+> +#define MGMT_CHAP_SECRET_MIN_LEN        (12)
+> +#define MGMT_MAX_ROUTE_ENTRIES          (16)
+> +#define MGMT_CHAP_SECRET_LEN            (16)
+> +#define MGMT_IPV6_ADDRESS_LEN           (16)
+> +#define MGMT_IPV6_SUBNET_MASK_LEN       (16)
+> +#define MGMT_MAX_CDB_LEN                (16)
+> +#define MGMT_SENSE_BUFFER_LEN           (18)
+> +#define MGMT_MAX_SG_COUNT               (19)
+> +#define MGMT_SECURITY_KEY_LEN           (30)
+> +#define MGMT_ISCSI_ALIAS_LEN            (32)
+> +#define MGMT_MAX_MANUFACTURER_STRING    (32)
+> +#define MGMT_MAX_MODEL_NUMBER_STRING    (32)
+> +#define MGMT_MAX_CTLR_SERIALNO_STRING   (32)
+> +#define MGMT_MAX_FLASHROM_VERSION_STRING (32)
+> +#define MGMT_MAX_FW_VERSION_STRING      (32)
+> +#define MGMT_MAX_IP_VERSION_STRING      (32)
+> +#define MGMT_MAX_ISCSI_VERSION_STRING   (32)
+> +#define MGMT_MAX_BIOS_VERSION_STRING    (32)
+> +#define MGMT_MAX_REDBOOT_VERSION_STRING (32)
+> +#define MGMT_MAX_DRV_VERSION_STRING     (32)
+> +#define MGMT_MAX_INITIATOR_ALLOWED      (32)
+> +#define MGMT_MAX_TGT_IP_SUPPORTED       (32)
+> +#define MGMT_MAX_TARGETS_ALLOWED_USING_DISCOVERY (64)
+> +#define MGMT_MAX_ARP_ENTRIES            (64)
+> +#define MGMT_DNS_NAME_LEN               (64)
+> +#define MGMT_MAX_CTLR_DESCRIPTION_STRING (64)
+> +#define MGMT_MAX_PORTAL_GROUPS          (128)
+> +#define MGMT_ISCSI_NAME_LEN             (224)
+> +#define MGMT_ISNS_PORTAL_SYM_NAME_LEN   (256)
+> +#define MGMT_CHAP_NAME_LEN              (256)
+> +#define MGMT_SEND_TARGET_TEXTKEY        (256)
+> +#define MGMT_MAX_SCOPE_LIST_LENGTH      (256)
+> +#define MGMT_MAX_QUERY_LIST_LENGTH      (256)
+> +#define MGMT_PRESHARED_KEYSIZE          (256)
+> +#define MGMT_IPSEC_ID_SIZE              (256)
+> +#define MGMT_MAX_TARGETS_ALLOWED        (512)
+> +#define MGMT_MAX_LUNS                   (512)
+> +#define MGMT_MAX_HOST_TABLE             (512)
+> +#define MGMT_MAX_ISCSI_SESSIONS_ALLOWED (512)
+> +#define MGMT_MAX_CONNECTIONS            (512)
+> +#define MGMT_MAX_PORTALS                (1024)
+> +#define MAX_SEEPROM_SIZE                (1024)
+> +#define MGMT_MAX_IOCTL_PAYLOAD_SIZE     (73728)
+> +
+> +#ifdef SG_PRAGMA_PACK
+> +#pragma pack(pop)
+> +#endif
+> +
+> +#endif /* __ioctl_defs_amap_h__ */
+> diff --git a/drivers/message/beclib/fw/amap/ioctl_eth.h b/drivers/message/beclib/fw/amap/ioctl_eth.h
+> new file mode 100644
+> index 0000000..bdc717e
+> --- /dev/null
+> +++ b/drivers/message/beclib/fw/amap/ioctl_eth.h
+> @@ -0,0 +1,72 @@
+> +/*
+> + * Copyright (C) 2005 - 2008 ServerEngines
+> + * All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * as published by the Free Software Foundation; either version 2
+> + * of the License, or at your option any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin Street, 5th Floor
+> + * Boston, MA 02110-1301 USA
+> + *
+> + *
+> + * The full GNU General Public License is included in this distribution
+> + * in the file called GPL.
+> + *
+> + * Contact Information:
+> + * linux-drivers@serverengines.com
+> + *
+> + * ServerEngines
+> + * 209 N. Fair Oaks Ave
+> + * Sunnyvale, CA 94085
+> + */
+> +/*
+> + * Autogenerated by srcgen version: 0127
+> + */
+> +#ifndef __ioctl_eth_amap_h__
+> +#define __ioctl_eth_amap_h__
+> +#include "ioctl_hdr.h"
+> +#include "ioctl_types.h"
+> +
+> +/* --- RXF_STATS_INTERESTING_OFFSETS --- */
+> +#define P0_RECVD_TOTAL_BYTES_LSD_DWORD_OFFSET (0)
+> +#define P0_RECVD_TOTAL_BYTES_MSD_DWORD_OFFSET (1)
+> +#define P0_XMIT_BYTES_LSD_DWORD_OFFSET  (40)
+> +#define P0_XMIT_BYTES_MSD_DWORD_OFFSET  (41)
+> +#define P1_RECVD_TOTAL_BYTES_LSD_DWORD_OFFSET (59)
+> +#define P1_RECVD_TOTAL_BYTES_MSD_DWORD_OFFSET (60)
+> +#define P1_XMIT_BYTES_LSD_DWORD_OFFSET  (99)
+> +#define P1_XMIT_BYTES_MSD_DWORD_OFFSET  (100)
+> +/*
+> + * --- ENABLE_RSS_ENUM ---
+> + * Enable RSS enum.
+> + */
+> +#define RSS_ENABLE_NONE            (0)	/* No RSS */
+> +#define RSS_ENABLE_IPV4            (1)	/* IPV4 HASH only (i.e. only IP */
+> +					  /* source/dest two-tuple) */
+> +#define RSS_ENABLE_TCP_IPV4        (2)	/* TCP IPV4 HASH only
+> +					(i.e. only TCP/IP four-tuple) */
+> +#define RSS_ENABLE_IPV4_OR_TCP_IPV4 (3)	/* IPV4 or TCP IPV4 HASH (i.e. if */
+> +					/*
+> +					* TCP/IP, then use four-tuple, else if
+> +					* IP use two-tuple)
+> +					*/
+> +/*
+> + * --- RSS_FLUSH_CQ_ENUM ---
+> + * Flush CQ enum.
+> + */
+> +#define RSS_FLUSH_CQ_DEFAULT (1)	/* Flush default host networking CQ */
+> +#define RSS_FLUSH_CQ_PROC0   (2)	/* Flush RSS CQ for processor 0 */
+> +#define RSS_FLUSH_CQ_PROC1   (4)	/* Flush RSS CQ for processor 1 */
+> +#define RSS_FLUSH_CQ_PROC2   (8)	/* Flush RSS CQ for processor 2 */
+> +#define RSS_FLUSH_CQ_PROC3   (16)	/* Flush RSS CQ for processor 3 */
+> +
+> +#endif /* __ioctl_eth_amap_h__ */
+> diff --git a/drivers/message/beclib/fw/amap/ioctl_hdr.h b/drivers/message/beclib/fw/amap/ioctl_hdr.h
+> new file mode 100644
+> index 0000000..7e96fd1
+> --- /dev/null
+> +++ b/drivers/message/beclib/fw/amap/ioctl_hdr.h
+> @@ -0,0 +1,80 @@
+> +/*
+> + * Copyright (C) 2005 - 2008 ServerEngines
+> + * All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * as published by the Free Software Foundation; either version 2
+> + * of the License, or at your option any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin Street, 5th Floor
+> + * Boston, MA 02110-1301 USA
+> + *
+> + *
+> + * The full GNU General Public License is included in this distribution
+> + * in the file called GPL.
+> + *
+> + * Contact Information:
+> + * linux-drivers@serverengines.com
+> + *
+> + * ServerEngines
+> + * 209 N. Fair Oaks Ave
+> + * Sunnyvale, CA 94085
+> + */
+> +/*
+> + * Autogenerated by srcgen version: 0127
+> + */
+> +#ifndef __ioctl_hdr_amap_h__
+> +#define __ioctl_hdr_amap_h__
+> +#include "nativedefs.h"
+> +#include "ioctl_defs.h"
+> +#include "ioctl_opcodes.h"
+> +
+> +struct BE_IOCTL_REQUEST_HEADER_AMAP {
+> +	struct BE_UEXACT8_AMAP opcode;
+> +	struct BE_UEXACT8_AMAP subsystem;
+> +	struct BE_UEXACT8_AMAP port_number;
+> +	struct BE_UEXACT8_AMAP domain;
+> +	struct BE_UEXACT32_AMAP timeout;
+> +	struct BE_UEXACT32_AMAP request_length;
+> +	BE_BIT rsvd0[32];	/* DWORD 3 */
+> +} SG_PACK;
+> +struct IOCTL_REQUEST_HEADER_AMAP {
+> +	u32 dw[4];
+> +};
+> +
+> +struct BE_IOCTL_RESPONSE_HEADER_AMAP {
+> +	struct BE_UEXACT8_AMAP opcode;
+> +	struct BE_UEXACT8_AMAP subsystem;
+> +	BE_BIT rsvd0[8];	/* DWORD 0 */
+> +	struct BE_UEXACT8_AMAP domain;
+> +	struct BE_UEXACT8_AMAP status;
+> +	struct BE_UEXACT8_AMAP additional_status;
+> +	BE_BIT rsvd1[16];	/* DWORD 1 */
+> +	struct BE_UEXACT32_AMAP response_length;
+> +	struct BE_UEXACT32_AMAP actual_response_length;
+> +} SG_PACK;
+> +struct IOCTL_RESPONSE_HEADER_AMAP {
+> +	u32 dw[4];
+> +};
+> +
+> +/*
+> + * The firmware/driver overwrites the input IOCTL_REQUEST_HEADER with the
+> + * output IOCTL_RESPONSE_HEADER.
+> + */
+> +union BE_IOCTL_HEADER_AMAP {
+> +	struct BE_IOCTL_REQUEST_HEADER_AMAP request;
+> +	struct BE_IOCTL_RESPONSE_HEADER_AMAP response;
+> +} SG_PACK;
+> +struct IOCTL_HEADER_AMAP {
+> +	u32 dw[4];
+> +};
+> +
+> +#endif /* __ioctl_hdr_amap_h__ */
+> diff --git a/drivers/message/beclib/fw/amap/ioctl_mcc.h b/drivers/message/beclib/fw/amap/ioctl_mcc.h
+> new file mode 100644
+> index 0000000..ccb463b
+> --- /dev/null
+> +++ b/drivers/message/beclib/fw/amap/ioctl_mcc.h
+> @@ -0,0 +1,109 @@
+> +/*
+> + * Copyright (C) 2005 - 2008 ServerEngines
+> + * All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * as published by the Free Software Foundation; either version 2
+> + * of the License, or at your option any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin Street, 5th Floor
+> + * Boston, MA 02110-1301 USA
+> + *
+> + *
+> + * The full GNU General Public License is included in this distribution
+> + * in the file called GPL.
+> + *
+> + * Contact Information:
+> + * linux-drivers@serverengines.com
+> + *
+> + * ServerEngines
+> + * 209 N. Fair Oaks Ave
+> + * Sunnyvale, CA 94085
+> + */
+> +/*
+> + * Autogenerated by srcgen version: 0127
+> + */
+> +#ifndef __ioctl_mcc_amap_h__
+> +#define __ioctl_mcc_amap_h__
+> +#include "ioctl_defs.h"
+> +#include "ioctl_opcodes.h"
+> +
+> +/*
+> + * Where applicable, a WRB, may contain a list of Scatter-gather elements.
+> + * Each element supports a 64 bit address and a 32bit length field.
+> + */
+> +struct BE_MCC_SGE_AMAP {
+> +	BE_BIT pa_lo[32];	/* DWORD 0 */
+> +	BE_BIT pa_hi[32];	/* DWORD 1 */
+> +	BE_BIT length[32];	/* DWORD 2 */
+> +} SG_PACK;
+> +struct MCC_SGE_AMAP {
+> +	u32 dw[3];
+> +};
+> +
+> +/*
+> + * The design of an [link]MCC_SGE[/link] allows up to 19 elements to be
+> + * embedded in a WRB, supporting 64KB data transfers (assuming a 4KB page size).
+> + */
+> +union BE_MCC_WRB_PAYLOAD_AMAP {
+> +	struct BE_MCC_SGE_AMAP sgl[19];
+> +	BE_BIT embedded[59][32];	/* DWORD 0 */
+> +} SG_PACK;
+> +struct MCC_WRB_PAYLOAD_AMAP {
+> +	u32 dw[59];
+> +};
+> +
+> +/*
+> + * This is the structure of the MCC Command WRB for commands
+> + * sent to the Management Processing Unit (MPU). See section
+> + * for usage in embedded and non-embedded modes.
+> + */
+> +struct BE_MCC_WRB_AMAP {
+> +	BE_BIT embedded;	/* DWORD 0 */
+> +	BE_BIT rsvd0[2];	/* DWORD 0 */
+> +	BE_BIT sge_count[5];	/* DWORD 0 */
+> +	BE_BIT rsvd1[16];	/* DWORD 0 */
+> +	BE_BIT special[8];	/* DWORD 0 */
+> +	BE_BIT payload_length[32];	/* DWORD 1 */
+> +	BE_BIT tag[2][32];	/* DWORD 2 */
+> +	BE_BIT rsvd2[32];	/* DWORD 4 */
+> +	union BE_MCC_WRB_PAYLOAD_AMAP payload;
+> +} SG_PACK;
+> +struct MCC_WRB_AMAP {
+> +	u32 dw[64];
+> +};
+> +
+> +/*  This is the structure of the MCC Completion queue entry  */
+> +struct BE_MCC_CQ_ENTRY_AMAP {
+> +	BE_BIT completion_status[16];	/* DWORD 0 */
+> +	BE_BIT extended_status[16];	/* DWORD 0 */
+> +	BE_BIT mcc_tag[2][32];	/* DWORD 1 */
+> +	BE_BIT rsvd0[27];	/* DWORD 3 */
+> +	BE_BIT consumed;	/* DWORD 3 */
+> +	BE_BIT completed;	/* DWORD 3 */
+> +	BE_BIT hpi_buffer_completion;	/* DWORD 3 */
+> +	BE_BIT async_event;	/* DWORD 3 */
+> +	BE_BIT valid;		/* DWORD 3 */
+> +} SG_PACK;
+> +struct MCC_CQ_ENTRY_AMAP {
+> +	u32 dw[4];
+> +};
+> +
+> +/* Mailbox structures used by the MPU during bootstrap */
+> +struct BE_MCC_MAILBOX_AMAP {
+> +	struct BE_MCC_WRB_AMAP wrb;
+> +	struct BE_MCC_CQ_ENTRY_AMAP cq;
+> +} SG_PACK;
+> +struct MCC_MAILBOX_AMAP {
+> +	u32 dw[68];
+> +};
+> +
+> +#endif /* __ioctl_mcc_amap_h__ */
+> diff --git a/drivers/message/beclib/fw/amap/ioctl_opcodes.h b/drivers/message/beclib/fw/amap/ioctl_opcodes.h
+> new file mode 100644
+> index 0000000..3627f7f
+> --- /dev/null
+> +++ b/drivers/message/beclib/fw/amap/ioctl_opcodes.h
+> @@ -0,0 +1,791 @@
+> +/*
+> + * Copyright (C) 2005 - 2008 ServerEngines
+> + * All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * as published by the Free Software Foundation; either version 2
+> + * of the License, or at your option any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin Street, 5th Floor
+> + * Boston, MA 02110-1301 USA
+> + *
+> + *
+> + * The full GNU General Public License is included in this distribution
+> + * in the file called GPL.
+> + *
+> + * Contact Information:
+> + * linux-drivers@serverengines.com
+> + *
+> + * ServerEngines
+> + * 209 N. Fair Oaks Ave
+> + * Sunnyvale, CA 94085
+> + */
+> +/*
+> + * Autogenerated by srcgen version: 0127
+> + */
+> +#ifndef __ioctl_opcodes_amap_h__
+> +#define __ioctl_opcodes_amap_h__
+> +
+> +/*
+> + * --- IOCTL_SUBSYSTEMS ---
+> + * The IOCTLs are grouped into the following subsystems. The subsystem
+> + * code along with the opcode uniquely identify a particular IOCTL.
+> + */
+> +#define IOCTL_SUBSYSTEM_RSVD  (0)	/* This subsystem is reserved. It is */
+> +						  /* never used. */
+> +#define IOCTL_SUBSYSTEM_COMMON (1)	/* IOCTLs in this group are common to
+> +					* all subsystems. See
+> +					* COMMON_SUBSYSTEM_OPCODES for opcodes
+> +					* and Common Host Configuration IOCTLs
+> +					* for the IOCTL descriptions.
+> +					*/
+> +#define IOCTL_SUBSYSTEM_COMMON_ISCSI    (2) /* IOCTLs in this group are */
+> +					/*
+> +					* common to Initiator and Target. See
+> +					* COMMON_ISCSI_SUBSYSTEM_OPCODES and
+> +					* Common iSCSI Initiator and Target
+> +					* IOCTLs for the IOCTL descriptions.
+> +					*/
+> +#define IOCTL_SUBSYSTEM_ETH             (3)	/* This subsystem is used to
+> +						execute  Ethernet commands.  */
+> +
+> +#define IOCTL_SUBSYSTEM_TPM             (4)	/* This subsystem is used
+> +						 to execute TPM  commands.  */
+> +#define IOCTL_SUBSYSTEM_PXE_UNDI        (5)	/* This subsystem is used
+> +						* to execute PXE
+> +						* and UNDI specific commands.
+> +						*/
+> +
+> +#define IOCTL_SUBSYSTEM_ISCSI_INI       (6)	/* This subsystem is used to
+> +						execute ISCSI Initiator
+> +						specific commands.
+> +						*/
+> +#define IOCTL_SUBSYSTEM_ISCSI_TGT       (7)	/* This subsystem is used
+> +						to execute iSCSI Target
+> +						specific commands.between
+> +						PTL and ARM firmware.
+> +						*/
+> +#define IOCTL_SUBSYSTEM_MILI_PTL        (8)	/* This subsystem is used to
+> +						execute iSCSI Target specific
+> +						commands.between MILI
+> +						and PTL.  */
+> +#define IOCTL_SUBSYSTEM_MILI_TMD        (9)	/* This subsystem is used to
+> +						execute iSCSI Target specific
+> +						commands between MILI
+> +						and TMD.  */
+> +#define IOCTL_SUBSYSTEM_PROXY           (11)	/* This subsystem is used
+> +						to execute proxied commands
+> +						within the host at the
+> +						explicit request of a
+> +						non priviledged domain.
+> +						This 'subsystem' is entirely
+> +						virtual from the controller
+> +						and firmware perspective as
+> +						it is implemented in host
+> +						drivers.
+> +						*/
+> +
+> +/*
+> + * --- COMMON_SUBSYSTEM_OPCODES ---
+> + * These opcodes are common to both networking and storage PCI
+> + * functions. They are used to reserve resources and configure
+> + * BladeEngine. These opcodes all use the IOCTL_SUBSYSTEM_COMMON
+> + * subsystem code.
+> + */
+> +#define OPCODE_COMMON_NTWK_MAC_QUERY    (1)
+> +#define SUBSYSTEM_COMMON_NTWK_MAC_QUERY (1)
+> +#define SUBSYSTEM_COMMON_NTWK_MAC_SET   (1)
+> +#define SUBSYSTEM_COMMON_NTWK_MULTICAST_SET (1)
+> +#define SUBSYSTEM_COMMON_NTWK_VLAN_CONFIG (1)
+> +#define SUBSYSTEM_COMMON_NTWK_LINK_STATUS_QUERY (1)
+> +#define SUBSYSTEM_COMMON_READ_FLASHROM  (1)
+> +#define SUBSYSTEM_COMMON_WRITE_FLASHROM (1)
+> +#define SUBSYSTEM_COMMON_QUERY_MAX_IOCTL_BUFFER_SIZE (1)
+> +#define SUBSYSTEM_COMMON_ADD_PAGE_TABLES (1)
+> +#define SUBSYSTEM_COMMON_REMOVE_PAGE_TABLES (1)
+> +#define SUBSYSTEM_COMMON_RING_DESTROY   (1)
+> +#define SUBSYSTEM_COMMON_CQ_CREATE      (1)
+> +#define SUBSYSTEM_COMMON_EQ_CREATE      (1)
+> +#define SUBSYSTEM_COMMON_ETH_RX_CREATE  (1)
+> +#define SUBSYSTEM_COMMON_ETH_TX_CREATE  (1)
+> +#define SUBSYSTEM_COMMON_ISCSI_DEFQ_CREATE (1)
+> +#define SUBSYSTEM_COMMON_ISCSI_WRBQ_CREATE (1)
+> +#define SUBSYSTEM_COMMON_MCC_CREATE     (1)
+> +#define SUBSYSTEM_COMMON_JELL_CONFIG    (1)
+> +#define SUBSYSTEM_COMMON_FORCE_FAILOVER (1)
+> +#define SUBSYSTEM_COMMON_ADD_TEMPLATE_HEADER_BUFFERS (1)
+> +#define SUBSYSTEM_COMMON_REMOVE_TEMPLATE_HEADER_BUFFERS (1)
+> +#define SUBSYSTEM_COMMON_POST_ZERO_BUFFER (1)
+> +#define SUBSYSTEM_COMMON_GET_QOS        (1)
+> +#define SUBSYSTEM_COMMON_SET_QOS        (1)
+> +#define SUBSYSTEM_COMMON_TCP_GET_STATISTICS (1)
+> +#define SUBSYSTEM_COMMON_SEEPROM_READ   (1)
+> +#define SUBSYSTEM_COMMON_TCP_STATE_QUERY (1)
+> +#define SUBSYSTEM_COMMON_GET_CNTL_ATTRIBUTES (1)
+> +#define SUBSYSTEM_COMMON_NOP            (1)
+> +#define SUBSYSTEM_COMMON_NTWK_RX_FILTER (1)
+> +#define SUBSYSTEM_COMMON_GET_FW_VERSION (1)
+> +#define SUBSYSTEM_COMMON_SET_FLOW_CONTROL (1)
+> +#define SUBSYSTEM_COMMON_GET_FLOW_CONTROL (1)
+> +#define SUBSYSTEM_COMMON_SET_TCP_PARAMETERS (1)
+> +#define SUBSYSTEM_COMMON_SET_FRAME_SIZE (1)
+> +#define SUBSYSTEM_COMMON_GET_FAT        (1)
+> +#define SUBSYSTEM_COMMON_MODIFY_EQ_DELAY (1)
+> +#define SUBSYSTEM_COMMON_FIRMWARE_CONFIG (1)
+> +#define SUBSYSTEM_COMMON_ENABLE_DISABLE_DOMAINS (1)
+> +#define SUBSYSTEM_COMMON_GET_DOMAIN_CONFIG (1)
+> +#define SUBSYSTEM_COMMON_SET_VLD_CONFIG (1)
+> +#define SUBSYSTEM_COMMON_GET_VLD_CONFIG (1)
+> +#define SUBSYSTEM_COMMON_GET_PORT_EQUALIZATION (1)
+> +#define SUBSYSTEM_COMMON_SET_PORT_EQUALIZATION (1)
+> +#define SUBSYSTEM_COMMON_RED_CONFIG     (1)
+> +#define OPCODE_COMMON_NTWK_MAC_SET      (2)
+> +#define OPCODE_COMMON_NTWK_MULTICAST_SET (3)
+> +#define OPCODE_COMMON_NTWK_VLAN_CONFIG  (4)
+> +#define OPCODE_COMMON_NTWK_LINK_STATUS_QUERY (5)
+> +#define OPCODE_COMMON_READ_FLASHROM     (6)
+> +#define OPCODE_COMMON_WRITE_FLASHROM    (7)
+> +#define OPCODE_COMMON_QUERY_MAX_IOCTL_BUFFER_SIZE (8)
+> +#define OPCODE_COMMON_ADD_PAGE_TABLES   (9)
+> +#define OPCODE_COMMON_REMOVE_PAGE_TABLES (10)
+> +#define OPCODE_COMMON_RING_DESTROY      (11)
+> +#define OPCODE_COMMON_CQ_CREATE         (12)
+> +#define OPCODE_COMMON_EQ_CREATE         (13)
+> +#define OPCODE_COMMON_ETH_RX_CREATE     (14)
+> +#define OPCODE_COMMON_ETH_TX_CREATE     (15)
+> +#define OPCODE_COMMON_NET_RESERVED0     (16)	/* Reserved */
+> +#define OPCODE_COMMON_NET_RESERVED1     (17)	/* Reserved */
+> +#define OPCODE_COMMON_NET_RESERVED2     (18)	/* Reserved */
+> +#define OPCODE_COMMON_ISCSI_DEFQ_CREATE (19)
+> +#define OPCODE_COMMON_ISCSI_WRBQ_CREATE (20)
+> +#define OPCODE_COMMON_MCC_CREATE        (21)
+> +#define OPCODE_COMMON_JELL_CONFIG       (22)
+> +#define OPCODE_COMMON_FORCE_FAILOVER    (23)
+> +#define OPCODE_COMMON_ADD_TEMPLATE_HEADER_BUFFERS (24)
+> +#define OPCODE_COMMON_REMOVE_TEMPLATE_HEADER_BUFFERS (25)
+> +#define OPCODE_COMMON_POST_ZERO_BUFFER  (26)
+> +#define OPCODE_COMMON_GET_QOS           (27)
+> +#define OPCODE_COMMON_SET_QOS           (28)
+> +#define OPCODE_COMMON_TCP_GET_STATISTICS (29)
+> +#define OPCODE_COMMON_SEEPROM_READ      (30)
+> +#define OPCODE_COMMON_TCP_STATE_QUERY   (31)
+> +#define OPCODE_COMMON_GET_CNTL_ATTRIBUTES (32)
+> +#define OPCODE_COMMON_NOP               (33)
+> +#define OPCODE_COMMON_NTWK_RX_FILTER    (34)
+> +#define OPCODE_COMMON_GET_FW_VERSION    (35)
+> +#define OPCODE_COMMON_SET_FLOW_CONTROL  (36)
+> +#define OPCODE_COMMON_GET_FLOW_CONTROL  (37)
+> +#define OPCODE_COMMON_SET_TCP_PARAMETERS (38)
+> +#define OPCODE_COMMON_SET_FRAME_SIZE    (39)
+> +#define OPCODE_COMMON_GET_FAT           (40)
+> +#define OPCODE_COMMON_MODIFY_EQ_DELAY   (41)
+> +#define OPCODE_COMMON_FIRMWARE_CONFIG   (42)
+> +#define OPCODE_COMMON_ENABLE_DISABLE_DOMAINS (43)
+> +#define OPCODE_COMMON_GET_DOMAIN_CONFIG (44)
+> +#define OPCODE_COMMON_SET_VLD_CONFIG    (45)
+> +#define OPCODE_COMMON_GET_VLD_CONFIG    (46)
+> +#define OPCODE_COMMON_GET_PORT_EQUALIZATION (47)
+> +#define OPCODE_COMMON_SET_PORT_EQUALIZATION (48)
+> +#define OPCODE_COMMON_RED_CONFIG        (49)
+> +
+> +/*
+> + * --- COMMON_ISCSI_SUBSYSTEM_OPCODES ---
+> + * IOCTLs used to configure discovery and networking parameters in
+> + * iSCSI Initiator and Target modes. These opcodes all use the
+> + * IOCTL_SUBSYSTEM_COMMON_ISCSI subsystem code.
+> + */
+> +#define OPCODE_COMMON_ISCSI_ERROR_RECOVERY_INVALIDATE_COMMANDS (1)
+> +#define SUBSYSTEM_COMMON_ISCSI_ERROR_RECOVERY_INVALIDATE_COMMANDS (2)
+> +#define OPCODE_COMMON_ISCSI_CFG_POST_SGL_PAGES (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_CFG_POST_SGL_PAGES (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_CFG_REMOVE_SGL_PAGES (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_CFG_POST_OOO_BUFFERS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_CFG_REMOVE_OOO_BUFFERS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_NTWK_PING (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_NTWK_GET_NIC_CONFIG (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_NTWK_GET_ARP_TABLE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_NTWK_SET_ARP_TABLE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_NTWK_GET_ROUTE_TABLE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_NTWK_SET_ROUTE_TABLE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_DISCOVERY_GET_PARAMETERS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_DISCOVERY_SET_PARAMETERS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_STATS_GET_NODE_ATTRIBUTES (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_STATS_GET_NIC_STATISTICS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DOWNLOAD_XML (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DELETE_XML (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_RX_STATS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_TX_STATS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_CERTIFICATE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DEL_CERTIFICATE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_PRIVATE_KEY (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DEL_PRIVATE_KEY (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_PASSPHRASE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DEL_PASSPHRASE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ENABLE_DISABLE_FLASH_ENCRYPTION (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_GROUP_NAMES (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_SINGLE_GROUP_NAME (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_GROUP (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DELETE_GROUP (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_QMSTATS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_MMSTATS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_STATE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_CLEAR_PSK_CACHE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_PSK (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_SET_GUID (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_SET_PSK (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_SET_TUNNEL_MODE_OUTER_ADDRESS (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_SECURITY_CAPABILITIES (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_SET_GROUP_PSK (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_ROOT_CERTIFICATE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ENABLE_DISABLE (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_CLEANUP  (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_ADD_8BYTE_LUN (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_SET_FRAGNUM_BITS_FOR_SGL_CRA (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_CFG_CLEAR_EVENT_LOG (2)
+> +#define SUBSYSTEM_COMMON_ISCSI_CFG_READ_EVENT_LOG (2)
+> +#define OPCODE_COMMON_ISCSI_CFG_REMOVE_SGL_PAGES (3)
+> +#define OPCODE_COMMON_ISCSI_CFG_POST_OOO_BUFFERS (4)
+> +#define OPCODE_COMMON_ISCSI_CFG_REMOVE_OOO_BUFFERS (5)
+> +#define OPCODE_COMMON_ISCSI_NTWK_PING   (6)
+> +#define OPCODE_COMMON_ISCSI_NTWK_GET_NIC_CONFIG (7)
+> +#define OPCODE_COMMON_ISCSI_NTWK_GET_ARP_TABLE (8)
+> +#define OPCODE_COMMON_ISCSI_NTWK_SET_ARP_TABLE (9)
+> +#define OPCODE_COMMON_ISCSI_NTWK_GET_ROUTE_TABLE (10)
+> +#define OPCODE_COMMON_ISCSI_NTWK_SET_ROUTE_TABLE (11)
+> +#define OPCODE_COMMON_ISCSI_DISCOVERY_GET_PARAMETERS (12)
+> +#define OPCODE_COMMON_ISCSI_DISCOVERY_SET_PARAMETERS (13)
+> +#define OPCODE_COMMON_ISCSI_STATS_GET_NODE_ATTRIBUTES (14)
+> +#define OPCODE_COMMON_ISCSI_STATS_GET_NIC_STATISTICS (15)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_DOWNLOAD_XML (16)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_DELETE_XML (17)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_RX_STATS (18)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_TX_STATS (19)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_ADD_CERTIFICATE (20)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_DEL_CERTIFICATE (21)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_ADD_PRIVATE_KEY (22)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_DEL_PRIVATE_KEY (23)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_ADD_PASSPHRASE (24)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_DEL_PASSPHRASE (25)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_ENABLE_DISABLE_FLASH_ENCRYPTION (26)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_GROUP_NAMES (27)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_SINGLE_GROUP_NAME (28)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_ADD_GROUP (29)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_DELETE_GROUP (30)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_QMSTATS (31)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_MMSTATS (32)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_STATE (33)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_CLEAR_PSK_CACHE (34)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_PSK (35)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_SET_GUID (36)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_SET_PSK (37)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_SET_TUNNEL_MODE_OUTER_ADDRESS (38)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_GET_SECURITY_CAPABILITIES (39)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_SET_GROUP_PSK (40)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_ADD_ROOT_CERTIFICATE (41)
+> +#define OPCODE_COMMON_ISCSI_IPSEC_ENABLE_DISABLE (42)
+> +#define OPCODE_COMMON_ISCSI_CLEANUP     (43)
+> +#define OPCODE_COMMON_ISCSI_ADD_8BYTE_LUN (44)
+> +#define OPCODE_COMMON_ISCSI_SET_FRAGNUM_BITS_FOR_SGL_CRA (45)
+> +#define OPCODE_COMMON_ISCSI_CFG_CLEAR_EVENT_LOG (46)
+> +#define OPCODE_COMMON_ISCSI_CFG_READ_EVENT_LOG (47)
+> +
+> +/*
+> + * --- ISCSI_INI_SUBSYSTEM_OPCODES ---
+> + * Opcodes applicable to the IOCTL_SUBSYSTEM_ISCSI_INI subsystem.
+> + */
+> +#define OPCODE_ISCSI_INI_NTWK_GET_TCPIP_CONFIG (1)
+> +#define OPCODE_ISCSI_INI_NTWK_SET_TCPIP_CONFIG (2)
+> +#define OPCODE_ISCSI_INI_NTWK_GET_DHCP_STATUS (3)
+> +#define OPCODE_ISCSI_INI_CFG_GET_CNTL_ATTRIBUTES (4)
+> +#define OPCODE_ISCSI_INI_CFG_GET_HBA_COUNT (5)
+> +#define SUBSYSTEM_ISCSI_INI_NTWK_GET_TCPIP_CONFIG (6)
+> +#define SUBSYSTEM_ISCSI_INI_NTWK_SET_TCPIP_CONFIG (6)
+> +#define SUBSYSTEM_ISCSI_INI_NTWK_GET_DHCP_STATUS (6)
+> +#define SUBSYSTEM_ISCSI_INI_CFG_GET_CNTL_ATTRIBUTES (6)
+> +#define SUBSYSTEM_ISCSI_INI_CFG_GET_HBA_COUNT (6)
+> +#define OPCODE_ISCSI_INI_CFG_GET_HBA_NAME (6)
+> +#define SUBSYSTEM_ISCSI_INI_CFG_GET_HBA_NAME (6)
+> +#define SUBSYSTEM_ISCSI_INI_CFG_SET_HBA_NAME (6)
+> +#define SUBSYSTEM_ISCSI_INI_CFG_SET_HBA_TIME (6)
+> +#define SUBSYSTEM_ISCSI_INI_CFG_GET_CHAP_SECRET (6)
+> +#define SUBSYSTEM_ISCSI_INI_CFG_SET_CHAP_SECRET (6)
+> +#define SUBSYSTEM_ISCSI_INI_CFG_GET_HBA_STATUS (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_GET_ALL_SESSIONS (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_GET_SESSION_LIST (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_GET_A_SESSION (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_GET_ALL_CONNECTIONS (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_GET_CONFIGURATION (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_SET_CONFIGURATION (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_GET_CONFIGURATION_LIST (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_MODIFY_SESSION_LOGINKEYS (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_MODIFY_CONNECTION_LOGINKEYS (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_ADD_CONNECTION_TO_SESSION (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_CLOSE_CONNECTION (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_LOGIN_TARGET (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_LOGOUT_TARGET (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_GET_ALL_PLOGIN_TGTNAME_PORTAL (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_QUERY_A_PERSISTENT_LOGIN (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_QUERY_PERSISTENT_LOGINS (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_ADD_PERSISTENT_LOGIN (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_DELETE_PERSISTENT_LOGIN (6)
+> +#define SUBSYSTEM_ISCSI_INI_SESSION_GET_ALL_SESSION_ID (6)
+> +#define SUBSYSTEM_ISCSI_INI_DISCOVERY_GET_ALL_DISCOVERED_TARGET_ID (6)
+> +#define SUBSYSTEM_ISCSI_INI_DISCOVERY_REPORT_ALL_TARGETS (6)
+> +#define SUBSYSTEM_ISCSI_INI_DISCOVERY_REPORT_A_TARGET (6)
+> +#define SUBSYSTEM_ISCSI_INI_DISCOVERY_SEND_TARGETS (6)
+> +#define SUBSYSTEM_ISCSI_INI_RETRIEVE_PARSED_TARGET_INFO (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_REOPEN_A_SESSION (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_REOPEN_ALL_SESSIONS (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_REOPEN_A_CONN (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_DEL_ALL_NONPERSISTENT_SESSIONS (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_STORE_NONPERSISTENT_SESSIONS (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_LOGIN_ALL_SESSIONS (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_OFFLOAD_SESSION (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_INVALIDATE_CONNECTION (6)
+> +#define SUBSYSTEM_ISCSI_INI_DRIVER_OFFLOAD_CONN (6)
+> +#define SUBSYSTEM_ISCSI_INI_BTL_MAPPING_QUERY_OS_BT_INUSE (6)
+> +#define SUBSYSTEM_ISCSI_INI_BTL_MAPPING_MAX_OS_SUPPORTED_BTL (6)
+> +#define SUBSYSTEM_ISCSI_INI_STATS_GET_INSTANCE_STATISTICS (6)
+> +#define SUBSYSTEM_ISCSI_INI_STATS_GET_LOGIN_STATISTICS (6)
+> +#define SUBSYSTEM_ISCSI_INI_STATS_GET_SESSION_ATTRIBUTES (6)
+> +#define SUBSYSTEM_ISCSI_INI_STATS_GET_A_SESSION_STATISTICS (6)
+> +#define SUBSYSTEM_ISCSI_INI_STATS_GET_CONN_STATISTICS_PER_SESSION (6)
+> +#define SUBSYSTEM_ISCSI_INI_STATS_GET_IPSEC_STATISTICS (6)
+> +#define SUBSYSTEM_ISCSI_INI_BOOT_GET_BOOT_TARGET (6)
+> +#define SUBSYSTEM_ISCSI_INI_BOOT_SET_BOOT_TARGET (6)
+> +#define SUBSYSTEM_ISCSI_INI_BOOT_GET_BOOT_LUN (6)
+> +#define SUBSYSTEM_ISCSI_INI_BOOT_SET_BOOT_LUN (6)
+> +#define SUBSYSTEM_ISCSI_INI_BOOT_READ_WRITE (6)
+> +#define SUBSYSTEM_ISCSI_INI_BOOT_GET_BIOS_CONFIGURATION (6)
+> +#define SUBSYSTEM_ISCSI_INI_BOOT_SET_BIOS_CONFIGURATION (6)
+> +#define SUBSYSTEM_ISCSI_INI_SCSI_PASS_THRU (6)
+> +#define OPCODE_ISCSI_INI_CFG_SET_HBA_NAME (7)
+> +#define OPCODE_ISCSI_INI_CFG_SET_HBA_TIME (8)
+> +#define OPCODE_ISCSI_INI_CFG_GET_CHAP_SECRET (9)
+> +#define OPCODE_ISCSI_INI_CFG_SET_CHAP_SECRET (10)
+> +#define OPCODE_ISCSI_INI_CFG_GET_HBA_STATUS (11)
+> +#define OPCODE_ISCSI_INI_SESSION_GET_ALL_SESSIONS (12)
+> +#define OPCODE_ISCSI_INI_SESSION_GET_SESSION_LIST (13)
+> +#define OPCODE_ISCSI_INI_SESSION_GET_A_SESSION (14)
+> +#define OPCODE_ISCSI_INI_SESSION_GET_ALL_CONNECTIONS (15)
+> +#define OPCODE_ISCSI_INI_SESSION_GET_CONFIGURATION (16)
+> +#define OPCODE_ISCSI_INI_SESSION_SET_CONFIGURATION (17)
+> +#define OPCODE_ISCSI_INI_SESSION_GET_CONFIGURATION_LIST (18)
+> +#define OPCODE_ISCSI_INI_SESSION_MODIFY_SESSION_LOGINKEYS (19)
+> +#define OPCODE_ISCSI_INI_SESSION_MODIFY_CONNECTION_LOGINKEYS (20)
+> +#define OPCODE_ISCSI_INI_SESSION_ADD_CONNECTION_TO_SESSION (21)
+> +#define OPCODE_ISCSI_INI_SESSION_CLOSE_CONNECTION (22)
+> +#define OPCODE_ISCSI_INI_SESSION_LOGIN_TARGET (23)
+> +#define OPCODE_ISCSI_INI_SESSION_LOGOUT_TARGET (24)
+> +#define OPCODE_ISCSI_INI_SESSION_GET_ALL_PLOGIN_TGTNAME_PORTAL (25)
+> +#define OPCODE_ISCSI_INI_SESSION_QUERY_A_PERSISTENT_LOGIN (26)
+> +#define OPCODE_ISCSI_INI_SESSION_QUERY_PERSISTENT_LOGINS (27)
+> +#define OPCODE_ISCSI_INI_SESSION_ADD_PERSISTENT_LOGIN (28)
+> +#define OPCODE_ISCSI_INI_SESSION_DELETE_PERSISTENT_LOGIN (29)
+> +#define OPCODE_ISCSI_INI_SESSION_GET_ALL_SESSION_ID (30)
+> +#define OPCODE_ISCSI_INI_DISCOVERY_GET_ALL_DISCOVERED_TARGET_ID (31)
+> +#define OPCODE_ISCSI_INI_DISCOVERY_REPORT_ALL_TARGETS (32)
+> +#define OPCODE_ISCSI_INI_DISCOVERY_REPORT_A_TARGET (33)
+> +#define OPCODE_ISCSI_INI_DISCOVERY_SEND_TARGETS (34)
+> +#define OPCODE_ISCSI_INI_RETRIEVE_PARSED_TARGET_INFO (35)
+> +#define OPCODE_ISCSI_INI_DRIVER_REOPEN_A_SESSION (36)
+> +#define OPCODE_ISCSI_INI_DRIVER_REOPEN_ALL_SESSIONS (37)
+> +#define OPCODE_ISCSI_INI_DRIVER_REOPEN_A_CONN (38)
+> +#define OPCODE_ISCSI_INI_DRIVER_DEL_ALL_NONPERSISTENT_SESSIONS (39)
+> +#define OPCODE_ISCSI_INI_DRIVER_STORE_NONPERSISTENT_SESSIONS (40)
+> +#define OPCODE_ISCSI_INI_DRIVER_LOGIN_ALL_SESSIONS (41)
+> +#define OPCODE_ISCSI_INI_DRIVER_OFFLOAD_SESSION (42)
+> +#define OPCODE_ISCSI_INI_DRIVER_INVALIDATE_CONNECTION (43)
+> +#define OPCODE_ISCSI_INI_DRIVER_OFFLOAD_CONN (44)
+> +#define OPCODE_ISCSI_INI_BTL_MAPPING_QUERY_OS_BT_INUSE (45)
+> +#define OPCODE_ISCSI_INI_BTL_MAPPING_MAX_OS_SUPPORTED_BTL (46)
+> +#define OPCODE_ISCSI_INI_STATS_GET_INSTANCE_STATISTICS (47)
+> +#define OPCODE_ISCSI_INI_STATS_GET_LOGIN_STATISTICS (48)
+> +#define OPCODE_ISCSI_INI_STATS_GET_SESSION_ATTRIBUTES (49)
+> +#define OPCODE_ISCSI_INI_STATS_GET_A_SESSION_STATISTICS (50)
+> +#define OPCODE_ISCSI_INI_STATS_GET_CONN_STATISTICS_PER_SESSION (51)
+> +#define OPCODE_ISCSI_INI_STATS_GET_IPSEC_STATISTICS (52)
+> +#define OPCODE_ISCSI_INI_BOOT_GET_BOOT_TARGET (53)
+> +#define OPCODE_ISCSI_INI_BOOT_SET_BOOT_TARGET (54)
+> +#define OPCODE_ISCSI_INI_BOOT_GET_BOOT_LUN (55)
+> +#define OPCODE_ISCSI_INI_BOOT_SET_BOOT_LUN (56)
+> +#define OPCODE_ISCSI_INI_BOOT_READ_WRITE (57)
+> +#define OPCODE_ISCSI_INI_BOOT_GET_BIOS_CONFIGURATION (58)
+> +#define OPCODE_ISCSI_INI_BOOT_SET_BIOS_CONFIGURATION (59)
+> +#define OPCODE_ISCSI_INI_SCSI_PASS_THRU (60)
+> +
+> +
+> +/*
+> + * --- ISCSI_TGT_SUBSYSTEM_OPCODES ---
+> + * Opcodes in the IOCTL_SUBSYSTEM_ISCSI_TGT subsystem.
+> + */
+> +#define OPCODE_ISCSI_TGT_START_LISTEN_SERVER (1)
+> +#define OPCODE_ISCSI_TGT_STOP_LISTEN_SERVER (2)
+> +#define OPCODE_ISCSI_TGT_GET_CONNECTION_INFO (3)
+> +#define OPCODE_ISCSI_TGT_CONNECTION_REJECT (4)
+> +#define OPCODE_ISCSI_TGT_OFFLOAD_CONNECTION (5)
+> +#define OPCODE_ISCSI_TGT_ISNS_SEND_PACKET (6)
+> +#define SUBSYSTEM_ISCSI_TGT_START_LISTEN_SERVER (7)
+> +#define SUBSYSTEM_ISCSI_TGT_STOP_LISTEN_SERVER (7)
+> +#define SUBSYSTEM_ISCSI_TGT_GET_CONNECTION_INFO (7)
+> +#define SUBSYSTEM_ISCSI_TGT_CONNECTION_REJECT (7)
+> +#define SUBSYSTEM_ISCSI_TGT_OFFLOAD_CONNECTION (7)
+> +#define SUBSYSTEM_ISCSI_TGT_ISNS_SEND_PACKET (7)
+> +#define OPCODE_ISCSI_TGT_INVALIDATE_CONNECTION (7)
+> +#define SUBSYSTEM_ISCSI_TGT_INVALIDATE_CONNECTION (7)
+> +#define SUBSYSTEM_ISCSI_TGT_ADD_IP_ADDR (7)
+> +#define SUBSYSTEM_ISCSI_TGT_DELETE_IP_ADDR (7)
+> +#define SUBSYSTEM_ISCSI_TGT_LIST_IP_ADDR (7)
+> +#define SUBSYSTEM_ISCSI_TGT_START_ESI_LISTEN (7)
+> +#define SUBSYSTEM_ISCSI_TGT_STOP_ESI_LISTEN (7)
+> +#define SUBSYSTEM_ISCSI_TGT_SLP_REGISTER (7)
+> +#define SUBSYSTEM_ISCSI_TGT_SLP_DEREGISTER (7)
+> +#define OPCODE_ISCSI_TGT_ADD_IP_ADDR    (8)
+> +#define OPCODE_ISCSI_TGT_DELETE_IP_ADDR (9)
+> +#define OPCODE_ISCSI_TGT_LIST_IP_ADDR   (10)
+> +#define OPCODE_ISCSI_TGT_START_ESI_LISTEN (11)
+> +#define OPCODE_ISCSI_TGT_STOP_ESI_LISTEN (12)
+> +#define OPCODE_ISCSI_TGT_SLP_REGISTER   (13)
+> +#define OPCODE_ISCSI_TGT_SLP_DEREGISTER (14)
+> +
+> +
+> +/*
+> + * --- MILI_PTL_SUBSYSTEM_OPCODES ---
+> + * Opcodes in the IOCTL_SUBSYSTEM_MILI_PTL subsystem.
+> + */
+> +#define OPCODE_MILI_PTL_CREATE_PORTAL   (1)
+> +#define OPCODE_MILI_PTL_DELETE_PORTAL   (2)
+> +#define OPCODE_MILI_PTL_CREATE_PORTAL_GROUP (3)
+> +#define OPCODE_MILI_PTL_DELETE_PORTAL_GROUP (4)
+> +#define OPCODE_MILI_PTL_ADD_PORTAL_TO_PORTAL_GROUP (5)
+> +#define OPCODE_MILI_PTL_DELETE_PORTAL_FROM_PORTAL_GROUP (6)
+> +#define OPCODE_MILI_PTL_ADD_TARGET      (7)
+> +#define SUBSYSTEM_MILI_PTL_CREATE_PORTAL (8)
+> +#define SUBSYSTEM_MILI_PTL_DELETE_PORTAL (8)
+> +#define SUBSYSTEM_MILI_PTL_CREATE_PORTAL_GROUP (8)
+> +#define SUBSYSTEM_MILI_PTL_DELETE_PORTAL_GROUP (8)
+> +#define SUBSYSTEM_MILI_PTL_ADD_PORTAL_TO_PORTAL_GROUP (8)
+> +#define SUBSYSTEM_MILI_PTL_DELETE_PORTAL_FROM_PORTAL_GROUP (8)
+> +#define SUBSYSTEM_MILI_PTL_ADD_TARGET   (8)
+> +#define OPCODE_MILI_PTL_DELETE_TARGET   (8)
+> +#define SUBSYSTEM_MILI_PTL_DELETE_TARGET (8)
+> +#define SUBSYSTEM_MILI_PTL_ADD_PORTAL_GROUP_TO_TARGET (8)
+> +#define SUBSYSTEM_MILI_PTL_DELETE_PORTAL_GROUP_FROM_TARGET (8)
+> +#define SUBSYSTEM_MILI_PTL_SET_TARGET_LOGIN_PARAMS (8)
+> +#define SUBSYSTEM_MILI_PTL_START_LISTEN_SERVER (8)
+> +#define SUBSYSTEM_MILI_PTL_STOP_LISTEN_SERVER (8)
+> +#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_INSTANCE_ATTRIBUTES (8)
+> +#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_INSTANCE_SSN_ERROR_STATS (8)
+> +#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_TARGET_ATTRIBUTES (8)
+> +#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_TARGET_LOGIN_LOGOUT_STATS (8)
+> +#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_SESSION_ATTRIBUTES_AND_STATS (8)
+> +#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_CONNECTION_ATTRIBUTES_AND_STATS (8)
+> +#define SUBSYSTEM_MILI_PTL_GET_ISCSI_SESSION_LIST (8)
+> +#define SUBSYSTEM_MILI_PTL_KILL_SESSION (8)
+> +#define OPCODE_MILI_PTL_ADD_PORTAL_GROUP_TO_TARGET (9)
+> +#define OPCODE_MILI_PTL_DELETE_PORTAL_GROUP_FROM_TARGET (10)
+> +#define OPCODE_MILI_PTL_SET_TARGET_LOGIN_PARAMS (11)
+> +#define OPCODE_MILI_PTL_START_LISTEN_SERVER (12)
+> +#define OPCODE_MILI_PTL_STOP_LISTEN_SERVER (13)
+> +#define OPCODE_MILI_PTL_MIB_GET_ISCSI_INSTANCE_ATTRIBUTES (14)
+> +#define OPCODE_MILI_PTL_MIB_GET_ISCSI_INSTANCE_SSN_ERROR_STATS (15)
+> +#define OPCODE_MILI_PTL_MIB_GET_ISCSI_TARGET_ATTRIBUTES (16)
+> +#define OPCODE_MILI_PTL_MIB_GET_ISCSI_TARGET_LOGIN_LOGOUT_STATS (17)
+> +#define OPCODE_MILI_PTL_MIB_GET_ISCSI_SESSION_ATTRIBUTES_AND_STATS (18)
+> +#define OPCODE_MILI_PTL_MIB_GET_ISCSI_CONNECTION_ATTRIBUTES_AND_STATS (19)
+> +#define OPCODE_MILI_PTL_GET_ISCSI_SESSION_LIST (20)
+> +#define OPCODE_MILI_PTL_KILL_SESSION    (21)
+> +
+> +/*
+> + * --- MILI_TMD_SUBSYSTEM_OPCODES ---
+> + * Opcodes in the IOCTL_SUBSYSTEM_MILI_TMD subsystem.
+> + */
+> +#define OPCODE_MILI_TMD_ADD_TARGET      (1)
+> +#define OPCODE_MILI_TMD_DELETE_TARGET   (2)
+> +#define OPCODE_MILI_TMD_UPDATE_TARGET_AUTH_PARAMS (3)
+> +#define OPCODE_MILI_TMD_ADD_INITIATOR   (4)
+> +#define OPCODE_MILI_TMD_DELETE_INITIATOR (5)
+> +#define OPCODE_MILI_TMD_UPDATE_INITIATOR_AUTH_PARAMS (6)
+> +#define OPCODE_MILI_TMD_BIND_INITIATOR_TO_TARGET (7)
+> +#define OPCODE_MILI_TMD_DELETE_IT_BINDING (8)
+> +#define SUBSYSTEM_MILI_TMD_ADD_TARGET   (9)
+> +#define SUBSYSTEM_MILI_TMD_DELETE_TARGET (9)
+> +#define SUBSYSTEM_MILI_TMD_UPDATE_TARGET_AUTH_PARAMS (9)
+> +#define SUBSYSTEM_MILI_TMD_ADD_INITIATOR (9)
+> +#define SUBSYSTEM_MILI_TMD_DELETE_INITIATOR (9)
+> +#define SUBSYSTEM_MILI_TMD_UPDATE_INITIATOR_AUTH_PARAMS (9)
+> +#define SUBSYSTEM_MILI_TMD_BIND_INITIATOR_TO_TARGET (9)
+> +#define SUBSYSTEM_MILI_TMD_DELETE_IT_BINDING (9)
+> +#define OPCODE_MILI_TMD_ACTIVATE_TARGET (9)
+> +#define SUBSYSTEM_MILI_TMD_ACTIVATE_TARGET (9)
+> +#define SUBSYSTEM_MILI_TMD_DEACTIVATE_TARGET (9)
+> +#define SUBSYSTEM_MILI_TMD_SET_INITIATOR_QOS (9)
+> +#define OPCODE_MILI_TMD_DEACTIVATE_TARGET (10)
+> +#define OPCODE_MILI_TMD_SET_INITIATOR_QOS (11)
+> +
+> +
+> +/*
+> + * --- ETH_SUBSYSTEM_OPCODES ---
+> + * These opcodes are used for configuring the Ethernet interfaces. These
+> + * opcodes all use the IOCTL_SUBSYSTEM_ETH subsystem code.
+> + */
+> +#define OPCODE_ETH_RSS_CONFIG           (1)
+> +#define OPCODE_ETH_ACPI_CONFIG          (2)
+> +#define SUBSYSTEM_ETH_RSS_CONFIG        (3)
+> +#define SUBSYSTEM_ETH_ACPI_CONFIG       (3)
+> +#define OPCODE_ETH_PROMISCUOUS          (3)
+> +#define SUBSYSTEM_ETH_PROMISCUOUS       (3)
+> +#define SUBSYSTEM_ETH_GET_STATISTICS    (3)
+> +#define SUBSYSTEM_ETH_GET_RX_FRAG_SIZE  (3)
+> +#define SUBSYSTEM_ETH_SET_RX_FRAG_SIZE  (3)
+> +#define OPCODE_ETH_GET_STATISTICS       (4)
+> +#define OPCODE_ETH_GET_RX_FRAG_SIZE     (5)
+> +#define OPCODE_ETH_SET_RX_FRAG_SIZE     (6)
+> +
+> +
+> +/*
+> + * --- TPM_SUBSYSTEM_OPCODES ---
+> + * These opcodes are used for configuring TCP protocol Module functionality.
+> + * These opcodes all use the IOCTL_SUBSYSTEM_COMMON_ISCSI subsystem code.
+> + */
+> +#define OPCODE_TPM_CONNECTION_OFFLOAD   (1)
+> +#define OPCODE_TPM_CONNECTION_UPLOAD    (2)
+> +#define OPCODE_TPM_CONNECTION_UPDATE    (3)
+> +#define SUBSYSTEM_TPM_CONNECTION_OFFLOAD (4)
+> +#define SUBSYSTEM_TPM_CONNECTION_UPLOAD (4)
+> +#define SUBSYSTEM_TPM_CONNECTION_UPDATE (4)
+> +#define OPCODE_TPM_GET_STATISTICS       (4)
+> +#define SUBSYSTEM_TPM_GET_STATISTICS    (4)
+> +#define SUBSYSTEM_TPM_CONNECTION_QUERY  (4)
+> +#define OPCODE_TPM_CONNECTION_QUERY     (5)
+> +
+> +/*
+> + * --- PXE_UNDI_SUBSYSTEM_OPCODES ---
+> + * These opcodes are used for configuring PXE and UNDI functionality.
+> + * These opcodes use the IOCTL_SUBSYSTEM_PXE_UNDI subsystem code.
+> + */
+> +#define OPCODE_PXE_UNDI_CONTROL         (1)
+> +#define OPCODE_PXE_UNDI_TRANSMIT        (2)
+> +#define OPCODE_PXE_UNDI_RECEIVE         (3)
+> +#define OPCODE_PXE_UNDI_GET_STATISTICS  (4)
+> +#define SUBSYSTEM_PXE_UNDI_CONTROL      (5)
+> +#define SUBSYSTEM_PXE_UNDI_TRANSMIT     (5)
+> +#define SUBSYSTEM_PXE_UNDI_RECEIVE      (5)
+> +#define SUBSYSTEM_PXE_UNDI_GET_STATISTICS (5)
+> +
+> +
+> +/*
+> + * --- MCC_STATUS_CODE ---
+> + * These are the global status codes used by all subsystems
+> + */
+> +#define MCC_STATUS_SUCCESS              (0)	/* Indicates a successful
+> +						completion of  the command */
+> +#define MCC_STATUS_INSUFFICIENT_PRIVILEGES (1)	/* The client does not have
+> +						sufficient privileges to
+> +						execute the command */
+> +#define MCC_STATUS_INVALID_PARAMETER    (2)	/* A parameter in the command
+> +						was invalid. The extended
+> +						status contains the index
+> +						of the parameter */
+> +#define MCC_STATUS_INSUFFICIENT_RESOURCES (3)	/* There are insufficient
+> +						chip resources to execute
+> +						the command */
+> +#define MCC_STATUS_QUEUE_FLUSHING       (4)	/* The command is completing
+> +						because the queue was
+> +						getting flushed */
+> +#define MCC_STATUS_DMA_FAILED           (5)	/* The command is completing
+> +						with a DMA error */
+> +
+> +/*
+> + * --- MGMT_ERROR_CODES ---
+> + * Error Codes returned in the status field of the IOCTL response header
+> + */
+> +#define MGMT_STATUS_SUCCESS             (0)	/* The IOCTL completed
+> +						without errors */
+> +#define MGMT_STATUS_FAILED              (1)	/* Error status in the Status
+> +						field of  the
+> +						struct IOCTL_RESPONSE_HEADER */
+> +#define MGMT_STATUS_ILLEGAL_REQUEST     (2)	/* Invalid IOCTL opcode */
+> +#define MGMT_STATUS_ILLEGAL_FIELD       (3)	/* Invalid parameter in
+> +						the IOCTL  payload */
+> +/* The buffer provided by MILI is insufficient for Firmware/OSM to
+> + * return IOCTL output. Firmware/OSM sets the buffer size requirement in
+> + * the required_data_length field. Note: required_data_length must
+> + * be larger than expected_data_length.
+> + */
+> +#define MGMT_STATUS_INSUFFICIENT_BUFFER (4)
+> +/* This domain is not permitted to execute such request Applicable to
+> + * BE-VM only
+> + * */
+> +#define MGMT_STATUS_UNAUTHORIZED_REQUEST (5)	/* This domain is not
+> +						permitted to */
+> +#define MGMT_STATUS_INVALID_ISNS_ADDRESS (10)
+> +#define MGMT_STATUS_INVALID_IPADDR      (11)
+> +#define MGMT_STATUS_INVALID_GATEWAY     (12)
+> +#define MGMT_STATUS_INVALID_SUBNETMASK  (13)
+> +#define MGMT_STATUS_INVALID_PREFERRED_DNS (14)
+> +#define MGMT_STATUS_INVALID_ALTERNATE_DNS (15)
+> +#define MGMT_STATUS_INVALID_TARGET_IPADDR (16)
+> +#define MGMT_STATUS_UNRESOLVED_DNS_NAME (17)
+> +#define MGMT_STATUS_INVALID_ISCSI_INI_NAME (18)
+> +#define MGMT_STATUS_INVALID_ISCSI_INI_ALIAS (19)
+> +#define MGMT_STATUS_TGTTBL_FULL         (20)
+> +#define MGMT_STATUS_LUNTBL_FULL         (21)
+> +#define MGMT_STATUS_IPSEC_NOT_SUPPORTED (22)
+> +#define MGMT_STATUS_FLASHROM_SAVE_FAILED (23)
+> +#define MGMT_STATUS_FLASHROM_RESTORE_FAILED (24)
+> +#define MGMT_STATUS_INVALID_TCPPORT     (25)
+> +#define MGMT_STATUS_ICCBINDEX_ALLOC_FAILED (26)
+> +#define MGMT_STATUS_IOCTLHANDLE_ALLOC_FAILED (27)
+> +#define MGMT_STATUS_INVALID_PHY_ADDR_FROM_OSM (28)	/* Invalid physical
+> +							address from OSM */
+> +#define MGMT_STATUS_INVALID_PHY_ADDR_LEN_FROM_OSM (29)
+> +#define MGMT_STATUS_ASSERT_FAILED       (30)
+> +#define MGMT_STATUS_INVALID_SESSION     (31)	/* Invalid SESSION id */
+> +#define MGMT_STATUS_INVALID_CONNECTION  (32)	/* Invalid connection id */
+> +#define MGMT_STATUS_BTL_PATH_EXCEEDS_OSM_LIMIT (33)
+> +#define MGMT_STATUS_BTL_TGTID_EXCEEDS_OSM_LIMIT (34)
+> +#define MGMT_STATUS_BTL_PATH_TGTID_OCCUPIED (35)	/* In the OSM target
+> +							table the slot of the
+> +							specified Path and
+> +							TargetID is already
+> +							occupied by another
+> +							target.  */
+> +#define MGMT_STATUS_BTL_NO_FREE_SLOT_PATH (36)	/* OSM can't locate a free
+> +						   slot in it's target table
+> +						   for the specified path ID
+> +						  */
+> +#define MGMT_STATUS_BTL_NO_FREE_SLOT_TGTID (37)	/* OSM can't locate a free
+> +						   slot in it's target table
+> +						   for the specified target ID
+> +						   */
+> +#define MGMT_STATUS_OSM_DEVSLOT_NOT_FOUND (38)	/* OSM can't locate the entry
+> +						   in it's target table for
+> +						   the specified iSCSI
+> +						   SESSION/target
+> +						   */
+> +#define MGMT_STATUS_FLASHROM_READ_FAILED (39)
+> +#define MGMT_STATUS_POLL_IOCTL_TIMEOUT  (40)	/* Polling IOCTL is timeout */
+> +#define MGMT_STATUS_ERROR_ACITISCSI     (41)	/* Error returned from
+> +						   ACIT-ISCSI module */
+> +#define MGMT_STATUS_ERROR_ACITMAIN      (42)	/* Error returned from
+> +						   ACIT-Main module */
+> +/*
+> + * This error indicates that ioctl buffer size is too big for either the
+> + * OSM or OS to handle. In Windows, after MILI allocates the
+> + * buffer, OS will forward the IOCTL request to the driver
+> + * IF the IOCTL buffer size is less than / equal to the
+> + * maximum IO size. When the OSM detects this situation,
+> + * OSM set this status in the IOCTL header.
+> + */
+> +#define MGMT_STATUS_BUFFER_SIZE_EXCEED_OSM_OR_OS_LIMIT (43)
+> +#define MGMT_STATUS_REBOOT_REQUIRED     (44)
+> +#define MGMT_STATUS_INSUFFICIENT_TIMEOUT (45)
+> +#define MGMT_STATUS_IPADDR_NOT_SET      (46)
+> +#define MGMT_STATUS_IPADDR_DUP_DETECTED (47)
+> +#define MGMT_STATUS_CANT_REMOVE_LAST_CONNECTION (48)
+> +#define MGMT_STATUS_TARGET_NOT_FOUND    (48)
+> +#define MGMT_STATUS_TARGET_BUSY         (49)
+> +#define MGMT_STATUS_TGT_ERR_LISTEN_SOCKET (50)
+> +#define MGMT_STATUS_TGT_ERR_BIND_SOCKET (51)
+> +#define MGMT_STATUS_TGT_ERR_NO_SOCKET   (52)
+> +#define MGMT_STATUS_TGT_ERR_PORTAL_NOT_FOUND (53)
+> +#define MGMT_STATUS_TGT_ERR_IP_ADDR_MAX_REACHED (54)
+> +#define MGMT_STATUS_TGT_ERR_ISNS_COMM_FAILED (55)
+> +#define MGMT_STATUS_CANNOT_DELETE_BOOT_TARGET (56)
+> +#define MGMT_STATUS_TGT_PORTAL_MODE_IN_LISTEN (57)
+> +
+> +
+> +/*
+> + * --- MGMT_ADDL_STATUS ---
+> + * Values for the Additional Status field of IOCTL_RESPONSE_BUFFER. This field
+> + */
+> +#define MGMT_ADDI_STATUS_NO_STATUS      (0)
+> +#define MGMT_ADDI_STATUS_INVALID_IPTYPE (1)
+> +#define MGMT_ADDI_STATUS_IPV6_UNSUPPORTED (2)
+> +#define MGMT_ADDI_STATUS_DNSTEXT_TOO_LONG (3)
+> +#define MGMT_ADDI_STATUS_INVALID_INTR_ININAME (4)
+> +#define MGMT_ADDI_STATUS_INVALID_TGT_ININAME (5)
+> +#define MGMT_ADDI_STATUS_INVALID_ISNS_ININAME (6)
+> +#define MGMT_ADDI_STATUS_INVALID_INTR_ALIAS (7)
+> +#define MGMT_ADDI_STATUS_INVALID_TGT_ALIAS (8)
+> +#define MGMT_ADDI_STATUS_TARGET_HANDLE_NOT_FOUND (9)
+> +#define MGMT_ADDI_STATUS_SESSION_HANDLE_NOT_FOUND (10)
+> +#define MGMT_ADDI_STATUS_CONNECTION_HANDLE_NOT_FOUND (11)
+> +#define MGMT_ADDI_STATUS_PORTALGROUP_HANDLE_NOT_FOUND (12)
+> +#define MGMT_ADDI_STATUS_PORTAL_HANDLE_NOT_FOUND (13)
+> +#define MGMT_ADDI_STATUS_INVALID_INTR_PORT (14)
+> +#define MGMT_ADDI_STATUS_INVALID_TGT_PORT (15)
+> +#define MGMT_ADDI_STATUS_ACTIVE_SESSIONS_PRESENT (16)
+> +#define MGMT_ADDI_STATUS_SESSION_ALREADY_OPENED (17)
+> +#define MGMT_ADDI_STATUS_SESSION_ALREADY_CLOSED (18)
+> +#define MGMT_ADDI_STATUS_DEST_HOST_UNREACHABLE (19)
+> +#define MGMT_ADDI_STATUS_LOGIN_IN_PROGRESS (20)
+> +#define MGMT_ADDI_STATUS_TCP_CONNECT_FAILED (21)
+> +#define MGMT_ADDI_STATUS_INSUFFICIENT_RESOURCES (22)
+> +#define MGMT_ADDI_STATUS_LINK_DOWN      (23)
+> +#define MGMT_ADDI_STATUS_DHCP_ERROR     (24)
+> +#define MGMT_ADDI_STATUS_CONNECTION_OFFLOADED (25)
+> +#define MGMT_ADDI_STATUS_CONNECTION_NOT_OFFLOADED (26)
+> +#define MGMT_ADDI_STATUS_CONNECTION_UPLOAD_IN_PROGRESS (27)
+> +#define MGMT_ADDI_STATUS_REQUEST_REJECTED (28)	/* Used to communicate
+> +						  a flush or upload/close
+> +						   request on a connection
+> +						   was rejected by protocol
+> +						   firmware.
+> +						   */
+> +#define MGMT_ADDI_STATUS_INVALID_SUBSYSTEM (29)
+> +#define MGMT_ADDI_STATUS_INVALID_OPCODE (30)
+> +#define MGMT_ADDI_STATUS_INVALID_MAXCONNECTION_PARAM (31)
+> +#define MGMT_ADDI_STATUS_INVALID_KEY    (32)
+> +#define MGMT_ADDI_STATUS_PORTAL_GROUP_BOUND_TO_TARGET (33)
+> +#define MGMT_ADDI_STATUS_PORTALS_BOUND_TO_PORTAL_GROUP (34) /* Unbind Portals
+> +							from Portal  Group
+> +							before deleting  */
+> +/* The domain number in the IOCTL header
+> +* is invalid or out-of-range. The domain number passed-in to the IOCTL
+> +* must be <= to the number of domains enabled by the manufacturer.Check the
+> +* response data from IOCTL_COMMON_GET_CNTL_ATTRIBUTES to
+> +* determine the actual number of domains supported
+> +*/
+> +#define MGMT_ADDI_STATUS_INVALID_DOMAIN (35)
+> +#define MGMT_ADDL_STATUS_TGT_CONN_RST   (36)
+> +#define MGMT_ADDL_STATUS_TGT_INVALID_CONN_HANDLE (37)
+> +#define MGMT_ADDL_STATUS_TGT_INVALID_CID (38)
+> +#define MGMT_ADDL_STATUS_TGT_INVALID_CQID (39)
+> +#define MGMT_ADDL_STATUS_TGT_INVALID_CHUTE (40)
+> +#define MGMT_ADDL_STATUS_CONN_RST       (41)
+> +#define MGMT_ADDL_STATUS_DUPLICATE_KEY  (42)
+> +#define MGMT_ADDI_STATUS_LOGIN_INITIATOR_ERROR (43)
+> +#define MGMT_ADDI_STATUS_LOGIN_AUTHENTICATION_ERROR (44)
+> +#define MGMT_ADDI_STATUS_LOGIN_AUTHORIZATION_ERROR (45)
+> +#define MGMT_ADDI_STATUS_LOGIN_NOT_FOUND (46)
+> +#define MGMT_ADDI_STATUS_LOGIN_TARGET_REMOVED (47)
+> +#define MGMT_ADDI_STATUS_LOGIN_UNSUPPORTED_VERSION (48)
+> +#define MGMT_ADDI_STATUS_LOGIN_TOO_MANY_CONNECTIONS (49)
+> +#define MGMT_ADDI_STATUS_LOGIN_MISSING_PARAMETER (50)
+> +#define MGMT_ADDI_STATUS_LOGIN_NO_SESSION_SPANNING (51)
+> +#define MGMT_ADDI_STATUS_LOGIN_SESSION_TYPE_NOT_SUPPORTED (52)
+> +#define MGMT_ADDI_STATUS_LOGIN_SESSION_DOES_NOT_EXIST (53)
+> +#define MGMT_ADDI_STATUS_LOGIN_INVALID_DURING_LOGIN (54)
+> +#define MGMT_ADDI_STATUS_LOGIN_TARGET_ERROR (55)
+> +#define MGMT_ADDI_STATUS_LOGIN_SERVICE_UNAVAILABLE (56)
+> +#define MGMT_ADDI_STATUS_LOGIN_OUT_OF_RESOURCES (57)
+> +#define MGMT_ADDI_STATUS_SAME_CHAP_SECRET (58)
+> +#define MGMT_ADDI_STATUS_INVALID_SECRET_LENGTH (59)
+> +#define MGMT_ADDI_STATUS_DUPLICATE_ENTRY (60)	/* an entry with same
+> +						attribtues already  exists
+> +						with a different key  */
+> +#define MGMT_ADDI_STATUS_INITIATOR_HANDLE_NOT_FOUND (61)
+> +#define MGMT_ADDI_STATUS_ITBINDING_HANDLE_NOT_FOUND (62)
+> +#define MGMT_ADDI_STATUS_SETTINGS_MODIFIED_REBOOT_REQD (63)
+> +
+> +#endif /* __ioctl_opcodes_amap_h__ */
+> diff --git a/drivers/message/beclib/fw/amap/ioctl_top.h b/drivers/message/beclib/fw/amap/ioctl_top.h
+> new file mode 100644
+> index 0000000..39b2dac
+> --- /dev/null
+> +++ b/drivers/message/beclib/fw/amap/ioctl_top.h
+> @@ -0,0 +1,44 @@
+> +/*
+> + * Copyright (C) 2005 - 2008 ServerEngines
+> + * All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * as published by the Free Software Foundation; either version 2
+> + * of the License, or at your option any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin Street, 5th Floor
+> + * Boston, MA 02110-1301 USA
+> + *
+> + *
+> + * The full GNU General Public License is included in this distribution
+> + * in the file called GPL.
+> + *
+> + * Contact Information:
+> + * linux-drivers@serverengines.com
+> + *
+> + * ServerEngines
+> + * 209 N. Fair Oaks Ave
+> + * Sunnyvale, CA 94085
+> + */
+> +/*
+> + * Autogenerated by srcgen version: 0127
+> + */
+> +#ifndef __ioctl_top_amap_h__
+> +#define __ioctl_top_amap_h__
+> +#include "asyncmesg.h"
+> +#include "ioctl_opcodes.h"
+> +#include "ioctl_defs.h"
+> +#include "ioctl_types.h"
+> +#include "ioctl_mcc.h"
+> +#include "ioctl_common.h"
+> +#include "ioctl_eth.h"
+> +
+> +#endif /* __ioctl_top_amap_h__ */
+> diff --git a/drivers/message/beclib/fw/amap/ioctl_types.h b/drivers/message/beclib/fw/amap/ioctl_types.h
+> new file mode 100644
+> index 0000000..85f91ca
+> --- /dev/null
+> +++ b/drivers/message/beclib/fw/amap/ioctl_types.h
+> @@ -0,0 +1,450 @@
+> +/*
+> + * Copyright (C) 2005 - 2008 ServerEngines
+> + * All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * as published by the Free Software Foundation; either version 2
+> + * of the License, or at your option any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 51 Franklin Street, 5th Floor
+> + * Boston, MA 02110-1301 USA
+> + *
+> + *
+> + * The full GNU General Public License is included in this distribution
+> + * in the file called GPL.
+> + *
+> + * Contact Information:
+> + * linux-drivers@serverengines.com
+> + *
+> + * ServerEngines
+> + * 209 N. Fair Oaks Ave
+> + * Sunnyvale, CA 94085
+> + */
+> +/*
+> + * Autogenerated by srcgen version: 0127
+> + */
+> +#ifndef __ioctl_types_amap_h__
+> +#define __ioctl_types_amap_h__
+> +#include "nativedefs.h"
+> +#include "ioctl_defs.h"
+> +#include "host_struct.h"
+> +#include "post_codes.h"
+> +
+> +/*
+> + * --- IPVERSIONS ---
+> + * Defintion for IPVersion in IP_ADDRESS_SUBNET_FORMAT and IP_ADDRESS_FORMAT
+> + */
+> +#define IPVERSION_V4                    (0)
+> +#define IPVERSION_V6                    (1)
+> +
+> +/* MAC address format  */
+> +struct BE_MAC_ADDRESS_FORMAT_AMAP {
+> +	struct BE_UEXACT16_AMAP SizeOfStructure;
+> +	struct BE_UEXACT8_AMAP MACAddress[6];
+> +} SG_PACK;
+> +struct MAC_ADDRESS_FORMAT_AMAP {
+> +	u32 dw[2];
+> +};
+> +
+
+
+No, a large device specific management interface using ioctl's (with no documentation)
+is not going to be accepted.
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
