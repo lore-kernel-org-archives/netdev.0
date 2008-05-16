@@ -1,42 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: natsemi.c ioctl fix or mii register access
-Date: Fri, 16 May 2008 22:57:05 +0200
-Message-ID: <20080516205705.GA19586@electric-eye.fr.zoreil.com>
-References: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next 1/6] [BNX2]: Allow phy reset to be skipped during chip reset.
+Date: Fri, 16 May 2008 17:34:30 -0400
+Message-ID: <20080516213430.GC20212@gospo.usersys.redhat.com>
+References: <1210973376.5507.17.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: glenn_engel@agilent.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, andy@greyhouse.net,
+	benli@broadcom.com
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37701 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751824AbYEPVWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 17:22:01 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:54846 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751075AbYEPVeg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2008 17:34:36 -0400
 Content-Disposition: inline
-In-Reply-To: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com>
+In-Reply-To: <1210973376.5507.17.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(please shorten your lines below 80 cols)
-
-glenn_engel@agilent.com <glenn_engel@agilent.com> :
-[...]
-> The specific problems noted and fixed:
+On Fri, May 16, 2008 at 02:29:36PM -0700, Michael Chan wrote:
+> [BNX2]: Allow phy reset to be skipped during chip reset.
 > 
-> 1. The if_mii macro casts it's return to be (struct mii_ioctl_data *) but
-> in reality it returns a pointer to the user space pointer (struct
-> mii_ioctl_data**).   This looks to be a problem with the mii_macro to me.
-> I changed this to use the ifr_data macro instead.
+> Andy Gospodarek <andy@greyhouse.net> found that netconsole would
+> panic when resetting bnx2 devices.
+> 
+> >From Andy:
+> "The issue is the bnx2_set_link in bnx2_init_nic will print a link-status
+> message before we are fully initialized and ready to start polling.
+> Polling is currently disabled in this state, but since the
+> __LINK_STATE_RX_SCHED is overloaded to not only try and disable polling
+> but also to make the system aware there is something waiting to be
+> polled, we really have to fix this in drivers.
+> 
+> The problematic call is the one to netif_rx_complete as it tries to
+> remove an entry from the poll_list when there isn't one."
+> 
+> While this netconsole problem should be fixed separately, we really
+> should not reset the PHY when changing ring sizes, MTU, or other
+> similar settings.  The PHY reset causes several seconds of unnecessary
+> link disruptions.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Cc: Andy Gospodarek <andy@greyhouse.net>
 
-Which user space application did you read the source of ?
+Acked-by: Andy Gospodarek <andy@greyhouse.net>
 
-Afaiks the kernel side looks very similar to any usual network device
-driver ioctl.
-
-> 2. Since the mii_ioctl_data structure resides in user space, it must be
-> copied into kernel space before access and copied back for read results.
-
-Is not it what net/core/dev.c::dev_ioctl does.
-
--- 
-Ueimor
