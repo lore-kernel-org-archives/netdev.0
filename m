@@ -1,234 +1,33 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/6] [BNX2]: Allow phy reset to be skipped
- during chip reset.
-Date: Fri, 16 May 2008 14:29:36 -0700
-Message-ID: <1210973376.5507.17.camel@dell>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of IRQF_SAMPLE_RANDOM
+Date: Fri, 16 May 2008 16:39:33 -0400
+Message-ID: <20080516203932.GH27126@csclub.uwaterloo.ca>
+References: <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org> <20080516132107.GA11304@csclub.uwaterloo.ca> <20080516161029.44ded734@core> <20080516173610.GA27126@csclub.uwaterloo.ca> <20080516191125.46f59ad6@core> <20080516184138.GF27126@csclub.uwaterloo.ca> <20080516210445.6f961627@core>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, benli@broadcom.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4156 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754390AbYEPUiG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2008 16:38:06 -0400
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:59545 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752197AbYEPUje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 16:39:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20080516210445.6f961627@core>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[BNX2]: Allow phy reset to be skipped during chip reset.
+On Fri, May 16, 2008 at 09:04:45PM +0100, Alan Cox wrote:
+> So open /dev/urandom in that case. It's a user space problem - this is
+> policy.
 
-Andy Gospodarek <andy@greyhouse.net> found that netconsole would
-panic when resetting bnx2 devices.
+How does user space know?  Maybe someone is using the serial console,
+maybe not.
 
->From Andy:
-"The issue is the bnx2_set_link in bnx2_init_nic will print a link-status
-message before we are fully initialized and ready to start polling.
-Polling is currently disabled in this state, but since the
-__LINK_STATE_RX_SCHED is overloaded to not only try and disable polling
-but also to make the system aware there is something waiting to be
-polled, we really have to fix this in drivers.
-
-The problematic call is the one to netif_rx_complete as it tries to
-remove an entry from the poll_list when there isn't one."
-
-While this netconsole problem should be fixed separately, we really
-should not reset the PHY when changing ring sizes, MTU, or other
-similar settings.  The PHY reset causes several seconds of unnecessary
-link disruptions.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
----
- drivers/net/bnx2.c |   50 +++++++++++++++++++++++++++-----------------------
- 1 files changed, 27 insertions(+), 23 deletions(-)
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 4b46e68..934c2bf 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -1875,7 +1875,7 @@ bnx2_setup_phy(struct bnx2 *bp, u8 port)
- }
- 
- static int
--bnx2_init_5709s_phy(struct bnx2 *bp)
-+bnx2_init_5709s_phy(struct bnx2 *bp, int reset_phy)
- {
- 	u32 val;
- 
-@@ -1890,7 +1890,8 @@ bnx2_init_5709s_phy(struct bnx2 *bp)
- 	bnx2_write_phy(bp, MII_BNX2_AER_AER, MII_BNX2_AER_AER_AN_MMD);
- 
- 	bnx2_write_phy(bp, MII_BNX2_BLK_ADDR, MII_BNX2_BLK_ADDR_COMBO_IEEEB0);
--	bnx2_reset_phy(bp);
-+	if (reset_phy)
-+		bnx2_reset_phy(bp);
- 
- 	bnx2_write_phy(bp, MII_BNX2_BLK_ADDR, MII_BNX2_BLK_ADDR_SERDES_DIG);
- 
-@@ -1924,11 +1925,12 @@ bnx2_init_5709s_phy(struct bnx2 *bp)
- }
- 
- static int
--bnx2_init_5708s_phy(struct bnx2 *bp)
-+bnx2_init_5708s_phy(struct bnx2 *bp, int reset_phy)
- {
- 	u32 val;
- 
--	bnx2_reset_phy(bp);
-+	if (reset_phy)
-+		bnx2_reset_phy(bp);
- 
- 	bp->mii_up1 = BCM5708S_UP1;
- 
-@@ -1981,9 +1983,10 @@ bnx2_init_5708s_phy(struct bnx2 *bp)
- }
- 
- static int
--bnx2_init_5706s_phy(struct bnx2 *bp)
-+bnx2_init_5706s_phy(struct bnx2 *bp, int reset_phy)
- {
--	bnx2_reset_phy(bp);
-+	if (reset_phy)
-+		bnx2_reset_phy(bp);
- 
- 	bp->phy_flags &= ~BNX2_PHY_FLAG_PARALLEL_DETECT;
- 
-@@ -2018,11 +2021,12 @@ bnx2_init_5706s_phy(struct bnx2 *bp)
- }
- 
- static int
--bnx2_init_copper_phy(struct bnx2 *bp)
-+bnx2_init_copper_phy(struct bnx2 *bp, int reset_phy)
- {
- 	u32 val;
- 
--	bnx2_reset_phy(bp);
-+	if (reset_phy)
-+		bnx2_reset_phy(bp);
- 
- 	if (bp->phy_flags & BNX2_PHY_FLAG_CRC_FIX) {
- 		bnx2_write_phy(bp, 0x18, 0x0c00);
-@@ -2070,7 +2074,7 @@ bnx2_init_copper_phy(struct bnx2 *bp)
- 
- 
- static int
--bnx2_init_phy(struct bnx2 *bp)
-+bnx2_init_phy(struct bnx2 *bp, int reset_phy)
- {
- 	u32 val;
- 	int rc = 0;
-@@ -2096,14 +2100,14 @@ bnx2_init_phy(struct bnx2 *bp)
- 
- 	if (bp->phy_flags & BNX2_PHY_FLAG_SERDES) {
- 		if (CHIP_NUM(bp) == CHIP_NUM_5706)
--			rc = bnx2_init_5706s_phy(bp);
-+			rc = bnx2_init_5706s_phy(bp, reset_phy);
- 		else if (CHIP_NUM(bp) == CHIP_NUM_5708)
--			rc = bnx2_init_5708s_phy(bp);
-+			rc = bnx2_init_5708s_phy(bp, reset_phy);
- 		else if (CHIP_NUM(bp) == CHIP_NUM_5709)
--			rc = bnx2_init_5709s_phy(bp);
-+			rc = bnx2_init_5709s_phy(bp, reset_phy);
- 	}
- 	else {
--		rc = bnx2_init_copper_phy(bp);
-+		rc = bnx2_init_copper_phy(bp, reset_phy);
- 	}
- 
- setup_phy:
-@@ -4873,7 +4877,7 @@ bnx2_reset_nic(struct bnx2 *bp, u32 reset_code)
- }
- 
- static int
--bnx2_init_nic(struct bnx2 *bp)
-+bnx2_init_nic(struct bnx2 *bp, int reset_phy)
- {
- 	int rc;
- 
-@@ -4881,7 +4885,7 @@ bnx2_init_nic(struct bnx2 *bp)
- 		return rc;
- 
- 	spin_lock_bh(&bp->phy_lock);
--	bnx2_init_phy(bp);
-+	bnx2_init_phy(bp, reset_phy);
- 	bnx2_set_link(bp);
- 	if (bp->phy_flags & BNX2_PHY_FLAG_REMOTE_PHY_CAP)
- 		bnx2_remote_phy_event(bp);
-@@ -5269,7 +5273,7 @@ bnx2_test_loopback(struct bnx2 *bp)
- 
- 	bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
- 	spin_lock_bh(&bp->phy_lock);
--	bnx2_init_phy(bp);
-+	bnx2_init_phy(bp, 1);
- 	spin_unlock_bh(&bp->phy_lock);
- 	if (bnx2_run_loopback(bp, BNX2_MAC_LOOPBACK))
- 		rc |= BNX2_MAC_LOOPBACK_FAILED;
-@@ -5659,7 +5663,7 @@ bnx2_open(struct net_device *dev)
- 		return rc;
- 	}
- 
--	rc = bnx2_init_nic(bp);
-+	rc = bnx2_init_nic(bp, 1);
- 
- 	if (rc) {
- 		bnx2_napi_disable(bp);
-@@ -5691,7 +5695,7 @@ bnx2_open(struct net_device *dev)
- 
- 			bnx2_setup_int_mode(bp, 1);
- 
--			rc = bnx2_init_nic(bp);
-+			rc = bnx2_init_nic(bp, 0);
- 
- 			if (!rc)
- 				rc = bnx2_request_irq(bp);
-@@ -5727,7 +5731,7 @@ bnx2_reset_task(struct work_struct *work)
- 	bp->in_reset_task = 1;
- 	bnx2_netif_stop(bp);
- 
--	bnx2_init_nic(bp);
-+	bnx2_init_nic(bp, 1);
- 
- 	atomic_set(&bp->intr_sem, 1);
- 	bnx2_netif_start(bp);
-@@ -6421,7 +6425,7 @@ bnx2_set_coalesce(struct net_device *dev, struct ethtool_coalesce *coal)
- 
- 	if (netif_running(bp->dev)) {
- 		bnx2_netif_stop(bp);
--		bnx2_init_nic(bp);
-+		bnx2_init_nic(bp, 0);
- 		bnx2_netif_start(bp);
- 	}
- 
-@@ -6464,7 +6468,7 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
- 		rc = bnx2_alloc_mem(bp);
- 		if (rc)
- 			return rc;
--		bnx2_init_nic(bp);
-+		bnx2_init_nic(bp, 0);
- 		bnx2_netif_start(bp);
- 	}
- 	return 0;
-@@ -6732,7 +6736,7 @@ bnx2_self_test(struct net_device *dev, struct ethtool_test *etest, u64 *buf)
- 			bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
- 		}
- 		else {
--			bnx2_init_nic(bp);
-+			bnx2_init_nic(bp, 1);
- 			bnx2_netif_start(bp);
- 		}
- 
-@@ -7619,7 +7623,7 @@ bnx2_resume(struct pci_dev *pdev)
- 
- 	bnx2_set_power_state(bp, PCI_D0);
- 	netif_device_attach(dev);
--	bnx2_init_nic(bp);
-+	bnx2_init_nic(bp, 1);
- 	bnx2_netif_start(bp);
- 	return 0;
- }
 -- 
-1.5.5.GIT
-
-
-
+Len Sorensen
