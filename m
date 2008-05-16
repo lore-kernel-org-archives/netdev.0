@@ -1,70 +1,48 @@
-From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/7][MAC8021]: Fix one more call to synchronize_rcu in
- atomic context.
-Date: Fri, 16 May 2008 15:05:36 +0400
-Message-ID: <482D6A80.6030804@openvz.org>
-References: <4821CE54.9000401@openvz.org>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH] [NET] uli526x: add support for netpoll
+Date: Fri, 16 May 2008 15:13:49 +0400
+Message-ID: <20080516111349.GA27587@polina.dev.rtsoft.ru>
+References: <20080515151255.GA12408@polina.dev.rtsoft.ru> <200805152251.24137.florian.fainelli@telecomint.eu>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4821CE54.9000401-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtsoft2.corbina.net ([85.21.88.2]:40547 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with SMTP id S1751255AbYEPLNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 07:13:52 -0400
+Content-Disposition: inline
+In-Reply-To: <200805152251.24137.florian.fainelli@telecomint.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, John. 
+On Thu, May 15, 2008 at 10:51:23PM +0200, Florian Fainelli wrote:
+> Hello Anton,
+>=20
+> Le Thursday 15 May 2008 17:12:55 Anton Vorontsov, vous avez =C3=A9cri=
+t=C2=A0:
+> > +#ifdef CONFIG_NET_POLL_CONTROLLER
+> > +static void uli526x_poll(struct net_device *dev)
+> > +{
+> > +	/* ISR grabs the irqsave lock, so this should be safe */
+> > +	uli526x_interrupt(dev->irq, dev);
+> > +}
+> > +#endif
+>=20
+> You do not need to wrap this function into the ifdef, since setting t=
+he poll=20
+> callback is between ifdef. Otherwise patch looks good.
 
-Sorry for bothering you, I guess that you're very busy now, 
-but what are you plans about this set?
+Nope, I need this #ifdef, otherwise gcc will warn about unused function
+if netpoll is not selected.
 
-After I saw my first set included in some wireless git update,
-I thought this one would be in some of the next ones (since
-this set fixes some bugs in mesh tables), and started waiting.
+Of course, I could do __maybe_unused, but #ifdef is what most (all?)
+drivers are doing.
 
-Here's a new wireless git update and this set is still not in.
-Shall I resubmit one?
-
-Thanks,
-Pavel
-
-> (This set applies OK without the previous one of 4 patches,
->  but with some fuzz in the 7th one)
-> 
-> 
-> The mesh_path_node_free() does so under hashwlock.
-> 
-> But, this one is called
-> 1. from mesh_path_add() after an old hash is hidden and
->    synchronize_rcu() is calld
-> 2. mesh_pathtbl_unregister(), when the module is being
->    unloaded and no devices exist to mess with this hash.
-> 
-> So, it seems to me, that simply removing the call is OK.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-> 
-> ---
->  net/mac80211/mesh_pathtbl.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
-> index 7097ef9..0b6c4bf 100644
-> --- a/net/mac80211/mesh_pathtbl.c
-> +++ b/net/mac80211/mesh_pathtbl.c
-> @@ -458,7 +458,6 @@ static void mesh_path_node_free(struct hlist_node *p, bool free_leafs)
->  	struct mpath_node *node = hlist_entry(p, struct mpath_node, list);
->  	mpath = node->mpath;
->  	hlist_del_rcu(p);
-> -	synchronize_rcu();
->  	if (free_leafs)
->  		kfree(mpath);
->  	kfree(node);
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
