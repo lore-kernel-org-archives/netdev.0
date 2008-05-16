@@ -1,69 +1,49 @@
-From: Ichiro Suzuki <isuzuki@miraclelinux.com>
-Subject: Question about VLAN + checksum offloading
-Date: Fri, 16 May 2008 16:52:54 +0900
-Message-ID: <1210924374.5136.94.camel@localhost.localdomain>
+From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Subject: [PATCH] [SCTP] Fix a type cast bug
+Date: Fri, 16 May 2008 16:49:18 +0800
+Message-ID: <482D4A8E.4090903@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-py9tkLNFFM5oi9V+1Tq0"
-Cc: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: vladislav <vladislav.yasevich@hp.com>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:53549 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430AbYEPIYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 04:24:35 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:57610 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750845AbYEPIvE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2008 04:51:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Vlad,
 
---=-py9tkLNFFM5oi9V+1Tq0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+event_arg can never be the type of "struct sctp_chunk *" 
+if the event_type is SCTP_EVENT_T_OTHER. This fix
+prevents from potential kernel crash by some misuse.
 
-Hi,
+Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+---
+ net/sctp/sm_sideeffect.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-  Looking in oprofile log, I observed
-	csum_partial_copy_generic()
-is invoked for a 802.1Q VLAN device created on e1000,
-This suggests checksum offloading is not in effect.
-The offloading works fine when e1000 is used directly.
-Attached one liner patch fixes this. But, it seems
-too obvious to be a correct answer.
-
-  My questions are,
-o Is it right to expect checksum offloading should work
- on VLAN devices?
-o If so, is there any mechanism to propagate
- real_dev->features flags in vlan.c?
-o If such mechanism doesn't exist, is my patch reasonable?
-.
-
-  The machine arch is x86_64.  I got similar results
-on an ancient 2.6.9 kernel and on the latest 2.6.25.
-
-Thanks in advance,
-----------------------------------------------
-Ichiro Suzuki       <isuzuki@miraclelinux.com>
-Miracle Linux Corp., Advanced Technology Group
-----------------------------------------------
-
-
---=-py9tkLNFFM5oi9V+1Tq0
-Content-Disposition: attachment; filename=linux-2.6.25_vlan.patch
-Content-Type: text/x-patch; name=linux-2.6.25_vlan.patch; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
---- linux-2.6.25.orig/net/8021q/vlan.c	2008-04-17 11:49:44.000000000 +0900
-+++ linux-2.6.25/net/8021q/vlan.c	2008-05-16 15:03:03.000000000 +0900
-@@ -333,6 +333,9 @@ static int register_vlan_device(struct n
- 	 */
- 	new_dev->mtu = real_dev->mtu;
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index a4763fd..1b4bae9 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -1072,7 +1072,8 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+ 	struct sctp_sackhdr sackh;
+ 	int local_cork = 0;
  
-+	/* features setting */
-+	new_dev->features = real_dev->features;
-+
- 	vlan_dev_info(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
- 	vlan_dev_info(new_dev)->real_dev = real_dev;
- 	vlan_dev_info(new_dev)->dent = NULL;
+-	if (SCTP_EVENT_T_TIMEOUT != event_type)
++	if (SCTP_EVENT_T_TIMEOUT != event_type &&
++	    SCTP_EVENT_T_OTHER != event_type)
+ 		chunk = (struct sctp_chunk *) event_arg;
+ 
+ 	/* Note:  This whole file is a huge candidate for rework.
+-- 
+1.5.3
 
---=-py9tkLNFFM5oi9V+1Tq0--
+-- 
+Regards
+Gui Jianfeng
 
