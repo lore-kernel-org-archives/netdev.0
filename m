@@ -1,122 +1,56 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH v2] [NET] uli526x: add support for netpoll
-Date: Fri, 16 May 2008 23:04:51 +0400
-Message-ID: <20080516190451.GA20860@polina.dev.rtsoft.ru>
-References: <20080515151255.GA12408@polina.dev.rtsoft.ru> <200805152251.24137.florian.fainelli@telecomint.eu> <20080516111349.GA27587@polina.dev.rtsoft.ru>
-Reply-To: avorontsov@ru.mvista.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mac80211: rewrite fragmentation code
+Date: Fri, 16 May 2008 12:40:39 -0700 (PDT)
+Message-ID: <20080516.124039.253626477.davem@davemloft.net>
+References: <200805161201.48835.rusty@rustcorp.com.au>
+	<20080515.215823.28841530.davem@davemloft.net>
+	<200805162032.48469.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Florian Fainelli <florian.fainelli@telecomint.eu>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, mb@bu3sch.de,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, ron.rindjunsky@intel.com, tomasw@gmail.com,
+	ivdoorn@gmail.com, peter.p.waskiewicz.jr@intel.com
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft2.corbina.net ([85.21.88.2]:43925 "HELO
-	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with SMTP id S1752436AbYEPTEx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 15:04:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20080516111349.GA27587@polina.dev.rtsoft.ru>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44767
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750951AbYEPTkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 15:40:45 -0400
+In-Reply-To: <200805162032.48469.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds netpoll support for the uli526x ethernet driver --
-simply call the interrupt handler for polling.
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Fri, 16 May 2008 20:32:48 +1000
 
-To do this without disable_irq()/enable_irq() pair we should fully
-protect the handler. Luckily, it's already using irqsave spinlock,
-the only unprotected place is interrupts re-enabling write. It was
-safe to re-enable interrupts without holding the spinlock, but with
-netpoll possibility now it doesn't seem so.
+> On Friday 16 May 2008 14:58:23 David Miller wrote:
+> > In fact, I want to move things more and more towards the driver
+> > queueing TX packets internally instead of the networking mid-layer.
+> >
+> > That will ahve benefits for things like TX multiqueue, we won't
+> > need any locking at all, nor have any knowledge about multiple
+> > queues at all, if the driver takes care of providing the buffer
+> > between what the kernel gives it and what the device can handle
+> > at the moment.
+> 
+> That would be great: then I could shove the packet back on the queue myself 
+> and not have to ask you about it.  It's adding a *second* queue inside the 
+> driver which feels terribly ugly...
 
-Patch was tested using netconsole and KGDBoE.
+My description describes how I want the mid-layer queue to disappear
+entirely.  Queueing would be done by the driver only.
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
+Only the driver knows all of these details about how much space there
+is, what packet chopping has to take place and what effects that has
+on queue space, multiqueue configurations, how one wants to hash to
+multiple queues, how to lock this stuff the most efficiently.
 
-On Fri, May 16, 2008 at 03:13:49PM +0400, Anton Vorontsov wrote:
-> On Thu, May 15, 2008 at 10:51:23PM +0200, Florian Fainelli wrote:
-> > Hello Anton,
-> >=20
-> > Le Thursday 15 May 2008 17:12:55 Anton Vorontsov, vous avez =C3=A9c=
-rit=C2=A0:
-> > > +#ifdef CONFIG_NET_POLL_CONTROLLER
-> > > +static void uli526x_poll(struct net_device *dev)
-> > > +{
-> > > +	/* ISR grabs the irqsave lock, so this should be safe */
-> > > +	uli526x_interrupt(dev->irq, dev);
-> > > +}
-> > > +#endif
-> >=20
-> > You do not need to wrap this function into the ifdef, since setting=
- the poll=20
-> > callback is between ifdef. Otherwise patch looks good.
->=20
-> Nope, I need this #ifdef, otherwise gcc will warn about unused functi=
-on
-> if netpoll is not selected.
+The kernel should just get out of the way and let the driver take care
+of everything.
 
-Even more, I need #ifdef the declaration, because gcc will warn too. :-=
-)
-Oops. Here is v2.
-
- drivers/net/tulip/uli526x.c |   16 +++++++++++++++-
- 1 files changed, 15 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/tulip/uli526x.c
-index 2511ca7..e9e6286 100644
---- a/drivers/net/tulip/uli526x.c
-+++ b/drivers/net/tulip/uli526x.c
-@@ -225,6 +225,9 @@ static void uli526x_set_filter_mode(struct net_devi=
-ce *);
- static const struct ethtool_ops netdev_ethtool_ops;
- static u16 read_srom_word(long, int);
- static irqreturn_t uli526x_interrupt(int, void *);
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void uli526x_poll(struct net_device *dev);
-+#endif
- static void uli526x_descriptor_init(struct uli526x_board_info *, unsig=
-ned long);
- static void allocate_rx_buffer(struct uli526x_board_info *);
- static void update_cr6(u32, unsigned long);
-@@ -339,6 +342,9 @@ static int __devinit uli526x_init_one (struct pci_d=
-ev *pdev,
- 	dev->get_stats =3D &uli526x_get_stats;
- 	dev->set_multicast_list =3D &uli526x_set_filter_mode;
- 	dev->ethtool_ops =3D &netdev_ethtool_ops;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller =3D &uli526x_poll;
-+#endif
- 	spin_lock_init(&db->lock);
-=20
-=20
-@@ -681,8 +687,9 @@ static irqreturn_t uli526x_interrupt(int irq, void =
-*dev_id)
- 	db->cr5_data =3D inl(ioaddr + DCR5);
- 	outl(db->cr5_data, ioaddr + DCR5);
- 	if ( !(db->cr5_data & 0x180c1) ) {
--		spin_unlock_irqrestore(&db->lock, flags);
-+		/* Restore CR7 to enable interrupt mask */
- 		outl(db->cr7_data, ioaddr + DCR7);
-+		spin_unlock_irqrestore(&db->lock, flags);
- 		return IRQ_HANDLED;
- 	}
-=20
-@@ -715,6 +722,13 @@ static irqreturn_t uli526x_interrupt(int irq, void=
- *dev_id)
- 	return IRQ_HANDLED;
- }
-=20
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void uli526x_poll(struct net_device *dev)
-+{
-+	/* ISR grabs the irqsave lock, so this should be safe */
-+	uli526x_interrupt(dev->irq, dev);
-+}
-+#endif
-=20
- /*
-  *	Free TX resource after TX complete
---=20
-1.5.5.1
-
+Sure, we can have some standard helpers to deal with the most common
+cases.  But anything non-trivial right now is painful because the
+mid-layer model tries to be too helpful when it should just get out
+of the way.
