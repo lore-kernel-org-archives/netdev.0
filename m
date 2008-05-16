@@ -1,46 +1,76 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
- IRQF_SAMPLE_RANDOM
-Date: Fri, 16 May 2008 19:11:25 +0100
-Message-ID: <20080516191125.46f59ad6@core>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
-	<20080515142154.0595e475@core>
-	<36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
-	<482C7B18.6060003@garzik.org>
-	<482C7E53.3050300@hp.com>
-	<482C8184.2030906@garzik.org>
-	<482C8550.5000909@intel.com>
-	<482C8D4D.3040702@garzik.org>
-	<20080516132107.GA11304@csclub.uwaterloo.ca>
-	<20080516161029.44ded734@core>
-	<20080516173610.GA27126@csclub.uwaterloo.ca>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH -next] 3c515: fix using pnp_get_resource when CONFIG_ISAPNP=n
+Date: Fri, 16 May 2008 11:21:35 -0700
+Message-ID: <482DD0AF.7070003@oracle.com>
+References: <20080516103524.0b00ffb6.randy.dunlap@oracle.com> <200805161215.06046.bjorn.helgaas@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Cc: netdev <netdev@vger.kernel.org>, jgarzik <jgarzik@pobox.com>,
+	linux-next@vger.kernel.org, akpm <akpm@linux-foundation.org>
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:34924 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754377AbYEPSXH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 14:23:07 -0400
-In-Reply-To: <20080516173610.GA27126@csclub.uwaterloo.ca>
+Received: from agminet01.oracle.com ([141.146.126.228]:33936 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759732AbYEPSXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 14:23:24 -0400
+In-Reply-To: <200805161215.06046.bjorn.helgaas@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> So what is one to do if a few applications want to read from /dev/random
-> but you have no excellent source of entropy on the system?  Wait
-> forever?  
+Bjorn Helgaas wrote:
+> On Friday 16 May 2008 11:35:24 am Randy Dunlap wrote:
+>> From: Randy Dunlap <randy.dunlap@oracle.com>
+>>
+>> 3c515.c uses pnp_irq(), which calls pnp_get_resource(),
+>> which is not defined when CONFIG_PNP=n, so in that case,
+>> get the IRQ from a hardware register.
+>>
+>> 3c515.c:(.text+0x3adc0): undefined reference to `pnp_get_resource'
+>>
+>> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> Hmm, wonder why my allyesconfig didn't catch this one.
 
-Yes.
+Because parts of it are =n.  :)
 
-If they don't need that level of security they can use /dev/urandom.
-Piping network randomness into /dev/urandom is probably quite sensible
-but not into /dev/random.
+> I prefer CONFIG_PNP to __ISAPNP__ in general, but I see
+> you're just following the other tests in the same file.
 
-Alan
+Yes.  And it would need to be CONFIG_ISAPNP, not CONFIG_PNP.
+
+> 
+> Thanks!
+> 
+> Acked-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+> 
+>> ---
+>>  drivers/net/3c515.c |    4 ++++
+>>  1 file changed, 4 insertions(+)
+>>
+>> --- next-20080516.orig/drivers/net/3c515.c
+>> +++ next-20080516/drivers/net/3c515.c
+>> @@ -572,12 +572,16 @@ static int corkscrew_setup(struct net_de
+>>  	int irq;
+>>  	DECLARE_MAC_BUF(mac);
+>>  
+>> +#ifdef __ISAPNP__
+>>  	if (idev) {
+>>  		irq = pnp_irq(idev, 0);
+>>  		vp->dev = &idev->dev;
+>>  	} else {
+>>  		irq = inw(ioaddr + 0x2002) & 15;
+>>  	}
+>> +#else
+>> +	irq = inw(ioaddr + 0x2002) & 15;
+>> +#endif
+>>  
+>>  	dev->base_addr = ioaddr;
+>>  	dev->irq = irq;
+>>
+> 
+> 
+
+
+-- 
+~Randy
