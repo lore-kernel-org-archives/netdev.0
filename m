@@ -1,38 +1,61 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of IRQF_SAMPLE_RANDOM
-Date: Fri, 16 May 2008 13:36:10 -0400
-Message-ID: <20080516173610.GA27126@csclub.uwaterloo.ca>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org> <20080516132107.GA11304@csclub.uwaterloo.ca> <20080516161029.44ded734@core>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: Need ioctl for multiple register phy access
+Date: Fri, 16 May 2008 13:05:41 -0500
+Message-ID: <F926C377-5D8A-44BF-B3A0-B9A397514200@freescale.com>
+References: <010200463BAAFF45926C5BFD8E21F515F525F9@cos-us-mb01.cos.agilent.com>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: "<glenn_engel@agilent.com>" <glenn_engel@agilent.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:49609 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752005AbYEPRgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 13:36:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20080516161029.44ded734@core>
+Received: from az33egw02.freescale.net ([192.88.158.103]:55090 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754088AbYEPSFv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 14:05:51 -0400
+In-Reply-To: <010200463BAAFF45926C5BFD8E21F515F525F9@cos-us-mb01.cos.agilent.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2008 at 04:10:29PM +0100, Alan Cox wrote:
-> Ethernet is observable so ethernet isn't entropy. There is no "anything
-> else" here -> there is no *anything*
 
-So what is one to do if a few applications want to read from /dev/random
-but you have no excellent source of entropy on the system?  Wait
-forever?  I think ethernet interrupts are better than nothing, and I
-really doubt that someone would be able to predict what the entropy
-generated would be in practice.  If you have that good access to the
-physical network, then probably have physical access to the system
-itself, in which case it is all irrelevant.
+On May 16, 2008, at 11:34, <glenn_engel@agilent.com> <glenn_engel@agilent.com 
+ > wrote:
 
--- 
-Len Sorensen
+> Some of the newer versions of the National Phy chip have additional  
+> 'pages' of registers for things like link diagnostics or ieee1588  
+> control.  Some of these require multiple writes to the phy (e.g  
+> write page number to reg 19, then write to one or more registers on  
+> that page).  Additionally, some phy registers have depth and may  
+> need multiple reads or writes as they have more than 16 bits of  
+> data.  Since these operations need to be done without interruption  
+> of other phy commands, the usual write one register or read one  
+> register ioctl technique does not work.  Since the phy access is an  
+> intimate part of the driver it would seem the logical place would be  
+> to enhance the existing driver to deal with these new phy  
+> capabilities.
+>
+> Option 1. - Use the existing SIOCGMIIREG/SIOCSMIIREG ioctl and use a  
+> magic phy_id (e.g 0xffff) in the mii_ioctl_data structure to  
+> indicate a multi register access request.   The data would then be  
+> encoded as a variable length sequence:
+>
+>    <number of bytes to follow>
+>    <16 bit encoded R/W, phy id, page#, register#>
+>    <16 bit write value or read result>
+>    <repeat in groups of two 16 bit words>
+>
+> Option 2 - Add a new ioctl to allow multiple register access.  The  
+> format would be something like a list of 'commands' such as read  
+> register R1 on page P1,  write register R2 on page P2 etc.  I see an  
+> ioctl SIOCDEVPRIVATE but I also see a comment about it being removed  
+> in the future.
+>
+> Suggestions welcome on how to address this.
+
+
+Another option would be to use the PHY Lib to deal with this.  Porting  
+a driver to use the PHY Lib is fairly easy, and then you would have  
+the ability to lock the bus and do your writes, or to modify the  
+driver for that PHY so it configures things as needed.
+
+Andy
