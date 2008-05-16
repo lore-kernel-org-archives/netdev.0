@@ -1,145 +1,232 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 2/6] [BNX2]: Add EEH PCI recovery
-Date: Fri, 16 May 2008 14:29:59 -0700
-Message-ID: <1210973399.5507.18.camel@dell>
+Subject: [PATCH net-next 1/6] [BNX2]: Allow phy reset to be skipped
+ during chip reset.
+Date: Fri, 16 May 2008 14:29:36 -0700
+Message-ID: <1210973376.5507.17.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, benli@broadcom.com,
-	wendyx@us.ibm.com
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, benli@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:4156 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753612AbYEPUiD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2008 16:38:03 -0400
+	id S1754390AbYEPUiG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2008 16:38:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[BNX2]: Add EEH PCI recovery.
+[BNX2]: Allow phy reset to be skipped during chip reset.
 
-Add PCI recovery functions to the driver.  The initial pci state is
-also saved so the the MSI state can be restored during PCI recovery.
+Andy Gospodarek <andy@greyhouse.net> found that netconsole would
+panic when resetting bnx2 devices.
 
-Signed-off-by: Wendy Xiong <wendyx@us.ibm.com>
+>From Andy:
+"The issue is the bnx2_set_link in bnx2_init_nic will print a link-status
+message before we are fully initialized and ready to start polling.
+Polling is currently disabled in this state, but since the
+__LINK_STATE_RX_SCHED is overloaded to not only try and disable polling
+but also to make the system aware there is something waiting to be
+polled, we really have to fix this in drivers.
+
+The problematic call is the one to netif_rx_complete as it tries to
+remove an entry from the poll_list when there isn't one."
+
+While this netconsole problem should be fixed separately, we really
+should not reset the PHY when changing ring sizes, MTU, or other
+similar settings.  The PHY reset causes several seconds of unnecessary
+link disruptions.
+
 Signed-off-by: Michael Chan <mchan@broadcom.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
 ---
- drivers/net/bnx2.c |   88 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 88 insertions(+), 0 deletions(-)
+ drivers/net/bnx2.c |   50 +++++++++++++++++++++++++++-----------------------
+ 1 files changed, 27 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 934c2bf..2589b99 100644
+index 4b46e68..934c2bf 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -7119,6 +7119,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 	}
- 
- 	pci_set_master(pdev);
-+	pci_save_state(pdev);
- 
- 	bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
- 	if (bp->pm_cap == 0) {
-@@ -7628,6 +7629,92 @@ bnx2_resume(struct pci_dev *pdev)
- 	return 0;
+@@ -1875,7 +1875,7 @@ bnx2_setup_phy(struct bnx2 *bp, u8 port)
  }
  
-+/**
-+ * bnx2_io_error_detected - called when PCI error is detected
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci connection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
-+ */
-+static pci_ers_result_t bnx2_io_error_detected(struct pci_dev *pdev,
-+					       pci_channel_state_t state)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct bnx2 *bp = netdev_priv(dev);
-+
-+	rtnl_lock();
-+	netif_device_detach(dev);
-+
-+	if (netif_running(dev)) {
-+		bnx2_netif_stop(bp);
-+		del_timer_sync(&bp->timer);
-+		bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
-+	}
-+
-+	pci_disable_device(pdev);
-+	rtnl_unlock();
-+
-+	/* Request a slot slot reset. */
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * bnx2_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch, as if from a cold-boot.
-+ */
-+static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct bnx2 *bp = netdev_priv(dev);
-+
-+	rtnl_lock();
-+	if (pci_enable_device(pdev)) {
-+		dev_err(&pdev->dev,
-+			"Cannot re-enable PCI device after reset.\n");
-+		rtnl_unlock();
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+	pci_set_master(pdev);
-+	pci_restore_state(pdev);
-+
-+	if (netif_running(dev)) {
-+		bnx2_set_power_state(bp, PCI_D0);
-+		bnx2_init_nic(bp, 1);
-+	}
-+
-+	rtnl_unlock();
-+	return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * bnx2_io_resume - called when traffic can start flowing again.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * This callback is called when the error recovery driver tells us that
-+ * its OK to resume normal operation.
-+ */
-+static void bnx2_io_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct bnx2 *bp = netdev_priv(dev);
-+
-+	rtnl_lock();
-+	if (netif_running(dev))
-+		bnx2_netif_start(bp);
-+
-+	netif_device_attach(dev);
-+	rtnl_unlock();
-+}
-+
-+static struct pci_error_handlers bnx2_err_handler = {
-+	.error_detected	= bnx2_io_error_detected,
-+	.slot_reset	= bnx2_io_slot_reset,
-+	.resume		= bnx2_io_resume,
-+};
-+
- static struct pci_driver bnx2_pci_driver = {
- 	.name		= DRV_MODULE_NAME,
- 	.id_table	= bnx2_pci_tbl,
-@@ -7635,6 +7722,7 @@ static struct pci_driver bnx2_pci_driver = {
- 	.remove		= __devexit_p(bnx2_remove_one),
- 	.suspend	= bnx2_suspend,
- 	.resume		= bnx2_resume,
-+	.err_handler	= &bnx2_err_handler,
- };
+ static int
+-bnx2_init_5709s_phy(struct bnx2 *bp)
++bnx2_init_5709s_phy(struct bnx2 *bp, int reset_phy)
+ {
+ 	u32 val;
  
- static int __init bnx2_init(void)
+@@ -1890,7 +1890,8 @@ bnx2_init_5709s_phy(struct bnx2 *bp)
+ 	bnx2_write_phy(bp, MII_BNX2_AER_AER, MII_BNX2_AER_AER_AN_MMD);
+ 
+ 	bnx2_write_phy(bp, MII_BNX2_BLK_ADDR, MII_BNX2_BLK_ADDR_COMBO_IEEEB0);
+-	bnx2_reset_phy(bp);
++	if (reset_phy)
++		bnx2_reset_phy(bp);
+ 
+ 	bnx2_write_phy(bp, MII_BNX2_BLK_ADDR, MII_BNX2_BLK_ADDR_SERDES_DIG);
+ 
+@@ -1924,11 +1925,12 @@ bnx2_init_5709s_phy(struct bnx2 *bp)
+ }
+ 
+ static int
+-bnx2_init_5708s_phy(struct bnx2 *bp)
++bnx2_init_5708s_phy(struct bnx2 *bp, int reset_phy)
+ {
+ 	u32 val;
+ 
+-	bnx2_reset_phy(bp);
++	if (reset_phy)
++		bnx2_reset_phy(bp);
+ 
+ 	bp->mii_up1 = BCM5708S_UP1;
+ 
+@@ -1981,9 +1983,10 @@ bnx2_init_5708s_phy(struct bnx2 *bp)
+ }
+ 
+ static int
+-bnx2_init_5706s_phy(struct bnx2 *bp)
++bnx2_init_5706s_phy(struct bnx2 *bp, int reset_phy)
+ {
+-	bnx2_reset_phy(bp);
++	if (reset_phy)
++		bnx2_reset_phy(bp);
+ 
+ 	bp->phy_flags &= ~BNX2_PHY_FLAG_PARALLEL_DETECT;
+ 
+@@ -2018,11 +2021,12 @@ bnx2_init_5706s_phy(struct bnx2 *bp)
+ }
+ 
+ static int
+-bnx2_init_copper_phy(struct bnx2 *bp)
++bnx2_init_copper_phy(struct bnx2 *bp, int reset_phy)
+ {
+ 	u32 val;
+ 
+-	bnx2_reset_phy(bp);
++	if (reset_phy)
++		bnx2_reset_phy(bp);
+ 
+ 	if (bp->phy_flags & BNX2_PHY_FLAG_CRC_FIX) {
+ 		bnx2_write_phy(bp, 0x18, 0x0c00);
+@@ -2070,7 +2074,7 @@ bnx2_init_copper_phy(struct bnx2 *bp)
+ 
+ 
+ static int
+-bnx2_init_phy(struct bnx2 *bp)
++bnx2_init_phy(struct bnx2 *bp, int reset_phy)
+ {
+ 	u32 val;
+ 	int rc = 0;
+@@ -2096,14 +2100,14 @@ bnx2_init_phy(struct bnx2 *bp)
+ 
+ 	if (bp->phy_flags & BNX2_PHY_FLAG_SERDES) {
+ 		if (CHIP_NUM(bp) == CHIP_NUM_5706)
+-			rc = bnx2_init_5706s_phy(bp);
++			rc = bnx2_init_5706s_phy(bp, reset_phy);
+ 		else if (CHIP_NUM(bp) == CHIP_NUM_5708)
+-			rc = bnx2_init_5708s_phy(bp);
++			rc = bnx2_init_5708s_phy(bp, reset_phy);
+ 		else if (CHIP_NUM(bp) == CHIP_NUM_5709)
+-			rc = bnx2_init_5709s_phy(bp);
++			rc = bnx2_init_5709s_phy(bp, reset_phy);
+ 	}
+ 	else {
+-		rc = bnx2_init_copper_phy(bp);
++		rc = bnx2_init_copper_phy(bp, reset_phy);
+ 	}
+ 
+ setup_phy:
+@@ -4873,7 +4877,7 @@ bnx2_reset_nic(struct bnx2 *bp, u32 reset_code)
+ }
+ 
+ static int
+-bnx2_init_nic(struct bnx2 *bp)
++bnx2_init_nic(struct bnx2 *bp, int reset_phy)
+ {
+ 	int rc;
+ 
+@@ -4881,7 +4885,7 @@ bnx2_init_nic(struct bnx2 *bp)
+ 		return rc;
+ 
+ 	spin_lock_bh(&bp->phy_lock);
+-	bnx2_init_phy(bp);
++	bnx2_init_phy(bp, reset_phy);
+ 	bnx2_set_link(bp);
+ 	if (bp->phy_flags & BNX2_PHY_FLAG_REMOTE_PHY_CAP)
+ 		bnx2_remote_phy_event(bp);
+@@ -5269,7 +5273,7 @@ bnx2_test_loopback(struct bnx2 *bp)
+ 
+ 	bnx2_reset_nic(bp, BNX2_DRV_MSG_CODE_RESET);
+ 	spin_lock_bh(&bp->phy_lock);
+-	bnx2_init_phy(bp);
++	bnx2_init_phy(bp, 1);
+ 	spin_unlock_bh(&bp->phy_lock);
+ 	if (bnx2_run_loopback(bp, BNX2_MAC_LOOPBACK))
+ 		rc |= BNX2_MAC_LOOPBACK_FAILED;
+@@ -5659,7 +5663,7 @@ bnx2_open(struct net_device *dev)
+ 		return rc;
+ 	}
+ 
+-	rc = bnx2_init_nic(bp);
++	rc = bnx2_init_nic(bp, 1);
+ 
+ 	if (rc) {
+ 		bnx2_napi_disable(bp);
+@@ -5691,7 +5695,7 @@ bnx2_open(struct net_device *dev)
+ 
+ 			bnx2_setup_int_mode(bp, 1);
+ 
+-			rc = bnx2_init_nic(bp);
++			rc = bnx2_init_nic(bp, 0);
+ 
+ 			if (!rc)
+ 				rc = bnx2_request_irq(bp);
+@@ -5727,7 +5731,7 @@ bnx2_reset_task(struct work_struct *work)
+ 	bp->in_reset_task = 1;
+ 	bnx2_netif_stop(bp);
+ 
+-	bnx2_init_nic(bp);
++	bnx2_init_nic(bp, 1);
+ 
+ 	atomic_set(&bp->intr_sem, 1);
+ 	bnx2_netif_start(bp);
+@@ -6421,7 +6425,7 @@ bnx2_set_coalesce(struct net_device *dev, struct ethtool_coalesce *coal)
+ 
+ 	if (netif_running(bp->dev)) {
+ 		bnx2_netif_stop(bp);
+-		bnx2_init_nic(bp);
++		bnx2_init_nic(bp, 0);
+ 		bnx2_netif_start(bp);
+ 	}
+ 
+@@ -6464,7 +6468,7 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
+ 		rc = bnx2_alloc_mem(bp);
+ 		if (rc)
+ 			return rc;
+-		bnx2_init_nic(bp);
++		bnx2_init_nic(bp, 0);
+ 		bnx2_netif_start(bp);
+ 	}
+ 	return 0;
+@@ -6732,7 +6736,7 @@ bnx2_self_test(struct net_device *dev, struct ethtool_test *etest, u64 *buf)
+ 			bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
+ 		}
+ 		else {
+-			bnx2_init_nic(bp);
++			bnx2_init_nic(bp, 1);
+ 			bnx2_netif_start(bp);
+ 		}
+ 
+@@ -7619,7 +7623,7 @@ bnx2_resume(struct pci_dev *pdev)
+ 
+ 	bnx2_set_power_state(bp, PCI_D0);
+ 	netif_device_attach(dev);
+-	bnx2_init_nic(bp);
++	bnx2_init_nic(bp, 1);
+ 	bnx2_netif_start(bp);
+ 	return 0;
+ }
 -- 
 1.5.5.GIT
 
