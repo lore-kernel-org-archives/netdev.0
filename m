@@ -1,69 +1,68 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] mac80211: rewrite fragmentation code
-Date: Fri, 16 May 2008 12:38:58 +0200
-Message-ID: <1210934338.4000.24.camel@johannes.berg>
-References: <20080508032208.GA401@gondor.apana.org.au>
-	 <200805161201.48835.rusty@rustcorp.com.au>
-	 <20080515.215823.28841530.davem@davemloft.net>
-	 <200805162032.48469.rusty@rustcorp.com.au>
-	 (sfid-20080516_123407_138874_003A5D7F)
+From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/7][MAC8021]: Fix one more call to synchronize_rcu in
+ atomic context.
+Date: Fri, 16 May 2008 15:05:36 +0400
+Message-ID: <482D6A80.6030804@openvz.org>
+References: <4821CE54.9000401@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-VZds1be4maOlaCNsOgfd"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-	mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200805162032.48469.rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org> (sfid-20080516_123407_138874_003A5D7F)
+In-Reply-To: <4821CE54.9000401-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi, John. 
 
---=-VZds1be4maOlaCNsOgfd
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Sorry for bothering you, I guess that you're very busy now, 
+but what are you plans about this set?
 
+After I saw my first set included in some wireless git update,
+I thought this one would be in some of the next ones (since
+this set fixes some bugs in mesh tables), and started waiting.
 
-> I put a patch in to do exactly that at Herbert's prompting, for 2.6.26, b=
-ut=20
-> it's buggy in (at least) two ways.  I have a fix for this, which adds a n=
-ew=20
-> tasklet to xmit the packet.  There's still some subtle race, however, sin=
-ce=20
-> I'm still seeing a stuck packet.  I'll have to revert to TX_BUSY for 2.6.=
-26=20
-> if I can't find it (unlikely).
+Here's a new wireless git update and this set is still not in.
+Shall I resubmit one?
 
-Incidentally, mac80211 has a tasklet for this as well, and I'm pretty
-sure it's also buggy in the corner cases (rather than inefficient or
-something)
+Thanks,
+Pavel
 
-johannes
-
---=-VZds1be4maOlaCNsOgfd
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASC1kQaVg1VMiehFYAQKEvg/+IsfkpctQ26S9HoVt4QDI2aeZAHLcQird
-PcUmSemFb2uiu4LWey+7ia7D841XYLyrAfV/JmRP+HP68TF2x5SbeXV2AxaNMb96
-oitVUqh+SMctAbJ28gF/eekeJ4/7WQ2Iv3I7ywWv+1ZfxREellRjZpe2ix3AVoCc
-Ak9bkASOkY7PER7S+gE3+MQlbUQLuCJvQTdc3hAHsGHAv33xKHHnLf4xykKOqq3h
-MkFErN4t+XIlV9PCeJEiXcOFFXbfHidDImGA5RUiqBdMAMCD6EVe3ISZoJeRIGSW
-wMFEsWBceSpy+ykHkEJn9uo9oDWDTL2CGVMWav1Y20NJSCQyaRh+GNV1kjQTLueF
-+6RRIknEvfN3MabU2Uv7pfIMeo1pLPBIDDDeVKfVuC/l6EH+1ywODHrx9ziePyJZ
-ljuut5roCMjQAPBU+ZwOe9sEfi78ahFeiHTnKcG1KpFUZ/vUUD3JWvCGbiYgZmI6
-qjcN42x2wn9L+xAJuZEvei0HgS9/P/owkq/ybVlPy+IofScV36sXeut8EyN+oLxG
-U9hdN4aYltsDq9Kt65D7i6cDmW4R2rb5aTuaf4HWMicfC74OcclvD3DhIPv/xl60
-bMdhpZTqj79nh4iArI4GE1YrinBVL05O9UTe5OuxZlztFmjk/gj4zKJze+sRYP+o
-b1i39aOtDm4=
-=JmTb
------END PGP SIGNATURE-----
-
---=-VZds1be4maOlaCNsOgfd--
+> (This set applies OK without the previous one of 4 patches,
+>  but with some fuzz in the 7th one)
+> 
+> 
+> The mesh_path_node_free() does so under hashwlock.
+> 
+> But, this one is called
+> 1. from mesh_path_add() after an old hash is hidden and
+>    synchronize_rcu() is calld
+> 2. mesh_pathtbl_unregister(), when the module is being
+>    unloaded and no devices exist to mess with this hash.
+> 
+> So, it seems to me, that simply removing the call is OK.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+> 
+> ---
+>  net/mac80211/mesh_pathtbl.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
+> index 7097ef9..0b6c4bf 100644
+> --- a/net/mac80211/mesh_pathtbl.c
+> +++ b/net/mac80211/mesh_pathtbl.c
+> @@ -458,7 +458,6 @@ static void mesh_path_node_free(struct hlist_node *p, bool free_leafs)
+>  	struct mpath_node *node = hlist_entry(p, struct mpath_node, list);
+>  	mpath = node->mpath;
+>  	hlist_del_rcu(p);
+> -	synchronize_rcu();
+>  	if (free_leafs)
+>  		kfree(mpath);
+>  	kfree(node);
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
