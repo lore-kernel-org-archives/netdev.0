@@ -1,71 +1,86 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/3] ixgbe: Add Data Center Bridging netlink listener
- for DCB runtime changes.
-Date: Fri, 16 May 2008 16:20:22 -0700
-Message-ID: <20080516162022.41ee0b07@extreme>
-References: <20080502004254.14392.7599.stgit@localhost.localdomain>
-	<20080502004300.14392.87943.stgit@localhost.localdomain>
-	<481AF501.3030507@pobox.com>
-	<D5C1322C3E673F459512FB59E0DDC3290509D540@orsmsx414.amr.corp.intel.com>
-	<48221B79.2010808@pobox.com>
-	<D5C1322C3E673F459512FB59E0DDC32905168831@orsmsx414.amr.corp.intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Fri, 16 May 2008 16:28:25 -0700
+Message-ID: <482E1899.7020604@hp.com>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>	<20080515142154.0595e475@core>	<36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>	<20080515173939.1ec968be@core> <482C7DA3.1090809@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@pobox.com>,
-	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:56534 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754703AbYEPXU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2008 19:20:28 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32905168831@orsmsx414.amr.corp.intel.com>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:9596 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350AbYEPX23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 19:28:29 -0400
+In-Reply-To: <482C7DA3.1090809@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 May 2008 15:45:11 -0700
-"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com> wrote:
+Jeff Garzik wrote:
+> The Treacherous Platform Module includes an RNG.
+> 
+> Someone (hi Jesse?) should implement support for TPM_GetRandom.
+> 
+> All the specs are public, and the hardware is already in users' hands.
 
-> > But like everything else in life, one must weight various 
-> > costs.  Maybe it is complex enough to warrant a new tool.  We 
-> > don't know until there's a design doc or review of the 
-> > generic interface that will be used for DCB.
-> 
-> 100% agree.  I have a design document added to the bottom of this email
-> in plain text for the in-kernel design.  I can send a PDF or OpenOffice
-> doc if desired.  Please review it, see if that's something worth
-> supporting and developing, and send feedback.  If things look ok, I'll
-> write the in-kernel layer and send those patches asap, along with a
-> modified ixgbe to use the new interface.
-> 
-> Thanks Jeff,
-> 
-> -PJ Waskiewicz
-> <peter.p.waskiewicz.jr@intel.com>
-> 
-> ------------------------------------------------------
-> 
-> Linux Kernel Interface Design for Data Center Bridging
-> Peter P. Waskiewicz Jr, Intel Corp.
-> 5/16/2008
-> 
-> Overview:
-> 	Data Center Bridging is a new layer 2 networking technology
-> targeted for data centers looking to converge certain network flows.
-> The technology uses 802.1p priority tagging from 802.1q, and then adds
-> the new 802.1Qaz Priority Grouping and 802.1Qbb Priority Flow Control
-> technologies.  The purpose is to provide per-priority flow control to
-> individual network flows without impacting other flows.  It also
-> provides the mechanism to enforce bandwidth allocation per flow.
-> 	A Wikipedia article describing the network-wide model this fits
-> into can be found here:
-> http://en.wikipedia.org/wiki/Data_Center_Ethernet.
-> 
+My curiousity got the better of me, so I enabled the TPM (Infineon)
+
+moe:~# dmesg | grep -i tpm
+tpm_inf_pnp 00:05: Found TPM with ID IFX0101
+tpm_inf_pnp 00:05: TPM found: config base 0xff5b804e, data base 
+0xff5b8000, chip version 0x0006, vendor id 0x15d1 (Infineon), product id 
+0x0006 (SLD 9630 TT 1.1)
+
+on a system I had, and using whatever Debian Lenny (w 2.6.24-1 kernel) 
+offers for trousers and tcsd etc, a bunch of help from some other HPers, 
+and a hacked example program from an HP-UX document I pressed-on without 
+much understanding and arrived at:
+
+moe:~# time ./raj_example -c 1000
+making 1000 Tspi_TPM_GetRandom calls of 16 bytes each
+
+real    0m28.033s
+user    0m0.000s
+sys     0m0.000s
 
 
-I wonder if doing this generically with existing bridge code would
-be a better approach. It seems like the TOE problem all over again,
-only this time it is Traffic Control offload. Sorry, just because
-you can do it in hardware doesn't mean it is a good thing.
+28.0033s / 1000 calls = 2.8 ms per call.  While this was happening top 
+was reporting  1% CPU time in the tcsd.
 
+I've no idea how much feeding /dev/random would want and how often, but 
+there is some crude data on overhead for pulling random numbers out of 
+at least one TPM.  Here is some varying of the number of bytes requested 
+each time:
+
+moe:~# for i in 1 16 32 64
+ > do
+ > time ./raj_example -c 1000 -r $i
+ > done
+making 1000 Tspi_TPM_GetRandom calls of 1 bytes each
+
+real    0m24.146s
+user    0m0.008s
+sys     0m0.000s
+making 1000 Tspi_TPM_GetRandom calls of 16 bytes each
+
+real    0m28.032s
+user    0m0.000s
+sys     0m0.000s
+making 1000 Tspi_TPM_GetRandom calls of 32 bytes each
+
+real    0m28.032s
+user    0m0.004s
+sys     0m0.000s
+making 1000 Tspi_TPM_GetRandom calls of 64 bytes each
+
+real    0m36.032s
+user    0m0.004s
+sys     0m0.000s
+
+rick jones
+no, i don't plan on adding this to netperf :)
