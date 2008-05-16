@@ -1,60 +1,35 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] [SCTP] Fix a type cast bug
-Date: Fri, 16 May 2008 08:48:38 -0400
-Message-ID: <482D82A6.1060704@hp.com>
-References: <482D4A8E.4090903@cn.fujitsu.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of IRQF_SAMPLE_RANDOM
+Date: Fri, 16 May 2008 09:21:07 -0400
+Message-ID: <20080516132107.GA11304@csclub.uwaterloo.ca>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:41710 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755212AbYEPMsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 08:48:42 -0400
-In-Reply-To: <482D4A8E.4090903@cn.fujitsu.com>
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:51376 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753305AbYEPNVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 09:21:08 -0400
+Content-Disposition: inline
+In-Reply-To: <482C8D4D.3040702@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gui
+On Thu, May 15, 2008 at 03:21:49PM -0400, Jeff Garzik wrote:
+> "no other form of entropy"?   See examples in this thread.
 
-Gui Jianfeng wrote:
-> Vlad,
-> 
-> event_arg can never be the type of "struct sctp_chunk *" 
-> if the event_type is SCTP_EVENT_T_OTHER. This fix
-> prevents from potential kernel crash by some misuse.
-> 
-> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-> ---
->  net/sctp/sm_sideeffect.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index a4763fd..1b4bae9 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -1072,7 +1072,8 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
->  	struct sctp_sackhdr sackh;
->  	int local_cork = 0;
->  
-> -	if (SCTP_EVENT_T_TIMEOUT != event_type)
-> +	if (SCTP_EVENT_T_TIMEOUT != event_type &&
-> +	    SCTP_EVENT_T_OTHER != event_type)
->  		chunk = (struct sctp_chunk *) event_arg;
->  
->  	/* Note:  This whole file is a huge candidate for rework.
+So where does one get entropy if not the ethernet adapter on many
+embedded systems?  If you have no mouse, no keyboard, no hardware number
+generator, just ethernet ports and a serial console that usually
+receives no input.  While ethernet might not be preferable if you have
+something else, sometimes you really don't have anything else.
 
-
-This doesn't really fix the bug since the event_arg can be something else during
-primitive events and you would still have a typecast issue.
-
-This code is rather ugly, but if we are going to clean it up, we need to do right
-and not band-aid to death.
-
-As it is, NACK on this patch, since it doesn't solve the problem.
-
--vlad
-
+-- 
+Len Sorensen
