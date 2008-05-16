@@ -1,45 +1,32 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
-Date: Fri, 16 May 2008 07:22:54 +0000
-Message-ID: <20080516072254.GC3992@ff.dom.local>
-References: <20080515091216.GA6550@ff.dom.local> <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk> <482C6040.9030808@trash.net> <20080515182504.GB2936@ami.dom.local> <482C81CC.7000305@trash.net> <20080515184646.GC2936@ami.dom.local> <1A70765F4B30462EB21A3B3A8A442633@uglypunk> <20080516054959.GA3918@ff.dom.local> <05be01c8b71b$cbb0c9e0$f903a33a@SABINE> <20080516070102.GB3992@ff.dom.local>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: dead network on JS21 with tg3 driver after flowcontrol changes
+Date: Fri, 16 May 2008 10:13:30 +0200
+Message-ID: <20080516081330.GA26530@aepfle.de>
+References: <20080515121340.GA23033@aepfle.de> <20080515171520.GA20953@localdomain> <1210881078.22745.9.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Kingsley Foreman <kingsley@internode.com.au>
+Content-Type: text/plain; charset=utf-8
+Cc: Matt Carlson <mcarlson@broadcom.com>, linuxppc-dev@ozlabs.org,
+	netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:20053 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740AbYEPHT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 03:19:27 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so1550697ugf.16
-        for <netdev@vger.kernel.org>; Fri, 16 May 2008 00:19:26 -0700 (PDT)
+Received: from mail-out.m-online.net ([212.18.0.9]:33889 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755426AbYEPINd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 04:13:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20080516070102.GB3992@ff.dom.local>
+In-Reply-To: <1210881078.22745.9.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2008 at 07:01:02AM +0000, Jarek Poplawski wrote:
-> On Fri, May 16, 2008 at 03:42:18PM +0930, Kingsley Foreman wrote:
-> ...
-> > ok after some playing a bit if i use
-> >
-> > tc qdisc change dev bond0 parent 1: pfifo limit 30
-> >
-> > the dropped packets go away, im not sure if that is considered normal or  
-> > not, however any number under 30 gives me issues.
-> 
-> If there are no significant differences in configs between these 2.6.22
-> and 2.6.24/25 (e.g. things mentionned earlier by Eric) IMHO it's "more
-> than normal", but as I've written it would need a lot of your time and
-> work to check the rason.
+On Thu, May 15, Michael Chan wrote:
 
-BTW, it still doesn't have to mean any error: e.g. it could happen when
-kernel throughput is better while NIC tx speed stayed the same. So, it
-shouldn't probably bother you too much until there is no visible impact
-on latency or rates.
+> Matt, I think that's very likely the problem.  If we are trying to
+> establish link in parallel detect mode, the flow control settings may
+> not match.  If we do not enter the if statement to do nothing, we will
+> keep autonegotiating forever and never establish link.
 
-Jarek P.
+Yes, this patch fixes nfsroot for me. Thanks.
+mii-tool is not shipped anymore, even in SLES10.
+I assume that ethtool is the replacement?
+
+Olaf
