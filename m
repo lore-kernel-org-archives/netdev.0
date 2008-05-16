@@ -1,35 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] mac80211: rewrite fragmentation code
-Date: Fri, 16 May 2008 20:15:28 +0800
-Message-ID: <20080516121528.GA9768@gondor.apana.org.au>
-References: <20080508032208.GA401@gondor.apana.org.au> <200805161201.48835.rusty@rustcorp.com.au> <20080515.215823.28841530.davem@davemloft.net> <200805162032.48469.rusty@rustcorp.com.au>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] [SCTP] Fix a type cast bug
+Date: Fri, 16 May 2008 08:48:38 -0400
+Message-ID: <482D82A6.1060704@hp.com>
+References: <482D4A8E.4090903@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mb@bu3sch.de,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, ron.rindjunsky@intel.com, tomasw@gmail.com,
-	ivdoorn@gmail.com, peter.p.waskiewicz.jr@intel.com
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39542 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755231AbYEPMPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 08:15:44 -0400
-Content-Disposition: inline
-In-Reply-To: <200805162032.48469.rusty@rustcorp.com.au>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:41710 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755212AbYEPMsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 08:48:42 -0400
+In-Reply-To: <482D4A8E.4090903@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2008 at 08:32:48PM +1000, Rusty Russell wrote:
+Gui
+
+Gui Jianfeng wrote:
+> Vlad,
 > 
-> But it's *simple*, and seems like a common thing to want.  Why not change 
-> everything to use TX_BUSY and rip out the guestimate/buffering hacks?
+> event_arg can never be the type of "struct sctp_chunk *" 
+> if the event_type is SCTP_EVENT_T_OTHER. This fix
+> prevents from potential kernel crash by some misuse.
+> 
+> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+> ---
+>  net/sctp/sm_sideeffect.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index a4763fd..1b4bae9 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -1072,7 +1072,8 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+>  	struct sctp_sackhdr sackh;
+>  	int local_cork = 0;
+>  
+> -	if (SCTP_EVENT_T_TIMEOUT != event_type)
+> +	if (SCTP_EVENT_T_TIMEOUT != event_type &&
+> +	    SCTP_EVENT_T_OTHER != event_type)
+>  		chunk = (struct sctp_chunk *) event_arg;
+>  
+>  	/* Note:  This whole file is a huge candidate for rework.
 
-I think this sounds quite reasonable.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This doesn't really fix the bug since the event_arg can be something else during
+primitive events and you would still have a typecast issue.
+
+This code is rather ugly, but if we are going to clean it up, we need to do right
+and not band-aid to death.
+
+As it is, NACK on this patch, since it doesn't solve the problem.
+
+-vlad
+
