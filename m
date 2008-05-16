@@ -1,77 +1,85 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] Re: [PATCH] drivers/net: remove network drivers' last
- few uses of IRQF_SAMPLE_RANDOM
-Date: Fri, 16 May 2008 12:19:49 +0200
-Message-ID: <482D5FC5.2070103@firstfloor.org>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>	<20080515142154.0595e475@core>	<36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>	<20080515173939.1ec968be@core>	<482C7DA3.1090809@garzik.org>	<482C953A.4080205@garzik.org>	<87abirytxj.fsf@basil.nowhere.org> <20080516105635.6cb1f505@core>
+From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Subject: Re: [PATCH] mac80211: rewrite fragmentation code
+Date: Fri, 16 May 2008 20:32:48 +1000
+Message-ID: <200805162032.48469.rusty@rustcorp.com.au>
+References: <20080508032208.GA401@gondor.apana.org.au> <200805161201.48835.rusty@rustcorp.com.au> <20080515.215823.28841530.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Chris Peterson <cpeterso@cpeterso.com>,
-	tpmdd-devel@lists.sourceforge.net, tpm@selhorst.net,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:45340 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753402AbYEPKT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 06:19:57 -0400
-In-Reply-To: <20080516105635.6cb1f505@core>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080515.215823.28841530.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Alan Cox wrote:
-> On Fri, 16 May 2008 02:27:36 +0200
-> Andi Kleen <andi@firstfloor.org> wrote:
-> 
->> Jeff Garzik <jeff@garzik.org> writes:
->>> A hw_random driver for TPM still needs to (a) parse the TPM header for
->>> return code, (b) extract RNG bytes out at offset 14, and (c) figure
->>> out some way to get a tpm_chip pointer.
->> (d) auto feed the information into random.c. Otherwise it'll be useless
->> for most people.
-> 
-> No - you don't want to do FIPS randomness verification in kernel space.
+On Friday 16 May 2008 14:58:23 David Miller wrote:
+> From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+> Date: Fri, 16 May 2008 12:01:48 +1000
+>
+> > Dave, please allow me to ask a heretical question.  Returning
+> > TX_BUSY has some appeal for virtio_net: is it fundamentally a flawed
+> > idea, or simply a matter of coding?
+>
+> Allowing TX_BUSY adds a special case to the caller which we'd
+> like to remove at some point.
+>
+> > Currently we have no virtio interface to ask how many descriptors are
+> > left; it's not clear that it's a fair question to ask, since for Xen it's
+> > depends on the actual buffers we're trying to put in the descirptors.
+>
+> Two things:
+>
+> 1) You can always make sure that you have enough space for a
+>    TSO frame, with arbitrary page boundaries and thus buffer
+>    chopping.
+>
+>    It can even be estimated, and if violated by some corner case
+>    you can punt and drop.
 
-Just think a little bit: system has no randomness source except the
-hardware RNG. you do your strange randomness verification. if it fails
-what do you do? You don't feed anything into your entropy pool and all
-your  random output is predictable (just boot time)  If you add anything
-predictable from another source it's still predictable, no difference.
+Yes, this is what we'd have to do.  Wasting room in the ring feels wrong 
+though.
 
-Also in general what happens in the hypothetical
-case that your random generator e.g. generates all zeros (which
-is very unlikely but let's assume it): your entropy doesn't get
-significantly worse than it was before. Previously it was just
-seeded with the boot time (or other sources) and now you're adding some
-zeroes. The output is still as random as the previous state.
-While that changes the state of the entropy pool it doesn't make it any
-easier to predict.
+> 2) You can queue inside of the driver one packet when you hit
+>    the limits unexpectedly, netif_stop_queue(), and return
+>    success.  Spit this packet out right before waking the
+>    queue again.
 
-The only problem you got from possible bogus input is that the entropy
-counts will be wrong, but in my experience nearly all programs
-use /dev/urandom anyways because /dev/random is just a DoS waiting
-to happen and user space programmers know that.
+I put a patch in to do exactly that at Herbert's prompting, for 2.6.26, but 
+it's buggy in (at least) two ways.  I have a fix for this, which adds a new 
+tasklet to xmit the packet.  There's still some subtle race, however, since 
+I'm still seeing a stuck packet.  I'll have to revert to TX_BUSY for 2.6.26 
+if I can't find it (unlikely).
 
-Basically with this insisting on FIPS you're violating the
-strong variant of Steinbach's rule: not only "never test for an
-error condition you don't know how to handle", but
-"never test for an error condition you can't handle"
+And I haven't measured what it does to performance (should be OK, but still).
 
-Also why do you not trust your random generator but trust
-your CPU to correctly execute the cryptographic algorithm?
-Not trusting your own hardware doesn't really make any sense here.
+> Really, there are no hard reasons to ever return TX_BUSY,
+> it's always a bug.
 
-> Plus all the other random generator inputs are done via the user space
-> daemon as they should be.
+But it's *simple*, and seems like a common thing to want.  Why not change 
+everything to use TX_BUSY and rip out the guestimate/buffering hacks?
 
-Yes and which makes them about useless because distros don't run that
-daemon by default so users don't get the feature. Besides it's all not
-needed anyways because the FIPS verification is pointless.
+> In fact, I want to move things more and more towards the driver
+> queueing TX packets internally instead of the networking mid-layer.
+>
+> That will ahve benefits for things like TX multiqueue, we won't
+> need any locking at all, nor have any knowledge about multiple
+> queues at all, if the driver takes care of providing the buffer
+> between what the kernel gives it and what the device can handle
+> at the moment.
 
--Andi
+That would be great: then I could shove the packet back on the queue myself 
+and not have to ask you about it.  It's adding a *second* queue inside the 
+driver which feels terribly ugly...
 
+Cheers,
+Rusty.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
