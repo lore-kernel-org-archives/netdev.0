@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 09/16] sfc: Correct and expand some comments
-Date: Fri, 16 May 2008 21:18:14 +0100
-Message-ID: <20080516201814.GB28241@solarflare.com>
+Subject: [PATCH 10/16] sfc: Use DMA_BIT_MASK() instead of our own DMA mask macros
+Date: Fri, 16 May 2008 21:18:48 +0100
+Message-ID: <20080516201848.GC28241@solarflare.com>
 References: <20080516201005.GS28241@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,77 +9,75 @@ Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
 	linux-net-drivers@solarflare.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:53550 "EHLO
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:53554 "EHLO
 	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1760420AbYEPUTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 16:19:13 -0400
+	by vger.kernel.org with ESMTP id S1757085AbYEPUTY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 16:19:24 -0400
 Content-Disposition: inline
 In-Reply-To: <20080516201005.GS28241@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These comments have been revised in response to questions raised by Andrew
-Morton in <20080501120858.207b6dd6.akpm@linux-foundation.org>.
+Also change type of efx_nic_type::max_dma_mask to u64, matching
+pci_dma_supported() parameter type.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c |   20 ++++++++++++++------
- 1 files changed, 14 insertions(+), 6 deletions(-)
+ drivers/net/sfc/bitfield.h   |    3 ---
+ drivers/net/sfc/falcon.c     |   13 ++-----------
+ drivers/net/sfc/net_driver.h |    2 +-
+ 3 files changed, 3 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index f6131e5..11ee0d4 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -199,11 +199,12 @@ static inline int efx_process_channel(struct efx_channel *channel, int rx_quota)
+diff --git a/drivers/net/sfc/bitfield.h b/drivers/net/sfc/bitfield.h
+index c98a591..2c79d27 100644
+--- a/drivers/net/sfc/bitfield.h
++++ b/drivers/net/sfc/bitfield.h
+@@ -501,8 +501,5 @@ typedef union efx_oword {
+ #define DMA_ADDR_T_WIDTH	(8 * sizeof(dma_addr_t))
+ #define EFX_DMA_TYPE_WIDTH(width) \
+ 	(((width) < DMA_ADDR_T_WIDTH) ? (width) : DMA_ADDR_T_WIDTH)
+-#define EFX_DMA_MAX_MASK ((DMA_ADDR_T_WIDTH == 64) ? \
+-			  ~((u64) 0) : ~((u32) 0))
+-#define EFX_DMA_MASK(mask) ((mask) & EFX_DMA_MAX_MASK)
+ 
+ #endif /* EFX_BITFIELD_H */
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index e02f1d1..475b596 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -116,17 +116,8 @@ MODULE_PARM_DESC(rx_xon_thresh_bytes, "RX fifo XON threshold");
+  **************************************************************************
   */
- static inline void efx_channel_processed(struct efx_channel *channel)
- {
--	/* Write to EVQ_RPTR_REG.  If a new event arrived in a race
--	 * with finishing processing, a new interrupt will be raised.
--	 */
-+	/* The interrupt handler for this channel may set work_pending
-+	 * as soon as we acknowledge the events we've seen.  Make sure
-+	 * it's cleared before then. */
- 	channel->work_pending = 0;
--	smp_wmb(); /* Ensure channel updated before any new interrupt. */
-+	smp_wmb();
-+
- 	falcon_eventq_read_ack(channel);
- }
  
-@@ -427,9 +428,12 @@ static void efx_start_channel(struct efx_channel *channel)
- 		netif_napi_add(channel->napi_dev, &channel->napi_str,
- 			       efx_poll, napi_weight);
+-/* DMA address mask (up to 46-bit, avoiding compiler warnings)
+- *
+- * Note that it is possible to have a platform with 64-bit longs and
+- * 32-bit DMA addresses, or vice versa.  EFX_DMA_MASK takes care of the
+- * platform DMA mask.
+- */
+-#if BITS_PER_LONG == 64
+-#define FALCON_DMA_MASK EFX_DMA_MASK(0x00003fffffffffffUL)
+-#else
+-#define FALCON_DMA_MASK EFX_DMA_MASK(0x00003fffffffffffULL)
+-#endif
++/* DMA address mask */
++#define FALCON_DMA_MASK DMA_BIT_MASK(46)
  
-+	/* The interrupt handler for this channel may set work_pending
-+	 * as soon as we enable it.  Make sure it's cleared before
-+	 * then.  Similarly, make sure it sees the enabled flag set. */
- 	channel->work_pending = 0;
- 	channel->enabled = 1;
--	smp_wmb(); /* ensure channel updated before first interrupt */
-+	smp_wmb();
+ /* TX DMA length mask (13-bit) */
+ #define FALCON_TX_DMA_MASK (4096 - 1)
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index a84f975..77418ae 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -800,7 +800,7 @@ struct efx_nic_type {
+ 	unsigned int txd_ring_mask;
+ 	unsigned int rxd_ring_mask;
+ 	unsigned int evq_size;
+-	dma_addr_t max_dma_mask;
++	u64 max_dma_mask;
+ 	unsigned int tx_dma_mask;
+ 	unsigned bug5391_mask;
  
- 	napi_enable(&channel->napi_str);
- 
-@@ -1332,13 +1336,17 @@ static int efx_net_stop(struct net_device *net_dev)
- 	return 0;
- }
- 
--/* Context: process, dev_base_lock held, non-blocking. */
-+/* Context: process, dev_base_lock or RTNL held, non-blocking. */
- static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
- {
- 	struct efx_nic *efx = net_dev->priv;
- 	struct efx_mac_stats *mac_stats = &efx->mac_stats;
- 	struct net_device_stats *stats = &net_dev->stats;
- 
-+	/* Update stats if possible, but do not wait if another thread
-+	 * is updating them (or resetting the NIC); slightly stale
-+	 * stats are acceptable.
-+	 */
- 	if (!spin_trylock(&efx->stats_lock))
- 		return stats;
- 	if (efx->state == STATE_RUNNING) {
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
