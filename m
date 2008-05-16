@@ -1,63 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mac80211: rewrite fragmentation code
-Date: Thu, 15 May 2008 21:58:23 -0700 (PDT)
-Message-ID: <20080515.215823.28841530.davem@davemloft.net>
-References: <20080508032208.GA401@gondor.apana.org.au>
-	<20080507.202606.242037993.davem@davemloft.net>
-	<200805161201.48835.rusty@rustcorp.com.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: NET_SCHED cbq dropping too many packets on a bonding interface
+Date: Fri, 16 May 2008 05:49:59 +0000
+Message-ID: <20080516054959.GA3918@ff.dom.local>
+References: <20080515091216.GA6550@ff.dom.local> <8ECDBB4EB5394859BFFACAAEE3A6EDB0@uglypunk> <482C6040.9030808@trash.net> <20080515182504.GB2936@ami.dom.local> <482C81CC.7000305@trash.net> <20080515184646.GC2936@ami.dom.local> <1A70765F4B30462EB21A3B3A8A442633@uglypunk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, mb@bu3sch.de,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, ron.rindjunsky@intel.com, tomasw@gmail.com,
-	ivdoorn@gmail.com, peter.p.waskiewicz.jr@intel.com
-To: rusty@rustcorp.com.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Kingsley Foreman <kingsley@internode.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60678
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750695AbYEPE6c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 00:58:32 -0400
-In-Reply-To: <200805161201.48835.rusty@rustcorp.com.au>
+Received: from nf-out-0910.google.com ([64.233.182.184]:19780 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008AbYEPFqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 01:46:30 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so297121nfc.21
+        for <netdev@vger.kernel.org>; Thu, 15 May 2008 22:46:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1A70765F4B30462EB21A3B3A8A442633@uglypunk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Fri, 16 May 2008 12:01:48 +1000
+On Fri, May 16, 2008 at 06:57:23AM +0930, Kingsley Foreman wrote:
+...
+> running
+>
+> tc qdisc add dev bond0 root pfifo limit 1000
+>
+> or
+>
+> tc qdisc add dev bond0 root handle 1: cbq bandwidth 2000Mbit avpkt 1000 
+> cell 0
+> tc qdisc add dev bond0 parent 1: pfifo limit 1000
+>
+>
+> doesn't appear to be dropping packets. 
+>
 
-> Dave, please allow me to ask a heretical question.  Returning
-> TX_BUSY has some appeal for virtio_net: is it fundamentally a flawed
-> idea, or simply a matter of coding?
+Great! So it looks like there is no error here unless there are needed
+significantly bigger queues to stop this dropping compared to 2.6.22.
+You could try to lower this limit now to something like 10 to find when
+drops start to appear. Why 2.6.22 doesn't need this at all is a mistery
+anyway (old scheduler?), and it would really need some work (like git
+bisection) to find the reason for more than 5 or 10 packet difference.
 
-Allowing TX_BUSY adds a special case to the caller which we'd
-like to remove at some point.
-
-> Currently we have no virtio interface to ask how many descriptors are left; 
-> it's not clear that it's a fair question to ask, since for Xen it's depends 
-> on the actual buffers we're trying to put in the descirptors.
-
-Two things:
-
-1) You can always make sure that you have enough space for a
-   TSO frame, with arbitrary page boundaries and thus buffer
-   chopping.
-
-   It can even be estimated, and if violated by some corner case
-   you can punt and drop.
-
-2) You can queue inside of the driver one packet when you hit
-   the limits unexpectedly, netif_stop_queue(), and return
-   success.  Spit this packet out right before waking the
-   queue again.
-
-Really, there are no hard reasons to ever return TX_BUSY,
-it's always a bug.
-
-In fact, I want to move things more and more towards the driver
-queueing TX packets internally instead of the networking mid-layer.
-
-That will ahve benefits for things like TX multiqueue, we won't
-need any locking at all, nor have any knowledge about multiple
-queues at all, if the driver takes care of providing the buffer
-between what the kernel gives it and what the device can handle
-at the moment.
+Thanks,
+Jarek P.
