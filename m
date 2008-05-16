@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 08/16] sfc: Use resource_size_t for PCI bus address
-Date: Fri, 16 May 2008 21:17:06 +0100
-Message-ID: <20080516201706.GA28241@solarflare.com>
+Subject: [PATCH 09/16] sfc: Correct and expand some comments
+Date: Fri, 16 May 2008 21:18:14 +0100
+Message-ID: <20080516201814.GB28241@solarflare.com>
 References: <20080516201005.GS28241@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,62 +9,77 @@ Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
 	linux-net-drivers@solarflare.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:53538 "EHLO
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:53550 "EHLO
 	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758676AbYEPUR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 16:17:57 -0400
+	by vger.kernel.org with ESMTP id S1760420AbYEPUTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 16:19:13 -0400
 Content-Disposition: inline
 In-Reply-To: <20080516201005.GS28241@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should make the driver work on 32-bit systems with 64-bit PCI support.
+These comments have been revised in response to questions raised by Andrew
+Morton in <20080501120858.207b6dd6.akpm@linux-foundation.org>.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c        |   11 ++++++-----
- drivers/net/sfc/net_driver.h |    2 +-
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/sfc/efx.c |   20 ++++++++++++++------
+ 1 files changed, 14 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 86d4029..f6131e5 100644
+index f6131e5..11ee0d4 100644
 --- a/drivers/net/sfc/efx.c
 +++ b/drivers/net/sfc/efx.c
-@@ -778,15 +778,16 @@ static int efx_init_io(struct efx_nic *efx)
- 	efx->membase = ioremap_nocache(efx->membase_phys,
- 				       efx->type->mem_map_size);
- 	if (!efx->membase) {
--		EFX_ERR(efx, "could not map memory BAR %d at %lx+%x\n",
--			efx->type->mem_bar, efx->membase_phys,
-+		EFX_ERR(efx, "could not map memory BAR %d at %llx+%x\n",
-+			efx->type->mem_bar,
-+			(unsigned long long)efx->membase_phys,
- 			efx->type->mem_map_size);
- 		rc = -ENOMEM;
- 		goto fail4;
- 	}
--	EFX_LOG(efx, "memory BAR %u at %lx+%x (virtual %p)\n",
--		efx->type->mem_bar, efx->membase_phys, efx->type->mem_map_size,
--		efx->membase);
-+	EFX_LOG(efx, "memory BAR %u at %llx+%x (virtual %p)\n",
-+		efx->type->mem_bar, (unsigned long long)efx->membase_phys,
-+		efx->type->mem_map_size, efx->membase);
+@@ -199,11 +199,12 @@ static inline int efx_process_channel(struct efx_channel *channel, int rx_quota)
+  */
+ static inline void efx_channel_processed(struct efx_channel *channel)
+ {
+-	/* Write to EVQ_RPTR_REG.  If a new event arrived in a race
+-	 * with finishing processing, a new interrupt will be raised.
+-	 */
++	/* The interrupt handler for this channel may set work_pending
++	 * as soon as we acknowledge the events we've seen.  Make sure
++	 * it's cleared before then. */
+ 	channel->work_pending = 0;
+-	smp_wmb(); /* Ensure channel updated before any new interrupt. */
++	smp_wmb();
++
+ 	falcon_eventq_read_ack(channel);
+ }
  
+@@ -427,9 +428,12 @@ static void efx_start_channel(struct efx_channel *channel)
+ 		netif_napi_add(channel->napi_dev, &channel->napi_str,
+ 			       efx_poll, napi_weight);
+ 
++	/* The interrupt handler for this channel may set work_pending
++	 * as soon as we enable it.  Make sure it's cleared before
++	 * then.  Similarly, make sure it sees the enabled flag set. */
+ 	channel->work_pending = 0;
+ 	channel->enabled = 1;
+-	smp_wmb(); /* ensure channel updated before first interrupt */
++	smp_wmb();
+ 
+ 	napi_enable(&channel->napi_str);
+ 
+@@ -1332,13 +1336,17 @@ static int efx_net_stop(struct net_device *net_dev)
  	return 0;
+ }
  
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 18b21ef..a84f975 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -686,7 +686,7 @@ struct efx_nic {
- 	struct workqueue_struct *workqueue;
- 	struct work_struct reset_work;
- 	struct delayed_work monitor_work;
--	unsigned long membase_phys;
-+	resource_size_t membase_phys;
- 	void __iomem *membase;
- 	spinlock_t biu_lock;
- 	enum efx_int_mode interrupt_mode;
+-/* Context: process, dev_base_lock held, non-blocking. */
++/* Context: process, dev_base_lock or RTNL held, non-blocking. */
+ static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
+ {
+ 	struct efx_nic *efx = net_dev->priv;
+ 	struct efx_mac_stats *mac_stats = &efx->mac_stats;
+ 	struct net_device_stats *stats = &net_dev->stats;
+ 
++	/* Update stats if possible, but do not wait if another thread
++	 * is updating them (or resetting the NIC); slightly stale
++	 * stats are acceptable.
++	 */
+ 	if (!spin_trylock(&efx->stats_lock))
+ 		return stats;
+ 	if (efx->state == STATE_RUNNING) {
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
