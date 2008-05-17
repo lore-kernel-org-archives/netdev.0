@@ -1,73 +1,86 @@
-From: Robert Hancock <hancockr@shaw.ca>
-Subject: Re: Top kernel oopses/warnings for the week of May 16th 2008
-Date: Sat, 17 May 2008 11:38:16 -0600
-Message-ID: <482F1808.4060700@shaw.ca>
-References: <fa.LFS/TATb5YijFetLw6A+gczrVAQ@ifi.uio.no>
- <482E3B1B.9070400@shaw.ca> <20080517141235.GA13130@duo>
+From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Subject: hibernate event order question
+Date: Sat, 17 May 2008 19:50:46 +0200
+Message-ID: <20080517175046.GA9032__4715.59615475616$1211050712$gmane$org@yamamaya.is-a-geek.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@linux.intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Jens Axboe <jens.axboe@oracle.com>, yang.shi@windriver.com
-To: Andrea Arcangeli <andrea@qumranet.com>
+Content-Type: text/plain; charset=iso-2022-jp
+To: linux-netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:26382 "EHLO
-	pd2mo2so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753378AbYEQRgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2008 13:36:18 -0400
-In-reply-to: <20080517141235.GA13130@duo>
+Received: from yumi.tdiedrich.de ([85.10.210.183]:59455 "EHLO mx.tdiedrich.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752005AbYEQS5F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 May 2008 14:57:05 -0400
+Received: from nukunuku.yamamaya.is-a-geek.org (nukunuku-vpn [192.168.8.240])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "nukunuku.yamamaya.is-a-geek.org", Issuer "Tobias Diedrich CA" (verified OK))
+	by mx.tdiedrich.de (Postfix) with ESMTP id F2A8A500E0
+	for <netdev@vger.kernel.org>; Sat, 17 May 2008 20:29:17 +0200 (CEST)
+Received: from melchior.yamamaya.is-a-geek.org (melchior.yamamaya.is-a-geek.org [IPv6:fec0:c0a8:800::f1])
+	by nukunuku.yamamaya.is-a-geek.org (Postfix) with ESMTP id 9C5D5C804B
+	for <netdev@vger.kernel.org>; Sat, 17 May 2008 20:28:36 +0200 (CEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrea Arcangeli wrote:
-> On Fri, May 16, 2008 at 07:55:39PM -0600, Robert Hancock wrote:
->> Arjan van de Ven wrote:
->>> Rank 10: __alloc_pages
->>>     Reported 16 times (31 total reports)
->>>     Sleeping allocation in interrupt context, some in netlink, some in the 
->>> nv sata driver
->>>     This oops was last seen in version 2.6.25.3, and first seen in 
->>> 2.6.18-rc1.
->>>     More info: 
->>> http://www.kerneloops.org/searchweek.php?search=__alloc_pages
->> In the case of the sata_nv error, it appears this is happening now because 
->> blk_queue_bounce_limit is initializing emergency ISA pools which can't be 
->> done under spinlock. This is happening because the code in 
->> blk_queue_bounce_limit now thinks that a 32-bit DMA mask requires 
->> allocating with GFP_DMA. This is only needed for a DMA mask less than 
->> 32-bit, which is what the original code did. It looks like this was broken 
->> by this commit:
-> 
-> Looks like or you're certain? I ask because I had your exact same
-> problem with a regression introduced in 2.6.25-rc, and my patch
-> attempted to fix it. It looks like it wasn't enough to fix all of it,
-> but at least it looked like to improve things a bit to reduce the
-> regression impact without introducing any other problem compared to
-> the previous 2.6.25-rc code.
+Hello,
 
-What was the original patch that you were trying to fix? If it's this 
-one, it does seem to be wrong:
+for some time now I had the problem that after a suspend to disk
+network connectivitiy was down and also wake-on-lan would not work.
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=419c434c35614609fd0c79d335c134bf4b88b30b
+First a bit of information, for the real question please see (*)
+below.
 
-author	Yang Shi <yang.shi@windriver.com>
-	Tue, 4 Mar 2008 10:20:51 +0000 (11:20 +0100)
-committer	Jens Axboe <jens.axboe@oracle.com>
-	Tue, 4 Mar 2008 10:20:51 +0000 (11:20 +0100)
+Now I just found the ethtool -d (register dump) option
+and decided I want to try to debug this long-standing bug:
+http://bugzilla.kernel.org/show_bug.cgi?id=8381
 
-Fix DMA access of block device in 64-bit kernel on some non-x86 systems 
-with 4GB or upper 4GB memory
+I already found out why network connectivity is down after resume:
 
-Originally it was using the DMA path only for DMA masks of less than 
-32-bit. This change made it use that path for 32-bit or less. Looking 
-more closely it doesn't seem like your patch is really harmful, it just 
-doesn't completely repair the damage from the first one.
+The interfaces eth0 and eth1 are bridged into br0.
+The bridging code sets the interfaces into promiscous mode, but this
+is not properly restored after resume.
+This bug is easily fixable by calling nv_set_multicast(dev) either
+from within nv_open() or after nv_open() in nv_resume().
 
-IMO both of these patches should just be reverted. The commit 
-description doesn't specify what arch the first one was trying to fix 
-but it seems to break x86_64 anyway..
+The second problem (does not wol after s2disk) is still unsolved
+though.  However I have found that wake-on-lan works fine if I
+"rmmod forcedeth" before suspending.  This is even a usable
+workaround for me, since the bridge device stays configured and I
+just have to reload forcedeth and readd the interfaces to the bridge
+after resume.
+
+(*)
+Now for my question:
+AFAICS the ordering of events is as follows:
+1) User reqests hibernate
+2) Tasks are frozen
+3) Device suspend callbacks get called
+4) Device resume callbacks get called
+5) Memory image is written to disk
+
+Now, the problem I see with this is that while step 3) prepares the
+device for suspend (and wake-on-lan), step 4) may undo some of this
+preparation.
+
+In my case, I think the fix for the first bug (promiscous mode does
+not get restored on resume) breaks wake-on-lan (since the new value
+of NvRegPacketFilterFlags may be incompatible with wake-on-lan).
+
+Shouldn't there be a 'prepare for poweroff'-callback, which gets called
+before the system is powered off for real?
+
+--- linux-2.6.26-rc2/drivers/net/forcedeth.c	2008-05-17 14:22:06.000000000 +0200
++++ linux-2.6.26-rc2/drivers/net/forcedeth.c	2008-05-17 19:48:56.000000000 +0200
+@@ -5823,6 +5823,7 @@
+ 	writel(txreg, base + NvRegTransmitPoll);
+ 
+ 	rc = nv_open(dev);
++	nv_set_multicast(dev);
+ out:
+ 	return rc;
+ }
+
+-- 
+Tobias						PGP: http://9ac7e0bc.uguu.de
+このメールは十割再利用されたビットで作られています。
