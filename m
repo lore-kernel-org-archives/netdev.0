@@ -1,47 +1,64 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: huge failed atomic allocation in dccp.
-Date: Sat, 17 May 2008 18:20:27 -0400
-Message-ID: <20080517222027.GB31440@codemonkey.org.uk>
+From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Subject: Re: hibernate event order question
+Date: Sun, 18 May 2008 00:36:40 +0200
+Message-ID: <20080517223622.GA2668@yamamaya.is-a-geek.org>
+References: <20080517175046.GA9032@yamamaya.is-a-geek.org> <200805172156.12686.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from testure.choralone.org ([194.9.77.134]:33709 "EHLO
-	testure.choralone.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056AbYEQWTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2008 18:19:43 -0400
-Received: from davej by testure.choralone.org with local (Exim 4.69)
-	(envelope-from <davej@codemonkey.org.uk>)
-	id 1JxUlP-0001CR-Ss
-	for netdev@vger.kernel.org; Sat, 17 May 2008 23:20:27 +0100
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760291AbYEQWh1@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <200805172156.12686.rjw@sisk.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This strikes me as somewhat bizarre..
+Rafael J. Wysocki wrote:
 
-modprobe: page allocation failure. order:10, mode:0x20
-Pid: 10505, comm: modprobe Not tainted 2.6.25-14.fc9.x86_64 #1
+> > Now for my question:
+> > AFAICS the ordering of events is as follows:
+> > 1) User reqests hibernate
+> > 2) Tasks are frozen
+> > 3) Device suspend callbacks get called
+> > 4) Device resume callbacks get called
+> > 5) Memory image is written to disk
+>=20
+> 6) Device suspend callbacks get called again to prepare for the syste=
+m sleep
+>    state.
 
-Call Trace:
- [<ffffffff8107ee4c>] __alloc_pages+0x351/0x371
- [<ffffffff8109fc0d>] ? sysfs_slab_alias+0x41/0x81
- [<ffffffff81097d90>] alloc_pages_current+0x100/0x109
- [<ffffffff8107e1ac>] __get_free_pages+0xe/0x4d
- [<ffffffff881010bd>] :dccp:dccp_init+0xbd/0x3a5
- [<ffffffff81057627>] sys_init_module+0x193f/0x1a87
- [<ffffffff810a4c90>] ? do_sync_read+0xe7/0x12d
- [<ffffffff81205eab>] ? release_sock+0x0/0xaf
- [<ffffffff8106d543>] ? audit_syscall_entry+0x126/0x15a
- [<ffffffff81013073>] ? syscall_trace_enter+0xb5/0xb9
- [<ffffffff8100c052>] tracesys+0xd5/0xda
+According to my pci postcard this is not the case.
+I modified nv_suspend to wiggle port 0x80 with mdelay(100) between
+0xa0/0x50 wiggles and mdelay(1000) before returning, so it is easily
+countable.
+nv_suspend is called only once per ethernet port (step 3 above).
+I have not yet tried adding a suspend_late handler.
 
-An order 10 GFP_ATOMIC allocation failing shouldn't really be surprising.
-The hash sizing in dccp_init seems to cope with this situation
-by trying successively smaller values, but this will cause
-spew to the logs whilst it's doing that.
+> > In my case, I think the fix for the first bug (promiscous mode does
+> > not get restored on resume) breaks wake-on-lan (since the new value
+> > of NvRegPacketFilterFlags may be incompatible with wake-on-lan).
 
-	Dave
+I reconfirmed this.  Without the promiscous mode bugfix,
+wake-on-lan (partially) works.  With the promiscous mode bugfix the
+machine doesn't wake up.  This is also easily explainable by 6) not
+happening. :)
 
--- 
-http://www.codemonkey.org.uk
+> > Shouldn't there be a 'prepare for poweroff'-callback, which gets
+> > called
+> > before the system is powered off for real?
+>=20
+> Yes, it should and it's called in recent kernels.
+
+=46or what values of 'recent'?
+I'm running 2.6.26-rc2 here. :)
+How do I hook into this callback?
+(suspend_late maybe? Going to try that one next...)
+
+--=20
+Tobias						PGP: http://9ac7e0bc.uguu.de
+=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
+=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
+=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
+=E3=81=99=E3=80=82
