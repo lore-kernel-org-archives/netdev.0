@@ -1,52 +1,47 @@
-From: Robert Hancock <hancockr@shaw.ca>
-Subject: Re: Top kernel oopses/warnings for the week of May 16th 2008
-Date: Fri, 16 May 2008 19:55:39 -0600
-Message-ID: <482E3B1B.9070400@shaw.ca>
-References: <fa.LFS/TATb5YijFetLw6A+gczrVAQ@ifi.uio.no>
+From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
+Subject: Re: [PATCH updated] net: add ability to clear per-interface	network
+Date: Sat, 17 May 2008 11:30:39 +0930
+Message-ID: <20080517113039.b0aaf932.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, andrea@qumranet.com,
-	Jens Axboe <jens.axboe@oracle.com>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Cc: netdev@vger.kernel.org
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:58379 "EHLO
-	pd3mo1so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750830AbYEQBxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 21:53:39 -0400
-In-reply-to: <fa.LFS/TATb5YijFetLw6A+gczrVAQ@ifi.uio.no>
+Received: from levanto.mail.adnap.net.au ([203.6.132.83]:3213 "EHLO
+	levanto.mail.adnap.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752939AbYEQCz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2008 22:55:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arjan van de Ven wrote:
-> Rank 10: __alloc_pages
->     Reported 16 times (31 total reports)
->     Sleeping allocation in interrupt context, some in netlink, some in 
-> the nv sata driver
->     This oops was last seen in version 2.6.25.3, and first seen in 
-> 2.6.18-rc1.
->     More info: 
-> http://www.kerneloops.org/searchweek.php?search=__alloc_pages
+Hi,
 
-In the case of the sata_nv error, it appears this is happening now 
-because blk_queue_bounce_limit is initializing emergency ISA pools which 
-can't be done under spinlock. This is happening because the code in 
-blk_queue_bounce_limit now thinks that a 32-bit DMA mask requires 
-allocating with GFP_DMA. This is only needed for a DMA mask less than 
-32-bit, which is what the original code did. It looks like this was 
-broken by this commit:
+(applogies for not preserving list details, not subscribed)
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=00d61e3e8c12d5f395b167856d2b3c430816afb0
+">>Syntax:
+>>  echo 'net clear-stats ifdev' > /proc/net/dev
+>>Where "ifdev" is the device name you wish to clear.
 
-author	Andrea Arcangeli <andrea@qumranet.com>
-	Wed, 2 Apr 2008 07:06:44 +0000 (09:06 +0200)
-committer	Jens Axboe <jens.axboe@oracle.com>
-	Wed, 2 Apr 2008 07:06:44 +0000 (09:06 +0200)
+I don't wish to suggest I don't like the change - I've used similar 
+features on "other oses" in the past, but when something like this has 
+come-up in the past, haven't there been concerns about MIBs and SNMP and 
+whatnot?
 
-Fix bounce setting for 64-bit
+rick jones"
 
-Not sure what this was intended to fix, but I don't think it's right..
+I like the way cisco do this. You can clear the CLI visible interface
+counters in the CLI, and the snmp counters aren't cleared, so obviously
+they're maintaining two sets of counters.
+
+Clearing the interface counters can be very useful when
+troubleshooting, as you can use it to get a feel for error rates per
+second etc.
+
+Should two sets of counters be implemented in Linux, the
+improvement over the cisco method I'd suggest is an ability to
+resynchronise the user visible counters back to the snmp values, should
+you have cleared the user visible ones.
+
+Regards,
+Mark.
