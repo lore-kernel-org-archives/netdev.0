@@ -1,65 +1,78 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH] Re: [PATCH] drivers/net: remove network drivers' last
- few uses of IRQF_SAMPLE_RANDOM
-Date: Sat, 17 May 2008 13:05:35 -0700
-Message-ID: <20080517130535.02d45372@infradead.org>
-References: <20080515142154.0595e475@core>
-	<482C7DA3.1090809@garzik.org>
-	<482C953A.4080205@garzik.org>
-	<87abirytxj.fsf@basil.nowhere.org>
-	<20080516105635.6cb1f505@core>
-	<482D5FC5.2070103@firstfloor.org>
-	<20080516121239.GA9627@gondor.apana.org.au>
-	<482DB568.1040704@firstfloor.org>
-	<20080517010136.GA15102@gondor.apana.org.au>
-	<482EBAA8.3040506@firstfloor.org>
-	<a24804730805171254i2a37da61mb47280db7b330ed5@mail.gmail.com>
+From: Joe Eykholt <jre@nuovasystems.com>
+Subject: Re: [patch]  bondig - arp_interval with low value => Oops.
+Date: Sat, 17 May 2008 13:20:06 -0700
+Message-ID: <482F3DF6.7080403@nuovasystems.com>
+References: <482C9E73.2040202@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Andi Kleen" <andi@firstfloor.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Jeff Garzik" <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	tpmdd-devel@lists.sourceforge.net, tpm@selhorst.net
-To: "Chris Peterson" <cpeterso@cpeterso.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	bonding-devel@lists.sourceforge.net, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Nicolas 2P <nicolas.2p.debian@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:48586 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758743AbYEQUF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2008 16:05:57 -0400
-In-Reply-To: <a24804730805171254i2a37da61mb47280db7b330ed5@mail.gmail.com>
+Received: from nuova-ex1.nuovasystems.com ([67.91.200.196]:5949 "EHLO
+	nuova-ex1.nuovasystems.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755756AbYEQUUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2008 16:20:11 -0400
+In-Reply-To: <482C9E73.2040202@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 17 May 2008 12:54:02 -0700
-"Chris Peterson" <cpeterso@cpeterso.com> wrote:
+Nicolas 2P wrote:
+> When setting arp_interval parameter to a very low value, delta_in_tic=
+ks=20
+> for next arp might become 0, causing an infinite loop.
+>=20
+> See http://bugzilla.kernel.org/show_bug.cgi?id=3D10680
+>=20
+> Same problem for miimon parameter already fixed, but fix might be=20
+> enhanced, by using msecs_to_jiffies() function.
+>=20
+> Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+>=20
+> --- /usr/src/linux/drivers/net/bonding/bond_main_orig.c 2008-05-13=20
+> 02:00:01.000000000 +0200
+> +++ /usr/src/linux/drivers/net/bonding/bond_main.c      2008-05-14=20
+> 14:55:53.000000000 +0200
+> @@ -2391,7 +2391,7 @@
+>                 read_lock(&bond->lock);
+>         }
+>=20
+> -       delay =3D ((bond->params.miimon * HZ) / 1000) ? : 1;
+> +       delay =3D msecs_to_jiffies(bond->params.miimon);
+>         read_unlock(&bond->lock);
+>         queue_delayed_work(bond->wq, &bond->mii_work, delay);
+>  }
+> @@ -2704,7 +2704,7 @@
+>=20
+>         read_lock(&bond->lock);
+>=20
+> -       delta_in_ticks =3D (bond->params.arp_interval * HZ) / 1000;
+> +       delta_in_ticks =3D msecs_to_jiffies(bond->params.arp_interval=
+);
+>=20
+>         if (bond->kill_timers) {
+>                 goto out;
+> @@ -2837,7 +2837,7 @@
+>=20
+>         read_lock(&bond->lock);
+>=20
+> -       delta_in_ticks =3D (bond->params.arp_interval * HZ) / 1000;
+> +       delta_in_ticks =3D msecs_to_jiffies(bond->params.arp_interval=
+ * HZ);
 
-> Andi, can you please clarify what you mean by "auto-feeding
-> /dev/urandom only" and "only get blocking /dev/random with the user
-> daemon"? Are you suggesting that the kernel provides /dev/urandom and
-> a userspace daemon (e.g. EGD) provides /dev/random?
-> 
-> Also, if crypto apps like ssh and openssl use on "insecure"
-> /dev/urandom, then who actually relies on /dev/random?
+This seems like it should be just:
 
-gpg does for key generation
+	delta_in_ticks =3D msecs_to_jiffies(bond->params.arp_interval);
 
-> For comparison,
-> FreeBSD does not even (AFAIK) have /dev/urandom. FreeBSD's /dev/random
-> is nonblocking (like Linux's /dev/urandom) and includes network
-> entropy.
-> 
+Assuming the interval is in milliseconds, based on the previous usage.
+Since it's multiplying by HZ (ticks per second) and dividing by 1000=20
+(milliseconds per second), it was converting from milliseconds to ticks=
+=2E
 
-I think the big kicker is the difference between a session key (short
-lived) and a "real" key such as a gpg key that lives for a long time
-and is used for multile sessions and with different users (in crypto
-speak, Alice uses the same random key for Bob, Charlotte and David and
-potentially for a long time). For a session key, urandom is very likely
-an acceptable compromise; there's only so much data it's used for.
-For long term keys I can totally see why /dev/random is used instead.
+Same for the other changes?
 
-So both have value, just in different circumstances.
+	Joe
