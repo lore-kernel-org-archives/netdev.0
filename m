@@ -1,103 +1,114 @@
-From: Andrea Arcangeli <andrea@qumranet.com>
-Subject: Re: Top kernel oopses/warnings for the week of May 16th 2008
-Date: Sat, 17 May 2008 22:34:28 +0200
-Message-ID: <20080517203428.GA16915@duo.random>
-References: <fa.LFS/TATb5YijFetLw6A+gczrVAQ@ifi.uio.no> <482E3B1B.9070400@shaw.ca> <20080517141235.GA13130@duo> <482EF256.8030305@linux.intel.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
+Date: Sat, 17 May 2008 14:10:36 -0700
+Message-ID: <20080517141036.d8f3c768.akpm@linux-foundation.org>
+References: <bug-10737-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Hancock <hancockr@shaw.ca>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Jens Axboe <jens.axboe@oracle.com>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, devzero@web.de,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	"Denis V. Lunev" <den@openvz.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host36-195-149-62.serverdedicati.aruba.it ([62.149.195.36]:47595
-	"EHLO mx.cpushare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758414AbYEQUeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2008 16:34:37 -0400
-Content-Disposition: inline
-In-Reply-To: <482EF256.8030305@linux.intel.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33734 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759246AbYEQVLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2008 17:11:19 -0400
+In-Reply-To: <bug-10737-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 17, 2008 at 07:57:26AM -0700, Arjan van de Ven wrote:
-> Andrea Arcangeli wrote:
->> The reason I touched that code, is that a change introduced during
->> 2.6.25-rc initialized the isa dma pool even if not necessary and that
->> broke the reserved-ram patch that requires no __GFP_DMA
->> allocations. There was no crash in 2.6.24 based kernels, the
->> regression started in 2.6.25-rc.
->
-> I'd not really call "breaks external patch" a regression ;)
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-The external patch only allowed me to notice the regression when
-nobody else noticed it. For mainline the regression was to put ram
-into the bounce buffer pool even if no dma could ever require the
-bounce buffering. There's no point to initialize the pool when total
-ram < highest dma address. That is the regression. My patch turned the
-regression from a waste of ram, to a kernel crash at boot. That's the
-only relation between the reserved-ram patch this bug.
+On Sat, 17 May 2008 13:59:25 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
-I assume Robert has a similar issue with some debugging code checking
-for GFP_KERNEL allocations inside atomic context or similar, I assume
-his driver has a bug and calls that function in the wrong context. But
-if this didn't happen in 2.4.24, it means such bug has nothing to do
-with the bug in blk-settings.c. It's just that such a bug or the
-reserved-ram patches are required to notice the regression in
-blk-settings.c.
+> http://bugzilla.kernel.org/show_bug.cgi?id=10737
+> 
+>            Summary: pktgen procfs problem
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.26-rc2
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: devzero@web.de
+> 
+> 
+> Latest working kernel version: n/a
+> Earliest failing kernel version: 2.6.26-rc2
+> Distribution: suse 10.1
+> Hardware Environment: p4 + gigabyte i915g MoBo
+> Software Environment:
+> Problem Description:
+> pktgen module ocaasional seems to leak procfs entry
+> 
+> May 18 00:00:34 test kernel: [ 2663.373955] pktgen v2.69: Packet Generator for
+> packet performance testing.
+> May 18 00:00:34 test kernel: [ 2663.384819] remove_proc_entry: removing
+> non-empty directory 'net/pktgen', leaking at least 'kpktgend_1'
 
-rolling back to the code before this commit solves the problem for
-me. The weird thing is that I'm quite sure I verified my patch
-incremental with the below solved the crash at boot when run in qemu
-but I also noticed later that sata didn't fix it.
+^^
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=419c434c35614609fd0c79d335c134bf4b88b30b
+Possibly we were always leaking this procfs entry, and newly-added
+procfs diagnostics are now detecting it.
 
-So there are two possibilities:
 
-1) the current code in blk-settings is just fine after my last fix,
-but there's yet another bug in this area in sata code unrelated to my
-last fix
+> May 18 00:00:34 test kernel: [ 2663.384819] ------------[ cut here
+> ]------------
+> May 18 00:00:34 test kernel: [ 2663.384819] WARNING: at fs/proc/generic.c:799
+> remove_proc_entry+0x110/0x12d()
+> May 18 00:00:34 test kernel: [ 2663.384819] Modules linked in: pktgen(-) ip_gre
+> lzo lzo_decompress lzo_compress tgr192 cts seed camellia fcrypt anubis cast6
+> cast5 ccm gcm ctr lrw gf128mul aes_i586 aes_generic blowfish md4 cbc ecb
+> sha1_generic aead 8250_accent 8250_exar_st16c554 8250_fourport 8250_boca
+> 8250_hub6 ovcamchip i2c_core guillemot adi a3d cobra gameport parkbd
+> deadline_iosched capifs ar7part mtd eql ide_generic siimage aec62xx trm290
+> alim15x3 hpt34x hpt366 cmd64x cmd640 piix rz1000 slc90e66 jmicron cs5535 cs5530
+> cs5520 sc1200 triflex ide_pci_generic atiixp pdc202xx_old pdc202xx_new tc86c001
+> opti621 ns87415 cy82c693 amd74xx sis5513 via82cxxx serverworks it821x it8213
+> ide_core eni suni zatm uPD98402 atm non_fatal p4_clockmod speedstep_lib
+> freq_table decnet crypto_blkcipher sctp libcrc32c sunrpc psmouse ipv6 vboxdrv
+> mousedev e100 mii intel_agp agpgart usbcore parport_pc parport megaraid_mbox
+> megaraid_mm sd_mod scsi_mod [last unloaded: ax25]
+> May 18 00:00:34 test kernel: [ 2663.384819] Pid: 31183, comm: modprobe Tainted:
+> G        W 2.6.26-rc2-git5 #2
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c0122aae>]
+> warn_on_slowpath+0x41/0x6c
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c0135c32>] ? up+0x2b/0x2f
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c0122f99>] ?
+> release_console_sem+0x184/0x18c
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c02f5f3e>] ?
+> schedule_timeout+0x16/0x8b
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c0123417>] ? printk+0x15/0x17
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c01a9a5a>]
+> remove_proc_entry+0x110/0x12d
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c01ac70b>]
+> proc_net_remove+0xf/0x11
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<f8a47be7>] pg_cleanup+0x5f/0x90
+> [pktgen]
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c0140899>]
+> sys_delete_module+0x18e/0x1d9
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c016813d>] ?
+> remove_vma+0x41/0x47
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c0168aa7>] ?
+> do_munmap+0x17d/0x197
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c0103811>]
+> sysenter_past_esp+0x6a/0x91
+> May 18 00:00:34 test kernel: [ 2663.384819]  [<c02f0000>] ?
+> pcibios_setup+0xa8/0x2a0
+> May 18 00:00:34 test kernel: [ 2663.384819]  =======================
+> May 18 00:00:34 test kernel: [ 2663.384819] ---[ end trace 4351c3133409518a
+> ]---
+> 
+> 
+> Steps to reproduce: not sure yet, but i saw this while doing some module
+> load/unload  regression test.
+> 
 
-2) my last fix only fixed part of the problem and it only solved the
-issue for ata or similar (my kvm setup where I tested my fix didn't
-have any sata, but without my fix not even ata was working correctly)
-and another fix is needed
-
-> What we really ought to be doing is always initialize the pool, from
-> the right process context. However, we need to make it such that we
-
-Yes, that's the bug that probably Robert found, and that's also what
-allowed him to notice we still have some regression in blk-settings.c
-compared to 2.6.24, just like I could notice it thanks to the
-reserved-ram patch.
-
-> can detect that there is zero __GFP_DMA memory in the system, and bail
-> out in that case. Doing it on-demand is just not going to fly; by that
-> time it's just too late (the pool may have been eaten already, the context
-> might be nasty to do allocations from etc etc).
-
-That surely sounds nice, and it's yet another problem. But let's say
-this last problem is low priority to solve because on any system where
-we want to reserve the ram for the guest to run pci-passthrough dma on
-hardware without VT-d, we can assume all devices are pci64 capable and
-the current reserved-ram patch doesn't allow to reserve more than 2G
-of the guest anyway because the host kernel has to run between -2GUL
-and -1UL (included) so running on hosts with >4G of ram with pci32
-devices attached isn't a top priority at the moment. Infact if
-something there should also be a pool from the 32bit zone and not only
-from the 24bit one.
-
-> the sata_nv driver has to do it on finding a cdrom; afaik it has something
-> like a different DMA mask for disks and cdroms, and it scales down once you
-> insert a CD.
-
-So that would surely give problems with reserved-ram. We'll sort this
-out later. So for sata_nv it would be right to call the bounce
-buffering, but in my hardware test the value was like 1000 and 1001,
-with driver claiming 1001 required and b_pfn set to 1000 or similar,
-so it was an off by one thing again with sata, and not a cdrom real
-low dma mask.
