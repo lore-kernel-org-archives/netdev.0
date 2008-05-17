@@ -1,46 +1,42 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: Top kernel oopses/warnings for the week of May 16th 2008
-Date: Sat, 17 May 2008 07:57:26 -0700
-Message-ID: <482EF256.8030305@linux.intel.com>
-References: <fa.LFS/TATb5YijFetLw6A+gczrVAQ@ifi.uio.no> <482E3B1B.9070400@shaw.ca> <20080517141235.GA13130@duo>
+From: James Cammarata <jimi@sngx.net>
+Subject: Re: [PATCH updated] net: add ability to clear per-interface	network
+ statistics via procfs
+Date: Sat, 17 May 2008 10:06:13 -0500
+Message-ID: <482EF465.2050205@sngx.net>
+References: <482DA5B6.1020606@sngx.net> <20080516.130004.18881610.davem@davemloft.net> <482DE9EC.3060803@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Hancock <hancockr@shaw.ca>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Jens Axboe <jens.axboe@oracle.com>
-To: Andrea Arcangeli <andrea@qumranet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:21990 "EHLO
-	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750812AbYEQO5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2008 10:57:31 -0400
-In-Reply-To: <20080517141235.GA13130@duo>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757751AbYEQPFl@vger.kernel.org>
+In-Reply-To: <482DE9EC.3060803@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrea Arcangeli wrote:
-> The reason I touched that code, is that a change introduced during
-> 2.6.25-rc initialized the isa dma pool even if not necessary and that
-> broke the reserved-ram patch that requires no __GFP_DMA
-> allocations. There was no crash in 2.6.24 based kernels, the
-> regression started in 2.6.25-rc.
+>> We saw your initial patch posting, you don't need to send this
+>> again.
+>>
+>> netdev added to CC:
 
-I'd not really call "breaks external patch" a regression ;)
+I had regenerated the diff against .25.4 and made a few changes so I resubmitted.
+Sorry if I made it seem like I was spamming the patch.
 
+> I don't wish to suggest I don't like the change - I've used similar 
+> features on "other oses" in the past, but when something like this has 
+> come-up in the past, haven't there been concerns about MIBs and SNMP and 
+> whatnot?
+> 
+> rick jones
+> ftp://ftp.cup.hp.com/dist/networking/tools - beforeafter - subtract one 
+> set of stats from another...
 
-What we really ought to be doing is always initialize the pool, from
-the right process context. However, we need to make it such that we
-can detect that there is zero __GFP_DMA memory in the system, and bail
-out in that case. Doing it on-demand is just not going to fly; by that
-time it's just too late (the pool may have been eaten already, the context
-might be nasty to do allocations from etc etc).
+Yes, this would definitely be a caveat, as it could cause problems if the software
+takes a baseline once, and calculates differences from that ever after.  For others,
+it would cause a hiccup where stats show as being negative for one period.
 
-the sata_nv driver has to do it on finding a cdrom; afaik it has something
-like a different DMA mask for disks and cdroms, and it scales down once you
-insert a CD.
-
+However, I think the benefit of being able to troubleshoot issues on an interface 
+in a non-invasive manner outweigh the downside here.  Like you say, this ability 
+is already found elsewhere, most namely in network devices like Ciscos, and the 
+concern for clearing stats there does not exist.
