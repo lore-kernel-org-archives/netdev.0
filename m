@@ -1,75 +1,50 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: hibernate event order question
-Date: Sun, 18 May 2008 12:45:13 +0200
-Message-ID: <200805181245.13899.rjw@sisk.pl>
-References: <20080517175046.GA9032@yamamaya.is-a-geek.org> <20080517223622.GA2668@yamamaya.is-a-geek.org> <20080517232411.GA8792@yamamaya.is-a-geek.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: IPV6_V6ONLY ignored for SCTP
+Date: Sun, 18 May 2008 12:58:55 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0805181244480.15590@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756428AbYERKpg@vger.kernel.org>
-In-Reply-To: <20080517232411.GA8792@yamamaya.is-a-geek.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:42905 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbYERK65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2008 06:58:57 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sovereign.computergmbh.de (Postfix) with ESMTP id D74A21CD52C28
+	for <netdev@vger.kernel.org>; Sun, 18 May 2008 12:58:55 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday, 18 of May 2008, Tobias Diedrich wrote:
-> Tobias Diedrich wrote:
-> > > > Shouldn't there be a 'prepare for poweroff'-callback, which gets
-> > > > called
-> > > > before the system is powered off for real?
-> > > 
-> > > Yes, it should and it's called in recent kernels.
-> > 
-> > For what values of 'recent'?
-> > I'm running 2.6.26-rc2 here. :)
-> > How do I hook into this callback?
-> > (suspend_late maybe? Going to try that one next...)
-> 
-> Ok, this patch fixes the 'regression' introduced by the previous
-> patch (at least for me ;)):
-
-Well, what exactly do you do to hibernate the box?
+Hi,
 
 
-> Index: linux-2.6.26-rc2.forcedwol/drivers/net/forcedeth.c
-> ===================================================================
-> --- linux-2.6.26-rc2.forcedwol.orig/drivers/net/forcedeth.c	2008-05-18 01:10:18.000000000 +0200
-> +++ linux-2.6.26-rc2.forcedwol/drivers/net/forcedeth.c	2008-05-18 01:11:33.000000000 +0200
-> @@ -5828,8 +5828,24 @@
->  out:
->  	return rc;
->  }
-> +
-> +static void nv_shutdown(struct pci_dev *pdev)
-> +{
-> +	struct net_device *dev = pci_get_drvdata(pdev);
-> +	struct fe_priv *np = netdev_priv(dev);
-> +	u8 __iomem *base = get_hwbase(dev);
-> +
-> +	if (netif_running(dev))
-> +		nv_close(dev);
-> +
-> +	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> +	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
-> +	pci_disable_device(pdev);
-> +	pci_set_power_state(pdev, PCI_D3hot);
-> +}
->  #else
->  #define nv_suspend NULL
-> +#define nv_shutdown NULL
->  #define nv_resume NULL
->  #endif /* CONFIG_PM */
->  
-> @@ -6000,6 +6016,7 @@
->  	.remove		= __devexit_p(nv_remove),
->  	.suspend	= nv_suspend,
->  	.resume		= nv_resume,
-> +	.shutdown	= nv_shutdown,
->  };
->  
->  static int __init init_nic(void)
-> 
+with the following short C program, I get "Address already in use"
+(when binding 'b'), but only when using IPPROTO_SCTP. When I use 
+IPPROTO_TCP for 'a' and 'b', everything is fine. Seems like SCTP
+is ignoring the V6ONLY flag.
+Running kernel is 2.6.25.3 on i686. Any other info needed?
+
+Thanks,
+Jan
+
+--<<---
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <stdio.h>
+#define p(x) if ((x) < 0) perror("urgh")
+int main(void)
+{
+	int a, b, y = 1;
+	p(a = socket(PF_INET, SOCK_STREAM, IPPROTO_SCTP));
+	p(b = socket(PF_INET6, SOCK_STREAM, IPPROTO_SCTP));
+	p(setsockopt(b, IPPROTO_IPV6, IPV6_V6ONLY, &y, sizeof(y)));
+	p(bind(a, (const void *)&(struct sockaddr_in){.sin_family = PF_INET,
+		.sin_port = htons(3333)}, sizeof(struct sockaddr_in)));
+	p(listen(a, SOMAXCONN));
+	p(bind(b, (const void *)&(struct sockaddr_in6){.sin6_family = PF_INET6,
+		.sin6_port = htons(3333)}, sizeof(struct sockaddr_in6)));
+	p(listen(b, SOMAXCONN));
+	return 0;
+}
