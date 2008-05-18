@@ -1,116 +1,112 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH updated] net: add ability to clear per-interface network statistics via procfs
-Date: Sun, 18 May 2008 01:31:05 +0100
-Message-ID: <20080518003104.GK28241@solarflare.com>
-References: <482DA5B6.1020606@sngx.net> <482DB46A.8020103@cosmosbay.com> <482EF192.4070707@sngx.net> <482F5113.5090703@cosmosbay.com> <482F610D.2080108@sngx.net>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+	IRQF_SAMPLE_RANDOM
+Date: Sat, 17 May 2008 19:36:08 -0500
+Message-ID: <1211070968.18026.113.camel@calx>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
+	 <20080515142154.0595e475@core>
+	 <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
+	 <20080515215517.GI1936@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: James Cammarata <jimi@sngx.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760288AbYERAbg@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <482F610D.2080108@sngx.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Chris Peterson <cpeterso@cpeterso.com>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from waste.org ([66.93.16.53]:36710 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756048AbYERArH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 May 2008 20:47:07 -0400
+In-Reply-To: <20080515215517.GI1936@cs181133002.pp.htv.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-James Cammarata wrote:
-> >This version has a bug, please check again.
+
+On Fri, 2008-05-16 at 00:55 +0300, Adrian Bunk wrote:
+> On Thu, May 15, 2008 at 09:07:52AM -0700, Brandeburg, Jesse wrote:
+> > Alan Cox wrote:
+> > > Chris Peterson <cpeterso@cpeterso.com> wrote:
+> > >> I know Jeff Garzik says he's not interested in an anti-entropy
+> > >> pogrom for existing net drivers, but here is the patch if anyone
+> > >> else is interested..? :)  
+> > >> 
+> > >> Only 12 net drivers are affected, the last of the
+> > >> theoretically-exploitable network entropy. 
+> > > 
+> > > Looks fine to me. If Jeff doesn't want to touch them then send them
+> > > direct to Andrew/Linus.
+> > > 
+> > > A more interesting alternative might be to mark things like network
+> > > drivers with a new flag say IRQF_SAMPLE_DUBIOUS so that users can be
+> > > given a switch to enable/disable their use depending upon the
+> > > environment. 
+> > 
+> > we've been hearing rumblings of big customers wanting (maybe requiring)
+> > wired network drivers from Intel to  advertise this flag.  Jeff have you
+> > heard of such?
+> > 
+> > I think the argument is that a headless system (no keyboard/mouse, no
+> > soundcard, probably no video) with a libata based driver and a network
+> > driver without IRQF_SAMPLE_RANDOM has *no* sources of entropy.  In this
+> > case the argument is very strong for at least *some* source of entropy
+> > from interrupts so that randomness can get some external input.  Just
+> > try rebuilding a kernel RPM over an ssh session and you'll see what I
+> > mean.
+> > 
+> > In short, I agree with Alan's IRQF_SAMPLE_DUBIOUS, and know of Linux
+> > customers who also want the same.
 > 
-> Gah, you're right, fixed below.
+> We have two random number interfaces:
+> - /dev/random
+> - /dev/urandom
 > 
-> ---
+> If a customer wants to get data from /dev/random although there's not 
+> enough entropy that's not a problem we can solve (we can only try to 
+> gather more real entropy if possible).
 > 
-> --- linux-2.6.25.4/net/core/dev.c       2008-05-15 10:00:12.000000000 -0500
-> +++ linux-2.6.25.4-jcammara/net/core/dev.c      2008-05-17 
-> 17:45:57.000000000 -0500
-> @@ -2455,2 +2455,80 @@
+> If he can live with dubious data he can simply use /dev/urandom .
 > 
-> +/**
-> + * proc_net_dev_write - handle writes to /proc/net/dev
-> + * @file: not used
-> + * @buf: buffer to write
-> + * @length: length of buf, at most PAGE_SIZE
-> + * @ppos: not used
-> + *
-> + * Description: this provides a mechanism to clear statistics on a
-> + * per-interface basis
-> + * "echo 'net clear-stats ifdev' >/proc/net/dev"
-> + * with  "ifdev" replaced by the device name you wish to clear.
-> + *
-> + */
-> +static ssize_t proc_net_dev_write(struct file *file, const char __user 
-> *buf,
+> If a customer wants to use /dev/random and demands to get dubious data 
+> there if nothing better is available fulfilling his wish only moves 
+> the security bug from his crappy application to the Linux kernel.
+> 
+> But what we could perhaps do with some kind of IRQF_SAMPLE_DUBIOUS would 
+> be to improve the quality of the data in /dev/urandom if there's not 
+> enough entropy available?
+> 
+> I have seen embedded systems with zero entropy, and dubious entropy 
+> might there be better than no entropy at all.
+> Or am I wrong on the latter?
 
-You need to stop your mail client word-wrapping patches.  It looks like
-something has converted tabs to spaces, too.
+There are two issues that people need to separate here:
 
-[...]
-> +        /*
-> +         * Usage: echo "net clear-stats ifdev" >/proc/net/dev
-> +         * with  "ifdev" replaced by the device name you wish to clear.
-> +         */
+- sampling noise
+- estimating entropy in that noise
 
-This is redundant with the kernel-doc comment.
+It certainly makes sense to sample network timing noise. It often does
+not make sense to assume that there's any entropy in those timing
+samples. For instance:
 
-> +        if (!strncmp("net clear-stats",buffer,15)) {
+- our clock resolution may be low enough that an attacker can guess our
+samples (ie it's simply HZ, very common in embedded land)
+- the bus involved (ISA, peripheral bus, even slow PCI) may have the
+same issue
+- it may be heavily correlated with some other measurement (ie network
+vs disk samples on file servers)
 
-This doesn't check for a space after, which you rely on later on.  (What if
-length == 15?)  Also, explicitly writing the length of a literal string is
-error-prone.  Seems like it would be better to do something like:
+We currently assume that IRQF_SAMPLE_RANDOM means 'this is a completely
+trusted unobservable entropy source' which is obviously wrong for
+network devices but is right for some other classes of device.
 
-	static const char command[] = "net clear-stats ";
-        ...
-        if (!strncmp(command, buffer, sizeof(command) - 1)) {
-
-> +                p = buffer + 16;
-> +                if(sscanf(p,"%16s",devname)>0) {
-> +                        dev = dev_get_by_name(net,devname);
-> +                        if (dev) {
-> +                                if (dev->get_stats) {
-> +                                        struct net_device_stats *stats =
-> +                                               dev->get_stats(dev);
-> +                                        memset(stats,0,
-> +                                               sizeof(struct 
-> net_device_stats));
-> +                                }
-> +                                dev_put(dev);
-> +                        }
-
-Shouldn't this return an error if the device doesn't exist?
-
-> +                }
-> +        }
-> +
-> +        /*
-> +         * convert success returns so that we return the
-> +         * number of bytes consumed.
-> +         */
-> +        if (!err)
-> +                err = length;
-
-This won't work; the function updates err unconditionally further up!
-
-> +
-> +        put_net(net);
-> +
-> + out:
-> +        free_page((unsigned long)buffer);
-> +        return err;
-> +}
-> +
-> static void *softnet_seq_start(struct seq_file *seq, loff_t *pos)
-> @@ -2498,2 +2576,3 @@
->        .read    = seq_read,
-> +        .write   = proc_net_dev_write,
->        .llseek  = seq_lseek,
-
-The context for this chunk seems to be too short.
-
-There are a few formatting oddities; checkpatch.pl will point them out.
-
-Ben.
+I'd personally prefer to add a new interface, eg
+add_network_randomness(), that internalized the wisdom of what to do 
+with network samples. Similarly, the various 'input'-like devices that
+use SAMPLE_RANDOM should be switched to go through the 'input'
+interface.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Mathematics is the supreme nostalgia of our time.
+
