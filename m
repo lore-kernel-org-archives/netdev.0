@@ -1,106 +1,62 @@
-From: "Gilles Espinasse" <g.esp@free.fr>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses ofIRQF_SAMPLE_RANDOM
-Date: Sun, 18 May 2008 08:41:10 +0200
-Message-ID: <10a001c8b8b2$28afd2c0$f9b5a8c0@pii350>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <20080516161029.44ded734@core> <0f7201c8b790$9c2a2340$f9b5a8c0@pii350> <20080517220258.GC8140@cs181133002.pp.htv.fi>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] Re: [PATCH] drivers/net: remove network drivers' last
+ few uses of IRQF_SAMPLE_RANDOM
+Date: Sun, 18 May 2008 12:08:42 +0200
+Message-ID: <4830002A.4020608@firstfloor.org>
+References: <20080515142154.0595e475@core> <482C7DA3.1090809@garzik.org>	 <482C953A.4080205@garzik.org> <87abirytxj.fsf@basil.nowhere.org>	 <20080516105635.6cb1f505@core> <482D5FC5.2070103@firstfloor.org>	 <20080516121239.GA9627@gondor.apana.org.au>	 <482DB568.1040704@firstfloor.org>	 <20080517010136.GA15102@gondor.apana.org.au>	 <482EBAA8.3040506@firstfloor.org> <a24804730805171254i2a37da61mb47280db7b330ed5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "Adrian Bunk" <bunk@kernel.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	tpmdd-devel@lists.sourceforge.net, tpm@selhorst.net
+To: Chris Peterson <cpeterso@cpeterso.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp7-g19.free.fr ([212.27.42.64]:50335 "EHLO smtp7-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751116AbYERGoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 May 2008 02:44:08 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:57181 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751783AbYERKIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2008 06:08:51 -0400
+In-Reply-To: <a24804730805171254i2a37da61mb47280db7b330ed5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Chris Peterson wrote:
+>> Would people be ok with kernel auto-feeding for /dev/urandom only? I've
+>> been pondering that and I think that would work just as well in practice
+>>  given the facts above. Then you would still only get blocking
+>> /dev/random with the user daemon, but that won't matter because all
+>> the usual users don't rely on thatanyways.
+> 
+> Andi, can you please clarify what you mean by "auto-feeding
+> /dev/urandom only" and "only get blocking /dev/random with the user
+> daemon"? Are you suggesting that the kernel provides /dev/urandom and
+> a userspace daemon (e.g. EGD) provides /dev/random?
 
------ Original Message ----- 
-From: "Adrian Bunk" <bunk@kernel.org>
-To: "Gilles Espinasse" <g.esp@free.fr>
-Cc: <netdev@vger.kernel.org>; <linux-kernel@vger.kernel.org>
-Sent: Sunday, May 18, 2008 12:02 AM
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses
-ofIRQF_SAMPLE_RANDOM
+What I meant was "only getting working blocking /dev/random
+with the user mode daemon". /
 
+The kernel would still provide /dev/random. But on systems
+without much entropy (which is pretty common) it will block
+often and be unusable unless you run some obscure user space
+daemons which regularly refeed /dev/random from hw_random
+and stops doing that if the FIPS test fails and makes /dev/random
+unusable again.
 
-> On Fri, May 16, 2008 at 10:08:29PM +0200, Gilles Espinasse wrote:
-> >
-> > That's funny
-> > It does look to disturb some kernel developper that ethernet may be
-sniffed
-> > to feed a RNG
-> > even that could be very hard to reach any effective result in the case
-of a
-> > machine splitting different network segments.
-> >
-> > In the same time, it does not disturb openssl developpers to include non
-> > initialised memory that may or may not be predictable to feed a RNG.
-> > http://marc.info/?l=openssl-dev&m=121095151003011&w=2
->
-> Why should it disturb them?
->
-> As is explained in the email you quote it cannot make the RNG
-> output worse.
->
-Yes that's the whole point.
-Why remove IRQF_SAMPLE_RANDOM if "it cannot make the RNG output worse."
-We should not care if network traffic can be sniffed in some configurations
-(plus sniffing could be very unlikely in some others).
+> Also, if crypto apps like ssh and openssl use on "insecure"
+> /dev/urandom, then who actually relies on /dev/random? For comparison,
+> FreeBSD does not even (AFAIK) have /dev/urandom. FreeBSD's /dev/random
+> is nonblocking (like Linux's /dev/urandom) and includes network
+> entropy.
 
-There is some objections that I understand (less IRQ with NAPI or less IRQ
-with more network traffic). But there is still the problem to have other
-entropy supplier for any existing machines without hw_random chip.
+It's sad to say, but their implementation makes more sense than Linux's
+(including the feeding in of network data)
 
-For the few machines with a supported hw_random chip, rng-tools should do
-the job (and far better)
+I suspect that's the main reason I actually found that many /dev/random
+users as I found during my research.
 
-I look at other possible entropy solutions proposed by Jeff Garzic
-http://sourceforge.net/projects/egd
-That's for system without /dev/random and linux has /dev/random.
-
-http://sourceforge.net/projects/prngd
-README say
-"- If you have a UNIX version providing /dev/urandom or /dev/random you
-  probably won't need PRNGD at all."
-
-So I didn't find an operational replacement solution yet now.
-I don't say something is not doable re-using parts of egd or prngd to feed
-the entropy pool.
-
-I had experiences with the entropy pool empty since 2.6.12.
-I am running headless machines to compile with not much other activities
-sometime.
-On a headless machine running 2.6.11 kernel, openswan-1.0.10 was compiling
-fine.
-On that same machine upgraded to 2.6.12 vanillia kernel, package compilation
-will wait I feed
-the entropy pool by some actions (keyboard/console) during ipsec.secrets
-generation.
-Failed instruction was rsasigkey --verbose 2192
-
-Problem was caused by the changes to feed the entropy pool on 2.6.12
-2.6.25 fail the same way on that machine.
-Each time any source to feed the entropy pool is removed, /dev/random
-situation is always worst and DOS may happen.
-
-I understand  IRQF_SAMPLE_RANDOM on a network card may be not the GREAT
-solution.
-In fact, this machine use via_rhine nic driver that does not have
-SAMPLE_RANDOM collection even in 2.6.11 (and there not much traffic on this
-machine when packages cache is up to date).
-
-Are network drivers better without SAMPLE_RANDOM?
-My understanding of openssl developper answer is same as yours :
-"it cannot make the RNG output worse."
-So why remove SAMPLE_RANDOM on network cards today if there is no
-replacement solution ready for x% of machines running linux actually?
-
-How many SAMPLE_RANDOM sources remain that have a chance to be run on the
-average machine running linux?
-
-Gilles
+-Andi
 
