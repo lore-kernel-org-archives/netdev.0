@@ -1,53 +1,68 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC] make wext wireless bits optional and deprecate them
-Date: Sun, 18 May 2008 09:36:35 -0400
-Message-ID: <1211117795.686.15.camel@localhost.localdomain>
-References: <1211026337.3827.25.camel@johannes.berg>
-	 <CD993362-B1DE-4E4D-8A5B-E9E2AD7DA04C@holtmann.org>
-	 (sfid-20080517_154639_384202_6D3479C2)  <1211032475.6252.2.camel@johannes.berg>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses
+	ofIRQF_SAMPLE_RANDOM
+Date: Sun, 18 May 2008 17:43:40 +0300
+Message-ID: <20080518144340.GH8140@cs181133002.pp.htv.fi>
+References: <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <20080516161029.44ded734@core> <0f7201c8b790$9c2a2340$f9b5a8c0@pii350> <20080517220258.GC8140@cs181133002.pp.htv.fi> <10a001c8b8b2$28afd2c0$f9b5a8c0@pii350> <20080518120235.GE8140@cs181133002.pp.htv.fi> <20080518122410.GA31413@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1211032475.6252.2.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+To: Theodore Tso <tytso@mit.edu>, Gilles Espinasse <g.esp@free.fr>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756909AbYEROpw@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080518122410.GA31413@mit.edu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2008-05-17 at 15:54 +0200, Johannes Berg wrote:
-> On Sat, 2008-05-17 at 15:45 +0200, Marcel Holtmann wrote:
-> > Hi Johannes,
+On Sun, May 18, 2008 at 08:24:10AM -0400, Theodore Tso wrote:
+> On Sun, May 18, 2008 at 03:02:36PM +0300, Adrian Bunk wrote:
+> > > Yes that's the whole point.
+> > > Why remove IRQF_SAMPLE_RANDOM if "it cannot make the RNG output worse."
+> > > We should not care if network traffic can be sniffed in some configurations
+> > > (plus sniffing could be very unlikely in some others).
+> > >...
+> > > Are network drivers better without SAMPLE_RANDOM?
+> > > My understanding of openssl developper answer is same as yours :
+> > > "it cannot make the RNG output worse."
 > > 
-> > > The /sys/class/net/*/wireless/ direcory is, as far as I know, not
-> > > used by anyone. Additionally, the same data is available via wext
-> > > ioctls. Hence the sysfs files are pretty much useless. This patch
-> > > makes them optional and schedules them for removal.
-> > 
-> > it is used by HAL to classify WiFi network cards as net.80211 instead  
-> > of net.80203 and so we do have an actual user. However HAL only tests  
-> > for the existence of the directory wireless/.
+> > The "it cannot make the RNG output worse." only applies to the OpenSSL 
+> > case (one could argue whether it makes sense, but it can't do harm).
 > 
-> Oh, ok, I didn't know that, thanks.
+> Actually, it applies here too.  Or it can be made to apply here.  If
+> people are concerned that for certain cards the entropy could
+> potentially be guessed by someone on the local network (although I
+> suspect it's still useful for protecting against someone who doesn't
+> have local network access), we could still sample the entropy, and
+> just not increment the entropy credit for /dev/random's sake.
+
+The latter is exactly the difference between the two cases.
+
+But Gilles was implying using IRQF_SAMPLE_RANDOM for gathering entropy 
+was as harmless as OpenSSL mixing uninitialized memory into their RNG.
+
+> It will
+> still put something into the entropy pool which is also used by
+> /dev/urandom.
 > 
-> > Please fix HAL first before submitting such a patch.
+> > The replacement solution ready on all Linux machines today is for 
+> > userspace to use /dev/urandom instead of /dev/random if feasible.
 > 
-> Sure, I'll take a look at that.
+> Sampling interrupt entropy will definitely not hurt /dev/urandon, and
+> may help, especially in the freshly installed server case.  Especially
+> if it's using kickstart-style install, where there is no keyboard
+> entropy, sampling the interrupts as it pulls RPM's from the network
+> and/or the CD-ROM drive may be all that we have.
 
-Instead of testing for wireless/, best thing would probably be to call
-SIOCGIWRANGE on the device and if it returns EOPNOTSUP then it's not
-wireless.  Some drivers may have to load firmware to figure out
-supported rates and encryption capabilities, but to be honest, NM does
-this to detect wireless devices and I haven't run into any issues in 4
-years using it.  If there are issues with drivers, then we need to fix
-the driver too.
+No disagreement on this.
 
-dan
+>               	   	  	       	   	   - Ted
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
