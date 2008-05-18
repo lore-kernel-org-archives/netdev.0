@@ -1,63 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
-Date: Sun, 18 May 2008 15:24:25 +0200
-Message-ID: <48302E09.8080701@trash.net>
-References: <bug-10737-10286@http.bugzilla.kernel.org/>	<20080517141036.d8f3c768.akpm@linux-foundation.org>	<482F88DE.8090508@trash.net> <20080517215641.acb94677.akpm@linux-foundation.org> <48301BE0.9040907@trash.net>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC] make wext wireless bits optional and deprecate them
+Date: Sun, 18 May 2008 09:36:35 -0400
+Message-ID: <1211117795.686.15.camel@localhost.localdomain>
+References: <1211026337.3827.25.camel@johannes.berg>
+	 <CD993362-B1DE-4E4D-8A5B-E9E2AD7DA04C@holtmann.org>
+	 (sfid-20080517_154639_384202_6D3479C2)  <1211032475.6252.2.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	devzero@web.de, Robert Olsson <robert.olsson@its.uu.se>,
-	"Denis V. Lunev" <den@openvz.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36876 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752996AbYERNY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2008 09:24:27 -0400
-In-Reply-To: <48301BE0.9040907@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1211032475.6252.2.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Andrew Morton wrote:
->> On Sun, 18 May 2008 03:39:42 +0200 Patrick McHardy <kaber@trash.net> 
->> wrote:
->>
->>  
->>> I've been looking into the same problem, without much success so
->>> far. The problem appears to affect any /proc/net file, but not
->>> files outside of /proc/net, so I'm guessing its net-ns related.
->>> A testcase found by Ben Greear is opening the file multiple times:
->>>
->>> # /tmp/open /proc/net/kpktgen_0
->>>
->>> => refcnt goes to 1
->>>
->>> ^C
->>>
->>> => refcnt goes to 0
->>>
->>> Without ^C and opening the file a second time:
->>>
->>> # /tmp/open /proc/net/kpktgen_0
->>>
->>> => refcnt goes to 2 (sometimes also 11)
->>>
->>> ^C
->>>
->>> => refcnt stays at previous value.
->>>
->>> The refcnt even leaks if the file can't be successfully opened,
->>> for example because of lacking permissions.
->>>     
->>
->> urgh.  Is any of this known to be post-2.6.25?
->>   
+On Sat, 2008-05-17 at 15:54 +0200, Johannes Berg wrote:
+> On Sat, 2008-05-17 at 15:45 +0200, Marcel Holtmann wrote:
+> > Hi Johannes,
+> > 
+> > > The /sys/class/net/*/wireless/ direcory is, as far as I know, not
+> > > used by anyone. Additionally, the same data is available via wext
+> > > ioctls. Hence the sysfs files are pretty much useless. This patch
+> > > makes them optional and schedules them for removal.
+> > 
+> > it is used by HAL to classify WiFi network cards as net.80211 instead  
+> > of net.80203 and so we do have an actual user. However HAL only tests  
+> > for the existence of the directory wireless/.
 > 
-> 2.6.25 is also affected. I don't know about earlier kernels.
+> Oh, ok, I didn't know that, thanks.
+> 
+> > Please fix HAL first before submitting such a patch.
+> 
+> Sure, I'll take a look at that.
 
-Some more information: the problem seems to occur only if
-the file is opened by two different processes.
+Instead of testing for wireless/, best thing would probably be to call
+SIOCGIWRANGE on the device and if it returns EOPNOTSUP then it's not
+wireless.  Some drivers may have to load firmware to figure out
+supported rates and encryption capabilities, but to be honest, NM does
+this to detect wireless devices and I haven't run into any issues in 4
+years using it.  If there are issues with drivers, then we need to fix
+the driver too.
 
-I'm starting a bisection now.
+dan
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
