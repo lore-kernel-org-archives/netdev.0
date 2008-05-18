@@ -1,75 +1,58 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses
-	ofIRQF_SAMPLE_RANDOM
-Date: Sun, 18 May 2008 15:02:36 +0300
-Message-ID: <20080518120235.GE8140@cs181133002.pp.htv.fi>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <20080516161029.44ded734@core> <0f7201c8b790$9c2a2340$f9b5a8c0@pii350> <20080517220258.GC8140@cs181133002.pp.htv.fi> <10a001c8b8b2$28afd2c0$f9b5a8c0@pii350>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
+Date: Sun, 18 May 2008 14:06:56 +0200
+Message-ID: <48301BE0.9040907@trash.net>
+References: <bug-10737-10286@http.bugzilla.kernel.org/>	<20080517141036.d8f3c768.akpm@linux-foundation.org>	<482F88DE.8090508@trash.net> <20080517215641.acb94677.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Gilles Espinasse <g.esp@free.fr>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	devzero@web.de, Robert Olsson <robert.olsson@its.uu.se>,
+	"Denis V. Lunev" <den@openvz.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:45075 "EHLO smtp4.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753567AbYERMEe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 May 2008 08:04:34 -0400
-Content-Disposition: inline
-In-Reply-To: <10a001c8b8b2$28afd2c0$f9b5a8c0@pii350>
+Received: from stinky.trash.net ([213.144.137.162]:35193 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753535AbYERMIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2008 08:08:13 -0400
+In-Reply-To: <20080517215641.acb94677.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 18, 2008 at 08:41:10AM +0200, Gilles Espinasse wrote:
-> > On Fri, May 16, 2008 at 10:08:29PM +0200, Gilles Espinasse wrote:
-> > >
-> > > That's funny
-> > > It does look to disturb some kernel developper that ethernet may be
-> sniffed
-> > > to feed a RNG
-> > > even that could be very hard to reach any effective result in the case
-> of a
-> > > machine splitting different network segments.
-> > >
-> > > In the same time, it does not disturb openssl developpers to include non
-> > > initialised memory that may or may not be predictable to feed a RNG.
-> > > http://marc.info/?l=openssl-dev&m=121095151003011&w=2
-> >
-> > Why should it disturb them?
-> >
-> > As is explained in the email you quote it cannot make the RNG
-> > output worse.
-> >
-> Yes that's the whole point.
-> Why remove IRQF_SAMPLE_RANDOM if "it cannot make the RNG output worse."
-> We should not care if network traffic can be sniffed in some configurations
-> (plus sniffing could be very unlikely in some others).
->...
-> Are network drivers better without SAMPLE_RANDOM?
-> My understanding of openssl developper answer is same as yours :
-> "it cannot make the RNG output worse."
+Andrew Morton wrote:
+> On Sun, 18 May 2008 03:39:42 +0200 Patrick McHardy <kaber@trash.net> wrote:
+>
+>   
+>> I've been looking into the same problem, without much success so
+>> far. The problem appears to affect any /proc/net file, but not
+>> files outside of /proc/net, so I'm guessing its net-ns related.
+>> A testcase found by Ben Greear is opening the file multiple times:
+>>
+>> # /tmp/open /proc/net/kpktgen_0
+>>
+>> => refcnt goes to 1
+>>
+>> ^C
+>>
+>> => refcnt goes to 0
+>>
+>> Without ^C and opening the file a second time:
+>>
+>> # /tmp/open /proc/net/kpktgen_0
+>>
+>> => refcnt goes to 2 (sometimes also 11)
+>>
+>> ^C
+>>
+>> => refcnt stays at previous value.
+>>
+>> The refcnt even leaks if the file can't be successfully opened,
+>> for example because of lacking permissions.
+>>     
+>
+> urgh.  Is any of this known to be post-2.6.25?
+>   
 
-The "it cannot make the RNG output worse." only applies to the OpenSSL 
-case (one could argue whether it makes sense, but it can't do harm).
+2.6.25 is also affected. I don't know about earlier kernels.
 
-IRQF_SAMPLE_RANDOM and what was discussed in this email on the OpenSSL 
-mailing list are two completely different subjects, and you completely 
-miss the problem when you mix them.
-
-> So why remove SAMPLE_RANDOM on network cards today if there is no
-> replacement solution ready for x% of machines running linux actually?
->...
-
-The replacement solution ready on all Linux machines today is for 
-userspace to use /dev/urandom instead of /dev/random if feasible.
-
-> Gilles
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
 
