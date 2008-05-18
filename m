@@ -1,91 +1,80 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: hibernate event order question
-Date: Sun, 18 May 2008 14:29:26 +0200
-Message-ID: <200805181429.27686.rjw@sisk.pl>
-References: <20080517175046.GA9032@yamamaya.is-a-geek.org> <200805181332.13941.rjw@sisk.pl> <20080518122433.GA16663@yamamaya.is-a-geek.org>
+From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Subject: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
+Date: Sun, 18 May 2008 14:57:15 +0200
+Message-ID: <20080518125715.GA19229@yamamaya.is-a-geek.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Ayaz Abdulla <aabdulla@nvidia.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
 	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:58678 "EHLO ogre.sisk.pl"
+Received: from yumi.tdiedrich.de ([85.10.210.183]:33226 "EHLO mx.tdiedrich.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763289AbYERM3M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 May 2008 08:29:12 -0400
-In-Reply-To: <20080518122433.GA16663@yamamaya.is-a-geek.org>
+	id S1752362AbYERM5u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 May 2008 08:57:50 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday, 18 of May 2008, Tobias Diedrich wrote:
-> Rafael J. Wysocki wrote:
-> > On Sunday, 18 of May 2008, Tobias Diedrich wrote:
-> > > Rafael J. Wysocki wrote:
-> > > > On Sunday, 18 of May 2008, Tobias Diedrich wrote:
-> > > > > Tobias Diedrich wrote:
-> > > > > > > > Shouldn't there be a 'prepare for poweroff'-callback, which gets
-> > > > > > > > called
-> > > > > > > > before the system is powered off for real?
-> > > > > > > 
-> > > > > > > Yes, it should and it's called in recent kernels.
-> > > > > > 
-> > > > > > For what values of 'recent'?
-> > > > > > I'm running 2.6.26-rc2 here. :)
-> > > > > > How do I hook into this callback?
-> > > > > > (suspend_late maybe? Going to try that one next...)
-> > > > > 
-> > > > > Ok, this patch fixes the 'regression' introduced by the previous
-> > > > > patch (at least for me ;)):
-> > > > 
-> > > > Well, what exactly do you do to hibernate the box?
-> > > 
-> > > |#!/bin/sh
-> > > |
-> > > |SYSPRINTK=/proc/sys/kernel/printk
-> > > |OLDPRINTK=$(cat $SYSPRINTK)
-> > > |chvt 1
-> > > |# work around forcedeth wake-on-lan bug
-> > > |#rmmod forcedeth
-> > > |echo 9 > $SYSPRINTK
-> > > |# shutdown/reboot/platform
-> > > |echo shutdown > /sys/power/disk
-> > 
-> > You don't see the devices' suspend callbacks invoked before powering off
-> > because of this.  Change that to 'platform' (unless that breaks things).
-> 
-> Hmm, I think someone recommended to use shutdown since that is
-> supposed to be more reliable.
-> Anyway, I think the shutdown hook is good anyway since I suspect
-> that if I do a normal system shutdown with promiscous mode still on,
-> then wake-on-lan would also not work?
-> I haven't checked that though.
-> At least I think the shutdown hook won't hurt. :)
+The following patch series fixes hibernate/wake-on-lan for my
+System (Asus M2N-SLI Deluxe, Dual MCP55 Gigabit Ethernet).
 
-No, it won't.
+See also http://bugzilla.kernel.org/show_bug.cgi?id=3D8381
+"(net forcedeth) doesn't wol on suspend".
 
-> > I'm unable to comment on the device-specific things, but apart from this the
-> > patch looks okay to me except for one thing.
-> > > +	if (np->wolenabled) 
-> > > +		pci_set_power_state(pdev, PCI_D3hot);
-> > > +	else pci_set_power_state(pdev, PCI_D3cold);
-> > 
-> > I'm not sure if it's possible to put the device into D3cold without actually
-> > removing power from it.
-> 
-> Ok, I've cleaned it up a bit and split it up properly (I think):
-> http://www.tdiedrich.de/~ranma/patches/forcedeth/2.6.26-rc2/
-> series:
+Note that so far this is only tested on my system with hibernate
+using the 'shutdown' method.
 
-Can you send those patches as a series of messages, please?
+The local setup combines the two onboard nforce gigabit interfaces
+eth0 and eth1 into a bridge br0, so it doesn't matter which port I
+plug the cable into.  The bridging means eth0 and eth1 normally
+operate in promiscous mode.
 
-> forcedeth.resume.promisc.patch
-> forcedeth.hibernate.wol.patch
-> forcedeth.swappedmac.patch
-> forcedeth.reorder_suspend_resume.patch
+The initial situation (unpatched driver) was as follows:
+After a normal boot, turning on wol and sending the system into
+hibernate, waking it up with etherwake works as expected.
+However, after waking up (be it via wol or via manual poweron)
+from hibernate network connectivity is down.
 
-Thanks,
-Rafael
+This is because 1) the mac address is now swapped and 2) promiscous
+mode is not restored.
+
+The first patch addresses 2)
+
+After this patch wake-on-lan stops working, since in 'shutdown' mode
+the suspend callback of the device does not get called again before
+poweroff and promiscous mode is apparently incompatible with wol.
+
+So the second patch introduces a shutdown handler, which prepares
+the device for wake-on-lan before the system is powered off.
+
+Now waking the system up works again, but the 'swapped mac' problem
+is still there.
+
+The reason for this is that in my case the MCP55 is not flagged as
+'DEV_HAS_CORRECT_MACADDR' and 'NVREG_TRANSMITPOLL_MAC_ADDR_REV' is
+not set by the bios, so in nv_probe during the initial loading of
+the driver the MAC address is read in reversed order and
+NVREG_TRANSMITPOLL_MAC_ADDR_REV is set.
+However during hibernate the device configuration space is lost
+(reset do BIOS defaults) and so we get the reversed MAC again, but
+resume unconditionally sets NVREG_TRANSMITPOLL_MAC_ADDR_REV, which
+means we now have effectively swapped the MAC.
+
+The third patch fixes this by saving and restoring the
+configuration space between suspend and resume.
+
+The fourth (optional) patch reorders the code in suspend/resume to
+match the order in e100/e1000e more closely, since I think the
+latter order is more correct.
+=46or example the configuration space should be saved on suspend even
+for devices that are not up.
+
+--=20
+Tobias						PGP: http://9ac7e0bc.uguu.de
+=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
+=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
+=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
+=E3=81=99=E3=80=82
