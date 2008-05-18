@@ -1,36 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH updated] net: add ability to clear per-interface network
- statistics via procfs
-Date: Sun, 18 May 2008 03:43:14 +0200
-Message-ID: <482F89B2.6060108@trash.net>
-References: <482DA5B6.1020606@sngx.net> <482DB46A.8020103@cosmosbay.com> <482EF192.4070707@sngx.net> <482F5113.5090703@cosmosbay.com> <482F610D.2080108@sngx.net> <20080518003104.GK28241@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: James Cammarata <jimi@sngx.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bonding-devel] [patch] bondig - arp_interval with low value => Oops.
+Date: Sat, 17 May 2008 20:39:20 -0700
+Message-ID: <5888.1211081960@death>
+References: <482C9E73.2040202@free.fr> <482F3DF6.7080403@nuovasystems.com>
+Cc: Nicolas 2P <nicolas.2p.debian@free.fr>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	linux-net@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Joe Eykholt <jre@nuovasystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55842 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755624AbYERBo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2008 21:44:27 -0400
-In-Reply-To: <20080518003104.GK28241@solarflare.com>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:37143 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751267AbYERDj3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 May 2008 23:39:29 -0400
+In-reply-to: <482F3DF6.7080403@nuovasystems.com> 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
->> +                        dev = dev_get_by_name(net,devname);
->> +                        if (dev) {
->> +                                if (dev->get_stats) {
->> +                                        struct net_device_stats *stats =
->> +                                               dev->get_stats(dev);
->> +                                        memset(stats,0,
->> +                                               sizeof(struct 
->> net_device_stats));
+Joe Eykholt <jre@nuovasystems.com> wrote:
 
-This doesn't work for devices that generate the stats (for
-example by reading them from the hardware) in ->get_stats().
+>Nicolas 2P wrote:
+[...]
+>> @@ -2837,7 +2837,7 @@
+>> 
+>>         read_lock(&bond->lock);
+>> 
+>> -       delta_in_ticks = (bond->params.arp_interval * HZ) / 1000;
+>> +       delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval * HZ);
+>
+>This seems like it should be just:
+>
+>	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
 
+	Yes.  I've corrected this already in my copy (which I'll be
+posting momentarily).
+
+>Same for the other changes?
+
+	The other two instances were correct, only the last change had
+the extra "* HZ".
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
