@@ -1,213 +1,75 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: hibernate event order question
-Date: Sun, 18 May 2008 13:32:13 +0200
-Message-ID: <200805181332.13941.rjw@sisk.pl>
-References: <20080517175046.GA9032@yamamaya.is-a-geek.org> <200805181245.13899.rjw@sisk.pl> <20080518112247.GA10502@yamamaya.is-a-geek.org>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses
+	ofIRQF_SAMPLE_RANDOM
+Date: Sun, 18 May 2008 15:02:36 +0300
+Message-ID: <20080518120235.GE8140@cs181133002.pp.htv.fi>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com> <20080515142154.0595e475@core> <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com> <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org> <20080516161029.44ded734@core> <0f7201c8b790$9c2a2340$f9b5a8c0@pii350> <20080517220258.GC8140@cs181133002.pp.htv.fi> <10a001c8b8b2$28afd2c0$f9b5a8c0@pii350>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Gilles Espinasse <g.esp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:58086 "EHLO ogre.sisk.pl"
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:45075 "EHLO smtp4.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757591AbYERLby (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 May 2008 07:31:54 -0400
-In-Reply-To: <20080518112247.GA10502@yamamaya.is-a-geek.org>
+	id S1753567AbYERMEe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 May 2008 08:04:34 -0400
 Content-Disposition: inline
+In-Reply-To: <10a001c8b8b2$28afd2c0$f9b5a8c0@pii350>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday, 18 of May 2008, Tobias Diedrich wrote:
-> Rafael J. Wysocki wrote:
-> > On Sunday, 18 of May 2008, Tobias Diedrich wrote:
-> > > Tobias Diedrich wrote:
-> > > > > > Shouldn't there be a 'prepare for poweroff'-callback, which gets
-> > > > > > called
-> > > > > > before the system is powered off for real?
-> > > > > 
-> > > > > Yes, it should and it's called in recent kernels.
-> > > > 
-> > > > For what values of 'recent'?
-> > > > I'm running 2.6.26-rc2 here. :)
-> > > > How do I hook into this callback?
-> > > > (suspend_late maybe? Going to try that one next...)
-> > > 
-> > > Ok, this patch fixes the 'regression' introduced by the previous
-> > > patch (at least for me ;)):
-> > 
-> > Well, what exactly do you do to hibernate the box?
-> 
-> |#!/bin/sh
-> |
-> |SYSPRINTK=/proc/sys/kernel/printk
-> |OLDPRINTK=$(cat $SYSPRINTK)
-> |chvt 1
-> |# work around forcedeth wake-on-lan bug
-> |#rmmod forcedeth
-> |echo 9 > $SYSPRINTK
-> |# shutdown/reboot/platform
-> |echo shutdown > /sys/power/disk
+On Sun, May 18, 2008 at 08:41:10AM +0200, Gilles Espinasse wrote:
+> > On Fri, May 16, 2008 at 10:08:29PM +0200, Gilles Espinasse wrote:
+> > >
+> > > That's funny
+> > > It does look to disturb some kernel developper that ethernet may be
+> sniffed
+> > > to feed a RNG
+> > > even that could be very hard to reach any effective result in the case
+> of a
+> > > machine splitting different network segments.
+> > >
+> > > In the same time, it does not disturb openssl developpers to include non
+> > > initialised memory that may or may not be predictable to feed a RNG.
+> > > http://marc.info/?l=openssl-dev&m=121095151003011&w=2
+> >
+> > Why should it disturb them?
+> >
+> > As is explained in the email you quote it cannot make the RNG
+> > output worse.
+> >
+> Yes that's the whole point.
+> Why remove IRQF_SAMPLE_RANDOM if "it cannot make the RNG output worse."
+> We should not care if network traffic can be sniffed in some configurations
+> (plus sniffing could be very unlikely in some others).
+>...
+> Are network drivers better without SAMPLE_RANDOM?
+> My understanding of openssl developper answer is same as yours :
+> "it cannot make the RNG output worse."
 
-You don't see the devices' suspend callbacks invoked before powering off
-because of this.  Change that to 'platform' (unless that breaks things).
+The "it cannot make the RNG output worse." only applies to the OpenSSL 
+case (one could argue whether it makes sense, but it can't do harm).
 
-> |echo disk > /sys/power/state
-> |echo "$OLDPRINTK" > $SYSPRINTK
-> |# work around forcedeth wake-on-lan bug
-> |#modprobe forcedeth
-> |#brctl addif br0 eth0
-> |#brctl addif br0 eth1
-> |#ifconfig eth0 up
-> |#ifconfig eth1 up
-> 
-> I now also now why I get the 'swapped mac' problem:
-> 
-> In my case (DEV_HAS_CORRECT_MACADDR unset and
-> NVREG_TRANSMITPOLL_MAC_ADDR_REV unset on probe)
-> nv_probe() reads the original macaddress in reversed order to
-> correct it and sets NVREG_TRANSMITPOLL_MAC_ADDR_REV.
-> 
-> However the suspend/resume path does not touch the mac address at
-> all, so after a cold boot and resume from disk the macaddress is
-> again in 'BIOS order' and NVREG_TRANSMITPOLL_MAC_ADDR_REV is unset,
-> but NVREG_TRANSMITPOLL_MAC_ADDR_REV gets set unconditionally in
-> nv_resume(), so the net effect is that the MAC is now reversed.
-> 
-> With the promisc fix this is hidden for my brige setup and only
-> noticeable at the next hibernate, where I now have to use a reversed
-> MAC to wakeup the device.
-> 
-> The following patch (on top of the other two) fixes this by saving
-> and restoring the memory mapped device configuration space in
-> suspend/resume.  The shutdown hook is still needed since the promisc
-> mode seems to be incompatible with wake on lan.
-> 
-> It also reorders the code in suspend/resume to match that in e100/e1000e.
-> (configuration space is also saved for devices that are not running)
+IRQF_SAMPLE_RANDOM and what was discussed in this email on the OpenSSL 
+mailing list are two completely different subjects, and you completely 
+miss the problem when you mix them.
 
-I'm unable to comment on the device-specific things, but apart from this the
-patch looks okay to me except for one thing.
+> So why remove SAMPLE_RANDOM on network cards today if there is no
+> replacement solution ready for x% of machines running linux actually?
+>...
 
-> Index: linux-2.6.26-rc2.forcedwol/drivers/net/forcedeth.c
-> ===================================================================
-> --- linux-2.6.26-rc2.forcedwol.orig/drivers/net/forcedeth.c	2008-05-18 11:26:12.000000000 +0200
-> +++ linux-2.6.26-rc2.forcedwol/drivers/net/forcedeth.c	2008-05-18 13:00:23.000000000 +0200
-> @@ -426,6 +426,7 @@
->  #define NV_PCI_REGSZ_VER1      	0x270
->  #define NV_PCI_REGSZ_VER2      	0x2d4
->  #define NV_PCI_REGSZ_VER3      	0x604
-> +#define NV_PCI_REGSZ_MAX       	0x604
->  
->  /* various timeout delays: all in usec */
->  #define NV_TXRX_RESET_DELAY	4
-> @@ -784,6 +785,9 @@
->  
->  	/* flow control */
->  	u32 pause_flags;
-> +
-> +	/* power saved state */
-> +	u32 saved_config_space[NV_PCI_REGSZ_MAX/4];
->  };
->  
->  /*
-> @@ -5785,19 +5789,24 @@
->  {
->  	struct net_device *dev = pci_get_drvdata(pdev);
->  	struct fe_priv *np = netdev_priv(dev);
-> -
-> -	if (!netif_running(dev))
-> -		goto out;
-> +	u8 __iomem *base = get_hwbase(dev);
-> +	int i;
->  
->  	netif_device_detach(dev);
->  
-> -	// Gross.
-> -	nv_close(dev);
-> +	if (netif_running(dev)) {
-> +		// Gross.
-> +		nv_close(dev);
-> +	}
-> +
-> +	/* save non-pci configuration space */
-> +	for (i = 0;i <= np->register_size/sizeof(u32); i++)
-> +		np->saved_config_space[i] = readl(base + i*sizeof(u32));
->  
->  	pci_save_state(pdev);
->  	pci_enable_wake(pdev, pci_choose_state(pdev, state), np->wolenabled);
-> +	pci_disable_device(pdev);
->  	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-> -out:
->  
->  	return 0;
->  }
-> @@ -5805,27 +5814,25 @@
->  static int nv_resume(struct pci_dev *pdev)
->  {
->  	struct net_device *dev = pci_get_drvdata(pdev);
-> +	struct fe_priv *np = netdev_priv(dev);
->  	u8 __iomem *base = get_hwbase(dev);
-> -	int rc = 0;
-> -	u32 txreg;
-> -
-> -	if (!netif_running(dev))
-> -		goto out;
-> -
-> -	netif_device_attach(dev);
-> +	int i, rc = 0;
->  
->  	pci_set_power_state(pdev, PCI_D0);
->  	pci_restore_state(pdev);
-> +	/* ack any pending wake events, disable PME */
->  	pci_enable_wake(pdev, PCI_D0, 0);
->  
-> -	/* restore mac address reverse flag */
-> -	txreg = readl(base + NvRegTransmitPoll);
-> -	txreg |= NVREG_TRANSMITPOLL_MAC_ADDR_REV;
-> -	writel(txreg, base + NvRegTransmitPoll);
-> +	/* restore non-pci configuration space */
-> +	for (i = 0;i <= np->register_size/sizeof(u32); i++)
-> +		writel(np->saved_config_space[i], base+i*sizeof(u32));
-> +
-> +	netif_device_attach(dev);
-> +	if (netif_running(dev)) {
-> +		rc = nv_open(dev);
-> +		nv_set_multicast(dev);
-> +	}
->  
-> -	rc = nv_open(dev);
-> -	nv_set_multicast(dev);
-> -out:
->  	return rc;
->  }
->  
-> @@ -5833,7 +5840,6 @@
->  {
->  	struct net_device *dev = pci_get_drvdata(pdev);
->  	struct fe_priv *np = netdev_priv(dev);
-> -	u8 __iomem *base = get_hwbase(dev);
->  
->  	if (netif_running(dev))
->  		nv_close(dev);
-> @@ -5841,7 +5847,9 @@
->  	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
->  	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
->  	pci_disable_device(pdev);
-> -	pci_set_power_state(pdev, PCI_D3hot);
-> +	if (np->wolenabled) 
-> +		pci_set_power_state(pdev, PCI_D3hot);
-> +	else pci_set_power_state(pdev, PCI_D3cold);
+The replacement solution ready on all Linux machines today is for 
+userspace to use /dev/urandom instead of /dev/random if feasible.
 
-I'm not sure if it's possible to put the device into D3cold without actually
-removing power from it.
+> Gilles
 
->  }
->  #else
->  #define nv_suspend NULL
-> 
+cu
+Adrian
 
-Thanks,
-Rafael
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
