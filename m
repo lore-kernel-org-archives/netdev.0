@@ -1,69 +1,84 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
-Date: Sun, 18 May 2008 17:31:01 +0200
-Message-ID: <48304BB5.7090805@trash.net>
-References: <bug-10737-10286@http.bugzilla.kernel.org/>	<20080517141036.d8f3c768.akpm@linux-foundation.org>	<482F88DE.8090508@trash.net> <20080517215641.acb94677.akpm@linux-foundation.org> <48301BE0.9040907@trash.net> <48302E09.8080701@trash.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [DCCP] [RFT/Bug-Fix] [Patch 1/1]: Special case for client-PARTOPEN
+	with DataAcks
+Date: Sun, 18 May 2008 17:44:31 +0100
+Message-ID: <20080518164431.GA24987@gerrit.erg.abdn.ac.uk>
+References: <5bc4c4570803061215s36fac06ctc2015cc2d079ea9@mail.gmail.com> <20080518160901.GA21382@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	devzero@web.de, Robert Olsson <robert.olsson@its.uu.se>,
-	"Denis V. Lunev" <den@openvz.org>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Ben Greear <greearb@candelatech.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Arnaldo <acme@redhat.com>, DCCP Mailing List <dccp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39577 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753914AbYERPbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2008 11:31:05 -0400
-In-Reply-To: <48302E09.8080701@trash.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45100 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752377AbYERQpI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 May 2008 12:45:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20080518160901.GA21382@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
->>>> I've been looking into the same problem, without much success so
->>>> far. The problem appears to affect any /proc/net file, but not
->>>> files outside of /proc/net, so I'm guessing its net-ns related.
->>>> A testcase found by Ben Greear is opening the file multiple times:
->>>>
->>>> # /tmp/open /proc/net/kpktgen_0
->>>>
->>>> => refcnt goes to 1
->>>>
->>>> ^C
->>>>
->>>> => refcnt goes to 0
->>>>
->>>> Without ^C and opening the file a second time:
->>>>
->>>> # /tmp/open /proc/net/kpktgen_0
->>>>
->>>> => refcnt goes to 2 (sometimes also 11)
->>>>
->>>> ^C
->>>>
->>>> => refcnt stays at previous value.
->>>>
->>>> The refcnt even leaks if the file can't be successfully opened,
->>>> for example because of lacking permissions.
->>>>     
->>>
->>> urgh.  Is any of this known to be post-2.6.25?
->>>   
->>
->> 2.6.25 is also affected. I don't know about earlier kernels.
-> 
-> Some more information: the problem seems to occur only if
-> the file is opened by two different processes.
-> 
-> I'm starting a bisection now.
+     (This is an update for the test-tree, not meant for mainline now)
 
+--------------------------> Patch <-------------------------------------
+[DCCP]: Special case for client-PARTOPEN with DataAcks
 
-git-bisect identified e9720acd ([NET]: Make /proc/net a symlink
-on /proc/self/net (v3)) as the guilty commit. I couldn't find
-the problem in that commit, so someone with a better understanding
-of how this is supposed to work should look into it.
+There are two conflicting goals: providing a large room for options and allowing
+the client to send DataAcks in the "half-open" PARTOPEN state. 
 
+To increase robustness, it is necessary to resend Confirm feature-negotiation
+options, even though the RFC does not mandate it. But feature negotiation
+options can take (much) more room than the options on common DataAck packets.
 
+Instead of reducing the MPS always for a case which only applies to the three
+messages send during initial handshake, this patch devises a special case:
+if the payload length of the DataAck in PARTOPEN is too large, an Ack is sent
+to carry the options, and the feature-negotiation list is then flushed.
+
+This means that the server gets two Acks for one Response. If both Acks get
+lost, it is probably better to restart the connection anyway and devising yet
+another special-case does not seem worth the extra complexity.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/feat.h   |    3 +++
+ net/dccp/output.c |   16 +++++++++++++++-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -23,6 +23,9 @@
+ #define DCCPF_SEQ_WMIN		32
+ #define DCCPF_SEQ_WMAX		0x3FFFFFFFFFFFull
+ 
++/* Feature-negotiation overhead in multiples of 4-byte words */
++#define DCCP_FEATNEG_OVERHEAD_FACTOR	32
++
+ enum dccp_feat_type {
+ 	FEAT_AT_RX   = 1,	/* located at RX side of half-connection  */
+ 	FEAT_AT_TX   = 2,	/* located at TX side of half-connection  */
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -245,7 +245,21 @@ static void dccp_xmit_packet(struct sock
+ 	len = skb->len;
+ 
+ 	if (sk->sk_state == DCCP_PARTOPEN) {
+-		/* See 8.1.5.  Handshake Completion */
++		const u32 overhead = DCCP_FEATNEG_OVERHEAD_FACTOR << 2;
++		/*
++		 * See 8.1.5 - Handshake Completion.
++		 * For robustness we resend Confirm options until the client has
++		 * entered OPEN. Unfortunately, the "copious space for options"
++		 * (RFC 4340, 4.6) means that there is less space for payload.
++		 * For overly large payloads, send second Ack to carry options.
++		 */
++		if (!list_empty(&dp->dccps_featneg) &&
++		    len + overhead >= dp->dccps_mss_cache) {
++			DCCP_WARN("Payload too large (%d) for featneg.\n", len);
++			dccp_send_ack(sk);
++			dccp_feat_list_purge(&dp->dccps_featneg);
++		}
++
+ 		inet_csk_schedule_ack(sk);
+ 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+ 					      inet_csk(sk)->icsk_rto,
