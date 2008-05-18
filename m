@@ -1,125 +1,66 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [patch 10/18] m68k: Some network drivers do not check the platform
-Date: Sun, 18 May 2008 20:47:16 +0200
-Message-ID: <20080518185152.201316321@mail.of.borg>
-References: <20080518184706.631023070@mail.of.borg>
-Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: [PATCH 0/4] RFC: raw IPv6 address parsing in NFS client
+Date: Sun, 18 May 2008 17:19:55 -0400
+Message-ID: <20080518210625.13450.71349.stgit@ellison.1015granger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wilson.telenet-ops.be ([195.130.132.42]:55406 "EHLO
-	wilson.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760875AbYERSyF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2008 14:54:05 -0400
-Content-Disposition: inline; filename=m68k-net-drivers-break-multiplatform.diff
+Received: from agminet01.oracle.com ([141.146.126.228]:57828 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751349AbYERVUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2008 17:20:02 -0400
+Received: from agmgw2.us.oracle.com (agmgw2.us.oracle.com [152.68.180.213])
+	by agminet01.oracle.com (Switch-3.2.4/Switch-3.1.7) with ESMTP id m4ILJxsV015539
+	for <netdev@vger.kernel.org>; Sun, 18 May 2008 16:19:59 -0500
+Received: from acsmt357.oracle.com (acsmt357.oracle.com [141.146.40.157])
+	by agmgw2.us.oracle.com (Switch-3.2.0/Switch-3.2.0) with ESMTP id m4HFqUHm015679
+	for <netdev@vger.kernel.org>; Sun, 18 May 2008 15:19:58 -0600
+Received: from ellison.1015granger.net (ellison.1015granger.net [127.0.0.1])
+	by ellison.1015granger.net (8.14.2/8.14.2) with ESMTP id m4ILJtR9014081
+	for <netdev@vger.kernel.org>; Sun, 18 May 2008 17:19:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
+Hi-
 
-Some network drivers do not check whether they're actually running on the
-correct platform, causing multi-platform kernels to crash if they are not.
+I'm interested in some review of the following four patches which add to
+the kernel's NFS client the ability to parse IPv6 addresses in presentation
+format.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Namely, it adds the following:
+
+1.  If the user passes in an IPv6 address as the server name, the colons
+    in the address will confuse the logic that splits the device name
+    into a server hostname and an export path.   We'll use square brackets
+    around IPv6 server addresses to "escape" the colons, as does Solaris.
+
+2.  If the user passes in a link-local IPv6 address as the server name,
+    an interface index is also necessary.  We'll use the "%id" suffix on
+    the address to pass in the index, and plant that in the sockaddr's
+    sin6_scope_id field.
+
+In addition to the following patches in email, a git repo with these
+same patches already applied can be found here:
+
+	linux-nfs.org:exports/cel-2.6.git
+
+The basic questions:
+
+Are these reasonable conventions to follow?  Is the parsing logic adequate?
+Is there anything I'm forgetting?
+
+Thanks for any review.
+
 ---
- drivers/net/82596.c     |    7 +++++++
- drivers/net/apne.c      |    3 +++
- drivers/net/mac89x0.c   |    3 +++
- drivers/net/macmace.c   |    3 +++
- drivers/net/sun3lance.c |    3 +++
- 5 files changed, 19 insertions(+)
 
---- a/drivers/net/82596.c
-+++ b/drivers/net/82596.c
-@@ -1162,6 +1162,7 @@ struct net_device * __init i82596_probe(
- 		memcpy(eth_addr, (void *) 0xfffc1f2c, 6);	/* YUCK! Get addr from NOVRAM */
- 		dev->base_addr = MVME_I596_BASE;
- 		dev->irq = (unsigned) MVME16x_IRQ_I596;
-+		goto found;
- 	}
- #endif
- #ifdef ENABLE_BVME6000_NET
-@@ -1176,6 +1177,7 @@ struct net_device * __init i82596_probe(
- 		rtc[3] = msr;
- 		dev->base_addr = BVME_I596_BASE;
- 		dev->irq = (unsigned) BVME_IRQ_I596;
-+		goto found;
- 	}
- #endif
- #ifdef ENABLE_APRICOT
-@@ -1212,8 +1214,13 @@ struct net_device * __init i82596_probe(
- 		}
- 
- 		dev->irq = 10;
-+		goto found;
- 	}
- #endif
-+	err = -ENODEV;
-+	goto out;
-+
-+found:
- 	dev->mem_start = (int)__get_free_pages(GFP_ATOMIC, 0);
- 	if (!dev->mem_start) {
- 		err = -ENOMEM;
---- a/drivers/net/apne.c
-+++ b/drivers/net/apne.c
-@@ -127,6 +127,9 @@ struct net_device * __init apne_probe(in
- #endif
- 	int err;
- 
-+	if (!MACH_IS_AMIGA)
-+		return ERR_PTR(-ENODEV);
-+
- 	if (apne_owned)
- 		return ERR_PTR(-ENODEV);
- 
---- a/drivers/net/mac89x0.c
-+++ b/drivers/net/mac89x0.c
-@@ -183,6 +183,9 @@ struct net_device * __init mac89x0_probe
- 	int err = -ENODEV;
- 	DECLARE_MAC_BUF(mac);
- 
-+	if (!MACH_IS_MAC)
-+		return ERR_PTR(-ENODEV);
-+
- 	dev = alloc_etherdev(sizeof(struct net_local));
- 	if (!dev)
- 		return ERR_PTR(-ENOMEM);
---- a/drivers/net/macmace.c
-+++ b/drivers/net/macmace.c
-@@ -781,6 +781,9 @@ static int __init mac_mace_init_module(v
- {
- 	int err;
- 
-+	if (!MACH_IS_MAC)
-+		return -ENODEV;
-+
- 	if ((err = platform_driver_register(&mac_mace_driver))) {
- 		printk(KERN_ERR "Driver registration failed\n");
- 		return err;
---- a/drivers/net/sun3lance.c
-+++ b/drivers/net/sun3lance.c
-@@ -250,6 +250,9 @@ struct net_device * __init sun3lance_pro
- 	static int found;
- 	int err = -ENODEV;
- 
-+	if (!MACH_IS_SUN3 && !MACH_IS_SUN3X)
-+		return ERR_PTR(-ENODEV);
-+
- 	/* check that this machine has an onboard lance */
- 	switch(idprom->id_machtype) {
- 	case SM_SUN3|SM_3_50:
+Chuck Lever (4):
+      NFS: handle interface identifiers in incoming IPv6 addresses
+      NFS: Add string length argument to nfs_parse_server_address
+      NFS: Support raw IPv6 address hostnames during NFS mount operation
+      NFS: Use common device name parsing logic for NFSv4 and NFSv2/v3
 
--- 
-Gr{oetje,eeting}s,
 
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
-
+ fs/nfs/super.c |  311 ++++++++++++++++++++++++++++++++++++++++++--------------
+ 1 files changed, 236 insertions(+), 75 deletions(-)
