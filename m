@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/6][IP6FRAGS]: Handle error, returned from
- register_pernet_subsys.
-Date: Mon, 19 May 2008 13:54:10 -0700 (PDT)
-Message-ID: <20080519.135410.24824916.davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/6][FRAGS]: Rename sysctl-related
+ functions/variables.
+Date: Mon, 19 May 2008 13:53:56 -0700 (PDT)
+Message-ID: <20080519.135356.50390508.davem@davemloft.net>
 References: <4831A1D6.4090503@openvz.org>
-	<4831A491.2020009@openvz.org>
+	<4831A3B0.80301@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56348
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56346
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757881AbYESUyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 16:54:15 -0400
-In-Reply-To: <4831A491.2020009@openvz.org>
+	by vger.kernel.org with ESMTP id S1757747AbYESUyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 16:54:01 -0400
+In-Reply-To: <4831A3B0.80301@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 19 May 2008 20:02:25 +0400
+Date: Mon, 19 May 2008 19:58:40 +0400
 
-> The error code is ignored now, but ipv6 is a module and one can
-> be loaded under memory pressure, so the error may occur (in theory).
+> The fragments sysctls also contains some, that are to be
+> visible, but read-only in net namespaces.
 > 
-> Besides, I'm going to handle error returned from registering a
-> read-only part of the table, so ignoring this one, while handing
-> the other one would look strange.
+> The naming in net/core/sysctl_net_core.c is - tables, that are
+> to be registered in namespaces have a "ns" word in their names.
+> So rename ones in ipv4/ip_fragment.c and ipv6/reassembly.c to
+> fit this.
 > 
-> (However, this possibility of error is rather small, so I'm not 
->  sure whether this is a candidate for current net tree).
-
-I definitely don't consider it -stable material.
-
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied, thanks!
+Applied.
