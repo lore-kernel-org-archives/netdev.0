@@ -1,51 +1,129 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [RFC] make wext wireless bits optional and deprecate them
-Date: Mon, 19 May 2008 10:03:47 -0700
-Message-ID: <20080519170347.GB21500@bougret.hpl.hp.com>
-References: <1211026337.3827.25.camel@johannes.berg> <CD993362-B1DE-4E4D-8A5B-E9E2AD7DA04C@holtmann.org> <1211032475.6252.2.camel@johannes.berg> <1211117795.686.15.camel@localhost.localdomain> <1211199368.6252.19.camel@johannes.berg> <1211210686.12187.6.camel@localhost.localdomain>
-Reply-To: jt@hpl.hp.com
+From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+Subject: [ofa-general] [PATCH v2 00/13] QLogic VNIC Driver
+Date: Mon, 19 May 2008 16:01:23 +0530
+Message-ID: <20080519102843.12355.832.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	netdev <netdev@vger.kernel.org>, Jean Tourrilhes <jt@hpl.hp.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:57657 "EHLO madara.hpl.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753694AbYESRPv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 May 2008 13:15:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1211210686.12187.6.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: poornima.kamath@qlogic.com, amar.mudrankit@qlogic.com
+To: rdreier@cisco.com, general@lists.openfabrics.org, netdev@vger.kernel.org
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 19, 2008 at 11:24:46AM -0400, Dan Williams wrote:
-> On Mon, 2008-05-19 at 14:16 +0200, Johannes Berg wrote:
-> > > Instead of testing for wireless/, best thing would probably be to call
-> > > SIOCGIWRANGE on the device and if it returns EOPNOTSUP then it's not
-> > > wireless.  Some drivers may have to load firmware to figure out
-> > > supported rates and encryption capabilities, but to be honest, NM does
-> > > this to detect wireless devices and I haven't run into any issues in 4
-> > > years using it.  If there are issues with drivers, then we need to fix
-> > > the driver too.
-> > 
-> > I was about to propose calling SIOCGIWNAME since that is what
-> > wireless-tools do and that linux/wireless.h indicates.
-> 
-> Hmm; NAME is pretty useless.  That's fine to do, I guess WEXT requires
-> that NAME return _something_ at least.  NAME should never ever be used
-> for anything more, but since wireless-tools appears to do this that's
-> fine.
-> 
-> Dan
+Roland,
 
-	It's not useless, it's supposed to tell you about the protocol
-capability of the device, like "IEEE 802.11b" or "IEEE 802.11abg".
+This is the second round of QLogic Virtual NIC driver patch series for submission
+to 2.6.27 kernel. The series has been tested against your for-2.6.27 branch.
 
-	Have fun...
+Based on comments received on first series of patches, following fixes are
+introduced in this series:
 
-	Jean
+        -  Removal of IB cache implementation for QLogic VNIC ULP.
+        -  netdev->priv structure allocation through alloc_netdev and use of
+           netdev_priv() to access the same.
+        -  Implementation of spinlock to protect potential vnic->current_path
+           race conditions.
+        -  Removed the use of "vnic->xmit_started" variable.
+        -  vnic_multicast.c coding style and lock fixes.
+        -  Use of "time_after" macro for jiffies comparison.
+        -  vnic_npevent_str has been moved to vnic_main.c to avoid its
+           inclusion every time along with vnic_main.h
+        -  Use of kernel "is_power_of_2" function in place of driver's own.
+        -  Global "recv_ref" variable has been renamed to "vnic_recv_ref".
 
+I have signed-off all patches in the series. The sparse endianness checking
+for the driver did not give any warnings and checkpatch.pl have few warnings
+indicating lines slightly longer than 80 columns.
+
+Background:
+As mentioned in the first version of patch series, this series adds QLogic
+Virtual NIC (VNIC) driver which works in conjunction with the the QLogic
+Ethernet Virtual I/O Controller (EVIC) hardware. The VNIC driver along with the
+QLogic EVIC's two 10 Gigabit ethernet ports, enables Infiniband clusters to
+connect to Ethernet networks. This driver also works with the earlier version of
+the I/O Controller, the VEx.
+
+The QLogic VNIC driver creates virtual ethernet interfaces and tunnels the
+Ethernet data to/from the EVIC over Infiniband using an Infiniband reliable
+connection.
+
+      [PATCH v2 01/13] QLogic VNIC: Driver - netdev implementation
+      [PATCH v2 02/13] QLogic VNIC: Netpath - abstraction of connection to EVIC/VEx
+      [PATCH v2 03/13] QLogic VNIC: Implementation of communication protocol with EVIC/VEx
+      [PATCH v2 04/13] QLogic VNIC: Implementation of Control path of communication protocol
+      [PATCH v2 05/13] QLogic VNIC: Implementation of Data path of communication protocol
+      [PATCH v2 06/13] QLogic VNIC: IB core stack interaction
+      [PATCH v2 07/13] QLogic VNIC: Handling configurable parameters of the driver
+      [PATCH v2 08/13] QLogic VNIC: sysfs interface implementation for the driver
+      [PATCH v2 09/13] QLogic VNIC: IB Multicast for Ethernet broadcast/multicast
+      [PATCH v2 10/13] QLogic VNIC: Driver Statistics collection
+      [PATCH v2 11/13] QLogic VNIC: Driver utility file - implements various utility macros
+      [PATCH v2 12/13] QLogic VNIC: Driver Kconfig and Makefile.
+      [PATCH v2 13/13] QLogic VNIC: Modifications to IB Kconfig and Makefile
+
+ drivers/infiniband/Kconfig                         |    2 
+ drivers/infiniband/Makefile                        |    1 
+ drivers/infiniband/ulp/qlgc_vnic/Kconfig           |   28 
+ drivers/infiniband/ulp/qlgc_vnic/Makefile          |   13 
+ drivers/infiniband/ulp/qlgc_vnic/vnic_config.c     |  379 +++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_config.h     |  242 ++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_control.c    | 2286 ++++++++++++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_control.h    |  179 ++
+ .../infiniband/ulp/qlgc_vnic/vnic_control_pkt.h    |  368 +++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_data.c       | 1492 +++++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_data.h       |  206 ++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_ib.c         | 1043 +++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_ib.h         |  206 ++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_main.c       | 1098 ++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_main.h       |  154 +
+ drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.c  |  319 +++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.h  |   77 +
+ drivers/infiniband/ulp/qlgc_vnic/vnic_netpath.c    |  112 +
+ drivers/infiniband/ulp/qlgc_vnic/vnic_netpath.h    |   79 +
+ drivers/infiniband/ulp/qlgc_vnic/vnic_stats.c      |  234 ++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_stats.h      |  497 ++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c        | 1131 ++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h        |   62 +
+ drivers/infiniband/ulp/qlgc_vnic/vnic_trailer.h    |  103 +
+ drivers/infiniband/ulp/qlgc_vnic/vnic_util.h       |  250 ++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c     | 1214 +++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h     |  176 ++
+ 27 files changed, 11951 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/Kconfig
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/Makefile
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_config.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_config.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_control.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_control.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_control_pkt.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_data.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_data.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_ib.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_ib.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_main.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_main.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_netpath.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_netpath.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_stats.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_stats.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_sys.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_sys.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_trailer.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_util.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h
+
+-- 
+Regards,
+Ram
