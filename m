@@ -1,44 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] L2TP: avoid skb truesize bug if headroom is increased
-Date: Mon, 19 May 2008 14:10:38 -0700 (PDT)
-Message-ID: <20080519.141038.267900372.davem@davemloft.net>
-References: <200805192009.m4JK98DO003387@quickie.katalix.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
+Date: Tue, 20 May 2008 02:21:45 +0400
+Message-ID: <20080519222145.GA4828@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bc-info@styx.cabel.net
-To: jchapman@katalix.com
+Content-Type: text/plain; charset=us-ascii
+Cc: devzero@web.de, akpm@osdl.org, kaber@trash.net, den@openvz.org,
+	adobriyan@parallels.com, netdev@vger.kernel.org
+To: bugme-daemon@bugzilla.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47605
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762952AbYESVKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 17:10:43 -0400
-In-Reply-To: <200805192009.m4JK98DO003387@quickie.katalix.com>
+Received: from nf-out-0910.google.com ([64.233.182.185]:10241 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760231AbYESV0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 17:26:06 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so819095nfc.21
+        for <netdev@vger.kernel.org>; Mon, 19 May 2008 14:26:04 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Mon, 19 May 2008 21:09:08 +0100
+> list_del corruption. prev->next should be ffff81007e8a5e70, but was 6b6b6b6b6b6b6b6b
+> kernel BUG at lib/list_debug.c:67!
+>	:pktgen:pktgen_thread_worker+0x374/0x10b0
+>	? autoremove_wake_function+0x0/0x40
+>	? _spin_unlock_irqrestore+0x42/0x80
+>	? :pktgen:pktgen_thread_worker+0x0/0x10b0
+>	kthread+0x4d/0x80
+>	child_rip+0xa/0x12
+>	? restore_args+0x0/0x30
+>	? kthread+0x0/0x80
+>	? child_rip+0x0/0x12
+> RIP  list_del+0x48/0x70
 
-> A user reported seeing occasional bugs such as the following when
-> using the L2TP driver.
-> 
->   SKB BUG: Invalid truesize (272) len=72, sizeof(sk_buff)=208
-> 
-> When L2TP adds its header in the transmit path, it might need to
-> increase the headroom of the skb. In some cases, the increased
-> headroom trips a kernel bug when the skb is freed because the skb has
-> grown beyond its truesize value. The fix is to increase the truesize
-> by the amount of headroom added, after orphaning the skb.
-> 
-> While here, fix a misleading comment.
-> 
-> Thanks to Iouri Kharon <bc-info@styx.cabel.net> for the initial
-> report and testing the fix.
-> 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
+OK, trivial debugging and we know that worker thread function
+(pktgen_thread_worker) never ran between kthread creation and rmmod.
 
-Applied, thanks James.
+Consequently, addition to "pktgen_threads" list happened, list_del of
+thread 0 never happened, list_del of thread 1 barfs.
 
-Longer term I'll try to come up with a way to make it harder
-to get this stuff wrong.
