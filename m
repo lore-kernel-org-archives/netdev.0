@@ -1,77 +1,43 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [NDISC]: Add missing strategies for per-device retrans
- timer/reachable time settings.
-Date: Mon, 19 May 2008 18:52:31 +0900 (JST)
-Message-ID: <20080519.185231.34522546.yoshfuji@linux-ipv6.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
+Date: Mon, 19 May 2008 12:34:55 +0200
+Message-ID: <483157CF.5080201@trash.net>
+References: <bug-10737-10286@http.bugzilla.kernel.org/>	 <20080517141036.d8f3c768.akpm@linux-foundation.org>	 <482F88DE.8090508@trash.net>	 <20080517215641.acb94677.akpm@linux-foundation.org>	 <48301BE0.9040907@trash.net> <48302E09.8080701@trash.net>	 <48304BB5.7090805@trash.net> <1211183642.9966.6.camel@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, viro@ftp.linux.org.uk,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, devzero@web.de,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Ben Greear <greearb@candelatech.com>
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:34751 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752399AbYESJwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 05:52:09 -0400
+Received: from stinky.trash.net ([213.144.137.162]:64796 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752496AbYESKgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 06:36:13 -0400
+In-Reply-To: <1211183642.9966.6.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Noticed from Al Viro <viro@ftp.linux.org.uk> via David Miller
-<davem@davemloft.net>.
+Denis V. Lunev wrote:
+> On Sun, 2008-05-18 at 17:31 +0200, Patrick McHardy wrote:
+>   
+>> git-bisect identified e9720acd ([NET]: Make /proc/net a symlink
+>> on /proc/self/net (v3)) as the guilty commit. I couldn't find
+>> the problem in that commit, so someone with a better understanding
+>> of how this is supposed to work should look into it.
+>>     
+>
+> could you consider this preliminary patch? It fixes the problem for me
+> and Pavel agrees with it.
+>
+> The problem is that module_get is called for each file opening while
+> module_put is called only when /proc inode is destroyed. So, lets put
+> module counter if we are dealing with already initialised inode.
+>   
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
--- 
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index 9c451ff..a01b7c4 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -129,6 +129,10 @@ extern int 			ndisc_ifinfo_sysctl_change(struct ctl_table *ctl,
- 							   void __user *buffer,
- 							   size_t *lenp,
- 							   loff_t *ppos);
-+int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
-+				 int nlen, void __user *oldval,
-+				 size_t __user *oldlenp,
-+				 void __user *newval, size_t newlen);
- #endif
- 
- extern void 			inet6_ifinfo_notify(int event,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index e591e09..8dd9155 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4242,7 +4242,7 @@ static void addrconf_sysctl_register(struct inet6_dev *idev)
- 	neigh_sysctl_register(idev->dev, idev->nd_parms, NET_IPV6,
- 			      NET_IPV6_NEIGH, "ipv6",
- 			      &ndisc_ifinfo_sysctl_change,
--			      NULL);
-+			      ndisc_ifinfo_sysctl_strategy);
- 	__addrconf_sysctl_register(dev_net(idev->dev), idev->dev->name,
- 			idev->dev->ifindex, idev, &idev->cnf);
- }
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 2c74885..3347fcc 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1727,10 +1727,10 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file * f
- 	return ret;
- }
- 
--static int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
--					int nlen, void __user *oldval,
--					size_t __user *oldlenp,
--					void __user *newval, size_t newlen)
-+int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
-+				 int nlen, void __user *oldval,
-+				 size_t __user *oldlenp,
-+				 void __user *newval, size_t newlen)
- {
- 	struct net_device *dev = ctl->extra1;
- 	struct inet6_dev *idev;
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+The patch works fine for me, thanks.
