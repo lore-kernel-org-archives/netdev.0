@@ -1,58 +1,67 @@
-From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] [PATCH v2 13/13] QLogic VNIC: Modifications to IB
-	Kconfig and Makefile
-Date: Mon, 19 May 2008 16:08:00 +0530
-Message-ID: <20080519103800.12355.70429.stgit@localhost.localdomain>
-References: <20080519102843.12355.832.stgit@localhost.localdomain>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: Question about VLAN + checksum offloading
+Date: Mon, 19 May 2008 10:36:09 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329051AC07F@orsmsx414.amr.corp.intel.com>
+References: <1210924374.5136.94.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: poornima.kamath@qlogic.com, amar.mudrankit@qlogic.com
-To: rdreier@cisco.com, general@lists.openfabrics.org, netdev@vger.kernel.org
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20080519102843.12355.832.stgit@localhost.localdomain>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Naohiro Ooiwa" <nooiwa@miraclelinux.com>
+To: "Ichiro Suzuki" <isuzuki@miraclelinux.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:15867 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755930AbYESRgL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 13:36:11 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1210924374.5136.94.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+> Hi,
+> 
+>   Looking in oprofile log, I observed
+> 	csum_partial_copy_generic()
+> is invoked for a 802.1Q VLAN device created on e1000, This 
+> suggests checksum offloading is not in effect.
+> The offloading works fine when e1000 is used directly.
+> Attached one liner patch fixes this. But, it seems too 
+> obvious to be a correct answer.
 
-This patch modifies the toplevel Infiniband Kconfig and Makefile
-to include QLogic VNIC as new ULP.
+You would think so.
 
-Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
-Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
----
+>   My questions are,
+> o Is it right to expect checksum offloading should work  on 
+> VLAN devices?
 
- drivers/infiniband/Kconfig  |    2 ++
- drivers/infiniband/Makefile |    1 +
- 2 files changed, 3 insertions(+), 0 deletions(-)
+It should, but perhaps not.  Another feature is TSO + VLAN.  This was
+something I proposed to patch earlier, in the same fashion you have
+here.  However, some hardware out there may not be able to handle both
+hardware offloads at the same time.  I'm not aware of which hardware
+that would be, but it was hinted to me that such hardware exists.
 
-diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
-index a5dc78a..0775df5 100644
---- a/drivers/infiniband/Kconfig
-+++ b/drivers/infiniband/Kconfig
-@@ -53,4 +53,6 @@ source "drivers/infiniband/ulp/srp/Kconfig"
- 
- source "drivers/infiniband/ulp/iser/Kconfig"
- 
-+source "drivers/infiniband/ulp/qlgc_vnic/Kconfig"
-+
- endif # INFINIBAND
-diff --git a/drivers/infiniband/Makefile b/drivers/infiniband/Makefile
-index ed35e44..845271e 100644
---- a/drivers/infiniband/Makefile
-+++ b/drivers/infiniband/Makefile
-@@ -9,3 +9,4 @@ obj-$(CONFIG_INFINIBAND_NES)		+= hw/nes/
- obj-$(CONFIG_INFINIBAND_IPOIB)		+= ulp/ipoib/
- obj-$(CONFIG_INFINIBAND_SRP)		+= ulp/srp/
- obj-$(CONFIG_INFINIBAND_ISER)		+= ulp/iser/
-+obj-$(CONFIG_INFINIBAND_QLGC_VNIC)	+= ulp/qlgc_vnic/
+> o If so, is there any mechanism to propagate  
+> real_dev->features flags in vlan.c?
+
+There isn't an explicit way.  I had written patches into e1000, igb,
+e1000e, and ixgbe to propogate the VLAN flags within the driver when the
+VLAN device was created.  The trick though is if you remove a feature
+flag with ethtool, say checksum offload, on your main device, you
+probably should turn it off on your VLAN devices.  Patrick McHardy
+pointed me at netdev_feature_change() to use within the driver.  I'll
+admit I haven't had the time to fix my drivers to use this call, but it
+certainly looks like the way to go.  Please see the (middle) of the
+thread here: http://marc.info/?l=linux-netdev&m=120878809806631&w=2
+
+> o If such mechanism doesn't exist, is my patch reasonable?
+
+I would say yes, halfway.  The issue is you probably want to remove the
+feature flag from the VLAN device if you removed the flag from the
+parent device as well.
+
+Cheers,
+
+-PJ Waskiewicz
+<peter.p.waskiewicz.jr@intel.com>
