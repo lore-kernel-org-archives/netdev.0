@@ -1,39 +1,91 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
-Date: Tue, 20 May 2008 02:21:45 +0400
-Message-ID: <20080519222145.GA4828@martell.zuzino.mipt.ru>
+Date: Mon, 19 May 2008 14:34:38 -0700
+Message-ID: <m11w3y7zbl.fsf@frodo.ebiederm.org>
+References: <bug-10737-10286@http.bugzilla.kernel.org/>
+	<20080517141036.d8f3c768.akpm@linux-foundation.org>
+	<482F88DE.8090508@trash.net>
+	<20080517215641.acb94677.akpm@linux-foundation.org>
+	<48301BE0.9040907@trash.net> <48302E09.8080701@trash.net>
+	<48304BB5.7090805@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: devzero@web.de, akpm@osdl.org, kaber@trash.net, den@openvz.org,
-	adobriyan@parallels.com, netdev@vger.kernel.org
-To: bugme-daemon@bugzilla.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, devzero@web.de,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	"Denis V. Lunev" <den@openvz.org>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Ben Greear <greearb@candelatech.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:10241 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760231AbYESV0G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 17:26:06 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so819095nfc.21
-        for <netdev@vger.kernel.org>; Mon, 19 May 2008 14:26:04 -0700 (PDT)
-Content-Disposition: inline
+Received: from out01.mta.xmission.com ([166.70.13.231]:41901 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756720AbYESVkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 17:40:31 -0400
+In-Reply-To: <48304BB5.7090805@trash.net> (Patrick McHardy's message of "Sun,
+	18 May 2008 17:31:01 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> list_del corruption. prev->next should be ffff81007e8a5e70, but was 6b6b6b6b6b6b6b6b
-> kernel BUG at lib/list_debug.c:67!
->	:pktgen:pktgen_thread_worker+0x374/0x10b0
->	? autoremove_wake_function+0x0/0x40
->	? _spin_unlock_irqrestore+0x42/0x80
->	? :pktgen:pktgen_thread_worker+0x0/0x10b0
->	kthread+0x4d/0x80
->	child_rip+0xa/0x12
->	? restore_args+0x0/0x30
->	? kthread+0x0/0x80
->	? child_rip+0x0/0x12
-> RIP  list_del+0x48/0x70
+Patrick McHardy <kaber@trash.net> writes:
 
-OK, trivial debugging and we know that worker thread function
-(pktgen_thread_worker) never ran between kthread creation and rmmod.
+> Patrick McHardy wrote:
+>>>>> I've been looking into the same problem, without much success so
+>>>>> far. The problem appears to affect any /proc/net file, but not
+>>>>> files outside of /proc/net, so I'm guessing its net-ns related.
+>>>>> A testcase found by Ben Greear is opening the file multiple times:
+>>>>>
+>>>>> # /tmp/open /proc/net/kpktgen_0
+>>>>>
+>>>>> => refcnt goes to 1
+>>>>>
+>>>>> ^C
+>>>>>
+>>>>> => refcnt goes to 0
+>>>>>
+>>>>> Without ^C and opening the file a second time:
+>>>>>
+>>>>> # /tmp/open /proc/net/kpktgen_0
+>>>>>
+>>>>> => refcnt goes to 2 (sometimes also 11)
+>>>>>
+>>>>> ^C
+>>>>>
+>>>>> => refcnt stays at previous value.
+>>>>>
+>>>>> The refcnt even leaks if the file can't be successfully opened,
+>>>>> for example because of lacking permissions.
 
-Consequently, addition to "pktgen_threads" list happened, list_del of
-thread 0 never happened, list_del of thread 1 barfs.
+How are you reading the refcount on kpktgen_0? Just a printk in the
+kernel code?
+
+>> Some more information: the problem seems to occur only if
+>> the file is opened by two different processes.
+>>
+>> I'm starting a bisection now.
+>
+>
+> git-bisect identified e9720acd ([NET]: Make /proc/net a symlink
+> on /proc/self/net (v3)) as the guilty commit. I couldn't find
+> the problem in that commit, so someone with a better understanding
+> of how this is supposed to work should look into it.
+
+To recap:
+- The problem is that we get complaints from remove_proc_entry
+  on unload of the pktgen module.
+
+- The problem appears to only happen when multiple processes open the file.
+
+- The problem only appears after we moved /proc/net into /proc/<pid>/net
+
+
+The obvious candidate is that we have multiple dcache entries for the
+same proc inode.
+
+It looks like time to reproduce this and see if we can figure out why
+kpktgend_1 is still exists in the directory we are removing.
+
+
+
+Eric
 
