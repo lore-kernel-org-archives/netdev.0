@@ -1,66 +1,77 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10748] New: dhclient fails to run;
- capabilities error
-Date: Mon, 19 May 2008 11:28:35 -0700
-Message-ID: <20080519112835.67ff4133.akpm@linux-foundation.org>
-References: <bug-10748-10286@http.bugzilla.kernel.org/>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/4] RFC: raw IPv6 address parsing in NFS client
+Date: Mon, 19 May 2008 14:56:20 -0400
+Message-ID: <4831CD54.9050004@garzik.org>
+References: <20080518210625.13450.71349.stgit@ellison.1015granger.net> <4830E24C.3020405@garzik.org> <BA7B3AE0-E0BA-4535-8641-5DC4A3A41F64@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, shahamit@gmail.com,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Andrew Morgan <morgan@kernel.org>,
-	Stephen Smalley <sds@tycho.nsa.gov>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Chuck Lever <chuck.lever@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:36450 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751817AbYESSeO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 14:34:14 -0400
-In-Reply-To: <bug-10748-10286@http.bugzilla.kernel.org/>
+Received: from srv5.dvmed.net ([207.36.208.214]:58180 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754571AbYESS4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 May 2008 14:56:22 -0400
+In-Reply-To: <BA7B3AE0-E0BA-4535-8641-5DC4A3A41F64@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Chuck Lever wrote:
+> On May 18, 2008, at 10:13 PM, Jeff Garzik wrote:
+>> Chuck Lever wrote:
+>>> Hi-
+>>> I'm interested in some review of the following four patches which add to
+>>> the kernel's NFS client the ability to parse IPv6 addresses in 
+>>> presentation
+>>> format.
+>>> Namely, it adds the following:
+>>> 1.  If the user passes in an IPv6 address as the server name, the colons
+>>>    in the address will confuse the logic that splits the device name
+>>>    into a server hostname and an export path.   We'll use square 
+>>> brackets
+>>>    around IPv6 server addresses to "escape" the colons, as does Solaris.
+>>> 2.  If the user passes in a link-local IPv6 address as the server name,
+>>>    an interface index is also necessary.  We'll use the "%id" suffix on
+>>>    the address to pass in the index, and plant that in the sockaddr's
+>>>    sin6_scope_id field.
+>>> In addition to the following patches in email, a git repo with these
+>>> same patches already applied can be found here:
+>>>     linux-nfs.org:exports/cel-2.6.git
+>>> The basic questions:
+>>> Are these reasonable conventions to follow?  Is the parsing logic 
+>>> adequate?
+>>> Is there anything I'm forgetting?
+>>
+>> I would take a look at the underlying components of glibc's 
+>> getnameinfo(), which must parse IPv6 addresses according to POSIX 
+>> specifications, IIRC.
+>>
+>> Comments:
+>>
+>> 1) bracket escaping seems reasonably common.  browsers and other apps 
+>> sometimes use that convention too.
+>>
+>> 2) an interface name rather than index should be used
+> 
+> If you give a raw IPv6 address with an interface name to mount.nfs, it 
+> passes the whole thing to getaddrinfo(3) which maps the name to an 
+> index. The address with index is then passed on to the kernel via 
+> mount(2) via the normal "addr=" mount option.
+> 
+> Is there a way the kernel can do that mapping for itself?
 
-On Mon, 19 May 2008 06:25:00 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+The kernel certainly knows the interface names...  IMO that is a bit 
+more natural than interface index.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10748
-> 
->            Summary: dhclient fails to run; capabilities error
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.26-rc2
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: shahamit@gmail.com
-> 
-> 
-> Latest working kernel version: 2.6.25
-> Earliest failing kernel version: 2.6.26-rc1
-> Distribution: Kubuntu Hardy
-> Hardware Environment: AMD
-> Software Environment:
-> Problem Description: On a default Kubuntu Hardy install, I fetched the git tree
-> from Linus; compiled and installed the kernel. This persists even with
-> 2.6.26-rc2+ (commit f26a3988917913b3d11b2bd741601a2c64ab9204)
-> 
-> If this isn't known, I'll bisect and report the bad commit
-> 
-> Steps to reproduce: 'sudo dhclient eth2' returns
-> 
-> drop_privileges: could not keep capabilities: Invalid argument
-> 
-> eth2 is an e1000e card.
-> 
-> 
+You certainly do not want to _store_ interface index or encourage its 
+use, since it might change during runtime if network interfaces change.
 
-whoa, weird.  Could you please run `sudo strace -f dhclient eth2' and send us
-the last page or so of output?
+I don't know precisely your intended usage, nor where your 
+kernel/userland divide is here, but looking at dev_get_by_name() might 
+be a start, for accessing netdev via ifname?
+
+	Jeff
+
+
+
