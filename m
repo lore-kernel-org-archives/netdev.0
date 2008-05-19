@@ -1,7 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-next 5/6][FRAGS]: Register some ctls at read-only root.
-Date: Mon, 19 May 2008 20:04:07 +0400
-Message-ID: <4831A4F7.8070108@openvz.org>
+Subject: [PATCH net-next 6/6][IPV6]: Register some net/ipv6/ core sysctls
+ at read-only root.
+Date: Mon, 19 May 2008 20:06:36 +0400
+Message-ID: <4831A58C.8010401@openvz.org>
 References: <4831A1D6.4090503@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,167 +10,81 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:56968 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:47380 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755423AbYESQGf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 May 2008 12:06:35 -0400
+	id S1751221AbYESQJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 May 2008 12:09:03 -0400
 In-Reply-To: <4831A1D6.4090503@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Parts of fragments-related sysctls are read-only, but this is
-done by cloning all the tables and dropping write-bits from
-mode. Do the same but with read-only root.
+There are some sysctls left to be switched to read-only,
+but they are all in ipv6, so complete with them.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/ipv4/ip_fragment.c |   16 ++++++++++++++--
- net/ipv6/reassembly.c  |   35 ++++++++++++++++++++++++++++++++++-
- 2 files changed, 48 insertions(+), 3 deletions(-)
+ net/ipv6/sysctl_net_ipv6.c |   29 ++++++++++++++++++++++-------
+ 1 files changed, 22 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 7f102ee..be1cb89 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -624,6 +624,10 @@ static struct ctl_table ip4_frags_ns_ctl_table[] = {
- 		.proc_handler	= &proc_dointvec_jiffies,
- 		.strategy	= &sysctl_jiffies
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 3804dcb..5c99274 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -37,6 +37,10 @@ static ctl_table ipv6_table_template[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec
  	},
-+	{ }
++	{ .ctl_name = 0 }
 +};
 +
-+static struct ctl_table ip4_frags_ctl_table[] = {
++static ctl_table ipv6_table[] = {
  	{
- 		.ctl_name	= NET_IPV4_IPFRAG_SECRET_INTERVAL,
- 		.procname	= "ipfrag_secret_interval",
-@@ -658,8 +662,6 @@ static int ip4_frags_ns_ctl_register(struct net *net)
- 		table[0].data = &net->ipv4.frags.high_thresh;
- 		table[1].data = &net->ipv4.frags.low_thresh;
- 		table[2].data = &net->ipv4.frags.timeout;
--		table[3].mode &= ~0222;
--		table[4].mode &= ~0222;
- 	}
+ 		.ctl_name	= NET_IPV6_MLD_MAX_MSF,
+ 		.procname	= "mld_max_msf",
+@@ -80,12 +84,6 @@ static int ipv6_sysctl_net_init(struct net *net)
  
- 	hdr = register_net_sysctl_table(net, net_ipv4_ctl_path, table);
-@@ -684,6 +686,11 @@ static void ip4_frags_ns_ctl_unregister(struct net *net)
- 	unregister_net_sysctl_table(net->ipv4.frags_hdr);
- 	kfree(table);
+ 	ipv6_table[2].data = &net->ipv6.sysctl.bindv6only;
+ 
+-	/* We don't want this value to be per namespace, it should be global
+-	   to all namespaces, so make it read-only when we are not in the
+-	   init network namespace */
+-	if (net != &init_net)
+-		ipv6_table[3].mode = 0444;
+-
+ 	net->ipv6.sysctl.table = register_net_sysctl_table(net, net_ipv6_ctl_path,
+ 							   ipv6_table);
+ 	if (!net->ipv6.sysctl.table)
+@@ -126,12 +124,29 @@ static struct pernet_operations ipv6_sysctl_net_ops = {
+ 	.exit = ipv6_sysctl_net_exit,
+ };
+ 
++static struct ctl_table_header *ip6_header;
++
+ int ipv6_sysctl_register(void)
+ {
+-	return register_pernet_subsys(&ipv6_sysctl_net_ops);
++	int err = -ENOMEM;;
++
++	ip6_header = register_net_sysctl_rotable(net_ipv6_ctl_path, ipv6_table);
++	if (ip6_header == NULL)
++		goto out;
++
++	err = register_pernet_subsys(&ipv6_sysctl_net_ops);
++	if (err)
++		goto err_pernet;
++out:
++	return err;
++
++err_pernet:
++	unregister_net_sysctl_table(ip6_header);
++	goto out;
  }
-+
-+static void ip4_frags_ctl_register(void)
-+{
-+	register_net_sysctl_rotable(net_ipv4_ctl_path, ip4_frags_ctl_table);
-+}
- #else
- static inline int ip4_frags_ns_ctl_register(struct net *net)
- {
-@@ -693,6 +700,10 @@ static inline int ip4_frags_ns_ctl_register(struct net *net)
- static inline void ip4_frags_ns_ctl_unregister(struct net *net)
- {
- }
-+
-+static inline void ip4_frags_ctl_register(void)
-+{
-+}
- #endif
  
- static int ipv4_frags_init_net(struct net *net)
-@@ -730,6 +741,7 @@ static struct pernet_operations ip4_frags_ops = {
- 
- void __init ipfrag_init(void)
+ void ipv6_sysctl_unregister(void)
  {
-+	ip4_frags_ctl_register();
- 	register_pernet_subsys(&ip4_frags_ops);
- 	ip4_frags.hashfn = ip4_hashfn;
- 	ip4_frags.constructor = ip4_frag_init;
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 130d6f6..9391a69 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -658,6 +658,10 @@ static struct ctl_table ip6_frags_ns_ctl_table[] = {
- 		.proc_handler	= &proc_dointvec_jiffies,
- 		.strategy	= &sysctl_jiffies,
- 	},
-+	{ }
-+};
-+
-+static struct ctl_table ip6_frags_ctl_table[] = {
- 	{
- 		.ctl_name	= NET_IPV6_IP6FRAG_SECRET_INTERVAL,
- 		.procname	= "ip6frag_secret_interval",
-@@ -684,7 +688,6 @@ static int ip6_frags_ns_sysctl_register(struct net *net)
- 		table[0].data = &net->ipv6.frags.high_thresh;
- 		table[1].data = &net->ipv6.frags.low_thresh;
- 		table[2].data = &net->ipv6.frags.timeout;
--		table[3].mode &= ~0222;
- 	}
- 
- 	hdr = register_net_sysctl_table(net, net_ipv6_ctl_path, table);
-@@ -709,6 +712,20 @@ static void ip6_frags_ns_sysctl_unregister(struct net *net)
- 	unregister_net_sysctl_table(net->ipv6.sysctl.frags_hdr);
- 	kfree(table);
- }
-+
-+static struct ctl_table_header *ip6_ctl_header;
-+
-+static int ip6_frags_sysctl_register(void)
-+{
-+	ip6_ctl_header = register_net_sysctl_rotable(net_ipv6_ctl_path,
-+			ip6_frags_ctl_table);
-+	return ip6_ctl_header == NULL ? -ENOMEM : 0;
-+}
-+
-+static void ip6_frags_sysctl_unregister(void)
-+{
-+	unregister_net_sysctl_table(ip6_ctl_header);
-+}
- #else
- static inline int ip6_frags_ns_sysctl_register(struct net *net)
- {
-@@ -718,6 +735,15 @@ static inline int ip6_frags_ns_sysctl_register(struct net *net)
- static inline void ip6_frags_ns_sysctl_unregister(struct net *net)
- {
- }
-+
-+static inline int ip6_frags_sysctl_register(void)
-+{
-+	return 0;
-+}
-+
-+static inline void ip6_frags_sysctl_unregister(void)
-+{
-+}
- #endif
- 
- static int ipv6_frags_init_net(struct net *net)
-@@ -750,6 +776,10 @@ int __init ipv6_frag_init(void)
- 	if (ret)
- 		goto out;
- 
-+	ret = ip6_frags_sysctl_register();
-+	if (ret)
-+		goto err_sysctl;
-+
- 	ret = register_pernet_subsys(&ip6_frags_ops);
- 	if (ret)
- 		goto err_pernet;
-@@ -767,6 +797,8 @@ out:
- 	return ret;
- 
- err_pernet:
-+	ip6_frags_sysctl_unregister();
-+err_sysctl:
- 	inet6_del_protocol(&frag_protocol, IPPROTO_FRAGMENT);
- 	goto out;
- }
-@@ -774,6 +806,7 @@ err_pernet:
- void ipv6_frag_exit(void)
- {
- 	inet_frags_fini(&ip6_frags);
-+	ip6_frags_sysctl_unregister();
- 	unregister_pernet_subsys(&ip6_frags_ops);
- 	inet6_del_protocol(&frag_protocol, IPPROTO_FRAGMENT);
++	unregister_net_sysctl_table(ip6_header);
+ 	unregister_pernet_subsys(&ipv6_sysctl_net_ops);
  }
 -- 
 1.5.3.4
