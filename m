@@ -1,104 +1,75 @@
-From: martin f krafft <madduck@madduck.net>
-Subject: multiple default routes
-Date: Mon, 19 May 2008 17:42:41 +0100
-Message-ID: <20080519164241.GA14574@lapse.madduck.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] WAN: protect HDLC proto list while insmod/rmmod
+Date: Mon, 19 May 2008 19:00:51 +0200
+Message-ID: <m3ve1agrek.fsf_-_@maximus.localdomain>
+References: <20080424.065555.30390704.davem@davemloft.net>
+	<m3ve27nfpx.fsf@maximus.localdomain>
+	<20080424214457.1d5a1655@the-village.bc.nu>
+	<20080512.033244.153113922.davem@davemloft.net>
+	<m3lk2djbq3.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8042706983866725345=="
-Cc: netconf developers list <netconf-devel@lists.alioth.debian.org>
-To: netdev discussion list <netdev@vger.kernel.org>
-Return-path: <netconf-devel-bounces+glddn-netconf-devel=m.gmane.org@lists.alioth.debian.org>
-List-Unsubscribe: <http://lists.alioth.debian.org/mailman/listinfo/netconf-devel>,
-	<mailto:netconf-devel-request@lists.alioth.debian.org?subject=unsubscribe>
-List-Archive: <http://lists.alioth.debian.org/pipermail/netconf-devel>
-List-Post: <mailto:netconf-devel@lists.alioth.debian.org>
-List-Help: <mailto:netconf-devel-request@lists.alioth.debian.org?subject=help>
-List-Subscribe: <http://lists.alioth.debian.org/mailman/listinfo/netconf-devel>,
-	<mailto:netconf-devel-request@lists.alioth.debian.org?subject=subscribe>
-Mime-version: 1.0
-Sender: netconf-devel-bounces+glddn-netconf-devel=m.gmane.org@lists.alioth.debian.org
-Errors-To: netconf-devel-bounces+glddn-netconf-devel=m.gmane.org@lists.alioth.debian.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: alan@lxorguk.ukuu.org.uk, David Miller <davem@davemloft.net>,
+	paulkf@microgate.com, jchapman@katalix.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:35892 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751717AbYESRAx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 13:00:53 -0400
+In-Reply-To: <m3lk2djbq3.fsf@maximus.localdomain> (Krzysztof Halasa's message of "Wed\, 14 May 2008 14\:45\:24 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+WAN: protect protocol list in hdlc.c with RTNL.
+   =20
+Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
 
---===============8042706983866725345==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="YiEDa0DAkWCtVeE4"
-Content-Disposition: inline
-
-
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Dear netdev wizards,
-
-it used to be the case that adding a second default route broke
-networking to the point where nothing gets routed through either of
-the default routes anymore.
-
-For a while now, I noticed that this isn't the case anymore, but
-I can't isolate a behaviour that would have me believe that there's
-a new default I can build on.
-
-If I add a second default route (via a different gateway):
-
-  default via 10.100.144.1 dev wifi=20
-  default via 10.11.50.5 dev tun-rw-ul=20
-
-then my old connections (via 10.11.50.5) die, new TCP connections
-seem to go via 10.100.144.1, but ping does not seem to work:
-
-when I tcpdump on iface 'any', I see e.g. two icmp echo-requests
-leaving the machine and none coming back:
-
-  $ sudo tcpdump -ni any icmp &
-  $ ping -nc1 debian.org
-  PING debian.org (192.25.206.10) 56(84) bytes of data.
-  16:38:43.720951 IP 10.100.146.103 > 192.25.206.10: ICMP echo request, id =
-52285, seq 1, length 64
-  16:38:43.720978 IP 10.100.146.103 > 192.25.206.10: ICMP echo request, id =
-52285, seq 1, length 64
-
-  --- debian.org ping statistics ---
-  1 packets transmitted, 0 received, 100% packet loss, time 0ms
-
-If I hook tcpdump to the wifi iface, then I just get one packet
-though, but still no replies.
-
-Could someone please fill me in on the expected behaviour of Linux
-2.6.18 and beyond when a second default route is added, or point me
-to some documentation to read?
-
---=20
-martin | http://madduck.net/ | http://two.sentenc.es/
+--- a/drivers/net/wan/hdlc.c
++++ b/drivers/net/wan/hdlc.c
+@@ -42,8 +42,7 @@ static const char* version =3D "HDLC support module r=
+evision 1.22";
 =20
-windows 2000: designed for the internet.
-the internet: designed for unix.
+ #undef DEBUG_LINK
 =20
-spamtraps: madduck.bogus@madduck.net
-
---YiEDa0DAkWCtVeE4
-Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
-Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFIMa4BIgvIgzMMSnURAhMeAKCMraP02Zlt4/uFvtqpeVj+ZUTRbACeN10k
-ebFoF4D1m/PFXf7LkTBxDYk=
-=VhXf
------END PGP SIGNATURE-----
-
---YiEDa0DAkWCtVeE4--
-
-
---===============8042706983866725345==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============8042706983866725345==--
+-static struct hdlc_proto *first_proto =3D NULL;
+-
++static struct hdlc_proto *first_proto;
+=20
+ static int hdlc_change_mtu(struct net_device *dev, int new_mtu)
+ {
+@@ -313,21 +312,25 @@ void detach_hdlc_protocol(struct net_device *dev)
+=20
+ void register_hdlc_protocol(struct hdlc_proto *proto)
+ {
++	rtnl_lock();
+ 	proto->next =3D first_proto;
+ 	first_proto =3D proto;
++	rtnl_unlock();
+ }
+=20
+=20
+ void unregister_hdlc_protocol(struct hdlc_proto *proto)
+ {
+-	struct hdlc_proto **p =3D &first_proto;
+-	while (*p) {
+-		if (*p =3D=3D proto) {
+-			*p =3D proto->next;
+-			return;
+-		}
++	struct hdlc_proto **p;
++
++	rtnl_lock();
++	p =3D &first_proto;
++	while (*p !=3D proto) {
++		BUG_ON(!*p);
+ 		p =3D &((*p)->next);
+ 	}
++	*p =3D proto->next;
++	rtnl_unlock();
+ }
+=20
+=20
