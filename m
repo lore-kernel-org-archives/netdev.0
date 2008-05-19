@@ -1,62 +1,68 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/4] RFC: raw IPv6 address parsing in NFS client
-Date: Sun, 18 May 2008 22:13:32 -0400
-Message-ID: <4830E24C.3020405@garzik.org>
-References: <20080518210625.13450.71349.stgit@ellison.1015granger.net>
+From: Robert Hancock <hancockr@shaw.ca>
+Subject: Re: Top kernel oopses/warnings for the week of May 16th 2008
+Date: Sun, 18 May 2008 20:23:03 -0600
+Message-ID: <4830E487.1080502@shaw.ca>
+References: <fa.d+EaKQa5MirlzoI/uZKGy3xe0h0@ifi.uio.no>
+ <fa.TM0B9DZ+uvPYd9hbDhfuRgtReEk@ifi.uio.no>
+ <fa.aEHVuArwNEvL0BbdjUyZdMtgx5s@ifi.uio.no>
+ <fa.Td5KtiJWRKP94D9KrvGd+GkHdW0@ifi.uio.no>
+ <fa.wtWnOZVeQ06/16BVE5ml7FVHP+c@ifi.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Chuck Lever <chuck.lever@oracle.com>
+Cc: Arjan van de Ven <arjan@linux.intel.com>,
+	Robert Hancock <hancockr@shaw.ca>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Jens Axboe <jens.axboe@oracle.com>
+To: Andrea Arcangeli <andrea@qumranet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40642 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753409AbYESCNh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 May 2008 22:13:37 -0400
-In-Reply-To: <20080518210625.13450.71349.stgit@ellison.1015granger.net>
+Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:19034 "EHLO
+	pd2mo2so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754091AbYESCZJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2008 22:25:09 -0400
+In-reply-to: <fa.wtWnOZVeQ06/16BVE5ml7FVHP+c@ifi.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chuck Lever wrote:
-> Hi-
+Andrea Arcangeli wrote:
+> On Sat, May 17, 2008 at 07:57:26AM -0700, Arjan van de Ven wrote:
+>> Andrea Arcangeli wrote:
+>>> The reason I touched that code, is that a change introduced during
+>>> 2.6.25-rc initialized the isa dma pool even if not necessary and that
+>>> broke the reserved-ram patch that requires no __GFP_DMA
+>>> allocations. There was no crash in 2.6.24 based kernels, the
+>>> regression started in 2.6.25-rc.
+>> I'd not really call "breaks external patch" a regression ;)
 > 
-> I'm interested in some review of the following four patches which add to
-> the kernel's NFS client the ability to parse IPv6 addresses in presentation
-> format.
+> The external patch only allowed me to notice the regression when
+> nobody else noticed it. For mainline the regression was to put ram
+> into the bounce buffer pool even if no dma could ever require the
+> bounce buffering. There's no point to initialize the pool when total
+> ram < highest dma address. That is the regression. My patch turned the
+> regression from a waste of ram, to a kernel crash at boot. That's the
+> only relation between the reserved-ram patch this bug.
 > 
-> Namely, it adds the following:
-> 
-> 1.  If the user passes in an IPv6 address as the server name, the colons
->     in the address will confuse the logic that splits the device name
->     into a server hostname and an export path.   We'll use square brackets
->     around IPv6 server addresses to "escape" the colons, as does Solaris.
-> 
-> 2.  If the user passes in a link-local IPv6 address as the server name,
->     an interface index is also necessary.  We'll use the "%id" suffix on
->     the address to pass in the index, and plant that in the sockaddr's
->     sin6_scope_id field.
-> 
-> In addition to the following patches in email, a git repo with these
-> same patches already applied can be found here:
-> 
-> 	linux-nfs.org:exports/cel-2.6.git
-> 
-> The basic questions:
-> 
-> Are these reasonable conventions to follow?  Is the parsing logic adequate?
-> Is there anything I'm forgetting?
+> I assume Robert has a similar issue with some debugging code checking
+> for GFP_KERNEL allocations inside atomic context or similar, I assume
+> his driver has a bug and calls that function in the wrong context. But
+> if this didn't happen in 2.4.24, it means such bug has nothing to do
+> with the bug in blk-settings.c. It's just that such a bug or the
+> reserved-ram patches are required to notice the regression in
+> blk-settings.c.
 
-I would take a look at the underlying components of glibc's 
-getnameinfo(), which must parse IPv6 addresses according to POSIX 
-specifications, IIRC.
+Well, it's not really documented what the locking semantics are supposed 
+to be for blk_queue_bounce_limit. Based on the implementation, though, 
+it's OK to call it under spin_lock_irqsave (it only sets some variables) 
+unless you hit the case where dma is set to 1 and we do 
+init_emergency_isa_pool. That's the problem, that case should not be hit 
+with a DMA mask of 32-bit, but with Yang Shi's change to blk-settings.c, 
+now we are.
 
-Comments:
-
-1) bracket escaping seems reasonably common.  browsers and other apps 
-sometimes use that convention too.
-
-2) an interface name rather than index should be used
-
-	Jeff
-
+The code in that function seems rather hackish, actually. It seems like 
+a lot of those assumptions it's making should be in 
+architecture-specific code..
 
