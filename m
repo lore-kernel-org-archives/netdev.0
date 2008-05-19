@@ -1,59 +1,62 @@
-From: Trond Myklebust <trond.myklebust@fys.uio.no>
-Subject: Re: [PATCH 2/4] NFS: Support raw IPv6 address hostnames during NFS
-	mount operation
-Date: Sun, 18 May 2008 18:23:40 -0400
-Message-ID: <1211149420.18810.11.camel@localhost>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/4] RFC: raw IPv6 address parsing in NFS client
+Date: Sun, 18 May 2008 22:13:32 -0400
+Message-ID: <4830E24C.3020405@garzik.org>
 References: <20080518210625.13450.71349.stgit@ellison.1015granger.net>
-	 <20080518212011.13450.77551.stgit@ellison.1015granger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Chuck Lever <chuck.lever@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pat.uio.no ([129.240.10.15]:45128 "EHLO pat.uio.no"
+Received: from srv5.dvmed.net ([207.36.208.214]:40642 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752598AbYERWXo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 May 2008 18:23:44 -0400
-In-Reply-To: <20080518212011.13450.77551.stgit@ellison.1015granger.net>
+	id S1753409AbYESCNh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 May 2008 22:13:37 -0400
+In-Reply-To: <20080518210625.13450.71349.stgit@ellison.1015granger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-05-18 at 17:20 -0400, Chuck Lever wrote:
-> Traditionally the mount command has looked for a ":" to separate the
-> server's hostname from the export path in the mounted on device name,
-> like this:
+Chuck Lever wrote:
+> Hi-
 > 
-> 	mount server:/export /mounted/on/dir
+> I'm interested in some review of the following four patches which add to
+> the kernel's NFS client the ability to parse IPv6 addresses in presentation
+> format.
 > 
-> The server's hostname is "server" and the export path is "/export".
+> Namely, it adds the following:
 > 
-> You can also substitute a specific IPv4 network address for the server
-> hostname, like this:
+> 1.  If the user passes in an IPv6 address as the server name, the colons
+>     in the address will confuse the logic that splits the device name
+>     into a server hostname and an export path.   We'll use square brackets
+>     around IPv6 server addresses to "escape" the colons, as does Solaris.
 > 
-> 	mount 192.168.0.55:/export /mounted/on/dir
+> 2.  If the user passes in a link-local IPv6 address as the server name,
+>     an interface index is also necessary.  We'll use the "%id" suffix on
+>     the address to pass in the index, and plant that in the sockaddr's
+>     sin6_scope_id field.
 > 
-> Raw IPv6 addresses present a problem, however, because they look
-> something like this:
+> In addition to the following patches in email, a git repo with these
+> same patches already applied can be found here:
 > 
-> 	fe80::200:5aff:fe00:30b
+> 	linux-nfs.org:exports/cel-2.6.git
 > 
-> Note the use of colons.
+> The basic questions:
 > 
-> To get around the presence of colons, copy the Solaris convention used for
-> mounting IPv6 servers by address: wrap a raw IPv6 address with square
-> brackets.
+> Are these reasonable conventions to follow?  Is the parsing logic adequate?
+> Is there anything I'm forgetting?
 
-Standardising is good, so we should definitely support any pre-existing
-Solaris conventions. However is there any reason why we couldn't use the
-sequence ':/' as the separator for the IP address and the pathname for
-cases where we're in doubt?
+I would take a look at the underlying components of glibc's 
+getnameinfo(), which must parse IPv6 addresses according to POSIX 
+specifications, IIRC.
 
-In other words, if it turns out that 'fe80' is the actual hostname, and
-':200:5aff:fe00:30b' is the root pathname component, then is there any
-reason why 'mount.nfs' couldn't reformat that as
-'fe80:/:200:5aff:fe00:30b'?
+Comments:
 
-Cheers
-  Trond
+1) bracket escaping seems reasonably common.  browsers and other apps 
+sometimes use that convention too.
+
+2) an interface name rather than index should be used
+
+	Jeff
+
 
