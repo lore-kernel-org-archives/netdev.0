@@ -1,52 +1,104 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH] SMSC LAN911x and LAN921x vendor
-	driver
-Date: Mon, 19 May 2008 16:55:23 +0100
-Message-ID: <1211212523.24946.34.camel@pc1117.cambridge.arm.com>
-References: <20080515170728.GA3176@PTXN0038.genpitfi01.og.ge.com>
-	 <1211200476-21297-1-git-send-email-steve.glendinning@smsc.com>
-	 <8bd0f97a0805190827qe5ae0a3r44c2067be76f41d9@mail.gmail.com>
-	 <1211211904.24946.30.camel@pc1117.cambridge.arm.com>
-	 <8bd0f97a0805190850g38d6ca85gd1f72fef20c6ce66@mail.gmail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-next 1/6][NETNS]: Introduce sysctl root for read-only
+ net sysctls.
+Date: Mon, 19 May 2008 19:52:43 +0400
+Message-ID: <4831A24B.1080807@openvz.org>
+References: <4831A1D6.4090503@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Steve Glendinning <steve.glendinning@smsc.com>,
-	Michael.Hennerich@analog.com, Bill Gatliff <bgat@billgatliff.com>,
-	netdev@vger.kernel.org, ian.saturley@smsc.com,
-	Bahadir Balban <Bahadir.Balban@arm.com>,
-	Dustin Mcintire <dustin@sensoria.com>,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: Mike Frysinger <vapier.adi@gmail.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([193.131.176.58]:40171 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752013AbYESPyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 11:54:43 -0400
-In-Reply-To: <8bd0f97a0805190850g38d6ca85gd1f72fef20c6ce66@mail.gmail.com>
+Received: from sacred.ru ([62.205.161.221]:33841 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752013AbYESPzL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 May 2008 11:55:11 -0400
+In-Reply-To: <4831A1D6.4090503@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-05-19 at 11:50 -0400, Mike Frysinger wrote:
-> On Mon, May 19, 2008 at 11:45 AM, Catalin Marinas wrote:
-> > On Mon, 2008-05-19 at 11:27 -0400, Mike Frysinger wrote:
-> >> i thought we were against this sort of changelog stuff in files.  let
-> >> the scm take care of the changelog.
-> >
-> > I don't have a strong opinion on whether the changelog in the file
-> > should be kept or not and I won't argue. However, in this particular
-> > instance there is no SCM log since the driver is not merged into the
-> > mainline kernel. When/if it is merged, this will happen as a patch
-> > without an SCM log.
-> 
-> while all true, the problem is that people who make updates in the
-> future often times will also update the in-file changelog
-> 
-> you could move the changelog out of the file and into the first commit
-> message
+This one stores all ctl-heads in one list and restricts the
+permissions not give write access to non-init net namespaces.
 
-You are right, that seems even better. Thanks.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
+---
+ include/net/net_namespace.h |    3 +++
+ net/sysctl_net.c            |   30 ++++++++++++++++++++++++++++++
+ 2 files changed, 33 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index aa540e6..8df751b 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -201,8 +201,11 @@ extern void unregister_pernet_gen_device(int id, struct pernet_operations *);
+ struct ctl_path;
+ struct ctl_table;
+ struct ctl_table_header;
++
+ extern struct ctl_table_header *register_net_sysctl_table(struct net *net,
+ 	const struct ctl_path *path, struct ctl_table *table);
++extern struct ctl_table_header *register_net_sysctl_rotable(
++	const struct ctl_path *path, struct ctl_table *table);
+ extern void unregister_net_sysctl_table(struct ctl_table_header *header);
+ 
+ #endif /* __NET_NET_NAMESPACE_H */
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index b4f0525..d8e7916 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -40,6 +40,27 @@ static struct ctl_table_root net_sysctl_root = {
+ 	.lookup = net_ctl_header_lookup,
+ };
+ 
++static LIST_HEAD(net_sysctl_ro_tables);
++static struct list_head *net_ctl_ro_header_lookup(struct ctl_table_root *root,
++		struct nsproxy *namespaces)
++{
++	return &net_sysctl_ro_tables;
++}
++
++static int net_ctl_ro_header_perms(struct ctl_table_root *root,
++		struct nsproxy *namespaces, struct ctl_table *table)
++{
++	if (namespaces->net_ns == &init_net)
++		return table->mode;
++	else
++		return table->mode & ~0222;
++}
++
++static struct ctl_table_root net_sysctl_ro_root = {
++	.lookup = net_ctl_ro_header_lookup,
++	.permissions = net_ctl_ro_header_perms,
++};
++
+ static int sysctl_net_init(struct net *net)
+ {
+ 	INIT_LIST_HEAD(&net->sysctl_table_headers);
+@@ -64,6 +85,7 @@ static __init int sysctl_init(void)
+ 	if (ret)
+ 		goto out;
+ 	register_sysctl_root(&net_sysctl_root);
++	register_sysctl_root(&net_sysctl_ro_root);
+ out:
+ 	return ret;
+ }
+@@ -80,6 +102,14 @@ struct ctl_table_header *register_net_sysctl_table(struct net *net,
+ }
+ EXPORT_SYMBOL_GPL(register_net_sysctl_table);
+ 
++struct ctl_table_header *register_net_sysctl_rotable(const
++		struct ctl_path *path, struct ctl_table *table)
++{
++	return __register_sysctl_paths(&net_sysctl_ro_root,
++			&init_nsproxy, path, table);
++}
++EXPORT_SYMBOL_GPL(register_net_sysctl_rotable);
++
+ void unregister_net_sysctl_table(struct ctl_table_header *header)
+ {
+ 	unregister_sysctl_table(header);
 -- 
-Catalin
+1.5.3.4
 
