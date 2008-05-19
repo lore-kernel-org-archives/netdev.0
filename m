@@ -1,75 +1,50 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH] WAN: protect HDLC proto list while insmod/rmmod
-Date: Mon, 19 May 2008 19:00:51 +0200
-Message-ID: <m3ve1agrek.fsf_-_@maximus.localdomain>
-References: <20080424.065555.30390704.davem@davemloft.net>
-	<m3ve27nfpx.fsf@maximus.localdomain>
-	<20080424214457.1d5a1655@the-village.bc.nu>
-	<20080512.033244.153113922.davem@davemloft.net>
-	<m3lk2djbq3.fsf@maximus.localdomain>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [RFC] make wext wireless bits optional and deprecate them
+Date: Mon, 19 May 2008 10:01:45 -0700
+Message-ID: <20080519170145.GA21500@bougret.hpl.hp.com>
+References: <1211026337.3827.25.camel@johannes.berg> <CD993362-B1DE-4E4D-8A5B-E9E2AD7DA04C@holtmann.org> <1211032475.6252.2.camel@johannes.berg> <1211117795.686.15.camel@localhost.localdomain> <1211199368.6252.19.camel@johannes.berg>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alan@lxorguk.ukuu.org.uk, David Miller <davem@davemloft.net>,
-	paulkf@microgate.com, jchapman@katalix.com,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dcbw@redhat.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	netdev <netdev@vger.kernel.org>, Jean Tourrilhes <jt@hpl.hp.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Linux Kernel list <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:35892 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751717AbYESRAx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 13:00:53 -0400
-In-Reply-To: <m3lk2djbq3.fsf@maximus.localdomain> (Krzysztof Halasa's message of "Wed\, 14 May 2008 14\:45\:24 +0200")
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:14711 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752765AbYESRDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 13:03:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1211199368.6252.19.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WAN: protect protocol list in hdlc.c with RTNL.
-   =20
-Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
+On Mon, May 19, 2008 at 02:16:08PM +0200, Johannes Berg wrote:
+> 
+> > Instead of testing for wireless/, best thing would probably be to call
+> > SIOCGIWRANGE on the device and if it returns EOPNOTSUP then it's not
+> > wireless.  Some drivers may have to load firmware to figure out
+> > supported rates and encryption capabilities, but to be honest, NM does
+> > this to detect wireless devices and I haven't run into any issues in 4
+> > years using it.  If there are issues with drivers, then we need to fix
+> > the driver too.
+> 
+> I was about to propose calling SIOCGIWNAME since that is what
+> wireless-tools do and that linux/wireless.h indicates.
+> 
+> johannes
 
---- a/drivers/net/wan/hdlc.c
-+++ b/drivers/net/wan/hdlc.c
-@@ -42,8 +42,7 @@ static const char* version =3D "HDLC support module r=
-evision 1.22";
-=20
- #undef DEBUG_LINK
-=20
--static struct hdlc_proto *first_proto =3D NULL;
--
-+static struct hdlc_proto *first_proto;
-=20
- static int hdlc_change_mtu(struct net_device *dev, int new_mtu)
- {
-@@ -313,21 +312,25 @@ void detach_hdlc_protocol(struct net_device *dev)
-=20
- void register_hdlc_protocol(struct hdlc_proto *proto)
- {
-+	rtnl_lock();
- 	proto->next =3D first_proto;
- 	first_proto =3D proto;
-+	rtnl_unlock();
- }
-=20
-=20
- void unregister_hdlc_protocol(struct hdlc_proto *proto)
- {
--	struct hdlc_proto **p =3D &first_proto;
--	while (*p) {
--		if (*p =3D=3D proto) {
--			*p =3D proto->next;
--			return;
--		}
-+	struct hdlc_proto **p;
-+
-+	rtnl_lock();
-+	p =3D &first_proto;
-+	while (*p !=3D proto) {
-+		BUG_ON(!*p);
- 		p =3D &((*p)->next);
- 	}
-+	*p =3D proto->next;
-+	rtnl_unlock();
- }
-=20
-=20
+	Yes, using SIOCGIWNAME is the right way to do it, it's the
+only ioctl that is guarantee to always be present and require minimal
+processing from the driver (it should be a static string). If you look
+at iwconfig, this is how it does it.
+	(Sorry for the delay replying, I was chasing kids and
+electrical faults this week end).
+
+	Have fun...
+
+	Jean
+
