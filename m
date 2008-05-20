@@ -1,250 +1,56 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: [PATCH] driver core: Suppress sysfs warnings for device_rename().
-Date: Tue, 20 May 2008 12:59:13 +0200
-Message-ID: <20080520125913.777ed67d@gondolin.boeblingen.de.ibm.com>
-References: <20080515095246.3b6a0d1d@gondolin.boeblingen.de.ibm.com>
-	<20080515.010139.219194657.davem@davemloft.net>
-	<20080515113131.2cea2bce@gondolin.boeblingen.de.ibm.com>
-	<20080515.030054.247673168.davem@davemloft.net>
-	<20080515120619.6c867bfb@gondolin.boeblingen.de.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET_SCHED]: cls_api: fix return value for non-existant classifiers
+Date: Tue, 20 May 2008 13:20:13 +0200
+Message-ID: <4832B3ED.50900@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, greg@kroah.com, fubar@us.ibm.com,
-	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------060906020101090604010303"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:56343 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753314AbYETLAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 07:00:03 -0400
-In-Reply-To: <20080515120619.6c867bfb@gondolin.boeblingen.de.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:36108 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754525AbYETLUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 07:20:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OK, here is an actually-compiled patch with proper description and
-s-o-b. Comments?
+This is a multi-part message in MIME format.
+--------------060906020101090604010303
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
------
 
-driver core: Suppress sysfs warnings for device_rename().
+--------------060906020101090604010303
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Renaming network devices to an already existing name is not
-something we want sysfs to print a scary warning for, since the
-callers can deal with this correctly. So let's introduce
-sysfs_create_link_nowarn() which gets rid of the common warning.
+commit 32fcfbb0b16a119534a0cfe750a0925b3c710b39
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue May 20 04:27:25 2008 +0200
 
-Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+    [NET_SCHED]: cls_api: fix return value for non-existant classifiers
+    
+    cls_api should return ENOENT when the requested classifier doesn't
+    exist.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
----
- drivers/base/core.c   |   17 ++++++++---------
- fs/sysfs/dir.c        |   37 +++++++++++++++++++++++++++++++++++--
- fs/sysfs/symlink.c    |   41 +++++++++++++++++++++++++++++++++--------
- fs/sysfs/sysfs.h      |    1 +
- include/linux/sysfs.h |   10 ++++++++++
- 5 files changed, 87 insertions(+), 19 deletions(-)
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 1086df7..9360fc8 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -220,7 +220,7 @@ replay:
+ 		tp = kzalloc(sizeof(*tp), GFP_KERNEL);
+ 		if (tp == NULL)
+ 			goto errout;
+-		err = -EINVAL;
++		err = -ENOENT;
+ 		tp_ops = tcf_proto_lookup_ops(tca[TCA_KIND]);
+ 		if (tp_ops == NULL) {
+ #ifdef CONFIG_KMOD
 
-Index: linux-2.6/drivers/base/core.c
-===================================================================
---- linux-2.6.orig/drivers/base/core.c
-+++ linux-2.6/drivers/base/core.c
-@@ -1287,8 +1287,9 @@ int device_rename(struct device *dev, ch
- 	if (old_class_name) {
- 		new_class_name = make_class_name(dev->class->name, &dev->kobj);
- 		if (new_class_name) {
--			error = sysfs_create_link(&dev->parent->kobj,
--						  &dev->kobj, new_class_name);
-+			error = sysfs_create_link_nowarn(&dev->parent->kobj,
-+							 &dev->kobj,
-+							 new_class_name);
- 			if (error)
- 				goto out;
- 			sysfs_remove_link(&dev->parent->kobj, old_class_name);
-@@ -1296,13 +1297,11 @@ int device_rename(struct device *dev, ch
- 	}
- #else
- 	if (dev->class) {
--		sysfs_remove_link(&dev->class->subsys.kobj, old_device_name);
--		error = sysfs_create_link(&dev->class->subsys.kobj, &dev->kobj,
--					  dev->bus_id);
--		if (error) {
--			dev_err(dev, "%s: sysfs_create_symlink failed (%d)\n",
--				__func__, error);
--		}
-+		error = sysfs_create_link_nowarn(&dev->class->subsys.kobj,
-+						 &dev->kobj, dev->bus_id);
-+		if (!error)
-+			sysfs_remove_link(&dev->class->subsys.kobj,
-+					  old_device_name);
- 	}
- #endif
- 
-Index: linux-2.6/fs/sysfs/dir.c
-===================================================================
---- linux-2.6.orig/fs/sysfs/dir.c
-+++ linux-2.6/fs/sysfs/dir.c
-@@ -398,7 +398,7 @@ void sysfs_addrm_start(struct sysfs_addr
- }
- 
- /**
-- *	sysfs_add_one - add sysfs_dirent to parent
-+ *	__sysfs_add_one - add sysfs_dirent to parent without warning
-  *	@acxt: addrm context to use
-  *	@sd: sysfs_dirent to be added
-  *
-@@ -417,7 +417,7 @@ void sysfs_addrm_start(struct sysfs_addr
-  *	0 on success, -EEXIST if entry with the given name already
-  *	exists.
-  */
--int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
-+int __sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
- {
- 	if (sysfs_find_dirent(acxt->parent_sd, sd->s_name)) {
- 		printk(KERN_WARNING "sysfs: duplicate filename '%s' "
-@@ -439,6 +439,39 @@ int sysfs_add_one(struct sysfs_addrm_cxt
- }
- 
- /**
-+ *	sysfs_add_one - add sysfs_dirent to parent
-+ *	@acxt: addrm context to use
-+ *	@sd: sysfs_dirent to be added
-+ *
-+ *	Get @acxt->parent_sd and set sd->s_parent to it and increment
-+ *	nlink of parent inode if @sd is a directory and link into the
-+ *	children list of the parent.
-+ *
-+ *	This function should be called between calls to
-+ *	sysfs_addrm_start() and sysfs_addrm_finish() and should be
-+ *	passed the same @acxt as passed to sysfs_addrm_start().
-+ *
-+ *	LOCKING:
-+ *	Determined by sysfs_addrm_start().
-+ *
-+ *	RETURNS:
-+ *	0 on success, -EEXIST if entry with the given name already
-+ *	exists.
-+ */
-+int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
-+{
-+	int ret;
-+
-+	ret = __sysfs_add_one(acxt, sd);
-+	if (ret == -EEXIST) {
-+		printk(KERN_WARNING "sysfs: duplicate filename '%s' "
-+		       "can not be created\n", sd->s_name);
-+		WARN_ON(1);
-+	}
-+	return ret;
-+}
-+
-+/**
-  *	sysfs_remove_one - remove sysfs_dirent from parent
-  *	@acxt: addrm context to use
-  *	@sd: sysfs_dirent to be removed
-Index: linux-2.6/fs/sysfs/symlink.c
-===================================================================
---- linux-2.6.orig/fs/sysfs/symlink.c
-+++ linux-2.6/fs/sysfs/symlink.c
-@@ -19,13 +19,8 @@
- 
- #include "sysfs.h"
- 
--/**
-- *	sysfs_create_link - create symlink between two objects.
-- *	@kobj:	object whose directory we're creating the link in.
-- *	@target:	object we're pointing to.
-- *	@name:		name of the symlink.
-- */
--int sysfs_create_link(struct kobject * kobj, struct kobject * target, const char * name)
-+static int sysfs_do_create_link(struct kobject *kobj, struct kobject *target,
-+				const char *name, int warn)
- {
- 	struct sysfs_dirent *parent_sd = NULL;
- 	struct sysfs_dirent *target_sd = NULL;
-@@ -65,7 +60,10 @@ int sysfs_create_link(struct kobject * k
- 	target_sd = NULL;	/* reference is now owned by the symlink */
- 
- 	sysfs_addrm_start(&acxt, parent_sd);
--	error = sysfs_add_one(&acxt, sd);
-+	if (warn)
-+		error = sysfs_add_one(&acxt, sd);
-+	else
-+		error = __sysfs_add_one(&acxt, sd);
- 	sysfs_addrm_finish(&acxt);
- 
- 	if (error)
-@@ -80,6 +78,33 @@ int sysfs_create_link(struct kobject * k
- }
- 
- /**
-+ *	sysfs_create_link - create symlink between two objects.
-+ *	@kobj:	object whose directory we're creating the link in.
-+ *	@target:	object we're pointing to.
-+ *	@name:		name of the symlink.
-+ */
-+int sysfs_create_link(struct kobject *kobj, struct kobject *target,
-+		      const char *name)
-+{
-+	return sysfs_do_create_link(kobj, target, name, 1);
-+}
-+
-+/**
-+ *	sysfs_create_link_nowarn - create symlink between two objects.
-+ *	@kobj:	object whose directory we're creating the link in.
-+ *	@target:	object we're pointing to.
-+ *	@name:		name of the symlink.
-+ *
-+ *	This function does the same as sysf_create_link(), but it
-+ *	doesn't warn if the link already exists.
-+ */
-+int sysfs_create_link_nowarn(struct kobject *kobj, struct kobject *target,
-+			     const char *name)
-+{
-+	return sysfs_do_create_link(kobj, target, name, 0);
-+}
-+
-+/**
-  *	sysfs_remove_link - remove symlink in object's directory.
-  *	@kobj:	object we're acting for.
-  *	@name:	name of the symlink to remove.
-Index: linux-2.6/fs/sysfs/sysfs.h
-===================================================================
---- linux-2.6.orig/fs/sysfs/sysfs.h
-+++ linux-2.6/fs/sysfs/sysfs.h
-@@ -107,6 +107,7 @@ struct sysfs_dirent *sysfs_get_active_tw
- void sysfs_put_active_two(struct sysfs_dirent *sd);
- void sysfs_addrm_start(struct sysfs_addrm_cxt *acxt,
- 		       struct sysfs_dirent *parent_sd);
-+int __sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd);
- int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd);
- void sysfs_remove_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd);
- void sysfs_addrm_finish(struct sysfs_addrm_cxt *acxt);
-Index: linux-2.6/include/linux/sysfs.h
-===================================================================
---- linux-2.6.orig/include/linux/sysfs.h
-+++ linux-2.6/include/linux/sysfs.h
-@@ -103,6 +103,9 @@ void sysfs_remove_bin_file(struct kobjec
- 
- int __must_check sysfs_create_link(struct kobject *kobj, struct kobject *target,
- 				   const char *name);
-+int __must_check sysfs_create_link_nowarn(struct kobject *kobj,
-+					  struct kobject *target,
-+					  const char *name);
- void sysfs_remove_link(struct kobject *kobj, const char *name);
- 
- int __must_check sysfs_create_group(struct kobject *kobj,
-@@ -182,6 +185,13 @@ static inline int sysfs_create_link(stru
- 	return 0;
- }
- 
-+static inline int sysfs_create_link_nowarn(struct kobject *kobj,
-+					   struct kobject *target,
-+					   const char *name)
-+{
-+	return 0;
-+}
-+
- static inline void sysfs_remove_link(struct kobject *kobj, const char *name)
- {
- }
+--------------060906020101090604010303--
