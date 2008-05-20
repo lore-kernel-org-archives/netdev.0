@@ -1,45 +1,66 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [2.6 patch] make myri10ge_get_firmware_capabilities() static
-Date: Tue, 20 May 2008 07:52:24 +0200
-Message-ID: <48326718.90504@myri.com>
-References: <20080519215300.GC17716@cs181133002.pp.htv.fi>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
+Date: Tue, 20 May 2008 10:25:26 +0200
+Message-ID: <18482.35574.277447.753735@robur.slu.se>
+References: <bug-10737-10286@http.bugzilla.kernel.org/>
+	<20080517141036.d8f3c768.akpm@linux-foundation.org>
+	<482F88DE.8090508@trash.net>
+	<20080517215641.acb94677.akpm@linux-foundation.org>
+	<48301BE0.9040907@trash.net>
+	<48302E09.8080701@trash.net>
+	<48304BB5.7090805@trash.net>
+	<1211183642.9966.6.camel@iris.sw.ru>
+	<48321AC2.90500@candelatech.com>
+	<m1lk257p5k.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Gallatin <gallatin@myri.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Cc: Ben Greear <greearb@candelatech.com>,
+	"Denis V. Lunev" <den@openvz.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	devzero@web.de, Robert Olsson <robert.olsson@its.uu.se>,
+	Pavel Emelyanov <xemul@openvz.org>
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1943 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754131AbYETGPf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2008 02:15:35 -0400
-In-Reply-To: <20080519215300.GC17716@cs181133002.pp.htv.fi>
+Received: from mx1.slu.se ([130.238.96.70]:60958 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761756AbYETIZg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 04:25:36 -0400
+In-Reply-To: <m1lk257p5k.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> This patch makes the needlessly global 
-> myri10ge_get_firmware_capabilities() static.
->
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
->   
-Acked-by: Brice Goglin <brice@myri.com>
 
-> ---
-> 0442d0c2cb767d312f5264cc226a1595c47f3dbf diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-> index c91b12e..36be6ef 100644
-> --- a/drivers/net/myri10ge/myri10ge.c
-> +++ b/drivers/net/myri10ge/myri10ge.c
-> @@ -631,7 +631,7 @@ static int myri10ge_adopt_running_firmware(struct myri10ge_priv *mgp)
->  	return status;
->  }
->  
-> -int myri10ge_get_firmware_capabilities(struct myri10ge_priv *mgp)
-> +static int myri10ge_get_firmware_capabilities(struct myri10ge_priv *mgp)
->  {
->  	struct myri10ge_cmd cmd;
->  	int status;
->
->   
+Eric W. Biederman writes:
+ > > Denis V. Lunev wrote:
+ > >
+ > >> could you consider this preliminary patch? It fixes the problem for me
+ > >> and Pavel agrees with it.
+ > >>
+ > Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
+ > >> ------------------------------------------------------------------------
+ > >>
+ > >> diff --git a/fs/proc/inode.c b/fs/proc/inode.c
+ > >> index 6f4e8dc..b08d100 100644
+ > >> --- a/fs/proc/inode.c
+ > >> +++ b/fs/proc/inode.c
+ > >> @@ -425,7 +425,8 @@ struct inode *proc_get_inode(struct super_block *sb,
+ > > unsigned int ino,
+ > >>  			}
+ > >>  		}
+ > >>  		unlock_new_inode(inode);
+ > >> -	}
+ > >> +	} else
+ > >> +	       module_put(de->owner);
+ > >>  	return inode;
+ > >>   out_ino:
+
+ Yes it fixes the oops I got as well.
+
+ Acked-by: Robert Olsson <robert.olsson@its.uu.se>
+
+ Cheers.
+					--ro
