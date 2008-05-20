@@ -1,43 +1,42 @@
 From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 3/5 net-next-2.6] [TIPC]: Optimize null pointer check during neighbor discovery
-Date: Tue, 20 May 2008 17:08:30 -0400
-Message-ID: <1211317712-13596-4-git-send-email-allan.stephens@windriver.com>
-References: <1211317712-13596-1-git-send-email-allan.stephens@windriver.com>
+Subject: [PATCH 0/5 net-next-2.6] [TIPC]: Fixes to several obscure problems
+Date: Tue, 20 May 2008 17:08:27 -0400
+Message-ID: <1211317712-13596-1-git-send-email-allan.stephens@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:41776 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:41771 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760057AbYETVJw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757460AbYETVJw (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 20 May 2008 17:09:52 -0400
-In-Reply-To: <1211317712-13596-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch optimizes TIPC neighbor discovery code to avoid testing for
-a null node pointer when the pointer is already known to be non-null.
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
----
- net/tipc/discover.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+This patch set is a collection of small changes that fix issues in TIPC that do
+not impact typical users.  Please see each individual patch for a further
+description of each item.
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index 5d643e5..faeaf06 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -200,9 +200,8 @@ void tipc_disc_recv_msg(struct sk_buff *buf)
- 		dbg(" in own cluster\n");
- 		if (n_ptr == NULL) {
- 			n_ptr = tipc_node_create(orig);
--		}
--		if (n_ptr == NULL) {
--			return;
-+			if (!n_ptr)
-+				return;
- 		}
- 		spin_lock_bh(&n_ptr->lock);
- 		link = n_ptr->links[b_ptr->identity];
--- 
-1.5.3.2
+Summary:
 
+ include/linux/tipc_config.h |   10 +++++++++-
+ net/tipc/config.c           |    9 ++++++---
+ net/tipc/core.c             |    4 ++--
+ net/tipc/core.h             |    2 +-
+ net/tipc/discover.c         |    5 ++---
+ net/tipc/net.c              |   10 +++++++---
+ net/tipc/net.h              |    2 +-
+ net/tipc/netlink.c          |   16 +++++++++-------
+ net/tipc/node.c             |   26 ++++++++++++++++++++++++++
+ net/tipc/port.c             |    1 +
+ 10 files changed, 64 insertions(+), 21 deletions(-)
+
+Allan Stephens (5):
+      [TIPC]: Fix skb_under_panic when configuring TIPC without privileges
+      [TIPC]: Prevent node object duplication due to simultaneous discovery
+      [TIPC]: Optimize null pointer check during neighbor discovery
+      [TIPC]: Update "previous node" indicators when node address changes
+      [TIPC]: Fix initialization sequence problems when entering network mode
+
+Thanks,
+Al
