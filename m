@@ -1,86 +1,83 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2/4] pktgen: make sure that pktgen_thread_worker has been executed
-Date: Tue, 20 May 2008 13:59:47 +0400
-Message-ID: <1211277589-8565-2-git-send-email-den@openvz.org>
+Subject: [PATCH 3/4] modules: proper cleanup of kobject without CONFIG_SYSFS
+Date: Tue, 20 May 2008 13:59:48 +0400
+Message-ID: <1211277589-8565-3-git-send-email-den@openvz.org>
 References: <1211277589-8565-1-git-send-email-den@openvz.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	"Denis V. Lunev" <den@openvz.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	Ben Greear <greearb@candelatech.com>
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Kay Sievers <kay.sievers@vrfy.org>
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:31132 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:41940 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765063AbYETKAl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2008 06:00:41 -0400
+	id S1764697AbYETKAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 06:00:24 -0400
 In-Reply-To: <1211277589-8565-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following courruption can happen during pktgen stop:
-list_del corruption. prev->next should be ffff81007e8a5e70, but was 6b6b6b6b6b6b6b6b
-kernel BUG at lib/list_debug.c:67!
-      :pktgen:pktgen_thread_worker+0x374/0x10b0
-      ? autoremove_wake_function+0x0/0x40
-      ? _spin_unlock_irqrestore+0x42/0x80
-      ? :pktgen:pktgen_thread_worker+0x0/0x10b0
-      kthread+0x4d/0x80
-      child_rip+0xa/0x12
-      ? restore_args+0x0/0x30
-      ? kthread+0x0/0x80
-      ? child_rip+0x0/0x12
-RIP  list_del+0x48/0x70
+kobject: '<NULL>' (ffffffffa0104050): is not initialized, yet kobject_put() is being called.
+------------[ cut here ]------------
+WARNING: at /home/den/src/linux-netns26/lib/kobject.c:583 kobject_put+0x53/0x55()
+Modules linked in: ipv6 nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs ide_cd_mod cdrom button [last unloaded: pktgen]
+comm: rmmod Tainted: G        W 2.6.26-rc3 #585
+Call Trace:
+  [<ffffffff802359ab>] warn_on_slowpath+0x58/0x7a
+  [<ffffffff80236aca>] ? printk+0x67/0x69
+  [<ffffffff80236aca>] ? printk+0x67/0x69
+  [<ffffffff80324289>] kobject_put+0x53/0x55
+  [<ffffffff8025e2ee>] free_module+0x87/0xfa
+  [<ffffffff8025fee5>] sys_delete_module+0x178/0x1e1
+  [<ffffffff804b1e70>] ? lockdep_sys_exit_thunk+0x35/0x67
+  [<ffffffff804b1dff>] ? trace_hardirqs_on_thunk+0x35/0x3a
+  [<ffffffff8020c0bb>] system_call_after_swapgs+0x7b/0x80
+---[ end trace 8f5aafa7f6406cf8 ]---
 
-The problem is that pktgen_thread_worker can not be executed if kthread_stop
-has been called too early. Insert a completion on the normal initialization
-path to make sure that pktgen_thread_worker will gain the control for sure.
+mod->mkobj.kobj is not initialized without CONFIG_SYSFS. Do not call
+kobject_put in this case.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Robert Olsson <robert.olsson@its.uu.se>
-Cc: Ben Greear <greearb@candelatech.com>
-Acked-by: Alexey Dobriyan <adobriyan@openvz.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Kay Sievers <kay.sievers@vrfy.org>
 ---
- net/core/pktgen.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ kernel/module.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 8dca211..fdf5377 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -390,6 +390,7 @@ struct pktgen_thread {
- 	int cpu;
- 
- 	wait_queue_head_t queue;
-+	struct completion start_done;
- };
- 
- #define REMOVE 1
-@@ -3414,6 +3415,7 @@ static int pktgen_thread_worker(void *arg)
- 	BUG_ON(smp_processor_id() != cpu);
- 
- 	init_waitqueue_head(&t->queue);
-+	complete(&t->start_done);
- 
- 	pr_debug("pktgen: starting pktgen/%d:  pid=%d\n", cpu, task_pid_nr(current));
- 
-@@ -3615,6 +3617,7 @@ static int __init pktgen_create_thread(int cpu)
- 	INIT_LIST_HEAD(&t->if_list);
- 
- 	list_add_tail(&t->th_list, &pktgen_threads);
-+	init_completion(&t->start_done);
- 
- 	p = kthread_create(pktgen_thread_worker, t, "kpktgend_%d", cpu);
- 	if (IS_ERR(p)) {
-@@ -3639,6 +3642,7 @@ static int __init pktgen_create_thread(int cpu)
- 	}
- 
- 	wake_up_process(p);
-+	wait_for_completion(&t->start_done);
- 
- 	return 0;
+diff --git a/kernel/module.c b/kernel/module.c
+index e6daf9a..5f80478 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -1337,7 +1337,19 @@ out_unreg:
+ 	kobject_put(&mod->mkobj.kobj);
+ 	return err;
  }
+-#endif
++
++static void mod_sysfs_fini(struct module *mod)
++{
++	kobject_put(&mod->mkobj.kobj);
++}
++
++#else /* CONFIG_SYSFS */
++
++static void mod_sysfs_fini(struct module *mod)
++{
++}
++
++#endif /* CONFIG_SYSFS */
+ 
+ static void mod_kobject_remove(struct module *mod)
+ {
+@@ -1345,7 +1357,7 @@ static void mod_kobject_remove(struct module *mod)
+ 	module_param_sysfs_remove(mod);
+ 	kobject_put(mod->mkobj.drivers_dir);
+ 	kobject_put(mod->holders_dir);
+-	kobject_put(&mod->mkobj.kobj);
++	mod_sysfs_fini(mod);
+ }
+ 
+ /*
 -- 
 1.5.3.rc5
 
