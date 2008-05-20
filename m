@@ -1,52 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPSEC]: Use the correct ip_local_out function
-Date: Tue, 20 May 2008 14:32:38 -0700 (PDT)
-Message-ID: <20080520.143238.87085088.davem@davemloft.net>
-References: <BAY103-DAV20B0EEFFB30A41A8020C8B2CC0@phx.gbl>
-	<BAY103-DAV88950FC99CDE9EAAE27B2B2CE0@phx.gbl>
-	<20080520092511.GA9005@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6] [NET] The world is not perfect patch.
+Date: Tue, 20 May 2008 14:33:21 -0700 (PDT)
+Message-ID: <20080520.143321.97817925.davem@davemloft.net>
+References: <eb3ff54b0805200229r6fb2daa1w50aaffa9b130f89f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pupilla@hotmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43358
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43362
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758213AbYETVcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 17:32:43 -0400
-In-Reply-To: <20080520092511.GA9005@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1760397AbYETVd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 17:33:26 -0400
+In-Reply-To: <eb3ff54b0805200229r6fb2daa1w50aaffa9b130f89f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 20 May 2008 17:25:11 +0800
+From: "Rami Rosen" <ramirose@gmail.com>
+Date: Tue, 20 May 2008 12:29:26 +0300
 
-> On Wed, May 14, 2008 at 10:19:57AM +0200, Marco Berizzi wrote:
-> > 
-> > I hope this helps.
-> 
-> OK found the problem, it was my fault after all :)
-> 
-> Dave, this patch needs to go into stable too.
-> 
-> [IPSEC]: Use the correct ip_local_out function
-> 
-> Because the IPsec output function xfrm_output_resume does its
-> own dst_output call it should always call __ip_local_output
-> instead of ip_local_output as the latter may invoke dst_output
-> directly.  Otherwise the return values from nf_hook and dst_output
-> may clash as they both use the value 1 but for different purposes.
-> 
-> When that clash occurs this can cause a packet to be used after
-> it has been freed which usually leads to a crash.  Because the
-> offending value is only returned from dst_output with qdiscs
-> such as HTB, this bug is normally not visible.
-> 
-> Thanks to Marco Berizzi for his perseverance in tracking this
-> down.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> There are three methods in the network stack which start with
+> #ifndef I_WISH_WORLD_WERE_PERFECT.
 
-Applied and queued to -stable, thanks!
+I think it is better to delete this code.  It is impossible
+for anyone to build test it without making source modifications,
+therefore it will continute to break over and over again over
+time.
