@@ -1,89 +1,123 @@
 From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 2/5 net-next-2.6] [TIPC]: Prevent node object duplication due to simultaneous discovery
-Date: Tue, 20 May 2008 17:08:29 -0400
-Message-ID: <1211317712-13596-3-git-send-email-allan.stephens@windriver.com>
+Subject: [PATCH 1/5 net-next-2.6] [TIPC]: Fix skb_under_panic when configuring TIPC without privileges
+Date: Tue, 20 May 2008 17:08:28 -0400
+Message-ID: <1211317712-13596-2-git-send-email-allan.stephens@windriver.com>
 References: <1211317712-13596-1-git-send-email-allan.stephens@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:41787 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:41993 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762199AbYETVJx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2008 17:09:53 -0400
+	id S1763287AbYETVKH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 17:10:07 -0400
 In-Reply-To: <1211317712-13596-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch ensures that the simultaneous discovery of the same
-neighboring node by multiple interfaces does not cause TIPC to add
-the node into its internal data structures more than once.
+This patch prevents a TIPC configuration command requiring network
+administrator privileges from triggering an skbuff underrun if it
+is issued by a process lacking those privileges.  The revised error
+handling code avoids the use of a potentially uninitialized global
+variable by transforming the unauthorized command into a new command,
+then following the standard command processing path to generate the
+required error message.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 ---
- net/tipc/node.c |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+), 0 deletions(-)
+ include/linux/tipc_config.h |   10 +++++++++-
+ net/tipc/config.c           |    6 +++++-
+ net/tipc/netlink.c          |   16 +++++++++-------
+ 3 files changed, 23 insertions(+), 9 deletions(-)
 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 598f4d3..34e9a2b 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -52,16 +52,40 @@ static void node_established_contact(struct node *n_ptr);
+diff --git a/include/linux/tipc_config.h b/include/linux/tipc_config.h
+index b0c916d..2bc6fa4 100644
+--- a/include/linux/tipc_config.h
++++ b/include/linux/tipc_config.h
+@@ -2,7 +2,7 @@
+  * include/linux/tipc_config.h: Include file for TIPC configuration interface
+  * 
+  * Copyright (c) 2003-2006, Ericsson AB
+- * Copyright (c) 2005, Wind River Systems
++ * Copyright (c) 2005-2007, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -136,6 +136,14 @@
+ #define  TIPC_CMD_SET_NETID         0x800B    /* tx unsigned, rx none */
  
- struct node *tipc_nodes = NULL;	/* sorted list of nodes within cluster */
- 
-+static DEFINE_SPINLOCK(node_create_lock);
-+
- u32 tipc_own_tag = 0;
- 
-+/**
-+ * tipc_node_create - create neighboring node
-+ *
-+ * Currently, this routine is called by neighbor discovery code, which holds
-+ * net_lock for reading only.  We must take node_create_lock to ensure a node
-+ * isn't created twice if two different bearers discover the node at the same
-+ * time.  (It would be preferable to switch to holding net_lock in write mode,
-+ * but this is a non-trivial change.)
+ /*
++ * Reserved commands:
++ * May not be issued by any process.
++ * Used internally by TIPC.
 + */
 +
- struct node *tipc_node_create(u32 addr)
- {
- 	struct cluster *c_ptr;
- 	struct node *n_ptr;
- 	struct node **curr_node;
- 
-+	spin_lock_bh(&node_create_lock);
++#define  TIPC_CMD_NOT_NET_ADMIN     0xC001    /* tx none, rx none */
 +
-+	for (n_ptr = tipc_nodes; n_ptr; n_ptr = n_ptr->next) {
-+		if (addr < n_ptr->addr)
-+			break;
-+		if (addr == n_ptr->addr) {
-+			spin_unlock_bh(&node_create_lock);
-+			return n_ptr;
-+		}
-+	}
-+
- 	n_ptr = kzalloc(sizeof(*n_ptr),GFP_ATOMIC);
- 	if (!n_ptr) {
-+		spin_unlock_bh(&node_create_lock);
- 		warn("Node creation failed, no memory\n");
- 		return NULL;
- 	}
-@@ -71,6 +95,7 @@ struct node *tipc_node_create(u32 addr)
- 		c_ptr = tipc_cltr_create(addr);
- 	}
- 	if (!c_ptr) {
-+		spin_unlock_bh(&node_create_lock);
- 		kfree(n_ptr);
- 		return NULL;
- 	}
-@@ -91,6 +116,7 @@ struct node *tipc_node_create(u32 addr)
- 		}
- 	}
- 	(*curr_node) = n_ptr;
-+	spin_unlock_bh(&node_create_lock);
- 	return n_ptr;
- }
++/*
+  * TLV types defined for TIPC
+  */
  
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index 91d56f8..16e7cb7 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -2,7 +2,7 @@
+  * net/tipc/config.c: TIPC configuration management code
+  *
+  * Copyright (c) 2002-2006, Ericsson AB
+- * Copyright (c) 2004-2006, Wind River Systems
++ * Copyright (c) 2004-2007, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -602,6 +602,10 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
+ 	case TIPC_CMD_GET_NETID:
+ 		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_net_id);
+ 		break;
++	case TIPC_CMD_NOT_NET_ADMIN:
++		rep_tlv_buf =
++			tipc_cfg_reply_error_string(TIPC_CFG_NOT_NET_ADMIN);
++		break;
+ 	default:
+ 		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
+ 							  " (unknown command)");
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index 6a7f7b4..c387217 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -2,7 +2,7 @@
+  * net/tipc/netlink.c: TIPC configuration handling
+  *
+  * Copyright (c) 2005-2006, Ericsson AB
+- * Copyright (c) 2005, Wind River Systems
++ * Copyright (c) 2005-2007, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -45,15 +45,17 @@ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+ 	struct nlmsghdr *req_nlh = info->nlhdr;
+ 	struct tipc_genlmsghdr *req_userhdr = info->userhdr;
+ 	int hdr_space = NLMSG_SPACE(GENL_HDRLEN + TIPC_GENL_HDRLEN);
++	u16 cmd;
+ 
+ 	if ((req_userhdr->cmd & 0xC000) && (!capable(CAP_NET_ADMIN)))
+-		rep_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_NET_ADMIN);
++		cmd = TIPC_CMD_NOT_NET_ADMIN;
+ 	else
+-		rep_buf = tipc_cfg_do_cmd(req_userhdr->dest,
+-					  req_userhdr->cmd,
+-					  NLMSG_DATA(req_nlh) + GENL_HDRLEN + TIPC_GENL_HDRLEN,
+-					  NLMSG_PAYLOAD(req_nlh, GENL_HDRLEN + TIPC_GENL_HDRLEN),
+-					  hdr_space);
++		cmd = req_userhdr->cmd;
++
++	rep_buf = tipc_cfg_do_cmd(req_userhdr->dest, cmd,
++			NLMSG_DATA(req_nlh) + GENL_HDRLEN + TIPC_GENL_HDRLEN,
++			NLMSG_PAYLOAD(req_nlh, GENL_HDRLEN + TIPC_GENL_HDRLEN),
++			hdr_space);
+ 
+ 	if (rep_buf) {
+ 		skb_push(rep_buf, hdr_space);
 -- 
 1.5.3.2
 
