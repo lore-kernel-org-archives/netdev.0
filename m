@@ -1,49 +1,93 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2539 tcp_ack+0xd2b/0x191f()
-Date: Tue, 20 May 2008 16:28:07 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805191152390.16829@wrl-59.cs.helsinki.fi>
-References: <651806990805170819j5fdd42eeq805bfc31776ac897@mail.gmail.com>
- <Pine.LNX.4.64.0805172345440.17738@wrl-59.cs.helsinki.fi>
- <651806990805190057u74f81630l9801b90c2613ed47@mail.gmail.com>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [Bugme-new] [Bug 10748] New: dhclient fails to run;
+	capabilities error
+Date: Tue, 20 May 2008 09:38:34 -0400
+Message-ID: <1211290714.7486.105.camel@moss-spartans.epoch.ncsc.mil>
+References: <bug-10748-10286@http.bugzilla.kernel.org/>
+	 <20080519112835.67ff4133.akpm@linux-foundation.org>
+	 <20080520134919.GA8079@sergelap.wowway.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: int 986 <int986@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, shahamit@gmail.com,
+	Andrew Morgan <morgan@kernel.org>
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:52823 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758695AbYETN2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 09:28:09 -0400
-In-Reply-To: <651806990805190057u74f81630l9801b90c2613ed47@mail.gmail.com>
+Received: from zombie.ncsc.mil ([144.51.88.131]:54111 "EHLO zombie.ncsc.mil"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755331AbYETNmd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 09:42:33 -0400
+In-Reply-To: <20080520134919.GA8079@sergelap.wowway.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 May 2008, int 986 wrote:
 
-> thank you for detailed explanation. Debug patch is unlikely to test on our
-> live servers, but i can stress test it on our test servers.
+On Tue, 2008-05-20 at 08:49 -0500, Serge E. Hallyn wrote:
+> Quoting Andrew Morton (akpm@linux-foundation.org):
+> > (switched to email.  Please respond via emailed reply-to-all, not via the
+> > bugzilla web interface).
+> > 
+> > On Mon, 19 May 2008 06:25:00 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> > 
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=10748
+> > > 
+> > >            Summary: dhclient fails to run; capabilities error
+> > >            Product: Networking
+> > >            Version: 2.5
+> > >      KernelVersion: 2.6.26-rc2
+> > >           Platform: All
+> > >         OS/Version: Linux
+> > >               Tree: Mainline
+> > >             Status: NEW
+> > >           Severity: normal
+> > >           Priority: P1
+> > >          Component: IPV4
+> > >         AssignedTo: shemminger@linux-foundation.org
+> > >         ReportedBy: shahamit@gmail.com
+> > > 
+> > > 
+> > > Latest working kernel version: 2.6.25
+> > > Earliest failing kernel version: 2.6.26-rc1
+> > > Distribution: Kubuntu Hardy
+> > > Hardware Environment: AMD
+> > > Software Environment:
+> > > Problem Description: On a default Kubuntu Hardy install, I fetched the git tree
+> > > from Linus; compiled and installed the kernel. This persists even with
+> > > 2.6.26-rc2+ (commit f26a3988917913b3d11b2bd741601a2c64ab9204)
+> > > 
+> > > If this isn't known, I'll bisect and report the bad commit
+> > > 
+> > > Steps to reproduce: 'sudo dhclient eth2' returns
+> > > 
+> > > drop_privileges: could not keep capabilities: Invalid argument
+> > > 
+> > > eth2 is an e1000e card.
+> > > 
+> > > 
+> > 
+> > whoa, weird.  Could you please run `sudo strace -f dhclient eth2' and send us
+> > the last page or so of output?
+> 
+> Also, please send your .config, or at least the result of
+> grep SECURITY .config
 
-Thanks, please take the latest debug patch from here:
+His .config was attached to the bugzilla.
+CONFIG_SECURITY=y
+CONFIG_SECURITY_NETWORK=y
+# CONFIG_SECURITY_NETWORK_XFRM is not set
+# CONFIG_SECURITY_CAPABILITIES is not set
+CONFIG_SECURITY_DEFAULT_MMAP_MIN_ADDR=0
+# CONFIG_SECURITY_SELINUX is not set
 
-  http://marc.info/?l=linux-netdev&m=120972551120080&w=2
+Which means that he is using the dummy security module.
+And it appears that a prior commit moved KEEPCAPS handling from
+core prctl() to cap_task_prctl(), but didn't replicate it in
+the dummy_task_prctl().
 
-Please make sure you have log enough buffer for kernel messages while 
-testing (CONFIG_LOG_BUF_SHIFT) so that the disaster of the last time 
-doesn't repeat... :-)
-
-> We have farm with web servers for static content delivery and live
-> streaming. Our servers are from the tiny one with two disks to large systems
-> with 96 disks and external arrays. On every server we are using lighttpd
-> 1.5svn and linux 2.6.25.3. This warning we are seeing on every server in our
-> farm. I don't think that bug is connected to network setup may be is
-> connected to lighttpd - because we are in six different co-locations and
-> every co-location has your own network setup :)
-
-Yeah, you may well be right, it could well be something else on the 
-end-to-end path which causes it to trigger. ...I was just trying to find
-a common denominator as the other guy has a setup which is know to reorder 
-things.
+The dummy module really needs to die.
 
 -- 
- i.
+Stephen Smalley
+National Security Agency
+
