@@ -1,62 +1,50 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [Bugme-new] [Bug 10748] New: dhclient fails to run;
-	capabilities error
-Date: Tue, 20 May 2008 11:06:35 -0400
-Message-ID: <1211295995.7486.148.camel@moss-spartans.epoch.ncsc.mil>
-References: <bug-10748-10286@http.bugzilla.kernel.org/>
-	 <20080519112835.67ff4133.akpm@linux-foundation.org>
-	 <20080520134919.GA8079@sergelap.wowway.com>
-	 <1211290714.7486.105.camel@moss-spartans.epoch.ncsc.mil>
-	 <1211291902.7486.121.camel@moss-spartans.epoch.ncsc.mil>
-	 <877aabc40805200707uf2bd4d8k5d82ee7c9beeb7a5@mail.gmail.com>
-	 <1211294742.7486.137.camel@moss-spartans.epoch.ncsc.mil>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [patch 2/3] hci_usb: remove code obfuscation
+Date: Tue, 20 May 2008 17:24:06 +0200
+Message-ID: <20080520152405.GC2067@elf.ucw.cz>
+References: <200804182046.m3IKks86014628@imap1.linux-foundation.org> <9BEB490E-DE8A-4018-9696-E5074CC638AC@holtmann.org> <20080418223430.GA13847@elf.ucw.cz> <6A7ADC8A-E229-4EC6-9C75-00359946037F@holtmann.org> <20080419161456.GB1577@elf.ucw.cz> <15B7927A-D74F-450D-A6A4-0204FAD455F6@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	Andrew Morgan <morgan@kernel.org>,
-	lsm <linux-security-module@vger.kernel.org>,
-	Chris Wright <chrisw@sous-sol.org>
-To: Amit Shah <shahamit@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1211294742.7486.137.camel@moss-spartans.epoch.ncsc.mil>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, hidave.darkstar@gmail.com,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:41826 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933252AbYETPXH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 11:23:07 -0400
+Content-Disposition: inline
+In-Reply-To: <15B7927A-D74F-450D-A6A4-0204FAD455F6@holtmann.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi!
 
-On Tue, 2008-05-20 at 10:45 -0400, Stephen Smalley wrote:
-> On Tue, 2008-05-20 at 19:37 +0530, Amit Shah wrote:
-> > On Tue, May 20, 2008 at 7:28 PM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
-> > >
-> > > On Tue, 2008-05-20 at 09:38 -0400, Stephen Smalley wrote:
-> > >> Which means that he is using the dummy security module.
-> > >> And it appears that a prior commit moved KEEPCAPS handling from
-> > >> core prctl() to cap_task_prctl(), but didn't replicate it in
-> > >> the dummy_task_prctl().
-> > >>
-> > >> The dummy module really needs to die.
-> > >
-> > > Question for the bug reporter:  did you really mean to build a kernel
-> > > without capabilities support?  Surprise!  They don't really work when
-> > > disabled.
-> > 
-> > No; I was just trying out some random configs. This config worked till
-> > .25 properly though.
-> 
-> The dummy module is generally in the untenable position of having to lie
-> to userspace or break the existing capability-related system call
-> interface.  It should just go away, and make capability the default
-> module (w/ stubs for the rest of the LSM hooks as with dummy).  Then
-> CONFIG_SECURITY=n will yield the same result as CONFIG_SECURITY=y w/o
-> any further options.
+>> There needs to be some load on the usb. I use
+>> rsync-over-bt-over-gprs/umts.
+>
+> you told me before and I believe you. This driver is not in its best shape. 
+> Weird thing is that I never got it re-produced. If you find the real cause. 
+> That would be great.
 
-(cc Chris Wright and linux-security-module list)
+The cause seems to be hci_usb_close() racing with the USB core and
+completion handlers...
 
-s/same result/same user-visible behavior/ 
+>>>> It could be easily fixed by just not freeing the urbs during
+>>>> disconnect (introducing very very slow memory leak). Would that be
+>>>> acceptable?
+>>>
+>>> I don't think so.
+>>>
+>>> Have you ever tried btusb driver? That code is a lot cleaner and it uses
+>>> USB anchors for the queued URBs (no home grown broken URB queues).
+>>
+>> I wish I knew about  this one earlier. Yes, it seems to work for me.
+>
+> Does this mean you are not fixing hci_usb anymore ;)
 
+I'm not sure what's next, as hci_usb is still in opensuse11...
+									Pavel
 -- 
-Stephen Smalley
-National Security Agency
-
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
