@@ -1,37 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC, VLAN]: Propagate selected feature bits to VLAN devices
-Date: Tue, 20 May 2008 19:23:54 +0200
-Message-ID: <4833092A.3070800@trash.net>
-References: <4832E223.7020206@trash.net> <20080520144822.GR28241@solarflare.com> <4832E55E.2030009@trash.net> <4832F260.5000104@candelatech.com> <20080520162011.GT28241@solarflare.com> <4832FC1F.90208@candelatech.com> <D5C1322C3E673F459512FB59E0DDC329051AC81F@orsmsx414.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [patch 2/3] hci_usb: remove code obfuscation
+Date: Tue, 20 May 2008 19:26:42 +0200
+Message-ID: <3E40C481-B07D-446B-8B22-013173C6074C@holtmann.org>
+References: <200804182046.m3IKks86014628@imap1.linux-foundation.org> <9BEB490E-DE8A-4018-9696-E5074CC638AC@holtmann.org> <20080418223430.GA13847@elf.ucw.cz> <6A7ADC8A-E229-4EC6-9C75-00359946037F@holtmann.org> <20080419161456.GB1577@elf.ucw.cz> <15B7927A-D74F-450D-A6A4-0204FAD455F6@holtmann.org> <20080520152405.GC2067@elf.ucw.cz>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45461 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754159AbYETRXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 13:23:54 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329051AC81F@orsmsx414.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080520152405.GC2067-I/5MKhXcvmPrBKCeMvbIDA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
->> I guess it doesn't matter so much to me either way..so long 
->> as it is narrowed one way or another, and preferably narrowed 
->> enough to allow plenty of new flags down the road.
-> 
-> In addition to TSO, we also want TCP checksum offload, so we'll need at
-> least one more flag.  So whatever is done to shrink the GSO bits, we'll
-> need room for two new flags.
+Hi Pavel,
 
-You're right of course, seems I wasn't thinking :)
+>>> There needs to be some load on the usb. I use
+>>> rsync-over-bt-over-gprs/umts.
+>>
+>> you told me before and I believe you. This driver is not in its  
+>> best shape.
+>> Weird thing is that I never got it re-produced. If you find the  
+>> real cause.
+>> That would be great.
+>
+> The cause seems to be hci_usb_close() racing with the USB core and
+> completion handlers...
+>
+>>>>> It could be easily fixed by just not freeing the urbs during
+>>>>> disconnect (introducing very very slow memory leak). Would that be
+>>>>> acceptable?
+>>>>
+>>>> I don't think so.
+>>>>
+>>>> Have you ever tried btusb driver? That code is a lot cleaner and  
+>>>> it uses
+>>>> USB anchors for the queued URBs (no home grown broken URB queues).
+>>>
+>>> I wish I knew about  this one earlier. Yes, it seems to work for me.
+>>
+>> Does this mean you are not fixing hci_usb anymore ;)
+>
+> I'm not sure what's next, as hci_usb is still in opensuse11...
 
-> 
-> The patch looks good after a visual inspection.  I'll send test results
-> later today.
+the goal should be improve btusb. Especially add all the needed quirks  
+from the hci_usb driver to it. I have a patch for it, but I need to  
+reverse the HCI_RESET logic.
 
-Thanks.
+However if you have hci_usb patches, send them, I will review them and  
+David will happily apply them I guess.
+
+Regards
+
+Marcel
