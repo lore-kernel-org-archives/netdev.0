@@ -1,125 +1,70 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH net-2.6] [NET] The world is not perfect patch.
-Date: Tue, 20 May 2008 12:29:26 +0300
-Message-ID: <eb3ff54b0805200229r6fb2daa1w50aaffa9b130f89f@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_14800_29058380.1211275766611"
-Cc: linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 4/4] flock: remove unused fields from file_lock_operations
+Date: Tue, 20 May 2008 13:59:49 +0400
+Message-ID: <1211277589-8565-4-git-send-email-den@openvz.org>
+References: <1211277589-8565-1-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Denis V. Lunev" <den@openvz.org>, Matthew Wilcox <matthew@wil.cx>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.188]:24477 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755414AbYETJ3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 05:29:30 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so1257442mue.1
-        for <netdev@vger.kernel.org>; Tue, 20 May 2008 02:29:26 -0700 (PDT)
+Received: from mailhub.sw.ru ([195.214.232.25]:35692 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763772AbYETJ7x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 05:59:53 -0400
+In-Reply-To: <1211277589-8565-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_14800_29058380.1211275766611
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+fl_insert and fl_remove are not used right now in the kernel. Remove them.
 
-Hi,
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Cc: Matthew Wilcox <matthew@wil.cx>
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+Cc: linux-fsdevel <linux-fsdevel@vger.kernel.org>
+---
+ fs/locks.c         |    6 ------
+ include/linux/fs.h |    2 --
+ 2 files changed, 0 insertions(+), 8 deletions(-)
 
-There are three methods in the network stack which start with
-#ifndef I_WISH_WORLD_WERE_PERFECT.
+diff --git a/fs/locks.c b/fs/locks.c
+index 11dbf08..dce8c74 100644
+--- a/fs/locks.c
++++ b/fs/locks.c
+@@ -561,9 +561,6 @@ static void locks_insert_lock(struct file_lock **pos, struct file_lock *fl)
+ 	/* insert into file's list */
+ 	fl->fl_next = *pos;
+ 	*pos = fl;
+-
+-	if (fl->fl_ops && fl->fl_ops->fl_insert)
+-		fl->fl_ops->fl_insert(fl);
+ }
+ 
+ /*
+@@ -586,9 +583,6 @@ static void locks_delete_lock(struct file_lock **thisfl_p)
+ 		fl->fl_fasync = NULL;
+ 	}
+ 
+-	if (fl->fl_ops && fl->fl_ops->fl_remove)
+-		fl->fl_ops->fl_remove(fl);
+-
+ 	if (fl->fl_nspid) {
+ 		put_pid(fl->fl_nspid);
+ 		fl->fl_nspid = NULL;
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 9bb4ffd..13fb854 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -901,8 +901,6 @@ static inline int file_check_writeable(struct file *filp)
+ typedef struct files_struct *fl_owner_t;
+ 
+ struct file_lock_operations {
+-	void (*fl_insert)(struct file_lock *);	/* lock insertion callback */
+-	void (*fl_remove)(struct file_lock *);	/* lock removal callback */
+ 	void (*fl_copy_lock)(struct file_lock *, struct file_lock *);
+ 	void (*fl_release_private)(struct file_lock *);
+ };
+-- 
+1.5.3.rc5
 
-These methods are:
-ipip_err() in net/ipv4/ipip.c
-ipgre_err() in net/ipv4/ip_gre.c
-ipip6_err() in net/ipv6/sit.c
-
-When building the kernel with -DI_WISH_WORLD_WERE_PERFECT we have
-various compilation
-errors, mostly due to the fact that the corresponding code was not
-updated recently.
-
-(As we all know, indeed the world is not perfect, unluckily...)
-
-This patch fixes these errors and enables building the kernel
-successfully with -DI_WISH_WORLD_WERE_PERFECT.
-
-(Note : I am not fully sure about correctness of len = skb->len, which I added;
-feedback on this point is welcomed).
-
-
-Regards,
-Rami Rosen
-
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
-------=_Part_14800_29058380.1211275766611
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fgga9j6t0
-Content-Disposition: attachment; filename=patch.txt
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX2dyZS5jIGIvbmV0L2lwdjQvaXBfZ3JlLmMKaW5kZXgg
-MmFkYTAzMy4uMjdjMzkzOCAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaXBfZ3JlLmMKKysrIGIvbmV0
-L2lwdjQvaXBfZ3JlLmMKQEAgLTM5OSw5ICszOTksOSBAQCBvdXQ6CiAJcmVhZF91bmxvY2soJmlw
-Z3JlX2xvY2spOwogCXJldHVybjsKICNlbHNlCi0Jc3RydWN0IGlwaGRyICppcGggPSAoc3RydWN0
-IGlwaGRyKilkcDsKKwlzdHJ1Y3QgaXBoZHIgKmlwaCA9IChzdHJ1Y3QgaXBoZHIqKXNrYi0+ZGF0
-YTsKIAlzdHJ1Y3QgaXBoZHIgKmVpcGg7Ci0JX19iZTE2CSAgICAgKnAgPSAoX19iZTE2KikoZHAr
-KGlwaC0+aWhsPDwyKSk7CisJX19iZTE2CSAgICAgKnAgPSAoX19iZTE2Kikoc2tiLT5kYXRhICsg
-KGlwaC0+aWhsPDwyKSk7CiAJY29uc3QgaW50IHR5cGUgPSBpY21wX2hkcihza2IpLT50eXBlOwog
-CWNvbnN0IGludCBjb2RlID0gaWNtcF9oZHIoc2tiKS0+Y29kZTsKIAlpbnQgcmVsX3R5cGUgPSAw
-OwpAQCAtNDEzLDcgKzQxMyw5IEBAIG91dDoKIAlzdHJ1Y3Qgc2tfYnVmZiAqc2tiMjsKIAlzdHJ1
-Y3QgZmxvd2kgZmw7CiAJc3RydWN0IHJ0YWJsZSAqcnQ7Ci0KKwkKKwlpbnQgbGVuID0gc2tiLT5s
-ZW47CisJCiAJaWYgKHBbMV0gIT0gaHRvbnMoRVRIX1BfSVApKQogCQlyZXR1cm47CiAKQEAgLTQz
-MCw3ICs0MzIsNyBAQCBvdXQ6CiAJfQogCWlmIChsZW4gPCBncmVobGVuICsgc2l6ZW9mKHN0cnVj
-dCBpcGhkcikpCiAJCXJldHVybjsKLQllaXBoID0gKHN0cnVjdCBpcGhkciopKGRwICsgZ3JlaGxl
-bik7CisJZWlwaCA9IChzdHJ1Y3QgaXBoZHIqKShza2ItPmRhdGEgKyBncmVobGVuKTsKIAogCXN3
-aXRjaCAodHlwZSkgewogCWRlZmF1bHQ6CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9pcGlwLmMgYi9u
-ZXQvaXB2NC9pcGlwLmMKaW5kZXggMTQ5MTExZi4uNDQ3NGY0MSAxMDA2NDQKLS0tIGEvbmV0L2lw
-djQvaXBpcC5jCisrKyBiL25ldC9pcHY0L2lwaXAuYwpAQCAtMzM4LDcgKzMzOCw3IEBAIG91dDoK
-IAlyZWFkX3VubG9jaygmaXBpcF9sb2NrKTsKIAlyZXR1cm4gZXJyOwogI2Vsc2UKLQlzdHJ1Y3Qg
-aXBoZHIgKmlwaCA9IChzdHJ1Y3QgaXBoZHIqKWRwOworCXN0cnVjdCBpcGhkciAqaXBoID0gKHN0
-cnVjdCBpcGhkciopc2tiLT5kYXRhOwogCWludCBobGVuID0gaXBoLT5paGw8PDI7CiAJc3RydWN0
-IGlwaGRyICplaXBoOwogCWNvbnN0IGludCB0eXBlID0gaWNtcF9oZHIoc2tiKS0+dHlwZTsKQEAg
-LTM1MSw5ICszNTEsMTEgQEAgb3V0OgogCXN0cnVjdCBmbG93aSBmbDsKIAlzdHJ1Y3QgcnRhYmxl
-ICpydDsKIAorCWludCBsZW4gPSBza2ItPmxlbjsKKwogCWlmIChsZW4gPCBobGVuICsgc2l6ZW9m
-KHN0cnVjdCBpcGhkcikpCiAJCXJldHVybiAwOwotCWVpcGggPSAoc3RydWN0IGlwaGRyKikoZHAg
-KyBobGVuKTsKKwllaXBoID0gKHN0cnVjdCBpcGhkciopKHNrYi0+ZGF0YSArIGhsZW4pOwogCiAJ
-c3dpdGNoICh0eXBlKSB7CiAJZGVmYXVsdDoKQEAgLTQxNCwxMCArNDE2LDEwIEBAIG91dDoKIAog
-CS8qIFRyeSB0byBndWVzcyBpbmNvbWluZyBpbnRlcmZhY2UgKi8KIAltZW1zZXQoJmZsLCAwLCBz
-aXplb2YoZmwpKTsKLQlmbC5mbDRfZGFkZHIgPSBlaXBoLT5zYWRkcjsKKwlmbC5mbDRfZHN0ID0g
-ZWlwaC0+c2FkZHI7CiAJZmwuZmw0X3RvcyA9IFJUX1RPUyhlaXBoLT50b3MpOwogCWZsLnByb3Rv
-ID0gSVBQUk9UT19JUElQOwotCWlmIChpcF9yb3V0ZV9vdXRwdXRfa2V5KGRldl9uZXQoc2tiLT5k
-ZXYpLCAmcnQsICZrZXkpKSB7CisJaWYgKGlwX3JvdXRlX291dHB1dF9rZXkoZGV2X25ldChza2It
-PmRldiksICZydCwgJmZsKSkgewogCQlrZnJlZV9za2Ioc2tiMik7CiAJCXJldHVybiAwOwogCX0K
-QEAgLTQyNyw3ICs0MjksNyBAQCBvdXQ6CiAJaWYgKHJ0LT5ydF9mbGFncyZSVENGX0xPQ0FMKSB7
-CiAJCWlwX3J0X3B1dChydCk7CiAJCXJ0ID0gTlVMTDsKLQkJZmwuZmw0X2RhZGRyID0gZWlwaC0+
-ZGFkZHI7CisJCWZsLmZsNF9kc3QgPSBlaXBoLT5kYWRkcjsKIAkJZmwuZmw0X3NyYyA9IGVpcGgt
-PnNhZGRyOwogCQlmbC5mbDRfdG9zID0gZWlwaC0+dG9zOwogCQlpZiAoaXBfcm91dGVfb3V0cHV0
-X2tleShkZXZfbmV0KHNrYi0+ZGV2KSwgJnJ0LCAmZmwpIHx8CmRpZmYgLS1naXQgYS9uZXQvaXB2
-Ni9zaXQuYyBiL25ldC9pcHY2L3NpdC5jCmluZGV4IDVhNmZhYjkuLmMzNDdjNjcgMTAwNjQ0Ci0t
-LSBhL25ldC9pcHY2L3NpdC5jCisrKyBiL25ldC9pcHY2L3NpdC5jCkBAIC00NjMsNyArNDYzLDcg
-QEAgb3V0OgogCXJlYWRfdW5sb2NrKCZpcGlwNl9sb2NrKTsKIAlyZXR1cm4gZXJyOwogI2Vsc2UK
-LQlzdHJ1Y3QgaXBoZHIgKmlwaCA9IChzdHJ1Y3QgaXBoZHIqKWRwOworCXN0cnVjdCBpcGhkciAq
-aXBoID0gKHN0cnVjdCBpcGhkciopc2tiLT5kYXRhOwogCWludCBobGVuID0gaXBoLT5paGw8PDI7
-CiAJc3RydWN0IGlwdjZoZHIgKmlwaDY7CiAJY29uc3QgaW50IHR5cGUgPSBpY21wX2hkcihza2Ip
-LT50eXBlOwpAQCAtNDczLDE3ICs0NzMsMTkgQEAgb3V0OgogCWludCByZWxfaW5mbyA9IDA7CiAJ
-c3RydWN0IHNrX2J1ZmYgKnNrYjI7CiAJc3RydWN0IHJ0Nl9pbmZvICpydDZpOwotCisJCisJaW50
-IGxlbiA9IHNrYi0+bGVuOworCQogCWlmIChsZW4gPCBobGVuICsgc2l6ZW9mKHN0cnVjdCBpcHY2
-aGRyKSkKLQkJcmV0dXJuOwotCWlwaDYgPSAoc3RydWN0IGlwdjZoZHIqKShkcCArIGhsZW4pOwor
-CQlyZXR1cm4gMDsKKwlpcGg2ID0gKHN0cnVjdCBpcHY2aGRyKikoc2tiLT5kYXRhICsgaGxlbik7
-CiAKIAlzd2l0Y2ggKHR5cGUpIHsKIAlkZWZhdWx0OgotCQlyZXR1cm47CisJCXJldHVybiAwOwog
-CWNhc2UgSUNNUF9QQVJBTUVURVJQUk9COgogCQlpZiAoaWNtcF9oZHIoc2tiKS0+dW4uZ2F0ZXdh
-eSA8IGhsZW4pCi0JCQlyZXR1cm47CisJCQlyZXR1cm4gMDsKIAogCQkvKiBTby4uLiBUaGlzIGd1
-eSBmb3VuZCBzb21ldGhpbmcgc3RyYW5nZSBJTlNJREUgZW5jYXBzdWxhdGVkCiAJCSAgIHBhY2tl
-dC4gV2VsbCwgaGUgaXMgZm9vbCwgYnV0IHdoYXQgY2FuIHdlIGRvID8KQEAgLTQ5NywxMCArNDk5
-LDEwIEBAIG91dDoKIAkJY2FzZSBJQ01QX1NSX0ZBSUxFRDoKIAkJY2FzZSBJQ01QX1BPUlRfVU5S
-RUFDSDoKIAkJCS8qIEltcG9zc2libGUgZXZlbnQuICovCi0JCQlyZXR1cm47CisJCQlyZXR1cm4g
-MDsKIAkJY2FzZSBJQ01QX0ZSQUdfTkVFREVEOgogCQkJLyogVG9vIGNvbXBsaWNhdGVkIGNhc2Ug
-Li4uICovCi0JCQlyZXR1cm47CisJCQlyZXR1cm4gMDsKIAkJZGVmYXVsdDoKIAkJCS8qIEFsbCBv
-dGhlcnMgYXJlIHRyYW5zbGF0ZWQgdG8gSE9TVF9VTlJFQUNILgogCQkJICAgcmZjMjAwMyBjb250
-YWlucyAiZGVlcCB0aG91Z2h0cyIgYWJvdXQgTkVUX1VOUkVBQ0gsCkBAIC01MTMsNyArNTE1LDcg
-QEAgb3V0OgogCQlicmVhazsKIAljYXNlIElDTVBfVElNRV9FWENFRURFRDoKIAkJaWYgKGNvZGUg
-IT0gSUNNUF9FWENfVFRMKQotCQkJcmV0dXJuOworCQkJcmV0dXJuIDA7CiAJCXJlbF90eXBlID0g
-SUNNUFY2X1RJTUVfRVhDRUVEOwogCQlyZWxfY29kZSA9IElDTVBWNl9FWENfSE9QTElNSVQ7CiAJ
-CWJyZWFrOwo=
-------=_Part_14800_29058380.1211275766611--
