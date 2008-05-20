@@ -1,48 +1,71 @@
-From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Subject: Re: [ofa-general] Re: [PATCH 10/13] QLogic VNIC: Driver Statistics
-	collection
-Date: Tue, 20 May 2008 22:22:50 +0530
-Message-ID: <71d336490805200952k2c31b6abkfcf70ed7481a95d@mail.gmail.com>
-References: <20080430171028.31725.86190.stgit@localhost.localdomain>
-	<20080430172055.31725.70663.stgit@localhost.localdomain>
-	<adabq37dwob.fsf@cisco.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RFC] make wext wireless bits optional and deprecate them
+Date: Tue, 20 May 2008 19:15:31 +0200
+Message-ID: <1211303731.6252.105.camel@johannes.berg>
+References: <1211026337.3827.25.camel@johannes.berg>
+	 <CD993362-B1DE-4E4D-8A5B-E9E2AD7DA04C@holtmann.org>
+	 (sfid-20080517_154639_384202_6D3479C2)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amar.mudrankit@qlogic.com,
-	general@lists.openfabrics.org, poornima.kamath@qlogic.com
-To: "Roland Dreier" <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adabq37dwob.fsf@cisco.com>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-5JHaC54Ie6AKHA8YnikR"
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CD993362-B1DE-4E4D-8A5B-E9E2AD7DA04C-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> (sfid-20080517_154639_384202_6D3479C2)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Roland,
 
-On Fri, May 16, 2008 at 4:03 AM, Roland Dreier <rdreier@cisco.com> wrote:
->  > +#else       /*CONFIG_INIFINIBAND_VNIC_STATS*/
->  > +
->  > +static inline void vnic_connected_stats(struct vnic *vnic)
->  > +{
->  > +    ;
->  > +}
->
-> there are an awful lot of stubs here.  Do you really expect anyone to
-> set CONFIG_INFINIBAND_QLGC_VNIC_STATS=n?
+--=-5JHaC54Ie6AKHA8YnikR
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Sorry, missed this comment from the first round of review. Yes, the default
-behavior we want is to disable the statistics collection as some of the
-statistics collection is in the data transfer path and hence this code
-can add overheads. These statistics are more for performance debugging/tuning.
+On Sat, 2008-05-17 at 15:45 +0200, Marcel Holtmann wrote:
+> Hi Johannes,
+>=20
+> > The /sys/class/net/*/wireless/ direcory is, as far as I know, not
+> > used by anyone. Additionally, the same data is available via wext
+> > ioctls. Hence the sysfs files are pretty much useless. This patch
+> > makes them optional and schedules them for removal.
+>=20
+> it is used by HAL to classify WiFi network cards as net.80211 instead =20
+> of net.80203 and so we do have an actual user. However HAL only tests =20
+> for the existence of the directory wireless/.
+>=20
+> Please fix HAL first before submitting such a patch.
 
-Regards,
-Ram
+I have filed a patch to fix HAL to use the canonical SIOCGIWNAME at
+https://bugs.freedesktop.org/show_bug.cgi?id=3D16037. Any further
+objections to this patch?
+
+johannes
+
+--=-5JHaC54Ie6AKHA8YnikR
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUASDMHMqVg1VMiehFYAQIRCRAAha1B0TCHwCXxxe0Is+3Ld007hKV2n8kk
+0VF3N4Q2bLxKemj4rlyIBltc7fNy0qkNMwybjv0L+Qr8MievBdog31t+nSs5+UnA
+twu2OcjYPdDqYwEq/Umfhlsv775z7+E/qdQ1YUVJUrCKHL2M2WKVuNhXJJXX2OJL
+PjO3xio5r6A0KiIZpbTgUsIK0rKbM0ATvlswNFnuG0efuydWfnNoLjoMQifWtrfJ
+LgR/XziOdO/nmmAaygARjt7uSW9/uI384L8Y6ar4C1eoYmgZXzk4PRak4X8GcSaj
+rpVTzdH9SKGQ6J+oBot2YPKAFitivpEGlF2IVxje6suQlYZ0CMdGC2NyPDiW/MTv
+VjMtQH33unXxzz0WXaAJBARjbGVqdhVaadJWNRmws3iF+3uHe2aW3l92IpsFPYjy
+4b47xAcZisvL8mvDTqaCKqOQRKBbj1fKiYE6p1CwHomzdm/9MGmNOjmu2Vjrohc1
+nKHiMQfqbUwFqeYweU1MW4hv03M+jDv2GjFGJYSEjByL3AB9cI2GeqB2mKA6W34H
+WgG8UrTBIWqupkjGxPb2Q7U3JcoOF/R2ikMr4vCmQLY1m3se2Bni42d+0jYjIn+J
+NAnMJ1nzUMpzs0YLUFti62xzI7HQuOonjezxTVA76m0oe/2UaJotlytAhmaH5dMK
+kWNWwyhmyOg=
+=r45u
+-----END PGP SIGNATURE-----
+
+--=-5JHaC54Ie6AKHA8YnikR--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
