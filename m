@@ -1,49 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4/arp.c: Use the exported hex_asc from
- lib/hexdump.c instead
-Date: Tue, 20 May 2008 15:45:51 -0700 (PDT)
-Message-ID: <20080520.154551.54365414.davem@davemloft.net>
-References: <1211135864-8235-1-git-send-email-crquan@gmail.com>
-	<20080520.153611.204837174.davem@davemloft.net>
-	<1211323212.5915.220.camel@brick>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] driver core: Suppress sysfs warnings for
+	device_rename().
+Date: Tue, 20 May 2008 15:52:44 -0700
+Message-ID: <20080520225244.GG15912@kroah.com>
+References: <20080515095246.3b6a0d1d@gondolin.boeblingen.de.ibm.com> <20080515.010139.219194657.davem@davemloft.net> <20080515113131.2cea2bce@gondolin.boeblingen.de.ibm.com> <20080515.030054.247673168.davem@davemloft.net> <20080515120619.6c867bfb@gondolin.boeblingen.de.ibm.com> <20080520125913.777ed67d@gondolin.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: crquan@gmail.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: harvey.harrison@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	fubar@us.ibm.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54429
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S935729AbYETWp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 18:45:56 -0400
-In-Reply-To: <1211323212.5915.220.camel@brick>
+Received: from pentafluge.infradead.org ([213.146.154.40]:50562 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934179AbYETWxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 18:53:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20080520125913.777ed67d@gondolin.boeblingen.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Date: Tue, 20 May 2008 15:40:12 -0700
+On Tue, May 20, 2008 at 12:59:13PM +0200, Cornelia Huck wrote:
+> OK, here is an actually-compiled patch with proper description and
+> s-o-b. Comments?
 
-> On Tue, 2008-05-20 at 15:36 -0700, David Miller wrote:
-> > From: Denis Cheng <crquan@gmail.com>
-> > Date: Mon, 19 May 2008 02:37:44 +0800
-> > 
-> > > Here the local hexbuf is a duplicate of global const char hex_asc from
-> > > lib/hexdump.c, except the hex letters' cases:
-> > > 
-> > > const char hexbuf[] = "0123456789ABCDEF";
-> > > 
-> > > const char hex_asc[] = "0123456789abcdef";
-> > > 
-> > > and here to print HW addresses, the hex cases are not significant.
-> > > 
-> > > Signed-off-by: Denis Cheng <crquan@gmail.com>
-> > 
-> > Applied, thanks.
-> 
-> You may want to use the hex_asc_hi, hex_asc_lo helpers to do the
-> mask/shifts for you.
+Looks good to me, feel free to add an:
+	Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-Good idea, I'll revert, Denis can you generate a new patch?
+to it.
 
-Thanks.
+David, are you going to take this through your tree?
+
+thanks,
+
+greg k-h
