@@ -1,62 +1,58 @@
-From: Ichiro Suzuki <isuzuki@miraclelinux.com>
-Subject: Re: Question about VLAN + checksum offloading
-Date: Tue, 20 May 2008 12:19:48 +0900
-Message-ID: <1211253588.9823.2.camel@localhost.localdomain>
-References: <1210924374.5136.94.camel@localhost.localdomain>
-	 <D5C1322C3E673F459512FB59E0DDC329051AC07F@orsmsx414.amr.corp.intel.com>
-	 <4831BC4D.7000601@trash.net>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: Re: Top kernel oopses/warnings for the week of May 16th 2008
+Date: Mon, 19 May 2008 23:53:48 -0400
+Message-ID: <20080520035348.GA32472@codemonkey.org.uk>
+References: <482DB93B.2080100@linux.intel.com> <20080516180426.GA3284@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org, Naohiro Ooiwa <nooiwa@miraclelinux.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@linux.intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:49819 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754986AbYETDTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 23:19:50 -0400
-In-Reply-To: <4831BC4D.7000601@trash.net>
+Received: from testure.choralone.org ([194.9.77.134]:49929 "EHLO
+	testure.choralone.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755609AbYETDw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 23:52:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20080516180426.GA3284@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thank you, PJ and Patrick.
-I'll revisit the code after VLAN patches are posted.
+On Fri, May 16, 2008 at 09:04:26PM +0300, Adrian Bunk wrote:
+ > On Fri, May 16, 2008 at 09:41:31AM -0700, Arjan van de Ven wrote:
+ > >...
+ > > Bug of the week
+ > > ---------------
+ > > Not in the top 10 (but barely not so), but upcoming fast is a bug that has a very
+ > > distinct pattern.
+ > > The backtraces are at http://www.kerneloops.org/searchweek.php?search=fput
+ > >
+ > > The pattern is that the kernel gets an invalid pointer passed to fput(),
+ > > coming down from a select() system call done by the "wpa_supplicant" program.
+ > > The fact that it is ONLY wpa_supplicant implicates the wireless/network stack.
+ > > Another observation is that this only happens with 64 bit kernels, even though
+ > > a large portion of the users uses 32 bit kernels. This implies that this is a 64-bit
+ > > type of bug. It appears that the top 32 bit of the pointers is getting corrupted
+ > > (the bottom part at least looks valid).
+ > >...
+ > 
+ > Unless I misunderstand your webinterface another pattern is a "fc9" in 
+ > the version string.
 
-----------------------------------------------
-Ichiro Suzuki       <isuzuki@miraclelinux.com>
-Miracle Linux Corp., Advanced Technology Group
-----------------------------------------------
+Unsurprising really given we just did a release, and not many other distros
+are enabling kerneloops by default yet.
 
-On Mon, 2008-05-19 at 19:43 +0200, Patrick McHardy wrote:
-> Waskiewicz Jr, Peter P wrote:
-> >> o If so, is there any mechanism to propagate  
-> >> real_dev->features flags in vlan.c?
-> > 
-> > There isn't an explicit way.  I had written patches into e1000, igb,
-> > e1000e, and ixgbe to propogate the VLAN flags within the driver when the
-> > VLAN device was created.  The trick though is if you remove a feature
-> > flag with ethtool, say checksum offload, on your main device, you
-> > probably should turn it off on your VLAN devices.  Patrick McHardy
-> > pointed me at netdev_feature_change() to use within the driver.  I'll
-> > admit I haven't had the time to fix my drivers to use this call, but it
-> > certainly looks like the way to go.  Please see the (middle) of the
-> > thread here: http://marc.info/?l=linux-netdev&m=120878809806631&w=2
-> > 
-> >> o If such mechanism doesn't exist, is my patch reasonable?
-> > 
-> > I would say yes, halfway.  The issue is you probably want to remove the
-> > feature flag from the VLAN device if you removed the flag from the
-> > parent device as well.
-> 
-> 
-> Yes, it should use the same mechanism as suggested for the
-> VLAN accel feature. And it should be limited to features
-> that are known to work, not just blindly copy everything.
-> 
-> I will be catching up with the VLAN patches posted recently
-> sometime next week. I guess I can then also add a patch for
-> feature propagation myself if you don't beat me to it :)
-> 
-> 
+ > My first guess would be that it might be a problem in some code that is 
+ > only in Fedora kernels?
 
+Very likely, though it's worth noting that all the wireless patches we have
+in f9 are from wireless.git, so they're valid 2.6.26-rc bugs 
+
+	Dave
+
+-- 
+http://www.codemonkey.org.uk
