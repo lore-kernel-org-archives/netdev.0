@@ -1,90 +1,62 @@
-From: "Rune Torgersen" <runet@innovsys.com>
-Subject: RE: Oops in fs_enet driver with preempt-rt
-Date: Tue, 20 May 2008 09:53:14 -0500
-Message-ID: <DCEAAC0833DD314AB0B58112AD99B93B046E72C3@ismail.innsys.innovsys.com>
-References: <DCEAAC0833DD314AB0B58112AD99B93B046E728C@ismail.innsys.innovsys.com>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [Bugme-new] [Bug 10748] New: dhclient fails to run;
+	capabilities error
+Date: Tue, 20 May 2008 11:06:35 -0400
+Message-ID: <1211295995.7486.148.camel@moss-spartans.epoch.ncsc.mil>
+References: <bug-10748-10286@http.bugzilla.kernel.org/>
+	 <20080519112835.67ff4133.akpm@linux-foundation.org>
+	 <20080520134919.GA8079@sergelap.wowway.com>
+	 <1211290714.7486.105.camel@moss-spartans.epoch.ncsc.mil>
+	 <1211291902.7486.121.camel@moss-spartans.epoch.ncsc.mil>
+	 <877aabc40805200707uf2bd4d8k5d82ee7c9beeb7a5@mail.gmail.com>
+	 <1211294742.7486.137.camel@moss-spartans.epoch.ncsc.mil>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <linux-kernel@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.innovsys.com ([66.115.232.196]:40400 "EHLO
-	mail.innovsys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756892AbYETOyP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 10:54:15 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <DCEAAC0833DD314AB0B58112AD99B93B046E728C@ismail.innsys.innovsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	Andrew Morgan <morgan@kernel.org>,
+	lsm <linux-security-module@vger.kernel.org>,
+	Chris Wright <chrisw@sous-sol.org>
+To: Amit Shah <shahamit@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1211294742.7486.137.camel@moss-spartans.epoch.ncsc.mil>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rune Torgersen wrote:
-> Hi
-> I am trying to get preempt-rt (v2.6.25.4-rt1) to work on a Freescale
-> 8280 CPU (arch/powerpc) 
+
+On Tue, 2008-05-20 at 10:45 -0400, Stephen Smalley wrote:
+> On Tue, 2008-05-20 at 19:37 +0530, Amit Shah wrote:
+> > On Tue, May 20, 2008 at 7:28 PM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
+> > >
+> > > On Tue, 2008-05-20 at 09:38 -0400, Stephen Smalley wrote:
+> > >> Which means that he is using the dummy security module.
+> > >> And it appears that a prior commit moved KEEPCAPS handling from
+> > >> core prctl() to cap_task_prctl(), but didn't replicate it in
+> > >> the dummy_task_prctl().
+> > >>
+> > >> The dummy module really needs to die.
+> > >
+> > > Question for the bug reporter:  did you really mean to build a kernel
+> > > without capabilities support?  Surprise!  They don't really work when
+> > > disabled.
+> > 
+> > No; I was just trying out some random configs. This config worked till
+> > .25 properly though.
 > 
-> I get the follwing oops when trying to enable ethernet:
-> (looks like a null pointer dereference in
-> drivers/net/fs_enet/fs_enet-main.c:106)
+> The dummy module is generally in the untenable position of having to lie
+> to userspace or break the existing capability-related system call
+> interface.  It should just go away, and make capability the default
+> module (w/ stubs for the rest of the LSM hooks as with dummy).  Then
+> CONFIG_SECURITY=n will yield the same result as CONFIG_SECURITY=y w/o
+> any further options.
 
-And if I disable NAPI I get this one instead:
+(cc Chris Wright and linux-security-module list)
 
-Bringing up the eth1 interface...Unable to handle kernel paging request
-for data at address 0x00000000
-Faulting instruction address: 0xc019706c
-Oops: Kernel access of bad area, sig: 11 [#1]
-PREEMPT Innovative Systems ApMax
-Modules linked in:
-NIP: c019706c LR: c0196d84 CTR: c0198790
-REGS: ef2c3cb0 TRAP: 0300   Not tainted  (2.6.25.4-rt1)
-MSR: 00009032 <EE,ME,IR,DR>  CR: 42004222  XER: 00000000
-DAR: 00000000, DSISR: 20000000
-TASK = ef2ac590[114] 'ifconfig' THREAD: ef2c2000
-GPR00: 00000000 ef2c3d60 ef2ac590 ef37f000 00000008 00000000 ef2c3d5c
-0000008c
-GPR08: ef2c3d38 00000008 ef2c3d40 00000001 22000222 10021454 00000000
-100a37b0
-GPR16: 10090000 ef3e71e0 ef3e71e0 00000000 10070000 00000008 100192c0
-00008914
-GPR24: ef37f000 ef37f5a0 00000000 c0196d34 00000000 ef37f5a0 fffffff4
-ef2973a0
-NIP [c019706c] fs_enet_interrupt+0x338/0x5f4
-LR [c0196d84] fs_enet_interrupt+0x50/0x5f4
-Call Trace:
-[ef2c3d60] [c024a270] __spin_unlock_irqrestore+0x20/0x4c (unreliable)
-[ef2c3db0] [c0049a04] request_irq+0xb8/0xfc
-[ef2c3de0] [c0198044] fs_enet_open+0x8c/0x210
-[ef2c3e00] [c01d9b4c] dev_open+0x80/0xe8
-[ef2c3e10] [c01d89ac] dev_change_flags+0xc8/0x19c
-[ef2c3e30] [c021bfb0] devinet_ioctl+0x284/0x6f0
-[ef2c3e90] [c021c8fc] inet_ioctl+0xc0/0xf4
-[ef2c3ea0] [c01cbec4] sock_ioctl+0x200/0x23c
-[ef2c3ec0] [c00810c0] vfs_ioctl+0x44/0xa8
-[ef2c3ee0] [c0081520] do_vfs_ioctl+0x3fc/0x440
-[ef2c3f10] [c00815a4] sys_ioctl+0x40/0x70
-[ef2c3f40] [c000fcf0] ret_from_syscall+0x0/0x38
---- Exception: c01 at 0xff6a37c
-    LR = 0xffecd58
-Instruction dump:
-7c0004ac b01c0000 72e02000 3b9c0008 41820008 839d00bc 813d00a0 7f03c378
-81290034 7d2903a6 4e800421 7c0004ac <a01c0000> 0c000000 4c00012c
-5417043e
----[ end trace 61ff5e5c97ddf707 ]---
+s/same result/same user-visible behavior/ 
 
-Seems to be caused by line 471 in fs_enet_main:
+-- 
+Stephen Smalley
+National Security Agency
 
-0xc0196d84 is in fs_enet_interrupt
-(drivers/net/fs_enet/fs_enet-main.c:473).
-468                     if (fpi->use_napi)
-469                             int_clr_events &= ~fep->ev_napi_rx;
-470
-471                     (*fep->ops->clear_int_events)(dev,
-int_clr_events);
-472
-473                     if (int_events & fep->ev_err)
-474                             (*fep->ops->ev_error)(dev, int_events);
-475
-476                     if (int_events & fep->ev_rx) {
-477                             if (!fpi->use_napi)
-(gdb)     
