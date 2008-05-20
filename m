@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-next 2/10][BRIDE]: Use on-device stats instead of private
+Subject: [PATCH net-next 3/10][IPGRE]: Use on-device stats instead of private
  ones.
-Date: Tue, 20 May 2008 20:32:39 +0400
-Message-ID: <4832FD27.3090706@openvz.org>
+Date: Tue, 20 May 2008 20:34:48 +0400
+Message-ID: <4832FDA8.3020608@openvz.org>
 References: <4832FBD7.7040209@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,120 +10,137 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33840 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:33851 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751696AbYETQfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2008 12:35:07 -0400
+	id S1751643AbYETQhP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 12:37:15 -0400
 In-Reply-To: <4832FBD7.7040209@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Even though bridges require 6 fields from struct net_device_stats,
-the on-device stats are always there, so we may just use them.
-
-The br_dev_get_stats is no longer required after this.
+Just switch from tunnel->stat to tunnel->dev->stats. The ip_tunnel->stat
+member intself will be removed after I fix its other users (very soon).
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/bridge/br_device.c  |   11 ++---------
- net/bridge/br_forward.c |    2 +-
- net/bridge/br_input.c   |   10 +++++-----
- net/bridge/br_private.h |    1 -
- 4 files changed, 8 insertions(+), 16 deletions(-)
+ net/ipv4/ip_gre.c |   32 ++++++++++++++------------------
+ 1 files changed, 14 insertions(+), 18 deletions(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index bf77873..626c779 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -21,12 +21,6 @@
- #include <asm/uaccess.h>
- #include "br_private.h"
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 2ada033..eede36e 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -617,6 +617,8 @@ static int ipgre_rcv(struct sk_buff *skb)
+ 	read_lock(&ipgre_lock);
+ 	if ((tunnel = ipgre_tunnel_lookup(dev_net(skb->dev),
+ 					iph->saddr, iph->daddr, key)) != NULL) {
++		struct net_device_stats *stats = &tunnel->dev->stats;
++
+ 		secpath_reset(skb);
  
--static struct net_device_stats *br_dev_get_stats(struct net_device *dev)
+ 		skb->protocol = *(__be16*)(h + 2);
+@@ -641,28 +643,28 @@ static int ipgre_rcv(struct sk_buff *skb)
+ 			/* Looped back packet, drop it! */
+ 			if (skb->rtable->fl.iif == 0)
+ 				goto drop;
+-			tunnel->stat.multicast++;
++			stats->multicast++;
+ 			skb->pkt_type = PACKET_BROADCAST;
+ 		}
+ #endif
+ 
+ 		if (((flags&GRE_CSUM) && csum) ||
+ 		    (!(flags&GRE_CSUM) && tunnel->parms.i_flags&GRE_CSUM)) {
+-			tunnel->stat.rx_crc_errors++;
+-			tunnel->stat.rx_errors++;
++			stats->rx_crc_errors++;
++			stats->rx_errors++;
+ 			goto drop;
+ 		}
+ 		if (tunnel->parms.i_flags&GRE_SEQ) {
+ 			if (!(flags&GRE_SEQ) ||
+ 			    (tunnel->i_seqno && (s32)(seqno - tunnel->i_seqno) < 0)) {
+-				tunnel->stat.rx_fifo_errors++;
+-				tunnel->stat.rx_errors++;
++				stats->rx_fifo_errors++;
++				stats->rx_errors++;
+ 				goto drop;
+ 			}
+ 			tunnel->i_seqno = seqno + 1;
+ 		}
+-		tunnel->stat.rx_packets++;
+-		tunnel->stat.rx_bytes += skb->len;
++		stats->rx_packets++;
++		stats->rx_bytes += skb->len;
+ 		skb->dev = tunnel->dev;
+ 		dst_release(skb->dst);
+ 		skb->dst = NULL;
+@@ -684,7 +686,7 @@ drop_nolock:
+ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+-	struct net_device_stats *stats = &tunnel->stat;
++	struct net_device_stats *stats = &tunnel->dev->stats;
+ 	struct iphdr  *old_iph = ip_hdr(skb);
+ 	struct iphdr  *tiph;
+ 	u8     tos;
+@@ -698,7 +700,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int    mtu;
+ 
+ 	if (tunnel->recursion++) {
+-		tunnel->stat.collisions++;
++		stats->collisions++;
+ 		goto tx_error;
+ 	}
+ 
+@@ -714,7 +716,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* NBMA tunnel */
+ 
+ 		if (skb->dst == NULL) {
+-			tunnel->stat.tx_fifo_errors++;
++			stats->tx_fifo_errors++;
+ 			goto tx_error;
+ 		}
+ 
+@@ -765,7 +767,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 						.tos = RT_TOS(tos) } },
+ 				    .proto = IPPROTO_GRE };
+ 		if (ip_route_output_key(dev_net(dev), &rt, &fl)) {
+-			tunnel->stat.tx_carrier_errors++;
++			stats->tx_carrier_errors++;
+ 			goto tx_error;
+ 		}
+ 	}
+@@ -773,7 +775,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	if (tdev == dev) {
+ 		ip_rt_put(rt);
+-		tunnel->stat.collisions++;
++		stats->collisions++;
+ 		goto tx_error;
+ 	}
+ 
+@@ -1098,11 +1100,6 @@ done:
+ 	return err;
+ }
+ 
+-static struct net_device_stats *ipgre_tunnel_get_stats(struct net_device *dev)
 -{
--	struct net_bridge *br = netdev_priv(dev);
--	return &br->statistics;
+-	return &(((struct ip_tunnel*)netdev_priv(dev))->stat);
 -}
 -
- /* net device transmit always called with no BH (preempt_disabled) */
- int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ static int ipgre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
  {
-@@ -34,8 +28,8 @@ int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	const unsigned char *dest = skb->data;
- 	struct net_bridge_fdb_entry *dst;
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+@@ -1228,7 +1225,6 @@ static void ipgre_tunnel_setup(struct net_device *dev)
+ 	dev->uninit		= ipgre_tunnel_uninit;
+ 	dev->destructor 	= free_netdev;
+ 	dev->hard_start_xmit	= ipgre_tunnel_xmit;
+-	dev->get_stats		= ipgre_tunnel_get_stats;
+ 	dev->do_ioctl		= ipgre_tunnel_ioctl;
+ 	dev->change_mtu		= ipgre_tunnel_change_mtu;
  
--	br->statistics.tx_packets++;
--	br->statistics.tx_bytes += skb->len;
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
- 
- 	skb_reset_mac_header(skb);
- 	skb_pull(skb, ETH_HLEN);
-@@ -161,7 +155,6 @@ void br_dev_setup(struct net_device *dev)
- 	ether_setup(dev);
- 
- 	dev->do_ioctl = br_dev_ioctl;
--	dev->get_stats = br_dev_get_stats;
- 	dev->hard_start_xmit = br_dev_xmit;
- 	dev->open = br_dev_open;
- 	dev->set_multicast_list = br_dev_set_multicast_list;
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index bdd7c35..a471167 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -115,7 +115,7 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
- 				struct sk_buff *skb2;
- 
- 				if ((skb2 = skb_clone(skb, GFP_ATOMIC)) == NULL) {
--					br->statistics.tx_dropped++;
-+					br->dev->stats.tx_dropped++;
- 					kfree_skb(skb);
- 					return;
- 				}
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 255c00f..fa0f571 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -24,13 +24,13 @@ const u8 br_group_address[ETH_ALEN] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
- 
- static void br_pass_frame_up(struct net_bridge *br, struct sk_buff *skb)
- {
--	struct net_device *indev;
-+	struct net_device *indev, *brdev = br->dev;
- 
--	br->statistics.rx_packets++;
--	br->statistics.rx_bytes += skb->len;
-+	brdev->stats.rx_packets++;
-+	brdev->stats.rx_bytes += skb->len;
- 
- 	indev = skb->dev;
--	skb->dev = br->dev;
-+	skb->dev = brdev;
- 
- 	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, indev, NULL,
- 		netif_receive_skb);
-@@ -64,7 +64,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	dst = NULL;
- 
- 	if (is_multicast_ether_addr(dest)) {
--		br->statistics.multicast++;
-+		br->dev->stats.multicast++;
- 		skb2 = skb;
- 	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
- 		skb2 = skb;
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index c11b554..0243cb4 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -90,7 +90,6 @@ struct net_bridge
- 	spinlock_t			lock;
- 	struct list_head		port_list;
- 	struct net_device		*dev;
--	struct net_device_stats		statistics;
- 	spinlock_t			hash_lock;
- 	struct hlist_head		hash[BR_HASH_SIZE];
- 	struct list_head		age_list;
 -- 
 1.5.3.4
 
