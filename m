@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-next 4/10][IPIP]: Use on-device stats instead of private
+Subject: [PATCH net-next 5/10][SIT]: Use on-device stats instead of private
  ones.
-Date: Tue, 20 May 2008 20:36:00 +0400
-Message-ID: <4832FDF0.6050607@openvz.org>
+Date: Tue, 20 May 2008 20:36:47 +0400
+Message-ID: <4832FE1F.1030704@openvz.org>
 References: <4832FBD7.7040209@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,10 +10,10 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33862 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:45626 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753578AbYETQi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2008 12:38:27 -0400
+	id S1756420AbYETQjO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 12:39:14 -0400
 In-Reply-To: <4832FBD7.7040209@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,17 +21,23 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/ipv4/ipip.c |   22 ++++++++--------------
- 1 files changed, 8 insertions(+), 14 deletions(-)
+ net/ipv6/sit.c |   24 +++++++++---------------
+ 1 files changed, 9 insertions(+), 15 deletions(-)
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 149111f..26c85c2 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -496,8 +496,8 @@ static int ipip_rcv(struct sk_buff *skb)
- 		skb->protocol = htons(ETH_P_IP);
- 		skb->pkt_type = PACKET_HOST;
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 5a6fab9..b0ee961 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -578,13 +578,13 @@ static int ipip6_rcv(struct sk_buff *skb)
  
+ 		if ((tunnel->dev->priv_flags & IFF_ISATAP) &&
+ 		    !isatap_chksrc(skb, iph, tunnel)) {
+-			tunnel->stat.rx_errors++;
++			tunnel->dev->stats.rx_errors++;
+ 			read_unlock(&ipip6_lock);
+ 			kfree_skb(skb);
+ 			return 0;
+ 		}
 -		tunnel->stat.rx_packets++;
 -		tunnel->stat.rx_bytes += skb->len;
 +		tunnel->dev->stats.rx_packets++;
@@ -39,17 +45,17 @@ index 149111f..26c85c2 100644
  		skb->dev = tunnel->dev;
  		dst_release(skb->dst);
  		skb->dst = NULL;
-@@ -520,7 +520,7 @@ static int ipip_rcv(struct sk_buff *skb)
- static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -624,7 +624,7 @@ static inline __be32 try_6to4(struct in6_addr *v6dst)
+ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  {
  	struct ip_tunnel *tunnel = netdev_priv(dev);
 -	struct net_device_stats *stats = &tunnel->stat;
 +	struct net_device_stats *stats = &tunnel->dev->stats;
  	struct iphdr  *tiph = &tunnel->parms.iph;
+ 	struct ipv6hdr *iph6 = ipv6_hdr(skb);
  	u8     tos = tunnel->parms.iph.tos;
- 	__be16 df = tiph->frag_off;
-@@ -533,7 +533,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int    mtu;
+@@ -638,7 +638,7 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int addr_type;
  
  	if (tunnel->recursion++) {
 -		tunnel->stat.collisions++;
@@ -57,25 +63,22 @@ index 149111f..26c85c2 100644
  		goto tx_error;
  	}
  
-@@ -546,7 +546,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (!dst) {
- 		/* NBMA tunnel */
- 		if ((rt = skb->rtable) == NULL) {
--			tunnel->stat.tx_fifo_errors++;
-+			stats->tx_fifo_errors++;
- 			goto tx_error;
- 		}
- 		if ((dst = rt->rt_gateway) == 0)
-@@ -561,7 +561,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 						.tos = RT_TOS(tos) } },
- 				    .proto = IPPROTO_IPIP };
+@@ -705,20 +705,20 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				    .oif = tunnel->parms.link,
+ 				    .proto = IPPROTO_IPV6 };
  		if (ip_route_output_key(dev_net(dev), &rt, &fl)) {
 -			tunnel->stat.tx_carrier_errors++;
 +			stats->tx_carrier_errors++;
  			goto tx_error_icmp;
  		}
  	}
-@@ -569,7 +569,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (rt->rt_type != RTN_UNICAST) {
+ 		ip_rt_put(rt);
+-		tunnel->stat.tx_carrier_errors++;
++		stats->tx_carrier_errors++;
+ 		goto tx_error_icmp;
+ 	}
+ 	tdev = rt->u.dst.dev;
  
  	if (tdev == dev) {
  		ip_rt_put(rt);
@@ -84,7 +87,7 @@ index 149111f..26c85c2 100644
  		goto tx_error;
  	}
  
-@@ -579,7 +579,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -728,7 +728,7 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  		mtu = skb->dst ? dst_mtu(skb->dst) : dev->mtu;
  
  	if (mtu < 68) {
@@ -93,26 +96,26 @@ index 149111f..26c85c2 100644
  		ip_rt_put(rt);
  		goto tx_error;
  	}
-@@ -813,11 +813,6 @@ done:
+@@ -1003,11 +1003,6 @@ done:
  	return err;
  }
  
--static struct net_device_stats *ipip_tunnel_get_stats(struct net_device *dev)
+-static struct net_device_stats *ipip6_tunnel_get_stats(struct net_device *dev)
 -{
 -	return &(((struct ip_tunnel*)netdev_priv(dev))->stat);
 -}
 -
- static int ipip_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+ static int ipip6_tunnel_change_mtu(struct net_device *dev, int new_mtu)
  {
- 	if (new_mtu < 68 || new_mtu > 0xFFF8 - sizeof(struct iphdr))
-@@ -830,7 +825,6 @@ static void ipip_tunnel_setup(struct net_device *dev)
- {
- 	dev->uninit		= ipip_tunnel_uninit;
- 	dev->hard_start_xmit	= ipip_tunnel_xmit;
--	dev->get_stats		= ipip_tunnel_get_stats;
- 	dev->do_ioctl		= ipip_tunnel_ioctl;
- 	dev->change_mtu		= ipip_tunnel_change_mtu;
- 	dev->destructor		= free_netdev;
+ 	if (new_mtu < IPV6_MIN_MTU || new_mtu > 0xFFF8 - sizeof(struct iphdr))
+@@ -1021,7 +1016,6 @@ static void ipip6_tunnel_setup(struct net_device *dev)
+ 	dev->uninit		= ipip6_tunnel_uninit;
+ 	dev->destructor 	= free_netdev;
+ 	dev->hard_start_xmit	= ipip6_tunnel_xmit;
+-	dev->get_stats		= ipip6_tunnel_get_stats;
+ 	dev->do_ioctl		= ipip6_tunnel_ioctl;
+ 	dev->change_mtu		= ipip6_tunnel_change_mtu;
+ 
 -- 
 1.5.3.4
 
