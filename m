@@ -1,32 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 4/4] [IPV6] ADDRCONF: Allow longer lifetime on
- 64bit archs.
-Date: Mon, 19 May 2008 16:57:06 -0700 (PDT)
-Message-ID: <20080519.165706.137128050.davem@davemloft.net>
-References: <20080515.181826.45075746.yoshfuji@linux-ipv6.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
+Date: Mon, 19 May 2008 17:26:42 -0700
+Message-ID: <48321AC2.90500@candelatech.com>
+References: <bug-10737-10286@http.bugzilla.kernel.org/>	 <20080517141036.d8f3c768.akpm@linux-foundation.org>	 <482F88DE.8090508@trash.net>	 <20080517215641.acb94677.akpm@linux-foundation.org>	 <48301BE0.9040907@trash.net> <48302E09.8080701@trash.net>	 <48304BB5.7090805@trash.net> <1211183642.9966.6.camel@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	devzero@web.de, Robert Olsson <robert.olsson@its.uu.se>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53877
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755041AbYESX5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 19:57:11 -0400
-In-Reply-To: <20080515.181826.45075746.yoshfuji@linux-ipv6.org>
+Received: from mail.candelatech.com ([66.165.47.212]:60328 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755828AbYETA05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2008 20:26:57 -0400
+In-Reply-To: <1211183642.9966.6.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Thu, 15 May 2008 18:18:26 +0900 (JST)
+Denis V. Lunev wrote:
 
-> Allow longer lifetimes (>= 0x7fffffff/HZ) on 64bit archs
-> by using unsigned long.
+> could you consider this preliminary patch? It fixes the problem for me
+> and Pavel agrees with it.
 > 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> The problem is that module_get is called for each file opening while
+> module_put is called only when /proc inode is destroyed. So, lets put
+> module counter if we are dealing with already initialised inode.
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> diff --git a/fs/proc/inode.c b/fs/proc/inode.c
+> index 6f4e8dc..b08d100 100644
+> --- a/fs/proc/inode.c
+> +++ b/fs/proc/inode.c
+> @@ -425,7 +425,8 @@ struct inode *proc_get_inode(struct super_block *sb, unsigned int ino,
+>  			}
+>  		}
+>  		unlock_new_inode(inode);
+> -	}
+> +	} else
+> +	       module_put(de->owner);
+>  	return inode;
+>  
+>  out_ino:
 
-Such ifdefs do not belong in core C code, please hide these
-details behind some inline function or macro in a header file.
+I just tested this and it seems to fix my problem (I applied this to 2.6.25 kernel).
 
-Thank you.
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
