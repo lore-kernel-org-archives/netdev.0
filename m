@@ -1,53 +1,29 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH 2/4] pktgen: make sure that pktgen_thread_worker has
-	been executed
-Date: Tue, 20 May 2008 22:43:42 +0400
-Message-ID: <1211309022.7496.3.camel@iris.sw.ru>
-References: <1211277589-8565-1-git-send-email-den@openvz.org>
-	 <1211277589-8565-2-git-send-email-den@openvz.org>
-	 <18483.6334.468166.282922@robur.slu.se>
+From: "Rune Torgersen" <runet@innovsys.com>
+Subject: RE: Oops in fs_enet driver with preempt-rt
+Date: Tue, 20 May 2008 13:53:23 -0500
+Message-ID: <DCEAAC0833DD314AB0B58112AD99B93B046E752B@ismail.innsys.innovsys.com>
+References: <DCEAAC0833DD314AB0B58112AD99B93B046E728C@ismail.innsys.innovsys.com> <DCEAAC0833DD314AB0B58112AD99B93B046E72C3@ismail.innsys.innovsys.com> <4832F139.1020502@freescale.com> <DCEAAC0833DD314AB0B58112AD99B93B046E73C6@ismail.innsys.innovsys.com> <4832FA80.7060807@freescale.com> <DCEAAC0833DD314AB0B58112AD99B93B046E73EC@ismail.innsys.innovsys.com> <998DABA0-38B6-43C3-A788-307AA8D52F17@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	Ben Greear <greearb@candelatech.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763449AbYETSoY@vger.kernel.org>
-In-Reply-To: <18483.6334.468166.282922@robur.slu.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Scott Wood" <scottwood@freescale.com>, <linuxppc-dev@ozlabs.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Kumar Gala" <galak@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.innovsys.com ([66.115.232.196]:15552 "EHLO
+	mail.innovsys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755701AbYETSw4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 14:52:56 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <998DABA0-38B6-43C3-A788-307AA8D52F17@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-05-20 at 20:30 +0200, Robert Olsson wrote:
-> Denis V. Lunev writes:
+Kumar Gala wrote:
+>> Rune Torgersen wrote:
+>> That worked. Console output is sane again.
 > 
->  > The problem is that pktgen_thread_worker can not be executed if kthread_stop
->  > has been called too early. Insert a completion on the normal initialization
->  > path to make sure that pktgen_thread_worker will gain the control for sure.
-> 
-> 
->  Yes how about if we move the wait_for_completion() to pg_cleanup before
->  we remove the threads. And move the complete() last in pktgen_thread_worker. 
->  This completion would sync with both start and stop.
-> 
->  Cheers.
-> 					--ro
+> I'm hoping to see some patches related to these fixes :)
 
-you can't. The idea is to have a checkpoint _before_ khread_stop.
-Currently you have a race between
-
-
-static int kthread(void *_create)
-{
-   ...
-   if (!kthread_should_stop())
-       pktgen_thread_worker();
-   ...
-}
-
-and kthread_stop. If kthread_stop will be called _before_ the control
-goes inside pktgen_thread_worker you'll OOPS.
-
-Regards,
-	Den
+Working on it.
