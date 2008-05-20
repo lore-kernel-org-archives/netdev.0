@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-next 3/10][IPGRE]: Use on-device stats instead of private
+Subject: [PATCH net-next 4/10][IPIP]: Use on-device stats instead of private
  ones.
-Date: Tue, 20 May 2008 20:34:48 +0400
-Message-ID: <4832FDA8.3020608@openvz.org>
+Date: Tue, 20 May 2008 20:36:00 +0400
+Message-ID: <4832FDF0.6050607@openvz.org>
 References: <4832FBD7.7040209@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,82 +10,45 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33851 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:33862 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751643AbYETQhP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2008 12:37:15 -0400
+	id S1753578AbYETQi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 12:38:27 -0400
 In-Reply-To: <4832FBD7.7040209@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just switch from tunnel->stat to tunnel->dev->stats. The ip_tunnel->stat
-member intself will be removed after I fix its other users (very soon).
-
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/ipv4/ip_gre.c |   32 ++++++++++++++------------------
- 1 files changed, 14 insertions(+), 18 deletions(-)
+ net/ipv4/ipip.c |   22 ++++++++--------------
+ 1 files changed, 8 insertions(+), 14 deletions(-)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 2ada033..eede36e 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -617,6 +617,8 @@ static int ipgre_rcv(struct sk_buff *skb)
- 	read_lock(&ipgre_lock);
- 	if ((tunnel = ipgre_tunnel_lookup(dev_net(skb->dev),
- 					iph->saddr, iph->daddr, key)) != NULL) {
-+		struct net_device_stats *stats = &tunnel->dev->stats;
-+
- 		secpath_reset(skb);
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 149111f..26c85c2 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -496,8 +496,8 @@ static int ipip_rcv(struct sk_buff *skb)
+ 		skb->protocol = htons(ETH_P_IP);
+ 		skb->pkt_type = PACKET_HOST;
  
- 		skb->protocol = *(__be16*)(h + 2);
-@@ -641,28 +643,28 @@ static int ipgre_rcv(struct sk_buff *skb)
- 			/* Looped back packet, drop it! */
- 			if (skb->rtable->fl.iif == 0)
- 				goto drop;
--			tunnel->stat.multicast++;
-+			stats->multicast++;
- 			skb->pkt_type = PACKET_BROADCAST;
- 		}
- #endif
- 
- 		if (((flags&GRE_CSUM) && csum) ||
- 		    (!(flags&GRE_CSUM) && tunnel->parms.i_flags&GRE_CSUM)) {
--			tunnel->stat.rx_crc_errors++;
--			tunnel->stat.rx_errors++;
-+			stats->rx_crc_errors++;
-+			stats->rx_errors++;
- 			goto drop;
- 		}
- 		if (tunnel->parms.i_flags&GRE_SEQ) {
- 			if (!(flags&GRE_SEQ) ||
- 			    (tunnel->i_seqno && (s32)(seqno - tunnel->i_seqno) < 0)) {
--				tunnel->stat.rx_fifo_errors++;
--				tunnel->stat.rx_errors++;
-+				stats->rx_fifo_errors++;
-+				stats->rx_errors++;
- 				goto drop;
- 			}
- 			tunnel->i_seqno = seqno + 1;
- 		}
 -		tunnel->stat.rx_packets++;
 -		tunnel->stat.rx_bytes += skb->len;
-+		stats->rx_packets++;
-+		stats->rx_bytes += skb->len;
++		tunnel->dev->stats.rx_packets++;
++		tunnel->dev->stats.rx_bytes += skb->len;
  		skb->dev = tunnel->dev;
  		dst_release(skb->dst);
  		skb->dst = NULL;
-@@ -684,7 +686,7 @@ drop_nolock:
- static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -520,7 +520,7 @@ static int ipip_rcv(struct sk_buff *skb)
+ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  {
  	struct ip_tunnel *tunnel = netdev_priv(dev);
 -	struct net_device_stats *stats = &tunnel->stat;
 +	struct net_device_stats *stats = &tunnel->dev->stats;
- 	struct iphdr  *old_iph = ip_hdr(skb);
- 	struct iphdr  *tiph;
- 	u8     tos;
-@@ -698,7 +700,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct iphdr  *tiph = &tunnel->parms.iph;
+ 	u8     tos = tunnel->parms.iph.tos;
+ 	__be16 df = tiph->frag_off;
+@@ -533,7 +533,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  	int    mtu;
  
  	if (tunnel->recursion++) {
@@ -94,25 +57,25 @@ index 2ada033..eede36e 100644
  		goto tx_error;
  	}
  
-@@ -714,7 +716,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -546,7 +546,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (!dst) {
  		/* NBMA tunnel */
- 
- 		if (skb->dst == NULL) {
+ 		if ((rt = skb->rtable) == NULL) {
 -			tunnel->stat.tx_fifo_errors++;
 +			stats->tx_fifo_errors++;
  			goto tx_error;
  		}
- 
-@@ -765,7 +767,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if ((dst = rt->rt_gateway) == 0)
+@@ -561,7 +561,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  						.tos = RT_TOS(tos) } },
- 				    .proto = IPPROTO_GRE };
+ 				    .proto = IPPROTO_IPIP };
  		if (ip_route_output_key(dev_net(dev), &rt, &fl)) {
 -			tunnel->stat.tx_carrier_errors++;
 +			stats->tx_carrier_errors++;
- 			goto tx_error;
+ 			goto tx_error_icmp;
  		}
  	}
-@@ -773,7 +775,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -569,7 +569,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  
  	if (tdev == dev) {
  		ip_rt_put(rt);
@@ -121,26 +84,35 @@ index 2ada033..eede36e 100644
  		goto tx_error;
  	}
  
-@@ -1098,11 +1100,6 @@ done:
+@@ -579,7 +579,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		mtu = skb->dst ? dst_mtu(skb->dst) : dev->mtu;
+ 
+ 	if (mtu < 68) {
+-		tunnel->stat.collisions++;
++		stats->collisions++;
+ 		ip_rt_put(rt);
+ 		goto tx_error;
+ 	}
+@@ -813,11 +813,6 @@ done:
  	return err;
  }
  
--static struct net_device_stats *ipgre_tunnel_get_stats(struct net_device *dev)
+-static struct net_device_stats *ipip_tunnel_get_stats(struct net_device *dev)
 -{
 -	return &(((struct ip_tunnel*)netdev_priv(dev))->stat);
 -}
 -
- static int ipgre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+ static int ipip_tunnel_change_mtu(struct net_device *dev, int new_mtu)
  {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
-@@ -1228,7 +1225,6 @@ static void ipgre_tunnel_setup(struct net_device *dev)
- 	dev->uninit		= ipgre_tunnel_uninit;
- 	dev->destructor 	= free_netdev;
- 	dev->hard_start_xmit	= ipgre_tunnel_xmit;
--	dev->get_stats		= ipgre_tunnel_get_stats;
- 	dev->do_ioctl		= ipgre_tunnel_ioctl;
- 	dev->change_mtu		= ipgre_tunnel_change_mtu;
- 
+ 	if (new_mtu < 68 || new_mtu > 0xFFF8 - sizeof(struct iphdr))
+@@ -830,7 +825,6 @@ static void ipip_tunnel_setup(struct net_device *dev)
+ {
+ 	dev->uninit		= ipip_tunnel_uninit;
+ 	dev->hard_start_xmit	= ipip_tunnel_xmit;
+-	dev->get_stats		= ipip_tunnel_get_stats;
+ 	dev->do_ioctl		= ipip_tunnel_ioctl;
+ 	dev->change_mtu		= ipip_tunnel_change_mtu;
+ 	dev->destructor		= free_netdev;
 -- 
 1.5.3.4
 
