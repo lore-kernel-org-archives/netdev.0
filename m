@@ -1,50 +1,79 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 1/2] 3C509: rx_bytes should not be increased when alloc_skb
- failed
-Date: Tue, 20 May 2008 17:13:52 +0800
-Message-ID: <48329650.60809@cn.fujitsu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC]: Use the correct ip_local_out function
+Date: Tue, 20 May 2008 17:25:11 +0800
+Message-ID: <20080520092511.GA9005@gondor.apana.org.au>
+References: <BAY103-DAV594320AC93E33D7335927B2DA0@phx.gbl> <BAY103-DAV122A113843FE9574256A0AB2D60@phx.gbl> <BAY103-DAV6446AEC1CBB678E5D0E52B2D30@phx.gbl> <20080509102509.GA11710@gondor.apana.org.au> <BAY103-DAV5B5CD83FC6A95A5DD48C9B2CC0@phx.gbl> <20080512074642.GA1416@gondor.apana.org.au> <BAY103-DAV521435E26209347B7646FB2CC0@phx.gbl> <BAY103-DAV2A04E519F35401C98403FB2CC0@phx.gbl> <BAY103-DAV20B0EEFFB30A41A8020C8B2CC0@phx.gbl> <BAY103-DAV88950FC99CDE9EAAE27B2B2CE0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: becker@scyld.com, "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	NETDEV <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Marco Berizzi <pupilla@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51417 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1758172AbYETJQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2008 05:16:40 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:51471 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1764053AbYETJZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 05:25:16 -0400
+Content-Disposition: inline
+In-Reply-To: <BAY103-DAV88950FC99CDE9EAAE27B2B2CE0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If alloc_skb failed, the recieved packet will be dropped. Do not increase
-rx_bytes for dropped packet.
+On Wed, May 14, 2008 at 10:19:57AM +0200, Marco Berizzi wrote:
+> 
+> I hope this helps.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- drivers/net/3c509.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+OK found the problem, it was my fault after all :)
 
-diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
-index e6c545f..fe6d841 100644
---- a/drivers/net/3c509.c
-+++ b/drivers/net/3c509.c
-@@ -1063,7 +1063,6 @@ el3_rx(struct net_device *dev)
- 			struct sk_buff *skb;
- 
- 			skb = dev_alloc_skb(pkt_len+5);
--			dev->stats.rx_bytes += pkt_len;
- 			if (el3_debug > 4)
- 				printk("Receiving packet size %d status %4.4x.\n",
- 					   pkt_len, rx_status);
-@@ -1078,6 +1077,7 @@ el3_rx(struct net_device *dev)
- 				skb->protocol = eth_type_trans(skb,dev);
- 				netif_rx(skb);
- 				dev->last_rx = jiffies;
-+				dev->stats.rx_bytes += pkt_len;
- 				dev->stats.rx_packets++;
- 				continue;
- 			}
+Dave, this patch needs to go into stable too.
+
+[IPSEC]: Use the correct ip_local_out function
+
+Because the IPsec output function xfrm_output_resume does its
+own dst_output call it should always call __ip_local_output
+instead of ip_local_output as the latter may invoke dst_output
+directly.  Otherwise the return values from nf_hook and dst_output
+may clash as they both use the value 1 but for different purposes.
+
+When that clash occurs this can cause a packet to be used after
+it has been freed which usually leads to a crash.  Because the
+offending value is only returned from dst_output with qdiscs
+such as HTB, this bug is normally not visible.
+
+Thanks to Marco Berizzi for his perseverance in tracking this
+down.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
-1.5.3.4
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 92f90ae..df41026 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -160,7 +160,7 @@ static struct dst_ops ipv4_dst_ops = {
+ 	.negative_advice =	ipv4_negative_advice,
+ 	.link_failure =		ipv4_link_failure,
+ 	.update_pmtu =		ip_rt_update_pmtu,
+-	.local_out =		ip_local_out,
++	.local_out =		__ip_local_out,
+ 	.entry_size =		sizeof(struct rtable),
+ 	.entries =		ATOMIC_INIT(0),
+ };
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 12bba08..849b78a 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -109,7 +109,7 @@ static struct dst_ops ip6_dst_ops_template = {
+ 	.negative_advice	=	ip6_negative_advice,
+ 	.link_failure		=	ip6_link_failure,
+ 	.update_pmtu		=	ip6_rt_update_pmtu,
+-	.local_out		=	ip6_local_out,
++	.local_out		=	__ip6_local_out,
+ 	.entry_size		=	sizeof(struct rt6_info),
+ 	.entries		=	ATOMIC_INIT(0),
+ };
