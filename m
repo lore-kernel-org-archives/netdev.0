@@ -1,36 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4/arp.c: Use the exported hex_asc from
- lib/hexdump.c instead
-Date: Tue, 20 May 2008 15:36:11 -0700 (PDT)
-Message-ID: <20080520.153611.204837174.davem@davemloft.net>
-References: <1211135864-8235-1-git-send-email-crquan@gmail.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
+Date: Wed, 21 May 2008 00:39:36 +0200
+Message-ID: <200805210039.37248.rjw@sisk.pl>
+References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <20080518150908.GA4606@yamamaya.is-a-geek.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: crquan@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56203
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S934811AbYETWgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 18:36:16 -0400
-In-Reply-To: <1211135864-8235-1-git-send-email-crquan@gmail.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:46814 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1765980AbYETWjU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2008 18:39:20 -0400
+In-Reply-To: <20080518150908.GA4606@yamamaya.is-a-geek.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Cheng <crquan@gmail.com>
-Date: Mon, 19 May 2008 02:37:44 +0800
+On Sunday, 18 of May 2008, Tobias Diedrich wrote:
+> Tobias Diedrich wrote:
+> > Note that so far this is only tested on my system with hibernate
+> > using the 'shutdown' method.
+> 
+> Ok, I've run tests now:
+> 
+> First Windoze:
+> Windoze, Standby (equiv. to Linux 'mem' state):  WOL borked, resumes fine
+> Windoze, Hibernate: WOL borked, resumes fine
+> 
+> Linux, unpatched:
+> Hibernate, shutdown method: Works with known caveats
+> Hibernate, platform method: WOL borked,
 
-> Here the local hexbuf is a duplicate of global const char hex_asc from
-> lib/hexdump.c, except the hex letters' cases:
-> 
-> const char hexbuf[] = "0123456789ABCDEF";
-> 
-> const char hex_asc[] = "0123456789abcdef";
-> 
-> and here to print HW addresses, the hex cases are not significant.
-> 
-> Signed-off-by: Denis Cheng <crquan@gmail.com>
+That may be worth some investigation.  However, since that doesn't work on
+Windows too, I suspect the platform is slightly broken.
 
-Applied, thanks.
+> resumes fine 
+> 
+> Linux, patched:
+> Hibernate, shutdown method: Works
+> Hibernate, platform method: WOL borked, resumes fine
+> Suspend ('standby' state):
+>    WOL borked, USB borked after resume, kernel freeze
+> Suspend ('mem' state, text console):
+>    WOL borked, VGA stays dark, otherwise working
+
+You can try s2ram to bring the VGA to life, I think
+(http://suspend.sf.net/s2ram-support.html).
+
+> Suspend ('mem' state, radeonfb):
+>    WOL borked, VGA stays dark, userspace dead after resume (but pingable)
+> 
+> Summary: I suspect my BIOS sucks
+
+That's possible ...
+
+>         Version: ASUS M2N-SLI DELUXE ACPI BIOS Revision 0903
+>         Release Date: 02/13/2007
+> 
+> 1 point for Linux, 0 points for Windows, Linux wins ;)
+
+Thanks,
+Rafael
