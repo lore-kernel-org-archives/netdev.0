@@ -1,39 +1,28 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 3/8] bonding: Remove redundant argument from
- bond_create.
-Date: Tue, 20 May 2008 14:46:06 -0700
-Message-ID: <20080520144606.b7b9a799.akpm@linux-foundation.org>
-References: <12110838143907-git-send-email-fubar@us.ibm.com>
-	<12110838151824-git-send-email-fubar@us.ibm.com>
-	<12110838151104-git-send-email-fubar@us.ibm.com>
-	<12110838162313-git-send-email-fubar@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6 patch] drivers/atm/: remove CVS keywords
+Date: Tue, 20 May 2008 14:52:34 -0700 (PDT)
+Message-ID: <20080520.145234.148899359.davem@davemloft.net>
+References: <20080519215658.GO17716@cs181133002.pp.htv.fi>
+	<200805201348.m4KDm5m0015663@cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, xemul@openvz.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45041 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753733AbYETVqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 17:46:40 -0400
-In-Reply-To: <12110838162313-git-send-email-fubar@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bunk@kernel.org, jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: chas@cmf.nrl.navy.mil
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933748AbYETVwy@vger.kernel.org>
+In-Reply-To: <200805201348.m4KDm5m0015663@cmf.nrl.navy.mil>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 17 May 2008 21:10:09 -0700
-Jay Vosburgh <fubar@us.ibm.com> wrote:
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Date: Tue, 20 May 2008 09:48:05 -0400
 
-> From: Pavel Emelyanov <xemul@openvz.org>
+> In message <20080519215658.GO17716@cs181133002.pp.htv.fi>,Adrian Bunk writes:
+> >This patch removes CVS keywords that weren't updated for a long time.
+> >
+> >Signed-off-by: Adrian Bunk <bunk@kernel.org>
 > 
-> While we're fixing the bond_create, I hope it's OK to polish it
-> a bit after the fixes.
-> 
-> The third argument is NULL at the first caller and is ignored by
-> the second one, so remove it.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+> Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-This should have been Signed-off-by:yourself, as described
-in Documentation/SubmittingPatches.
+Applied, thanks everyone.
