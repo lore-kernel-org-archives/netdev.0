@@ -1,102 +1,51 @@
-From: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>
-Subject: [PATCH] smc-ultra: get rid of "eth%d" message
-Date: Wed, 21 May 2008 00:05:43 +0200
-Message-ID: <48334B37.8090201@freemail.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/4] pktgen: make sure that pktgen_thread_worker has
+ been executed
+Date: Tue, 20 May 2008 15:12:57 -0700 (PDT)
+Message-ID: <20080520.151257.87901660.davem@davemloft.net>
+References: <1211277589-8565-1-git-send-email-den@openvz.org>
+	<1211277589-8565-2-git-send-email-den@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Paul Gortmaker <p_gortmaker@yahoo.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kaber@trash.net,
+	robert.olsson@its.uu.se, greearb@candelatech.com
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01d.mail.t-online.hu ([84.2.42.6]:50591 "EHLO
-	mail01d.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757546AbYETWM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 18:12:59 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49359
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1763773AbYETWNC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 18:13:02 -0400
+In-Reply-To: <1211277589-8565-2-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Print out the dev->name only after register_netdev(). If the
-dev->name is printk()ed out before calling register_netdev()
-the result will be "eth%d" in the dmesg instead of "eth0".
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Tue, 20 May 2008 13:59:47 +0400
 
-Signed-off-by: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
+> The following courruption can happen during pktgen stop:
+> list_del corruption. prev->next should be ffff81007e8a5e70, but was 6b6b6b6b6b6b6b6b
+> kernel BUG at lib/list_debug.c:67!
+>       :pktgen:pktgen_thread_worker+0x374/0x10b0
+>       ? autoremove_wake_function+0x0/0x40
+>       ? _spin_unlock_irqrestore+0x42/0x80
+>       ? :pktgen:pktgen_thread_worker+0x0/0x10b0
+>       kthread+0x4d/0x80
+>       child_rip+0xa/0x12
+>       ? restore_args+0x0/0x30
+>       ? kthread+0x0/0x80
+>       ? child_rip+0x0/0x12
+> RIP  list_del+0x48/0x70
+> 
+> The problem is that pktgen_thread_worker can not be executed if kthread_stop
+> has been called too early. Insert a completion on the normal initialization
+> path to make sure that pktgen_thread_worker will gain the control for sure.
+> 
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Robert Olsson <robert.olsson@its.uu.se>
+> Cc: Ben Greear <greearb@candelatech.com>
+> Acked-by: Alexey Dobriyan <adobriyan@openvz.org>
 
----
---- linux-2.6.26-rc3/drivers/net/smc-ultra.c.orig	2008-04-17 04:49:44.0=
-00000000 +0200
-+++ linux-2.6.26-rc3/drivers/net/smc-ultra.c	2008-05-20 22:04:15.000000=
-000 +0200
-@@ -228,9 +228,6 @@ static int __init ultra_probe1(struct ne
- 	for (i =3D 0; i < 6; i++)
- 		dev->dev_addr[i] =3D inb(ioaddr + 8 + i);
-
--	printk("%s: %s at %#3x, %s", dev->name, model_name,
--	       ioaddr, print_mac(mac, dev->dev_addr));
--
- 	/* Switch from the station address to the alternate register set and
- 	   read the useful registers there. */
- 	outb(0x80 | reg4, ioaddr + 4);
-@@ -253,8 +250,10 @@ static int __init ultra_probe1(struct ne
- 		irq =3D irqmap[((irqreg & 0x40) >> 4) + ((irqreg & 0x0c) >> 2)];
-
- 		if (irq =3D=3D 0) {
--			printk(", failed to detect IRQ line.\n");
--			retval =3D  -EAGAIN;
-+			printk(KERN_ERR "%s at %#3x, %s, "
-+			       "failed to detect IRQ line.\n", model_name,
-+			       ioaddr, print_mac(mac, dev->dev_addr));
-+			retval =3D -EAGAIN;
- 			goto out;
- 		}
- 		dev->irq =3D irq;
-@@ -280,22 +279,19 @@ static int __init ultra_probe1(struct ne
-
- 	ei_status.mem =3D ioremap(dev->mem_start, (ei_status.stop_page - STAR=
-T_PG)*256);
- 	if (!ei_status.mem) {
--		printk(", failed to ioremap.\n");
--		retval =3D  -ENOMEM;
-+		printk(KERN_ERR "%s at %#3x, %s, failed to ioremap.\n",
-+		       model_name, ioaddr, print_mac(mac, dev->dev_addr));
-+		retval =3D -ENOMEM;
- 		goto out;
- 	}
-
- 	dev->mem_end =3D dev->mem_start + (ei_status.stop_page - START_PG)*25=
-6;
-
- 	if (piomode) {
--		printk(",%s IRQ %d programmed-I/O mode.\n",
--			   eeprom_irq ? "EEPROM" : "assigned ", dev->irq);
- 		ei_status.block_input =3D &ultra_pio_input;
- 		ei_status.block_output =3D &ultra_pio_output;
- 		ei_status.get_8390_hdr =3D &ultra_pio_get_hdr;
- 	} else {
--		printk(",%s IRQ %d memory %#lx-%#lx.\n", eeprom_irq ? "" : "assigned=
- ",
--			   dev->irq, dev->mem_start, dev->mem_end-1);
- 		ei_status.block_input =3D &ultra_block_input;
- 		ei_status.block_output =3D &ultra_block_output;
- 		ei_status.get_8390_hdr =3D &ultra_get_8390_hdr;
-@@ -311,6 +307,21 @@ static int __init ultra_probe1(struct ne
- 	retval =3D register_netdev(dev);
- 	if (retval)
- 		goto out;
-+
-+	if (piomode) {
-+		printk(KERN_INFO "%s: %s at %#3x, %s,"
-+			"%s IRQ %d programmed-I/O mode.\n",
-+			dev->name, model_name, ioaddr,
-+			print_mac(mac, dev->dev_addr),
-+			eeprom_irq ? " EEPROM" : " assigned", dev->irq);
-+	} else {
-+		printk(KERN_INFO "%s: %s at %#3x, %s,"
-+			"%s IRQ %d memory %#lx-%#lx.\n",
-+			dev->name, model_name, ioaddr,
-+			print_mac(mac, dev->dev_addr),
-+			eeprom_irq ? "" : " assigned",
-+			dev->irq, dev->mem_start, dev->mem_end-1);
-+	}
- 	return 0;
- out:
- 	release_region(ioaddr, ULTRA_IO_EXTENT);
+Patch applied, thanks a lot Denis!
