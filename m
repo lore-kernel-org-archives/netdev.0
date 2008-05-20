@@ -1,42 +1,32 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH 2/4] pktgen: make sure that pktgen_thread_worker has
-	been executed
-Date: Tue, 20 May 2008 21:59:50 +0200
-Message-ID: <18483.11702.257165.615708@robur.slu.se>
-References: <1211277589-8565-1-git-send-email-den@openvz.org>
-	<1211277589-8565-2-git-send-email-den@openvz.org>
-	<18483.6334.468166.282922@robur.slu.se>
-	<1211309022.7496.3.camel@iris.sw.ru>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [Bugme-new] [Bug 10737] New: pktgen procfs problem
+Date: Wed, 21 May 2008 01:57:51 +0400
+Message-ID: <20080520215751.GB25309@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	Ben Greear <greearb@candelatech.com>
-To: "Denis V. Lunev" <den@openvz.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933560AbYETUAn@vger.kernel.org>
-In-Reply-To: <1211309022.7496.3.camel@iris.sw.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: robert.olsson@its.uu.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gv-out-0910.google.com ([216.239.58.184]:59655 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757852AbYETVCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2008 17:02:11 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so642384gvc.37
+        for <netdev@vger.kernel.org>; Tue, 20 May 2008 14:02:10 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> > >> +	} else
+> > >> +	       module_put(de->owner);
+> > >>  	return inode;
+> > >>   out_ino:
 
-Denis V. Lunev writes:
+> Yes it fixes the oops I got as well.
+>
+> Acked-by: Robert Olsson <robert.olsson@its.uu.se>
 
- > static int kthread(void *_create)
- > {
- >    ...
- >    if (!kthread_should_stop())
- >        pktgen_thread_worker();
- >    ...
- > }
- > 
- > and kthread_stop. If kthread_stop will be called _before_ the control
- > goes inside pktgen_thread_worker you'll OOPS.
+Robert, which oops do you see?
 
- For some reason my tests survives here... but agree the completion syncing
- gives better control.
+Patch you cited hardly can fix an oops (as in real oops, not warning).
 
- Cheers
-						--ro
