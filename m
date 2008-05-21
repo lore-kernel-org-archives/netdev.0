@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/10] Stir up struct net_device_stats usage
- and whereabouts.
-Date: Wed, 21 May 2008 14:18:11 -0700 (PDT)
-Message-ID: <20080521.141811.142069091.davem@davemloft.net>
-References: <4832FBD7.7040209@openvz.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] netfilter: conntrack_helper needs to include rculist.h
+Date: Wed, 21 May 2008 14:21:39 -0700
+Message-ID: <20080521142139.f0bc5698.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41107
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752300AbYEUVSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 17:18:15 -0400
-In-Reply-To: <4832FBD7.7040209@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, akpm <akpm@linux-foundation.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 20 May 2008 20:27:03 +0400
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-> There is a on-device statistics already, so those drivers, that
-> needs some statistics, may use this one. This set relaxes bridge, 
-> tunnels and mr devices thus, making them occupy less memory.
-> 
-> Besides, the get_stats pointer and the pointer it returns are no
-> longer NULL, while there are still some places, that check for this.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+nf_conntrack_helper users rcu hlist functions so it needs to #include
+rculist.h.
 
-All applied, thanks Pavel.
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:58: error: implicit declaration of function 'hlist_for_each_entry_rcu'
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:58: error: 'hnode' undeclared (first use in this function)
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:58: error: (Each undeclared identifier is reported only once
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:58: error: for each function it appears in.)
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:58: error: expected ';' before '{' token
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:50: warning: unused variable 'mask'
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:74: error: 'hnode' undeclared (first use in this function)
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:74: error: expected ';' before '{' token
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:117: error: implicit declaration of function 'hlist_add_head_rcu'
+linux-next-20080521/net/netfilter/nf_conntrack_helper.c:133: error: implicit declaration of function 'hlist_del_rcu'
+filter/nf_conntrack_helper.o] Error 1
 
-I'll push these out to net-next-2.6 after some build tests.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ net/netfilter/nf_conntrack_helper.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-next-20080521.orig/net/netfilter/nf_conntrack_helper.c
++++ linux-next-20080521/net/netfilter/nf_conntrack_helper.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/types.h>
++#include <linux/rculist.h>
+ #include <linux/netfilter.h>
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
