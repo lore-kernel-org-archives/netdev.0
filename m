@@ -1,108 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: build failure from ip6mr stats change.
-Date: Wed, 21 May 2008 14:42:35 -0700 (PDT)
-Message-ID: <20080521.144235.43063395.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] make wext wireless bits optional and deprecate them
+Date: Wed, 21 May 2008 23:37:44 +0200
+Message-ID: <1211405864.3698.7.camel@johannes.berg>
+References: <1211026337.3827.25.camel@johannes.berg>
+	 <CD993362-B1DE-4E4D-8A5B-E9E2AD7DA04C@holtmann.org>
+	 <1211303731.6252.105.camel@johannes.berg>
+	 <20080521210352.GA11827@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-GgAVnm/Q+ru1odfsGrha"
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	netdev <netdev@vger.kernel.org>, Jean Tourrilhes <jt@hpl.hp.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Linux Kernel list <linux-kernel@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53277
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753543AbYEUVmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 17:42:39 -0400
+Received: from xc.sipsolutions.net ([83.246.72.84]:33688 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752151AbYEUVn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 17:43:58 -0400
+In-Reply-To: <20080521210352.GA11827@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-How could you possibly have test compiled this?
+--=-GgAVnm/Q+ru1odfsGrha
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-You kept the "stats->foo" dereferences but those all
-need to be "stats.foo"
 
-I've fixed it up as below.
+> > I have filed a patch to fix HAL to use the canonical SIOCGIWNAME at
+> > https://bugs.freedesktop.org/show_bug.cgi?id=3D16037. Any further
+> > objections to this patch?
+>=20
+> I think this is going to fall under the "userland ABI" category.
+> We can make it a configurable option, but I don't think we are free
+> to remove it completely since there is at least existing versions of
+> HAL that use it.
 
-UGH, the ipv4 ipmr patch has the same problem, I'll fix that up to :-(
+Well, yes, I gave it a year in the feature removal schedule since I
+thought nobody was actually using it. But if you look at how hal/sysfs
+are always dependent on new versions of each other *anyway*, I think we
+can get away with removing this in maybe two years time, and
+distributors can unset the option if they know their hal is new enough?
 
-ip6mr: Use on-device stats instead of private ones.
+johannes
 
-Similar to ipmr.
+--=-GgAVnm/Q+ru1odfsGrha
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-[ Fix build failures -DaveM ]
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv6/ip6mr.c |   22 +++++++---------------
- 1 files changed, 7 insertions(+), 15 deletions(-)
+iQIVAwUASDSWJ6Vg1VMiehFYAQL2xA//dOA4+OvOlayV5I1wpYkP2bp5Oy6YlLHy
+a5VGdyqJXxa0dURRNLeX5XXojoUfIrAh1OaS5kh0lVdAVsABOKXIUChloYyzR0id
+zlrG2TJ/f4gw7Zm/mnMDxiWCT2QrP1mCLzHbBsmFHSH61IYJ+pErLsSLYEOViLqF
+jRVmw4ZY2ED5LaHHi6s6R6pDvE6Mk7NSCwQufcOvK7auS+OzyqxgdzR5JmtbAKK5
+02DbVHV3sxbdMzK81gXsY+l1fYAQVqiqdwMBuaxrrZ4cbeJLQDrt/XihZsr6g+kq
+GpTnitLxYbrLXyPAdkeSvzYnmk6MLk8i9gddMvaIuqhFI44lFSY4ysq5VtHnMCJa
+3nnsSjYlA8tzY6YrPFeDzT6HE6gS1S7u98eDPgmXP1i3vis8ixfK78j2coRz7UID
+/qeIgldOCxkY3q3lY2/DowXFjiDVkQD9r1HWsx9WzN1pD5zdozMyEZNmCP/ayMg4
++zXgxXGzEUwj1JmSmfvbNhpCndSEsyQVnxKIL59NA7gncMgK+QADpUn+wOE/v0+9
+U2FlA5BN1mUvoSGSCZObvm4uUDihH1Z2MM0tlDBotwSf9wRXXcZU+7D0S/o7mVYk
+dDg4ufldmY5clIbKJ23id02Mfx1IAGI5xVa1nFKXoG4OBVtgJ0mOj005KELs3cdB
+C+57s5Bv/ik=
+=ntSr
+-----END PGP SIGNATURE-----
 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 2de3c46..6d76103 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -388,8 +388,8 @@ static int pim6_rcv(struct sk_buff *skb)
- 	skb->ip_summed = 0;
- 	skb->pkt_type = PACKET_HOST;
- 	dst_release(skb->dst);
--	((struct net_device_stats *)netdev_priv(reg_dev))->rx_bytes += skb->len;
--	((struct net_device_stats *)netdev_priv(reg_dev))->rx_packets++;
-+	reg_dev->stats.rx_bytes += skb->len;
-+	reg_dev->stats.rx_packets++;
- 	skb->dst = NULL;
- 	nf_reset(skb);
- 	netif_rx(skb);
-@@ -409,26 +409,20 @@ static struct inet6_protocol pim6_protocol = {
- static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	read_lock(&mrt_lock);
--	((struct net_device_stats *)netdev_priv(dev))->tx_bytes += skb->len;
--	((struct net_device_stats *)netdev_priv(dev))->tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
-+	dev->stats.tx_packets++;
- 	ip6mr_cache_report(skb, reg_vif_num, MRT6MSG_WHOLEPKT);
- 	read_unlock(&mrt_lock);
- 	kfree_skb(skb);
- 	return 0;
- }
- 
--static struct net_device_stats *reg_vif_get_stats(struct net_device *dev)
--{
--	return (struct net_device_stats *)netdev_priv(dev);
--}
--
- static void reg_vif_setup(struct net_device *dev)
- {
- 	dev->type		= ARPHRD_PIMREG;
- 	dev->mtu		= 1500 - sizeof(struct ipv6hdr) - 8;
- 	dev->flags		= IFF_NOARP;
- 	dev->hard_start_xmit	= reg_vif_xmit;
--	dev->get_stats		= reg_vif_get_stats;
- 	dev->destructor		= free_netdev;
- }
- 
-@@ -436,9 +430,7 @@ static struct net_device *ip6mr_reg_vif(void)
- {
- 	struct net_device *dev;
- 
--	dev = alloc_netdev(sizeof(struct net_device_stats), "pim6reg",
--			   reg_vif_setup);
--
-+	dev = alloc_netdev(0, "pim6reg", reg_vif_setup);
- 	if (dev == NULL)
- 		return NULL;
- 
-@@ -1377,8 +1369,8 @@ static int ip6mr_forward2(struct sk_buff *skb, struct mfc6_cache *c, int vifi)
- 	if (vif->flags & MIFF_REGISTER) {
- 		vif->pkt_out++;
- 		vif->bytes_out += skb->len;
--		((struct net_device_stats *)netdev_priv(vif->dev))->tx_bytes += skb->len;
--		((struct net_device_stats *)netdev_priv(vif->dev))->tx_packets++;
-+		vif->dev->stats.tx_bytes += skb->len;
-+		vif->dev->stats.tx_packets++;
- 		ip6mr_cache_report(skb, vifi, MRT6MSG_WHOLEPKT);
- 		kfree_skb(skb);
- 		return 0;
--- 
-1.5.5.1.308.g1fbb5
+--=-GgAVnm/Q+ru1odfsGrha--
 
