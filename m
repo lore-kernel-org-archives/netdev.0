@@ -1,30 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: Re: [Bugme-new] [Bug 10767] New: Seg Fault Instead of Swapping
-Date: Wed, 21 May 2008 11:53:46 -0700
-Message-ID: <20080521115346.21bf74f3.akpm@linux-foundation.org>
+Date: Wed, 21 May 2008 23:18:04 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805212310050.7747@wrl-59.cs.helsinki.fi>
 References: <bug-10767-10286@http.bugzilla.kernel.org/>
-	<20080521105747.215be17d.akpm@linux-foundation.org>
-	<cf4145200805211140o3b2287dcsc57f8a78aa48a99d@mail.gmail.com>
+ <20080521105747.215be17d.akpm@linux-foundation.org>
+ <cf4145200805211140o3b2287dcsc57f8a78aa48a99d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	=?ISO-8859-1?Q? "Ilpo_J=E4rvinen" ?= <ilpo.jarvinen@helsinki.fi>
-To: "Brian Vowell" <brian.vowell@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
+To: Brian Vowell <brian.vowell@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39061 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S936602AbYEUSx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 14:53:56 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:53472 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757257AbYEUUSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 16:18:07 -0400
 In-Reply-To: <cf4145200805211140o3b2287dcsc57f8a78aa48a99d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 21 May 2008 11:40:43 -0700 "Brian Vowell" <brian.vowell@gmail.com> wrote:
+On Wed, 21 May 2008, Brian Vowell wrote:
 
 > Please forgive my lack of technical skills-- I am not a developer.
 
-Thank you for reporting this kernel bug!
+And I'm having problem in figuring out what is actually being reported 
+here... so pleasy forgive my possibly stupid comments... :-)
 
 > The bug report referenced below recently occurred on a pretty busy file
 > server of mine running Fedora 8 with a custom 2.6.25.4 kernel.  The attached
@@ -37,7 +38,11 @@ Thank you for reporting this kernel bug!
 > actually causing the errors.  I can verify however, that the hardware is
 > good.  I have run memtest86 and the vendor's diagnostic tools and verified
 > that everything is running well.
-> 
+
+At least the TCP thing is known to be in core TCP but it's just hard to 
+debug and that's why it hasn't yet been closed, no hw is suspect due to 
+it. But this other stacktrace seems to be something unrelated to TCP...:
+
 > The errors in /var/log/messages look like this:
 > May 19 06:30:30 ishtar kernel: Call Trace:
 > May 19 06:30:30 ishtar kernel:  <IRQ>  [<ffffffff81075d35>]
@@ -83,16 +88,50 @@ Thank you for reporting this kernel bug!
 > The call trace included with the bug report is the only one that appears in
 > the log with the "cut here" lines.
 > 
+> 
+> 
+> 
+> On 5/21/08, Andrew Morton <akpm@linux-foundation.org> wrote:
+> >
+> >
+> > (switched to email.  Please respond via emailed reply-to-all, not via the
+> > bugzilla web interface).
+> >
+> > On Wed, 21 May 2008 02:45:59 -0700 (PDT) bugme-daemon@bugzilla.kernel.orgwrote:
+> >
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=10767
+> > >
+> > >            Summary: Seg Fault Instead of Swapping
+> >
+> > Strange description?
+> >
+> > >            Product: Networking
+> > >            Version: 2.5
+> > >      KernelVersion: 2.6.25.4
+> > >           Platform: All
+> > >         OS/Version: Linux
+> > >               Tree: Mainline
+> > >             Status: NEW
+> > >           Severity: normal
+> > >           Priority: P1
+> > >          Component: IPV4
+> > >         AssignedTo: shemminger@linux-foundation.org
+> > >         ReportedBy: brian.vowell@gmail.com
+> > >
+> > >
+> > > May 20 13:11:00 ishtar kernel: ------------[ cut here ]------------
+> > > May 20 13:11:00 ishtar kernel: WARNING: at net/ipv4/tcp_input.c:2539
+> > > tcp_ack+0xd2b/0x191f()
+> >
+> > In 2.6.25 this is
+> >
+> >         if (WARN_ON(!tp->sacked_out && tp->fackets_out))
+> >                 tp->fackets_out = 0;
 
-OK, that is the TCP code performing self-checks and finding an
-unexpected state.  
+...This TCP warning isn't sign of a problem that would cause corruption of 
+any kind (and the state inconsistency gets repaired there as well!), we're 
+debugging this already with couple of other people, so unless you have 
+some very good reproducer case you'll just have to wait a bit.
 
-I was just a bit concerned about the "segfault" part of the
-description.  Because often when the kernel crashes this appears to the
-operator as a userspace segfault.  But the above trace isn't a kernel
-crash - it's just a warning and the kernel does attept to fix things up
-in this case.
-
-If however you were really seeing unexpected segfaults then it could be
-the case that the kernel is crashing.  But I assume this is not the
-case, and that the text "Oops" does not appear in the logs.
+-- 
+ i.
