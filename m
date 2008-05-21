@@ -1,50 +1,108 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [RFC] make wext wireless bits optional and deprecate them
-Date: Wed, 21 May 2008 17:03:52 -0400
-Message-ID: <20080521210352.GA11827@tuxdriver.com>
-References: <1211026337.3827.25.camel@johannes.berg> <CD993362-B1DE-4E4D-8A5B-E9E2AD7DA04C@holtmann.org> <1211303731.6252.105.camel@johannes.berg>
+From: David Miller <davem@davemloft.net>
+Subject: build failure from ip6mr stats change.
+Date: Wed, 21 May 2008 14:42:35 -0700 (PDT)
+Message-ID: <20080521.144235.43063395.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1211303731.6252.105.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xemul@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53277
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753543AbYEUVmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 17:42:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 20, 2008 at 07:15:31PM +0200, Johannes Berg wrote:
-> On Sat, 2008-05-17 at 15:45 +0200, Marcel Holtmann wrote:
-> > Hi Johannes,
-> > 
-> > > The /sys/class/net/*/wireless/ direcory is, as far as I know, not
-> > > used by anyone. Additionally, the same data is available via wext
-> > > ioctls. Hence the sysfs files are pretty much useless. This patch
-> > > makes them optional and schedules them for removal.
-> > 
-> > it is used by HAL to classify WiFi network cards as net.80211 instead  
-> > of net.80203 and so we do have an actual user. However HAL only tests  
-> > for the existence of the directory wireless/.
-> > 
-> > Please fix HAL first before submitting such a patch.
-> 
-> I have filed a patch to fix HAL to use the canonical SIOCGIWNAME at
-> https://bugs.freedesktop.org/show_bug.cgi?id=16037. Any further
-> objections to this patch?
 
-I think this is going to fall under the "userland ABI" category.
-We can make it a configurable option, but I don't think we are free
-to remove it completely since there is at least existing versions of
-HAL that use it.
+How could you possibly have test compiled this?
 
-John
+You kept the "stats->foo" dereferences but those all
+need to be "stats.foo"
+
+I've fixed it up as below.
+
+UGH, the ipv4 ipmr patch has the same problem, I'll fix that up to :-(
+
+ip6mr: Use on-device stats instead of private ones.
+
+Similar to ipmr.
+
+[ Fix build failures -DaveM ]
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/ip6mr.c |   22 +++++++---------------
+ 1 files changed, 7 insertions(+), 15 deletions(-)
+
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 2de3c46..6d76103 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -388,8 +388,8 @@ static int pim6_rcv(struct sk_buff *skb)
+ 	skb->ip_summed = 0;
+ 	skb->pkt_type = PACKET_HOST;
+ 	dst_release(skb->dst);
+-	((struct net_device_stats *)netdev_priv(reg_dev))->rx_bytes += skb->len;
+-	((struct net_device_stats *)netdev_priv(reg_dev))->rx_packets++;
++	reg_dev->stats.rx_bytes += skb->len;
++	reg_dev->stats.rx_packets++;
+ 	skb->dst = NULL;
+ 	nf_reset(skb);
+ 	netif_rx(skb);
+@@ -409,26 +409,20 @@ static struct inet6_protocol pim6_protocol = {
+ static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	read_lock(&mrt_lock);
+-	((struct net_device_stats *)netdev_priv(dev))->tx_bytes += skb->len;
+-	((struct net_device_stats *)netdev_priv(dev))->tx_packets++;
++	dev->stats.tx_bytes += skb->len;
++	dev->stats.tx_packets++;
+ 	ip6mr_cache_report(skb, reg_vif_num, MRT6MSG_WHOLEPKT);
+ 	read_unlock(&mrt_lock);
+ 	kfree_skb(skb);
+ 	return 0;
+ }
+ 
+-static struct net_device_stats *reg_vif_get_stats(struct net_device *dev)
+-{
+-	return (struct net_device_stats *)netdev_priv(dev);
+-}
+-
+ static void reg_vif_setup(struct net_device *dev)
+ {
+ 	dev->type		= ARPHRD_PIMREG;
+ 	dev->mtu		= 1500 - sizeof(struct ipv6hdr) - 8;
+ 	dev->flags		= IFF_NOARP;
+ 	dev->hard_start_xmit	= reg_vif_xmit;
+-	dev->get_stats		= reg_vif_get_stats;
+ 	dev->destructor		= free_netdev;
+ }
+ 
+@@ -436,9 +430,7 @@ static struct net_device *ip6mr_reg_vif(void)
+ {
+ 	struct net_device *dev;
+ 
+-	dev = alloc_netdev(sizeof(struct net_device_stats), "pim6reg",
+-			   reg_vif_setup);
+-
++	dev = alloc_netdev(0, "pim6reg", reg_vif_setup);
+ 	if (dev == NULL)
+ 		return NULL;
+ 
+@@ -1377,8 +1369,8 @@ static int ip6mr_forward2(struct sk_buff *skb, struct mfc6_cache *c, int vifi)
+ 	if (vif->flags & MIFF_REGISTER) {
+ 		vif->pkt_out++;
+ 		vif->bytes_out += skb->len;
+-		((struct net_device_stats *)netdev_priv(vif->dev))->tx_bytes += skb->len;
+-		((struct net_device_stats *)netdev_priv(vif->dev))->tx_packets++;
++		vif->dev->stats.tx_bytes += skb->len;
++		vif->dev->stats.tx_packets++;
+ 		ip6mr_cache_report(skb, vifi, MRT6MSG_WHOLEPKT);
+ 		kfree_skb(skb);
+ 		return 0;
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.5.5.1.308.g1fbb5
+
