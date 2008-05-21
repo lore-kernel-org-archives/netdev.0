@@ -1,47 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6] ADDRCONF: Defer dad for global address until dad for
- linklocal is completed.
-Date: Wed, 21 May 2008 13:30:38 -0700 (PDT)
-Message-ID: <20080521.133038.76262737.davem@davemloft.net>
-References: <4832C3CC.5070609@miraclelinux.com>
-	<20080522.015807.02348209.yoshfuji@linux-ipv6.org>
-	<48345C4C.6020106@miraclelinux.com>
+Subject: Re: route metrics in jiffies??
+Date: Wed, 21 May 2008 13:31:54 -0700 (PDT)
+Message-ID: <20080521.133154.173559889.davem@davemloft.net>
+References: <20080521163815.GA5028@sc.homeunix.net>
+	<20080521101053.27db3495@extreme>
+	<20080521114354.31c6807c@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: tabe@miraclelinux.com
+Cc: Stephane_Chazelas@yahoo.fr, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35587
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35590
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755543AbYEUUan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 16:30:43 -0400
-In-Reply-To: <48345C4C.6020106@miraclelinux.com>
+	by vger.kernel.org with ESMTP id S937193AbYEUUb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 16:31:58 -0400
+In-Reply-To: <20080521114354.31c6807c@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Toyo Abe <tabe@miraclelinux.com>
-Date: Thu, 22 May 2008 02:30:52 +0900
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 21 May 2008 11:43:54 -0700
 
-> YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> > In article <4832C3CC.5070609@miraclelinux.com> (at Tue, 20 May 2008 21:27:56 +0900), Toyo Abe <tabe@miraclelinux.com> says:
-> >> Since current addrconf code actually accepts RA including prefix option 
-> >> while DAD for
-> >> linklocal address is processing, changes of the behaviour looks like a 
-> >> degradation for me.
-> >> Hence, I chose to accept RA at that moment and defer sending DAD NS for 
-> >> global addresses.
-> > 
-> > Well I don't think so.
-> > We should choose simpler way - avoid introducing new "unique" state so far.
-> > 
-> > If you really think is worth accepting RA during DAD for link-local
-> > address, we should cancel all of on-going DADs for global address(es)
-> > if the RA for link-local address has failed, intead of deferring DAD
-> > for global address(es).
-> >
-> You're right. I agree with you that it'd be better than mine.
+> There is an even bigger mess up.  The API for route metrics has several
+> values encoded in jiffies.  This is a problem because there is no good
+> way to find the internal kernel value of HZ. So all kernel/user ABI's
+> are supposed to use an absolute value (like milliseconds) or clock_t
+> which user USER_HZ.
+> 
+> The problem is that these values are now hardcoded into people's systems
+> so anyone using the 'ip route' options: rttvar, rtomin, or rtt are broken.
+> They might be lucky now (but I doubt it).
+> 
+> I propose doing the right thing and fixing kernel and iproute to always
+> use milliseconds for these values. To maintain compatibility, the new metric
+> values will be renumbered.  So old kernels don't misinterpret the new values.
 
-Hideaki-san, let me know if I should apply your patch.
+That is one way to solve the problem.  But we could be adding
+surprises on a source level for people with this approach.
 
-Thank you.
+Just use new names and leave the old ones alone, with a _MS or similar
+postfix to them.
+
+This is how we've handled this kind of situation in the past.
