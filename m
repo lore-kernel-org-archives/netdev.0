@@ -1,71 +1,78 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [iproute2] get_hz() with CONFIG_HIGH_RES_TIMERS
-Date: Wed, 21 May 2008 18:56:42 +0200
-Message-ID: <4834544A.4010706@trash.net>
-References: <20080521163815.GA5028@sc.homeunix.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [IPV6] ADDRCONF: Defer dad for global address until dad for
+ linklocal is completed.
+Date: Thu, 22 May 2008 01:58:07 +0900 (JST)
+Message-ID: <20080522.015807.02348209.yoshfuji@linux-ipv6.org>
+References: <48324792.5070309@miraclelinux.com>
+	<20080520.173353.128167700.yoshfuji@linux-ipv6.org>
+	<4832C3CC.5070609@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
-To: Stephane Chazelas <Stephane_Chazelas@yahoo.fr>
+Cc: netdev@vger.kernel.org
+To: tabe@miraclelinux.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46256 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753836AbYEUQ4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 12:56:44 -0400
-In-Reply-To: <20080521163815.GA5028@sc.homeunix.net>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:43905 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756560AbYEUQ5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 12:57:44 -0400
+In-Reply-To: <4832C3CC.5070609@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephane Chazelas wrote:
-> Hi Stephen,
-> 
-> there seems to be something wrong with the timer values as
-> processed by at least the "ss" and "ip" commands when
-> CONFIG_HIGH_RES_TIMERS is on.
-> 
-> $ zgrep -e HZ= -e HIGH_RES /proc/config.gz
-> CONFIG_HIGH_RES_TIMERS=y
-> CONFIG_HZ=250
-> 
-> For instance, the "ip route rtt <time>" and 
-> rto values returned by PROC_NET_TCP=/proc/net/tcp ss -i
-> look incorrect:
-> 
-> $ PROC_NET_TCP=/proc/net/tcp ss -i
-> State       Recv-Q Send-Q  Local Address:Port      Peer Address:Port
-> ESTAB       0      0           127.0.0.1:35466        127.0.0.1:10198    rto:5.5e-08
-> [...]
-> 
-> $ ss -i
-> State       Recv-Q Send-Q  Local Address:Port      Peer Address:Port
-> ESTAB       0      0           127.0.0.1:35466        127.0.0.1:10198
->         bic wscale:7,7 rto:220 rtt:23.5/19 send 11.2Mbps rcv_space:32792
-> 
-> 
-> $ ip route show
-> 10.95.131.111 via 10.95.128.1 dev eth0  rtt 5ms
-> 
-> $ netstat -rn
-> Kernel IP routing table
-> Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
-> 10.95.131.111   10.95.128.1     255.255.255.255 UGH       0 0     5000000 eth0
-> 
-> I think this is because get_hz gets the HZ value from the fourth
-> field in /proc/net/psched. That's 1e9 in my case, because that's
-> meant to be the frequency of CLOCK_MONOTONIC and when
-> CONFIG_HIGH_RES_TIMERS is on, the CLOCK_MONOTONIC resolution is
-> 1ns. So get_hz returns 1,000,000,000 instead of 250 in my case.
-> 
-> I don't know how to get the right value, clock_getres return 1ns
-> as well.
-> 
-> That's with 2.6.24.2, iproute-20080108 from debian (but the GIT
-> head code looks the same).
+In article <4832C3CC.5070609@miraclelinux.com> (at Tue, 20 May 2008 21:27:56 +0900), Toyo Abe <tabe@miraclelinux.com> says:
 
+> I was also thinking so. And I tried it at first.
+> But then, many other test scenarios in TAHI test suite went to FAIL. It
+> was because
+> the tester node send RA with prefix option to the host right after it
+> receives DAD NS
+> from the host, which is obviously in autoconfiguration process for
+> linklocal address.
 
-Both ss and ip route shouldn't be using get_hz(). inet_diag
-is using fixed units anyway, the routing metrics should to.
+If so, we should complain about the spec / tests.
 
-/proc/net/psched is *only* for packet schedulers and they
-want to know the real clock resolution.
+> Since current addrconf code actually accepts RA including prefix option 
+> while DAD for
+> linklocal address is processing, changes of the behaviour looks like a 
+> degradation for me.
+> Hence, I chose to accept RA at that moment and defer sending DAD NS for 
+> global addresses.
+
+Well I don't think so.
+We should choose simpler way - avoid introducing new "unique" state so far.
+
+If you really think is worth accepting RA during DAD for link-local
+address, we should cancel all of on-going DADs for global address(es)
+if the RA for link-local address has failed, intead of deferring DAD
+for global address(es).
+
+---
+[RFC PATCH] [IPV6] ADDRCONF: Do not generate "global" address unless valid link-local address is available.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index e591e09..df99c5e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1813,8 +1813,14 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
+ 
+ 		if (pinfo->prefix_len == 64) {
+ 			memcpy(&addr, &pinfo->prefix, 8);
+-			if (ipv6_generate_eui64(addr.s6_addr + 8, dev) &&
+-			    ipv6_inherit_eui64(addr.s6_addr + 8, in6_dev)) {
++			if (ipv6_inherit_eui64(addr.s6_addr + 8, in6_dev)) {
++				/*
++				 * If a valid link-local address is not found,
++				 * let's ignore autonomous flag.
++				 */
++				if (net_ratelimit())
++					printk(KERN_DEBUG "IPv6 addrconf: valid link-local address not found on %s\n",
++					       in6_dev->dev->name);
+ 				in6_dev_put(in6_dev);
+ 				return;
+ 			}
+
+--yoshfuji
