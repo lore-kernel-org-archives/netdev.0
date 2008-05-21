@@ -1,52 +1,42 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Fwd: [Bug 447812] New: Netlink messages from "tc"  to sch_netem
- module are not interpreted correctly
-Date: Wed, 21 May 2008 15:36:39 -0700
-Message-ID: <4834A3F7.4050807@hp.com>
-References: <20080521214523.GB22591@codemonkey.org.uk> <48349F37.60709@hp.com>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: network interface *name* alias support?
+Date: Wed, 21 May 2008 18:47:58 -0400
+Message-ID: <1211410078.27149.70.camel@perihelion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@codemonkey.org.uk>
-To: netdev@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:25655 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755604AbYEUWgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 18:36:43 -0400
-In-Reply-To: <48349F37.60709@hp.com>
+Received: from dallas.jonmasters.org ([72.29.103.172]:54064 "EHLO
+	dallas.jonmasters.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753991AbYEUXRg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 19:17:36 -0400
+Received: from boston.jonmasters.org ([74.92.29.237] helo=[192.168.1.3])
+	by dallas.jonmasters.org with esmtpsa (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.60)
+	(envelope-from <jonathan@jonmasters.org>)
+	id 1Jyx6P-0006Hn-1O
+	for netdev@vger.kernel.org; Wed, 21 May 2008 22:48:09 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-However, the message is not emitted if one compiles 
-src/netrt_rtnetlink.c for standalone debug:
+Hi,
 
-cc -otestfoo -DNETPERF_STANDALONE_DEBUG netrt_rtnetlink.c
+I would like to add support for network interface name aliases to the
+kernel. For example, rather than simply "eth0", one might have:
+
+eth0 -> eth_slot_0_0
+
+And use either name for device configuration, etc. This should be pretty
+easy, but I would like some comments - in particular, has this been done
+already and I'm missing something?
+
+Why is this useful? Say, for example that your a manufacturer building
+machines using the latest DMI extension to SMBIOS that allows you to
+specify what the physical ordering of interfaces is. Then, a
+distribution might choose to configure based on the physical slot
+ordering specified by the vendor - allowing for "rip and replace".
+
+Jon.
 
 
-izzy:~/netperf2_trunk# ./testfoo 16.89.133.212
-address is 16.89.133.212
-egress interface 0x6000000000004010 eth6
-
-
-The one difference I see in that case is that the source IP is not 
-passed-in, and in the full-up netperf omni case it is.  To confirm that 
-I modified the -DNETPERF_STANDALONE_DEBUG part to take an optional parm 
-for the source IP, and sure enough, I can get the netlink message that 
-way with the standalone version:
-
-izzy:~/netperf2_trunk# ./testfoo 16.89.133.212
-destination address is 16.89.133.212
-egress interface 0x6000000000004010 eth6
-izzy:~/netperf2_trunk# ./testfoo 16.89.133.212 10.208.0.17
-netlink: 8 bytes leftover after parsing attributes.
-destination address is 16.89.133.212
-egress interface 0x6000000000004010 eth6
-izzy:~/netperf2_trunk# uname -a
-Linux izzy 2.6.26-rc1-raj #1 SMP Thu May 8 15:24:23 PDT 2008 ia64 GNU/Linux
-
-http://www.netperf.org/svn/netperf2/trunk/src/netrt_rtnetlink.c
-
-fwiw,
-
-rick jones
