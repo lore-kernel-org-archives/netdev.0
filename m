@@ -1,42 +1,50 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH net-2.6] phylib: do EXPORT_SYMBOL on get_phy_id
-Date: Thu, 22 May 2008 14:01:28 -0400
-Message-ID: <4835B4F8.8060307@pobox.com>
-References: <1211474630-1728-1-git-send-email-paul.gortmaker@windriver.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [NETLINK]: Fix nla_parse_nested_compat() to call nla_parse()
+ directly
+Date: Thu, 22 May 2008 11:02:58 -0700
+Message-ID: <20080522110258.4cd23801@extreme>
+References: <20080522002155.GP20815@postel.suug.ch>
+	<20080522113720.GR20815@postel.suug.ch>
+	<48356AE3.7050700@trash.net>
+	<20080522.104913.231161238.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com, afleming@freescale.com
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: kaber@trash.net, tgraf@suug.ch, davej@codemonkey.org.uk,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36636 "EHLO mail.dvmed.net"
+Received: from mail.vyatta.com ([216.93.170.194]:48421 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756002AbYEVSBc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 14:01:32 -0400
-In-Reply-To: <1211474630-1728-1-git-send-email-paul.gortmaker@windriver.com>
+	id S1756074AbYEVSC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 14:02:59 -0400
+In-Reply-To: <20080522.104913.231161238.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul Gortmaker wrote:
-> Commit cac1f3c8 factored out the code for get_phy_id so that it
-> could be reused in multiple places.  Turns out that some of the
-> users can be modular, so we need to export this symbol as well.
+On Thu, 22 May 2008 10:49:13 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Thu, 22 May 2008 14:45:23 +0200
 > 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
->  drivers/net/phy/phy_device.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
+> > Thomas Graf wrote:
+> > > The purpose of nla_parse_nested_compat() is to parse attributes
+> > > which contain a struct followed by a stream of nested attributes.
+> > > So far, it called nla_parse_nested() to parse the stream of
+> > > nested attributes which was wrong, as nla_parse_nested() expects
+> > > a container attribute as data which holds the attribute stream.
+> > > It needs to call nla_parse() directly while pointing at the
+> > > next possible alignment point after the struct in the beginning
+> > > of the attribute.
+> > >
+> > > With this patch, I can no longer reproduce the reported leftover
+> > > warnings.
+> > >
+> > > Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> > 
+> > Looks good to me, thanks for fixing this Thomas.
 > 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index ac3c01d..16a0e7d 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -207,6 +207,7 @@ int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
->  
->  	return 0;
->  }
-> +EXPORT_SYMBOL(get_phy_id);
+> Patch applied, thanks everyone.
 
-applied
-
-
+Pls, push this to stable as well.
