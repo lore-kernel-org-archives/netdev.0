@@ -1,34 +1,32 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3 2.6.27 RESEND] cxgb3 - Fix dma mapping error path
-Date: Thu, 22 May 2008 07:09:00 -0400
-Message-ID: <4835544C.2010005@garzik.org>
-References: <20080522015616.25335.31806.stgit@speedy5>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH -next] 3c515: fix using pnp_get_resource when CONFIG_ISAPNP=n
+Date: Thu, 22 May 2008 07:09:42 -0400
+Message-ID: <48355476.2070006@pobox.com>
+References: <20080516103524.0b00ffb6.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48261 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752581AbYEVLJF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 07:09:05 -0400
-In-Reply-To: <20080522015616.25335.31806.stgit@speedy5>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	bjorn.helgaas@hp.com, akpm <akpm@linux-foundation.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20080516103524.0b00ffb6.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Divy Le Ray wrote:
-> From: Divy Le Ray <divy@chelsio.com>
+Randy Dunlap wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> Take potential dma mapping errors in account.
+> 3c515.c uses pnp_irq(), which calls pnp_get_resource(),
+> which is not defined when CONFIG_PNP=n, so in that case,
+> get the IRQ from a hardware register.
 > 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> 3c515.c:(.text+0x3adc0): undefined reference to `pnp_get_resource'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 > ---
-> 
->  drivers/net/cxgb3/sge.c |   53 ++++++++++++++++++++++++++++++++++++-----------
->  1 files changed, 41 insertions(+), 12 deletions(-)
+>  drivers/net/3c515.c |    4 ++++
 
-applied 1-3
+applied
 
 
