@@ -1,63 +1,31 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 4/6] drivers/net/fs_enet: remove null pointer dereference
-Date: Thu, 22 May 2008 06:27:10 -0400
-Message-ID: <48354A7E.5070105@garzik.org>
-References: <Pine.LNX.4.64.0805121537590.3694@ask.diku.dk>
+Subject: Re: [PATCH] WAN: protect HDLC proto list while insmod/rmmod
+Date: Thu, 22 May 2008 06:27:20 -0400
+Message-ID: <48354A88.7060905@garzik.org>
+References: <20080424.065555.30390704.davem@davemloft.net>	<m3ve27nfpx.fsf@maximus.localdomain>	<20080424214457.1d5a1655@the-village.bc.nu>	<20080512.033244.153113922.davem@davemloft.net>	<m3lk2djbq3.fsf@maximus.localdomain> <m3ve1agrek.fsf_-_@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: alan@lxorguk.ukuu.org.uk, David Miller <davem@davemloft.net>,
+	paulkf@microgate.com, jchapman@katalix.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60820 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60837 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764628AbYEVK1T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 06:27:19 -0400
-In-Reply-To: <Pine.LNX.4.64.0805121537590.3694@ask.diku.dk>
+	id S1764570AbYEVK2A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 06:28:00 -0400
+In-Reply-To: <m3ve1agrek.fsf_-_@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Julia Lawall wrote:
-> From: Julia Lawall <julia@diku.dk>
-> 
-> The following code appears in the function fs_init_instance in the file drivers/net/fs_enet/fs_enet-main.c.
-> 
-> 	if (fep->ops == NULL) {
-> 		printk(KERN_ERR DRV_MODULE_NAME
-> 		       ": %s No matching ops found (%d).\n",
-> 		       ndev->name, fpi->fs_no);
-> 		err = -EINVAL;
-> 		goto err;
-> 	}
-> 
-> This code implies that at the point of err, fep->ops can be NULL, so an
-> extra test is needed before dereferencing this value.
-> 
-> 
-> This problem was found using the following semantic match
-> (http://www.emn.fr/x-info/coccinelle/)
-> 
-> // <smpl>
-> @@
-> expression E, E1;
-> identifier f;
-> statement S1,S2,S3;
-> @@
-> 
-> * if (E == NULL)
-> {
->   ... when != if (E == NULL) S1 else S2
->       when != E = E1
-> * E->f
->   ... when any
->   return ...;
-> }
-> else S3
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+Krzysztof Halasa wrote:
+> WAN: protect protocol list in hdlc.c with RTNL.
+>    =20
+> Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
 
 applied
+
 
