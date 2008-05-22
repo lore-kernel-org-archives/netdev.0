@@ -1,32 +1,47 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH -next] 3c515: fix using pnp_get_resource when CONFIG_ISAPNP=n
-Date: Thu, 22 May 2008 07:09:42 -0400
-Message-ID: <48355476.2070006@pobox.com>
-References: <20080516103524.0b00ffb6.randy.dunlap@oracle.com>
+Subject: Re: [PATCH 8/8] bonding: Add "follow" option to fail_over_mac
+Date: Thu, 22 May 2008 07:09:19 -0400
+Message-ID: <4835545F.1080206@pobox.com>
+References: <12110838143907-git-send-email-fubar@us.ibm.com> <12110838151824-git-send-email-fubar@us.ibm.com> <12110838151104-git-send-email-fubar@us.ibm.com> <12110838162313-git-send-email-fubar@us.ibm.com> <1211083816660-git-send-email-fubar@us.ibm.com> <1211083817934-git-send-email-fubar@us.ibm.com> <1211083818228-git-send-email-fubar@us.ibm.com> <12110838181126-git-send-email-fubar@us.ibm.com> <12110838193155-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	bjorn.helgaas@hp.com, akpm <akpm@linux-foundation.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20080516103524.0b00ffb6.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:48270 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762106AbYEVLJV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 07:09:21 -0400
+In-Reply-To: <12110838193155-git-send-email-fubar@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Randy Dunlap wrote:
-> From: Randy Dunlap <randy.dunlap@oracle.com>
+Jay Vosburgh wrote:
+> 	Add a "follow" selection for fail_over_mac.  This option
+> causes the MAC address to move from slave to slave as the active
+> slave changes.  This is in addition to the existing fail_over_mac option
+> that causes the bond's MAC address to change during failover.
 > 
-> 3c515.c uses pnp_irq(), which calls pnp_get_resource(),
-> which is not defined when CONFIG_PNP=n, so in that case,
-> get the IRQ from a hardware register.
+> 	This new option is useful for devices that cannot tolerate
+> multiple ports using the same MAC address simultaneously, either
+> because it confuses them or incurs a performance penalty (as is the
+> case with some LPAR-aware multiport devices).  Because the MAC of the
+> bond itself does not change, the "follow" option is slightly more
+> reliable during failover and doesn't change the MAC of the bond during
+> operation.
 > 
-> 3c515.c:(.text+0x3adc0): undefined reference to `pnp_get_resource'
+> 	This patch requires a previous ARP monitor change to properly
+> handle RTNL during failovers.
 > 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 > ---
->  drivers/net/3c515.c |    4 ++++
+>  Documentation/networking/bonding.txt |   96 ++++++++++++------
+>  drivers/net/bonding/bond_main.c      |  185 ++++++++++++++++++++++++++-------
+>  drivers/net/bonding/bond_sysfs.c     |   36 +++----
+>  drivers/net/bonding/bonding.h        |    4 +
+>  4 files changed, 232 insertions(+), 89 deletions(-)
 
-applied
+applied 1-8
 
 
