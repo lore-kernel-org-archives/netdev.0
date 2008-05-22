@@ -1,38 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6 patch] drivers/net/: remove CVS keywords
-Date: Thu, 22 May 2008 06:09:36 -0400
-Message-ID: <48354660.7060500@pobox.com>
-References: <20080519220619.GL17716@cs181133002.pp.htv.fi>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH 1/2] VIRTIO: Use __skb_queue_purge()
+Date: Thu, 22 May 2008 18:07:43 +0800
+Message-ID: <483545EF.3070501@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+To: Rusty Russell <rusty@rustcorp.com.au>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39628 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755402AbYEVKJi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 06:09:38 -0400
-In-Reply-To: <20080519220619.GL17716@cs181133002.pp.htv.fi>
+Received: from cn.fujitsu.com ([222.73.24.84]:51614 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1759230AbYEVKKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 06:10:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> This patch removes some CVS keywords that weren't updated for a long 
-> time.
-> 
-> I haven't touched drivers that looked as if they might still be used.
-> 
-> In three drivers I've also removed printk's printing them since they 
-> were part of several printk's in a row and it doesn't make sense to 
-> print ancient version information to the user.
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Use standard routine for queue purging.
 
-I'm fine with removing CVS keywords, but I do not agree with removing 
-net driver version numbers that have been in the drivers for a while.
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ drivers/net/virtio_net.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-	Jeff
-
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index f926b5a..fe7cdf2 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -470,8 +470,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 		kfree_skb(skb);
+ 		vi->num--;
+ 	}
+-	while ((skb = __skb_dequeue(&vi->send)) != NULL)
+-		kfree_skb(skb);
++	__skb_queue_purge(&vi->send);
+ 
+ 	BUG_ON(vi->num != 0);
+ 
+-- 
+1.5.4.rc3
 
 
