@@ -1,37 +1,66 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Single packet receiving in multiple ring buffers
-Date: Thu, 22 May 2008 22:49:07 +0400
-Message-ID: <20080522184906.GA32582@2ka.mipt.ru>
-References: <20080522181401.GA14056@2ka.mipt.ru> <31256957387BB54C8B9AFE88AA5C0564044A1846@SDCEXCHANGE01.ad.amcc.com>
+From: <glenn_engel@agilent.com>
+Subject: RE: natsemi.c ioctl fix or mii register access
+Date: Thu, 22 May 2008 12:46:13 -0600
+Message-ID: <010200463BAAFF45926C5BFD8E21F515FD47AC@cos-us-mb01.cos.agilent.com>
+References: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com> <4835B5C0.2000701@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Keyur Chudgar <kchudgar.linux@gmail.com>, netdev@vger.kernel.org
-To: Keyur Chudgar <kchudgar@amcc.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:51837 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751418AbYEVStK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 14:49:10 -0400
-Content-Disposition: inline
-In-Reply-To: <31256957387BB54C8B9AFE88AA5C0564044A1846@SDCEXCHANGE01.ad.amcc.com>
+Received: from aglcosbs01.cos.agilent.com ([192.25.218.35]:36276 "EHLO
+	aglcosbs01.cos.agilent.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750786AbYEVStF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 14:49:05 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <4835B5C0.2000701@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 22, 2008 at 11:27:27AM -0700, Keyur Chudgar (kchudgar@amcc.com) wrote:
-> > better attach a page to each hardware descriptor and put pages from
-> each part into single skb via skb_fill_page_desc().
-> This is a good idea. But I can see, if I do this, then what I have in
-> skb is only fraglist containing the data, and
-> skb->data doesn't have anything. If this is the case, then the stack or
-> anybody else would not be able to use
-> the macros work on data pointer, like skb->push, pull, put, and even the
-> header pointers like h, nh, mac etc.
-> Can you please give some thoughts about this?
+The core only copies the ifreq struct.  In the case of SIOC[GS]MIIPHY the ifru_data field is a pointer to additional user space information about the ioctl (phy_id, register number).
 
-You have to copy part of the data (up to and including transport headers)
-into skb->data.
-Or you can dma part of the packet into skb->data and part into attached
-pages, which reside in skb_shinfo(skb)->frags (seupt via skb_fill_page_desc())
+Thus, an additional copy_from/to_user is required to extract this additional information.  
 
--- 
-	Evgeniy Polyakov
+I suppose this copy could be done in dev.c for these ioctls but it would also need to tweak the ifru_data field to point to local storage before/after the ioctl calls.  Perhaps this was the original intent and was not noticed since ethtool doesn't use these ioctls.  I just assumed the natsemi driver was the odd duck but perhaps none of them work with these ioctls at this point.
+
+--
+Glenn
+
+> -----Original Message-----
+> From: Jeff Garzik [mailto:jgarzik@pobox.com]
+> Sent: Thursday, May 22, 2008 11:05 AM
+> To: ENGEL,GLENN (A-Labs,ex1)
+> Cc: netdev@vger.kernel.org
+> Subject: Re: natsemi.c ioctl fix or mii register access
+> 
+> glenn_engel@agilent.com wrote:
+> > Hi,
+> >
+> > I recently discovered the ioctl implementation in natsemi.c had a few
+> bugs in dealing with the user ioctls to send and receive MII commands
+> (SIOCGMIIPHY and SIOCSMIIPHY).
+> >
+> > The specific problems noted and fixed:
+> >
+> > 1. The if_mii macro casts it's return to be (struct mii_ioctl_data *)
+> but in reality it returns a pointer to the user space pointer (struct
+> mii_ioctl_data**).   This looks to be a problem with the mii_macro to
+> me.  I changed this to use the ifr_data macro instead.
+> >
+> > 2. Since the mii_ioctl_data structure resides in user space, it must
+> be copied into kernel space before access and copied back for read
+> results.  References to the pointer were changed to point to the local
+> copy (data-> changed to mii_data.)
+> 
+> This is completely incorrect.  The copying is done for us inside net
+> core.
+> 
+> 	Jeff
+> 
+> 
+> 
+
+
