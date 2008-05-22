@@ -1,44 +1,49 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/1] Blackfin EMAC Driver: Removed duplicated include
- <linux/ethtool.h> in drivers/net/bfin_mac.c.
-Date: Thu, 22 May 2008 06:22:16 -0400
-Message-ID: <48354958.2060905@garzik.org>
-References: <1210565644-4272-1-git-send-email-cooloney@kernel.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] e1000e: use resource_size_t, not unsigned long, for phys
+ addrs
+Date: Thu, 22 May 2008 06:22:03 -0400
+Message-ID: <4835494B.20802@pobox.com>
+References: <Pine.LNX.4.64.0805011757090.8700@monty.am.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Huang Weiyi <weiyi.huang@gmail.com>
-To: Bryan Wu <cooloney@kernel.org>
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Becky Bruce <bgill@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59326 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59314 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936646AbYEVKWS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 06:22:18 -0400
-In-Reply-To: <1210565644-4272-1-git-send-email-cooloney@kernel.org>
+	id S933393AbYEVKWH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 06:22:07 -0400
+In-Reply-To: <Pine.LNX.4.64.0805011757090.8700@monty.am.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bryan Wu wrote:
-> From: Huang Weiyi <weiyi.huang@gmail.com>
+Becky Bruce wrote:
+> The use of unsigned long causes the driver to fail on 32-bit systems
+> which support 64-bit resources.
 > 
-> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
-> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> Signed-off-by: Becky Bruce <becky.bruce@freescale.com>
 > ---
->  drivers/net/bfin_mac.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-> index 89c0018..4144343 100644
-> --- a/drivers/net/bfin_mac.c
-> +++ b/drivers/net/bfin_mac.c
-> @@ -22,7 +22,6 @@
->  #include <linux/crc32.h>
->  #include <linux/device.h>
->  #include <linux/spinlock.h>
-> -#include <linux/ethtool.h>
->  #include <linux/mii.h>
->  #include <linux/phy.h>
+> Resend, with proper CC.
+> 
+>  drivers/net/e1000e/netdev.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+> index 8991ab8..dae3269 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -3897,8 +3897,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+>  	struct e1000_adapter *adapter;
+>  	struct e1000_hw *hw;
+>  	const struct e1000_info *ei = e1000_info_tbl[ent->driver_data];
+> -	unsigned long mmio_start, mmio_len;
+> -	unsigned long flash_start, flash_len;
+> +	resource_size_t mmio_start, mmio_len;
+> +	resource_size_t flash_start, flash_len;
+>  
 
 applied
 
