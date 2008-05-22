@@ -1,37 +1,53 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH v4] PHYLIB: Add 1000Base-X support for Broadcom bcm5482
-Date: Thu, 22 May 2008 07:09:33 -0400
-Message-ID: <4835546D.5080706@pobox.com>
-References: <Pine.LNX.4.55.0805170619390.4049@cliff.in.clinika.pl>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Fwd: [Bug 447812] New: Netlink messages from "tc" to sch_netem module are not interpreted correctly
+Date: Thu, 22 May 2008 13:18:35 +0200
+Message-ID: <20080522111835.GQ20815@postel.suug.ch>
+References: <20080521214523.GB22591@codemonkey.org.uk> <20080521151021.3d47a3d8@extreme> <20080522002155.GP20815@postel.suug.ch> <4834C4FE.4060502@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Nate Case <ncase@xes-inc.com>, netdev@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Dave Jones <davej@codemonkey.org.uk>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48275 "EHLO mail.dvmed.net"
+Received: from postel.suug.ch ([194.88.212.233]:36545 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762308AbYEVLJh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 07:09:37 -0400
-In-Reply-To: <Pine.LNX.4.55.0805170619390.4049@cliff.in.clinika.pl>
+	id S1751357AbYEVLSP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 07:18:15 -0400
+Content-Disposition: inline
+In-Reply-To: <4834C4FE.4060502@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Maciej W. Rozycki wrote:
-> From: Nate Case <ncase@xes-inc.com>
+* Rick Jones <rick.jones2@hp.com> 2008-05-21 17:57
 > 
-> Configure the BCM5482S secondary SerDes for 1000Base-X mode when the
-> appropriate dev_flags are passed in to phy_connect().  This is
-> needed when the PHY is used for fiber and backplane connections.
+> >Could you try this patch?
 > 
-> Signed-off-by: Nate Case <ncase@xes-inc.com>
-> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
-> ---
-> Jeff,
+> I'm not sure what it does to the tc case, unless I botched applying the 
+> patch, my rtnetlink case doesn't seem to change:
 > 
->  I have removed unnecessary "inline" annotations and made a few formatting
-> adjustments.  I hope Nate agrees with these changes.  Please apply.
+> izzy:~/netperf2_trunk# ./testfoo 16.89.133.212
+> destination address is 16.89.133.212
+> egress interface 0x6000000000004010 eth6
+> izzy:~/netperf2_trunk# ./testfoo 16.89.133.212 10.208.0.17
+> netlink: 8 bytes leftover after parsing attributes.
+> destination address is 16.89.133.212
+> egress interface 0x6000000000004010 eth6
+> izzy:~/netperf2_trunk# uname -a
+> Linux izzy 2.6.26-rc1-netlink #1 SMP Wed May 21 17:36:53 PDT 2008 ia64 
+> GNU/Linux
 
-applied this and Kconfig patch
+I looked at netrt_rtnetlink.c, the problem is unrelated. Look at
+the code when adding the source attribtue:
 
+  struct rtattr *rtap;
 
+  if (source) {
+    rtap +=  rtap->rta_len;
+
+You want to increment rtap by rta_len bytes, not rta_len*sizeof(*rtap)
+bytes.
+
+Also, the code uses RTA_LENGTH() to calculate attributes sizes which
+is wrong, it must use RTA_SPACE() as RTA_LENGTH() does not align the
+actual data part and thus the next attribute is unaligned if the data
+of the previous attribute is not aligned to 4 bytes.
