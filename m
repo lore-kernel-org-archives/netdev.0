@@ -1,36 +1,44 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: neighbour table ABI problem
-Date: Thu, 22 May 2008 02:20:42 +0200
-Message-ID: <20080522002042.GO20815@postel.suug.ch>
-References: <20080521163815.GA5028@sc.homeunix.net> <4834544A.4010706@trash.net> <20080521104019.22f9c712@extreme> <20080521.133510.145260976.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2/3 2.6.27] cxgb3 - Add page support to jumbo frame Rx
+ queue
+Date: Wed, 21 May 2008 17:20:24 -0700
+Message-ID: <20080521172024.a1044aea.akpm@linux-foundation.org>
+References: <20080521015737.6218.32204.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, kaber@trash.net, Stephane_Chazelas@yahoo.fr,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
+To: Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:49677 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759207AbYEVAUW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 May 2008 20:20:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20080521.133510.145260976.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:36575 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760985AbYEVAVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 20:21:14 -0400
+In-Reply-To: <20080521015737.6218.32204.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Miller <davem@davemloft.net> 2008-05-21 13:35
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Wed, 21 May 2008 10:40:19 -0700
-> 
-> > This change is small, but it breaks the ABI for older version of iproute2 utilities.
-> > But these utilities are already broken since they are looking at the psched_hz values
-> > which are completely different. So let's just go ahead and fix both kernel and user
-> > space. Older utilities will just print wrong values.
-> > 
-> 
-> Can we add a new attribute or something like that?
+On Tue, 20 May 2008 18:57:37 -0700
+Divy Le Ray <divy@chelsio.com> wrote:
 
-We could do but I agree with Stephen to just fix it the way he
-proposes. The value we're talking is only useful in a debugging
-or statistical context. We're not changing the format of the
-attribute at all, not even the unit, srictly speaking.
+> From: Divy Le Ray <divy@chelsio.com>
+> 
+> Add page support to Jumbo frame Rx queues.
+> 
+> ...
+>
+> @@ -460,7 +464,8 @@ nomem:				q->alloc_failed++;
+>  			if (q->use_pages) {
+>  				if (q->pg_chunk.page) {
+>  					put_page(q->pg_chunk.page);
+> -					__free_page(q->pg_chunk.page);
+> +					__free_pages(q->pg_chunk.page,
+> +						     q->order);
+>  					q->pg_chunk.page =
+>  						sd->pg_chunk.page = NULL;
+>  				}
+
+This hunk doesn't apply to 2.6.26-rc3, afacit.  The code it's patching
+just isn't there.  But I think I fixed it up OK.
+
