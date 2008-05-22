@@ -1,59 +1,37 @@
-From: Pekka J Enberg <penberg@cs.helsinki.fi>
-Subject: [PATCH] netfilter: use krealloc() in nf_conntrack_extend.c V2
-Date: Thu, 22 May 2008 21:55:37 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805222155150.6294@sbz-30.cs.Helsinki.FI>
-References: <Pine.LNX.4.64.0805222145320.6071@sbz-30.cs.Helsinki.FI>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [RFC, VLAN]: Propagate selected feature bits to VLAN devices
+Date: Thu, 22 May 2008 11:57:43 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329051F37E3@orsmsx414.amr.corp.intel.com>
+References: <E1JyqZL-0005qz-00@gondolin.me.apana.org.au> <48344DAA.4060107@trash.net> <20080521233952.GA27138@gondor.apana.org.au> <D5C1322C3E673F459512FB59E0DDC329051F36F5@orsmsx414.amr.corp.intel.com> <4835B556.4020308@trash.net> <D5C1322C3E673F459512FB59E0DDC329051F3761@orsmsx414.amr.corp.intel.com> <4835BA86.8010209@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mpm@selenic.com, clameter@sgi.com
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0805222145320.6071@sbz-30.cs.Helsinki.FI>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:52381 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751180AbYEVS5v convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 14:57:51 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <4835BA86.8010209@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To: kaber@trash.net
-[PATCH] netfilter: use krealloc() in nf_conntrack_extend.c V2
-From: Pekka Enberg <penberg@cs.helsinki.fi>
+> The idea is simply to replace the NETIF_F_VLAN_TSO and 
+> checksumming flag by a flag mask that specifies the features 
+> that may be propagated to the VLAN devices.
+> 
+> The change to your driver will most likely be something like:
+> 
+> - dev->features |= NETIF_F_VLAN_TSO | ...
+> + dev->vlan_features |= NETIF_F_TSO | NETIF_F_TSO6 | 
+> NETIF_F_CSUM_ALL | ...
+> 
+> I'll send the patch tommorrow, I'm currently busy with other things.
 
-The ksize() API is going away because it is being abused and it doesn't even
-work consistenly across different allocators. Therefore, convert
-net/netfilter/nf_conntrack_extend.c to use krealloc().
+Ok.  That sounds great.  Thanks Patrick.
 
-Cc: <netfilter-devel@vger.kernel.org>
-Cc: <netdev@vger.kernel.org>
-Cc: Matt Mackall <mpm@selenic.com>
-Cc: Christoph Lameter <clameter@sgi.com>
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
----
-Patrick, please use this patch instead. The previous one did the moving
-unconditionally which is wrong. This one moves entries around only if
-krealloc() allocated a new buffer.
-
- net/netfilter/nf_conntrack_extend.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
-
-Index: slab-2.6/net/netfilter/nf_conntrack_extend.c
-===================================================================
---- slab-2.6.orig/net/netfilter/nf_conntrack_extend.c	2008-05-22 21:52:12.000000000 +0300
-+++ slab-2.6/net/netfilter/nf_conntrack_extend.c	2008-05-22 21:52:26.000000000 +0300
-@@ -88,13 +88,11 @@
- 	newlen = newoff + t->len;
- 	rcu_read_unlock();
- 
--	if (newlen >= ksize(ct->ext)) {
--		new = kmalloc(newlen, gfp);
--		if (!new)
--			return NULL;
--
--		memcpy(new, ct->ext, ct->ext->len);
-+	new = krealloc(ct->ext, newlen, gfp);
-+	if (!new)
-+		return NULL;
- 
-+	if (new != ct->ext) {
- 		for (i = 0; i < NF_CT_EXT_NUM; i++) {
- 			if (!nf_ct_ext_exist(ct, i))
- 				continue;
+-PJ Waskiewicz
