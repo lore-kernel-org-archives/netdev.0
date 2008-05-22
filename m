@@ -1,42 +1,39 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Fwd: [Bug 447812] New: Netlink messages from "tc" to sch_netem
- module are not interpreted correctly
-Date: Thu, 22 May 2008 09:32:14 -0700
-Message-ID: <4835A00E.2050908@hp.com>
-References: <20080521214523.GB22591@codemonkey.org.uk>	<20080521151021.3d47a3d8@extreme>	<20080522002155.GP20815@postel.suug.ch> <4834C4FE.4060502@hp.com> <20080522111835.GQ20815@postel.suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Dave Jones <davej@codemonkey.org.uk>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-2.6] phylib: do EXPORT_SYMBOL on get_phy_id
+Date: Thu, 22 May 2008 12:43:50 -0400
+Message-ID: <1211474630-1728-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: davej@redhat.com, afleming@freescale.com, jgarzik@pobox.com,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:33667 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753935AbYEVQcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 12:32:18 -0400
-In-Reply-To: <20080522111835.GQ20815@postel.suug.ch>
+Received: from mail.windriver.com ([147.11.1.11]:44586 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754273AbYEVQnN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 12:43:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I looked at netrt_rtnetlink.c, the problem is unrelated. Look at
-> the code when adding the source attribtue:
-> 
->   struct rtattr *rtap;
-> 
->   if (source) {
->     rtap +=  rtap->rta_len;
-> 
-> You want to increment rtap by rta_len bytes, not rta_len*sizeof(*rtap)
-> bytes.
-> 
-> Also, the code uses RTA_LENGTH() to calculate attributes sizes which
-> is wrong, it must use RTA_SPACE() as RTA_LENGTH() does not align the
-> actual data part and thus the next attribute is unaligned if the data
-> of the previous attribute is not aligned to 4 bytes.
+Commit cac1f3c8 factored out the code for get_phy_id so that it
+could be reused in multiple places.  Turns out that some of the
+users can be modular, so we need to export this symbol as well.
 
-I'll make the fixes in the netperf code - thanks, hope the bugs there 
-weren't too big a distraction.
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ drivers/net/phy/phy_device.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-rick jones
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index ac3c01d..16a0e7d 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -207,6 +207,7 @@ int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(get_phy_id);
+ 
+ /**
+  * get_phy_device - reads the specified PHY device and returns its @phy_device struct
+-- 
+1.5.4.rc4.gcab31
 
