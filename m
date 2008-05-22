@@ -1,136 +1,89 @@
 From: Daniel Walker <dwalker@mvista.com>
-Subject: [PATCH 2/3] ps3: gelic: assoc_stat_lock semaphore to mutex
-Date: Thu, 22 May 2008 00:00:02 -0700
-Message-ID: <20080522195406.490863853@mvista.com>
+Subject: [PATCH 3/3] ps3: gelic: updown_lock semaphore to mutex
+Date: Thu, 22 May 2008 00:00:03 -0700
+Message-ID: <20080522195406.642307415@mvista.com>
 References: <20080522195404.061391772@mvista.com>
 Cc: netdev@vger.kernel.org, matthew@wil.cx, rusty@rustcorp.com.au,
 	mingo@elte.hu, linux-kernel@vger.kernel.org, arjan@infradead.org,
 	mokuno@sm.sony.co.jp, geoffrey.levand@am.sony.com
 To: jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757882AbYEVUCp@vger.kernel.org>
-Content-Disposition: inline; filename=ps3-gelic-wireless-assoc_stat_lock-semaphore-to-mutex.patch
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:7571 "EHLO
+	dwalker1.mvista.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753028AbYEVUHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 16:07:34 -0400
+Content-Disposition: inline; filename=ps3-gelic-net-updown_lock-semaphore-to-mutex.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Daniel Walker <dwalker@mvista.com>
 
 ---
- drivers/net/ps3_gelic_wireless.c |   22 +++++++++++-----------
- drivers/net/ps3_gelic_wireless.h |    2 +-
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ps3_gelic_net.c |   10 +++++-----
+ drivers/net/ps3_gelic_net.h |    2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-Index: linux-2.6.25/drivers/net/ps3_gelic_wireless.c
+Index: linux-2.6.25/drivers/net/ps3_gelic_net.c
 ===================================================================
---- linux-2.6.25.orig/drivers/net/ps3_gelic_wireless.c
-+++ linux-2.6.25/drivers/net/ps3_gelic_wireless.c
-@@ -240,12 +240,12 @@ static u32 gelic_wl_get_link(struct net_
- 	u32 ret;
+--- linux-2.6.25.orig/drivers/net/ps3_gelic_net.c
++++ linux-2.6.25/drivers/net/ps3_gelic_net.c
+@@ -110,7 +110,7 @@ static void gelic_card_get_ether_port_st
+ void gelic_card_up(struct gelic_card *card)
+ {
+ 	pr_debug("%s: called\n", __func__);
+-	down(&card->updown_lock);
++	mutex_lock(&card->updown_lock);
+ 	if (atomic_inc_return(&card->users) == 1) {
+ 		pr_debug("%s: real do\n", __func__);
+ 		/* enable irq */
+@@ -120,7 +120,7 @@ void gelic_card_up(struct gelic_card *ca
  
- 	pr_debug("%s: <-\n", __func__);
--	down(&wl->assoc_stat_lock);
-+	mutex_lock(&wl->assoc_stat_lock);
- 	if (wl->assoc_stat == GELIC_WL_ASSOC_STAT_ASSOCIATED)
- 		ret = 1;
- 	else
- 		ret = 0;
--	up(&wl->assoc_stat_lock);
-+	mutex_unlock(&wl->assoc_stat_lock);
- 	pr_debug("%s: ->\n", __func__);
- 	return ret;
+ 		napi_enable(&card->napi);
+ 	}
+-	up(&card->updown_lock);
++	mutex_unlock(&card->updown_lock);
+ 	pr_debug("%s: done\n", __func__);
  }
-@@ -979,7 +979,7 @@ static int gelic_wl_get_essid(struct net
- 	unsigned long irqflag;
  
- 	pr_debug("%s: <- \n", __func__);
--	down(&wl->assoc_stat_lock);
-+	mutex_lock(&wl->assoc_stat_lock);
- 	spin_lock_irqsave(&wl->lock, irqflag);
- 	if (test_bit(GELIC_WL_STAT_ESSID_SET, &wl->stat) ||
- 	    wl->assoc_stat == GELIC_WL_ASSOC_STAT_ASSOCIATED) {
-@@ -989,7 +989,7 @@ static int gelic_wl_get_essid(struct net
- 	} else
- 		data->essid.flags = 0;
- 
--	up(&wl->assoc_stat_lock);
-+	mutex_unlock(&wl->assoc_stat_lock);
- 	spin_unlock_irqrestore(&wl->lock, irqflag);
- 	pr_debug("%s: -> len=%d \n", __func__, data->essid.length);
- 
-@@ -1170,7 +1170,7 @@ static int gelic_wl_get_ap(struct net_de
- 	unsigned long irqflag;
- 
- 	pr_debug("%s: <-\n", __func__);
--	down(&wl->assoc_stat_lock);
-+	mutex_lock(&wl->assoc_stat_lock);
- 	spin_lock_irqsave(&wl->lock, irqflag);
- 	if (wl->assoc_stat == GELIC_WL_ASSOC_STAT_ASSOCIATED) {
- 		data->ap_addr.sa_family = ARPHRD_ETHER;
-@@ -1180,7 +1180,7 @@ static int gelic_wl_get_ap(struct net_de
- 		memset(data->ap_addr.sa_data, 0, ETH_ALEN);
- 
- 	spin_unlock_irqrestore(&wl->lock, irqflag);
--	up(&wl->assoc_stat_lock);
-+	mutex_unlock(&wl->assoc_stat_lock);
- 	pr_debug("%s: ->\n", __func__);
- 	return 0;
+@@ -128,7 +128,7 @@ void gelic_card_down(struct gelic_card *
+ {
+ 	u64 mask;
+ 	pr_debug("%s: called\n", __func__);
+-	down(&card->updown_lock);
++	mutex_lock(&card->updown_lock);
+ 	if (atomic_dec_if_positive(&card->users) == 0) {
+ 		pr_debug("%s: real do\n", __func__);
+ 		napi_disable(&card->napi);
+@@ -146,7 +146,7 @@ void gelic_card_down(struct gelic_card *
+ 		/* stop tx */
+ 		gelic_card_disable_txdmac(card);
+ 	}
+-	up(&card->updown_lock);
++	mutex_unlock(&card->updown_lock);
+ 	pr_debug("%s: done\n", __func__);
  }
-@@ -2151,7 +2151,7 @@ static void gelic_wl_disconnect_event(st
- 	 * As it waits with timeout, just leave assoc_done
- 	 * uncompleted, then it terminates with timeout
- 	 */
--	if (down_trylock(&wl->assoc_stat_lock)) {
-+	if (!mutex_trylock(&wl->assoc_stat_lock)) {
- 		pr_debug("%s: already locked\n", __func__);
- 		lock = 0;
- 	} else {
-@@ -2170,7 +2170,7 @@ static void gelic_wl_disconnect_event(st
- 	netif_carrier_off(port_to_netdev(wl_port(wl)));
  
- 	if (lock)
--		up(&wl->assoc_stat_lock);
-+		mutex_unlock(&wl->assoc_stat_lock);
- }
- /*
-  * event worker
-@@ -2258,7 +2258,7 @@ static void gelic_wl_assoc_worker(struct
+@@ -1534,7 +1534,7 @@ static struct gelic_card *gelic_alloc_ca
+ 	INIT_WORK(&card->tx_timeout_task, gelic_net_tx_timeout_task);
+ 	init_waitqueue_head(&card->waitq);
+ 	atomic_set(&card->tx_timeout_task_counter, 0);
+-	init_MUTEX(&card->updown_lock);
++	mutex_init(&card->updown_lock);
+ 	atomic_set(&card->users, 0);
  
- 	wl = container_of(work, struct gelic_wl_info, assoc_work.work);
- 
--	down(&wl->assoc_stat_lock);
-+	mutex_lock(&wl->assoc_stat_lock);
- 
- 	if (wl->assoc_stat != GELIC_WL_ASSOC_STAT_DISCONN)
- 		goto out;
-@@ -2304,7 +2304,7 @@ static void gelic_wl_assoc_worker(struct
- scan_lock_out:
- 	mutex_unlock(&wl->scan_lock);
- out:
--	up(&wl->assoc_stat_lock);
-+	mutex_unlock(&wl->assoc_stat_lock);
- }
- /*
-  * Interrupt handler
-@@ -2432,7 +2432,7 @@ static struct net_device *gelic_wl_alloc
- 	INIT_DELAYED_WORK(&wl->event_work, gelic_wl_event_worker);
- 	INIT_DELAYED_WORK(&wl->assoc_work, gelic_wl_assoc_worker);
- 	mutex_init(&wl->scan_lock);
--	init_MUTEX(&wl->assoc_stat_lock);
-+	mutex_init(&wl->assoc_stat_lock);
- 
- 	init_completion(&wl->scan_done);
- 	/* for the case that no scan request is issued and stop() is called */
-Index: linux-2.6.25/drivers/net/ps3_gelic_wireless.h
+ 	return card;
+Index: linux-2.6.25/drivers/net/ps3_gelic_net.h
 ===================================================================
---- linux-2.6.25.orig/drivers/net/ps3_gelic_wireless.h
-+++ linux-2.6.25/drivers/net/ps3_gelic_wireless.h
-@@ -266,7 +266,7 @@ struct gelic_wl_info {
- 	enum gelic_wl_wpa_level wpa_level; /* wpa/wpa2 */
+--- linux-2.6.25.orig/drivers/net/ps3_gelic_net.h
++++ linux-2.6.25/drivers/net/ps3_gelic_net.h
+@@ -298,7 +298,7 @@ struct gelic_card {
+ 	wait_queue_head_t waitq;
  
- 	/* association handling */
--	struct semaphore assoc_stat_lock;
-+	struct mutex assoc_stat_lock;
- 	struct delayed_work assoc_work;
- 	enum gelic_wl_assoc_state assoc_stat;
- 	struct completion assoc_done;
+ 	/* only first user should up the card */
+-	struct semaphore updown_lock;
++	struct mutex updown_lock;
+ 	atomic_t users;
+ 
+ 	u64 ether_port_status;
 
 -- 
