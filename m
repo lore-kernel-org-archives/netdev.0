@@ -1,38 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DNAT sporadically doesn't replace destination IP address
-Date: Thu, 22 May 2008 18:29:26 +0200
-Message-ID: <48359F66.50503@trash.net>
-References: <4835A03D.B932.00FE.0@newtec.eu> <483589C0.4080006@trash.net> <4835ABD2.B932.00FE.0@newtec.eu> <4835913A.4020909@trash.net> <4835AE9B.B932.00FE.0@newtec.eu>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Thu, 22 May 2008 18:32:07 +0200
+Message-ID: <4835A007.7020601@krogh.cc>
+References: <4824CBA1.8040703@sun.com>	<4824CCF0.5050302@krogh.cc>	<4824D1E1.10007@sun.com> <20080509.154538.28321777.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ulrik De Bie <ulrik.debie@newtec.eu>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Kris Op de Beeck <kris.op.de.beeck@newtec.eu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4835AE9B.B932.00FE.0@newtec.eu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Matheos.Worku@Sun.COM, yhlu.kernel@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:55366 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753846AbYEVQcT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 12:32:19 -0400
+In-Reply-To: <20080509.154538.28321777.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kris Op de Beeck wrote:
+David Miller wrote:
+> From: Matheos Worku <Matheos.Worku@Sun.COM>
+> Date: Fri, 09 May 2008 15:36:17 -0700
 > 
->>>> On 22/05/2008 at 17:28, in message <4835913A.4020909@trash.net>, Patrick
-> McHardy <kaber@trash.net> wrote:
->>> [  927.204000] nf_ct_tcp: invalid SYNIN= OUT= SRC=192.168.1.30 DST=10.9.9.29 
->> LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=25745 DF PROTO=TCP SPT=52775 DPT=80 
->> SEQ=2154890499 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT 
->> (020405B40402080A000264810000000001030307) UID=1000
->>> For those DST ip addresses I've got failures
->> Which kernel is this test running on? That message
->> is gone since 2.6.22.
+>> I have observed TX throughput degradation (and increased CPU 
+>> utilization)  occurs with increased # of connections, when CPU count > 4 
+>> CPUs.  I don't think it is related to the driver (or HW).
 > 
-> s3p@burnin:~$ uname -a
-> Linux burnin 2.6.22-14-generic #1 SMP Sun Oct 14 23:05:12 GMT 2007 i686 GNU/Linux
-> 
-> This was the config where I detected the problem. (Ubuntu 7.10)
+> All transmits through a device are fully serialized currently,
+> it's a known problem and something we plan to fix.
 
+I google'd up this one:
 
-I didn't find the reason why your kernel even has that message
-(didn't try to hard though). Could you rerun the test with a
-more current kernel, like 2.6.24 or 2.6.25 please?
+http://vger.kernel.org/~davem/davem_tokyo08.pdf (slide 23+).
+
+Does this mean that I can expect every 10G card to have this limitation
+under Linux? Or are some known to be better than others?
+(I can probably justify paying for another 10G card if I can expect to
+gain the last 400MB/s).
+
+Since I cannot push more than ~600MB/s through the NIC before a single 
+cpu is bottlenecked, it seem most likely to be this TX throughput
+thing I hit.
+
+Thanks
+
+Jesper
+-- 
+Jesper
