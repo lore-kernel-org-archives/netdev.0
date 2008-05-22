@@ -1,35 +1,45 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/4] Restore multicast settings on resume
-Date: Thu, 22 May 2008 06:21:14 -0400
-Message-ID: <4835491A.1020209@garzik.org>
-References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <20080518130035.GA21417@yamamaya.is-a-geek.org>
+Subject: Re: [PATCH 1/1] Blackfin EMAC Driver: Removed duplicated include
+ <linux/ethtool.h> in drivers/net/bfin_mac.c.
+Date: Thu, 22 May 2008 06:22:16 -0400
+Message-ID: <48354958.2060905@garzik.org>
+References: <1210565644-4272-1-git-send-email-cooloney@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Tobias Diedrich <ranma+kernel@tdiedrich.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemm
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Huang Weiyi <weiyi.huang@gmail.com>
+To: Bryan Wu <cooloney@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59272 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59326 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936456AbYEVKVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 06:21:18 -0400
-In-Reply-To: <20080518130035.GA21417@yamamaya.is-a-geek.org>
+	id S936646AbYEVKWS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 06:22:18 -0400
+In-Reply-To: <1210565644-4272-1-git-send-email-cooloney@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tobias Diedrich wrote:
-> From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Bryan Wu wrote:
+> From: Huang Weiyi <weiyi.huang@gmail.com>
 > 
-> nv_open() resets multicast settings, call nv_set_multicast(dev) to restore them.
-> (Maybe this should rather be moved into nv_open())
+> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> ---
+>  drivers/net/bfin_mac.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
 > 
-> Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+> diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+> index 89c0018..4144343 100644
+> --- a/drivers/net/bfin_mac.c
+> +++ b/drivers/net/bfin_mac.c
+> @@ -22,7 +22,6 @@
+>  #include <linux/crc32.h>
+>  #include <linux/device.h>
+>  #include <linux/spinlock.h>
+> -#include <linux/ethtool.h>
+>  #include <linux/mii.h>
+>  #include <linux/phy.h>
 
 applied
-
-Ayaz, have you reviewed the other patches in this series?
 
 
