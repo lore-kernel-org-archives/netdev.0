@@ -1,65 +1,125 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DNAT sporadically doesn't replace destination IP address
-Date: Thu, 22 May 2008 16:57:04 +0200
-Message-ID: <483589C0.4080006@trash.net>
-References: <4835A03D.B932.00FE.0@newtec.eu>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [DCCP] [CCID-3] [Patch 1/1]: Simplify (readability of) two complex
+	expressions
+Date: Thu, 22 May 2008 15:59:35 +0100
+Message-ID: <20080522145935.GB18242@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ulrik De Bie <ulrik.debie@newtec.eu>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Kris Op de Beeck <kris.op.de.beeck@newtec.eu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4835A03D.B932.00FE.0@newtec.eu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Arnaldo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54346 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752075AbYEVO75 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 10:59:57 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kris Op de Beeck wrote:
-> * Problem:
-> The replacing of the destination IP address doesn't occur always.  I've got a PC on which I run a program which retrieves web pages of 30 modems which all have the same IP address.  In order to do this I created the configuration as listed below.  For the program the IP addresses will be 10.9.9.1 to 10.9.9.30.  Those will be send out on a specific VLAN and the IP address will be replaced by 192.168.1.1.  A number of times I get a 'no route to host' for those web pages, this happens sporadically.  If I start looking at the ARP messages, I see that when it goes wrong an ARP message is send out for an 10.9.9.x address which shouldn't be the case.
-> On an older setup I didn't  had this problem, so I downgraded the kernel version from 2.6.22-14-generic to 2.6.17-12-generic on the setup where I had the problem.  
-> With this downgraded kernel the problem didn't occur anymore. 
-> The distro is Ubuntu. An upgrade to Ubuntu 8.04 which has kernel 2.6.24 didn't solve the problem.
-> 
-> * Setup:
-> - On which I have the problem:
-> PC -> Vlan enabled ethernet switch -> 30 modems with the same IP address.
-> 
-> - Simplified:
-> PC -> PC
-> for 1 port use the configuration as mentioned below. For the other port use 192.168.1.1 as IP address for each VLAN.
-> Then you can just ping 10.9.9.x to test.
-> I have not tried this.
-> 
-> * Perl script to generate configure script:
-> !/usr/bin/perl -w
-> 
-> my $vlan  = 100;
-> my $modem = 1;
-> my $subip = 2;
-> for (my $modem = 1;$modem <= 30;$modem++) {
->     print "echo \"------------$vlan--------------------\"\n";
->     print "vconfig add eth2 $vlan\n";
->     print "ifconfig eth2.$vlan 192.168.1.$subip\n";
->     print "route del -net 192.168.1.0/24\n";
->     print "route add -host 10.9.9.$modem eth2.$vlan\n";
->     print "iptables -t nat -A OUTPUT -o eth2.$vlan -j DNAT --to 192.168.1.1\n";
-> 
->     print "iptables -t mangle -N VLAN$vlan\n";
->     print "iptables -t mangle -F VLAN$vlan\n";
->     print "iptables -t mangle -A VLAN$vlan -j MARK --set-mark $vlan\n";
->     print "iptables -t mangle -A OUTPUT -o eth2.$vlan -j VLAN$vlan\n";
->     print "ip ro add table $vlan default dev eth2.$vlan\n";
->     print "ip ru add fwmark $vlan table $vlan\n";
->     print "ip ro fl ca\n";
->     $vlan++;
->     $subip++;
-> };
-> 
+This is an update of the test tree, two changesets which had previously
+been sitting in different patches, both have now been given an explanation
+of what is going on.  Test tree will be updated accordingly.
 
-Please try loading ipt_LOG and executing
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+[CCID-3]: Simplify (readability of) two complex expressions
 
-"echo 255 >/proc/sys/net/netfilter/nf_conntrack_log_invalid"
+This simplifies the complex way in which two statements are written:
 
-and see if something shows up in the ringbuffer.
+ (a) It simplifies the control flow of update_x in the following manner,
+     where in addition the function call to `scaled_div()' was taken out
+     of the max() macro to avoid multiple evaluation.
+
+     The RFC 3448 control flow is (point (4) in section 4.3):
+
+	If (p > 0)
+		Calculate X_calc using the TCP throughput equation.
+		X = max(min(X_calc, 2*X_recv), s/t_mbi);
+	Else
+		If (t_now - tld >= R)
+			X = max(min(2*X, 2*X_recv), s/R);
+			tld = t_now;
+
+     In real life we must scale X by 2^6, to approximate the floating-point
+     operations of RFC 3448. This makes most expressions very hard to read.
+
+     So the patch introduces a new parameter low_thresh, which corresponds to
+       * scaled s/t_mbi if p > 0;
+       * scaled s/R     if p == 0 and if t_now - tld >= R.
+
+     This parameter gives the case-dependent minimum value of X; the first is
+     the requirement to send at least one packet per t_mbi=64 seconds; the
+     second ensures that at least one packet per RTT is sent during slow-start.
+
+     Hence it is a general constraint, so that if X does not change in 
+     subsequent calls to update_x(), we need not check if X is below the 
+     minimum value. Only if X has changed as a result of entering either
+     of the if/else cases above, do we need to check if it is below minimum.
+
+     A similar idea is in the upcoming rfc3448bis, section 4.5 ("Reducing
+     Oscillations"). This is a second point why the patch is needed: without
+     separating the test of "X < minimum", it is not possible to add the
+     "Preventing Oscillation" mechanism, whose use rfc3448bis recommends.
+
+ (b) It replaces the statement
+
+ 	X_recv = max(X_recv / 2, s * 64 / (2 * TFRC_T_MBI))
+
+     with the equivalent
+
+      	X_recv = max(s * 64 / TFRC_T_MBI, X_recv) / 2
+
+     by putting the common factor `1/2' outside the max().
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid3.c |   18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -128,7 +128,8 @@ static u32 ccid3_hc_tx_idle_rtt(struct c
+ static void ccid3_hc_tx_update_x(struct sock *sk, ktime_t *stamp)
+ {
+ 	struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
+-	u64 min_rate = 2 * hctx->x_recv;
++	u64 min_rate = 2 * hctx->x_recv,
++	    low_thresh = ((u64)hctx->s) << 6;
+ 	const u64 old_x = hctx->x;
+ 	ktime_t now = stamp ? *stamp : ktime_get_real();
+ 
+@@ -146,17 +147,19 @@ static void ccid3_hc_tx_update_x(struct 
+ 	if (hctx->p > 0) {
+ 
+ 		hctx->x = min(((u64)hctx->x_calc) << 6, min_rate);
+-		hctx->x = max(hctx->x, (((u64)hctx->s) << 6) / TFRC_T_MBI);
++		low_thresh /= TFRC_T_MBI;
+ 
+ 	} else if (ktime_us_delta(now, hctx->t_ld) - (s64)hctx->rtt >= 0) {
+ 
+-		hctx->x = min(2 * old_x, min_rate);
+-		hctx->x = max(hctx->x, scaled_div(low_thresh, hctx->rtt));
+-
++		hctx->x    = min(2 * old_x, min_rate);
++		low_thresh = scaled_div(low_thresh, hctx->rtt);
+ 		hctx->t_ld = now;
+ 	}
+ 
+ 	if (hctx->x != old_x) {
++		if (hctx->x < low_thresh)
++			hctx->x = low_thresh;
++
+ 		ccid3_pr_debug("X_prev=%u, X_now=%u, X_calc=%u, "
+ 			       "X_recv=%u\n", (unsigned)(old_x >> 6),
+ 			       (unsigned)(hctx->x >> 6), hctx->x_calc,
+@@ -241,9 +244,8 @@ static void ccid3_hc_tx_no_feedback_time
+ 		BUG_ON(hctx->p && !hctx->x_calc);
+ 
+ 		if (hctx->x_calc > (hctx->x_recv >> 5))
+-			hctx->x_recv =
+-				max(hctx->x_recv / 2,
+-				    (((__u64)hctx->s) << 6) / (2 * TFRC_T_MBI));
++			hctx->x_recv = max((((u64)hctx->s) << 6) / TFRC_T_MBI,
++					   hctx->x_recv) / 2;
+ 		else {
+ 			hctx->x_recv = hctx->x_calc;
+ 			hctx->x_recv <<= 4;
