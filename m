@@ -1,59 +1,35 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH] net/ipv4/arp.c: Use the exported hex_asc from
-	lib/hexdump.c instead
-Date: Wed, 21 May 2008 17:37:44 -0700
-Message-ID: <1211416664.6908.11.camel@brick>
-References: <1211323212.5915.220.camel@brick>
-	 <20080520.154551.54365414.davem@davemloft.net>
-	 <91b13c310805201927k4fccf8dcwa3fabe61777b2eda@mail.gmail.com>
-	 <20080521.173521.265981118.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] [TCP]: Make prior_ssthresh a u32
+Date: Wed, 21 May 2008 17:40:23 -0700 (PDT)
+Message-ID: <20080521.174023.73232424.davem@davemloft.net>
+References: <Pine.LNX.4.64.0805211534170.16829@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: crquan@gmail.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.190]:5255 "EHLO
-	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764628AbYEVAhr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 20:37:47 -0400
-Received: by rn-out-0910.google.com with SMTP id k40so499066rnd.17
-        for <netdev@vger.kernel.org>; Wed, 21 May 2008 17:37:46 -0700 (PDT)
-In-Reply-To: <20080521.173521.265981118.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37926
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756997AbYEVAk1 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2008 20:40:27 -0400
+In-Reply-To: <Pine.LNX.4.64.0805211534170.16829@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-05-21 at 17:35 -0700, David Miller wrote:
-> From: "rae l" <crquan@gmail.com>
-> Date: Wed, 21 May 2008 10:27:41 +0800
-> 
-> > net/ipv4/arp.c: Use common hex_asc helpers
-> > 
-> > Here the local hexbuf is a duplicate of global const char hex_asc from
-> > lib/hexdump.c, except the hex letters' cases:
-> > 
-> > 	const char hexbuf[] = "0123456789ABCDEF";
-> > 
-> > 	const char hex_asc[] = "0123456789abcdef";
-> > 
-> > and here to print HW addresses, the hex cases are not significant.
-> > 
-> > Thanks to Harvey Harrison to introduce the hex_asc_hi/hex_asc_lo helpers.
-> > 
-> > Signed-off-by: Denis Cheng <crquan@gmail.com>
-> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> 
-> Applied, thanks.
-> 
-> Harvey I know you posted a nearly identical patch, I had
-> to choose one and he did credit you with the idea for the
-> updated patch, so I hope this is OK.
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 21 May 2008 15:36:08 +0300 (EEST)
 
-His had the better changelog, I just sent mine to make my point clear
-what the patch could look like.
+> If previous window was above representable values of u16,
+> strange things will happen if undo with the truncated value
+> is called for. Alternatively, this could be fixed by some
+> max trickery but that would limit undoing high-speed undos.
+>=20
+> Adds 16-bit hole but there isn't anything to fill it with.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-No problems here.
+Applied.
 
-Harvey
-
+I'm sure we'll find something to put in that new u16 hole :)
