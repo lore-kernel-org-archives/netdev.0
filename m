@@ -1,37 +1,48 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH RESEND] atl1: fix 4G memory corruption bug
-Date: Thu, 22 May 2008 17:20:30 -0400
-Message-ID: <4835E39E.90801@garzik.org>
-References: <20080522220025.GA566@martell.zuzino.mipt.ru>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
+Date: Thu, 22 May 2008 15:59:55 -0700
+Message-ID: <1211497195.18326.79.camel@dell>
+References: <1211418386-18203-1-git-send-email-mchan@broadcom.com>
+ <1211418386-18203-4-git-send-email-mchan@broadcom.com>
+ <20080522211559.GA29851@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jay Cliburn <jacliburn@bellsouth.net>, stable@kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762884AbYEVVVU@vger.kernel.org>
-In-Reply-To: <20080522220025.GA566@martell.zuzino.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David Miller" <davem@davemloft.net>, michaelc@cs.wisc.edu,
+	anilgv@broadcom.com, netdev <netdev@vger.kernel.org>,
+	linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com
+To: "Christoph Hellwig" <hch@infradead.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080522211559.GA29851@infradead.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
-> From: Alexey Dobriyan <adobriyan@gmail.com>
+On Thu, 2008-05-22 at 17:15 -0400, Christoph Hellwig wrote:
+> > +struct bnx2i_async_msg {
+> > +#if defined(__BIG_ENDIAN)
+> > +	u8 op_code;
+> > +	u8 reserved1;
+> > +	u16 reserved0;
+> > +#elif defined(__LITTLE_ENDIAN)
+> > +	u16 reserved0;
+> > +	u8 reserved1;
+> > +	u8 op_code;
+> > +#endif
+> > +	u32 reserved2;
+> > +	u32 exp_cmd_sn;
+> > +	u32 max_cmd_sn;
+> > +	u32 reserved3[2];
 > 
-> When using 4+ GB RAM and SWIOTLB is active, the driver corrupts
-> memory by writing an skb after the relevant DMA page has been
-> unmapped.  Although this doesn't happen when *not* using bounce
-> buffers, clearing the pointer to the DMA page after unmapping
-> it fixes the problem.
-> 
-> http://marc.info/?t=120861317000005&r=2&w=2
+> Please don't do the ifdef big endian mess.  Just read the whole
+> 32bit word and do mask and shift operations to extract the actual value.
 > 
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-> ---
-> 
->  drivers/net/atlx/atl1.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
 
-applied
+I agree with you that u32 is cleaner in some cases.  We can just change
+it to u32 op_code and we just need a OP_CODE_MASK of 0xff.
+
+We'll go through this .h file and remove some of this big endian stuff
+and also the duplicate constants pointed out earlier.
+
+
+
