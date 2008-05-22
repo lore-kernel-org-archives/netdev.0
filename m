@@ -1,36 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DNAT sporadically doesn't replace destination IP address
-Date: Thu, 22 May 2008 17:36:27 +0200
-Message-ID: <483592FB.7070900@trash.net>
-References: <4835A03D.B932.00FE.0@newtec.eu> <483589C0.4080006@trash.net> <4835ABD2.B932.00FE.0@newtec.eu> <4835913A.4020909@trash.net> <4835AE9B.B932.00FE.0@newtec.eu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
+Date: Thu, 22 May 2008 16:52:36 +0100
+Message-ID: <20080522155234.GX28241@solarflare.com>
+References: <1211418386-18203-1-git-send-email-mchan@broadcom.com> <1211418386-18203-4-git-send-email-mchan@broadcom.com> <20080522151540.GA27897@mars.virtualiron.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ulrik De Bie <ulrik.debie@newtec.eu>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Kris Op de Beeck <kris.op.de.beeck@newtec.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: open-iscsi@googlegroups.com, davem@davemloft.net,
+	michaelc@cs.wisc.edu, anilgv@broadcom.com, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, Michael Chan <mchan@broadcom.com>
+To: Konrad Rzeszutek <konrad@virtualiron.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40369 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753090AbYEVPg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 11:36:29 -0400
-In-Reply-To: <4835AE9B.B932.00FE.0@newtec.eu>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:41631 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753302AbYEVPxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 11:53:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20080522151540.GA27897@mars.virtualiron.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kris Op de Beeck wrote:
->>> [  927.204000] nf_ct_tcp: invalid SYNIN= OUT= SRC=192.168.1.30 DST=10.9.9.29 
->> LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=25745 DF PROTO=TCP SPT=52775 DPT=80 
->> SEQ=2154890499 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT 
->> (020405B40402080A000264810000000001030307) UID=1000
->>> For those DST ip addresses I've got failures
->> Which kernel is this test running on? That message
->> is gone since 2.6.22.
+Konrad Rzeszutek wrote:
+> > + * bnx2i_iscsi_license_error - displays iscsi license related error message
 > 
-> s3p@burnin:~$ uname -a
-> Linux burnin 2.6.22-14-generic #1 SMP Sun Oct 14 23:05:12 GMT 2007 i686 GNU/Linux
-> 
-> This was the config where I detected the problem. (Ubuntu 7.10)
+> Doesn't look very license related. Just says 'not supported'.
 
-Odd. I'll have a look at the ubuntu kernel.
+Could be that some hardware strap pin is being used as a dongle.  This
+doesn't seem entirely in the spirit of GPL, and would be rather easy to
+remove...
+
+> > + * @hba:		adapter instance pointer
+> > + * @error_code:		error classification
+> > + *
+> > + * Puts out an error log when driver is unable to offload iscsi connection
+> > + *	due to license restrictions
+> 
+> Maybe adding in some extra information to the error, such as: "Due to
+> GPL restrictions, etc.." .. What does 'LOM' stand for?
+
+LOM is a common abbreviation for "LAN on motherboard" as opposed to an
+expansion card.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
