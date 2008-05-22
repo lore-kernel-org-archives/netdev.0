@@ -1,111 +1,37 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
-	available to userspace
-Date: Thu, 22 May 2008 11:02:46 +0100
-Message-ID: <20080522100246.GB4827@gerrit.erg.abdn.ac.uk>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net> <20080521120651.GA24590@gerrit.erg.abdn.ac.uk> <200805220235.41441.tomasz@grobelny.oswiecenia.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 06/11] dm9000-use-delayed-work-to-update-mii-phy-state-fix
+Date: Thu, 22 May 2008 06:03:46 -0400
+Message-ID: <48354502.1040708@garzik.org>
+References: <200805142320.m4ENKDWX026626@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ben-linux@fluff.org,
+	enrico.scholz@sigma-chemnitz.de
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39354 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760533AbYEVKDW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 06:03:22 -0400
-Content-Disposition: inline
-In-Reply-To: <200805220235.41441.tomasz@grobelny.oswiecenia.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:40544 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762397AbYEVKDt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 06:03:49 -0400
+In-Reply-To: <200805142320.m4ENKDWX026626@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| But when it gets into mainline people should be able to write applications 
-| that will be forward and backward compatible (as far as possible) with 
-| various kernel versions.
-| 
-The main answer to that is below, but compare for instance with TCP -
-few socket options need runtime discovery. The type of their parameters
-and their option values are all described in a manpage. On the other
-hand, I like your approach of trying to come up with a novel solution.
+akpm@linux-foundation.org wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> 
+> use cancel_delayed_work_sync()
+> 
+> Cc: Ben Dooks <ben-linux@fluff.org>
+> Cc: Enrico Scholz <enrico.scholz@sigma-chemnitz.de>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/dm9000.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-| > DCCP is full of half-finished things. 
-| That's why I'm trying to finish the qpolicy framework. Without providing 
-| runtime information it will turn out that application developers will be 
-| afraid to use new features just because the application won't be able to 
-| check if given parameter is supported or not.
-| 
-And you have done a good job so far, it is a very useful addition.
-
-
-| > I would much prefer to keep this 
-| > as simple as at all possible, to have time/room to fix the missing parts
-| > (such as no ECN support) in DCCP.
-| >
-| I understand that there might be some missing features in DCCP that are more 
-| important than yet another informational getsockopt. But these features are 
-| IMO highly independent and can be developed in parallel.
-| 
-Agreed.
-
-| > As a possible suggestion, I came up with a minimalistic variant of
-| > querying the interface - only 7 lines, including documentation.
-| >
-| > This is attached and it works by exploiting that
-| >  * policy IDs are just numbers;
-| >  * so that we could use the highest supported ID instead of an array;
-| I don't like the "highest supported ID" approach. But if you don't like arrays 
-| a simple "bool getsockopt" would do, we could just ask the kernel if it 
-| supports given qpolicy. Like (in pseudocode):
-| bool supports_prio=getsockopt(sk,DCCP_SOCKOPT_QPOLICY_AVAILABLE,QPOLICY_PRIO);
-| Would that be ok?
-| 
-What I sent is just a sketch, nothing set in stone. I am happy to take
-my patch out of the repository if there are better solutions.
+applied
 
 
-| >  * parameters are tied to the individual policy, so that a second
-| >    query (about which parameters are supported) is not necessary.
-| >
-| Can you guarantee that nobody ever will add a parameter? In fact even today I 
-| can think of two parameters that could be added: the previously discussed 
-| timeout and my new concept - the identity or category parameter (which is a 
-| subject for a separate thread).
-| 
-During the design phase it is almost certain to change several times.
-
-When the design phase is over, it will have some parts that will not
-likely change.
-
-Hence I am trying to figure out - how much change is due to re-designing
-things and how much change is de facto required for a useful dynamic
-interface?
-
-| BTW, the somewhat big code was meant to act as a framework for other features. 
-| Like getting information about percent of dropped packets in prio qpolicy 
-| queue.
-| -- 
-Ah - didn't understand what the qpolicy-specific getsockopt hooks were for.
-
-I think there is a way of doing this, but it requires a bit more work. 
-This would be to use netlink sockets to communicate/request/poll information. 
-
-The two alternatives I am aware of are
-
- * kernel/userspace connector
-   [ Documentation/connector/connector.txt ]
- * generic netlink interface
-   http://www.linux-foundation.org/en/Net:Generic_Netlink_HOWTO
-
-If done well, the interface could be very useful for several other
-things in DCCP:
- * querying qpolicy interface (with regard to this email thread)	
- * querying the CCIDs (available, set preference list)
- * getting much-needed runtime statistics into user-space
-   - this is a feature missing in UDP (and partly also TCP)
-   - so far only via CCID-3 getsockopt (tx_info/rx_info)
-   - there is research which says it would be nice to have the
-     current RTT, loss statistics etc in user-space
- * thus calling for a generic solution.
-
-What do you think about this alternative?
-
-- Gerrit
