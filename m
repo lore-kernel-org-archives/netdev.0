@@ -1,66 +1,59 @@
-From: <glenn_engel@agilent.com>
-Subject: RE: natsemi.c ioctl fix or mii register access
-Date: Thu, 22 May 2008 12:46:13 -0600
-Message-ID: <010200463BAAFF45926C5BFD8E21F515FD47AC@cos-us-mb01.cos.agilent.com>
-References: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com> <4835B5C0.2000701@pobox.com>
+From: Pekka J Enberg <penberg@cs.helsinki.fi>
+Subject: [PATCH] netfilter: use krealloc() in nf_conntrack_extend.c V2
+Date: Thu, 22 May 2008 21:55:37 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805222155150.6294@sbz-30.cs.Helsinki.FI>
+References: <Pine.LNX.4.64.0805222145320.6071@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mpm@selenic.com, clameter@sgi.com
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0805222145320.6071@sbz-30.cs.Helsinki.FI>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+To: kaber@trash.net
+[PATCH] netfilter: use krealloc() in nf_conntrack_extend.c V2
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+
+The ksize() API is going away because it is being abused and it doesn't even
+work consistenly across different allocators. Therefore, convert
+net/netfilter/nf_conntrack_extend.c to use krealloc().
+
+Cc: <netfilter-devel@vger.kernel.org>
 Cc: <netdev@vger.kernel.org>
-To: <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aglcosbs01.cos.agilent.com ([192.25.218.35]:36276 "EHLO
-	aglcosbs01.cos.agilent.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750786AbYEVStF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 14:49:05 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <4835B5C0.2000701@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Matt Mackall <mpm@selenic.com>
+Cc: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+---
+Patrick, please use this patch instead. The previous one did the moving
+unconditionally which is wrong. This one moves entries around only if
+krealloc() allocated a new buffer.
 
-The core only copies the ifreq struct.  In the case of SIOC[GS]MIIPHY the ifru_data field is a pointer to additional user space information about the ioctl (phy_id, register number).
+ net/netfilter/nf_conntrack_extend.c |   10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-Thus, an additional copy_from/to_user is required to extract this additional information.  
-
-I suppose this copy could be done in dev.c for these ioctls but it would also need to tweak the ifru_data field to point to local storage before/after the ioctl calls.  Perhaps this was the original intent and was not noticed since ethtool doesn't use these ioctls.  I just assumed the natsemi driver was the odd duck but perhaps none of them work with these ioctls at this point.
-
---
-Glenn
-
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jgarzik@pobox.com]
-> Sent: Thursday, May 22, 2008 11:05 AM
-> To: ENGEL,GLENN (A-Labs,ex1)
-> Cc: netdev@vger.kernel.org
-> Subject: Re: natsemi.c ioctl fix or mii register access
-> 
-> glenn_engel@agilent.com wrote:
-> > Hi,
-> >
-> > I recently discovered the ioctl implementation in natsemi.c had a few
-> bugs in dealing with the user ioctls to send and receive MII commands
-> (SIOCGMIIPHY and SIOCSMIIPHY).
-> >
-> > The specific problems noted and fixed:
-> >
-> > 1. The if_mii macro casts it's return to be (struct mii_ioctl_data *)
-> but in reality it returns a pointer to the user space pointer (struct
-> mii_ioctl_data**).   This looks to be a problem with the mii_macro to
-> me.  I changed this to use the ifr_data macro instead.
-> >
-> > 2. Since the mii_ioctl_data structure resides in user space, it must
-> be copied into kernel space before access and copied back for read
-> results.  References to the pointer were changed to point to the local
-> copy (data-> changed to mii_data.)
-> 
-> This is completely incorrect.  The copying is done for us inside net
-> core.
-> 
-> 	Jeff
-> 
-> 
-> 
-
-
+Index: slab-2.6/net/netfilter/nf_conntrack_extend.c
+===================================================================
+--- slab-2.6.orig/net/netfilter/nf_conntrack_extend.c	2008-05-22 21:52:12.000000000 +0300
++++ slab-2.6/net/netfilter/nf_conntrack_extend.c	2008-05-22 21:52:26.000000000 +0300
+@@ -88,13 +88,11 @@
+ 	newlen = newoff + t->len;
+ 	rcu_read_unlock();
+ 
+-	if (newlen >= ksize(ct->ext)) {
+-		new = kmalloc(newlen, gfp);
+-		if (!new)
+-			return NULL;
+-
+-		memcpy(new, ct->ext, ct->ext->len);
++	new = krealloc(ct->ext, newlen, gfp);
++	if (!new)
++		return NULL;
+ 
++	if (new != ct->ext) {
+ 		for (i = 0; i < NF_CT_EXT_NUM; i++) {
+ 			if (!nf_ct_ext_exist(ct, i))
+ 				continue;
