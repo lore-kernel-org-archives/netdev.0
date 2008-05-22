@@ -1,53 +1,36 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/2] 3C509: rx_bytes should not be increased when alloc_skb
- failed
-Date: Thu, 22 May 2008 14:02:53 -0400
-Message-ID: <4835B54D.6050600@pobox.com>
-References: <48329650.60809@cn.fujitsu.com>
+Subject: Re: natsemi.c ioctl fix or mii register access
+Date: Thu, 22 May 2008 14:04:48 -0400
+Message-ID: <4835B5C0.2000701@pobox.com>
+References: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: becker@scyld.com, "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org
+To: glenn_engel@agilent.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36657 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:35067 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755998AbYEVSC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 14:02:59 -0400
-In-Reply-To: <48329650.60809@cn.fujitsu.com>
+	id S1754737AbYEVSEv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 14:04:51 -0400
+In-Reply-To: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-> If alloc_skb failed, the recieved packet will be dropped. Do not increase
-> rx_bytes for dropped packet.
+glenn_engel@agilent.com wrote:
+> Hi,
 > 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-> ---
->  drivers/net/3c509.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
-> index e6c545f..fe6d841 100644
-> --- a/drivers/net/3c509.c
-> +++ b/drivers/net/3c509.c
-> @@ -1063,7 +1063,6 @@ el3_rx(struct net_device *dev)
->  			struct sk_buff *skb;
+> I recently discovered the ioctl implementation in natsemi.c had a few bugs in dealing with the user ioctls to send and receive MII commands (SIOCGMIIPHY and SIOCSMIIPHY).
 >  
->  			skb = dev_alloc_skb(pkt_len+5);
-> -			dev->stats.rx_bytes += pkt_len;
->  			if (el3_debug > 4)
->  				printk("Receiving packet size %d status %4.4x.\n",
->  					   pkt_len, rx_status);
-> @@ -1078,6 +1077,7 @@ el3_rx(struct net_device *dev)
->  				skb->protocol = eth_type_trans(skb,dev);
->  				netif_rx(skb);
->  				dev->last_rx = jiffies;
-> +				dev->stats.rx_bytes += pkt_len;
->  				dev->stats.rx_packets++;
->  				continue;
+> The specific problems noted and fixed:
+> 
+> 1. The if_mii macro casts it's return to be (struct mii_ioctl_data *) but in reality it returns a pointer to the user space pointer (struct mii_ioctl_data**).   This looks to be a problem with the mii_macro to me.  I changed this to use the ifr_data macro instead.
+> 
+> 2. Since the mii_ioctl_data structure resides in user space, it must be copied into kernel space before access and copied back for read results.  References to the pointer were changed to point to the local copy (data-> changed to mii_data.)
 
-applied
+This is completely incorrect.  The copying is done for us inside net core.
+
+	Jeff
+
 
 
