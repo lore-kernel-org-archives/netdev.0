@@ -1,30 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] drivers/net/ehea - remove unnecessary memset after kzalloc
-Date: Thu, 22 May 2008 06:22:30 -0400
-Message-ID: <48354966.5050508@pobox.com>
-References: <20080512213601.626C91C0008F@mwinf2103.orange.fr> <1210628297.14967.16.camel@localhost>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.26 1/3]S2io: Move all the transmit completions to
+ a single msi-x (alarm) vector
+Date: Thu, 22 May 2008 06:27:00 -0400
+Message-ID: <48354A74.3050606@garzik.org>
+References: <Pine.GSO.4.10.10805121340300.18446-100000@guinness>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	linux <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Christophe Jaillet <christophe.jaillet@wanadoo.fr>
-To: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60775 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60807 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937184AbYEVKX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 06:23:56 -0400
-In-Reply-To: <1210628297.14967.16.camel@localhost>
+	id S1761981AbYEVK1B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 06:27:01 -0400
+In-Reply-To: <Pine.GSO.4.10.10805121340300.18446-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
+Sreenivasa Honnur wrote:
+> - Move all the transmit completions to a single msi-x (alarm) vector.
+> - Enable the continuous timer interrupt for only one transmit fifo.
+> 
+> Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
+> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 
-applied
+applied 1-3
 
 
