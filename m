@@ -1,69 +1,43 @@
-From: "Kris Op de Beeck" <kris.op.de.beeck@newtec.eu>
-Subject: Re: DNAT sporadically doesn't replace destination IP address
-Date: Thu, 22 May 2008 19:45:10 +0200
-Message-ID: <4835CD44.B932.00FE.0@newtec.eu>
-References: <4835A03D.B932.00FE.0@newtec.eu> <483589C0.4080006@trash.net>
- <4835ABD2.B932.00FE.0@newtec.eu> <4835913A.4020909@trash.net>
- <4835AE9B.B932.00FE.0@newtec.eu> <48359F66.50503@trash.net>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [RFC, VLAN]: Propagate selected feature bits to VLAN devices
+Date: Thu, 22 May 2008 10:47:40 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329051F36F5@orsmsx414.amr.corp.intel.com>
+References: <E1JyqZL-0005qz-00@gondolin.me.apana.org.au> <48344DAA.4060107@trash.net> <20080521233952.GA27138@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "Ulrik De Bie" <ulrik.debie@newtec.eu>, <netdev@vger.kernel.org>,
-	"Netfilter Development Mailinglist" <netfilter-devel@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.newtec.eu ([62.58.98.194]:1960 "EHLO mail.newtec.eu"
+Received: from mga14.intel.com ([143.182.124.37]:26672 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755074AbYEVRp7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 13:45:59 -0400
-In-Reply-To: <48359F66.50503@trash.net>
-Content-Disposition: inline
+	id S1754713AbYEVRrj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 13:47:39 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080521233952.GA27138@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> On 22/05/2008 at 18:29, in message <48359F66.50503@trash.net>, Patrick McHardy
-<kaber@trash.net> wrote:
-> Kris Op de Beeck wrote:
->> 
->>>>> On 22/05/2008 at 17:28, in message <4835913A.4020909@trash.net>, Patrick
->> McHardy <kaber@trash.net> wrote:
->>>> [  927.204000] nf_ct_tcp: invalid SYNIN= OUT= SRC=192.168.1.30 DST=10.9.9.29 
+> > I thought about this myself, my second idea was to add a mask for 
+> > feature bits to be propagated. Unless there is a need for 
+> the driver 
+> > to determine them at runtime, thats slightly simpler. The 
+> driver would 
+> > do:
+> > 
+> > dev->vlan_features = NETIF_F_CSUM_ALL | ...
+> > 
+> > What do you think about this?
 > 
->>> LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=25745 DF PROTO=TCP SPT=52775 DPT=80 
->>> SEQ=2154890499 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT 
->>> (020405B40402080A000264810000000001030307) UID=1000
->>>> For those DST ip addresses I've got failures
->>> Which kernel is this test running on? That message
->>> is gone since 2.6.22.
->> 
->> s3p@burnin:~$ uname -a
->> Linux burnin 2.6.22-14-generic #1 SMP Sun Oct 14 23:05:12 GMT 2007 i686 
-> GNU/Linux
->> 
->> This was the config where I detected the problem. (Ubuntu 7.10)
-> 
-> 
-> I didn't find the reason why your kernel even has that message
-> (didn't try to hard though). Could you rerun the test with a
-> more current kernel, like 2.6.24 or 2.6.25 please?
+> Yes that sounds great!
 
-I will try to and let you know.
-Thanks so far for looking into it.
+The issue is how does the driver know how to pull those flags off the
+VLAN device when the parent has TSO or CSUM offload disabled?  The only
+way I could come up with it was in my original patch in the drivers to
+loop through the entire VLAN group array, and clear the flag on existing
+devices.
 
-Newtec will be present at the following exhibitions :
-
-CommunicAsia, 17-20 June, Singapore, Booth 6B2-01
-
-*** e-mail confidentiality footer ***
-This message and any attachments thereto are confidential. They may also
-be privileged or otherwise protected by work product immunity or other
-legal rules. If you have received it by mistake, please let us know by
-e-mail reply and delete it from your system; you may not copy this
-message or disclose its contents to anyone.
-E-mail transmission cannot be guaranteed to be secure or error free as
-information could be intercepted, corrupted, lost, destroyed, arrive
-late or incomplete, or contain viruses. The sender therefore is in no
-way liable for any errors or omissions in the content of this message,
-which may arise as a result of e-mail transmission. If verification is
-required, please request a hard copy.
-
+Cheers,
+-PJ Waskiewicz
