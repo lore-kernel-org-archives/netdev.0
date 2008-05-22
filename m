@@ -1,35 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Single packet receiving in multiple ring buffers
-Date: Thu, 22 May 2008 11:57:55 -0700 (PDT)
-Message-ID: <20080522.115755.202204829.davem@davemloft.net>
-References: <20080522181401.GA14056@2ka.mipt.ru>
-	<31256957387BB54C8B9AFE88AA5C0564044A1846@SDCEXCHANGE01.ad.amcc.com>
-	<20080522184906.GA32582@2ka.mipt.ru>
+From: Matthias Cramer <matthias.cramer@interway.ch>
+Subject: Re: Wired behaviour with IPv6 over PPP
+Date: Thu, 22 May 2008 21:05:47 +0200
+Message-ID: <4835C40B.60603@interway.ch>
+References: <48341C0B.7010003@interway.ch> <20080522014959.0f6191aa.akpm@linux-foundation.org> <48354318.60202@katalix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kchudgar@amcc.com, kchudgar.linux@gmail.com, netdev@vger.kernel.org
-To: johnpol@2ka.mipt.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42712
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751234AbYEVS6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 14:58:00 -0400
-In-Reply-To: <20080522184906.GA32582@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig2D9BF51E945CBAD54BE20CB5"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753831AbYEVTGV@vger.kernel.org>
+In-Reply-To: <48354318.60202@katalix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Thu, 22 May 2008 22:49:07 +0400
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig2D9BF51E945CBAD54BE20CB5
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> You have to copy part of the data (up to and including transport headers)
-> into skb->data.
+James Chapman wrote:
+> Andrew Morton wrote:
+>> On Wed, 21 May 2008 14:56:43 +0200 Matthias Cramer
+>> <matthias.cramer@interway.ch> wrote:
+>>> I have a very wired behaviour when doing IPv6 over PPPoE.
+>>>
+>>> The situation:
+>>>
+>>> A linux box connected to a DSL Modem, on the other side is a Cisco
+>>> LNS which terminates the PPP session (actually L2TP).
+>>> I have control over both ends.
+>>>
+>>> When I have net.ipv6.conf.all.forwarding set to 0 then the ppp
+>>> Interface gets a IPv6 address from the Cisco via IP6CP.
+>>> When I have net.ipv6.conf.all.forwarding set to 1 them the ppp
+>>> Interface does not get an address, it has only a normal link local
+>>> address.
+>=20
+> What do you mean by normal link local address?
 
-You don't necessarily have to.  The input paths of the networking
-stack will pull into the skb->data, as needed, using
-pskb_may_pull() calls.
+a fe80:: address, which every IPv6 enabled Interface has...
 
-I did some tests with the NIU driver on receive, and to be
-honest there was nearly zero performance gain from pre-copying
-into skb->data from the paged SKB area preemptively before
-passing the packet in via netif_receive_skb().
+>=20
+>>> When I start the ppp session with forwarding set to 0 I can ping out
+>>> and there exists a default route to ppp0 , then I switch forwarding t=
+o 1
+>>> the default route disappears and therefore routing does not work any
+>>> longer.
+>=20
+> Did this work with previous kernel versions?
+
+No, in my opinion it never worked. But I thought that pppd does it wrong
+because id never got an IPv6 address. But I had always forwarding
+enabled. Now in this case i started pppd without forwarding enabled and
+got an address.
+
+>=20
+> Does pppd log any errors?
+
+No, no errors
+
+--=20
+Matthias Cramer                System & Network Manager
+Interway Communication GmbH    Phone +41 43 500 1111
+Josefstrasse 225               Fax   +41 44 271 3535
+CH-8005 Zuerich                http://www.interway.ch/
+
+
+--------------enig2D9BF51E945CBAD54BE20CB5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+Comment: Public key at: http://www.freestone.net/~cramer/cramer.pgp.php
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFINcQTti/fHC0gglARAvWPAJ0ZHNBeGx7iB7YtV214/vqhf8alcACbB5Jd
+DUxuFImnGZCPTPysJ74RtUQ=
+=1m1s
+-----END PGP SIGNATURE-----
+
+--------------enig2D9BF51E945CBAD54BE20CB5--
