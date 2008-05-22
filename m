@@ -1,138 +1,61 @@
-From: "Michael Chan" <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 1/3] bnx2: Add support for CNIC driver.
-Date: Thu, 22 May 2008 12:23:28 -0700
-Message-ID: <1211484208.18326.25.camel@dell>
-References: <1211418386-18203-1-git-send-email-mchan@broadcom.com> <1211418386-18203-2-git-send-email-mchan@broadcom.com> <20080522064541.GA11933@linux.vnet.ibm.com>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [RFC, VLAN]: Propagate selected feature bits to VLAN devices
+Date: Thu, 22 May 2008 11:18:59 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329051F3761@orsmsx414.amr.corp.intel.com>
+References: <E1JyqZL-0005qz-00@gondolin.me.apana.org.au> <48344DAA.4060107@trash.net> <20080521233952.GA27138@gondor.apana.org.au> <D5C1322C3E673F459512FB59E0DDC329051F36F5@orsmsx414.amr.corp.intel.com> <4835B556.4020308@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org, anilgv-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <20080522064541.GA11933-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <mailto:open-iscsi-help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
-	<mailto:open-iscsi-unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:4629 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757726AbYEVSS7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 14:18:59 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <4835B556.4020308@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Wed, 2008-05-21 at 23:45 -0700, Paul E. McKenney wrote:
-
-> Some RCU-related questions interspersed below, for example, how are
-> updates protected?
-
-Only one CNIC driver will ever register with the BNX2 driver.  The main
-purpose of using RCU is so that the fast path can avoid locking when
-handling interrupt events from the hardware.
-
-> > +
-> > +static void bnx2_setup_cnic_irq_info(struct bnx2 *bp)
-> > +{
-> > +	struct cnic_ops *c_ops;
-> > +	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-> > +	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-> > +	int sb_id;
-> > +
-> > +	rcu_read_lock();
-> > +	c_ops = rcu_dereference(bp->cnic_ops);
-> > +	if (!c_ops)
-> > +		goto done;
+> Waskiewicz Jr, Peter P wrote:
+> >>> I thought about this myself, my second idea was to add a mask for 
+> >>> feature bits to be propagated. Unless there is a need for
+> >>>       
+> >> the driver
+> >>     
+> >>> to determine them at runtime, thats slightly simpler. The
+> >>>       
+> >> driver would
+> >>     
+> >>> do:
+> >>>
+> >>> dev->vlan_features = NETIF_F_CSUM_ALL | ...
+> >>>
+> >>> What do you think about this?
+> >>>       
+> >> Yes that sounds great!
+> >>     
+> >
+> > The issue is how does the driver know how to pull those 
+> flags off the 
+> > VLAN device when the parent has TSO or CSUM offload disabled?  The 
+> > only way I could come up with it was in my original patch in the 
+> > drivers to loop through the entire VLAN group array, and clear the 
+> > flag on existing devices.
+> >   
 > 
-> Given that c_ops is unused below, what is happening here?  What prevents
-> bp->cnic_ops from becoming NULL immediately after we test it?  And if
-> it is OK for bp->cnic_ops to become NULL immediately after we test it,
-> why are we bothering to test it?
+> Yes, thats also what my patch is doing. Not a big deal I 
+> guess, we're doing that for all kinds of notifications 
+> already and nobody ever complained.
 
-You are right.  We should just unconditionally set up the IRQ
-information without checking for c_ops.  The data structures we set up
-below are owned by us.
+I guess I misunderstood what you were suggesting to re-implement with
+Herbert.  I like your current patch as-is, but if something different is
+coming, I'll just sit tight for it.  I already spun the ixgbe, igb, and
+e1000e patches to use the new interface, and they should be coming out
+shortly.  But if we need to update them later, that's cool.
 
-> 
-> > +
-> > +	if (bp->flags & BNX2_FLAG_USING_MSIX) {
-> > +		cp->drv_state |= CNIC_DRV_STATE_USING_MSIX;
-> > +		bnapi->cnic_present = 0;
-> > +		sb_id = BNX2_CNIC_VEC;
-> > +		cp->irq_arr[0].irq_flags |= CNIC_IRQ_FL_MSIX;
-> > +	} else {
-> > +		cp->drv_state &= ~CNIC_DRV_STATE_USING_MSIX;
-> > +		bnapi->cnic_tag = bnapi->last_status_idx;
-> > +		bnapi->cnic_present = 1;
-> > +		sb_id = 0;
-> > +		cp->irq_arr[0].irq_flags &= !CNIC_IRQ_FL_MSIX;
-> > +	}
-> > +
-> > +	cp->irq_arr[0].vector = bp->irq_tbl[sb_id].vector;
-> > +	cp->irq_arr[0].status_blk = (void *) ((unsigned long) bp->status_blk +
-> > +		(BNX2_SBLK_MSIX_ALIGN_SIZE * sb_id));
-> > +	cp->irq_arr[0].status_blk_num = sb_id;
-> > +	cp->num_irq = 1;
-> > +
-> > +done:
-> > +	rcu_read_unlock();
-> > +}
-> > +
-> > +static int bnx2_register_cnic(struct net_device *dev, struct cnic_ops *ops,
-> > +			      void *data)
-> > +{
-> > +	struct bnx2 *bp = netdev_priv(dev);
-> > +	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-> > +
-> > +	if (ops == NULL)
-> > +		return -EINVAL;
-> > +
-> > +	if (!try_module_get(ops->cnic_owner))
-> > +		return -EBUSY;
-> > +
-> > +	bp->cnic_data = data;
-> > +	rcu_assign_pointer(bp->cnic_ops, ops);
-> 
-> What prevents multiple tasks from doing this assignment concurrently?
-
-As I said above, only one CNIC driver will ever register.
-
-> 
-> > +
-> > +	cp->num_irq = 0;
-> > +	cp->drv_state = CNIC_DRV_STATE_REGD;
-> > +
-> > +	bnx2_setup_cnic_irq_info(bp);
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +static int bnx2_unregister_cnic(struct net_device *dev)
-> > +{
-> > +	struct bnx2 *bp = netdev_priv(dev);
-> > +	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-> > +	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-> > +
-> > +	cp->drv_state = 0;
-> > +	module_put(bp->cnic_ops->cnic_owner);
-> > +	bnapi->cnic_present = 0;
-> > +	rcu_assign_pointer(bp->cnic_ops, NULL);
-> 
-> What prevents this from running concurrently with bnx2_register_cnic()?
-
-We expect the CNIC driver to be well behaved and will only unregister
-after successfully registered.
-
-> 
-> > +	synchronize_rcu();
-> 
-> The caller is responsible for freeing up the old bp->cnic_ops structure?
-> Or is this structure statically allocated?
-> 
-> If so, is the idea to delay return until all prior calls through the
-> old ops structure have completed?
-
-The cnic_ops contain call back function pointers to the CNIC driver.  We
-want to make sure that those calls have completed (in the fast path)
-before continuing.
-
-> 
-> > +	return 0;
-> > +}
-> > +
+Cheers,
+-PJ Waskiewicz
