@@ -1,50 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [NETLINK]: Fix nla_parse_nested_compat() to call nla_parse()
- directly
-Date: Thu, 22 May 2008 11:02:58 -0700
-Message-ID: <20080522110258.4cd23801@extreme>
-References: <20080522002155.GP20815@postel.suug.ch>
-	<20080522113720.GR20815@postel.suug.ch>
-	<48356AE3.7050700@trash.net>
-	<20080522.104913.231161238.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/2] 3C509: rx_bytes should not be increased when alloc_skb
+ failed
+Date: Thu, 22 May 2008 14:02:53 -0400
+Message-ID: <4835B54D.6050600@pobox.com>
+References: <48329650.60809@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, tgraf@suug.ch, davej@codemonkey.org.uk,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: becker@scyld.com, "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:48421 "EHLO mail.vyatta.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:36657 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756074AbYEVSC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755998AbYEVSC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 22 May 2008 14:02:59 -0400
-In-Reply-To: <20080522.104913.231161238.davem@davemloft.net>
+In-Reply-To: <48329650.60809@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 22 May 2008 10:49:13 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Thu, 22 May 2008 14:45:23 +0200
+Wang Chen wrote:
+> If alloc_skb failed, the recieved packet will be dropped. Do not increase
+> rx_bytes for dropped packet.
 > 
-> > Thomas Graf wrote:
-> > > The purpose of nla_parse_nested_compat() is to parse attributes
-> > > which contain a struct followed by a stream of nested attributes.
-> > > So far, it called nla_parse_nested() to parse the stream of
-> > > nested attributes which was wrong, as nla_parse_nested() expects
-> > > a container attribute as data which holds the attribute stream.
-> > > It needs to call nla_parse() directly while pointing at the
-> > > next possible alignment point after the struct in the beginning
-> > > of the attribute.
-> > >
-> > > With this patch, I can no longer reproduce the reported leftover
-> > > warnings.
-> > >
-> > > Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> > 
-> > Looks good to me, thanks for fixing this Thomas.
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> ---
+>  drivers/net/3c509.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> Patch applied, thanks everyone.
+> diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
+> index e6c545f..fe6d841 100644
+> --- a/drivers/net/3c509.c
+> +++ b/drivers/net/3c509.c
+> @@ -1063,7 +1063,6 @@ el3_rx(struct net_device *dev)
+>  			struct sk_buff *skb;
+>  
+>  			skb = dev_alloc_skb(pkt_len+5);
+> -			dev->stats.rx_bytes += pkt_len;
+>  			if (el3_debug > 4)
+>  				printk("Receiving packet size %d status %4.4x.\n",
+>  					   pkt_len, rx_status);
+> @@ -1078,6 +1077,7 @@ el3_rx(struct net_device *dev)
+>  				skb->protocol = eth_type_trans(skb,dev);
+>  				netif_rx(skb);
+>  				dev->last_rx = jiffies;
+> +				dev->stats.rx_bytes += pkt_len;
+>  				dev->stats.rx_packets++;
+>  				continue;
 
-Pls, push this to stable as well.
+applied
+
+
