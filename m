@@ -1,37 +1,35 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [RFC, VLAN]: Propagate selected feature bits to VLAN devices
-Date: Thu, 22 May 2008 11:57:43 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329051F37E3@orsmsx414.amr.corp.intel.com>
-References: <E1JyqZL-0005qz-00@gondolin.me.apana.org.au> <48344DAA.4060107@trash.net> <20080521233952.GA27138@gondor.apana.org.au> <D5C1322C3E673F459512FB59E0DDC329051F36F5@orsmsx414.amr.corp.intel.com> <4835B556.4020308@trash.net> <D5C1322C3E673F459512FB59E0DDC329051F3761@orsmsx414.amr.corp.intel.com> <4835BA86.8010209@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Single packet receiving in multiple ring buffers
+Date: Thu, 22 May 2008 11:57:55 -0700 (PDT)
+Message-ID: <20080522.115755.202204829.davem@davemloft.net>
+References: <20080522181401.GA14056@2ka.mipt.ru>
+	<31256957387BB54C8B9AFE88AA5C0564044A1846@SDCEXCHANGE01.ad.amcc.com>
+	<20080522184906.GA32582@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kchudgar@amcc.com, kchudgar.linux@gmail.com, netdev@vger.kernel.org
+To: johnpol@2ka.mipt.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:52381 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751180AbYEVS5v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 14:57:51 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <4835BA86.8010209@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42712
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751234AbYEVS6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 14:58:00 -0400
+In-Reply-To: <20080522184906.GA32582@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The idea is simply to replace the NETIF_F_VLAN_TSO and 
-> checksumming flag by a flag mask that specifies the features 
-> that may be propagated to the VLAN devices.
-> 
-> The change to your driver will most likely be something like:
-> 
-> - dev->features |= NETIF_F_VLAN_TSO | ...
-> + dev->vlan_features |= NETIF_F_TSO | NETIF_F_TSO6 | 
-> NETIF_F_CSUM_ALL | ...
-> 
-> I'll send the patch tommorrow, I'm currently busy with other things.
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 22 May 2008 22:49:07 +0400
 
-Ok.  That sounds great.  Thanks Patrick.
+> You have to copy part of the data (up to and including transport headers)
+> into skb->data.
 
--PJ Waskiewicz
+You don't necessarily have to.  The input paths of the networking
+stack will pull into the skb->data, as needed, using
+pskb_may_pull() calls.
+
+I did some tests with the NIU driver on receive, and to be
+honest there was nearly zero performance gain from pre-copying
+into skb->data from the paged SKB area preemptively before
+passing the packet in via netif_receive_skb().
