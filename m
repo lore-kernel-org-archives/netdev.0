@@ -1,49 +1,42 @@
-From: Jesper Krogh <jesper@krogh.cc>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Thu, 22 May 2008 18:32:07 +0200
-Message-ID: <4835A007.7020601@krogh.cc>
-References: <4824CBA1.8040703@sun.com>	<4824CCF0.5050302@krogh.cc>	<4824D1E1.10007@sun.com> <20080509.154538.28321777.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Fwd: [Bug 447812] New: Netlink messages from "tc" to sch_netem
+ module are not interpreted correctly
+Date: Thu, 22 May 2008 09:32:14 -0700
+Message-ID: <4835A00E.2050908@hp.com>
+References: <20080521214523.GB22591@codemonkey.org.uk>	<20080521151021.3d47a3d8@extreme>	<20080522002155.GP20815@postel.suug.ch> <4834C4FE.4060502@hp.com> <20080522111835.GQ20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Matheos.Worku@Sun.COM, yhlu.kernel@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Dave Jones <davej@codemonkey.org.uk>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:55366 "EHLO
-	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753846AbYEVQcT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 12:32:19 -0400
-In-Reply-To: <20080509.154538.28321777.davem@davemloft.net>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:33667 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753935AbYEVQcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 12:32:18 -0400
+In-Reply-To: <20080522111835.GQ20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Matheos Worku <Matheos.Worku@Sun.COM>
-> Date: Fri, 09 May 2008 15:36:17 -0700
+> I looked at netrt_rtnetlink.c, the problem is unrelated. Look at
+> the code when adding the source attribtue:
 > 
->> I have observed TX throughput degradation (and increased CPU 
->> utilization)  occurs with increased # of connections, when CPU count > 4 
->> CPUs.  I don't think it is related to the driver (or HW).
+>   struct rtattr *rtap;
 > 
-> All transmits through a device are fully serialized currently,
-> it's a known problem and something we plan to fix.
+>   if (source) {
+>     rtap +=  rtap->rta_len;
+> 
+> You want to increment rtap by rta_len bytes, not rta_len*sizeof(*rtap)
+> bytes.
+> 
+> Also, the code uses RTA_LENGTH() to calculate attributes sizes which
+> is wrong, it must use RTA_SPACE() as RTA_LENGTH() does not align the
+> actual data part and thus the next attribute is unaligned if the data
+> of the previous attribute is not aligned to 4 bytes.
 
-I google'd up this one:
+I'll make the fixes in the netperf code - thanks, hope the bugs there 
+weren't too big a distraction.
 
-http://vger.kernel.org/~davem/davem_tokyo08.pdf (slide 23+).
+rick jones
 
-Does this mean that I can expect every 10G card to have this limitation
-under Linux? Or are some known to be better than others?
-(I can probably justify paying for another 10G card if I can expect to
-gain the last 400MB/s).
-
-Since I cannot push more than ~600MB/s through the NIC before a single 
-cpu is bottlenecked, it seem most likely to be this TX throughput
-thing I hit.
-
-Thanks
-
-Jesper
--- 
-Jesper
