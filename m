@@ -1,49 +1,31 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] e1000e: use resource_size_t, not unsigned long, for phys
- addrs
-Date: Thu, 22 May 2008 06:22:03 -0400
-Message-ID: <4835494B.20802@pobox.com>
-References: <Pine.LNX.4.64.0805011757090.8700@monty.am.freescale.net>
+Subject: Re: [PATCH v2.6.26] ucc_geth: Fix arguments to dma map/unmap functions
+Date: Thu, 22 May 2008 06:21:45 -0400
+Message-ID: <48354939.9090109@pobox.com>
+References: <1210888821-15471-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Becky Bruce <bgill@freescale.com>
+Cc: netdev@vger.kernel.org
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59314 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59299 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933393AbYEVKWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 06:22:07 -0400
-In-Reply-To: <Pine.LNX.4.64.0805011757090.8700@monty.am.freescale.net>
+	id S936789AbYEVKVr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 06:21:47 -0400
+In-Reply-To: <1210888821-15471-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Becky Bruce wrote:
-> The use of unsigned long causes the driver to fail on 32-bit systems
-> which support 64-bit resources.
+Andy Fleming wrote:
+> We were passing NULL as the device.  When we actually start supporting
+> more interesting memory configurations, this will break things, so
+> we proactively are fixing the bug.
 > 
-> Signed-off-by: Becky Bruce <becky.bruce@freescale.com>
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
 > ---
-> 
-> Resend, with proper CC.
-> 
->  drivers/net/e1000e/netdev.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-> index 8991ab8..dae3269 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -3897,8 +3897,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
->  	struct e1000_adapter *adapter;
->  	struct e1000_hw *hw;
->  	const struct e1000_info *ei = e1000_info_tbl[ent->driver_data];
-> -	unsigned long mmio_start, mmio_len;
-> -	unsigned long flash_start, flash_len;
-> +	resource_size_t mmio_start, mmio_len;
-> +	resource_size_t flash_start, flash_len;
->  
+>  drivers/net/ucc_geth.c |    9 +++++----
+>  1 files changed, 5 insertions(+), 4 deletions(-)
 
 applied
 
