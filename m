@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] [NET] The world is not perfect patch.
-Date: Wed, 21 May 2008 17:48:08 -0700 (PDT)
-Message-ID: <20080521.174808.15066525.davem@davemloft.net>
-References: <eb3ff54b0805200229r6fb2daa1w50aaffa9b130f89f@mail.gmail.com>
-	<20080520.143321.97817925.davem@davemloft.net>
-	<eb3ff54b0805210033m41e667dev6f7684b5495bdd6e@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Fwd: [Bug 447812] New: Netlink messages from "tc" to sch_netem
+ module are not interpreted correctly
+Date: Wed, 21 May 2008 17:57:34 -0700
+Message-ID: <4834C4FE.4060502@hp.com>
+References: <20080521214523.GB22591@codemonkey.org.uk>	<20080521151021.3d47a3d8@extreme> <20080522002155.GP20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ramirose@gmail.com
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Dave Jones <davej@codemonkey.org.uk>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48427
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S934661AbYEVAsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 20:48:12 -0400
-In-Reply-To: <eb3ff54b0805210033m41e667dev6f7684b5495bdd6e@mail.gmail.com>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:18601 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755385AbYEVA5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2008 20:57:37 -0400
+In-Reply-To: <20080522002155.GP20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Wed, 21 May 2008 10:33:35 +0300
 
->   Unless there will be any objection here, I suggest consider the
-> following patch which simply removes the code for the
-> -DI_WISH_WORLD_WERE_PERFECT in the three methods which use it.
-> 
-> The compilation errors we get when using -DI_WISH_WORLD_WERE_PERFECT
-> show that this code was not built and not used for really a long time.
+> Could you try this patch?
 
-Applied, thanks for following up on this Rami.
+I'm not sure what it does to the tc case, unless I botched applying the 
+patch, my rtnetlink case doesn't seem to change:
+
+izzy:~/netperf2_trunk# ./testfoo 16.89.133.212
+destination address is 16.89.133.212
+egress interface 0x6000000000004010 eth6
+izzy:~/netperf2_trunk# ./testfoo 16.89.133.212 10.208.0.17
+netlink: 8 bytes leftover after parsing attributes.
+destination address is 16.89.133.212
+egress interface 0x6000000000004010 eth6
+izzy:~/netperf2_trunk# uname -a
+Linux izzy 2.6.26-rc1-netlink #1 SMP Wed May 21 17:36:53 PDT 2008 ia64 
+GNU/Linux
+
+rick jones
+
