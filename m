@@ -1,44 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [git patches] net driver updates for .27
-Date: Thu, 22 May 2008 15:19:52 -0400
-Message-ID: <4835C758.1010505@garzik.org>
-References: <20080522191049.GA29882@havoc.gtf.org> <20080522121658.d1523365.akpm@linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: use krealloc() in nf_conntrack_extend.c V2
+Date: Thu, 22 May 2008 21:22:46 +0200
+Message-ID: <4835C806.6020408@trash.net>
+References: <Pine.LNX.4.64.0805222145320.6071@sbz-30.cs.Helsinki.FI> <Pine.LNX.4.64.0805222155150.6294@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42167 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754619AbYEVTT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 15:19:57 -0400
-In-Reply-To: <20080522121658.d1523365.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mpm@selenic.com, clameter@sgi.com
+To: Pekka J Enberg <penberg@cs.helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0805222155150.6294@sbz-30.cs.Helsinki.FI>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Thu, 22 May 2008 15:10:49 -0400
-> Jeff Garzik <jeff@garzik.org> wrote:
-> 
->> From: Jeff Garzik <jeff@garzik.org>
->> To: Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>
->> Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
->> Subject: [git patches] net driver updates for .27
-> 
-> Confused.  Linus is still working on 2.6.26.
+Pekka J Enberg wrote:
+> To: kaber@trash.net
+> [PATCH] netfilter: use krealloc() in nf_conntrack_extend.c V2
+> From: Pekka Enberg <penberg@cs.helsinki.fi>
+>
+> The ksize() API is going away because it is being abused and it doesn't even
+> work consistenly across different allocators. Therefore, convert
+> net/netfilter/nf_conntrack_extend.c to use krealloc().
+>
+> Cc: <netfilter-devel@vger.kernel.org>
+> Cc: <netdev@vger.kernel.org>
+> Cc: Matt Mackall <mpm@selenic.com>
+> Cc: Christoph Lameter <clameter@sgi.com>
+> Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+> ---
+> Patrick, please use this patch instead. The previous one did the moving
+> unconditionally which is wrong. This one moves entries around only if
+> krealloc() allocated a new buffer.
 
-Argh, sorry!
-
-Please ignore -both- of those submissions, they were for DaveM.
-
-My fingers misfired and typed the local libata email script ("le") 
-rather than the netdev email script ("ne").
-
-	Jeff
-
-
-
-
+Applied, thanks.
