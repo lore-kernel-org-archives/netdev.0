@@ -1,36 +1,49 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: natsemi.c ioctl fix or mii register access
-Date: Thu, 22 May 2008 14:04:48 -0400
-Message-ID: <4835B5C0.2000701@pobox.com>
-References: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC, VLAN]: Propagate selected feature bits to VLAN devices
+Date: Thu, 22 May 2008 20:03:02 +0200
+Message-ID: <4835B556.4020308@trash.net>
+References: <E1JyqZL-0005qz-00@gondolin.me.apana.org.au> <48344DAA.4060107@trash.net> <20080521233952.GA27138@gondor.apana.org.au> <D5C1322C3E673F459512FB59E0DDC329051F36F5@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: glenn_engel@agilent.com
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35067 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754737AbYEVSEv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 14:04:51 -0400
-In-Reply-To: <010200463BAAFF45926C5BFD8E21F515F523F0@cos-us-mb01.cos.agilent.com>
+Received: from stinky.trash.net ([213.144.137.162]:43282 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754661AbYEVSEq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 14:04:46 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329051F36F5@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-glenn_engel@agilent.com wrote:
-> Hi,
-> 
-> I recently discovered the ioctl implementation in natsemi.c had a few bugs in dealing with the user ioctls to send and receive MII commands (SIOCGMIIPHY and SIOCSMIIPHY).
->  
-> The specific problems noted and fixed:
-> 
-> 1. The if_mii macro casts it's return to be (struct mii_ioctl_data *) but in reality it returns a pointer to the user space pointer (struct mii_ioctl_data**).   This looks to be a problem with the mii_macro to me.  I changed this to use the ifr_data macro instead.
-> 
-> 2. Since the mii_ioctl_data structure resides in user space, it must be copied into kernel space before access and copied back for read results.  References to the pointer were changed to point to the local copy (data-> changed to mii_data.)
+Waskiewicz Jr, Peter P wrote:
+>>> I thought about this myself, my second idea was to add a mask for 
+>>> feature bits to be propagated. Unless there is a need for 
+>>>       
+>> the driver 
+>>     
+>>> to determine them at runtime, thats slightly simpler. The 
+>>>       
+>> driver would 
+>>     
+>>> do:
+>>>
+>>> dev->vlan_features = NETIF_F_CSUM_ALL | ...
+>>>
+>>> What do you think about this?
+>>>       
+>> Yes that sounds great!
+>>     
+>
+> The issue is how does the driver know how to pull those flags off the
+> VLAN device when the parent has TSO or CSUM offload disabled?  The only
+> way I could come up with it was in my original patch in the drivers to
+> loop through the entire VLAN group array, and clear the flag on existing
+> devices.
+>   
 
-This is completely incorrect.  The copying is done for us inside net core.
-
-	Jeff
-
-
-
+Yes, thats also what my patch is doing. Not a big deal I guess,
+we're doing that for all kinds of notifications already and
+nobody ever complained.
