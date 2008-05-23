@@ -1,118 +1,138 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: [PATCH 06/12] net: use linux/of_{device,platform}.h instead of asm
-Date: Fri, 23 May 2008 16:28:54 +1000
-Message-ID: <20080523162854.2e6ea8f0.sfr@canb.auug.org.au>
-References: <20080523161627.a75d5010.sfr@canb.auug.org.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [VLAN]: Use bitmask of feature flags instead of seperate feature
+ bits
+Date: Fri, 23 May 2008 09:02:39 +0200
+Message-ID: <48366C0F.4020905@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: multipart/mixed;
+ boundary="------------040201010304000802050706"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:40449 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760132AbYEWGnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 May 2008 02:43:16 -0400
-In-Reply-To: <20080523161627.a75d5010.sfr@canb.auug.org.au>
+Received: from stinky.trash.net ([213.144.137.162]:57471 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754341AbYEWHCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 03:02:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a multi-part message in MIME format.
+--------------040201010304000802050706
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/fs_enet/fs_enet-main.c |    2 +-
- drivers/net/fs_enet/mac-scc.c      |    2 +-
- drivers/net/fs_enet/mii-fec.c      |    2 +-
- drivers/net/ibm_newemac/core.h     |    2 +-
- drivers/net/ucc_geth.c             |    2 +-
- drivers/net/ucc_geth_mii.c         |    2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+Change the NETIF_F_VLAN flags to a bitmask of supported features,
+as discussed with Herbert.
 
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index 67b4b07..1231048 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -43,7 +43,7 @@
- #include <asm/uaccess.h>
- 
- #ifdef CONFIG_PPC_CPM_NEW_BINDING
--#include <asm/of_platform.h>
-+#include <linux/of_platform.h>
- #endif
- 
- #include "fs_enet.h"
-diff --git a/drivers/net/fs_enet/mac-scc.c b/drivers/net/fs_enet/mac-scc.c
-index d7ca319..e3557ec 100644
---- a/drivers/net/fs_enet/mac-scc.c
-+++ b/drivers/net/fs_enet/mac-scc.c
-@@ -44,7 +44,7 @@
- #endif
- 
- #ifdef CONFIG_PPC_CPM_NEW_BINDING
--#include <asm/of_platform.h>
-+#include <linux/of_platform.h>
- #endif
- 
- #include "fs_enet.h"
-diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
-index f0014cf..8f6a43b 100644
---- a/drivers/net/fs_enet/mii-fec.c
-+++ b/drivers/net/fs_enet/mii-fec.c
-@@ -37,7 +37,7 @@
- #include <asm/uaccess.h>
- 
- #ifdef CONFIG_PPC_CPM_NEW_BINDING
--#include <asm/of_platform.h>
-+#include <linux/of_platform.h>
- #endif
- 
- #include "fs_enet.h"
-diff --git a/drivers/net/ibm_newemac/core.h b/drivers/net/ibm_newemac/core.h
-index 1683db9..2230904 100644
---- a/drivers/net/ibm_newemac/core.h
-+++ b/drivers/net/ibm_newemac/core.h
-@@ -33,8 +33,8 @@
- #include <linux/netdevice.h>
- #include <linux/dma-mapping.h>
- #include <linux/spinlock.h>
-+#include <linux/of_platform.h>
- 
--#include <asm/of_platform.h>
- #include <asm/io.h>
- #include <asm/dcr.h>
- 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index ca0bdac..1fb504c 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -28,8 +28,8 @@
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/workqueue.h>
-+#include <linux/of_platform.h>
- 
--#include <asm/of_platform.h>
- #include <asm/uaccess.h>
- #include <asm/irq.h>
- #include <asm/io.h>
-diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
-index 9404747..6d9e7ad 100644
---- a/drivers/net/ucc_geth_mii.c
-+++ b/drivers/net/ucc_geth_mii.c
-@@ -36,8 +36,8 @@
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/fsl_devices.h>
-+#include <linux/of_platform.h>
- 
--#include <asm/of_platform.h>
- #include <asm/io.h>
- #include <asm/irq.h>
- #include <asm/uaccess.h>
--- 
-1.5.5.1
+Tested by adding
 
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
++       netdev->vlan_features |= NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_SG | \
++                                NETIF_F_ALL_CSUM;
++
+
+to e1000.
+
+
+--------------040201010304000802050706
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit db2b989176f0e89f669ad8df34b2793ebbf0ab58
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri May 23 08:33:37 2008 +0200
+
+    [VLAN]: Use bitmask of feature flags instead of seperate feature bits
+    
+    Herbert Xu points out that the use of seperate feature bits for features
+    to be propagated to VLAN devices is going to get messy real soon.
+    Replace the VLAN feature bits by a bitmask of feature flags to be
+    propagated and restore the old GSO_SHIFT/MASK values.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2b02664..f27fd20 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -514,12 +514,10 @@ struct net_device
+ #define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces */
+ #define NETIF_F_MULTI_QUEUE	16384	/* Has multiple TX/RX queues */
+ #define NETIF_F_LRO		32768	/* large receive offload */
+-#define NETIF_F_VLAN_TSO	65536	/* Supports TSO for VLANs */
+-#define NETIF_F_VLAN_CSUM	131072	/* Supports TX checksumming for VLANs */
+ 
+ 	/* Segmentation offload features */
+-#define NETIF_F_GSO_SHIFT	20
+-#define NETIF_F_GSO_MASK	0xfff00000
++#define NETIF_F_GSO_SHIFT	16
++#define NETIF_F_GSO_MASK	0xffff0000
+ #define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
+ #define NETIF_F_UFO		(SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
+ #define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
+@@ -747,6 +745,9 @@ struct net_device
+ 	/* rtnetlink link ops */
+ 	const struct rtnl_link_ops *rtnl_link_ops;
+ 
++	/* VLAN feature mask */
++	unsigned long vlan_features;
++
+ 	/* for setting kernel sock attribute on TCP connection setup */
+ #define GSO_MAX_SIZE		65536
+ 	unsigned int		gso_max_size;
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 5196130..ab2225d 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -387,14 +387,8 @@ static void vlan_transfer_features(struct net_device *dev,
+ {
+ 	unsigned long old_features = vlandev->features;
+ 
+-	if (dev->features & NETIF_F_VLAN_TSO) {
+-		vlandev->features &= ~VLAN_TSO_FEATURES;
+-		vlandev->features |= dev->features & VLAN_TSO_FEATURES;
+-	}
+-	if (dev->features & NETIF_F_VLAN_CSUM) {
+-		vlandev->features &= ~NETIF_F_ALL_CSUM;
+-		vlandev->features |= dev->features & NETIF_F_ALL_CSUM;
+-	}
++	vlandev->features &= ~dev->vlan_features;
++	vlandev->features |= dev->features & dev->vlan_features;
+ 
+ 	if (old_features != vlandev->features)
+ 		netdev_features_change(vlandev);
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index 7962569..5229a72 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -7,8 +7,6 @@
+ #define VLAN_GRP_HASH_SIZE	(1 << VLAN_GRP_HASH_SHIFT)
+ #define VLAN_GRP_HASH_MASK	(VLAN_GRP_HASH_SIZE - 1)
+ 
+-#define VLAN_TSO_FEATURES	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_SG)
+-
+ /*  Find a VLAN device by the MAC address of its Ethernet device, and
+  *  it's VLAN ID.  The default configuration is to have VLAN's scope
+  *  to be box-wide, so the MAC will be ignored.  The mac will only be
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index b1cfbaa..5d055c2 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -663,10 +663,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 					  (1<<__LINK_STATE_DORMANT))) |
+ 		      (1<<__LINK_STATE_PRESENT);
+ 
+-	if (real_dev->features & NETIF_F_VLAN_TSO)
+-		dev->features |= real_dev->features & VLAN_TSO_FEATURES;
+-	if (real_dev->features & NETIF_F_VLAN_CSUM)
+-		dev->features |= real_dev->features & NETIF_F_ALL_CSUM;
++	dev->features |= real_dev->features & real_dev->vlan_features;
+ 
+ 	/* ipv6 shared card related stuff */
+ 	dev->dev_id = real_dev->dev_id;
+
+--------------040201010304000802050706--
