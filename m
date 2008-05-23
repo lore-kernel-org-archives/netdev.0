@@ -1,57 +1,63 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/3] bnx2: Add support for CNIC driver.
-Date: Thu, 22 May 2008 22:32:09 -0700
-Message-ID: <20080523053209.GD8612@linux.vnet.ibm.com>
-References: <20080523034522.GA8612@linux.vnet.ibm.com> <1551EAE59135BE47B544934E30FC4FC002AABD1C@nt-irva-0751.brcm.ad.broadcom.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH 1/2] CS89X0: Add cleanup for dma after fail
+Date: Fri, 23 May 2008 13:55:30 +0800
+Message-ID: <48365C52.6020105@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, michaelc@cs.wisc.edu,
-	Anil Veerabhadrappa <anilgv@broadcom.com>,
-	netdev <netdev@vger.kernel.org>, linux-scsi@vger.kernel.org,
-	open-iscsi@googlegroups.com
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABD1C@nt-irva-0751.brcm.ad.broadcom.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Russell Nelson <nelson@crynwr.com>,
+	Andrew Morton <andrewm@uow.edu.au>,
+	NETDEV <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:52587 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751877AbYEWF6K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2008 01:58:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 22, 2008 at 09:52:48PM -0700, Michael Chan wrote:
-> Paul E. McKenney wrote:
-> 
-> > So if a second CNIC driver attempts to register, it gets -EBUSY or
-> > something, right?
-> 
-> There is only one CNIC driver and it will only register once per
-> BNX2 netdevice.
+After request_dma() succeeding, any error path should do free_dma().
 
-I would nevertheless recommend keeping an error check...
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ drivers/net/cs89x0.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-> > > You are right.  We should just unconditionally set up the IRQ
-> > > information without checking for c_ops.  The data 
-> > structures we set up
-> > > below are owned by us.
-> > 
-> > OK.  Hmmm....  You cannot even get away with sarcasm these days!  ;-)
-> 
-> Hmm, not sure what's the sarcasm.  The code here is trying to set up
-> the IRQ information so that CNIC driver can see it.  Even if the CNIC
-> driver is deregistering or was never registered, it doesn't hurt to
-> set up that information.
+diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+index 348371f..fba87ab 100644
+--- a/drivers/net/cs89x0.c
++++ b/drivers/net/cs89x0.c
+@@ -1394,7 +1394,11 @@ net_open(struct net_device *dev)
+ #endif
+         if (!result) {
+                 printk(KERN_ERR "%s: EEPROM is configured for unavailable media\n", dev->name);
+-        release_irq:
++release_dma:
++#if ALLOW_DMA
++		free_dma(dev->dma);
++#endif
++release_irq:
+ #if ALLOW_DMA
+ 		release_dma_buff(lp);
+ #endif
+@@ -1442,12 +1446,12 @@ net_open(struct net_device *dev)
+ 			if ((result = detect_bnc(dev)) != DETECTED_NONE)
+ 				break;
+ 		printk(KERN_ERR "%s: no media detected\n", dev->name);
+-                goto release_irq;
++		goto release_dma;
+ 	}
+ 	switch(result) {
+ 	case DETECTED_NONE:
+ 		printk(KERN_ERR "%s: no network cable attached to configured media\n", dev->name);
+-                goto release_irq;
++		goto release_dma;
+ 	case DETECTED_RJ45H:
+ 		printk(KERN_INFO "%s: using half-duplex 10Base-T (RJ-45)\n", dev->name);
+ 		break;
+-- 
+1.5.4.rc3
 
-The sarcasm was that I really didn't expect you to simply be able to
-remove the check.  ;-)
 
-> Anyway, I'll add some comments to the code to explain this better when
-> I respin.
-> 
-> > Very good.  Could you please add a comment to that effect?  Otherwise
-> > people search for what data structure is being freed up.
-> > 
-> 
-> Will do.  Thanks.
-
-Sounds good!
-
-							Thanx, Paul
