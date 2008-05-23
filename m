@@ -1,48 +1,45 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
-Date: Fri, 23 May 2008 13:23:17 -0700
-Message-ID: <ada8wy07osq.fsf@cisco.com>
-References: <1211418386-18203-1-git-send-email-mchan@broadcom.com>
-	<1211418386-18203-4-git-send-email-mchan@broadcom.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: network interface *name* alias support?
+Date: Fri, 23 May 2008 22:46:45 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0805232233270.19084@fbirervta.pbzchgretzou.qr>
+References: <alpine.LNX.1.10.0805231817100.25193@fbirervta.pbzchgretzou.qr>  <4836FB73.2010709@intel.com>  <4837026A.6000702@hp.com> <1211569604.11907.37.camel@perihelion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, michaelc@cs.wisc.edu, anilgv@broadcom.com,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	open-iscsi@googlegroups.com
-To: "Michael Chan" <mchan@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1211418386-18203-4-git-send-email-mchan@broadcom.com> (Michael
-	Chan's message of "Wed, 21 May 2008 18:06:26 -0700")
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>, johnathan@jonmasters.org,
+	netdev@vger.kernel.org, dwmw2@infradead.org
+To: Jon Masters <jonathan@jonmasters.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:42016 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758476AbYEWUqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 16:46:47 -0400
+In-Reply-To: <1211569604.11907.37.camel@perihelion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michael, I was reading over the driver to try and figure out how you
-handle allocating source ports for the offloaded TCP connections you
-make so that they don't collide with the main network stack.  It looks
-like you have:
 
- > +/**
- > + * bnx2i_alloc_tcp_port - allocates a tcp port from the free list
- > + *
- > + * Assumes this function is called with 'bnx2i_resc_lock' held.
- > + */
- > +static u16 bnx2i_alloc_tcp_port(void)
+On Friday 2008-05-23 21:06, Jon Masters wrote:
+>> > bus-info: 0000:00:19.0
+>> 
+>> And if it happens to be in a hotplug slot today with a suitable hotplug 
+>> module (term?) loaded like acpiphp you can then map that to a more human 
+>> friendly slot number/name.  In the future, once Alex Chiang's pci slots 
+>> patches make it to mainline it will be possible even with non-hotplug slots.
+>
+>Yep, that's all great until the bus topology changes underneath you.
+>There is a need for alias support, because it will allow distributions
+>to assign a name based upon the *slot ordering specified by the vendor*
+>and therefore allow a consistent slot number no matter what hotplug
+>happens, what devices are added or removed, which devices are on-board
+>vs. in cards, and even (eventually) for non-PCI cards.
+>
+>In the case of Fedora, right now, we have files:
+>
+>ifcfg-eth<whatever>
 
-that has some failure code:
+While it's gone now, openSUSE had support for ifcfg-bus-pci-0000:00:19.0
+in versions prior to 10.3. I suggest you kindly ask they reinstate it
+because with Fedora it is probably not going to happen that they
+bus-pci-.. gets added in the first place.
 
- > +	if (!tcp_port) {
- > +		printk(KERN_ERR "bnx2i: run 'bnx2id' to alloc tcp ports\n");
-
-but I don't know what bnx2id is?
-
-and I didn't see anywhere that bnx2i_get_tcp_port_requirements() is
-actually called, and it's not exported?
-
- > +/**
- > + * bnx2i_get_tcp_port_requirements - returns num tcp ports to alloc/bind
- > + *
- > + * driver returns the number of TCP ports to be allocated/bound by 'bnx2id'
- > + *	daemon. Return value of '0' means driver has everything to support
- > + *	max iscsi connections on enumerated NX2 devices
- > + */
- > +int bnx2i_get_tcp_port_requirements(void)
