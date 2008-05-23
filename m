@@ -1,46 +1,57 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 18/18] flag parameters: check magic constants
-Date: Thu, 22 May 2008 22:22:46 -0700
-Message-ID: <20080522222246.0526f8f8.akpm@linux-foundation.org>
-References: <200805062118.m46LI74j004096@devserv.devel.redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/3] bnx2: Add support for CNIC driver.
+Date: Thu, 22 May 2008 22:32:09 -0700
+Message-ID: <20080523053209.GD8612@linux.vnet.ibm.com>
+References: <20080523034522.GA8612@linux.vnet.ibm.com> <1551EAE59135BE47B544934E30FC4FC002AABD1C@nt-irva-0751.brcm.ad.broadcom.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davidel@xmailserver.org, mtk.manpages@gmail.com,
-	torvalds@linux-foundation.org
-To: Ulrich Drepper <drepper@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45723 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751452AbYEWFXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 01:23:35 -0400
-In-Reply-To: <200805062118.m46LI74j004096@devserv.devel.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, michaelc@cs.wisc.edu,
+	Anil Veerabhadrappa <anilgv@broadcom.com>,
+	netdev <netdev@vger.kernel.org>, linux-scsi@vger.kernel.org,
+	open-iscsi@googlegroups.com
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABD1C@nt-irva-0751.brcm.ad.broadcom.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 6 May 2008 17:18:07 -0400 Ulrich Drepper <drepper@redhat.com> wrote:
+On Thu, May 22, 2008 at 09:52:48PM -0700, Michael Chan wrote:
+> Paul E. McKenney wrote:
+> 
+> > So if a second CNIC driver attempts to register, it gets -EBUSY or
+> > something, right?
+> 
+> There is only one CNIC driver and it will only register once per
+> BNX2 netdevice.
 
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1219,6 +1219,13 @@ asmlinkage long sys_socket(int family, int type, int protocol)
->  	struct socket *sock;
->  	int flags;
->  
-> +	/* Check the SOCK_* constants for consistency.  */
-> +	BUILD_BUG_ON(SOCK_CLOEXEC != O_CLOEXEC);
-> +	BUILD_BUG_ON(SOCK_NONBLOCK != O_NONBLOCK);
-> +	BUILD_BUG_ON((SOCK_MAX | SOCK_TYPE_MASK) != SOCK_TYPE_MASK);
-> +	BUILD_BUG_ON(SOCK_CLOEXEC & SOCK_TYPE_MASK);
-> +	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
+I would nevertheless recommend keeping an error check...
 
-On alpha the
+> > > You are right.  We should just unconditionally set up the IRQ
+> > > information without checking for c_ops.  The data 
+> > structures we set up
+> > > below are owned by us.
+> > 
+> > OK.  Hmmm....  You cannot even get away with sarcasm these days!  ;-)
+> 
+> Hmm, not sure what's the sarcasm.  The code here is trying to set up
+> the IRQ information so that CNIC driver can see it.  Even if the CNIC
+> driver is deregistering or was never registered, it doesn't hurt to
+> set up that information.
 
-	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
+The sarcasm was that I really didn't expect you to simply be able to
+remove the check.  ;-)
 
-seems to have gone away, but now
+> Anyway, I'll add some comments to the code to explain this better when
+> I respin.
+> 
+> > Very good.  Could you please add a comment to that effect?  Otherwise
+> > people search for what data structure is being freed up.
+> > 
+> 
+> Will do.  Thanks.
 
-	BUILD_BUG_ON(SOCK_NONBLOCK != O_NONBLOCK);
+Sounds good!
 
-is triggering.
-
+							Thanx, Paul
