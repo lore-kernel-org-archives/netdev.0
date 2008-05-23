@@ -1,28 +1,48 @@
 From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 2/3] cnic: Add CNIC driver.
-Date: Fri, 23 May 2008 13:14:54 -0700
-Message-ID: <adad4nc7p6p.fsf@cisco.com>
+Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
+Date: Fri, 23 May 2008 13:23:17 -0700
+Message-ID: <ada8wy07osq.fsf@cisco.com>
 References: <1211418386-18203-1-git-send-email-mchan@broadcom.com>
-	<1211418386-18203-3-git-send-email-mchan@broadcom.com>
+	<1211418386-18203-4-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, michaelc@cs.wisc.edu, anilgv@broadcom.com,
 	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	open-iscsi@googlegroups.com
 To: "Michael Chan" <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:61200 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300AbYEWUQA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 16:16:00 -0400
-In-Reply-To: <1211418386-18203-3-git-send-email-mchan@broadcom.com> (Michael
-	Chan's message of "Wed, 21 May 2008 18:06:25 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1211418386-18203-4-git-send-email-mchan@broadcom.com> (Michael
+	Chan's message of "Wed, 21 May 2008 18:06:26 -0700")
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- > +		/* Tell compiler that status_blk fields can change. */
- > +		barrier();
- > +		if (status_idx != sblk->status_idx) {
+Hi Michael, I was reading over the driver to try and figure out how you
+handle allocating source ports for the offloaded TCP connections you
+make so that they don't collide with the main network stack.  It looks
+like you have:
 
-Is a compiler barrier sufficient here?  It seems an out-of-order CPU
-could still mess things up, so an rmb() or smp_rmb() would be required.
+ > +/**
+ > + * bnx2i_alloc_tcp_port - allocates a tcp port from the free list
+ > + *
+ > + * Assumes this function is called with 'bnx2i_resc_lock' held.
+ > + */
+ > +static u16 bnx2i_alloc_tcp_port(void)
+
+that has some failure code:
+
+ > +	if (!tcp_port) {
+ > +		printk(KERN_ERR "bnx2i: run 'bnx2id' to alloc tcp ports\n");
+
+but I don't know what bnx2id is?
+
+and I didn't see anywhere that bnx2i_get_tcp_port_requirements() is
+actually called, and it's not exported?
+
+ > +/**
+ > + * bnx2i_get_tcp_port_requirements - returns num tcp ports to alloc/bind
+ > + *
+ > + * driver returns the number of TCP ports to be allocated/bound by 'bnx2id'
+ > + *	daemon. Return value of '0' means driver has everything to support
+ > + *	max iscsi connections on enumerated NX2 devices
+ > + */
+ > +int bnx2i_get_tcp_port_requirements(void)
