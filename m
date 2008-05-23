@@ -1,40 +1,30 @@
-From: Jon Masters <jonathan@jonmasters.org>
-Subject: Re: network interface *name* alias support?
-Date: Fri, 23 May 2008 15:11:33 -0400
-Message-ID: <1211569893.11907.39.camel@perihelion>
-References: <alpine.LNX.1.10.0805231817100.25193@fbirervta.pbzchgretzou.qr>
-	 <4836FB73.2010709@intel.com>  <4837026A.6000702@hp.com>
-	 <1211569604.11907.37.camel@perihelion>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Version numbering
+Date: Fri, 23 May 2008 12:32:10 -0700
+Message-ID: <20080523193210.GB26044@localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Jan Engelhardt <jengelh@medozas.de>, johnathan@jonmasters.org,
-	netdev@vger.kernel.org, dwmw2@infradead.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
+	"Benjamin Li" <benli@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dallas.jonmasters.org ([72.29.103.172]:37978 "EHLO
-	dallas.jonmasters.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754067AbYEWTLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 15:11:39 -0400
-In-Reply-To: <1211569604.11907.37.camel@perihelion>
+Received: from mms3.broadcom.com ([216.31.210.19]:3300 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754589AbYEWT2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2008 15:28:43 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-05-23 at 15:06 -0400, Jon Masters wrote:
+Hi David.  I'm sitting on a small patchset of bugfixes destined for the
+net-2.6 tree, but I'm a little confused about how I should handle the
+version numbering.
 
-> My intention is to also allow for:
-> 
-> ifcfg-slot_<whatever>
-> 
-> Where the configuration is based entirely upon what vendor <XYZ> says is
-> the first, second, or third card. Then, those who want to use the older
-> names can continue to do so, but those who prefer to base their
-> configuration upon the order the vendor states, can do so.
-
-I'm aware there are other ways to achieve this than having udev assign
-an alias on boot, but I think the alias approach is particularly clean.
-
-Jon.
+Right now, the net-2.6 tg3 driver is at version 3.92.  The net-next-2.6
+tree has 5785 support added and has a version of 3.93.  If we apply
+these patches to the net-2.6 driver, we will want to increase the
+version number.  How would you prefer we handle this?
 
 
