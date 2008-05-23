@@ -1,37 +1,56 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 06/12] net: use linux/of_{device,platform}.h instead of asm
-Date: Fri, 23 May 2008 02:09:56 -0500
-Message-ID: <F06C1CB1-2A8E-4084-B6EA-7D1D8875E93E@kernel.crashing.org>
-References: <20080523161627.a75d5010.sfr@canb.auug.org.au> <20080523162854.2e6ea8f0.sfr@canb.auug.org.au>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, ppc-dev <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [VLAN]: Use bitmask of feature flags instead of seperate feature bits
+Date: Fri, 23 May 2008 00:17:02 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32905234EB7@orsmsx414.amr.corp.intel.com>
+References: <48366C0F.4020905@trash.net> <20080523070945.GB6615@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:38765 "EHLO gate.crashing.org"
+Received: from mga02.intel.com ([134.134.136.20]:32782 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755991AbYEWHLK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 May 2008 03:11:10 -0400
-In-Reply-To: <20080523162854.2e6ea8f0.sfr@canb.auug.org.au>
+	id S1751093AbYEWHRB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 03:17:01 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080523070945.GB6615@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> On Fri, May 23, 2008 at 09:02:39AM +0200, Patrick McHardy wrote:
+> > 
+> >     [VLAN]: Use bitmask of feature flags instead of 
+> seperate feature 
+> > bits
+> >     
+> >     Herbert Xu points out that the use of seperate feature 
+> bits for features
+> >     to be propagated to VLAN devices is going to get messy 
+> real soon.
+> >     Replace the VLAN feature bits by a bitmask of feature 
+> flags to be
+> >     propagated and restore the old GSO_SHIFT/MASK values.
+> >     
+> >     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> Looks great Patrick, thanks!
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Cheers,
+> --
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au> 
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-On May 23, 2008, at 1:28 AM, Stephen Rothwell wrote:
+Agreed.  It looks great, and I'll also test it on ixgbe tomorrow
+morning.
 
->
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
-> drivers/net/fs_enet/fs_enet-main.c |    2 +-
-> drivers/net/fs_enet/mac-scc.c      |    2 +-
-> drivers/net/fs_enet/mii-fec.c      |    2 +-
-> drivers/net/ibm_newemac/core.h     |    2 +-
-> drivers/net/ucc_geth.c             |    2 +-
-> drivers/net/ucc_geth_mii.c         |    2 +-
-> 6 files changed, 6 insertions(+), 6 deletions(-)
+Cheers,
 
-Acked-by: Kumar Gala <galak@kernel.crashing.org>
-
-- k
+-PJ Waskiewicz
