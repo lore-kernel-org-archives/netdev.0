@@ -1,44 +1,44 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: Wired behaviour with IPv6 over PPP
-Date: Fri, 23 May 2008 11:46:04 +0100
-Message-ID: <4836A06C.2050301@katalix.com>
-References: <48341C0B.7010003@interway.ch> <20080522014959.0f6191aa.akpm@linux-foundation.org> <48354318.60202@katalix.com> <4835C40B.60603@interway.ch>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Single packet receiving in multiple ring buffers
+Date: Fri, 23 May 2008 16:00:41 +0400
+Message-ID: <20080523120041.GA16850@2ka.mipt.ru>
+References: <20080522181401.GA14056@2ka.mipt.ru> <31256957387BB54C8B9AFE88AA5C0564044A1846@SDCEXCHANGE01.ad.amcc.com> <20080522184906.GA32582@2ka.mipt.ru> <20080522.115755.202204829.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Matthias Cramer <matthias.cramer@interway.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: kchudgar@amcc.com, kchudgar.linux@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:51115 "EHLO s36.avahost.net"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:48996 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751761AbYEWKqR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 May 2008 06:46:17 -0400
-In-Reply-To: <4835C40B.60603@interway.ch>
+	id S1752457AbYEWMBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2008 08:01:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20080522.115755.202204829.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Matthias Cramer wrote:
-> James Chapman wrote:
->> Did this work with previous kernel versions?
+On Thu, May 22, 2008 at 11:57:55AM -0700, David Miller (davem@davemloft.net) wrote:
+> > You have to copy part of the data (up to and including transport headers)
+> > into skb->data.
 > 
-> No, in my opinion it never worked. But I thought that pppd does it wrong
-> because id never got an IPv6 address. But I had always forwarding
-> enabled. Now in this case i started pppd without forwarding enabled and
-> got an address.
+> You don't necessarily have to.  The input paths of the networking
+> stack will pull into the skb->data, as needed, using
+> pskb_may_pull() calls.
 > 
->> Does pppd log any errors?
-> 
-> No, no errors
+> I did some tests with the NIU driver on receive, and to be
+> honest there was nearly zero performance gain from pre-copying
+> into skb->data from the paged SKB area preemptively before
+> passing the packet in via netif_receive_skb().
 
-Could you post a pppd debug log showing the ppp protocol exchange with 
-the peer in the failing case? It might give some clues.
+Well, yes, essentially there should not be major difference who will
+copy that bits into skb->data when/if needed, although MAC header has
+to be there oterwise eth_type_trans() will not work, it does plain
+skb_pull(). If eth_type_trans() is not used (there is some way to know
+protocol number) things should be ok without copy (?)
 
+So, from perfomance viewpoint it looks like the best decision is to
+have first part of the packet in skb->data and the rest in attached
+pages.
 
 -- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
+	Evgeniy Polyakov
