@@ -1,8 +1,8 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/3] bnx2: Add support for CNIC driver.
-Date: Thu, 22 May 2008 20:45:22 -0700
-Message-ID: <20080523034522.GA8612@linux.vnet.ibm.com>
-References: <1211418386-18203-1-git-send-email-mchan@broadcom.com> <1211418386-18203-2-git-send-email-mchan@broadcom.com> <20080522064541.GA11933@linux.vnet.ibm.com> <1211484208.18326.25.camel@dell>
+Subject: Re: [PATCH 2/3] cnic: Add CNIC driver.
+Date: Thu, 22 May 2008 20:47:13 -0700
+Message-ID: <20080523034713.GB8612@linux.vnet.ibm.com>
+References: <1211418386-18203-1-git-send-email-mchan@broadcom.com> <1211418386-18203-3-git-send-email-mchan@broadcom.com> <20080522074422.GB11933@linux.vnet.ibm.com> <1211485571.18326.41.camel@dell>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -12,138 +12,350 @@ Cc: David Miller <davem@davemloft.net>, michaelc@cs.wisc.edu,
 To: Michael Chan <mchan@broadcom.com>
 Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1211484208.18326.25.camel@dell>
+In-Reply-To: <1211485571.18326.41.camel@dell>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 22, 2008 at 12:23:28PM -0700, Michael Chan wrote:
-> On Wed, 2008-05-21 at 23:45 -0700, Paul E. McKenney wrote:
+On Thu, May 22, 2008 at 12:46:11PM -0700, Michael Chan wrote:
+> On Thu, 2008-05-22 at 00:44 -0700, Paul E. McKenney wrote:
 > 
-> > Some RCU-related questions interspersed below, for example, how are
-> > updates protected?
-> 
-> Only one CNIC driver will ever register with the BNX2 driver.  The main
-> purpose of using RCU is so that the fast path can avoid locking when
-> handling interrupt events from the hardware.
-
-So if a second CNIC driver attempts to register, it gets -EBUSY or
-something, right?
-
 > > > +
-> > > +static void bnx2_setup_cnic_irq_info(struct bnx2 *bp)
+> > > +int cnic_register_driver(int ulp_type, struct cnic_ulp_ops *ulp_ops)
 > > > +{
-> > > +	struct cnic_ops *c_ops;
-> > > +	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-> > > +	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-> > > +	int sb_id;
+> > > +	struct cnic_dev *dev;
 > > > +
-> > > +	rcu_read_lock();
-> > > +	c_ops = rcu_dereference(bp->cnic_ops);
-> > > +	if (!c_ops)
-> > > +		goto done;
-> > 
-> > Given that c_ops is unused below, what is happening here?  What prevents
-> > bp->cnic_ops from becoming NULL immediately after we test it?  And if
-> > it is OK for bp->cnic_ops to become NULL immediately after we test it,
-> > why are we bothering to test it?
-> 
-> You are right.  We should just unconditionally set up the IRQ
-> information without checking for c_ops.  The data structures we set up
-> below are owned by us.
-
-OK.  Hmmm....  You cannot even get away with sarcasm these days!  ;-)
-
-> > > +
-> > > +	if (bp->flags & BNX2_FLAG_USING_MSIX) {
-> > > +		cp->drv_state |= CNIC_DRV_STATE_USING_MSIX;
-> > > +		bnapi->cnic_present = 0;
-> > > +		sb_id = BNX2_CNIC_VEC;
-> > > +		cp->irq_arr[0].irq_flags |= CNIC_IRQ_FL_MSIX;
-> > > +	} else {
-> > > +		cp->drv_state &= ~CNIC_DRV_STATE_USING_MSIX;
-> > > +		bnapi->cnic_tag = bnapi->last_status_idx;
-> > > +		bnapi->cnic_present = 1;
-> > > +		sb_id = 0;
-> > > +		cp->irq_arr[0].irq_flags &= !CNIC_IRQ_FL_MSIX;
+> > > +	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
+> > > +		printk(KERN_ERR PFX "cnic_register_driver: Bad type %d\n",
+> > > +		       ulp_type);
+> > > +		return -EINVAL;
+> > > +	}
+> > > +	mutex_lock(&cnic_lock);
+> > > +	if (cnic_ulp_tbl[ulp_type]) {
+> > > +		printk(KERN_ERR PFX "cnic_register_driver: Type %d has already "
+> > > +				    "been registered\n", ulp_type);
+> > > +		mutex_unlock(&cnic_lock);
+> > > +		return -EBUSY;
 > > > +	}
 > > > +
-> > > +	cp->irq_arr[0].vector = bp->irq_tbl[sb_id].vector;
-> > > +	cp->irq_arr[0].status_blk = (void *) ((unsigned long) bp->status_blk +
-> > > +		(BNX2_SBLK_MSIX_ALIGN_SIZE * sb_id));
-> > > +	cp->irq_arr[0].status_blk_num = sb_id;
-> > > +	cp->num_irq = 1;
+> > > +	read_lock(&cnic_dev_lock);
+> > > +	list_for_each_entry(dev, &cnic_dev_list, list) {
+> > > +		struct cnic_local *cp = dev->cnic_priv;
 > > > +
-> > > +done:
-> > > +	rcu_read_unlock();
-> > > +}
+> > > +		clear_bit(ULP_F_INIT, &cp->ulp_flags[ulp_type]);
+> > > +	}
+> > > +	read_unlock(&cnic_dev_lock);
 > > > +
-> > > +static int bnx2_register_cnic(struct net_device *dev, struct cnic_ops *ops,
-> > > +			      void *data)
-> > > +{
-> > > +	struct bnx2 *bp = netdev_priv(dev);
-> > > +	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-> > > +
-> > > +	if (ops == NULL)
-> > > +		return -EINVAL;
-> > > +
-> > > +	if (!try_module_get(ops->cnic_owner))
-> > > +		return -EBUSY;
-> > > +
-> > > +	bp->cnic_data = data;
-> > > +	rcu_assign_pointer(bp->cnic_ops, ops);
+> > > +	rcu_assign_pointer(cnic_ulp_tbl[ulp_type], ulp_ops);
 > > 
-> > What prevents multiple tasks from doing this assignment concurrently?
-> 
-> As I said above, only one CNIC driver will ever register.
-
-OK.
-
+> > OK, protected by cnic_lock.
+> > 
+> > > +	mutex_unlock(&cnic_lock);
 > > > +
-> > > +	cp->num_irq = 0;
-> > > +	cp->drv_state = CNIC_DRV_STATE_REGD;
+> > > +	/* Prevent race conditions with netdev_event */
+> > > +	rtnl_lock();
+> > > +	read_lock(&cnic_dev_lock);
+> > > +	list_for_each_entry(dev, &cnic_dev_list, list) {
+> > > +		struct cnic_local *cp = dev->cnic_priv;
 > > > +
-> > > +	bnx2_setup_cnic_irq_info(bp);
+> > > +		if (!test_and_set_bit(ULP_F_INIT, &cp->ulp_flags[ulp_type]))
+> > > +			ulp_ops->cnic_init(dev);
+> > > +	}
+> > > +	read_unlock(&cnic_dev_lock);
+> > > +	rtnl_unlock();
 > > > +
 > > > +	return 0;
 > > > +}
 > > > +
-> > > +static int bnx2_unregister_cnic(struct net_device *dev)
+> > > +int cnic_unregister_driver(int ulp_type)
 > > > +{
-> > > +	struct bnx2 *bp = netdev_priv(dev);
-> > > +	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-> > > +	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
+> > > +	struct cnic_dev *dev;
 > > > +
-> > > +	cp->drv_state = 0;
-> > > +	module_put(bp->cnic_ops->cnic_owner);
-> > > +	bnapi->cnic_present = 0;
-> > > +	rcu_assign_pointer(bp->cnic_ops, NULL);
+> > > +	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
+> > > +		printk(KERN_ERR PFX "cnic_unregister_driver: Bad type %d\n",
+> > > +		       ulp_type);
+> > > +		return -EINVAL;
+> > > +	}
+> > > +	mutex_lock(&cnic_lock);
+> > > +	if (!cnic_ulp_tbl[ulp_type]) {
+> > > +		printk(KERN_ERR PFX "cnic_unregister_driver: Type %d has not "
+> > > +				    "been registered\n", ulp_type);
+> > > +		goto out_unlock;
+> > > +	}
+> > > +	read_lock(&cnic_dev_lock);
+> > > +	list_for_each_entry(dev, &cnic_dev_list, list) {
+> > > +		struct cnic_local *cp = dev->cnic_priv;
+> > > +		
+> > > +		if (rcu_dereference(cp->ulp_ops[ulp_type])) {
 > > 
-> > What prevents this from running concurrently with bnx2_register_cnic()?
+> > The rcu_dereference() is redundant because we hold cnic_lock.
+> > (Which is OK, just wanting to make sure I understand the code.)
 > 
-> We expect the CNIC driver to be well behaved and will only unregister
-> after successfully registered.
+> Yes, I wanted to access these RCU protected pointers in a uniform way.
 
-Trusting, but fair enough.  ;-)
+Very good.
 
+> > 
+> > > +			printk(KERN_ERR PFX "cnic_unregister_driver: Type %d "
+> > > +			       "still has devices registered\n", ulp_type);
+> > > +			read_unlock(&cnic_dev_lock);
+> > > +			goto out_unlock;
+> > > +		}
+> > > +	}
+> > > +	read_unlock(&cnic_dev_lock);
+> > > +
+> > > +	rcu_assign_pointer(cnic_ulp_tbl[ulp_type], NULL);
+> > 
+> > OK, protected by cnic_lock.
+> > 
+> > > +
+> > > +	mutex_unlock(&cnic_lock);
 > > > +	synchronize_rcu();
 > > 
-> > The caller is responsible for freeing up the old bp->cnic_ops structure?
-> > Or is this structure statically allocated?
+> > The caller is responsible for freeing up cnic_ulp_tbl[ulp_type]?  If so,
+> > the caller had better have kept a pointer to it...
 > > 
-> > If so, is the idea to delay return until all prior calls through the
-> > old ops structure have completed?
+> > But the caller would need to snapshot the pointer before the cnic_lock
+> > was acquired, which means that some other pointer might in fact be
+> > in place by the time this function returns.
+> > 
+> > So, is this data element statically allocated?  Or is there some other
+> > trick being used?
+> > 
+> > Or is the whole point of this code simply to ensure that any calls to
+> > the old cnic_ulp_tbl[ulp_type] functions have completed before this
+> > function returns?  If so, please add a comment to this effect.
 > 
-> The cnic_ops contain call back function pointers to the CNIC driver.  We
-> want to make sure that those calls have completed (in the fast path)
-> before continuing.
+> Yes, once again to ensure that any calls have completed before
+> continuing.  I will document the use of RCU more in the next version.
 
-Very good.  Could you please add a comment to that effect?  Otherwise
-people search for what data structure is being freed up.
+Very good!
+
+> > > +	return 0;
+> > > +
+> > > +out_unlock:
+> > > +	mutex_unlock(&cnic_lock);
+> > > +	return -EINVAL;
+> > > +}
+> > > +
+> > > +EXPORT_SYMBOL(cnic_register_driver);
+> > > +EXPORT_SYMBOL(cnic_unregister_driver);
+> > > +
+> > > +static int cnic_start_hw(struct cnic_dev *);
+> > > +static void cnic_stop_hw(struct cnic_dev *);
+> > > +
+> > > +static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
+> > > +				void *ulp_ctx)
+> > > +{
+> > > +	struct cnic_local *cp = dev->cnic_priv;
+> > > +	struct cnic_ulp_ops *ulp_ops;
+> > > +
+> > > +	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
+> > > +		printk(KERN_ERR PFX "cnic_register_device: Bad type %d\n",
+> > > +		       ulp_type);
+> > > +		return -EINVAL;
+> > > +	}
+> > > +	mutex_lock(&cnic_lock);
+> > > +	if (cnic_ulp_tbl[ulp_type] == NULL) {
+> > > +		printk(KERN_ERR PFX "cnic_register_device: Driver with type %d "
+> > > +				    "has not been registered\n", ulp_type);
+> > > +		mutex_unlock(&cnic_lock);
+> > > +		return -EAGAIN;
+> > > +	}
+> > > +	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
+> > 
+> > Again, the rcu_dereference() is redundant due to the cnic_lock being
+> > held, and again, this is OK, just checking to make sure I understand it.
+> > 
+> > > +		printk(KERN_ERR PFX "cnic_register_device: Type %d has already "
+> > > +		       "been registered to this device\n", ulp_type);
+> > > +		mutex_unlock(&cnic_lock);
+> > > +		return -EBUSY;
+> > > +	}
+> > > +	if (!try_module_get(cnic_ulp_tbl[ulp_type]->owner)) {
+> > > +		mutex_unlock(&cnic_lock);
+> > > +		return -EBUSY;
+> > > +	}
+> > > +
+> > > +	clear_bit(ULP_F_START, &cp->ulp_flags[ulp_type]);
+> > > +	cp->ulp_handle[ulp_type] = ulp_ctx;
+> > > +	ulp_ops = cnic_ulp_tbl[ulp_type];
+> > > +	rcu_assign_pointer(cp->ulp_ops[ulp_type], ulp_ops);
+> > 
+> > Good, protected by cnic_lock.
+> > 
+> > > +	cnic_hold(dev);
+> > > +	if (!dev->use_count) {
+> > > +		if (!test_bit(CNIC_F_IF_GOING_DOWN, &dev->flags)) {
+> > > +			if (dev->netdev->flags & IFF_UP)
+> > > +				set_bit(CNIC_F_IF_UP, &dev->flags);
+> > > +		}
+> > > +	}
+> > > +	dev->use_count++;
+> > > +
+> > > +	if (dev->use_count == 1) {
+> > > +		if (test_bit(CNIC_F_IF_UP, &dev->flags))
+> > > +			cnic_start_hw(dev);
+> > > +	}
+> > > +
+> > > +	if (test_bit(CNIC_F_CNIC_UP, &dev->flags))
+> > > +		if (!test_and_set_bit(ULP_F_START, &cp->ulp_flags[ulp_type]))
+> > > +			ulp_ops->cnic_start(cp->ulp_handle[ulp_type]);
+> > > +
+> > > +	mutex_unlock(&cnic_lock);
+> > > +
+> > > +	return 0;
+> > > +
+> > > +}
+> > > +
+> > > +static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
+> > > +{
+> > > +	struct cnic_local *cp = dev->cnic_priv;
+> > > +
+> > > +	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
+> > > +		printk(KERN_ERR PFX "cnic_unregister_device: Bad type %d\n",
+> > > +		       ulp_type);
+> > > +		return -EINVAL;
+> > > +	}
+> > > +	mutex_lock(&cnic_lock);
+> > > +	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
+> > 
+> > Ditto...
+> > 
+> > > +		dev->use_count--;
+> > > +		module_put(cp->ulp_ops[ulp_type]->owner);
+> > > +		rcu_assign_pointer(cp->ulp_ops[ulp_type], NULL);
+> > 
+> > OK, cnic_lock held...
+> > 
+> > > +		if (dev->use_count == 0)
+> > > +			cnic_stop_hw(dev);
+> > > +		cnic_put(dev);
+> > > +	} else {
+> > > +		printk(KERN_ERR PFX "cnic_unregister_device: device not "
+> > > +		       "registered to this ulp type %d\n", ulp_type);
+> > > +		mutex_unlock(&cnic_lock);
+> > > +		return -EINVAL;
+> > > +	}
+> > > +	mutex_unlock(&cnic_lock);
+> > > +
+> > > +	synchronize_rcu();
+> > 
+> > Caller is again responsible for freeing up cp->ulp_ops[ulp_type]?
+> > If so, the caller had better have obtained a reference to it beforehand.
+> > But it might have changed in the meantime.  So, how is this freed?
+> > 
+> > Or is this statically allocated with the only purpose of the
+> > synchronize_rcu() being to ensure that calls though the old ops vector
+> > have completed before this function returns?  If so, please add a
+> > comment to this effect.
+> 
+> Yes same as above.
+
+Good!
+
+> > > +
+> > > +static int cnic_cm_open(struct cnic_dev *dev)
+> > > +{
+> > > +	struct cnic_local *cp = dev->cnic_priv;
+> > > +	int err;
+> > > +
+> > > +	err = cnic_cm_alloc_mem(dev);
+> > > +	if (err)
+> > > +		return err;
+> > > +
+> > > +	err = cp->start_cm(dev);
+> > > +
+> > > +	if (err)
+> > > +		goto err_out;
+> > > +
+> > > +	spin_lock_init(&cp->wr_lock);
+> > > +
+> > > +	tasklet_init(&cp->cnic_task, &cnic_task, (unsigned long) cp);
+> > > +
+> > > +	cp->cm_nb.notifier_call = cnic_net_callback;
+> > > +	register_netevent_notifier(&cp->cm_nb);
+> > > +
+> > > +	dev->cm_create = cnic_cm_create;
+> > > +	dev->cm_destroy = cnic_cm_destroy;
+> > > +	dev->cm_connect = cnic_cm_connect;
+> > > +	dev->cm_abort = cnic_cm_abort;
+> > > +	dev->cm_close = cnic_cm_close;
+> > > +	dev->cm_select_dev = cnic_cm_select_dev;
+> > > +
+> > > +	cp->ulp_handle[CNIC_ULP_L4] = dev;
+> > > +	rcu_assign_pointer(cp->ulp_ops[CNIC_ULP_L4], &cm_ulp_ops);
+> > 
+> > The cnic_lock is not held due to this being initialization time, and
+> > that no one else can be messing with this until initialization is
+> > complete?
+> 
+> Yes, this is actually the CNIC driver registering with itself.  Only the
+> CNIC driver will be using the CNIC_ULP_L4 ID.
+
+Very good!  I will leave it to you as to whether you should add a comment
+to this effect.
+
+> > 
+> > > +	return 0;
+> > > +
+> > > +err_out:
+> > > +	cnic_cm_free_mem(dev);
+> > > +	return err;
+> > > +}
+> > > +
+> 
+> > > +static void cnic_stop_bnx2_hw(struct cnic_dev *dev)
+> > > +{
+> > > +	struct cnic_local *cp = dev->cnic_priv;
+> > > +	struct cnic_eth_dev *ethdev = cp->ethdev;
+> > > +
+> > > +	cnic_disable_bnx2_int_sync(dev);
+> > > +
+> > > +	cnic_bnx2_reg_wr_ind(dev, BNX2_CP_SCRATCH + 0x20, 0);
+> > > +	cnic_bnx2_reg_wr_ind(dev, BNX2_COM_SCRATCH + 0x20, 0);
+> > > +
+> > > +	cnic_init_context(dev, KWQ_CID);
+> > > +	cnic_init_context(dev, KCQ_CID);
+> > > +
+> > > +	cnic_setup_5709_context(dev, 0);
+> > > +	cnic_free_irq(dev);
+> > > +
+> > > +	ethdev->drv_unregister_cnic(dev->netdev);
+> > > +
+> > > +	cnic_free_resc(dev);
+> > > +}
+> > > +
+> > > +static void cnic_stop_hw(struct cnic_dev *dev)
+> > > +{
+> > > +	if (test_bit(CNIC_F_CNIC_UP, &dev->flags)) {
+> > > +		struct cnic_local *cp = dev->cnic_priv;
+> > > +
+> > > +		clear_bit(CNIC_F_CNIC_UP, &dev->flags);
+> > > +		rcu_assign_pointer(cp->ulp_ops[CNIC_ULP_L4], NULL);
+> > 
+> > Given that the cnic_lock does not appear to be held, what prevents
+> > other CPUs from manipulating cp->ulp_ops[CNIC_ULP_L4] concurrently
+> > with this function?
+> > 
+> 
+> This is again the CNIC driver unregistering with itself.  Only the CNIC
+> driver will be using the CNIC_ULP_L4 ID.
+
+Very good -- could you please add a comment to this effect?
 
 							Thanx, Paul
 
-> > > +	return 0;
+> > > +		synchronize_rcu();
+> > > +		cnic_cm_shutdown(dev);
+> > > +		cp->stop_hw(dev);
+> > > +		pci_dev_put(dev->pcidev);
+> > > +	}
 > > > +}
 > > > +
 > 
 > 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
