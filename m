@@ -1,47 +1,38 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [VLAN]: Use bitmask of feature flags instead of seperate feature bits
-Date: Fri, 23 May 2008 10:38:43 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329052350BA@orsmsx414.amr.corp.intel.com>
-References: <48366C0F.4020905@trash.net><20080523070945.GB6615@gondor.apana.org.au> <20080523.003051.153798887.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: network interface *name* alias support?
+Date: Fri, 23 May 2008 10:44:10 -0700
+Message-ID: <4837026A.6000702@hp.com>
+References: <alpine.LNX.1.10.0805231817100.25193@fbirervta.pbzchgretzou.qr> <4836FB73.2010709@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <kaber@trash.net>, <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>, <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan Engelhardt <jengelh@medozas.de>, johnathan@jonmasters.org,
+	netdev@vger.kernel.org, dwmw2@infradead.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:4729 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750871AbYEWRip convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 13:38:45 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080523.003051.153798887.davem@davemloft.net>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:2011 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755391AbYEWRoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 13:44:15 -0400
+In-Reply-To: <4836FB73.2010709@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > On Fri, May 23, 2008 at 09:02:39AM +0200, Patrick McHardy wrote:
-> > > 
-> > >     [VLAN]: Use bitmask of feature flags instead of 
-> seperate feature 
-> > > bits
-> > >     
-> > >     Herbert Xu points out that the use of seperate 
-> feature bits for features
-> > >     to be propagated to VLAN devices is going to get 
-> messy real soon.
-> > >     Replace the VLAN feature bits by a bitmask of feature 
-> flags to be
-> > >     propagated and restore the old GSO_SHIFT/MASK values.
-> > >     
-> > >     Signed-off-by: Patrick McHardy <kaber@trash.net>
-> > 
-> > Looks great Patrick, thanks!
-> > 
-> > Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+> FWIW you can just use ethtool to determine the slot address quickly
+> in userspace. There's no real need to do this in the kernel.
 > 
-> Applied and pushed out to net-2.6, thanks everyone!
+> # ethtool -i eth0
+> driver: e1000e
+> version: 0.2.0
+> firmware-version: 1.3-0
+> bus-info: 0000:00:19.0
 
-Just to close the loop, also tested on ixgbe without issue.
+And if it happens to be in a hotplug slot today with a suitable hotplug 
+module (term?) loaded like acpiphp you can then map that to a more human 
+friendly slot number/name.  In the future, once Alex Chiang's pci slots 
+patches make it to mainline it will be possible even with non-hotplug slots.
 
-Cheers,
--PJ Waskiewicz
+netperf omni tests and a couple other tools try to find such mappings today.
+
+rick jones
