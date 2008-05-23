@@ -1,35 +1,42 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [PATCH 1/2] VIRTIO: Use __skb_queue_purge()
-Date: Fri, 23 May 2008 11:54:11 +1000
-Message-ID: <200805231154.12188.rusty@rustcorp.com.au>
-References: <483545EF.3070501@cn.fujitsu.com>
+Date: Thu, 22 May 2008 22:18:42 -0400
+Message-ID: <48362982.1040205@pobox.com>
+References: <483545EF.3070501@cn.fujitsu.com> <200805231154.12188.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
+Cc: Wang Chen <wangchen@cn.fujitsu.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38871 "EHLO ozlabs.org"
+Received: from srv5.dvmed.net ([207.36.208.214]:36840 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753776AbYEWByZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2008 21:54:25 -0400
-In-Reply-To: <483545EF.3070501@cn.fujitsu.com>
-Content-Disposition: inline
+	id S1751734AbYEWCSw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 22:18:52 -0400
+In-Reply-To: <200805231154.12188.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 22 May 2008 20:07:43 Wang Chen wrote:
-> Use standard routine for queue purging.
->
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Rusty Russell wrote:
+> On Thursday 22 May 2008 20:07:43 Wang Chen wrote:
+>> Use standard routine for queue purging.
+>>
+>> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> 
+> Thanks, applied.
+> 
+> Jeff, I'm planning on final testing of my 4 pending virtio_net patches for 
+> 2.6.26 today: if all goes well, I'll send them in a neat batch.
 
-Thanks, applied.
+It seemed more applicable as a general netdev cleanup so I also applied 
+it :)
 
-Jeff, I'm planning on final testing of my 4 pending virtio_net patches for 
-2.6.26 today: if all goes well, I'll send them in a neat batch.
+In general, regardless of bus topology or whatever, net driver patches 
+tend to come in my direction.
 
-Cheers,
-Rusty.
+	Jeff
+
+
+
