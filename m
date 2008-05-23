@@ -1,28 +1,52 @@
-From: "Torrez-Bowen Group" <louietorrez@gmail.com>
-Subject: Returning calls make $500 - $3,500......OR MORE
-Date: Thu, 22 May 2008 17:21:34 -0600
-Message-ID: <CHILKAT-MID-2c39cae0-111b-4417-83f7-8062db69f1d7@rebecca-8b86a3d>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] DCCP: Fix to handle short sequence numbers packet correctly
+Date: Fri, 23 May 2008 09:08:48 +0800
+Message-ID: <48361920.9090309@cn.fujitsu.com>
+References: <4834EA23.3070309@cn.fujitsu.com> <20080522090720.GA4827@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:46571 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758028AbYEVXVf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2008 19:21:35 -0400
-Received: by py-out-1112.google.com with SMTP id p76so267934pyb.10
-        for <netdev@vger.kernel.org>; Thu, 22 May 2008 16:21:35 -0700 (PDT)
+Received: from cn.fujitsu.com ([222.73.24.84]:52227 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1758105AbYEWBIp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2008 21:08:45 -0400
+In-Reply-To: <20080522090720.GA4827@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I would to teach you how.... you can Generate $500, $1000, $2000 or
-More a day.
+RFC4340 said:
+  8.5.  Pseudocode
+       ...
+       If P.type is not Data, Ack, or DataAck and P.X == 0 (the packet
+             has short sequence numbers), drop packet and return
 
-Just Call me.... Now!
+But DCCP has some mistake to handle short sequence numbers packet, now 
+it drop packet only if P.type is Data, Ack, or DataAck and P.X == 0.
 
-ask for louie
+This patch fixed this problem.
+
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+
+--- a/net/dccp/ipv4.c	2008-05-18 11:54:29.000000000 -0400
++++ b/net/dccp/ipv4.c	2008-05-18 11:55:51.000000000 -0400
+@@ -741,8 +741,8 @@ int dccp_invalid_packet(struct sk_buff *
+ 	 * If P.type is not Data, Ack, or DataAck and P.X == 0 (the packet
+ 	 * has short sequence numbers), drop packet and return
+ 	 */
+-	if (dh->dccph_type >= DCCP_PKT_DATA    &&
+-	    dh->dccph_type <= DCCP_PKT_DATAACK && dh->dccph_x == 0)  {
++	if ((dh->dccph_type < DCCP_PKT_DATA    ||
++	    dh->dccph_type > DCCP_PKT_DATAACK) && dh->dccph_x == 0)  {
+ 		DCCP_WARN("P.type (%s) not Data || [Data]Ack, while P.X == 0\n",
+ 			  dccp_packet_name(dh->dccph_type));
+ 		return 1;
 
 
-1-575-445-9382
+
 
