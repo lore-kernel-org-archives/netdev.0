@@ -1,28 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Single packet receiving in multiple ring buffers
-Date: Fri, 23 May 2008 00:09:05 -0700 (PDT)
-Message-ID: <20080523.000905.214314909.davem@davemloft.net>
-References: <20080522.115755.202204829.davem@davemloft.net>
-	<31256957387BB54C8B9AFE88AA5C0564044A1869@SDCEXCHANGE01.ad.amcc.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [VLAN]: Use bitmask of feature flags instead of seperate feature bits
+Date: Fri, 23 May 2008 17:09:45 +1000
+Message-ID: <20080523070945.GB6615@gondor.apana.org.au>
+References: <48366C0F.4020905@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, kchudgar.linux@gmail.com,
-	netdev@vger.kernel.org
-To: kchudgar@amcc.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52000
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760651AbYEWHJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 03:09:10 -0400
-In-Reply-To: <31256957387BB54C8B9AFE88AA5C0564044A1869@SDCEXCHANGE01.ad.amcc.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:48266 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932553AbYEWHJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 03:09:51 -0400
+Content-Disposition: inline
+In-Reply-To: <48366C0F.4020905@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Keyur Chudgar" <kchudgar@amcc.com>
-Date: Thu, 22 May 2008 12:41:07 -0700
+On Fri, May 23, 2008 at 09:02:39AM +0200, Patrick McHardy wrote:
+> 
+>     [VLAN]: Use bitmask of feature flags instead of seperate feature bits
+>     
+>     Herbert Xu points out that the use of seperate feature bits for features
+>     to be propagated to VLAN devices is going to get messy real soon.
+>     Replace the VLAN feature bits by a bitmask of feature flags to be
+>     propagated and restore the old GSO_SHIFT/MASK values.
+>     
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-> Was this test run for only driver level or for some forwarding
-> application?
+Looks great Patrick, thanks!
 
-Just stream data transfer tests.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
