@@ -1,68 +1,122 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: network interface *name* alias support?
-Date: Sat, 24 May 2008 11:12:47 -0700
-Message-ID: <20080524111247.29d2d1e5@extreme>
-References: <alpine.LNX.1.10.0805231817100.25193@fbirervta.pbzchgretzou.qr>
-	<4836FB73.2010709@intel.com>
-	<4837026A.6000702@hp.com>
-	<1211569604.11907.37.camel@perihelion>
-	<20080523225435.GT20815@postel.suug.ch>
-	<1211603155.11907.79.camel@perihelion>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] Stochastic Fair Blue queue discipline, take two
+Date: Sat, 24 May 2008 21:37:44 +0200
+Message-ID: <48386E88.2010104@trash.net>
+References: <87iqyqajtp.fsf@pirx.pps.jussieu.fr> <4801B574.3050406@trash.net> <87tzgojx0o.fsf@pirx.pps.jussieu.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Rick Jones <rick.jones2@hp.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Jan Engelhardt <jengelh@medozas.de>, johnathan@jonmasters.org,
-	netdev@vger.kernel.org, dwmw2@infradead.org
-To: Jon Masters <jonathan@jonmasters.org>
+Cc: netdev@vger.kernel.org
+To: Juliusz Chroboczek <jch@pps.jussieu.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:50505 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758371AbYEXSMx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 May 2008 14:12:53 -0400
-In-Reply-To: <1211603155.11907.79.camel@perihelion>
+Received: from stinky.trash.net ([213.144.137.162]:43141 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752387AbYEXThu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2008 15:37:50 -0400
+In-Reply-To: <87tzgojx0o.fsf@pirx.pps.jussieu.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 24 May 2008 00:25:55 -0400
-Jon Masters <jonathan@jonmasters.org> wrote:
+Juliusz Chroboczek wrote:
+> On 9 April 2008, I wrote
+> 
+>>> The following is a second take on the sfb qdisc...
 
-> 
-> On Sat, 2008-05-24 at 00:54 +0200, Thomas Graf wrote:
-> > * Jon Masters <jonathan@jonmasters.org> 2008-05-23 15:06
-> > > My intention is to also allow for:
-> > > 
-> > > ifcfg-slot_<whatever>
-> > > 
-> > > Where the configuration is based entirely upon what vendor <XYZ> says is
-> > > the first, second, or third card. Then, those who want to use the older
-> > > names can continue to do so, but those who prefer to base their
-> > > configuration upon the order the vendor states, can do so.
-> > 
-> > I'd propose to extend the netlink configuration interface, f.e. introduce a
-> > new netlink attribtue IFLA_SLOT which can be provided to select the device
-> > to be changed based on the slot number instead of the name/ifindex. That
-> > would also make it trivial to write a small app using RTM_GETLINK to
-> > translate a slot number to the corresponding interface name.
-> 
-> I guess that would also work quite nicely for what I want to do, but the
-> problem is that this will require either:
-> 
-> *). The kernel decodes the DMI extension directly.
-> *). We can first inform each device which slot it is in (set the slot).
-> 
-> My intention is to implement whatever seems reasonable, and my reason
-> for asking is that I am not a networking maintainer, so I want to know
-> what seems reasonable :)
-> 
-> Cheers,
-> 
-> Jon.
+Great.
 
-If it is a physical device /sys/class/net/ethX/device is a link to
-the actual device entry is /sys.
+> There are quite a few things in Patrick's message that I don't understand.
+> 
+>>> +struct tc_sfb_qopt {
+> ...
+>> I'd suggest to use nested attributes, even if you currently don't
+>> have plans to add new members. The uglyness necessary to do this
+>> later on is not really worth the small saving in netlink bandwidth.
+> 
+> Could you please clarify what you mean?  Perhaps by pointing me to
+> some code?
 
+You can either use put a struct inside the netlink attribute,
+as you did, or nest other attributes below it and put the
+data there. Look at hfsc_change_class() for one of many examples.
 
+>>> +	int i;
+> 
+>> Please use unsigned types where possible.
+> 
+> Is that a hard requirement?  (I happen to prefer int, which I find
+> more readable.)
 
-In newer kernels the contents /sys/class/net is just symlinks.
+unsigned has some advantages. You know it will never be negative
+just by looking at the type, its more logical for things like a packet
+length and in some cases the compiler can generate better code.
+Hard requirement - sounds too extreme, I hope these arguments are
+enough to convince you.
+
+>>> +	u16 minqlen = (u16)(~0);
+> 
+>> Unnecessary cast and unnecessary parens.
+> 
+> I realise that, but I dislike having non-trivial operations
+> (truncation) being done by the assignment operation.  Is that a hard
+> requirement?
+
+No, but I bet someone will send a cleanup patch to change
+it anyways.
+
+>>> +	child = sfb_create_dflt(sch, limit);
+>>> +	if (child == NULL)
+>>> +		return -ENOMEM;
+>>> +
+>>> +	sch_tree_lock(sch);
+>>> +	if (child) {
+> 
+>> child == NULL is impossible ehere since its checked above. Replacing
+>> the inner qdisc shouldn't be done unconditionally though, the default
+>> should only be a default for the initial qdisc.
+> 
+> Please clarify.  This is code that was copied verbatim from sch_red,
+> and I do not understand it.
+
+You return -ENOMEM when child == NULL just three lines above.
+So the check is obviously superfluous.
+
+> Perhaps it'd be better if you made the needed changes to sch_red first?
+
+red needs the check because the child may be NULL.
+
+>>> +	q->qdisc = &noop_qdisc;
+> 
+>> The noop_qdisc assignment looks unnecessary, its replaced unconditionally.
+> 
+> Again, this is code copied verbatim from sch_red.  Please make the
+> changes there first, I'm a little nervous about modifying code I don't
+> understand.
+
+You should be nervous about copying code you don't understand :)
+red doesn't unconditionally assign q->qdisc in red_change(),
+so it really needs this assigment.
+
+>>> +	struct tc_sfb_qopt opt = { .rehash_interval = q->rehash_interval,
+>>> +				   .db_interval = q->db_interval,
+>>> +				   .hash_type = q->hash_type,
+>>> +				   .limit = q->limit,
+>>> +				   .max = q->max,
+>>> +				   .target = q->target,
+>>> +				   .increment = q->increment,
+>>> +				   .decrement = q->decrement,
+>>> +				   .penalty_rate = q->penalty_rate,
+>>> +				   .penalty_burst = q->penalty_burst,
+>>> +	};
+> 
+>> Please reindent this correctly by using two tabs (same for other
+>> C99 initializers).
+> 
+> Please clarify, and point me to a suitable example.  I'm just
+> following the style in sch_red.
+
+You don't, red uses proper intendation, which would look like this:
+
+	struct tc_sfb_qopt opt = {
+		.rehash_interval = ...,
+		.hash_type = ...
+		^ one level deeper than struct
