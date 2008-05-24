@@ -1,35 +1,58 @@
-From: ackman <ackman@gtf.org>
-Subject: Re: RTL8169 driver no longer functioning with 8111b
-Date: Fri, 23 May 2008 20:39:39 -0700
-Message-ID: <48378DFB.9060406@gtf.org>
-References: <4828D529.3060201@gtf.org> <20080513205140.GA11808@electric-eye.fr.zoreil.com> <Pine.LNX.4.64.0805131821500.2988@havoc.gtf.org> <20080514213710.GA8465@electric-eye.fr.zoreil.com> <482E19BD.3080208@gtf.org> <20080520210822.GB29349@electric-eye.fr.zoreil.com>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: network interface *name* alias support?
+Date: Sat, 24 May 2008 00:25:55 -0400
+Message-ID: <1211603155.11907.79.camel@perihelion>
+References: <alpine.LNX.1.10.0805231817100.25193@fbirervta.pbzchgretzou.qr>
+	 <4836FB73.2010709@intel.com> <4837026A.6000702@hp.com>
+	 <1211569604.11907.37.camel@perihelion>
+	 <20080523225435.GT20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Jan Engelhardt <jengelh@medozas.de>, johnathan@jonmasters.org,
+	netdev@vger.kernel.org, dwmw2@infradead.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:41656 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758914AbYEXDjn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 May 2008 23:39:43 -0400
-In-Reply-To: <20080520210822.GB29349@electric-eye.fr.zoreil.com>
+Received: from dallas.jonmasters.org ([72.29.103.172]:43089 "EHLO
+	dallas.jonmasters.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbYEXE0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2008 00:26:15 -0400
+In-Reply-To: <20080523225435.GT20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> ackman <ackman@gtf.org> :
-> [...]
->   
->> I could load the kernel r8169 driver back in again later if you need me to.
->>     
->
-> Please do. It gives a specific footprint of the device (the 'XID' line)
-> whereas Realtek's driver does not tell exactly which kind of 8168b was
-> detected.
->
->   
-I will do so this coming Monday.  Apologies for the delay.
 
--Ack
+On Sat, 2008-05-24 at 00:54 +0200, Thomas Graf wrote:
+> * Jon Masters <jonathan@jonmasters.org> 2008-05-23 15:06
+> > My intention is to also allow for:
+> > 
+> > ifcfg-slot_<whatever>
+> > 
+> > Where the configuration is based entirely upon what vendor <XYZ> says is
+> > the first, second, or third card. Then, those who want to use the older
+> > names can continue to do so, but those who prefer to base their
+> > configuration upon the order the vendor states, can do so.
+> 
+> I'd propose to extend the netlink configuration interface, f.e. introduce a
+> new netlink attribtue IFLA_SLOT which can be provided to select the device
+> to be changed based on the slot number instead of the name/ifindex. That
+> would also make it trivial to write a small app using RTM_GETLINK to
+> translate a slot number to the corresponding interface name.
+
+I guess that would also work quite nicely for what I want to do, but the
+problem is that this will require either:
+
+*). The kernel decodes the DMI extension directly.
+*). We can first inform each device which slot it is in (set the slot).
+
+My intention is to implement whatever seems reasonable, and my reason
+for asking is that I am not a networking maintainer, so I want to know
+what seems reasonable :)
+
+Cheers,
+
+Jon.
+
 
