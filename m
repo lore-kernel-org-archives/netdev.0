@@ -1,43 +1,68 @@
-From: James Chapman <jchapman@katalix.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: network interface *name* alias support?
-Date: Sat, 24 May 2008 11:37:38 +0100
-Message-ID: <4837EFF2.40807@katalix.com>
-References: <alpine.LNX.1.10.0805231817100.25193@fbirervta.pbzchgretzou.qr>	 <4836FB73.2010709@intel.com> <4837026A.6000702@hp.com>	 <1211569604.11907.37.camel@perihelion>	 <20080523225435.GT20815@postel.suug.ch>	 <1211603155.11907.79.camel@perihelion>	 <alpine.LNX.1.10.0805240646380.19084@fbirervta.pbzchgretzou.qr>	 <20080524051630.GD20890@auslistsprd01.us.dell.com>	 <4837DCA4.5070806@katalix.com> <1211621632.31212.73.camel@shinybook.infradead.org>
+Date: Sat, 24 May 2008 11:12:47 -0700
+Message-ID: <20080524111247.29d2d1e5@extreme>
+References: <alpine.LNX.1.10.0805231817100.25193@fbirervta.pbzchgretzou.qr>
+	<4836FB73.2010709@intel.com>
+	<4837026A.6000702@hp.com>
+	<1211569604.11907.37.camel@perihelion>
+	<20080523225435.GT20815@postel.suug.ch>
+	<1211603155.11907.79.camel@perihelion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Matt Domsch <Matt_Domsch@dell.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Jon Masters <jonathan@jonmasters.org>,
-	Thomas Graf <tgraf@suug.ch>, Rick Jones <rick.jones2@hp.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>, johnathan@jonmasters.org,
-	netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+Cc: Thomas Graf <tgraf@suug.ch>, Rick Jones <rick.jones2@hp.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Jan Engelhardt <jengelh@medozas.de>, johnathan@jonmasters.org,
+	netdev@vger.kernel.org, dwmw2@infradead.org
+To: Jon Masters <jonathan@jonmasters.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:44750 "EHLO s36.avahost.net"
+Received: from mail.vyatta.com ([216.93.170.194]:50505 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754301AbYEXKh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 May 2008 06:37:58 -0400
-In-Reply-To: <1211621632.31212.73.camel@shinybook.infradead.org>
+	id S1758371AbYEXSMx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 May 2008 14:12:53 -0400
+In-Reply-To: <1211603155.11907.79.camel@perihelion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Woodhouse wrote:
-> On Sat, 2008-05-24 at 10:15 +0100, James Chapman wrote:
->> Wouldn't it be better to fix any applications that can't handle
->> renamed devices?
+On Sat, 24 May 2008 00:25:55 -0400
+Jon Masters <jonathan@jonmasters.org> wrote:
+
 > 
-> _Are_ there any such applications? Other than NetworkManager crapping
-> itself when the device name is too long, I'm not aware of any.
+> On Sat, 2008-05-24 at 00:54 +0200, Thomas Graf wrote:
+> > * Jon Masters <jonathan@jonmasters.org> 2008-05-23 15:06
+> > > My intention is to also allow for:
+> > > 
+> > > ifcfg-slot_<whatever>
+> > > 
+> > > Where the configuration is based entirely upon what vendor <XYZ> says is
+> > > the first, second, or third card. Then, those who want to use the older
+> > > names can continue to do so, but those who prefer to base their
+> > > configuration upon the order the vendor states, can do so.
+> > 
+> > I'd propose to extend the netlink configuration interface, f.e. introduce a
+> > new netlink attribtue IFLA_SLOT which can be provided to select the device
+> > to be changed based on the slot number instead of the name/ifindex. That
+> > would also make it trivial to write a small app using RTM_GETLINK to
+> > translate a slot number to the corresponding interface name.
+> 
+> I guess that would also work quite nicely for what I want to do, but the
+> problem is that this will require either:
+> 
+> *). The kernel decodes the DMI extension directly.
+> *). We can first inform each device which slot it is in (set the slot).
+> 
+> My intention is to implement whatever seems reasonable, and my reason
+> for asking is that I am not a networking maintainer, so I want to know
+> what seems reasonable :)
+> 
+> Cheers,
+> 
+> Jon.
 
-I think pppd is one such app (multilink and radius features may break), 
-though this thread has only been concerned with eth devices so far. I'm 
-sure I used a command line tool recently that was checking device names 
-for eth%d patterns but I can't remember what it was now. :(
+If it is a physical device /sys/class/net/ethX/device is a link to
+the actual device entry is /sys.
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
 
+
+In newer kernels the contents /sys/class/net is just symlinks.
