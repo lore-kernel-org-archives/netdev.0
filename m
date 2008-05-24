@@ -1,101 +1,35 @@
-From: Juliusz Chroboczek <jch@pps.jussieu.fr>
-Subject: Re: [PATCH 1/2] Stochastic Fair Blue queue discipline, take two
-Date: Sat, 24 May 2008 03:44:55 +0200
-Message-ID: <87tzgojx0o.fsf@pirx.pps.jussieu.fr>
-References: <87iqyqajtp.fsf@pirx.pps.jussieu.fr> <4801B574.3050406@trash.net>
+From: ackman <ackman@gtf.org>
+Subject: Re: RTL8169 driver no longer functioning with 8111b
+Date: Fri, 23 May 2008 20:39:39 -0700
+Message-ID: <48378DFB.9060406@gtf.org>
+References: <4828D529.3060201@gtf.org> <20080513205140.GA11808@electric-eye.fr.zoreil.com> <Pine.LNX.4.64.0805131821500.2988@havoc.gtf.org> <20080514213710.GA8465@electric-eye.fr.zoreil.com> <482E19BD.3080208@gtf.org> <20080520210822.GB29349@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from witko.kerneis.info ([213.186.56.95]:36160 "EHLO
-	witko.kerneis.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754187AbYEXCKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 22:10:51 -0400
-In-Reply-To: <4801B574.3050406@trash.net> (Patrick McHardy's message of "Sun\, 13 Apr 2008 09\:25\:40 +0200")
+Received: from havoc.gtf.org ([69.61.125.42]:41656 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758914AbYEXDjn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2008 23:39:43 -0400
+In-Reply-To: <20080520210822.GB29349@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9 April 2008, I wrote
+Francois Romieu wrote:
+> ackman <ackman@gtf.org> :
+> [...]
+>   
+>> I could load the kernel r8169 driver back in again later if you need me to.
+>>     
+>
+> Please do. It gives a specific footprint of the device (the 'XID' line)
+> whereas Realtek's driver does not tell exactly which kind of 8168b was
+> detected.
+>
+>   
+I will do so this coming Monday.  Apologies for the delay.
 
->> The following is a second take on the sfb qdisc...
+-Ack
 
-On 13 April, Patrick McHardy was kind enough to review my patch in
-Message-ID <4801B574.3050406@trash.net>, which you'll find on
-
-  http://mid.gmane.org/4801B574.3050406@trash.net
-
-Sorry for the delay, but I really didn't have any time to work on fun
-stuff since then.
-
-There are quite a few things in Patrick's message that I don't understand.
-
->> +struct tc_sfb_qopt {
-...
-> I'd suggest to use nested attributes, even if you currently don't
-> have plans to add new members. The uglyness necessary to do this
-> later on is not really worth the small saving in netlink bandwidth.
-
-Could you please clarify what you mean?  Perhaps by pointing me to
-some code?
-
->> +	int i;
-
-> Please use unsigned types where possible.
-
-Is that a hard requirement?  (I happen to prefer int, which I find
-more readable.)
-
->> +	u16 minqlen = (u16)(~0);
-
-> Unnecessary cast and unnecessary parens.
-
-I realise that, but I dislike having non-trivial operations
-(truncation) being done by the assignment operation.  Is that a hard
-requirement?
-
->> +	child = sfb_create_dflt(sch, limit);
->> +	if (child == NULL)
->> +		return -ENOMEM;
->> +
->> +	sch_tree_lock(sch);
->> +	if (child) {
-
-> child == NULL is impossible ehere since its checked above. Replacing
-> the inner qdisc shouldn't be done unconditionally though, the default
-> should only be a default for the initial qdisc.
-
-Please clarify.  This is code that was copied verbatim from sch_red,
-and I do not understand it.
-
-Perhaps it'd be better if you made the needed changes to sch_red first?
-
->> +	q->qdisc = &noop_qdisc;
-
-> The noop_qdisc assignment looks unnecessary, its replaced unconditionally.
-
-Again, this is code copied verbatim from sch_red.  Please make the
-changes there first, I'm a little nervous about modifying code I don't
-understand.
-
->> +	struct tc_sfb_qopt opt = { .rehash_interval = q->rehash_interval,
->> +				   .db_interval = q->db_interval,
->> +				   .hash_type = q->hash_type,
->> +				   .limit = q->limit,
->> +				   .max = q->max,
->> +				   .target = q->target,
->> +				   .increment = q->increment,
->> +				   .decrement = q->decrement,
->> +				   .penalty_rate = q->penalty_rate,
->> +				   .penalty_burst = q->penalty_burst,
->> +	};
-
-> Please reindent this correctly by using two tabs (same for other
-> C99 initializers).
-
-Please clarify, and point me to a suitable example.  I'm just
-following the style in sch_red.
-
-Thanks for your help,
-
-                                        Juliusz
