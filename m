@@ -1,122 +1,51 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2] Stochastic Fair Blue queue discipline, take two
-Date: Sat, 24 May 2008 21:37:44 +0200
-Message-ID: <48386E88.2010104@trash.net>
-References: <87iqyqajtp.fsf@pirx.pps.jussieu.fr> <4801B574.3050406@trash.net> <87tzgojx0o.fsf@pirx.pps.jussieu.fr>
+Subject: Re: network interface *name* alias support?
+Date: Sat, 24 May 2008 22:31:20 +0200
+Message-ID: <48387B18.2090300@trash.net>
+References: <alpine.LNX.1.10.0805231817100.25193@fbirervta.pbzchgretzou.qr>	 <4836FB73.2010709@intel.com> <4837026A.6000702@hp.com>	 <1211569604.11907.37.camel@perihelion>	 <20080523225435.GT20815@postel.suug.ch>	 <1211603155.11907.79.camel@perihelion>	 <alpine.LNX.1.10.0805240646380.19084@fbirervta.pbzchgretzou.qr>	 <20080524051630.GD20890@auslistsprd01.us.dell.com>	 <4837DCA4.5070806@katalix.com> <1211621632.31212.73.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Cc: James Chapman <jchapman@katalix.com>,
+	Matt Domsch <Matt_Domsch@dell.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Jon Masters <jonathan@jonmasters.org>,
+	Thomas Graf <tgraf@suug.ch>, Rick Jones <rick.jones2@hp.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>, johnathan@jonmasters.org,
+	netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43141 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:44247 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752387AbYEXThu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2008 15:37:50 -0400
-In-Reply-To: <87tzgojx0o.fsf@pirx.pps.jussieu.fr>
+	with ESMTP id S1752519AbYEXUbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2008 16:31:24 -0400
+In-Reply-To: <1211621632.31212.73.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Juliusz Chroboczek wrote:
-> On 9 April 2008, I wrote
+David Woodhouse wrote:
+> On Sat, 2008-05-24 at 10:15 +0100, James Chapman wrote:
+>> Wouldn't it be better to fix any applications that can't handle
+>> renamed devices?
 > 
->>> The following is a second take on the sfb qdisc...
+> _Are_ there any such applications? Other than NetworkManager crapping
+> itself when the device name is too long, I'm not aware of any.
 
-Great.
+iptraf uses device names to determine the device type:
 
-> There are quite a few things in Patrick's message that I don't understand.
-> 
->>> +struct tc_sfb_qopt {
-> ...
->> I'd suggest to use nested attributes, even if you currently don't
->> have plans to add new members. The uglyness necessary to do this
->> later on is not really worth the small saving in netlink bandwidth.
-> 
-> Could you please clarify what you mean?  Perhaps by pointing me to
-> some code?
+char ifaces[][6] =
+     { "lo", "eth", "sl", "ppp", "ippp", "plip", "fddi", "isdn", "dvb",
+     "pvc", "hdlc", "ipsec", "sbni", "tr", "wvlan", "wlan", "sm2", "sm3",
+     "pent", "lec", "brg", "tun", "tap", "cipcb", "tunl", "vlan", "ath",
+     "ra"
+};
 
-You can either use put a struct inside the netlink attribute,
-as you did, or nest other attributes below it and put the
-data there. Look at hfsc_change_class() for one of many examples.
+and
 
->>> +	int i;
-> 
->> Please use unsigned types where possible.
-> 
-> Is that a hard requirement?  (I happen to prefer int, which I find
-> more readable.)
-
-unsigned has some advantages. You know it will never be negative
-just by looking at the type, its more logical for things like a packet
-length and in some cases the compiler can generate better code.
-Hard requirement - sounds too extreme, I hope these arguments are
-enough to convince you.
-
->>> +	u16 minqlen = (u16)(~0);
-> 
->> Unnecessary cast and unnecessary parens.
-> 
-> I realise that, but I dislike having non-trivial operations
-> (truncation) being done by the assignment operation.  Is that a hard
-> requirement?
-
-No, but I bet someone will send a cleanup patch to change
-it anyways.
-
->>> +	child = sfb_create_dflt(sch, limit);
->>> +	if (child == NULL)
->>> +		return -ENOMEM;
->>> +
->>> +	sch_tree_lock(sch);
->>> +	if (child) {
-> 
->> child == NULL is impossible ehere since its checked above. Replacing
->> the inner qdisc shouldn't be done unconditionally though, the default
->> should only be a default for the initial qdisc.
-> 
-> Please clarify.  This is code that was copied verbatim from sch_red,
-> and I do not understand it.
-
-You return -ENOMEM when child == NULL just three lines above.
-So the check is obviously superfluous.
-
-> Perhaps it'd be better if you made the needed changes to sch_red first?
-
-red needs the check because the child may be NULL.
-
->>> +	q->qdisc = &noop_qdisc;
-> 
->> The noop_qdisc assignment looks unnecessary, its replaced unconditionally.
-> 
-> Again, this is code copied verbatim from sch_red.  Please make the
-> changes there first, I'm a little nervous about modifying code I don't
-> understand.
-
-You should be nervous about copying code you don't understand :)
-red doesn't unconditionally assign q->qdisc in red_change(),
-so it really needs this assigment.
-
->>> +	struct tc_sfb_qopt opt = { .rehash_interval = q->rehash_interval,
->>> +				   .db_interval = q->db_interval,
->>> +				   .hash_type = q->hash_type,
->>> +				   .limit = q->limit,
->>> +				   .max = q->max,
->>> +				   .target = q->target,
->>> +				   .increment = q->increment,
->>> +				   .decrement = q->decrement,
->>> +				   .penalty_rate = q->penalty_rate,
->>> +				   .penalty_burst = q->penalty_burst,
->>> +	};
-> 
->> Please reindent this correctly by using two tabs (same for other
->> C99 initializers).
-> 
-> Please clarify, and point me to a suitable example.  I'm just
-> following the style in sch_red.
-
-You don't, red uses proper intendation, which would look like this:
-
-	struct tc_sfb_qopt opt = {
-		.rehash_interval = ...,
-		.hash_type = ...
-		^ one level deeper than struct
+         if (strncmp(ifname, "eth", 3) == 0)
+             result = LINK_ETHERNET;
+         else if (strncmp(ifname, "ath", 3) == 0)
+             result = LINK_ETHERNET;
+         else if (strncmp(ifname, "plip", 4) == 0)
+             result = LINK_PLIP;
+...
