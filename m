@@ -1,37 +1,101 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 2/3] cnic: Add CNIC driver.
-Date: Fri, 23 May 2008 17:42:35 -0700
-Message-ID: <1211589755.18326.95.camel@dell>
-References: <1211418386-18203-1-git-send-email-mchan@broadcom.com>
- <1211418386-18203-3-git-send-email-mchan@broadcom.com>
- <adad4nc7p6p.fsf@cisco.com>
+From: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Subject: Re: [PATCH 1/2] Stochastic Fair Blue queue discipline, take two
+Date: Sat, 24 May 2008 03:44:55 +0200
+Message-ID: <87tzgojx0o.fsf@pirx.pps.jussieu.fr>
+References: <87iqyqajtp.fsf@pirx.pps.jussieu.fr> <4801B574.3050406@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, michaelc@cs.wisc.edu,
-	anilgv@broadcom.com, netdev <netdev@vger.kernel.org>,
-	linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com
-To: "Roland Dreier" <rdreier@cisco.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <adad4nc7p6p.fsf@cisco.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from witko.kerneis.info ([213.186.56.95]:36160 "EHLO
+	witko.kerneis.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754187AbYEXCKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2008 22:10:51 -0400
+In-Reply-To: <4801B574.3050406@trash.net> (Patrick McHardy's message of "Sun\, 13 Apr 2008 09\:25\:40 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-05-23 at 13:14 -0700, Roland Dreier wrote:
->  > +		/* Tell compiler that status_blk fields can change. */
->  > +		barrier();
->  > +		if (status_idx != sblk->status_idx) {
-> 
-> Is a compiler barrier sufficient here?  It seems an out-of-order CPU
-> could still mess things up, so an rmb() or smp_rmb() would be required.
-> 
+On 9 April 2008, I wrote
 
-The purpose of this compiler barrier is to make sure that the compiled
-code will get the sblk->status_idx from memory which may change if the
-chip DMAs a new status_idx.
+>> The following is a second take on the sfb qdisc...
 
-This code is inside a while loop, so it is possible that the compiler
-can optimize it to not load status_idx from memory.
+On 13 April, Patrick McHardy was kind enough to review my patch in
+Message-ID <4801B574.3050406@trash.net>, which you'll find on
 
-Thanks.
+  http://mid.gmane.org/4801B574.3050406@trash.net
 
+Sorry for the delay, but I really didn't have any time to work on fun
+stuff since then.
+
+There are quite a few things in Patrick's message that I don't understand.
+
+>> +struct tc_sfb_qopt {
+...
+> I'd suggest to use nested attributes, even if you currently don't
+> have plans to add new members. The uglyness necessary to do this
+> later on is not really worth the small saving in netlink bandwidth.
+
+Could you please clarify what you mean?  Perhaps by pointing me to
+some code?
+
+>> +	int i;
+
+> Please use unsigned types where possible.
+
+Is that a hard requirement?  (I happen to prefer int, which I find
+more readable.)
+
+>> +	u16 minqlen = (u16)(~0);
+
+> Unnecessary cast and unnecessary parens.
+
+I realise that, but I dislike having non-trivial operations
+(truncation) being done by the assignment operation.  Is that a hard
+requirement?
+
+>> +	child = sfb_create_dflt(sch, limit);
+>> +	if (child == NULL)
+>> +		return -ENOMEM;
+>> +
+>> +	sch_tree_lock(sch);
+>> +	if (child) {
+
+> child == NULL is impossible ehere since its checked above. Replacing
+> the inner qdisc shouldn't be done unconditionally though, the default
+> should only be a default for the initial qdisc.
+
+Please clarify.  This is code that was copied verbatim from sch_red,
+and I do not understand it.
+
+Perhaps it'd be better if you made the needed changes to sch_red first?
+
+>> +	q->qdisc = &noop_qdisc;
+
+> The noop_qdisc assignment looks unnecessary, its replaced unconditionally.
+
+Again, this is code copied verbatim from sch_red.  Please make the
+changes there first, I'm a little nervous about modifying code I don't
+understand.
+
+>> +	struct tc_sfb_qopt opt = { .rehash_interval = q->rehash_interval,
+>> +				   .db_interval = q->db_interval,
+>> +				   .hash_type = q->hash_type,
+>> +				   .limit = q->limit,
+>> +				   .max = q->max,
+>> +				   .target = q->target,
+>> +				   .increment = q->increment,
+>> +				   .decrement = q->decrement,
+>> +				   .penalty_rate = q->penalty_rate,
+>> +				   .penalty_burst = q->penalty_burst,
+>> +	};
+
+> Please reindent this correctly by using two tabs (same for other
+> C99 initializers).
+
+Please clarify, and point me to a suitable example.  I'm just
+following the style in sch_red.
+
+Thanks for your help,
+
+                                        Juliusz
