@@ -1,80 +1,106 @@
-From: Mikael Pettersson <mikpe@it.uu.se>
-Subject: sky2 oops in 2.6.26-rc3
-Date: Sun, 25 May 2008 19:27:29 +0200 (MEST)
-Message-ID: <200805251727.m4PHRTIi024468@harpo.it.uu.se>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756813AbYEYR1y@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [Bug 10790] New: driver "sunhme" experiences corrupt packets if
+	machine has more than 2GB of memory (fwd)
+Date: Sun, 25 May 2008 20:30:08 +0300
+Message-ID: <20080525173008.GE1791@cs181133002.pp.htv.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	Jeff Garzik <jeff@garzik.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:57718 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752642AbYEYRcp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 May 2008 13:32:45 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Shortly after booting 2.6.26-rc3 on my ASUS P5B-E Plus
-today, the kernel oopsed in sky2_mac_intr, leaving the
-system totally dead. I had to copy the oops manually:
+David, can you look at this bug (email answers to this email are fine)?
 
-Call trace:
-  sky2_hw_error
-  sky2_poll
-  run_rebalance_domains
-  net_rx_action
-  __do_softirq
-  smp_apic_timer_interrupt
-  mwait_idle
-  apic_timer_interrupt
-  mwait_idle
-  mwait_idle
-  cpu_idle
-EIP: sky2_mac_intr+0x32
 
-lspci -vvxxx on the sky2 chip shows:
+----- Forwarded message from bugme-daemon@bugzilla.kernel.org -----
 
-02:00.0 Ethernet controller: Marvell Technology Group Ltd. Unknown device 4364 (rev 12)
-	Subsystem: ASUSTeK Computer Inc. Unknown device 81f8
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0, Cache Line Size: 32 bytes
-	Interrupt: pin A routed to IRQ 17
-	Region 0: Memory at ff9fc000 (64-bit, non-prefetchable) [size=16K]
-	Region 2: I/O ports at c800 [size=256]
-	Expansion ROM at ff9c0000 [disabled] [size=128K]
-	Capabilities: [48] Power Management version 3
-		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-	Capabilities: [50] Vital Product Data
-	Capabilities: [5c] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
-		Address: 0000000000000000  Data: 0000
-	Capabilities: [e0] Express Legacy Endpoint IRQ 0
-		Device: Supported: MaxPayload 128 bytes, PhantFunc 0, ExtTag-
-		Device: Latency L0s unlimited, L1 unlimited
-		Device: AtnBtn- AtnInd- PwrInd-
-		Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
-		Device: RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-		Device: MaxPayload 128 bytes, MaxReadReq 512 bytes
-		Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s L1, Port 0
-		Link: Latency L0s <256ns, L1 unlimited
-		Link: ASPM Disabled RCB 128 bytes CommClk+ ExtSynch-
-		Link: Speed 2.5Gb/s, Width x1
-	Capabilities: [100] Advanced Error Reporting
-00: ab 11 64 43 07 00 10 00 12 00 00 02 08 00 00 00
-10: 04 c0 9f ff 00 00 00 00 01 c8 00 00 00 00 00 00
-20: 00 00 00 00 00 00 00 00 00 00 00 00 43 10 f8 81
-30: 00 00 9c ff 48 00 00 00 00 00 00 00 0a 01 00 00
-40: 00 00 f0 01 00 80 a0 01 01 50 03 fe 00 20 00 13
-50: 03 5c 00 80 00 00 00 01 00 00 00 01 05 e0 80 00
-60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-70: 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-80: 00 00 00 00 00 70 00 00 00 00 00 00 82 a8 e8 00
-90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-e0: 10 00 11 00 c0 8f 00 00 00 20 19 00 11 ac 07 00
-f0: 48 00 11 10 00 00 00 00 00 00 00 00 00 00 00 00
+Date: Sun, 25 May 2008 04:10:04 -0700 (PDT)
+From: bugme-daemon@bugzilla.kernel.org
+To: bunk@kernel.org
+Subject: [Bug 10790] New: driver "sunhme" experiences corrupt packets if
+	machine has more than 2GB of memory
 
-This is the first time I've seen this problem.
+http://bugzilla.kernel.org/show_bug.cgi?id=10790
 
-I do have a recurring problem where the sky2 chip sometimes
-isn't detected on a cold boot. A reboot typically solves that.
+           Summary: driver "sunhme" experiences corrupt packets if machine
+                    has more than 2GB of memory
+           Product: Drivers
+           Version: 2.5
+     KernelVersion: 2.6.22.17-0.1
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Network
+        AssignedTo: jgarzik@pobox.com
+        ReportedBy: f0h3a-kernel@yahoo.com
+                CC: kkeil@suse.de
 
-/Mikael
+
+Latest working kernel version: unknown
+Earliest failing kernel version: unknown
+Distribution: OpenSUSE 10.3 (also tested on vanilla kernel) - filed on Novell
+bugzilla at https://bugzilla.novell.com/show_bug.cgi?id=376831
+
+
+Hardware Environment:
+System 1: Q6600 cpu, 4GB mem, Asus P5N32-E SLI Plus, Sun QFE card
+System 2: Q6600 cpu, 4GB mem, MSI P35 NEO-F (P35), Sun QFE card
+
+Software Environment: OpenSUSE 10.3, both SUSE & vanilla kernels
+
+Problem Description:
+
+Network interfaces on the QFE card experience corrupted packets when the
+machine has more than 2GB of memory. The NIC can successfully obtain a DHCP
+address from a server, but attempts to ping or ssh to the address give
+unexpected results
+
+
+hazard@mustang:~/hme-debug> ping 192.168.2.90
+PING 192.168.2.90 (192.168.2.90) 56(84) bytes of data.
+64 bytes from 192.168.2.90: icmp_seq=1 ttl=64 time=2.20 ms
+wrong data byte #54 should be 0x36 but was 0xba
+#16     10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27
+28 29 2a 2b 2c 2d 2e 2f 
+#48     30 31 32 33 34 35 ba cc 
+64 bytes from 192.168.2.90: icmp_seq=2 ttl=64 time=0.223 ms
+wrong data byte #54 should be 0x36 but was 0x64
+#16     10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27
+28 29 2a 2b 2c 2d 2e 2f 
+#48     30 31 32 33 34 35 64 d8 
+
+
+hazard@mustang:~/hme-debug> ssh 192.168.2.90
+Received disconnect from 192.168.2.90: 2: Corrupted MAC on input.
+hazard@mustang:~/hme-debug> ssh 192.168.2.90
+Received disconnect from 192.168.2.90: 2: Bad packet length 1869967922.
+hazard@mustang:~/hme-debug> ssh 192.168.2.90
+Received disconnect from 192.168.2.90: 2: Bad packet length 1869967922.
+hazard@mustang:~/hme-debug> ssh 192.168.2.90
+Received disconnect from 192.168.2.90: 2: Bad packet length 1869967922.
+
+
+Steps to reproduce:
+
+Plumb an interface on a Sun QFE card in a machine with > 2GB memory. Ping or
+ssh to the IP of the interface.
+
+
+-- 
+Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
+
+----- End forwarded message -----
+
