@@ -1,35 +1,33 @@
-From: Marin Mitov <mitov@issp.bas.bg>
-Subject: pci_set_consistent_dma_mask() question
-Date: Sun, 25 May 2008 08:43:47 +0300
-Message-ID: <200805250843.47179.mitov@issp.bas.bg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PLEASE REVERT] "Add a WARN_ON_ONCE" at
+ net/sched/sch_generic.c:
+Date: Sun, 25 May 2008 05:10:32 -0700 (PDT)
+Message-ID: <20080525.051032.186144643.davem@davemloft.net>
+References: <20080525112308.03a5fda7.komurojun-mbn@nifty.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755214AbYEYFnu@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: komurojun-mbn@nifty.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50860
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754189AbYEYMKh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2008 08:10:37 -0400
+In-Reply-To: <20080525112308.03a5fda7.komurojun-mbn@nifty.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Komuro <komurojun-mbn@nifty.com>
+Date: Sun, 25 May 2008 11:23:08 +0900
 
-In the file: Documentation/DMA-mapping.txt is written:
+> Please revert the patch "Add a WARN_ON_ONCE() to
+>  the transmit timeout function".
+> 
+> The transmit timeout sometimes happens on normal operation.
+> This message annoys me.
 
-pci_set_consistent_dma_mask() will always be able to set the same or a
-smaller mask as pci_set_dma_mask(). However for the rare case that a
-device driver only uses consistent allocations, one would have to
-check the return value from pci_set_consistent_dma_mask().
+Sometimes, but not often.
 
-grep-ing drivers/net/* shows that in many drivers 
-the return value of pci_set_consistent_dma_mask() is checked
-in the path where pci_set_dma_mask() was already successfull.
-Sure, this is during driver's initiallysation, so it is not time critical.
-
-My question: Is it worth to remove the unnecessary checks?
-I could prepare patches if you find it worthfull.
-
-Best regards.
-
-Marin Mitov
+Most of the time it does indicate a bug and we absolutely cannot
+diagnose it without the backtrace.
