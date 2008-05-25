@@ -1,48 +1,52 @@
-From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Subject: Re: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
-Date: Sun, 25 May 2008 17:04:44 +0200
-Message-ID: <20080525150444.GA29739@yamamaya.is-a-geek.org>
-References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <20080518150908.GA4606@yamamaya.is-a-geek.org>
+From: Glen Turner <gdt@gdt.id.au>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+	IRQF_SAMPLE_RANDOM
+Date: Mon, 26 May 2008 00:39:49 +0930
+Message-ID: <1211728189.5913.71.camel@andromache>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
+	 <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com>
+	 <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com>
+	 <482C8D4D.3040702@garzik.org> <20080516132107.GA11304@csclub.uwaterloo.ca>
+	 <20080516161029.44ded734@core> <20080516173610.GA27126@csclub.uwaterloo.ca>
+	 <20080516191125.46f59ad6@core>
+	 <a24804730805162155m72e6b40aweb8822515c880c50@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Jeff Garzik <jeff@garzik.org>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chris Peterson <cpeterso@cpeterso.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yumi.tdiedrich.de ([85.10.210.183]:59754 "EHLO mx.tdiedrich.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753853AbYEYPFS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 May 2008 11:05:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20080518150908.GA4606@yamamaya.is-a-geek.org>
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:33774 "EHLO
+	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753772AbYEYPLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2008 11:11:13 -0400
+In-Reply-To: <a24804730805162155m72e6b40aweb8822515c880c50@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tobias Diedrich wrote:
+On Fri, 2008-05-16 at 21:55 -0700, Chris Peterson wrote:
+> * network drivers could use IRQF_SAMPLE_URANDOM
 
-> First Windoze:
-> Windoze, Standby (equiv. to Linux 'mem' state):  WOL borked, resumes =
-fine
-> Windoze, Hibernate: WOL borked, resumes fine
+Is it permissable for /dev/urandom to degrade to be externally
+influenced
+by a hostile party?
 
-I have to correct myself on this:
-I ran the above test an a japanese version of Windows (where I have
-some difficulty reading all the technical texts)
-I've retested this on an english version of Windows and
-found that I accidentally enabled one checkbox, which said:
-"Only allow management stations to bring the computer out of standby"
+For example, /dev/random has run out. So the output of /dev/urandom is
+now
+determined by previous values of /dev/random.  I then send in a stack of
+network packets at regular intervals. So the output of /dev/urandom is
+now greatly determined by those packets.  My search space for the
+resulting
+key is small since /dev/urandom appears to be random, but in fact is
+periodic.
 
-If I disable that one, I can wakeup the machine without problems.
+I'll also note that there is a huge number of periodic packets seen by
+hosts on quiet networks -- such as a preparation VLAN where a system
+administrator might choose to run up a new machine.
 
-So my BIOS is not as borked as I thought and it should be possible
-to wake up the machine even with platform.  Further debugging will
-have to wait until at least next weekend though (maybe longer)...
-
---=20
-Tobias						PGP: http://9ac7e0bc.uguu.de
-=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
-=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
-=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
-=E3=81=99=E3=80=82
