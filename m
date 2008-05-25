@@ -1,38 +1,48 @@
-From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
-	IRQF_SAMPLE_RANDOM
-Date: Mon, 26 May 2008 00:32:02 +0930
-Message-ID: <1211727722.5913.63.camel@andromache>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
-	 <20080515142154.0595e475@core>
-	 <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
-	 <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com>
-	 <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com>
-	 <482C8D4D.3040702@garzik.org> <20080516132107.GA11304@csclub.uwaterloo.ca>
-	 <20080516161029.44ded734@core> <20080516173610.GA27126@csclub.uwaterloo.ca>
-	 <20080516191125.46f59ad6@core>   <m31w42gf97.fsf@ursa.amorsen.dk>
+From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Subject: Re: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
+Date: Sun, 25 May 2008 17:04:44 +0200
+Message-ID: <20080525150444.GA29739@yamamaya.is-a-geek.org>
+References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <20080518150908.GA4606@yamamaya.is-a-geek.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Benny Amorsen <benny+usenet@amorsen.dk>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:35142 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753418AbYEYPCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2008 11:02:37 -0400
-In-Reply-To: <m31w42gf97.fsf@ursa.amorsen.dk>
+Received: from yumi.tdiedrich.de ([85.10.210.183]:59754 "EHLO mx.tdiedrich.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753853AbYEYPFS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 May 2008 11:05:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20080518150908.GA4606@yamamaya.is-a-geek.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-05-16 at 22:34 +0200, Benny Amorsen wrote:
+Tobias Diedrich wrote:
 
-> Perhaps it would be possible to make most types of interrupts add
-> entropy, but not credit any entropy?
+> First Windoze:
+> Windoze, Standby (equiv. to Linux 'mem' state):  WOL borked, resumes =
+fine
+> Windoze, Hibernate: WOL borked, resumes fine
 
-You need to be certain that those sources are not able
-to be influenced by a hostile party, otherwise the entropy
-pool can be degraded to be less random over successive samples
-than its entropy score suggests.  Interrupts do not meet that
-test.
+I have to correct myself on this:
+I ran the above test an a japanese version of Windows (where I have
+some difficulty reading all the technical texts)
+I've retested this on an english version of Windows and
+found that I accidentally enabled one checkbox, which said:
+"Only allow management stations to bring the computer out of standby"
 
+If I disable that one, I can wakeup the machine without problems.
+
+So my BIOS is not as borked as I thought and it should be possible
+to wake up the machine even with platform.  Further debugging will
+have to wait until at least next weekend though (maybe longer)...
+
+--=20
+Tobias						PGP: http://9ac7e0bc.uguu.de
+=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
+=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
+=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
+=E3=81=99=E3=80=82
