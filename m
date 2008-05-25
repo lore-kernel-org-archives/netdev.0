@@ -1,106 +1,103 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [Bug 10790] New: driver "sunhme" experiences corrupt packets if
-	machine has more than 2GB of memory (fwd)
-Date: Sun, 25 May 2008 20:30:08 +0300
-Message-ID: <20080525173008.GE1791@cs181133002.pp.htv.fi>
+From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Subject: Re: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
+Date: Sun, 25 May 2008 20:13:29 +0200
+Message-ID: <20080525181329.GA5044@yamamaya.is-a-geek.org>
+References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <20080518150908.GA4606@yamamaya.is-a-geek.org> <20080525150444.GA29739@yamamaya.is-a-geek.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	Jeff Garzik <jeff@garzik.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:57718 "EHLO smtp4.pp.htv.fi"
+Received: from yumi.tdiedrich.de ([85.10.210.183]:36105 "EHLO mx.tdiedrich.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752642AbYEYRcp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 May 2008 13:32:45 -0400
+	id S1757091AbYEYSOG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 May 2008 14:14:06 -0400
 Content-Disposition: inline
+In-Reply-To: <20080525150444.GA29739@yamamaya.is-a-geek.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David, can you look at this bug (email answers to this email are fine)?
+Tobias Diedrich wrote:
+> So my BIOS is not as borked as I thought and it should be possible
+> to wake up the machine even with platform.  Further debugging will
+> have to wait until at least next weekend though (maybe longer)...
 
+Or maybe it doesn't have to wait, I was just too curious:
 
------ Forwarded message from bugme-daemon@bugzilla.kernel.org -----
+Summary first: I got platform mode to work!
 
-Date: Sun, 25 May 2008 04:10:04 -0700 (PDT)
-From: bugme-daemon@bugzilla.kernel.org
-To: bunk@kernel.org
-Subject: [Bug 10790] New: driver "sunhme" experiences corrupt packets if
-	machine has more than 2GB of memory
+After grepping and reading through kernel/power/disk.c and
+(rather obfuscated) drivers/acpi/.* code, and reading up on
+ACPI _GPE (General Purpose Event?), and having a look at my DSDT I
+noticed two things:
 
-http://bugzilla.kernel.org/show_bug.cgi?id=10790
+1) The network controllers are assigned to their own _GPE bits(pins?):
+|[...]
+|    Scope (\_GPE)
+|    {
+|[...]
+|        Method (_L0B, 0, NotSerialized)
+|        {
+|            Notify (\_SB.PCI0.MMAC, 0x02)
+|        }
+|
+|        Method (_L0A, 0, NotSerialized)
+|        {
+|            Notify (\_SB.PCI0.MAC1, 0x02)
+|        }
+|[...]
 
-           Summary: driver "sunhme" experiences corrupt packets if machine
-                    has more than 2GB of memory
-           Product: Drivers
-           Version: 2.5
-     KernelVersion: 2.6.22.17-0.1
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Network
-        AssignedTo: jgarzik@pobox.com
-        ReportedBy: f0h3a-kernel@yahoo.com
-                CC: kkeil@suse.de
+2) drivers/acpi/sleep/proc.c registers a 'wakeup' file:
+|        proc_create("wakeup", S_IFREG | S_IRUGO | S_IWUSR,
+|                    acpi_root_dir, &acpi_system_wakeup_device_fops);
 
+And I then remembered that someone said in
+http://bugzilla.kernel.org/show_bug.cgi?id=3D8381
+it works for him if he writes $MAGICVALUE into a proc file.
 
-Latest working kernel version: unknown
-Earliest failing kernel version: unknown
-Distribution: OpenSUSE 10.3 (also tested on vanilla kernel) - filed on Novell
-bugzilla at https://bugzilla.novell.com/show_bug.cgi?id=376831
+And yes, if I write 'MMAC' and 'MAC1' into /proc/acpi/wakeup, then
+wake-on-lan works even in platform mode.
 
+So...
+AFAICS this bit of setup magic should not be required, because:
 
-Hardware Environment:
-System 1: Q6600 cpu, 4GB mem, Asus P5N32-E SLI Plus, Sun QFE card
-System 2: Q6600 cpu, 4GB mem, MSI P35 NEO-F (P35), Sun QFE card
+1) /proc/acpi/wakeup knows which pci device is associated to each GPE b=
+it
+|ranma@melchior:~$ cat /proc/acpi/wakeup=20
+|Device	S-state	  Status   Sysfs node
+|HUB0	  S5	 disabled  pci:0000:00:06.0
+|XVR0	  S5	 disabled =20
+|XVR1	  S5	 disabled  pci:0000:00:0e.0
+|XVR2	  S5	 disabled =20
+|XVR3	  S5	 disabled =20
+|XVR4	  S5	 disabled =20
+|XVR5	  S5	 disabled  pci:0000:00:0a.0
+|UAR1	  S5	 disabled  pnp:00:09
+|PS2K	  S4	 disabled  pnp:00:0b
+|USB0	  S4	 disabled  pci:0000:00:02.0
+|USB2	  S4	 disabled  pci:0000:00:02.1
+|AZAD	  S5	 disabled  pci:0000:00:06.1
+|MMAC	  S5	 enabled   pci:0000:00:08.0
+|MAC1	  S5	 enabled   pci:0000:00:09.0
+(values after manually enabling MMAC and MAC1)
 
-Software Environment: OpenSUSE 10.3, both SUSE & vanilla kernels
+2) kernel/power/disk.c calls hibernation_ops->enter(), which is
+acpi_suspend_enter, which calls acpi_enable_wakeup_device, which
+sets up GPE wakup bits.  This _should_ take care of enabling MMAC
+and MAC1 automatically, but apparently does not work correctly at
+some point.
 
-Problem Description:
+I guess someone more knowledgable in ACPI stuff should have a look
+at this.
 
-Network interfaces on the QFE card experience corrupted packets when the
-machine has more than 2GB of memory. The NIC can successfully obtain a DHCP
-address from a server, but attempts to ping or ssh to the address give
-unexpected results
+Hope that helps,
 
-
-hazard@mustang:~/hme-debug> ping 192.168.2.90
-PING 192.168.2.90 (192.168.2.90) 56(84) bytes of data.
-64 bytes from 192.168.2.90: icmp_seq=1 ttl=64 time=2.20 ms
-wrong data byte #54 should be 0x36 but was 0xba
-#16     10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27
-28 29 2a 2b 2c 2d 2e 2f 
-#48     30 31 32 33 34 35 ba cc 
-64 bytes from 192.168.2.90: icmp_seq=2 ttl=64 time=0.223 ms
-wrong data byte #54 should be 0x36 but was 0x64
-#16     10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27
-28 29 2a 2b 2c 2d 2e 2f 
-#48     30 31 32 33 34 35 64 d8 
-
-
-hazard@mustang:~/hme-debug> ssh 192.168.2.90
-Received disconnect from 192.168.2.90: 2: Corrupted MAC on input.
-hazard@mustang:~/hme-debug> ssh 192.168.2.90
-Received disconnect from 192.168.2.90: 2: Bad packet length 1869967922.
-hazard@mustang:~/hme-debug> ssh 192.168.2.90
-Received disconnect from 192.168.2.90: 2: Bad packet length 1869967922.
-hazard@mustang:~/hme-debug> ssh 192.168.2.90
-Received disconnect from 192.168.2.90: 2: Bad packet length 1869967922.
-
-
-Steps to reproduce:
-
-Plumb an interface on a Sun QFE card in a machine with > 2GB memory. Ping or
-ssh to the IP of the interface.
-
-
--- 
-Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
-
------ End forwarded message -----
-
+--=20
+Tobias						PGP: http://9ac7e0bc.uguu.de
+=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
+=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
+=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
+=E3=81=99=E3=80=82
