@@ -1,52 +1,49 @@
 From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
-	IRQF_SAMPLE_RANDOM
-Date: Mon, 26 May 2008 00:39:49 +0930
-Message-ID: <1211728189.5913.71.camel@andromache>
-References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
-	 <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com>
-	 <482C8184.2030906@garzik.org> <482C8550.5000909@intel.com>
-	 <482C8D4D.3040702@garzik.org> <20080516132107.GA11304@csclub.uwaterloo.ca>
-	 <20080516161029.44ded734@core> <20080516173610.GA27126@csclub.uwaterloo.ca>
-	 <20080516191125.46f59ad6@core>
-	 <a24804730805162155m72e6b40aweb8822515c880c50@mail.gmail.com>
+Subject: Re: [PATCH] Re: [PATCH] drivers/net: remove network drivers' last
+	few uses of IRQF_SAMPLE_RANDOM
+Date: Mon, 26 May 2008 00:56:42 +0930
+Message-ID: <1211729202.5913.81.camel@andromache>
+References: <87abirytxj.fsf@basil.nowhere.org>
+	 <20080516105635.6cb1f505@core> <482D5FC5.2070103@firstfloor.org>
+	 <20080516121239.GA9627@gondor.apana.org.au>
+	 <482DB568.1040704@firstfloor.org>
+	 <20080517010136.GA15102@gondor.apana.org.au>
+	 <482EBAA8.3040506@firstfloor.org>
+	 <a24804730805171254i2a37da61mb47280db7b330ed5@mail.gmail.com>
+	 <20080517130535.02d45372@infradead.org> <4830014F.9040800@firstfloor.org>
+	 <20080518112657.GK16496@mit.edu>  <48306D36.6040706@firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Jeff Garzik <jeff@garzik.org>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
+Cc: Theodore Tso <tytso@mit.edu>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Peterson <cpeterso@cpeterso.com>
+	tpmdd-devel@lists.sourceforge.net, tpm@selhorst.net
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:33774 "EHLO
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:45487 "EHLO
 	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753772AbYEYPLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2008 11:11:13 -0400
-In-Reply-To: <a24804730805162155m72e6b40aweb8822515c880c50@mail.gmail.com>
+	with ESMTP id S1752972AbYEYP3L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2008 11:29:11 -0400
+In-Reply-To: <48306D36.6040706@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-05-16 at 21:55 -0700, Chris Peterson wrote:
-> * network drivers could use IRQF_SAMPLE_URANDOM
+On Sun, 2008-05-18 at 19:53 +0200, Andi Kleen wrote:
+> I never quite understood the rationale behind that one either:
+> if you worry about someone else controlling the timing of these events,
+> why do you not worry about timings on the local system. e.g.
+> it's not that hard to predict with similar accuracy when a hard disk
+> interrupt happened when a local process read something from disk. Or
+> when the  keyboard/USB interrupt happened when you process keyboard input.
 
-Is it permissable for /dev/urandom to degrade to be externally
-influenced
-by a hostile party?
-
-For example, /dev/random has run out. So the output of /dev/urandom is
-now
-determined by previous values of /dev/random.  I then send in a stack of
-network packets at regular intervals. So the output of /dev/urandom is
-now greatly determined by those packets.  My search space for the
-resulting
-key is small since /dev/urandom appears to be random, but in fact is
-periodic.
-
-I'll also note that there is a huge number of periodic packets seen by
-hosts on quiet networks -- such as a preparation VLAN where a system
-administrator might choose to run up a new machine.
+Accepting packets requires you to trust another party -- the network
+provider and users of your host's networked services -- which you do
+not have to trust otherwise.
 
