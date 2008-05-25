@@ -1,49 +1,66 @@
 From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: [PATCH] Re: [PATCH] drivers/net: remove network drivers' last
-	few uses of IRQF_SAMPLE_RANDOM
-Date: Mon, 26 May 2008 00:56:42 +0930
-Message-ID: <1211729202.5913.81.camel@andromache>
-References: <87abirytxj.fsf@basil.nowhere.org>
-	 <20080516105635.6cb1f505@core> <482D5FC5.2070103@firstfloor.org>
-	 <20080516121239.GA9627@gondor.apana.org.au>
-	 <482DB568.1040704@firstfloor.org>
-	 <20080517010136.GA15102@gondor.apana.org.au>
-	 <482EBAA8.3040506@firstfloor.org>
-	 <a24804730805171254i2a37da61mb47280db7b330ed5@mail.gmail.com>
-	 <20080517130535.02d45372@infradead.org> <4830014F.9040800@firstfloor.org>
-	 <20080518112657.GK16496@mit.edu>  <48306D36.6040706@firstfloor.org>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+	IRQF_SAMPLE_RANDOM
+Date: Mon, 26 May 2008 00:25:28 +0930
+Message-ID: <1211727328.5913.58.camel@andromache>
+References: <Pine.LNX.4.62.0805150009060.18303@ikari.dreamhost.com>
+	 <20080515142154.0595e475@core>
+	 <36D9DB17C6DE9E40B059440DB8D95F52052D71BB@orsmsx418.amr.corp.intel.com>
+	 <482C7B18.6060003@garzik.org> <482C7E53.3050300@hp.com>
+	 <482C8184.2030906@garzik.org>  <482C8550.5000909@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Theodore Tso <tytso@mit.edu>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Chris Peterson <cpeterso@cpeterso.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
+Cc: Jeff Garzik <jeff@garzik.org>, Rick Jones <rick.jones2@hp.com>,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	tpmdd-devel@lists.sourceforge.net, tpm@selhorst.net
-To: Andi Kleen <andi@firstfloor.org>
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Chris Peterson <cpeterso@cpeterso.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:45487 "EHLO
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:39064 "EHLO
 	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752972AbYEYP3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2008 11:29:11 -0400
-In-Reply-To: <48306D36.6040706@firstfloor.org>
+	with ESMTP id S1754304AbYEYPfA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2008 11:35:00 -0400
+In-Reply-To: <482C8550.5000909@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-05-18 at 19:53 +0200, Andi Kleen wrote:
-> I never quite understood the rationale behind that one either:
-> if you worry about someone else controlling the timing of these events,
-> why do you not worry about timings on the local system. e.g.
-> it's not that hard to predict with similar accuracy when a hard disk
-> interrupt happened when a local process read something from disk. Or
-> when the  keyboard/USB interrupt happened when you process keyboard input.
+On Thu, 2008-05-15 at 11:47 -0700, Kok, Auke wrote:
 
-Accepting packets requires you to trust another party -- the network
-provider and users of your host's networked services -- which you do
-not have to trust otherwise.
+> How about the non-NAPI and non-throttled case? I would argue that without any irq
+> mitigation we can still use SA_RANDOM.
+
+You don't know what packet-shaping us upstream ISPs are using.
+If we're shaping then we're moving packets in time so that they
+arrive upon the ticking of a output queue playout clock.  That
+is, packet arrival becomes periodic not random.
+
+Linux has a class-based queuing implementation and this would
+have a similar effect on outbound packets.
+
+Nearby microwave ovens will add periodicy to the arrival
+of WLAN data. It wouldn't shock me if multicast traffic
+over WLANs (even if not addressed to the host in question)
+had the same effect on unicast data.
+
+TCP's behaviour hardly leads to random packet arrival times.
+Take the probability of TCP data inter-packet arrival times.
+It is at least a binomial distribution (and thus not a random
+distribution, and thus not suitable for /dev/random):
+ - Case A: first packet in a TCP window transmission
+ - Case B: subsequent packets in a TCP window transmission
+           (probability rises to near 1 that another packet
+            will shortly follow this one).
+TCP packet transmission times are also binomial and strongly
+self-correlated.
+
+Worst of all, packet arrivals and departures are remotely observable,
+both to a classic remote attacker with access to the comms channel and
+to another user on a multiuser host.  So even if packet arrivals and
+departures were totally random they would not be of use, since the
+"random" numbers which contribute to the key would be known to the
+attacker.
+
+Regards, Glen
 
