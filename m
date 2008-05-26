@@ -1,89 +1,87 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: POHMELFS high performance network filesystem. Cache coherency, transactions, parallels.
-Date: Mon, 26 May 2008 11:44:24 +0400
-Message-ID: <20080526074424.GA555@2ka.mipt.ru>
-References: <20080525134055.GA30630@2ka.mipt.ru> <483A0F3B.9060709@garzik.org> <20080526062204.GA16366@2ka.mipt.ru> <483A59D7.7020306@garzik.org> <20080526070708.GB16366@2ka.mipt.ru> <483A667F.7070707@garzik.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH 2/3] virtio: fix delayed xmit of packet and freeing of old packets.
+Date: Mon, 26 May 2008 17:48:13 +1000
+Message-ID: <200805261748.13449.rusty@rustcorp.com.au>
+References: <200805261742.43215.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Mark McLoughlin <markmc@redhat.com>
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:39820 "EHLO 2ka.mipt.ru"
+Received: from ozlabs.org ([203.10.76.45]:46692 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751851AbYEZHo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2008 03:44:27 -0400
+	id S1752363AbYEZHsf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 03:48:35 -0400
+In-Reply-To: <200805261742.43215.rusty@rustcorp.com.au>
 Content-Disposition: inline
-In-Reply-To: <483A667F.7070707@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 26, 2008 at 03:27:59AM -0400, Jeff Garzik (jeff@garzik.org) wrote:
-> git-update-server-info needs to be run on the server, not the client.
-> 
-> You can automate this by running this on the server:
-> 
-> 	chmod +x .git/hooks/post-update
-> 
-> so that git-update-server-info always runs on the server, after each push.
-> 
-> See git-update-server-info(1) for more info.
+Because we cache the last failed-to-xmit packet, if there are no
+packets queued behind that one we may never send it (reproduced here
+as TCP stalls, "cured" by an outgoing ping).
 
-Hmm... Nothing can be run on server, since git does not believe it is in
-git repo:
-$ strace git-update-server-info
-execve("/usr/bin/git-update-server-info", ["git-update-server-info"], [/* 20 vars */]) = 0
+Cc: Mark McLoughlin <markmc@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |   22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-... ommitting mapping and shared lib loading ...
-
-getcwd("/home/s0mbre/public_html/archive/pohmelfs/pohmelfs.git", 4097) = 55
-access(".git/refs/", X_OK)              = -1 ENOENT (No such file or directory)
-chdir("..")                             = 0
-access(".git/refs/", X_OK)              = -1 ENOENT (No such file or directory)
-chdir("..")                             = 0
-access(".git/refs/", X_OK)              = -1 ENOENT (No such file or directory)
-chdir("..")                             = 0
-access(".git/refs/", X_OK)              = -1 ENOENT (No such file or directory)
-chdir("..")                             = 0
-access(".git/refs/", X_OK)              = -1 ENOENT (No such file or directory)
-chdir("..")                             = 0
-access(".git/refs/", X_OK)              = -1 ENOENT (No such file or directory)
-chdir("..")                             = 0
-access(".git/refs/", X_OK)              = -1 ENOENT (No such file or directory)
-chdir("..")                             = 0
-write(2, "fatal: ", 7fatal: )                  = 7
-write(2, "Not a git repository", 20Not a git repository)    = 20
-write(2, "\n", 1
-
-Obviously there is no .git dir, since we are in it:
-
-pohmelfs.git$ ls -l
-total 14
--rw-r--r--  1 s0mbre s0mbre   23 May 13 21:33 HEAD
-drwxr-xr-x  2 s0mbre s0mbre   48 May 13 21:33 branches
--rw-r--r--  1 s0mbre s0mbre   66 May 13 21:31 config
--rw-r--r--  1 s0mbre s0mbre   58 May 13 21:33 description
-drwxr-xr-x  2 s0mbre s0mbre  328 May 13 21:33 hooks
-drwxr-xr-x  2 s0mbre s0mbre   96 May 13 21:33 info
-drwxr-xr-x 67 s0mbre s0mbre 1608 May 26 10:20 objects
-drwxr-xr-x  5 s0mbre s0mbre  120 May 26 10:20 refs
-
-And it can not be accessed from higher layer, since its name is not
-'.git', but 'pohmelfs.git'.
-
-pohmelfs.git$ ls -l ../
-total 440
--rw-r--r-- 1 s0mbre s0mbre  90994 Apr 25 18:37 pohmelfs.1
--rw-r--r-- 1 s0mbre s0mbre  90998 May 12 13:28 pohmelfs.1.fixed
--rw-r--r-- 1 s0mbre s0mbre 119384 May 13 21:35 pohmelfs.2
--rw-r--r-- 1 s0mbre s0mbre 136685 May 25 17:20 pohmelfs.3
-drwxr-xr-x 7 s0mbre s0mbre    248 May 13 21:33 pohmelfs.git
-drwxr-xr-x 3 s0mbre s0mbre    256 May 26 00:19 server
-
-I've updated by hand info/refs, which pointed to the previous revision,
-but really thought it was mande somewhat automatically? It was created
-when I made a exportable git tree, when I did git-update-server-info.
-Git is a magic yet to resolve :)
-
--- 
-	Evgeniy Polyakov
+diff -r 1d1ff03de434 drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c	Mon May 26 11:03:26 2008 +1000
++++ b/drivers/net/virtio_net.c	Mon May 26 16:37:20 2008 +1000
+@@ -47,6 +47,9 @@ struct virtnet_info
+ 	/* Number of input buffers, and max we've ever had. */
+ 	unsigned int num, max;
+ 
++	/* For cleaning up after transmission. */
++	struct tasklet_struct tasklet;
++
+ 	/* Receive & send queues. */
+ 	struct sk_buff_head recv;
+ 	struct sk_buff_head send;
+@@ -68,8 +71,13 @@ static void skb_xmit_done(struct virtque
+ 
+ 	/* Suppress further interrupts. */
+ 	svq->vq_ops->disable_cb(svq);
++
+ 	/* We were waiting for more output buffers. */
+ 	netif_wake_queue(vi->dev);
++
++	/* Make sure we re-xmit last_xmit_skb: if there are no more packets
++	 * queued, start_xmit won't be called. */
++	tasklet_schedule(&vi->tasklet);
+ }
+ 
+ static void receive_skb(struct net_device *dev, struct sk_buff *skb,
+@@ -278,6 +286,18 @@ static int xmit_skb(struct virtnet_info 
+ 	return vi->svq->vq_ops->add_buf(vi->svq, sg, num, 0, skb);
+ }
+ 
++static void xmit_tasklet(unsigned long data)
++{
++	struct virtnet_info *vi = (void *)data;
++
++	netif_tx_lock_bh(vi->dev);
++	if (vi->last_xmit_skb && xmit_skb(vi, vi->last_xmit_skb) == 0) {
++		vi->svq->vq_ops->kick(vi->svq);
++		vi->last_xmit_skb = NULL;
++	}
++	netif_tx_unlock_bh(vi->dev);
++}
++
+ static int start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+@@ -432,6 +452,8 @@ static int virtnet_probe(struct virtio_d
+ 	skb_queue_head_init(&vi->recv);
+ 	skb_queue_head_init(&vi->send);
+ 
++	tasklet_init(&vi->tasklet, xmit_tasklet, (unsigned long)vi);
++
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		pr_debug("virtio_net: registering device failed\n");
