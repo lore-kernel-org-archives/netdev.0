@@ -1,45 +1,40 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Mon, 26 May 2008 16:17:13 +0200
-Message-ID: <20080526141713.GA5771@elte.hu>
-References: <20080526115628.GA31316@elte.hu> <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi> <20080526135940.GB24870@elte.hu> <20080526141252.GA31352@elte.hu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: DNAT sporadically doesn't replace destination IP address
+Date: Mon, 26 May 2008 16:21:59 +0200
+Message-ID: <483AC787.6030902@trash.net>
+References: <4835A03D.B932.00FE.0@newtec.eu> <483589C0.4080006@trash.net> <4835ABD2.B932.00FE.0@newtec.eu> <4835913A.4020909@trash.net> <4835AE9B.B932.00FE.0@newtec.eu> <48359F66.50503@trash.net> <4836EDCE.B932.00FE.0@newtec.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756555AbYEZORr@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080526141252.GA31352@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ulrik De Bie <ulrik.debie@newtec.eu>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Kris Op de Beeck <kris.op.de.beeck@newtec.eu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4836EDCE.B932.00FE.0@newtec.eu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-* Ingo Molnar <mingo@elte.hu> wrote:
-
-> i also ran this for 15 minutes:
+Kris Op de Beeck wrote:
+>>>> On 22/05/2008 at 18:29, in message <48359F66.50503@trash.net>, Patrick McHardy
+> <kaber@trash.net> wrote:
+ >>
+>> I didn't find the reason why your kernel even has that message
+>> (didn't try to hard though). Could you rerun the test with a
+>> more current kernel, like 2.6.24 or 2.6.25 please?
 > 
->   [root@europe ~]# tcpdump src and dst 10.0.1.15 -n
->   tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
->   listening on eth0, link-type EN10MB (Ethernet), capture size 96 bytes
+> Upgraded from Ubuntu 7.10 to 8.04
 > 
-> but there was no output at all - i.e. TCP has not attempted to do 
-> anything to these connections.
+> s3p@burnin:~$ uname -a
+> Linux burnin 2.6.24-16-generic #1 SMP Thu Apr 10 13:23:42 UTC 2008 i686 GNU/Linux
+> 
+> [ 7651.979390] printk: 8 messages suppressed.
+> [ 7651.979395] nf_ct_tcp: invalid packet ignored IN= OUT= SRC=192.168.1.24 DST=10.9.9.23 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=47660 DF PROTO=TCP SPT=42451 DPT=80 SEQ=3352606539 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT (020405B40402080A001C104E0000000001030307) UID=1000
+> [ 7656.667006] nf_ct_tcp: invalid packet ignored IN= OUT= SRC=192.168.1.15 DST=10.9.9.14 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=59137 DF PROTO=TCP SPT=49734 DPT=80 SEQ=3327322852 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT (020405B40402080A001C14E50000000001030307) UID=1000
 
-... which is not surprising as it traced eth0 ;-) [10.0.1.15 is the IP 
-of the box and routes back to loopback]
+What does "grep <srcport from above> /proc/net/nf_conntrack" show
+when the problem occurs?
 
-with the proper tcpdump it gave:
+> Nothing works now.  Can't even ping the modems...
 
-[root@europe ~]# tcpdump -i lo
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on lo, link-type EN10MB (Ethernet), capture size 96 bytes
-16:15:05.260000 IP europe.37198 > europe.distcc: . ack 2022529163 win 257 <nop,nop,timestamp 209526 197526>
-16:15:05.260000 IP europe.distcc > europe.37198: . ack 1 win 0 <nop,nop,timestamp 209526 7020>
-
-hm, a window of 257 and zero, is that right?
-
-	Ingo
+I can't say anything about this without further information.
