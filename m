@@ -1,8 +1,8 @@
 From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: POHMELFS high performance network filesystem. Cache coherency,
  transactions, parallels.
-Date: Sun, 25 May 2008 21:15:39 -0400
-Message-ID: <483A0F3B.9060709@garzik.org>
+Date: Sun, 25 May 2008 21:41:19 -0400
+Message-ID: <483A153F.7000907@garzik.org>
 References: <20080525134055.GA30630@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -15,17 +15,31 @@ In-Reply-To: <20080525134055.GA30630@2ka.mipt.ru>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> Git tree.
-> http://tservice.net.ru/~s0mbre/archive/pohmelfs/pohmelfs.git/
+Evgeniy Polyakov wrote on the blog page:
+> Probably there will be some kind of a status messages for servers (i.e.
+> going offline, do not send me data, or I'm becoming slow, do not read
+> from me and so on). 
 
-Is this really the latest commit?
+Often you can capture this information in a more scalable manner, by 
+having the clients measure an observable _output_ such as latency, over 
+time.
 
-commit 21549d0a101c1c9dcdb1fe8d59685415cc0a5e9a
-Author: Evgeniy Polyakov johnpol@2ka.mipt.ru <zbr@gavana.yandex.ru>
-Date:   Tue May 13 20:54:49 2008 +0400
+Each transaction gives the client new feedback about the server(s) being 
+offline (i.e. timeout), becoming slow, etc.
 
-I would have guessed modifications occurred more recently than May 13.
+
+Another potential tool is having the server(s) send an abstract number, 
+from 0-100, indicating their level of desire for new { read | write } 
+transactions.  Let us call this client hint "weight".  Rather than have 
+a bunch of status messages that indicate server load average, or 
+do-not-read state, summarize this information into read_weight and 
+write_weight hints to the client.
+
+With just a few (two?) simple variables, the client is given the ability 
+to automatically balance and scale load across the cluster, work around 
+failing servers, etc.
+
+Write balancing need not be overly complex...
 
 	Jeff
 
