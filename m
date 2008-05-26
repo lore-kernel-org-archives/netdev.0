@@ -1,42 +1,68 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Mon, 26 May 2008 22:41:40 +0200
-Message-ID: <20080526204140.GA13186@elte.hu>
-References: <20080526115628.GA31316@elte.hu> <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi> <20080526135940.GB24870@elte.hu> <20080526141252.GA31352@elte.hu> <Pine.LNX.4.64.0805261745010.16829@wrl-59.cs.helsinki.fi> <20080526162328.GA9089@elte.hu> <Pine.LNX.4.64.0805261926260.24924@wrl-59.cs.helsinki.fi> <20080526165407.GB24098@elte.hu> <Pine.LNX.4.64.0805261956090.24924@wrl-59.cs.helsinki.fi> <20080526181216.GA12400@elte.hu>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Mon, 26 May 2008 22:54:53 +0200
+Message-ID: <483B239D.4090402@krogh.cc>
+References: <4827E930.3000008@krogh.cc>	<483B0986.70606@krogh.cc>	<20080526.123338.161271834.davem@davemloft.net> <20080526.123951.260448303.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, matheos.worku@sun.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:35234 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751859AbYEZUmE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2008 16:42:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20080526181216.GA12400@elte.hu>
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:59159 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753023AbYEZUzM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 16:55:12 -0400
+In-Reply-To: <20080526.123951.260448303.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* Ingo Molnar <mingo@elte.hu> wrote:
-
-> > It's well possible that e.g., net namespaces have some bug in 
-> > handling of orphaned tcp.
+David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 26 May 2008 12:33:38 -0700 (PDT)
 > 
-> yes, that would match the symptoms i think. I half-assumed that it's a 
-> state machine problem so i didnt even check what the reader does - and 
-> in this case it appears to not exist at all anymore ;-)
+>> From: Jesper Krogh <jesper@krogh.cc>
+>> Date: Mon, 26 May 2008 21:03:34 +0200
+>>
+>>> Ok. Now I also hit it in production with the NFS-server, so this
+>>> is definately a real bug somewhere in the driver. Should I register it
+>>> at bugzilla?
+>> Please feel free to do that.
+> 
+> BTW, I did stare at some of the transmit code of the NIU driver
+> while flying from Tokyo to Seattle a few hours ago, and I
+> found one possible theory on the transmit timeouts.
+> 
+> Can you try the patch below and let us know if the symptoms
+> continue?
+> 
+> [ Note to Matheos: The IRQ marking scheme of the NIU doesn't mesh
+>   well with how things work under Linux.  We really needs a
+>   "TX queue empty" interrupt status in order to handle all cases
+>   properly.  Otherwise we really cannot decide not mark some TX
+>   descriptors without potentially entering a deadlock condition.  ]
+> 
+> diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+> index 918f802..7ab7f8e 100644
+> --- a/drivers/net/niu.c
+> +++ b/drivers/net/niu.c
+> @@ -6165,7 +6165,7 @@ static int niu_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	rp->tx_buffs[prod].mapping = mapping;
+>  
+>  	mrk = TX_DESC_SOP;
+> -	if (++rp->mark_counter == rp->mark_freq) {
+> +	if (1 /*++rp->mark_counter == rp->mark_freq*/) {
+>  		rp->mark_counter = 0;
+>  		mrk |= TX_DESC_MARK;
+>  		rp->mark_pending++;
 
-after ~7 hours of uptime the networking code produced this assertion:
+Applied and running.. I've now pushed 400GB of data through it trying to
+get it to hit the bug but it is still running.
 
- [25441.140000] KERNEL: assertion (!sk->sk_ack_backlog) failed at 
- net/ipv4/inet_connection_sock.c (642)
+So without saying that it solved the problem, it definately seems so.
+2.6.26-rc4 + above patch.
 
-no further information in the logs. I kept the failing system booted up 
-for 8 hours and will reboot it now.
-
-	Ingo
+Jesper
+-- 
+Jesper
