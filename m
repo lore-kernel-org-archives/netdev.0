@@ -1,8 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/8] tg3: Add mdio bus registration
-Date: Sun, 25 May 2008 23:46:58 -0700 (PDT)
-Message-ID: <20080525.234658.163447073.davem@davemloft.net>
-References: <1211511423.0@teletran1>
+Subject: Re: [PATCH 5/8] tg3: Add libphy support.
+Date: Sun, 25 May 2008 23:47:52 -0700 (PDT)
+Message-ID: <20080525.234752.171125460.davem@davemloft.net>
+References: <1211511425.0@teletran1>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,19 +10,18 @@ Cc: netdev@vger.kernel.org, mchan@broadcom.com, benli@broadcom.com,
 	andy@greyhouse.net
 To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49379
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49385
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752640AbYEZGrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 02:47:02 -0400
-In-Reply-To: <1211511423.0@teletran1>
+	by vger.kernel.org with ESMTP id S1752646AbYEZGr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 02:47:56 -0400
+In-Reply-To: <1211511425.0@teletran1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Thu, 22 May 2008 19:57:03 -0700
+Date: Thu, 22 May 2008 19:57:05 -0700
 
-> This patch introduces code to register and unregister the tg3 mdio bus
-> with the system.
+> This patch introduces the libphy support.
 > 
 > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 > Signed-off-by: Michael Chan <mchan@broadcom.com>
