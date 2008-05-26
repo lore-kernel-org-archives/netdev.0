@@ -1,28 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Mon, 26 May 2008 15:15:40 -0700 (PDT)
-Message-ID: <20080526.151540.191673092.davem@davemloft.net>
-References: <20080526.123338.161271834.davem@davemloft.net>
-	<20080526.123951.260448303.davem@davemloft.net>
-	<483B239D.4090402@krogh.cc>
+Subject: Re: [Bugme-new] [Bug 10801] New: niu Sun Neptune 10G fiber card -
+ "transmit timed out".
+Date: Mon, 26 May 2008 15:16:25 -0700 (PDT)
+Message-ID: <20080526.151625.109138683.davem@davemloft.net>
+References: <bug-10801-10286@http.bugzilla.kernel.org/>
+	<20080526125202.3d7cd1fc.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, matheos.worku@sun.com
-To: jesper@krogh.cc
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756246AbYEZWP6@vger.kernel.org>
-In-Reply-To: <483B239D.4090402@krogh.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	matheos.worku@sun.com, jesper@krogh.cc
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54845
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755449AbYEZWQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 18:16:29 -0400
+In-Reply-To: <20080526125202.3d7cd1fc.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Krogh <jesper@krogh.cc>
-Date: Mon, 26 May 2008 22:54:53 +0200
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 26 May 2008 12:52:02 -0700
 
-> Applied and running.. I've now pushed 400GB of data through it trying to
-> get it to hit the bug but it is still running.
 > 
-> So without saying that it solved the problem, it definately seems so.
-> 2.6.26-rc4 + above patch.
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
 
-Thanks for testing.
+Unfortunately, we have another thread where we are working on this
+bug and are testing patches.
+
+I asked him to create the bugzilla just in case whilst I'm travelling
+this thing started to fall through the cracks.
