@@ -1,30 +1,5837 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: multicast with multiple devices
-Date: Mon, 26 May 2008 18:46:00 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0805261844210.19084@fbirervta.pbzchgretzou.qr>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Mon, 26 May 2008 18:54:07 +0200
+Message-ID: <20080526165407.GB24098@elte.hu>
+References: <20080526115628.GA31316@elte.hu> <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi> <20080526135940.GB24870@elte.hu> <20080526141252.GA31352@elte.hu> <Pine.LNX.4.64.0805261745010.16829@wrl-59.cs.helsinki.fi> <20080526162328.GA9089@elte.hu> <Pine.LNX.4.64.0805261926260.24924@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:40002 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753416AbYEZQqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 12:46:01 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sovereign.computergmbh.de (Postfix) with ESMTP id 7D2591D106E87
-	for <netdev@vger.kernel.org>; Mon, 26 May 2008 18:46:00 +0200 (CEST)
+Received: from mx2.mail.elte.hu ([157.181.151.9]:57036 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752013AbYEZQyu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 12:54:50 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0805261926260.24924@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
+* Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
 
-directing multicast traffic to a specific interface is an easy job, as in
-	ip r a multicast 224.168.17.3/32 dev eth2
-but what if both eth1 and eth2 have multicast listeners with this 
-destination address? Adding another route does not change anything 
-because the kernel only finds the first one. Ideas on how this can be 
-addressed?
+> > > Hmm, readfds is NULL isn't it?!? Are you sure you straced the=20
+> > > right process?
+> >=20
+> > yes, i'm stracing the task that is hung unexpectedly.
+>=20
+> But that wasn't the receiving process? (I didn't quickly find into=20
+> which direction distcc ports go, so I couldn't confirm this). If you=20
+> still have that situation at hand, could you check which is the=20
+> receiving process (e.g., using netstat -p, the end which has Recv-Q i=
+s=20
+> the right one) and where it's stuck?
 
+it wasnt the receiving process. There's no receiving process - which is=
+=20
+weird:
 
-Jan
+Active Internet connections (w/o servers)
+Proto Recv-Q Send-Q Local Address               Foreign Address        =
+     State       PID/Program name  =20
+tcp        0 207232 europe:37198                europe:distcc          =
+     ESTABLISHED 19578/distcc       =20
+tcp        0      0 europe:ssh                  dione:36284            =
+     ESTABLISHED -                  =20
+tcp        0      0 europe:ssh                  e2:45910               =
+     ESTABLISHED -                  =20
+tcp    72283      0 europe:distcc               europe:37198           =
+     ESTABLISHED -                  =20
+
+> > i mean, sometimes a TCP connection can get 'unstuck' if you strace =
+a=20
+> > task - that is because the TCP related syscall the task sits in get=
+s=20
+> > interrupted. But in this case it's select() which doesnt explicitly=
+=20
+> > take the socket, doesnt do any tcp_push_pending_frames() processing=
+,=20
+> > etc. - it just its on the socket waitqueue AFAICS. And that's=20
+> > expected.
+>=20
+> This is not in the sender end at all. It's correct behavior of the=20
+> flow control to stop the sender until more room is made available by=20
+> the reading end. Thus push_pending_frames couldn't send anything.
+
+i just gave it as a general example of why sometimes stracing a task ca=
+n=20
+'disturb' the observed system and can kick the TCP state machine out of=
+=20
+a stall. I did not say it's occuring here.
+
+> ...It may still be that the receiving process is stuck due to the=20
+> non-net related changes you have there.
+
+the socket does not seem to be owned. It should have closed down?=20
+Refcounting issue?
+
+find below the sysrq-t dump.
+
+	Ingo
+
+-------------------------->
+[11811.540000] SysRq : Show State
+[11811.540000]   task                PC stack   pid father
+[11811.540000] init          S f7c67b04     0     1      0
+[11811.540000]        f7c70000 00000086 00000002 f7c67b04 f7c67b0c 0000=
+0000 00000046 f7ca08b8=20
+[11811.540000]        f7c67b2c 00119272 00000002 80130c53 00000000 01ca=
+0000 f7c67b08 f7c70164=20
+[11811.540000]        82cbb080 0011907f 00000000 00000000 00000000 0000=
+0000 000000ff f7c67b2c=20
+[11811.540000] Call Trace:
+[11811.540000]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540000]  [<806ab7da>] schedule_timeout+0x4a/0xd0
+[11811.540000]  [<801310e0>] process_timeout+0x0/0x40
+[11811.540000]  [<806ab7d5>] schedule_timeout+0x45/0xd0
+[11811.540000]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540000]  [<801982b0>] do_select+0x0/0x500
+[11811.540000]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540000]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540000]  [<801852b6>] check_bytes_and_report+0x26/0xd0
+[11811.540000]  [<80184f6e>] slab_pad_check+0x7e/0x100
+[11811.540000]  [<80185695>] check_object+0xe5/0x1f0
+[11811.540000]  [<80185e08>] __slab_free+0x238/0x2e0
+[11811.540000]  [<801202e4>] __wake_up+0x24/0x60
+[11811.540000]  [<801e6717>] journal_stop+0x1a7/0x2a0
+[11811.540000]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540000]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540000]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540000]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540000]  [<802b0e1c>] selinux_inode_getattr+0x5c/0x70
+[11811.540000]  [<80185e08>] __slab_free+0x238/0x2e0
+[11811.540000]  [<802e62af>] copy_to_user+0x3f/0x70
+[11811.540000]  [<8018e3e9>] cp_new_stat64+0xf9/0x110
+[11811.540000]  [<80198f27>] sys_select+0xe7/0x1b0
+[11811.540000]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kthreadd      S f7c69fac     0     2      0
+[11811.540000]        f7c70ed0 00000096 00000002 f7c69fac f7c69fb4 0000=
+0000 f7ca8000 00000003=20
+[11811.540000]        00000246 00000000 00000000 808e2c50 00000000 0100=
+0246 f7c69fb0 f7c71034=20
+[11811.540000]        82c68080 ffffcb74 00000000 00000000 00000000 0000=
+0000 000000ff 808e2c20=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b551>] kthreadd+0x151/0x160
+[11811.540000]  [<8013b400>] kthreadd+0x0/0x160
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] migration/0   S 82c68090     0     3      2
+[11811.540000]        f7c71da0 00000086 00000000 82c68090 f7c71da0 0000=
+0046 00000000 00000001=20
+[11811.540000]        00000046 00000000 00000000 82c68090 00000000 0100=
+0046 00000046 f7c71f04=20
+[11811.540000]        82c68080 82c68090 00000002 806b1e00 00000001 82c6=
+8080 82c6d620 82c687f8=20
+[11811.540000] Call Trace:
+[11811.540000]  [<80124931>] migration_thread+0x141/0x220
+[11811.540000]  [<801247f0>] migration_thread+0x0/0x220
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] ksoftirqd/0   S f7c6bfa4     0     4      2
+[11811.540000]        f7c72c70 00000082 00000002 f7c6bfa4 f7c6bfac 0000=
+0000 f7c6b000 802e5b64=20
+[11811.540000]        02223000 00000000 808dd400 80103f3c 00000000 01c6=
+8080 f7c6bfa8 f7c72dd4=20
+[11811.540000]        82c68080 00119094 00000000 00000000 00000000 0000=
+0000 000000ff 00000000=20
+[11811.540000] Call Trace:
+[11811.540000]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540000]  [<80103f3c>] restore_nocheck_notrace+0x0/0xe
+[11811.540000]  [<8012dbd5>] ksoftirqd+0xf5/0x100
+[11811.540000]  [<8012dae0>] ksoftirqd+0x0/0x100
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] watchdog/0    S f7c6cf8c     0     5      2
+[11811.540000]        f7c73b40 00000092 00000002 f7c6cf8c f7c6cf94 0000=
+0000 0011908c 00979c85=20
+[11811.540000]        00000abe 82c68880 ffff0600 00000abd 00000000 0114=
+0dab f7c6cf90 f7c73ca4=20
+[11811.540000]        82c68080 0011908d 00000000 00000000 00000000 0000=
+0000 000000ff eb400ed0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8015d375>] watchdog+0x65/0x1d0
+[11811.540000]  [<8015d310>] watchdog+0x0/0x1d0
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] migration/1   S 82cbb090     0     6      2
+[11811.540000]        f7c74a10 00000086 00000000 82cbb090 f7c74a10 0000=
+0046 00000000 00000001=20
+[11811.540000]        00000046 00000000 00000000 82cbb090 00000000 0100=
+0046 00000046 f7c74b74=20
+[11811.540000]        82cbb080 82cbb090 00000002 00000000 00000001 82cb=
+b080 82c1a620 82cbb7f8=20
+[11811.540000] Call Trace:
+[11811.540000]  [<80124931>] migration_thread+0x141/0x220
+[11811.540000]  [<801247f0>] migration_thread+0x0/0x220
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] ksoftirqd/1   S f7c7afa4     0     7      2
+[11811.540000]        f7c758e0 00000082 00000002 f7c7afa4 f7c7afac 0000=
+0000 80a44e80 80a44e80=20
+[11811.540000]        f7c7a000 802e5b64 f7ca8000 00000001 00000000 0110=
+3f3c f7c7afa8 f7c75a44=20
+[11811.540000]        82cbb080 00119094 00000000 00000000 00000000 0000=
+0000 000000ff 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540000]  [<8012dbd5>] ksoftirqd+0xf5/0x100
+[11811.540000]  [<8012dae0>] ksoftirqd+0x0/0x100
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] watchdog/1    S f7c7bf8c     0     8      2
+[11811.540000]        f7c767b0 00000092 00000002 f7c7bf8c f7c7bf94 0000=
+0000 0011908d 0097de40=20
+[11811.540000]        00000abe 82cbb880 00979c80 00000abe 00000000 0114=
+0dab f7c7bf90 f7c76914=20
+[11811.540000]        82cbb080 0011908e 00000000 00000000 00000000 0000=
+0000 000000ff fffffffc=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8015d375>] watchdog+0x65/0x1d0
+[11811.540000]  [<8015d310>] watchdog+0x0/0x1d0
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] events/0      S f7c7ef90     0     9      2
+[11811.540000]        f7ca8ed0 00000096 00000002 f7c7ef90 f7c7ef98 0000=
+0000 f7c11d48 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f7c7ef94 f7ca9034=20
+[11811.540000]        82c68080 00119084 00000000 00000000 00000000 0000=
+0000 000000ff f7c11d10=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] events/1      S f7c7ff90     0    10      2
+[11811.540000]        f7ca9da0 00000096 00000002 f7c7ff90 f7c7ff98 0000=
+0000 f7c11df8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f7c7ff94 f7ca9f04=20
+[11811.540000]        82cbb080 001190a7 00000000 00000000 00000000 0000=
+0000 000000ff f7c11dc0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] khelper       S 82c1a620     0    11      2
+[11811.540000]        f7caac70 00000096 00000afb 82c1a620 00000002 f7c8=
+8f8c f7c11ea8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f7c88f94 f7caadd4=20
+[11811.540000]        82c68080 00114d91 00000000 00000000 00000000 0000=
+0afb 000000ff f7c11e70=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kblockd/0     S 00000046     0   183      2
+[11811.540000]        f7cabb40 00000096 00000046 00000046 00000000 0000=
+0000 f7c8d508 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f7cabca4=20
+[11811.540000]        82c68080 00000002 00000001 00000001 f7c8d4f8 0000=
+0286 801388e0 f7c8d4d0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kblockd/1     S 00000046     0   184      2
+[11811.540000]        f7caca10 00000096 00000046 00000046 00000000 0000=
+0000 f7c8d5b8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f7cacb74=20
+[11811.540000]        82cbb080 00000002 00000001 00000001 f7c8d5a8 0000=
+0286 801388e0 f7c8d580=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kacpid        S 00000046     0   185      2
+[11811.540000]        f7cad8e0 00000096 00000046 00000046 00000000 0000=
+0000 f7c8d668 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f7cada44=20
+[11811.540000]        82cbb080 00000000 00000001 00000001 f7c8d658 0000=
+0286 801388e0 f7c8d630=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  [<8063e9ec>] ip6_mc_add_src+0x7c/0x2c0
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kacpi_notify  S f7ce5f90     0   186      2
+[11811.540000]        f7cae7b0 00000096 00000002 f7ce5f90 f7ce5f98 0000=
+0000 f7c8d7c8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f7ce5f94 f7cae914=20
+[11811.540000]        82cbb080 ffff8b1f 00000000 00000000 00000000 0000=
+0000 000000ff f7c8d790=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] ata/0         S f7d7cf90     0   276      2
+[11811.540000]        f7db0000 00000096 00000002 f7d7cf90 f7d7cf98 0000=
+0000 f7d47b38 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f7d7cf94 f7db0164=20
+[11811.540000]        82c68080 ffff8df0 00000000 00000000 00000000 0000=
+0000 000000ff f7d47b00=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] ata/1         S 00000046     0   277      2
+[11811.540000]        f7db0ed0 00000096 00000046 00000046 00000000 0000=
+0000 f7d47be8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f7db1034=20
+[11811.540000]        82cbb080 00000002 00000001 00000001 f7d47bd8 0000=
+0286 801388e0 f7d47bb0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] ata_aux       S f7d7ef90     0   278      2
+[11811.540000]        f7db1da0 00000096 00000002 f7d7ef90 f7d7ef98 0000=
+0000 f7d47c98 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f7d7ef94 f7db1f04=20
+[11811.540000]        82cbb080 ffff8db2 00000000 00000000 00000000 0000=
+0000 000000ff f7d47c60=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] ksuspend_usbd S 00000046     0   280      2
+[11811.540000]        f7db2c70 00000096 00000046 00000046 00000000 0000=
+0000 f7d47df8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f7db2dd4=20
+[11811.540000]        82cbb080 00000002 00000001 00000001 f7d47de8 0000=
+0286 801388e0 f7d47dc0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] khubd         S 00000046     0   286      2
+[11811.540000]        f7db3b40 00000086 00000046 00000046 00000000 0000=
+0000 80918b70 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000292 f7db3ca4=20
+[11811.540000]        82c68080 00000002 00000001 00000001 80918b60 0000=
+0292 f6ae3810 80918b40=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<804ecdcd>] hub_thread+0x1dd/0x1060
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<804ecbf0>] hub_thread+0x0/0x1060
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kseriod       S f7d84f80     0   289      2
+[11811.540000]        f7db4a10 00000092 00000002 f7d84f80 f7d84f88 0000=
+0000 8094f8b0 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f7d84f84 f7db4b74=20
+[11811.540000]        82c68080 ffff8e59 00000000 00000000 00000000 0000=
+0000 000000ff 8094f880=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<805292b8>] serio_thread+0xa8/0x2d0
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<80529210>] serio_thread+0x0/0x2d0
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kondemand/0   S f6dbef90     0   316      2
+[11811.540000]        f7db58e0 00000096 00000002 f6dbef90 f6dbef98 0000=
+0000 f7d85b38 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6dbef94 f7db5a44=20
+[11811.540000]        82c68080 ffffcc75 00000000 00000000 00000000 0000=
+0000 000000ff f7d85b00=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kondemand/1   S f6dbff90     0   317      2
+[11811.540000]        f7db67b0 00000096 00000002 f6dbff90 f6dbff98 0000=
+0000 f7d85be8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6dbff94 f7db6914=20
+[11811.540000]        82cbb080 ffffcc75 00000000 00000000 00000000 0000=
+0000 000000ff f7d85bb0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] pageattr-test S f67fdef0     0   340      2
+[11811.540000]        f7cb0ed0 00000092 00000002 f67fdef0 f67fdef8 0000=
+0000 00000046 80b6a678=20
+[11811.540000]        f67fdf18 00119af6 00000002 80130c53 00000000 01b6=
+9d80 f67fdef4 f7cb1034=20
+[11811.540000]        82c68080 00118f3b 00000000 00000000 00000000 0000=
+0000 000000ff f67fdf18=20
+[11811.540000] Call Trace:
+[11811.540000]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540000]  [<806ab7da>] schedule_timeout+0x4a/0xd0
+[11811.540000]  [<8011ae25>] print_split+0x85/0x1b0
+[11811.540000]  [<8011b7c8>] change_page_attr_set_clr+0xc8/0x190
+[11811.540000]  [<801310e0>] process_timeout+0x0/0x40
+[11811.540000]  [<806ab7d5>] schedule_timeout+0x45/0xd0
+[11811.540000]  [<8011b8b0>] do_pageattr_test+0x20/0x4e0
+[11811.540000]  [<8011b890>] do_pageattr_test+0x0/0x4e0
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] rt-test-0     S f7cb67b0     0   346      2
+[11811.540000]        f7cb67b0 00000096 00000000 f7cb67b0 806ab08b 0000=
+0046 00000000 00000000=20
+[11811.540000]        f6df0a94 00000046 00000046 00000046 00000000 0112=
+c7fe f6df0a94 f7cb6914=20
+[11811.540000]        82c68080 00000001 f6df0a84 00000000 8014cef0 0000=
+0000 806ad940 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<8014cf49>] test_func+0x59/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] rt-test-1     S f7cb58e0     0   348      2
+[11811.540000]        f7cb58e0 00000096 00000000 f7cb58e0 806ab08b 0000=
+0046 00000000 00000000=20
+[11811.540000]        f6df1014 00000046 00000046 00000046 00000000 0112=
+c7fe f6df1014 f7cb5a44=20
+[11811.540000]        82c68080 00000001 f6df1004 00000000 8014cef0 0000=
+0000 806ad940 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<8014cf49>] test_func+0x59/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] rt-test-2     S f7cb4a10     0   350      2
+[11811.540000]        f7cb4a10 00000096 00000000 f7cb4a10 806ab08b 0000=
+0046 00000000 00000000=20
+[11811.540000]        f6df1594 00000046 00000046 00000046 00000000 0112=
+c7fe f6df1594 f7cb4b74=20
+[11811.540000]        82c68080 00000001 f6df1584 00000000 8014cef0 0000=
+0000 806ad940 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<8014cf49>] test_func+0x59/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] rt-test-3     S f7cb3b40     0   352      2
+[11811.540000]        f7cb3b40 00000096 00000000 f7cb3b40 806ab08b 0000=
+0046 00000000 00000000=20
+[11811.540000]        f6df1b14 00000046 00000046 00000046 00000000 0112=
+c7fe f6df1b14 f7cb3ca4=20
+[11811.540000]        82c68080 00000001 f6df1b04 00000000 8014cef0 0000=
+0000 806ad940 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<8014cf49>] test_func+0x59/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] rt-test-4     S f7cb2c70     0   354      2
+[11811.540000]        f7cb2c70 00000096 00000000 f7cb2c70 806ab08b 0000=
+0046 00000000 00000000=20
+[11811.540000]        f6df2094 00000046 00000046 00000046 00000000 0112=
+c7fe f6df2094 f7cb2dd4=20
+[11811.540000]        82c68080 00000001 f6df2084 00000000 8014cef0 0000=
+0000 806ad940 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<8014cf49>] test_func+0x59/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] rt-test-5     S f7cb1da0     0   356      2
+[11811.540000]        f7cb1da0 00000096 00000000 f7cb1da0 806ab08b 0000=
+0046 00000000 00000000=20
+[11811.540000]        f6df2614 00000046 00000046 00000046 00000000 0112=
+c7fe f6df2614 f7cb1f04=20
+[11811.540000]        82c68080 00000001 f6df2604 00000000 8014cef0 0000=
+0000 806ad940 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<8014cf49>] test_func+0x59/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] rt-test-6     S f7cb0000     0   358      2
+[11811.540000]        f7cb0000 00000096 00000000 f7cb0000 806ab08b 0000=
+0046 00000000 00000000=20
+[11811.540000]        f6df2b94 00000046 00000046 00000046 00000000 0112=
+c7fe f6df2b94 f7cb0164=20
+[11811.540000]        82c68080 00000001 f6df2b84 00000000 8014cef0 0000=
+0000 806ad940 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<8014cf49>] test_func+0x59/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] rt-test-7     S f6df8000     0   360      2
+[11811.540000]        f6df8000 00000096 00000000 f6df8000 806ab08b 0000=
+0046 00000000 00000000=20
+[11811.540000]        f6df3114 00000046 00000046 00000046 00000000 0112=
+c7fe f6df3114 f6df8164=20
+[11811.540000]        82c68080 00000001 f6df3104 00000000 8014cef0 0000=
+0000 806ad940 00000001=20
+[11811.540000] Call Trace:
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540000]  [<8014cef0>] test_func+0x0/0x90
+[11811.540000]  [<8014cf49>] test_func+0x59/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] pdflush       S f6743f90     0   362      2
+[11811.540000]        f6df8ed0 00000096 00000002 f6743f90 f6743f98 0000=
+0000 f6df8ed0 80124aa3=20
+[11811.540000]        00000046 00000000 00000000 808e6db0 00000000 0100=
+0046 f6743f94 f6df9034=20
+[11811.540000]        82cbb080 ffff8b1f 00000000 00000000 00000000 0000=
+0000 000000ff f6743fc0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<80124aa3>] set_cpus_allowed_ptr+0x53/0xd0
+[11811.540000]  [<8016f790>] pdflush+0x0/0x1a0
+[11811.540000]  [<8016f842>] pdflush+0xb2/0x1a0
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] pdflush       S f6751f90     0   363      2
+[11811.540000]        f6df9da0 00000096 00000002 f6751f90 f6751f98 0000=
+0000 00000000 00000296=20
+[11811.540000]        00000046 00000000 00000000 808e6db0 00000000 0100=
+0046 f6751f94 f6df9f04=20
+[11811.540000]        82cbb080 00118f23 00000000 00000000 00000000 0000=
+0000 000000ff f6751fc0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8016f790>] pdflush+0x0/0x1a0
+[11811.540000]  [<8016f842>] pdflush+0xb2/0x1a0
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] kswapd0       S f67f9f28     0   364      2
+[11811.540000]        f6dfac70 00000082 00000002 f67f9f28 f67f9f30 0000=
+0000 808e6c54 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f67f9f2c f6dfadd4=20
+[11811.540000]        82cbb080 ffff8b1f 00000000 00000000 00000000 0000=
+0000 000000ff 808e4c00=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<80172c80>] kswapd+0x0/0x400
+[11811.540000]  [<8017304a>] kswapd+0x3ca/0x400
+[11811.540000]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<80172c80>] kswapd+0x0/0x400
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] aio/0         S 00000046     0   451      2
+[11811.540000]        f6dfbb40 00000096 00000046 00000046 00000000 0000=
+0000 f6dc59d8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f6dfbca4=20
+[11811.540000]        82c68080 00000002 00000001 00000001 f6dc59c8 0000=
+0286 801388e0 f6dc59a0=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] aio/1         S 00000046     0   452      2
+[11811.540000]        f6dfca10 00000096 00000046 00000046 00000000 0000=
+0000 f6dc5a88 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f6dfcb74=20
+[11811.540000]        82cbb080 00000002 00000001 00000001 f6dc5a78 0000=
+0286 801388e0 f6dc5a50=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] jfsIO         S 808ea3d0     0   476      2
+[11811.540000]        f6dfd8e0 00000092 00000000 808ea3d0 f6dfd8e0 0000=
+0002 82c68080 f7c70ed0=20
+[11811.540000]        00000046 00000000 00000000 808ea3d0 00000000 0100=
+0046 00000046 f6dfda44=20
+[11811.540000]        82c68080 808ea3d0 00000002 80248770 00000001 808e=
+a3c0 00000000 00000000=20
+[11811.540000] Call Trace:
+[11811.540000]  [<80248770>] jfsIOWait+0x0/0x70
+[11811.540000]  [<80248770>] jfsIOWait+0x0/0x70
+[11811.540000]  [<802487c4>] jfsIOWait+0x54/0x70
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] jfsCommit     S 00000046     0   477      2
+[11811.540000]        f6dfe7b0 00000092 80d7d174 00000046 00000046 0000=
+0000 00000000 808ea490=20
+[11811.540000]        00000046 00000000 00000001 00000001 00000000 0100=
+0046 808ea480 f6dfe914=20
+[11811.540000]        82c68080 00000002 00000000 00000001 80d7d164 0000=
+0286 8024c150 fffffffc=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8024c150>] jfs_lazycommit+0x0/0x200
+[11811.540000]  [<8024c150>] jfs_lazycommit+0x0/0x200
+[11811.540000]  [<8024c304>] jfs_lazycommit+0x1b4/0x200
+[11811.540000]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540000]  [<8024c150>] jfs_lazycommit+0x0/0x200
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] jfsCommit     S 00000046     0   478      2
+[11811.540000]        f6780000 00000092 80d7d174 00000046 00000046 0000=
+0000 00000000 808ea490=20
+[11811.540000]        00000046 00000000 00000001 00000001 00000000 0100=
+0046 808ea480 f6780164=20
+[11811.540000]        82c68080 00000002 00000000 00000001 80d7d164 0000=
+0286 8024c150 fffffffc=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8024c150>] jfs_lazycommit+0x0/0x200
+[11811.540000]  [<8024c150>] jfs_lazycommit+0x0/0x200
+[11811.540000]  [<8024c304>] jfs_lazycommit+0x1b4/0x200
+[11811.540000]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540000]  [<8024c150>] jfs_lazycommit+0x0/0x200
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] jfsSync       S f6776f9c     0   479      2
+[11811.540000]        f6780ed0 00000096 00000002 f6776f9c f6776fa4 0000=
+0000 00000000 f6780ed0=20
+[11811.540000]        00000246 00000000 00000000 808ea470 00000000 0100=
+0246 f6776fa0 f6781034=20
+[11811.540000]        82c68080 ffff8b4b 00000000 00000000 00000000 0000=
+0000 000000ff fffffffc=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8024b370>] jfs_sync+0x0/0x1c0
+[11811.540000]  [<8024b49a>] jfs_sync+0x12a/0x1c0
+[11811.540000]  [<8024b370>] jfs_sync+0x0/0x1c0
+[11811.540000]  [<8024b370>] jfs_sync+0x0/0x1c0
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] ocfs2_wq      S 00000046     0   482      2
+[11811.540000]        f6781da0 00000096 00000046 00000046 00000000 0000=
+0000 f6773c98 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f6781f04=20
+[11811.540000]        82c68080 00000002 00000001 00000001 f6773c88 0000=
+0286 801388e0 f6773c60=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] fakephp       S 00000046     0   488      2
+[11811.540000]        f6782c70 00000096 00000046 00000046 00000000 0000=
+0000 f676b5b8 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000286 f6782dd4=20
+[11811.540000]        82c68080 00000002 00000001 00000001 f676b5a8 0000=
+0286 801388e0 f676b580=20
+[11811.540000] Call Trace:
+[11811.540000]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540000]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540000]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540000]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540000]  [<8013b390>] kthread+0x0/0x70
+[11811.540000]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540000]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540000] netxen        S f6e9ff90     0  1672      2
+[11811.540000]        f6783b40 00000096 00000002 f6e9ff90 f6e9ff98 0000=
+0000 f6f20b38 00000046=20
+[11811.540000]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6e9ff94 f6783ca4=20
+[11811.540001]        82cbb080 ffff8d29 00000000 00000000 00000000 0000=
+0000 000000ff f6f20b00=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] sfc_refill/0  S f67b1f90     0  1675      2
+[11811.540001]        f6784a10 00000096 00000002 f67b1f90 f67b1f98 0000=
+0000 f6f20c98 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f67b1f94 f6784b74=20
+[11811.540001]        82c68080 ffff8d1f 00000000 00000000 00000000 0000=
+0000 000000ff f6f20c60=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] sfc_refill/1  S f6ea6f90     0  1676      2
+[11811.540001]        f67858e0 00000096 00000002 f6ea6f90 f6ea6f98 0000=
+0000 f6f20d48 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6ea6f94 f6785a44=20
+[11811.540001]        82cbb080 ffff8d29 00000000 00000000 00000000 0000=
+0000 000000ff f6f20d10=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] scsi_eh_0     S 00000000     0  1697      2
+[11811.540001]        f67867b0 00000086 00000046 00000000 00000046 0000=
+0001 8048944d f6fe8884=20
+[11811.540001]        00000002 00000286 00000001 f6fe8874 00000000 01fe=
+8830 00000000 f6786914=20
+[11811.540001]        82c68080 00000000 80489479 00000286 00000292 f6fe=
+8830 8048d230 00000292=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8048944d>] __scsi_iterate_devices+0x1d/0x70
+[11811.540001]  [<80489479>] __scsi_iterate_devices+0x49/0x70
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8048d281>] scsi_error_handler+0x51/0x2e0
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] scsi_eh_1     S f6774f64     0  1701      2
+[11811.540001]        f6a88000 00000086 00000002 f6774f64 f6774f6c 0000=
+0000 8048944d f6fe90b4=20
+[11811.540001]        00000002 00000286 00000001 f6fe90a4 00000000 01fe=
+9060 f6774f68 f6a88164=20
+[11811.540001]        82cbb080 ffff8db3 00000000 00000000 00000000 0000=
+0000 000000ff 00000292=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8048944d>] __scsi_iterate_devices+0x1d/0x70
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8048d281>] scsi_error_handler+0x51/0x2e0
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] scsi_eh_2     S f67b7f64     0  1703      2
+[11811.540001]        f6a88ed0 00000086 00000002 f67b7f64 f67b7f6c 0000=
+0000 8048944d f6fe98e4=20
+[11811.540001]        00000002 00000286 00000001 f6fe98d4 00000000 01fe=
+9890 f67b7f68 f6a89034=20
+[11811.540001]        82cbb080 ffff8db3 00000000 00000000 00000000 0000=
+0000 000000ff 00000292=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8048944d>] __scsi_iterate_devices+0x1d/0x70
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8048d281>] scsi_error_handler+0x51/0x2e0
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] scsi_eh_3     S f6772f64     0  1705      2
+[11811.540001]        f6a89da0 00000086 00000002 f6772f64 f6772f6c 0000=
+0000 8048944d f6fea114=20
+[11811.540001]        00000002 00000286 00000001 f6fea104 00000000 01fe=
+a0c0 f6772f68 f6a89f04=20
+[11811.540001]        82cbb080 ffff8db3 00000000 00000000 00000000 0000=
+0000 000000ff 00000292=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8048944d>] __scsi_iterate_devices+0x1d/0x70
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8048d281>] scsi_error_handler+0x51/0x2e0
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] scsi_eh_4     S 00000000     0  1716      2
+[11811.540001]        f6a8ac70 00000086 00000046 00000000 00000046 0000=
+0001 8048944d f6feb174=20
+[11811.540001]        00000002 00000286 00000001 f6feb164 00000000 01fe=
+b120 f6fec180 f6a8add4=20
+[11811.540001]        82c68080 f6fec188 80489484 00000286 f6fec180 f6fe=
+b120 8048d230 00000292=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8048944d>] __scsi_iterate_devices+0x1d/0x70
+[11811.540001]  [<80489484>] __scsi_iterate_devices+0x54/0x70
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8048d281>] scsi_error_handler+0x51/0x2e0
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] scsi_eh_5     S f6f3af64     0  1718      2
+[11811.540001]        f6a8bb40 00000086 00000002 f6f3af64 f6f3af6c 0000=
+0000 8048944d f6feb9a4=20
+[11811.540001]        00000002 00000286 00000001 f6feb994 00000000 01fe=
+b950 f6f3af68 f6a8bca4=20
+[11811.540001]        82cbb080 ffff8def 00000000 00000000 00000000 0000=
+0000 000000ff 00000292=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8048944d>] __scsi_iterate_devices+0x1d/0x70
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8048d281>] scsi_error_handler+0x51/0x2e0
+[11811.540001]  [<8048d230>] scsi_error_handler+0x0/0x2e0
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] w1_control    S f6a09f4c     0  1852      2
+[11811.540001]        f6a8ca10 00000096 00000002 f6a09f4c f6a09f54 0000=
+0000 00000046 f7ca0678=20
+[11811.540001]        f6a09f74 001190ca 00000002 80130c53 00000000 01ca=
+0000 f6a09f50 f6a8cb74=20
+[11811.540001]        82cbb080 00119066 00000000 00000000 00000000 0000=
+0000 000000ff f6a09f74=20
+[11811.540001] Call Trace:
+[11811.540001]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540001]  [<8053f990>] w1_control+0x0/0x1c0
+[11811.540001]  [<806ab7da>] schedule_timeout+0x4a/0xd0
+[11811.540001]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540001]  [<801310e0>] process_timeout+0x0/0x40
+[11811.540001]  [<806ab7d5>] schedule_timeout+0x45/0xd0
+[11811.540001]  [<80131576>] msleep_interruptible+0x26/0x40
+[11811.540001]  [<8053f9be>] w1_control+0x2e/0x1c0
+[11811.540001]  [<8053f990>] w1_control+0x0/0x1c0
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] kmemstick     S f6a02f90     0  1875      2
+[11811.540001]        f6a8d8e0 00000096 00000002 f6a02f90 f6a02f98 0000=
+0000 f6ac5f58 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6a02f94 f6a8da44=20
+[11811.540001]        82cbb080 ffff8e68 00000000 00000000 00000000 0000=
+0000 000000ff f6ac5f20=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] ib_mcast      S 82c6d620     0  1881      2
+[11811.540001]        f6a8e7b0 00000096 00000818 82c6d620 00000002 f6ae=
+7f8c f6a08248 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6ae7f94 f6a8e914=20
+[11811.540001]        82cbb080 ffff8e68 00000000 00000000 00000000 0000=
+0818 000000ff f6a08210=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] ib_cm/0       S f6afcf90     0  1883      2
+[11811.540001]        f6a20000 00000096 00000002 f6afcf90 f6afcf98 0000=
+0000 f6a083a8 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6afcf94 f6a20164=20
+[11811.540001]        82c68080 ffff8e59 00000000 00000000 00000000 0000=
+0000 000000ff f6a08370=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] ib_cm/1       S 82c6d620     0  1884      2
+[11811.540001]        f6a20ed0 00000096 00000818 82c6d620 00000002 f6ad=
+ef8c f6a08458 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6adef94 f6a21034=20
+[11811.540001]        82cbb080 ffff8e69 00000000 00000000 00000000 0000=
+0818 000000ff f6a08420=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] iw_cm_wq      S f6adbf90     0  1885      2
+[11811.540001]        f6a21da0 00000096 00000002 f6adbf90 f6adbf98 0000=
+0000 f6a08508 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6adbf94 f6a21f04=20
+[11811.540001]        82cbb080 ffff8e69 00000000 00000000 00000000 0000=
+0000 000000ff f6a084d0=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] ib_addr       S f6adaf90     0  1886      2
+[11811.540001]        f6a22c70 00000096 00000002 f6adaf90 f6adaf98 0000=
+0000 f6a08668 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6adaf94 f6a22dd4=20
+[11811.540001]        82cbb080 00118f4d 00000000 00000000 00000000 0000=
+0000 000000ff f6a08630=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] rdma_cm       S f6ec2f90     0  1887      2
+[11811.540001]        f6a23b40 00000096 00000002 f6ec2f90 f6ec2f98 0000=
+0000 f6a087c8 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6ec2f94 f6a23ca4=20
+[11811.540001]        82cbb080 ffff8e69 00000000 00000000 00000000 0000=
+0000 000000ff f6a08790=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] mthca_catas   S f6ec0f90     0  1888      2
+[11811.540001]        f6a24a10 00000096 00000002 f6ec0f90 f6ec0f98 0000=
+0000 f6a08928 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 f6ec0f94 f6a24b74=20
+[11811.540001]        82cbb080 ffff8e69 00000000 00000000 00000000 0000=
+0000 000000ff f6a088f0=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013895a>] worker_thread+0x7a/0x90
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801388e0>] worker_thread+0x0/0x90
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] kirqd         S f664df20     0  1909      2
+[11811.540001]        f6a258e0 00000096 00000002 f664df20 f664df28 0000=
+0000 00000046 f7ca08b0=20
+[11811.540001]        f664df48 00119180 00000002 80130c53 00000000 01ca=
+0000 f664df24 f6a25a44=20
+[11811.540001]        82cbb080 00118f8d 00000000 00000000 00000000 0000=
+0000 000000ff f664df48=20
+[11811.540001] Call Trace:
+[11811.540001]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540001]  [<806ab7da>] schedule_timeout+0x4a/0xd0
+[11811.540001]  [<801310e0>] process_timeout+0x0/0x40
+[11811.540001]  [<806ab7d5>] schedule_timeout+0x45/0xd0
+[11811.540001]  [<80114143>] balanced_irq+0x73/0x4e0
+[11811.540001]  [<801140d0>] balanced_irq+0x0/0x4e0
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] kjournald     S 00000046     0  1913      2
+[11811.540001]        f6a267b0 00000082 00000046 00000046 00000000 0000=
+0000 f6afb37c 00000046=20
+[11811.540001]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000246 f6a26914=20
+[11811.540001]        82cbb080 00000002 00000001 00000001 00000001 f6af=
+b254 f6afb254 f6afb240=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540001]  [<801ec9e5>] kjournald+0x2f5/0x340
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801ec6f0>] kjournald+0x0/0x340
+[11811.540001]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540001]  [<8013b390>] kthread+0x0/0x70
+[11811.540001]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] udevd         S f66efb04     0  1977      1
+[11811.540001]        f6a61da0 00000086 00000002 f66efb04 f66efb0c 0000=
+0000 f7824380 00001000=20
+[11811.540001]        00000046 00000046 00000000 f6dd1190 00000000 0100=
+0046 f66efb08 f6a61f04=20
+[11811.540001]        82cbb080 00114d79 00000000 00000000 00000000 0000=
+0000 000000ff 00000000=20
+[11811.540001] Call Trace:
+[11811.540001]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540001]  [<80190af2>] pipe_poll+0x32/0xb0
+[11811.540001]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540001]  [<801982b0>] do_select+0x0/0x500
+[11811.540001]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<801d5c3e>] ext3_get_blocks_handle+0x8e/0xa60
+[11811.540001]  [<801ad1b9>] __find_get_block_slow+0x49/0x110
+[11811.540001]  [<801ad1d1>] __find_get_block_slow+0x61/0x110
+[11811.540001]  [<801ad55d>] __find_get_block+0x9d/0x190
+[11811.540001]  [<801d5c3e>] ext3_get_blocks_handle+0x8e/0xa60
+[11811.540001]  [<801e1257>] ext3fs_dirhash+0x107/0x210
+[11811.540001]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540001]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540001]  [<80185e08>] __slab_free+0x238/0x2e0
+[11811.540001]  [<801202e4>] __wake_up+0x24/0x60
+[11811.540001]  [<8013b8d3>] remove_wait_queue+0x13/0x40
+[11811.540001]  [<8012b335>] do_wait+0x1d5/0xa80
+[11811.540001]  [<8011a07b>] do_page_fault+0xcb/0x710
+[11811.540001]  [<80198e8b>] sys_select+0x4b/0x1b0
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] rsyslogd      R running      0  5059      1
+[11811.540001]        f62e4a10 00000086 00000002 808e3e00 00000002 f6e8=
+ce20 00000046 000000df=20
+[11811.540001]        f6e8cae8 00000000 00000000 f784ad28 00000000 0184=
+ad18 00000046 f62e4b74=20
+[11811.540001]        82cbb080 00000000 00000000 f784ad28 00000046 0000=
+0000 00000001 00000000=20
+[11811.540001] Call Trace:
+[11811.540001]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540001]  [<805b7e87>] datagram_poll+0x17/0x100
+[11811.540001]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540001]  [<801982b0>] do_select+0x0/0x500
+[11811.540001]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<8012098e>] hrtick_set+0x2e/0x120
+[11811.540001]  [<801209c9>] hrtick_set+0x69/0x120
+[11811.540001]  [<801852b6>] check_bytes_and_report+0x26/0xd0
+[11811.540001]  [<80184f32>] slab_pad_check+0x42/0x100
+[11811.540001]  [<80185695>] check_object+0xe5/0x1f0
+[11811.540001]  [<80185e08>] __slab_free+0x238/0x2e0
+[11811.540001]  [<805b7f7a>] skb_free_datagram+0xa/0x30
+[11811.540001]  [<80621254>] unix_dgram_recvmsg+0x184/0x2c0
+[11811.540001]  [<80178642>] handle_mm_fault+0x532/0x5b0
+[11811.540001]  [<805aef4c>] sock_recvmsg+0x13c/0x190
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540001]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540001]  [<8018c4c3>] fget_light+0x53/0xe0
+[11811.540001]  [<805ae922>] sockfd_lookup_light+0x32/0x60
+[11811.540001]  [<805b02d4>] sys_recvfrom+0x154/0x160
+[11811.540001]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540001]  [<8014a2d6>] futex_wake+0xc6/0xf0
+[11811.540001]  [<8015ed90>] handle_edge_irq+0x0/0x120
+[11811.540001]  [<80107035>] do_IRQ+0x85/0xe0
+[11811.540001]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540001]  [<80103f3c>] restore_nocheck_notrace+0x0/0xe
+[11811.540001]  [<80198e8b>] sys_select+0x4b/0x1b0
+[11811.540001]  [<802e62af>] copy_to_user+0x3f/0x70
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] rsyslogd      R running      0  5061      1
+[11811.540001]        f62e1da0 00000082 00000000 00000046 00000046 0000=
+0000 00000000 f6e75e30=20
+[11811.540001]        00000046 00000000 00000001 00000001 00000000 0100=
+0046 f6e75e20 f62e1f04=20
+[11811.540001]        82cbb080 00000002 00000000 00000001 f6e75e20 0000=
+0282 00000000 80d4c0cc=20
+[11811.540001] Call Trace:
+[11811.540001]  [<8014a175>] futex_wait+0x345/0x3b0
+[11811.540001]  [<806ad970>] _read_unlock_irq+0x20/0x30
+[11811.540001]  [<80167a7d>] find_get_pages_tag+0x6d/0x80
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<8014b01c>] do_futex+0xbc/0x950
+[11811.540001]  [<806ad970>] _read_unlock_irq+0x20/0x30
+[11811.540001]  [<80167a7d>] find_get_pages_tag+0x6d/0x80
+[11811.540001]  [<8017009a>] pagevec_lookup_tag+0x2a/0x40
+[11811.540001]  [<8016844f>] wait_on_page_writeback_range+0x5f/0x110
+[11811.540001]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540001]  [<801a90cd>] sync_inode+0x2d/0x40
+[11811.540001]  [<8014b947>] sys_futex+0x97/0x120
+[11811.540001]  [<801ac37c>] do_fsync+0x8c/0xb0
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] rklogd        R running      0  5064      1
+[11811.540001]        82cbb090 00000046 00000046 00000001 00000001 8011=
+fc6f 82cbb090 00000046=20
+[11811.540001]        f62e4a10 82cbb090 806ad489 00000000 82cbb080 0000=
+0002 00000001 80186499=20
+[11811.540001]        82cbb080 802aa1b4 00000046 00000046 00000000 0000=
+0000 f6a6c304 f6a6c000=20
+[11811.540001] Call Trace:
+[11811.540001]  [<80185695>] check_object+0xe5/0x1f0
+[11811.540001]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540001]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540001]  [<806ad9f5>] _spin_lock_irqsave+0x75/0x90
+[11811.540001]  [<8013b810>] prepare_to_wait_exclusive+0x20/0x70
+[11811.540001]  [<8061fa91>] unix_wait_for_peer+0xb1/0xc0
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<8061ff71>] unix_dgram_sendmsg+0x331/0x4f0
+[11811.540001]  [<805ae7a9>] sock_aio_write+0x109/0x120
+[11811.540001]  [<8018aba5>] do_sync_write+0xd5/0x120
+[11811.540001]  [<802e62af>] copy_to_user+0x3f/0x70
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<802a53ec>] security_file_permission+0xc/0x10
+[11811.540001]  [<8018ad6e>] rw_verify_area+0x5e/0xd0
+[11811.540001]  [<8018b4a9>] vfs_write+0x119/0x120
+[11811.540001]  [<8018bb8a>] sys_write+0x4a/0xa0
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] dbus-daemon   S 801312f7     0  5071      1
+[11811.540001]        f7cdac70 00000082 00000001 801312f7 f7ca0010 f7ca=
+0000 00000046 f63a5bcc=20
+[11811.540001]        806ad9f5 00000000 f7cdbb40 f5fc8328 00000000 01ca=
+0000 00000046 f7cdadd4=20
+[11811.540001]        82cbb080 00000000 00000000 f5fc8328 00000046 0000=
+0000 00000001 00000000=20
+[11811.540001] Call Trace:
+[11811.540001]  [<801312f7>] lock_timer_base+0x27/0x60
+[11811.540001]  [<806ad9f5>] _spin_lock_irqsave+0x75/0x90
+[11811.540001]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540001]  [<8061f0a7>] unix_poll+0x17/0xb0
+[11811.540001]  [<80198076>] do_sys_poll+0x246/0x390
+[11811.540001]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80184f6e>] slab_pad_check+0x7e/0x100
+[11811.540001]  [<80122852>] enqueue_task_fair+0xc2/0xe0
+[11811.540001]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540001]  [<8011e94b>] __wake_up_common+0x4b/0x80
+[11811.540001]  [<806ad2f4>] _read_unlock+0x14/0x20
+[11811.540001]  [<80620f76>] unix_stream_sendmsg+0x1d6/0x330
+[11811.540001]  [<805ae7a9>] sock_aio_write+0x109/0x120
+[11811.540001]  [<805ae6a0>] sock_aio_write+0x0/0x120
+[11811.540001]  [<8018aa8e>] do_sync_readv_writev+0xce/0x110
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<8018b28b>] do_readv_writev+0x10b/0x170
+[11811.540001]  [<805ae6a0>] sock_aio_write+0x0/0x120
+[11811.540001]  [<8019d56d>] dput+0x6d/0x120
+[11811.540001]  [<801a20d8>] mntput_no_expire+0x18/0xe0
+[11811.540001]  [<802e62af>] copy_to_user+0x3f/0x70
+[11811.540001]  [<801981ed>] sys_poll+0x2d/0x80
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] sshd          S f613cb04     0  5085      1
+[11811.540001]        f7cd8000 00200086 00000002 f613cb04 f613cb0c 0000=
+0000 f7824380 00001000=20
+[11811.540001]        00200246 00000000 00000000 f784b928 00000000 01e3=
+39c0 00200046 f7cd8164=20
+[11811.540001]        82cbb080 00000000 00000000 f784b928 00200046 0000=
+0000 00000001 00000000=20
+[11811.540001] Call Trace:
+[11811.540001]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540001]  [<805e92a7>] tcp_poll+0x17/0x130
+[11811.540001]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540001]  [<801982b0>] do_select+0x0/0x500
+[11811.540001]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<801852b6>] check_bytes_and_report+0x26/0xd0
+[11811.540001]  [<80184f6e>] slab_pad_check+0x7e/0x100
+[11811.540001]  [<80185695>] check_object+0xe5/0x1f0
+[11811.540001]  [<80185e08>] __slab_free+0x238/0x2e0
+[11811.540001]  [<801202e4>] __wake_up+0x24/0x60
+[11811.540001]  [<801e6717>] journal_stop+0x1a7/0x2a0
+[11811.540001]  [<801e6717>] journal_stop+0x1a7/0x2a0
+[11811.540001]  [<801e6717>] journal_stop+0x1a7/0x2a0
+[11811.540001]  [<801852b6>] check_bytes_and_report+0x26/0xd0
+[11811.540001]  [<80184f6e>] slab_pad_check+0x7e/0x100
+[11811.540001]  [<80185695>] check_object+0xe5/0x1f0
+[11811.540001]  [<801864d9>] __slab_alloc+0x3e9/0x510
+[11811.540001]  [<805b36ad>] sock_def_readable+0x1d/0x80
+[11811.540001]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540001]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540001]  [<801852b6>] check_bytes_and_report+0x26/0xd0
+[11811.540001]  [<80184f6e>] slab_pad_check+0x7e/0x100
+[11811.540001]  [<80185695>] check_object+0xe5/0x1f0
+[11811.540001]  [<80185e08>] __slab_free+0x238/0x2e0
+[11811.540001]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540001]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540001]  [<8019d56d>] dput+0x6d/0x120
+[11811.540001]  [<80198e8b>] sys_select+0x4b/0x1b0
+[11811.540001]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] gpm           S f63a0b04     0  5099      1
+[11811.540001]        f6a63b40 00000086 00000002 f63a0b04 f63a0b0c 0000=
+0000 00000046 80b6a9e8=20
+[11811.540001]        f63a0b2c 00839d26 00000002 80130c53 00000000 01b6=
+9d80 f63a0b08 f6a63ca4=20
+[11811.540001]        82c68080 ffffc71d 00000000 00000000 00000000 0000=
+0000 000000ff f63a0b2c=20
+[11811.540001] Call Trace:
+[11811.540001]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540001]  [<806ab7da>] schedule_timeout+0x4a/0xd0
+[11811.540001]  [<801310e0>] process_timeout+0x0/0x40
+[11811.540001]  [<806ab7d5>] schedule_timeout+0x45/0xd0
+[11811.540001]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540001]  [<801982b0>] do_select+0x0/0x500
+[11811.540001]  [<801864d9>] __slab_alloc+0x3e9/0x510
+[11811.540001]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<801e7e71>] journal_dirty_metadata+0xf1/0x110
+[11811.540001]  [<801e7e71>] journal_dirty_metadata+0xf1/0x110
+[11811.540001]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540001]  [<801ea8a2>] find_revoke_record+0x42/0x80
+[11811.540001]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540001]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540001]  [<802aabe1>] task_has_capability+0x71/0xb0
+[11811.540001]  [<802a5129>] security_capable+0x9/0x10
+[11811.540001]  [<8012f9b8>] __capable+0x8/0x20
+[11811.540001]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540001]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540001]  [<801852b6>] check_bytes_and_report+0x26/0xd0
+[11811.540001]  [<80184f32>] slab_pad_check+0x42/0x100
+[11811.540001]  [<8052fa59>] mousedev_read+0xe9/0x1a0
+[11811.540001]  [<802e62af>] copy_to_user+0x3f/0x70
+[11811.540001]  [<8052fac9>] mousedev_read+0x159/0x1a0
+[11811.540001]  [<80198f27>] sys_select+0xe7/0x1b0
+[11811.540001]  [<802e62af>] copy_to_user+0x3f/0x70
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] console-kit-d S f7cebbc8     0  5110      1
+[11811.540001]        f7cdbb40 00000082 00000002 f7cebbc8 f7cebbd0 0000=
+0000 f6afb4bc 00000246=20
+[11811.540001]        00000246 00000000 00000000 f5fc8628 00000000 0100=
+0246 00000046 f7cdbca4=20
+[11811.540001]        82cbb080 00000000 00000000 f5fc8628 00000046 0000=
+0000 00000001 00000000=20
+[11811.540001] Call Trace:
+[11811.540001]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540001]  [<8061f0a7>] unix_poll+0x17/0xb0
+[11811.540001]  [<80198076>] do_sys_poll+0x246/0x390
+[11811.540001]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80184f6e>] slab_pad_check+0x7e/0x100
+[11811.540001]  [<80122852>] enqueue_task_fair+0xc2/0xe0
+[11811.540001]  [<801852b6>] check_bytes_and_report+0x26/0xd0
+[11811.540001]  [<80184f32>] slab_pad_check+0x42/0x100
+[11811.540001]  [<805b522a>] skb_dequeue+0x1a/0x70
+[11811.540001]  [<80620542>] unix_stream_recvmsg+0x3a2/0x540
+[11811.540001]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540001]  [<805ae8e3>] sock_aio_read+0x123/0x130
+[11811.540001]  [<8018acc5>] do_sync_read+0xd5/0x120
+[11811.540001]  [<8014afda>] do_futex+0x7a/0x950
+[11811.540001]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540001]  [<802a53ec>] security_file_permission+0xc/0x10
+[11811.540001]  [<8018ad6e>] rw_verify_area+0x5e/0xd0
+[11811.540001]  [<8018b5c7>] vfs_read+0x117/0x120
+[11811.540001]  [<8018bb38>] sys_read+0x98/0xa0
+[11811.540001]  [<801981ed>] sys_poll+0x2d/0x80
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] console-kit-d S 82c1a620     0  5114      1
+[11811.540001]        f7cd8ed0 00000082 00000600 82c1a620 00000002 f7ca=
+6dc4 00000046 00000002=20
+[11811.540001]        82cbb080 f5438000 00000002 0000000f 00000000 018e=
+0f80 f7ca6dcc f7cd9034=20
+[11811.540001]        82c68080 0002fda2 00000000 00000000 00000000 0000=
+0600 000000ff 00000001=20
+[11811.540001] Call Trace:
+[11811.540001]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540001]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540001]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540001]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540001]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540001]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540001]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540001]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540001]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540001]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540001]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540001]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540001]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540001]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540001]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540001]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540001] console-kit-d S 82c1a620     0  5115      1
+[11811.540001]        f7cd9da0 00000082 00000600 82c1a620 00000002 f627=
+0dc4 00000046 00000002=20
+[11811.540001]        82cbb080 f5430ed0 00000002 0000000f 00000000 018e=
+0f80 f6270dcc f7cd9f04=20
+[11811.540001]        82c68080 0002fda2 00000000 00000000 00000000 0000=
+0600 000000ff 00000002=20
+[11811.540001] Call Trace:
+[11811.540001]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540001]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540001]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540001]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540001]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540001]  [<8016c479>] rmqueue_bulk+0x69/0x80
+[11811.540001]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540001]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540001]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540001]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540001]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540001]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540001]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540001]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540001]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540001]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540001]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540001]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540001]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540001]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5116      1
+[11811.540002]        f7cdd8e0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82c68080 f7cde7b0 00000002 0000000f 00000000 018e=
+0f80 00000282 f7cdda44=20
+[11811.540002]        82c68080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000003=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5117      1
+[11811.540002]        f7cde7b0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82c68080 f62e2c70 00000002 0000000f 00000000 018e=
+0f80 00000282 f7cde914=20
+[11811.540002]        82c68080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000004=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5118      1
+[11811.540002]        f62e2c70 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82c68080 e689e7b0 00000002 0000000f 00000000 018e=
+0f80 00000282 f62e2dd4=20
+[11811.540002]        82c68080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000005=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 82c1a620     0  5119      1
+[11811.540002]        f62e0ed0 00000082 00000600 82c1a620 00000002 f623=
+3dc4 00000046 00000002=20
+[11811.540002]        82cbb080 f54367b0 00000002 0000000f 00000000 018e=
+0f80 f6233dcc f62e1034=20
+[11811.540002]        82c68080 0002fda2 00000000 00000000 00000000 0000=
+0600 000000ff 00000006=20
+[11811.540002] Call Trace:
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 82c1a620     0  5120      1
+[11811.540002]        f62e3b40 00000082 00000600 82c1a620 00000002 f6b3=
+3dc4 00000046 00000002=20
+[11811.540002]        82cbb080 f542e7b0 00000002 0000000f 00000000 018e=
+0f80 f6b33dcc f62e3ca4=20
+[11811.540002]        82c68080 0002fda2 00000000 00000000 00000000 0000=
+0600 000000ff 00000007=20
+[11811.540002] Call Trace:
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 82c1a620     0  5121      1
+[11811.540002]        f62e58e0 00000082 00000600 82c1a620 00000002 f60f=
+ddc4 00000046 00000002=20
+[11811.540002]        82cbb080 f5432c70 00000002 0000000f 00000000 018e=
+0f80 f60fddcc f62e5a44=20
+[11811.540002]        82c68080 0002fda2 00000000 00000000 00000000 0000=
+0600 000000ff 00000008=20
+[11811.540002] Call Trace:
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 82c1a620     0  5122      1
+[11811.540002]        f5400000 00000082 00000600 82c1a620 00000002 f63d=
+cdc4 00000046 00000002=20
+[11811.540002]        82cbb080 f5431da0 00000002 0000000f 00000000 018e=
+0f80 f63dcdcc f5400164=20
+[11811.540002]        82c68080 0002fda2 00000000 00000000 00000000 0000=
+0600 000000ff 00000009=20
+[11811.540002] Call Trace:
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<80170286>] __pagevec_lru_add_active+0x46/0xb0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 82c1a620     0  5124      1
+[11811.540002]        f5401da0 00000082 00000600 82c1a620 00000002 f63d=
+edc4 00000046 00000002=20
+[11811.540002]        82cbb080 f5430000 00000002 0000000f 00000000 018e=
+0f80 f63dedcc f5401f04=20
+[11811.540002]        82c68080 0002fda2 00000000 00000000 00000000 0000=
+0600 000000ff 0000000b=20
+[11811.540002] Call Trace:
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5125      1
+[11811.540002]        f5402c70 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f5403b40 00000002 0000000f 00000000 018e=
+0f80 00000282 f5402dd4=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000000c=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540002]  [<8016c479>] rmqueue_bulk+0x69/0x80
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5126      1
+[11811.540002]        f5403b40 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f5404a10 00000002 0000000f 00000000 018e=
+0f80 00000282 f5403ca4=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000000d=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5127      1
+[11811.540002]        f5404a10 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f542ca10 00000002 0000000f 00000000 018e=
+0f80 00000282 f5404b74=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000000e=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5128      1
+[11811.540002]        f54058e0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f54067b0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5405a44=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000000f=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5129      1
+[11811.540002]        f54067b0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f5428000 00000002 0000000f 00000000 018e=
+0f80 00000282 f5406914=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000010=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<80170286>] __pagevec_lru_add_active+0x46/0xb0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5130      1
+[11811.540002]        f5428000 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f5428ed0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5428164=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000011=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5131      1
+[11811.540002]        f5428ed0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f5429da0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5429034=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000012=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5132      1
+[11811.540002]        f5429da0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f542ac70 00000002 0000000f 00000000 018e=
+0f80 00000282 f5429f04=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000013=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540002]  [<8016c479>] rmqueue_bulk+0x69/0x80
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5133      1
+[11811.540002]        f542ac70 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f542bb40 00000002 0000000f 00000000 018e=
+0f80 00000282 f542add4=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000014=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5134      1
+[11811.540002]        f542bb40 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f5402c70 00000002 0000000f 00000000 018e=
+0f80 00000282 f542bca4=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000015=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5135      1
+[11811.540002]        f542ca10 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82cbb080 f542d8e0 00000002 0000000f 00000000 018e=
+0f80 00000282 f542cb74=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000016=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5136      1
+[11811.540002]        f542d8e0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82c68080 f62e3b40 00000002 0000000f 00000000 018e=
+0f80 00000282 f542da44=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000017=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<80170286>] __pagevec_lru_add_active+0x46/0xb0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5137      1
+[11811.540002]        f542e7b0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82c68080 f5401da0 00000002 0000000f 00000000 018e=
+0f80 00000282 f542e914=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000018=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540002]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540002]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540002]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540002]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540002]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540002]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540002]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540002]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540002]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540002]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540002]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540002]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540002] console-kit-d S 8011ff89     0  5138      1
+[11811.540002]        f5430000 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540002]        82c68080 f5400000 00000002 0000000f 00000000 018e=
+0f80 00000282 f5430164=20
+[11811.540002]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000019=20
+[11811.540002] Call Trace:
+[11811.540002]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540002]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540002]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540002]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540002]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540002]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540002]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540002]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540002]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5139      1
+[11811.540003]        f5430ed0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82c68080 f7cdd8e0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5431034=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000001a=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5140      1
+[11811.540003]        f5431da0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82c68080 f62e58e0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5431f04=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000001b=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5141      1
+[11811.540003]        f5432c70 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f5433b40 00000002 0000000f 00000000 018e=
+0f80 00000282 f5432dd4=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000001c=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5142      1
+[11811.540003]        f5433b40 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82c68080 e689e7b0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5433ca4=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000001d=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540003]  [<8016c479>] rmqueue_bulk+0x69/0x80
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5143      1
+[11811.540003]        f5434a10 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f54358e0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5434b74=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000001e=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5144      1
+[11811.540003]        f54358e0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82c68080 f62e0ed0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5435a44=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000001f=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5145      1
+[11811.540003]        f54367b0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82c68080 f7cd8ed0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5436914=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000020=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5146      1
+[11811.540003]        f5438000 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82c68080 f7cd9da0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5438164=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000021=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5147      1
+[11811.540003]        f5438ed0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f54058e0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5439034=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000022=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5148      1
+[11811.540003]        f5439da0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f543bb40 00000002 0000000f 00000000 018e=
+0f80 00000282 f5439f04=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000023=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5149      1
+[11811.540003]        f543ac70 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f543ca10 00000002 0000000f 00000000 018e=
+0f80 00000282 f543add4=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000024=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540003]  [<8016c479>] rmqueue_bulk+0x69/0x80
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5150      1
+[11811.540003]        f543bb40 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f5464a10 00000002 0000000f 00000000 018e=
+0f80 00000282 f543bca4=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000025=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5151      1
+[11811.540003]        f543ca10 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f543d8e0 00000002 0000000f 00000000 018e=
+0f80 00000282 f543cb74=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000026=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5152      1
+[11811.540003]        f543d8e0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f543e7b0 00000002 0000000f 00000000 018e=
+0f80 00000282 f543da44=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000027=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5153      1
+[11811.540003]        f543e7b0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f5460000 00000002 0000000f 00000000 018e=
+0f80 00000282 f543e914=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000028=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5154      1
+[11811.540003]        f5460000 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f5460ed0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5460164=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000029=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5155      1
+[11811.540003]        f5460ed0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f5461da0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5461034=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000002a=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5156      1
+[11811.540003]        f5461da0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f5462c70 00000002 0000000f 00000000 018e=
+0f80 00000282 f5461f04=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000002b=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<80170286>] __pagevec_lru_add_active+0x46/0xb0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5157      1
+[11811.540003]        f5462c70 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f5439da0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5462dd4=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000002c=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5158      1
+[11811.540003]        f5463b40 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f5468000 00000002 0000000f 00000000 018e=
+0f80 00000282 f5463ca4=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000002d=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540003]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540003]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540003]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540003]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540003]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540003]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540003]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540003]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540003]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540003]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540003]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540003]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540003] console-kit-d S 8011ff89     0  5159      1
+[11811.540003]        f5464a10 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540003]        82cbb080 f54658e0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5464b74=20
+[11811.540003]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000002e=20
+[11811.540003] Call Trace:
+[11811.540003]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540003]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540003]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540003]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540003]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540003]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540003]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540003]  [<8016c479>] rmqueue_bulk+0x69/0x80
+[11811.540003]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540003]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540003]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5160      1
+[11811.540004]        f54658e0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f54667b0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5465a44=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000002f=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5161      1
+[11811.540004]        f54667b0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5463b40 00000002 0000000f 00000000 018e=
+0f80 00000282 f5466914=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000030=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5162      1
+[11811.540004]        f5468000 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5400ed0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5468164=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000031=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5163      1
+[11811.540004]        f5468ed0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5472c70 00000002 0000000f 00000000 018e=
+0f80 00000282 f5469034=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000032=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<80170286>] __pagevec_lru_add_active+0x46/0xb0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5165      1
+[11811.540004]        f5469da0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5468ed0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5469f04=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000033=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5166      1
+[11811.540004]        f6a667b0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5473b40 00000002 0000000f 00000000 018e=
+0f80 00000282 f6a66914=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000034=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540004]  [<8016c479>] rmqueue_bulk+0x69/0x80
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5167      1
+[11811.540004]        f6a60000 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5469da0 00000002 0000000f 00000000 018e=
+0f80 00000282 f6a60164=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000035=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5168      1
+[11811.540004]        f6a64a10 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f6a667b0 00000002 0000000f 00000000 018e=
+0f80 00000282 f6a64b74=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000036=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5169      1
+[11811.540004]        f5470000 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f6a60000 00000002 0000000f 00000000 018e=
+0f80 00000282 f5470164=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000037=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5170      1
+[11811.540004]        f5470ed0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f6a64a10 00000002 0000000f 00000000 018e=
+0f80 00000282 f5471034=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000038=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5171      1
+[11811.540004]        f5471da0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5470ed0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5471f04=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000039=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5172      1
+[11811.540004]        f5472c70 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5471da0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5472dd4=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000003a=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<80170286>] __pagevec_lru_add_active+0x46/0xb0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5173      1
+[11811.540004]        f5473b40 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f5474a10 00000002 0000000f 00000000 018e=
+0f80 00000282 f5473ca4=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000003b=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540004]  [<8016c479>] rmqueue_bulk+0x69/0x80
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5174      1
+[11811.540004]        f5474a10 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f54758e0 00000002 0000000f 00000000 018e=
+0f80 00000282 f5474b74=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000003c=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 8011ff89     0  5175      1
+[11811.540004]        f54758e0 00000082 00000000 8011ff89 8098a8e8 0000=
+0000 00000046 00000002=20
+[11811.540004]        82cbb080 f543ac70 00000002 0000000f 00000000 018e=
+0f80 00000282 f5475a44=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 0000003d=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8011ff89>] try_to_wake_up+0x79/0x160
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<8011d3d1>] kunmap_atomic+0x91/0xb0
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<8016d37e>] get_page_from_freelist+0x2ae/0x4c0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<8017858d>] handle_mm_fault+0x47d/0x5b0
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] console-kit-d S 00000001     0 24872      1
+[11811.540004]        f557d8e0 00000082 00000000 00000001 00000001 8013=
+fdd1 00000046 808e0fc0=20
+[11811.540004]        00000082 00005607 00000002 00000000 00000000 018e=
+0f80 00000282 f557da44=20
+[11811.540004]        82cbb080 00000282 00020b19 00020b19 80129157 0000=
+0282 00000000 00000000=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8013fdd1>] up+0x11/0x40
+[11811.540004]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540004]  [<803490f9>] vt_waitactive+0x59/0xb0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80349c51>] vt_ioctl+0xb01/0x19b0
+[11811.540004]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540004]  [<80349150>] vt_ioctl+0x0/0x19b0
+[11811.540004]  [<803440f6>] tty_ioctl+0xa6/0xdf0
+[11811.540004]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540004]  [<802ab122>] inode_has_perm+0x52/0x90
+[11811.540004]  [<802ab207>] file_has_perm+0xa7/0xb0
+[11811.540004]  [<80344050>] tty_ioctl+0x0/0xdf0
+[11811.540004]  [<8019749b>] vfs_ioctl+0x2b/0x90
+[11811.540004]  [<80197751>] do_vfs_ioctl+0x251/0x2a0
+[11811.540004]  [<80197806>] sys_ioctl+0x66/0xb0
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] crond         S f5454f10     0  5176      1
+[11811.540004]        f546ac70 00000092 00000002 f5454f10 f5454f18 0000=
+0000 00000001 82c6dae0=20
+[11811.540004]        00000282 00000034 82c6db34 00000282 00000000 0145=
+4f48 f5454f14 f546add4=20
+[11811.540004]        82cbb080 00117951 00000000 00000000 00000000 0000=
+0000 000000ff f5454f48=20
+[11811.540004] Call Trace:
+[11811.540004]  [<806ac501>] do_nanosleep+0x71/0xa0
+[11811.540004]  [<8013f0ce>] hrtimer_nanosleep+0x5e/0xd0
+[11811.540004]  [<8013ea20>] hrtimer_wakeup+0x0/0x20
+[11811.540004]  [<806ac4ee>] do_nanosleep+0x5e/0xa0
+[11811.540004]  [<8013f198>] sys_nanosleep+0x58/0x60
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] xfs           S f6a53b04     0  5207      1
+[11811.540004]        f546e7b0 00000086 00000002 f6a53b04 f6a53b0c 0000=
+0000 00000046 f7ca0a68=20
+[11811.540004]        f6a53b2c 00121986 00000002 80130c53 00000000 01ca=
+0000 f6a53b08 f546e914=20
+[11811.540004]        82cbb080 00112f27 00000000 00000000 00000000 0000=
+0000 000000ff f6a53b2c=20
+[11811.540004] Call Trace:
+[11811.540004]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540004]  [<806ab7da>] schedule_timeout+0x4a/0xd0
+[11811.540004]  [<801310e0>] process_timeout+0x0/0x40
+[11811.540004]  [<806ab7d5>] schedule_timeout+0x45/0xd0
+[11811.540004]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540004]  [<801982b0>] do_select+0x0/0x500
+[11811.540004]  [<802da923>] blk_recount_segments+0x33/0x70
+[11811.540004]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<801ad55d>] __find_get_block+0x9d/0x190
+[11811.540004]  [<801ad67c>] __getblk+0x2c/0x200
+[11811.540004]  [<801d66a8>] ext3_getblk+0x98/0x190
+[11811.540004]  [<801da1f0>] ext3_find_entry+0x1f0/0x660
+[11811.540004]  [<80185695>] check_object+0xe5/0x1f0
+[11811.540004]  [<8019c2c0>] d_rehash+0x20/0x50
+[11811.540004]  [<8019d57f>] dput+0x7f/0x120
+[11811.540004]  [<801852b6>] check_bytes_and_report+0x26/0xd0
+[11811.540004]  [<80184f32>] slab_pad_check+0x42/0x100
+[11811.540004]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540004]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540004]  [<80175b29>] __do_fault+0xe9/0x400
+[11811.540004]  [<8011d37f>] kunmap_atomic+0x3f/0xb0
+[11811.540004]  [<80175be5>] __do_fault+0x1a5/0x400
+[11811.540004]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540004]  [<80178642>] handle_mm_fault+0x532/0x5b0
+[11811.540004]  [<8011a07b>] do_page_fault+0xcb/0x710
+[11811.540004]  [<80198f27>] sys_select+0xe7/0x1b0
+[11811.540004]  [<802e62af>] copy_to_user+0x3f/0x70
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] atd           S f545ff10     0  5213      1
+[11811.540004]        f6a60ed0 00000092 00000002 f545ff10 f545ff18 0000=
+0000 00000001 82c6dae0=20
+[11811.540004]        00000282 00000034 82c6db34 00000282 00000000 0145=
+ff48 f545ff14 f6a61034=20
+[11811.540004]        82cbb080 001044e0 00000000 00000000 00000000 0000=
+0000 000000ff f545ff48=20
+[11811.540004] Call Trace:
+[11811.540004]  [<806ac501>] do_nanosleep+0x71/0xa0
+[11811.540004]  [<8013f0ce>] hrtimer_nanosleep+0x5e/0xd0
+[11811.540004]  [<8013ea20>] hrtimer_wakeup+0x0/0x20
+[11811.540004]  [<806ac4ee>] do_nanosleep+0x5e/0xa0
+[11811.540004]  [<8013f198>] sys_nanosleep+0x58/0x60
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] kauditd       S f54eef90     0  5244      2
+[11811.540004]        f54d9da0 00000096 00000002 f54eef90 f54eef98 0000=
+0000 00000000 808e3b30=20
+[11811.540004]        00000046 00000000 00000001 00000001 00000000 0100=
+0046 f54eef94 f54d9f04=20
+[11811.540004]        82c68080 ffffcb74 00000000 00000000 00000000 0000=
+0000 000000ff 00000000=20
+[11811.540004] Call Trace:
+[11811.540004]  [<80153ee0>] kauditd_thread+0x0/0x170
+[11811.540004]  [<80154020>] kauditd_thread+0x140/0x170
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<8013b3d2>] kthread+0x42/0x70
+[11811.540004]  [<8013b390>] kthread+0x0/0x70
+[11811.540004]  [<80104b1b>] kernel_thread_helper+0x7/0x1c
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] distccd       S f5502ef0     0  5297      1
+[11811.540004]        f54767b0 00000092 00000002 f5502ef0 f5502ef8 0000=
+0000 00000004 f5502ecc=20
+[11811.540004]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 f5502ef4 f5476914=20
+[11811.540004]        82cbb080 ffffe5cc 00000000 00000000 00000000 0000=
+0000 000000ff f54767a8=20
+[11811.540004] Call Trace:
+[11811.540004]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540004]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540004]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540004]  [<8012bcc7>] sys_waitpid+0x27/0x30
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] distccd       S f62e67b0     0  5298   5297
+[11811.540004]        f62e67b0 00000096 e6b66d40 f62e67b0 805e28e5 0000=
+0000 f611067c f62e67b0=20
+[11811.540004]        00000000 00000000 f5770ed0 00000000 00000000 0100=
+0000 f611067c f62e6914=20
+[11811.540004]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540004] Call Trace:
+[11811.540004]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540004]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540004]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540004]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540004]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540004]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540004]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540004]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540004]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540004]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540004]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540004]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540004]  [<8019d56d>] dput+0x6d/0x120
+[11811.540004]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540004]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540004]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] distccd       S f54d0000     0  5332   5297
+[11811.540004]        f54d0000 00000096 ee6d9710 f54d0000 805e28e5 0000=
+0000 f611067c f54d0000=20
+[11811.540004]        00000000 00000000 f2132c70 00000000 00000000 0100=
+0000 f611067c f54d0164=20
+[11811.540004]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540004] Call Trace:
+[11811.540004]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540004]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540004]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540004]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540004]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540004]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540004]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540004]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540004]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540004]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540004]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540004]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540004]  [<8019d56d>] dput+0x6d/0x120
+[11811.540004]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540004]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540004]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540004]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540004]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540004] distccd       S f557e7b0     0  5479   5297
+[11811.540004]        f557e7b0 00000096 e6be9dd0 f557e7b0 805e28e5 0000=
+0000 f611067c f557e7b0=20
+[11811.540004]        00000000 00000000 eb661da0 00000000 00000000 0100=
+0000 f611067c f557e914=20
+[11811.540004]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540004] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] smartd        S f5514f10     0  5492      1
+[11811.540005]        f54d4a10 00000092 00000002 f5514f10 f5514f18 0000=
+0000 00000001 82c6dae0=20
+[11811.540005]        00000282 00000034 82c6db34 00000282 00000000 0151=
+4f48 f5514f14 f54d4b74=20
+[11811.540005]        82cbb080 00104886 00000000 00000000 00000000 0000=
+0000 000000ff f5514f48=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ac501>] do_nanosleep+0x71/0xa0
+[11811.540005]  [<8013f0ce>] hrtimer_nanosleep+0x5e/0xd0
+[11811.540005]  [<8013ea20>] hrtimer_wakeup+0x0/0x20
+[11811.540005]  [<806ac4ee>] do_nanosleep+0x5e/0xa0
+[11811.540005]  [<8013f198>] sys_nanosleep+0x58/0x60
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S 84388000     0  5494      1
+[11811.540005]        f557ac70 00000082 8034f35f 84388000 00000000 8035=
+1500 00000004 00000000=20
+[11811.540005]        f670151c f557ac70 fffffe00 0700b338 00000000 0100=
+0046 00000000 f557add4=20
+[11811.540005]        82cbb080 f557ac70 00000000 00000002 00000046 0000=
+0046 00000000 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<8034f35f>] notify_update+0x1f/0x30
+[11811.540005]  [<80351500>] do_con_write+0x1a0/0x1aa0
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S 00000000     0  5495      1
+[11811.540005]        f5578ed0 00000082 0000000d 00000000 33679376 0000=
+000d 82c680ec 00000000=20
+[11811.540005]        f6f91d4c f5578ed0 82c680d0 82c680ec 00000000 0100=
+0046 00000000 f5579034=20
+[11811.540005]        82c68080 f5578ed0 00000000 00000002 00000046 0000=
+0046 00000000 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S f6068d20     0  5496      1
+[11811.540005]        f546bb40 00000082 8034f35f f6068d20 00000000 8035=
+1500 00000046 00000000=20
+[11811.540005]        f6f5b5dc f546bb40 fffffe00 0700b338 00000000 0100=
+0046 00000000 f546bca4=20
+[11811.540005]        82cbb080 f546bb40 00000000 00000002 00000046 0000=
+0046 00000000 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<8034f35f>] notify_update+0x1f/0x30
+[11811.540005]  [<80351500>] do_con_write+0x1a0/0x1aa0
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S f621aaf0     0  5497      1
+[11811.540005]        f546ca10 00000082 8034f35f f621aaf0 00000000 8035=
+1500 00000046 00000000=20
+[11811.540005]        f6f8ef2c f546ca10 fffffe00 0700b338 00000000 0100=
+0046 00000000 f546cb74=20
+[11811.540005]        82cbb080 f546ca10 00000000 00000002 00000046 0000=
+0046 00000000 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<8034f35f>] notify_update+0x1f/0x30
+[11811.540005]  [<80351500>] do_con_write+0x1a0/0x1aa0
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S f54f9e84     0  5498      1
+[11811.540005]        f54dd8e0 00000082 00000002 f54f9e84 f54f9e8c 0000=
+0000 00000000 00000000=20
+[11811.540005]        f6a3ef2c f54dd8e0 82c68080 00000046 00000000 0100=
+0046 f54f9e88 f54dda44=20
+[11811.540005]        82c68080 ffffcdc9 00000000 00000000 00000000 0000=
+0000 000000ff 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S 00000000     0  5499      1
+[11811.540005]        f54dca10 00000082 0000000d 00000000 33679376 0000=
+000d 82c680ec 00000000=20
+[11811.540005]        f6a3e6fc f54dca10 82c680d0 82c680ec 00000000 0100=
+0046 00000000 f54dcb74=20
+[11811.540005]        82c68080 f54dca10 00000000 00000002 00000046 0000=
+0046 00000000 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S f66c6d20     0  5500      1
+[11811.540005]        f54d8000 00000082 8034f35f f66c6d20 00000000 8035=
+1500 00000046 00000000=20
+[11811.540005]        f6a3decc f54d8000 fffffe00 0700b338 00000000 0100=
+0046 00000000 f54d8164=20
+[11811.540005]        82c68080 f54d8000 00000000 00000002 00000046 0000=
+0046 00000000 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<8034f35f>] notify_update+0x1f/0x30
+[11811.540005]  [<80351500>] do_con_write+0x1a0/0x1aa0
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S f5554e84     0  5501      1
+[11811.540005]        f54d8ed0 00000082 00000002 f5554e84 f5554e8c 0000=
+0000 82c680ec 00000000=20
+[11811.540005]        f6f8decc f54d8ed0 82c680d0 82c680ec 00000000 0100=
+0046 f5554e88 f54d9034=20
+[11811.540005]        82cbb080 ffffcdcd 00000000 00000000 00000000 0000=
+0000 000000ff 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S 00000000     0  5502      1
+[11811.540005]        f54dbb40 00000082 0000000d 00000000 33679376 0000=
+000d 82c680ec 00000000=20
+[11811.540005]        f6f84e6c f54dbb40 82c680d0 82c680ec 00000000 0100=
+0046 00000000 f54dbca4=20
+[11811.540005]        82c68080 f54dbb40 00000000 00000002 00000046 0000=
+0046 00000000 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] mingetty      S 00000000     0  5503      1
+[11811.540005]        f54de7b0 00000082 0000000d 00000000 33679376 0000=
+000d 82c680ec 00000000=20
+[11811.540005]        f6a3f75c f54de7b0 82c680d0 82c680ec 00000000 0100=
+0046 00000000 f54de914=20
+[11811.540005]        82c68080 f54de7b0 00000000 00000002 00000046 0000=
+0046 00000000 00000000=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<8013b966>] add_wait_queue+0x16/0x40
+[11811.540005]  [<8034720a>] read_chan+0x1ea/0x6b0
+[11811.540005]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540005]  [<80343ec6>] tty_read+0x86/0xc0
+[11811.540005]  [<80347020>] read_chan+0x0/0x6b0
+[11811.540005]  [<80343e40>] tty_read+0x0/0xc0
+[11811.540005]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540005]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f7cdca10     0  5504   5297
+[11811.540005]        f7cdca10 00000096 e19c7200 f7cdca10 805e28e5 0000=
+0000 f611067c f7cdca10=20
+[11811.540005]        00000000 00000000 eb4a0ed0 00000000 00000000 0100=
+0000 f611067c f7cdcb74=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5673b40     0  5622   5297
+[11811.540005]        f5673b40 00000096 f21793b0 f5673b40 805e28e5 0000=
+0000 f611067c f5673b40=20
+[11811.540005]        00000000 00000000 f21793b0 00000000 00000000 0100=
+0000 f611067c f5673ca4=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5671da0     0  5626   5297
+[11811.540005]        f5671da0 00000096 f21559e0 f5671da0 805e28e5 0000=
+0000 f611067c f5671da0=20
+[11811.540005]        00000000 00000000 f21559e0 00000000 00000000 0100=
+0000 f611067c f5671f04=20
+[11811.540005]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5670000     0  5631   5297
+[11811.540005]        f5670000 00000096 f2179050 f5670000 805e28e5 0000=
+0000 f611067c f5670000=20
+[11811.540005]        00000000 00000000 f2179050 00000000 00000000 0100=
+0000 f611067c f5670164=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5570000     0  5658   5297
+[11811.540005]        f5570000 00000096 f21209e0 f5570000 f7c02c54 0000=
+0000 f611067c f5570000=20
+[11811.540005]        00000000 00000000 f21209e0 00000000 00000000 0100=
+0000 f611067c f5570164=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5571da0     0  5663   5297
+[11811.540005]        f5571da0 00000096 e6be25f0 f5571da0 805e28e5 0000=
+0000 f611067c f5571da0=20
+[11811.540005]        00000000 00000000 e6be25f0 00000000 00000000 0100=
+0000 f611067c f5571f04=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5570ed0     0  5666   5297
+[11811.540005]        f5570ed0 00000096 e6b1ff80 f5570ed0 f7c02c54 0000=
+0000 f611067c f5570ed0=20
+[11811.540005]        00000000 00000000 e6b1ff80 00000000 00000000 0100=
+0000 f611067c f5571034=20
+[11811.540005]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f54d1da0     0  5678   5297
+[11811.540005]        f54d1da0 00000096 f2120d40 f54d1da0 00000000 0000=
+0000 f611067c f54d1da0=20
+[11811.540005]        00000000 00000000 eb581da0 00000000 00000000 0100=
+0000 f611067c f54d1f04=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f54d3b40     0  5681   5297
+[11811.540005]        f54d3b40 00000096 ee6285f0 f54d3b40 805e28e5 0000=
+0000 f611067c f54d3b40=20
+[11811.540005]        00000000 00000000 ee6285f0 00000000 00000000 0100=
+0000 f611067c f54d3ca4=20
+[11811.540005]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f54d0ed0     0  5686   5297
+[11811.540005]        f54d0ed0 00000096 f21f8050 f54d0ed0 805e28e5 0000=
+0000 f611067c f54d0ed0=20
+[11811.540005]        00000000 00000000 f21f8050 00000000 00000000 0100=
+0000 f611067c f54d1034=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f6a658e0     0  5709   5297
+[11811.540005]        f6a658e0 00000096 ee7a0320 f6a658e0 f7c02c54 0000=
+0000 f611067c f6a658e0=20
+[11811.540005]        00000000 00000000 ee7a0320 00000000 00000000 0100=
+0000 f611067c f6a65a44=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f54d2c70     0  5742   5297
+[11811.540005]        f54d2c70 00000096 eb697d40 f54d2c70 805e28e5 0000=
+0000 f611067c f54d2c70=20
+[11811.540005]        00000000 00000000 eb697d40 00000000 00000000 0100=
+0000 f611067c f54d2dd4=20
+[11811.540005]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f54d58e0     0  5745   5297
+[11811.540005]        f54d58e0 00000096 eb5c6050 f54d58e0 829ae510 0000=
+0000 f611067c f54d58e0=20
+[11811.540005]        00000000 00000000 eb5c6050 00000000 00000000 0100=
+0000 f611067c f54d5a44=20
+[11811.540005]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5572c70     0  5748   5297
+[11811.540005]        f5572c70 00000096 e6be2830 f5572c70 805e28e5 0000=
+0000 f611067c f5572c70=20
+[11811.540005]        00000000 00000000 e6be2830 00000000 00000000 0100=
+0000 f611067c f5572dd4=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5574a10     0  5751   5297
+[11811.540005]        f5574a10 00000096 eb4c4170 f5574a10 f7c02c54 0000=
+0000 f611067c f5574a10=20
+[11811.540005]        00000000 00000000 eb4c4170 00000000 00000000 0100=
+0000 f611067c f5574b74=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f5674a10     0  5753   5297
+[11811.540005]        f5674a10 00000096 eb6ff440 f5674a10 805e28e5 0000=
+0000 f611067c f5674a10=20
+[11811.540005]        00000000 00000000 ee634a10 00000000 00000000 0100=
+0000 f611067c f5674b74=20
+[11811.540005]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540005]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540005]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540005]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540005]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540005]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540005]  [<8019d56d>] dput+0x6d/0x120
+[11811.540005]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540005]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540005]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540005]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540005]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540005] distccd       S f56758e0     0  5755   5297
+[11811.540005]        f56758e0 00000096 eb4c4950 f56758e0 805e28e5 0000=
+0000 f611067c f56758e0=20
+[11811.540005]        00000000 00000000 eb670000 00000000 00000000 0100=
+0000 f611067c f5675a44=20
+[11811.540005]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540005] Call Trace:
+[11811.540005]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540005]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540005]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540005]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540005]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56767b0     0  5758   5297
+[11811.540006]        f56767b0 00000096 e18f1cb0 f56767b0 805e28e5 0000=
+0000 f611067c f56767b0=20
+[11811.540006]        00000000 00000000 e18f1cb0 00000000 00000000 0100=
+0000 f611067c f5676914=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5670ed0     0  5761   5297
+[11811.540006]        f5670ed0 00000096 eb7ad200 f5670ed0 805e28e5 0000=
+0000 f611067c f5670ed0=20
+[11811.540006]        00000000 00000000 eb7ad200 00000000 00000000 0100=
+0000 f611067c f5671034=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f54d67b0     0  5764   5297
+[11811.540006]        f54d67b0 00000096 ee4ab710 f54d67b0 805e28e5 0000=
+0000 f611067c f54d67b0=20
+[11811.540006]        00000000 00000000 ee4ab710 00000000 00000000 0100=
+0000 f611067c f54d6914=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56d0000     0  5767   5297
+[11811.540006]        f56d0000 00000096 ee41c200 f56d0000 805e28e5 0000=
+0000 f611067c f56d0000=20
+[11811.540006]        00000000 00000000 f57958e0 00000000 00000000 0100=
+0000 f611067c f56d0164=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56d1da0     0  5770   5297
+[11811.540006]        f56d1da0 00000096 e6a04170 f56d1da0 805e28e5 0000=
+0000 f611067c f56d1da0=20
+[11811.540006]        00000000 00000000 e6a04170 00000000 00000000 0100=
+0000 f611067c f56d1f04=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56d2c70     0  5773   5297
+[11811.540006]        f56d2c70 00000096 e6b1f440 f56d2c70 829fb5f0 0000=
+0000 f611067c f56d2c70=20
+[11811.540006]        00000000 00000000 e6b1f440 00000000 00000000 0100=
+0000 f611067c f56d2dd4=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56d3b40     0  5776   5297
+[11811.540006]        f56d3b40 00000096 f2362dd0 f56d3b40 f7c02c54 0000=
+0000 f611067c f56d3b40=20
+[11811.540006]        00000000 00000000 f2362dd0 00000000 00000000 0100=
+0000 f611067c f56d3ca4=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56d4a10     0  5779   5297
+[11811.540006]        f56d4a10 00000096 f21f97a0 f56d4a10 8266fc38 0000=
+0000 f611067c f56d4a10=20
+[11811.540006]        00000000 00000000 ee6c8000 00000000 00000000 0100=
+0000 f611067c f56d4b74=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56d0ed0     0  5781   5297
+[11811.540006]        f56d0ed0 00000096 f2155950 f56d0ed0 805e28e5 0000=
+0000 f611067c f56d0ed0=20
+[11811.540006]        00000000 00000000 f2155950 00000000 00000000 0100=
+0000 f611067c f56d1034=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56d58e0     0  5783   5297
+[11811.540006]        f56d58e0 00000096 e6b663b0 f56d58e0 805e28e5 0000=
+0000 f611067c f56d58e0=20
+[11811.540006]        00000000 00000000 ee500000 00000000 00000000 0100=
+0000 f611067c f56d5a44=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f56b8e0c     0  5786   5297
+[11811.540006]        f55767b0 00000096 00000002 f56b8e0c f56b8e14 0000=
+0000 f611067c f55767b0=20
+[11811.540006]        00000000 00000000 eb401da0 00000000 00000000 0100=
+0000 f611067c f5576914=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<80175be5>] __do_fault+0x1a5/0x400
+[11811.540006]  [<801760df>] do_wp_page+0x29f/0x5a0
+[11811.540006]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540006]  [<80178642>] handle_mm_fault+0x532/0x5b0
+[11811.540006]  [<8011a07b>] do_page_fault+0xcb/0x710
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8012007b>] default_wake_function+0xb/0x10
+[11811.540006]  [<80119fb0>] do_page_fault+0x0/0x710
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5710000     0  5789   5297
+[11811.540006]        f5710000 00000096 eb71ac20 f5710000 f7c02c54 0000=
+0000 f611067c f5710000=20
+[11811.540006]        00000000 00000000 ee6f58e0 00000000 00000000 0100=
+0000 f611067c f5710164=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5711da0     0  5792   5297
+[11811.540006]        f5711da0 00000096 ee4a17a0 f5711da0 805e28e5 0000=
+0000 f611067c f5711da0=20
+[11811.540006]        00000000 00000000 ee4a17a0 00000000 00000000 0100=
+0000 f611067c f5711f04=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5710ed0     0  5793   5297
+[11811.540006]        f5710ed0 00000096 f55b8950 f5710ed0 f7c02c54 0000=
+0000 f611067c f5710ed0=20
+[11811.540006]        00000000 00000000 eb69e7b0 00000000 00000000 0100=
+0000 f611067c f5711034=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5712c70     0  5794   5297
+[11811.540006]        f5712c70 00000096 e18ddb90 f5712c70 805e28e5 0000=
+0000 f611067c f5712c70=20
+[11811.540006]        00000000 00000000 e18ddb90 00000000 00000000 0100=
+0000 f611067c f5712dd4=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5713b40     0  5795   5297
+[11811.540006]        f5713b40 00000096 e19054d0 f5713b40 805e28e5 0000=
+0000 f611067c f5713b40=20
+[11811.540006]        00000000 00000000 f23e0ed0 00000000 00000000 0100=
+0000 f611067c f5713ca4=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5728e0c     0  5796   5297
+[11811.540006]        f5714a10 00000096 00000002 f5728e0c f5728e14 0000=
+0000 f611067c f5714a10=20
+[11811.540006]        00000000 00000000 eb664a10 00000000 00000000 0100=
+0000 f611067c f5714b74=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<80175be5>] __do_fault+0x1a5/0x400
+[11811.540006]  [<801760df>] do_wp_page+0x29f/0x5a0
+[11811.540006]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540006]  [<80178642>] handle_mm_fault+0x532/0x5b0
+[11811.540006]  [<8011a07b>] do_page_fault+0xcb/0x710
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8012007b>] default_wake_function+0xb/0x10
+[11811.540006]  [<80119fb0>] do_page_fault+0x0/0x710
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S 82c6d620     0  5797   5297
+[11811.540006]        f57158e0 00000096 00000419 82c6d620 00000002 f573=
+2e08 f611067c f57158e0=20
+[11811.540006]        00000000 00000000 e18c0830 00000000 00000000 0100=
+0000 f5732e10 f5715a44=20
+[11811.540006]        82cbb080 00002bcc 00000001 00000000 00000000 0000=
+0419 000000ff f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f57167b0     0  5798   5297
+[11811.540006]        f57167b0 00000096 f55b85f0 f57167b0 f7c02c54 0000=
+0000 f611067c f57167b0=20
+[11811.540006]        00000000 00000000 f55b85f0 00000000 00000000 0100=
+0000 f611067c f5716914=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<80185e08>] __slab_free+0x238/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5745e0c     0  5799   5297
+[11811.540006]        f56d67b0 00000096 00000002 f5745e0c f5745e14 0000=
+0000 f611067c f56d67b0=20
+[11811.540006]        00000000 00000000 e6a867b0 00000000 00000000 0100=
+0000 f611067c f56d6914=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<80175be5>] __do_fault+0x1a5/0x400
+[11811.540006]  [<801760df>] do_wp_page+0x29f/0x5a0
+[11811.540006]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540006]  [<80178642>] handle_mm_fault+0x532/0x5b0
+[11811.540006]  [<8011a07b>] do_page_fault+0xcb/0x710
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8012007b>] default_wake_function+0xb/0x10
+[11811.540006]  [<80119fb0>] do_page_fault+0x0/0x710
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f546d8e0     0  5800   5297
+[11811.540006]        f546d8e0 00000096 eb62c710 f546d8e0 829ae510 0000=
+0000 f611067c f546d8e0=20
+[11811.540006]        00000000 00000000 eb62c710 00000000 00000000 0100=
+0000 f611067c f546da44=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5672c70     0  5807   5297
+[11811.540006]        f5672c70 00000096 ee4aa050 f5672c70 805e28e5 0000=
+0000 f611067c f5672c70=20
+[11811.540006]        00000000 00000000 eb4a67b0 00000000 00000000 0100=
+0000 f611067c f5672dd4=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5773b40     0  5960   5297
+[11811.540006]        f5773b40 00000096 e69cd0e0 f5773b40 805e28e5 0000=
+0000 f611067c f5773b40=20
+[11811.540006]        00000000 00000000 eb583b40 00000000 00000000 0100=
+0000 f611067c f5773ca4=20
+[11811.540006]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5768ed0     0  6098   5297
+[11811.540006]        f5768ed0 00000096 e18c0b00 f5768ed0 805e28e5 0000=
+0000 f611067c f5768ed0=20
+[11811.540006]        00000000 00000000 e18c0b00 00000000 00000000 0100=
+0000 f611067c f5769034=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540006]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540006]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540006]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540006]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540006]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540006]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540006]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540006]  [<8019d56d>] dput+0x6d/0x120
+[11811.540006]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540006]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540006]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540006]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540006]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540006] distccd       S f5784a10     0  6241   5297
+[11811.540006]        f5784a10 00000096 ee4a1710 f5784a10 82a053a8 0000=
+0000 f611067c f5784a10=20
+[11811.540006]        00000000 00000000 ee4a1710 00000000 00000000 0100=
+0000 f611067c f5784b74=20
+[11811.540006]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540006] Call Trace:
+[11811.540006]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540006]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5772c70     0  6440   5297
+[11811.540007]        f5772c70 00000096 e18b8290 f5772c70 f7c02c54 0000=
+0000 f611067c f5772c70=20
+[11811.540007]        00000000 00000000 eb583b40 00000000 00000000 0100=
+0000 f611067c f5772dd4=20
+[11811.540007]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5791da0     0  6591   5297
+[11811.540007]        f5791da0 00000096 eb778e60 f5791da0 f7c02c54 0000=
+0000 f611067c f5791da0=20
+[11811.540007]        00000000 00000000 eb778e60 00000000 00000000 0100=
+0000 f611067c f5791f04=20
+[11811.540007]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5781da0     0  6788   5297
+[11811.540007]        f5781da0 00000096 eb433440 f5781da0 805e28e5 0000=
+0000 f611067c f5781da0=20
+[11811.540007]        00000000 00000000 ee500ed0 00000000 00000000 0100=
+0000 f611067c f5781f04=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5780000     0  6835   5297
+[11811.540007]        f5780000 00000096 ee7617a0 f5780000 f7c02c54 0000=
+0000 f611067c f5780000=20
+[11811.540007]        00000000 00000000 ee7617a0 00000000 00000000 0100=
+0000 f611067c f5780164=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5782c70     0  6900   5297
+[11811.540007]        f5782c70 00000096 ee6288c0 f5782c70 805e28e5 0000=
+0000 f611067c f5782c70=20
+[11811.540007]        00000000 00000000 ee6288c0 00000000 00000000 0100=
+0000 f611067c f5782dd4=20
+[11811.540007]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f557ca10     0  6973   5297
+[11811.540007]        f557ca10 00000096 e6a66ef0 f557ca10 805e28e5 0000=
+0000 f611067c f557ca10=20
+[11811.540007]        00000000 00000000 eb614a10 00000000 00000000 0100=
+0000 f611067c f557cb74=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5579da0     0  7021   5297
+[11811.540007]        f5579da0 00000096 ee4e9830 f5579da0 f7c02c54 0000=
+0000 f611067c f5579da0=20
+[11811.540007]        00000000 00000000 ee7267b0 00000000 00000000 0100=
+0000 f611067c f5579f04=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5794a10     0  7079   5297
+[11811.540007]        f5794a10 00000096 e18c09e0 f5794a10 805e28e5 0000=
+0000 f611067c f5794a10=20
+[11811.540007]        00000000 00000000 e18c09e0 00000000 00000000 0100=
+0000 f611067c f5794b74=20
+[11811.540007]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S 82c1a620     0  7147   5297
+[11811.540007]        f5780ed0 00000096 00000019 82c1a620 00000002 0000=
+0000 f611067c f5780ed0=20
+[11811.540007]        00000000 00000000 eb610000 00000000 00000000 0100=
+0000 f611067c f5781034=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5573b40     0  7199   5297
+[11811.540007]        f5573b40 00000096 ee702f80 f5573b40 805e28e5 0000=
+0000 f611067c f5573b40=20
+[11811.540007]        00000000 00000000 ee702f80 00000000 00000000 0100=
+0000 f611067c f5573ca4=20
+[11811.540007]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5790000     0  7302   5297
+[11811.540007]        f5790000 00000096 00000000 f5790000 806ab08b 0000=
+0000 f611067c f5790000=20
+[11811.540007]        f61106a0 00000046 f5578000 00000000 00000000 0100=
+0000 f611067c f5790164=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab08b>] schedule+0x25b/0x670
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5792c70     0  7378   5297
+[11811.540007]        f5792c70 00000096 f56e2950 f5792c70 805e28e5 0000=
+0000 f611067c f5792c70=20
+[11811.540007]        00000000 00000000 f56e2950 00000000 00000000 0100=
+0000 f611067c f5792dd4=20
+[11811.540007]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f57758e0     0  7460   5297
+[11811.540007]        f57758e0 00000096 ee6ab290 f57758e0 f7c02c54 0000=
+0000 f611067c f57758e0=20
+[11811.540007]        00000000 00000000 e199ca10 00000000 00000000 0100=
+0000 f611067c f5775a44=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f205ce0c     0  7466   5297
+[11811.540007]        f6a62c70 00000096 00000002 f205ce0c f205ce14 0000=
+0000 f611067c f6a62c70=20
+[11811.540007]        00000000 00000000 f21f0ed0 00000000 00000000 0100=
+0000 f611067c f6a62dd4=20
+[11811.540007]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<80175be5>] __do_fault+0x1a5/0x400
+[11811.540007]  [<801760df>] do_wp_page+0x29f/0x5a0
+[11811.540007]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540007]  [<80178642>] handle_mm_fault+0x532/0x5b0
+[11811.540007]  [<8011a07b>] do_page_fault+0xcb/0x710
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8012007b>] default_wake_function+0xb/0x10
+[11811.540007]  [<80119fb0>] do_page_fault+0x0/0x710
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f55758e0     0  7467   5297
+[11811.540007]        f55758e0 00000096 ee5105f0 f55758e0 f7c02c54 0000=
+0000 f611067c f55758e0=20
+[11811.540007]        00000000 00000000 ee4758e0 00000000 00000000 0100=
+0000 f611067c f5575a44=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5793b40     0  7468   5297
+[11811.540007]        f5793b40 00000096 eb470dd0 f5793b40 829e9220 0000=
+0000 f611067c f5793b40=20
+[11811.540007]        00000000 00000000 e6ba2c70 00000000 00000000 0100=
+0000 f611067c f5793ca4=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5790ed0     0  7469   5297
+[11811.540007]        f5790ed0 00000096 e6a04ef0 f5790ed0 f7c02c54 0000=
+0000 f611067c f5790ed0=20
+[11811.540007]        00000000 00000000 e6a04ef0 00000000 00000000 0100=
+0000 f611067c f5791034=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f57867b0     0  7471   5297
+[11811.540007]        f57867b0 00000096 e69f9b00 f57867b0 805e28e5 0000=
+0000 f611067c f57867b0=20
+[11811.540007]        00000000 00000000 f54dac70 00000000 00000000 0100=
+0000 f611067c f5786914=20
+[11811.540007]        82cbb080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] distccd       S f5783b40     0  7472   5297
+[11811.540007]        f5783b40 00000096 eb533ef0 f5783b40 f7c02c54 0000=
+0000 f611067c f5783b40=20
+[11811.540007]        00000000 00000000 ee630ed0 00000000 00000000 0100=
+0000 f611067c f5783ca4=20
+[11811.540007]        82c68080 00000246 00000046 00000246 00000000 0000=
+0000 f611067c f6110640=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805e777d>] inet_csk_accept+0x11d/0x230
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80607d08>] inet_accept+0x28/0xd0
+[11811.540007]  [<802aff04>] selinux_socket_accept+0x24/0x60
+[11811.540007]  [<805b05a9>] sys_accept+0xc9/0x210
+[11811.540007]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540007]  [<80185d6f>] __slab_free+0x19f/0x2e0
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019c48d>] d_kill+0x3d/0x60
+[11811.540007]  [<8019d56d>] dput+0x6d/0x120
+[11811.540007]  [<805b093f>] sys_socketcall+0x24f/0x2e0
+[11811.540007]  [<8018a4b9>] sys_close+0x89/0x100
+[11811.540007]  [<802e5b64>] trace_hardirqs_on_thunk+0xc/0x10
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] sshd          S f562ec68     0  7474   5085
+[11811.540007]        f57858e0 00000082 f562ec88 f562ec68 00000000 0000=
+0002 00000292 00000000=20
+[11811.540007]        f6b1d0ac f57858e0 f569de60 f6bd2620 00000000 0100=
+0046 00000000 f5785a44=20
+[11811.540007]        82cbb080 00000046 00000000 00000046 00000046 0000=
+0000 00000000 f6b1ce00=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540007]  [<806ad9f5>] _spin_lock_irqsave+0x75/0x90
+[11811.540007]  [<80620496>] unix_stream_recvmsg+0x2f6/0x540
+[11811.540007]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<805ae8e3>] sock_aio_read+0x123/0x130
+[11811.540007]  [<8018acc5>] do_sync_read+0xd5/0x120
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<802a53ec>] security_file_permission+0xc/0x10
+[11811.540007]  [<8018ad6e>] rw_verify_area+0x5e/0xd0
+[11811.540007]  [<8018b5c7>] vfs_read+0x117/0x120
+[11811.540007]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540007]  [<80119fb0>] do_page_fault+0x0/0x710
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] sshd          S f57b1b04     0  7482   7474
+[11811.540007]        f5774a10 00000086 00000002 f57b1b04 f57b1b0c 0000=
+0000 00000000 808e3e00=20
+[11811.540007]        f5774a10 00000000 00000000 f1f84f28 00000000 0100=
+0000 00000246 f5774b74=20
+[11811.540007]        82c68080 00000000 00000000 f1f84f28 00000046 0000=
+0000 00000001 00000000=20
+[11811.540007] Call Trace:
+[11811.540007]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540007]  [<8061f0a7>] unix_poll+0x17/0xb0
+[11811.540007]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540007]  [<801982b0>] do_select+0x0/0x500
+[11811.540007]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540007]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540007]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540007]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540007]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540007]  [<805bdeae>] dev_queue_xmit+0x3e/0x3a0
+[11811.540007]  [<805e2d7d>] ip_finish_output+0x13d/0x2b0
+[11811.540007]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540007]  [<805e3462>] ip_queue_xmit+0x1a2/0x350
+[11811.540007]  [<801312f7>] lock_timer_base+0x27/0x60
+[11811.540007]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540007]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540007]  [<801314c4>] __mod_timer+0x94/0xe0
+[11811.540007]  [<805f5da8>] __tcp_push_pending_frames+0x118/0x770
+[11811.540007]  [<805b1734>] release_sock+0x24/0xc0
+[11811.540007]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540007]  [<805ea632>] tcp_sendmsg+0x702/0xa90
+[11811.540007]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540007]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540007]  [<8018aba5>] do_sync_write+0xd5/0x120
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80198e8b>] sys_select+0x4b/0x1b0
+[11811.540007]  [<8018bb8a>] sys_write+0x4a/0xa0
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] bash          S f57a4ef0     0  7489   7482
+[11811.540007]        f576bb40 00000092 00000002 f57a4ef0 f57a4ef8 0000=
+0000 00000004 f57a4ecc=20
+[11811.540007]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 f57a4ef4 f576bca4=20
+[11811.540007]        82cbb080 ffffe748 00000000 00000000 00000000 0000=
+0000 000000ff f576bb38=20
+[11811.540007] Call Trace:
+[11811.540007]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540007]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540007]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540007]  [<8012bcc7>] sys_waitpid+0x27/0x30
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] m32           S 82c6d620     0  7520   7489
+[11811.540007]        f576ca10 00000092 00000400 82c6d620 00000002 f203=
+0eec 00000004 f2030ecc=20
+[11811.540007]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 f2030ef4 f576cb74=20
+[11811.540007]        82cbb080 ffffe764 00000000 00000000 00000000 0000=
+0400 000000ff f576ca08=20
+[11811.540007] Call Trace:
+[11811.540007]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540007]  [<8011a07b>] do_page_fault+0xcb/0x710
+[11811.540007]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540007]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540007]  [<8012bcc7>] sys_waitpid+0x27/0x30
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] m32           S f20d9ef0     0  7528   7520
+[11811.540007]        f5769da0 00000092 00000002 f20d9ef0 f20d9ef8 0000=
+0000 00000004 f20d9ecc=20
+[11811.540007]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 f20d9ef4 f5769f04=20
+[11811.540007]        82cbb080 ffffe764 00000000 00000000 00000000 0000=
+0000 000000ff f5769d98=20
+[11811.540007] Call Trace:
+[11811.540007]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540007]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540007]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540007]  [<8012bcc7>] sys_waitpid+0x27/0x30
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] tee           S 00000046     0  7529   7520
+[11811.540007]        f5768000 00000082 00000046 00000046 00000000 0000=
+0000 f55d35f0 00000046=20
+[11811.540007]        00000000 00000001 00000001 8013b87c 00000000 0100=
+0046 00000292 f5768164=20
+[11811.540007]        82c68080 00000002 00000001 f4d5a5a4 f4d5a5c8 0000=
+0246 00000000 f55d35e0=20
+[11811.540007] Call Trace:
+[11811.540007]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540007]  [<80191630>] pipe_wait+0x50/0x80
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<80191bc3>] pipe_read+0xe3/0x3f0
+[11811.540007]  [<801d3ab0>] ext3_file_write+0x30/0xc0
+[11811.540007]  [<8018acc5>] do_sync_read+0xd5/0x120
+[11811.540007]  [<80107035>] do_IRQ+0x85/0xe0
+[11811.540007]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540007]  [<802a53ec>] security_file_permission+0xc/0x10
+[11811.540007]  [<8018ad6e>] rw_verify_area+0x5e/0xd0
+[11811.540007]  [<8018abf0>] do_sync_read+0x0/0x120
+[11811.540007]  [<8018b549>] vfs_read+0x99/0x120
+[11811.540007]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] time          S f20e8f04     0  7531   7528
+[11811.540007]        f576e7b0 00000086 00000002 f20e8f04 f20e8f0c 0000=
+0000 00000004 f20e8ee0=20
+[11811.540007]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 f20e8f08 f576e914=20
+[11811.540007]        82cbb080 ffffe764 00000000 00000000 00000000 0000=
+0000 000000ff f576e7a8=20
+[11811.540007] Call Trace:
+[11811.540007]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540007]  [<80132367>] do_sigaction+0xe7/0x170
+[11811.540007]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540007]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540007]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540007]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540007] make          S f20dbf04     0  7532   7531
+[11811.540007]        f576d8e0 00000086 00000002 f20dbf04 f20dbf0c 0000=
+0000 00000004 f20dbee0=20
+[11811.540007]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 f20dbf08 f576da44=20
+[11811.540007]        82cbb080 00003742 00000000 00000000 00000000 0000=
+0000 000000ff f576d8d8=20
+[11811.540007] Call Trace:
+[11811.540008]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] make          S eb7ecf04     0 10479   7532
+[11811.540008]        e6898000 00000086 00000002 eb7ecf04 eb7ecf0c 0000=
+0000 00000004 eb7ecee0=20
+[11811.540008]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 eb7ecf08 e6898164=20
+[11811.540008]        82c68080 00003ceb 00000000 00000000 00000000 0000=
+0000 000000ff e6897ff8=20
+[11811.540008] Call Trace:
+[11811.540008]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] make          S ee7dbee0     0 17987  10479
+[11811.540008]        eb69d8e0 00000086 00000000 ee7dbee0 00000001 802a=
+a1b4 00000004 ee7dbee0=20
+[11811.540008]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 00000246 eb69da44=20
+[11811.540008]        82c68080 00000003 00000004 00000000 00000001 8098=
+c800 00000000 eb69d8d8=20
+[11811.540008] Call Trace:
+[11811.540008]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540008]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540008]  [<8018eb8e>] sys_stat64+0x1e/0x30
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] sh            S eb5bdecc     0 19573  17987
+[11811.540008]        ee631da0 00000092 00000000 eb5bdecc 00000001 802a=
+a1b4 00000004 eb5bdecc=20
+[11811.540008]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 00000246 ee631f04=20
+[11811.540008]        82cbb080 00000003 00000004 00000000 00000001 8098=
+c800 00000000 ee631d98=20
+[11811.540008] Call Trace:
+[11811.540008]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540008]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540008]  [<8013f7f4>] up_read+0x14/0x30
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540008]  [<8012bcc7>] sys_waitpid+0x27/0x30
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] distcc        S e6945b04     0 19578  19573
+[11811.540008]        eb4058e0 00000086 00000002 e6945b04 e6945b0c 0000=
+0000 00000046 80b6a7e0=20
+[11811.540008]        e6945b2c 0011f5a7 00000002 80130c53 00000000 01b6=
+9d80 e6945b08 eb405a44=20
+[11811.540008]        82c68080 00118078 00000000 00000000 00000000 0000=
+0000 000000ff e6945b2c=20
+[11811.540008] Call Trace:
+[11811.540008]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540008]  [<806ab7da>] schedule_timeout+0x4a/0xd0
+[11811.540008]  [<801310e0>] process_timeout+0x0/0x40
+[11811.540008]  [<806ab7d5>] schedule_timeout+0x45/0xd0
+[11811.540008]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540008]  [<801982b0>] do_select+0x0/0x500
+[11811.540008]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<805bdf56>] dev_queue_xmit+0xe6/0x3a0
+[11811.540008]  [<805bdeae>] dev_queue_xmit+0x3e/0x3a0
+[11811.540008]  [<805e2d7d>] ip_finish_output+0x13d/0x2b0
+[11811.540008]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540008]  [<805e3462>] ip_queue_xmit+0x1a2/0x350
+[11811.540008]  [<8013b7ad>] finish_wait+0x2d/0x70
+[11811.540008]  [<805b1734>] release_sock+0x24/0xc0
+[11811.540008]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540008]  [<805e9a14>] tcp_sendpage+0xb4/0x5d0
+[11811.540008]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540008]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540008]  [<801aab54>] splice_from_pipe+0x64/0x80
+[11811.540008]  [<801a16cd>] mnt_drop_write+0x1d/0xd0
+[11811.540008]  [<806ad489>] _spin_lock+0x39/0x70
+[11811.540008]  [<806ad344>] _spin_unlock+0x14/0x20
+[11811.540008]  [<801aa506>] splice_direct_to_actor+0x136/0x170
+[11811.540008]  [<801aa260>] direct_splice_actor+0x0/0x40
+[11811.540008]  [<801aa581>] do_splice_direct+0x41/0x70
+[11811.540008]  [<80198f27>] sys_select+0xe7/0x1b0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] named         S e6b98f8c     0 24137      1
+[11811.540008]        e689ca10 00200092 00000002 e6b98f8c e6b98f94 0000=
+0000 e689ca10 806ad940=20
+[11811.540008]        00200046 00000000 00000000 e19e7e14 00000000 0120=
+0046 e6b98f90 e689cb74=20
+[11811.540008]        82cbb080 0001e2ae 00000000 00000000 00000000 0000=
+0000 000000ff 7fc53fa0=20
+[11811.540008] Call Trace:
+[11811.540008]  [<806ad940>] _spin_unlock_irq+0x20/0x30
+[11811.540008]  [<801344af>] sys_rt_sigsuspend+0xaf/0xd0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] named         S 00200046     0 24138      1
+[11811.540008]        e689bb40 00200082 00000000 00200046 00200046 0000=
+0000 00000000 f2287e30=20
+[11811.540008]        00200046 00000000 00000001 00000001 00000000 0120=
+0046 f2287e20 e689bca4=20
+[11811.540008]        82cbb080 00200002 00000000 00000001 f2287e20 0020=
+0282 00000000 80d4e798=20
+[11811.540008] Call Trace:
+[11811.540008]  [<8014a175>] futex_wait+0x345/0x3b0
+[11811.540008]  [<8018c534>] fget_light+0xc4/0xe0
+[11811.540008]  [<805b0172>] sys_recvmsg+0x222/0x230
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8014b01c>] do_futex+0xbc/0x950
+[11811.540008]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540008]  [<8014b947>] sys_futex+0x97/0x120
+[11811.540008]  [<8018bbd8>] sys_write+0x98/0xa0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] named         S 00200046     0 24139      1
+[11811.540008]        eb69ac70 00200082 00000000 00200046 00200046 0000=
+0000 00000000 ee73ae30=20
+[11811.540008]        00200046 00000000 00000001 00000001 00000000 0120=
+0046 ee73ae20 eb69add4=20
+[11811.540008]        82cbb080 00200002 00000000 00000001 ee73ae20 0020=
+0282 00000000 80d4e798=20
+[11811.540008] Call Trace:
+[11811.540008]  [<8014a175>] futex_wait+0x345/0x3b0
+[11811.540008]  [<8018c534>] fget_light+0xc4/0xe0
+[11811.540008]  [<805b0172>] sys_recvmsg+0x222/0x230
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8014b01c>] do_futex+0xbc/0x950
+[11811.540008]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540008]  [<8014b947>] sys_futex+0x97/0x120
+[11811.540008]  [<8018bbd8>] sys_write+0x98/0xa0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] named         S e6990e64     0 24140      1
+[11811.540008]        eb699da0 00200082 80a6805c e6990e64 00200002 80a6=
+8058 00000001 82c1aae0=20
+[11811.540008]        00200292 00000034 82c1ab34 00200292 00000000 0199=
+0e64 8013ef28 eb699f04=20
+[11811.540008]        82c68080 809f7ae0 26fa1e00 00000b38 00000000 82c1=
+aae0 00200292 e6990e64=20
+[11811.540008] Call Trace:
+[11811.540008]  [<8013ef28>] hrtimer_start+0xd8/0x180
+[11811.540008]  [<8014a164>] futex_wait+0x334/0x3b0
+[11811.540008]  [<8013ea20>] hrtimer_wakeup+0x0/0x20
+[11811.540008]  [<8014a04b>] futex_wait+0x21b/0x3b0
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8014b01c>] do_futex+0xbc/0x950
+[11811.540008]  [<80141077>] getnstimeofday+0x37/0x100
+[11811.540008]  [<8013f1be>] ktime_get_ts+0x1e/0x50
+[11811.540008]  [<8013f208>] ktime_get+0x18/0x40
+[11811.540008]  [<8014b947>] sys_futex+0x97/0x120
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] named         S 00000000     0 24141      1
+[11811.540008]        eb69e7b0 00200086 00000002 00000000 f5fcbc28 eb69=
+e7b0 00000000 00000000=20
+[11811.540008]        00200046 00200046 00000000 f1f87328 00000000 0120=
+0046 00000000 eb69e914=20
+[11811.540008]        82cbb080 00000000 00000000 f1f87328 00200046 0000=
+0000 00000001 00000000=20
+[11811.540008] Call Trace:
+[11811.540008]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540008]  [<805e92a7>] tcp_poll+0x17/0x130
+[11811.540008]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540008]  [<801982b0>] do_select+0x0/0x500
+[11811.540008]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540008]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540008]  [<8018acc5>] do_sync_read+0xd5/0x120
+[11811.540008]  [<8014b6bd>] do_futex+0x75d/0x950
+[11811.540008]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540008]  [<802a53ec>] security_file_permission+0xc/0x10
+[11811.540008]  [<8018ad6e>] rw_verify_area+0x5e/0xd0
+[11811.540008]  [<80198e8b>] sys_select+0x4b/0x1b0
+[11811.540008]  [<8018bb38>] sys_read+0x98/0xa0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] sshd          S 00000001     0 25210   5085
+[11811.540008]        e6b40ed0 00000082 00000000 00000001 00000000 0000=
+0000 00000000 00000000=20
+[11811.540008]        f6b1fe2c e6b40ed0 802aa1b4 00100000 00000000 0100=
+0046 00000000 e6b41034=20
+[11811.540008]        82c68080 00000046 00000000 00000046 00000046 0000=
+0000 00000000 f6b1fb80=20
+[11811.540008] Call Trace:
+[11811.540008]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540008]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540008]  [<8013b87c>] prepare_to_wait+0x1c/0x60
+[11811.540008]  [<806ad9f5>] _spin_lock_irqsave+0x75/0x90
+[11811.540008]  [<80620496>] unix_stream_recvmsg+0x2f6/0x540
+[11811.540008]  [<802a9244>] avc_has_perm_noaudit+0x184/0x300
+[11811.540008]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540008]  [<805ae8e3>] sock_aio_read+0x123/0x130
+[11811.540008]  [<8018acc5>] do_sync_read+0xd5/0x120
+[11811.540008]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540008]  [<802a53ec>] security_file_permission+0xc/0x10
+[11811.540008]  [<8018ad6e>] rw_verify_area+0x5e/0xd0
+[11811.540008]  [<8018b5c7>] vfs_read+0x117/0x120
+[11811.540008]  [<80188d0e>] filp_close+0x3e/0x70
+[11811.540008]  [<8018baea>] sys_read+0x4a/0xa0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] sshd          S f2029b04     0 25214  25210
+[11811.540008]        e6b40000 00000086 00000002 f2029b04 f2029b0c 0000=
+0000 00000000 00000000=20
+[11811.540008]        808f2d30 00000046 00000000 00000001 00000000 0112=
+02e4 f2029b08 e6b40164=20
+[11811.540008]        82cbb080 001190b2 00000000 00000000 00000000 0000=
+0000 000000ff 00000000=20
+[11811.540008] Call Trace:
+[11811.540008]  [<806ab80c>] schedule_timeout+0x7c/0xd0
+[11811.540008]  [<80346ec0>] normal_poll+0x0/0x160
+[11811.540008]  [<80346ec0>] normal_poll+0x0/0x160
+[11811.540008]  [<803424d6>] tty_poll+0x76/0x80
+[11811.540008]  [<8019868c>] do_select+0x3dc/0x500
+[11811.540008]  [<801982b0>] do_select+0x0/0x500
+[11811.540008]  [<80198d60>] __pollwait+0x0/0xe0
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<805bdeae>] dev_queue_xmit+0x3e/0x3a0
+[11811.540008]  [<805e2d7d>] ip_finish_output+0x13d/0x2b0
+[11811.540008]  [<805e28e5>] ip_local_out+0x15/0x20
+[11811.540008]  [<805e3462>] ip_queue_xmit+0x1a2/0x350
+[11811.540008]  [<803461ae>] n_tty_receive_buf+0x34e/0x1060
+[11811.540008]  [<801312f7>] lock_timer_base+0x27/0x60
+[11811.540008]  [<8016138b>] marker_probe_cb+0x3b/0x90
+[11811.540008]  [<80130c53>] internal_add_timer+0x103/0x110
+[11811.540008]  [<801314c4>] __mod_timer+0x94/0xe0
+[11811.540008]  [<805f5da8>] __tcp_push_pending_frames+0x118/0x770
+[11811.540008]  [<805b1734>] release_sock+0x24/0xc0
+[11811.540008]  [<806ad4f8>] _spin_lock_bh+0x38/0x60
+[11811.540008]  [<805ea632>] tcp_sendmsg+0x702/0xa90
+[11811.540008]  [<801989a8>] core_sys_select+0x1f8/0x350
+[11811.540008]  [<801987d1>] core_sys_select+0x21/0x350
+[11811.540008]  [<8018aba5>] do_sync_write+0xd5/0x120
+[11811.540008]  [<8013b6e0>] autoremove_wake_function+0x0/0x40
+[11811.540008]  [<80198e8b>] sys_select+0x4b/0x1b0
+[11811.540008]  [<8018bb8a>] sys_write+0x4a/0xa0
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] bash          S e185decc     0 25217  25214
+[11811.540008]        f63f3b40 00000092 00000000 e185decc 00000001 802a=
+a1b4 00000004 e185decc=20
+[11811.540008]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 00000246 f63f3ca4=20
+[11811.540008]        82cbb080 00000003 0000000e 00000000 00000001 8098=
+c800 00000000 f63f3b38=20
+[11811.540008] Call Trace:
+[11811.540008]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540008]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540008]  [<8012bcc7>] sys_waitpid+0x27/0x30
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] su            S ee4e4ecc     0 25266  25217
+[11811.540008]        eb400000 00000092 00000000 ee4e4ecc 00000001 802a=
+a1b4 00000004 ee4e4ecc=20
+[11811.540008]        00000000 00000000 00000001 ffffffff 00000000 0100=
+0000 00000246 eb400164=20
+[11811.540008]        82cbb080 00000003 00000006 00000000 00000001 8098=
+c800 00000000 eb3ffff8=20
+[11811.540008] Call Trace:
+[11811.540008]  [<802aa1b4>] avc_has_perm+0x64/0x80
+[11811.540008]  [<8012b865>] do_wait+0x705/0xa80
+[11811.540008]  [<80120070>] default_wake_function+0x0/0x10
+[11811.540008]  [<8012bc5c>] sys_wait4+0x7c/0xc0
+[11811.540008]  [<8012bcc7>] sys_waitpid+0x27/0x30
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+[11811.540008] bash          R running      0 25268  25266
+[11811.540008]        00000034 00000000 80129157 00000086 fffc10c6 80b6=
+9820 00000000 80b69829=20
+[11811.540008]        00000000 00000046 e6bc4ee0 80819378 00002e23 0008=
+3d68 e6bc4e82 00000004=20
+[11811.540008]        00000046 00000000 00000009 315b4ea6 31313831 3034=
+352e 5d383030 e6bc0020=20
+[11811.540008] Call Trace:
+[11811.540008]  [<80129157>] release_console_sem+0x1b7/0x1f0
+[11811.540008]  [<80140dab>] sched_clock_cpu+0xbb/0x140
+[11811.540008]  [<801395d8>] __kernel_text_address+0x18/0x30
+[11811.540008]  [<80104f3e>] dump_trace+0x5e/0xf0
+[11811.540008]  [<80104ff7>] show_trace_log_lvl+0x27/0x50
+[11811.540008]  [<801050d4>] show_stack_log_lvl+0xb4/0xe0
+[11811.540008]  [<80105ab5>] show_stack+0x35/0x50
+[11811.540008]  [<80124e36>] show_state_filter+0x56/0x90
+[11811.540008]  [<8035421a>] __handle_sysrq+0x7a/0x120
+[11811.540008]  [<801c7fe0>] write_sysrq_trigger+0x0/0x30
+[11811.540008]  [<801c800b>] write_sysrq_trigger+0x2b/0x30
+[11811.540008]  [<801c0ed4>] proc_reg_write+0x64/0xa0
+[11811.540008]  [<801c0e70>] proc_reg_write+0x0/0xa0
+[11811.540008]  [<8018b42b>] vfs_write+0x9b/0x120
+[11811.540008]  [<8018bb8a>] sys_write+0x4a/0xa0
+[11811.540008]  [<80119fb0>] do_page_fault+0x0/0x710
+[11811.540008]  [<80103e48>] sysenter_past_esp+0x78/0xc4
+[11811.540008]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
