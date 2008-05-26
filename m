@@ -1,46 +1,34 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: POHMELFS high performance network filesystem. Cache coherency,
- transactions, parallels.
-Date: Sun, 25 May 2008 21:41:19 -0400
-Message-ID: <483A153F.7000907@garzik.org>
-References: <20080525134055.GA30630@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] devinet: sysctl setup off by one
+Date: Sun, 25 May 2008 22:51:38 -0700 (PDT)
+Message-ID: <20080525.225138.46704597.davem@davemloft.net>
+References: <20080523153559.156a1fb5@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20080525134055.GA30630@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xemul@openvz.org, netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54819
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751141AbYEZFvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 01:51:42 -0400
+In-Reply-To: <20080523153559.156a1fb5@speedy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote on the blog page:
-> Probably there will be some kind of a status messages for servers (i.e.
-> going offline, do not send me data, or I'm becoming slow, do not read
-> from me and so on). 
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Fri, 23 May 2008 15:35:59 -0700
 
-Often you can capture this information in a more scalable manner, by 
-having the clients measure an observable _output_ such as latency, over 
-time.
+> It look like the code to setup /proc/sys/net/ipv4/conf/XXX has an
+> off by one bug that causes the last entry (arp_accept) not to be
+> adjusted properly.  This causes changes to the value to occur in the
+> default namespace not the clone? Don't use network namespaces
+> myself, but this looks like a bug.
+>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Each transaction gives the client new feedback about the server(s) being 
-offline (i.e. timeout), becoming slow, etc.
+Yikes, that is a very strange expression to be there by
+accident.
 
-
-Another potential tool is having the server(s) send an abstract number, 
-from 0-100, indicating their level of desire for new { read | write } 
-transactions.  Let us call this client hint "weight".  Rather than have 
-a bunch of status messages that indicate server load average, or 
-do-not-read state, summarize this information into read_weight and 
-write_weight hints to the client.
-
-With just a few (two?) simple variables, the client is given the ability 
-to automatically balance and scale load across the cluster, work around 
-failing servers, etc.
-
-Write balancing need not be overly complex...
-
-	Jeff
-
-
+Pavel, can you take a look at this?  Thanks.
