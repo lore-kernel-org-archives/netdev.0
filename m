@@ -1,64 +1,61 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10801] New: niu Sun Neptune 10G fiber card -
- "transmit timed out".
-Date: Mon, 26 May 2008 12:52:02 -0700
-Message-ID: <20080526125202.3d7cd1fc.akpm@linux-foundation.org>
-References: <bug-10801-10286@http.bugzilla.kernel.org/>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: [PATCH RESEND] atl1: fix 4G memory corruption bug
+Date: Mon, 26 May 2008 15:02:44 -0500
+Message-ID: <20080526150244.165fffdd@osprey.hogchain.net>
+References: <20080522220025.GA566@martell.zuzino.mipt.ru>
+	<4835E39E.90801@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org,
-	Matheos Worku <matheos.worku@sun.com>, jesper@krogh.cc
-To: netdev@vger.kernel.org
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, csnook@redhat.com,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55101 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752848AbYEZTwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 15:52:10 -0400
-In-Reply-To: <bug-10801-10286@http.bugzilla.kernel.org/>
+Received: from fmailhost04.isp.att.net ([207.115.11.54]:64535 "EHLO
+	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754783AbYEZUCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 16:02:47 -0400
+In-Reply-To: <4835E39E.90801@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 22 May 2008 17:20:30 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+> Alexey Dobriyan wrote:
+> > From: Alexey Dobriyan <adobriyan@gmail.com>
+> > 
+> > When using 4+ GB RAM and SWIOTLB is active, the driver corrupts
+> > memory by writing an skb after the relevant DMA page has been
+> > unmapped.  Although this doesn't happen when *not* using bounce
+> > buffers, clearing the pointer to the DMA page after unmapping
+> > it fixes the problem.
+> > 
+> > http://marc.info/?t=120861317000005&r=2&w=2
+> > 
+> > 
+> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> > Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+> > ---
+> > 
+> >  drivers/net/atlx/atl1.c |    1 +
+> >  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> applied
 
-On Mon, 26 May 2008 12:42:18 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+Hi Jeff,
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10801
-> 
->            Summary: niu Sun Neptune 10G fiber card - "transmit timed out".
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.25.2
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: jesper@krogh.cc
-> 
-> 
-> Latest working kernel version: ? 
-> Earliest failing kernel version: 2.6.24 (perhaps earlier)
-> Distribution: Ubuntu Hardy 
-> Hardware Environment: Sun Fire X4600 M2
-> Software Environment:
-> Problem Description:
-> The driver locks up the kernel and only a hard reboot can bring the system bag.
-> only message in the log is:
-> May 26 10:51:14 hest kernel: [1477079.785404] NETDEV WATCHDOG: eth4: transmit
-> timed out
-> .. many times pr. second. 
-> 
-> Steps to reproduce:
-> It seems to be reproducible by sending a lot of traffic (small packages)
-> through the card. But I've also hit it under normal production (an NFS server). 
-> 
-> Discussion: 
-> http://thread.gmane.org/gmane.linux.kernel/677545
-> 
+Where did you apply this patch?  I don't exclude the possibility that I
+goofed when I fetched them, but I can't find it in any of the following
+branches of your netdev tree.
 
+	master
+	net-2.6
+	net-next
+	upstream
+	upstream-davem
+	upstream-next
+	upstream-next-davem
+
+Thanks,
+Jay
