@@ -1,39 +1,56 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: POHMELFS high performance network filesystem. Cache coherency,
- transactions, parallels.
-Date: Mon, 26 May 2008 03:27:59 -0400
-Message-ID: <483A667F.7070707@garzik.org>
-References: <20080525134055.GA30630@2ka.mipt.ru> <483A0F3B.9060709@garzik.org> <20080526062204.GA16366@2ka.mipt.ru> <483A59D7.7020306@garzik.org> <20080526070708.GB16366@2ka.mipt.ru>
+From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Subject: Re: [ofa-general] Re: [PATCH v2 12/13] QLogic VNIC: Driver Kconfig
+	and Makefile.
+Date: Mon, 26 May 2008 13:07:28 +0530
+Message-ID: <71d336490805260037y4c45abd5lccd5dbadebd84eb8@mail.gmail.com>
+References: <20080519102843.12355.832.stgit@localhost.localdomain>
+	<20080519103730.12355.14730.stgit@localhost.localdomain>
+	<adamyme57ir.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43448 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750871AbYEZH2B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2008 03:28:01 -0400
-In-Reply-To: <20080526070708.GB16366@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, amar.mudrankit@qlogic.com,
+	general@lists.openfabrics.org, poornima.kamath@qlogic.com
+To: "Roland Dreier" <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adamyme57ir.fsf@cisco.com>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> I tries git-update-server-info on client and pushed all again, but it
-> returned that everything is up-to-date.
+Roland,
 
+On Mon, May 26, 2008 at 4:13 AM, Roland Dreier <rdreier@cisco.com> wrote:
+>  > +config INFINIBAND_QLGC_VNIC_DEBUG
+>  > +    bool "QLogic VNIC Verbose debugging"
+>  > +    depends on INFINIBAND_QLGC_VNIC
+>  > +    default n
+>  > +    ---help---
+>  > +      This option causes verbose debugging code to be compiled
+>  > +      into the QLogic VNIC driver.  The output can be turned on via the
+>  > +      vnic_debug module parameter.
+>
+> I think I mentioned this before, but... if you default this option to
+> 'n', then all distributions will build your module with the option off.
+> And if someone is having problems, they will be forced to rebuild their
+> kernel to get debug output, which is a heavy burden for most users.
 
-git-update-server-info needs to be run on the server, not the client.
+The debugging code is always compiled in and is controlled
+at run time through vnic_debug module parameter.
+INFINIBAND_QLGC_VNIC_DEBUG config option only controls verbose debugging
+which adds some extra information in the debug statements (file name,
+line number)
+which we typically use for debug builds of the driver.  Even if this option is
+set to 'n', users can still get all debug messages from the driver by using the
+vnic_debug module parameter.
 
-You can automate this by running this on the server:
-
-	chmod +x .git/hooks/post-update
-
-so that git-update-server-info always runs on the server, after each push.
-
-See git-update-server-info(1) for more info.
-
-	Jeff
-
-
+Regards,
+Ram
