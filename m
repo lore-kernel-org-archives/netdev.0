@@ -1,60 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Mon, 26 May 2008 12:39:51 -0700 (PDT)
-Message-ID: <20080526.123951.260448303.davem@davemloft.net>
-References: <4827E930.3000008@krogh.cc>
-	<483B0986.70606@krogh.cc>
-	<20080526.123338.161271834.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10801] New: niu Sun Neptune 10G fiber card -
+ "transmit timed out".
+Date: Mon, 26 May 2008 12:52:02 -0700
+Message-ID: <20080526125202.3d7cd1fc.akpm@linux-foundation.org>
+References: <bug-10801-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, matheos.worku@sun.com
-To: jesper@krogh.cc
+Cc: bugme-daemon@bugzilla.kernel.org,
+	Matheos Worku <matheos.worku@sun.com>, jesper@krogh.cc
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49395
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754833AbYEZTj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 15:39:56 -0400
-In-Reply-To: <20080526.123338.161271834.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55101 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752848AbYEZTwK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 15:52:10 -0400
+In-Reply-To: <bug-10801-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 26 May 2008 12:33:38 -0700 (PDT)
 
-> From: Jesper Krogh <jesper@krogh.cc>
-> Date: Mon, 26 May 2008 21:03:34 +0200
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Mon, 26 May 2008 12:42:18 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=10801
 > 
-> > Ok. Now I also hit it in production with the NFS-server, so this
-> > is definately a real bug somewhere in the driver. Should I register it
-> > at bugzilla?
+>            Summary: niu Sun Neptune 10G fiber card - "transmit timed out".
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.25.2
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: jesper@krogh.cc
 > 
-> Please feel free to do that.
+> 
+> Latest working kernel version: ? 
+> Earliest failing kernel version: 2.6.24 (perhaps earlier)
+> Distribution: Ubuntu Hardy 
+> Hardware Environment: Sun Fire X4600 M2
+> Software Environment:
+> Problem Description:
+> The driver locks up the kernel and only a hard reboot can bring the system bag.
+> only message in the log is:
+> May 26 10:51:14 hest kernel: [1477079.785404] NETDEV WATCHDOG: eth4: transmit
+> timed out
+> .. many times pr. second. 
+> 
+> Steps to reproduce:
+> It seems to be reproducible by sending a lot of traffic (small packages)
+> through the card. But I've also hit it under normal production (an NFS server). 
+> 
+> Discussion: 
+> http://thread.gmane.org/gmane.linux.kernel/677545
+> 
 
-BTW, I did stare at some of the transmit code of the NIU driver
-while flying from Tokyo to Seattle a few hours ago, and I
-found one possible theory on the transmit timeouts.
-
-Can you try the patch below and let us know if the symptoms
-continue?
-
-[ Note to Matheos: The IRQ marking scheme of the NIU doesn't mesh
-  well with how things work under Linux.  We really needs a
-  "TX queue empty" interrupt status in order to handle all cases
-  properly.  Otherwise we really cannot decide not mark some TX
-  descriptors without potentially entering a deadlock condition.  ]
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 918f802..7ab7f8e 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -6165,7 +6165,7 @@ static int niu_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	rp->tx_buffs[prod].mapping = mapping;
- 
- 	mrk = TX_DESC_SOP;
--	if (++rp->mark_counter == rp->mark_freq) {
-+	if (1 /*++rp->mark_counter == rp->mark_freq*/) {
- 		rp->mark_counter = 0;
- 		mrk |= TX_DESC_MARK;
- 		rp->mark_pending++;
