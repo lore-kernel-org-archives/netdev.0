@@ -1,52 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: POHMELFS high performance network filesystem. Cache coherency,
- transactions, parallels.
-Date: Mon, 26 May 2008 03:51:23 -0400
-Message-ID: <483A6BFB.1080209@garzik.org>
-References: <20080525134055.GA30630@2ka.mipt.ru> <483A0F3B.9060709@garzik.org> <20080526062204.GA16366@2ka.mipt.ru> <483A59D7.7020306@garzik.org> <20080526070708.GB16366@2ka.mipt.ru> <483A667F.7070707@garzik.org> <20080526074424.GA555@2ka.mipt.ru>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH 3/3] virtio: Use __skb_queue_purge()
+Date: Mon, 26 May 2008 17:53:23 +1000
+Message-ID: <200805261753.23860.rusty@rustcorp.com.au>
+References: <200805261742.43215.rusty@rustcorp.com.au> <200805261748.13449.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Mark McLoughlin <markmc@redhat.com>,
+	Wang Chen <wangchen@cn.fujitsu.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43601 "EHLO mail.dvmed.net"
+Received: from ozlabs.org ([203.10.76.45]:55399 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752753AbYEZHvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2008 03:51:25 -0400
-In-Reply-To: <20080526074424.GA555@2ka.mipt.ru>
+	id S1752750AbYEZHxw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 03:53:52 -0400
+In-Reply-To: <200805261748.13449.rusty@rustcorp.com.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> On Mon, May 26, 2008 at 03:27:59AM -0400, Jeff Garzik (jeff@garzik.org) wrote:
->> git-update-server-info needs to be run on the server, not the client.
->>
->> You can automate this by running this on the server:
->>
->> 	chmod +x .git/hooks/post-update
->>
->> so that git-update-server-info always runs on the server, after each push.
->>
->> See git-update-server-info(1) for more info.
-> 
-> Hmm... Nothing can be run on server, since git does not believe it is in
-> git repo:
+From: Wang Chen <wangchen@cn.fujitsu.com>
 
-Sorry, I should have mentioned, you need to set GIT_DIR environment 
-variable, for this case.  e.g.
+Use standard routine for queue purging.
 
-	cd /home/s0mbre/archive/pohmelfs
-	GIT_DIR=pohmelfs.git git-update-server-info
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-or
-
-	cd /home/s0mbre/archive/pohmelfs/pohmelfs.git
-	GIT_DIR=. git-update-server-info
-
-Regards,
-
-	Jeff
-
-
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index f926b5a..fe7cdf2 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -470,8 +470,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 		kfree_skb(skb);
+ 		vi->num--;
+ 	}
+-	while ((skb = __skb_dequeue(&vi->send)) != NULL)
+-		kfree_skb(skb);
++	__skb_queue_purge(&vi->send);
+ 
+ 	BUG_ON(vi->num != 0);
+ 
