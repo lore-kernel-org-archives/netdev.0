@@ -1,57 +1,50 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Mon, 26 May 2008 20:12:16 +0200
-Message-ID: <20080526181216.GA12400@elte.hu>
-References: <20080526115628.GA31316@elte.hu> <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi> <20080526135940.GB24870@elte.hu> <20080526141252.GA31352@elte.hu> <Pine.LNX.4.64.0805261745010.16829@wrl-59.cs.helsinki.fi> <20080526162328.GA9089@elte.hu> <Pine.LNX.4.64.0805261926260.24924@wrl-59.cs.helsinki.fi> <20080526165407.GB24098@elte.hu> <Pine.LNX.4.64.0805261956090.24924@wrl-59.cs.helsinki.fi>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Mon, 26 May 2008 21:03:34 +0200
+Message-ID: <483B0986.70606@krogh.cc>
+References: <20080507.141521.193714938.davem@davemloft.net>	<482498D5.9060008@krogh.cc>	<48258074.7060306@krogh.cc> <20080510.213431.193696750.davem@davemloft.net> <4827E930.3000008@krogh.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:45593 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754574AbYEZSMd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2008 14:12:33 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0805261956090.24924@wrl-59.cs.helsinki.fi>
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:53520 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754684AbYEZTDr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 15:03:47 -0400
+In-Reply-To: <4827E930.3000008@krogh.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jesper Krogh wrote:
+> David Miller wrote:
+>> From: Jesper Krogh <jesper@krogh.cc>
+>> Date: Sat, 10 May 2008 13:01:08 +0200
+>>
+>>> Any good suggestions about the "Transmit timed out" messages. It
+>>> currently leads to a system that "doesnt die" but doesnt respond within
+>>> 15 minutes of load of the network adapter.
+>>
+>> It's likely some bug in the driver that hangs the card for whatever
+>> reason, which we'll need to work out.
+> 
+> Ok. I have been testing a bit more. It generally works fine, It seems
+> the "transmit timed out" thing was provoked by dd in the tests, because
+> it was creating a lot of small requests. (default bs=512).(over NFS).
+> When the  blocksize went up, the problem dissapered. (and the numer of
+> context-switches went down).
 
-* Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+Ok. Now I also hit it in production with the NFS-server, so this
+is definately a real bug somewhere in the driver. Should I register it
+at bugzilla?
 
-> > Active Internet connections (w/o servers)
-> > Proto Recv-Q Send-Q Local Address               Foreign Address    =
-         State       PID/Program name  =20
-> > tcp        0 207232 europe:37198                europe:distcc      =
-         ESTABLISHED 19578/distcc       =20
-> > tcp        0      0 europe:ssh                  dione:36284        =
-         ESTABLISHED -                  =20
-> > tcp        0      0 europe:ssh                  e2:45910           =
-         ESTABLISHED -                  =20
-> > tcp    72283      0 europe:distcc               europe:37198       =
-         ESTABLISHED -                  =20
->=20
-> Just to be sure (please forgive me if you find this nearly an insult=20
-> :-)), did you have enough rights to find out the pid (ie., if that=20
-> process not owned by you then you need superuser privs for that)?
+$ sudo grep -ci "Transmit timed out" /var/log/messages
+1007
 
-yes, i ran netstat -p as root.
+And only a hard reboot brought it back online.
+2.6.25.2
 
-> > the socket does not seem to be owned. It should have closed down?=20
-> > Refcounting issue?
->=20
-> It's well possible that e.g., net namespaces have some bug in handlin=
-g=20
-> of orphaned tcp.
-
-yes, that would match the symptoms i think. I half-assumed that it's a=20
-state machine problem so i didnt even check what the reader does - and=20
-in this case it appears to not exist at all anymore ;-)
-
-	Ingo
+-- 
+Jesper
