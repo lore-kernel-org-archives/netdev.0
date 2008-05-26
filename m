@@ -1,40 +1,117 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DNAT sporadically doesn't replace destination IP address
-Date: Mon, 26 May 2008 16:21:59 +0200
-Message-ID: <483AC787.6030902@trash.net>
-References: <4835A03D.B932.00FE.0@newtec.eu> <483589C0.4080006@trash.net> <4835ABD2.B932.00FE.0@newtec.eu> <4835913A.4020909@trash.net> <4835AE9B.B932.00FE.0@newtec.eu> <48359F66.50503@trash.net> <4836EDCE.B932.00FE.0@newtec.eu>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
+	available to userspace
+Date: Mon, 26 May 2008 15:22:09 +0100
+Message-ID: <20080526142209.GA20164@gerrit.erg.abdn.ac.uk>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200805220235.41441.tomasz@grobelny.oswiecenia.net> <20080522100246.GB4827@gerrit.erg.abdn.ac.uk> <200805221948.18305.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ulrik De Bie <ulrik.debie@newtec.eu>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Kris Op de Beeck <kris.op.de.beeck@newtec.eu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4836EDCE.B932.00FE.0@newtec.eu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59894 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754016AbYEZOWm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 10:22:42 -0400
+Content-Disposition: inline
+In-Reply-To: <200805221948.18305.tomasz@grobelny.oswiecenia.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kris Op de Beeck wrote:
->>>> On 22/05/2008 at 18:29, in message <48359F66.50503@trash.net>, Patrick McHardy
-> <kaber@trash.net> wrote:
- >>
->> I didn't find the reason why your kernel even has that message
->> (didn't try to hard though). Could you rerun the test with a
->> more current kernel, like 2.6.24 or 2.6.25 please?
-> 
-> Upgraded from Ubuntu 7.10 to 8.04
-> 
-> s3p@burnin:~$ uname -a
-> Linux burnin 2.6.24-16-generic #1 SMP Thu Apr 10 13:23:42 UTC 2008 i686 GNU/Linux
-> 
-> [ 7651.979390] printk: 8 messages suppressed.
-> [ 7651.979395] nf_ct_tcp: invalid packet ignored IN= OUT= SRC=192.168.1.24 DST=10.9.9.23 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=47660 DF PROTO=TCP SPT=42451 DPT=80 SEQ=3352606539 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT (020405B40402080A001C104E0000000001030307) UID=1000
-> [ 7656.667006] nf_ct_tcp: invalid packet ignored IN= OUT= SRC=192.168.1.15 DST=10.9.9.14 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=59137 DF PROTO=TCP SPT=49734 DPT=80 SEQ=3327322852 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT (020405B40402080A001C14E50000000001030307) UID=1000
+| > | I don't like the "highest supported ID" approach. But if you don't like
+| > | arrays a simple "bool getsockopt" would do, we could just ask the kernel
+| > | if it supports given qpolicy. Like (in pseudocode):
+| > | bool
+| > | supports_prio=getsockopt(sk,DCCP_SOCKOPT_QPOLICY_AVAILABLE,QPOLICY_PRIO);
+| > | Would that be ok?
+| >
+| > What I sent is just a sketch, nothing set in stone. I am happy to take
+| > my patch out of the repository if there are better solutions.
+| >
+| The question is: would you consider such a solution better? 
+| 
+I think it is too early for this question, it needs some practical experience.
+It may be that a third or fourth solution proves more useful.
 
-What does "grep <srcport from above> /proc/net/nf_conntrack" show
-when the problem occurs?
 
-> Nothing works now.  Can't even ping the modems...
+| > Hence I am trying to figure out - how much change is due to re-designing
+| > things and how much change is de facto required for a useful dynamic
+| > interface?
+| >
+| IMO we could divide the interface into two parts:
+|  - operations - they are likely to stabilize before pushing the code to 
+| mainline,
+|  - parameters (all kinds of numbers like DCCP_SCM_xxx, qpolicy ids, etc.) - 
+| there should always be a room for new ones (and maybe even deleting old 
+| ones). And one should be able to verify which numbers are valid - that's why 
+| we need operations for this purpose that are available from the very 
+| beginning.
+| 
+I think this problem appears in other kernel areas as well, such as
+finding consistent identifiers for identifiers, flags, symbolic names.
 
-I can't say anything about this without further information.
+Haven't grepped through, but there is likely a smart solution available
+already somewhere. 
+
+For IETF specifications, the IANA handles all numbers that appear in
+packets, a similar thing appears here. But with some discipline it
+should not cause a problem. 
+
+
+| I have nothing against creating generic interface for obtaining information 
+| about various aspects of dccp. But I can't see how netlink can help us here. 
+| From the documents I've read I understand that generic netlink requires you 
+| to create a special kind of socket type and then you can send or receive 
+| information through it. But it seems to be something separate from dccp 
+| sockets.
+| 
+Yes, the netlink socket would be different from the DCCP socket and it
+is actually a good point - it shows that this interface can only be used
+for global parameters or settings. Or maybe there is a way of
+associating both sockets.
+
+
+| As for information we can get from kernel wrt dccp we have at least:
+| 1. fixed information that depends only on kernel version. For example list of 
+| ccids, list of available qpolicies, list of parameters for given qpolicy, 
+| etc. These are system wide and don't need reference to socket. These could 
+| even be exposed by read-only entries in /sys or /proc.
+That is a good point - I think Arnaldo had a similar idea once for implenting
+system-wide policies regarding which CCIDs are supported. Something like
+net.ipv4.tcp_available_congestion_control.
+
+| 2. typical socket options. Among others: currently used rx/tx ccid, currently 
+| used qpolicy, queue and buffer sizes, etc. For these we need reference to 
+| socket and get/setsockopts are the natural choice. And I guess no changes 
+| should happen here.
+Agree.
+
+| 3. statistics. These are not options in the sense that you cannot set them. 
+| You also cannot expect that two consecutive reads will return the same value. 
+| They depend on certain asynchronous events in various parts of dccp code. The 
+| first question is: should we pass those raw events to applications (such 
+| as "prio qpolicy: packet dropped") or aggregate data ("in the last 100 
+| packets 17 were dropped before sending")? For this kind of information we 
+| need reference to socket (struct sock *). And I can't see how we could obtain 
+| it from functions not mentioned in struct proto.
+| 
+It was for this part that I looked at netlink. This goes into the
+direction of a new API or at least API extensions.
+
+For global statistics there is already the DCCP MIB, but it needs some
+more work (in /proc/snmp there are no entries at the moment), a ToDo.
+
+For per-socket statistics there is indeed a need for a notification
+mechanism. If a synchronous mechanism is sufficient, then something like
+the current CCID-3 getsockopt(DCCP_SOCKOPT_CCID_{RX,TX}_INFO) can be used.
+
+For asynchronous notification, using a special signal comes to mind,
+where the application installs a signal handler as notifier.
+
+The best that I can think of is to map a segment of userspace memory
+into the kernel and use this memory area as a (ready-only) statistics
+struct. That would save the system call overhead of using getsockopt().
+
+That is my list of ideas at the moment. Probably not exhaustive.
+
+- Gerrit
