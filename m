@@ -1,117 +1,54 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
-	available to userspace
-Date: Mon, 26 May 2008 15:22:09 +0100
-Message-ID: <20080526142209.GA20164@gerrit.erg.abdn.ac.uk>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200805220235.41441.tomasz@grobelny.oswiecenia.net> <20080522100246.GB4827@gerrit.erg.abdn.ac.uk> <200805221948.18305.tomasz@grobelny.oswiecenia.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Mon, 26 May 2008 16:29:04 +0200
+Message-ID: <20080526142904.GA11829@elte.hu>
+References: <20080526115628.GA31316@elte.hu> <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi> <20080526135940.GB24870@elte.hu> <20080526141252.GA31352@elte.hu> <20080526141713.GA5771@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59894 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754016AbYEZOWm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2008 10:22:42 -0400
+Received: from mx3.mail.elte.hu ([157.181.1.138]:58018 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754873AbYEZO3e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 10:29:34 -0400
 Content-Disposition: inline
-In-Reply-To: <200805221948.18305.tomasz@grobelny.oswiecenia.net>
+In-Reply-To: <20080526141713.GA5771@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > | I don't like the "highest supported ID" approach. But if you don't like
-| > | arrays a simple "bool getsockopt" would do, we could just ask the kernel
-| > | if it supports given qpolicy. Like (in pseudocode):
-| > | bool
-| > | supports_prio=getsockopt(sk,DCCP_SOCKOPT_QPOLICY_AVAILABLE,QPOLICY_PRIO);
-| > | Would that be ok?
-| >
-| > What I sent is just a sketch, nothing set in stone. I am happy to take
-| > my patch out of the repository if there are better solutions.
-| >
-| The question is: would you consider such a solution better? 
-| 
-I think it is too early for this question, it needs some practical experience.
-It may be that a third or fourth solution proves more useful.
 
+there's TCP ACK activity every 120 seconds:
 
-| > Hence I am trying to figure out - how much change is due to re-designing
-| > things and how much change is de facto required for a useful dynamic
-| > interface?
-| >
-| IMO we could divide the interface into two parts:
-|  - operations - they are likely to stabilize before pushing the code to 
-| mainline,
-|  - parameters (all kinds of numbers like DCCP_SCM_xxx, qpolicy ids, etc.) - 
-| there should always be a room for new ones (and maybe even deleting old 
-| ones). And one should be able to verify which numbers are valid - that's why 
-| we need operations for this purpose that are available from the very 
-| beginning.
-| 
-I think this problem appears in other kernel areas as well, such as
-finding consistent identifiers for identifiers, flags, symbolic names.
+ 16:19:05.260000 IP europe.37198 > europe.distcc: . ack 2022529163 win 257
+  <nop,nop,timestamp 233526 221526>
+ 16:19:05.260000 IP europe.distcc > europe.37198: . ack 1          win 0 
+  <nop,nop,timestamp 233526 7020>
+ 16:21:05.260000 IP europe.37198 > europe.distcc: . ack 1          win 257
+  <nop,nop,timestamp 245526 233526>
+ 16:21:05.260000 IP europe.distcc > europe.37198: . ack 1          win 0
+  <nop,nop,timestamp 245526 7020>
+ 16:23:05.260000 IP europe.37198 > europe.distcc: . ack 1          win 257
+  <nop,nop,timestamp 257526 245526>
+ 16:23:05.260000 IP europe.distcc > europe.37198: . ack 1          win 0
+  <nop,nop,timestamp 257526 7020>
+ 16:25:05.260000 IP europe.37198 > europe.distcc: . ack 1          win 257 
+  <nop,nop,timestamp 269526 257526>
+ 16:25:05.260000 IP europe.distcc > europe.37198: . ack 1          win 0 
+  <nop,nop,timestamp 269526 7020>
+ 16:27:05.260000 IP europe.37198 > europe.distcc: . ack 1          win 257 
+  <nop,nop,timestamp 281526 269526>
+ 16:27:05.260000 IP europe.distcc > europe.37198: . ack 1          win 0 
+  <nop,nop,timestamp 281526 7020>
 
-Haven't grepped through, but there is likely a smart solution available
-already somewhere. 
+The socket on the other side of the localhost connection, 
+10.0.1.15:3632, produces no packets.
 
-For IETF specifications, the IANA handles all numbers that appear in
-packets, a similar thing appears here. But with some discipline it
-should not cause a problem. 
+a detail i forgot to mention: i reproduced the same TCP hang on a 32-bit 
+system and on a 64-bit system as well.
 
-
-| I have nothing against creating generic interface for obtaining information 
-| about various aspects of dccp. But I can't see how netlink can help us here. 
-| From the documents I've read I understand that generic netlink requires you 
-| to create a special kind of socket type and then you can send or receive 
-| information through it. But it seems to be something separate from dccp 
-| sockets.
-| 
-Yes, the netlink socket would be different from the DCCP socket and it
-is actually a good point - it shows that this interface can only be used
-for global parameters or settings. Or maybe there is a way of
-associating both sockets.
-
-
-| As for information we can get from kernel wrt dccp we have at least:
-| 1. fixed information that depends only on kernel version. For example list of 
-| ccids, list of available qpolicies, list of parameters for given qpolicy, 
-| etc. These are system wide and don't need reference to socket. These could 
-| even be exposed by read-only entries in /sys or /proc.
-That is a good point - I think Arnaldo had a similar idea once for implenting
-system-wide policies regarding which CCIDs are supported. Something like
-net.ipv4.tcp_available_congestion_control.
-
-| 2. typical socket options. Among others: currently used rx/tx ccid, currently 
-| used qpolicy, queue and buffer sizes, etc. For these we need reference to 
-| socket and get/setsockopts are the natural choice. And I guess no changes 
-| should happen here.
-Agree.
-
-| 3. statistics. These are not options in the sense that you cannot set them. 
-| You also cannot expect that two consecutive reads will return the same value. 
-| They depend on certain asynchronous events in various parts of dccp code. The 
-| first question is: should we pass those raw events to applications (such 
-| as "prio qpolicy: packet dropped") or aggregate data ("in the last 100 
-| packets 17 were dropped before sending")? For this kind of information we 
-| need reference to socket (struct sock *). And I can't see how we could obtain 
-| it from functions not mentioned in struct proto.
-| 
-It was for this part that I looked at netlink. This goes into the
-direction of a new API or at least API extensions.
-
-For global statistics there is already the DCCP MIB, but it needs some
-more work (in /proc/snmp there are no entries at the moment), a ToDo.
-
-For per-socket statistics there is indeed a need for a notification
-mechanism. If a synchronous mechanism is sufficient, then something like
-the current CCID-3 getsockopt(DCCP_SOCKOPT_CCID_{RX,TX}_INFO) can be used.
-
-For asynchronous notification, using a special signal comes to mind,
-where the application installs a signal handler as notifier.
-
-The best that I can think of is to map a segment of userspace memory
-into the kernel and use this memory area as a (ready-only) statistics
-struct. That would save the system call overhead of using getsockopt().
-
-That is my list of ideas at the moment. Probably not exhaustive.
-
-- Gerrit
+	Ingo
