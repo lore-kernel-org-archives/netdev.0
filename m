@@ -1,48 +1,89 @@
-From: Arjan van de Ven <arjan@infradead.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Mon, 26 May 2008 09:24:07 -0700
-Message-ID: <20080526092407.76df09d7@infradead.org>
-References: <20080526115628.GA31316@elte.hu>
+Date: Mon, 26 May 2008 20:08:37 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805261956090.24924@wrl-59.cs.helsinki.fi>
+References: <20080526115628.GA31316@elte.hu> <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
+ <20080526135940.GB24870@elte.hu> <20080526141252.GA31352@elte.hu>
+ <Pine.LNX.4.64.0805261745010.16829@wrl-59.cs.helsinki.fi> <20080526162328.GA9089@elte.hu>
+ <Pine.LNX.4.64.0805261926260.24924@wrl-59.cs.helsinki.fi> <20080526165407.GB24098@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1590138542-1211821374=:24924"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	"Rafael J. Wysocki" <rjw@sisk.pl>,
 	Andrew Morton <akpm@linux-foundation.org>
 To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:40646 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751414AbYEZRHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 13:07:43 -0400
-In-Reply-To: <20080526115628.GA31316@elte.hu>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48730 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756461AbYEZRIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 13:08:40 -0400
+In-Reply-To: <20080526165407.GB24098@elte.hu>
+Content-ID: <Pine.LNX.4.64.0805262002580.24924@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 May 2008 13:56:28 +0200
-Ingo Molnar <mingo@elte.hu> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-1590138542-1211821374=:24924
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0805262002581.24924@wrl-59.cs.helsinki.fi>
+
+On Mon, 26 May 2008, Ingo Molnar wrote:
 
 > 
-> in an overnight -tip testruns that is based on recent -git i got two 
-> stuck TCP connections:
+> * Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> 
+> > > > Hmm, readfds is NULL isn't it?!? Are you sure you straced the 
+> > > > right process?
+> > > 
+> > > yes, i'm stracing the task that is hung unexpectedly.
+> > 
+> > But that wasn't the receiving process? (I didn't quickly find into 
+> > which direction distcc ports go, so I couldn't confirm this). If you 
+> > still have that situation at hand, could you check which is the 
+> > receiving process (e.g., using netstat -p, the end which has Recv-Q is 
+> > the right one) and where it's stuck?
+> 
+> it wasnt the receiving process. There's no receiving process - which is 
+> weird:
 > 
 > Active Internet connections (w/o servers)
-> Proto Recv-Q Send-Q Local Address               Foreign
-> Address             State tcp        0 174592
-> 10.0.1.14:58015             10.0.1.14:3632              ESTABLISHED
-> tcp    72134      0 10.0.1.14:3632
-> 10.0.1.14:58015             ESTABLISHED 
-> 
-> on a previously reliable machine. That connection has been stuck for
-> 9 hours so it does not time out, etc. - and the distcc run that goes
-> over that connection is stuck as well.
-> 
+> Proto Recv-Q Send-Q Local Address               Foreign Address             State       PID/Program name   
+> tcp        0 207232 europe:37198                europe:distcc               ESTABLISHED 19578/distcc        
+> tcp        0      0 europe:ssh                  dione:36284                 ESTABLISHED -                   
+> tcp        0      0 europe:ssh                  e2:45910                    ESTABLISHED -                   
+> tcp    72283      0 europe:distcc               europe:37198                ESTABLISHED -                   
 
-interestingly enough, I think I'm seeing something very similar to this
-with the claws email client; as of 2.6.26-rc3 (sorry, didn't run
-earlier ones because they broke my wireless) claws gets "stuck" once in
-a while, really stuck, when talking to the imap server.....
-It seems to happen a little less frequently when running under strace,
-but it still happens, so that could just be a timing thing.
+Just to be sure (please forgive me if you find this nearly an insult :-)), 
+did you have enough rights to find out the pid (ie., if that process not 
+owned by you then you need superuser privs for that)?
 
+> i just gave it as a general example of why sometimes stracing a task can 
+> 'disturb' the observed system and can kick the TCP state machine out of 
+> a stall. I did not say it's occuring here.
+
+Yeah, I understood that earlier. Similarly, I just wanted to point out
+the end where the problem lies :-).
+
+> > ...It may still be that the receiving process is stuck due to the 
+> > non-net related changes you have there.
+> 
+> the socket does not seem to be owned. It should have closed down? 
+> Refcounting issue?
+
+It's well possible that e.g., net namespaces have some bug in handling
+of orphaned tcp.
+
+> find below the sysrq-t dump.
+
+...I'll have a look into that as well (though with such I'm on a more 
+unfamiliar territory, so it will take a moment).
+
+
+-- 
+ i.
+---696208474-1590138542-1211821374=:24924--
