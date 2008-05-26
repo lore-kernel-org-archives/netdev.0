@@ -1,46 +1,63 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of IRQF_SAMPLE_RANDOM
-Date: Mon, 26 May 2008 23:07:02 +0200
-Message-ID: <m38wxwepvt.fsf@maximus.localdomain>
-References: <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org>
-	<482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org>
-	<20080516132107.GA11304@csclub.uwaterloo.ca>
-	<20080516161029.44ded734@core>
-	<20080516173610.GA27126@csclub.uwaterloo.ca>
-	<20080516191125.46f59ad6@core>
-	<a24804730805162155m72e6b40aweb8822515c880c50@mail.gmail.com>
-	<1211728189.5913.71.camel@andromache> <20080525232712.GF5970@mit.edu>
-	<20080526154326.1fe44214@Varda>
-	<20080526111458.fff6c311.billfink@mindspring.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Tue, 27 May 2008 00:20:05 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805262348240.24924@wrl-59.cs.helsinki.fi>
+References: <20080526115628.GA31316@elte.hu> <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
+ <20080526135940.GB24870@elte.hu> <20080526141252.GA31352@elte.hu>
+ <Pine.LNX.4.64.0805261745010.16829@wrl-59.cs.helsinki.fi> <20080526162328.GA9089@elte.hu>
+ <Pine.LNX.4.64.0805261926260.24924@wrl-59.cs.helsinki.fi> <20080526165407.GB24098@elte.hu>
+ <Pine.LNX.4.64.0805261956090.24924@wrl-59.cs.helsinki.fi> <20080526181216.GA12400@elte.hu>
+ <20080526204140.GA13186@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alejandro Riveira =?iso-8859-2?Q?Fern=E1ndez?=
-	<ariveira@gmail.com>, Theodore Tso <tytso@MIT.EDU>,
-	Glen Turner <gdt@gdt.id.au>,
-	Chris Peterson <cpeterso@cpeterso.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Jeff Garzik <jeff@garzik.org>,
-	"Kok\, Auke" <auke-jan.h.kok@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Brandeburg\, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ingo Molnar <mingo@elte.hu>, Pavel Emelyanov <xemul@openvz.org>,
+	"Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from OSB1387.piap.pl ([195.187.100.11]:57135 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753338AbYEZVHI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2008 17:07:08 -0400
-In-Reply-To: <20080526111458.fff6c311.billfink@mindspring.com> (Bill Fink's message of "Mon\, 26 May 2008 11\:14\:58 -0400")
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47098 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753612AbYEZVUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 17:20:09 -0400
+In-Reply-To: <20080526204140.GA13186@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bill Fink <billfink@mindspring.com> writes:
+...Added Pavel & Denis.
 
-> Another idea that occured to me:  How about using the low order bits
-> of the instruction memory address being executed that was interrupted
-> by the HZ timer interrupt.
+On Mon, 26 May 2008, Ingo Molnar wrote:
+> * Ingo Molnar <mingo@elte.hu> wrote:
+> 
+> > > It's well possible that e.g., net namespaces have some bug in 
+> > > handling of orphaned tcp.
+> > 
+> > yes, that would match the symptoms i think. I half-assumed that it's a 
+> > state machine problem so i didnt even check what the reader does - and 
+> > in this case it appears to not exist at all anymore ;-)
 
-Think of constant-instructions-length processors :-)
+I keep wondering why distcc in the first place has a connection orphaned
+before it has read all data from it, I guess it should not yet be
+speculatively executing anything or so :-). Anyway, there should be RST
+due to that data because nobody is going read it after the process in gone 
+but since state is still ESTABLISHED, I doubt that tcp_close() was ever 
+executed which adds some strangeness.
+
+> after ~7 hours of uptime the networking code produced this assertion:
+> 
+>  [25441.140000] KERNEL: assertion (!sk->sk_ack_backlog) failed at 
+>  net/ipv4/inet_connection_sock.c (642)
+
+...I checked /proc/net/tcp output you gave earlier, and indeed, it shows 
+1 in sk->sk_ack_backlog of the LISTENing socket at that time.
+
+> no further information in the logs. I kept the failing system booted up 
+> for 8 hours and will reboot it now.
+
+
+
 -- 
-Krzysztof Halasa
+ i.
