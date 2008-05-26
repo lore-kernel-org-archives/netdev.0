@@ -1,74 +1,67 @@
-From: Alejandro Riveira =?UTF-8?B?RmVybsOhbmRleg==?=
-	<ariveira@gmail.com>
-Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
- IRQF_SAMPLE_RANDOM
-Date: Mon, 26 May 2008 15:43:26 +0200
-Message-ID: <20080526154326.1fe44214@Varda>
-References: <482C7E53.3050300@hp.com>
-	<482C8184.2030906@garzik.org>
-	<482C8550.5000909@intel.com>
-	<482C8D4D.3040702@garzik.org>
-	<20080516132107.GA11304@csclub.uwaterloo.ca>
-	<20080516161029.44ded734@core>
-	<20080516173610.GA27126@csclub.uwaterloo.ca>
-	<20080516191125.46f59ad6@core>
-	<a24804730805162155m72e6b40aweb8822515c880c50@mail.gmail.com>
-	<1211728189.5913.71.camel@andromache>
-	<20080525232712.GF5970@mit.edu>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Mon, 26 May 2008 15:59:40 +0200
+Message-ID: <20080526135940.GB24870@elte.hu>
+References: <20080526115628.GA31316@elte.hu> <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Glen Turner <gdt@gdt.id.au>,
-	Chris Peterson <cpeterso@cpeterso.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Jeff Garzik <jeff@garzik.org>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Theodore Tso <tytso@MIT.EDU>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:5675 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756267AbYEZNnh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 09:43:37 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so414260ugf.16
-        for <netdev@vger.kernel.org>; Mon, 26 May 2008 06:43:35 -0700 (PDT)
-In-Reply-To: <20080525232712.GF5970@mit.edu>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:44438 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752654AbYEZOAN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 10:00:13 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-El Sun, 25 May 2008 19:27:12 -0400
-Theodore Tso <tytso@MIT.EDU> escribi=C3=B3:
 
-> On Mon, May 26, 2008 at 12:39:49AM +0930, Glen Turner wrote:
-> >=20
-> > For example, /dev/random has run out. So the output of /dev/urandom
-> > is now determined by previous values of /dev/random.  I then send i=
-n
-> > a stack of network packets at regular intervals. So the output of
-> > /dev/urandom is now greatly determined by those packets.  My search
-> > space for the resulting key is small since /dev/urandom appears to
-> > be random, but in fact is periodic.
+* Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+
+> > in terms of debugging there's not much i can do i'm afraid. It's no=
+t=20
+> > possible to get a tcpdump of this incident, given the extreme amoun=
+t=20
+> > of load these testboxes handle.
 >=20
-> That's not how it works.  Basically, as long as there is *some*
-> entropy in the system, even from the /var/lib/random-seed, or from
-> keyboard interrupts, or from mouse interrupts, which is unknown to th=
-e
-> attacker, in the worse case /dev/urandom will be no worse than a
-> cryptographic random number generator.
->=20
- [ ... ]=20
+> ...but you can still tcpdump that particular flow once the situation=20
+> is discovered to see if TCP still tries to do something, no? One need=
+s=20
+> to tcpdump couple of minutes at minimum. Also please get /proc/net/tc=
+p=20
+> for that flow around the same time.
+
+ok, will try those.
+
+> > One clue (which might or might not matter) is that distcc is one of=
 =20
- Just a shot in the dark... would hw sensors (raw data) chips be a good=
- source
- of entropy for /dev/random ??=20
+> > the very few applications that makes use of sendfile().
+>=20
+> Can you please try with /proc/sys/net/ipv4/tcp_frto set to zero thoug=
+h=20
+> recv-q symptom seems weird would it be related to that (but there wer=
+e=20
+> some recent fixes to FRTO and retrans_stamp change could have some=20
+> significance here)?
+>=20
+> Other than that, nothing since -rc1 seems suspicious to me (though I=20
+> hardly understand every part of networking).
 
-> 		      	     	     	- Ted
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+ok, i will first wait for it to trigger on a box and will do the tcpdum=
+p=20
+session (and /proc/net/tcp output), then i'll continue the tests with=20
+this done in the rc.local:
+
+  echo 0 > /proc/sys/net/ipv4/tcp_frto
+
+and will see whether the hung connections still occur. The cycle of=20
+testing will be very slow i suspect.
+
+	Ingo
