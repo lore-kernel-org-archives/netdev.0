@@ -1,24 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/8] tg3: Update version to 3.93
-Date: Sun, 25 May 2008 23:53:11 -0700 (PDT)
-Message-ID: <20080525.235311.235732094.davem@davemloft.net>
-References: <1211511433.0@teletran1>
-	<20080525.235115.264290985.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: POHMELFS high performance network filesystem. Cache coherency, transactions, parallels.
+Date: Mon, 26 May 2008 11:07:09 +0400
+Message-ID: <20080526070708.GB16366@2ka.mipt.ru>
+References: <20080525134055.GA30630@2ka.mipt.ru> <483A0F3B.9060709@garzik.org> <20080526062204.GA16366@2ka.mipt.ru> <483A59D7.7020306@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, benli@broadcom.com,
-	andy@greyhouse.net
-To: mcarlson@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46072
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752720AbYEZGxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 02:53:15 -0400
-In-Reply-To: <20080525.235115.264290985.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <483A59D7.7020306@garzik.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, May 26, 2008 at 02:33:59AM -0400, Jeff Garzik (jeff@garzik.org) wrote:
+> >No it should be cc4d281eb8d9a4d3a5610acf1558c327358f5725
+> >Author: Evgeniy Polyakov johnpol@2ka.mipt.ru <zbr@gavana.yandex.ru>
+> >Date:   Sun May 25 17:24:56 2008 +0400
+> >
+> >    Kconfig entries for cc group and debugging.
+> >    
+> >I used 'git push remote_repo' to push data after repository was create, 
+> >probably I
+> >should use 'git push --all remote_repo', please try again.
+> 
+> Nope.
+> 
+> Did you forget git-update-server-info, since your method is HTTP?
 
-Matt, don't we need a PHYLIB dependency or select statement for the
-tg3 driver option in drivers/net/Kconfig now?
+At least on server HEAD (refs/heads/master) points to
+cc4d281eb8d9a4d3a5610acf1558c327358f5725
+
+I tries git-update-server-info on client and pushed all again, but it
+returned that everything is up-to-date.
+
+-- 
+	Evgeniy Polyakov
