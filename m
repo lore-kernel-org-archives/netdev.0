@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ppp: push BKL down into the driver
-Date: Sun, 25 May 2008 23:41:07 -0700 (PDT)
-Message-ID: <20080525.234107.30123206.davem@davemloft.net>
-References: <20080522215711.46fa07ac@core>
+Subject: Re: [PATCH 1/8] tg3: Pure code movement.
+Date: Sun, 25 May 2008 23:44:32 -0700 (PDT)
+Message-ID: <20080525.234432.182879119.davem@davemloft.net>
+References: <1211511414.0@teletran1>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.com
-To: alan@lxorguk.ukuu.org.uk
+Cc: netdev@vger.kernel.org, mchan@broadcom.com, benli@broadcom.com,
+	andy@greyhouse.net
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49955
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49964
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752551AbYEZGlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 02:41:12 -0400
-In-Reply-To: <20080522215711.46fa07ac@core>
+	by vger.kernel.org with ESMTP id S1752071AbYEZGog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 02:44:36 -0400
+In-Reply-To: <1211511414.0@teletran1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Thu, 22 May 2008 21:57:11 +0100
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Thu, 22 May 2008 19:56:54 -0700
 
-> I've pushed it down as far as I dare at this point. Someone familiar with
-> the internal PPP semantics can probably push it further. Another step to
-> eliminating the old BKL ioctl usage.
+> This patch moves some functions towards the top of the file to avoid
+> unnecessary function prototypes.
 > 
-> Signed-off-by: Alan Cox <alan@redhat.com>
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Benjamin Li <benli@broadcom.com>
 
 Applied.
