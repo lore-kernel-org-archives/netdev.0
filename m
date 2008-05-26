@@ -1,51 +1,65 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH] devinet: sysctl setup off by one
-Date: Mon, 26 May 2008 11:39:21 +0400
-Message-ID: <483A6929.6060905@openvz.org>
-References: <20080523153559.156a1fb5@speedy>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH 1/3] virtio: fix virtio_net xmit of freed skb bug
+Date: Mon, 26 May 2008 17:42:42 +1000
+Message-ID: <200805261742.43215.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58574 "EHLO sacred.ru"
+Received: from ozlabs.org ([203.10.76.45]:48635 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884AbYEZHlv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2008 03:41:51 -0400
-In-Reply-To: <20080523153559.156a1fb5@speedy>
+	id S1751633AbYEZHnD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2008 03:43:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> It look like the code to setup /proc/sys/net/ipv4/conf/XXX has an off by one bug
-> that causes the last entry (arp_accept) not to be adjusted properly.  This causes
-> changes to the value to occur in the default namespace not the clone? Don't use
-> network namespaces myself, but this looks like a bug.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/net/ipv4/devinet.c	2008-05-23 15:23:19.000000000 -0700
-> +++ b/net/ipv4/devinet.c	2008-05-23 15:29:17.000000000 -0700
-> @@ -1466,7 +1466,7 @@ static int __devinet_sysctl_register(str
->  	if (!t)
->  		goto out;
->  
-> -	for (i = 0; i < ARRAY_SIZE(t->devinet_vars) - 1; i++) {
-> +	for (i = 0; i < ARRAY_SIZE(t->devinet_vars); i++) {
->  		t->devinet_vars[i].data += (char *)p - (char *)&ipv4_devconf;
->  		t->devinet_vars[i].extra1 = p;
->  		t->devinet_vars[i].extra2 = net;
-> 
+If we fail to transmit a packet, we assume the queue is full and put
+the skb into last_xmit_skb.  However, if more space frees up before we
+xmit it, we loop, and the result can be transmitting the same skb twice.
 
-This off-by-one is required, since the very last element of this array
-is used as a sentinel, that shows sysctl engine when to stop processing 
-the table.
+Fix is simple: set skb to NULL if we've used it in some way, and check
+before sending.
 
-Look, the sizeof(t->devinet_vars) is __NET_IPV4_CONF_MAX == 22, thus
-entries 0, 1, ... 20 are tables and the 21-st is this sentinel, so the
-initialization of this last entry, whose index is (this_sizeof() - 1),
-is not required.
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |   14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-Thanks,
-Pavel
+diff -r 564237b31993 drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c	Mon May 19 12:22:00 2008 +1000
++++ b/drivers/net/virtio_net.c	Mon May 19 12:24:58 2008 +1000
+@@ -287,21 +287,25 @@ again:
+ 	free_old_xmit_skbs(vi);
+ 
+ 	/* If we has a buffer left over from last time, send it now. */
+-	if (vi->last_xmit_skb) {
++	if (unlikely(vi->last_xmit_skb)) {
+ 		if (xmit_skb(vi, vi->last_xmit_skb) != 0) {
+ 			/* Drop this skb: we only queue one. */
+ 			vi->dev->stats.tx_dropped++;
+ 			kfree_skb(skb);
++			skb = NULL;
+ 			goto stop_queue;
+ 		}
+ 		vi->last_xmit_skb = NULL;
+ 	}
+ 
+ 	/* Put new one in send queue and do transmit */
+-	__skb_queue_head(&vi->send, skb);
+-	if (xmit_skb(vi, skb) != 0) {
+-		vi->last_xmit_skb = skb;
+-		goto stop_queue;
++	if (likely(skb)) {
++		__skb_queue_head(&vi->send, skb);
++		if (xmit_skb(vi, skb) != 0) {
++			vi->last_xmit_skb = skb;
++			skb = NULL;
++			goto stop_queue;
++		}
+ 	}
+ done:
+ 	vi->svq->vq_ops->kick(vi->svq);
