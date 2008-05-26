@@ -1,60 +1,74 @@
-From: "Ulrik De Bie" <ulrik.debie@newtec.eu>
-Subject: Re: DNAT sporadically doesn't replace destination IP address
-Date: Mon, 26 May 2008 14:11:04 +0200
-Message-ID: <483AC4F80200008D00010946@mail.newtec.eu>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Mon, 26 May 2008 16:28:18 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
+References: <20080526115628.GA31316@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
-To: "Kris Op de Beeck" <kris.op.de.beeck@newtec.eu>, <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45683 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751697AbYEZN2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 09:28:25 -0400
+In-Reply-To: <20080526115628.GA31316@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Kris Op de Beeck wrote:
->> 
->>>>> On 22/05/2008 at 17:28, in message <4835913A.4020909@trash.net>, Patrick McHardy <kaber@trash.net> wrote:
->>>> [  927.204000] nf_ct_tcp: invalid SYNIN= OUT= SRC=192.168.1.30 DST=10.9.9.29 
->>> LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=25745 DF PROTO=TCP SPT=52775 DPT=80 
->>> SEQ=2154890499 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT 
->>> (020405B40402080A000264810000000001030307) UID=1000
->>>> For those DST ip addresses I've got failures
->>> Which kernel is this test running on? That message
->>> is gone since 2.6.22.
->> 
->> s3p@burnin:~$ uname -a
->> Linux burnin 2.6.22-14-generic #1 SMP Sun Oct 14 23:05:12 GMT 2007 i686 GNU/Linux
->> 
->> This was the config where I detected the problem. (Ubuntu 7.10)
+On Mon, 26 May 2008, Ingo Molnar wrote:
 
->I didn't find the reason why your kernel even has that message
->(didn't try to hard though). Could you rerun the test with a
->more current kernel, like 2.6.24 or 2.6.25 please?
-Kris already provided you with the results for 2.6.24, behaviour there seems to have become even worse. 
+> in an overnight -tip testruns that is based on recent -git i got two 
+> stuck TCP connections:
+> 
+> Active Internet connections (w/o servers)
+> Proto Recv-Q Send-Q Local Address               Foreign Address             State      
+> tcp        0 174592 10.0.1.14:58015             10.0.1.14:3632              ESTABLISHED 
+> tcp    72134      0 10.0.1.14:3632              10.0.1.14:58015             ESTABLISHED 
+> 
+> on a previously reliable machine. That connection has been stuck for 9 
+> hours so it does not time out, etc. - and the distcc run that goes over 
+> that connection is stuck as well.
+> 
+> kernel config is attached.
+> 
+> in terms of debugging there's not much i can do i'm afraid. It's not 
+> possible to get a tcpdump of this incident, given the extreme amount of 
+> load these testboxes handle.
 
-But about your first remark:
-The ubuntu 2.6.22-14 kernel has that message still, it's based on kernel version 2.6.22.9 and I downloaded the original from kernel.org, and that still contains the message:
-linux-2.6.22.9/net/netfilter/nf_conntrack_proto_tcp.c at line 909 in function tcp_packet.
+...but you can still tcpdump that particular flow once the situation is 
+discovered to see if TCP still tries to do something, no? One needs to 
+tcpdump couple of minutes at minimum. Also please get /proc/net/tcp for 
+that flow around the same time.
 
-I also compared with the 2.6.17.1 (which is definitely older than the ubuntu 2.6.17), and the function tcp_packet has not changed between these versions. In 2.6.25 this function did have some changes though. So the relevant change causing the behaviour must be outside function tcp_packet.
+> This problem started sometime around rc3 
+> and it occured on two boxes (on a laptop and on a desktop), both are SMP 
+> Core2Duo based systems. I never saw this problem before on thousands of 
+> similar bootups, so i'm 99.9% sure the bug is either new or became 
+> easier to trigger.
+>
+> It's not possible to bisect it as it needs up to 12 hours of heavy 
+> workload to trigger. The incident happened about 5 times since the first 
+> incident a couple of days ago - 4 times on one box and once on another 
+> box. The first failing head i became aware of was 78b58e549a3098. (-tip 
+> has other changes beyond -git but changes nothing in networking.)
+> 
+> One clue (which might or might not matter) is that distcc is one of the 
+> very few applications that makes use of sendfile().
 
-Best regards,
-Ulrik De Bie
-Newtec will be present at the following exhibitions :
+Can you please try with /proc/sys/net/ipv4/tcp_frto set to zero though 
+recv-q symptom seems weird would it be related to that (but there were 
+some recent fixes to FRTO and retrans_stamp change could have some 
+significance here)?
 
-CommunicAsia, 17-20 June, Singapore, Booth 6B2-01
+Other than that, nothing since -rc1 seems suspicious to me (though
+I hardly understand every part of networking).
 
-*** e-mail confidentiality footer ***
-This message and any attachments thereto are confidential. They may also
-be privileged or otherwise protected by work product immunity or other
-legal rules. If you have received it by mistake, please let us know by
-e-mail reply and delete it from your system; you may not copy this
-message or disclose its contents to anyone.
-E-mail transmission cannot be guaranteed to be secure or error free as
-information could be intercepted, corrupted, lost, destroyed, arrive
-late or incomplete, or contain viruses. The sender therefore is in no
-way liable for any errors or omissions in the content of this message,
-which may arise as a result of e-mail transmission. If verification is
-required, please request a hard copy.
 
+-- 
+ i.
