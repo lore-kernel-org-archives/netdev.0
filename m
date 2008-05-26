@@ -1,74 +1,74 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Mon, 26 May 2008 16:28:18 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
-References: <20080526115628.GA31316@elte.hu>
+From: Alejandro Riveira =?UTF-8?B?RmVybsOhbmRleg==?=
+	<ariveira@gmail.com>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Mon, 26 May 2008 15:43:26 +0200
+Message-ID: <20080526154326.1fe44214@Varda>
+References: <482C7E53.3050300@hp.com>
+	<482C8184.2030906@garzik.org>
+	<482C8550.5000909@intel.com>
+	<482C8D4D.3040702@garzik.org>
+	<20080516132107.GA11304@csclub.uwaterloo.ca>
+	<20080516161029.44ded734@core>
+	<20080516173610.GA27126@csclub.uwaterloo.ca>
+	<20080516191125.46f59ad6@core>
+	<a24804730805162155m72e6b40aweb8822515c880c50@mail.gmail.com>
+	<1211728189.5913.71.camel@andromache>
+	<20080525232712.GF5970@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Glen Turner <gdt@gdt.id.au>,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Jeff Garzik <jeff@garzik.org>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Theodore Tso <tytso@MIT.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45683 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751697AbYEZN2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 09:28:25 -0400
-In-Reply-To: <20080526115628.GA31316@elte.hu>
+Received: from ug-out-1314.google.com ([66.249.92.168]:5675 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756267AbYEZNnh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2008 09:43:37 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so414260ugf.16
+        for <netdev@vger.kernel.org>; Mon, 26 May 2008 06:43:35 -0700 (PDT)
+In-Reply-To: <20080525232712.GF5970@mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 May 2008, Ingo Molnar wrote:
+El Sun, 25 May 2008 19:27:12 -0400
+Theodore Tso <tytso@MIT.EDU> escribi=C3=B3:
 
-> in an overnight -tip testruns that is based on recent -git i got two 
-> stuck TCP connections:
-> 
-> Active Internet connections (w/o servers)
-> Proto Recv-Q Send-Q Local Address               Foreign Address             State      
-> tcp        0 174592 10.0.1.14:58015             10.0.1.14:3632              ESTABLISHED 
-> tcp    72134      0 10.0.1.14:3632              10.0.1.14:58015             ESTABLISHED 
-> 
-> on a previously reliable machine. That connection has been stuck for 9 
-> hours so it does not time out, etc. - and the distcc run that goes over 
-> that connection is stuck as well.
-> 
-> kernel config is attached.
-> 
-> in terms of debugging there's not much i can do i'm afraid. It's not 
-> possible to get a tcpdump of this incident, given the extreme amount of 
-> load these testboxes handle.
+> On Mon, May 26, 2008 at 12:39:49AM +0930, Glen Turner wrote:
+> >=20
+> > For example, /dev/random has run out. So the output of /dev/urandom
+> > is now determined by previous values of /dev/random.  I then send i=
+n
+> > a stack of network packets at regular intervals. So the output of
+> > /dev/urandom is now greatly determined by those packets.  My search
+> > space for the resulting key is small since /dev/urandom appears to
+> > be random, but in fact is periodic.
+>=20
+> That's not how it works.  Basically, as long as there is *some*
+> entropy in the system, even from the /var/lib/random-seed, or from
+> keyboard interrupts, or from mouse interrupts, which is unknown to th=
+e
+> attacker, in the worse case /dev/urandom will be no worse than a
+> cryptographic random number generator.
+>=20
+ [ ... ]=20
+=20
+ Just a shot in the dark... would hw sensors (raw data) chips be a good=
+ source
+ of entropy for /dev/random ??=20
 
-...but you can still tcpdump that particular flow once the situation is 
-discovered to see if TCP still tries to do something, no? One needs to 
-tcpdump couple of minutes at minimum. Also please get /proc/net/tcp for 
-that flow around the same time.
-
-> This problem started sometime around rc3 
-> and it occured on two boxes (on a laptop and on a desktop), both are SMP 
-> Core2Duo based systems. I never saw this problem before on thousands of 
-> similar bootups, so i'm 99.9% sure the bug is either new or became 
-> easier to trigger.
->
-> It's not possible to bisect it as it needs up to 12 hours of heavy 
-> workload to trigger. The incident happened about 5 times since the first 
-> incident a couple of days ago - 4 times on one box and once on another 
-> box. The first failing head i became aware of was 78b58e549a3098. (-tip 
-> has other changes beyond -git but changes nothing in networking.)
-> 
-> One clue (which might or might not matter) is that distcc is one of the 
-> very few applications that makes use of sendfile().
-
-Can you please try with /proc/sys/net/ipv4/tcp_frto set to zero though 
-recv-q symptom seems weird would it be related to that (but there were 
-some recent fixes to FRTO and retrans_stamp change could have some 
-significance here)?
-
-Other than that, nothing since -rc1 seems suspicious to me (though
-I hardly understand every part of networking).
-
-
--- 
- i.
+> 		      	     	     	- Ted
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
