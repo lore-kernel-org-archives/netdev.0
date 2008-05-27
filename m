@@ -1,51 +1,58 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH 1/5] [VLAN]: Unclassified vlan packet
-Date: Tue, 27 May 2008 11:36:06 -0700
-Message-ID: <b25c3fa70805271136i6aadc3bje1a0e934f20a774e@mail.gmail.com>
-References: <20080411135714.GA8137@tp64> <483B9EBE.5030703@trash.net>
-	 <b25c3fa70805262320h7edb4246wd017261fe7187b88@mail.gmail.com>
-	 <483BAA7F.6060408@trash.net>
-	 <b25c3fa70805271040qb5f5c54tb009b51acc3acd3f@mail.gmail.com>
-	 <483C4959.6000709@trash.net>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH] devinet: sysctl setup off by one
+Date: Tue, 27 May 2008 11:39:00 -0700
+Message-ID: <20080527113900.3039baa1@speedy>
+References: <20080523153559.156a1fb5@speedy>
+	<483A6929.6060905@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:36824 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756861AbYE0SgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 14:36:07 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so3075216rvb.1
-        for <netdev@vger.kernel.org>; Tue, 27 May 2008 11:36:06 -0700 (PDT)
-In-Reply-To: <483C4959.6000709@trash.net>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:48295 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756598AbYE0SjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 14:39:01 -0400
+In-Reply-To: <483A6929.6060905@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2008/5/27 Patrick McHardy <kaber@trash.net>:
-> Joonwoo Park wrote:
->>
->> 2008/5/26 Patrick McHardy <kaber@trash.net>:
->>>>>
->>>>> BTW, I already have a patch queued to move the VLAN tag from
->>>>> skb->cb to a seperate skb member to fix the the conflict with
->>>>> qdiscs (this should also allow to use vlan accel through virtual
->>>>> network devices later on). So please don't resend, I'll integrate
->>>>> the patch on top of this change once we find a good spot for
->>>>> invalidation.
->>>>>
->>
->> Was that patch applied to certain tree?
->> If it was, may I know what tree is it?
->
-> I'm uploading it to kernel.org now, should appear within
-> the next 30 minutes at:
->
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/vlan-next-2.6.git
->
+On Mon, 26 May 2008 11:39:21 +0400
+Pavel Emelyanov <xemul@openvz.org> wrote:
 
-Thanks a lot Patrick!
+> Stephen Hemminger wrote:
+> > It look like the code to setup /proc/sys/net/ipv4/conf/XXX has an off by one bug
+> > that causes the last entry (arp_accept) not to be adjusted properly.  This causes
+> > changes to the value to occur in the default namespace not the clone? Don't use
+> > network namespaces myself, but this looks like a bug.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > 
+> > --- a/net/ipv4/devinet.c	2008-05-23 15:23:19.000000000 -0700
+> > +++ b/net/ipv4/devinet.c	2008-05-23 15:29:17.000000000 -0700
+> > @@ -1466,7 +1466,7 @@ static int __devinet_sysctl_register(str
+> >  	if (!t)
+> >  		goto out;
+> >  
+> > -	for (i = 0; i < ARRAY_SIZE(t->devinet_vars) - 1; i++) {
+> > +	for (i = 0; i < ARRAY_SIZE(t->devinet_vars); i++) {
+> >  		t->devinet_vars[i].data += (char *)p - (char *)&ipv4_devconf;
+> >  		t->devinet_vars[i].extra1 = p;
+> >  		t->devinet_vars[i].extra2 = net;
+> > 
+> 
+> This off-by-one is required, since the very last element of this array
+> is used as a sentinel, that shows sysctl engine when to stop processing 
+> the table.
+> 
+> Look, the sizeof(t->devinet_vars) is __NET_IPV4_CONF_MAX == 22, thus
+> entries 0, 1, ... 20 are tables and the 21-st is this sentinel, so the
+> initialization of this last entry, whose index is (this_sizeof() - 1),
+> is not required.
+> 
+> Thanks,
+> Pavel
 
-Joonwoo
+okay, so that means there is one extra entry in the vars than needed? which
+is harmless.
