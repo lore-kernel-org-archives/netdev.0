@@ -1,46 +1,36 @@
-From: "Kris Op de Beeck" <kris.op.de.beeck@newtec.eu>
-Subject: Re: DNAT sporadically doesn't replace destination IP address
-Date: Tue, 27 May 2008 16:27:06 +0200
-Message-ID: <483C365A.B932.00FE.0@newtec.eu>
-References: <4835A03D.B932.00FE.0@newtec.eu> <483589C0.4080006@trash.net>
- <4835ABD2.B932.00FE.0@newtec.eu> <4835913A.4020909@trash.net>
- <4835AE9B.B932.00FE.0@newtec.eu> <48359F66.50503@trash.net>
- <4836EDCE.B932.00FE.0@newtec.eu> <483AC787.6030902@trash.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
+Date: Tue, 27 May 2008 07:38:19 -0700
+Message-ID: <adave0z24o4.fsf@cisco.com>
+References: <1211418386-18203-1-git-send-email-mchan@broadcom.com>
+	<1211418386-18203-4-git-send-email-mchan@broadcom.com>
+	<ada8wy07osq.fsf@cisco.com>
+	<1211578969.26900.5.camel@dhcp-10-13-110-217.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Ulrik De Bie" <ulrik.debie@newtec.eu>, <netdev@vger.kernel.org>,
-	"Netfilter Development Mailinglist" <netfilter-devel@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <483AC787.6030902@trash.net>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael Chan" <mchan@broadcom.com>, davem@davemloft.net,
+	michaelc@cs.wisc.edu, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com
+To: "Anil Veerabhadrappa" <anilgv@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:62225 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755777AbYE0Oif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 10:38:35 -0400
+In-Reply-To: <1211578969.26900.5.camel@dhcp-10-13-110-217.broadcom.com> (Anil
+	Veerabhadrappa's message of "Fri, 23 May 2008 14:42:49 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> What does "grep <srcport from above> /proc/net/nf_conntrack" show
-> when the problem occurs?
-> 
-[ 1976.495472] nf_ct_tcp: invalid packet ignored IN= OUT= SRC=192.168.1.29 DST=10.9.9.28 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=58096 DF PROTO=TCP SPT=41675 DPT=80 SEQ=3967333855 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT (020405B40402080A00065A1E0000000001030305) UID=1000
+ > 'bnx2id' is the user component in this solution. bnx2id daemon uses
+ > socket calls to bind tcp ports in high range and hands them over to
+ > driver. This is how iscsi driver tries to solve tcp port collision
+ > issue. User daemon communicates with the driver using sysfs and tcp port
+ > related functions are bnx2i_read_tcp_portd_*/bnx2i_write_tcp_portd_*
+ > (reference: bnx2i_sysfs.c)
 
- sudo grep 41675 /proc/net/nf_conntrack
-ipv4     2 tcp      6 43 SYN_RECV src=192.168.1.29 dst=10.9.9.28 sport=41675 dport=80 packets=1 bytes=60 src=192.168.1.1 dst=192.168.1.29 sport=80 dport=41675 packets=3 bytes=180 mark=0 secmark=0 use=1
+So you are creating sockets just to reserve TCP ports to avoid host
+stack clashes with your offload engine?  Wasn't this approach strongly
+rejected (in the context of iWARP) in the past?
 
-
-Newtec will be present at the following exhibitions :
-
-CommunicAsia, 17-20 June, Singapore, Booth 6B2-01
-
-*** e-mail confidentiality footer ***
-This message and any attachments thereto are confidential. They may also
-be privileged or otherwise protected by work product immunity or other
-legal rules. If you have received it by mistake, please let us know by
-e-mail reply and delete it from your system; you may not copy this
-message or disclose its contents to anyone.
-E-mail transmission cannot be guaranteed to be secure or error free as
-information could be intercepted, corrupted, lost, destroyed, arrive
-late or incomplete, or contain viruses. The sender therefore is in no
-way liable for any errors or omissions in the content of this message,
-which may arise as a result of e-mail transmission. If verification is
-required, please request a hard copy.
-
+ - R.
