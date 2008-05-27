@@ -1,30 +1,27 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: race in skb_splice_bits?
-Date: Tue, 27 May 2008 19:09:31 +0400
-Message-ID: <20080527150931.GA23415@2ka.mipt.ru>
-References: <200805270325.24323.opurdila@ixiacom.com> <20080527132148.GA7368@2ka.mipt.ru> <20080527140318.GA6963@2ka.mipt.ru> <200805271739.11612.opurdila@ixiacom.com>
+Date: Tue, 27 May 2008 19:12:59 +0400
+Message-ID: <20080527151259.GA11862@2ka.mipt.ru>
+References: <200805270325.24323.opurdila@ixiacom.com> <20080527132148.GA7368@2ka.mipt.ru> <20080527140318.GA6963@2ka.mipt.ru> <200805271739.11612.opurdila@ixiacom.com> <20080527150931.GA23415@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
 	davem@davemloft.net
 To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:47513 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:55477 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756110AbYE0PJn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 11:09:43 -0400
+	id S1756112AbYE0PNK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 11:13:10 -0400
 Content-Disposition: inline
-In-Reply-To: <200805271739.11612.opurdila@ixiacom.com>
+In-Reply-To: <20080527150931.GA23415@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 27, 2008 at 05:39:11PM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
-> On my system it still crashes, if I interrupt the program before splice 
-> blocks:
+On Tue, May 27, 2008 at 07:09:31PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> Please test this one assuming there are no other patches applied before.
 
-Yes, that was somewhat stupid patch.
-Since I can not reproduce it anymore, let's try to upload this task to you :)
-Please test this one assuming there are no other patches applied before.
+A typo sneaked into the patch, please try this one.
 
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
 index 6087013..e2a99a6 100644
@@ -85,7 +82,7 @@ index 6087013..e2a99a6 100644
  	}
  
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 39b629a..54bb460 100644
+index 39b629a..fb8bfc2 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -1196,7 +1196,7 @@ static inline struct sk_buff *tcp_recv_skb(struct sock *sk, u32 seq, u32 *off)
@@ -145,8 +142,7 @@ index 39b629a..54bb460 100644
 +out:
 +		kfree_skb(skb);
  		if (!desc->count)
--			break;
-+			goto out_break;
+ 			break;
 +		continue;
 +out_break:
 +		kfree_skb(skb);
@@ -154,7 +150,6 @@ index 39b629a..54bb460 100644
  	}
  	tp->copied_seq = seq;
  
-
 
 -- 
 	Evgeniy Polyakov
