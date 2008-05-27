@@ -1,40 +1,38 @@
 From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
-Date: Tue, 27 May 2008 11:21:32 -0700
-Message-ID: <adaabibvc9f.fsf@cisco.com>
-References: <1211418386-18203-1-git-send-email-mchan@broadcom.com>
-	<1211418386-18203-4-git-send-email-mchan@broadcom.com>
-	<ada8wy07osq.fsf@cisco.com>
-	<1211578969.26900.5.camel@dhcp-10-13-110-217.broadcom.com>
-	<adave0z24o4.fsf@cisco.com> <1211915874.18326.101.camel@dell>
+Subject: Re: [ofa-general] Re: [PATCH v2 12/13] QLogic VNIC: Driver Kconfig
+	and Makefile.
+Date: Tue, 27 May 2008 11:26:32 -0700
+Message-ID: <adatzgjtxgn.fsf@cisco.com>
+References: <20080519102843.12355.832.stgit@localhost.localdomain>
+	<20080519103730.12355.14730.stgit@localhost.localdomain>
+	<adamyme57ir.fsf@cisco.com>
+	<71d336490805260037y4c45abd5lccd5dbadebd84eb8@mail.gmail.com>
+	<adaod6s4u1a.fsf@cisco.com>
+	<71d336490805262323qd876161ue86f98dbc8499ad6@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Anil Veerabhadrappa" <anilgv@broadcom.com>,
-	"David Miller" <davem@davemloft.net>, michaelc@cs.wisc.edu,
-	netdev <netdev@vger.kernel.org>, linux-scsi@vger.kernel.org,
-	open-iscsi@googlegroups.com
-To: "Michael Chan" <mchan@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1211915874.18326.101.camel@dell> (Michael Chan's message of
-	"Tue, 27 May 2008 12:17:54 -0700")
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, poornima.kamath@qlogic.com,
+	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
+To: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <71d336490805262323qd876161ue86f98dbc8499ad6@mail.gmail.com>
+	(Ramachandra K.'s message of "Tue, 27 May 2008 11:53:42 +0530")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
- > We're doing it in userspace, so I don't if that makes it any better or
- > any worse.
+ > Makes sense. We will get rid of this CONFIG option. Apart from this
+ > are there any other changes you
+ > would like to see in the patch series ?
 
-How do you do it in userspace?  With a bind()?  That is a little
-wasteful in that you are reserving a local addr/port when all you really
-need to reserve is the actual local/remote 4-tuple that you are going to
-use for the connection, but that's not horrible.
-
- > Roland, what do you suggest?  We can do it like cma_alloc_any_port() in
- > cma.c.
-
-Actually cma.c still has the problem of host/offload port space collisions.
-
-The whole port sharing thing is a mess -- I was hoping you had come up
-with a good solution that cma.c could steal to be honest, so I don't
-have any better ideas at the moment.
+Have not reviewed the latest in detail but I think we are at least
+pretty close to something ready to merge.
 
  - R.
