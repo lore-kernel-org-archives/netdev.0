@@ -1,57 +1,55 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 2/7] [CCID-2]: Remove ccid2hc{tx,rx}_ prefixes
-Date: Tue, 27 May 2008 15:07:44 +0100
-Message-ID: <20080527140744.GA28240@gerrit.erg.abdn.ac.uk>
-References: <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-2-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-3-git-send-email-gerrit@erg.abdn.ac.uk> <20080527.062536.64095383.davem@davemloft.net>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [PATCH net-next 0/12]bnx2x: add BCM57711 and new features
+Date: Tue, 27 May 2008 10:15:38 -0400
+Message-ID: <1211897738.6967.73.camel@ubuntu804desktop.localdomain>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Wendy Xiong" <wendyx@us.ibm.com>,
+	"Eliezer Tamir" <eliezert@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40009 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756782AbYE0OHx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 10:07:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20080527.062536.64095383.davem@davemloft.net>
+Received: from mms3.broadcom.com ([216.31.210.19]:3044 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754011AbYE0OQM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 10:16:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| The whole reason we use these member prefixes is so that the
-| tree is actually greppable.  tcp_sock is the way it is because
-| we never enforced this useful policy back when it was originally
-| created.
-| 
-| If you use short member names, it becomes eventually impossible
-| to grep for "->foo" and have it not match a ton of crap you
-| are completely not interested in.  Using a prefix creates a
-| struct member namespace, and thus fixes that problem.
-| 
-Ok, but this creates two problems at another end:
+Hi,
 
- 1/ as it is, the code is very hard to read, since 80% of expressions
-    are taken up by the repetitive `hc{r,t}x->ccid{2-4}_hc_{r,t}x_';
+This update adds support for two new chips: BCM57711 and its variant the
+BCM57711E, adds new link management code, new statistics code, enhanced
+self-tests, IPv6 TSO and least but not last TPA, our hardware based LRO.
 
- 2/ there are many expressions which involve computations involving
-    two and more field members. This almost inevitably creates
-    unwieldy multiline expressions.
+Wendy Xiong from IBM contributed the PCIE EEH handling code.
 
-These structs affect a subset of DCCP only, and are always preceded 
-either by "hctx->..." or "hcrx->...". This is a consistent convention.
+I would like to thank Eliezer Tamir for writing and maintaining the
+driver for the past two years. I will take over maintaining the bnx2x
+driver from now on. 
 
-With regard to being greppable,
- * cscope was found to work with the short identifiers,
- * have not tested ctags, here it may indeed be that there
-   are multiple matches,
- * most of the source code is confined to net/dccp (the only
-   exception is include/linux/{dccp,tfrc}.h).
- 
-These two patches didn't come out of a personal whim: over the past
-6 months this was discussed several times on dccp@vger, each time
-people confirmed that the identifiers were too long. There was clear
-agreement in this regard.
+Patches:
+1: Renaming bnx2x.c to bnx2x_main.c - preparing to breakout the link
+code to a new file. (this patch is a simple git mv bnx2x.c bnx2x_main.c
+and the necessary Makefile change)
+2: New link code - Major cleanup, move link to separate file, smother
+support of external PHY handling with our device
+3: New microcode
+4: Add support for BCM57711 HW, re-factoring struct bnx2x to allow this
+5: New statistics code, fixes race between stats and close, add BCM57711
+6: Add TPA, Broadcom's HW LRO
+7: Re-factor Tx code, add GSO_6 support
+8. Enhanced self test
+9: Add PCIE EEH support
+10: Add CNIC support (needs Michael Chan's CNIC code to compile,
+defaults to being defined out)
+11: Update version
+12: Update MAINTAINERS
 
-If you still find the above unacceptable with regard to the policy,
-is there an alternative/compromise which would satisfy both goals?
+Enjoy,
+Eilon
 
-Gerrit
+
