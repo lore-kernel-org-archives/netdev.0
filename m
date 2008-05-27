@@ -1,49 +1,70 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DNAT sporadically doesn't replace destination IP address
-Date: Tue, 27 May 2008 16:44:15 +0200
-Message-ID: <483C1E3F.4030802@trash.net>
-References: <4835A03D.B932.00FE.0@newtec.eu> <483589C0.4080006@trash.net> <4835ABD2.B932.00FE.0@newtec.eu> <4835913A.4020909@trash.net> <4835AE9B.B932.00FE.0@newtec.eu> <48359F66.50503@trash.net> <4836EDCE.B932.00FE.0@newtec.eu> <483AC787.6030902@trash.net> <483C365A.B932.00FE.0@newtec.eu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 6/12]bnx2x: Add TPA, Broadcoms HW LRO
+Date: Tue, 27 May 2008 15:47:54 +0100
+Message-ID: <20080527144752.GI28241@solarflare.com>
+References: <1211897851.6967.79.camel@ubuntu804desktop.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ulrik De Bie <ulrik.debie@newtec.eu>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Kris Op de Beeck <kris.op.de.beeck@newtec.eu>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
+	davem@davemloft.net, Vladislav Zolotarov <vladz@broadcom.com>,
+	Eliezer Tamir <eliezert@broadcom.com>
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55639 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754797AbYE0OoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 10:44:18 -0400
-In-Reply-To: <483C365A.B932.00FE.0@newtec.eu>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:52625 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755586AbYE0OsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 10:48:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1211897851.6967.79.camel@ubuntu804desktop.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kris Op de Beeck wrote:
->> What does "grep <srcport from above> /proc/net/nf_conntrack" show
->> when the problem occurs?
->>
-> [ 1976.495472] nf_ct_tcp: invalid packet ignored IN= OUT= SRC=192.168.1.29 DST=10.9.9.28 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=58096 DF PROTO=TCP SPT=41675 DPT=80 SEQ=3967333855 ACK=0 WINDOW=5840 RES=0x00 SYN URGP=0 OPT (020405B40402080A00065A1E0000000001030305) UID=1000
-> 
->  sudo grep 41675 /proc/net/nf_conntrack
-> ipv4     2 tcp      6 43 SYN_RECV src=192.168.1.29 dst=10.9.9.28 sport=41675 dport=80 packets=1 bytes=60 src=192.168.1.1 dst=192.168.1.29 sport=80 dport=41675 packets=3 bytes=180 mark=0 secmark=0 use=1
+Eilon Greenstein wrote:
+> bnx2x: =EF=BB=BFAdd TPA, Broadcoms HW LRO
+>=20
+> =EF=BB=BF=EF=BB=BF=EF=BB=BF=EF=BB=BF=EF=BB=BFSigned-off-by: Vladislav=
+ Zolotarov <vladz@broadcom.com>
+> =EF=BB=BF=EF=BB=BFSigned-off-by: Eliezer Tamir <eliezert@broadcom.com=
+>
 
-That looks like the client send a SYN, the server sent three
-SYN/ACKs that never reached the client and the client retransmits
-its SYN. The SYN should still be NATed, but conntrack thinks
-its out of sync because its already in SYN_RECV state, while the
-client is apparently still in SYN_SENT state.
+What's with the byte order marks here?
 
-Looking back at your first mail:
+[...]
+> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> index 20ecfcb..366764e 100644
+> --- a/drivers/net/bnx2x_main.c
+> +++ b/drivers/net/bnx2x_main.c
+> @@ -84,6 +84,7 @@ MODULE_VERSION(DRV_MODULE_VERSION);
+>  static int use_inta;
+>  static int poll;
+>  static int debug;
+> +static int disable_tpa;
+>  static int nomcp;
+>  static int load_count[3]; /* 0 common, 1 port0, 2 port1 */
+>  static int use_multi;
+> @@ -91,6 +92,7 @@ static int use_multi;
+>  module_param(use_inta, int, 0);
+>  module_param(poll, int, 0);
+>  module_param(debug, int, 0);
+> +module_param(disable_tpa, int, 0);
+>  module_param(nomcp, int, 0);
+>  MODULE_PARM_DESC(use_inta, "use INT#A instead of MSI-X");
+>  MODULE_PARM_DESC(poll, "use polling (for debug)");
 
->     print "iptables -t mangle -A VLAN$vlan -j MARK --set-mark $vlan\n";
->     print "iptables -t mangle -A OUTPUT -o eth2.$vlan -j VLAN$vlan\n";
->     print "ip ro add table $vlan default dev eth2.$vlan\n";
->     print "ip ru add fwmark $vlan table $vlan\n";
+It's important that people are able to see how to disable LRO.  Using a
+different name for it, and no module parameter description, really does=
+n't
+help.
 
-This looks like a chicken-and-egg problem. You mark packets based
-on the output device, but use the mark to direct them to the output
-device.
+You should also implement ethtool get_flags and set_flags methods so th=
+at
+LRO can be turned on and off later (at least once the ethtool command g=
+ets
+patched, hint hint).
 
-I guess if you use the source IP for routing table selection it
-will work. Not sure why it works at all currently.
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
