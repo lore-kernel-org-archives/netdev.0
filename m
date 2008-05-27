@@ -1,47 +1,51 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH 2/3] virtio: fix delayed xmit of packet and freeing of
-	old packets.
-Date: Tue, 27 May 2008 12:01:08 +0100
-Message-ID: <1211886068.3637.42.camel@muff>
-References: <200805261742.43215.rusty@rustcorp.com.au>
-	 <200805261748.13449.rusty@rustcorp.com.au>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: race in skb_splice_bits?
+Date: Tue, 27 May 2008 15:01:44 +0400
+Message-ID: <20080527110144.GA15141@2ka.mipt.ru>
+References: <200805270325.24323.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:50283 "EHLO mx1.redhat.com"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:33384 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756484AbYE0LBt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 07:01:49 -0400
-In-Reply-To: <200805261748.13449.rusty@rustcorp.com.au>
+	id S1756740AbYE0LC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 07:02:26 -0400
+Content-Disposition: inline
+In-Reply-To: <200805270325.24323.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-05-26 at 17:48 +1000, Rusty Russell wrote:
-> Because we cache the last failed-to-xmit packet, if there are no
-> packets queued behind that one we may never send it (reproduced here
-> as TCP stalls, "cured" by an outgoing ping).
+On Tue, May 27, 2008 at 03:25:23AM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
+> 
+> Hi,
+> 
+> The following socket lock dropping in skb_splice_bits seems to open a race 
+> condition which causes an invalid kernel access:
+> 
+> >        if (spd.nr_pages) {
+> >                int ret;
+> >
+> >                /*                                                                                                                            
+> >                 * Drop the socket lock, otherwise we have reverse                                                                            
+> >                 * locking dependencies between sk_lock and i_mutex                                                                           
+> >                 * here as compared to sendfile(). We enter here                                                                              
+> >                 * with the socket lock held, and splice_to_pipe() will                                                                       
+> >                 * grab the pipe inode lock. For sendfile() emulation,                                                                        
+> >                 * we call into ->sendpage() with the i_mutex lock held                                                                       
+> >                 * and networking will grab the socket lock.                                                                                  
+> >                 */
 
-...
+What about sock_hold() here?
+It will prevent from socket freeing and read/write to it will
+immediately return with error if socket was closed by another thread.
 
-> diff -r 1d1ff03de434 drivers/net/virtio_net.c
-> --- a/drivers/net/virtio_net.c	Mon May 26 11:03:26 2008 +1000
-> +++ b/drivers/net/virtio_net.c	Mon May 26 16:37:20 2008 +1000
-...
-> @@ -432,6 +452,8 @@ static int virtnet_probe(struct virtio_d
->  	skb_queue_head_init(&vi->recv);
->  	skb_queue_head_init(&vi->send);
->  
-> +	tasklet_init(&vi->tasklet, xmit_tasklet, (unsigned long)vi);
-> +
->  	err = register_netdev(dev);
+> >                release_sock(__skb->sk);                                                                                                    
+> >                ret = splice_to_pipe(pipe, &spd);
+> >                lock_sock(__skb->sk);
 
-Missing a tasklet_kill() in virtnet_remove() ?
+And appropriate sock_put(sk);
 
-Cheers,
-Mark.
-
+-- 
+	Evgeniy Polyakov
