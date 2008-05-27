@@ -1,64 +1,46 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: GVRP
-Date: Tue, 27 May 2008 19:39:06 +0300 (EEST)
-Message-ID: <alpine.LRH.1.10.0805271936140.13277@netcore.fi>
-References: <483C328B.7040007@trash.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Tue, 27 May 2008 09:44:10 -0700
+Message-ID: <483C3A5A.6020207@hp.com>
+References: <482C7E53.3050300@hp.com> <482C8184.2030906@garzik.org>	<482C8550.5000909@intel.com> <482C8D4D.3040702@garzik.org>	<20080516132107.GA11304@csclub.uwaterloo.ca>	<20080516161029.44ded734@core>	<20080516173610.GA27126@csclub.uwaterloo.ca>	<20080516191125.46f59ad6@core>	<a24804730805162155m72e6b40aweb8822515c880c50@mail.gmail.com>	<1211728189.5913.71.camel@andromache>	<20080525232712.GF5970@mit.edu> <20080526154326.1fe44214@Varda> <20080526111458.fff6c311.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:59132 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755647AbYE0QjP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 12:39:15 -0400
-In-Reply-To: <483C328B.7040007@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?Alejandro_Riveira_Fern=E1ndez?= <ariveira@gmail.com>,
+	Theodore Tso <tytso@MIT.EDU>, Glen Turner <gdt@gdt.id.au>,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Jeff Garzik <jeff@garzik.org>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758758AbYE0Qo3@vger.kernel.org>
+In-Reply-To: <20080526111458.fff6c311.billfink@mindspring.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 27 May 2008, Patrick McHardy wrote:
-> I've written an applicant-only GVRP implementation for the kernel
-> some time ago (for those not familiar: it dynamically registers
-> VLANs with switches. Applicant-only means its only the "client-side")
-> and I'm wondering whether I should merge it. It should be quite
-> easy to move it to userspace, OTOH I think it would be nice to
-> have the client-side support for this without having to install
-> additional daemons. But since this is not a really strong argument,
-> I'd like to hear if anyone has an opinion about this.
->
-> The GVRP implementation sits on top of an GARP implementation,
-> which could also support GMRP for multicast address registrations.
->
-> I'm not including the patch yet because it would need to be
-> split up and needs some minor cleanups, just for orientation, the
-> GARP implementation is about 600 lines of simple code, the GVRP
-> implementation something like 60 lines of even simpler code.
+> For systems with high resolution timers, even if an attacker has total
+> knowledge/control of the network, it doesn't seem realistically possible
+> for them to determine the low order bits of the nanosecond timer of
+> disk and network I/O system calls, if those were used as a source of
+> entropy. 
 
-If it's simple, why not?
+Around the same time I was working on getting the performance figures 
+for the RNG in the Infineon TPM in the system I had, I tried, however 
+briefly, to concoct a test using netperf and pulling the ITC on an 
+Itanium processor to generate some randomness.  I'm not at all sure I 
+was doing things correctly - I was pulling the bottom one to 4 bits of 
+the ITC after each call to recv() of a TCP_RR test - but when I tried to 
+feed the resulting trickle of data through diehard (which I may have 
+been running poorly) it was giving nothing but a p value of 0.000000 
+which while I don't grok the p-value itself, I understand that 
+consistent value of 0.000000 is bad :(
 
-But-- when I was writing RFC 5110 one of the things we evaluated was 
-whether an another application of GARP, GMRP, could be used.
+So, I may have had a bad test case.  If someone has some suggestions for 
+  a better test of the low-order-bits-of-the-interval-timer hypothesis 
+I'd love to hear about them.
 
-We asked IEEE about this and they said that GARP and GMRP are 
-obsolete, below is the most important part of RFC 5110 with this 
-respect:
-
-    IEEE 802.1D-2004 specification describes Generic Attribute
-    Registration Protocol (GARP), and GARP Multicast Registration
-    Protocol (GMRP) [GMRP] is a link-layer multicast group application of
-    GARP that notifies switches about MAC multicast group memberships.
-    If GMRP is used in conjunction with IP multicast, then the GMRP
-    registration function would become associated with an IGMP "join".
-    However, this GMRP-IGMP association is beyond the scope of GMRP.
-    GMRP requires support at the host stack and it has not been widely
-    implemented.  Further, IEEE 802.1 considers GARP and GMRP obsolete
-    being replaced by Multiple Registration Protocol (MRP) and Multicast
-    Multiple Registration Protocol (MMRP) that are being specified in
-    IEEE 802.1ak [802.1ak].  MMRP is expected to be mainly used between
-    bridges.  Some further information about GARP/GMRP is also available
-    in Appendix B of [RFC3488].
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+rick jones
