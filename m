@@ -1,47 +1,40 @@
-From: Jesper Krogh <jesper@krogh.cc>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Tue, 27 May 2008 08:19:56 +0200
-Message-ID: <483BA80C.4020502@krogh.cc>
-References: <20080526.123338.161271834.davem@davemloft.net>	<20080526.123951.260448303.davem@davemloft.net>	<483B239D.4090402@krogh.cc> <20080526.151540.191673092.davem@davemloft.net>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Subject: Re: possible double call of kfree_skb in net/llc/llc_sap.c
+Date: Tue, 27 May 2008 09:20:06 +0300
+Message-ID: <84144f020805262320k5740cd25lf16d7838d5358f0b@mail.gmail.com>
+References: <84ee89da0805262300v747c712ayfb60ac8aa790edb7@mail.gmail.com>
+	 <483BA72B.5010207@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: yhlu.kernel@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, matheos.worku@sun.com
-To: David Miller <davem@davemloft.net>
+Cc: "Dmitry Petukhov" <dmgenp@gmail.com>, linux-kernel@vger.kernel.org,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:40595 "EHLO
-	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753749AbYE0GUK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 02:20:10 -0400
-In-Reply-To: <20080526.151540.191673092.davem@davemloft.net>
+Received: from rv-out-0506.google.com ([209.85.198.236]:63942 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754301AbYE0GUI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 02:20:08 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so2772056rvb.1
+        for <netdev@vger.kernel.org>; Mon, 26 May 2008 23:20:07 -0700 (PDT)
+In-Reply-To: <483BA72B.5010207@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jesper Krogh <jesper@krogh.cc>
-> Date: Mon, 26 May 2008 22:54:53 +0200
-> 
->> Applied and running.. I've now pushed 400GB of data through it trying to
->> get it to hit the bug but it is still running.
+Dmitry Petukhov wrote:
+>> In the file  net/llc/llc_sap.c, funcion llc_sap_state_process,
+>> the call to kfree_skb in the line 227 can proceed even if skb was already
+>> freed
+>> on line 218, or  224, or queued to the user within sock_queue_rcv_skb
+>> function.
+>> Obviously return statement is missing after line 225.
 >>
->> So without saying that it solved the problem, it definately seems so.
->> 2.6.26-rc4 + above patch.
-> 
-> Thanks for testing.
+>> This problem was found by Alex Shevkov.
 
-Ok. I was too early out.. it ended up in the same situation again.
+On Tue, May 27, 2008 at 9:16 AM, Patrick McHardy <kaber@trash.net> wrote:
+> Could you send a patch please?
 
-May 27 08:09:12 hest kernel: [42953871.982072] NETDEV WATCHDOG: eth4: 
-transmit timed out
-May 27 08:09:17 hest kernel: [42953877.827797] NETDEV WATCHDOG: eth4: 
-transmit timed out
-May 27 08:09:22 hest kernel: [42953883.958375] NETDEV WATCHDOG: eth4: 
-transmit timed out
-May 27 08:09:27 hest kernel: [42953890.668401] NETDEV WATCHDOG: eth4: 
-transmit timed out
-
-
-Jesper
--- 
-Jesper
+I wonder how the code got in that shape but it's probably best to just
+remove the extra kfree_skb() calls and do it unconditionally at the
+end of the function.
