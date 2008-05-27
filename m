@@ -1,38 +1,51 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH v2 12/13] QLogic VNIC: Driver Kconfig
-	and Makefile.
-Date: Tue, 27 May 2008 11:26:32 -0700
-Message-ID: <adatzgjtxgn.fsf@cisco.com>
-References: <20080519102843.12355.832.stgit@localhost.localdomain>
-	<20080519103730.12355.14730.stgit@localhost.localdomain>
-	<adamyme57ir.fsf@cisco.com>
-	<71d336490805260037y4c45abd5lccd5dbadebd84eb8@mail.gmail.com>
-	<adaod6s4u1a.fsf@cisco.com>
-	<71d336490805262323qd876161ue86f98dbc8499ad6@mail.gmail.com>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: [PATCH 1/5] [VLAN]: Unclassified vlan packet
+Date: Tue, 27 May 2008 11:36:06 -0700
+Message-ID: <b25c3fa70805271136i6aadc3bje1a0e934f20a774e@mail.gmail.com>
+References: <20080411135714.GA8137@tp64> <483B9EBE.5030703@trash.net>
+	 <b25c3fa70805262320h7edb4246wd017261fe7187b88@mail.gmail.com>
+	 <483BAA7F.6060408@trash.net>
+	 <b25c3fa70805271040qb5f5c54tb009b51acc3acd3f@mail.gmail.com>
+	 <483C4959.6000709@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, poornima.kamath@qlogic.com,
-	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
-To: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <71d336490805262323qd876161ue86f98dbc8499ad6@mail.gmail.com>
-	(Ramachandra K.'s message of "Tue, 27 May 2008 11:53:42 +0530")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.231]:36824 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756861AbYE0SgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 14:36:07 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so3075216rvb.1
+        for <netdev@vger.kernel.org>; Tue, 27 May 2008 11:36:06 -0700 (PDT)
+In-Reply-To: <483C4959.6000709@trash.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > Makes sense. We will get rid of this CONFIG option. Apart from this
- > are there any other changes you
- > would like to see in the patch series ?
+2008/5/27 Patrick McHardy <kaber@trash.net>:
+> Joonwoo Park wrote:
+>>
+>> 2008/5/26 Patrick McHardy <kaber@trash.net>:
+>>>>>
+>>>>> BTW, I already have a patch queued to move the VLAN tag from
+>>>>> skb->cb to a seperate skb member to fix the the conflict with
+>>>>> qdiscs (this should also allow to use vlan accel through virtual
+>>>>> network devices later on). So please don't resend, I'll integrate
+>>>>> the patch on top of this change once we find a good spot for
+>>>>> invalidation.
+>>>>>
+>>
+>> Was that patch applied to certain tree?
+>> If it was, may I know what tree is it?
+>
+> I'm uploading it to kernel.org now, should appear within
+> the next 30 minutes at:
+>
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/vlan-next-2.6.git
+>
 
-Have not reviewed the latest in detail but I think we are at least
-pretty close to something ready to merge.
+Thanks a lot Patrick!
 
- - R.
+Joonwoo
