@@ -1,42 +1,49 @@
-From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Subject: Re: [ofa-general] Re: [PATCH v2 12/13] QLogic VNIC: Driver Kconfig and Makefile.
-Date: Tue, 27 May 2008 11:53:42 +0530
-Message-ID: <71d336490805262323qd876161ue86f98dbc8499ad6@mail.gmail.com>
-References: <20080519102843.12355.832.stgit@localhost.localdomain>
-	 <20080519103730.12355.14730.stgit@localhost.localdomain>
-	 <adamyme57ir.fsf@cisco.com>
-	 <71d336490805260037y4c45abd5lccd5dbadebd84eb8@mail.gmail.com>
-	 <adaod6s4u1a.fsf@cisco.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/5] [VLAN]: Unclassified vlan packet
+Date: Tue, 27 May 2008 08:30:23 +0200
+Message-ID: <483BAA7F.6060408@trash.net>
+References: <20080411135714.GA8137@tp64> <483B9EBE.5030703@trash.net> <b25c3fa70805262320h7edb4246wd017261fe7187b88@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amar.mudrankit@qlogic.com,
-	general@lists.openfabrics.org, poornima.kamath@qlogic.com
-To: "Roland Dreier" <rdreier@cisco.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.185]:65247 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753380AbYE0GXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 02:23:46 -0400
-Received: by ti-out-0910.google.com with SMTP id b6so1608715tic.23
-        for <netdev@vger.kernel.org>; Mon, 26 May 2008 23:23:43 -0700 (PDT)
-In-Reply-To: <adaod6s4u1a.fsf@cisco.com>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:43874 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754994AbYE0Ga1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 02:30:27 -0400
+In-Reply-To: <b25c3fa70805262320h7edb4246wd017261fe7187b88@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland,
+Joonwoo Park wrote:
+> 2008/5/26 Patrick McHardy <kaber@trash.net>:
+>> Joonwoo Park wrote:
+>>> To be polite to the PACKET,
+>>> Don't kill the unclassified & hardware accelerated vlan packets if netdev
+>>> is in promiscuous, set packet type with PACKET_OTHERHOST. Put the vlan tag
+>>> into skb->cb for all hardware accelerated vlan packets.
+>> Conceptually I think this patch goes in the right direction,
+>> one question remaining is when to invalidate the VLAN tag again.
+>>
+>> The only solution I could come up with is invalidating it in
+>> netif_receive_skb() when the receiving device is not a VLAN
+>> device and additionally invalidating it in all callers of
+>> dev_queue_xmit except VLAN itself, but I would really prefer
+>> something less error prone without touching netif_receive_skb().
+>>
+>> BTW, I already have a patch queued to move the VLAN tag from
+>> skb->cb to a seperate skb member to fix the the conflict with
+>> qdiscs (this should also allow to use vlan accel through virtual
+>> network devices later on). So please don't resend, I'll integrate
+>> the patch on top of this change once we find a good spot for
+>> invalidation.
+>>
+> 
+> Thanks Patrick for reviewing.
+> I'll be looking forward to seeing it on the list.
 
-On Tue, May 27, 2008 at 3:17 AM, Roland Dreier <rdreier@cisco.com> wrote:
 
-> OK, I looked at the code.  Is there any point to having
-> CONFIG_INFINIBAND_QLGC_VNIC_DEBUG at all??  Is anyone going to care
-> about having __FILE__ and __LINE__ included in the output and want to
-> set this option to 'n'?
-
-Makes sense. We will get rid of this CONFIG option. Apart from this
-are there any other changes you
-would like to see in the patch series ?
-
-Regards,
-Ram
+Well, we still need to find a good spot for invalidation.
+Suggestions welcome :)
