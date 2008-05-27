@@ -1,45 +1,30 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH 1/5] [VLAN]: Unclassified vlan packet
-Date: Tue, 27 May 2008 10:40:33 -0700
-Message-ID: <b25c3fa70805271040qb5f5c54tb009b51acc3acd3f@mail.gmail.com>
-References: <20080411135714.GA8137@tp64> <483B9EBE.5030703@trash.net>
-	 <b25c3fa70805262320h7edb4246wd017261fe7187b88@mail.gmail.com>
-	 <483BAA7F.6060408@trash.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Single packet receiving in multiple ring buffers
+Date: Tue, 27 May 2008 21:41:32 +0400
+Message-ID: <20080527174131.GA28454@2ka.mipt.ru>
+References: <20080525130023.GA27792@2ka.mipt.ru> <31256957387BB54C8B9AFE88AA5C0564044A1B23@SDCEXCHANGE01.ad.amcc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kchudgar.linux@gmail.com,
+	netdev@vger.kernel.org
+To: Keyur Chudgar <kchudgar@amcc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:59839 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755309AbYE0Rkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 13:40:33 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so3052755rvb.1
-        for <netdev@vger.kernel.org>; Tue, 27 May 2008 10:40:33 -0700 (PDT)
-In-Reply-To: <483BAA7F.6060408@trash.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:34759 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758175AbYE0Rll (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 13:41:41 -0400
 Content-Disposition: inline
+In-Reply-To: <31256957387BB54C8B9AFE88AA5C0564044A1B23@SDCEXCHANGE01.ad.amcc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2008/5/26 Patrick McHardy <kaber@trash.net>:
->>> BTW, I already have a patch queued to move the VLAN tag from
->>> skb->cb to a seperate skb member to fix the the conflict with
->>> qdiscs (this should also allow to use vlan accel through virtual
->>> network devices later on). So please don't resend, I'll integrate
->>> the patch on top of this change once we find a good spot for
->>> invalidation.
->>>
+Hi.
 
-Was that patch applied to certain tree?
-If it was, may I know what tree is it?
+On Tue, May 27, 2008 at 10:36:08AM -0700, Keyur Chudgar (kchudgar@amcc.com) wrote:
+> Thanks for the suggestions. I will try both the schemes you mentioned
+> below and see how it goes.
 
->
-> Well, we still need to find a good spot for invalidation.
-> Suggestions welcome :)
->
+Hope it helps :)
 
-huh, also I'll try to find it! :-)
-
-Thanks,
-Joonwoo
+-- 
+	Evgeniy Polyakov
