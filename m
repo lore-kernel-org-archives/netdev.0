@@ -1,7 +1,7 @@
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH 1/3] [NET-NEXT]: Add DCB netlink interface definition
-Date: Tue, 27 May 2008 07:13:46 -0700
-Message-ID: <20080527141346.12851.2280.stgit@localhost.localdomain>
+Subject: [PATCH 3/3] ixgbe: Enable Data Center Bridging (DCB) support
+Date: Tue, 27 May 2008 07:13:57 -0700
+Message-ID: <20080527141357.12851.48857.stgit@localhost.localdomain>
 References: <20080527141339.12851.98781.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,1083 +9,1147 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: jeff@garzik.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:46957 "EHLO mga02.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:43460 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758271AbYE0VNg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 17:13:36 -0400
+	id S1756409AbYE0VNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 17:13:47 -0400
 In-Reply-To: <20080527141339.12851.98781.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the netlink interface definition for Data Center Bridging.
-This technology uses 802.1Qaz and 801.1Qbb for extending ethernet to
-converge different traffic types on a single link.  E.g. Fibre Channel
-over Ethernet and regular LAN traffic.  The goal is to use priority flow
-control to pause individual flows at the MAC/network level, without
-impacting other network flows.
+This patch enables DCB support for 82598.  DCB is a technology using the
+802.1Qaz and 802.1Qbb IEEE standards for priority grouping and priority
+flow control.  This is useful when trying to allow different types of
+traffic on separate flows to be paused and handled with different
+priorities across the network without impacting other flows on the same
+links.  A target traffic type for this technology is to provide flow
+control for Fibre Channel over Ethernet, while not impacting other LAN
+traffic flows on the link.
+
+This is a respin of previous patches posted for this.  These new patches
+now use the DCBNL netlink interface in the kernel to communicate with
+userspace.  The userspace utilities to control this are in the process of
+being posted to SourceForge, and should be available in the very near
+future.
+
+This is based from the net-next-2.6 tree.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
 
- include/linux/dcbnl.h     |  241 +++++++++++++++
- include/linux/netdevice.h |    8 
- net/Kconfig               |    1 
- net/Makefile              |    3 
- net/dcb/Kconfig           |   12 +
- net/dcb/Makefile          |    1 
- net/dcb/dcbnl.c           |  722 +++++++++++++++++++++++++++++++++++++++++++++
- 7 files changed, 988 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/Makefile        |    2 
+ drivers/net/ixgbe/ixgbe.h         |   22 +
+ drivers/net/ixgbe/ixgbe_ethtool.c |   36 ++
+ drivers/net/ixgbe/ixgbe_main.c    |  577 +++++++++++++++++++++++++++++++++----
+ 4 files changed, 576 insertions(+), 61 deletions(-)
 
-diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
-new file mode 100644
-index 0000000..db50f6c
---- /dev/null
-+++ b/include/linux/dcbnl.h
-@@ -0,0 +1,241 @@
-+#ifndef __LINUX_DCBNL_H__
-+#define __LINUX_DCBNL_H__
-+/*
-+ * Data Center Bridging (DCB) netlink header
-+ *
-+ * Copyright 2008, Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
-+ */
-+
-+#define DCB_PROTO_VERSION 1
-+
-+/**
-+ * enum dcbnl_commands - supported DCB commands
-+ *
-+ * @DCB_CMD_UNDEFINED: unspecified command to catch errors
-+ * @DCB_CMD_GSTATE: request the state of DCB in the device
-+ * @DCB_CMD_SSTATE: set the state of DCB in the device
-+ * @DCB_CMD_PGTX_GCFG: request the priority group configuration for Tx
-+ * @DCB_CMD_PGTX_SCFG: set the priority group configuration for Tx
-+ * @DCB_CMD_PGRX_GCFG: request the priority group configuration for Rx
-+ * @DCB_CMD_PGRX_SCFG: set the priority group configuration for Rx
-+ * @DCB_CMD_PFC_GCFG: request the priority flow control configuration
-+ * @DCB_CMD_PFC_SCFG: set the priority flow control configuration
-+ * @DCB_CMD_SET_ALL: apply all changes to the underlying device
-+ * @DCB_CMD_GPERM_HWADDR: get the permanent MAC address of the underlying
-+ *                        device.  Only useful when using bonding.
-+ */
-+enum dcbnl_commands {
-+	DCB_CMD_UNDEFINED,
-+
-+	DCB_CMD_GSTATE,
-+	DCB_CMD_SSTATE,
-+
-+	DCB_CMD_PGTX_GCFG,
-+	DCB_CMD_PGTX_SCFG,
-+	DCB_CMD_PGRX_GCFG,
-+	DCB_CMD_PGRX_SCFG,
-+
-+	DCB_CMD_PFC_GCFG,
-+	DCB_CMD_PFC_SCFG,
-+
-+	DCB_CMD_SET_ALL,
-+	DCB_CMD_GPERM_HWADDR,
-+
-+	__DCB_CMD_ENUM_MAX,
-+	DCB_CMD_MAX = __DCB_CMD_ENUM_MAX - 1,
-+};
-+
-+
-+/**
-+ * enum dcbnl_attrs - DCB top-level netlink attributes
-+ *
-+ * @DCB_ATTR_UNDEFINED: unspecified attribute to catch errors
-+ * @DCB_ATTR_IFNAME: interface name of the underlying device (NLA_STRING)
-+ * @DCB_ATTR_STATE: state of the DCB state machine in the device (NLA_U8)
-+ * @DCB_ATTR_PFC_CFG: priority flow control configuration (NLA_NESTED)
-+ * @DCB_ATTR_PG_CFG: priority group configuration (NLA_NESTED)
-+ * @DCB_ATTR_SET_ALL: bool to commit changes to hardware or not (NLA_U8)
-+ * @DCB_ATTR_PERM_HWADDR: MAC address of the physical device (NLA_NESTED)
-+ */
-+enum dcbnl_attrs {
-+	DCB_ATTR_UNDEFINED,
-+
-+	DCB_ATTR_IFNAME,
-+	DCB_ATTR_STATE,
-+	DCB_ATTR_PFC_CFG,
-+	DCB_ATTR_PG_CFG,
-+	DCB_ATTR_SET_ALL,
-+	DCB_ATTR_PERM_HWADDR,
-+
-+	__DCB_ATTR_ENUM_MAX,
-+	DCB_ATTR_MAX = __DCB_ATTR_ENUM_MAX - 1,
-+};
-+
-+
-+/**
-+ * enum dcbnl_perm_hwaddr_attrs - DCB Permanent HW Address nested attributes
-+ *
-+ * @DCB_PERM_HW_ATTR_UNDEFINED: unspecified attribute to catch errors
-+ * @DCB_PERM_HW_ATTR_0: MAC address from receive address 0 (NLA_U8)
-+ * @DCB_PERM_HW_ATTR_1: MAC address from receive address 1 (NLA_U8)
-+ * @DCB_PERM_HW_ATTR_2: MAC address from receive address 2 (NLA_U8)
-+ * @DCB_PERM_HW_ATTR_3: MAC address from receive address 3 (NLA_U8)
-+ * @DCB_PERM_HW_ATTR_4: MAC address from receive address 4 (NLA_U8)
-+ * @DCB_PERM_HW_ATTR_5: MAC address from receive address 5 (NLA_U8)
-+ * @DCB_PERM_HW_ATTR_ALL: apply to all MAC addresses (NLA_FLAG)
-+ *
-+ * These attributes are used when bonding DCB interfaces together.
-+ *
-+ */
-+enum dcbnl_perm_hwaddr_attrs {
-+	DCB_PERM_HW_ATTR_UNDEFINED,
-+
-+	DCB_PERM_HW_ATTR_0,
-+	DCB_PERM_HW_ATTR_1,
-+	DCB_PERM_HW_ATTR_2,
-+	DCB_PERM_HW_ATTR_3,
-+	DCB_PERM_HW_ATTR_4,
-+	DCB_PERM_HW_ATTR_5,
-+	DCB_PERM_HW_ATTR_ALL,
-+
-+	__DCB_PERM_HW_ATTR_ENUM_MAX,
-+	DCB_PERM_HW_ATTR_MAX = __DCB_PERM_HW_ATTR_ENUM_MAX - 1,
-+};
-+
-+/**
-+ * enum dcbnl_pfc_attrs - DCB Priority Flow Control user-priority nested attrs
-+ *
-+ * @DCB_PFC_UP_ATTR_UNDEFINED: unspecified attribute to catch errors
-+ * @DCB_PFC_UP_ATTR_0: Priority Flow Control value for User Priority 0 (NLA_U8)
-+ * @DCB_PFC_UP_ATTR_1: Priority Flow Control value for User Priority 1 (NLA_U8)
-+ * @DCB_PFC_UP_ATTR_2: Priority Flow Control value for User Priority 2 (NLA_U8)
-+ * @DCB_PFC_UP_ATTR_3: Priority Flow Control value for User Priority 3 (NLA_U8)
-+ * @DCB_PFC_UP_ATTR_4: Priority Flow Control value for User Priority 4 (NLA_U8)
-+ * @DCB_PFC_UP_ATTR_5: Priority Flow Control value for User Priority 5 (NLA_U8)
-+ * @DCB_PFC_UP_ATTR_6: Priority Flow Control value for User Priority 6 (NLA_U8)
-+ * @DCB_PFC_UP_ATTR_7: Priority Flow Control value for User Priority 7 (NLA_U8)
-+ * @DCB_PFC_UP_ATTR_MAX: highest attribute number currently defined
-+ * @DCB_PFC_UP_ATTR_ALL: apply to all priority flow control attrs (NLA_FLAG) 
-+ *
-+ */
-+enum dcbnl_pfc_up_attrs {
-+	DCB_PFC_UP_ATTR_UNDEFINED,
-+
-+	DCB_PFC_UP_ATTR_0,
-+	DCB_PFC_UP_ATTR_1,
-+	DCB_PFC_UP_ATTR_2,
-+	DCB_PFC_UP_ATTR_3,
-+	DCB_PFC_UP_ATTR_4,
-+	DCB_PFC_UP_ATTR_5,
-+	DCB_PFC_UP_ATTR_6,
-+	DCB_PFC_UP_ATTR_7,
-+	DCB_PFC_UP_ATTR_ALL,
-+
-+	__DCB_PFC_UP_ATTR_ENUM_MAX,
-+	DCB_PFC_UP_ATTR_MAX = __DCB_PFC_UP_ATTR_ENUM_MAX - 1,
-+};
-+
-+/**
-+ * enum dcbnl_pg_attrs - DCB Priority Group attributes
-+ *
-+ * @DCB_PG_ATTR_UNDEFINED: unspecified attribute to catch errors
-+ * @DCB_PG_ATTR_TC_0: Priority Group Traffic Class 0 configuration (NLA_NESTED)
-+ * @DCB_PG_ATTR_TC_1: Priority Group Traffic Class 1 configuration (NLA_NESTED)
-+ * @DCB_PG_ATTR_TC_2: Priority Group Traffic Class 2 configuration (NLA_NESTED)
-+ * @DCB_PG_ATTR_TC_3: Priority Group Traffic Class 3 configuration (NLA_NESTED)
-+ * @DCB_PG_ATTR_TC_4: Priority Group Traffic Class 4 configuration (NLA_NESTED)
-+ * @DCB_PG_ATTR_TC_5: Priority Group Traffic Class 5 configuration (NLA_NESTED)
-+ * @DCB_PG_ATTR_TC_6: Priority Group Traffic Class 6 configuration (NLA_NESTED)
-+ * @DCB_PG_ATTR_TC_7: Priority Group Traffic Class 7 configuration (NLA_NESTED)
-+ * @DCB_PG_ATTR_TC_MAX: highest attribute number currently defined
-+ * @DCB_PG_ATTR_TC_ALL: apply to all traffic classes (NLA_NESTED)
-+ * @DCB_PG_ATTR_BWG_0: Bandwidth group 0 configuration (NLA_U8)
-+ * @DCB_PG_ATTR_BWG_1: Bandwidth group 1 configuration (NLA_U8)
-+ * @DCB_PG_ATTR_BWG_2: Bandwidth group 2 configuration (NLA_U8)
-+ * @DCB_PG_ATTR_BWG_3: Bandwidth group 3 configuration (NLA_U8)
-+ * @DCB_PG_ATTR_BWG_4: Bandwidth group 4 configuration (NLA_U8)
-+ * @DCB_PG_ATTR_BWG_5: Bandwidth group 5 configuration (NLA_U8)
-+ * @DCB_PG_ATTR_BWG_6: Bandwidth group 6 configuration (NLA_U8)
-+ * @DCB_PG_ATTR_BWG_7: Bandwidth group 7 configuration (NLA_U8)
-+ * @DCB_PG_ATTR_BWG_MAX: highest attribute number currently defined
-+ * @DCB_PG_ATTR_BWG_ALL: apply to all bandwidth groups (NLA_FLAG)
-+ *
-+ */
-+enum dcbnl_pg_attrs {
-+	DCB_PG_ATTR_UNDEFINED,
-+
-+	DCB_PG_ATTR_TC_0,
-+	DCB_PG_ATTR_TC_1,
-+	DCB_PG_ATTR_TC_2,
-+	DCB_PG_ATTR_TC_3,
-+	DCB_PG_ATTR_TC_4,
-+	DCB_PG_ATTR_TC_5,
-+	DCB_PG_ATTR_TC_6,
-+	DCB_PG_ATTR_TC_7,
-+	DCB_PG_ATTR_TC_MAX,
-+	DCB_PG_ATTR_TC_ALL,
-+
-+	DCB_PG_ATTR_BWG_0,
-+	DCB_PG_ATTR_BWG_1,
-+	DCB_PG_ATTR_BWG_2,
-+	DCB_PG_ATTR_BWG_3,
-+	DCB_PG_ATTR_BWG_4,
-+	DCB_PG_ATTR_BWG_5,
-+	DCB_PG_ATTR_BWG_6,
-+	DCB_PG_ATTR_BWG_7,
-+	DCB_PG_ATTR_BWG_MAX,
-+	DCB_PG_ATTR_BWG_ALL,
-+
-+	__DCB_PG_ATTR_ENUM_MAX,
-+	DCB_PG_ATTR_MAX = __DCB_PG_ATTR_ENUM_MAX - 1,
-+};
-+
-+/**
-+ * enum dcbnl_tc_attrs - DCB Traffic Class attributes
-+ *
-+ * @DCB_TC_ATTR_PARAM_UNDEFINED: unspecified attribute to catch errors
-+ * @DCB_TC_ATTR_PARAM_STRICT_PRIO: Type of strict bandwidth aggregration (link
-+ *                                 strict or group strict) (NLA_U8)
-+ * @DCB_TC_ATTR_PARAM_BW_GROUP_ID: Bandwidth group this traffic class belongs to
-+ *                                 (NLA_U8)
-+ * @DCB_TC_ATTR_PARAM_BW_PCT: Percentage of bandwidth in the bandwidth group
-+ *                            this traffic class has (NLA_U8)
-+ * @DCB_TC_ATTR_PARAM_UP_MAPPING: Traffic class to user priority map (NLA_U8)
-+ * @DCB_TC_ATTR_PARAM_ALL: apply to all traffic class parameters (NLA_FLAG)
-+ *
-+ */
-+enum dcbnl_tc_attrs {
-+	DCB_TC_ATTR_PARAM_UNDEFINED,
-+
-+	DCB_TC_ATTR_PARAM_STRICT_PRIO,
-+	DCB_TC_ATTR_PARAM_BW_GROUP_ID,
-+	DCB_TC_ATTR_PARAM_BW_PCT,
-+	DCB_TC_ATTR_PARAM_UP_MAPPING,
-+	DCB_TC_ATTR_PARAM_ALL,
-+
-+	__DCB_TC_ATTR_PARAM_ENUM_MAX,
-+	DCB_TC_ATTR_PARAM_MAX = __DCB_TC_ATTR_PARAM_ENUM_MAX - 1,
-+};
-+
-+/* 
-+ * Ops struct for the netlink callbacks.  Used by DCB-enabled drivers through
-+ * the netdevice struct.
-+ */
-+struct dcbnl_genl_ops {
-+	u8   (*getstate)(struct net_device *);
-+	void (*setstate)(struct net_device *, u8);
-+	void (*getpermhwaddr)(struct net_device *, u8 *);
-+	void (*setpgtccfgtx)(struct net_device *, int, u8, u8, u8, u8);
-+	void (*setpgbwgcfgtx)(struct net_device *, int, u8);
-+	void (*setpgtccfgrx)(struct net_device *, int, u8, u8, u8, u8);
-+	void (*setpgbwgcfgrx)(struct net_device *, int, u8);
-+	void (*getpgtccfgtx)(struct net_device *, int, u8 *, u8 *, u8 *, u8 *);
-+	void (*getpgbwgcfgtx)(struct net_device *, int, u8 *);
-+	void (*getpgtccfgrx)(struct net_device *, int, u8 *, u8 *, u8 *, u8 *);
-+	void (*getpgbwgcfgrx)(struct net_device *, int, u8 *);
-+	void (*setpfccfg)(struct net_device *, int, u8);
-+	void (*getpfccfg)(struct net_device *, int, u8 *);
-+	u8   (*setall)(struct net_device *);
-+};
-+
-+#endif /* __LINUX_DCBNL_H__ */
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f27fd20..f28a1fa 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -42,6 +42,9 @@
- #include <linux/workqueue.h>
+diff --git a/drivers/net/ixgbe/Makefile b/drivers/net/ixgbe/Makefile
+index ccd83d9..20b37cc 100644
+--- a/drivers/net/ixgbe/Makefile
++++ b/drivers/net/ixgbe/Makefile
+@@ -33,4 +33,4 @@
+ obj-$(CONFIG_IXGBE) += ixgbe.o
  
- #include <net/net_namespace.h>
-+#ifdef CONFIG_DCBNL
-+#include <linux/dcbnl.h>
-+#endif
+ ixgbe-objs := ixgbe_main.o ixgbe_common.o ixgbe_ethtool.o \
+-              ixgbe_82598.o ixgbe_phy.o
++              ixgbe_82598.o ixgbe_phy.o ixgbe_dcb.o ixgbe_dcb_82598.o
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index d981134..145421f 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -35,6 +35,7 @@
  
- struct vlan_group;
- struct ethtool_ops;
-@@ -752,6 +755,11 @@ struct net_device
- #define GSO_MAX_SIZE		65536
- 	unsigned int		gso_max_size;
+ #include "ixgbe_type.h"
+ #include "ixgbe_common.h"
++#include "ixgbe_dcb.h"
  
-+#ifdef CONFIG_DCBNL
-+	/* Data Center Bridging netlink ops */
-+	struct dcbnl_genl_ops *dcbnl_ops;
-+#endif
-+
- 	/* The TX queue control structures */
- 	unsigned int			egress_subqueue_count;
- 	struct net_device_subqueue	egress_subqueue[1];
-diff --git a/net/Kconfig b/net/Kconfig
-index acbf7c6..fc6b832 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -192,6 +192,7 @@ source "net/lapb/Kconfig"
- source "net/econet/Kconfig"
- source "net/wanrouter/Kconfig"
- source "net/sched/Kconfig"
-+source "net/dcb/Kconfig"
+ #ifdef CONFIG_DCA
+ #include <linux/dca.h>
+@@ -98,6 +99,7 @@
+ #define IXGBE_TX_FLAGS_TSO		(u32)(1 << 2)
+ #define IXGBE_TX_FLAGS_IPV4		(u32)(1 << 3)
+ #define IXGBE_TX_FLAGS_VLAN_MASK	0xffff0000
++#define IXGBE_TX_FLAGS_VLAN_PRIO_MASK	0x0000e000
+ #define IXGBE_TX_FLAGS_VLAN_SHIFT	16
  
- menu "Network testing"
+ /* wrapper around a pointer to a socket buffer,
+@@ -144,7 +146,7 @@ struct ixgbe_ring {
  
-diff --git a/net/Makefile b/net/Makefile
-index b7a1364..bc43e77 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -53,6 +53,9 @@ obj-$(CONFIG_NETLABEL)		+= netlabel/
- obj-$(CONFIG_IUCV)		+= iucv/
- obj-$(CONFIG_RFKILL)		+= rfkill/
- obj-$(CONFIG_NET_9P)		+= 9p/
-+ifeq ($(CONFIG_DCBNL),y)
-+obj-$(CONFIG_DCB)		+= dcb/
-+endif
+ 	u16 reg_idx; /* holds the special value that gets the hardware register
+ 		      * offset associated with this ring, which is different
+-		      * for DCE and RSS modes */
++		      * for DCB and RSS modes */
  
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
-diff --git a/net/dcb/Kconfig b/net/dcb/Kconfig
-new file mode 100644
-index 0000000..bdf3880
---- /dev/null
-+++ b/net/dcb/Kconfig
-@@ -0,0 +1,12 @@
-+config DCB
-+        tristate "Data Center Bridging support"
+ #ifdef CONFIG_DCA
+ 	/* cpu for tx queue */
+@@ -162,8 +164,10 @@ struct ixgbe_ring {
+ 	u16 work_limit;                /* max work per interrupt */
+ };
+ 
++#define RING_F_DCB  0
+ #define RING_F_VMDQ 1
+ #define RING_F_RSS  2
++#define IXGBE_MAX_DCB_INDICES   8
+ #define IXGBE_MAX_RSS_INDICES  16
+ #define IXGBE_MAX_VMDQ_INDICES 16
+ struct ixgbe_ring_feature {
+@@ -174,6 +178,10 @@ struct ixgbe_ring_feature {
+ #define MAX_RX_QUEUES 64
+ #define MAX_TX_QUEUES 32
+ 
++#define MAX_RX_PACKET_BUFFERS ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) \
++                               ? 8 : 1)
++#define MAX_TX_PACKET_BUFFERS MAX_RX_PACKET_BUFFERS
 +
-+config DCBNL
-+	bool "Data Center Bridging netlink interface support"
-+	depends on DCB
-+	default n
-+	---help---
-+	  This option turns on the netlink interface
-+	  (dcbnl) for Data Center Bridging capable devices.
-+
-+	  If unsure, say N.
-diff --git a/net/dcb/Makefile b/net/dcb/Makefile
-new file mode 100644
-index 0000000..9930f4c
---- /dev/null
-+++ b/net/dcb/Makefile
-@@ -0,0 +1 @@
-+obj-$(CONFIG_DCB) += dcbnl.o
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-new file mode 100644
-index 0000000..f5f4c31
---- /dev/null
-+++ b/net/dcb/dcbnl.c
-@@ -0,0 +1,722 @@
-+/*
-+ * This is the Data Center Bridging configuration interface.
-+ *
-+ * Copyright 2008, Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
-+ *
-+ */
-+
-+#include <linux/netdevice.h>
-+#include <linux/netlink.h>
-+#include <linux/genetlink.h>
-+#include <net/genetlink.h>
-+#include <linux/dcbnl.h>
-+
-+MODULE_AUTHOR("Peter P Waskiewicz Jr, <peter.p.waskiewicz.jr@intel.com>");
-+MODULE_DESCRIPTION("Data Center Bridging generic netlink interface");
-+MODULE_LICENSE("GPL");
-+
-+/* The family */
-+static struct genl_family dcbnl_family = {
-+	.id = GENL_ID_GENERATE,
-+	.hdrsize = 0,
-+	.name = "dcbnl",
-+	.version = DCB_PROTO_VERSION,
-+	.maxattr = DCB_ATTR_MAX,
-+};
-+
-+/* DCB netlink attributes policy */
-+static struct nla_policy dcbnl_genl_policy[DCB_ATTR_MAX + 1] = {
-+	[DCB_ATTR_IFNAME]    = {.type = NLA_STRING, .len = IFNAMSIZ - 1},
-+	[DCB_ATTR_STATE]     = {.type = NLA_U8},
-+	[DCB_ATTR_PFC_CFG]   = {.type = NLA_NESTED},
-+	[DCB_ATTR_PG_CFG]    = {.type = NLA_NESTED},
-+	[DCB_ATTR_SET_ALL]   = {.type = NLA_U8},
-+	[DCB_ATTR_PERM_HWADDR] = {.type = NLA_NESTED},
-+};
-+
-+/* DCB permanent hardware address nested attributes */
-+static struct nla_policy dcbnl_perm_hwaddr_nest[DCB_PERM_HW_ATTR_MAX + 1] = {
-+	[DCB_PERM_HW_ATTR_0] = {.type = NLA_U8},
-+	[DCB_PERM_HW_ATTR_1] = {.type = NLA_U8},
-+	[DCB_PERM_HW_ATTR_2] = {.type = NLA_U8},
-+	[DCB_PERM_HW_ATTR_3] = {.type = NLA_U8},
-+	[DCB_PERM_HW_ATTR_4] = {.type = NLA_U8},
-+	[DCB_PERM_HW_ATTR_5] = {.type = NLA_U8},
-+	[DCB_PERM_HW_ATTR_ALL] = {.type = NLA_FLAG},
-+};
-+
-+/* DCB priority flow control to User Priority nested attributes */
-+static struct nla_policy dcbnl_pfc_up_nest[DCB_PFC_UP_ATTR_MAX + 1] = {
-+	[DCB_PFC_UP_ATTR_0]   = {.type = NLA_U8},
-+	[DCB_PFC_UP_ATTR_1]   = {.type = NLA_U8},
-+	[DCB_PFC_UP_ATTR_2]   = {.type = NLA_U8},
-+	[DCB_PFC_UP_ATTR_3]   = {.type = NLA_U8},
-+	[DCB_PFC_UP_ATTR_4]   = {.type = NLA_U8},
-+	[DCB_PFC_UP_ATTR_5]   = {.type = NLA_U8},
-+	[DCB_PFC_UP_ATTR_6]   = {.type = NLA_U8},
-+	[DCB_PFC_UP_ATTR_7]   = {.type = NLA_U8},
-+	[DCB_PFC_UP_ATTR_ALL] = {.type = NLA_FLAG},
-+};
-+
-+/* DCB priority grouping nested attributes */
-+static struct nla_policy dcbnl_pg_nest[DCB_PG_ATTR_MAX + 1] = {
-+	[DCB_PG_ATTR_TC_0]   = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_TC_1]   = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_TC_2]   = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_TC_3]   = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_TC_4]   = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_TC_5]   = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_TC_6]   = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_TC_7]   = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_TC_ALL] = {.type = NLA_NESTED},
-+	[DCB_PG_ATTR_BWG_0]  = {.type = NLA_U8},
-+	[DCB_PG_ATTR_BWG_1]  = {.type = NLA_U8},
-+	[DCB_PG_ATTR_BWG_2]  = {.type = NLA_U8},
-+	[DCB_PG_ATTR_BWG_3]  = {.type = NLA_U8},
-+	[DCB_PG_ATTR_BWG_4]  = {.type = NLA_U8},
-+	[DCB_PG_ATTR_BWG_5]  = {.type = NLA_U8},
-+	[DCB_PG_ATTR_BWG_6]  = {.type = NLA_U8},
-+	[DCB_PG_ATTR_BWG_7]  = {.type = NLA_U8},
-+	[DCB_PG_ATTR_BWG_ALL]= {.type = NLA_FLAG},
-+};
-+
-+/* DCB traffic class nested attributes. */
-+static struct nla_policy dcbnl_tc_param_nest[DCB_TC_ATTR_PARAM_MAX + 1] = {
-+	[DCB_TC_ATTR_PARAM_STRICT_PRIO]     = {.type = NLA_U8},
-+	[DCB_TC_ATTR_PARAM_BW_GROUP_ID]     = {.type = NLA_U8},
-+	[DCB_TC_ATTR_PARAM_BW_PCT]          = {.type = NLA_U8},
-+	[DCB_TC_ATTR_PARAM_UP_MAPPING]      = {.type = NLA_U8},
-+	[DCB_TC_ATTR_PARAM_ALL]             = {.type = NLA_FLAG},
-+};
-+
-+/* standard netlink reply call */
-+static int dcbnl_reply(u8 value, u8 cmd, u8 attr, struct genl_info *info)
-+{
-+	struct sk_buff *dcbnl_skb;
-+	void *data;
-+	int ret = -EINVAL;
-+
-+	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcbnl_skb)
-+		return ret;
-+
-+	data = genlmsg_put_reply(dcbnl_skb, info, &dcbnl_family, 0, cmd);
-+	if (!data)
-+		goto err;
-+
-+	ret = nla_put_u8(dcbnl_skb, attr, value);
-+	if (ret)
-+        	goto err;
-+
-+	/* end the message, assign the nlmsg_len. */
-+	genlmsg_end(dcbnl_skb, data);
-+	ret = genlmsg_reply(dcbnl_skb, info);
-+	if (ret)
-+        	goto err;
-+
-+	return 0;
-+err:
-+	kfree(dcbnl_skb);
-+	return ret;
-+}
-+
-+static int dcbnl_getstate(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *netdev;
-+	int ret = -EINVAL;
-+
-+	if (!info->attrs[DCB_ATTR_IFNAME])
-+		return ret;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_ATTR_IFNAME]));
-+	if (!netdev)
-+		return ret;
-+
-+	if (!netdev->dcbnl_ops || !netdev->dcbnl_ops->getstate)
-+		goto err;
-+
-+	ret = dcbnl_reply(netdev->dcbnl_ops->getstate(netdev),
-+                          DCB_CMD_GSTATE, DCB_ATTR_STATE, info);
-+err:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int dcbnl_setstate(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *netdev;
-+	int ret = -EINVAL;
-+	u8 value;
-+
-+	if (!info->attrs[DCB_ATTR_IFNAME] || !info->attrs[DCB_ATTR_STATE])
-+		return ret;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_ATTR_IFNAME]));
-+	if (!netdev)
-+		return ret;
-+
-+	if (!netdev->dcbnl_ops || !netdev->dcbnl_ops->setstate)
-+		goto err;
-+
-+	value = nla_get_u8(info->attrs[DCB_ATTR_STATE]);
-+
-+	netdev->dcbnl_ops->setstate(netdev, value);
-+
-+	ret = dcbnl_reply(0, DCB_CMD_SSTATE, DCB_ATTR_STATE, info);
-+err:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int dcbnl_getperm_hwaddr(struct sk_buff *skb, struct genl_info *info)
-+{
-+	void *data;
-+	struct sk_buff *dcbnl_skb;
-+	struct nlattr *tb[DCB_PERM_HW_ATTR_MAX + 1], *nest;
-+	struct net_device *netdev;
-+	u8 perm_addr[MAX_ADDR_LEN];
-+	int ret = -EINVAL;
-+	int i;
-+
-+	if (!info->attrs[DCB_ATTR_IFNAME] || !info->attrs[DCB_ATTR_PERM_HWADDR])
-+		return ret;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_ATTR_IFNAME]));
-+	if (!netdev)
-+		return ret;
-+
-+	if (!netdev->dcbnl_ops || !netdev->dcbnl_ops->getpermhwaddr)
-+		goto err_out;
-+
-+	ret = nla_parse_nested(tb, DCB_PERM_HW_ATTR_MAX,
-+			       info->attrs[DCB_ATTR_PERM_HWADDR],
-+			       dcbnl_perm_hwaddr_nest);
-+	if (ret)
-+		goto err_out;
-+
-+	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcbnl_skb)
-+		goto err_out;
-+
-+	data = genlmsg_put_reply(dcbnl_skb, info, &dcbnl_family, 0,
-+				 DCB_CMD_GPERM_HWADDR);
-+	if (!data)
-+		goto err;
-+
-+	nest = nla_nest_start(dcbnl_skb, DCB_ATTR_PERM_HWADDR);
-+	if (!nest)
-+		goto err;
-+
-+	netdev->dcbnl_ops->getpermhwaddr(netdev, perm_addr);
-+	for (i = 0; i < netdev->addr_len; i++) {
-+		ret = nla_put_u8(dcbnl_skb, DCB_ATTR_PERM_HWADDR,
-+				 perm_addr[i]);
-+
-+		if (ret) {
-+			nla_nest_cancel(dcbnl_skb, nest);
-+			goto err;
+ /* MAX_MSIX_Q_VECTORS of these are allocated,
+  * but we only use one per queue-specific vector.
+  */
+@@ -226,6 +234,9 @@ struct ixgbe_adapter {
+ 	struct work_struct reset_task;
+ 	struct ixgbe_q_vector q_vector[MAX_MSIX_Q_VECTORS];
+ 	char name[MAX_MSIX_COUNT][IFNAMSIZ + 5];
++	struct ixgbe_dcb_config dcb_cfg;
++	struct ixgbe_dcb_config temp_dcb_cfg;
++	u8 dcb_set_bitmap;
+ 
+ 	/* Interrupt Throttle Rate */
+ 	u32 itr_setting;
+@@ -234,6 +245,7 @@ struct ixgbe_adapter {
+ 
+ 	/* TX */
+ 	struct ixgbe_ring *tx_ring;	/* One per active queue */
++	int num_tx_queues;
+ 	u64 restart_queue;
+ 	u64 lsc_int;
+ 	u64 hw_tso_ctxt;
+@@ -243,12 +255,11 @@ struct ixgbe_adapter {
+ 
+ 	/* RX */
+ 	struct ixgbe_ring *rx_ring;	/* One per active queue */
++	int num_rx_queues;
+ 	u64 hw_csum_tx_good;
+ 	u64 hw_csum_rx_error;
+ 	u64 hw_csum_rx_good;
+ 	u64 non_eop_descs;
+-	int num_tx_queues;
+-	int num_rx_queues;
+ 	int num_msix_vectors;
+ 	struct ixgbe_ring_feature ring_feature[3];
+ 	struct msix_entry *msix_entries;
+@@ -270,6 +281,7 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG_RSS_ENABLED                  (u32)(1 << 6)
+ #define IXGBE_FLAG_VMDQ_ENABLED                 (u32)(1 << 7)
+ #define IXGBE_FLAG_DCA_ENABLED                  (u32)(1 << 8)
++#define IXGBE_FLAG_DCB_ENABLED                  (u32)(1 << 9)
+ 
+ 	/* OS defined structs */
+ 	struct net_device *netdev;
+@@ -314,5 +326,9 @@ extern int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
+ 				    struct ixgbe_ring *rxdr);
+ extern int ixgbe_setup_tx_resources(struct ixgbe_adapter *adapter,
+ 				    struct ixgbe_ring *txdr);
++extern int ixgbe_close(struct net_device *netdev);
++extern void ixgbe_reset_interrupt_capability(struct ixgbe_adapter *adapter);
++extern int ixgbe_open(struct net_device *netdev);
++extern int ixgbe_init_interrupt_scheme(struct ixgbe_adapter *adapter);
+ 
+ #endif /* _IXGBE_H_ */
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 4e46377..944f669 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -97,7 +97,17 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ 		 ((struct ixgbe_adapter *)netdev->priv)->num_rx_queues) * \
+ 		 (sizeof(struct ixgbe_queue_stats) / sizeof(u64)))
+ #define IXGBE_GLOBAL_STATS_LEN	ARRAY_SIZE(ixgbe_gstrings_stats)
+-#define IXGBE_STATS_LEN (IXGBE_GLOBAL_STATS_LEN + IXGBE_QUEUE_STATS_LEN)
++#define IXGBE_PB_STATS_LEN ( \
++		(((struct ixgbe_adapter *)netdev->priv)->flags & \
++		 IXGBE_FLAG_DCB_ENABLED) ? \
++		 (sizeof(((struct ixgbe_adapter *)0)->stats.pxonrxc) + \
++		  sizeof(((struct ixgbe_adapter *)0)->stats.pxontxc) + \
++		  sizeof(((struct ixgbe_adapter *)0)->stats.pxoffrxc) + \
++		  sizeof(((struct ixgbe_adapter *)0)->stats.pxofftxc)) \
++		 / sizeof(u64) : 0)
++#define IXGBE_STATS_LEN (IXGBE_GLOBAL_STATS_LEN + \
++		IXGBE_PB_STATS_LEN + \
++		IXGBE_QUEUE_STATS_LEN)
+ 
+ static int ixgbe_get_settings(struct net_device *netdev,
+ 			      struct ethtool_cmd *ecmd)
+@@ -806,6 +816,16 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 			data[i + k] = queue_stat[k];
+ 		i += k;
+ 	}
++	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
++		for (j = 0; j < MAX_TX_PACKET_BUFFERS; j++) {
++			data[i++] = adapter->stats.pxontxc[j];
++			data[i++] = adapter->stats.pxofftxc[j];
++		}
++		for (j = 0; j < MAX_RX_PACKET_BUFFERS; j++) {
++			data[i++] = adapter->stats.pxonrxc[j];
++			data[i++] = adapter->stats.pxoffrxc[j];
 +		}
 +	}
+ }
+ 
+ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
+@@ -834,6 +854,20 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
+ 			sprintf(p, "rx_queue_%u_bytes", i);
+ 			p += ETH_GSTRING_LEN;
+ 		}
++		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
++			for (i = 0; i < MAX_TX_PACKET_BUFFERS; i++) {
++				sprintf(p, "tx_pb_%u_pxon", i);
++				p += ETH_GSTRING_LEN;
++				sprintf(p, "tx_pb_%u_pxoff", i);
++				p += ETH_GSTRING_LEN;
++			}
++			for (i = 0; i < MAX_RX_PACKET_BUFFERS; i++) {
++				sprintf(p, "rx_pb_%u_pxon", i);
++				p += ETH_GSTRING_LEN;
++				sprintf(p, "rx_pb_%u_pxoff", i);
++				p += ETH_GSTRING_LEN;
++			}
++		}
+ /*		BUG_ON(p - data != IXGBE_STATS_LEN * ETH_GSTRING_LEN); */
+ 		break;
+ 	}
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 7b85922..4177ea5 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2007 Intel Corporation.
++  Copyright(c) 1999 - 2008 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -48,10 +48,10 @@ char ixgbe_driver_name[] = "ixgbe";
+ static const char ixgbe_driver_string[] =
+ 	"Intel(R) 10 Gigabit PCI Express Network Driver";
+ 
+-#define DRV_VERSION "1.3.18-k2"
++#define DRV_VERSION "1.3.29-k2"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+-	 "Copyright (c) 1999-2007 Intel Corporation.";
++	 "Copyright (c) 1999-2008 Intel Corporation.";
+ 
+ static const struct ixgbe_info *ixgbe_info_tbl[] = {
+ 	[board_82598]			= &ixgbe_82598_info,
+@@ -90,6 +90,41 @@ static struct notifier_block dca_notifier = {
+ };
+ #endif
+ 
++#ifdef CONFIG_DCBNL
++static u8   ixgbe_dcbnl_getstate(struct net_device *);
++static void ixgbe_dcbnl_setstate(struct net_device *, u8);
++static void ixgbe_dcbnl_getpermhwaddr(struct net_device *, u8 *);
++static void ixgbe_dcbnl_setpgtccfgtx(struct net_device *, int, u8, u8, u8, u8);
++static void ixgbe_dcbnl_setpgbwgcfgtx(struct net_device *, int, u8);
++static void ixgbe_dcbnl_setpgtccfgrx(struct net_device *, int, u8, u8, u8, u8);
++static void ixgbe_dcbnl_setpgbwgcfgrx(struct net_device *, int, u8);
++static void ixgbe_dcbnl_getpgtccfgtx(struct net_device *, int, u8 *, u8 *,
++				     u8 *, u8 *);
++static void ixgbe_dcbnl_getpgbwgcfgtx(struct net_device *, int, u8 *);
++static void ixgbe_dcbnl_getpgtccfgrx(struct net_device *, int, u8 *, u8 *,
++				     u8 *, u8 *);
++static void ixgbe_dcbnl_getpgbwgcfgrx(struct net_device *, int, u8 *);
++static void ixgbe_dcbnl_setpfccfg(struct net_device *, int, u8);
++static void ixgbe_dcbnl_getpfccfg(struct net_device *, int, u8 *);
++static u8   ixgbe_dcbnl_setall(struct net_device *);
++static struct dcbnl_genl_ops dcbnl_ops = {
++	.getstate	= ixgbe_dcbnl_getstate,
++	.setstate	= ixgbe_dcbnl_setstate,
++	.getpermhwaddr	= ixgbe_dcbnl_getpermhwaddr,
++	.setpgtccfgtx	= ixgbe_dcbnl_setpgtccfgtx,
++	.setpgbwgcfgtx	= ixgbe_dcbnl_setpgbwgcfgtx,
++	.setpgtccfgrx	= ixgbe_dcbnl_setpgtccfgrx,
++	.setpgbwgcfgrx	= ixgbe_dcbnl_setpgbwgcfgrx,
++	.getpgtccfgtx	= ixgbe_dcbnl_getpgtccfgtx,
++	.getpgbwgcfgtx	= ixgbe_dcbnl_getpgbwgcfgtx,
++	.getpgtccfgrx	= ixgbe_dcbnl_getpgtccfgrx,
++	.getpgbwgcfgrx	= ixgbe_dcbnl_getpgbwgcfgrx,
++	.setpfccfg	= ixgbe_dcbnl_setpfccfg,
++	.getpfccfg	= ixgbe_dcbnl_getpfccfg,
++	.setall		= ixgbe_dcbnl_setall
++};
++#endif
 +
-+	nla_nest_end(dcbnl_skb, nest);
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+ MODULE_DESCRIPTION("Intel(R) 10 Gigabit PCI Express Network Driver");
+ MODULE_LICENSE("GPL");
+@@ -397,13 +432,13 @@ static void ixgbe_receive_skb(struct ixgbe_adapter *adapter,
+ 			      u16 tag)
+ {
+ 	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
+-		if (adapter->vlgrp && is_vlan)
++		if (adapter->vlgrp && is_vlan && (tag != 0))
+ 			vlan_hwaccel_receive_skb(skb, adapter->vlgrp, tag);
+ 		else
+ 			netif_receive_skb(skb);
+ 	} else {
+ 
+-		if (adapter->vlgrp && is_vlan)
++		if (adapter->vlgrp && is_vlan && (tag != 0))
+ 			vlan_hwaccel_rx(skb, adapter->vlgrp, tag);
+ 		else
+ 			netif_rx(skb);
+@@ -545,14 +580,13 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
+ 	struct ixgbe_rx_buffer *rx_buffer_info, *next_buffer;
+ 	struct sk_buff *skb;
+ 	unsigned int i;
+-	u32 upper_len, len, staterr;
++	u32 len, staterr;
+ 	u16 hdr_info, vlan_tag;
+ 	bool is_vlan, cleaned = false;
+ 	int cleaned_count = 0;
+ 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
+ 
+ 	i = rx_ring->next_to_clean;
+-	upper_len = 0;
+ 	rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
+ 	staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ 	rx_buffer_info = &rx_ring->rx_buffer_info[i];
+@@ -560,6 +594,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
+ 	vlan_tag = le16_to_cpu(rx_desc->wb.upper.vlan);
+ 
+ 	while (staterr & IXGBE_RXD_STAT_DD) {
++		u32 upper_len = 0;
+ 		if (*work_done >= work_to_do)
+ 			break;
+ 		(*work_done)++;
+@@ -1343,7 +1378,7 @@ static void ixgbe_configure_msi_and_legacy(struct ixgbe_adapter *adapter)
+ }
+ 
+ /**
+- * ixgbe_configure_tx - Configure 8254x Transmit Unit after Reset
++ * ixgbe_configure_tx - Configure 8259x Transmit Unit after Reset
+  * @adapter: board private structure
+  *
+  * Configure the Tx unit of the MAC after a reset.
+@@ -1371,9 +1406,9 @@ static void ixgbe_configure_tx(struct ixgbe_adapter *adapter)
+ 		/* Disable Tx Head Writeback RO bit, since this hoses
+ 		 * bookkeeping if things aren't delivered in order.
+ 		 */
+-		txctrl = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
++		txctrl = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(j));
+ 		txctrl &= ~IXGBE_DCA_TXCTRL_TX_WB_RO_EN;
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), txctrl);
++		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(j), txctrl);
+ 	}
+ }
+ 
+@@ -1382,7 +1417,7 @@ static void ixgbe_configure_tx(struct ixgbe_adapter *adapter)
+ 
+ #define IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT			2
+ /**
+- * ixgbe_configure_rx - Configure 8254x Receive Unit after Reset
++ * ixgbe_configure_rx - Configure 8259x Receive Unit after Reset
+  * @adapter: board private structure
+  *
+  * Configure the Rx unit of the MAC after a reset.
+@@ -1529,6 +1564,16 @@ static void ixgbe_vlan_rx_register(struct net_device *netdev,
+ 		ixgbe_irq_disable(adapter);
+ 	adapter->vlgrp = grp;
+ 
++	/*
++	 * For a DCB driver, always enable VLAN tag stripping so we can
++	 * still receive traffic from a DCB-enabled host even if we're
++	 * not in DCB mode.
++	 */
++	ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_VLNCTRL);
++	ctrl |= IXGBE_VLNCTRL_VME;
++	ctrl &= ~IXGBE_VLNCTRL_CFIEN;
++	IXGBE_WRITE_REG(&adapter->hw, IXGBE_VLNCTRL, ctrl);
 +
-+	genlmsg_end(dcbnl_skb, data);
+ 	if (grp) {
+ 		/* enable VLAN tag insert/strip */
+ 		ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_VLNCTRL);
+@@ -1672,6 +1717,316 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
+ 	}
+ }
+ 
++/*
++ * ixgbe_configure_dcb - Configure DCB hardware
++ * @adapter: ixgbe adapter struct
++ *
++ * This is called by the driver on open to configure the DCB hardware.
++ * This is also called by the gennetlink interface when reconfiguring
++ * the DCB state.
++ */
++void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 txdctl, vlnctrl;
++	int i, j;
 +
-+	ret = genlmsg_reply(dcbnl_skb, info);
-+	if (ret)
-+		goto err_out;
++	ixgbe_dcb_check_config(&adapter->dcb_cfg);
++	ixgbe_dcb_calculate_tc_credits(&adapter->dcb_cfg, DCB_TX_CONFIG);
++	ixgbe_dcb_calculate_tc_credits(&adapter->dcb_cfg, DCB_RX_CONFIG);
 +
-+	dev_put(netdev);
-+	return 0;
-+err:
-+	kfree(dcbnl_skb);
-+err_out:
-+	dev_put(netdev);
-+	return ret;
++	/* reconfigure the hardware */
++	ixgbe_dcb_hw_config(&adapter->hw, &adapter->dcb_cfg);
++
++	for (i = 0; i < adapter->num_tx_queues; i++) {
++		j = adapter->tx_ring[i].reg_idx;
++		txdctl = IXGBE_READ_REG(hw, IXGBE_TXDCTL(j));
++		/* PThresh workaround for Tx hang with DFP enabled. */
++		txdctl |= 32;
++		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j), txdctl);
++	}
++	/* Enable VLAN tag insert/strip */
++	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	vlnctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
++	vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++	ixgbe_set_vfta(hw, 0, 0, true);
 +}
 +
-+static int __dcbnl_pg_setcfg(struct genl_info *info, int dir)
++#ifdef CONFIG_DCBNL
++static int ixgbe_copy_dcb_cfg(struct ixgbe_dcb_config *src_dcb_cfg,
++			      struct ixgbe_dcb_config *dst_dcb_cfg, int tc_max)
 +{
-+	struct net_device *netdev = NULL;
-+	struct nlattr *pg_tb[DCB_PG_ATTR_MAX + 1];
-+	struct nlattr *param_tb[DCB_TC_ATTR_PARAM_MAX + 1];
-+	int ret = -EINVAL;
++	struct tc_configuration *src_tc_cfg = NULL;
++	struct tc_configuration *dst_tc_cfg = NULL;
 +	int i;
-+	u8 prio = 0, bwg_id = 0, bw_pct = 0, up_map = 0;
 +
-+	if (!info->attrs[DCB_ATTR_IFNAME] || !info->attrs[DCB_ATTR_PG_CFG])
-+		return ret;
++	if (!src_dcb_cfg || !dst_dcb_cfg)
++		return -EINVAL;
 +
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_ATTR_IFNAME]));
-+	if (!netdev)
-+		return ret;
++	for (i = DCB_PG_ATTR_TC_0; i < tc_max + DCB_PG_ATTR_TC_0; i++) {
++		src_tc_cfg = &src_dcb_cfg->tc_config[i - DCB_PG_ATTR_TC_0];
++		dst_tc_cfg = &dst_dcb_cfg->tc_config[i - DCB_PG_ATTR_TC_0];
 +
-+	if (!netdev->dcbnl_ops ||
-+	    !netdev->dcbnl_ops->setpgtccfgtx ||
-+	    !netdev->dcbnl_ops->setpgtccfgrx ||
-+	    !netdev->dcbnl_ops->setpgbwgcfgtx ||
-+	    !netdev->dcbnl_ops->setpgbwgcfgrx)
-+		goto err;
++		dst_tc_cfg->path[DCB_TX_CONFIG].prio_type =
++				src_tc_cfg->path[DCB_TX_CONFIG].prio_type;
 +
-+	ret = nla_parse_nested(pg_tb, DCB_PG_ATTR_MAX,
-+			       info->attrs[DCB_ATTR_PG_CFG], dcbnl_pg_nest);
-+	if (ret)
-+		goto err;
++		dst_tc_cfg->path[DCB_TX_CONFIG].bwg_id =
++				src_tc_cfg->path[DCB_TX_CONFIG].bwg_id;
 +
-+	for (i = DCB_PG_ATTR_TC_0; i < DCB_PG_ATTR_TC_MAX; i++) {
-+		if (!pg_tb[i])
-+			continue;
++		dst_tc_cfg->path[DCB_TX_CONFIG].bwg_percent =
++				src_tc_cfg->path[DCB_TX_CONFIG].bwg_percent;
 +
-+		ret = nla_parse_nested(param_tb, DCB_TC_ATTR_PARAM_MAX,
-+				       pg_tb[i], dcbnl_tc_param_nest);
-+		if (ret)
-+			goto err;
++		dst_tc_cfg->path[DCB_TX_CONFIG].up_to_tc_bitmap =
++				src_tc_cfg->path[DCB_TX_CONFIG].up_to_tc_bitmap;
 +
-+		if (param_tb[DCB_TC_ATTR_PARAM_STRICT_PRIO])
-+			prio =
-+			    nla_get_u8(param_tb[DCB_TC_ATTR_PARAM_STRICT_PRIO]);
++		dst_tc_cfg->path[DCB_RX_CONFIG].prio_type =
++				src_tc_cfg->path[DCB_RX_CONFIG].prio_type;
 +
-+		if (param_tb[DCB_TC_ATTR_PARAM_BW_GROUP_ID])
-+			bwg_id =
-+			    nla_get_u8(param_tb[DCB_TC_ATTR_PARAM_BW_GROUP_ID]);
++		dst_tc_cfg->path[DCB_RX_CONFIG].bwg_id =
++				src_tc_cfg->path[DCB_RX_CONFIG].bwg_id;
 +
-+		if (param_tb[DCB_TC_ATTR_PARAM_BW_PCT])
-+			bw_pct = nla_get_u8(param_tb[DCB_TC_ATTR_PARAM_BW_PCT]);
++		dst_tc_cfg->path[DCB_RX_CONFIG].bwg_percent =
++				src_tc_cfg->path[DCB_RX_CONFIG].bwg_percent;
 +
-+		if (param_tb[DCB_TC_ATTR_PARAM_UP_MAPPING])
-+			up_map =
-+			     nla_get_u8(param_tb[DCB_TC_ATTR_PARAM_UP_MAPPING]);
-+
-+		/* dir: Tx = 0, Rx = 1 */
-+		if (dir) {
-+			/* Rx */
-+			netdev->dcbnl_ops->setpgtccfgrx(netdev,
-+						  i - DCB_PG_ATTR_TC_0,
-+						  prio, bwg_id, bw_pct, up_map);
-+		} else {
-+			/* Tx */
-+			netdev->dcbnl_ops->setpgtccfgtx(netdev, 
-+						  i - DCB_PG_ATTR_TC_0,
-+						  prio, bwg_id, bw_pct, up_map);
-+		}
++		dst_tc_cfg->path[DCB_RX_CONFIG].up_to_tc_bitmap =
++				src_tc_cfg->path[DCB_RX_CONFIG].up_to_tc_bitmap;
 +	}
 +
 +	for (i = DCB_PG_ATTR_BWG_0; i < DCB_PG_ATTR_BWG_MAX; i++) {
-+		if (!pg_tb[i])
-+			continue;
-+
-+		bw_pct = nla_get_u8(pg_tb[i]);
-+
-+		/* dir: Tx = 0, Rx = 1 */
-+		if (dir) {
-+			/* Rx */
-+			netdev->dcbnl_ops->setpgbwgcfgrx(netdev,
-+						 i - DCB_PG_ATTR_BWG_0, bw_pct);
-+		} else {
-+			/* Tx */
-+			netdev->dcbnl_ops->setpgbwgcfgtx(netdev,
-+						 i - DCB_PG_ATTR_BWG_0, bw_pct);
-+		}
++		dst_dcb_cfg->bw_percentage[DCB_TX_CONFIG][i-DCB_PG_ATTR_BWG_0] =
++		 src_dcb_cfg->bw_percentage[DCB_TX_CONFIG][i-DCB_PG_ATTR_BWG_0];
++		dst_dcb_cfg->bw_percentage[DCB_RX_CONFIG][i-DCB_PG_ATTR_BWG_0] =
++	         src_dcb_cfg->bw_percentage[DCB_RX_CONFIG][i-DCB_PG_ATTR_BWG_0];
 +	}
-+
-+	ret = dcbnl_reply(0, (dir ? DCB_CMD_PGRX_SCFG : DCB_CMD_PGTX_SCFG),
-+			  DCB_ATTR_PG_CFG, info);
-+
-+err:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int dcbnl_pgtx_setcfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	return __dcbnl_pg_setcfg(info, 0);
-+}
-+
-+static int dcbnl_pgrx_setcfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	return __dcbnl_pg_setcfg(info, 1);
-+}
-+
-+static int __dcbnl_pg_getcfg(struct genl_info *info, int dir)
-+{
-+	void *data;
-+	struct sk_buff *dcbnl_skb;
-+	struct nlattr *pg_nest, *param_nest, *tb;
-+	struct nlattr *pg_tb[DCB_PG_ATTR_MAX + 1];
-+	struct nlattr *param_tb[DCB_TC_ATTR_PARAM_MAX + 1];
-+	struct net_device *netdev;
-+	u8 prio, bwg_id, bw_pct, up_map;
-+	int ret  = -EINVAL;
-+	int i;
-+
-+	if (!info->attrs[DCB_ATTR_IFNAME] || !info->attrs[DCB_ATTR_PG_CFG])
-+		return ret;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_ATTR_IFNAME]));
-+	if (!netdev)
-+		return ret;
-+
-+	if (!netdev->dcbnl_ops ||
-+	    !netdev->dcbnl_ops->getpgtccfgtx ||
-+	    !netdev->dcbnl_ops->getpgtccfgrx ||
-+	    !netdev->dcbnl_ops->getpgbwgcfgtx ||
-+	    !netdev->dcbnl_ops->getpgbwgcfgrx)
-+		goto err_out;
-+
-+	ret = nla_parse_nested(pg_tb, DCB_PG_ATTR_MAX,
-+			       info->attrs[DCB_ATTR_PG_CFG], dcbnl_pg_nest);
-+	if (ret)
-+		goto err_out;
-+
-+	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcbnl_skb)
-+		goto err_out;
-+
-+	data =  genlmsg_put_reply(dcbnl_skb, info, &dcbnl_family, 0,
-+				 (dir) ? DCB_CMD_PGRX_GCFG : DCB_CMD_PGTX_GCFG);
-+
-+	if (!data)
-+		goto err;
-+
-+	pg_nest = nla_nest_start(dcbnl_skb, DCB_ATTR_PG_CFG);
-+	if (!pg_nest)
-+		goto err;
-+
-+	for (i = DCB_PG_ATTR_TC_0; i < DCB_PG_ATTR_TC_MAX; i++) {
-+		if (pg_tb[DCB_PG_ATTR_TC_ALL])
-+			tb = pg_tb[DCB_PG_ATTR_TC_ALL];
-+		else
-+			tb = pg_tb[i];
-+		ret = nla_parse_nested(param_tb, DCB_TC_ATTR_PARAM_MAX,
-+				       tb, dcbnl_tc_param_nest);
-+		if (ret)
-+			goto err_pg;
-+
-+		param_nest = nla_nest_start(dcbnl_skb, i);
-+		if (!param_nest)
-+			goto err_pg;
-+
-+		if (dir) {
-+			/* Rx */
-+			netdev->dcbnl_ops->getpgtccfgrx(netdev,
-+						i - DCB_PG_ATTR_TC_0, &prio,
-+						&bwg_id, &bw_pct, &up_map);
-+		} else {
-+			/* Tx */
-+			netdev->dcbnl_ops->getpgtccfgtx(netdev,
-+						i - DCB_PG_ATTR_TC_0, &prio,
-+						&bwg_id, &bw_pct, &up_map);
-+		}
-+
-+		if (param_tb[DCB_TC_ATTR_PARAM_STRICT_PRIO] ||
-+		    param_tb[DCB_TC_ATTR_PARAM_ALL]) {
-+			ret = nla_put_u8(dcbnl_skb,
-+					 DCB_TC_ATTR_PARAM_STRICT_PRIO, prio);
-+			if (ret)
-+				goto err_param;
-+		}
-+		if (param_tb[DCB_TC_ATTR_PARAM_BW_GROUP_ID] ||
-+		    param_tb[DCB_TC_ATTR_PARAM_ALL]) {
-+			ret = nla_put_u8(dcbnl_skb,
-+					 DCB_TC_ATTR_PARAM_BW_GROUP_ID, bwg_id);
-+			if (ret)
-+				goto err_param;
-+		}
-+		if (param_tb[DCB_TC_ATTR_PARAM_BW_PCT] ||
-+		    param_tb[DCB_TC_ATTR_PARAM_ALL]) {
-+			ret = nla_put_u8(dcbnl_skb, DCB_TC_ATTR_PARAM_BW_PCT,
-+					 bw_pct);
-+			if (ret)
-+				goto err_param;
-+		}
-+		if (param_tb[DCB_TC_ATTR_PARAM_UP_MAPPING] ||
-+		    param_tb[DCB_TC_ATTR_PARAM_ALL]) {
-+			ret = nla_put_u8(dcbnl_skb,
-+					 DCB_TC_ATTR_PARAM_UP_MAPPING, up_map);
-+			if (ret)
-+				goto err_param;
-+		}
-+		nla_nest_end(dcbnl_skb, param_nest);
-+	}
-+
-+	for (i = DCB_PG_ATTR_BWG_0; i < DCB_PG_ATTR_BWG_MAX; i++) {
-+		if (dir) {
-+			/* Rx */
-+			netdev->dcbnl_ops->getpgbwgcfgrx(netdev,
-+						i - DCB_PG_ATTR_BWG_0, &bw_pct);
-+		} else {
-+			/* Tx */
-+			netdev->dcbnl_ops->getpgbwgcfgtx(netdev,
-+						i - DCB_PG_ATTR_BWG_0, &bw_pct);
-+		}
-+		ret = nla_put_u8(dcbnl_skb, i, bw_pct);
-+
-+		if (ret)
-+			goto err_pg;
-+	}
-+
-+	nla_nest_end(dcbnl_skb, pg_nest);
-+
-+	genlmsg_end(dcbnl_skb, data);
-+	ret = genlmsg_reply(dcbnl_skb, info);
-+	if (ret)
-+		goto err;
-+
-+	dev_put(netdev);
-+	return 0;
-+
-+err_param:
-+	nla_nest_cancel(dcbnl_skb, param_nest);
-+err_pg:
-+	nla_nest_cancel(dcbnl_skb, pg_nest);
-+err:
-+	kfree(dcbnl_skb);
-+err_out:
-+	dev_put(netdev);
-+	return ret;
-+}
-+
-+static int dcbnl_pgtx_getcfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	return __dcbnl_pg_getcfg(info, 0);
-+}
-+
-+static int dcbnl_pgrx_getcfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	return __dcbnl_pg_getcfg(info, 1);
-+}
-+
-+static int dcbnl_setpfccfg(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct nlattr *tb[DCB_PFC_UP_ATTR_MAX + 1];
-+	struct net_device *netdev;
-+	int i;
-+	int ret = -EINVAL;
-+	u8 value;
-+
-+	if (!info->attrs[DCB_ATTR_IFNAME] || !info->attrs[DCB_ATTR_PFC_CFG])
-+		return ret;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_ATTR_IFNAME]));
-+	if (!netdev)
-+		return ret;
-+
-+	if (!netdev->dcbnl_ops || !netdev->dcbnl_ops->setpfccfg)
-+		goto err;
-+
-+	ret = nla_parse_nested(tb, DCB_PFC_UP_ATTR_MAX,
-+		               info->attrs[DCB_ATTR_PFC_CFG],
-+		               dcbnl_pfc_up_nest);
-+	if (ret)
-+		goto err;
 +
 +	for (i = DCB_PFC_UP_ATTR_0; i < DCB_PFC_UP_ATTR_MAX; i++) {
-+		value = nla_get_u8(tb[i]);
-+		netdev->dcbnl_ops->setpfccfg(netdev, i - DCB_PFC_UP_ATTR_0,
-+					     value);
++		dst_dcb_cfg->tc_config[i - DCB_PFC_UP_ATTR_0].dcb_pfc =
++			src_dcb_cfg->tc_config[i - DCB_PFC_UP_ATTR_0].dcb_pfc;
 +	}
 +
-+	ret = dcbnl_reply(0, DCB_CMD_PFC_SCFG, DCB_ATTR_PFC_CFG, info);
-+err:
-+	dev_put(netdev);
-+	return ret;
++	return 0;
 +}
 +
-+static int dcbnl_getpfccfg(struct sk_buff *skb, struct genl_info *info)
++/* Callbacks for DCB netlink in the kernel */
++#define BIT_DCB_MODE	0x01
++#define BIT_PFC		0x02
++#define BIT_PG_RX	0x04
++#define BIT_PG_TX	0x08
++static u8 ixgbe_dcbnl_getstate(struct net_device *netdev)
 +{
-+	void *data;
-+	struct sk_buff *dcbnl_skb;
-+	struct nlattr *tb[DCB_PFC_UP_ATTR_MAX + 1], *nest;
-+	struct net_device *netdev;
-+	u8 value;
-+	int ret = -EINVAL;
-+	int i;
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 +
-+	if (!info->attrs[DCB_ATTR_IFNAME] || !info->attrs[DCB_ATTR_PFC_CFG])
-+		return ret;
++	DPRINTK(DRV, INFO, "Get DCB Admin Mode.\n");
 +
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_ATTR_IFNAME]));
-+	if (!netdev)
-+		return ret;
++	return (!!(adapter->flags & IXGBE_FLAG_DCB_ENABLED));
++}
 +
-+	if (!netdev->dcbnl_ops || !netdev->dcbnl_ops->getpfccfg)
-+		goto err_out;
++static void ixgbe_dcbnl_setstate(struct net_device *netdev, u8 state)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 +
-+	ret = nla_parse_nested(tb, DCB_PFC_UP_ATTR_MAX,
-+			       info->attrs[DCB_ATTR_PFC_CFG],
-+			       dcbnl_pfc_up_nest);
-+	if (ret)
-+		goto err_out;
++	DPRINTK(DRV, INFO, "Set DCB Admin Mode.\n");
 +
-+	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcbnl_skb)
-+		goto err_out;
++	if (state > 0) {
++		/* Turn on DCB */
++		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
++			return;
++		} else {
++			set_bit(__IXGBE_DOWN, &adapter->state);
++			if (netdev->flags & IFF_UP)
++				ixgbe_close(netdev);
++			ixgbe_reset_interrupt_capability(adapter);
++			kfree(adapter->tx_ring);
++			kfree(adapter->rx_ring);
 +
-+	data = genlmsg_put_reply(dcbnl_skb, info, &dcbnl_family, 0,
-+				 DCB_CMD_PFC_GCFG);
-+	if (!data)
-+		goto err;
++			adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
++			adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
++			ixgbe_init_interrupt_scheme(adapter);
++			if (netdev->flags & IFF_UP)
++				ixgbe_open(netdev);
++			clear_bit(__IXGBE_DOWN, &adapter->state);
++		}
++	} else {
++		/* Turn off DCB */
++		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
++			set_bit(__IXGBE_DOWN, &adapter->state);
++			if (netdev->flags & IFF_UP)
++				ixgbe_close(netdev);
++			ixgbe_reset_interrupt_capability(adapter);
++			kfree(adapter->tx_ring);
++			kfree(adapter->rx_ring);
 +
-+	nest = nla_nest_start(dcbnl_skb, DCB_ATTR_PFC_CFG);
-+	if (!nest)
-+		goto err;
-+
-+	for (i = DCB_PFC_UP_ATTR_0; i < DCB_PFC_UP_ATTR_MAX; i++) {
-+		netdev->dcbnl_ops->getpfccfg(netdev, i - DCB_PFC_UP_ATTR_0,
-+					     &value);
-+		ret = nla_put_u8(dcbnl_skb, i, value);
-+
-+		if (ret) {
-+			nla_nest_cancel(dcbnl_skb, nest);
-+			goto err;
++			adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
++			adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
++			ixgbe_init_interrupt_scheme(adapter);
++			if (netdev->flags & IFF_UP)
++				ixgbe_open(netdev);
++			clear_bit(__IXGBE_DOWN, &adapter->state);
++		} else {
++			return;
 +		}
 +	}
-+	nla_nest_end(dcbnl_skb, nest);
-+
-+	genlmsg_end(dcbnl_skb, data);
-+
-+	ret = genlmsg_reply(dcbnl_skb, info);
-+	if (ret)
-+		goto err;
-+
-+	dev_put(netdev);
-+	return 0;
-+
-+err:
-+	kfree(dcbnl_skb);
-+err_out:
-+	dev_put(netdev);
-+	return ret;
 +}
 +
-+static int dcbnl_setall(struct sk_buff *skb, struct genl_info *info)
++static void ixgbe_dcbnl_getpermhwaddr(struct net_device *netdev, u8 *perm_addr)
 +{
-+	struct net_device *netdev;
-+	int ret = -EINVAL;
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	int i;
 +
-+	if (!info->attrs[DCB_ATTR_IFNAME] || !info->attrs[DCB_ATTR_SET_ALL])
-+		return ret;
-+
-+	netdev = dev_get_by_name(&init_net,
-+				 nla_data(info->attrs[DCB_ATTR_IFNAME]));
-+	if (!netdev)
-+		return ret;
-+
-+	if (!netdev->dcbnl_ops || !netdev->dcbnl_ops->setall)
-+		return ret;
-+
-+	ret = dcbnl_reply(netdev->dcbnl_ops->setall(netdev), DCB_CMD_SET_ALL,
-+			  DCB_ATTR_SET_ALL, info);
-+
-+	dev_put(netdev);
-+	return ret;
++	for (i = 0; i < netdev->addr_len; i++)
++		perm_addr[i] = adapter->hw.mac.perm_addr[i];
 +}
 +
-+static struct genl_ops dcbnl_ops[] = {
-+	{
-+		.cmd = DCB_CMD_GSTATE,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_getstate,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_SSTATE,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_setstate,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_PGTX_SCFG,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_pgtx_setcfg,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_PGRX_SCFG,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_pgrx_setcfg,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_PFC_SCFG,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_setpfccfg,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_PGTX_GCFG,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_pgtx_getcfg,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_PGRX_GCFG,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_pgrx_getcfg,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_PFC_GCFG,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_getpfccfg,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_SET_ALL,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_setall,
-+		.dumpit =  NULL,
-+	},
-+	{
-+		.cmd = DCB_CMD_GPERM_HWADDR,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = dcbnl_genl_policy,
-+		.doit = dcbnl_getperm_hwaddr,
-+		.dumpit =  NULL,
-+	},
-+};
-+
-+/* init and exit */
-+static int __init dcbnl_init(void)
++static void ixgbe_dcbnl_setpgtccfgtx(struct net_device *netdev, int tc,
++				     u8 prio, u8 bwg_id, u8 bw_pct, u8 up_map)
 +{
-+	int err, i;
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 +
-+	err = genl_register_family(&dcbnl_family);
-+	if (err)
-+		return err;
++	adapter->temp_dcb_cfg.tc_config[tc].path[0].prio_type = prio;
++	adapter->temp_dcb_cfg.tc_config[tc].path[0].bwg_id = bwg_id;
++	adapter->temp_dcb_cfg.tc_config[tc].path[0].bwg_percent = bw_pct;
++	adapter->temp_dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap = up_map;
 +
-+	for (i = 0; i < ARRAY_SIZE(dcbnl_ops); i++) {
-+		err = genl_register_ops(&dcbnl_family, &dcbnl_ops[i]);
-+		if (err)
-+			goto err_out;
++	if ( (adapter->temp_dcb_cfg.tc_config[tc].path[0].prio_type !=
++	      adapter->dcb_cfg.tc_config[tc].path[0].prio_type) ||
++	     (adapter->temp_dcb_cfg.tc_config[tc].path[0].bwg_id !=
++	      adapter->dcb_cfg.tc_config[tc].path[0].bwg_id) ||
++	     (adapter->temp_dcb_cfg.tc_config[tc].path[0].bwg_percent !=
++	      adapter->dcb_cfg.tc_config[tc].path[0].bwg_percent) ||
++	     (adapter->temp_dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap !=
++	      adapter->dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap))
++		adapter->dcb_set_bitmap |= BIT_PG_TX;
++}
++
++static void ixgbe_dcbnl_setpgbwgcfgtx(struct net_device *netdev, int bwg_id,
++				      u8 bw_pct)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	adapter->temp_dcb_cfg.bw_percentage[0][bwg_id] = bw_pct;
++
++	if (adapter->temp_dcb_cfg.bw_percentage[0][bwg_id] !=
++	    adapter->dcb_cfg.bw_percentage[0][bwg_id])
++		adapter->dcb_set_bitmap |= BIT_PG_RX;
++}
++
++static void ixgbe_dcbnl_setpgtccfgrx(struct net_device *netdev, int tc,
++				     u8 prio, u8 bwg_id, u8 bw_pct, u8 up_map)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	adapter->temp_dcb_cfg.tc_config[tc].path[1].prio_type = prio;
++	adapter->temp_dcb_cfg.tc_config[tc].path[1].bwg_id = bwg_id;
++	adapter->temp_dcb_cfg.tc_config[tc].path[1].bwg_percent = bw_pct;
++	adapter->temp_dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap = up_map;
++
++	if ( (adapter->temp_dcb_cfg.tc_config[tc].path[1].prio_type !=
++	      adapter->dcb_cfg.tc_config[tc].path[1].prio_type) ||
++	     (adapter->temp_dcb_cfg.tc_config[tc].path[1].bwg_id !=
++	      adapter->dcb_cfg.tc_config[tc].path[1].bwg_id) ||
++	     (adapter->temp_dcb_cfg.tc_config[tc].path[1].bwg_percent !=
++	      adapter->dcb_cfg.tc_config[tc].path[1].bwg_percent) ||
++	     (adapter->temp_dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap !=
++	      adapter->dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap))
++		adapter->dcb_set_bitmap |= BIT_PG_RX;
++}
++
++static void ixgbe_dcbnl_setpgbwgcfgrx(struct net_device *netdev, int bwg_id,
++				      u8 bw_pct)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	adapter->temp_dcb_cfg.bw_percentage[1][bwg_id] = bw_pct;
++
++	if (adapter->temp_dcb_cfg.bw_percentage[1][bwg_id] !=
++	    adapter->dcb_cfg.bw_percentage[1][bwg_id])
++		adapter->dcb_set_bitmap |= BIT_PG_RX;
++}
++
++static void ixgbe_dcbnl_getpgtccfgtx(struct net_device *netdev, int tc,
++				   u8 *prio, u8 *bwg_id, u8 *bw_pct, u8 *up_map)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	*prio = adapter->dcb_cfg.tc_config[tc].path[0].prio_type;
++	*bwg_id = adapter->dcb_cfg.tc_config[tc].path[0].bwg_id;
++	*bw_pct = adapter->dcb_cfg.tc_config[tc].path[0].bwg_percent;
++	*up_map = adapter->dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap;
++}
++
++static void ixgbe_dcbnl_getpgbwgcfgtx(struct net_device *netdev, int bwg_id,
++				      u8 *bw_pct)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	*bw_pct = adapter->dcb_cfg.bw_percentage[0][bwg_id];
++}
++
++static void ixgbe_dcbnl_getpgtccfgrx(struct net_device *netdev, int tc,
++				   u8 *prio, u8 *bwg_id, u8 *bw_pct, u8 *up_map)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	*prio = adapter->dcb_cfg.tc_config[tc].path[1].prio_type;
++	*bwg_id = adapter->dcb_cfg.tc_config[tc].path[1].bwg_id;
++	*bw_pct = adapter->dcb_cfg.tc_config[tc].path[1].bwg_percent;
++	*up_map = adapter->dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap;
++}
++
++static void ixgbe_dcbnl_getpgbwgcfgrx(struct net_device *netdev, int bwg_id,
++				      u8 *bw_pct)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	*bw_pct = adapter->dcb_cfg.bw_percentage[1][bwg_id];
++}
++
++static void ixgbe_dcbnl_setpfccfg(struct net_device *netdev, int priority,
++				  u8 setting)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	adapter->temp_dcb_cfg.tc_config[priority].dcb_pfc = setting;
++	if (adapter->temp_dcb_cfg.tc_config[priority].dcb_pfc !=
++	    adapter->dcb_cfg.tc_config[priority].dcb_pfc)
++		adapter->dcb_set_bitmap |= BIT_PFC;
++}
++
++static void ixgbe_dcbnl_getpfccfg(struct net_device *netdev, int priority,
++				  u8 *setting)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	*setting = adapter->dcb_cfg.tc_config[priority].dcb_pfc;
++}
++
++static u8 ixgbe_dcbnl_setall(struct net_device *netdev)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	int ret;
++
++	if (!adapter->dcb_set_bitmap)
++		return 1;
++
++	while (test_and_set_bit(__IXGBE_RESETTING, &adapter->state))
++		msleep(1);
++
++	ret = ixgbe_copy_dcb_cfg(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
++				 adapter->ring_feature[RING_F_DCB].indices);
++	if (ret) {
++		clear_bit(__IXGBE_RESETTING, &adapter->state);
++		return ret;
 +	}
 +
-+	return 0;
-+
-+err_out:
-+	genl_unregister_family(&dcbnl_family);
-+	return err;
++	ixgbe_down(adapter);
++	ixgbe_up(adapter);
++	adapter->dcb_set_bitmap = 0x00;
++	clear_bit(__IXGBE_RESETTING, &adapter->state);
++	return ret;
 +}
-+module_init(dcbnl_init);
++#endif /* CONFIG_DCBNL */
 +
-+static void __exit dcbnl_exit(void)
-+{
-+	genl_unregister_family(&dcbnl_family);
-+}
-+module_exit(dcbnl_exit);
+ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+@@ -1680,6 +2035,12 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ 	ixgbe_set_multi(netdev);
+ 
+ 	ixgbe_restore_vlan(adapter);
++	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
++		netif_set_gso_max_size(netdev, 32768);
++		ixgbe_configure_dcb(adapter);
++	} else {
++		netif_set_gso_max_size(netdev, 65536);
++	}
+ 
+ 	ixgbe_configure_tx(adapter);
+ 	ixgbe_configure_rx(adapter);
+@@ -1699,6 +2060,11 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 
+ 	ixgbe_get_hw_control(adapter);
+ 
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++	if (adapter->num_tx_queues > 1)
++		netdev->features |= NETIF_F_MULTI_QUEUE;
++#endif
++
+ 	if ((adapter->flags & IXGBE_FLAG_MSIX_ENABLED) ||
+ 	    (adapter->flags & IXGBE_FLAG_MSI_ENABLED)) {
+ 		if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
+@@ -1943,36 +2309,44 @@ static void ixgbe_clean_all_tx_rings(struct ixgbe_adapter *adapter)
+ void ixgbe_down(struct ixgbe_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 rxctrl;
++	u32 txdctl;
++	int i, j;
+ 
+ 	/* signal that we are down to the interrupt handler */
+ 	set_bit(__IXGBE_DOWN, &adapter->state);
+ 
+ 	/* disable receives */
+-	rxctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_RXCTRL);
+-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_RXCTRL,
+-			rxctrl & ~IXGBE_RXCTRL_RXEN);
+-
+-	netif_tx_disable(netdev);
+-
+-	/* disable transmits in the hardware */
++	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
++	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, rxctrl & ~IXGBE_RXCTRL_RXEN);
+ 
+-	/* flush both disables */
+-	IXGBE_WRITE_FLUSH(&adapter->hw);
++	IXGBE_WRITE_FLUSH(hw);
+ 	msleep(10);
+ 
++	netif_stop_queue(netdev);
++	if (netif_is_multiqueue(netdev))
++		for (i = 0; i < adapter->num_tx_queues; i++)
++			netif_stop_subqueue(netdev, i);
++
+ 	ixgbe_irq_disable(adapter);
+ 
+ 	ixgbe_napi_disable_all(adapter);
+ 	del_timer_sync(&adapter->watchdog_timer);
+ 
++	/* disable transmits in the hardware now that interrupts are off */
++	for (i = 0; i < adapter->num_tx_queues; i++) {
++		j = adapter->tx_ring[i].reg_idx;
++		txdctl = IXGBE_READ_REG(hw, IXGBE_TXDCTL(j));
++		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j),
++		                (txdctl & ~IXGBE_TXDCTL_ENABLE));
++	}
++
+ 	netif_carrier_off(netdev);
+-	netif_stop_queue(netdev);
+ 
+ 	ixgbe_reset(adapter);
+ 	ixgbe_clean_all_tx_rings(adapter);
+ 	ixgbe_clean_all_rx_rings(adapter);
+-
+ }
+ 
+ static int ixgbe_suspend(struct pci_dev *pdev, pm_message_t state)
+@@ -2069,6 +2443,11 @@ static void ixgbe_reset_task(struct work_struct *work)
+ 	struct ixgbe_adapter *adapter;
+ 	adapter = container_of(work, struct ixgbe_adapter, reset_task);
+ 
++	/* If we're already down or resetting, just bail */
++	if (test_bit(__IXGBE_DOWN, &adapter->state) ||
++	    test_bit(__IXGBE_RESETTING, &adapter->state))
++		return;
++
+ 	adapter->tx_timeout_count++;
+ 
+ 	ixgbe_reinit_locked(adapter);
+@@ -2112,6 +2491,7 @@ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
+ 		adapter->flags &= ~IXGBE_FLAG_MSIX_ENABLED;
+ 		kfree(adapter->msix_entries);
+ 		adapter->msix_entries = NULL;
++		adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
+ 		adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
+ 		adapter->num_tx_queues = 1;
+ 		adapter->num_rx_queues = 1;
+@@ -2121,19 +2501,39 @@ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
+ 	}
+ }
+ 
+-static void __devinit ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
++static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
+ {
+-	int nrq, ntq;
++	int nrq = 1, ntq = 1;
+ 	int feature_mask = 0, rss_i, rss_m;
++	int dcb_i, dcb_m;
+ 
+ 	/* Number of supported queues */
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_82598EB:
++		dcb_i = adapter->ring_feature[RING_F_DCB].indices;
++		dcb_m = 0;
+ 		rss_i = adapter->ring_feature[RING_F_RSS].indices;
+ 		rss_m = 0;
++		feature_mask |= IXGBE_FLAG_DCB_ENABLED;
+ 		feature_mask |= IXGBE_FLAG_RSS_ENABLED;
+ 
+ 		switch (adapter->flags & feature_mask) {
++		case (IXGBE_FLAG_DCB_ENABLED):
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++			dcb_m = 0x7 << 3;
++			nrq = dcb_i;
++			ntq = dcb_i;
++#else
++			printk(KERN_INFO, "Kernel has no multiqueue "
++				"support, disabling DCB.\n");
++			/* Fall back onto RSS */
++			rss_m = 0xF;
++			nrq = rss_i;
++			ntq = 1;
++			dcb_m = 0;
++			dcb_i = 0;
++#endif
++			break;
+ 		case (IXGBE_FLAG_RSS_ENABLED):
+ 			rss_m = 0xF;
+ 			nrq = rss_i;
+@@ -2145,6 +2545,8 @@ static void __devinit ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
+ 			break;
+ 		case 0:
+ 		default:
++			dcb_i = 0;
++			dcb_m = 0;
+ 			rss_i = 0;
+ 			rss_m = 0;
+ 			nrq = 1;
+@@ -2152,6 +2554,8 @@ static void __devinit ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
+ 			break;
+ 		}
+ 
++		adapter->ring_feature[RING_F_DCB].indices = dcb_i;
++		adapter->ring_feature[RING_F_DCB].mask = dcb_m;
+ 		adapter->ring_feature[RING_F_RSS].indices = rss_i;
+ 		adapter->ring_feature[RING_F_RSS].mask = rss_m;
+ 		break;
+@@ -2179,15 +2583,25 @@ static void __devinit ixgbe_cache_ring_register(struct ixgbe_adapter *adapter)
+ 	 */
+ 	int feature_mask = 0, rss_i;
+ 	int i, txr_idx, rxr_idx;
++	int dcb_i;
+ 
+ 	/* Number of supported queues */
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_82598EB:
++		dcb_i = adapter->ring_feature[RING_F_DCB].indices;
+ 		rss_i = adapter->ring_feature[RING_F_RSS].indices;
+ 		txr_idx = 0;
+ 		rxr_idx = 0;
++		feature_mask |= IXGBE_FLAG_DCB_ENABLED;
+ 		feature_mask |= IXGBE_FLAG_RSS_ENABLED;
+ 		switch (adapter->flags & feature_mask) {
++		case (IXGBE_FLAG_DCB_ENABLED):
++			/* the number of queues is assumed to be symmetric */
++			for (i = 0; i < dcb_i; i++) {
++				adapter->rx_ring[i].reg_idx = i << 3;
++				adapter->tx_ring[i].reg_idx = i << 2;
++			}
++			break;
+ 		case (IXGBE_FLAG_RSS_ENABLED):
+ 			for (i = 0; i < adapter->num_rx_queues; i++)
+ 				adapter->rx_ring[i].reg_idx = i;
+@@ -2212,7 +2626,7 @@ static void __devinit ixgbe_cache_ring_register(struct ixgbe_adapter *adapter)
+  * number of queues at compile-time.  The polling_netdev array is
+  * intended for Multiqueue, but should work fine with a single queue.
+  **/
+-static int __devinit ixgbe_alloc_queues(struct ixgbe_adapter *adapter)
++static int ixgbe_alloc_queues(struct ixgbe_adapter *adapter)
+ {
+ 	int i;
+ 
+@@ -2252,7 +2666,7 @@ err_tx_ring_allocation:
+  * Attempt to configure the interrupts using the best available
+  * capabilities of the hardware and the kernel.
+  **/
+-static int __devinit ixgbe_set_interrupt_capability(struct ixgbe_adapter
++static int ixgbe_set_interrupt_capability(struct ixgbe_adapter
+ 						    *adapter)
+ {
+ 	int err = 0;
+@@ -2281,6 +2695,7 @@ static int __devinit ixgbe_set_interrupt_capability(struct ixgbe_adapter
+ 	adapter->msix_entries = kcalloc(v_budget,
+ 					sizeof(struct msix_entry), GFP_KERNEL);
+ 	if (!adapter->msix_entries) {
++		adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
+ 		adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
+ 		ixgbe_set_num_queues(adapter);
+ 		kfree(adapter->tx_ring);
+@@ -2323,7 +2738,7 @@ out:
+ 	return err;
+ }
+ 
+-static void ixgbe_reset_interrupt_capability(struct ixgbe_adapter *adapter)
++void ixgbe_reset_interrupt_capability(struct ixgbe_adapter *adapter)
+ {
+ 	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
+ 		adapter->flags &= ~IXGBE_FLAG_MSIX_ENABLED;
+@@ -2347,7 +2762,7 @@ static void ixgbe_reset_interrupt_capability(struct ixgbe_adapter *adapter)
+  * - Hardware queue count (num_*_queues)
+  *   - defined by miscellaneous hardware support/features (RSS, etc.)
+  **/
+-static int __devinit ixgbe_init_interrupt_scheme(struct ixgbe_adapter *adapter)
++int ixgbe_init_interrupt_scheme(struct ixgbe_adapter *adapter)
+ {
+ 	int err;
+ 
+@@ -2395,11 +2810,29 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	unsigned int rss;
++	int j;
++	struct tc_configuration *tc;
+ 
+ 	/* Set capability flags */
+ 	rss = min(IXGBE_MAX_RSS_INDICES, (int)num_online_cpus());
+ 	adapter->ring_feature[RING_F_RSS].indices = rss;
+ 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
++	adapter->ring_feature[RING_F_DCB].indices = IXGBE_MAX_DCB_INDICES;
++	for (j = 0; j < MAX_TRAFFIC_CLASS; j++) {
++		tc = &adapter->dcb_cfg.tc_config[j];
++		tc->path[DCB_TX_CONFIG].bwg_id = 0;
++		tc->path[DCB_TX_CONFIG].bwg_percent = 12 + (j & 1);
++		tc->path[DCB_RX_CONFIG].bwg_id = 0;
++		tc->path[DCB_RX_CONFIG].bwg_percent = 12 + (j & 1);
++		tc->dcb_pfc = pfc_disabled;
++	}
++	adapter->dcb_cfg.bw_percentage[DCB_TX_CONFIG][0] = 100;
++	adapter->dcb_cfg.bw_percentage[DCB_RX_CONFIG][0] = 100;
++	adapter->dcb_cfg.rx_pba_cfg = pba_equal;
++	adapter->dcb_cfg.round_robin_enable = false;
++	adapter->dcb_set_bitmap = 0x00;
++	ixgbe_copy_dcb_cfg(&adapter->dcb_cfg, &adapter->temp_dcb_cfg,
++			   adapter->ring_feature[RING_F_DCB].indices);
+ 
+ 	/* Enable Dynamic interrupt throttling by default */
+ 	adapter->rx_eitr = 1;
+@@ -2681,7 +3114,7 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+  * handler is registered with the OS, the watchdog timer is started,
+  * and the stack is notified that the interface is ready.
+  **/
+-static int ixgbe_open(struct net_device *netdev)
++int ixgbe_open(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	int err;
+@@ -2736,7 +3169,7 @@ err_setup_tx:
+  * needs to be disabled.  A global MAC reset is issued to stop the
+  * hardware, and all transmit and receive resources are freed.
+  **/
+-static int ixgbe_close(struct net_device *netdev)
++int ixgbe_close(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 
+@@ -2769,6 +3202,18 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 		adapter->stats.mpc[i] += mpc;
+ 		total_mpc += adapter->stats.mpc[i];
+ 		adapter->stats.rnbc[i] += IXGBE_READ_REG(hw, IXGBE_RNBC(i));
++		adapter->stats.qptc[i] += IXGBE_READ_REG(hw, IXGBE_QPTC(i));
++		adapter->stats.qbtc[i] += IXGBE_READ_REG(hw, IXGBE_QBTC(i));
++		adapter->stats.qprc[i] += IXGBE_READ_REG(hw, IXGBE_QPRC(i));
++		adapter->stats.qbrc[i] += IXGBE_READ_REG(hw, IXGBE_QBRC(i));
++		adapter->stats.pxonrxc[i] += IXGBE_READ_REG(hw,
++		                                            IXGBE_PXONRXC(i));
++		adapter->stats.pxontxc[i] += IXGBE_READ_REG(hw,
++		                                            IXGBE_PXONTXC(i));
++		adapter->stats.pxoffrxc[i] += IXGBE_READ_REG(hw,
++		                                             IXGBE_PXOFFRXC(i));
++		adapter->stats.pxofftxc[i] += IXGBE_READ_REG(hw,
++		                                             IXGBE_PXOFFTXC(i));
+ 	}
+ 	adapter->stats.gprc += IXGBE_READ_REG(hw, IXGBE_GPRC);
+ 	/* work around hardware counting issue */
+@@ -2865,10 +3310,9 @@ static void ixgbe_watchdog(unsigned long data)
+ 
+ 			netif_carrier_on(netdev);
+ 			netif_wake_queue(netdev);
+-#ifdef CONFIG_NETDEVICES_MULTIQUEUE
+-			for (i = 0; i < adapter->num_tx_queues; i++)
+-				netif_wake_subqueue(netdev, i);
+-#endif
++			if (netif_is_multiqueue(netdev))
++				for (i = 0; i < adapter->num_tx_queues; i++)
++					netif_wake_subqueue(netdev, i);
+ 		} else {
+ 			/* Force detection of hung controller */
+ 			adapter->detect_tx_hung = true;
+@@ -2878,6 +3322,9 @@ static void ixgbe_watchdog(unsigned long data)
+ 			DPRINTK(LINK, INFO, "NIC Link is Down\n");
+ 			netif_carrier_off(netdev);
+ 			netif_stop_queue(netdev);
++			if (netif_is_multiqueue(netdev))
++				for (i = 0; i < adapter->num_tx_queues; i++)
++					netif_stop_subqueue(netdev, i);
+ 		}
+ 	}
+ 
+@@ -2972,6 +3419,8 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
+ 		mss_l4len_idx |=
+ 		    (skb_shinfo(skb)->gso_size << IXGBE_ADVTXD_MSS_SHIFT);
+ 		mss_l4len_idx |= (l4len << IXGBE_ADVTXD_L4LEN_SHIFT);
++		/* use index 1 for TSO */
++		mss_l4len_idx |= (1 << IXGBE_ADVTXD_IDX_SHIFT);
+ 		context_desc->mss_l4len_idx = cpu_to_le32(mss_l4len_idx);
+ 
+ 		tx_buffer_info->time_stamp = jiffies;
+@@ -3044,6 +3493,7 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
+ 		}
+ 
+ 		context_desc->type_tucmd_mlhl = cpu_to_le32(type_tucmd_mlhl);
++		/* use index zero for tx checksum offload */
+ 		context_desc->mss_l4len_idx = 0;
+ 
+ 		tx_buffer_info->time_stamp = jiffies;
+@@ -3152,6 +3602,8 @@ static void ixgbe_tx_queue(struct ixgbe_adapter *adapter,
+ 		olinfo_status |= IXGBE_TXD_POPTS_TXSM <<
+ 						IXGBE_ADVTXD_POPTS_SHIFT;
+ 
++		/* use index 1 context for tso */
++		olinfo_status |= (1 << IXGBE_ADVTXD_IDX_SHIFT);
+ 		if (tx_flags & IXGBE_TX_FLAGS_IPV4)
+ 			olinfo_status |= IXGBE_TXD_POPTS_IXSM <<
+ 						IXGBE_ADVTXD_POPTS_SHIFT;
+@@ -3195,11 +3647,11 @@ static int __ixgbe_maybe_stop_tx(struct net_device *netdev,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 
+-#ifdef CONFIG_NETDEVICES_MULTIQUEUE
+-	netif_stop_subqueue(netdev, tx_ring->queue_index);
+-#else
+-	netif_stop_queue(netdev);
+-#endif
++	if (netif_is_multiqueue(netdev))
++		netif_stop_subqueue(netdev, tx_ring->queue_index);
++	else
++		netif_stop_queue(netdev);
++
+ 	/* Herbert's original patch had:
+ 	 *  smp_mb__after_netif_stop_queue();
+ 	 * but since that doesn't exist yet, just open code it. */
+@@ -3211,11 +3663,10 @@ static int __ixgbe_maybe_stop_tx(struct net_device *netdev,
+ 		return -EBUSY;
+ 
+ 	/* A reprieve! - use start_queue because it doesn't call schedule */
+-#ifdef CONFIG_NETDEVICES_MULTIQUEUE
+-	netif_wake_subqueue(netdev, tx_ring->queue_index);
+-#else
+-	netif_wake_queue(netdev);
+-#endif
++	if (netif_is_multiqueue(netdev))
++		netif_start_subqueue(netdev, tx_ring->queue_index);
++	else
++		netif_start_queue(netdev);
+ 	++adapter->restart_queue;
+ 	return 0;
+ }
+@@ -3253,6 +3704,7 @@ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		dev_kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
++
+ 	mss = skb_shinfo(skb)->gso_size;
+ 
+ 	if (mss)
+@@ -3269,8 +3721,21 @@ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++		tx_flags |= vlan_tx_tag_get(skb);
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
++			tx_flags &= ~IXGBE_TX_FLAGS_VLAN_PRIO_MASK;
++			tx_flags |= (skb->queue_mapping << 13);
++		}
++#endif
++		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
+ 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
+-		tx_flags |= (vlan_tx_tag_get(skb) << IXGBE_TX_FLAGS_VLAN_SHIFT);
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++	} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
++		tx_flags |= (skb->queue_mapping << 13);
++		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
++		tx_flags |= IXGBE_TX_FLAGS_VLAN;
++#endif
+ 	}
+ 
+ 	if (skb->protocol == htons(ETH_P_IP))
+@@ -3520,13 +3985,16 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	netdev->features |= NETIF_F_TSO;
+ 
+ 	netdev->features |= NETIF_F_TSO6;
+-	if (pci_using_dac)
+-		netdev->features |= NETIF_F_HIGHDMA;
++	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
++		adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
+ 
+-#ifdef CONFIG_NETDEVICES_MULTIQUEUE
+-	netdev->features |= NETIF_F_MULTI_QUEUE;
++#ifdef CONFIG_DCBNL
++	netdev->dcbnl_ops = &dcbnl_ops;
+ #endif
+ 
++	if (pci_using_dac)
++		netdev->features |= NETIF_F_HIGHDMA;
++
+ 	/* make sure the EEPROM is good */
+ 	if (ixgbe_validate_eeprom_checksum(hw, NULL) < 0) {
+ 		dev_err(&pdev->dev, "The EEPROM Checksum Is Not Valid\n");
+@@ -3593,10 +4061,9 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 
+ 	netif_carrier_off(netdev);
+ 	netif_stop_queue(netdev);
+-#ifdef CONFIG_NETDEVICES_MULTIQUEUE
+-	for (i = 0; i < adapter->num_tx_queues; i++)
+-		netif_stop_subqueue(netdev, i);
+-#endif
++	if (netif_is_multiqueue(netdev))
++		for (i = 0; i < adapter->num_tx_queues; i++)
++			netif_stop_subqueue(netdev, i);
+ 
+ 	ixgbe_napi_add_all(adapter);
+ 
+@@ -3782,7 +4249,6 @@ static struct pci_driver ixgbe_driver = {
+  **/
+ static int __init ixgbe_init_module(void)
+ {
+-	int ret;
+ 	printk(KERN_INFO "%s: %s - version %s\n", ixgbe_driver_name,
+ 	       ixgbe_driver_string, ixgbe_driver_version);
+ 
+@@ -3792,8 +4258,7 @@ static int __init ixgbe_init_module(void)
+ 	dca_register_notify(&dca_notifier);
+ 
+ #endif
+-	ret = pci_register_driver(&ixgbe_driver);
+-	return ret;
++	return pci_register_driver(&ixgbe_driver);
+ }
+ module_init(ixgbe_init_module);
+ 
 
