@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
-Date: Tue, 27 May 2008 12:52:47 -0700 (PDT)
-Message-ID: <20080527.125247.73979652.davem@davemloft.net>
-References: <ada8wy07osq.fsf@cisco.com>
-	<1211578969.26900.5.camel@dhcp-10-13-110-217.broadcom.com>
-	<adave0z24o4.fsf@cisco.com>
+Subject: Re: [PATCH 8/8] tg3: Update version to 3.93
+Date: Tue, 27 May 2008 13:02:27 -0700 (PDT)
+Message-ID: <20080527.130227.240874231.davem@davemloft.net>
+References: <20080525.235115.264290985.davem@davemloft.net>
+	<20080525.235311.235732094.davem@davemloft.net>
+	<20080527175808.GA31979@localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: anilgv@broadcom.com, mchan@broadcom.com, michaelc@cs.wisc.edu,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	open-iscsi@googlegroups.com
-To: rdreier@cisco.com
+Cc: netdev@vger.kernel.org, mchan@broadcom.com, benli@broadcom.com,
+	andy@greyhouse.net
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59866
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44647
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756060AbYE0Twv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 15:52:51 -0400
-In-Reply-To: <adave0z24o4.fsf@cisco.com>
+	by vger.kernel.org with ESMTP id S1757074AbYE0UCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 16:02:31 -0400
+In-Reply-To: <20080527175808.GA31979@localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Tue, 27 May 2008 07:38:19 -0700
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Tue, 27 May 2008 10:58:08 -0700
 
-> So you are creating sockets just to reserve TCP ports to avoid host
-> stack clashes with your offload engine?  Wasn't this approach strongly
-> rejected (in the context of iWARP) in the past?
+> On Sun, May 25, 2008 at 11:53:11PM -0700, David Miller wrote:
+> > 
+> > Matt, don't we need a PHYLIB dependency or select statement for the
+> > tg3 driver option in drivers/net/Kconfig now?
+> 
+> Indeed, you are correct.  I'll submit a follow-on patch in another
+> email.
 
-Yes, it was, and likewise similar hacks in other areas will
-be rejected similarly.
-
+It potentially breaks the build, so I'll need to reshuffle
+the changes, possibly integrating the Kconfig change into
+one of the existing ones.
