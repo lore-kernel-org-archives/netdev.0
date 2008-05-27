@@ -1,51 +1,109 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: race in skb_splice_bits?
-Date: Tue, 27 May 2008 15:01:44 +0400
-Message-ID: <20080527110144.GA15141@2ka.mipt.ru>
-References: <200805270325.24323.opurdila@ixiacom.com>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: [PATCH 1/3] virtio: fix virtio_net xmit of freed skb bug
+Date: Tue, 27 May 2008 12:06:26 +0100
+Message-ID: <1211886386.3637.48.camel@muff>
+References: <200805261742.43215.rusty@rustcorp.com.au>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:33384 "EHLO 2ka.mipt.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:38931 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756740AbYE0LC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 07:02:26 -0400
-Content-Disposition: inline
-In-Reply-To: <200805270325.24323.opurdila@ixiacom.com>
+	id S1756617AbYE0LGi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 07:06:38 -0400
+In-Reply-To: <200805261742.43215.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 27, 2008 at 03:25:23AM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
+On Mon, 2008-05-26 at 17:42 +1000, Rusty Russell wrote:
+> If we fail to transmit a packet, we assume the queue is full and put
+> the skb into last_xmit_skb.  However, if more space frees up before we
+> xmit it, we loop, and the result can be transmitting the same skb twice.
 > 
-> Hi,
-> 
-> The following socket lock dropping in skb_splice_bits seems to open a race 
-> condition which causes an invalid kernel access:
-> 
-> >        if (spd.nr_pages) {
-> >                int ret;
-> >
-> >                /*                                                                                                                            
-> >                 * Drop the socket lock, otherwise we have reverse                                                                            
-> >                 * locking dependencies between sk_lock and i_mutex                                                                           
-> >                 * here as compared to sendfile(). We enter here                                                                              
-> >                 * with the socket lock held, and splice_to_pipe() will                                                                       
-> >                 * grab the pipe inode lock. For sendfile() emulation,                                                                        
-> >                 * we call into ->sendpage() with the i_mutex lock held                                                                       
-> >                 * and networking will grab the socket lock.                                                                                  
-> >                 */
+> Fix is simple: set skb to NULL if we've used it in some way, and check
+> before sending.
+...
+> diff -r 564237b31993 drivers/net/virtio_net.c
+> --- a/drivers/net/virtio_net.c	Mon May 19 12:22:00 2008 +1000
+> +++ b/drivers/net/virtio_net.c	Mon May 19 12:24:58 2008 +1000
+> @@ -287,21 +287,25 @@ again:
+>  	free_old_xmit_skbs(vi);
+>  
+>  	/* If we has a buffer left over from last time, send it now. */
+> -	if (vi->last_xmit_skb) {
+> +	if (unlikely(vi->last_xmit_skb)) {
+>  		if (xmit_skb(vi, vi->last_xmit_skb) != 0) {
+>  			/* Drop this skb: we only queue one. */
+>  			vi->dev->stats.tx_dropped++;
+>  			kfree_skb(skb);
+> +			skb = NULL;
+>  			goto stop_queue;
+>  		}
+>  		vi->last_xmit_skb = NULL;
 
-What about sock_hold() here?
-It will prevent from socket freeing and read/write to it will
-immediately return with error if socket was closed by another thread.
+With this, may drop an skb and then later in the function discover that
+we could have sent it after all. Poor wee skb :)
 
-> >                release_sock(__skb->sk);                                                                                                    
-> >                ret = splice_to_pipe(pipe, &spd);
-> >                lock_sock(__skb->sk);
+How about the incremental patch below?
 
-And appropriate sock_put(sk);
+Cheers,
+Mark.
 
--- 
-	Evgeniy Polyakov
+Subject: [PATCH] virtio_net: Delay dropping tx skbs
+
+Currently we drop the skb in start_xmit() if we have a
+queued buffer and fail to transmit it.
+
+However, if we delay dropping it until we've stopped the
+queue and enabled the tx notification callback, then there
+is a chance space might become available for it.
+
+Signed-off-by: Mark McLoughlin <markmc@redhat.com>
+---
+ drivers/net/virtio_net.c |   20 ++++++++++----------
+ 1 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index d50f4fe..30af05c 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -287,16 +287,11 @@ again:
+ 	free_old_xmit_skbs(vi);
+ 
+ 	/* If we has a buffer left over from last time, send it now. */
+-	if (unlikely(vi->last_xmit_skb)) {
+-		if (xmit_skb(vi, vi->last_xmit_skb) != 0) {
+-			/* Drop this skb: we only queue one. */
+-			vi->dev->stats.tx_dropped++;
+-			kfree_skb(skb);
+-			skb = NULL;
+-			goto stop_queue;
+-		}
+-		vi->last_xmit_skb = NULL;
+-	}
++	if (unlikely(vi->last_xmit_skb) &&
++	    xmit_skb(vi, vi->last_xmit_skb) != 0)
++		goto stop_queue;
++
++	vi->last_xmit_skb = NULL;
+ 
+ 	/* Put new one in send queue and do transmit */
+ 	if (likely(skb)) {
+@@ -322,6 +317,11 @@ stop_queue:
+ 		netif_start_queue(dev);
+ 		goto again;
+ 	}
++	if (skb) {
++		/* Drop this skb: we only queue one. */
++		vi->dev->stats.tx_dropped++;
++		kfree_skb(skb);
++	}
+ 	goto done;
+ }
+ 
+
+
