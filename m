@@ -1,45 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PLEASE REVERT] "Add a WARN_ON_ONCE" at
- net/sched/sch_generic.c:
-Date: Tue, 27 May 2008 06:14:42 -0700 (PDT)
-Message-ID: <20080527.061442.193726441.davem@davemloft.net>
-References: <20080525112308.03a5fda7.komurojun-mbn@nifty.com>
-	<20080525.051032.186144643.davem@davemloft.net>
-	<20080527213424.125e15dc.komurojun-mbn@nifty.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: race in skb_splice_bits?
+Date: Tue, 27 May 2008 17:21:48 +0400
+Message-ID: <20080527132148.GA7368@2ka.mipt.ru>
+References: <200805270325.24323.opurdila@ixiacom.com> <20080527115206.GA30353@2ka.mipt.ru> <20080527115638.GB30353@2ka.mipt.ru> <200805271553.50001.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: komurojun-mbn@nifty.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47594
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757300AbYE0NOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2008 09:14:46 -0400
-In-Reply-To: <20080527213424.125e15dc.komurojun-mbn@nifty.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:55315 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757326AbYE0NWG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 09:22:06 -0400
+Content-Disposition: inline
+In-Reply-To: <200805271553.50001.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Komuro <komurojun-mbn@nifty.com>
-Date: Tue, 27 May 2008 21:34:24 +0900
+On Tue, May 27, 2008 at 03:53:49PM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
+> When you interrupt the program, the system will crash.
 
-> I think the transmit timeout indicates 
-> that the cable is not connected or the irq is conflict.
+Cool!
 
-The MAC of the chip transmits and ACKs the packet in the hardware even
-if the link is down.  The packet is simply dropped.
+I've reproduced the problem and will try to work it out, thank you.
 
-Also, when the link goes down, the driver should mark the device as
-such.  In such a state, the generic networking does not pass new
-packets to the driver.
-
-Therefore, transmit timeouts in this case are a hardware
-or driver error.
-
-If there is an IRQ issue, that is an error that'd we would like to
-have as much information as possible to diagnose.  So the warning is
-still entirely appropriate.
-
-I sense that you are seeing this warning triggered, and if so I
-would suggest that you investigate it fully as it should not be
-happening under normal circumstances.
+-- 
+	Evgeniy Polyakov
