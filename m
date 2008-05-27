@@ -1,24 +1,72 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [DCCP] [Patch 0/7]: Bug fixes and format updates
-Date: Tue, 27 May 2008 09:32:40 +0100
-Message-ID: <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/7] [CCID-3]: Fix "t_ipi explosion" bug
+Date: Tue, 27 May 2008 09:32:44 +0100
+Message-ID: <1211877167-10995-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_bug_fixes_and_format_updates>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+ <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1211877167-10995-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1211877167-10995-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1211877167-10995-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58074 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58085 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756079AbYE0IdL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 04:33:11 -0400
-In-Reply-To: <dccp_bug_fixes_and_format_updates>
+	id S1756902AbYE0IdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 04:33:21 -0400
+In-Reply-To: <1211877167-10995-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+The identification of this bug is thanks to Cheng Wei and Tomasz Grobelny.
 
-please consider pulling from
+To avoid divide-by-zero, the implementation previously ignored RTTs smaller
+than 4 microseconds when performing integer division RTT/4.
 
-	git://eden-feed.erg.abdn.ac.uk/net-next-2.6.git
+When the RTT reached a value less than 4 microseconds (as observed on loopback),
+this prevented the Window Counter CCVal value from advancing. As a result, the
+receiver stopped sending feedback. This in turn caused non-ending expiries of
+the nofeedback timer at the sender, so that the sending rate was progressively
+reduced until reaching the minimum of one packet per 64 seconds.
 
-Best regards,
-Gerrit
+The patch fixes this bug by handling integer division more intelligently. Due to
+consistent use of dccp_sample_rtt(), divide-by-zero-RTT is avoided.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid3.c |   13 ++++---------
+ 1 files changed, 4 insertions(+), 9 deletions(-)
+
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -181,22 +181,17 @@ static inline void ccid3_hc_tx_update_s(struct ccid3_hc_tx_sock *hctx, int len)
+ 
+ /*
+  *	Update Window Counter using the algorithm from [RFC 4342, 8.1].
+- *	The algorithm is not applicable if RTT < 4 microseconds.
++ *	As elsewhere, RTT > 0 is assumed by using dccp_sample_rtt().
+  */
+ static inline void ccid3_hc_tx_update_win_count(struct ccid3_hc_tx_sock *hctx,
+ 						ktime_t now)
+ {
+-	u32 quarter_rtts;
+-
+-	if (unlikely(hctx->rtt < 4))	/* avoid divide-by-zero */
+-		return;
+-
+-	quarter_rtts = ktime_us_delta(now, hctx->t_last_win_count);
+-	quarter_rtts /= hctx->rtt / 4;
++	u32 delta = ktime_us_delta(now, hctx->t_last_win_count),
++	    quarter_rtts = (4 * delta) / hctx->rtt;
+ 
+ 	if (quarter_rtts > 0) {
+ 		hctx->t_last_win_count = now;
+-		hctx->last_win_count  += min_t(u32, quarter_rtts, 5);
++		hctx->last_win_count  += min(quarter_rtts, 5U);
+ 		hctx->last_win_count  &= 0xF;		/* mod 16 */
+ 	}
+ }
+-- 
+1.5.5
+
