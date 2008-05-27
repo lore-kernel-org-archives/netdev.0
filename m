@@ -1,95 +1,54 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 6/7] [CCID-2/3]: Fix sparse warnings
-Date: Tue, 27 May 2008 09:32:46 +0100
-Message-ID: <1211877167-10995-7-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/7] [DCCP]: Fix to handle short sequence numbers packet correctly
+Date: Tue, 27 May 2008 09:32:41 +0100
+Message-ID: <1211877167-10995-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_bug_fixes_and_format_updates>
  <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1211877167-10995-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1211877167-10995-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1211877167-10995-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1211877167-10995-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1211877167-10995-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+	Wei Yongjun <yjwei@cn.fujitsu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58085 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757268AbYE0IdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 04:33:25 -0400
-In-Reply-To: <1211877167-10995-6-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756644AbYE0IdS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 04:33:18 -0400
+In-Reply-To: <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following two sparse warnings:
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
 
- 1. Due to a nested min(max()) expression, sparse gave the following warnings:
+RFC4340 said:
+  8.5.  Pseudocode
+       ...
+       If P.type is not Data, Ack, or DataAck and P.X == 0 (the packet
+             has short sequence numbers), drop packet and return
 
-    net/dccp/ccids/ccid3.c:91:21: warning: symbol '__x' shadows an earlier one
-    net/dccp/ccids/ccid3.c:91:21: warning: symbol '__y' shadows an earlier one
+But DCCP has some mistake to handle short sequence numbers packet, now
+it drop packet only if P.type is Data, Ack, or DataAck and P.X == 0.
 
-    (Didn't use clamp() here since this part is liketly to be split later, when
-     implementing the changes from draft rfc3448bis.)
+This patch fixed this problem.
 
- 2. Declaration of function prototypes was in .c instead of .h file.
-    This resulted in "should it be static" warnings. Corrected by moving the
-    declarations to the tfrc.h file instead of the tfrc.c file.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/ccids/ccid3.c    |    3 ++-
- net/dccp/ccids/lib/tfrc.c |    8 --------
- net/dccp/ccids/lib/tfrc.h |   11 +++++++++--
- 3 files changed, 11 insertions(+), 11 deletions(-)
+ net/dccp/ipv4.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -150,7 +150,8 @@ static void ccid3_hc_tx_update_x(struct sock *sk, ktime_t *stamp)
- 
- 	} else if (ktime_us_delta(now, hctx->t_ld) - (s64)hctx->rtt >= 0) {
- 
--		hctx->x = max(min(2 * hctx->x, min_rate),
-+		hctx->x = min(2 * hctx->x, min_rate);
-+		hctx->x = max(hctx->x,
- 			      scaled_div(((u64)hctx->s) << 6, hctx->rtt));
- 		hctx->t_ld = now;
- 	}
---- a/net/dccp/ccids/lib/tfrc.c
-+++ b/net/dccp/ccids/lib/tfrc.c
-@@ -14,14 +14,6 @@ module_param(tfrc_debug, bool, 0444);
- MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
- #endif
- 
--extern int  tfrc_tx_packet_history_init(void);
--extern void tfrc_tx_packet_history_exit(void);
--extern int  tfrc_rx_packet_history_init(void);
--extern void tfrc_rx_packet_history_exit(void);
--
--extern int  tfrc_li_init(void);
--extern void tfrc_li_exit(void);
--
- static int __init tfrc_module_init(void)
- {
- 	int rc = tfrc_li_init();
---- a/net/dccp/ccids/lib/tfrc.h
-+++ b/net/dccp/ccids/lib/tfrc.h
-@@ -58,7 +58,14 @@ static inline u32 tfrc_ewma(const u32 avg, const u32 newval, const u8 weight)
- 	return avg ? (weight * avg + (10 - weight) * newval) / 10 : newval;
- }
- 
--extern u32 tfrc_calc_x(u16 s, u32 R, u32 p);
--extern u32 tfrc_calc_x_reverse_lookup(u32 fvalue);
-+extern u32  tfrc_calc_x(u16 s, u32 R, u32 p);
-+extern u32  tfrc_calc_x_reverse_lookup(u32 fvalue);
- 
-+extern int  tfrc_tx_packet_history_init(void);
-+extern void tfrc_tx_packet_history_exit(void);
-+extern int  tfrc_rx_packet_history_init(void);
-+extern void tfrc_rx_packet_history_exit(void);
-+
-+extern int  tfrc_li_init(void);
-+extern void tfrc_li_exit(void);
- #endif /* _TFRC_H_ */
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -739,8 +739,8 @@ int dccp_invalid_packet(struct sk_buff *skb)
+ 	 * If P.type is not Data, Ack, or DataAck and P.X == 0 (the packet
+ 	 * has short sequence numbers), drop packet and return
+ 	 */
+-	if (dh->dccph_type >= DCCP_PKT_DATA    &&
+-	    dh->dccph_type <= DCCP_PKT_DATAACK && dh->dccph_x == 0)  {
++	if ((dh->dccph_type < DCCP_PKT_DATA    ||
++	    dh->dccph_type > DCCP_PKT_DATAACK) && dh->dccph_x == 0)  {
+ 		DCCP_WARN("P.type (%s) not Data || [Data]Ack, while P.X == 0\n",
+ 			  dccp_packet_name(dh->dccph_type));
+ 		return 1;
 -- 
 1.5.5
 
