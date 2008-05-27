@@ -1,100 +1,99 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [PATCH RFC] net/bonding: announce fail-over for the active-backup
- mode
-Date: Tue, 27 May 2008 10:33:10 +0300 (IDT)
-Message-ID: <Pine.LNX.4.64.0805271012220.18192@zuben.voltaire.com>
-References: <Pine.LNX.4.64.0805211550060.27300@zuben.voltaire.com>
+From: Jesson david <david.jesson@math.univ-toulouse.fr>
+Subject: problem from netdev
+Date: Tue, 27 May 2008 09:30:23 +0200
+Message-ID: <483BB88F.7080407@math.univ-toulouse.fr>
+Reply-To: david.jesson@math.univ-toulouse.fr
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: multipart/mixed;
+ boundary="------------030604040909010605020202"
+Cc: david.Bonnafous@math.univ-toulouse.fr
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:30483 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756340AbYE0HdN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 03:33:13 -0400
-In-Reply-To: <Pine.LNX.4.64.0805211550060.27300@zuben.voltaire.com>
+Received: from smtp1.cict.fr ([195.220.59.41]:43948 "EHLO smtp1.cict.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751304AbYE0Hy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2008 03:54:29 -0400
+Received: from smtp1.cict.fr (localhost.localdomain [127.0.0.1])
+	by smtp1.cict.fr (8.14.2/8.14.2) with ESMTP id m4R7Xdsl013836
+	for <netdev@vger.kernel.org>; Tue, 27 May 2008 09:33:39 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Enhance bonding to announce fail-over for the active-backup mode through the
-> netdev events notifier chain mechanism. Such an event can be of use for the
-> RDMA CM (communication manager) to let native RDMA ULPs (eg NFS-RDMA, iSER)
-> always be aligned with the IP stack, in the sense that they use the same
-> ports/links as the stack does. More usages can be done to allow monitoring
-> tools based on netlink events be aware to bonding failover.
->
-> Signed-off-by: Or Gerlitz <ogerlitz@voltaire.com>
-[...]
-> --- linux-2.6.26-rc2.orig/drivers/net/bonding/bond_main.c	2008-05-13 10:02:22.000000000 +0300
-> +++ linux-2.6.26-rc2/drivers/net/bonding/bond_main.c	2008-05-15 12:29:44.000000000 +0300
-> @@ -1117,6 +1117,7 @@ void bond_change_active_slave(struct bon
->  			bond->send_grat_arp = 1;
->  		} else
->  			bond_send_gratuitous_arp(bond);
-> +		netdev_bonding_change(bond->dev);
->  	}
->  }
-[...]
-> --- linux-2.6.26-rc2.orig/net/core/dev.c	2008-05-13 10:02:31.000000000 +0300
-> +++ linux-2.6.26-rc2/net/core/dev.c	2008-05-13 11:50:49.000000000 +0300
-> @@ -956,6 +956,12 @@ void netdev_state_change(struct net_devi
->  	}
->  }
->
-> +void netdev_bonding_change(struct net_device *dev)
-> +{
-> +	call_netdevice_notifiers(NETDEV_BONDING_FAILOVER, dev);
-> +}
-> +EXPORT_SYMBOL(netdev_bonding_change);
+This is a multi-part message in MIME format.
+--------------030604040909010605020202
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
 
-Hi Jay,
+hello,
+i am a technical informatic french so i've a very bad english, sorry.
 
-First, I'll be happy to get a comment from you on the patch.
-
-Second, bond_change_active_slave() is called on few occasions under write_lock_bh()
-which means it runs in atomic context. I was thinking that it might be better to
-invoke call_netdevice_notifiers() from thread context, since some components may
-need to allocate memory in order to deliver event (eg netlink) and may assume the
-context they are being called is not atomic.
-
-For example I sometimes get the below "scheduling while atomic" warning which points
-on ipoib code, but the stack trace has some netlink calls which allocate skb. I am
-not sure yet what triggers this, however I wanted to check with you and Jeff if/what
-there are some convensions for the context of call_netdevice_notifiers(), thanks.
-
-Or.
+i've a problem for the "netdev"  parameter.
+i've a dell 1950 with 4 nic, 2 onboard broadcom and 2 intel e1000.
+the server boot from pxelinux with this parameter
+i need to atribute eth0 to this card for a other script and i need to 
+eth0 has the card of irq 17 and io 0xdcc0
+> LABEL gentoo-linux-2.6.24.4-scsi
+>   MENU LABEL gentoo, linux 2.6.24.4, boot scsi
+>   MENU DEFAULT
+>   MENU PASSWD toto
+>   kernel kernel-genkernel-x86-2.6.24.4
+>   # options du noyau: root, init, ramdisk_size, initrd 
+> (Documentation/kernel-parameters.txt)
+>   # options du script linuxrc: real_root, no..., doscsi 
+> (/usr/share/genkernel/generic)
+>   append softlevel=default root=/dev/ram0 init=/linuxrc 
+> ramdisk_size=8192 real_root=/dev/sda6 nodhcp nogpm nohotplug nosound 
+> doscsi initrd=initramfs-genkernel-x86-2.6.24.4
+i tried to insert the netdev parameter :
+netdev=irq=17,io=0xdcc0,name=eth0 netdev=irq=16,io=0xdce0,name=eth1  but 
+after booting this parameter was not working: eth0 is not the card with 
+irq=16/io=dcc0 and it the same for this other nic. ( ifconfig and lspci -v)
 
 
-bonding: bond0: link status definitely down for interface ib0, disabling it
-bonding: bond0: making interface ib1 the new active one.
-BUG: scheduling while atomic: bond0/14237/0x10000100
-Pid: 14237, comm: bond0 Not tainted 2.6.26-rc3 #4
+what is the problem ?? bad syntase or incompatible parameter ??
 
-Call Trace:
- [<ffffffff804777d7>] schedule+0x98/0x57b
- [<ffffffff80277836>] dbg_redzone1+0x16/0x1f
- [<ffffffffa0106f22>] :ib_ipoib:ipoib_start_xmit+0x445/0x459
- [<ffffffff802799c2>] kmem_cache_alloc_node+0x147/0x177
- [<ffffffff8040a939>] __alloc_skb+0x35/0x12b
- [<ffffffff8022c99b>] __cond_resched+0x1c/0x43
- [<ffffffff80477e11>] _cond_resched+0x2d/0x38
- [<ffffffff802798a0>] kmem_cache_alloc_node+0x25/0x177
- [<ffffffff8040a939>] __alloc_skb+0x35/0x12b
- [<ffffffff8041825e>] rtmsg_ifinfo+0x3a/0xd4
- [<ffffffff80418335>] rtnetlink_event+0x3d/0x41
- [<ffffffff8047b925>] notifier_call_chain+0x30/0x54
- [<ffffffffa00a3d4b>] :bonding:bond_select_active_slave+0xb9/0xe8
- [<ffffffffa00a495e>] :bonding:__bond_mii_monitor+0x43a/0x464
- [<ffffffffa00a49e6>] :bonding:bond_mii_monitor+0x5e/0xaa
- [<ffffffffa00a4988>] :bonding:bond_mii_monitor+0x0/0xaa
- [<ffffffff8023d6fa>] run_workqueue+0x7f/0x107
- [<ffffffff8023d782>] worker_thread+0x0/0xef
- [<ffffffff8023d867>] worker_thread+0xe5/0xef
- [<ffffffff8024088f>] autoremove_wake_function+0x0/0x2e
- [<ffffffff8024088f>] autoremove_wake_function+0x0/0x2e
- [<ffffffff8024055a>] kthread+0x3d/0x63
- [<ffffffff8020c068>] child_rip+0xa/0x12
- [<ffffffff8024051d>] kthread+0x0/0x63
- [<ffffffff8020c05e>] child_rip+0x0/0x12
+can you help me please ??
 
+ 
+
+-- 
+
+------------------------------
+
+David Jesson
+Technicien Informatique
+Batiment 1R3 bureau 105
+Institut de Math de Toulouse
+Université Paul Sabatier
+31062 Toulouse cedex 9
+
+0661259768
+056155 8888 
+______________________________
+                   
+                                                                
+
+
+--------------030604040909010605020202
+Content-Type: text/x-vcard; charset=utf-8;
+ name="david_jesson.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="david_jesson.vcf"
+
+begin:vcard
+fn:David Jesson
+n:Jesson;David
+org;quoted-printable:Universit=C3=A9 Paul Sabatier;laboratoire MIP
+adr;quoted-printable:;;118 route de Narbonne;Toulouse cedex;midi-pyr=C3=A9n=C3=A9es;31062;France
+email;internet:david.jesson@math.ups-tlse.fr
+title:Technicien informatique
+tel;work:05 61 55 88 88 
+tel;fax:05 61 55 83 85
+tel;cell:06 61 25 97 68
+x-mozilla-html:TRUE
+version:2.1
+end:vcard
+
+
+--------------030604040909010605020202--
