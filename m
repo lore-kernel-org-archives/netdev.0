@@ -1,56 +1,63 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: race in skb_splice_bits?
-Date: Wed, 28 May 2008 18:11:04 +0400
-Message-ID: <20080528141104.GA5543@2ka.mipt.ru>
-References: <200805270325.24323.opurdila@ixiacom.com> <200805280259.30931.opurdila@ixiacom.com> <20080528085241.GA30367@2ka.mipt.ru> <200805281620.55578.opurdila@ixiacom.com>
+From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Subject: Re: [ofa-general] Re: [PATCH v2 03/13] QLogic VNIC: Implementation of
+	communication protocol with EVIC/VEx
+Date: Wed, 28 May 2008 19:48:28 +0530
+Message-ID: <71d336490805280718j79c3ea24j4408b851eb0a23ab@mail.gmail.com>
+References: <20080519102843.12355.832.stgit@localhost.localdomain>
+	<20080519103258.12355.6146.stgit@localhost.localdomain>
+	<adaod6rq9o1.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:60246 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750950AbYE1OL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2008 10:11:28 -0400
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, amar.mudrankit@qlogic.com,
+	general@lists.openfabrics.org, poornima.kamath@qlogic.com
+To: "Roland Dreier" <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adaod6rq9o1.fsf@cisco.com>
 Content-Disposition: inline
-In-Reply-To: <200805281620.55578.opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 28, 2008 at 04:20:55PM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
-> > I preserved old semantic, when we free skb  
-> > only if we read it whole or in case of fin. With your changes we can
-> > also free skb, if it was partially consumed 
-> 
-> If the skb was partially consumed then tcp_recv_skb(seq-1) will return the 
-> same skb and the offset +1 != skb->len, thus we will not free it.
+Roland,
 
-I understand now, please correct me if I got your idea wrong.
-We only ned to search for the skb again only in case we processed it and
-it was possible that socket lock was dropped. So, the only needed place
-to put tcp_recv_skb() is where you pointed. Next, to find current skb we
-have to get sequence number inside its data, and seq-1 is indeed that
-case, even if skb was changed under us (like combined with others), we
-still will find it in the queue. Offset in tcp_recv_skb() is set to
-number of bytes between starting sequence number for skb and given
-sequence number, thus if we search for (seq-1), it will point to the
-last byte processed by the code, and thus offset will 'point' to last
-processed byte, not byte to start from, so we check against (offset+1)
-and if (offset+1) equals to the size of the skb found we can free this
-skb (in the code below). If it is not the case and skb contains data
-behind (offset+1) we break and the rest of the data will be processed
-in the next run. If there is no skb, we just break out of the loop.
+Thanks. Will fix both the items you pointed out.
 
-So yes, your patch is simpler and faster than mine so you should push it
-upstream. Fortunately David Miller is in copy and will (David, will
-you?) pick it up and push, likely it is also needed for stable?
+Regards,
+Ram
 
-> Anyways, I am a newbie in this area, so if my logic doesn't make any sense 
-> please be patient with me :)
-
-We all are newbies somewhere and even splice code itself is rather new :)
-
-
--- 
-	Evgeniy Polyakov
+On Wed, May 28, 2008 at 10:58 AM, Roland Dreier <rdreier@cisco.com> wrote:
+>  > +void viport_disconnect(struct viport *viport)
+>  > +{
+>  > +    VIPORT_FUNCTION("viport_disconnect()\n");
+>  > +    viport->disconnect = 1;
+>  > +    viport_failure(viport);
+>  > +    wait_event(viport->disconnect_queue, viport->disconnect == 0);
+>  > +}
+>  > +
+>  > +void viport_free(struct viport *viport)
+>  > +{
+>  > +    VIPORT_FUNCTION("viport_free()\n");
+>  > +    viport_disconnect(viport);      /* NOTE: this can sleep */
+>
+> There are no other calls to viport_disconnect() that I can see, so it
+> can be made static (and the declaration in vnic_viport.h can be dropped).
+> in fact given how small the function is and the fact that it has only a
+> single call site, it might be easier just to merge it into
+> viport_free().  But that's a matter of taste.
+>
+>  - R.
+> _______________________________________________
+> general mailing list
+> general@lists.openfabrics.org
+> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
+>
+> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
+>
