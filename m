@@ -1,40 +1,49 @@
 From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: [PATCH] IPv6: Fix the data length of get destination options with
- short length
-Date: Wed, 28 May 2008 15:15:27 +0800
-Message-ID: <483D068F.8050201@cn.fujitsu.com>
+Subject: [PATCH 1/2] IPv6: Fix the return value of get destination options
+ with NULL data pointer
+Date: Wed, 28 May 2008 16:23:47 +0800
+Message-ID: <483D1693.4080805@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@sunset.davemloft.net
+Cc: davem@sunset.davemloft.net, netdev@vger.kernel.org
 To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52338 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:64747 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750847AbYE1HQa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2008 03:16:30 -0400
+	id S1750831AbYE1IY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 May 2008 04:24:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- If get destination options with length which is not enough for that
-option,getsockopt() will still return the real length of the option,
-which is larger then the buffer space.
- This is because ipv6_getsockopt_sticky() returns the real length of
-the option.
+If we pass NULL data buffer to getsockopt(), it will return 0,
+and the option length is set to -EFAULT:
+    getsockopt(sk, IPPROTO_IPV6, IPV6_DSTOPTS, NULL, &len);
+
+This is because ipv6_getsockopt_sticky() will return -EFAULT or
+-EINVAL if some error occur.
 
 This patch fix this problem.
 
-Signed-off-by: Yang Hongyang <yaonghy@cn.fujitsu.cm> 
+Signed-off-by: Yang Hongyang <yanghy@cn.fujitsu.com> 
 
---- a/net/ipv6/ipv6_sockglue.c	2008-05-28 09:17:14.000000000 +0800
-+++ b/net/ipv6/ipv6_sockglue.c	2008-05-28 12:41:01.000000000 +0800
-@@ -832,7 +832,7 @@ static int ipv6_getsockopt_sticky(struct
- 	len = min_t(unsigned int, len, ipv6_optlen(hdr));
- 	if (copy_to_user(optval, hdr, len))
- 		return -EFAULT;
--	return ipv6_optlen(hdr);
-+	return len;
- }
+---
+ net/ipv6/ipv6_sockglue.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 56d55fe..aa7bedf 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -975,6 +975,9 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		len = ipv6_getsockopt_sticky(sk, np->opt,
+ 					     optname, optval, len);
+ 		release_sock(sk);
++		/* check if ipv6_getsockopt_sticky() returns err code */
++		if (len < 0)
++			return len;
+ 		return put_user(len, optlen);
+ 	}
  
-
+-- 1.5.3.8 
 
