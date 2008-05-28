@@ -1,38 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: network interface *name* alias support?
-Date: Wed, 28 May 2008 00:11:58 +0200
-Message-ID: <20080527221158.GC20815@postel.suug.ch>
-References: <48387B18.2090300@trash.net> <alpine.LNX.1.10.0805242254020.19084@fbirervta.pbzchgretzou.qr> <4838D7E4.7050401@trash.net> <20080525.051713.124717485.davem@davemloft.net> <20080527190352.GE25696@auslistsprd01.us.dell.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
+Date: Tue, 27 May 2008 17:48:49 -0700
+Message-ID: <1211935729.18326.185.camel@dell>
+References: <ada8wy07osq.fsf@cisco.com>
+ <1211578969.26900.5.camel@dhcp-10-13-110-217.broadcom.com>
+ <adave0z24o4.fsf@cisco.com>
+ <20080527.125247.73979652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	jengelh@medozas.de, dwmw2@infradead.org, jchapman@katalix.com,
-	jonathan@jonmasters.org, rick.jones2@hp.com,
-	auke-jan.h.kok@intel.com, johnathan@jonmasters.org,
-	netdev@vger.kernel.org
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:45941 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754646AbYE0WLi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2008 18:11:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20080527190352.GE25696@auslistsprd01.us.dell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, anilgv@broadcom.com, michaelc@cs.wisc.edu,
+	netdev <netdev@vger.kernel.org>, linux-scsi@vger.kernel.org,
+	open-iscsi@googlegroups.com
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080527.125247.73979652.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Matt Domsch <Matt_Domsch@dell.com> 2008-05-27 14:03
-> Network devices have no such thing that I can tell.  I get at the
-> device names (as presently assigned) by reading /proc/net/dev (I'd be
-> happy to be told of a more correct way - this is what net-tools uses.)
-> The moment I've finished reading this though, another process can come
-> along and change these devices names.  Now every ioctl() my code makes
-> could fail because the name (in struct ifreq) is the handle used for
-> such calls.  One could argue it's a rare thing to change device
-> names...
+On Tue, 2008-05-27 at 12:52 -0700, David Miller wrote:
+> From: Roland Dreier <rdreier@cisco.com>
+> Date: Tue, 27 May 2008 07:38:19 -0700
+> 
+> > So you are creating sockets just to reserve TCP ports to avoid host
+> > stack clashes with your offload engine?  Wasn't this approach strongly
+> > rejected (in the context of iWARP) in the past?
+> 
+> Yes, it was, and likewise similar hacks in other areas will
+> be rejected similarly.
+> 
 
-Regardless of whether you identify the link by name or slot, you
-should translate the name/slot to ifindex and use netlink requests
-to manipulate links. The ifindex is not going to change and won't
-be reused by new links until the (large) counter overflows. Therefore
-the chance of modyfing a wrong link is close to zero.
+If we change the implementation to use a separate IP address and
+separate MAC address for iSCSI, will it be acceptable?  The iSCSI IP/MAC
+addresses will be unknown to the Linux TCP stack and so no sharing of
+the 4-tuple space will be needed.
+
+The patches will be very similar, except that all inet calls and
+notifiers will be removed.
+
+
+
