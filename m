@@ -1,18 +1,18 @@
 From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH v2 08/13] QLogic VNIC: sysfs interface
-	implementation for the driver
-Date: Tue, 27 May 2008 22:26:04 -0700
-Message-ID: <adaskw3q9sj.fsf@cisco.com>
+Subject: [ofa-general] Re: [PATCH v2 03/13] QLogic VNIC: Implementation of
+	communication protocol with EVIC/VEx
+Date: Tue, 27 May 2008 22:28:46 -0700
+Message-ID: <adaod6rq9o1.fsf@cisco.com>
 References: <20080519102843.12355.832.stgit@localhost.localdomain>
-	<20080519103529.12355.82570.stgit@localhost.localdomain>
+	<20080519103258.12355.6146.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, poornima.kamath@qlogic.com,
 	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
 To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20080519103529.12355.82570.stgit@localhost.localdomain>
-	(Ramachandra K.'s message of "Mon, 19 May 2008 16:05:29 +0530")
+In-Reply-To: <20080519103258.12355.6146.stgit@localhost.localdomain>
+	(Ramachandra K.'s message of "Mon, 19 May 2008 16:02:58 +0530")
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -24,17 +24,23 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
- > +ssize_t vnic_create_primary(struct device *dev,
- > +			    struct device_attribute *dev_attr, const char *buf,
- > +			    size_t count)
+ > +void viport_disconnect(struct viport *viport)
+ > +{
+ > +	VIPORT_FUNCTION("viport_disconnect()\n");
+ > +	viport->disconnect = 1;
+ > +	viport_failure(viport);
+ > +	wait_event(viport->disconnect_queue, viport->disconnect == 0);
+ > +}
+ > +
+ > +void viport_free(struct viport *viport)
+ > +{
+ > +	VIPORT_FUNCTION("viport_free()\n");
+ > +	viport_disconnect(viport);	/* NOTE: this can sleep */
 
- > +ssize_t vnic_create_secondary(struct device *dev,
- > +			      struct device_attribute *dev_attr,
- > +			      const char *buf, size_t count)
+There are no other calls to viport_disconnect() that I can see, so it
+can be made static (and the declaration in vnic_viport.h can be dropped).
+in fact given how small the function is and the fact that it has only a
+single call site, it might be easier just to merge it into
+viport_free().  But that's a matter of taste.
 
- > +ssize_t vnic_delete(struct device *dev, struct device_attribute *dev_attr,
- > +		    const char *buf, size_t count)
-
-These are all only referenced from a sysfs attribute defined in the same
-file, so they can be made static (and don't need extern declarations in
-a header file).
+ - R.
