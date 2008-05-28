@@ -1,60 +1,137 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 1/3] [NET-NEXT]: Add DCB netlink interface definition
-Date: Wed, 28 May 2008 09:03:57 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32905281CD4@orsmsx414.amr.corp.intel.com>
-References: <20080527141339.12851.98781.stgit@localhost.localdomain> <20080527141346.12851.2280.stgit@localhost.localdomain> <20080528094140.GD20815@postel.suug.ch>
+From: Nathan Lynch <ntl@pobox.com>
+Subject: Re: [PATCH 2/3] [2.6.26] ehea: Add dependency to Kconfig
+Date: Wed, 28 May 2008 11:44:05 -0500
+Message-ID: <20080528164405.GA4836@localdomain>
+References: <200805071443.20192.hannes.hering@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeff@garzik.org>, <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Thomas Graf" <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, tklein@de.ibm.com, themann@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	raisch@de.ibm.com, ossrosch@linux.vnet.ibm.com,
+	linuxppc-dev@ozlabs.org, ossthema@de.ibm.com
+To: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15465 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751303AbYE1QEA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2008 12:04:00 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080528094140.GD20815@postel.suug.ch>
+Received: from a-sasl-fastnet.sasl.smtp.pobox.com ([207.106.133.19]:48979 "EHLO
+	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751762AbYE1QoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2008 12:44:09 -0400
+Content-Disposition: inline
+In-Reply-To: <200805071443.20192.hannes.hering@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Is there a specific reason why you used a separate generic 
-> netlink interface instead of embedding this into the regular 
-> link message via either IFLA_DCB or by using the info API?
+Hello,
 
-There are four reasons we decided to use a separate interface:
+Hannes Hering wrote:
+> The new ehea memory hot plug implementation depends on MEMORY_HOTPLUG.
+> 
+> Signed-off-by: Hannes Hering <hering2@de.ibm.com>
+> ---
+> 
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index f90a86b..181cd86 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2440,7 +2440,7 @@ config CHELSIO_T3
+>  
+>  config EHEA
+>  	tristate "eHEA Ethernet support"
+> -	depends on IBMEBUS && INET && SPARSEMEM
+> +	depends on IBMEBUS && INET && SPARSEMEM && MEMORY_HOTPLUG
+>  	select INET_LRO
+>  	---help---
+>  	  This driver supports the IBM pSeries eHEA ethernet adapter.
 
-1. The netlink messages are generated via userspace when the connection
-is setup, plus they're generated from LLDP frames coming in off the
-wire.  Those LLDP frames implement the DCBX protocol (Data Center
-Bridging Exchange), which is the negotiation protocol between a DCB
-device and its link partner.  In most cases, it's a DCB-compliant
-switch, like a Cisco Nexus 5000.  So the messages can come out of band
-depending on how the network gets configured, and if any events occur
-causing the bandwidth credits or priority mappings to change (think
-automated backups at night, wanting more bandwidth than during the day).
+I disagree with this change.
 
-2. The DCBX protocol is being extended to contain more information, and
-second generation DCB devices have more configuration data for the
-network.  So we wanted an interface that could be extended on its own to
-support the new DCB protocols as they're ratified and implemented in new
-equipment, without impacting existing infrastructure.
+It makes it impossible to build the ehea driver without memory hotplug
+enabled.  Presumably, this commit was intended to work around a build
+break of this sort (with EHEA=m and MEMORY_HOTPLUG=n):
 
-3. We wanted to use generic netlink, since that seems to be a more
-preferred method of netlink communication vs. rtnetlink.  And I don't
-know anything about the info API, so I can't comment on why we didn't
-look at that for implementation.  Can you suggest something for me to
-look at for the info API so I can see what that's all about?
+drivers/net/ehea/ehea_qmr.c: In function 'ehea_create_busmap':
+drivers/net/ehea/ehea_qmr.c:635: error: implicit declaration of function 'walk_memory_resource'
 
-4. We also developed the userspace utilities for the Linux OSVs, which
-should be having a pre-release "release" on Sourceforge in the next week
-or so, to support the DCBX protocol.  They're implemented using the
-generic netlink interface, so obviously if we can keep it that way, it'd
-be preferred.  :-)
+(some indication of this should have been in the commit message, btw)
 
-Thanks Thomas.  Other than that, is there anything in the netlink
-interface that you would suggest to change?
+I think this was the wrong way to fix the issue.  EHEA=m and
+MEMORY_HOTPLUG=n is a valid configuration for machines I test.
 
-Cheers,
--PJ Waskiewicz
+Any thoughts on the following, which makes walk_memory_resource()
+available regardless of MEMORY_HOTPLUG's setting?  I've tested it on a
+JS22 (Power6 blade).
+
+---
+
+ arch/powerpc/mm/mem.c          |    3 +--
+ drivers/net/Kconfig            |    2 +-
+ include/linux/memory_hotplug.h |   16 ++++++++--------
+ 3 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index f67e118..51f82d8 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -151,6 +151,7 @@ out:
+ 	return ret;
+ }
+ #endif /* CONFIG_MEMORY_HOTREMOVE */
++#endif /* CONFIG_MEMORY_HOTPLUG */
+ 
+ /*
+  * walk_memory_resource() needs to make sure there is no holes in a given
+@@ -184,8 +185,6 @@ walk_memory_resource(unsigned long start_pfn, unsigned long nr_pages, void *arg,
+ }
+ EXPORT_SYMBOL_GPL(walk_memory_resource);
+ 
+-#endif /* CONFIG_MEMORY_HOTPLUG */
+-
+ void show_mem(void)
+ {
+ 	unsigned long total = 0, reserved = 0;
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index dd0ec9e..f4182cf 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2426,7 +2426,7 @@ config CHELSIO_T3
+ 
+ config EHEA
+ 	tristate "eHEA Ethernet support"
+-	depends on IBMEBUS && INET && SPARSEMEM && MEMORY_HOTPLUG
++	depends on IBMEBUS && INET && SPARSEMEM
+ 	select INET_LRO
+ 	---help---
+ 	  This driver supports the IBM pSeries eHEA ethernet adapter.
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 73e3586..ea9f5ad 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -77,14 +77,6 @@ extern int __add_pages(struct zone *zone, unsigned long start_pfn,
+ extern int __remove_pages(struct zone *zone, unsigned long start_pfn,
+ 	unsigned long nr_pages);
+ 
+-/*
+- * Walk through all memory which is registered as resource.
+- * arg is (start_pfn, nr_pages, private_arg_pointer)
+- */
+-extern int walk_memory_resource(unsigned long start_pfn,
+-			unsigned long nr_pages, void *arg,
+-			int (*func)(unsigned long, unsigned long, void *));
+-
+ #ifdef CONFIG_NUMA
+ extern int memory_add_physaddr_to_nid(u64 start);
+ #else
+@@ -199,6 +191,14 @@ static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
+ 
+ #endif /* ! CONFIG_MEMORY_HOTPLUG */
+ 
++/*
++ * Walk through all memory which is registered as resource.
++ * arg is (start_pfn, nr_pages, private_arg_pointer)
++ */
++extern int walk_memory_resource(unsigned long start_pfn,
++			unsigned long nr_pages, void *arg,
++			int (*func)(unsigned long, unsigned long, void *));
++
+ extern int add_memory(int nid, u64 start, u64 size);
+ extern int arch_add_memory(int nid, u64 start, u64 size);
+ extern int remove_memory(u64 start, u64 size);
