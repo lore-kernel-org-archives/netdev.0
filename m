@@ -1,33 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/3] bnx2i: Add bnx2i iSCSI driver.
-Date: Tue, 27 May 2008 23:39:31 -0400
-Message-ID: <483CD3F3.6070308@garzik.org>
-References: <ada8wy07osq.fsf@cisco.com> <1211578969.26900.5.camel@dhcp-10-13-110-217.broadcom.com> <adave0z24o4.fsf@cisco.com> <20080527.125247.73979652.davem@davemloft.net> <1211935729.18326.185.camel@dell>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/3] virtio: fix delayed xmit of packet and freeing of old packets.
+Date: Wed, 28 May 2008 14:59:09 +1000
+Message-ID: <200805281459.09564.rusty@rustcorp.com.au>
+References: <200805261742.43215.rusty@rustcorp.com.au> <200805261748.13449.rusty@rustcorp.com.au> <1211886068.3637.42.camel@muff>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rdreier@cisco.com,
-	anilgv@broadcom.com, michaelc@cs.wisc.edu,
-	netdev <netdev@vger.kernel.org>, linux-scsi@vger.kernel.org,
-	open-iscsi@googlegroups.com
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1211935729.18326.185.camel@dell>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Mark McLoughlin <markmc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:54378 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751484AbYE1E7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 May 2008 00:59:25 -0400
+In-Reply-To: <1211886068.3637.42.camel@muff>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
-> If we change the implementation to use a separate IP address and
-> separate MAC address for iSCSI, will it be acceptable?  The iSCSI IP/MAC
-> addresses will be unknown to the Linux TCP stack and so no sharing of
-> the 4-tuple space will be needed.
-> 
-> The patches will be very similar, except that all inet calls and
-> notifiers will be removed.
+On Tuesday 27 May 2008 21:01:08 Mark McLoughlin wrote:
+> On Mon, 2008-05-26 at 17:48 +1000, Rusty Russell wrote:
+> > diff -r 1d1ff03de434 drivers/net/virtio_net.c
+> ...
+> > +	tasklet_init(&vi->tasklet, xmit_tasklet, (unsigned long)vi);
+> > +
+> >  	err = register_netdev(dev);
+>
+> Missing a tasklet_kill() in virtnet_remove() ?
 
+Thanks Mark!  Added.
 
-IMO a totally separate MAC and IP would definitely be preferred...
-
-	Jeff
-
-
+Nice spotting,
+Rusty.
