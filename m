@@ -1,63 +1,68 @@
-From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Subject: Re: [ofa-general] Re: [PATCH v2 03/13] QLogic VNIC: Implementation of
-	communication protocol with EVIC/VEx
-Date: Wed, 28 May 2008 19:48:28 +0530
-Message-ID: <71d336490805280718j79c3ea24j4408b851eb0a23ab@mail.gmail.com>
-References: <20080519102843.12355.832.stgit@localhost.localdomain>
-	<20080519103258.12355.6146.stgit@localhost.localdomain>
-	<adaod6rq9o1.fsf@cisco.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [IPv6] addrconf: Check range of prefix length
+Date: Wed, 28 May 2008 16:54:22 +0200
+Message-ID: <20080528145422.GE20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amar.mudrankit@qlogic.com,
-	general@lists.openfabrics.org, poornima.kamath@qlogic.com
-To: "Roland Dreier" <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adaod6rq9o1.fsf@cisco.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:38731 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751079AbYE1OyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 May 2008 10:54:03 -0400
 Content-Disposition: inline
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Roland,
+As of now, the prefix length is not vaildated when adding or deleting
+addresses. The value is passed directly into the inet6_ifaddr structure
+and later passed on to memcmp() as length indicator which relies on
+the value never to exceed 128 (bits).
 
-Thanks. Will fix both the items you pointed out.
+Due to the missing check, the currently code allows for any 8 bit
+value to be passed on as prefix length while using the netlink
+interface, and any 32 bit value while using the ioctl interface.
 
-Regards,
-Ram
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-On Wed, May 28, 2008 at 10:58 AM, Roland Dreier <rdreier@cisco.com> wrote:
->  > +void viport_disconnect(struct viport *viport)
->  > +{
->  > +    VIPORT_FUNCTION("viport_disconnect()\n");
->  > +    viport->disconnect = 1;
->  > +    viport_failure(viport);
->  > +    wait_event(viport->disconnect_queue, viport->disconnect == 0);
->  > +}
->  > +
->  > +void viport_free(struct viport *viport)
->  > +{
->  > +    VIPORT_FUNCTION("viport_free()\n");
->  > +    viport_disconnect(viport);      /* NOTE: this can sleep */
->
-> There are no other calls to viport_disconnect() that I can see, so it
-> can be made static (and the declaration in vnic_viport.h can be dropped).
-> in fact given how small the function is and the fact that it has only a
-> single call site, it might be easier just to merge it into
-> viport_free().  But that's a matter of taste.
->
->  - R.
-> _______________________________________________
-> general mailing list
-> general@lists.openfabrics.org
-> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
->
-> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
->
+Index: net-2.6/net/ipv6/addrconf.c
+===================================================================
+--- net-2.6.orig/net/ipv6/addrconf.c	2008-05-28 16:32:32.000000000 +0200
++++ net-2.6/net/ipv6/addrconf.c	2008-05-28 16:48:31.000000000 +0200
+@@ -2027,7 +2027,7 @@
+  *	Manual configuration of address on an interface
+  */
+ static int inet6_addr_add(struct net *net, int ifindex, struct in6_addr *pfx,
+-			  int plen, __u8 ifa_flags, __u32 prefered_lft,
++			  u8 plen, __u8 ifa_flags, __u32 prefered_lft,
+ 			  __u32 valid_lft)
+ {
+ 	struct inet6_ifaddr *ifp;
+@@ -2039,6 +2039,9 @@
+ 
+ 	ASSERT_RTNL();
+ 
++	if (plen > 128)
++		return -EINVAL;
++
+ 	/* check the lifetime */
+ 	if (!valid_lft || prefered_lft > valid_lft)
+ 		return -EINVAL;
+@@ -2095,12 +2098,15 @@
+ }
+ 
+ static int inet6_addr_del(struct net *net, int ifindex, struct in6_addr *pfx,
+-			  int plen)
++			  u8 plen)
+ {
+ 	struct inet6_ifaddr *ifp;
+ 	struct inet6_dev *idev;
+ 	struct net_device *dev;
+ 
++	if (plen > 128)
++		return -EINVAL;
++
+ 	dev = __dev_get_by_index(net, ifindex);
+ 	if (!dev)
+ 		return -ENODEV;
