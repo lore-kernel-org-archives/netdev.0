@@ -1,46 +1,47 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH v2 03/13] QLogic VNIC: Implementation of
-	communication protocol with EVIC/VEx
-Date: Tue, 27 May 2008 22:28:46 -0700
-Message-ID: <adaod6rq9o1.fsf@cisco.com>
-References: <20080519102843.12355.832.stgit@localhost.localdomain>
-	<20080519103258.12355.6146.stgit@localhost.localdomain>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [DCCP] [Patch 0/7]: Bug fixes and format updates
+Date: Wed, 28 May 2008 07:12:07 +0100
+Message-ID: <20080528061207.GA4480@gerrit.erg.abdn.ac.uk>
+References: <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, poornima.kamath@qlogic.com,
-	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
-To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20080519103258.12355.6146.stgit@localhost.localdomain>
-	(Ramachandra K.'s message of "Mon, 19 May 2008 16:02:58 +0530")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47140 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752413AbYE1GM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 May 2008 02:12:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > +void viport_disconnect(struct viport *viport)
- > +{
- > +	VIPORT_FUNCTION("viport_disconnect()\n");
- > +	viport->disconnect = 1;
- > +	viport_failure(viport);
- > +	wait_event(viport->disconnect_queue, viport->disconnect == 0);
- > +}
- > +
- > +void viport_free(struct viport *viport)
- > +{
- > +	VIPORT_FUNCTION("viport_free()\n");
- > +	viport_disconnect(viport);	/* NOTE: this can sleep */
+Not so happy with yesterday's submission. I wished I could have spared
+you the trouble; I would like to improve this for future submissions:
 
-There are no other calls to viport_disconnect() that I can see, so it
-can be made static (and the declaration in vnic_viport.h can be dropped).
-in fact given how small the function is and the fact that it has only a
-single call site, it might be easier just to merge it into
-viport_free().  But that's a matter of taste.
+As a rule, I will not ask you to pull patches that haven't had any previous
+mailing list review.
 
- - R.
+The patches submitted yesterday had been posted to the list earlier, and had
+been in the test tree for a while; but perhaps that was too long ago or was
+not clear.
+
+I will try to make clearer in the future where review is needed.
+
+There are several ways for people to contribute. There is a web interface
+to browse the changesets: http://eden-feed.erg.abdn.ac.uk and code under
+review is available in several formats:
+
+- tree:       git://eden-feed.erg.abdn.ac.uk/dccp_exp  (subtree dccp)
+- tarball:   http://eden-feed.erg.abdn.ac.uk/latest-dccp-test-tree.tar.bz2
+- snapshots: http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/test-tree/
+
+Mixing format changes and bug fixes ... yes, also my error, will in
+future create separate changesets.
+
+For the moment, I have recoded the patch(es) that you have asked me to
+and have isolated bug fixes from the tree for a separate submission.
+
+I hope we can keep this constructive,
+Gerrit
