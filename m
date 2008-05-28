@@ -1,291 +1,106 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH v1.2.26] wan: new driver retina
-Date: Wed, 28 May 2008 14:30:20 +0200
-Message-ID: <m3prr6obkz.fsf@maximus.localdomain>
-References: <ca0148c30805280342l39ffe387rf4c670b17804f99d@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Wired behaviour with IPv6 over PPP
+Date: Wed, 28 May 2008 14:45:53 +0200
+Message-ID: <20080528124553.GA3252@1wt.eu>
+References: <48341C0B.7010003@interway.ch> <20080522014959.0f6191aa.akpm@linux-foundation.org> <48354318.60202@katalix.com> <4835C40B.60603@interway.ch> <20080524042911.GE6749@1wt.eu> <483D2D11.9080803@plouf.fr.eu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: "Matti Linnanvuori" <mattilinn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from OSB1387.piap.pl ([195.187.100.11]:58376 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752071AbYE1Ma1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2008 08:30:27 -0400
-In-Reply-To: <ca0148c30805280342l39ffe387rf4c670b17804f99d@mail.gmail.com> (Matti Linnanvuori's message of "Wed\, 28 May 2008 13\:42\:10 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matthias Cramer <matthias.cramer@interway.ch>,
+	James Chapman <jchapman@katalix.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Pascal Hambourg <pascal.mail@plouf.fr.eu.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754453AbYE1Mqi@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <483D2D11.9080803@plouf.fr.eu.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Few quick notes. I'd Cc: linux-kernel@vger.kernel.org next time as
-this is a non-network character device driver as well.
+Hi,
 
-"Matti Linnanvuori" <mattilinn@gmail.com> writes:
+On Wed, May 28, 2008 at 11:59:45AM +0200, Pascal Hambourg wrote:
+> Hello all,
+>=20
+> Willy Tarreau a =E9crit/wrote :
+> >On Thu, May 22, 2008 at 09:05:47PM +0200, Matthias Cramer wrote:
+> >
+> >>James Chapman wrote:
+> >>
+> >>>Andrew Morton wrote:
+> >>>
+> >>>>On Wed, 21 May 2008 14:56:43 +0200 Matthias Cramer
+> >>>><matthias.cramer@interway.ch> wrote:
+> >>>>
+> >>>>>I have a very wired behaviour when doing IPv6 over PPPoE.
+> >>>>>
+> >>>>>The situation:
+> >>>>>
+> >>>>>A linux box connected to a DSL Modem, on the other side is a Cis=
+co
+> >>>>>LNS which terminates the PPP session (actually L2TP).
+> >>>>>I have control over both ends.
+> >>>>>
+> >>>>>When I have net.ipv6.conf.all.forwarding set to 0 then the ppp
+> >>>>>Interface gets a IPv6 address from the Cisco via IP6CP.
+> >>>>>When I have net.ipv6.conf.all.forwarding set to 1 them the ppp
+> >>>>>Interface does not get an address, it has only a normal link loc=
+al
+> >>>>>address.
+>=20
+> AFAIK IPV6CP/PPP only allows to negotiate link local addresses.
 
-> +/* net device related stuff: */
-> +#define FEPCI_NETDEV_IOCTL_STREAM_BUFSIZE 0x89F1
-> +#define FEPCI_NETDEV_IOCTL_STREAM_UNITSIZE 0x89F2
-> +#define FEPCI_NETDEV_IOCTL_STREAM_OPEN 0x89F3
-> +#define FEPCI_NETDEV_IOCTL_STREAM_START 0x89F4
-> +#define FEPCI_NETDEV_IOCTL_STREAM_CLOSE 0x89F6
+right.
 
- *      THESE IOCTLS ARE _DEPRECATED_ AND WILL DISAPPEAR IN 2.5.X -DaveM
- */
- 
-#define SIOCDEVPRIVATE  0x89F0  /* to 89FF */
+> So I=20
+> guess the global address and default route is assigned by another=20
+> mechanism, maybe stateless autoconfiguration using router advertiseme=
+nt,=20
+> although I was not aware it could be used on a PPP link because of th=
+e=20
+> absence of MAC address. Enabling global forwarding=20
+> (net.ipv6.conf.all.forwarding=3D1) disables stateless autoconfigurati=
+on=20
+> (see ip-sysctl.txt in kernel documentation) on all interfaces. I beli=
+eve=20
+> this is consistent with the observed behaviour.
+>=20
+> >>>>>When I start the ppp session with forwarding set to 0 I can ping=
+ out
+> >>>>>and there exists a default route to ppp0 , then I switch forward=
+ing to=20
+> >>>>>1
+> >>>>>the default route disappears and therefore routing does not work=
+ any
+> >>>>>longer.
+>=20
+> I have read reports about this. I guess the logic is that enabling=20
+> forwarding turns the box into a router, so the default route learned=20
+> from another router's advertisements by autoconfiguration should be=20
+> deleted. Even the autoconfigured global address will eventually expir=
+e.
+>=20
+> >Well, at least it has been working for years in kernel 2.4 for me wi=
+th
+> >pppd 2.4.2b3 to 2.4.4 (I've not upgraded my firewall to 2.6 yet). So
+> >it has definitely been working at some point.
+>=20
+> What exactly has been working ?
 
-They haven't disappered yet but I'd rather use something else.
-Personally, sysfs stuff, unless you need to do it frequently/fast.
+Sorry, I understood that IPv6 addresses got lost when IP forwarding was
+set to 1, which sounded strange to me. I've re-read the original mail
+more carefully and noticed that it was _autoconfiguration_ which does n=
+ot
+work. For this, I don't know as I don't use it. My bad.
 
-> +#define MAX_DEVICES 32u
+> PS : Willy, do you plan to backport the security fix for the sit modu=
+le=20
+> from 2.6.25.3 into 2.4 ?
 
-Why such artificial limit?
+Yes, any security fix must be backported when appropriate. I just don't
+remember about this one, maybe I missed it. Care to send a pointer to
+the commit in 2.6 ?
 
-> +/* need to update MODULE_PARM also */
-> +#define MAX_INTERFACES (CHANNELS * MAX_DEVICES)
-
-Doesn't seem to be used anywhere.
-
-> +#include <asm/pgtable.h>
-
-I'm not sure SetPageReserved() etc. belong to drivers.
-
-> +module_param(retina_noarp_with_ptp, bool, S_IRUGO);
-> +MODULE_PARM_DESC(retina_noarp_with_ptp,
-> +		 "0 to disable NOARP, 1 to enable NOARP");
-
-Why not use a dynamic setting? ip link set XXX arp on|off?
-
-> +	/* Process ID of the current mailbox user (for whom it is reserved) */
-> +	unsigned int ioctl_saved_pid;
-
-Is this PID checking needed at all? It sure creates many problems,
-such as process' death and number wrapping.
-
-> +/* global variables (common to whole driver, all the cards): */
-> +static int major;			/* char device major number */
-> +static struct fepci_card_private card_privates[MAX_DEVICES];
-
-Why not dynamic?
-
-> +static int fepci_char_open(struct inode *inode, struct file *filp)
-> +{
-> +	unsigned int minor = MINOR(inode->i_rdev);
-> +	if (unlikely(minor >= find_cnt || card_privates[minor].pci_dev == NULL))
-> +		return -ENXIO;
-> +	filp->f_op = &fepci_char_fops;
-> +	if (unlikely(!try_module_get(THIS_MODULE)))
-> +		return -EBUSY;
-
-That won't work race-free, use owner field.
-
-> +	if (offset == STREAM_BUFFER_POINTER_AREA) {
-> +		virtual_address = stream_pointers;
-> +		if (virtual_address == 0) {
-> +			printk(KERN_WARNING "%s: mmap: internal error.\n",
-> +			       fepci_name);
-> +			return -ENOMEM;
-> +		}
-
-Why not just BUG_ON(!virtual_address)?
-
-> +			wait_event_interruptible((card_privates[minor].
-> +						  stream_both_q)
-> +						 ,
-> +						 (temp_tx_pointer !=
-> +						  *USER_TX_S_FAKE_POINTER
-> +						  (minor, arg, stream_pointers))
-> +						 || (temp_rx_pointer !=
-> +						     *USER_RX_S_FAKE_POINTER
-> +						     (minor, arg,
-> +						      stream_pointers)));
-
-As a side note, it shows why the 80 columns limit is damaging us.
-
-> +		switch (get_semafore(real_mailbox)) {
-> +		case 0x40:
-> +		case 0x20:
-> +		case 0x21:
-> +			/* copy the mailbox */
-> +			retval = fepci_copy_from_user(ioaddr +
-> +						FEPCI_MAILBOX_OFFSETT + 4,
-> +						arg + 2, _IOC_SIZE(cmd) - 2, 1);
-> +			/* semafore -> 10 */
-> +			set_semafore(real_mailbox, 0x10);
-> +			mod_timer(&card_privates[minor].mailbox_timer,
-> +				  jiffies + 20 * HZ);
-> +			break;
-> +		case 0x10:
-> +		case 0x11:
-> +		case 0x80:
-
-Some comments about real_mailbox values maybe?
-
-> +static ssize_t fepci_char_read(struct file *filp, char __user *buf,
-> +			       size_t count, loff_t *f_pos)
-> +{
-> +	if (count > 1)
-> +		count = 1;
-> +	if (unlikely(copy_to_user(buf, "\n", count)))
-> +		return -EFAULT;
-> +	return count;
-> +}
-
-So why exactly is the above useful?
-
-> +static int fepci_stream_open_down(struct net_device *dev,
-> +				  struct fepci_ch_private *fp)
-> +{
-> +	unsigned tx_pages, rx_pages, tx_order, rx_order;
-> +	unsigned page_number;
-> +	unsigned int i;
-> +
-> +	if (unlikely(fp->in_eth_mode)) {
-> +		dev_warn(&dev->dev,
-> +			 "Interface is in Ethernet mode, "
-> +			 "cannot open stream interface\n");
-> +		return -EBUSY;
-> +	}
-
-Some locking maybe? That seems like a great recipe for races.
-I'd check the recent discussions about the big kernel lock too.
-
-> +	for (page_number = 0; page_number < rx_pages; page_number++)
-> +		/* make pages reserved to allow remappping pages
-> +		   with io_remap_pfn_range */
-> +		SetPageReserved(virt_to_page
-> +				((unsigned long)fp->rx_buffer +
-> +				 (page_number << PAGE_SHIFT)));
-> +	for (page_number = 0; page_number < tx_pages; page_number++)
-> +		/* make pages reserved to allow remappping pages
-> +		   with io_remap_pfn_range */
-> +		SetPageReserved(virt_to_page
-> +				((unsigned long)fp->tx_buffer +
-> +				 (page_number << PAGE_SHIFT)));
-
-Looks dangerous.
-
-> +static inline void fepci_stream_stop(struct net_device *dev,
-> +				     struct fepci_ch_private *fp)
-> +{
-> +	uint8_t __iomem *ioaddr = (uint8_t __iomem *)dev->base_addr;
-> +	fp->stream_on = 0;
-> +	/* Stop Rx and Tx channels. */
-> +	writel(0x0, ioaddr + fp->reg_rxctrl);
-> +	writel(0x0, ioaddr + fp->reg_txctrl);
-> +
-> +	/* Disable interrupts by clearing the interrupt mask. */
-> +	set_int_mask(fp->channel_number, 0x0, fp->this_card_priv);
-> +
-> +	/* unregister irq */
-> +	free_irq(dev->irq, dev);
-> +
-> +	{
-> +		unsigned i = min(RX_RING_SIZE, TX_RING_SIZE) - 1;
-> +		do {
-> +			if (likely(!pci_dma_mapping_error(
-> +				pci_unmap_addr(fp->rx + i, address))))
-> +				pci_unmap_single(fp->this_card_priv->
-> +						 pci_dev,
-> +						 pci_unmap_addr(fp->rx + i,
-> +								address),
-> +						 fp->unit_sz,
-> +						 PCI_DMA_FROMDEVICE);
-> +			if (likely(!pci_dma_mapping_error(
-> +				pci_unmap_addr(fp->tx + i, address))))
-> +				pci_unmap_single(fp->this_card_priv->
-> +						 pci_dev,
-> +						 pci_unmap_addr(fp->tx + i,
-> +								address),
-> +						 fp->unit_sz, PCI_DMA_TODEVICE);
-> +		} while (i--);
-> +	}
-> +}
-
-If you move this "unsigned i" (or better unsigned v or something as
-"i" is usually used for pure ints) to the start of this function,
-the code will look much better.
-
-> +static int fepci_rebuild_header(struct sk_buff *skb)
-> +{
-> +	return 0;
-> +}
-
-Unneeded?
-
-> +static int __devinit fepci_init_one(struct pci_dev *pdev,
-> +				    const struct pci_device_id *ent)
-> +{
-
- +	if (PCI_FUNC(pdev->devfn) != 0)
-> +		return -ENXIO;
-
-Don't you plan multi-function cards? :-)
-
-> +		/* HW_ADDR is got using the mailbox: */
-> +		{
-> +			struct fepci_real_mailbox __iomem *real_mailbox =
-> +				(struct fepci_real_mailbox __iomem *)
-> +				(ioaddr + FEPCI_MAILBOX_OFFSETT);
-
-Same comment about moving variable to the start (of the parent block
-maybe). If you want it to be a separate function then do that.
-
-
-> +static int fepci_open(struct net_device *dev)
-> +{
-> +	struct fepci_ch_private *fp = netdev_priv(dev);
-> +	if (unlikely(fp->in_stream_mode))
-> +		fepci_stream_close_down(dev, fp);
-
-Wouldn't it be better to return -EBUSY instead?
-
-> +static int fepci_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct fepci_ch_private *fp;
-> +	unsigned cur_tx;
-> +	unsigned next;
-> +	unsigned tx_length;
-> +	dma_addr_t bus_address;
-> +
-> +	if (unlikely(skb_padto(skb, ETH_ZLEN)))
-> +		return NETDEV_TX_OK;
-
-Statistics maybe?
-
-> +static inline void fepci_rx(struct fepci_ch_private *fp, struct
-> net_device *dev)
-> +{
-> +		if (!(desc_b & transfer_not_done)) { /* transfer done */
-> +			fp->cur_rx = (i + 1) & (RX_RING_SIZE - 1);
-> +			if (unlikely(desc_b & (fifo_error | size_error |
-> +					       crc_error | octet_error |
-> +					       line_error))) {
-> +				if (desc_b & fifo_error)
-> +					fp->stats.rx_frame_errors++;
-> +				else if (desc_b & size_error)
-> +					fp->stats.rx_over_errors++;
-> +				else if (desc_b & crc_error)
-> +					fp->stats.rx_crc_errors++;
-> +ENABLE_TRANSFER:		writel(enable_transfer, &rx_desc->desc_b);
-> +				fp->stats.rx_errors++;
-> +				continue;
-> +			} else {
-
-You don't need "else" due to "continue", right? More space for you.
-
-> +static struct net_device_stats *fepci_get_stats(struct net_device *dev)
-> +{
-> +	struct fepci_ch_private *fp = netdev_priv(dev);
-> +	return &fp->stats;
-> +}
-
-If you use the built-in net_device_stats you don't need the function.
-
-> +static void set_rx_mode(struct net_device *dev)
-> +{
-> +	dev_dbg(&dev->dev, "set_rx_mode\n");
-> +}
-
-Seems unused.
--- 
-Krzysztof Halasa
+Thanks,
+Willy
