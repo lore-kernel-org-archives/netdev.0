@@ -1,109 +1,43 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [Patch v2 1/1] [tcp/dccp]: Consolidate duplicate code which does
-	RFC3390 conversion
-Date: Wed, 28 May 2008 07:24:51 +0100
-Message-ID: <20080528062451.GB4480@gerrit.erg.abdn.ac.uk>
-References: <1211877167-10995-6-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-7-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-8-git-send-email-gerrit@erg.abdn.ac.uk> <20080527.063745.105720366.davem@davemloft.net>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH] IPv6: Fix the data length of get destination options with
+ short length
+Date: Wed, 28 May 2008 14:49:20 +0800
+Message-ID: <483D0070.2090909@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, FNST-Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Wang Chen <wangchen@cn.fujitsu.com>, davem@sunset.davemloft.net
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47599 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751086AbYE1GY7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2008 02:24:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20080527.063745.105720366.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:61550 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750831AbYE1Guc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 May 2008 02:50:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please find below recoded patch as requested. 
+  If get destination options with length which is not enough for that
+option,getsockopt() will still return the real length of the option,
+which is larger then the buffer space.
+  This is because ipv6_getsockopt_sticky() returns the real length of
+the option.
 
->>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+This patch fix this problem.
 
-tcp/dccp: Consolidate duplicate code which does RFC3390 conversion
+Signed-off-by: Yang Hongyang <yanghy@cn.fujitsu.com>
 
-This patch consolidates the code common to TCP and CCID-2:
-
- * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
- * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- include/net/tcp.h      |   15 +++++++++++++++
- net/dccp/ccids/ccid2.c |    8 ++------
- net/ipv4/tcp_input.c   |   17 ++---------------
- 3 files changed, 19 insertions(+), 21 deletions(-)
-
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -808,25 +808,12 @@ void tcp_update_metrics(struct sock *sk)
- 	}
+--- net/ipv6/ipv6_sockglue.c	2008-05-28 09:17:14.000000000 +0800
++++ net/ipv6/ipv6_sockglue.c	2008-05-28 12:41:01.000000000 +0800
+@@ -832,7 +832,7 @@ static int ipv6_getsockopt_sticky(struct
+ 	len = min_t(unsigned int, len, ipv6_optlen(hdr));
+ 	if (copy_to_user(optval, hdr, len))
+ 		return -EFAULT;
+-	return ipv6_optlen(hdr);
++	return len;
  }
- 
--/* Numbers are taken from RFC3390.
-- *
-- * John Heffner states:
-- *
-- *	The RFC specifies a window of no more than 4380 bytes
-- *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-- *	is a bit misleading because they use a clamp at 4380 bytes
-- *	rather than use a multiplier in the relevant range.
-- */
- __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
- {
- 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
- 
--	if (!cwnd) {
--		if (tp->mss_cache > 1460)
--			cwnd = 2;
--		else
--			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
--	}
-+	if (!cwnd)
-+		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
- 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
- }
- 
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -783,6 +783,21 @@ static inline __u32 tcp_current_ssthresh
- /* Use define here intentionally to get WARN_ON location shown at the caller */
- #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
- 
-+/*
-+ * Convert RFC3390 larger initial windows into an equivalent number of packets.
-+ *
-+ * John Heffner states:
-+ *
-+ *	The RFC specifies a window of no more than 4380 bytes
-+ *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-+ *	is a bit misleading because they use a clamp at 4380 bytes
-+ *	rather than a multiplier in the relevant range.
-+ */
-+static inline u32 rfc3390_bytes_to_packets(const u32 bytes)
-+{
-+	return bytes < 1095 ? 4 : (bytes > 1460 ? 2 : 3);
-+}
-+
- extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
- extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
- 
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -711,12 +711,8 @@ static int ccid2_hc_tx_init(struct ccid 
- 	/* RFC 4341, 5: initialise ssthresh to arbitrarily high (max) value */
- 	hctx->ccid2hctx_ssthresh  = ~0U;
- 
--	/*
--	 * RFC 4341, 5: "The cwnd parameter is initialized to at most four
--	 * packets for new connections, following the rules from [RFC3390]".
--	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
--	 */
--	hctx->ccid2hctx_cwnd = clamp(4380U / dp->dccps_mss_cache, 2U, 4U);
-+	/* Use larger initial windows (RFC 3390, rfc2581bis) */
-+	hctx->ccid2hctx_cwnd = rfc3390_bytes_to_packets(dp->dccps_mss_cache);
- 
- 	/* Make sure that Ack Ratio is enabled and within bounds. */
- 	max_ratio = DIV_ROUND_UP(hctx->ccid2hctx_cwnd, 2);
+
+---------
+2.6.26-rc4 
+
+
