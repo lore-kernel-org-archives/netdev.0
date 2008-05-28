@@ -1,36 +1,40 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/3] virtio: fix delayed xmit of packet and freeing of old packets.
-Date: Wed, 28 May 2008 14:59:09 +1000
-Message-ID: <200805281459.09564.rusty@rustcorp.com.au>
-References: <200805261742.43215.rusty@rustcorp.com.au> <200805261748.13449.rusty@rustcorp.com.au> <1211886068.3637.42.camel@muff>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: [PATCH v2 08/13] QLogic VNIC: sysfs interface
+	implementation for the driver
+Date: Tue, 27 May 2008 22:26:04 -0700
+Message-ID: <adaskw3q9sj.fsf@cisco.com>
+References: <20080519102843.12355.832.stgit@localhost.localdomain>
+	<20080519103529.12355.82570.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Mark McLoughlin <markmc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:54378 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751484AbYE1E7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2008 00:59:25 -0400
-In-Reply-To: <1211886068.3637.42.camel@muff>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, poornima.kamath@qlogic.com,
+	general@lists.openfabrics.org, amar.mudrankit@qlogic.com
+To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080519103529.12355.82570.stgit@localhost.localdomain>
+	(Ramachandra K.'s message of "Mon, 19 May 2008 16:05:29 +0530")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 27 May 2008 21:01:08 Mark McLoughlin wrote:
-> On Mon, 2008-05-26 at 17:48 +1000, Rusty Russell wrote:
-> > diff -r 1d1ff03de434 drivers/net/virtio_net.c
-> ...
-> > +	tasklet_init(&vi->tasklet, xmit_tasklet, (unsigned long)vi);
-> > +
-> >  	err = register_netdev(dev);
->
-> Missing a tasklet_kill() in virtnet_remove() ?
+ > +ssize_t vnic_create_primary(struct device *dev,
+ > +			    struct device_attribute *dev_attr, const char *buf,
+ > +			    size_t count)
 
-Thanks Mark!  Added.
+ > +ssize_t vnic_create_secondary(struct device *dev,
+ > +			      struct device_attribute *dev_attr,
+ > +			      const char *buf, size_t count)
 
-Nice spotting,
-Rusty.
+ > +ssize_t vnic_delete(struct device *dev, struct device_attribute *dev_attr,
+ > +		    const char *buf, size_t count)
+
+These are all only referenced from a sysfs attribute defined in the same
+file, so they can be made static (and don't need extern declarations in
+a header file).
