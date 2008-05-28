@@ -1,57 +1,112 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: [PATCH] sysctl: permission check based on capability not euid
-Date: Wed, 28 May 2008 12:12:00 -0700
-Message-ID: <20080528121200.54c04b5a@speedy>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [PATCH] Fix for race condition introduced by the temporary drop of the socket =?iso-8859-1?q?=A0lock_in?= skb_splice_bits.
+Date: Wed, 28 May 2008 22:53:22 +0300
+Message-ID: <200805282253.22688.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Chris Wright <chrisw@osdl.org>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_ygbPIilNz5kGg7+"
+Cc: netdev@vger.kernel.org, Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:56554 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753313AbYE1TMB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2008 15:12:01 -0400
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:4255 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752230AbYE1Tye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2008 15:54:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch modifies the permission checks for sysctl's from being based on uid=0 (root)
-to use the capability system. This matches the behavior of other OS's using sysctl's
-and capabilities. Linux has tried to get away from using uid=0 for security overrides
-and use capabilities instead. 
+--Boundary-00=_ygbPIilNz5kGg7+
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I was working on Quagga enhancement that involved enabling a sysctl, and it didn't
-work because is a safe daemon and drops privileges and resets its real/effective uid
-after initialization; it then re-enables only the capabilities when it needs to
-do some privileged operation. This wouldn't work because sysctl's were still using
-the root based permission check. The existing code in quagga to enable ip forwarding
-doesn't work for the same reason.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Hi David,
 
+This patch applies to 2.6.25 and fixes the crashes in tcp_read_sock and 
+skb_splice_bits reported on the mailing list earlier. 
+
+Thanks,
+tavi
+
+--Boundary-00=_ygbPIilNz5kGg7+
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="0001-Fix-for-race-condition-introduced-by-the-temporary-d.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="0001-Fix-for-race-condition-introduced-by-the-temporary-d.patch"
+
+>From e701750462892024a2260fd344aa9ef9900f4454 Mon Sep 17 00:00:00 2001
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Wed, 28 May 2008 22:14:56 +0300
+Subject: [PATCH] Fix for race condition introduced by the temporary drop of the socket
+ lock in skb_splice_bits.
+
+skb_splice_bits temporary drops the socket lock while iterating over
+the socket queue in order to break a reverse locking condition which
+happens with sendfile. This, however, opens a window of opportunity
+for tcp_collapse() to aggregate skbs and thus potentially free the
+current skb used in skb_splice_bits and tcp_read_sock.
+
+This patch fixes the problem by (re-)getting the same "logical
+skb" after the lock has been temporary dropped.
+
+Based on idea and initial patch from Evgeniy Polyakov.
+
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
-Maybe once the BKL is gone, the last vestiges of current->euid == 0 can be wiped out
-as well.
+ net/core/skbuff.c |    5 +++--
+ net/ipv4/tcp.c    |    9 ++++++++-
+ 2 files changed, 11 insertions(+), 3 deletions(-)
 
---- a/include/linux/capability.h	2008-05-27 17:33:02.000000000 -0700
-+++ b/include/linux/capability.h	2008-05-27 17:33:27.000000000 -0700
-@@ -261,6 +261,7 @@ typedef struct kernel_cap_struct {
-    arbitrary SCSI commands */
- /* Allow setting encryption key on loopback filesystem */
- /* Allow setting zone reclaim policy */
-+/* Allow setting any sysctl value */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 0a9002b..b0a9f43 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1358,6 +1358,7 @@ done:
  
- #define CAP_SYS_ADMIN        21
+ 	if (spd.nr_pages) {
+ 		int ret;
++		struct sock *sk = __skb->sk;
  
---- a/kernel/sysctl.c	2008-05-27 17:32:33.000000000 -0700
-+++ b/kernel/sysctl.c	2008-05-27 17:32:46.000000000 -0700
-@@ -1561,7 +1561,7 @@ out:
+ 		/*
+ 		 * Drop the socket lock, otherwise we have reverse
+@@ -1368,9 +1369,9 @@ done:
+ 		 * we call into ->sendpage() with the i_mutex lock held
+ 		 * and networking will grab the socket lock.
+ 		 */
+-		release_sock(__skb->sk);
++		release_sock(sk);
+ 		ret = splice_to_pipe(pipe, &spd);
+-		lock_sock(__skb->sk);
++		lock_sock(sk);
+ 		return ret;
+ 	}
  
- static int test_perm(int mode, int op)
- {
--	if (!current->euid)
-+	if (capable(CAP_SYS_ADMIN))
- 		mode >>= 6;
- 	else if (in_egroup_p(0))
- 		mode >>= 3;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 3e91b28..680546a 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1227,7 +1227,14 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+ 				copied += used;
+ 				offset += used;
+ 			}
+-			if (offset != skb->len)
++			/*
++			 * If recv_actor drops the lock (e.g. TCP splice
++			 * receive) the skb pointer might be invalid when
++			 * getting here: tcp_collapse might have deleted it
++			 * while aggregating skbs from the socket queue.
++			 */
++			skb = tcp_recv_skb(sk, seq-1, &offset);
++			if (!skb || (offset+1 != skb->len))
+ 				break;
+ 		}
+ 		if (tcp_hdr(skb)->fin) {
+-- 
+1.5.4.3
+
+
+--Boundary-00=_ygbPIilNz5kGg7+--
