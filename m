@@ -1,32 +1,36 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next 1/1] netns: IPv6 address labels per namespace.
-Date: Wed, 28 May 2008 21:05:14 +0900 (JST)
-Message-ID: <20080528.210514.118764806.yoshfuji@linux-ipv6.org>
-References: <20080527144050.754524679@theryb.frec.bull.fr>
+Subject: Re: [PATCH 1/2] IPv6: Fix the return value of get destination
+ options with NULL data pointer
+Date: Wed, 28 May 2008 21:07:22 +0900 (JST)
+Message-ID: <20080528.210722.59120277.yoshfuji@linux-ipv6.org>
+References: <483D1693.4080805@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
+Cc: davem@sunset.davemloft.net, netdev@vger.kernel.org,
 	yoshfuji@linux-ipv6.org
-To: benjamin.thery@bull.net
+To: yanghy@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:53513 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:53518 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbYE1MEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2008 08:04:44 -0400
-In-Reply-To: <20080527144050.754524679@theryb.frec.bull.fr>
+	with ESMTP id S1752051AbYE1MGv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2008 08:06:51 -0400
+In-Reply-To: <483D1693.4080805@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080527144050.754524679@theryb.frec.bull.fr> (at Tue, 27 May 2008 16:40:42 +0200), Benjamin Thery <benjamin.thery@bull.net> says:
+In article <483D1693.4080805@cn.fujitsu.com> (at Wed, 28 May 2008 16:23:47 +0800), Yang Hongyang <yanghy@cn.fujitsu.com> says:
 
-> This patch makes IPv6 address labels per network namespace.
-> It keeps the global label tables, ip6addrlbl_table, but 
-> adds a 'net' member to each ip6addrlbl_entry.
-> This new member is taken into account when matching labels.
+> If we pass NULL data buffer to getsockopt(), it will return 0,
+> and the option length is set to -EFAULT:
+>     getsockopt(sk, IPPROTO_IPV6, IPV6_DSTOPTS, NULL, &len);
+> 
+> This is because ipv6_getsockopt_sticky() will return -EFAULT or
+> -EINVAL if some error occur.
+> 
+> This patch fix this problem.
 
-Could you please eliminate penalty without namespece
-like dev_net() etc.?
+I'm going to apply this in my tree.  Thanks.
 
 --yoshfuji
