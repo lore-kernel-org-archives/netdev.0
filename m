@@ -1,47 +1,109 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [DCCP] [Patch 0/7]: Bug fixes and format updates
-Date: Wed, 28 May 2008 07:12:07 +0100
-Message-ID: <20080528061207.GA4480@gerrit.erg.abdn.ac.uk>
-References: <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [Patch v2 1/1] [tcp/dccp]: Consolidate duplicate code which does
+	RFC3390 conversion
+Date: Wed, 28 May 2008 07:24:51 +0100
+Message-ID: <20080528062451.GB4480@gerrit.erg.abdn.ac.uk>
+References: <1211877167-10995-6-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-7-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-8-git-send-email-gerrit@erg.abdn.ac.uk> <20080527.063745.105720366.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47140 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47599 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752413AbYE1GM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2008 02:12:28 -0400
+	id S1751086AbYE1GY7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 May 2008 02:24:59 -0400
 Content-Disposition: inline
-In-Reply-To: <1211877167-10995-1-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <20080527.063745.105720366.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not so happy with yesterday's submission. I wished I could have spared
-you the trouble; I would like to improve this for future submissions:
+Please find below recoded patch as requested. 
 
-As a rule, I will not ask you to pull patches that haven't had any previous
-mailing list review.
+>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-The patches submitted yesterday had been posted to the list earlier, and had
-been in the test tree for a while; but perhaps that was too long ago or was
-not clear.
+tcp/dccp: Consolidate duplicate code which does RFC3390 conversion
 
-I will try to make clearer in the future where review is needed.
+This patch consolidates the code common to TCP and CCID-2:
 
-There are several ways for people to contribute. There is a web interface
-to browse the changesets: http://eden-feed.erg.abdn.ac.uk and code under
-review is available in several formats:
+ * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
+ * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
 
-- tree:       git://eden-feed.erg.abdn.ac.uk/dccp_exp  (subtree dccp)
-- tarball:   http://eden-feed.erg.abdn.ac.uk/latest-dccp-test-tree.tar.bz2
-- snapshots: http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/test-tree/
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ include/net/tcp.h      |   15 +++++++++++++++
+ net/dccp/ccids/ccid2.c |    8 ++------
+ net/ipv4/tcp_input.c   |   17 ++---------------
+ 3 files changed, 19 insertions(+), 21 deletions(-)
 
-Mixing format changes and bug fixes ... yes, also my error, will in
-future create separate changesets.
-
-For the moment, I have recoded the patch(es) that you have asked me to
-and have isolated bug fixes from the tree for a separate submission.
-
-I hope we can keep this constructive,
-Gerrit
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -808,25 +808,12 @@ void tcp_update_metrics(struct sock *sk)
+ 	}
+ }
+ 
+-/* Numbers are taken from RFC3390.
+- *
+- * John Heffner states:
+- *
+- *	The RFC specifies a window of no more than 4380 bytes
+- *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
+- *	is a bit misleading because they use a clamp at 4380 bytes
+- *	rather than use a multiplier in the relevant range.
+- */
+ __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
+ {
+ 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+ 
+-	if (!cwnd) {
+-		if (tp->mss_cache > 1460)
+-			cwnd = 2;
+-		else
+-			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
+-	}
++	if (!cwnd)
++		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
+ 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
+ }
+ 
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -783,6 +783,21 @@ static inline __u32 tcp_current_ssthresh
+ /* Use define here intentionally to get WARN_ON location shown at the caller */
+ #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
+ 
++/*
++ * Convert RFC3390 larger initial windows into an equivalent number of packets.
++ *
++ * John Heffner states:
++ *
++ *	The RFC specifies a window of no more than 4380 bytes
++ *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
++ *	is a bit misleading because they use a clamp at 4380 bytes
++ *	rather than a multiplier in the relevant range.
++ */
++static inline u32 rfc3390_bytes_to_packets(const u32 bytes)
++{
++	return bytes < 1095 ? 4 : (bytes > 1460 ? 2 : 3);
++}
++
+ extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+ extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
+ 
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -711,12 +711,8 @@ static int ccid2_hc_tx_init(struct ccid 
+ 	/* RFC 4341, 5: initialise ssthresh to arbitrarily high (max) value */
+ 	hctx->ccid2hctx_ssthresh  = ~0U;
+ 
+-	/*
+-	 * RFC 4341, 5: "The cwnd parameter is initialized to at most four
+-	 * packets for new connections, following the rules from [RFC3390]".
+-	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
+-	 */
+-	hctx->ccid2hctx_cwnd = clamp(4380U / dp->dccps_mss_cache, 2U, 4U);
++	/* Use larger initial windows (RFC 3390, rfc2581bis) */
++	hctx->ccid2hctx_cwnd = rfc3390_bytes_to_packets(dp->dccps_mss_cache);
+ 
+ 	/* Make sure that Ack Ratio is enabled and within bounds. */
+ 	max_ratio = DIV_ROUND_UP(hctx->ccid2hctx_cwnd, 2);
