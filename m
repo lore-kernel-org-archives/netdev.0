@@ -1,44 +1,48 @@
-From: Dave Jones <davej@redhat.com>
-Subject: [PATCH 2/2] 8139too: Make the OQO2 automatically use PIO mode.
-Date: Thu, 29 May 2008 11:08:49 -0400
-Message-ID: <20080529150849.GC8247@redhat.com>
-References: <20080429171403.GA21035@redhat.com> <48177905.4000409@garzik.org> <20080429215626.GC2859@redhat.com> <48179B56.7000606@garzik.org> <20080429153240.7200e1a3.akpm@linux-foundation.org> <4818546C.4060703@garzik.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Single packet receiving in multiple ring buffers
+Date: Thu, 29 May 2008 19:35:27 +0400
+Message-ID: <20080529153527.GA6561@2ka.mipt.ru>
+References: <20080529144551.GA29823@2ka.mipt.ru> <31256957387BB54C8B9AFE88AA5C0564044A1DD0@SDCEXCHANGE01.ad.amcc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: David Miller <davem@davemloft.net>, kchudgar.linux@gmail.com,
+	netdev@vger.kernel.org
+To: Keyur Chudgar <kchudgar@amcc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59270 "EHLO mx1.redhat.com"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54064 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753856AbYE2PQS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2008 11:16:18 -0400
+	id S1751183AbYE2Pfl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2008 11:35:41 -0400
 Content-Disposition: inline
-In-Reply-To: <4818546C.4060703@garzik.org>
+In-Reply-To: <31256957387BB54C8B9AFE88AA5C0564044A1DD0@SDCEXCHANGE01.ad.amcc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The OQO model 2 has an RTL8139 from Atheros that doesn't like MMIO.
-Force it to always use polled IO.
+On Thu, May 29, 2008 at 08:06:25AM -0700, Keyur Chudgar (kchudgar@amcc.com) wrote:
+> > Does your hardware support MTU (or kind of that like e1000, which
+> supports packets with size upto next power of two over > MTU)? 
+> 
+> Yes, it does support MTU. The problem I am discussing will be for jumbo
+> frames only.
 
-Signed-off-by: Dave Jones <davej@redhat.com>
+Then I do not exactly understand a problem, you allocate say 1500 bytes
+skb and number of pages (use PAGE_SIZE for arch driver is being loaded),
+depending on arch you can even use a single page for the whole packet.
+Then install descriptors according to sizes (first one will have size
+1500 bytes, second and third ones will be PAGE_SIZE).
 
---- linux-2.6.25.noarch/drivers/net/8139too.c~	2008-05-28 21:07:36.000000000 -0400
-+++ linux-2.6.25.noarch/drivers/net/8139too.c	2008-05-28 21:19:57.000000000 -0400
-@@ -951,6 +951,14 @@ static int __devinit rtl8139_init_one (s
- 			   "Use the \"8139cp\" driver for improved performance and stability.\n");
- 	}
- 
-+	if (pdev->vendor == PCI_VENDOR_ID_REALTEK &&
-+	    pdev->device == PCI_DEVICE_ID_REALTEK_8139 &&
-+	    pdev->subsystem_vendor == PCI_VENDOR_ID_ATHEROS &&
-+	    pdev->subsystem_device == PCI_DEVICE_ID_REALTEK_8139) {
-+		printk(KERN_INFO "8139too: OQO Model 2 detected. Forcing PIO\n");
-+		use_pio = 1;
-+	}
-+
- 	i = rtl8139_init_board (pdev, &dev);
- 	if (i < 0)
- 		return i;
+With jumbo frames you will waste some descriptors and some pages, but
+small-sized traffic will hit only descriptor associated with skb->data,
+so you will detach page from skb and submit it to stack, allocate new
+one and attach that pages to new skb. If size is too small you can
+allocate new small skb and copy data there (I recalled, it is called
+copybreak) and submit it to stack instead of one, where DMA was
+completed.
+
+> > Page size is different on each arch, for x86 it is 4k by default.
+> OK.
+
+You can check PAGE_SIZE for particular arch NIC is used.
 
 -- 
-http://www.codemonkey.org.uk
+	Evgeniy Polyakov
