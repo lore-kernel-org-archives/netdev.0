@@ -1,37 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Question on ipmr.c locking in 2.6.25
-Date: Thu, 29 May 2008 03:47:28 -0700 (PDT)
-Message-ID: <20080529.034728.225207018.davem@davemloft.net>
-References: <483DD0EE.1020700@candelatech.com>
-	<20080528215833.GA14038@solarflare.com>
-	<483DD775.2070901@candelatech.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] [resend] drivers/net: remove network drivers' last few
+ uses of IRQF_SAMPLE_RANDOM
+Date: Thu, 29 May 2008 11:49:41 +0100
+Message-ID: <20080529114941.099d8e2c@core>
+References: <Pine.LNX.4.62.0805282319090.19567@ikari.dreamhost.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: greearb@candelatech.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chris Peterson <cpeterso@cpeterso.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47882
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751065AbYE2Krc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:47:32 -0400
-In-Reply-To: <483DD775.2070901@candelatech.com>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:56102 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751169AbYE2LDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 07:03:38 -0400
+In-Reply-To: <Pine.LNX.4.62.0805282319090.19567@ikari.dreamhost.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Wed, 28 May 2008 15:06:45 -0700
+On Wed, 28 May 2008 23:23:26 -0700 (PDT)
+Chris Peterson <cpeterso@cpeterso.com> wrote:
 
-> Now I wonder:  If a reader read only a small bit of the proc file,
-> and then just went to sleep w/out closing or reading the rest of
-> the file, would that effectively DOS a system by pinning the locks?
+> 
+> Remove network drivers' last few uses of theoretically-exploitable network 
+> entropy. Only 12 net drivers are affected. Headless boxes should use a 
+> more secure source of entropy, such as the userspace daemons rngd, clrngd, 
+> egd, audio_entropyd, and/or video_entroyd.
+> 
+> I'm also thinking about writing a "Frankenstein" daemon that combines the 
+> entropy-collecting algorithms from those daemons into one. Whereas rngd 
+> only uses /dev/hw_random, my hypothetical daemon would make a best effort 
+> attempt: use /dev/hw_random if it exists, otherwise fallback (or use in 
+> addition) the other entropy sources.
+> 
+> 
+> Signed-off-by: Chris Peterson <cpeterso@cpeterso.com>
 
-That's not how this works.
-
-The in-kernel buffer used by the SEQ file infrastructure is
-filled as best as possible.  Then the locks are dropped and
-the copy to userspace is performed.
-
-Since we hold locks, this also means preemption is disabled.
-So there is no way for the task to go to sleep at this
-time.
+Acked-by: Alan Cox <alan@redhat.com>
