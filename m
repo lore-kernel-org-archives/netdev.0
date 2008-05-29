@@ -1,45 +1,82 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Thu, 29 May 2008 15:43:15 +0200
-Message-ID: <20080529134315.GA8176@elte.hu>
-References: <20080526115628.GA31316@elte.hu> <20080529084524.GA24892@elte.hu> <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi> <20080529112257.GA18130@elte.hu> <20080529130535.GA10244@2ka.mipt.ru>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: [PATCH][LLC]: Fix double accounting of received packets
+Date: Thu, 29 May 2008 10:44:41 -0300
+Message-ID: <20080529134441.GT30251@ghostprotocols.net>
+References: <84ee89da0805280359mcbc43f0q33f29960af20fba1@mail.gmail.com> <20080528201633.GK30251@ghostprotocols.net> <84ee89da0805290151o500f1d5bg542f3ee9dff18be6@mail.gmail.com> <20080529.034510.89175399.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: dmgenp@gmail.com, acme@redhat.com, yjwei@cn.fujitsu.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:33900 "EHLO mx2.mail.elte.hu"
+Received: from mx1.redhat.com ([66.187.233.31]:43738 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752135AbYE2Nnk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2008 09:43:40 -0400
+	id S1756428AbYE2Nov (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2008 09:44:51 -0400
 Content-Disposition: inline
-In-Reply-To: <20080529130535.GA10244@2ka.mipt.ru>
+In-Reply-To: <20080529.034510.89175399.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David, please apply.
 
-* Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+- Arnaldo
 
-> Hi.
-> 
-> On Thu, May 29, 2008 at 01:22:57PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
-> > titan:~/tip> netstat -nt
-> > Active Internet connections (w/o servers)
-> > Proto Recv-Q Send-Q Local Address               Foreign Address             
-> > State
-> > tcp        0      0 10.0.1.14:22                10.0.1.16:58062  ESTABLISHED
-> > tcp        0      0 10.0.1.14:22                10.0.1.16:60109  ESTABLISHED
-> > tcp        0  86368 10.0.1.14:43914             10.0.1.16:3632   ESTABLISHED
-> 
-> Are namespaces enabled? It is pretty non-trivial to make established 
-> socket without process from userspace :)
+commit 3eb2a480af55fe7494c1601b6b7eda499cd67ddd
+Author: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date:   Thu May 29 10:33:00 2008 -0300
 
-they are enabled in this particular kernel config, but there were a 
-couple of other failures where they were not enabled.
+    [LLC]: Fix double accounting of received packets
+    
+    llc_sap_rcv was being preceded by skb_set_owner_r, then calling
+    llc_state_process that calls sock_queue_rcv_skb, that in turn calls
+    skb_set_owner_r again making the space allowed to be used by the socket to be
+    leaked, making the socket to get stuck.
+    
+    Fix it by setting skb->sk at llc_sap_rcv and leave the accounting to be done
+    only at sock_queue_rcv_skb.
+    
+    Reported-by: Dmitry Petukhov <dmgenp@gmail.com>
+    Tested-by: Dmitry Petukhov <dmgenp@gmail.com>
+    Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-	Ingo
+diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
+index e2ddde7..008de1f 100644
+--- a/net/llc/llc_sap.c
++++ b/net/llc/llc_sap.c
+@@ -286,12 +286,14 @@ void llc_build_and_send_xid_pkt(struct llc_sap *sap, struct sk_buff *skb,
+  *
+  *	Sends received pdus to the sap state machine.
+  */
+-static void llc_sap_rcv(struct llc_sap *sap, struct sk_buff *skb)
++static void llc_sap_rcv(struct llc_sap *sap, struct sk_buff *skb,
++			struct sock *sk)
+ {
+ 	struct llc_sap_state_ev *ev = llc_sap_ev(skb);
+ 
+ 	ev->type   = LLC_SAP_EV_TYPE_PDU;
+ 	ev->reason = 0;
++	skb->sk = sk;
+ 	llc_sap_state_process(sap, skb);
+ }
+ 
+@@ -360,8 +362,7 @@ static void llc_sap_mcast(struct llc_sap *sap,
+ 			break;
+ 
+ 		sock_hold(sk);
+-		skb_set_owner_r(skb1, sk);
+-		llc_sap_rcv(sap, skb1);
++		llc_sap_rcv(sap, skb1, sk);
+ 		sock_put(sk);
+ 	}
+ 	read_unlock_bh(&sap->sk_list.lock);
+@@ -381,8 +382,7 @@ void llc_sap_handler(struct llc_sap *sap, struct sk_buff *skb)
+ 	} else {
+ 		struct sock *sk = llc_lookup_dgram(sap, &laddr);
+ 		if (sk) {
+-			skb_set_owner_r(skb, sk);
+-			llc_sap_rcv(sap, skb);
++			llc_sap_rcv(sap, skb, sk);
+ 			sock_put(sk);
+ 		} else
+ 			kfree_skb(skb);
