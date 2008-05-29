@@ -1,67 +1,40 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] tulip: remove wrapper around get_unaligned
-Date: Wed, 28 May 2008 16:51:04 -0700
-Message-ID: <1212018664.20781.9.camel@brick>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-05-28
+Date: Wed, 28 May 2008 20:35:27 -0400
+Message-ID: <20080529003527.GC22536@tuxdriver.com>
+References: <20080528213831.GA3133@tuxdriver.com> <1212012670.21624.48.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:43464 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751025AbYE1XvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2008 19:51:05 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so2749133wfd.4
-        for <netdev@vger.kernel.org>; Wed, 28 May 2008 16:51:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1212012670.21624.48.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DE_UNALIGNED_16 is always being passed a u16 *, no need to have the
-wrapper with two casts in it, just call get_unaligned directly.
+On Thu, May 29, 2008 at 12:11:10AM +0200, Johannes Berg wrote:
+> On Wed, 2008-05-28 at 17:38 -0400, John W. Linville wrote:
+> > David,
+> > 
+> > Another round of fixes for 2.6.26 follows...
+> > 
+> > Please let me know if there are problems!
+> 
+> What about
+> 
+> [PATCH] b43legacy: fix build errors when DMA or PIO are not selected
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
- drivers/net/tulip/de2104x.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
+That claims to correct a problem created by "mac80211: move TX info
+into skb->cb", which is not in the 2.6.26 stream.  I will apply it
+to wireless-next-2.6.
 
-diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/tulip/de2104x.c
-index 1b5edd6..9281d06 100644
---- a/drivers/net/tulip/de2104x.c
-+++ b/drivers/net/tulip/de2104x.c
-@@ -124,8 +124,6 @@ MODULE_PARM_DESC (rx_copybreak, "de2104x Breakpoint at which Rx packets are copi
- /* Time in jiffies before concluding the transmitter is hung. */
- #define TX_TIMEOUT		(6*HZ)
- 
--#define DE_UNALIGNED_16(a)	(u16)(get_unaligned((u16 *)(a)))
--
- /* This is a mysterious value that can be written to CSR11 in the 21040 (only)
-    to support a pre-NWay full-duplex signaling mechanism using short frames.
-    No one knows what it should be, but if left at its default value some
-@@ -1811,7 +1809,7 @@ static void __devinit de21041_get_srom_info (struct de_private *de)
- 		goto bad_srom;
- 
- 	/* get default media type */
--	switch (DE_UNALIGNED_16(&il->default_media)) {
-+	switch (get_unaligned(&il->default_media)) {
- 	case 0x0001:  de->media_type = DE_MEDIA_BNC; break;
- 	case 0x0002:  de->media_type = DE_MEDIA_AUI; break;
- 	case 0x0204:  de->media_type = DE_MEDIA_TP_FD; break;
-@@ -1875,9 +1873,9 @@ static void __devinit de21041_get_srom_info (struct de_private *de)
- 		bufp += sizeof (ib->opts);
- 
- 		if (ib->opts & MediaCustomCSRs) {
--			de->media[idx].csr13 = DE_UNALIGNED_16(&ib->csr13);
--			de->media[idx].csr14 = DE_UNALIGNED_16(&ib->csr14);
--			de->media[idx].csr15 = DE_UNALIGNED_16(&ib->csr15);
-+			de->media[idx].csr13 = get_unaligned(&ib->csr13);
-+			de->media[idx].csr14 = get_unaligned(&ib->csr14);
-+			de->media[idx].csr15 = get_unaligned(&ib->csr15);
- 			bufp += sizeof(ib->csr13) + sizeof(ib->csr14) +
- 				sizeof(ib->csr15);
- 
+John
 -- 
-1.5.6.rc0.277.g804cf
-
-
-
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
