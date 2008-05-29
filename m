@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] IRDA: Do cleanup for dma
-Date: Thu, 29 May 2008 03:34:42 -0700 (PDT)
-Message-ID: <20080529.033442.175635712.davem@davemloft.net>
-References: <48365CBF.4080502@cn.fujitsu.com>
+Subject: Re: [PATCH 2.6.26-rc4] fix double call of kfree_skb in
+ net/llc/llc_sap.c
+Date: Thu, 29 May 2008 03:45:10 -0700 (PDT)
+Message-ID: <20080529.034510.89175399.davem@davemloft.net>
+References: <84ee89da0805280359mcbc43f0q33f29960af20fba1@mail.gmail.com>
+	<20080528201633.GK30251@ghostprotocols.net>
+	<84ee89da0805290151o500f1d5bg542f3ee9dff18be6@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com
+Cc: acme@redhat.com, yjwei@cn.fujitsu.com, netdev@vger.kernel.org
+To: dmgenp@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54582
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47876
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751211AbYE2Keq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:34:46 -0400
-In-Reply-To: <48365CBF.4080502@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1750978AbYE2KpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:45:14 -0400
+In-Reply-To: <84ee89da0805290151o500f1d5bg542f3ee9dff18be6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Fri, 23 May 2008 13:57:19 +0800
+From: "Dmitry Petukhov" <dmgenp@gmail.com>
+Date: Thu, 29 May 2008 14:51:59 +0600
 
-> 1. dma should be freed when dma2 request fail.
-> 2. dma2 should be freed too when device close.
+> 2008/5/29 Arnaldo Carvalho de Melo <acme@redhat.com>:
 > 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> > Good catch, that code needs some revisiting after all these years...
+> > Anyway, can you please try this patch and report results?
+> 
+> problem disappear after patch applied.
 
-Jeff, did you get this or would you like me to pick
-it up directly?
-
-Thanks.
+Arnaldo, please send the final version of this patch with
+proper changelogs and signoffs, thanks!
