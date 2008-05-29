@@ -1,79 +1,54 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: [PATCH] bluetooth: fix locking bug in the rfcomm socket cleanup
- handling
-Date: Wed, 28 May 2008 21:30:06 -0700
-Message-ID: <20080528213006.02964148@infradead.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
+ e1000/pcnet32
+Date: Wed, 28 May 2008 22:11:18 -0700
+Message-ID: <20080528221118.63da4092.akpm@linux-foundation.org>
+References: <482DA5B6.1020606@sngx.net>
+	<482DB46A.8020103@cosmosbay.com>
+	<482EF192.4070707@sngx.net>
+	<482F5113.5090703@cosmosbay.com>
+	<482F610D.2080108@sngx.net>
+	<20080518003104.GK28241@solarflare.com>
+	<482FBA09.80201@sngx.net>
+	<483E0AAE.2020107@sngx.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, akpm@linux-foundation.org
-To: marcel@holtmann.org
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: James Cammarata <jimi@sngx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:57118 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709AbYE2Ebt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 00:31:49 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59384 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750873AbYE2FQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 01:16:21 -0400
+In-Reply-To: <483E0AAE.2020107@sngx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 28 May 2008 20:45:18 -0500 James Cammarata <jimi@sngx.net> wrote:
 
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: [PATCH] bluetooth: fix locking bug in the rfcomm socket cleanup handling
+> I had originally submitted this ability as a patch to procfs, and
+> general consensus was that it seemed "hackish" to do it that way.  It
+> was suggested that it be implemented as a feature of ethtool, so I 
+> thought I'd take on the challenge and add it that way.
+> 
+> I've laid the groundwork here, and added the ability to two of the 
+> drivers for which I have hardware to test on (e1000 and pcnet32).  I 
+> also added the code required to call this functionality to the ethtool 
+> code base, and have been using that to test my changes (using -z as the 
+> flag to ethtool for clearing stats for now).
+> 
+> If this is an acceptable start, I will gladly start working on adding 
+> this to as many drivers as possible (we do have some bnx2 hardware, 
+> though I'm not sure if it's available for testing).
+> 
+> Some other sys-admins have mentioned to me that ethtool doesn't work 
+> sometimes and they fall back to using mii-tool to configure interfaces,
+> so I'd still like to have the procfs change implemented to accommodate 
+> that hardware, but I agree, this is a better way forward.
 
-in net/bluetooth/rfcomm/sock.c, rfcomm_sk_state_change() does the
-following operation:
+You didn't provide a reason from adding this feature to the kernel.
 
-        if (parent && sock_flag(sk, SOCK_ZAPPED)) {
-                /* We have to drop DLC lock here, otherwise
-                 * rfcomm_sock_destruct() will dead lock. */
-                rfcomm_dlc_unlock(d);
-                rfcomm_sock_kill(sk);
-                rfcomm_dlc_lock(d);
-        }
-}
-
-which is fine, since rfcomm_sock_kill() will call sk_free() which will call
-rfcomm_sock_destruct() which takes the rfcomm_dlc_lock()... so far so good.
-
-HOWEVER, this assumes that the rfcomm_sk_state_change() function always gets
-called with the rfcomm_dlc_lock() taken. This is the case for all but one
-case, and in that case where we don't have the lock, we do a double unlock
-followed by an attempt to take the lock, which due to underflow isn't
-going anywhere fast.
-
-This patch fixes this by moving the stragling case inside the lock, like
-the other usages of the same call are doing in this code.
-
-This was found with the help of the www.kerneloops.org project, where this
-deadlock was observed 51 times at this point in time:
-http://www.kerneloops.org/search.php?search=rfcomm_sock_destruct
-
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
----
- net/bluetooth/rfcomm/core.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
-index eb62558..0c2c937 100644
---- a/net/bluetooth/rfcomm/core.c
-+++ b/net/bluetooth/rfcomm/core.c
-@@ -423,8 +423,8 @@ static int __rfcomm_dlc_close(struct rfcomm_dlc *d, int err)
- 
- 		rfcomm_dlc_lock(d);
- 		d->state = BT_CLOSED;
--		rfcomm_dlc_unlock(d);
- 		d->state_change(d, err);
-+		rfcomm_dlc_unlock(d);
- 
- 		skb_queue_purge(&d->tx_queue);
- 		rfcomm_dlc_unlink(d);
--- 
-1.5.4.5
-
-
-
--- 
-If you want to reach me at my work email, use arjan@linux.intel.com
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+Many of the kernel's accounting accumulators cannot be reset.  We
+handle that in userspace tools by using subtraction.
