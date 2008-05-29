@@ -1,185 +1,210 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c
-Date: Thu, 29 May 2008 02:35:04 +0100
-Message-ID: <483E0848.6030307@andyfurniss.entadsl.com>
-References: <4815BCDF.6070704@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804281714090.1888@wrl-59.cs.helsinki.fi> <48162070.4030405@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804282210390.16635@wrl-59.cs.helsinki.fi> <481986FD.8070108@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805011216230.19286@wrl-59.cs.helsinki.fi> <48199342.9010406@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805021342480.30402@wrl-59.cs.helsinki.fi> <481C54AF.1050109@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805121349400.1888@wrl-59.cs.helsinki.fi>
-Reply-To: lists@andyfurniss.entadsl.com
+From: James Cammarata <jimi@sngx.net>
+Subject: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
+Date: Wed, 28 May 2008 20:45:18 -0500
+Message-ID: <483E0AAE.2020107@sngx.net>
+References: <482DA5B6.1020606@sngx.net> <482DB46A.8020103@cosmosbay.com> <482EF192.4070707@sngx.net> <482F5113.5090703@cosmosbay.com> <482F610D.2080108@sngx.net> <20080518003104.GK28241@solarflare.com> <482FBA09.80201@sngx.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010703010409070604080709"
-Cc: Netdev <netdev@vger.kernel.org>
-To: =?UTF-8?B?77+9?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.ukfsn.org ([77.75.108.10]:46328 "EHLO mail.ukfsn.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753381AbYE2BfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2008 21:35:17 -0400
-In-Reply-To: <Pine.LNX.4.64.0805121349400.1888@wrl-59.cs.helsinki.fi>
+Received: from dsl093-193-175.stl1.dsl.speakeasy.net ([66.93.193.175]:61779
+	"EHLO hades.sngx.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753666AbYE2BoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2008 21:44:04 -0400
+In-Reply-To: <482FBA09.80201@sngx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010703010409070604080709
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
+I had originally submitted this ability as a patch to procfs, and
+general consensus was that it seemed "hackish" to do it that way.  It
+was suggested that it be implemented as a feature of ethtool, so I 
+thought I'd take on the challenge and add it that way.
 
-� wrote:
-> On Sat, 3 May 2008, Andy Furniss wrote:
-> 
->> Ilpo J�rvinen wrote:
->>
->>> Since I've not yet found any other path that could lead to it except the
->>> yesterday's false-positive, getting the write queue state more accurately
->>> captured by the debug patch on the very first occassion might help. Here's
->>> less spammy version of the debug patch (I added one printout as well to get
->>> more usefulness to transitional state reported).
->>>
->> OK, increased CONFIG_LOG_BUF_SHIFT from 14 to 18 and reversed old / applied
->> new patch.
-> 
-> Any luck so far?
-> 
+I've laid the groundwork here, and added the ability to two of the 
+drivers for which I have hardware to test on (e1000 and pcnet32).  I 
+also added the code required to call this functionality to the ethtool 
+code base, and have been using that to test my changes (using -z as the 
+flag to ethtool for clearing stats for now).
 
-Finally - looks like I got two together.
+If this is an acceptable start, I will gladly start working on adding 
+this to as many drivers as possible (we do have some bnx2 hardware, 
+though I'm not sure if it's available for testing).
 
-It doesn't start with WARNING - but dmesg isn't full.
-
-Andy.
+Some other sys-admins have mentioned to me that ethtool doesn't work 
+sometimes and they fall back to using mii-tool to configure interfaces,
+so I'd still like to have the procfs change implemented to accommodate 
+that hardware, but I agree, this is a better way forward.
 
 
---------------010703010409070604080709
-Content-Type: application/x-bzip2;
- name="tcp-debug.bz2"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="tcp-debug.bz2"
+Signed-off-by: James Cammarata <jimi@sngx.net>
+---
 
-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
---------------010703010409070604080709--
+--- linux-2.6.25.4/include/linux/ethtool.h	2008-05-15 10:00:12.000000000 -0500
++++ linux-2.6.25.4-jcammara/include/linux/ethtool.h	2008-05-28 17:45:56.000000000 -0500
+@@ -325,6 +325,7 @@ int ethtool_op_set_flags(struct net_devi
+  * get_strings: Return a set of strings that describe the requested objects 
+  * phys_id: Identify the device
+  * get_stats: Return statistics about the device
++ * clear_ethtool_stats: Clear device statistics
+  * get_flags: get 32-bit flags bitmap
+  * set_flags: set 32-bit flags bitmap
+  * 
+@@ -383,6 +384,7 @@ struct ethtool_ops {
+ 	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
+ 	int	(*phys_id)(struct net_device *, u32);
+ 	void	(*get_ethtool_stats)(struct net_device *, struct ethtool_stats *, u64 *);
++	int	(*clear_ethtool_stats)(struct net_device *);
+ 	int	(*begin)(struct net_device *);
+ 	void	(*complete)(struct net_device *);
+ 	u32     (*get_ufo)(struct net_device *);
+@@ -441,6 +443,7 @@ struct ethtool_ops {
+ #define ETHTOOL_SFLAGS		0x00000026 /* Set flags bitmap(ethtool_value) */
+ #define ETHTOOL_GPFLAGS		0x00000027 /* Get driver-private flags bitmap */
+ #define ETHTOOL_SPFLAGS		0x00000028 /* Set driver-private flags bitmap */
++#define ETHTOOL_CSTATS		0x00000029 /* Clear NIC statistics */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+--- linux-2.6.25.4/net/core/ethtool.c	2008-05-15 10:00:12.000000000 -0500
++++ linux-2.6.25.4-jcammara/net/core/ethtool.c	2008-05-28 17:48:51.000000000 -0500
+@@ -714,6 +714,16 @@ static int ethtool_get_stats(struct net_
+ 	return ret;
+ }
+ 
++static int ethtool_clear_stats(struct net_device *dev, void __user *useraddr)
++{
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++
++	if (!ops->clear_ethtool_stats)
++		return -EOPNOTSUPP;
++
++	return ops->clear_ethtool_stats(dev);
++}
++
+ static int ethtool_get_perm_addr(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_perm_addr epaddr;
+@@ -964,6 +974,9 @@ int dev_ethtool(struct net *net, struct 
+ 		rc = ethtool_set_value(dev, useraddr,
+ 				       dev->ethtool_ops->set_priv_flags);
+ 		break;
++	case ETHTOOL_CSTATS:
++		rc = ethtool_clear_stats(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
+--- linux-2.6.25.4/drivers/net/e1000/e1000_main.c	2008-05-15 10:00:12.000000000 -0500
++++ linux-2.6.25.4-jcammara/drivers/net/e1000/e1000_main.c	2008-05-28 17:51:07.000000000 -0500
+@@ -141,6 +141,7 @@ static void e1000_free_tx_resources(stru
+ static void e1000_free_rx_resources(struct e1000_adapter *adapter,
+                              struct e1000_rx_ring *rx_ring);
+ void e1000_update_stats(struct e1000_adapter *adapter);
++void e1000_clear_stats(struct e1000_adapter *adapter);
+ 
+ static int e1000_init_module(void);
+ static void e1000_exit_module(void);
+@@ -3819,6 +3820,31 @@ e1000_update_stats(struct e1000_adapter 
+ 	spin_unlock_irqrestore(&adapter->stats_lock, flags);
+ }
+ 
++void
++e1000_clear_stats(struct e1000_adapter *adapter)
++{
++	struct pci_dev *pdev = adapter->pdev;
++	unsigned long flags;
++
++	#define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
++
++	/*
++	 * Prevent stats update while adapter is being reset, or if the pci
++	 * connection is down.
++	 */
++	if (adapter->link_speed == 0)
++		return;
++	if (pci_channel_offline(pdev))
++		return;
++
++	spin_lock_irqsave(&adapter->stats_lock, flags);
++
++	memset(&adapter->stats, 0, sizeof(struct e1000_hw_stats));
++	memset(&adapter->net_stats, 0, sizeof(struct net_device_stats));
++
++	spin_unlock_irqrestore(&adapter->stats_lock, flags);
++}
++
+ /**
+  * e1000_intr_msi - Interrupt Handler
+  * @irq: interrupt number
+--- linux-2.6.25.4/drivers/net/e1000/e1000_ethtool.c	2008-05-15 10:00:12.000000000 -0500
++++ linux-2.6.25.4-jcammara/drivers/net/e1000/e1000_ethtool.c	2008-05-28 17:53:28.000000000 -0500
+@@ -42,7 +42,7 @@ extern int e1000_setup_all_tx_resources(
+ extern void e1000_free_all_rx_resources(struct e1000_adapter *adapter);
+ extern void e1000_free_all_tx_resources(struct e1000_adapter *adapter);
+ extern void e1000_update_stats(struct e1000_adapter *adapter);
+-
++extern void e1000_clear_stats(struct e1000_adapter *adapter);
+ 
+ struct e1000_stats {
+ 	char stat_string[ETH_GSTRING_LEN];
+@@ -1940,6 +1940,14 @@ e1000_get_ethtool_stats(struct net_devic
+ /*	BUG_ON(i != E1000_STATS_LEN); */
+ }
+ 
++static int
++e1000_clear_ethtool_stats(struct net_device *netdev)
++{
++	struct e1000_adapter *adapter = netdev_priv(netdev);
++	e1000_clear_stats(adapter);
++	return 0;
++}
++
+ static void
+ e1000_get_strings(struct net_device *netdev, uint32_t stringset, uint8_t *data)
+ {
+@@ -1991,6 +1999,7 @@ static const struct ethtool_ops e1000_et
+ 	.get_strings            = e1000_get_strings,
+ 	.phys_id                = e1000_phys_id,
+ 	.get_ethtool_stats      = e1000_get_ethtool_stats,
++	.clear_ethtool_stats	= e1000_clear_ethtool_stats,
+ 	.get_sset_count		= e1000_get_sset_count,
+ };
+ 
+--- linux-2.6.25.4/drivers/net/pcnet32.c	2008-05-15 10:00:12.000000000 -0500
++++ linux-2.6.25.4-jcammara/drivers/net/pcnet32.c	2008-05-28 17:59:42.000000000 -0500
+@@ -312,6 +312,7 @@ static void pcnet32_tx_timeout(struct ne
+ static irqreturn_t pcnet32_interrupt(int, void *);
+ static int pcnet32_close(struct net_device *);
+ static struct net_device_stats *pcnet32_get_stats(struct net_device *);
++static int pcnet32_clear_stats(struct net_device *);
+ static void pcnet32_load_multicast(struct net_device *dev);
+ static void pcnet32_set_multicast_list(struct net_device *);
+ static int pcnet32_ioctl(struct net_device *, struct ifreq *, int);
+@@ -1532,6 +1533,7 @@ static const struct ethtool_ops pcnet32_
+ 	.get_regs_len		= pcnet32_get_regs_len,
+ 	.get_regs		= pcnet32_get_regs,
+ 	.get_sset_count		= pcnet32_get_sset_count,
++	.clear_ethtool_stats	= pcnet32_clear_stats,
+ };
+ 
+ /* only probes for non-PCI devices, the rest are handled by
+@@ -2719,6 +2721,17 @@ static struct net_device_stats *pcnet32_
+ 	return &dev->stats;
+ }
+ 
++static int pcnet32_clear_stats(struct net_device *dev)
++{
++	struct pcnet32_private *lp = netdev_priv(dev);
++	unsigned long flags;
++
++	spin_lock_irqsave(&lp->lock, flags);
++	memset(&dev->stats, 0, sizeof(struct net_device_stats));
++	spin_unlock_irqrestore(&lp->lock, flags);
++	return 0;
++}
++
+ /* taken from the sunlance driver, which it took from the depca driver */
+ static void pcnet32_load_multicast(struct net_device *dev)
+ {
