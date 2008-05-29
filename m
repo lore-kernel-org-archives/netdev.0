@@ -1,105 +1,36 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Thu, 29 May 2008 10:45:24 +0200
-Message-ID: <20080529084524.GA24892@elte.hu>
-References: <20080526115628.GA31316@elte.hu>
+From: "Dmitry Petukhov" <dmgenp@gmail.com>
+Subject: Re: [PATCH 2.6.26-rc4] fix double call of kfree_skb in net/llc/llc_sap.c
+Date: Thu, 29 May 2008 14:51:59 +0600
+Message-ID: <84ee89da0805290151o500f1d5bg542f3ee9dff18be6@mail.gmail.com>
+References: <84ee89da0805270009xe92f7e1l959fa9161c976db2@mail.gmail.com>
+	 <483BB8EF.4090904@cn.fujitsu.com>
+	 <84ee89da0805270047v1c76b4f3k5768fe853f2cea1d@mail.gmail.com>
+	 <483BC1B0.2090600@cn.fujitsu.com>
+	 <84ee89da0805270235t7ae75356la2ffbb5244de2f74@mail.gmail.com>
+	 <84ee89da0805280359mcbc43f0q33f29960af20fba1@mail.gmail.com>
+	 <20080528201633.GK30251@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: "Arnaldo Carvalho de Melo" <acme@redhat.com>,
+	"Dmitry Petukhov" <dmgenp@gmail.com>,
+	"Wei Yongjun" <yjwei@cn.fujitsu.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:52047 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752128AbYE2Ipr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2008 04:45:47 -0400
+Received: from ti-out-0910.google.com ([209.85.142.190]:29716 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbYE2IwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 04:52:03 -0400
+Received: by ti-out-0910.google.com with SMTP id b6so2195631tic.23
+        for <netdev@vger.kernel.org>; Thu, 29 May 2008 01:52:01 -0700 (PDT)
+In-Reply-To: <20080528201633.GK30251@ghostprotocols.net>
 Content-Disposition: inline
-In-Reply-To: <20080526115628.GA31316@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2008/5/29 Arnaldo Carvalho de Melo <acme@redhat.com>:
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+> Good catch, that code needs some revisiting after all these years...
+> Anyway, can you please try this patch and report results?
 
-> in an overnight -tip testruns that is based on recent -git i got two 
-> stuck TCP connections:
-> 
-> Active Internet connections (w/o servers)
-> Proto Recv-Q Send-Q Local Address               Foreign Address             State      
-> tcp        0 174592 10.0.1.14:58015             10.0.1.14:3632              ESTABLISHED 
-> tcp    72134      0 10.0.1.14:3632              10.0.1.14:58015             ESTABLISHED 
-
-update: in the past 5 days of -tip testing i've gathered about 10 
-randconfig kernel configs that all produced such failures.
-
-Since the bug itself is very elusive (it takes up to 50 boot + 
-kernel-rebuild-via-distccc iterations to trigger) bisection was still 
-not an option - but with 10 configs statistical analysis of the configs 
-is now possible.
-
-I made a histogram of all kernel options present in those configs, and 
-one networking related kernel option stood out:
-
-      5 CONFIG_TCP_CONG_ADVANCED=y
-      6 CONFIG_INET_TCP_DIAG=y
-      6 CONFIG_TCP_MD5SIG=y
-      9 CONFIG_TCP_CONG_CUBIC=y
-
-that code is called in the bootlogs:
-
-> [   13.279410] calling  cubictcp_register+0x0/0x80
-> [   13.279412] TCP cubic registered
-
-the likelyhood of CONFIG_TCP_CONG_CUBIC=y being enabled in my randconfig 
-runs is 75%. The likelyhood of CONFIG_TCP_CONG_CUBIC=y being enabled in 
-10 configs in a row is 0.75^10, or 5.6%. So statistical analysis can say 
-it with a 95% confidence that the presence of this option correlates to 
-the hung sockets.
-
-i have started testing this theory now, via the patch below, which turns 
-off TCP_CONG_CUBIC. It will take about 50 bootups on the affected 
-testsystems to confirm. (it will take a couple of hours today as not all 
-testsystems show these hung socket symptoms)
-
-distributions enable TCP_CONG_CUBIC by default:
-
-  $ grep CUBIC /boot/config-2.6.24.7-92.fc8
-  CONFIG_TCP_CONG_CUBIC=y
-  CONFIG_DEFAULT_CUBIC=y
-
-which would explain why Arjan and Peter triggered similar hangs as well.
-
-	Ingo
-
----------------------->
-Subject: qa: no TCP_CONG_CUBIC
-From: Ingo Molnar <mingo@elte.hu>
-Date: Thu May 29 09:45:51 CEST 2008
-
----
- net/ipv4/Kconfig |    4 ++++
- 1 file changed, 4 insertions(+)
-
-Index: tip/net/ipv4/Kconfig
-===================================================================
---- tip.orig/net/ipv4/Kconfig
-+++ tip/net/ipv4/Kconfig
-@@ -454,6 +454,8 @@ config TCP_CONG_BIC
- config TCP_CONG_CUBIC
- 	tristate "CUBIC TCP"
- 	default y
-+	depends on BROKEN_BOOT_ALLOWED
-+	select BROKEN_BOOT
- 	---help---
- 	This is version 2.0 of BIC-TCP which uses a cubic growth function
- 	among other techniques.
-@@ -608,6 +610,8 @@ endif
- config TCP_CONG_CUBIC
- 	tristate
- 	depends on !TCP_CONG_ADVANCED
-+	depends on BROKEN_BOOT_ALLOWED
-+	select BROKEN_BOOT
- 	default y
- 
- config DEFAULT_TCP_CONG
+problem disappear after patch applied.
