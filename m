@@ -1,34 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.26-rc4] fix double call of kfree_skb in
- net/llc/llc_sap.c
-Date: Thu, 29 May 2008 03:45:10 -0700 (PDT)
-Message-ID: <20080529.034510.89175399.davem@davemloft.net>
-References: <84ee89da0805280359mcbc43f0q33f29960af20fba1@mail.gmail.com>
-	<20080528201633.GK30251@ghostprotocols.net>
-	<84ee89da0805290151o500f1d5bg542f3ee9dff18be6@mail.gmail.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [ipv6] Odd behaviour...
+Date: Thu, 29 May 2008 19:46:16 +0900 (JST)
+Message-ID: <20080529.194616.51574992.yoshfuji@linux-ipv6.org>
+References: <20080529084157.GD11812@pomac.netswarm.net>
+	<20080529.182853.67833046.yoshfuji@linux-ipv6.org>
+	<20080529100822.GF11812@pomac.netswarm.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, yjwei@cn.fujitsu.com, netdev@vger.kernel.org
-To: dmgenp@gmail.com
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: pomac@vapor.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47876
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750978AbYE2KpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:45:14 -0400
-In-Reply-To: <84ee89da0805290151o500f1d5bg542f3ee9dff18be6@mail.gmail.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:53566 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750857AbYE2Kpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:45:44 -0400
+In-Reply-To: <20080529100822.GF11812@pomac.netswarm.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Petukhov" <dmgenp@gmail.com>
-Date: Thu, 29 May 2008 14:51:59 +0600
+In article <20080529100822.GF11812@pomac.netswarm.net> (at Thu, 29 May 2008 12:08:22 +0200), pomac@vapor.com says:
 
-> 2008/5/29 Arnaldo Carvalho de Melo <acme@redhat.com>:
+> On Thu, May 29, 2008 at 06:28:53PM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
+> > In article <20080529084157.GD11812@pomac.netswarm.net> (at Thu, 29 May 2008 10:41:57 +0200), pomac@vapor.com says:
+> > 
+> > > On Thu, May 29, 2008 at 12:27:29AM -0700, Andrew Morton wrote:
+> > > > On Tue, 27 May 2008 00:58:30 +0200 Ian Kumlien <pomac@vapor.com> wrote:
+> > > > 
+> > > > > Hi, 
+> > > > > 
+> > > > > I just recently acquired a new ipv6 tunnel since my two previous brokers
+> > > > > has gone out of business. I now use hurricane electrics tunnel since i
+> > > > > have really good ping times to it's node in Amsterdam.
+> > > > > 
+> > > > > Anyways, i have setup a local network tunnel and enabled forwarding.
+> > > > > 
+> > > > > After about 300 seconds, it all stops working. I have to disable and
+> > > > > re-enable it on the firewall/router to get it working again.
+> > > > > 
+> > > > > tcpdump shows the router/firewall doing odd things like:
+> > > > > (i renamed my host to piv6)
+> > > > > 
+> > > > > 00:48:14.294173 IP6 piv6 > igloo.stacken.kth.se: ICMP6, echo request,
+> > > > > seq 321, length 64
+> > > > > 
+> > > > > 00:48:14.341288 IP6 igloo.stacken.kth.se > piv6: ICMP6, echo reply, seq
+> > > > > 321, length 64
+> > > > > 
+> > > > > 00:48:14.341317 IP6 fe80::55e4:1b90 > igloo.stacken.kth.se: ICMP6,
+> > > > > redirect, piv6 to piv6, length 160
+> > > > > 
+> > > > > 00:48:14.341332 IP6 igloo.stacken.kth.se > piv6: ICMP6, echo reply, seq
+> > > > > 321, length 64
+> > > > > ---
+> > > > > 
+> > > > > fe80::55e4::1b90 is the local ip of the ipv6 tunnel.
+> > > > > (note: the packet never arrives at it's destination)
+> > > > > 
+> > > > > Any ideas of what could be going wrong?			
+> > > > 
+> > > > (cc netdev - afaik linux-net is kind of dead)
+> > > 
+> > > Thanks, i knew i missed something, -net was the one that was already in
+> > > my email client so... =)
+> > > 
+> > > > What kernel version are you running?
+> > > 
+> > > The router/fw is running 2.6.25.1, the client is running 2.6.25.4
+> > > 
+> > > Any additional information i should provide?
+> > 
+> > How do you assign the address?
 > 
-> > Good catch, that code needs some revisiting after all these years...
-> > Anyway, can you please try this patch and report results?
+> On the router/fw there is a sit tunnel thats started with 'ip'.
 > 
-> problem disappear after patch applied.
+> The clients get their addresses by radvd which only uses a local
+> interface on the router/fw...
 
-Arnaldo, please send the final version of this patch with
-proper changelogs and signoffs, thanks!
+Please draw w a network topology figure.
+
+--yoshfuji
