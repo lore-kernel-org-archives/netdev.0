@@ -1,82 +1,61 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH][LLC]: Fix double accounting of received packets
-Date: Thu, 29 May 2008 10:44:41 -0300
-Message-ID: <20080529134441.GT30251@ghostprotocols.net>
-References: <84ee89da0805280359mcbc43f0q33f29960af20fba1@mail.gmail.com> <20080528201633.GK30251@ghostprotocols.net> <84ee89da0805290151o500f1d5bg542f3ee9dff18be6@mail.gmail.com> <20080529.034510.89175399.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Thu, 29 May 2008 16:48:22 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805291612150.16829@wrl-59.cs.helsinki.fi>
+References: <20080526115628.GA31316@elte.hu> <20080529084524.GA24892@elte.hu>
+ <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi> <20080529112257.GA18130@elte.hu>
+ <20080529130823.GA8364@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dmgenp@gmail.com, acme@redhat.com, yjwei@cn.fujitsu.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43738 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756428AbYE2Nov (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2008 09:44:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20080529.034510.89175399.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756845AbYE2Nso@vger.kernel.org>
+In-Reply-To: <20080529130823.GA8364@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David, please apply.
+On Thu, 29 May 2008, Ingo Molnar wrote:
 
-- Arnaldo
+> btw., i now also have a hung socket over real network:
+> 
+> titan:~> netstat -nt
+> Active Internet connections (w/o servers)
+> Proto Recv-Q Send-Q Local Address               Foreign Address             State
+> tcp        0  86752 10.0.1.14:49921             10.0.1.16:3632              ESTABLISHED
+> 
+> (the scenario is similar to the incident i've analyzed before, so i wont 
+> repeat the tcpdump, etc.)
 
-commit 3eb2a480af55fe7494c1601b6b7eda499cd67ddd
-Author: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date:   Thu May 29 10:33:00 2008 -0300
+...Yes, also the previous one you quoted was already over the network.
+But I think the key is in the receiving end rather than in the sending 
+end. Could try to extract any information about these I mentioned earlier,
+to me there are mainly two weird things:
 
-    [LLC]: Fix double accounting of received packets
-    
-    llc_sap_rcv was being preceded by skb_set_owner_r, then calling
-    llc_state_process that calls sock_queue_rcv_skb, that in turn calls
-    skb_set_owner_r again making the space allowed to be used by the socket to be
-    leaked, making the socket to get stuck.
-    
-    Fix it by setting skb->sk at llc_sap_rcv and leave the accounting to be done
-    only at sock_queue_rcv_skb.
-    
-    Reported-by: Dmitry Petukhov <dmgenp@gmail.com>
-    Tested-by: Dmitry Petukhov <dmgenp@gmail.com>
-    Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+1) Why we see orphaning with data in the first place. I think distcc would 
+be interested to read everything, unless some worker crashed in early...
+Though some timeout in distcc could explain it as well but I don't know 
+too well how distcc does everything...
 
-diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
-index e2ddde7..008de1f 100644
---- a/net/llc/llc_sap.c
-+++ b/net/llc/llc_sap.c
-@@ -286,12 +286,14 @@ void llc_build_and_send_xid_pkt(struct llc_sap *sap, struct sk_buff *skb,
-  *
-  *	Sends received pdus to the sap state machine.
-  */
--static void llc_sap_rcv(struct llc_sap *sap, struct sk_buff *skb)
-+static void llc_sap_rcv(struct llc_sap *sap, struct sk_buff *skb,
-+			struct sock *sk)
- {
- 	struct llc_sap_state_ev *ev = llc_sap_ev(skb);
- 
- 	ev->type   = LLC_SAP_EV_TYPE_PDU;
- 	ev->reason = 0;
-+	skb->sk = sk;
- 	llc_sap_state_process(sap, skb);
- }
- 
-@@ -360,8 +362,7 @@ static void llc_sap_mcast(struct llc_sap *sap,
- 			break;
- 
- 		sock_hold(sk);
--		skb_set_owner_r(skb1, sk);
--		llc_sap_rcv(sap, skb1);
-+		llc_sap_rcv(sap, skb1, sk);
- 		sock_put(sk);
- 	}
- 	read_unlock_bh(&sap->sk_list.lock);
-@@ -381,8 +382,7 @@ void llc_sap_handler(struct llc_sap *sap, struct sk_buff *skb)
- 	} else {
- 		struct sock *sk = llc_lookup_dgram(sap, &laddr);
- 		if (sk) {
--			skb_set_owner_r(skb, sk);
--			llc_sap_rcv(sap, skb);
-+			llc_sap_rcv(sap, skb, sk);
- 			sock_put(sk);
- 		} else
- 			kfree_skb(skb);
+2) Why the receiving end of the connection is still in ESTABLISHED 
+without an owner... If it had some unread data, should be in CLOSE or in 
+FIN_WAIT1 otherwise. Ie., tcp_close() would change the state of the flow.
+
+These both basically happen at the receiving end, though if there was 
+unread data the RST would also reflected state change to the sending side 
+and since there's window, also FIN would be sent right away and 
+cause sender to leave ESTABLISHED rather than that FIN would get stuck 
+into the tail of the TCP queue.
+
+How to collect the information, I'm not too sure, tcp_close might well 
+work as a plain printk because I think it shouldn't be that noisy. But 
+that would likely just show that it wasn't called for a stuck receiver
+at all, so it would probably end up being a dead-end anyway.
+
+-- 
+ i.
