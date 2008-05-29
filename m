@@ -1,53 +1,43 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [ipv6] Odd behaviour...
-Date: Thu, 29 May 2008 00:27:29 -0700
-Message-ID: <20080529002729.d87fed29.akpm@linux-foundation.org>
-References: <1211842711.8367.11.camel@localhost>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 3/3] virtio_net: Fix skb->csum_start computation
+Date: Thu, 29 May 2008 17:31:16 +1000
+Message-ID: <200805291731.17131.rusty@rustcorp.com.au>
+References: <1211887247-31979-1-git-send-email-markmc@redhat.com> <1211887247-31979-3-git-send-email-markmc@redhat.com> <1211887247-31979-4-git-send-email-markmc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux-kernel <Linux-kernel@vger.kernel.org>,
-	linux-net <Linux-net@vger.kernel.org>, netdev@vger.kernel.org
-To: pomac@vapor.com
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <1211842711.8367.11.camel@localhost>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Mark McLoughlin <markmc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:55281 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751646AbYE2Hdw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2008 03:33:52 -0400
+In-Reply-To: <1211887247-31979-4-git-send-email-markmc@redhat.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 May 2008 00:58:30 +0200 Ian Kumlien <pomac@vapor.com> wrote:
+On Tuesday 27 May 2008 21:20:47 Mark McLoughlin wrote:
+> hdr->csum_start is the offset from the start of the ethernet
+> header to the transport layer checksum field. skb->csum_start
+> is the offset from skb->head.
+>
+> skb_partial_csum_set() assumes that skb->data points to the
+> ethernet header - i.e. it computes skb->csum_start by adding
+> the headroom to hdr->csum_start.
+>
+> Since eth_type_trans() skb_pull()s the ethernet header,
+> skb_partial_csum_set() should be called before
+> eth_type_trans().
 
-> Hi, 
-> 
-> I just recently acquired a new ipv6 tunnel since my two previous brokers
-> has gone out of business. I now use hurricane electrics tunnel since i
-> have really good ping times to it's node in Amsterdam.
-> 
-> Anyways, i have setup a local network tunnel and enabled forwarding.
-> 
-> After about 300 seconds, it all stops working. I have to disable and
-> re-enable it on the firewall/router to get it working again.
-> 
-> tcpdump shows the router/firewall doing odd things like:
-> (i renamed my host to piv6)
-> 
-> 00:48:14.294173 IP6 piv6 > igloo.stacken.kth.se: ICMP6, echo request,
-> seq 321, length 64
-> 
-> 00:48:14.341288 IP6 igloo.stacken.kth.se > piv6: ICMP6, echo reply, seq
-> 321, length 64
-> 
-> 00:48:14.341317 IP6 fe80::55e4:1b90 > igloo.stacken.kth.se: ICMP6,
-> redirect, piv6 to piv6, length 160
-> 
-> 00:48:14.341332 IP6 igloo.stacken.kth.se > piv6: ICMP6, echo reply, seq
-> 321, length 64
-> ---
-> 
-> fe80::55e4::1b90 is the local ip of the ipv6 tunnel.
-> (note: the packet never arrives at it's destination)
-> 
-> Any ideas of what could be going wrong?			
+As should the rx_bytes += skb->len.  Thanks for this!
 
-(cc netdev - afaik linux-net is kind of dead)
+Applied (and 1/3, the typo patch).
 
-What kernel version are you running?
+I'll backport this to -stable, as well.
+
+Thanks,
+Rusty.
