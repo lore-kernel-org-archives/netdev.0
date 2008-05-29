@@ -1,51 +1,42 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Single packet receiving in multiple ring buffers
-Date: Thu, 29 May 2008 18:45:52 +0400
-Message-ID: <20080529144551.GA29823@2ka.mipt.ru>
-References: <20080525130023.GA27792@2ka.mipt.ru> <31256957387BB54C8B9AFE88AA5C0564044A1DC1@SDCEXCHANGE01.ad.amcc.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
+Date: Thu, 29 May 2008 08:48:55 -0600
+Message-ID: <483EC257.60009@nortel.com>
+References: <482DA5B6.1020606@sngx.net>	<482DB46A.8020103@cosmosbay.com> <482EF192.4070707@sngx.net>	<482F5113.5090703@cosmosbay.com> <482F610D.2080108@sngx.net>	<20080518003104.GK28241@solarflare.com> <482FBA09.80201@sngx.net>	<483E0AAE.2020107@sngx.net> <20080528221118.63da4092.akpm@linux-foundation.org> <483EA2D1.8050603@sngx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kchudgar.linux@gmail.com,
-	netdev@vger.kernel.org
-To: Keyur Chudgar <kchudgar@amcc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:33334 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751706AbYE2OqA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2008 10:46:00 -0400
-Content-Disposition: inline
-In-Reply-To: <31256957387BB54C8B9AFE88AA5C0564044A1DC1@SDCEXCHANGE01.ad.amcc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: James Cammarata <jimi@sngx.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756978AbYE2Ot3@vger.kernel.org>
+In-Reply-To: <483EA2D1.8050603@sngx.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+James Cammarata wrote:
+>> You didn't provide a reason from adding this feature to the kernel.
 
-On Thu, May 29, 2008 at 07:14:45AM -0700, Keyur Chudgar (kchudgar@amcc.com) wrote:
-> I can not program some hardware buffers with skb->data and others with
-> pages. I don't know
-> at runtime what size packets will come in. If I program first buffer
-> with skb->data and other two with
-> pages, what if the packet arrived only fits in first buffer? The other
-> two buffers are wasted in this case.
+> Sorry, my reasoning was in my original patch only.  The ability to reset 
+> network counters is, in my experience, one of the first things you do 
+> when trying to troubleshoot networking issues - especially when you have 
+> incrementing errors.
 
-Does your hardware support MTU (or kind of that like e1000, which
-supports packets with size upto next power of two over MTU)?
+The ability to reset counters does make it easier to detect changes 
+manually, as any non-zero value is something of interest.  However, if 
+you're gathering data via a script there is no functional gain.
 
-> > If it is not convenient to use such scheme, you can always put data
-> into pages and then copy tiny bit into skb->data to > be able to specify
-> IP layer protocol, all the rest system will do for itself via
-> pskb_may_copy() if needed.
-> 
-> What is the minimum size of pages that I can allocate? Is it 4K? If that
-> is the case, then
-> I may be wasting a lot of memory for smaller packets.
+>> Many of the kernel's accounting accumulators cannot be reset.  We
+>> handle that in userspace tools by using subtraction.
 
-For small enough packets you can allocate new skb with exact size and
-copy data from old page into new skb. It will be much faster, since
-sockets will be charged with smaller size per packet. But usually you
-have to preallocate at least MTU sized packets.
+> I don't think that should preclude the ability to reset these, unless it is
+> shown that it would break something very badly.
 
-Page size is different on each arch, for x86 it is 4k by default.
+You're trying to add new functionality to the kernel, increasing its 
+size and adding more work for maintainers.  Also, you're implicitly 
+asking that all of the network drivers be updated to add support for 
+this feature.  The burden of proof is on you to show why the feature is 
+useful enough that the others involved should take on this additional work.
 
--- 
-	Evgeniy Polyakov
+Chris
