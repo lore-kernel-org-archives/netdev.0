@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver updates for .27
-Date: Thu, 29 May 2008 03:33:02 -0700 (PDT)
-Message-ID: <20080529.033302.254596590.davem@davemloft.net>
-References: <20080522191049.GA29882@havoc.gtf.org>
+Subject: Re: [PATCH 2/2] IRDA: Do cleanup for dma
+Date: Thu, 29 May 2008 03:34:42 -0700 (PDT)
+Message-ID: <20080529.033442.175635712.davem@davemloft.net>
+References: <48365CBF.4080502@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54578
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54582
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750768AbYE2KdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:33:06 -0400
-In-Reply-To: <20080522191049.GA29882@havoc.gtf.org>
+	by vger.kernel.org with ESMTP id S1751211AbYE2Keq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:34:46 -0400
+In-Reply-To: <48365CBF.4080502@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Thu, 22 May 2008 15:10:49 -0400
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Fri, 23 May 2008 13:57:19 +0800
 
-> Please pull from 'upstream-next-davem' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-next-davem
+> 1. dma should be freed when dma2 request fail.
+> 2. dma2 should be freed too when device close.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-Pulled and I will push out to net-next-2.6 after some build
-testing.
+Jeff, did you get this or would you like me to pick
+it up directly?
 
-Thanks!
+Thanks.
