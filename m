@@ -1,71 +1,48 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-05-28
-Date: Thu, 29 May 2008 09:33:58 +0200
-Message-ID: <1212046438.16917.0.camel@johannes.berg>
-References: <20080528213831.GA3133@tuxdriver.com>
-	 <1212012670.21624.48.camel@johannes.berg>
-	 <20080529003527.GC22536@tuxdriver.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-next] IPv6 address labels per namespace - v2
+Date: Thu, 29 May 2008 16:39:09 +0900 (JST)
+Message-ID: <20080529.163909.07573021.yoshfuji@linux-ipv6.org>
+References: <20080528125114.372886409@theryb.frec.bull.fr>
+	<20080528125137.228283589@theryb.frec.bull.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-i6oqQJ0OexmjRAbRaIyB"
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080529003527.GC22536-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: benjamin.thery@bull.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:53548 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbYE2Hij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 03:38:39 -0400
+In-Reply-To: <20080528125137.228283589@theryb.frec.bull.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+In article <20080528125137.228283589@theryb.frec.bull.fr> (at Wed, 28 May 2008 14:51:24 +0200), Benjamin Thery <benjamin.thery@bull.net> says:
 
---=-i6oqQJ0OexmjRAbRaIyB
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> This pacth makes IPv6 address labels per network namespace.
+> It keeps the global label tables, ip6addrlbl_table, but 
+> adds a 'net' member to each ip6addrlbl_entry.
+> This new member is taken into account when matching labels.
+> 
+> Changelog
+> =========
+> * v1: Initial version 
+> * v2:
+>   * Minize the penalty when network namespaces are not configured:
+>       *  the 'net' member is added only if CONFIG_NET_NS is 
+>          defined. This saves space when network namespaces are not 
+>          configured.
+>       * 'net' value is retrieved with the inlined function 
+>          ip6addrlbl_net() that always return &init_net when 
+>          CONFIG_NET_NS is not defined.
+>   * 'net' member in ip6addrlbl_entry renamed to the less generic 
+>     'lbl_net' name (helps code search).
+> 
+> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 
-On Wed, 2008-05-28 at 20:35 -0400, John W. Linville wrote:
-> On Thu, May 29, 2008 at 12:11:10AM +0200, Johannes Berg wrote:
-> > On Wed, 2008-05-28 at 17:38 -0400, John W. Linville wrote:
-> > > David,
-> > >=20
-> > > Another round of fixes for 2.6.26 follows...
-> > >=20
-> > > Please let me know if there are problems!
-> >=20
-> > What about
-> >=20
-> > [PATCH] b43legacy: fix build errors when DMA or PIO are not selected
->=20
-> That claims to correct a problem created by "mac80211: move TX info
-> into skb->cb", which is not in the 2.6.26 stream.  I will apply it
-> to wireless-next-2.6.
+I'm going to apply this.  Thank you.
 
-Sorry, yes, my mistake.
-
-johannes
-
---=-i6oqQJ0OexmjRAbRaIyB
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUASD5cZaVg1VMiehFYAQIGXQ/+NCdC7oaAquqd19vCct1J3a0A7eFnfP8W
-xvxU38/970D8l75DABrHixaupJOKz1WpnM6UCobzSZhy0y/OAUe6MbEFBt3efKvB
-fn6l1Yti4NoD6xNtgFcqB+wPlP0nXVaXw83++C2FKDQ6VjbBdecnCDRBesex1jBX
-wPjeWpT57eDonUHG5I+Zoeues92ffAP4zIjK9/mAKGPVUMVsQ84+XGK6/xllMYXj
-+HoTR1H/V6y1xjILEUaIYZ9Mm/PznFgOPtAXoFPIR5mIGEgsYrvy58RYy6tfuh/Z
-ewLTv+G6i+D0+KEGtQToQrDBb2I3UXo9OKR4uEJqW6Eg96tvQ5Z2PT9i+r6BitUx
-cfNPr8k+XssP8STSbGkANyT+wQOeNmizXIhvwVP+xKD+ljHQsunJHEtJLKoTO4vy
-e7s5UI4kTtO6H5Yadn5UhifgVmbo8KmXWPtA2nn6wyO31jmUM3gEfJxSY4Kd7A8Y
-eU2uh5iHqRuzfkQ8pPUnCc52+NIDv4NKefvJuO5wqa/YM1VKKJebmyTSXe+GNXvN
-CwT4TGij1C0J5Qqxm9VlKR71548OYUVvIhdhdFTZUSYgQaVbFM1V8bsiJLvQ1iHp
-T3FxgVjdBZvdXAGJSHMFOsqsVouhoBg+OcSKeLiUFbPf9/OhbHn0Hq9DIWAbBiLE
-x0HB0K74gk0=
-=KKsA
------END PGP SIGNATURE-----
-
---=-i6oqQJ0OexmjRAbRaIyB--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--yoshfuji
