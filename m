@@ -1,70 +1,51 @@
-From: <samuel@sortiz.org>
-Subject: Re: [PATCH 2/2] IRDA: Do cleanup for dma
-Date: Sat, 21 Jan 2006 07:07:16 +0100
-Message-ID: <6fe1847af5073e7f50519a2ebc730653@localhost>
-References: <48365CBF.4080502@cn.fujitsu.com> <20080529.033442.175635712.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Single packet receiving in multiple ring buffers
+Date: Thu, 29 May 2008 18:45:52 +0400
+Message-ID: <20080529144551.GA29823@2ka.mipt.ru>
+References: <20080525130023.GA27792@2ka.mipt.ru> <31256957387BB54C8B9AFE88AA5C0564044A1DC1@SDCEXCHANGE01.ad.amcc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: wangchen@cn.fujitsu.com, jgarzik@pobox.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kchudgar.linux@gmail.com,
+	netdev@vger.kernel.org
+To: Keyur Chudgar <kchudgar@amcc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 25.mail-out.ovh.net ([213.186.37.103]:38989 "HELO
-	25.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754960AbYE2NsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 09:48:04 -0400
-In-Reply-To: <20080529.033442.175635712.davem@davemloft.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:33334 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751706AbYE2OqA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2008 10:46:00 -0400
+Content-Disposition: inline
+In-Reply-To: <31256957387BB54C8B9AFE88AA5C0564044A1DC1@SDCEXCHANGE01.ad.amcc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi.
 
-Hi Dave,
+On Thu, May 29, 2008 at 07:14:45AM -0700, Keyur Chudgar (kchudgar@amcc.com) wrote:
+> I can not program some hardware buffers with skb->data and others with
+> pages. I don't know
+> at runtime what size packets will come in. If I program first buffer
+> with skb->data and other two with
+> pages, what if the packet arrived only fits in first buffer? The other
+> two buffers are wasted in this case.
 
+Does your hardware support MTU (or kind of that like e1000, which
+supports packets with size upto next power of two over MTU)?
 
-
-On Thu, 29 May 2008 03:34:42 -0700 (PDT), David Miller
-
-<davem@davemloft.net> wrote:
-
-> From: Wang Chen <wangchen@cn.fujitsu.com>
-
-> Date: Fri, 23 May 2008 13:57:19 +0800
-
+> > If it is not convenient to use such scheme, you can always put data
+> into pages and then copy tiny bit into skb->data to > be able to specify
+> IP layer protocol, all the rest system will do for itself via
+> pskb_may_copy() if needed.
 > 
+> What is the minimum size of pages that I can allocate? Is it 4K? If that
+> is the case, then
+> I may be wasting a lot of memory for smaller packets.
 
->> 1. dma should be freed when dma2 request fail.
+For small enough packets you can allocate new skb with exact size and
+copy data from old page into new skb. It will be much faster, since
+sockets will be charged with smaller size per packet. But usually you
+have to preallocate at least MTU sized packets.
 
->> 2. dma2 should be freed too when device close.
+Page size is different on each arch, for x86 it is 4k by default.
 
->>
-
->> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-
-> 
-
-> Jeff, did you get this or would you like me to pick
-
-> it up directly?
-
-I'll take it and send it along with my next IrDA patch set.
-
-
-
-Cheers,
-
-Samuel.
-
-
-
-
-
-> Thanks.
-
-> --
-
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-
-> the body of a message to majordomo@vger.kernel.org
-
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+-- 
+	Evgeniy Polyakov
