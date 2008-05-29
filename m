@@ -1,60 +1,47 @@
-From: James Cammarata <jimi@sngx.net>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
-Date: Wed, 28 May 2008 21:08:05 -0500
-Message-ID: <483E1005.3080804@sngx.net>
-References: <482DA5B6.1020606@sngx.net> <482DB46A.8020103@cosmosbay.com> <482EF192.4070707@sngx.net> <482F5113.5090703@cosmosbay.com> <482F610D.2080108@sngx.net> <20080518003104.GK28241@solarflare.com> <482FBA09.80201@sngx.net> <483E0AAE.2020107@sngx.net>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: SACK + MD5 overflows TCP options space
+Date: Wed, 28 May 2008 19:30:37 -0700
+Message-ID: <396556a20805281930j4a4521d6r1720f50b02a77476@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754658AbYE2CHE@vger.kernel.org>
-In-Reply-To: <483E0AAE.2020107@sngx.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.233]:46504 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbYE2Cai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2008 22:30:38 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so3840347rvb.1
+        for <netdev@vger.kernel.org>; Wed, 28 May 2008 19:30:37 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Missed an errant define in some copied code (from the get_stats function in e1000_main.c).
+in tcp_output.c:tcp_transmit_skb we have:
 
-Signed-off-by: James Cammarata <jimi@sngx.net>
----
+ifdef CONFIG_TCP_MD5SIG
+	/*
+	 * Are we doing MD5 on this segment? If so - make
+	 * room for it.
+	 */
+	md5 = tp->af_specific->md5_lookup(sk, sk);
+	if (md5)
+		tcp_header_size += TCPOLEN_MD5SIG_ALIGNED;
+#endif
 
---- linux-2.6.25.4/drivers/net/e1000/e1000_main.c	2008-05-15 10:00:12.000000000 -0500
-+++ linux-2.6.25.4-jcammara/drivers/net/e1000/e1000_main.c	2008-05-28 21:06:19.000000000 -0500
-@@ -141,6 +141,7 @@ static void e1000_free_tx_resources(stru
- static void e1000_free_rx_resources(struct e1000_adapter *adapter,
-                              struct e1000_rx_ring *rx_ring);
- void e1000_update_stats(struct e1000_adapter *adapter);
-+void e1000_clear_stats(struct e1000_adapter *adapter);
- 
- static int e1000_init_module(void);
- static void e1000_exit_module(void);
-@@ -3819,6 +3820,29 @@ e1000_update_stats(struct e1000_adapter 
- 	spin_unlock_irqrestore(&adapter->stats_lock, flags);
- }
- 
-+void
-+e1000_clear_stats(struct e1000_adapter *adapter)
-+{
-+	struct pci_dev *pdev = adapter->pdev;
-+	unsigned long flags;
-+
-+	/*
-+	 * Prevent stats update while adapter is being reset, or if the pci
-+	 * connection is down.
-+	 */
-+	if (adapter->link_speed == 0)
-+		return;
-+	if (pci_channel_offline(pdev))
-+		return;
-+
-+	spin_lock_irqsave(&adapter->stats_lock, flags);
-+
-+	memset(&adapter->stats, 0, sizeof(struct e1000_hw_stats));
-+	memset(&adapter->net_stats, 0, sizeof(struct net_device_stats));
-+
-+	spin_unlock_irqrestore(&adapter->stats_lock, flags);
-+}
-+
- /**
-  * e1000_intr_msi - Interrupt Handler
-  * @irq: interrupt number
+However, the SACK option can be at least 18 bytes long (I've not
+checked the code here, I've just observed a packet go by with that
+much SACK in it). With alignment padding, that's 20 bytes. Plus 12
+bytes of timestamp option (aligned). Then, adding 18 bytes of MD5SIG
+rolls the TCP header size over and we produce garbage, right?
+
+I'm only asking because I've a patch which adds a similar option and,
+when SACK kicks in, I'm getting TCP header sizes of 0 or 8 bytes. If
+there's a solution to the MD5 case that I'm missing I'd love to use
+it. (Otherwise, I've another bodge up my sleeves)
+
+
+Cheers
+
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
