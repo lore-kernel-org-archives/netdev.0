@@ -1,58 +1,29 @@
-From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] [PATCH v3 13/13] QLogic VNIC: Modifications to IB
-	Kconfig and Makefile
-Date: Thu, 29 May 2008 15:30:25 +0530
-Message-ID: <20080529100025.9943.35838.stgit@localhost.localdomain>
-References: <20080529095126.9943.84692.stgit@localhost.localdomain>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: network card with LRO (and TSO) in hardware?
+Date: Thu, 29 May 2008 20:04:57 +0300
+Message-ID: <200805292004.58064.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: amar.mudrankit@qlogic.com, poornima.kamath@qlogic.com
-To: rdreier@cisco.com, general@lists.openfabrics.org, netdev@vger.kernel.org
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20080529095126.9943.84692.stgit@localhost.localdomain>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1724 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751061AbYE2RHC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 13:07:02 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 
-This patch modifies the toplevel Infiniband Kconfig and Makefile
-to include QLogic VNIC as new ULP.
+Hi,
 
-Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
-Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
----
+Can you recommend a network card with LRO/TSO support in hardware which is 
+supported in Linux?
 
- drivers/infiniband/Kconfig  |    2 ++
- drivers/infiniband/Makefile |    1 +
- 2 files changed, 3 insertions(+), 0 deletions(-)
+And, do you, by any chance, know what is the maximum number of packets per 
+second that you can obtain with such a setup?
 
-diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
-index a5dc78a..0775df5 100644
---- a/drivers/infiniband/Kconfig
-+++ b/drivers/infiniband/Kconfig
-@@ -53,4 +53,6 @@ source "drivers/infiniband/ulp/srp/Kconfig"
- 
- source "drivers/infiniband/ulp/iser/Kconfig"
- 
-+source "drivers/infiniband/ulp/qlgc_vnic/Kconfig"
-+
- endif # INFINIBAND
-diff --git a/drivers/infiniband/Makefile b/drivers/infiniband/Makefile
-index ed35e44..845271e 100644
---- a/drivers/infiniband/Makefile
-+++ b/drivers/infiniband/Makefile
-@@ -9,3 +9,4 @@ obj-$(CONFIG_INFINIBAND_NES)		+= hw/nes/
- obj-$(CONFIG_INFINIBAND_IPOIB)		+= ulp/ipoib/
- obj-$(CONFIG_INFINIBAND_SRP)		+= ulp/srp/
- obj-$(CONFIG_INFINIBAND_ISER)		+= ulp/iser/
-+obj-$(CONFIG_INFINIBAND_QLGC_VNIC)	+= ulp/qlgc_vnic/
+Thanks,
+tavi
