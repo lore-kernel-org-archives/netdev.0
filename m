@@ -1,116 +1,79 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [git patches] net driver updates for .27
-Date: Thu, 29 May 2008 22:39:28 +1000
-Message-ID: <20080529223928.30cee44f.sfr@canb.auug.org.au>
-References: <20080522191049.GA29882@havoc.gtf.org>
-	<20080529.033302.254596590.davem@davemloft.net>
+From: Martin Wilck <martin.wilck@fujitsu-siemens.com>
+Subject: Re: [PATCH] [resend] drivers/net: remove network drivers' last few
+ uses  of IRQF_SAMPLE_RANDOM
+Date: Thu, 29 May 2008 14:41:16 +0200
+Message-ID: <483EA46C.7040508@fujitsu-siemens.com>
+References: <ayJOq-3EJ-15@gated-at.bofh.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Tony Breeds <tony@bakeyournoodle.com>
-To: Jeff Garzik <jeff@garzik.org>
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:55851 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751271AbYE2Mjd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2008 08:39:33 -0400
-In-Reply-To: <20080529.033302.254596590.davem@davemloft.net>
+Received: from dgate20.fujitsu-siemens.com ([80.70.172.51]:28720 "EHLO
+	dgate20.fujitsu-siemens.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751751AbYE2Mu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 08:50:59 -0400
+In-Reply-To: <ayJOq-3EJ-15@gated-at.bofh.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+Chris Peterson wrote:
 
-On Thu, 29 May 2008 03:33:02 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
->
-> From: Jeff Garzik <jeff@garzik.org>
-> Date: Thu, 22 May 2008 15:10:49 -0400
-> 
-> > Please pull from 'upstream-next-davem' branch of
-> > master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-next-davem
+> Remove network drivers' last few uses of theoretically-exploitable network 
+> entropy. Only 12 net drivers are affected. Headless boxes should use a 
+> more secure source of entropy, such as the userspace daemons rngd, clrngd, 
+> egd, audio_entropyd, and/or video_entroyd.
 
-Is there some reason you missed "Fix various 8390 builds" from Tony
-Breeds.  I have been carrying it in linux-next for some time and would
-appreciate it being merged.  It fixes a build regression in the current
-net-next tree.
+I don't think that consensus has been reached on this subject yet. 
+Re-reading this thread, it's obvious that there are two camps with 
+conflicting opinions all the way through the community. Very little has 
+changed since the debate in 2006.
 
-I have included the patch below.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Those who are in favor of this patch argue that random data from 
+/dev/random must be absolutely, truly cryptographically reliable. That's 
+fine as a concept, but it is not even remotely realistic in many 
+real-world systems.
 
-Date: Mon, 19 May 2008 15:03:52 +1000
-To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@redhat.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Randy Dunlap <randy.dunlap@oracle.com>, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Linux/m68k <linux-m68k@vger.kernel.org>
-Subject: [PATCH v3] Fix various 8390 builds
-From: tony@bakeyournoodle.com (Tony Breeds)
+Think about disk randomness in times where more and more disks don't 
+have mechanical heads. Think about caching RAID controllers, solid state 
+disks, virtual disks, even iSCSI volumes! In general, modern "disks" are 
+no more reliable as entropy source than network interfaces.
 
-The commit 3f8cb098859bbea29d7b3765a3102e4a6bf81b85
-(drivers/net/lib8390: fix warning, trim trailing whitespace) removed
-ei_local from ei_tx_err() and ei_rx_overrun() resulting in the following
-build errors on m68k and sh:
+Either the low-level driver (knowing the actual hardware) must decide 
+whether or not a device is a suitable source of randomness, or better 
+even, the admin must judge that from his knowledge of the actual situation.
 
-Using /scratch1/tony/next as source for kernel
-GEN     /scratch1/tony/next_out/Makefile
-CHK     include/linux/version.h
-CHK     include/linux/utsrelease.h
-CALL    /scratch1/tony/next/scripts/checksyscalls.sh
-CHK     include/linux/compile.h
-CC [M]  drivers/net/zorro8390.o
-In file included from /scratch1/tony/next/drivers/net/zorro8390.c:47:
-drivers/net/lib8390.c: In function 'ei_tx_err':
-drivers/net/lib8390.c:556: error: 'ei_local' undeclared (first use in this function)
-drivers/net/lib8390.c:556: error: (Each undeclared identifier is reported only once
-drivers/net/lib8390.c:556: error: for each function it appears in.)
-drivers/net/lib8390.c: In function 'ei_rx_overrun':
-drivers/net/lib8390.c:823: error: 'ei_local' undeclared (first use in this function)
-make[3]: *** [drivers/net/zorro8390.o] Error 1
-make[2]: *** [drivers/net] Error 2
-make[1]: *** [drivers] Error 2
-make: *** [sub-make] Error 2
+To make /dev/random truly solid, all devices that currently contribute 
+entropy must be re-scrutinized. Whether or not they really generate 
+entropy should be made configurable for administrators, this is a matter 
+of policy, not an a-priory property of a device class. It should be an 
+individual device property - some SCSI disks in a system may be 
+considered reliable and others not, and the same would hold for network 
+devices.
 
-The problem is that ei_inb_p() is using various #defines (from
-drivers/net/8390.h) that use EI_SHIFT, which in some drivers on some
-architectures use ei_local.  Tag ei_local as "__maybe_unused" to keep it
-around and keep the warnings the original commit is trying to silence
-... silenced.
+In the meantime, while /dev/random isn't what it's supposed to be, I 
+pledge to keep IRQF_SAMPLE_RANDOM for network devices, or at least, make 
+at a configurable option for headless systems.
 
-Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
----
-Updated to remove pointless casts
+egd, etc. are not an adequate replacement for network-generated 
+randomness. They either use /dev/hw_random, which is only available on a 
+few machines, or system statistics which can hardly count as "random 
+noise". On the contrary, the statistics are 100% deterministic if the 
+initial system state is known. The only way such data can become 
+non-deterministic is through user or network input. User input is not 
+available in the scenario we're talking about, and well - network input 
+should't count, should it? It's not a proof if such data passes the FIPE 
+or diehard tests. These tests are statistical and would be passed by 
+totally deterministic data such as the sequence of digits of Pi.
 
- drivers/net/lib8390.c |    4 ++++
- 1 file changed, 4 insertions(+)
+Whatever comes out of this discussion, it's most important that some 
+sort of consensus is reached that user space can rely on. The current 
+situation is just inconsistent and confusing. I that sense, Chris' patch 
+is good because it at least removes the inconsistency between network 
+drivers. But I'd only find it acceptable as the first part of a patch 
+series that tackles the complete entropy-generation infrastructure.
 
- Dave, Jeff can one of you take this?
-
-
-diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
-index ed49527..00d59ab 100644
---- a/drivers/net/lib8390.c
-+++ b/drivers/net/lib8390.c
-@@ -553,6 +553,8 @@ static void __ei_poll(struct net_device *dev)
- static void ei_tx_err(struct net_device *dev)
- {
- 	unsigned long e8390_base = dev->base_addr;
-+	/* ei_local is used on some platforms via the EI_SHIFT macro */
-+	struct ei_device *ei_local __maybe_unused = netdev_priv(dev);
- 	unsigned char txsr = ei_inb_p(e8390_base+EN0_TSR);
- 	unsigned char tx_was_aborted = txsr & (ENTSR_ABT+ENTSR_FU);
- 
-@@ -815,6 +817,8 @@ static void ei_rx_overrun(struct net_device *dev)
- {
- 	unsigned long e8390_base = dev->base_addr;
- 	unsigned char was_txing, must_resend = 0;
-+	/* ei_local is used on some platforms via the EI_SHIFT macro */
-+	struct ei_device *ei_local __maybe_unused = netdev_priv(dev);
- 
- 	/*
- 	 * Record whether a Tx was in progress and then issue the
-
+Regards
+Martin
 
