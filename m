@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [TCP]: Reorganize tcp_sock to fill 64-bit holes &
- improve locality
-Date: Thu, 29 May 2008 03:26:24 -0700 (PDT)
-Message-ID: <20080529.032624.193694741.davem@davemloft.net>
-References: <Pine.LNX.4.64.0805211534170.16829@wrl-59.cs.helsinki.fi>
-	<Pine.LNX.4.64.0805211536390.16829@wrl-59.cs.helsinki.fi>
-	<483B9F2A.8070804@cosmosbay.com>
+Subject: Re: [git patches] net driver updates for .27
+Date: Thu, 29 May 2008 03:33:02 -0700 (PDT)
+Message-ID: <20080529.033302.254596590.davem@davemloft.net>
+References: <20080522191049.GA29882@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52614
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54578
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751070AbYE2K02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:26:28 -0400
-In-Reply-To: <483B9F2A.8070804@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1750768AbYE2KdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 06:33:06 -0400
+In-Reply-To: <20080522191049.GA29882@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 27 May 2008 07:42:02 +0200
+From: Jeff Garzik <jeff@garzik.org>
+Date: Thu, 22 May 2008 15:10:49 -0400
 
-> Thanks Ilpo for this work. This looks very good.
-> 
-> Sorry for my delayed answer.
-> 
-> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+> Please pull from 'upstream-next-davem' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-next-davem
 
-Applied and I'll push out to net-next-2.6 after some test
-builds.
+Pulled and I will push out to net-next-2.6 after some build
+testing.
 
 Thanks!
