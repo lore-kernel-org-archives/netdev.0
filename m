@@ -1,8 +1,8 @@
 From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] [PATCH v3 03/13] QLogic VNIC: Implementation of
-	communication protocol with EVIC/VEx
-Date: Thu, 29 May 2008 15:25:23 +0530
-Message-ID: <20080529095523.9943.28433.stgit@localhost.localdomain>
+Subject: [ofa-general] [PATCH v3 04/13] QLogic VNIC: Implementation of
+	Control path of communication protocol
+Date: Thu, 29 May 2008 15:25:54 +0530
+Message-ID: <20080529095554.9943.43485.stgit@localhost.localdomain>
 References: <20080529095126.9943.84692.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -24,27 +24,29 @@ List-Id: netdev.vger.kernel.org
 
 From: Poornima Kamath <poornima.kamath@qlogic.com>
 
-Implementation of the statemachine for the protocol used while 
-communicating with the EVIC. The patch also implements the viport
-abstraction which represents the virtual ethernet port on EVIC.
+This patch adds the files that define the control packet formats
+and implements various control messages that are exchanged as part
+of the communication protocol with the EVIC/VEx.
 
 Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
 Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
 ---
 
- drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c | 1214 ++++++++++++++++++++++++
- drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h |  175 +++
- 2 files changed, 1389 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h
+ drivers/infiniband/ulp/qlgc_vnic/vnic_control.c    | 2286 ++++++++++++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_control.h    |  179 ++
+ .../infiniband/ulp/qlgc_vnic/vnic_control_pkt.h    |  368 +++
+ 3 files changed, 2833 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_control.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_control.h
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_control_pkt.h
 
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_control.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_control.c
 new file mode 100644
-index 0000000..7462403
+index 0000000..774a071
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c
-@@ -0,0 +1,1214 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_control.c
+@@ -0,0 +1,2286 @@
 +/*
 + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
@@ -77,1194 +79,2266 @@ index 0000000..7462403
 + * SOFTWARE.
 + */
 +
-+#include <linux/list.h>
-+#include <linux/spinlock.h>
 +#include <linux/netdevice.h>
-+#include <linux/completion.h>
-+#include <linux/delay.h>
-+#include <linux/net.h>
++#include <linux/list.h>
++#include <linux/vmalloc.h>
 +
 +#include "vnic_util.h"
 +#include "vnic_main.h"
 +#include "vnic_viport.h"
-+#include "vnic_netpath.h"
-+#include "vnic_control.h"
-+#include "vnic_data.h"
-+#include "vnic_config.h"
-+#include "vnic_control_pkt.h"
++#include "vnic_stats.h"
 +
-+#define VIPORT_DISCONN_TIMER	10000 	 /* 10 seconds */
++#define vnic_multicast_address(rsp2_address, index)           \
++	((rsp2_address)->list_address_ops[index].address[0] & 0x01)
 +
-+#define MAX_RETRY_INTERVAL 	  20000  /* 20 seconds */
-+#define RETRY_INCREMENT		  5000   /* 5 seconds  */
-+#define MAX_CONNECT_RETRY_TIMEOUT 600000 /* 10 minutes */
++static void control_log_control_packet(struct vnic_control_packet *pkt);
 +
-+static DECLARE_WAIT_QUEUE_HEAD(viport_queue);
-+static LIST_HEAD(viport_list);
-+static DECLARE_COMPLETION(viport_thread_exit);
-+static spinlock_t viport_list_lock;
-+
-+static struct task_struct *viport_thread;
-+static int viport_thread_end;
-+
-+static void viport_timer(struct viport *viport, int timeout);
-+
-+struct viport *viport_allocate(struct viport_config *config)
++char *control_ifcfg_name(struct control *control)
 +{
-+	struct viport *viport;
++	if (!control)
++		return "nctl";
++	if (!control->parent)
++		return "np";
++	if (!control->parent->parent)
++		return "npp";
++	if (!control->parent->parent->parent)
++		return "nppp";
++	if (!control->parent->parent->parent->config)
++		return "npppc";
++	return (control->parent->parent->parent->config->name);
++}
 +
-+	VIPORT_FUNCTION("viport_allocate()\n");
-+	viport = kzalloc(sizeof *viport, GFP_KERNEL);
-+	if (!viport) {
-+		VIPORT_ERROR("failed allocating viport structure\n");
-+		return NULL;
++static void control_recv(struct control *control, struct recv_io *recv_io)
++{
++	if (vnic_ib_post_recv(&control->ib_conn, &recv_io->io))
++		viport_failure(control->parent);
++}
++
++static void control_recv_complete(struct io *io)
++{
++	struct recv_io			*recv_io = (struct recv_io *)io;
++	struct recv_io			*last_recv_io;
++	struct control			*control = &io->viport->control;
++	struct vnic_control_packet	*pkt = control_packet(recv_io);
++	struct vnic_control_header	*c_hdr = &pkt->hdr;
++	unsigned long			flags;
++	cycles_t			response_time;
++
++	CONTROL_FUNCTION("%s: control_recv_complete() State=%d\n",
++			 control_ifcfg_name(control), control->req_state);
++
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++	control_note_rsptime_stats(&response_time);
++	CONTROL_PACKET(pkt);
++	spin_lock_irqsave(&control->io_lock, flags);
++	if (c_hdr->pkt_type == TYPE_INFO) {
++		last_recv_io = control->info;
++		control->info = recv_io;
++		spin_unlock_irqrestore(&control->io_lock, flags);
++		viport_kick(control->parent);
++		if (last_recv_io)
++			control_recv(control, last_recv_io);
++	} else if (c_hdr->pkt_type == TYPE_RSP) {
++		u8 repost = 0;
++		u8 fail = 0;
++		u8 kick = 0;
++
++		switch (control->req_state) {
++		case REQ_INACTIVE:
++		case RSP_RECEIVED:
++		case REQ_COMPLETED:
++			CONTROL_ERROR("%s: Unexpected control"
++					"response received: CMD = %d\n",
++					control_ifcfg_name(control),
++					c_hdr->pkt_cmd);
++			control_log_control_packet(pkt);
++			control->req_state = REQ_FAILED;
++			fail = 1;
++			break;
++		case REQ_POSTED:
++		case REQ_SENT:
++			if (c_hdr->pkt_cmd != control->last_cmd
++				|| c_hdr->pkt_seq_num != control->seq_num) {
++				CONTROL_ERROR("%s: Incorrect Control Response "
++					      "received\n",
++					      control_ifcfg_name(control));
++				CONTROL_ERROR("%s: Sent control request:\n",
++					      control_ifcfg_name(control));
++				control_log_control_packet(control_last_req(control));
++				CONTROL_ERROR("%s: Received control response:\n",
++					      control_ifcfg_name(control));
++				control_log_control_packet(pkt);
++				control->req_state = REQ_FAILED;
++				fail = 1;
++			} else {
++				control->response = recv_io;
++				control_update_rsptime_stats(control,
++							    response_time);
++				if (control->req_state == REQ_POSTED) {
++					CONTROL_INFO("%s: Recv CMD RSP %d"
++						     "before Send Completion\n",
++						     control_ifcfg_name(control),
++						     c_hdr->pkt_cmd);
++					control->req_state = RSP_RECEIVED;
++				} else {
++					control->req_state = REQ_COMPLETED;
++					kick = 1;
++				}
++			}
++			break;
++		case REQ_FAILED:
++			/* stay in REQ_FAILED state */
++			repost = 1;
++			break;
++		}
++		spin_unlock_irqrestore(&control->io_lock, flags);
++		/* we must do this outside the lock*/
++		if (kick)
++			viport_kick(control->parent);
++		if (repost || fail) {
++			control_recv(control, recv_io);
++			if (fail)
++				viport_failure(control->parent);
++		}
++
++	} else {
++		list_add_tail(&recv_io->io.list_ptrs,
++			      &control->failure_list);
++		spin_unlock_irqrestore(&control->io_lock, flags);
++		viport_kick(control->parent);
++	}
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++}
++
++static void control_timeout(unsigned long data)
++{
++	struct control *control;
++	unsigned long 		  flags;
++	u8 fail = 0;
++	u8 kick = 0;
++
++	control = (struct control *)data;
++	CONTROL_FUNCTION("%s: control_timeout(), State=%d\n",
++			 control_ifcfg_name(control), control->req_state);
++	control->timer_state = TIMER_EXPIRED;
++
++	spin_lock_irqsave(&control->io_lock, flags);
++	switch (control->req_state) {
++	case REQ_INACTIVE:
++		kick = 1;
++		/* stay in REQ_INACTIVE state */
++		break;
++	case REQ_POSTED:
++	case REQ_SENT:
++		control->req_state = REQ_FAILED;
++		CONTROL_ERROR("%s: No send Completion for Cmd=%d \n",
++			      control_ifcfg_name(control), control->last_cmd);
++		control_timeout_stats(control);
++		fail = 1;
++		break;
++	case RSP_RECEIVED:
++		control->req_state = REQ_FAILED;
++		CONTROL_ERROR("%s: No response received from EIOC for Cmd=%d\n",
++			      control_ifcfg_name(control), control->last_cmd);
++		control_timeout_stats(control);
++		fail = 1;
++		break;
++	case REQ_COMPLETED:
++		/* stay in REQ_COMPLETED state*/
++		kick = 1;
++		break;
++	case REQ_FAILED:
++		/* stay in REQ_FAILED state*/
++		break;
++	}
++	spin_unlock_irqrestore(&control->io_lock, flags);
++	/* we must do this outside the lock */
++	if (fail)
++		viport_failure(control->parent);
++	if (kick)
++		viport_kick(control->parent);
++
++	return;
++}
++
++static void control_timer(struct control *control, int timeout)
++{
++	CONTROL_FUNCTION("%s: control_timer()\n",
++			 control_ifcfg_name(control));
++	if (control->timer_state == TIMER_ACTIVE)
++		mod_timer(&control->timer, jiffies + timeout);
++	else {
++		init_timer(&control->timer);
++		control->timer.expires = jiffies + timeout;
++		control->timer.data = (unsigned long)control;
++		control->timer.function = control_timeout;
++		control->timer_state = TIMER_ACTIVE;
++		add_timer(&control->timer);
++	}
++}
++
++static void control_timer_stop(struct control *control)
++{
++	CONTROL_FUNCTION("%s: control_timer_stop()\n",
++			 control_ifcfg_name(control));
++	if (control->timer_state == TIMER_ACTIVE)
++		del_timer_sync(&control->timer);
++
++	control->timer_state = TIMER_IDLE;
++}
++
++static int control_send(struct control *control, struct send_io *send_io)
++{
++	unsigned long 	flags;
++	u8 ret = -1;
++	u8 fail = 0;
++	struct vnic_control_packet *pkt = control_packet(send_io);
++
++	CONTROL_FUNCTION("%s: control_send(), State=%d\n",
++			 control_ifcfg_name(control), control->req_state);
++	spin_lock_irqsave(&control->io_lock, flags);
++	switch (control->req_state) {
++	case REQ_INACTIVE:
++		CONTROL_PACKET(pkt);
++		control_timer(control, control->config->rsp_timeout);
++		control_note_reqtime_stats(control);
++		if (vnic_ib_post_send(&control->ib_conn, &control->send_io.io)) {
++			CONTROL_ERROR("%s: Failed to post send\n",
++				control_ifcfg_name(control));
++			/* stay in REQ_INACTIVE state*/
++			fail = 1;
++		} else {
++			control->last_cmd = pkt->hdr.pkt_cmd;
++			control->req_state = REQ_POSTED;
++			ret = 0;
++		}
++		break;
++	case REQ_POSTED:
++	case REQ_SENT:
++	case RSP_RECEIVED:
++	case REQ_COMPLETED:
++		CONTROL_ERROR("%s:Previous Command is not completed."
++			      "New CMD: %d Last CMD: %d Seq: %d\n",
++			      control_ifcfg_name(control), pkt->hdr.pkt_cmd,
++			      control->last_cmd, control->seq_num);
++
++		control->req_state = REQ_FAILED;
++		fail = 1;
++		break;
++	case REQ_FAILED:
++		/* this can occur after an error when ViPort state machine
++		 * attempts to reset the link.
++		 */
++		CONTROL_INFO("%s:Attempt to send in failed state."
++			     "New CMD: %d Last CMD: %d\n",
++			     control_ifcfg_name(control), pkt->hdr.pkt_cmd,
++			     control->last_cmd);
++		/* stay in REQ_FAILED state*/
++		break;
++	}
++	spin_unlock_irqrestore(&control->io_lock, flags);
++
++	/* we must do this outside the lock */
++	if (fail)
++		viport_failure(control->parent);
++	return ret;
++
++}
++
++static void control_send_complete(struct io *io)
++{
++	struct control *control = &io->viport->control;
++	unsigned long 		  flags;
++	u8 fail = 0;
++	u8 kick = 0;
++
++	CONTROL_FUNCTION("%s: control_sendComplete(), State=%d\n",
++			 control_ifcfg_name(control), control->req_state);
++	spin_lock_irqsave(&control->io_lock, flags);
++	switch (control->req_state) {
++	case REQ_INACTIVE:
++	case REQ_SENT:
++	case REQ_COMPLETED:
++		CONTROL_ERROR("%s: Unexpected control send completion\n",
++			      control_ifcfg_name(control));
++		fail = 1;
++		control->req_state = REQ_FAILED;
++		break;
++	case REQ_POSTED:
++		control->req_state = REQ_SENT;
++		break;
++	case RSP_RECEIVED:
++		control->req_state = REQ_COMPLETED;
++		kick = 1;
++		break;
++	case REQ_FAILED:
++		/* stay in REQ_FAILED state */
++		break;
++	}
++	spin_unlock_irqrestore(&control->io_lock, flags);
++	/* we must do this outside the lock */
++	if (fail)
++		viport_failure(control->parent);
++	if (kick)
++		viport_kick(control->parent);
++
++	return;
++}
++
++void control_process_async(struct control *control)
++{
++	struct recv_io			*recv_io;
++	struct vnic_control_packet	*pkt;
++	unsigned long			flags;
++
++	CONTROL_FUNCTION("%s: control_process_async()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	spin_lock_irqsave(&control->io_lock, flags);
++	recv_io = control->info;
++	if (recv_io) {
++		CONTROL_INFO("%s: processing info packet\n",
++			     control_ifcfg_name(control));
++		control->info = NULL;
++		spin_unlock_irqrestore(&control->io_lock, flags);
++		pkt = control_packet(recv_io);
++		if (pkt->hdr.pkt_cmd == CMD_REPORT_STATUS) {
++			u32		status;
++			status =
++			  be32_to_cpu(pkt->cmd.report_status.status_number);
++			switch (status) {
++			case VNIC_STATUS_LINK_UP:
++				CONTROL_INFO("%s: link up\n",
++					     control_ifcfg_name(control));
++				vnic_link_up(control->parent->vnic,
++					     control->parent->parent);
++				break;
++			case VNIC_STATUS_LINK_DOWN:
++				CONTROL_INFO("%s: link down\n",
++					     control_ifcfg_name(control));
++				vnic_link_down(control->parent->vnic,
++					       control->parent->parent);
++				break;
++			default:
++				CONTROL_ERROR("%s: asynchronous status"
++					      " received from EIOC\n",
++					      control_ifcfg_name(control));
++				control_log_control_packet(pkt);
++				break;
++			}
++		}
++		if ((pkt->hdr.pkt_cmd != CMD_REPORT_STATUS) ||
++		     pkt->cmd.report_status.is_fatal)
++			viport_failure(control->parent);
++
++		control_recv(control, recv_io);
++		spin_lock_irqsave(&control->io_lock, flags);
 +	}
 +
-+	viport->state = VIPORT_DISCONNECTED;
-+	viport->link_state = LINK_FIRSTCONNECT;
-+	viport->connect = WAIT;
-+	viport->new_mtu = 1500;
-+	viport->new_flags = 0;
-+	viport->config = config;
-+	viport->connect = DELAY;
-+	viport->data.max_mtu = vnic_max_mtu;
-+	spin_lock_init(&viport->lock);
-+	init_waitqueue_head(&viport->stats_queue);
-+	init_waitqueue_head(&viport->disconnect_queue);
-+	init_waitqueue_head(&viport->reference_queue);
-+	INIT_LIST_HEAD(&viport->list_ptrs);
++	while (!list_empty(&control->failure_list)) {
++		CONTROL_INFO("%s: processing error packet\n",
++			     control_ifcfg_name(control));
++		recv_io = (struct recv_io *)
++		    list_entry(control->failure_list.next, struct io,
++			       list_ptrs);
++		list_del(&recv_io->io.list_ptrs);
++		spin_unlock_irqrestore(&control->io_lock, flags);
++		pkt = control_packet(recv_io);
++		CONTROL_ERROR("%s: asynchronous error received from EIOC\n",
++			      control_ifcfg_name(control));
++		control_log_control_packet(pkt);
++		if ((pkt->hdr.pkt_type != TYPE_ERR)
++		    || (pkt->hdr.pkt_cmd != CMD_REPORT_STATUS)
++		    || pkt->cmd.report_status.is_fatal)
++			viport_failure(control->parent);
 +
-+	vnic_mc_init(viport);
++		control_recv(control, recv_io);
++		spin_lock_irqsave(&control->io_lock, flags);
++	}
++	spin_unlock_irqrestore(&control->io_lock, flags);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
 +
-+	return viport;
++	CONTROL_FUNCTION("%s: done control_process_async\n",
++		     control_ifcfg_name(control));
 +}
 +
-+void viport_connect(struct viport *viport, int delay)
++static struct send_io *control_init_hdr(struct control *control, u8 cmd)
 +{
-+	VIPORT_FUNCTION("viport_connect()\n");
++	struct control_config		*config;
++	struct vnic_control_packet	*pkt;
++	struct vnic_control_header	*hdr;
 +
-+	if (viport->connect != DELAY)
-+		viport->connect = (delay) ? DELAY : NOW;
-+	if (viport->link_state == LINK_FIRSTCONNECT) {
-+		u32 duration;
-+		duration = (net_random() & 0x1ff);
-+		if (!viport->parent->is_primary_path)
-+			duration += 0x1ff;
-+		viport->link_state = LINK_RETRYWAIT;
-+		viport_timer(viport, duration);
-+	} else
-+		viport_kick(viport);
++	CONTROL_FUNCTION("control_init_hdr()\n");
++	config = control->config;
++
++	pkt = control_packet(&control->send_io);
++	hdr = &pkt->hdr;
++
++	hdr->pkt_type = TYPE_REQ;
++	hdr->pkt_cmd = cmd;
++	control->seq_num++;
++	hdr->pkt_seq_num = control->seq_num;
++	hdr->pkt_retry_count = 0;
++
++	return &control->send_io;
 +}
 +
-+static void viport_disconnect(struct viport *viport)
++static struct recv_io *control_get_rsp(struct control *control)
 +{
-+	VIPORT_FUNCTION("viport_disconnect()\n");
-+	viport->disconnect = 1;
-+	viport_failure(viport);
-+	wait_event(viport->disconnect_queue, viport->disconnect == 0);
++	struct recv_io	*recv_io = NULL;
++	unsigned long	flags;
++	u8 fail = 0;
++
++	CONTROL_FUNCTION("%s: control_getRsp(), State=%d\n",
++			 control_ifcfg_name(control), control->req_state);
++	spin_lock_irqsave(&control->io_lock, flags);
++	switch (control->req_state) {
++	case REQ_INACTIVE:
++		CONTROL_ERROR("%s: Checked for Response with no"
++			      "command pending\n",
++			      control_ifcfg_name(control));
++		control->req_state = REQ_FAILED;
++		fail = 1;
++		break;
++	case REQ_POSTED:
++	case REQ_SENT:
++	case RSP_RECEIVED:
++		/* no response available yet
++		 stay in present state*/
++		break;
++	case REQ_COMPLETED:
++		recv_io = control->response;
++		if (!recv_io) {
++			control->req_state = REQ_FAILED;
++			fail = 1;
++			break;
++		}
++		control->response = NULL;
++		control->last_cmd = CMD_INVALID;
++		control_timer_stop(control);
++		control->req_state = REQ_INACTIVE;
++		break;
++	case REQ_FAILED:
++		control_timer_stop(control);
++		/* stay in REQ_FAILED state*/
++		break;
++	}
++	spin_unlock_irqrestore(&control->io_lock, flags);
++	if (fail)
++		viport_failure(control->parent);
++	return recv_io;
 +}
 +
-+void viport_free(struct viport *viport)
++int control_init_vnic_req(struct control *control)
 +{
-+	VIPORT_FUNCTION("viport_free()\n");
-+	viport_disconnect(viport);	/* NOTE: this can sleep */
-+	vnic_mc_uninit(viport);
-+	kfree(viport->config);
-+	kfree(viport);
++	struct send_io			*send_io;
++	struct control_config		*config = control->config;
++	struct vnic_control_packet	*pkt;
++	struct vnic_cmd_init_vnic_req	*init_vnic_req;
++
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->send_dma, control->send_len,
++				   DMA_TO_DEVICE);
++
++	send_io = control_init_hdr(control, CMD_INIT_VNIC);
++	if (!send_io)
++		goto failure;
++
++	pkt = control_packet(send_io);
++	init_vnic_req = &pkt->cmd.init_vnic_req;
++	init_vnic_req->vnic_major_version =
++				 __constant_cpu_to_be16(VNIC_MAJORVERSION);
++	init_vnic_req->vnic_minor_version =
++				 __constant_cpu_to_be16(VNIC_MINORVERSION);
++	init_vnic_req->vnic_instance = config->vnic_instance;
++	init_vnic_req->num_data_paths = 1;
++	init_vnic_req->num_address_entries =
++				cpu_to_be16(config->max_address_entries);
++
++	control->last_cmd = pkt->hdr.pkt_cmd;
++	CONTROL_PACKET(pkt);
++
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++
++	return control_send(control, send_io);
++failure:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return -1;
 +}
 +
-+void viport_set_link(struct viport *viport, u16 flags, u16 mtu)
++static int control_chk_vnic_rsp_values(struct control *control,
++				       u16 *num_addrs,
++				       u8 num_data_paths,
++				       u8 num_lan_switches,
++				       u32 *features)
 +{
-+	unsigned long localflags;
-+	int i;
 +
-+	VIPORT_FUNCTION("viport_set_link()\n");
-+	if (mtu > data_max_mtu(&viport->data)) {
-+		VIPORT_ERROR("configuration error."
-+			     " mtu of %d unsupported by %s\n", mtu,
-+			     config_viport_name(viport->config));
++	struct control_config		*config = control->config;
++
++	if ((control->maj_ver > VNIC_MAJORVERSION)
++	    || ((control->maj_ver == VNIC_MAJORVERSION)
++		&& (control->min_ver > VNIC_MINORVERSION))) {
++		CONTROL_ERROR("%s: unsupported version\n",
++			      control_ifcfg_name(control));
++		goto failure;
++	}
++	if (num_data_paths != 1) {
++		CONTROL_ERROR("%s: EIOC returned too many datapaths\n",
++			      control_ifcfg_name(control));
++		goto failure;
++	}
++	if (*num_addrs > config->max_address_entries) {
++		CONTROL_ERROR("%s: EIOC returned more address"
++			      " entries than requested\n",
++			      control_ifcfg_name(control));
++		goto failure;
++	}
++	if (*num_addrs < config->min_address_entries) {
++		CONTROL_ERROR("%s: not enough address entries\n",
++			      control_ifcfg_name(control));
++		goto failure;
++	}
++	if (num_lan_switches < 1) {
++		CONTROL_ERROR("%s: EIOC returned no lan switches\n",
++			      control_ifcfg_name(control));
++		goto failure;
++	}
++	if (num_lan_switches > 1) {
++		CONTROL_ERROR("%s: EIOC returned multiple lan switches\n",
++			      control_ifcfg_name(control));
++		goto failure;
++	}
++	CONTROL_ERROR("%s checking features %x ib_multicast:%d\n",
++			control_ifcfg_name(control),
++			*features, config->ib_multicast);
++	if ((*features & VNIC_FEAT_INBOUND_IB_MC) && !config->ib_multicast) {
++		/* disable multicast if it is not on in the cfg file, or
++		   if we turned it off because join failed */
++		*features &= ~VNIC_FEAT_INBOUND_IB_MC;
++	}
++
++	return 0;
++failure:
++	return -1;
++}
++
++int control_init_vnic_rsp(struct control *control, u32 *features,
++			  u8 *mac_address, u16 *num_addrs, u16 *vlan)
++{
++	u8 num_data_paths;
++	u8 num_lan_switches;
++	struct recv_io			*recv_io;
++	struct vnic_control_packet	*pkt;
++	struct vnic_cmd_init_vnic_rsp	*init_vnic_rsp;
++
++
++	CONTROL_FUNCTION("%s: control_init_vnic_rsp()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	recv_io = control_get_rsp(control);
++	if (!recv_io)
++		goto out;
++
++	pkt = control_packet(recv_io);
++	if (pkt->hdr.pkt_cmd != CMD_INIT_VNIC)
++		goto failure;
++
++	init_vnic_rsp = &pkt->cmd.init_vnic_rsp;
++	control->maj_ver = be16_to_cpu(init_vnic_rsp->vnic_major_version);
++	control->min_ver = be16_to_cpu(init_vnic_rsp->vnic_minor_version);
++	num_data_paths = init_vnic_rsp->num_data_paths;
++	num_lan_switches = init_vnic_rsp->num_lan_switches;
++	*features = be32_to_cpu(init_vnic_rsp->features_supported);
++	*num_addrs = be16_to_cpu(init_vnic_rsp->num_address_entries);
++
++	if (control_chk_vnic_rsp_values(control, num_addrs,
++					num_data_paths,
++					num_lan_switches,
++					features))
++		goto failure;
++
++	control->lan_switch.lan_switch_num =
++			init_vnic_rsp->lan_switch[0].lan_switch_num;
++	control->lan_switch.num_enet_ports =
++			init_vnic_rsp->lan_switch[0].num_enet_ports;
++	control->lan_switch.default_vlan =
++			init_vnic_rsp->lan_switch[0].default_vlan;
++	*vlan = be16_to_cpu(control->lan_switch.default_vlan);
++	memcpy(control->lan_switch.hw_mac_address,
++	       init_vnic_rsp->lan_switch[0].hw_mac_address, ETH_ALEN);
++	memcpy(mac_address, init_vnic_rsp->lan_switch[0].hw_mac_address,
++	       ETH_ALEN);
++
++	control_recv(control, recv_io);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return 0;
++failure:
++	viport_failure(control->parent);
++out:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return -1;
++}
++
++static void copy_recv_pool_config(struct vnic_recv_pool_config *src,
++				  struct vnic_recv_pool_config *dst)
++{
++	dst->size_recv_pool_entry  = src->size_recv_pool_entry;
++	dst->num_recv_pool_entries = src->num_recv_pool_entries;
++	dst->timeout_before_kick   = src->timeout_before_kick;
++	dst->num_recv_pool_entries_before_kick =
++				src->num_recv_pool_entries_before_kick;
++	dst->num_recv_pool_bytes_before_kick =
++				src->num_recv_pool_bytes_before_kick;
++	dst->free_recv_pool_entries_per_update =
++				src->free_recv_pool_entries_per_update;
++}
++
++static int check_recv_pool_config_value(__be32 *src, __be32 *dst,
++					__be32 *max, __be32 *min,
++					char *name)
++{
++	u32 value;
++
++	value = be32_to_cpu(*src);
++	if (value > be32_to_cpu(*max)) {
++		CONTROL_ERROR("value %s too large\n", name);
++		return -1;
++	} else if (value < be32_to_cpu(*min)) {
++		CONTROL_ERROR("value %s too small\n", name);
++		return -1;
++	}
++
++	*dst = cpu_to_be32(value);
++	return 0;
++}
++
++static int check_recv_pool_config(struct vnic_recv_pool_config *src,
++				  struct vnic_recv_pool_config *dst,
++				  struct vnic_recv_pool_config *max,
++				  struct vnic_recv_pool_config *min)
++{
++	if (check_recv_pool_config_value(&src->size_recv_pool_entry,
++				     &dst->size_recv_pool_entry,
++				     &max->size_recv_pool_entry,
++				     &min->size_recv_pool_entry,
++				     "size_recv_pool_entry")
++	    || check_recv_pool_config_value(&src->num_recv_pool_entries,
++				     &dst->num_recv_pool_entries,
++				     &max->num_recv_pool_entries,
++				     &min->num_recv_pool_entries,
++				     "num_recv_pool_entries")
++	    || check_recv_pool_config_value(&src->timeout_before_kick,
++				     &dst->timeout_before_kick,
++				     &max->timeout_before_kick,
++				     &min->timeout_before_kick,
++				     "timeout_before_kick")
++	    || check_recv_pool_config_value(&src->
++				     num_recv_pool_entries_before_kick,
++				     &dst->
++				     num_recv_pool_entries_before_kick,
++				     &max->
++				     num_recv_pool_entries_before_kick,
++				     &min->
++				     num_recv_pool_entries_before_kick,
++				     "num_recv_pool_entries_before_kick")
++	    || check_recv_pool_config_value(&src->
++				     num_recv_pool_bytes_before_kick,
++				     &dst->
++				     num_recv_pool_bytes_before_kick,
++				     &max->
++				     num_recv_pool_bytes_before_kick,
++				     &min->
++				     num_recv_pool_bytes_before_kick,
++				     "num_recv_pool_bytes_before_kick")
++	    || check_recv_pool_config_value(&src->
++				     free_recv_pool_entries_per_update,
++				     &dst->
++				     free_recv_pool_entries_per_update,
++				     &max->
++				     free_recv_pool_entries_per_update,
++				     &min->
++				     free_recv_pool_entries_per_update,
++				     "free_recv_pool_entries_per_update"))
++		goto failure;
++
++	if (!is_power_of_2(be32_to_cpu(dst->num_recv_pool_entries))) {
++		CONTROL_ERROR("num_recv_pool_entries (%d)"
++			      " must be power of 2\n",
++			      dst->num_recv_pool_entries);
 +		goto failure;
 +	}
 +
-+	spin_lock_irqsave(&viport->lock, localflags);
-+	flags &= IFF_UP | IFF_ALLMULTI | IFF_PROMISC;
-+	if ((viport->new_flags != flags)
-+	    || (viport->new_mtu != mtu)) {
-+		viport->new_flags = flags;
-+		viport->new_mtu = mtu;
-+		viport->updates |= NEED_LINK_CONFIG;
-+		if (viport->features_supported & VNIC_FEAT_INBOUND_IB_MC) {
-+			if (((viport->mtu <= MCAST_MSG_SIZE) && (mtu >  MCAST_MSG_SIZE)) ||
-+			    ((viport->mtu >  MCAST_MSG_SIZE) && (mtu <= MCAST_MSG_SIZE))) {
-+			/*
-+			 * MTU value will enable/disable the multicast. In
-+			 * either case, need to send the CMD_CONFIG_ADDRESS2 to
-+			 * EVIC. Hence, setting the NEED_ADDRESS_CONFIG flag.
-+			 */
-+				viport->updates |= NEED_ADDRESS_CONFIG;
-+				if (mtu <= MCAST_MSG_SIZE) {
-+				    VIPORT_PRINT("%s: MTU changed; "
-+						"old:%d new:%d (threshold:%d);"
-+						" MULTICAST will be enabled.\n",
-+						config_viport_name(viport->config),
-+						viport->mtu, mtu,
-+						(int)MCAST_MSG_SIZE);
-+				} else {
-+				    VIPORT_PRINT("%s: MTU changed; "
-+						"old:%d new:%d (threshold:%d); "
-+						"MULTICAST will be disabled.\n",
-+						config_viport_name(viport->config),
-+						viport->mtu, mtu,
-+						(int)MCAST_MSG_SIZE);
-+				}
-+				/* When we resend these addresses, EVIC will
-+				 * send mgid=0 back in response. So no need to
-+				 * shutoff ib_multicast.
-+				 */
-+				for (i = MCAST_ADDR_START; i < viport->num_mac_addresses; i++) {
-+					if (viport->mac_addresses[i].valid)
-+						viport->mac_addresses[i].operation = VNIC_OP_SET_ENTRY;
-+				}
-+			}
-+		}
-+		viport_kick(viport);
++	if (!is_power_of_2(be32_to_cpu(dst->
++				      free_recv_pool_entries_per_update))) {
++		CONTROL_ERROR("free_recv_pool_entries_per_update (%d)"
++			      " must be power of 2\n",
++			      dst->free_recv_pool_entries_per_update);
++		goto failure;
 +	}
 +
-+	spin_unlock_irqrestore(&viport->lock, localflags);
-+	return;
++	if (be32_to_cpu(dst->free_recv_pool_entries_per_update) >=
++	    be32_to_cpu(dst->num_recv_pool_entries)) {
++		CONTROL_ERROR("free_recv_pool_entries_per_update (%d) must"
++			      " be less than num_recv_pool_entries (%d)\n",
++			      dst->free_recv_pool_entries_per_update,
++			      dst->num_recv_pool_entries);
++		goto failure;
++	}
++
++	if (be32_to_cpu(dst->num_recv_pool_entries_before_kick) >=
++	    be32_to_cpu(dst->num_recv_pool_entries)) {
++		CONTROL_ERROR("num_recv_pool_entries_before_kick (%d) must"
++			      " be less than num_recv_pool_entries (%d)\n",
++			      dst->num_recv_pool_entries_before_kick,
++			      dst->num_recv_pool_entries);
++		goto failure;
++	}
++
++	return 0;
 +failure:
-+	viport_failure(viport);
++	return -1;
 +}
 +
-+int viport_set_unicast(struct viport *viport, u8 *address)
++int control_config_data_path_req(struct control *control, u64 path_id,
++				     struct vnic_recv_pool_config *host,
++				     struct vnic_recv_pool_config *eioc)
 +{
-+	unsigned long flags;
-+	int	ret = -1;
-+	VIPORT_FUNCTION("viport_set_unicast()\n");
-+	spin_lock_irqsave(&viport->lock, flags);
++	struct send_io				*send_io;
++	struct vnic_control_packet		*pkt;
++	struct vnic_cmd_config_data_path	*config_data_path;
 +
-+	if (!viport->mac_addresses)
++	CONTROL_FUNCTION("%s: control_config_data_path_req()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->send_dma, control->send_len,
++				   DMA_TO_DEVICE);
++
++	send_io = control_init_hdr(control, CMD_CONFIG_DATA_PATH);
++	if (!send_io)
++		goto failure;
++
++	pkt = control_packet(send_io);
++	config_data_path = &pkt->cmd.config_data_path_req;
++	config_data_path->data_path = 0;
++	config_data_path->path_identifier = path_id;
++	copy_recv_pool_config(host,
++			      &config_data_path->host_recv_pool_config);
++	copy_recv_pool_config(eioc,
++			      &config_data_path->eioc_recv_pool_config);
++	CONTROL_PACKET(pkt);
++
++	control->last_cmd = pkt->hdr.pkt_cmd;
++
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++
++	return control_send(control, send_io);
++failure:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return -1;
++}
++
++int control_config_data_path_rsp(struct control *control,
++				 struct vnic_recv_pool_config *host,
++				 struct vnic_recv_pool_config *eioc,
++				 struct vnic_recv_pool_config *max_host,
++				 struct vnic_recv_pool_config *max_eioc,
++				 struct vnic_recv_pool_config *min_host,
++				 struct vnic_recv_pool_config *min_eioc)
++{
++	struct recv_io				*recv_io;
++	struct vnic_control_packet		*pkt;
++	struct vnic_cmd_config_data_path	*config_data_path;
++
++	CONTROL_FUNCTION("%s: control_config_data_path_rsp()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	recv_io = control_get_rsp(control);
++	if (!recv_io)
 +		goto out;
 +
-+	if (memcmp(viport->mac_addresses[UNICAST_ADDR].address,
-+		   address, ETH_ALEN)) {
-+		memcpy(viport->mac_addresses[UNICAST_ADDR].address,
-+		       address, ETH_ALEN);
-+		viport->mac_addresses[UNICAST_ADDR].operation
-+		    = VNIC_OP_SET_ENTRY;
-+		viport->updates |= NEED_ADDRESS_CONFIG;
-+		viport_kick(viport);
++	pkt = control_packet(recv_io);
++	if (pkt->hdr.pkt_cmd != CMD_CONFIG_DATA_PATH)
++		goto failure;
++
++	config_data_path = &pkt->cmd.config_data_path_rsp;
++	if (config_data_path->data_path != 0) {
++		CONTROL_ERROR("%s: received CMD_CONFIG_DATA_PATH response"
++			      " for wrong data path: %u\n",
++			      control_ifcfg_name(control),
++			      config_data_path->data_path);
++		goto failure;
 +	}
-+	ret = 0;
++
++	if (check_recv_pool_config(&config_data_path->
++				   host_recv_pool_config,
++				   host, max_host, min_host)
++	    || check_recv_pool_config(&config_data_path->
++				      eioc_recv_pool_config,
++				      eioc, max_eioc, min_eioc)) {
++		goto failure;
++	}
++
++	control_recv(control, recv_io);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++
++	return 0;
++failure:
++	viport_failure(control->parent);
 +out:
-+	spin_unlock_irqrestore(&viport->lock, flags);
-+	return ret;
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return -1;
 +}
 +
-+int viport_set_multicast(struct viport *viport,
-+			 struct dev_mc_list *mc_list, int mc_count)
++int control_exchange_pools_req(struct control *control, u64 addr, u32 rkey)
 +{
-+	u32 old_update_list;
-+	int i;
-+	int ret = -1;
-+	unsigned long flags;
++	struct send_io			*send_io;
++	struct vnic_control_packet	*pkt;
++	struct vnic_cmd_exchange_pools	*exchange_pools;
 +
-+	VIPORT_FUNCTION("viport_set_multicast()\n");
-+	spin_lock_irqsave(&viport->lock, flags);
++	CONTROL_FUNCTION("%s: control_exchange_pools_req()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->send_dma, control->send_len,
++				   DMA_TO_DEVICE);
 +
-+	if (!viport->mac_addresses)
++	send_io = control_init_hdr(control, CMD_EXCHANGE_POOLS);
++	if (!send_io)
++		goto failure;
++
++	pkt = control_packet(send_io);
++	exchange_pools = &pkt->cmd.exchange_pools_req;
++	exchange_pools->data_path = 0;
++	exchange_pools->pool_rkey = cpu_to_be32(rkey);
++	exchange_pools->pool_addr = cpu_to_be64(addr);
++
++	control->last_cmd = pkt->hdr.pkt_cmd;
++
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return control_send(control, send_io);
++failure:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return -1;
++}
++
++int control_exchange_pools_rsp(struct control *control, u64 *addr,
++			       u32 *rkey)
++{
++	struct recv_io			*recv_io;
++	struct vnic_control_packet	*pkt;
++	struct vnic_cmd_exchange_pools	*exchange_pools;
++
++	CONTROL_FUNCTION("%s: control_exchange_pools_rsp()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	recv_io = control_get_rsp(control);
++	if (!recv_io)
 +		goto out;
 +
-+	old_update_list = viport->updates;
-+	if (mc_count > viport->num_mac_addresses - MCAST_ADDR_START)
-+		viport->updates |= NEED_LINK_CONFIG | MCAST_OVERFLOW;
-+	else {
-+		if (mc_count == 0) {
-+			ret = 0;
-+			goto out;
-+		}
-+		if (viport->updates & MCAST_OVERFLOW) {
-+			viport->updates &= ~MCAST_OVERFLOW;
-+			viport->updates |= NEED_LINK_CONFIG;
-+		}
-+		for (i = MCAST_ADDR_START; i < mc_count + MCAST_ADDR_START;
-+						i++, mc_list = mc_list->next) {
-+			if (viport->mac_addresses[i].valid &&
-+				!memcmp(viport->mac_addresses[i].address,
-+						mc_list->dmi_addr, ETH_ALEN))
-+			continue;
-+		memcpy(viport->mac_addresses[i].address,
-+					 mc_list->dmi_addr, ETH_ALEN);
-+		viport->mac_addresses[i].valid = 1;
-+		viport->mac_addresses[i].operation = VNIC_OP_SET_ENTRY;
-+	}
-+	for (; i < viport->num_mac_addresses; i++) {
-+		if (!viport->mac_addresses[i].valid)
-+			continue;
-+		viport->mac_addresses[i].valid = 0;
-+		viport->mac_addresses[i].operation = VNIC_OP_SET_ENTRY;
-+	}
-+	if (mc_count)
-+		viport->updates |= NEED_ADDRESS_CONFIG;
++	pkt = control_packet(recv_io);
++	if (pkt->hdr.pkt_cmd != CMD_EXCHANGE_POOLS)
++		goto failure;
++
++	exchange_pools = &pkt->cmd.exchange_pools_rsp;
++	*rkey = be32_to_cpu(exchange_pools->pool_rkey);
++	*addr = be64_to_cpu(exchange_pools->pool_addr);
++
++	if (exchange_pools->data_path != 0) {
++		CONTROL_ERROR("%s: received CMD_EXCHANGE_POOLS response"
++			      " for wrong data path: %u\n",
++			      control_ifcfg_name(control),
++			      exchange_pools->data_path);
++		goto failure;
 +	}
 +
-+	if (viport->updates != old_update_list)
-+		viport_kick(viport);
-+	ret = 0;
++	control_recv(control, recv_io);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return 0;
++failure:
++	viport_failure(control->parent);
 +out:
-+	spin_unlock_irqrestore(&viport->lock, flags);
-+	return ret;
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return -1;
 +}
 +
-+static inline void viport_disable_multicast(struct viport *viport)
++int control_config_link_req(struct control *control, u16 flags, u16 mtu)
 +{
-+	VIPORT_INFO("turned off IB_MULTICAST\n");
-+	viport->config->control_config.ib_multicast = 0;
-+	viport->config->control_config.ib_config.conn_data.features_supported &=
-+				__constant_cpu_to_be32((u32)~VNIC_FEAT_INBOUND_IB_MC);
-+	viport->link_state = LINK_RESET;
++	struct send_io			*send_io;
++	struct vnic_cmd_config_link	*config_link_req;
++	struct vnic_control_packet	*pkt;
++
++	CONTROL_FUNCTION("%s: control_config_link_req()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->send_dma, control->send_len,
++				   DMA_TO_DEVICE);
++
++	send_io = control_init_hdr(control, CMD_CONFIG_LINK);
++	if (!send_io)
++		goto failure;
++
++	pkt = control_packet(send_io);
++	config_link_req = &pkt->cmd.config_link_req;
++	config_link_req->lan_switch_num =
++				control->lan_switch.lan_switch_num;
++	config_link_req->cmd_flags = VNIC_FLAG_SET_MTU;
++	if (flags & IFF_UP)
++		config_link_req->cmd_flags |= VNIC_FLAG_ENABLE_NIC;
++	else
++		config_link_req->cmd_flags |= VNIC_FLAG_DISABLE_NIC;
++	if (flags & IFF_ALLMULTI)
++		config_link_req->cmd_flags |= VNIC_FLAG_ENABLE_MCAST_ALL;
++	else
++		config_link_req->cmd_flags |= VNIC_FLAG_DISABLE_MCAST_ALL;
++	if (flags & IFF_PROMISC) {
++		config_link_req->cmd_flags |= VNIC_FLAG_ENABLE_PROMISC;
++		/* the EIOU doesn't really do PROMISC mode.
++		 * if PROMISC is set, it only receives unicast packets
++		 * I also have to set MCAST_ALL if I want real
++		 * PROMISC mode.
++		 */
++		config_link_req->cmd_flags &= ~VNIC_FLAG_DISABLE_MCAST_ALL;
++		config_link_req->cmd_flags |= VNIC_FLAG_ENABLE_MCAST_ALL;
++	} else
++		config_link_req->cmd_flags |= VNIC_FLAG_DISABLE_PROMISC;
++
++	config_link_req->mtu_size = cpu_to_be16(mtu);
++
++	control->last_cmd = pkt->hdr.pkt_cmd;
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return control_send(control, send_io);
++failure:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return -1;
 +}
 +
-+void viport_get_stats(struct viport *viport,
-+		     struct net_device_stats *stats)
++int control_config_link_rsp(struct control *control, u16 *flags, u16 *mtu)
 +{
-+	unsigned long flags;
-+
-+	VIPORT_FUNCTION("viport_get_stats()\n");
-+	/* Reference count has been already incremented indicating
-+	 * that viport structure is being used, which prevents its
-+	 * freeing when this task sleeps
-+	 */
-+	if (time_after(jiffies,
-+		(viport->last_stats_time + viport->config->stats_interval))) {
-+
-+		spin_lock_irqsave(&viport->lock, flags);
-+		viport->updates |= NEED_STATS;
-+		spin_unlock_irqrestore(&viport->lock, flags);
-+		viport_kick(viport);
-+		wait_event(viport->stats_queue,
-+			   !(viport->updates & NEED_STATS)
-+			   || (viport->disconnect == 1));
-+
-+		if (viport->stats.ethernet_status)
-+			vnic_link_up(viport->vnic, viport->parent);
-+		else
-+			vnic_link_down(viport->vnic, viport->parent);
-+	}
-+
-+	stats->rx_packets = be64_to_cpu(viport->stats.if_in_ok);
-+	stats->tx_packets = be64_to_cpu(viport->stats.if_out_ok);
-+	stats->rx_bytes   = be64_to_cpu(viport->stats.if_in_octets);
-+	stats->tx_bytes   = be64_to_cpu(viport->stats.if_out_octets);
-+	stats->rx_errors  = be64_to_cpu(viport->stats.if_in_errors);
-+	stats->tx_errors  = be64_to_cpu(viport->stats.if_out_errors);
-+	stats->rx_dropped = 0;	/* EIOC doesn't track */
-+	stats->tx_dropped = 0;	/* EIOC doesn't track */
-+	stats->multicast  = be64_to_cpu(viport->stats.if_in_nucast_pkts);
-+	stats->collisions = 0;	/* EIOC doesn't track */
-+}
-+
-+int viport_xmit_packet(struct viport *viport, struct sk_buff *skb)
-+{
-+	int status = -1;
-+	unsigned long flags;
-+
-+	VIPORT_FUNCTION("viport_xmit_packet()\n");
-+	spin_lock_irqsave(&viport->lock, flags);
-+	if (viport->state == VIPORT_CONNECTED)
-+		status = data_xmit_packet(&viport->data, skb);
-+	spin_unlock_irqrestore(&viport->lock, flags);
-+
-+	return status;
-+}
-+
-+void viport_kick(struct viport *viport)
-+{
-+	unsigned long flags;
-+
-+	VIPORT_FUNCTION("viport_kick()\n");
-+	spin_lock_irqsave(&viport_list_lock, flags);
-+	if (list_empty(&viport->list_ptrs)) {
-+		list_add_tail(&viport->list_ptrs, &viport_list);
-+		wake_up(&viport_queue);
-+	}
-+	spin_unlock_irqrestore(&viport_list_lock, flags);
-+}
-+
-+void viport_failure(struct viport *viport)
-+{
-+	unsigned long flags;
-+
-+	VIPORT_FUNCTION("viport_failure()\n");
-+	vnic_stop_xmit(viport->vnic, viport->parent);
-+	spin_lock_irqsave(&viport_list_lock, flags);
-+	viport->errored = 1;
-+	if (list_empty(&viport->list_ptrs)) {
-+		list_add_tail(&viport->list_ptrs, &viport_list);
-+		wake_up(&viport_queue);
-+	}
-+	spin_unlock_irqrestore(&viport_list_lock, flags);
-+}
-+
-+static void viport_timeout(unsigned long data)
-+{
-+	struct viport *viport;
-+
-+	VIPORT_FUNCTION("viport_timeout()\n");
-+	viport = (struct viport *)data;
-+	viport->timer_active = 0;
-+	viport_kick(viport);
-+}
-+
-+static void viport_timer(struct viport *viport, int timeout)
-+{
-+	VIPORT_FUNCTION("viport_timer()\n");
-+	if (viport->timer_active)
-+		del_timer(&viport->timer);
-+	init_timer(&viport->timer);
-+	viport->timer.expires = jiffies + timeout;
-+	viport->timer.data = (unsigned long)viport;
-+	viport->timer.function = viport_timeout;
-+	viport->timer_active = 1;
-+	add_timer(&viport->timer);
-+}
-+
-+static void viport_timer_stop(struct viport *viport)
-+{
-+	VIPORT_FUNCTION("viport_timer_stop()\n");
-+	if (viport->timer_active)
-+		del_timer(&viport->timer);
-+	viport->timer_active = 0;
-+}
-+
-+static int viport_init_mac_addresses(struct viport *viport)
-+{
-+	struct vnic_address_op2	*temp;
-+	unsigned long		flags;
-+	int			i;
-+
-+	VIPORT_FUNCTION("viport_init_mac_addresses()\n");
-+	i = viport->num_mac_addresses * sizeof *temp;
-+	temp = kzalloc(viport->num_mac_addresses * sizeof *temp,
-+		       GFP_KERNEL);
-+	if (!temp) {
-+		VIPORT_ERROR("failed allocating MAC address table\n");
-+		return -ENOMEM;
-+	}
-+
-+	spin_lock_irqsave(&viport->lock, flags);
-+	viport->mac_addresses = temp;
-+	for (i = 0; i < viport->num_mac_addresses; i++) {
-+		viport->mac_addresses[i].index = cpu_to_be16(i);
-+		viport->mac_addresses[i].vlan =
-+				cpu_to_be16(viport->default_vlan);
-+	}
-+	memset(viport->mac_addresses[BROADCAST_ADDR].address,
-+	       0xFF, ETH_ALEN);
-+	viport->mac_addresses[BROADCAST_ADDR].valid = 1;
-+	memcpy(viport->mac_addresses[UNICAST_ADDR].address,
-+	       viport->hw_mac_address, ETH_ALEN);
-+	viport->mac_addresses[UNICAST_ADDR].valid = 1;
-+
-+	spin_unlock_irqrestore(&viport->lock, flags);
-+
-+	return 0;
-+}
-+
-+static inline void viport_match_mac_address(struct vnic *vnic,
-+					    struct viport *viport)
-+{
-+	if (vnic && vnic->current_path &&
-+	    viport == vnic->current_path->viport &&
-+	    vnic->mac_set &&
-+	    memcmp(vnic->netdevice->dev_addr, viport->hw_mac_address, ETH_ALEN)) {
-+		VIPORT_ERROR("*** ERROR MAC address mismatch; "
-+				"current = %02x:%02x:%02x:%02x:%02x:%02x "
-+				"From EVIC = %02x:%02x:%02x:%02x:%02x:%02x\n",
-+				vnic->netdevice->dev_addr[0],
-+				vnic->netdevice->dev_addr[1],
-+				vnic->netdevice->dev_addr[2],
-+				vnic->netdevice->dev_addr[3],
-+				vnic->netdevice->dev_addr[4],
-+				vnic->netdevice->dev_addr[5],
-+				viport->hw_mac_address[0],
-+				viport->hw_mac_address[1],
-+				viport->hw_mac_address[2],
-+				viport->hw_mac_address[3],
-+				viport->hw_mac_address[4],
-+				viport->hw_mac_address[5]);
-+	}
-+}
-+
-+static int viport_handle_init_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_UNINITIALIZED:
-+			LINK_STATE("state LINK_UNINITIALIZED\n");
-+			viport->updates = 0;
-+			spin_lock_irq(&viport_list_lock);
-+			list_del_init(&viport->list_ptrs);
-+			spin_unlock_irq(&viport_list_lock);
-+			if (atomic_read(&viport->reference_count)) {
-+				wake_up(&viport->stats_queue);
-+				wait_event(viport->reference_queue,
-+					 atomic_read(&viport->reference_count) == 0);
-+			}
-+			/* No more references to viport structure
-+			 * so it is safe to delete it by waking disconnect
-+			 * queue
-+			 */
-+
-+			viport->disconnect = 0;
-+			wake_up(&viport->disconnect_queue);
-+			break;
-+		case LINK_INITIALIZE:
-+			LINK_STATE("state LINK_INITIALIZE\n");
-+			viport->errored = 0;
-+			viport->connect = WAIT;
-+			viport->last_stats_time = 0;
-+			if (viport->disconnect)
-+				viport->link_state = LINK_UNINITIALIZED;
-+			else
-+				viport->link_state = LINK_INITIALIZECONTROL;
-+			break;
-+		case LINK_INITIALIZECONTROL:
-+			LINK_STATE("state LINK_INITIALIZECONTROL\n");
-+			viport->pd = ib_alloc_pd(viport->config->ibdev);
-+			if (IS_ERR(viport->pd))
-+				viport->link_state = LINK_DISCONNECTED;
-+			else if (control_init(&viport->control, viport,
-+					    &viport->config->control_config,
-+					    viport->pd)) {
-+				ib_dealloc_pd(viport->pd);
-+				viport->link_state = LINK_DISCONNECTED;
-+
-+			} else
-+				viport->link_state = LINK_INITIALIZEDATA;
-+			break;
-+		case LINK_INITIALIZEDATA:
-+			LINK_STATE("state LINK_INITIALIZEDATA\n");
-+			if (data_init(&viport->data, viport,
-+				      &viport->config->data_config,
-+				      viport->pd))
-+				viport->link_state = LINK_CLEANUPCONTROL;
-+			else
-+				viport->link_state = LINK_CONTROLCONNECT;
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_control_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+	struct vnic *vnic;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_CONTROLCONNECT:
-+			if (vnic_ib_cm_connect(&viport->control.ib_conn))
-+				viport->link_state = LINK_CLEANUPDATA;
-+			else
-+				viport->link_state = LINK_CONTROLCONNECTWAIT;
-+			break;
-+		case LINK_CONTROLCONNECTWAIT:
-+			LINK_STATE("state LINK_CONTROLCONNECTWAIT\n");
-+			if (control_is_connected(&viport->control))
-+				viport->link_state = LINK_INITVNICREQ;
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_CONTROLDISCONNECT;
-+			}
-+			break;
-+		case LINK_INITVNICREQ:
-+			LINK_STATE("state LINK_INITVNICREQ\n");
-+			if (control_init_vnic_req(&viport->control))
-+				viport->link_state = LINK_RESETCONTROL;
-+			else
-+				viport->link_state = LINK_INITVNICRSP;
-+			break;
-+		case LINK_INITVNICRSP:
-+			LINK_STATE("state LINK_INITVNICRSP\n");
-+			control_process_async(&viport->control);
-+
-+			if (!control_init_vnic_rsp(&viport->control,
-+						  &viport->features_supported,
-+						  viport->hw_mac_address,
-+						  &viport->num_mac_addresses,
-+						  &viport->default_vlan)) {
-+				if (viport_init_mac_addresses(viport))
-+					viport->link_state =
-+							LINK_RESETCONTROL;
-+				else {
-+					viport->link_state =
-+							LINK_BEGINDATAPATH;
-+					/*
-+					 * Ensure that the current path's MAC
-+					 * address matches the one returned by
-+					 * EVIC - we've had cases of mismatch
-+					 * which then caused havoc.
-+					 */
-+					vnic = viport->parent->parent;
-+					viport_match_mac_address(vnic, viport);
-+				}
-+			}
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESETCONTROL;
-+			}
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_data_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_BEGINDATAPATH:
-+			LINK_STATE("state LINK_BEGINDATAPATH\n");
-+			viport->link_state = LINK_CONFIGDATAPATHREQ;
-+			break;
-+		case LINK_CONFIGDATAPATHREQ:
-+			LINK_STATE("state LINK_CONFIGDATAPATHREQ\n");
-+			if (control_config_data_path_req(&viport->control,
-+						data_path_id(&viport->
-+							     data),
-+						data_host_pool_max
-+						(&viport->data),
-+						data_eioc_pool_max
-+						(&viport->data)))
-+				viport->link_state = LINK_RESETCONTROL;
-+			else
-+				viport->link_state = LINK_CONFIGDATAPATHRSP;
-+			break;
-+		case LINK_CONFIGDATAPATHRSP:
-+			LINK_STATE("state LINK_CONFIGDATAPATHRSP\n");
-+			control_process_async(&viport->control);
-+
-+			if (!control_config_data_path_rsp(&viport->control,
-+							 data_host_pool
-+							 (&viport->data),
-+							 data_eioc_pool
-+							 (&viport->data),
-+							 data_host_pool_max
-+							 (&viport->data),
-+							 data_eioc_pool_max
-+							 (&viport->data),
-+							 data_host_pool_min
-+							 (&viport->data),
-+							 data_eioc_pool_min
-+							 (&viport->data)))
-+				viport->link_state = LINK_DATACONNECT;
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESETCONTROL;
-+			}
-+			break;
-+		case LINK_DATACONNECT:
-+			LINK_STATE("state LINK_DATACONNECT\n");
-+			if (data_connect(&viport->data))
-+				viport->link_state = LINK_RESETCONTROL;
-+			else
-+				viport->link_state = LINK_DATACONNECTWAIT;
-+			break;
-+		case LINK_DATACONNECTWAIT:
-+			LINK_STATE("state LINK_DATACONNECTWAIT\n");
-+			control_process_async(&viport->control);
-+			if (data_is_connected(&viport->data))
-+				viport->link_state = LINK_XCHGPOOLREQ;
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESET;
-+			}
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_xchgpool_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_XCHGPOOLREQ:
-+			LINK_STATE("state LINK_XCHGPOOLREQ\n");
-+			if (control_exchange_pools_req(&viport->control,
-+						       data_local_pool_addr
-+						       (&viport->data),
-+						       data_local_pool_rkey
-+						       (&viport->data)))
-+				viport->link_state = LINK_RESET;
-+			else
-+				viport->link_state = LINK_XCHGPOOLRSP;
-+			break;
-+		case LINK_XCHGPOOLRSP:
-+			LINK_STATE("state LINK_XCHGPOOLRSP\n");
-+			control_process_async(&viport->control);
-+
-+			if (!control_exchange_pools_rsp(&viport->control,
-+						       data_remote_pool_addr
-+						       (&viport->data),
-+						       data_remote_pool_rkey
-+						       (&viport->data)))
-+				viport->link_state = LINK_INITIALIZED;
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESET;
-+			}
-+			break;
-+		case LINK_INITIALIZED:
-+			LINK_STATE("state LINK_INITIALIZED\n");
-+			viport->state = VIPORT_CONNECTED;
-+			printk(KERN_INFO PFX
-+			       "%s: connection established\n",
-+			       config_viport_name(viport->config));
-+			data_connected(&viport->data);
-+			vnic_connected(viport->parent->parent,
-+				       viport->parent);
-+			if (viport->features_supported & VNIC_FEAT_INBOUND_IB_MC) {
-+				printk(KERN_INFO PFX "%s: Supports Inbound IB "
-+					"Multicast\n",
-+					config_viport_name(viport->config));
-+				if (mc_data_init(&viport->mc_data, viport,
-+						&viport->config->data_config,
-+						viport->pd)) {
-+					viport_disable_multicast(viport);
-+					break;
-+				}
-+			}
-+			spin_lock_irq(&viport->lock);
-+			viport->mtu = 1500;
-+			viport->flags = 0;
-+			if ((viport->mtu != viport->new_mtu) ||
-+			    (viport->flags != viport->new_flags))
-+				viport->updates |= NEED_LINK_CONFIG;
-+			spin_unlock_irq(&viport->lock);
-+			viport->link_state = LINK_IDLE;
-+			viport->retry_duration = 0;
-+			viport->total_retry_duration = 0;
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_idle_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+	int handle_mc_join_compl, handle_mc_join;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_IDLE:
-+			LINK_STATE("state LINK_IDLE\n");
-+			if (viport->config->hb_interval)
-+				viport_timer(viport,
-+					     viport->config->hb_interval);
-+			viport->link_state = LINK_IDLING;
-+			break;
-+		case LINK_IDLING:
-+			LINK_STATE("state LINK_IDLING\n");
-+			control_process_async(&viport->control);
-+			if (viport->errored) {
-+				viport_timer_stop(viport);
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESET;
-+				break;
-+			}
-+
-+			spin_lock_irq(&viport->lock);
-+			handle_mc_join = (viport->updates & NEED_MCAST_JOIN);
-+			handle_mc_join_compl =
-+				      (viport->updates & NEED_MCAST_COMPLETION);
-+			/*
-+			 * Turn off both flags, the handler functions will
-+			 * rearm them if necessary.
-+			 */
-+			viport->updates &= ~(NEED_MCAST_JOIN | NEED_MCAST_COMPLETION);
-+
-+			if (viport->updates & NEED_LINK_CONFIG) {
-+				viport_timer_stop(viport);
-+				viport->link_state = LINK_CONFIGLINKREQ;
-+			} else if (viport->updates & NEED_ADDRESS_CONFIG) {
-+				viport_timer_stop(viport);
-+				viport->link_state = LINK_CONFIGADDRSREQ;
-+			} else if (viport->updates & NEED_STATS) {
-+				viport_timer_stop(viport);
-+				viport->link_state = LINK_REPORTSTATREQ;
-+			} else if (viport->config->hb_interval) {
-+				if (!viport->timer_active)
-+					viport->link_state =
-+						LINK_HEARTBEATREQ;
-+			}
-+			spin_unlock_irq(&viport->lock);
-+			if (handle_mc_join) {
-+				if (vnic_mc_join(viport))
-+					viport_disable_multicast(viport);
-+			}
-+			if (handle_mc_join_compl)
-+				vnic_mc_join_handle_completion(viport);
-+
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_config_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+	int res;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_CONFIGLINKREQ:
-+			LINK_STATE("state LINK_CONFIGLINKREQ\n");
-+			spin_lock_irq(&viport->lock);
-+			viport->updates &= ~NEED_LINK_CONFIG;
-+			viport->flags = viport->new_flags;
-+			if (viport->updates & MCAST_OVERFLOW)
-+				viport->flags |= IFF_ALLMULTI;
-+			viport->mtu = viport->new_mtu;
-+			spin_unlock_irq(&viport->lock);
-+			if (control_config_link_req(&viport->control,
-+						    viport->flags,
-+						    viport->mtu))
-+				viport->link_state = LINK_RESET;
-+			else
-+				viport->link_state = LINK_CONFIGLINKRSP;
-+			break;
-+		case LINK_CONFIGLINKRSP:
-+			LINK_STATE("state LINK_CONFIGLINKRSP\n");
-+			control_process_async(&viport->control);
-+
-+			if (!control_config_link_rsp(&viport->control,
-+						    &viport->flags,
-+						    &viport->mtu))
-+				viport->link_state = LINK_IDLE;
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESET;
-+			}
-+			break;
-+		case LINK_CONFIGADDRSREQ:
-+			LINK_STATE("state LINK_CONFIGADDRSREQ\n");
-+
-+			spin_lock_irq(&viport->lock);
-+			res = control_config_addrs_req(&viport->control,
-+						       viport->mac_addresses,
-+						       viport->
-+						       num_mac_addresses);
-+
-+			if (res > 0) {
-+				viport->updates &= ~NEED_ADDRESS_CONFIG;
-+				viport->link_state = LINK_CONFIGADDRSRSP;
-+			} else if (res == 0)
-+				viport->link_state = LINK_CONFIGADDRSRSP;
-+			else
-+				viport->link_state = LINK_RESET;
-+			spin_unlock_irq(&viport->lock);
-+			break;
-+		case LINK_CONFIGADDRSRSP:
-+			LINK_STATE("state LINK_CONFIGADDRSRSP\n");
-+			control_process_async(&viport->control);
-+
-+			if (!control_config_addrs_rsp(&viport->control))
-+				viport->link_state = LINK_IDLE;
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESET;
-+			}
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_stat_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_REPORTSTATREQ:
-+			LINK_STATE("state LINK_REPORTSTATREQ\n");
-+			if (control_report_statistics_req(&viport->control))
-+				viport->link_state = LINK_RESET;
-+			else
-+				viport->link_state = LINK_REPORTSTATRSP;
-+			break;
-+		case LINK_REPORTSTATRSP:
-+			LINK_STATE("state LINK_REPORTSTATRSP\n");
-+			control_process_async(&viport->control);
-+
-+			spin_lock_irq(&viport->lock);
-+			if (control_report_statistics_rsp(&viport->control,
-+						  &viport->stats) == 0) {
-+				viport->updates &= ~NEED_STATS;
-+				viport->last_stats_time = jiffies;
-+				wake_up(&viport->stats_queue);
-+				viport->link_state = LINK_IDLE;
-+			}
-+
-+			spin_unlock_irq(&viport->lock);
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESET;
-+			}
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_heartbeat_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_HEARTBEATREQ:
-+			LINK_STATE("state LINK_HEARTBEATREQ\n");
-+			if (control_heartbeat_req(&viport->control,
-+						  viport->config->hb_timeout))
-+				viport->link_state = LINK_RESET;
-+			else
-+				viport->link_state = LINK_HEARTBEATRSP;
-+			break;
-+		case LINK_HEARTBEATRSP:
-+			LINK_STATE("state LINK_HEARTBEATRSP\n");
-+			control_process_async(&viport->control);
-+
-+			if (!control_heartbeat_rsp(&viport->control))
-+				viport->link_state = LINK_IDLE;
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_RESET;
-+			}
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_reset_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+	int handle_mc_join_compl = 0, handle_mc_join = 0;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_RESET:
-+			LINK_STATE("state LINK_RESET\n");
-+			viport->errored = 0;
-+			spin_lock_irq(&viport->lock);
-+			viport->state = VIPORT_DISCONNECTED;
-+			/*
-+			 * Turn off both flags, the handler functions will
-+			 * rearm them if necessary
-+			 */
-+			viport->updates &= ~(NEED_MCAST_JOIN | NEED_MCAST_COMPLETION);
-+
-+			spin_unlock_irq(&viport->lock);
-+			vnic_link_down(viport->vnic, viport->parent);
-+			printk(KERN_INFO PFX
-+			       "%s: connection lost\n",
-+			       config_viport_name(viport->config));
-+			if (handle_mc_join) {
-+				if (vnic_mc_join(viport))
-+					viport_disable_multicast(viport);
-+			}
-+			if (handle_mc_join_compl)
-+				vnic_mc_join_handle_completion(viport);
-+			if (viport->features_supported & VNIC_FEAT_INBOUND_IB_MC) {
-+				vnic_mc_leave(viport);
-+				vnic_mc_data_cleanup(&viport->mc_data);
-+			}
-+
-+			if (control_reset_req(&viport->control))
-+				viport->link_state = LINK_DATADISCONNECT;
-+			else
-+				viport->link_state = LINK_RESETRSP;
-+			break;
-+		case LINK_RESETRSP:
-+			LINK_STATE("state LINK_RESETRSP\n");
-+			control_process_async(&viport->control);
-+
-+			if (!control_reset_rsp(&viport->control))
-+				viport->link_state = LINK_DATADISCONNECT;
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_DATADISCONNECT;
-+			}
-+			break;
-+		case LINK_RESETCONTROL:
-+			LINK_STATE("state LINK_RESETCONTROL\n");
-+			if (control_reset_req(&viport->control))
-+				viport->link_state = LINK_CONTROLDISCONNECT;
-+			else
-+				viport->link_state = LINK_RESETCONTROLRSP;
-+			break;
-+		case LINK_RESETCONTROLRSP:
-+			LINK_STATE("state LINK_RESETCONTROLRSP\n");
-+			control_process_async(&viport->control);
-+
-+			if (!control_reset_rsp(&viport->control))
-+				viport->link_state = LINK_CONTROLDISCONNECT;
-+
-+			if (viport->errored) {
-+				viport->errored = 0;
-+				viport->link_state = LINK_CONTROLDISCONNECT;
-+			}
-+			break;
-+		default:
-+			return -1;
-+		}
-+	} while (viport->link_state != old_state);
-+
-+	return 0;
-+}
-+
-+static int viport_handle_disconn_states(struct viport *viport)
-+{
-+	enum link_state old_state;
-+
-+	do {
-+		switch (old_state = viport->link_state) {
-+		case LINK_DATADISCONNECT:
-+			LINK_STATE("state LINK_DATADISCONNECT\n");
-+			data_disconnect(&viport->data);
-+			viport->link_state = LINK_CONTROLDISCONNECT;
-+			break;
-+		case LINK_CONTROLDISCONNECT:
-+			LINK_STATE("state LINK_CONTROLDISCONNECT\n");
-+			viport->link_state = LINK_CLEANUPDATA;
-+			break;
-+		case LINK_CLEANUPDATA:
-+			LINK_STATE("state LINK_CLEANUPDATA\n");
-+			data_cleanup(&viport->data);
-+			viport->link_state = LINK_CLEANUPCONTROL;
-+			break;
-+		case LINK_CLEANUPCONTROL:
-+			LINK_STATE("state LINK_CLEANUPCONTROL\n");
-+			spin_lock_irq(&viport->lock);
-+			kfree(viport->mac_addresses);
-+			viport->mac_addresses = NULL;
-+			spin_unlock_irq(&viport->lock);
-+			control_cleanup(&viport->control);
-+			ib_dealloc_pd(viport->pd);
-+			viport->link_state = LINK_DISCONNECTED;
-+			break;
-+		case LINK_DISCONNECTED:
-+			LINK_STATE("state LINK_DISCONNECTED\n");
-+			vnic_disconnected(viport->parent->parent,
-+					  viport->parent);
-+			if (viport->disconnect != 0)
-+				viport->link_state = LINK_UNINITIALIZED;
-+			else if (viport->retry == 1) {
-+				viport->retry = 0;
-+			/*
-+			 * Check if the initial retry interval has crossed
-+			 * 20 seconds.
-+			 * The retry interval is initially 5 seconds which
-+			 * is incremented by 5. Once it is 20 the interval
-+			 * is fixed to 20 seconds till 10 minutes,
-+			 * after which retrying is stopped
-+			 */
-+				if (viport->retry_duration  < MAX_RETRY_INTERVAL)
-+					viport->retry_duration +=
-+								RETRY_INCREMENT;
-+
-+				viport->total_retry_duration +=
-+							 viport->retry_duration;
-+
-+				if (viport->total_retry_duration >=
-+					MAX_CONNECT_RETRY_TIMEOUT) {
-+					viport->link_state = LINK_UNINITIALIZED;
-+					printk("Timed out after retrying"
-+					       " for retry_duration %d msecs\n"
-+						, viport->total_retry_duration);
-+				} else {
-+					viport->connect = DELAY;
-+					viport->link_state = LINK_RETRYWAIT;
-+				}
-+				viport_timer(viport,
-+				     msecs_to_jiffies(viport->retry_duration));
++	struct recv_io			*recv_io;
++	struct vnic_control_packet	*pkt;
++	struct vnic_cmd_config_link	*config_link_rsp;
++
++	CONTROL_FUNCTION("%s: control_config_link_rsp()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	recv_io = control_get_rsp(control);
++	if (!recv_io)
++		goto out;
++
++	pkt = control_packet(recv_io);
++	if (pkt->hdr.pkt_cmd != CMD_CONFIG_LINK)
++		goto failure;
++	config_link_rsp = &pkt->cmd.config_link_rsp;
++	if (config_link_rsp->cmd_flags & VNIC_FLAG_ENABLE_NIC)
++		*flags |= IFF_UP;
++	if (config_link_rsp->cmd_flags & VNIC_FLAG_ENABLE_MCAST_ALL)
++		*flags |= IFF_ALLMULTI;
++	if (config_link_rsp->cmd_flags & VNIC_FLAG_ENABLE_PROMISC)
++		*flags |= IFF_PROMISC;
++
++	*mtu = be16_to_cpu(config_link_rsp->mtu_size);
++
++	if (control->parent->features_supported & VNIC_FEAT_INBOUND_IB_MC) {
++		/* featuresSupported might include INBOUND_IB_MC but
++		   MTU might cause it to be auto-disabled at embedded */
++		if (config_link_rsp->cmd_flags & VNIC_FLAG_ENABLE_MCAST_ALL) {
++			union ib_gid mgid = config_link_rsp->allmulti_mgid;
++			if (mgid.raw[0] != 0xff) {
++				CONTROL_ERROR("%s: invalid formatprefix "
++						VNIC_GID_FMT "\n",
++						control_ifcfg_name(control),
++						VNIC_GID_RAW_ARG(mgid.raw));
 +			} else {
-+				u32 duration = 5000 + ((net_random()) & 0x1FF);
-+				if (!viport->parent->is_primary_path)
-+					duration += 0x1ff;
-+				viport_timer(viport,
-+					     msecs_to_jiffies(duration));
-+				viport->connect = DELAY;
-+				viport->link_state = LINK_RETRYWAIT;
++				/* rather than issuing join here, which might
++				 * arrive at SM before EVIC creates the MC
++				 * group, postpone it.
++				 */
++				vnic_mc_join_setup(control->parent, &mgid);
++				CONTROL_ERROR("join setup for ALL_MULTI\n");
 +			}
-+			break;
-+		case LINK_RETRYWAIT:
-+			LINK_STATE("state LINK_RETRYWAIT\n");
-+			viport->stats.ethernet_status = 0;
-+			viport->updates = 0;
-+			wake_up(&viport->stats_queue);
-+			if (viport->disconnect != 0) {
-+				viport_timer_stop(viport);
-+				viport->link_state = LINK_UNINITIALIZED;
-+			} else if (viport->connect == DELAY) {
-+				if (!viport->timer_active)
-+					viport->link_state = LINK_INITIALIZE;
-+			} else if (viport->connect == NOW) {
-+				viport_timer_stop(viport);
-+				viport->link_state = LINK_INITIALIZE;
-+			}
-+			break;
-+		case LINK_FIRSTCONNECT:
-+			viport->stats.ethernet_status = 0;
-+			viport->updates = 0;
-+			wake_up(&viport->stats_queue);
-+			if (viport->disconnect != 0) {
-+				viport_timer_stop(viport);
-+				viport->link_state = LINK_UNINITIALIZED;
-+			}
-+
-+			break;
-+		default:
-+			return -1;
 +		}
-+	} while (viport->link_state != old_state);
++		/* we don't want to leave mcast group if MCAST_ALL is disabled
++		 * because there are no doubt multicast addresses set and we
++		 * want to stay joined so we can get that traffic via the
++		 * mcast group.
++		 */
++	}
 +
++	control_recv(control, recv_io);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
 +	return 0;
++failure:
++	viport_failure(control->parent);
++out:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return -1;
 +}
 +
-+static int viport_statemachine(void *context)
++/* control_config_addrs_req:
++ * return values:
++ *          -1: failure
++ *           0: incomplete (successful operation, but more address
++ *              table entries to be updated)
++ *           1: complete
++ */
++int control_config_addrs_req(struct control *control,
++			     struct vnic_address_op2 *addrs, u16 num)
 +{
-+	struct viport *viport;
-+	enum link_state old_link_state;
++	u16  i;
++	u8   j;
++	int  ret = 1;
++	struct send_io				*send_io;
++	struct vnic_control_packet		*pkt;
++	struct vnic_cmd_config_addresses	*config_addrs_req;
++    struct vnic_cmd_config_addresses2   *config_addrs_req2;
 +
-+	VIPORT_FUNCTION("viport_statemachine()\n");
-+	while (!viport_thread_end || !list_empty(&viport_list)) {
-+		wait_event_interruptible(viport_queue,
-+					 !list_empty(&viport_list)
-+					 || viport_thread_end);
-+		spin_lock_irq(&viport_list_lock);
-+		if (list_empty(&viport_list)) {
-+			spin_unlock_irq(&viport_list_lock);
++	CONTROL_FUNCTION("%s: control_config_addrs_req()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->send_dma, control->send_len,
++				   DMA_TO_DEVICE);
++
++	if (control->parent->features_supported & VNIC_FEAT_INBOUND_IB_MC) {
++		CONTROL_INFO("Sending CMD_CONFIG_ADDRESSES2 %lx MAX:%d "
++				"sizes:%d %d(off:%d) sizes2:%d %d %d"
++				"(off:%d - %d %d %d %d %d %d %d)\n", jiffies,
++				(int)MAX_CONFIG_ADDR_ENTRIES2,
++				(int)sizeof(struct vnic_cmd_config_addresses),
++			(int)sizeof(struct vnic_address_op),
++			(int)offsetof(struct vnic_cmd_config_addresses,
++							list_address_ops),
++			(int)sizeof(struct vnic_cmd_config_addresses2),
++			(int)sizeof(struct vnic_address_op2),
++			(int)sizeof(union ib_gid),
++			(int)offsetof(struct vnic_cmd_config_addresses2,
++							list_address_ops),
++			(int)offsetof(struct vnic_address_op2, index),
++			(int)offsetof(struct vnic_address_op2, operation),
++			(int)offsetof(struct vnic_address_op2, valid),
++			(int)offsetof(struct vnic_address_op2, address),
++			(int)offsetof(struct vnic_address_op2, vlan),
++			(int)offsetof(struct vnic_address_op2, reserved),
++			(int)offsetof(struct vnic_address_op2, mgid)
++			);
++		send_io = control_init_hdr(control, CMD_CONFIG_ADDRESSES2);
++		if (!send_io)
++			goto failure;
++
++		pkt = control_packet(send_io);
++		config_addrs_req2 = &pkt->cmd.config_addresses_req2;
++		memset(pkt->cmd.cmd_data, 0, VNIC_MAX_CONTROLDATASZ);
++		config_addrs_req2->lan_switch_num =
++			control->lan_switch.lan_switch_num;
++		for (i = 0, j = 0; (i < num) && (j < MAX_CONFIG_ADDR_ENTRIES2); i++) {
++			if (!addrs[i].operation)
++				continue;
++			config_addrs_req2->list_address_ops[j].index =
++								 cpu_to_be16(i);
++			config_addrs_req2->list_address_ops[j].operation =
++							VNIC_OP_SET_ENTRY;
++			config_addrs_req2->list_address_ops[j].valid =
++								 addrs[i].valid;
++			memcpy(config_addrs_req2->list_address_ops[j].address,
++			       addrs[i].address, ETH_ALEN);
++			config_addrs_req2->list_address_ops[j].vlan =
++								 addrs[i].vlan;
++			addrs[i].operation = 0;
++			CONTROL_INFO("%s i=%d "
++				"addr[%d]=%02x:%02x:%02x:%02x:%02x:%02x "
++				"valid:%d\n", control_ifcfg_name(control), i, j,
++				addrs[i].address[0], addrs[i].address[1],
++				addrs[i].address[2], addrs[i].address[3],
++				addrs[i].address[4], addrs[i].address[5],
++				addrs[i].valid);
++			j++;
++		}
++		config_addrs_req2->num_address_ops = j;
++	} else {
++		send_io = control_init_hdr(control, CMD_CONFIG_ADDRESSES);
++		if (!send_io)
++			goto failure;
++
++		pkt = control_packet(send_io);
++		config_addrs_req = &pkt->cmd.config_addresses_req;
++		config_addrs_req->lan_switch_num =
++					control->lan_switch.lan_switch_num;
++		for (i = 0, j = 0; (i < num) && (j < 16); i++) {
++			if (!addrs[i].operation)
++				continue;
++			config_addrs_req->list_address_ops[j].index =
++								 cpu_to_be16(i);
++			config_addrs_req->list_address_ops[j].operation =
++							VNIC_OP_SET_ENTRY;
++			config_addrs_req->list_address_ops[j].valid =
++								 addrs[i].valid;
++			memcpy(config_addrs_req->list_address_ops[j].address,
++			       addrs[i].address, ETH_ALEN);
++			config_addrs_req->list_address_ops[j].vlan =
++								 addrs[i].vlan;
++			addrs[i].operation = 0;
++			j++;
++		}
++		config_addrs_req->num_address_ops = j;
++	}
++	for (; i < num; i++) {
++		if (addrs[i].operation) {
++			ret = 0;
++			break;
++		}
++	}
++
++	control->last_cmd = pkt->hdr.pkt_cmd;
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++
++	if (control_send(control, send_io))
++		return -1;
++	return ret;
++failure:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return -1;
++}
++
++static int process_cmd_config_address2_rsp(struct control *control,
++					   struct vnic_control_packet *pkt,
++					   struct recv_io *recv_io)
++{
++	struct vnic_cmd_config_addresses2 *config_addrs_rsp2;
++	int idx, mcaddrs, nomgid;
++	union ib_gid mgid, rsp_mgid;
++
++	config_addrs_rsp2 = &pkt->cmd.config_addresses_rsp2;
++	CONTROL_INFO("%s rsp to CONFIG_ADDRESSES2\n",
++				 control_ifcfg_name(control));
++
++	for (idx = 0, mcaddrs = 0, nomgid = 1;
++			idx < config_addrs_rsp2->num_address_ops;
++				idx++) {
++		if (!config_addrs_rsp2->list_address_ops[idx].valid)
++			continue;
++
++		/* check if address is multicasts */
++		if (!vnic_multicast_address(config_addrs_rsp2, idx))
++			continue;
++
++		mcaddrs++;
++		mgid = config_addrs_rsp2->list_address_ops[idx].mgid;
++		CONTROL_INFO("%s: got mgid " VNIC_GID_FMT
++				" MCAST_MSG_SIZE:%d mtu:%d\n",
++				control_ifcfg_name(control),
++				VNIC_GID_RAW_ARG(mgid.raw),
++				(int)MCAST_MSG_SIZE,
++				control->parent->mtu);
++
++		/* Embedded should have turned off multicast
++		 * due to large MTU size; mgid had better be 0.
++		 */
++		if (control->parent->mtu > MCAST_MSG_SIZE) {
++			if ((mgid.global.subnet_prefix != 0) ||
++				(mgid.global.interface_id != 0)) {
++				CONTROL_ERROR("%s: invalid mgid; "
++						"expected 0 "
++						VNIC_GID_FMT "\n",
++						control_ifcfg_name(control),
++						VNIC_GID_RAW_ARG(mgid.raw));
++				}
++				continue;
++			}
++		if (mgid.raw[0] != 0xff) {
++			CONTROL_ERROR("%s: invalid formatprefix "
++					VNIC_GID_FMT "\n",
++					control_ifcfg_name(control),
++					VNIC_GID_RAW_ARG(mgid.raw));
 +			continue;
 +		}
-+		viport = list_entry(viport_list.next, struct viport,
-+				    list_ptrs);
-+		list_del_init(&viport->list_ptrs);
-+		spin_unlock_irq(&viport_list_lock);
++		nomgid = 0; /* got a valid mgid */
 +
-+		do {
-+			old_link_state = viport->link_state;
++		/* let's verify that all the mgids match this one */
++		for (; idx < config_addrs_rsp2->num_address_ops; idx++) {
++			if (!config_addrs_rsp2->list_address_ops[idx].valid)
++				continue;
 +
-+			/*
-+			 * Optimize for the state machine steady state
-+			 * by checking for the most common states first.
-+			 *
-+			 */
-+			if (viport_handle_idle_states(viport) == 0)
-+				break;
-+			if (viport_handle_heartbeat_states(viport) == 0)
-+				break;
-+			if (viport_handle_stat_states(viport) == 0)
-+				break;
-+			if (viport_handle_config_states(viport) == 0)
-+				break;
++			/* check if address is multicasts */
++			if (!vnic_multicast_address(config_addrs_rsp2, idx))
++				continue;
 +
-+			if (viport_handle_init_states(viport) == 0)
-+				break;
-+			if (viport_handle_control_states(viport) == 0)
-+				break;
-+			if (viport_handle_data_states(viport) == 0)
-+				break;
-+			if (viport_handle_xchgpool_states(viport) == 0)
-+				break;
-+			if (viport_handle_reset_states(viport) == 0)
-+				break;
-+			if (viport_handle_disconn_states(viport) == 0)
-+				break;
-+		} while (viport->link_state != old_link_state);
++			rsp_mgid = config_addrs_rsp2->list_address_ops[idx].mgid;
++			if (memcmp(&mgid, &rsp_mgid, sizeof(union ib_gid)) == 0)
++				continue;
++
++			CONTROL_ERROR("%s: Multicast Group MGIDs not "
++					"unique; mgids: " VNIC_GID_FMT
++					 " " VNIC_GID_FMT "\n",
++					control_ifcfg_name(control),
++					VNIC_GID_RAW_ARG(mgid.raw),
++					VNIC_GID_RAW_ARG(rsp_mgid.raw));
++			return 1;
++		}
++
++		/* rather than issuing join here, which might arrive
++		 * at SM before EVIC creates the MC group, postpone it.
++		 */
++		vnic_mc_join_setup(control->parent, &mgid);
++
++		/* there is only one multicast group to join, so we're done. */
++		break;
 +	}
 +
-+	complete_and_exit(&viport_thread_exit, 0);
-+}
++	/* we sent atleast one multicast address but got no MGID
++	 * back so, if it is not allmulti case, leave the group
++	 * we joined before. (for allmulti case we have to stay
++	 * joined)
++	 */
++	if ((config_addrs_rsp2->num_address_ops > 0) && (mcaddrs > 0) &&
++		nomgid && !(control->parent->flags & IFF_ALLMULTI)) {
++		CONTROL_INFO("numaddrops:%d mcadrs:%d nomgid:%d\n",
++			config_addrs_rsp2->num_address_ops,
++				mcaddrs > 0, nomgid);
 +
-+int viport_start(void)
-+{
-+	VIPORT_FUNCTION("viport_start()\n");
-+
-+	spin_lock_init(&viport_list_lock);
-+	viport_thread = kthread_run(viport_statemachine, NULL,
-+					"qlgc_vnic_viport_s_m");
-+	if (IS_ERR(viport_thread)) {
-+		printk(KERN_WARNING PFX "Could not create viport_thread;"
-+		       " error %d\n", (int) PTR_ERR(viport_thread));
-+		viport_thread = NULL;
-+		return 1;
++		vnic_mc_leave(control->parent);
 +	}
 +
 +	return 0;
 +}
 +
-+void viport_cleanup(void)
++int control_config_addrs_rsp(struct control *control)
 +{
-+	VIPORT_FUNCTION("viport_cleanup()\n");
-+	if (viport_thread) {
-+		viport_thread_end = 1;
-+		wake_up(&viport_queue);
-+		wait_for_completion(&viport_thread_exit);
-+		viport_thread = NULL;
++	struct recv_io *recv_io;
++	struct vnic_control_packet *pkt;
++
++	CONTROL_FUNCTION("%s: control_config_addrs_rsp()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	recv_io = control_get_rsp(control);
++	if (!recv_io)
++		goto out;
++
++	pkt = control_packet(recv_io);
++	if ((pkt->hdr.pkt_cmd != CMD_CONFIG_ADDRESSES) &&
++		(pkt->hdr.pkt_cmd != CMD_CONFIG_ADDRESSES2))
++		goto failure;
++
++	if (((pkt->hdr.pkt_cmd == CMD_CONFIG_ADDRESSES2) &&
++	      !control->parent->features_supported & VNIC_FEAT_INBOUND_IB_MC) ||
++	      ((pkt->hdr.pkt_cmd == CMD_CONFIG_ADDRESSES) &&
++	       control->parent->features_supported & VNIC_FEAT_INBOUND_IB_MC)) {
++		CONTROL_ERROR("%s unexpected response pktCmd:%d flag:%x\n",
++				control_ifcfg_name(control), pkt->hdr.pkt_cmd,
++				control->parent->features_supported &
++				VNIC_FEAT_INBOUND_IB_MC);
++		goto failure;
++	}
++
++	if (pkt->hdr.pkt_cmd == CMD_CONFIG_ADDRESSES2) {
++		if (process_cmd_config_address2_rsp(control, pkt, recv_io))
++			goto failure;
++	} else {
++		struct vnic_cmd_config_addresses *config_addrs_rsp;
++		config_addrs_rsp = &pkt->cmd.config_addresses_rsp;
++	}
++
++	control_recv(control, recv_io);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return 0;
++failure:
++	viport_failure(control->parent);
++out:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return -1;
++}
++
++int control_report_statistics_req(struct control *control)
++{
++	struct send_io				*send_io;
++	struct vnic_control_packet		*pkt;
++	struct vnic_cmd_report_stats_req	*report_statistics_req;
++
++	CONTROL_FUNCTION("%s: control_report_statistics_req()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->send_dma, control->send_len,
++				   DMA_TO_DEVICE);
++
++	send_io = control_init_hdr(control, CMD_REPORT_STATISTICS);
++	if (!send_io)
++		goto failure;
++
++	pkt = control_packet(send_io);
++	report_statistics_req = &pkt->cmd.report_statistics_req;
++	report_statistics_req->lan_switch_num =
++	    control->lan_switch.lan_switch_num;
++
++	control->last_cmd = pkt->hdr.pkt_cmd;
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return control_send(control, send_io);
++failure:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return -1;
++}
++
++int control_report_statistics_rsp(struct control *control,
++				  struct vnic_cmd_report_stats_rsp *stats)
++{
++	struct recv_io				*recv_io;
++	struct vnic_control_packet		*pkt;
++	struct vnic_cmd_report_stats_rsp	*rep_stat_rsp;
++
++	CONTROL_FUNCTION("%s: control_report_statistics_rsp()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	recv_io = control_get_rsp(control);
++	if (!recv_io)
++		goto out;
++
++	pkt = control_packet(recv_io);
++	if (pkt->hdr.pkt_cmd != CMD_REPORT_STATISTICS)
++		goto failure;
++
++	rep_stat_rsp = &pkt->cmd.report_statistics_rsp;
++
++	stats->if_in_broadcast_pkts   = rep_stat_rsp->if_in_broadcast_pkts;
++	stats->if_in_multicast_pkts   = rep_stat_rsp->if_in_multicast_pkts;
++	stats->if_in_octets	      = rep_stat_rsp->if_in_octets;
++	stats->if_in_ucast_pkts       = rep_stat_rsp->if_in_ucast_pkts;
++	stats->if_in_nucast_pkts      = rep_stat_rsp->if_in_nucast_pkts;
++	stats->if_in_underrun	      = rep_stat_rsp->if_in_underrun;
++	stats->if_in_errors	      = rep_stat_rsp->if_in_errors;
++	stats->if_out_errors	      = rep_stat_rsp->if_out_errors;
++	stats->if_out_octets	      = rep_stat_rsp->if_out_octets;
++	stats->if_out_ucast_pkts      = rep_stat_rsp->if_out_ucast_pkts;
++	stats->if_out_multicast_pkts  = rep_stat_rsp->if_out_multicast_pkts;
++	stats->if_out_broadcast_pkts  = rep_stat_rsp->if_out_broadcast_pkts;
++	stats->if_out_nucast_pkts     = rep_stat_rsp->if_out_nucast_pkts;
++	stats->if_out_ok	      = rep_stat_rsp->if_out_ok;
++	stats->if_in_ok		      = rep_stat_rsp->if_in_ok;
++	stats->if_out_ucast_bytes     = rep_stat_rsp->if_out_ucast_bytes;
++	stats->if_out_multicast_bytes = rep_stat_rsp->if_out_multicast_bytes;
++	stats->if_out_broadcast_bytes = rep_stat_rsp->if_out_broadcast_bytes;
++	stats->if_in_ucast_bytes      = rep_stat_rsp->if_in_ucast_bytes;
++	stats->if_in_multicast_bytes  = rep_stat_rsp->if_in_multicast_bytes;
++	stats->if_in_broadcast_bytes  = rep_stat_rsp->if_in_broadcast_bytes;
++	stats->ethernet_status	      = rep_stat_rsp->ethernet_status;
++
++	control_recv(control, recv_io);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++
++	return 0;
++failure:
++	viport_failure(control->parent);
++out:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return -1;
++}
++
++int control_reset_req(struct control *control)
++{
++	struct send_io			*send_io;
++	struct vnic_control_packet	*pkt;
++
++	CONTROL_FUNCTION("%s: control_reset_req()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->send_dma, control->send_len,
++				   DMA_TO_DEVICE);
++
++	send_io = control_init_hdr(control, CMD_RESET);
++	if (!send_io)
++		goto failure;
++
++	pkt = control_packet(send_io);
++
++	control->last_cmd = pkt->hdr.pkt_cmd;
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return control_send(control, send_io);
++failure:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return -1;
++}
++
++int control_reset_rsp(struct control *control)
++{
++	struct recv_io			*recv_io;
++	struct vnic_control_packet	*pkt;
++
++	CONTROL_FUNCTION("%s: control_reset_rsp()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	recv_io = control_get_rsp(control);
++	if (!recv_io)
++		goto out;
++
++	pkt = control_packet(recv_io);
++	if (pkt->hdr.pkt_cmd != CMD_RESET)
++		goto failure;
++
++	control_recv(control, recv_io);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return 0;
++failure:
++	viport_failure(control->parent);
++out:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return -1;
++}
++
++int control_heartbeat_req(struct control *control, u32 hb_interval)
++{
++	struct send_io			*send_io;
++	struct vnic_control_packet	*pkt;
++	struct vnic_cmd_heartbeat	*heartbeat_req;
++
++	CONTROL_FUNCTION("%s: control_heartbeat_req()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->send_dma, control->send_len,
++				   DMA_TO_DEVICE);
++
++	send_io = control_init_hdr(control, CMD_HEARTBEAT);
++	if (!send_io)
++		goto failure;
++
++	pkt = control_packet(send_io);
++	heartbeat_req = &pkt->cmd.heartbeat_req;
++	heartbeat_req->hb_interval = cpu_to_be32(hb_interval);
++
++	control->last_cmd = pkt->hdr.pkt_cmd;
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return control_send(control, send_io);
++failure:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->send_dma, control->send_len,
++				      DMA_TO_DEVICE);
++	return -1;
++}
++
++int control_heartbeat_rsp(struct control *control)
++{
++	struct recv_io			*recv_io;
++	struct vnic_control_packet	*pkt;
++	struct vnic_cmd_heartbeat	*heartbeat_rsp;
++
++	CONTROL_FUNCTION("%s: control_heartbeat_rsp()\n",
++			 control_ifcfg_name(control));
++	ib_dma_sync_single_for_cpu(control->parent->config->ibdev,
++				   control->recv_dma, control->recv_len,
++				   DMA_FROM_DEVICE);
++
++	recv_io = control_get_rsp(control);
++	if (!recv_io)
++		goto out;
++
++	pkt = control_packet(recv_io);
++	if (pkt->hdr.pkt_cmd != CMD_HEARTBEAT)
++		goto failure;
++
++	heartbeat_rsp = &pkt->cmd.heartbeat_rsp;
++
++	control_recv(control, recv_io);
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return 0;
++failure:
++	viport_failure(control->parent);
++out:
++	ib_dma_sync_single_for_device(control->parent->config->ibdev,
++				      control->recv_dma, control->recv_len,
++				      DMA_FROM_DEVICE);
++	return -1;
++}
++
++static int control_init_recv_ios(struct control *control,
++				 struct viport *viport,
++				 struct vnic_control_packet *pkt)
++{
++	struct io		*io;
++	struct ib_device	*ibdev = viport->config->ibdev;
++	struct control_config	*config = control->config;
++	dma_addr_t		recv_dma;
++	unsigned int		i;
++
++
++	control->recv_len = sizeof *pkt * config->num_recvs;
++	control->recv_dma = ib_dma_map_single(ibdev,
++					      pkt, control->recv_len,
++					      DMA_FROM_DEVICE);
++
++	if (ib_dma_mapping_error(ibdev, control->recv_dma)) {
++		CONTROL_ERROR("control recv dma map error\n");
++		goto failure;
++	}
++
++	recv_dma = control->recv_dma;
++	for (i = 0; i < config->num_recvs; i++) {
++		io = &control->recv_ios[i].io;
++		io->viport = viport;
++		io->routine = control_recv_complete;
++		io->type = RECV;
++
++		control->recv_ios[i].virtual_addr = (u8 *)pkt;
++		control->recv_ios[i].list.addr = recv_dma;
++		control->recv_ios[i].list.length = sizeof *pkt;
++		control->recv_ios[i].list.lkey = control->mr->lkey;
++
++		recv_dma = recv_dma + sizeof *pkt;
++		pkt++;
++
++		io->rwr.wr_id = (u64)io;
++		io->rwr.sg_list = &control->recv_ios[i].list;
++		io->rwr.num_sge = 1;
++		if (vnic_ib_post_recv(&control->ib_conn, io))
++			goto unmap_recv;
++	}
++
++	return 0;
++unmap_recv:
++	ib_dma_unmap_single(control->parent->config->ibdev,
++			    control->recv_dma, control->recv_len,
++			    DMA_FROM_DEVICE);
++failure:
++	return -1;
++}
++
++static int control_init_send_ios(struct control *control,
++				 struct viport *viport,
++				 struct vnic_control_packet *pkt)
++{
++	struct io		*io;
++	struct ib_device	*ibdev = viport->config->ibdev;
++
++	control->send_io.virtual_addr = (u8 *)pkt;
++	control->send_len = sizeof *pkt;
++	control->send_dma = ib_dma_map_single(ibdev, pkt,
++					      control->send_len,
++					      DMA_TO_DEVICE);
++	if (ib_dma_mapping_error(ibdev, control->send_dma)) {
++		CONTROL_ERROR("control send dma map error\n");
++		goto failure;
++	}
++
++	io = &control->send_io.io;
++	io->viport = viport;
++	io->routine = control_send_complete;
++
++	control->send_io.list.addr = control->send_dma;
++	control->send_io.list.length = sizeof *pkt;
++	control->send_io.list.lkey = control->mr->lkey;
++
++	io->swr.wr_id = (u64)io;
++	io->swr.sg_list = &control->send_io.list;
++	io->swr.num_sge = 1;
++	io->swr.opcode = IB_WR_SEND;
++	io->swr.send_flags = IB_SEND_SIGNALED;
++	io->type = SEND;
++
++	return 0;
++failure:
++	return -1;
++}
++
++int control_init(struct control *control, struct viport *viport,
++		 struct control_config *config, struct ib_pd *pd)
++{
++	struct vnic_control_packet	*pkt;
++	unsigned int sz;
++
++	CONTROL_FUNCTION("%s: control_init()\n",
++			 control_ifcfg_name(control));
++	control->parent = viport;
++	control->config = config;
++	control->ib_conn.viport = viport;
++	control->ib_conn.ib_config = &config->ib_config;
++	control->ib_conn.state = IB_CONN_UNINITTED;
++	control->ib_conn.callback_thread = NULL;
++	control->ib_conn.callback_thread_end = 0;
++	control->req_state = REQ_INACTIVE;
++	control->last_cmd  = CMD_INVALID;
++	control->seq_num = 0;
++	control->response = NULL;
++	control->info = NULL;
++	INIT_LIST_HEAD(&control->failure_list);
++	spin_lock_init(&control->io_lock);
++
++	if (vnic_ib_conn_init(&control->ib_conn, viport, pd,
++			      &config->ib_config)) {
++		CONTROL_ERROR("Control IB connection"
++			      " initialization failed\n");
++		goto failure;
++	}
++
++	control->mr = ib_get_dma_mr(pd, IB_ACCESS_LOCAL_WRITE);
++	if (IS_ERR(control->mr)) {
++		CONTROL_ERROR("%s: failed to register memory"
++			      " for control connection\n",
++			      control_ifcfg_name(control));
++		goto destroy_conn;
++	}
++
++	control->ib_conn.cm_id = ib_create_cm_id(viport->config->ibdev,
++						 vnic_ib_cm_handler,
++						 &control->ib_conn);
++	if (IS_ERR(control->ib_conn.cm_id)) {
++		CONTROL_ERROR("creating control CM ID failed\n");
++		goto destroy_mr;
++	}
++
++	sz = sizeof(struct recv_io) * config->num_recvs;
++	control->recv_ios = vmalloc(sz);
++
++	if (!control->recv_ios) {
++		CONTROL_ERROR("%s: failed allocating space for recv ios\n",
++			      control_ifcfg_name(control));
++		goto destroy_cm_id;
++	}
++
++	memset(control->recv_ios, 0, sz);
++	/*One send buffer and num_recvs recv buffers */
++	control->local_storage = kzalloc(sizeof *pkt *
++					 (config->num_recvs + 1),
++					 GFP_KERNEL);
++
++	if (!control->local_storage) {
++		CONTROL_ERROR("%s: failed allocating space"
++			      " for local storage\n",
++			      control_ifcfg_name(control));
++		goto free_recv_ios;
++	}
++
++	pkt = control->local_storage;
++	if (control_init_send_ios(control, viport, pkt))
++		goto free_storage;
++
++	pkt++;
++	if (control_init_recv_ios(control, viport, pkt))
++		goto unmap_send;
++
++	return 0;
++
++unmap_send:
++	ib_dma_unmap_single(control->parent->config->ibdev,
++			    control->send_dma, control->send_len,
++			    DMA_TO_DEVICE);
++free_storage:
++	kfree(control->local_storage);
++free_recv_ios:
++	vfree(control->recv_ios);
++destroy_cm_id:
++	ib_destroy_cm_id(control->ib_conn.cm_id);
++destroy_mr:
++	ib_dereg_mr(control->mr);
++destroy_conn:
++	ib_destroy_qp(control->ib_conn.qp);
++	ib_destroy_cq(control->ib_conn.cq);
++failure:
++	return -1;
++}
++
++void control_cleanup(struct control *control)
++{
++	CONTROL_FUNCTION("%s: control_disconnect()\n",
++			 control_ifcfg_name(control));
++
++	if (ib_send_cm_dreq(control->ib_conn.cm_id, NULL, 0))
++		CONTROL_ERROR("control CM DREQ sending failed\n");
++
++	control->ib_conn.state = IB_CONN_DISCONNECTED;
++	control_timer_stop(control);
++	control->req_state  = REQ_INACTIVE;
++	control->response   = NULL;
++	control->last_cmd   = CMD_INVALID;
++	completion_callback_cleanup(&control->ib_conn);
++	ib_destroy_cm_id(control->ib_conn.cm_id);
++	ib_destroy_qp(control->ib_conn.qp);
++	ib_destroy_cq(control->ib_conn.cq);
++	ib_dereg_mr(control->mr);
++	ib_dma_unmap_single(control->parent->config->ibdev,
++			    control->send_dma, control->send_len,
++			    DMA_TO_DEVICE);
++	ib_dma_unmap_single(control->parent->config->ibdev,
++			    control->recv_dma, control->recv_len,
++			    DMA_FROM_DEVICE);
++	vfree(control->recv_ios);
++	kfree(control->local_storage);
++
++}
++
++static void control_log_report_status_pkt(struct vnic_control_packet *pkt)
++{
++	printk(KERN_INFO
++	       "               pkt_cmd = CMD_REPORT_STATUS\n");
++	printk(KERN_INFO
++	       "               pkt_seq_num = %u,"
++	       " pkt_retry_count = %u\n",
++	       pkt->hdr.pkt_seq_num,
++	       pkt->hdr.pkt_retry_count);
++	printk(KERN_INFO
++	       "               lan_switch_num = %u, is_fatal = %u\n",
++	       pkt->cmd.report_status.lan_switch_num,
++	       pkt->cmd.report_status.is_fatal);
++	printk(KERN_INFO
++	       "               status_number = %u, status_info = %u\n",
++	       be32_to_cpu(pkt->cmd.report_status.status_number),
++	       be32_to_cpu(pkt->cmd.report_status.status_info));
++	pkt->cmd.report_status.file_name[31] = '\0';
++	pkt->cmd.report_status.routine[31] = '\0';
++	printk(KERN_INFO "               filename = %s, routine = %s\n",
++	       pkt->cmd.report_status.file_name,
++	       pkt->cmd.report_status.routine);
++	printk(KERN_INFO
++	       "               line_num = %u, error_parameter = %u\n",
++	       be32_to_cpu(pkt->cmd.report_status.line_num),
++	       be32_to_cpu(pkt->cmd.report_status.error_parameter));
++	pkt->cmd.report_status.desc_text[127] = '\0';
++	printk(KERN_INFO "               desc_text = %s\n",
++	       pkt->cmd.report_status.desc_text);
++}
++
++static void control_log_report_stats_pkt(struct vnic_control_packet *pkt)
++{
++	printk(KERN_INFO
++	       "               pkt_cmd = CMD_REPORT_STATISTICS\n");
++	printk(KERN_INFO
++	       "               pkt_seq_num = %u,"
++	       " pkt_retry_count = %u\n",
++	       pkt->hdr.pkt_seq_num,
++	       pkt->hdr.pkt_retry_count);
++	printk(KERN_INFO "               lan_switch_num = %u\n",
++	       pkt->cmd.report_statistics_req.lan_switch_num);
++	if (pkt->hdr.pkt_type == TYPE_REQ)
++		return;
++	printk(KERN_INFO "               if_in_broadcast_pkts = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_broadcast_pkts));
++	printk(" if_in_multicast_pkts = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_multicast_pkts));
++	printk(KERN_INFO "               if_in_octets = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_octets));
++	printk(" if_in_ucast_pkts = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_ucast_pkts));
++	printk(KERN_INFO "               if_in_nucast_pkts = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_nucast_pkts));
++	printk(" if_in_underrun = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_underrun));
++	printk(KERN_INFO "               if_in_errors = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_errors));
++	printk(" if_out_errors = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_out_errors));
++	printk(KERN_INFO "               if_out_octets = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_out_octets));
++	printk(" if_out_ucast_pkts = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_out_ucast_pkts));
++	printk(KERN_INFO "               if_out_multicast_pkts = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_out_multicast_pkts));
++	printk(" if_out_broadcast_pkts = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_out_broadcast_pkts));
++	printk(KERN_INFO "               if_out_nucast_pkts = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_out_nucast_pkts));
++	printk(" if_out_ok = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.if_out_ok));
++	printk(KERN_INFO "               if_in_ok = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.if_in_ok));
++	printk(" if_out_ucast_bytes = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_out_ucast_bytes));
++	printk(KERN_INFO "               if_out_multicast_bytes = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++		      if_out_multicast_bytes));
++	printk(" if_out_broadcast_bytes = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_out_broadcast_bytes));
++	printk(KERN_INFO "               if_in_ucast_bytes = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_ucast_bytes));
++	printk(" if_in_multicast_bytes = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_multicast_bytes));
++	printk(KERN_INFO "               if_in_broadcast_bytes = %llu",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   if_in_broadcast_bytes));
++	printk(" ethernet_status = %llu\n",
++	       be64_to_cpu(pkt->cmd.report_statistics_rsp.
++			   ethernet_status));
++}
++
++static void control_log_config_link_pkt(struct vnic_control_packet *pkt)
++{
++	printk(KERN_INFO
++	       "               pkt_cmd = CMD_CONFIG_LINK\n");
++	printk(KERN_INFO
++	       "               pkt_seq_num = %u,"
++	       " pkt_retry_count = %u\n",
++	       pkt->hdr.pkt_seq_num,
++	       pkt->hdr.pkt_retry_count);
++	printk(KERN_INFO "               cmd_flags = %x\n",
++	       pkt->cmd.config_link_req.cmd_flags);
++	if (pkt->cmd.config_link_req.cmd_flags & VNIC_FLAG_ENABLE_NIC)
++		printk(KERN_INFO
++		       "                      VNIC_FLAG_ENABLE_NIC\n");
++	if (pkt->cmd.config_link_req.cmd_flags & VNIC_FLAG_DISABLE_NIC)
++		printk(KERN_INFO
++		       "                      VNIC_FLAG_DISABLE_NIC\n");
++	if (pkt->cmd.config_link_req.
++	    cmd_flags & VNIC_FLAG_ENABLE_MCAST_ALL)
++		printk(KERN_INFO
++		       "                     VNIC_FLAG_ENABLE_"
++		       "MCAST_ALL\n");
++	if (pkt->cmd.config_link_req.
++	    cmd_flags & VNIC_FLAG_DISABLE_MCAST_ALL)
++		printk(KERN_INFO
++		       "                       VNIC_FLAG_DISABLE_"
++		       "MCAST_ALL\n");
++	if (pkt->cmd.config_link_req.
++	    cmd_flags & VNIC_FLAG_ENABLE_PROMISC)
++		printk(KERN_INFO
++		       "                       VNIC_FLAG_ENABLE_"
++		       "PROMISC\n");
++	if (pkt->cmd.config_link_req.
++	    cmd_flags & VNIC_FLAG_DISABLE_PROMISC)
++		printk(KERN_INFO
++		       "                       VNIC_FLAG_DISABLE_"
++		       "PROMISC\n");
++	if (pkt->cmd.config_link_req.cmd_flags & VNIC_FLAG_SET_MTU)
++		printk(KERN_INFO
++		       "                       VNIC_FLAG_SET_MTU\n");
++	printk(KERN_INFO
++	       "               lan_switch_num = %x, mtu_size = %d\n",
++	       pkt->cmd.config_link_req.lan_switch_num,
++	       be16_to_cpu(pkt->cmd.config_link_req.mtu_size));
++	if (pkt->hdr.pkt_type == TYPE_RSP) {
++		printk(KERN_INFO
++		       "               default_vlan = %u,"
++		       " hw_mac_address ="
++		       " %02x:%02x:%02x:%02x:%02x:%02x\n",
++		       be16_to_cpu(pkt->cmd.config_link_req.
++				   default_vlan),
++		       pkt->cmd.config_link_req.hw_mac_address[0],
++		       pkt->cmd.config_link_req.hw_mac_address[1],
++		       pkt->cmd.config_link_req.hw_mac_address[2],
++		       pkt->cmd.config_link_req.hw_mac_address[3],
++		       pkt->cmd.config_link_req.hw_mac_address[4],
++		       pkt->cmd.config_link_req.hw_mac_address[5]);
 +	}
 +}
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h
++
++static void print_config_addr(struct vnic_address_op *list,
++				int num_address_ops, size_t mgidoff)
++{
++	int i = 0;
++
++	while (i < num_address_ops && i < 16) {
++		printk(KERN_INFO "               list_address_ops[%u].index"
++				 " = %u\n", i, be16_to_cpu(list->index));
++		switch (list->operation) {
++		case VNIC_OP_GET_ENTRY:
++			printk(KERN_INFO "               list_address_ops[%u]."
++					 "operation = VNIC_OP_GET_ENTRY\n", i);
++			break;
++		case VNIC_OP_SET_ENTRY:
++			printk(KERN_INFO "               list_address_ops[%u]."
++					 "operation = VNIC_OP_SET_ENTRY\n", i);
++			break;
++		default:
++			printk(KERN_INFO "               list_address_ops[%u]."
++					 "operation = UNKNOWN(%d)\n", i,
++					 list->operation);
++			break;
++		}
++		printk(KERN_INFO "               list_address_ops[%u].valid"
++				 " = %u\n", i, list->valid);
++		printk(KERN_INFO "               list_address_ops[%u].address"
++				 " = %02x:%02x:%02x:%02x:%02x:%02x\n", i,
++				 list->address[0], list->address[1],
++				 list->address[2], list->address[3],
++				 list->address[4], list->address[5]);
++		printk(KERN_INFO "               list_address_ops[%u].vlan"
++				 " = %u\n", i, be16_to_cpu(list->vlan));
++		if (mgidoff) {
++			printk(KERN_INFO
++				 "               list_address_ops[%u].mgid"
++				 " = " VNIC_GID_FMT "\n", i,
++				 VNIC_GID_RAW_ARG((char *)list + mgidoff));
++			list = (struct vnic_address_op *)
++			       ((char *)list + sizeof(struct vnic_address_op2));
++		} else
++			list = (struct vnic_address_op *)
++			       ((char *)list + sizeof(struct vnic_address_op));
++	i++;
++	}
++}
++
++static void control_log_config_addrs_pkt(struct vnic_control_packet *pkt,
++					u8 addresses2)
++{
++	struct vnic_address_op *list;
++	int no_address_ops;
++
++	if (addresses2)
++		printk(KERN_INFO
++			"               pkt_cmd = CMD_CONFIG_ADDRESSES2\n");
++	else
++		printk(KERN_INFO
++			"               pkt_cmd = CMD_CONFIG_ADDRESSES\n");
++	printk(KERN_INFO "               pkt_seq_num = %u,"
++			" pkt_retry_count = %u\n",
++			pkt->hdr.pkt_seq_num, pkt->hdr.pkt_retry_count);
++	if (addresses2) {
++		printk(KERN_INFO "               num_address_ops = %x,"
++				" lan_switch_num = %d\n",
++				pkt->cmd.config_addresses_req2.num_address_ops,
++				pkt->cmd.config_addresses_req2.lan_switch_num);
++		list = (struct vnic_address_op *)
++				pkt->cmd.config_addresses_req2.list_address_ops;
++		no_address_ops = pkt->cmd.config_addresses_req2.num_address_ops;
++		print_config_addr(list, no_address_ops,
++				offsetof(struct vnic_address_op2, mgid));
++	} else {
++		printk(KERN_INFO "               num_address_ops = %x,"
++				" lan_switch_num = %d\n",
++				pkt->cmd.config_addresses_req.num_address_ops,
++				pkt->cmd.config_addresses_req.lan_switch_num);
++		list = pkt->cmd.config_addresses_req.list_address_ops;
++		no_address_ops = pkt->cmd.config_addresses_req.num_address_ops;
++		print_config_addr(list, no_address_ops, 0);
++	}
++}
++
++static void control_log_exch_pools_pkt(struct vnic_control_packet *pkt)
++{
++	printk(KERN_INFO
++	       "               pkt_cmd = CMD_EXCHANGE_POOLS\n");
++	printk(KERN_INFO
++	       "               pkt_seq_num = %u,"
++	       " pkt_retry_count = %u\n",
++	       pkt->hdr.pkt_seq_num,
++	       pkt->hdr.pkt_retry_count);
++	printk(KERN_INFO "               datapath = %u\n",
++	       pkt->cmd.exchange_pools_req.data_path);
++	printk(KERN_INFO "               pool_rkey = %08x"
++	       " pool_addr = %llx\n",
++	       be32_to_cpu(pkt->cmd.exchange_pools_req.pool_rkey),
++	       be64_to_cpu(pkt->cmd.exchange_pools_req.pool_addr));
++}
++
++static void control_log_data_path_pkt(struct vnic_control_packet *pkt)
++{
++	printk(KERN_INFO
++	       "               pkt_cmd = CMD_CONFIG_DATA_PATH\n");
++	printk(KERN_INFO
++	       "               pkt_seq_num = %u,"
++	       " pkt_retry_count = %u\n",
++	       pkt->hdr.pkt_seq_num,
++	       pkt->hdr.pkt_retry_count);
++	printk(KERN_INFO "               path_identifier = %llx,"
++	       " data_path = %u\n",
++	       pkt->cmd.config_data_path_req.path_identifier,
++	       pkt->cmd.config_data_path_req.data_path);
++	printk(KERN_INFO
++	       "host config    size_recv_pool_entry = %u,"
++	       " num_recv_pool_entries = %u\n",
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      host_recv_pool_config.size_recv_pool_entry),
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      host_recv_pool_config.num_recv_pool_entries));
++	printk(KERN_INFO
++	       "               timeout_before_kick = %u,"
++	       " num_recv_pool_entries_before_kick = %u\n",
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      host_recv_pool_config.timeout_before_kick),
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      host_recv_pool_config.
++		      num_recv_pool_entries_before_kick));
++	printk(KERN_INFO
++	       "               num_recv_pool_bytes_before_kick = %u,"
++	       " free_recv_pool_entries_per_update = %u\n",
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      host_recv_pool_config.
++		      num_recv_pool_bytes_before_kick),
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      host_recv_pool_config.
++		      free_recv_pool_entries_per_update));
++	printk(KERN_INFO
++	       "eioc config    size_recv_pool_entry = %u,"
++	       " num_recv_pool_entries = %u\n",
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      eioc_recv_pool_config.size_recv_pool_entry),
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      eioc_recv_pool_config.num_recv_pool_entries));
++	printk(KERN_INFO
++	       "               timeout_before_kick = %u,"
++	       " num_recv_pool_entries_before_kick = %u\n",
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      eioc_recv_pool_config.timeout_before_kick),
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      eioc_recv_pool_config.
++		      num_recv_pool_entries_before_kick));
++	printk(KERN_INFO
++	       "               num_recv_pool_bytes_before_kick = %u,"
++	       " free_recv_pool_entries_per_update = %u\n",
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      eioc_recv_pool_config.
++		      num_recv_pool_bytes_before_kick),
++	       be32_to_cpu(pkt->cmd.config_data_path_req.
++		      eioc_recv_pool_config.
++		      free_recv_pool_entries_per_update));
++}
++
++static void control_log_init_vnic_pkt(struct vnic_control_packet *pkt)
++{
++	printk(KERN_INFO
++	       "               pkt_cmd = CMD_INIT_VNIC\n");
++	printk(KERN_INFO
++	       "               pkt_seq_num = %u,"
++	       " pkt_retry_count = %u\n",
++	       pkt->hdr.pkt_seq_num,
++	       pkt->hdr.pkt_retry_count);
++	printk(KERN_INFO
++	       "               vnic_major_version = %u,"
++	       " vnic_minor_version = %u\n",
++	       be16_to_cpu(pkt->cmd.init_vnic_req.vnic_major_version),
++	       be16_to_cpu(pkt->cmd.init_vnic_req.vnic_minor_version));
++	if (pkt->hdr.pkt_type == TYPE_REQ) {
++		printk(KERN_INFO
++		       "               vnic_instance = %u,"
++		       " num_data_paths = %u\n",
++		       pkt->cmd.init_vnic_req.vnic_instance,
++		       pkt->cmd.init_vnic_req.num_data_paths);
++		printk(KERN_INFO
++		       "               num_address_entries = %u\n",
++		       be16_to_cpu(pkt->cmd.init_vnic_req.
++			      num_address_entries));
++	} else {
++		printk(KERN_INFO
++		       "               num_lan_switches = %u,"
++		       " num_data_paths = %u\n",
++		       pkt->cmd.init_vnic_rsp.num_lan_switches,
++		       pkt->cmd.init_vnic_rsp.num_data_paths);
++		printk(KERN_INFO
++		       "               num_address_entries = %u,"
++		       " features_supported = %08x\n",
++		       be16_to_cpu(pkt->cmd.init_vnic_rsp.
++			      num_address_entries),
++		       be32_to_cpu(pkt->cmd.init_vnic_rsp.
++			      features_supported));
++		if (pkt->cmd.init_vnic_rsp.num_lan_switches != 0) {
++			printk(KERN_INFO
++			       "lan_switch[0]  lan_switch_num = %u,"
++			       " num_enet_ports = %08x\n",
++			       pkt->cmd.init_vnic_rsp.
++			       lan_switch[0].lan_switch_num,
++			       pkt->cmd.init_vnic_rsp.
++			       lan_switch[0].num_enet_ports);
++			printk(KERN_INFO
++			       "               default_vlan = %u,"
++			       " hw_mac_address ="
++			       " %02x:%02x:%02x:%02x:%02x:%02x\n",
++			       be16_to_cpu(pkt->cmd.init_vnic_rsp.
++				      lan_switch[0].default_vlan),
++			       pkt->cmd.init_vnic_rsp.lan_switch[0].
++			       hw_mac_address[0],
++			       pkt->cmd.init_vnic_rsp.lan_switch[0].
++			       hw_mac_address[1],
++			       pkt->cmd.init_vnic_rsp.lan_switch[0].
++			       hw_mac_address[2],
++			       pkt->cmd.init_vnic_rsp.lan_switch[0].
++			       hw_mac_address[3],
++			       pkt->cmd.init_vnic_rsp.lan_switch[0].
++			       hw_mac_address[4],
++			       pkt->cmd.init_vnic_rsp.lan_switch[0].
++			       hw_mac_address[5]);
++		}
++	}
++}
++
++static void control_log_control_packet(struct vnic_control_packet *pkt)
++{
++	switch (pkt->hdr.pkt_type) {
++	case TYPE_INFO:
++		printk(KERN_INFO "control_packet: pkt_type = TYPE_INFO\n");
++		break;
++	case TYPE_REQ:
++		printk(KERN_INFO "control_packet: pkt_type = TYPE_REQ\n");
++		break;
++	case TYPE_RSP:
++		printk(KERN_INFO "control_packet: pkt_type = TYPE_RSP\n");
++		break;
++	case TYPE_ERR:
++		printk(KERN_INFO "control_packet: pkt_type = TYPE_ERR\n");
++		break;
++	default:
++		printk(KERN_INFO "control_packet: pkt_type = UNKNOWN\n");
++	}
++
++	switch (pkt->hdr.pkt_cmd) {
++	case CMD_INIT_VNIC:
++		control_log_init_vnic_pkt(pkt);
++		break;
++	case CMD_CONFIG_DATA_PATH:
++		control_log_data_path_pkt(pkt);
++		break;
++	case CMD_EXCHANGE_POOLS:
++		control_log_exch_pools_pkt(pkt);
++		break;
++	case CMD_CONFIG_ADDRESSES:
++		control_log_config_addrs_pkt(pkt, 0);
++		break;
++	case CMD_CONFIG_ADDRESSES2:
++		control_log_config_addrs_pkt(pkt, 1);
++		break;
++	case CMD_CONFIG_LINK:
++		control_log_config_link_pkt(pkt);
++		break;
++	case CMD_REPORT_STATISTICS:
++		control_log_report_stats_pkt(pkt);
++		break;
++	case CMD_CLEAR_STATISTICS:
++		printk(KERN_INFO
++		       "               pkt_cmd = CMD_CLEAR_STATISTICS\n");
++		printk(KERN_INFO
++		       "               pkt_seq_num = %u,"
++		       " pkt_retry_count = %u\n",
++		       pkt->hdr.pkt_seq_num,
++		       pkt->hdr.pkt_retry_count);
++		break;
++	case CMD_REPORT_STATUS:
++		control_log_report_status_pkt(pkt);
++
++		break;
++	case CMD_RESET:
++		printk(KERN_INFO
++		       "               pkt_cmd = CMD_RESET\n");
++		printk(KERN_INFO
++		       "               pkt_seq_num = %u,"
++		       " pkt_retry_count = %u\n",
++		       pkt->hdr.pkt_seq_num,
++		       pkt->hdr.pkt_retry_count);
++		break;
++	case CMD_HEARTBEAT:
++		printk(KERN_INFO
++		       "               pkt_cmd = CMD_HEARTBEAT\n");
++		printk(KERN_INFO
++		       "               pkt_seq_num = %u,"
++		       " pkt_retry_count = %u\n",
++		       pkt->hdr.pkt_seq_num,
++		       pkt->hdr.pkt_retry_count);
++		printk(KERN_INFO "               hb_interval = %d\n",
++		       be32_to_cpu(pkt->cmd.heartbeat_req.hb_interval));
++		break;
++	default:
++		printk(KERN_INFO
++		       "               pkt_cmd = UNKNOWN (%u)\n",
++		       pkt->hdr.pkt_cmd);
++		printk(KERN_INFO
++		       "               pkt_seq_num = %u,"
++		       " pkt_retry_count = %u\n",
++		       pkt->hdr.pkt_seq_num,
++		       pkt->hdr.pkt_retry_count);
++		break;
++	}
++}
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_control.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_control.h
 new file mode 100644
-index 0000000..70cdc9f
+index 0000000..57fab67
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h
-@@ -0,0 +1,175 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_control.h
+@@ -0,0 +1,179 @@
 +/*
 + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
@@ -1297,146 +2371,524 @@ index 0000000..70cdc9f
 + * SOFTWARE.
 + */
 +
-+#ifndef VNIC_VIPORT_H_INCLUDED
-+#define VNIC_VIPORT_H_INCLUDED
++#ifndef VNIC_CONTROL_H_INCLUDED
++#define VNIC_CONTROL_H_INCLUDED
 +
-+#include "vnic_control.h"
-+#include "vnic_data.h"
-+#include "vnic_multicast.h"
++#ifdef CONFIG_INFINIBAND_QLGC_VNIC_STATS
++#include <linux/timex.h>
++#include <linux/completion.h>
++#endif	/* CONFIG_INFINIBAND_QLGC_VNIC_STATS */
 +
-+enum viport_state {
-+	VIPORT_DISCONNECTED	= 0,
-+	VIPORT_CONNECTED	= 1
++#include "vnic_ib.h"
++#include "vnic_control_pkt.h"
++
++enum control_timer_state {
++	TIMER_IDLE	= 0,
++	TIMER_ACTIVE	= 1,
++	TIMER_EXPIRED	= 2
 +};
 +
-+enum link_state {
-+	LINK_UNINITIALIZED	= 0,
-+	LINK_INITIALIZE		= 1,
-+	LINK_INITIALIZECONTROL	= 2,
-+	LINK_INITIALIZEDATA	= 3,
-+	LINK_CONTROLCONNECT	= 4,
-+	LINK_CONTROLCONNECTWAIT	= 5,
-+	LINK_INITVNICREQ	= 6,
-+	LINK_INITVNICRSP	= 7,
-+	LINK_BEGINDATAPATH	= 8,
-+	LINK_CONFIGDATAPATHREQ	= 9,
-+	LINK_CONFIGDATAPATHRSP	= 10,
-+	LINK_DATACONNECT	= 11,
-+	LINK_DATACONNECTWAIT	= 12,
-+	LINK_XCHGPOOLREQ	= 13,
-+	LINK_XCHGPOOLRSP	= 14,
-+	LINK_INITIALIZED	= 15,
-+	LINK_IDLE		= 16,
-+	LINK_IDLING		= 17,
-+	LINK_CONFIGLINKREQ	= 18,
-+	LINK_CONFIGLINKRSP	= 19,
-+	LINK_CONFIGADDRSREQ	= 20,
-+	LINK_CONFIGADDRSRSP	= 21,
-+	LINK_REPORTSTATREQ	= 22,
-+	LINK_REPORTSTATRSP	= 23,
-+	LINK_HEARTBEATREQ	= 24,
-+	LINK_HEARTBEATRSP	= 25,
-+	LINK_RESET		= 26,
-+	LINK_RESETRSP		= 27,
-+	LINK_RESETCONTROL	= 28,
-+	LINK_RESETCONTROLRSP	= 29,
-+	LINK_DATADISCONNECT	= 30,
-+	LINK_CONTROLDISCONNECT	= 31,
-+	LINK_CLEANUPDATA	= 32,
-+	LINK_CLEANUPCONTROL	= 33,
-+	LINK_DISCONNECTED	= 34,
-+	LINK_RETRYWAIT		= 35,
-+	LINK_FIRSTCONNECT	= 36
++enum control_request_state {
++	REQ_INACTIVE,  /* quiet state, all previous operations done
++			*      response is NULL
++			*      last_cmd = CMD_INVALID
++			*      timer_state = IDLE
++			*/
++	REQ_POSTED,    /* REQ put on send Q
++			*      response is NULL
++			*      last_cmd = command issued
++			*      timer_state = ACTIVE
++			*/
++	REQ_SENT,      /* Send completed for REQ
++			*      response is NULL
++			*      last_cmd = command issued
++			*      timer_state = ACTIVE
++			*/
++	RSP_RECEIVED,  /* Received Resp, but no Send completion yet
++			*      response is response buffer received
++			*      last_cmd = command issued
++			*      timer_state = ACTIVE
++			*/
++	REQ_COMPLETED, /* all processing for REQ completed, ready to be gotten
++			*      response is response buffer received
++			*      last_cmd = command issued
++			*      timer_state = ACTIVE
++			*/
++	REQ_FAILED,    /* processing of REQ/RSP failed.
++			*      response is NULL
++			*      last_cmd = CMD_INVALID
++			*      timer_state = IDLE or EXPIRED
++			*      viport has been moved to error state to force
++			*      recovery
++			*/
 +};
 +
-+enum {
-+	BROADCAST_ADDR		= 0,
-+	UNICAST_ADDR		= 1,
-+	MCAST_ADDR_START	= 2
-+};
-+
-+#define current_mac_address	mac_addresses[UNICAST_ADDR].address
-+
-+enum {
-+	NEED_STATS           	= 0x00000001,
-+	NEED_ADDRESS_CONFIG  	= 0x00000002,
-+	NEED_LINK_CONFIG     	= 0x00000004,
-+	MCAST_OVERFLOW       	= 0x00000008,
-+	NEED_MCAST_COMPLETION	= 0x00000010,
-+	NEED_MCAST_JOIN      	= 0x00000020
-+};
-+
-+struct viport {
-+	struct list_head		list_ptrs;
-+	struct netpath			*parent;
-+	struct vnic			*vnic;
-+	struct viport_config		*config;
-+	struct control			control;
-+	struct data			data;
-+	spinlock_t			lock;
-+	struct ib_pd			*pd;
-+	enum viport_state		state;
-+	enum link_state			link_state;
-+	struct vnic_cmd_report_stats_rsp stats;
-+	wait_queue_head_t		stats_queue;
-+	unsigned long			last_stats_time;
-+	u32				features_supported;
-+	u8				hw_mac_address[ETH_ALEN];
-+	u16				default_vlan;
-+	u16				num_mac_addresses;
-+	struct vnic_address_op2		*mac_addresses;
-+	u32				updates;
-+	u16				flags;
-+	u16				new_flags;
-+	u16				mtu;
-+	u16				new_mtu;
-+	u32				errored;
-+	enum { WAIT, DELAY, NOW }	connect;
-+	u32				disconnect;
-+	u32 				retry;
-+	wait_queue_head_t		disconnect_queue;
-+	int				timer_active;
++struct control {
++	struct viport			*parent;
++	struct control_config		*config;
++	struct ib_mr			*mr;
++	struct vnic_ib_conn		ib_conn;
++	struct vnic_control_packet	*local_storage;
++	int				send_len;
++	int				recv_len;
++	u16				maj_ver;
++	u16				min_ver;
++	struct vnic_lan_switch_attribs	lan_switch;
++	struct send_io			send_io;
++	struct recv_io			*recv_ios;
++	dma_addr_t			send_dma;
++	dma_addr_t			recv_dma;
++	enum control_timer_state	timer_state;
++	enum control_request_state      req_state;
 +	struct timer_list		timer;
-+	u32 				retry_duration;
-+	u32 				total_retry_duration;
-+	atomic_t			reference_count;
-+	wait_queue_head_t		reference_queue;
-+	struct mc_info	mc_info;
-+	struct mc_data	mc_data;
++	u8				seq_num;
++	u8				last_cmd;
++	struct recv_io			*response;
++	struct recv_io			*info;
++	struct list_head		failure_list;
++	spinlock_t			io_lock;
++	struct completion		done;
++#ifdef CONFIG_INFINIBAND_QLGC_VNIC_STATS
++	struct {
++		cycles_t	request_time;	/* intermediate value */
++		cycles_t	response_time;
++		u32		response_num;
++		cycles_t	response_max;
++		cycles_t	response_min;
++		u32		timeout_num;
++	} statistics;
++#endif	/* CONFIG_INFINIBAND_QLGC_VNIC_STATS */
 +};
 +
-+int  viport_start(void);
-+void viport_cleanup(void);
++int control_init(struct control *control, struct viport *viport,
++		 struct control_config *config, struct ib_pd *pd);
 +
-+struct viport *viport_allocate(struct viport_config *config);
-+void viport_free(struct viport *viport);
++void control_cleanup(struct control *control);
 +
-+void viport_connect(struct viport *viport, int delay);
++void control_process_async(struct control *control);
 +
-+void viport_set_link(struct viport *viport, u16 flags, u16 mtu);
-+void viport_get_stats(struct viport *viport,
-+		      struct net_device_stats *stats);
-+int  viport_xmit_packet(struct viport *viport, struct sk_buff *skb);
-+void viport_kick(struct viport *viport);
++int control_init_vnic_req(struct control *control);
++int control_init_vnic_rsp(struct control *control, u32 *features,
++			  u8 *mac_address, u16 *num_addrs, u16 *vlan);
 +
-+void viport_failure(struct viport *viport);
++int control_config_data_path_req(struct control *control, u64 path_id,
++				 struct vnic_recv_pool_config *host,
++				 struct vnic_recv_pool_config *eioc);
++int control_config_data_path_rsp(struct control *control,
++				 struct vnic_recv_pool_config *host,
++				 struct vnic_recv_pool_config *eioc,
++				 struct vnic_recv_pool_config *max_host,
++				 struct vnic_recv_pool_config *max_eioc,
++				 struct vnic_recv_pool_config *min_host,
++				 struct vnic_recv_pool_config *min_eioc);
 +
-+int viport_set_unicast(struct viport *viport, u8 *address);
-+int viport_set_multicast(struct viport *viport,
-+			 struct dev_mc_list *mc_list,
-+			 int mc_count);
++int control_exchange_pools_req(struct control *control,
++			       u64 addr, u32 rkey);
++int control_exchange_pools_rsp(struct control *control,
++			       u64 *addr, u32 *rkey);
 +
-+#define viport_max_mtu(viport)		data_max_mtu(&(viport)->data)
++int control_config_link_req(struct control *control,
++			    u16 flags, u16 mtu);
++int control_config_link_rsp(struct control *control,
++			    u16 *flags, u16 *mtu);
 +
-+#define viport_get_hw_addr(viport, address)			\
-+	memcpy(address, (viport)->hw_mac_address, ETH_ALEN)
++int control_config_addrs_req(struct control *control,
++			     struct vnic_address_op2 *addrs, u16 num);
++int control_config_addrs_rsp(struct control *control);
 +
-+#define viport_features(viport) ((viport)->features_supported)
++int control_report_statistics_req(struct control *control);
++int control_report_statistics_rsp(struct control *control,
++				  struct vnic_cmd_report_stats_rsp *stats);
 +
-+#define viport_can_tx_csum(viport)				\
-+	(((viport)->features_supported & 			\
-+	(VNIC_FEAT_IPV4_CSUM_TX | VNIC_FEAT_TCP_CSUM_TX |	\
-+	VNIC_FEAT_UDP_CSUM_TX)) == (VNIC_FEAT_IPV4_CSUM_TX |	\
-+	VNIC_FEAT_TCP_CSUM_TX | VNIC_FEAT_UDP_CSUM_TX))
++int control_heartbeat_req(struct control *control, u32 hb_interval);
++int control_heartbeat_rsp(struct control *control);
 +
-+#endif /* VNIC_VIPORT_H_INCLUDED */
++int control_reset_req(struct control *control);
++int control_reset_rsp(struct control *control);
++
++#define control_packet(io) 					\
++	(struct vnic_control_packet *)(io)->virtual_addr
++#define control_is_connected(control) 				\
++	(vnic_ib_conn_connected(&((control)->ib_conn)))
++
++#define control_last_req(control)	control_packet(&(control)->send_io)
++#define control_features(control)	(control)->features_supported
++
++#define control_get_mac_address(control,addr) 				\
++	memcpy(addr, (control)->lan_switch.hw_mac_address, ETH_ALEN)
++
++#endif	/* VNIC_CONTROL_H_INCLUDED */
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_control_pkt.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_control_pkt.h
+new file mode 100644
+index 0000000..1fc62fb
+--- /dev/null
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_control_pkt.h
+@@ -0,0 +1,368 @@
++/*
++ * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef VNIC_CONTROL_PKT_H_INCLUDED
++#define VNIC_CONTROL_PKT_H_INCLUDED
++
++#include <linux/utsname.h>
++#include <rdma/ib_verbs.h>
++
++#define VNIC_MAX_NODENAME_LEN	64
++
++struct vnic_connection_data {
++	u64	path_id;
++	u8	vnic_instance;
++	u8	path_num;
++	u8	nodename[VNIC_MAX_NODENAME_LEN + 1];
++	u8  	reserved; /* for alignment */
++	__be32 	features_supported;
++};
++
++struct vnic_control_header {
++	u8	pkt_type;
++	u8	pkt_cmd;
++	u8	pkt_seq_num;
++	u8	pkt_retry_count;
++	u32	reserved;	/* for 64-bit alignmnet */
++};
++
++/* ptk_type values */
++enum {
++	TYPE_INFO	= 0,
++	TYPE_REQ	= 1,
++	TYPE_RSP	= 2,
++	TYPE_ERR	= 3
++};
++
++/* ptk_cmd values */
++enum {
++	CMD_INVALID		= 0,
++	CMD_INIT_VNIC		= 1,
++	CMD_CONFIG_DATA_PATH	= 2,
++	CMD_EXCHANGE_POOLS	= 3,
++	CMD_CONFIG_ADDRESSES	= 4,
++	CMD_CONFIG_LINK		= 5,
++	CMD_REPORT_STATISTICS	= 6,
++	CMD_CLEAR_STATISTICS	= 7,
++	CMD_REPORT_STATUS	= 8,
++	CMD_RESET		= 9,
++	CMD_HEARTBEAT		= 10,
++	CMD_CONFIG_ADDRESSES2	= 11,
++};
++
++/* pkt_cmd CMD_INIT_VNIC, pkt_type TYPE_REQ data format */
++struct vnic_cmd_init_vnic_req {
++	__be16	vnic_major_version;
++	__be16	vnic_minor_version;
++	u8	vnic_instance;
++	u8	num_data_paths;
++	__be16	num_address_entries;
++};
++
++/* pkt_cmd CMD_INIT_VNIC, pkt_type TYPE_RSP subdata format */
++struct vnic_lan_switch_attribs {
++	u8	lan_switch_num;
++	u8	num_enet_ports;
++	__be16	default_vlan;
++	u8	hw_mac_address[ETH_ALEN];
++};
++
++/* pkt_cmd CMD_INIT_VNIC, pkt_type TYPE_RSP data format */
++struct vnic_cmd_init_vnic_rsp {
++	__be16				vnic_major_version;
++	__be16				vnic_minor_version;
++	u8				num_lan_switches;
++	u8				num_data_paths;
++	__be16				num_address_entries;
++	__be32				features_supported;
++	struct vnic_lan_switch_attribs	lan_switch[1];
++};
++
++/* features_supported values */
++enum {
++	VNIC_FEAT_IPV4_HEADERS		= 0x0001,
++	VNIC_FEAT_IPV6_HEADERS		= 0x0002,
++	VNIC_FEAT_IPV4_CSUM_RX		= 0x0004,
++	VNIC_FEAT_IPV4_CSUM_TX		= 0x0008,
++	VNIC_FEAT_TCP_CSUM_RX		= 0x0010,
++	VNIC_FEAT_TCP_CSUM_TX		= 0x0020,
++	VNIC_FEAT_UDP_CSUM_RX		= 0x0040,
++	VNIC_FEAT_UDP_CSUM_TX		= 0x0080,
++	VNIC_FEAT_TCP_SEGMENT		= 0x0100,
++	VNIC_FEAT_IPV4_IPSEC_OFFLOAD	= 0x0200,
++	VNIC_FEAT_IPV6_IPSEC_OFFLOAD	= 0x0400,
++	VNIC_FEAT_FCS_PROPAGATE		= 0x0800,
++	VNIC_FEAT_PF_KICK		= 0x1000,
++	VNIC_FEAT_PF_FORCE_ROUTE	= 0x2000,
++	VNIC_FEAT_CHASH_OFFLOAD		= 0x4000,
++	/* host send with immediate data */
++	VNIC_FEAT_RDMA_IMMED		= 0x8000,
++	/* host ignore inbound PF_VLAN_INSERT flag */
++	VNIC_FEAT_IGNORE_VLAN		= 0x10000,
++	/* host supports IB multicast for inbound Ethernet mcast traffic */
++	VNIC_FEAT_INBOUND_IB_MC 	= 0x20000,
++};
++
++/* pkt_cmd CMD_CONFIG_DATA_PATH subdata format */
++struct vnic_recv_pool_config {
++	__be32	size_recv_pool_entry;
++	__be32	num_recv_pool_entries;
++	__be32	timeout_before_kick;
++	__be32	num_recv_pool_entries_before_kick;
++	__be32	num_recv_pool_bytes_before_kick;
++	__be32	free_recv_pool_entries_per_update;
++};
++
++/* pkt_cmd CMD_CONFIG_DATA_PATH data format */
++struct vnic_cmd_config_data_path {
++	u64				path_identifier;
++	u8				data_path;
++	u8				reserved[3];
++	struct vnic_recv_pool_config	host_recv_pool_config;
++	struct vnic_recv_pool_config	eioc_recv_pool_config;
++};
++
++/* pkt_cmd CMD_EXCHANGE_POOLS data format */
++struct vnic_cmd_exchange_pools {
++	u8	data_path;
++	u8	reserved[3];
++	__be32	pool_rkey;
++	__be64	pool_addr;
++};
++
++/* pkt_cmd CMD_CONFIG_ADDRESSES subdata format */
++struct vnic_address_op {
++	__be16	index;
++	u8	operation;
++	u8	valid;
++	u8	address[6];
++	__be16	vlan;
++};
++
++/* pkt_cmd CMD_CONFIG_ADDRESSES2 subdata format */
++struct vnic_address_op2 {
++	__be16	index;
++	u8	operation;
++	u8	valid;
++	u8	address[6];
++	__be16	vlan;
++	u32 reserved; /* for alignment */
++	union ib_gid mgid; /* valid in rsp only if both ends support mcast */
++};
++
++/* operation values */
++enum {
++	VNIC_OP_SET_ENTRY = 0x01,
++	VNIC_OP_GET_ENTRY = 0x02
++};
++
++/* pkt_cmd CMD_CONFIG_ADDRESSES data format */
++struct vnic_cmd_config_addresses {
++	u8			num_address_ops;
++	u8			lan_switch_num;
++	struct vnic_address_op	list_address_ops[1];
++};
++
++/* pkt_cmd CMD_CONFIG_ADDRESSES2 data format */
++struct vnic_cmd_config_addresses2 {
++	u8			num_address_ops;
++	u8			lan_switch_num;
++	u8			reserved1;
++	u8			reserved2;
++	u8			reserved3;
++	struct vnic_address_op2	list_address_ops[1];
++};
++
++/* CMD_CONFIG_LINK data format */
++struct vnic_cmd_config_link {
++	u8	cmd_flags;
++	u8	lan_switch_num;
++	__be16	mtu_size;
++	__be16	default_vlan;
++	u8	hw_mac_address[6];
++	u32	reserved; /* for alignment */
++	/* valid in rsp only if both ends support mcast */
++	union ib_gid allmulti_mgid;
++};
++
++/* cmd_flags values */
++enum {
++	VNIC_FLAG_ENABLE_NIC		= 0x01,
++	VNIC_FLAG_DISABLE_NIC		= 0x02,
++	VNIC_FLAG_ENABLE_MCAST_ALL	= 0x04,
++	VNIC_FLAG_DISABLE_MCAST_ALL	= 0x08,
++	VNIC_FLAG_ENABLE_PROMISC	= 0x10,
++	VNIC_FLAG_DISABLE_PROMISC	= 0x20,
++	VNIC_FLAG_SET_MTU		= 0x40
++};
++
++/* pkt_cmd CMD_REPORT_STATISTICS, pkt_type TYPE_REQ data format */
++struct vnic_cmd_report_stats_req {
++	u8	lan_switch_num;
++};
++
++/* pkt_cmd CMD_REPORT_STATISTICS, pkt_type TYPE_RSP data format */
++struct vnic_cmd_report_stats_rsp {
++	u8	lan_switch_num;
++	u8	reserved[7];		/* for 64-bit alignment */
++	__be64	if_in_broadcast_pkts;
++	__be64	if_in_multicast_pkts;
++	__be64	if_in_octets;
++	__be64	if_in_ucast_pkts;
++	__be64	if_in_nucast_pkts;	/* if_in_broadcast_pkts
++					 + if_in_multicast_pkts */
++	__be64	if_in_underrun;		/* (OID_GEN_RCV_NO_BUFFER) */
++	__be64	if_in_errors;		/* (OID_GEN_RCV_ERROR) */
++	__be64	if_out_errors;		/* (OID_GEN_XMIT_ERROR) */
++	__be64	if_out_octets;
++	__be64	if_out_ucast_pkts;
++	__be64	if_out_multicast_pkts;
++	__be64	if_out_broadcast_pkts;
++	__be64	if_out_nucast_pkts;	/* if_out_broadcast_pkts
++					 + if_out_multicast_pkts */
++	__be64	if_out_ok;		/* if_out_nucast_pkts
++					 + if_out_ucast_pkts(OID_GEN_XMIT_OK) */
++	__be64	if_in_ok;		/* if_in_nucast_pkts
++					 + if_in_ucast_pkts(OID_GEN_RCV_OK) */
++	__be64	if_out_ucast_bytes;	/* (OID_GEN_DIRECTED_BYTES_XMT) */
++	__be64	if_out_multicast_bytes;	/* (OID_GEN_MULTICAST_BYTES_XMT) */
++	__be64	if_out_broadcast_bytes;	/* (OID_GEN_BROADCAST_BYTES_XMT) */
++	__be64	if_in_ucast_bytes;	/* (OID_GEN_DIRECTED_BYTES_RCV) */
++	__be64	if_in_multicast_bytes;	/* (OID_GEN_MULTICAST_BYTES_RCV) */
++	__be64	if_in_broadcast_bytes;	/* (OID_GEN_BROADCAST_BYTES_RCV) */
++	__be64	 ethernet_status;	/* OID_GEN_MEDIA_CONNECT_STATUS) */
++};
++
++/* pkt_cmd CMD_CLEAR_STATISTICS data format */
++struct vnic_cmd_clear_statistics {
++	u8	lan_switch_num;
++};
++
++/* pkt_cmd CMD_REPORT_STATUS data format */
++struct vnic_cmd_report_status {
++	u8	lan_switch_num;
++	u8	is_fatal;
++	u8	reserved[2];		/* for 32-bit alignment */
++	__be32	status_number;
++	__be32	status_info;
++	u8	file_name[32];
++	u8	routine[32];
++	__be32	line_num;
++	__be32	error_parameter;
++	u8	desc_text[128];
++};
++
++/* pkt_cmd CMD_HEARTBEAT data format */
++struct vnic_cmd_heartbeat {
++	__be32	hb_interval;
++};
++
++enum {
++	VNIC_STATUS_LINK_UP			= 1,
++	VNIC_STATUS_LINK_DOWN			= 2,
++	VNIC_STATUS_ENET_AGGREGATION_CHANGE	= 3,
++	VNIC_STATUS_EIOC_SHUTDOWN		= 4,
++	VNIC_STATUS_CONTROL_ERROR		= 5,
++	VNIC_STATUS_EIOC_ERROR			= 6
++};
++
++#define VNIC_MAX_CONTROLPKTSZ		256
++#define VNIC_MAX_CONTROLDATASZ						\
++	(VNIC_MAX_CONTROLPKTSZ - sizeof(struct vnic_control_header))
++
++struct vnic_control_packet {
++	struct vnic_control_header	hdr;
++	union {
++		struct vnic_cmd_init_vnic_req		init_vnic_req;
++		struct vnic_cmd_init_vnic_rsp		init_vnic_rsp;
++		struct vnic_cmd_config_data_path	config_data_path_req;
++		struct vnic_cmd_config_data_path	config_data_path_rsp;
++		struct vnic_cmd_exchange_pools		exchange_pools_req;
++		struct vnic_cmd_exchange_pools		exchange_pools_rsp;
++		struct vnic_cmd_config_addresses	config_addresses_req;
++		struct vnic_cmd_config_addresses2	config_addresses_req2;
++		struct vnic_cmd_config_addresses	config_addresses_rsp;
++		struct vnic_cmd_config_addresses2	config_addresses_rsp2;
++		struct vnic_cmd_config_link		config_link_req;
++		struct vnic_cmd_config_link		config_link_rsp;
++		struct vnic_cmd_report_stats_req	report_statistics_req;
++		struct vnic_cmd_report_stats_rsp	report_statistics_rsp;
++		struct vnic_cmd_clear_statistics	clear_statistics_req;
++		struct vnic_cmd_clear_statistics	clear_statistics_rsp;
++		struct vnic_cmd_report_status		report_status;
++		struct vnic_cmd_heartbeat		heartbeat_req;
++		struct vnic_cmd_heartbeat		heartbeat_rsp;
++
++		char   cmd_data[VNIC_MAX_CONTROLDATASZ];
++	} cmd;
++};
++
++union ib_gid_cpu {
++	u8      raw[16];
++	struct {
++		u64  subnet_prefix;
++		u64  interface_id;
++	} global;
++};
++
++static inline void bswap_ib_gid(union ib_gid *mgid1, union ib_gid_cpu *mgid2)
++{
++    /* swap hi & low */
++    __be64 low = mgid1->global.subnet_prefix;
++    mgid2->global.subnet_prefix = be64_to_cpu(mgid1->global.interface_id);
++    mgid2->global.interface_id = be64_to_cpu(low);
++}
++
++#define VNIC_GID_FMT 	"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x"
++
++#define VNIC_GID_RAW_ARG(gid) 	be16_to_cpu(*(__be16 *)&(gid)[0]),	\
++				be16_to_cpu(*(__be16 *)&(gid)[2]),	\
++				be16_to_cpu(*(__be16 *)&(gid)[4]),	\
++				be16_to_cpu(*(__be16 *)&(gid)[6]),	\
++				be16_to_cpu(*(__be16 *)&(gid)[8]),	\
++				be16_to_cpu(*(__be16 *)&(gid)[10]),	\
++				be16_to_cpu(*(__be16 *)&(gid)[12]),	\
++				be16_to_cpu(*(__be16 *)&(gid)[14])
++
++
++/* These defines are used to figure out how many address entries can be passed
++ * in config_addresses request.
++ */
++#define MAX_CONFIG_ADDR_ENTRIES \
++	((VNIC_MAX_CONTROLDATASZ - (sizeof(struct vnic_cmd_config_addresses) \
++	- sizeof(struct vnic_address_op)))/sizeof(struct vnic_address_op))
++#define MAX_CONFIG_ADDR_ENTRIES2 \
++	((VNIC_MAX_CONTROLDATASZ - (sizeof(struct vnic_cmd_config_addresses2) \
++	- sizeof(struct vnic_address_op2)))/sizeof(struct vnic_address_op2))
++
++
++#endif	/* VNIC_CONTROL_PKT_H_INCLUDED */
