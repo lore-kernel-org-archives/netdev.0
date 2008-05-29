@@ -1,54 +1,44 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
- e1000/pcnet32
-Date: Wed, 28 May 2008 22:11:18 -0700
-Message-ID: <20080528221118.63da4092.akpm@linux-foundation.org>
-References: <482DA5B6.1020606@sngx.net>
-	<482DB46A.8020103@cosmosbay.com>
-	<482EF192.4070707@sngx.net>
-	<482F5113.5090703@cosmosbay.com>
-	<482F610D.2080108@sngx.net>
-	<20080518003104.GK28241@solarflare.com>
-	<482FBA09.80201@sngx.net>
-	<483E0AAE.2020107@sngx.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Wed, 28 May 2008 22:34:15 -0700 (PDT)
+Message-ID: <20080528.223415.193732490.davem@davemloft.net>
+References: <20080526.151540.191673092.davem@davemloft.net>
+	<483BA80C.4020502@krogh.cc>
+	<483CB301.40007@sun.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: James Cammarata <jimi@sngx.net>
+Cc: jesper@krogh.cc, yhlu.kernel@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Matheos.Worku@Sun.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59384 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750873AbYE2FQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 01:16:21 -0400
-In-Reply-To: <483E0AAE.2020107@sngx.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59392
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750863AbYE2FeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 01:34:19 -0400
+In-Reply-To: <483CB301.40007@sun.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 May 2008 20:45:18 -0500 James Cammarata <jimi@sngx.net> wrote:
+From: Matheos Worku <Matheos.Worku@Sun.COM>
+Date: Tue, 27 May 2008 18:18:57 -0700
 
-> I had originally submitted this ability as a patch to procfs, and
-> general consensus was that it seemed "hackish" to do it that way.  It
-> was suggested that it be implemented as a feature of ethtool, so I 
-> thought I'd take on the challenge and add it that way.
-> 
-> I've laid the groundwork here, and added the ability to two of the 
-> drivers for which I have hardware to test on (e1000 and pcnet32).  I 
-> also added the code required to call this functionality to the ethtool 
-> code base, and have been using that to test my changes (using -z as the 
-> flag to ethtool for clearing stats for now).
-> 
-> If this is an acceptable start, I will gladly start working on adding 
-> this to as many drivers as possible (we do have some bnx2 hardware, 
-> though I'm not sure if it's available for testing).
-> 
-> Some other sys-admins have mentioned to me that ethtool doesn't work 
-> sometimes and they fall back to using mii-tool to configure interfaces,
-> so I'd still like to have the procfs change implemented to accommodate 
-> that hardware, but I agree, this is a better way forward.
+> Considering that fixing the HW would take considerable time, I was 
+> wondering if the scheme we use in the nxge driver could be considered as 
+> a workaround. Since the niu driver is already doing skb_orphan as a work 
+> around, what if  already transmitted TX buffers are  reclaimed 
+> periodically, within dev->hard_start_xmit() ?  Then TX_DESC_MARK would 
+> be set if/when available TX descriptor count falls below some watermark. 
+> Disable device TX queue about the time  TX_DESC_MARK is set and enable 
+> it within TX interrupt.
 
-You didn't provide a reason from adding this feature to the kernel.
+Since my hack patch didn't fix his problem at all, are you suggesting
+that we end up not fielding TX mark interrupts even though mark is set
+in all the TX descriptors and this is what hangs the chip?
 
-Many of the kernel's accounting accumulators cannot be reset.  We
-handle that in userspace tools by using subtraction.
+I find that very unlikely, especially because with my test patch every
+single TX descriptor will have the mark bit set and therefore we'd
+have to not receive all of those TX mark interrupts in order for the
+TX unit to hang like that.
+
+Something else must be going wrong.
