@@ -1,57 +1,75 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next] IPv6 address labels per namespace - v2
-Date: Sat, 31 May 2008 01:06:49 +0900 (JST)
-Message-ID: <20080531.010649.117915833.yoshfuji@linux-ipv6.org>
-References: <20080528125137.228283589@theryb.frec.bull.fr>
-	<20080529.163909.07573021.yoshfuji@linux-ipv6.org>
-	<483FFB0F.7050303@bull.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH v1.2.26] wan: new driver retina
+Date: Fri, 30 May 2008 18:15:55 +0200
+Message-ID: <m3lk1rhio4.fsf@maximus.localdomain>
+References: <ca0148c30805280342l39ffe387rf4c670b17804f99d@mail.gmail.com>
+	<m3prr6obkz.fsf@maximus.localdomain>
+	<ca0148c30805300552u7eb5da43tfc75127a2e819d1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: benjamin.thery@bull.net
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Matti Linnanvuori" <mattilinn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:53584 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752960AbYE3QGR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 12:06:17 -0400
-In-Reply-To: <483FFB0F.7050303@bull.net>
+Received: from khc.piap.pl ([195.187.100.11]:58898 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752093AbYE3QP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 12:15:58 -0400
+In-Reply-To: <ca0148c30805300552u7eb5da43tfc75127a2e819d1@mail.gmail.com> (Matti Linnanvuori's message of "Fri\, 30 May 2008 15\:52\:59 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <483FFB0F.7050303@bull.net> (at Fri, 30 May 2008 15:03:11 +0200), Benjamin Thery <benjamin.thery@bull.net> says:
+"Matti Linnanvuori" <mattilinn@gmail.com> writes:
 
-> YOSHIFUJI Hideaki / ???? wrote:
-> > In article <20080528125137.228283589@theryb.frec.bull.fr> (at Wed, 28 May 2008 14:51:24 +0200), Benjamin Thery <benjamin.thery@bull.net> says:
-> > 
-> >> This pacth makes IPv6 address labels per network namespace.
-> >> It keeps the global label tables, ip6addrlbl_table, but 
-> >> adds a 'net' member to each ip6addrlbl_entry.
-> >> This new member is taken into account when matching labels.
-> >>
-> >> Changelog
-> >> =========
-> >> * v1: Initial version 
-> >> * v2:
-> >>   * Minize the penalty when network namespaces are not configured:
-> >>       *  the 'net' member is added only if CONFIG_NET_NS is 
-> >>          defined. This saves space when network namespaces are not 
-> >>          configured.
-> >>       * 'net' value is retrieved with the inlined function 
-> >>          ip6addrlbl_net() that always return &init_net when 
-> >>          CONFIG_NET_NS is not defined.
-> >>   * 'net' member in ip6addrlbl_entry renamed to the less generic 
-> >>     'lbl_net' name (helps code search).
-> >>
-> >> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-> > 
-> > I'm going to apply this.  Thank you.
-> 
-> Great.
-> Will you apply it to your own IPv6 tree or net-next-2.6?
+> I would not like to change a legacy driver much.
 
-My queue for net-next-2.6.
+But this is a new driver, right? I guess the SIOCDEVPRIVATEs will go
+at some point so the change can't be really avoided.
 
---yoshfuji
+>>> +static int fepci_char_open(struct inode *inode, struct file *filp)
+>>> +{
+>>> +     unsigned int minor = MINOR(inode->i_rdev);
+>>> +     if (unlikely(minor >= find_cnt || card_privates[minor].pci_dev == NULL))
+>>> +             return -ENXIO;
+>>> +     filp->f_op = &fepci_char_fops;
+>>> +     if (unlikely(!try_module_get(THIS_MODULE)))
+>>> +             return -EBUSY;
+>>
+>> That won't work race-free, use owner field.
+>
+> You mean the f_op assignment? I have removed that.
+
+Actually I meant try_module_get() from within the driver, for example
+your module may get unloaded while in this function, before this
+try_module_get(), and that would be fatal. If you set the owner field
+the reference count will be incremented by the caller first.
+
+Though you may be right about the assignement as well.
+
+>>> +static int fepci_stream_open_down(struct net_device *dev,
+>>> +                               struct fepci_ch_private *fp)
+>>> +{
+>>> +     unsigned tx_pages, rx_pages, tx_order, rx_order;
+>>> +     unsigned page_number;
+>>> +     unsigned int i;
+>>> +
+>>> +     if (unlikely(fp->in_eth_mode)) {
+>>> +             dev_warn(&dev->dev,
+>>> +                      "Interface is in Ethernet mode, "
+>>> +                      "cannot open stream interface\n");
+>>> +             return -EBUSY;
+>>> +     }
+
+> Private net device ioctls are locked with rtnl_lock, so I see no
+> race there.
+
+Yes, I thought stream mode = character device but now I see it's
+another flavour of network device(?), which is never up and exists
+only for the ability to receive netdev ioctls (though it also uses
+char dev ioctls).
+
+Did I get this right?
+
+Why not simply use a character device, with normal read, write etc?
+-- 
+Krzysztof Halasa
