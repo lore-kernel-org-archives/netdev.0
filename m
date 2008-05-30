@@ -1,45 +1,37 @@
-From: Cesar Eduardo Barros <cesarb@cesarb.net>
-Subject: [PATCH] sc92031: remove bogus unlikely()
-Date: Thu, 29 May 2008 21:58:36 -0300
-Message-ID: <483F513C.5010303@cesarb.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 2/2] IRDA: Do cleanup for dma
+Date: Fri, 30 May 2008 11:09:42 +0800
+Message-ID: <483F6FF6.4060300@cn.fujitsu.com>
+References: <48365CBF.4080502@cn.fujitsu.com> <20080529.033442.175635712.davem@davemloft.net> <6fe1847af5073e7f50519a2ebc730653@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-01.mandic.com.br ([200.225.81.132]:34331 "EHLO
-	smtp-01.mandic.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751585AbYE3BFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 21:05:22 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:59257 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751776AbYE3DO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2008 23:14:26 -0400
+In-Reply-To: <6fe1847af5073e7f50519a2ebc730653@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 5a0a92e67b5009a71e011658da04fb92dad8961f mentions len < ETH_ZLEN
-is true for ARP packets. This obviously is not unlikely.
+samuel@sortiz.org said the following on 2006-1-21 14:07:
+>>> 1. dma should be freed when dma2 request fail.
+>>> 2. dma2 should be freed too when device close.
+>>>
+>>> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+>> Jeff, did you get this or would you like me to pick
+>> it up directly?
+> I'll take it and send it along with my next IrDA patch set.
+> 
 
-Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
----
- drivers/net/sc92031.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+oops, sorry. 
+Seems that not all of the drivers/net/* fixes should be sent
+to Jeff.
+I will check MAINTAINERS more carefully next time.
 
-diff --git a/drivers/net/sc92031.c b/drivers/net/sc92031.c
-index b4b6380..61955f8 100644
---- a/drivers/net/sc92031.c
-+++ b/drivers/net/sc92031.c
-@@ -972,7 +972,7 @@ static int sc92031_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_copy_and_csum_dev(skb, priv->tx_bufs + entry * TX_BUF_SIZE);
- 
- 	len = skb->len;
--	if (unlikely(len < ETH_ZLEN)) {
-+	if (len < ETH_ZLEN) {
- 		memset(priv->tx_bufs + entry * TX_BUF_SIZE + len,
- 				0, ETH_ZLEN - len);
- 		len = ETH_ZLEN;
--- 
-1.5.5.1
+--WCN
 
--- 
-Cesar Eduardo Barros
-cesarb@cesarb.net
-cesar.barros@gmail.com
