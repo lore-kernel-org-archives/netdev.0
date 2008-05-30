@@ -1,147 +1,112 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 6/7] tlan: proper shared IRQ support
-Date: Fri, 30 May 2008 09:49:57 -0700
-Message-ID: <20080530165033.873149777@vyatta.com>
+Subject: [PATCH 2/7] tlan: use netdevice stats
+Date: Fri, 30 May 2008 09:49:53 -0700
+Message-ID: <20080530165033.520199120@vyatta.com>
 References: <20080530164951.033143725@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>, Samuel Chessman <chessman@tux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([69.59.150.140]:34067 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([69.59.150.140]:34063 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751065AbYE3QxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750909AbYE3QxH (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 30 May 2008 12:53:07 -0400
-Content-Disposition: inline; filename=tlan-shared-irq.patch
+Content-Disposition: inline; filename=tlan-stats.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Handle shared IRQ correctly. If IRQ is shared, it typically will show up
-as an IRQ with an empty status field. So check in driver and handle it
-without crapping out with invalid interrupt message.
+Use new netdevice common stats area.
 
 Compile tested only.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/drivers/net/tlan.c	2008-05-30 09:26:56.000000000 -0700
-+++ b/drivers/net/tlan.c	2008-05-30 09:32:33.000000000 -0700
-@@ -218,7 +218,7 @@ static	int		bbuf;
- module_param(bbuf, int, 0);
- MODULE_PARM_DESC(bbuf, "ThunderLAN use big buffer (0-1)");
- 
--static	char		TLanSignature[] = "TLAN";
-+static	const char TLanSignature[] = "TLAN";
- static  const char tlan_banner[] = "ThunderLAN driver v1.15\n";
- static  int tlan_have_pci;
- static  int tlan_have_eisa;
-@@ -297,7 +297,6 @@ static void	TLan_tx_timeout( struct net_
- static void	TLan_tx_timeout_work(struct work_struct *work);
- static int 	tlan_init_one( struct pci_dev *pdev, const struct pci_device_id *ent);
- 
--static u32	TLan_HandleInvalid( struct net_device *, u16 );
- static u32	TLan_HandleTxEOF( struct net_device *, u16 );
- static u32	TLan_HandleStatOverflow( struct net_device *, u16 );
- static u32	TLan_HandleRxEOF( struct net_device *, u16 );
-@@ -366,7 +365,7 @@ TLan_GetSKB( const struct tlan_list_tag 
- 
- 
- static TLanIntVectorFunc *TLanIntVector[TLAN_INT_NUMBER_OF_INTS] = {
--	TLan_HandleInvalid,
-+	NULL,
- 	TLan_HandleTxEOF,
- 	TLan_HandleStatOverflow,
- 	TLan_HandleRxEOF,
-@@ -935,7 +934,8 @@ static int TLan_Open( struct net_device 
- 	int		err;
- 
- 	priv->tlanRev = TLan_DioRead8( dev->base_addr, TLAN_DEF_REVISION );
--	err = request_irq( dev->irq, TLan_HandleInterrupt, IRQF_SHARED, TLanSignature, dev );
-+	err = request_irq( dev->irq, TLan_HandleInterrupt, IRQF_SHARED,
-+			   dev->name, dev );
- 
- 	if ( err ) {
- 		printk(KERN_ERR "TLAN:  Cannot open %s because IRQ %d is already in use.\n", dev->name, dev->irq );
-@@ -1167,33 +1167,31 @@ static int TLan_StartTx( struct sk_buff 
- 
- static irqreturn_t TLan_HandleInterrupt(int irq, void *dev_id)
- {
--	u32		ack;
--	struct net_device	*dev;
--	u32		host_cmd;
-+	struct net_device	*dev = dev_id;
-+	TLanPrivateInfo *priv = netdev_priv(dev);
- 	u16		host_int;
--	int		type;
--	TLanPrivateInfo *priv;
--
--	dev = dev_id;
--	priv = netdev_priv(dev);
-+	u16		type;
- 
- 	spin_lock(&priv->lock);
- 
- 	host_int = inw( dev->base_addr + TLAN_HOST_INT );
--	outw( host_int, dev->base_addr + TLAN_HOST_INT );
--
- 	type = ( host_int & TLAN_HI_IT_MASK ) >> 2;
--
--	ack = TLanIntVector[type]( dev, host_int );
--
--	if ( ack ) {
--		host_cmd = TLAN_HC_ACK | ack | ( type << 18 );
--		outl( host_cmd, dev->base_addr + TLAN_HOST_CMD );
-+	if ( type ) {
-+		u32	ack;
-+		u32	host_cmd;
-+
-+		outw( host_int, dev->base_addr + TLAN_HOST_INT );
-+		ack = TLanIntVector[type]( dev, host_int );
-+
-+		if ( ack ) {
-+			host_cmd = TLAN_HC_ACK | ack | ( type << 18 );
-+			outl( host_cmd, dev->base_addr + TLAN_HOST_CMD );
-+		}
+--- a/drivers/net/tlan.c	2008-05-30 08:47:37.000000000 -0700
++++ b/drivers/net/tlan.c	2008-05-30 08:49:51.000000000 -0700
+@@ -1276,7 +1276,7 @@ static struct net_device_stats *TLan_Get
+ 			TLan_PrintList( priv->txList + i, "TX", i );
  	}
  
- 	spin_unlock(&priv->lock);
+-	return ( &( (TLanPrivateInfo *) netdev_priv(dev) )->stats );
++	return &dev->stats;
  
--	return IRQ_HANDLED;
-+	return IRQ_RETVAL(type);
- } /* TLan_HandleInterrupts */
+ } /* TLan_GetStats */
  
+@@ -1434,7 +1434,7 @@ static u32 TLan_HandleTxEOF( struct net_
+ 		if ( tmpCStat & TLAN_CSTAT_EOC )
+ 			eoc = 1;
  
-@@ -1359,31 +1357,6 @@ static void TLan_SetMulticastList( struc
- *****************************************************************************/
+-		priv->stats.tx_bytes += head_list->frameSize;
++		dev->stats.tx_bytes += head_list->frameSize;
  
+ 		head_list->cStat = TLAN_CSTAT_UNUSED;
+ 		netif_start_queue(dev);
+@@ -1564,7 +1564,7 @@ static u32 TLan_HandleRxEOF( struct net_
+ 				skb_reserve(skb, 2);
+ 				t = (void *) skb_put(skb, frameSize);
  
--	/***************************************************************
--	 *	TLan_HandleInvalid
--	 *
--	 *	Returns:
--	 *		0
--	 *	Parms:
--	 *		dev		Device assigned the IRQ that was
--	 *				raised.
--	 *		host_int	The contents of the HOST_INT
--	 *				port.
--	 *
--	 *	This function handles invalid interrupts.  This should
--	 *	never happen unless some other adapter is trying to use
--	 *	the IRQ line assigned to the device.
--	 *
--	 **************************************************************/
+-				priv->stats.rx_bytes += head_list->frameSize;
++				dev->stats.rx_bytes += head_list->frameSize;
+ 
+ 				memcpy( t, head_buffer, frameSize );
+ 				skb->protocol = eth_type_trans( skb, dev );
+@@ -1586,7 +1586,7 @@ static u32 TLan_HandleRxEOF( struct net_
+ 				pci_unmap_single(priv->pciDev, head_list->buffer[0].address, TLAN_MAX_FRAME_SIZE, PCI_DMA_FROMDEVICE);
+ 				skb_trim( skb, frameSize );
+ 
+-				priv->stats.rx_bytes += frameSize;
++				dev->stats.rx_bytes += frameSize;
+ 
+ 				skb->protocol = eth_type_trans( skb, dev );
+ 				netif_rx( skb );
+@@ -2142,7 +2142,6 @@ static void TLan_PrintList( TLanList *li
+ 
+ static void TLan_ReadAndClearStats( struct net_device *dev, int record )
+ {
+-	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u32		tx_good, tx_under;
+ 	u32		rx_good, rx_over;
+ 	u32		def_tx, crc, code;
+@@ -2179,18 +2178,18 @@ static void TLan_ReadAndClearStats( stru
+ 	loss       = inb( dev->base_addr + TLAN_DIO_DATA + 2 );
+ 
+ 	if ( record ) {
+-		priv->stats.rx_packets += rx_good;
+-		priv->stats.rx_errors  += rx_over + crc + code;
+-		priv->stats.tx_packets += tx_good;
+-		priv->stats.tx_errors  += tx_under + loss;
+-		priv->stats.collisions += multi_col + single_col + excess_col + late_col;
 -
--static u32 TLan_HandleInvalid( struct net_device *dev, u16 host_int )
--{
--	/* printk( "TLAN:  Invalid interrupt on %s.\n", dev->name ); */
--	return 0;
--
--} /* TLan_HandleInvalid */
--
--
+-		priv->stats.rx_over_errors    += rx_over;
+-		priv->stats.rx_crc_errors     += crc;
+-		priv->stats.rx_frame_errors   += code;
++		dev->stats.rx_packets += rx_good;
++		dev->stats.rx_errors  += rx_over + crc + code;
++		dev->stats.tx_packets += tx_good;
++		dev->stats.tx_errors  += tx_under + loss;
++		dev->stats.collisions += multi_col + single_col + excess_col + late_col;
++
++		dev->stats.rx_over_errors    += rx_over;
++		dev->stats.rx_crc_errors     += crc;
++		dev->stats.rx_frame_errors   += code;
  
+-		priv->stats.tx_aborted_errors += tx_under;
+-		priv->stats.tx_carrier_errors += loss;
++		dev->stats.tx_aborted_errors += tx_under;
++		dev->stats.tx_carrier_errors += loss;
+ 	}
  
- 	/***************************************************************
+ } /* TLan_ReadAndClearStats */
+--- a/drivers/net/tlan.h	2008-05-30 08:46:59.000000000 -0700
++++ b/drivers/net/tlan.h	2008-05-30 08:47:09.000000000 -0700
+@@ -194,7 +194,6 @@ typedef struct tlan_private_tag {
+ 	u32			timerSetAt;
+ 	u32			timerType;
+ 	struct timer_list	timer;
+-	struct net_device_stats	stats;
+ 	struct board		*adapter;
+ 	u32			adapterRev;
+ 	u32			aui;
 
 -- 
 
