@@ -1,77 +1,44 @@
-From: "Gregory Haskins" <GHaskins@novell.com>
-Subject: Re: [PATCH] net/core/sock.c remove extra wakeup
-Date: Fri, 30 May 2008 04:05:00 -0600
-Message-ID: <483F990C0200005A00038001@sinclair.provo.novell.com>
-References: <483F99090200005A00037FFE@sinclair.provo.novell.com>
- <483F990C0200005A00038001@sinclair.provo.novell.com>
+From: Benoit PAPILLAULT <benoit.papillault@free.fr>
+Subject: ip_rt_min_delay : why 2s by default?
+Date: Fri, 30 May 2008 12:37:06 +0200
+Message-ID: <483FD8D2.1030604@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, "Patrick Mullaney" <PMullaney@novell.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sinclair.provo.novell.com ([137.65.248.137]:30815 "EHLO
-	sinclair.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764AbYE3KZJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 06:25:09 -0400
-In-Reply-To: <483F990C0200005A00038001@sinclair.provo.novell.com>
-Content-Disposition: inline
+Received: from smtp2e.orange.fr ([80.12.242.112]:37170 "EHLO smtp2e.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751819AbYE3KhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 06:37:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for the top post (on a phone)
+Hi there,
 
-Point taken that the fix needs to be analysed for races, but the problem is very real.  We noticed that our udp netperf test would get two wake-ups per packet.  I don't remember the exact path where the udp waits occur off the top of my head, but the fundamental problem is the overloaded use of the single wait-queue.
+I'm doing work on a IP routing protocol designed for mobility. During 
+testing phase, I encounter some 2s delay when routing table are updated.
 
-So basically it was waiting for a packet to arrive, and the net-rx softirq would first trigger a NOSPACE wakeup (of which was a noop by the udp-rx code) followed by an rx-wakeup.  So the netperf thread woke twice for one packet.  Fixing this boosted performance by a large margin (don't recall exact figures off the top of my head....somewhere around 20%)
+I compare the routing table (displayed by route -n) and the routing 
+cache (displayed by route -Cn) and there was always a delay of 2s to 
+propagate changes from the routing table to the routing cache. Hence, 
+packet loss occurs.
 
-Long stort short, its potentially worth fixing this, even if this patch isn't "it" :)
+Digging into the kernel source (net/ipv4/route.c), I found the 
+ip_rt_min_delay variable which is indeed 2s. I changed it to 0 through 
+/proc/sys/net/ipv4/route/min_delay and it seems that all my problems are 
+gone.
 
-HTH
+Questions:
 
-Regards
--Greg  
- 
------Original Message-----
-From: David Miller <davem@davemloft.net>
-To: Patrick Mullaney <PMullaney@novell.com>
-Cc: Gregory Haskins <GHaskins@novell.com>
-Cc:  <netdev@vger.kernel.org>
+1/ Is it safe to put 0 in min_delay? I'd like to make sure that it will 
+not trigger some bugs or inconsistencies later.
 
-Sent: 5/30/2008 3:52:54 AM
-Subject: Re: [PATCH] net/core/sock.c remove extra wakeup
+2/ If it is safe, then why it's not the default value? Is there a reason 
+for 2s or is it simply a compromise that so far nobody cares about 2s delay?
 
-From: "Patrick Mullaney" <pmullaney@novell.com>
-Date: Thu, 29 May 2008 10:08:43 -0600
-
-> We have noticed an extra wakeup of a task waiting on a udp receive
-> while testing with CONFIG_PREEMPT_RT. The following patch
-> eliminates the source of the extra wakeup by only waking a task
-> if it is waiting on the writable condition(the SOCK_NOSPACE
-> bit has been set). The patch is against 2.6.25.
-> 
-> Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
-
-This looks Ok on the surface, but I'm really worried about
-races.
-
-If you clear that bit, another thread which set that bit
-and already checked the socket space, might sleep and never
-wake up.
-
-I think that is fundamentally why we don't try to optimize
-this in that way.
-
-And why is this so expensive?  Once the first wakeup occurs,
-the subsequent attemps will merely see that the wait queue
-is empty and do nothing.
-
-The only cost is the read lock on the callback lock, and that
-is about as expensive as this new atomic operation you are
-adding to clear the SOCK_NOSPACE bit.
-
-So the benefit is not clear, and neither is the correctness of
-this change.
-
-Sorry.
+Regards,
+Benoit
+PS: Test was done with a 2.6.21.6 kernel
 
