@@ -1,61 +1,45 @@
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Thu, 29 May 2008 17:14:29 -0700
-Message-ID: <483F46E5.9030707@sun.com>
-References: <20080526.151540.191673092.davem@davemloft.net>
- <483BA80C.4020502@krogh.cc> <483CB301.40007@sun.com>
- <20080528.223415.193732490.davem@davemloft.net>
+From: Cesar Eduardo Barros <cesarb@cesarb.net>
+Subject: [PATCH] sc92031: remove bogus unlikely()
+Date: Thu, 29 May 2008 21:58:36 -0300
+Message-ID: <483F513C.5010303@cesarb.net>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=ISO-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: jesper@krogh.cc, yhlu.kernel@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-2.Sun.COM ([192.18.43.133]:60172 "EHLO
-	sca-es-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752975AbYE3AO3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 20:14:29 -0400
-In-reply-to: <20080528.223415.193732490.davem@davemloft.net>
+Received: from smtp-01.mandic.com.br ([200.225.81.132]:34331 "EHLO
+	smtp-01.mandic.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751585AbYE3BFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 21:05:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
+Commit 5a0a92e67b5009a71e011658da04fb92dad8961f mentions len < ETH_ZLEN
+is true for ARP packets. This obviously is not unlikely.
 
->From: Matheos Worku <Matheos.Worku@Sun.COM>
->Date: Tue, 27 May 2008 18:18:57 -0700
->
->  
->
->>Considering that fixing the HW would take considerable time, I was 
->>wondering if the scheme we use in the nxge driver could be considered as 
->>a workaround. Since the niu driver is already doing skb_orphan as a work 
->>around, what if  already transmitted TX buffers are  reclaimed 
->>periodically, within dev->hard_start_xmit() ?  Then TX_DESC_MARK would 
->>be set if/when available TX descriptor count falls below some watermark. 
->>Disable device TX queue about the time  TX_DESC_MARK is set and enable 
->>it within TX interrupt.
->>    
->>
->
->Since my hack patch didn't fix his problem at all, are you suggesting
->that we end up not fielding TX mark interrupts even though mark is set
->in all the TX descriptors and this is what hangs the chip?
->
->I find that very unlikely, especially because with my test patch every
->single TX descriptor will have the mark bit set and therefore we'd
->have to not receive all of those TX mark interrupts in order for the
->TX unit to hang like that.
->
->Something else must be going wrong.
->  
->
-Dave,
-Actually what I am suggesting was a workaround for the lack of "TX Ring 
-Empty" interrupt by not relying on the TX interrupt at all.  As for the 
-TX hang, I will try to reproduce the problem and look at the registers 
-for the clue.
+Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
+---
+ drivers/net/sc92031.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Regards
-Matheos
+diff --git a/drivers/net/sc92031.c b/drivers/net/sc92031.c
+index b4b6380..61955f8 100644
+--- a/drivers/net/sc92031.c
++++ b/drivers/net/sc92031.c
+@@ -972,7 +972,7 @@ static int sc92031_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb_copy_and_csum_dev(skb, priv->tx_bufs + entry * TX_BUF_SIZE);
+ 
+ 	len = skb->len;
+-	if (unlikely(len < ETH_ZLEN)) {
++	if (len < ETH_ZLEN) {
+ 		memset(priv->tx_bufs + entry * TX_BUF_SIZE + len,
+ 				0, ETH_ZLEN - len);
+ 		len = ETH_ZLEN;
+-- 
+1.5.5.1
 
+-- 
+Cesar Eduardo Barros
+cesarb@cesarb.net
+cesar.barros@gmail.com
