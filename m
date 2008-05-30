@@ -1,58 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [RFC] Running single tests via ethtool
-Date: Fri, 30 May 2008 23:08:20 +0100
-Message-ID: <20080530220819.GJ1743@solarflare.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool -	e1000/pcnet32
+Date: Fri, 30 May 2008 15:14:41 -0700
+Message-ID: <48407C51.7090405@hp.com>
+References: <482DA5B6.1020606@sngx.net> <482DB46A.8020103@cosmosbay.com>	<482EF192.4070707@sngx.net> <482F5113.5090703@cosmosbay.com>	<482F610D.2080108@sngx.net> <20080518003104.GK28241@solarflare.com>	<482FBA09.80201@sngx.net> <483E0AAE.2020107@sngx.net>	<20080528221118.63da4092.akpm@linux-foundation.org>	<483EA2D1.8050603@sngx.net> <20080529154525.3916c7b5@core> <20080530151250.b44a119a.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net-drivers@solarflare.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	James Cammarata <jimi@sngx.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:35792 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751160AbYE3WIY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 18:08:24 -0400
-Content-Disposition: inline
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:7369 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751591AbYE3WOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 18:14:45 -0400
+In-Reply-To: <20080530151250.b44a119a.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have had a customer request to be able to run individual self-tests in
-a future version of our driver.  Now we could do this any way we want in
-an out-of-tree driver, but I'd rather find some way of doing this that
-will also be acceptable in-tree.  I think that would mean extending the
-ethtool self-test API in some way.
 
-One possibility might be to add a new flag and to assign the reserved field
-as a test index:
+> Saving stats output and running beforeafter on a number of systems is
+> a royal pain when troubleshooting.
 
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -235,13 +235,14 @@ struct ethtool_gstrings {
- enum ethtool_test_flags {
- 	ETH_TEST_FL_OFFLINE	= (1 << 0),	/* online / offline */
- 	ETH_TEST_FL_FAILED	= (1 << 1),	/* test passed / failed */
-+	ETH_TEST_FL_SINGLE	= (1 << 2),	/* run single test */
- };
- 
- /* for requesting NIC test and getting results*/
- struct ethtool_test {
- 	__u32	cmd;		/* ETHTOOL_TEST */
- 	__u32	flags;		/* ETH_TEST_FL_xxx */
--	__u32	reserved;
-+	__u32	index;		/* test index if ETH_TEST_FL_SINGLE */
- 	__u32	len;		/* result length, in number of u64 elements */
- 	__u64	data[0];
- };
+Well, with that ringing endorsement :) I would like to state that 
+Yoshihiro Ishijima has fixed some bugs in beforeafter and it will now 
+deal with /proc/interrupts output better than before.
 
-Clients would need to check len on return since the ethtool core and driver
-ethtool functions ignore unknown flags.  I am assuming that running all
-online self-tests instead of a single self-test will be harmless.
+ftp://ftp.cup.hp.com/dist/networking/tools/
 
-Ideally the ethtool core would allocate only the necessary memory for the
-results of the selected test set or single test, but it would need to know
-whether the driver also supports this extension.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+rick jones
