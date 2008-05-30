@@ -1,63 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Inconsistend lock state in inet_frag_find
-Date: Fri, 30 May 2008 10:53:34 +0000
-Message-ID: <20080530105334.GA7378@ff.dom.local>
-References: <20080529120248.GA9702@alice>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Fri, 30 May 2008 13:09:04 +0200
+Message-ID: <20080530110904.GA14184@elte.hu>
+References: <20080526115628.GA31316@elte.hu> <20080529084524.GA24892@elte.hu> <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi> <20080529112257.GA18130@elte.hu> <20080529130823.GA8364@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Eric Sesterhenn <snakebyte@gmx.de>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:27063 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751185AbYE3Ktp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 06:49:45 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so96655fgg.17
-        for <netdev@vger.kernel.org>; Fri, 30 May 2008 03:49:43 -0700 (PDT)
+Received: from mx2.mail.elte.hu ([157.181.151.9]:45355 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753613AbYE3LJe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 07:09:34 -0400
 Content-Disposition: inline
-In-Reply-To: <20080529120248.GA9702@alice>
+In-Reply-To: <20080529130823.GA8364@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29-05-2008 14:02, Eric Sesterhenn wrote:
-> hi,
-> 
-> the following just popped up on my test box with
-> tcpsic6  -s ::1 -d ::1 -p 100000 -r 4995
-> 
-> [   63.616218] =================================
-> [   63.616456] [ INFO: inconsistent lock state ]
-> [   63.616456] 2.6.26-rc4 #5
-> [   63.616456] ---------------------------------
-> [   63.616456] inconsistent {softirq-on-W} -> {in-softirq-R} usage.
-> [   63.616456] tcpsic6/3869 [HC0[0]:SC1[1]:HE1:SE0] takes:
-> [   63.616456]  (&f->lock){---?}, at: [<c06be62e>]
-> inet_frag_find+0x1e/0x140
-...
 
-Hi,
+* Ingo Molnar <mingo@elte.hu> wrote:
 
-Could you try this patch?
+> btw., i now also have a hung socket over real network:
 
-Regards,
-Jarek P.
+last night i turned off distcc support, and got about 200 successful 
+bootups and zero TCP hangs (as expected - there's not much TCP traffic 
+if the distcc cluster is not utilized).
 
----
+but that's 200 overnight tests instead of the expected 600, so this is a 
+major and rather crippling bug to me.
 
- net/ipv6/netfilter/nf_conntrack_reasm.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+There's no good way to detect these hung sockets by me from userspace 
+and get rid of them. Has anyone before thought of the obvious: to write 
+a kernel-space "TCP socket watchdog" kernel feature that detects them 
+and tries to free them so that people can become aware of it?
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 2dccad4..f3c36d6 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -209,7 +209,9 @@ fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst)
- 	arg.dst = dst;
- 	hash = ip6qhashfn(id, src, dst);
- 
-+	local_bh_disable();
- 	q = inet_frag_find(&nf_init_frags, &nf_frags, &arg, hash);
-+	local_bh_enable();
- 	if (q == NULL)
- 		goto oom;
- 
+Hung sockets is a re-occuring bug in the TCP stack after all. (and it's 
+a natural property of it: state machine designs are always vulnerable to 
+lost event problems.)
+
+	Ingo
