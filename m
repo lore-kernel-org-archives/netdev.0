@@ -1,53 +1,40 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Sat, 31 May 2008 00:12:23 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805301436260.16829@wrl-59.cs.helsinki.fi>
-References: <20080526115628.GA31316@elte.hu> <20080529084524.GA24892@elte.hu>
- <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi> <20080529112257.GA18130@elte.hu>
- <20080529130823.GA8364@elte.hu> <20080530110904.GA14184@elte.hu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] sfc: Report XAUI link down at default log level
+Date: Fri, 30 May 2008 22:18:35 +0100
+Message-ID: <20080530211835.GE1743@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53199 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752989AbYE3VRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 17:17:46 -0400
-In-Reply-To: <20080530110904.GA14184@elte.hu>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:35645 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753231AbYE3VSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 17:18:49 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 May 2008, Ingo Molnar wrote:
+This is normal when the external link is down so don't report it as an error.
 
-> * Ingo Molnar <mingo@elte.hu> wrote:
-> 
-> > btw., i now also have a hung socket over real network:
-> 
-> last night i turned off distcc support, and got about 200 successful 
-> bootups and zero TCP hangs (as expected - there's not much TCP traffic 
-> if the distcc cluster is not utilized).
-> 
-> but that's 200 overnight tests instead of the expected 600, so this is a 
-> major and rather crippling bug to me.
-> 
-> There's no good way to detect these hung sockets by me from userspace 
-> and get rid of them. Has anyone before thought of the obvious: to write 
-> a kernel-space "TCP socket watchdog" kernel feature that detects them 
-> and tries to free them so that people can become aware of it?
->
-> Hung sockets is a re-occuring bug in the TCP stack after all. (and it's 
-> a natural property of it: state machine designs are always vulnerable to 
-> lost event problems.)
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/falcon_xmac.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-...It is quite easy to kill a TCP flow with enough information (seqnos 
-which one could collect e.g., from a tcpdump), just a RST is necessary,
-so user-space could do that too.
-
+diff --git a/drivers/net/sfc/falcon_xmac.c b/drivers/net/sfc/falcon_xmac.c
+index 264e1ee..37d3cae 100644
+--- a/drivers/net/sfc/falcon_xmac.c
++++ b/drivers/net/sfc/falcon_xmac.c
+@@ -513,7 +513,7 @@ static int falcon_check_xaui_link_up(struct efx_nic *efx)
+ 		tries--;
+ 	}
+ 
+-	EFX_ERR(efx, "Failed to bring XAUI link back up in %d tries!\n",
++	EFX_LOG(efx, "Failed to bring XAUI link back up in %d tries!\n",
+ 		max_tries);
+ 	return 0;
+ }
 -- 
- i.
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
