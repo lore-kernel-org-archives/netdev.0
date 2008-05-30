@@ -1,86 +1,89 @@
-From: Ray Lee <ray-lk@madrabbit.org>
-Subject: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Fri, 30 May 2008 09:31:19 -0700
-Message-ID: <48402BD7.2080705@madrabbit.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Inconsistend lock state in inet_frag_find
+Date: Fri, 30 May 2008 19:10:46 +0200
+Message-ID: <20080530171046.GA2420@ami.dom.local>
+References: <20080529120248.GA9702@alice> <20080530105334.GA7378@ff.dom.local> <20080530131845.GA5167@alice>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Eric Sesterhenn <snakebyte@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tapsys.com ([72.36.178.242]:54203 "EHLO tapsys.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751603AbYE3RF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2008 13:05:26 -0400
+Received: from nf-out-0910.google.com ([64.233.182.189]:5127 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750909AbYE3RLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 13:11:46 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so50318nfc.21
+        for <netdev@vger.kernel.org>; Fri, 30 May 2008 10:11:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080530131845.GA5167@alice>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Oy, resending. Freakin' gmail; sorry for the base64 encoded noise.)
+On Fri, May 30, 2008 at 03:18:45PM +0200, Eric Sesterhenn wrote:
+...
+> with the patch applied i get the following lockdep warning:
+> 
+> [   63.531438] =================================
+> [   63.531520] [ INFO: inconsistent lock state ]
+> [   63.531520] 2.6.26-rc4 #7
+> [   63.531520] ---------------------------------
+> [   63.531520] inconsistent {softirq-on-W} -> {in-softirq-W} usage.
+> [   63.531520] tcpsic6/3864 [HC0[0]:SC1[1]:HE1:SE0] takes:
+> [   63.531520]  (&q->lock#2){-+..}, at: [<c07175b0>]
+> ipv6_frag_rcv+0xd0/0xbd0
+> [   63.531520] {softirq-on-W} state was registered at:
+> [   63.531520]   [<c0143bba>] __lock_acquire+0x3aa/0x1080
+> [   63.531520]   [<c0144906>] lock_acquire+0x76/0xa0
+> [   63.531520]   [<c07a8f0b>] _spin_lock+0x2b/0x40
+> [   63.531520]   [<c0727636>] nf_ct_frag6_gather+0x3f6/0x910
+...
 
-On Mon, May 26, 2008 at 6:28 AM, Ilpo <ilpo.jarvinen@helsinki.fi> wrote:
-> On Mon, 26 May 2008, Ingo Molnar wrote:
->
->> in an overnight -tip testruns that is based on recent -git i got two
->> stuck TCP connections:
->>
->> Active Internet connections (w/o servers)
->> Proto Recv-Q Send-Q Local Address               Foreign Address             State
->> tcp        0 174592 10.0.1.14:58015             10.0.1.14:3632              ESTABLISHED
->> tcp    72134      0 10.0.1.14:3632              10.0.1.14:58015             ESTABLISHED
->>
->> on a previously reliable machine. That connection has been stuck for 9
->> hours so it does not time out, etc. - and the distcc run that goes over
->> that connection is stuck as well.
->>
->> kernel config is attached.
->>
->> in terms of debugging there's not much i can do i'm afraid. It's not
->> possible to get a tcpdump of this incident, given the extreme amount of
->> load these testboxes handle.
->
-> ...but you can still tcpdump that particular flow once the situation is
-> discovered to see if TCP still tries to do something, no? One needs to
-> tcpdump couple of minutes at minimum. Also please get /proc/net/tcp for
-> that flow around the same time.
->
->> This problem started sometime around rc3
->> and it occured on two boxes (on a laptop and on a desktop), both are SMP
->> Core2Duo based systems. I never saw this problem before on thousands of
->> similar bootups, so i'm 99.9% sure the bug is either new or became
->> easier to trigger.
->>
->> It's not possible to bisect it as it needs up to 12 hours of heavy
->> workload to trigger. The incident happened about 5 times since the first
->> incident a couple of days ago - 4 times on one box and once on another
->> box. The first failing head i became aware of was 78b58e549a3098. (-tip
->> has other changes beyond -git but changes nothing in networking.)
+I hope it's not a Pandora's Box: looks like there are still a few of
+these locks around, which could make more such reports, but since I
+don't know this code, I'd prefer not to go ahead of lockdep...
 
-Okay, but in some sense you've already bisected this somewhat. I'm
-assuming that your testing uses the latest tip and is refreshed daily.
+Thanks,
+Jarek P.
 
-If that's the case, then I would (possibly naively) expect the culprit
-to show up in a:
-  git log -p v2.6.26-rc1..78b58e549a3098 net/{compat.c,core,ipv4,netfilter,packet,sched,socket.c}
+(Take 2: please revert the previous patch before applying.)
+---
 
-There are only a few commits in there that appear to touch network behavior:
+ net/ipv6/netfilter/nf_conntrack_reasm.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-  79d44516b4b178ffb6e2159c75584cfcfc097914
-  a1c1f281b84a751fdb5ff919da3b09df7297619f
-  62ab22278308a40bcb7f4079e9719ab8b7fe11b5
-
-Reverting just those three and running overnight might provide a clue.
-OTOH, I'm in no way a net/ expert, so if you are already working a
-debugging strategy then feel free to ignore this. I'm only piping up
-as it appears that the troubleshooting has stalled.
-
-> (but there were
-> some recent fixes to FRTO and retrans_stamp change could have some
-> significance here)?
->
-> Other than that, nothing since -rc1 seems suspicious to me (though
-> I hardly understand every part of networking).
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index 2dccad4..e65e26e 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -209,7 +209,9 @@ fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst)
+ 	arg.dst = dst;
+ 	hash = ip6qhashfn(id, src, dst);
+ 
++	local_bh_disable();
+ 	q = inet_frag_find(&nf_init_frags, &nf_frags, &arg, hash);
++	local_bh_enable();
+ 	if (q == NULL)
+ 		goto oom;
+ 
+@@ -638,10 +640,10 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
+ 		goto ret_orig;
+ 	}
+ 
+-	spin_lock(&fq->q.lock);
++	spin_lock_bh(&fq->q.lock);
+ 
+ 	if (nf_ct_frag6_queue(fq, clone, fhdr, nhoff) < 0) {
+-		spin_unlock(&fq->q.lock);
++		spin_unlock_bh(&fq->q.lock);
+ 		pr_debug("Can't insert skb to queue\n");
+ 		fq_put(fq);
+ 		goto ret_orig;
+@@ -653,7 +655,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
+ 		if (ret_skb == NULL)
+ 			pr_debug("Can't reassemble fragmented packets\n");
+ 	}
+-	spin_unlock(&fq->q.lock);
++	spin_unlock_bh(&fq->q.lock);
+ 
+ 	fq_put(fq);
+ 	return ret_skb;
