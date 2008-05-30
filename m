@@ -1,8 +1,8 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 2/3] lguest: implement VIRTIO_F_NOTIFY_ON_EMPTY
-Date: Fri, 30 May 2008 15:13:17 +1000
-Message-ID: <200805301513.17802.rusty@rustcorp.com.au>
-References: <200805301512.07802.rusty@rustcorp.com.au>
+Subject: [PATCH 3/3] virtio: use callback on empty in virtio_net
+Date: Fri, 30 May 2008 15:14:17 +1000
+Message-ID: <200805301514.17937.rusty@rustcorp.com.au>
+References: <200805301512.07802.rusty@rustcorp.com.au> <200805301513.17802.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -13,78 +13,117 @@ Cc: virtualization@lists.linux-foundation.org,
 	Christian Borntraeger <borntraeger@de.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:39874 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:39916 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753829AbYE3FOW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2008 01:14:22 -0400
-In-Reply-To: <200805301512.07802.rusty@rustcorp.com.au>
+	id S1752404AbYE3FQV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 01:16:21 -0400
+In-Reply-To: <200805301513.17802.rusty@rustcorp.com.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the lguest implementation of the VIRTIO_F_NOTIFY_ON_EMPTY feature.
-It is currently only published for network devices, but it is turned on for
-everyone.
+virtio_net uses a timer to free old transmitted packets, rather than
+leaving callbacks enabled all the time.  If the host promises to
+always notify us when the transmit ring is empty, we can free packets
+at that point and avoid the timer.
 
 Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- Documentation/lguest/lguest.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/virtio_net.c |   22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
 
-diff -r a2e94bbd1589 Documentation/lguest/lguest.c
---- a/Documentation/lguest/lguest.c	Tue May 27 16:06:10 2008 +1000
-+++ b/Documentation/lguest/lguest.c	Tue May 27 16:15:43 2008 +1000
-@@ -157,6 +157,9 @@ struct virtqueue
+diff -r 95a02f0e0e21 drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c	Tue May 27 12:45:17 2008 +1000
++++ b/drivers/net/virtio_net.c	Tue May 27 15:53:41 2008 +1000
+@@ -44,6 +44,7 @@ struct virtnet_info
+ 	/* The skb we couldn't send because buffers were full. */
+ 	struct sk_buff *last_xmit_skb;
  
- 	/* The routine to call when the Guest pings us. */
- 	void (*handle_output)(int fd, struct virtqueue *me);
++	/* If we need to free in a timer, this is it. */
+ 	struct timer_list xmit_free_timer;
+ 
+ 	/* Number of input buffers, and max we've ever had. */
+@@ -51,6 +52,7 @@ struct virtnet_info
+ 
+ 	/* For cleaning up after transmission. */
+ 	struct tasklet_struct tasklet;
++	bool free_in_tasklet;
+ 
+ 	/* Receive & send queues. */
+ 	struct sk_buff_head recv;
+@@ -74,7 +76,7 @@ static void skb_xmit_done(struct virtque
+ 	/* Suppress further interrupts. */
+ 	svq->vq_ops->disable_cb(svq);
+ 
+-	/* We were waiting for more output buffers. */
++	/* We were probably waiting for more output buffers. */
+ 	netif_wake_queue(vi->dev);
+ 
+ 	/* Make sure we re-xmit last_xmit_skb: if there are no more packets
+@@ -240,6 +242,8 @@ static void free_old_xmit_skbs(struct vi
+ 	}
+ }
+ 
++/* If the virtio transport doesn't always notify us when all in-flight packets
++ * are consumed, we fall back to using this function on a timer to free them. */
+ static void xmit_free(unsigned long data)
+ {
+ 	struct virtnet_info *vi = (void *)data;
+@@ -300,7 +304,7 @@ static int xmit_skb(struct virtnet_info 
+ 	num = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
+ 
+ 	err = vi->svq->vq_ops->add_buf(vi->svq, sg, num, 0, skb);
+-	if (!err)
++	if (!err && !vi->free_in_tasklet)
+ 		mod_timer(&vi->xmit_free_timer, jiffies + (HZ/10));
+ 
+ 	return err;
+@@ -315,6 +319,8 @@ static void xmit_tasklet(unsigned long d
+ 		vi->svq->vq_ops->kick(vi->svq);
+ 		vi->last_xmit_skb = NULL;
+ 	}
++	if (vi->free_in_tasklet)
++		free_old_xmit_skbs(vi);
+ 	netif_tx_unlock_bh(vi->dev);
+ }
+ 
+@@ -455,6 +461,10 @@ static int virtnet_probe(struct virtio_d
+ 	vi->vdev = vdev;
+ 	vdev->priv = vi;
+ 
++	/* If they give us a callback when all buffers are done, we don't need
++	 * the timer. */
++	vi->free_in_tasklet = virtio_has_feature(vdev,VIRTIO_F_NOTIFY_ON_EMPTY);
 +
-+	/* Outstanding buffers */
-+	unsigned int inflight;
+ 	/* We expect two virtqueues, receive then send. */
+ 	vi->rvq = vdev->config->find_vq(vdev, 0, skb_recv_done);
+ 	if (IS_ERR(vi->rvq)) {
+@@ -474,7 +487,8 @@ static int virtnet_probe(struct virtio_d
+ 
+ 	tasklet_init(&vi->tasklet, xmit_tasklet, (unsigned long)vi);
+ 
+-	setup_timer(&vi->xmit_free_timer, xmit_free, (unsigned long)vi);
++	if (!vi->free_in_tasklet)
++		setup_timer(&vi->xmit_free_timer, xmit_free, (unsigned long)vi);
+ 
+ 	err = register_netdev(dev);
+ 	if (err) {
+@@ -513,7 +527,8 @@ static void virtnet_remove(struct virtio
+ 	/* Stop all the virtqueues. */
+ 	vdev->config->reset(vdev);
+ 
+-	del_timer_sync(&vi->xmit_free_timer);
++	if (!vi->free_in_tasklet)
++		del_timer_sync(&vi->xmit_free_timer);
+ 
+ 	/* Free our skbs in send and recv queues, if any. */
+ 	while ((skb = __skb_dequeue(&vi->recv)) != NULL) {
+@@ -538,7 +553,7 @@ static unsigned int features[] = {
+ static unsigned int features[] = {
+ 	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
+ 	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
+-	VIRTIO_NET_F_HOST_ECN,
++	VIRTIO_NET_F_HOST_ECN, VIRTIO_F_NOTIFY_ON_EMPTY,
  };
  
- /* Remember the arguments to the program so we can "reboot" */
-@@ -702,6 +705,7 @@ static unsigned get_vq_desc(struct virtq
- 			errx(1, "Looped descriptor");
- 	} while ((i = next_desc(vq, i)) != vq->vring.num);
- 
-+	vq->inflight++;
- 	return head;
- }
- 
-@@ -719,6 +723,7 @@ static void add_used(struct virtqueue *v
- 	/* Make sure buffer is written before we update index. */
- 	wmb();
- 	vq->vring.used->idx++;
-+	vq->inflight--;
- }
- 
- /* This actually sends the interrupt for this virtqueue */
-@@ -726,8 +731,9 @@ static void trigger_irq(int fd, struct v
- {
- 	unsigned long buf[] = { LHREQ_IRQ, vq->config.irq };
- 
--	/* If they don't want an interrupt, don't send one. */
--	if (vq->vring.avail->flags & VRING_AVAIL_F_NO_INTERRUPT)
-+	/* If they don't want an interrupt, don't send one, unless empty. */
-+	if ((vq->vring.avail->flags & VRING_AVAIL_F_NO_INTERRUPT)
-+	    && vq->inflight)
- 		return;
- 
- 	/* Send the Guest an interrupt tell them we used something up. */
-@@ -1107,6 +1113,7 @@ static void add_virtqueue(struct device 
- 	vq->next = NULL;
- 	vq->last_avail_idx = 0;
- 	vq->dev = dev;
-+	vq->inflight = 0;
- 
- 	/* Initialize the configuration. */
- 	vq->config.num = num_descs;
-@@ -1368,6 +1375,7 @@ static void setup_tun_net(const char *ar
- 
- 	/* Tell Guest what MAC address to use. */
- 	add_feature(dev, VIRTIO_NET_F_MAC);
-+	add_feature(dev, VIRTIO_F_NOTIFY_ON_EMPTY);
- 	set_config(dev, sizeof(conf), &conf);
- 
- 	/* We don't need the socket any more; setup is done. */
+ static struct virtio_driver virtio_net = {
