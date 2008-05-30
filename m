@@ -1,65 +1,65 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [Fwd: [PATCH 1/2] CS89X0: Add cleanup for dma after fail]
-Date: Fri, 30 May 2008 11:18:55 +0800
-Message-ID: <483F721F.1090204@cn.fujitsu.com>
+From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: race between rtl8187_stop and rtl8187_rx_cb?
+Date: Fri, 30 May 2008 00:15:33 -0400
+Message-ID: <200805300015.41406.flamingice@sourmilk.net>
+References: <200805162201.07634.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: multipart/signed;
+  boundary="nextPart1251958.KiOhrZHdQk";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>, akpm@linux-foundation.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64015 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752451AbYE3DVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2008 23:21:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrea Merello <andreamrl-IWqWACnzNjyonA0d6jMUrA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200805162201.07634.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jeff, will you pick up this one?
-I also cc Andrew, because his name is in the code.
+--nextPart1251958.KiOhrZHdQk
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
+On Friday 16 May 2008 16:01:06 Oliver Neukum wrote:
+> rtl8187_stop() works by emptying a queue and unlinking urbs. But
+> an urb finishing will be taken from the queue in rtl8187_rx_cb until
+> it is resubmitted. Am I overlooking something or is there a window?
+>
+It appears that if you're unlucky, a rx urb can end up getting requeued aft=
+er=20
+the dequeue loop in rtl8187_stop on a SMP system. Good catch. Doesn't look=
+=20
+like it'll cause much trouble other than leaving urbs/skbs unfreed when the=
+=20
+interface is down, but it's worth fixing. This requires information about=20
+whether or not the interface is started or stopped. Preferred way would be =
+to=20
+set priv->mode =3D IEEE80211_IF_TYPE_INVALID in rtl8187_stop and priv->mode=
+ =3D=20
+IEEE80211_IF_TYPE_MNTR in rtl8187_start, so we can check for priv->mode =3D=
+=3D=20
+IEEE80211_IF_TYPE_INVALID before requeueing the urb in rtl8187_rx_cb.=20
 
-After request_dma() succeeding, any error path should do free_dma().
+Thanks,
+=2DMichael Wu
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- drivers/net/cs89x0.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+--nextPart1251958.KiOhrZHdQk
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
-index 348371f..fba87ab 100644
---- a/drivers/net/cs89x0.c
-+++ b/drivers/net/cs89x0.c
-@@ -1394,7 +1394,11 @@ net_open(struct net_device *dev)
- #endif
-         if (!result) {
-                 printk(KERN_ERR "%s: EEPROM is configured for unavailable media\n", dev->name);
--        release_irq:
-+release_dma:
-+#if ALLOW_DMA
-+		free_dma(dev->dma);
-+#endif
-+release_irq:
- #if ALLOW_DMA
- 		release_dma_buff(lp);
- #endif
-@@ -1442,12 +1446,12 @@ net_open(struct net_device *dev)
- 			if ((result = detect_bnc(dev)) != DETECTED_NONE)
- 				break;
- 		printk(KERN_ERR "%s: no media detected\n", dev->name);
--                goto release_irq;
-+		goto release_dma;
- 	}
- 	switch(result) {
- 	case DETECTED_NONE:
- 		printk(KERN_ERR "%s: no network cable attached to configured media\n", dev->name);
--                goto release_irq;
-+		goto release_dma;
- 	case DETECTED_RJ45H:
- 		printk(KERN_INFO "%s: using half-duplex 10Base-T (RJ-45)\n", dev->name);
- 		break;
--- 
-1.5.4.rc3
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
 
+iD8DBQBIP39tT3Oqt9AH4aERAkvgAKCcMp0rnyxpiNJxMWEUwUYuOtB6+wCffQqE
+r9w88xaK7Ak2E0oKIJ/0UNM=
+=gfl+
+-----END PGP SIGNATURE-----
+
+--nextPart1251958.KiOhrZHdQk--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
