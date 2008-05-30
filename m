@@ -1,104 +1,104 @@
 From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: [Bugme-new] [Bug 10835] New: vanilla kernel 2.6.25.4 + TLAN NIC
  driver oops or so...
-Date: Thu, 29 May 2008 22:42:37 -0700
-Message-ID: <20080529224237.26c9d2e2.akpm@linux-foundation.org>
+Date: Thu, 29 May 2008 23:44:37 -0700
+Message-ID: <20080529234437.d624a07d.akpm@linux-foundation.org>
 References: <bug-10835-10286@http.bugzilla.kernel.org/>
+	<20080529224237.26c9d2e2.akpm@linux-foundation.org>
+	<15aed8130805292332o6e2f939du416c362f6b448989@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: wizard580@gmail.com
+To: "Wizard Vandal" <wizard580@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53188 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35979 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752510AbYE3Fmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 01:42:39 -0400
-In-Reply-To: <bug-10835-10286@http.bugzilla.kernel.org/>
+	by vger.kernel.org with ESMTP id S1751761AbYE3Gok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 02:44:40 -0400
+In-Reply-To: <15aed8130805292332o6e2f939du416c362f6b448989@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 30 May 2008 17:32:07 +1100 "Wizard Vandal" <wizard580@gmail.com> wrote:
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Thu, 29 May 2008 22:22:36 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=10835
+> > I assume you meant 2.6.25.1 here.
+> Maybe... as I said, I don't know is it my luck or something else...
 > 
->            Summary: vanilla kernel 2.6.25.4 + TLAN NIC driver oops or so...
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.25.4
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: wizard580@gmail.com
+> >It could only have been
+> >       "TLAN:  Couldn't allocate memory for received data.\n"
+> Again maybe. I looked at sorce, but I'm too little programmer to see why it
+> can print such error or fix that.
+
+OK, thanks.
+
+Can you please add the below patch and retest?  That at least will tell
+us where it is failing.  I expect the driver has a memory leak.
+
+> One more thing:
+> now, I've tried to remove nf_conntrack_ftp module and kernel crashed.
+> Screen not checked, just reset and go away. Keyboard leds again blinks, as
+> always when it crashed.
 > 
-> 
-> Latest working kernel version: 2.6.25.4
+> Do I have to post new bug or you can do all checks or whatever without it?
 
-I assume you meant 2.6.25.1 here.
+Yes, please send a separate report.  Just an emailed one to
 
-> Earliest failing kernel version: 2.6.25.4
-> Distribution: debian sid
-> Hardware Environment: Compaq Deskpro (some old comp)
-> Software Environment: latest updates
-> 
-> Problem Description: 
-> after some time of normal work I lost connect to my router. no ping, no ssh.
-> nothing. I come to router, switched on monitor and see infinetely looping
-> messages about some error like this: TLAN: Could't allocate memory for... and
-> some memory dumps. It's quickly scrolling so exact error message I can't read.
+netdev@vger.kernel.org
+Andrew Morton <akpm@linux-foundation.org>
 
-It could only have been
+will suffice.
 
-	"TLAN:  Couldn't allocate memory for received data.\n"
+Please try to ensure that this netfilter problem is not mixed up with
+the tlan one.  For example, if tlan has used all the memory up then
+perhaps netfilter did a memory allocation, then that failed and we hit
+an untested error path.
 
-however the stupid driver prints the same string from three different
-places.
 
-> On keyboard "caps Lock" and "scroll lock" are blinking...
-
-hm, that might mean it oopses as well.
-
-> Alt+Ctrl+Del don't reboot system. So I reset it and all run fine again... I
-> don't know for how long it will...
-> 
-> There is one vlan on tlan interface. If it's help...
-> 
-> As I remember, on 2.6.25.1 there was no errors for much more time (maybe it's
-> my luck). So I think may be something changed between 2.6.25.1 and 2.6.25.4
-> that break memory allocations for that driver or so...
-> 
-> lspci:
-> 00:00.0 Host bridge: Intel Corporation 440LX/EX - 82443LX/EX Host bridge (rev
-> 03)
-> 00:01.0 PCI bridge: Intel Corporation 440LX/EX - 82443LX/EX AGP bridge (rev 03)
-> 00:0d.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> RTL-8139/8139C/8139C+ (rev 10)
-> 00:0e.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> RTL-8139/8139C/8139C+ (rev 10)
-> 00:0f.0 SCSI storage controller: Adaptec AIC-7860 (rev 03)
-> 00:10.0 Network controller: Compaq Computer Corporation Netelligent 10/100 TX
-> Embedded UTP (rev 10)
-> 00:12.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> RTL-8139/8139C/8139C+ (rev 10)
-> 00:14.0 ISA bridge: Intel Corporation 82371AB/EB/MB PIIX4 ISA (rev 01)
-> 00:14.1 IDE interface: Intel Corporation 82371AB/EB/MB PIIX4 IDE (rev 01)
-> 00:14.2 USB Controller: Intel Corporation 82371AB/EB/MB PIIX4 USB (rev 01)
-> 00:14.3 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 01)
-> 01:00.0 VGA compatible controller: Matrox Graphics, Inc. MGA 2164W [Millennium
-> II] AGP
-> 
-> 
-> Steps to reproduce:
-> try to use such hardware... or simply tlan NIC.
-
-Alas, no significant changes have been made to tlan.c in ages.
+--- a/drivers/net/tlan.c~a
++++ a/drivers/net/tlan.c
+@@ -1580,9 +1580,12 @@ static u32 TLan_HandleRxEOF( struct net_
+ 
+ 		if (bbuf) {
+ 			skb = dev_alloc_skb(frameSize + 7);
+-			if (skb == NULL)
+-				printk(KERN_INFO "TLAN: Couldn't allocate memory for received data.\n");
+-			else {
++			if (skb == NULL) {
++				printk(KERN_INFO "TLAN: Couldn't allocate "
++					"memory for received data: %d.\n",
++					__LINE__);
++				mdelay(1000);
++			} else {
+ 				head_buffer = priv->rxBuffer + (priv->rxHead * TLAN_MAX_FRAME_SIZE);
+ 				skb_reserve(skb, 2);
+ 				t = (void *) skb_put(skb, frameSize);
+@@ -1619,8 +1622,12 @@ static u32 TLan_HandleRxEOF( struct net_
+ 				head_list->buffer[0].address = pci_map_single(priv->pciDev, new_skb->data, TLAN_MAX_FRAME_SIZE, PCI_DMA_FROMDEVICE);
+ 				head_list->buffer[8].address = (u32) t;
+ 				TLan_StoreSKB(head_list, new_skb);
+-			} else
+-				printk(KERN_WARNING "TLAN:  Couldn't allocate memory for received data.\n" );
++			} else {
++				printk(KERN_INFO "TLAN: Couldn't allocate "
++					"memory for received data: %d.\n",
++					__LINE__);
++				mdelay(1000);
++			}
+ 		}
+ 
+ 		head_list->forward = 0;
+@@ -2021,7 +2028,10 @@ static void TLan_ResetLists( struct net_
+ 		} else {
+ 			skb = dev_alloc_skb( TLAN_MAX_FRAME_SIZE + 7 );
+ 			if ( skb == NULL ) {
+-				printk( "TLAN:  Couldn't allocate memory for received data.\n" );
++				printk(KERN_INFO "TLAN: Couldn't allocate "
++					"memory for received data: %d.\n",
++					__LINE__);
++				mdelay(1000);
+ 				/* If this ever happened it would be a problem */
+ 			} else {
+ 				skb->dev = dev;
+_
 
