@@ -1,79 +1,19 @@
-From: "Ray Lee" <ray-lk@madrabbit.org>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Fri, 30 May 2008 09:23:45 -0700
-Message-ID: <2c0942db0805300923u10bb591am27c73ab4d48466cf@mail.gmail.com>
-References: <20080526115628.GA31316@elte.hu>
-	 <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Ingo Molnar" <mingo@elte.hu>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 0/7] TLAN driver cleanups
+Date: Fri, 30 May 2008 09:49:51 -0700
+Message-ID: <20080530164951.033143725@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>, Samuel Chessman <chessman@tux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.228]:47413 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752314AbYE3QXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 12:23:46 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so4689481rvb.1
-        for <netdev@vger.kernel.org>; Fri, 30 May 2008 09:23:45 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
-Content-Disposition: inline
+Received: from suva.vyatta.com ([69.59.150.140]:34071 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751927AbYE3QxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 12:53:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBNYXkgMjYsIDIwMDggYXQgNjoyOCBBTSwgSWxwbyBKw6RydmluZW4KPGlscG8uamFy
-dmluZW5AaGVsc2lua2kuZmk+IHdyb3RlOgo+IE9uIE1vbiwgMjYgTWF5IDIwMDgsIEluZ28gTW9s
-bmFyIHdyb3RlOgo+Cj4+IGluIGFuIG92ZXJuaWdodCAtdGlwIHRlc3RydW5zIHRoYXQgaXMgYmFz
-ZWQgb24gcmVjZW50IC1naXQgaSBnb3QgdHdvCj4+IHN0dWNrIFRDUCBjb25uZWN0aW9uczoKPj4K
-Pj4gQWN0aXZlIEludGVybmV0IGNvbm5lY3Rpb25zICh3L28gc2VydmVycykKPj4gUHJvdG8gUmVj
-di1RIFNlbmQtUSBMb2NhbCBBZGRyZXNzICAgICAgICAgICAgICAgRm9yZWlnbiBBZGRyZXNzICAg
-ICAgICAgICAgIFN0YXRlCj4+IHRjcCAgICAgICAgMCAxNzQ1OTIgMTAuMC4xLjE0OjU4MDE1ICAg
-ICAgICAgICAgIDEwLjAuMS4xNDozNjMyICAgICAgICAgICAgICBFU1RBQkxJU0hFRAo+PiB0Y3Ag
-ICAgNzIxMzQgICAgICAwIDEwLjAuMS4xNDozNjMyICAgICAgICAgICAgICAxMC4wLjEuMTQ6NTgw
-MTUgICAgICAgICAgICAgRVNUQUJMSVNIRUQKPj4KPj4gb24gYSBwcmV2aW91c2x5IHJlbGlhYmxl
-IG1hY2hpbmUuIFRoYXQgY29ubmVjdGlvbiBoYXMgYmVlbiBzdHVjayBmb3IgOQo+PiBob3VycyBz
-byBpdCBkb2VzIG5vdCB0aW1lIG91dCwgZXRjLiAtIGFuZCB0aGUgZGlzdGNjIHJ1biB0aGF0IGdv
-ZXMgb3Zlcgo+PiB0aGF0IGNvbm5lY3Rpb24gaXMgc3R1Y2sgYXMgd2VsbC4KPj4KPj4ga2VybmVs
-IGNvbmZpZyBpcyBhdHRhY2hlZC4KPj4KPj4gaW4gdGVybXMgb2YgZGVidWdnaW5nIHRoZXJlJ3Mg
-bm90IG11Y2ggaSBjYW4gZG8gaSdtIGFmcmFpZC4gSXQncyBub3QKPj4gcG9zc2libGUgdG8gZ2V0
-IGEgdGNwZHVtcCBvZiB0aGlzIGluY2lkZW50LCBnaXZlbiB0aGUgZXh0cmVtZSBhbW91bnQgb2YK
-Pj4gbG9hZCB0aGVzZSB0ZXN0Ym94ZXMgaGFuZGxlLgo+Cj4gLi4uYnV0IHlvdSBjYW4gc3RpbGwg
-dGNwZHVtcCB0aGF0IHBhcnRpY3VsYXIgZmxvdyBvbmNlIHRoZSBzaXR1YXRpb24gaXMKPiBkaXNj
-b3ZlcmVkIHRvIHNlZSBpZiBUQ1Agc3RpbGwgdHJpZXMgdG8gZG8gc29tZXRoaW5nLCBubz8gT25l
-IG5lZWRzIHRvCj4gdGNwZHVtcCBjb3VwbGUgb2YgbWludXRlcyBhdCBtaW5pbXVtLiBBbHNvIHBs
-ZWFzZSBnZXQgL3Byb2MvbmV0L3RjcCBmb3IKPiB0aGF0IGZsb3cgYXJvdW5kIHRoZSBzYW1lIHRp
-bWUuCj4KPj4gVGhpcyBwcm9ibGVtIHN0YXJ0ZWQgc29tZXRpbWUgYXJvdW5kIHJjMwo+PiBhbmQg
-aXQgb2NjdXJlZCBvbiB0d28gYm94ZXMgKG9uIGEgbGFwdG9wIGFuZCBvbiBhIGRlc2t0b3ApLCBi
-b3RoIGFyZSBTTVAKPj4gQ29yZTJEdW8gYmFzZWQgc3lzdGVtcy4gSSBuZXZlciBzYXcgdGhpcyBw
-cm9ibGVtIGJlZm9yZSBvbiB0aG91c2FuZHMgb2YKPj4gc2ltaWxhciBib290dXBzLCBzbyBpJ20g
-OTkuOSUgc3VyZSB0aGUgYnVnIGlzIGVpdGhlciBuZXcgb3IgYmVjYW1lCj4+IGVhc2llciB0byB0
-cmlnZ2VyLgo+Pgo+PiBJdCdzIG5vdCBwb3NzaWJsZSB0byBiaXNlY3QgaXQgYXMgaXQgbmVlZHMg
-dXAgdG8gMTIgaG91cnMgb2YgaGVhdnkKPj4gd29ya2xvYWQgdG8gdHJpZ2dlci4gVGhlIGluY2lk
-ZW50IGhhcHBlbmVkIGFib3V0IDUgdGltZXMgc2luY2UgdGhlIGZpcnN0Cj4+IGluY2lkZW50IGEg
-Y291cGxlIG9mIGRheXMgYWdvIC0gNCB0aW1lcyBvbiBvbmUgYm94IGFuZCBvbmNlIG9uIGFub3Ro
-ZXIKPj4gYm94LiBUaGUgZmlyc3QgZmFpbGluZyBoZWFkIGkgYmVjYW1lIGF3YXJlIG9mIHdhcyA3
-OGI1OGU1NDlhMzA5OC4gKC10aXAKPj4gaGFzIG90aGVyIGNoYW5nZXMgYmV5b25kIC1naXQgYnV0
-IGNoYW5nZXMgbm90aGluZyBpbiBuZXR3b3JraW5nLikKCk9rYXksIGJ1dCBpbiBzb21lIHNlbnNl
-IHlvdSd2ZSBhbHJlYWR5IGJpc2VjdGVkIHRoaXMgc29tZXdoYXQuIEknbQphc3N1bWluZyB0aGF0
-IHlvdXIgdGVzdGluZyB1c2VzIHRoZSBsYXRlc3QgdGlwIGFuZCBpcyByZWZyZXNoZWQgZGFpbHku
-CgpJZiB0aGF0J3MgdGhlIGNhc2UsIHRoZW4gSSB3b3VsZCAocG9zc2libHkgbmFpdmVseSkgZXhw
-ZWN0IHRoZSBjdWxwcml0CnRvIHNob3cgdXAgaW4gYToKICBnaXQgbG9nIC1wIHYyLjYuMjYtcmMx
-Li43OGI1OGU1NDlhMzA5OApuZXQve2NvbXBhdC5jLGNvcmUsaXB2NCxuZXRmaWx0ZXIscGFja2V0
-LHNjaGVkLHNvY2tldC5jfQoKVGhlcmUgYXJlIG9ubHkgYSBmZXcgY29tbWl0cyBpbiB0aGVyZSB0
-aGF0IGFwcGVhciB0byB0b3VjaCBuZXR3b3JrIGJlaGF2aW9yOgoKICA3OWQ0NDUxNmI0YjE3OGZm
-YjZlMjE1OWM3NTU4NGNmY2ZjMDk3OTE0CiAgYTFjMWYyODFiODRhNzUxZmRiNWZmOTE5ZGEzYjA5
-ZGY3Mjk3NjE5ZgogIDYyYWIyMjI3ODMwOGE0MGJjYjdmNDA3OWU5NzE5YWI4YjdmZTExYjUKClJl
-dmVydGluZyBqdXN0IHRob3NlIHRocmVlIGFuZCBydW5uaW5nIG92ZXJuaWdodCBtaWdodCBwcm92
-aWRlIGEgY2x1ZS4KT1RPSCwgSSdtIGluIG5vIHdheSBhIG5ldC8gZXhwZXJ0LCBzbyBpZiB5b3Ug
-YXJlIGFscmVhZHkgd29ya2luZyBhCmRlYnVnZ2luZyBzdHJhdGVneSB0aGVuIGZlZWwgZnJlZSB0
-byBpZ25vcmUgdGhpcy4gSSdtIG9ubHkgcGlwaW5nIHVwCmFzIGl0IGFwcGVhcnMgdGhhdCB0aGUg
-dHJvdWJsZXNob290aW5nIGhhcyBzdGFsbGVkLgoKPiAoYnV0IHRoZXJlIHdlcmUKPiBzb21lIHJl
-Y2VudCBmaXhlcyB0byBGUlRPIGFuZCByZXRyYW5zX3N0YW1wIGNoYW5nZSBjb3VsZCBoYXZlIHNv
-bWUKPiBzaWduaWZpY2FuY2UgaGVyZSk/Cj4KPiBPdGhlciB0aGFuIHRoYXQsIG5vdGhpbmcgc2lu
-Y2UgLXJjMSBzZWVtcyBzdXNwaWNpb3VzIHRvIG1lICh0aG91Z2gKPiBJIGhhcmRseSB1bmRlcnN0
-YW5kIGV2ZXJ5IHBhcnQgb2YgbmV0d29ya2luZykuCg==
+Give this driver some tough love, cleanup issues that indicate it
+never gets used much on modern 2.6 systems.
+
+-- 
+
