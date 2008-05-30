@@ -1,48 +1,33 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH BUGFIX -rc4] Smack: Respect 'unlabeled' netlabel mode
-Date: Fri, 30 May 2008 16:10:37 -0700 (PDT)
-Message-ID: <538684.41302.qm@web36603.mail.mud.yahoo.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH BUGFIX -v2 -rc4] Smack: Respect 'unlabeled' netlabel mode
+Date: Sat, 31 May 2008 08:10:45 +0900
+Message-ID: <200805310810.FJG69298.HtLQSVFOFMOJOF@I-love.SAKURA.ne.jp>
 References: <20080530233603.GA2994@ubuntu>
-Reply-To: casey@schaufler-ca.com
+	<20080530235751.GA6888@ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-security-module@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080530233603.GA2994@ubuntu>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: darwish.07@gmail.com, casey@schaufler-ca.com, paul.moore@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:60629 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755878AbYE3XKu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 19:10:50 -0400
+In-Reply-To: <20080530235751.GA6888@ubuntu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
---- "Ahmed S. Darwish" <darwish.07@gmail.com> wrote:
+Ahmed S. Darwish wrote:
+>  	default:
+> +		mutex_lock(&smack_ambient_lock);
+> +		nlsp->domain = kstrdup(smack_net_ambient, GFP_ATOMIC);
+> +		mutex_unlock(&smack_ambient_lock);
+> +
+> +		nlsp->flags = NETLBL_SECATTR_DOMAIN;
+>  		break;
 
-> Hi all,
-> 
-> In case of Smack 'unlabeled' netlabel option, Smack passes a _zero_
-> initialized 'secattr' to label a packet/sock. This causes an 
-> [unfound domain label error]/-ENOENT by netlbl_sock_setattr().
-> Above Netlabel failure leads to Smack socket hooks failure causing 
-> an always-on socket() -EPERM error.
-> 
-> Such packets should have a netlabel domain agreed with netlabel to 
-> represent unlabeled packets. Fortunately Smack net ambient label 
-> packets are agreed with netlabel to be treated as unlabeled packets. 
-> 
-> Treat all packets coming out from a 'unlabeled' Smack system as
-> coming from the smack net ambient label.
-
-To date the behavior of a Smack system running with nltype
-unlabeled has been carefully undefined. The way you're defining
-it will result in a system in which only processes running with
-the ambient label will be able to use sockets, unless I'm reading
-the code incorrectly. This seems like "correct" behavior, but
-I don't think it is what those who've tried it would expect.
-
-
-Casey Schaufler
-casey@schaufler-ca.com
+Getting a mutex lock might sleep, so why not use GFP_KERNEL ?
