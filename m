@@ -1,38 +1,61 @@
-From: James Cammarata <jimi@sngx.net>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
-Date: Thu, 29 May 2008 16:18:03 -0500
-Message-ID: <483F1D8B.7010904@sngx.net>
-References: <483EA2D1.8050603@sngx.net>	<20080529154525.3916c7b5@core>	<483EE4A4.20508@sngx.net> <20080529.135055.193706538.davem@davemloft.net>
+From: Matheos Worku <Matheos.Worku@Sun.COM>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Thu, 29 May 2008 17:14:29 -0700
+Message-ID: <483F46E5.9030707@sun.com>
+References: <20080526.151540.191673092.davem@davemloft.net>
+ <483BA80C.4020502@krogh.cc> <483CB301.40007@sun.com>
+ <20080528.223415.193732490.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org,
+Content-Type: text/plain; format=flowed; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: jesper@krogh.cc, yhlu.kernel@gmail.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl093-193-175.stl1.dsl.speakeasy.net ([66.93.193.175]:58240
-	"EHLO hades.sngx.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752889AbYE2VSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 17:18:38 -0400
-In-Reply-To: <20080529.135055.193706538.davem@davemloft.net>
+Received: from sca-es-mail-2.Sun.COM ([192.18.43.133]:60172 "EHLO
+	sca-es-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752975AbYE3AO3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 20:14:29 -0400
+In-reply-to: <20080528.223415.193732490.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>  I'd be more than happy to change this to a kernel config
->> option, experimental and default off for those who would not want it.
-> 
-> We never add pieces of code which are marked experimental and
-> intended to be marked that way forever, that's nonsense.
+David Miller wrote:
 
-Completely not my intention, I did not ever intend to have something
-marked experimental forever, and I'm not sure where you're drawing
-that inference from.
- 
-> What you want is your little special kernel hack in the upstream
-> tree, and that's now how we handle such things, sorry.
+>From: Matheos Worku <Matheos.Worku@Sun.COM>
+>Date: Tue, 27 May 2008 18:18:57 -0700
+>
+>  
+>
+>>Considering that fixing the HW would take considerable time, I was 
+>>wondering if the scheme we use in the nxge driver could be considered as 
+>>a workaround. Since the niu driver is already doing skb_orphan as a work 
+>>around, what if  already transmitted TX buffers are  reclaimed 
+>>periodically, within dev->hard_start_xmit() ?  Then TX_DESC_MARK would 
+>>be set if/when available TX descriptor count falls below some watermark. 
+>>Disable device TX queue about the time  TX_DESC_MARK is set and enable 
+>>it within TX interrupt.
+>>    
+>>
+>
+>Since my hack patch didn't fix his problem at all, are you suggesting
+>that we end up not fielding TX mark interrupts even though mark is set
+>in all the TX descriptors and this is what hangs the chip?
+>
+>I find that very unlikely, especially because with my test patch every
+>single TX descriptor will have the mark bit set and therefore we'd
+>have to not receive all of those TX mark interrupts in order for the
+>TX unit to hang like that.
+>
+>Something else must be going wrong.
+>  
+>
+Dave,
+Actually what I am suggesting was a workaround for the lack of "TX Ring 
+Empty" interrupt by not relying on the TX interrupt at all.  As for the 
+TX hang, I will try to reproduce the problem and look at the registers 
+for the clue.
 
-No, I saw what I thought was a lack of a feature that is commonplace 
-on many other platforms, and thought I'd give it a shot to see if 
-I could add it myself.  The NAKs are apparently overwhelming on this
-issue, so I'll stop beating a dead horse and move on.  Thanks for the 
-input.
+Regards
+Matheos
+
