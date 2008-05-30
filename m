@@ -1,129 +1,104 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 3/3] virtio: use callback on empty in virtio_net
-Date: Fri, 30 May 2008 15:14:17 +1000
-Message-ID: <200805301514.17937.rusty@rustcorp.com.au>
-References: <200805301512.07802.rusty@rustcorp.com.au> <200805301513.17802.rusty@rustcorp.com.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10835] New: vanilla kernel 2.6.25.4 + TLAN NIC
+ driver oops or so...
+Date: Thu, 29 May 2008 22:42:37 -0700
+Message-ID: <20080529224237.26c9d2e2.akpm@linux-foundation.org>
+References: <bug-10835-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org,
-	Mark McLoughlin <markmc@redhat.com>,
-	Avi Kivity <avi@qumranet.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>
-To: netdev@vger.kernel.org
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: wizard580@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:39916 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752404AbYE3FQV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2008 01:16:21 -0400
-In-Reply-To: <200805301513.17802.rusty@rustcorp.com.au>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:53188 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752510AbYE3Fmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 01:42:39 -0400
+In-Reply-To: <bug-10835-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-virtio_net uses a timer to free old transmitted packets, rather than
-leaving callbacks enabled all the time.  If the host promises to
-always notify us when the transmit ring is empty, we can free packets
-at that point and avoid the timer.
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/net/virtio_net.c |   22 +++++++++++++++++-----
- 1 file changed, 17 insertions(+), 5 deletions(-)
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-diff -r 95a02f0e0e21 drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c	Tue May 27 12:45:17 2008 +1000
-+++ b/drivers/net/virtio_net.c	Tue May 27 15:53:41 2008 +1000
-@@ -44,6 +44,7 @@ struct virtnet_info
- 	/* The skb we couldn't send because buffers were full. */
- 	struct sk_buff *last_xmit_skb;
- 
-+	/* If we need to free in a timer, this is it. */
- 	struct timer_list xmit_free_timer;
- 
- 	/* Number of input buffers, and max we've ever had. */
-@@ -51,6 +52,7 @@ struct virtnet_info
- 
- 	/* For cleaning up after transmission. */
- 	struct tasklet_struct tasklet;
-+	bool free_in_tasklet;
- 
- 	/* Receive & send queues. */
- 	struct sk_buff_head recv;
-@@ -74,7 +76,7 @@ static void skb_xmit_done(struct virtque
- 	/* Suppress further interrupts. */
- 	svq->vq_ops->disable_cb(svq);
- 
--	/* We were waiting for more output buffers. */
-+	/* We were probably waiting for more output buffers. */
- 	netif_wake_queue(vi->dev);
- 
- 	/* Make sure we re-xmit last_xmit_skb: if there are no more packets
-@@ -240,6 +242,8 @@ static void free_old_xmit_skbs(struct vi
- 	}
- }
- 
-+/* If the virtio transport doesn't always notify us when all in-flight packets
-+ * are consumed, we fall back to using this function on a timer to free them. */
- static void xmit_free(unsigned long data)
- {
- 	struct virtnet_info *vi = (void *)data;
-@@ -300,7 +304,7 @@ static int xmit_skb(struct virtnet_info 
- 	num = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
- 
- 	err = vi->svq->vq_ops->add_buf(vi->svq, sg, num, 0, skb);
--	if (!err)
-+	if (!err && !vi->free_in_tasklet)
- 		mod_timer(&vi->xmit_free_timer, jiffies + (HZ/10));
- 
- 	return err;
-@@ -315,6 +319,8 @@ static void xmit_tasklet(unsigned long d
- 		vi->svq->vq_ops->kick(vi->svq);
- 		vi->last_xmit_skb = NULL;
- 	}
-+	if (vi->free_in_tasklet)
-+		free_old_xmit_skbs(vi);
- 	netif_tx_unlock_bh(vi->dev);
- }
- 
-@@ -455,6 +461,10 @@ static int virtnet_probe(struct virtio_d
- 	vi->vdev = vdev;
- 	vdev->priv = vi;
- 
-+	/* If they give us a callback when all buffers are done, we don't need
-+	 * the timer. */
-+	vi->free_in_tasklet = virtio_has_feature(vdev,VIRTIO_F_NOTIFY_ON_EMPTY);
-+
- 	/* We expect two virtqueues, receive then send. */
- 	vi->rvq = vdev->config->find_vq(vdev, 0, skb_recv_done);
- 	if (IS_ERR(vi->rvq)) {
-@@ -474,7 +487,8 @@ static int virtnet_probe(struct virtio_d
- 
- 	tasklet_init(&vi->tasklet, xmit_tasklet, (unsigned long)vi);
- 
--	setup_timer(&vi->xmit_free_timer, xmit_free, (unsigned long)vi);
-+	if (!vi->free_in_tasklet)
-+		setup_timer(&vi->xmit_free_timer, xmit_free, (unsigned long)vi);
- 
- 	err = register_netdev(dev);
- 	if (err) {
-@@ -513,7 +527,8 @@ static void virtnet_remove(struct virtio
- 	/* Stop all the virtqueues. */
- 	vdev->config->reset(vdev);
- 
--	del_timer_sync(&vi->xmit_free_timer);
-+	if (!vi->free_in_tasklet)
-+		del_timer_sync(&vi->xmit_free_timer);
- 
- 	/* Free our skbs in send and recv queues, if any. */
- 	while ((skb = __skb_dequeue(&vi->recv)) != NULL) {
-@@ -538,7 +553,7 @@ static unsigned int features[] = {
- static unsigned int features[] = {
- 	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
- 	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
--	VIRTIO_NET_F_HOST_ECN,
-+	VIRTIO_NET_F_HOST_ECN, VIRTIO_F_NOTIFY_ON_EMPTY,
- };
- 
- static struct virtio_driver virtio_net = {
+On Thu, 29 May 2008 22:22:36 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=10835
+> 
+>            Summary: vanilla kernel 2.6.25.4 + TLAN NIC driver oops or so...
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.25.4
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: wizard580@gmail.com
+> 
+> 
+> Latest working kernel version: 2.6.25.4
+
+I assume you meant 2.6.25.1 here.
+
+> Earliest failing kernel version: 2.6.25.4
+> Distribution: debian sid
+> Hardware Environment: Compaq Deskpro (some old comp)
+> Software Environment: latest updates
+> 
+> Problem Description: 
+> after some time of normal work I lost connect to my router. no ping, no ssh.
+> nothing. I come to router, switched on monitor and see infinetely looping
+> messages about some error like this: TLAN: Could't allocate memory for... and
+> some memory dumps. It's quickly scrolling so exact error message I can't read.
+
+It could only have been
+
+	"TLAN:  Couldn't allocate memory for received data.\n"
+
+however the stupid driver prints the same string from three different
+places.
+
+> On keyboard "caps Lock" and "scroll lock" are blinking...
+
+hm, that might mean it oopses as well.
+
+> Alt+Ctrl+Del don't reboot system. So I reset it and all run fine again... I
+> don't know for how long it will...
+> 
+> There is one vlan on tlan interface. If it's help...
+> 
+> As I remember, on 2.6.25.1 there was no errors for much more time (maybe it's
+> my luck). So I think may be something changed between 2.6.25.1 and 2.6.25.4
+> that break memory allocations for that driver or so...
+> 
+> lspci:
+> 00:00.0 Host bridge: Intel Corporation 440LX/EX - 82443LX/EX Host bridge (rev
+> 03)
+> 00:01.0 PCI bridge: Intel Corporation 440LX/EX - 82443LX/EX AGP bridge (rev 03)
+> 00:0d.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+> RTL-8139/8139C/8139C+ (rev 10)
+> 00:0e.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+> RTL-8139/8139C/8139C+ (rev 10)
+> 00:0f.0 SCSI storage controller: Adaptec AIC-7860 (rev 03)
+> 00:10.0 Network controller: Compaq Computer Corporation Netelligent 10/100 TX
+> Embedded UTP (rev 10)
+> 00:12.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+> RTL-8139/8139C/8139C+ (rev 10)
+> 00:14.0 ISA bridge: Intel Corporation 82371AB/EB/MB PIIX4 ISA (rev 01)
+> 00:14.1 IDE interface: Intel Corporation 82371AB/EB/MB PIIX4 IDE (rev 01)
+> 00:14.2 USB Controller: Intel Corporation 82371AB/EB/MB PIIX4 USB (rev 01)
+> 00:14.3 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 01)
+> 01:00.0 VGA compatible controller: Matrox Graphics, Inc. MGA 2164W [Millennium
+> II] AGP
+> 
+> 
+> Steps to reproduce:
+> try to use such hardware... or simply tlan NIC.
+
+Alas, no significant changes have been made to tlan.c in ages.
+
