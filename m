@@ -1,75 +1,79 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH v1.2.26] wan: new driver retina
-Date: Fri, 30 May 2008 18:15:55 +0200
-Message-ID: <m3lk1rhio4.fsf@maximus.localdomain>
-References: <ca0148c30805280342l39ffe387rf4c670b17804f99d@mail.gmail.com>
-	<m3prr6obkz.fsf@maximus.localdomain>
-	<ca0148c30805300552u7eb5da43tfc75127a2e819d1@mail.gmail.com>
+From: "Ray Lee" <ray-lk@madrabbit.org>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Fri, 30 May 2008 09:23:45 -0700
+Message-ID: <2c0942db0805300923u10bb591am27c73ab4d48466cf@mail.gmail.com>
+References: <20080526115628.GA31316@elte.hu>
+	 <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Matti Linnanvuori" <mattilinn@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "Ingo Molnar" <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:58898 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752093AbYE3QP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2008 12:15:58 -0400
-In-Reply-To: <ca0148c30805300552u7eb5da43tfc75127a2e819d1@mail.gmail.com> (Matti Linnanvuori's message of "Fri\, 30 May 2008 15\:52\:59 +0300")
+Received: from rv-out-0506.google.com ([209.85.198.228]:47413 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752314AbYE3QXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 12:23:46 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so4689481rvb.1
+        for <netdev@vger.kernel.org>; Fri, 30 May 2008 09:23:45 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0805261550340.16829@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Matti Linnanvuori" <mattilinn@gmail.com> writes:
-
-> I would not like to change a legacy driver much.
-
-But this is a new driver, right? I guess the SIOCDEVPRIVATEs will go
-at some point so the change can't be really avoided.
-
->>> +static int fepci_char_open(struct inode *inode, struct file *filp)
->>> +{
->>> +     unsigned int minor = MINOR(inode->i_rdev);
->>> +     if (unlikely(minor >= find_cnt || card_privates[minor].pci_dev == NULL))
->>> +             return -ENXIO;
->>> +     filp->f_op = &fepci_char_fops;
->>> +     if (unlikely(!try_module_get(THIS_MODULE)))
->>> +             return -EBUSY;
->>
->> That won't work race-free, use owner field.
->
-> You mean the f_op assignment? I have removed that.
-
-Actually I meant try_module_get() from within the driver, for example
-your module may get unloaded while in this function, before this
-try_module_get(), and that would be fatal. If you set the owner field
-the reference count will be incremented by the caller first.
-
-Though you may be right about the assignement as well.
-
->>> +static int fepci_stream_open_down(struct net_device *dev,
->>> +                               struct fepci_ch_private *fp)
->>> +{
->>> +     unsigned tx_pages, rx_pages, tx_order, rx_order;
->>> +     unsigned page_number;
->>> +     unsigned int i;
->>> +
->>> +     if (unlikely(fp->in_eth_mode)) {
->>> +             dev_warn(&dev->dev,
->>> +                      "Interface is in Ethernet mode, "
->>> +                      "cannot open stream interface\n");
->>> +             return -EBUSY;
->>> +     }
-
-> Private net device ioctls are locked with rtnl_lock, so I see no
-> race there.
-
-Yes, I thought stream mode = character device but now I see it's
-another flavour of network device(?), which is never up and exists
-only for the ability to receive netdev ioctls (though it also uses
-char dev ioctls).
-
-Did I get this right?
-
-Why not simply use a character device, with normal read, write etc?
--- 
-Krzysztof Halasa
+T24gTW9uLCBNYXkgMjYsIDIwMDggYXQgNjoyOCBBTSwgSWxwbyBKw6RydmluZW4KPGlscG8uamFy
+dmluZW5AaGVsc2lua2kuZmk+IHdyb3RlOgo+IE9uIE1vbiwgMjYgTWF5IDIwMDgsIEluZ28gTW9s
+bmFyIHdyb3RlOgo+Cj4+IGluIGFuIG92ZXJuaWdodCAtdGlwIHRlc3RydW5zIHRoYXQgaXMgYmFz
+ZWQgb24gcmVjZW50IC1naXQgaSBnb3QgdHdvCj4+IHN0dWNrIFRDUCBjb25uZWN0aW9uczoKPj4K
+Pj4gQWN0aXZlIEludGVybmV0IGNvbm5lY3Rpb25zICh3L28gc2VydmVycykKPj4gUHJvdG8gUmVj
+di1RIFNlbmQtUSBMb2NhbCBBZGRyZXNzICAgICAgICAgICAgICAgRm9yZWlnbiBBZGRyZXNzICAg
+ICAgICAgICAgIFN0YXRlCj4+IHRjcCAgICAgICAgMCAxNzQ1OTIgMTAuMC4xLjE0OjU4MDE1ICAg
+ICAgICAgICAgIDEwLjAuMS4xNDozNjMyICAgICAgICAgICAgICBFU1RBQkxJU0hFRAo+PiB0Y3Ag
+ICAgNzIxMzQgICAgICAwIDEwLjAuMS4xNDozNjMyICAgICAgICAgICAgICAxMC4wLjEuMTQ6NTgw
+MTUgICAgICAgICAgICAgRVNUQUJMSVNIRUQKPj4KPj4gb24gYSBwcmV2aW91c2x5IHJlbGlhYmxl
+IG1hY2hpbmUuIFRoYXQgY29ubmVjdGlvbiBoYXMgYmVlbiBzdHVjayBmb3IgOQo+PiBob3VycyBz
+byBpdCBkb2VzIG5vdCB0aW1lIG91dCwgZXRjLiAtIGFuZCB0aGUgZGlzdGNjIHJ1biB0aGF0IGdv
+ZXMgb3Zlcgo+PiB0aGF0IGNvbm5lY3Rpb24gaXMgc3R1Y2sgYXMgd2VsbC4KPj4KPj4ga2VybmVs
+IGNvbmZpZyBpcyBhdHRhY2hlZC4KPj4KPj4gaW4gdGVybXMgb2YgZGVidWdnaW5nIHRoZXJlJ3Mg
+bm90IG11Y2ggaSBjYW4gZG8gaSdtIGFmcmFpZC4gSXQncyBub3QKPj4gcG9zc2libGUgdG8gZ2V0
+IGEgdGNwZHVtcCBvZiB0aGlzIGluY2lkZW50LCBnaXZlbiB0aGUgZXh0cmVtZSBhbW91bnQgb2YK
+Pj4gbG9hZCB0aGVzZSB0ZXN0Ym94ZXMgaGFuZGxlLgo+Cj4gLi4uYnV0IHlvdSBjYW4gc3RpbGwg
+dGNwZHVtcCB0aGF0IHBhcnRpY3VsYXIgZmxvdyBvbmNlIHRoZSBzaXR1YXRpb24gaXMKPiBkaXNj
+b3ZlcmVkIHRvIHNlZSBpZiBUQ1Agc3RpbGwgdHJpZXMgdG8gZG8gc29tZXRoaW5nLCBubz8gT25l
+IG5lZWRzIHRvCj4gdGNwZHVtcCBjb3VwbGUgb2YgbWludXRlcyBhdCBtaW5pbXVtLiBBbHNvIHBs
+ZWFzZSBnZXQgL3Byb2MvbmV0L3RjcCBmb3IKPiB0aGF0IGZsb3cgYXJvdW5kIHRoZSBzYW1lIHRp
+bWUuCj4KPj4gVGhpcyBwcm9ibGVtIHN0YXJ0ZWQgc29tZXRpbWUgYXJvdW5kIHJjMwo+PiBhbmQg
+aXQgb2NjdXJlZCBvbiB0d28gYm94ZXMgKG9uIGEgbGFwdG9wIGFuZCBvbiBhIGRlc2t0b3ApLCBi
+b3RoIGFyZSBTTVAKPj4gQ29yZTJEdW8gYmFzZWQgc3lzdGVtcy4gSSBuZXZlciBzYXcgdGhpcyBw
+cm9ibGVtIGJlZm9yZSBvbiB0aG91c2FuZHMgb2YKPj4gc2ltaWxhciBib290dXBzLCBzbyBpJ20g
+OTkuOSUgc3VyZSB0aGUgYnVnIGlzIGVpdGhlciBuZXcgb3IgYmVjYW1lCj4+IGVhc2llciB0byB0
+cmlnZ2VyLgo+Pgo+PiBJdCdzIG5vdCBwb3NzaWJsZSB0byBiaXNlY3QgaXQgYXMgaXQgbmVlZHMg
+dXAgdG8gMTIgaG91cnMgb2YgaGVhdnkKPj4gd29ya2xvYWQgdG8gdHJpZ2dlci4gVGhlIGluY2lk
+ZW50IGhhcHBlbmVkIGFib3V0IDUgdGltZXMgc2luY2UgdGhlIGZpcnN0Cj4+IGluY2lkZW50IGEg
+Y291cGxlIG9mIGRheXMgYWdvIC0gNCB0aW1lcyBvbiBvbmUgYm94IGFuZCBvbmNlIG9uIGFub3Ro
+ZXIKPj4gYm94LiBUaGUgZmlyc3QgZmFpbGluZyBoZWFkIGkgYmVjYW1lIGF3YXJlIG9mIHdhcyA3
+OGI1OGU1NDlhMzA5OC4gKC10aXAKPj4gaGFzIG90aGVyIGNoYW5nZXMgYmV5b25kIC1naXQgYnV0
+IGNoYW5nZXMgbm90aGluZyBpbiBuZXR3b3JraW5nLikKCk9rYXksIGJ1dCBpbiBzb21lIHNlbnNl
+IHlvdSd2ZSBhbHJlYWR5IGJpc2VjdGVkIHRoaXMgc29tZXdoYXQuIEknbQphc3N1bWluZyB0aGF0
+IHlvdXIgdGVzdGluZyB1c2VzIHRoZSBsYXRlc3QgdGlwIGFuZCBpcyByZWZyZXNoZWQgZGFpbHku
+CgpJZiB0aGF0J3MgdGhlIGNhc2UsIHRoZW4gSSB3b3VsZCAocG9zc2libHkgbmFpdmVseSkgZXhw
+ZWN0IHRoZSBjdWxwcml0CnRvIHNob3cgdXAgaW4gYToKICBnaXQgbG9nIC1wIHYyLjYuMjYtcmMx
+Li43OGI1OGU1NDlhMzA5OApuZXQve2NvbXBhdC5jLGNvcmUsaXB2NCxuZXRmaWx0ZXIscGFja2V0
+LHNjaGVkLHNvY2tldC5jfQoKVGhlcmUgYXJlIG9ubHkgYSBmZXcgY29tbWl0cyBpbiB0aGVyZSB0
+aGF0IGFwcGVhciB0byB0b3VjaCBuZXR3b3JrIGJlaGF2aW9yOgoKICA3OWQ0NDUxNmI0YjE3OGZm
+YjZlMjE1OWM3NTU4NGNmY2ZjMDk3OTE0CiAgYTFjMWYyODFiODRhNzUxZmRiNWZmOTE5ZGEzYjA5
+ZGY3Mjk3NjE5ZgogIDYyYWIyMjI3ODMwOGE0MGJjYjdmNDA3OWU5NzE5YWI4YjdmZTExYjUKClJl
+dmVydGluZyBqdXN0IHRob3NlIHRocmVlIGFuZCBydW5uaW5nIG92ZXJuaWdodCBtaWdodCBwcm92
+aWRlIGEgY2x1ZS4KT1RPSCwgSSdtIGluIG5vIHdheSBhIG5ldC8gZXhwZXJ0LCBzbyBpZiB5b3Ug
+YXJlIGFscmVhZHkgd29ya2luZyBhCmRlYnVnZ2luZyBzdHJhdGVneSB0aGVuIGZlZWwgZnJlZSB0
+byBpZ25vcmUgdGhpcy4gSSdtIG9ubHkgcGlwaW5nIHVwCmFzIGl0IGFwcGVhcnMgdGhhdCB0aGUg
+dHJvdWJsZXNob290aW5nIGhhcyBzdGFsbGVkLgoKPiAoYnV0IHRoZXJlIHdlcmUKPiBzb21lIHJl
+Y2VudCBmaXhlcyB0byBGUlRPIGFuZCByZXRyYW5zX3N0YW1wIGNoYW5nZSBjb3VsZCBoYXZlIHNv
+bWUKPiBzaWduaWZpY2FuY2UgaGVyZSk/Cj4KPiBPdGhlciB0aGFuIHRoYXQsIG5vdGhpbmcgc2lu
+Y2UgLXJjMSBzZWVtcyBzdXNwaWNpb3VzIHRvIG1lICh0aG91Z2gKPiBJIGhhcmRseSB1bmRlcnN0
+YW5kIGV2ZXJ5IHBhcnQgb2YgbmV0d29ya2luZykuCg==
