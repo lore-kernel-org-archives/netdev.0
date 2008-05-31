@@ -1,41 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.26] myri10ge: update driver version
-Date: Fri, 30 May 2008 22:12:46 -0400
-Message-ID: <4840B41E.5060405@garzik.org>
-References: <483D0549.1010208@myri.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sc92031: remove bogus unlikely()
+Date: Fri, 30 May 2008 22:12:52 -0400
+Message-ID: <4840B424.8060308@pobox.com>
+References: <483F513C.5010303@cesarb.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+To: Cesar Eduardo Barros <cesarb@cesarb.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37095 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:37104 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751885AbYEaCMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2008 22:12:49 -0400
-In-Reply-To: <483D0549.1010208@myri.com>
+	id S1752081AbYEaCMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 22:12:54 -0400
+In-Reply-To: <483F513C.5010303@cesarb.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin wrote:
-> Update myri10ge version to 1.3.99-1.347.
+Cesar Eduardo Barros wrote:
+> Commit 5a0a92e67b5009a71e011658da04fb92dad8961f mentions len < ETH_ZLEN
+> is true for ARP packets. This obviously is not unlikely.
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
 > ---
-> Hello Jeff,
+>  drivers/net/sc92031.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> Please apply this patch for 2.6.26 to reflect the driver status
-> (contains all our 1.4 bugfixes without multislice support).
-> 
-> You should also drop the correponding last patch from your upstream-myri
-> branch (commit id d1d0b191365b2606cf09631805f07b81ab005d7e) before pushing
-> to davem' net-next-2.6. I'll send a new one during the 2.6.27 cycle.
-> 
-> thanks,
-> Brice
-> 
->  drivers/net/myri10ge/myri10ge.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> diff --git a/drivers/net/sc92031.c b/drivers/net/sc92031.c
+> index b4b6380..61955f8 100644
+> --- a/drivers/net/sc92031.c
+> +++ b/drivers/net/sc92031.c
+> @@ -972,7 +972,7 @@ static int sc92031_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	skb_copy_and_csum_dev(skb, priv->tx_bufs + entry * TX_BUF_SIZE);
+>  
+>  	len = skb->len;
+> -	if (unlikely(len < ETH_ZLEN)) {
+> +	if (len < ETH_ZLEN) {
+>  		memset(priv->tx_bufs + entry * TX_BUF_SIZE + len,
 
 applied
 
