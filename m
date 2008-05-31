@@ -1,46 +1,48 @@
-From: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Sat, 31 May 2008 23:45:56 +0200
-Message-ID: <a01a16b50805311445g23ea825t809fbace49f16d0d@mail.gmail.com>
-References: <20080526115628.GA31316@elte.hu> <1211966834.12349.62.camel@twins>
-	 <a01a16b50805310725x4f1c375ep2d091bb044ac0787@mail.gmail.com>
-	 <Pine.LNX.4.64.0805311839540.2657@wrl-59.cs.helsinki.fi>
-	 <484191BD.8000904@gmail.com>
-	 <Pine.LNX.4.64.0805312119270.2672@wrl-59.cs.helsinki.fi>
-	 <a01a16b50805311325w7f58ca69h93d02af9bc28d2ea@mail.gmail.com>
-	 <Pine.LNX.4.64.0805312332270.2760@wrl-59.cs.helsinki.fi>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows with MD5SIG enabled
+Date: Sat, 31 May 2008 15:01:56 -0700
+Message-ID: <396556a20805311501n81696degf41c49d98192b54d@mail.gmail.com>
+References: <396556a20805301140x586093e5o92d44e38f7c2869a@mail.gmail.com>
+	 <20080530190218.GD1743@solarflare.com>
+	 <396556a20805301211g7dd98ae7m185a356e611e81aa@mail.gmail.com>
+	 <396556a20805301217k293e5718h6bbf02bfe0683142@mail.gmail.com>
+	 <20080530133236.24675c23@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, "Ingo Molnar" <mingo@elte.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Transfer-Encoding: 7bit
+Cc: "Ben Hutchings" <bhutchings@solarflare.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.232]:45620 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.231]:60152 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753894AbYEaVp5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 17:45:57 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so414334rvb.1
-        for <netdev@vger.kernel.org>; Sat, 31 May 2008 14:45:56 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0805312332270.2760@wrl-59.cs.helsinki.fi>
+	with ESMTP id S1753790AbYEaWCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 18:02:02 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so418045rvb.1
+        for <netdev@vger.kernel.org>; Sat, 31 May 2008 15:02:01 -0700 (PDT)
+In-Reply-To: <20080530133236.24675c23@extreme>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MjAwOC81LzMxIElscG8gSsOkcnZpbmVuIDxpbHBvLmphcnZpbmVuQGhlbHNpbmtpLmZpPjoKPiBP
-biBTYXQsIDMxIE1heSAyMDA4LCBIw6Vrb24gTMO4dmRhbCB3cm90ZToKPj4gMjAwOC81LzMxIEls
-cG8gSsOkcnZpbmVuIDxpbHBvLmphcnZpbmVuQGhlbHNpbmtpLmZpPjoKPj4gPiBTbyB5b3UgaGFk
-IHRoYXQgJy0nIGVhcmxpZXIgYW5kIHlvdSBjaGVja2VkIGF0IHRoYXQgdGltZSBidXQgdGhlCj4+
-ID4gY29ubmVjdGlvbiBpcyBub3cgYWxyZWFkeSBkZWFkPwo+Pgo+PiBUaGlzIGlzIG9ubHkgZnJv
-bSBjaGVja2luZyBhZnRlciB0aGUgY29ubmVjdGlvbiB3YXMgZGVhZC4KPgo+IENvdWxkIHlvdSBw
-bGVhc2UgcmVwaHJhc2UgdGhlIGFuc3dlciwgSSBmYWlsZWQgdG8gdW5kZXJzdGFuZCBpdC4uLiA6
-LSkKPiAuLi5Zb3Ugc2FpZCBlYXJsaWVyIHRoYXQgeW91IGhhZCAnLScgb3duZWQgY29ubmVjdGlv
-bnMgbGlrZSBJbmdvLCB3aGVuIGRpZAo+IHRoYXQgaGFwcGVuIChub3cgdGhlIGNvbm5lY3Rpb25z
-IHdvbid0IGV4aXN0cyBhbnltb3JlLCBzbyBhdCB3aGF0IHBvaW50IG9mCj4gdGltZSB5b3Ugc2F3
-IHRob3NlIG5vbi1vd25lZCBjb25uZWN0aW9ucyk/CgpXaGF0IEkgbWVhbiBpcyB0aGF0IEkganVz
-dCB0ZXN0ZWQgIm5ldHN0YXQgLXAiIGFuZCBub3RpY2VkIHNpbWlsYXJpdGllcwp3aXRoIEluZ28n
-cyByZXN1bHQgdG9kYXkgd2hpbGUgcmVwbHlpbmcgdG8gdGhpcyB0aHJlYWQsIHdoaWNoIGlzIGRh
-eXMKYWZ0ZXIgdGhlIGNvbm5lY3Rpb25zIGVuZGVkLgoKQlIgSMOla29uIEzDuHZkYWwK
+On Fri, May 30, 2008 at 1:32 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> Your mailer is wrapping lines so patch is munged.
+
+Will use a better MUA in future, thanks.
+
+> You can just do:
+>
+> +       struct tcp_md5sig_key *md5 = NULL;
+>  #ifdef CONFIG_TCP_MD5SIG
+> -       struct tcp_md5sig_key *md5;
+>        __u8 *md5_hash_location;
+>  #endif
+
+Will do; hopefully final version of the patch coming in a second.. thanks
+
+
+AGL
+
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
