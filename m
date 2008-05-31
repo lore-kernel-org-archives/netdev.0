@@ -1,8 +1,8 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Bill Fink <billfink@mindspring.com>
 Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
  e1000/pcnet32
-Date: Fri, 30 May 2008 19:41:13 -0700
-Message-ID: <20080530194113.25b77988@extreme>
+Date: Sat, 31 May 2008 00:47:03 -0400
+Message-ID: <20080531004703.a081c18f.billfink@mindspring.com>
 References: <482DA5B6.1020606@sngx.net>
 	<482DB46A.8020103@cosmosbay.com>
 	<482EF192.4070707@sngx.net>
@@ -17,61 +17,61 @@ References: <482DA5B6.1020606@sngx.net>
 	<20080530151250.b44a119a.billfink@mindspring.com>
 	<48407C51.7090405@hp.com>
 	<20080530210931.5970c975.billfink@mindspring.com>
+	<20080530194113.25b77988@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:52471 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750985AbYEaClb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2008 22:41:31 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1K2H26-0008WL-3H
-	for netdev@vger.kernel.org; Sat, 31 May 2008 02:41:26 +0000
-Received: from pool-71-245-98-107.ptldor.fios.verizon.net ([71.245.98.107])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 31 May 2008 02:41:26 +0000
-Received: from shemminger by pool-71-245-98-107.ptldor.fios.verizon.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 31 May 2008 02:41:26 +0000
-In-Reply-To: <20080530210931.5970c975.billfink@mindspring.com>
+Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:40964 "EHLO
+	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750889AbYEaErJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 00:47:09 -0400
+In-Reply-To: <20080530194113.25b77988@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 May 2008 21:09:31 -0400
-Bill Fink <billfink@mindspring.com> wrote:
+On Fri, 30 May 2008, Stephen Hemminger wrote:
 
-> On Fri, 30 May 2008, Rick Jones wrote:
+> On Fri, 30 May 2008 21:09:31 -0400
+> Bill Fink <billfink@mindspring.com> wrote:
 > 
-> > > Saving stats output and running beforeafter on a number of systems is
-> > > a royal pain when troubleshooting.
+> > On Fri, 30 May 2008, Rick Jones wrote:
 > > 
-> > Well, with that ringing endorsement :) I would like to state that 
-> > Yoshihiro Ishijima has fixed some bugs in beforeafter and it will now 
-> > deal with /proc/interrupts output better than before.
+> > > > Saving stats output and running beforeafter on a number of systems is
+> > > > a royal pain when troubleshooting.
+> > > 
+> > > Well, with that ringing endorsement :) I would like to state that 
+> > > Yoshihiro Ishijima has fixed some bugs in beforeafter and it will now 
+> > > deal with /proc/interrupts output better than before.
+> > > 
+> > > ftp://ftp.cup.hp.com/dist/networking/tools/
 > > 
-> > ftp://ftp.cup.hp.com/dist/networking/tools/
+> > Nothing against beforefter.  It's a very useful tool, especially
+> > given Linux's lack of a method to clear interface counters.  But
+> > it still is very cumbersome to use in the scenario I mentioned,
+> > having to save the stats before and after a test on each of several
+> > systems, and then having to run beforeafter on each of those systems.
+> > Then you need to do this all again for every test run.  It's just
+> > not very efficient.
+> > 
+> > I don't know why the major objection to adding a small amount of
+> > code to the kernel that would make life a lot easier for hundreds
+> > (or more) of Linux network adminstrators.  And the snapshot/diff
+> > idea would not be complex to maintain and would also address the
+> > issue of some hardware not having a clear hw stats capability.
+> > 
+> > 						-Bill
 > 
-> Nothing against beforefter.  It's a very useful tool, especially
-> given Linux's lack of a method to clear interface counters.  But
-> it still is very cumbersome to use in the scenario I mentioned,
-> having to save the stats before and after a test on each of several
-> systems, and then having to run beforeafter on each of those systems.
-> Then you need to do this all again for every test run.  It's just
-> not very efficient.
-> 
-> I don't know why the major objection to adding a small amount of
-> code to the kernel that would make life a lot easier for hundreds
-> (or more) of Linux network adminstrators.  And the snapshot/diff
-> idea would not be complex to maintain and would also address the
-> issue of some hardware not having a clear hw stats capability.
-> 
-> 						-Bill
+> ifstat from iproute2 tools also keeps state to compute number
+> of packets since last update as well. Come on, it isn't that
+> hard.
 
-ifstat from iproute2 tools also keeps state to compute number
-of packets since last update as well. Come on, it isn't that
-hard.
+Thanks for the pointer.  I wasn't aware of ifstat (it's not installed
+by default on any of my systems).  I will check out ifstat and see what
+it can do.
 
+						-Thanks
+
+						-Bill
