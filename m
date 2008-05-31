@@ -1,48 +1,52 @@
-From: Ingo Molnar <mingo@elte.hu>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Sat, 31 May 2008 18:35:01 +0200
-Message-ID: <20080531163501.GB22607@elte.hu>
-References: <20080526115628.GA31316@elte.hu> <20080529084524.GA24892@elte.hu> <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi> <20080529112257.GA18130@elte.hu> <20080530181839.GA31915@elte.hu> <20080531060947.GA26441@elte.hu> <Pine.LNX.4.64.0805311431100.2329@wrl-59.cs.helsinki.fi> <Pine.LNX.4.64.0805311505410.2329@wrl-59.cs.helsinki.fi> <20080531125428.GA22111@elte.hu> <Pine.LNX.4.64.0805311555570.2329@wrl-59.cs.helsinki.fi>
+Date: Sat, 31 May 2008 20:22:23 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0805312020520.2672@wrl-59.cs.helsinki.fi>
+References: <20080526115628.GA31316@elte.hu> <1211966834.12349.62.camel@twins>
+ <a01a16b50805310725x4f1c375ep2d091bb044ac0787@mail.gmail.com>
+ <Pine.LNX.4.64.0805311839540.2657@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
+Content-Type: MULTIPART/Mixed; boundary="-696208474-1647873004-1212250192=:2657"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
 	"David S. Miller" <davem@davemloft.net>,
 	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+	Andrew Morton <akpm@linux-foundation.org>
+To: "=?ISO-8859-1?Q?H=E5kon_L=F8vdal?=" <hlovdal@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:56977 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752950AbYEaQfq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 May 2008 12:35:46 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0805311555570.2329@wrl-59.cs.helsinki.fi>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47995 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752768AbYEaRWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 13:22:25 -0400
+In-Reply-To: <Pine.LNX.4.64.0805311839540.2657@wrl-59.cs.helsinki.fi>
+Content-ID: <Pine.LNX.4.64.0805312020521.2672@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-* Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+---696208474-1647873004-1212250192=:2657
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0805312020522.2672@wrl-59.cs.helsinki.fi>
 
-> > what is the easiest way to figure out whether my version of distcc=20
-> > enables TCP_DEFER_ACCEPT?
->=20
-> strace distccd (the listening party is the interesting one here, not=20
-> the distcc)?
->=20
-> ...setsockopt(listenfd, SOL_TCP, TCP_DEFER_ACCEPT, &val, sizeof(val))=
-=20
-> seems to be the magic trick that is interestion here.
+On Sat, 31 May 2008, Ilpo Järvinen wrote:
 
-seems to be used:
+> On Sat, 31 May 2008, Håkon Løvdal wrote:
+> 
+> > posted a few days ago are somewhat different from mine, however I believe
+> > this is the same problem or at least related. Just as Ingo experienced,
+> > netstat -p only shows PID/program as '-' for the hung connections while
+> > for other connections it shows the expected results.
+> 
+> Hmm, are the other end's processes still there? ...I'd be interested to 
+> know what they're doing at the moment...
 
- 22003 write(3, "distccd[22003] (dcc_listen_by_ad"..., 62) =3D 62
- 22003 listen(4, 10)                     =3D 0
- 22003 setsockopt(4, SOL_TCP, TCP_DEFER_ACCEPT, [1], 4) =3D 0
+I meant that end where you see this '-'. I suppose it's easy for you to 
+figure out which process is the right one, something that wouldn't be so 
+easy with the Ingo's test case which forks/exits numerous times.
 
-i'll queue up your reverts for testing in -tip.
-
-	Ingo
+-- 
+ i.
+---696208474-1647873004-1212250192=:2657--
