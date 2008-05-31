@@ -1,144 +1,100 @@
-From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Subject: Re: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
-Date: Sun, 1 Jun 2008 00:12:24 +0200
-Message-ID: <20080531221223.GA2630@yamamaya.is-a-geek.org>
-References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <20080518150908.GA4606@yamamaya.is-a-geek.org> <20080525150444.GA29739@yamamaya.is-a-geek.org> <20080525181329.GA5044@yamamaya.is-a-geek.org> <20080527062153.GA3651@yamamaya.is-a-geek.org>
+From: Patrick McManus <mcmanus@ducksong.com>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Sat, 31 May 2008 18:46:14 -0400
+Message-ID: <1212273974.28319.107.camel@tng>
+References: <20080526115628.GA31316@elte.hu>
+	 <20080529084524.GA24892@elte.hu>
+	 <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi>
+	 <20080529112257.GA18130@elte.hu> <20080530181839.GA31915@elte.hu>
+	 <20080531060947.GA26441@elte.hu>
+	 <Pine.LNX.4.64.0805311431100.2329@wrl-59.cs.helsinki.fi>
+	 <Pine.LNX.4.64.0805311505410.2329@wrl-59.cs.helsinki.fi>
+	 <20080531125428.GA22111@elte.hu>
+	 <Pine.LNX.4.64.0805311555570.2329@wrl-59.cs.helsinki.fi>
+	 <20080531163501.GB22607@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
+Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
 	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Davi
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080527062153.GA3651@yamamaya.is-a-geek.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Andrew Morton <akpm@linux-foundation.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from linode.ducksong.com ([64.22.125.164]:41343 "EHLO
+	linode.ducksong.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795AbYEaWpy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 18:45:54 -0400
+In-Reply-To: <20080531163501.GB22607@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tobias Diedrich wrote:
-> Tobias Diedrich wrote:
-> > Tobias Diedrich wrote:
-> > > So my BIOS is not as borked as I thought and it should be possibl=
+On Sat, 2008-05-31 at 18:35 +0200, Ingo Molnar wrote:
+> * Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+>=20
+
+> > ...setsockopt(listenfd, SOL_TCP, TCP_DEFER_ACCEPT, &val, sizeof(val=
+))=20
+> > seems to be the magic trick that is interestion here.
+>=20
+> seems to be used:
+>=20
+>  22003 write(3, "distccd[22003] (dcc_listen_by_ad"..., 62) =3D 62
+>  22003 listen(4, 10)                     =3D 0
+>  22003 setsockopt(4, SOL_TCP, TCP_DEFER_ACCEPT, [1], 4) =3D 0
+>=20
+> i'll queue up your reverts for testing in -tip.
+
+
+So the code you will revert came from my fingers. The circumstances her=
 e
-> > > to wake up the machine even with platform.  Further debugging wil=
-l
-> > > have to wait until at least next weekend though (maybe longer)...
-> >=20
-> > Or maybe it doesn't have to wait, I was just too curious:
-> >=20
-> > Summary first: I got platform mode to work!
-> >=20
-> > After grepping and reading through kernel/power/disk.c and
-> > (rather obfuscated) drivers/acpi/.* code, and reading up on
-> > ACPI _GPE (General Purpose Event?), and having a look at my DSDT I
-> > noticed two things:
-> >=20
-> > 1) The network controllers are assigned to their own _GPE bits(pins=
-?):
-> > |[...]
-> > |    Scope (\_GPE)
-> > |    {
-> > |[...]
-> > |        Method (_L0B, 0, NotSerialized)
-> > |        {
-> > |            Notify (\_SB.PCI0.MMAC, 0x02)
-> > |        }
-> > |
-> > |        Method (_L0A, 0, NotSerialized)
-> > |        {
-> > |            Notify (\_SB.PCI0.MAC1, 0x02)
-> > |        }
-> > |[...]
-> >=20
-> > 2) drivers/acpi/sleep/proc.c registers a 'wakeup' file:
-> > |        proc_create("wakeup", S_IFREG | S_IRUGO | S_IWUSR,
-> > |                    acpi_root_dir, &acpi_system_wakeup_device_fops=
-);
-> >=20
-> > And I then remembered that someone said in
-> > http://bugzilla.kernel.org/show_bug.cgi?id=3D8381
-> > it works for him if he writes $MAGICVALUE into a proc file.
-> >=20
-> > And yes, if I write 'MMAC' and 'MAC1' into /proc/acpi/wakeup, then
-> > wake-on-lan works even in platform mode.
-> >=20
-> > So...
-> > AFAICS this bit of setup magic should not be required, because:
-> >=20
-> > 1) /proc/acpi/wakeup knows which pci device is associated to each G=
-PE bit
-> > |ranma@melchior:~$ cat /proc/acpi/wakeup=20
-> > |Device	S-state	  Status   Sysfs node
-> > |HUB0	  S5	 disabled  pci:0000:00:06.0
-> > |XVR0	  S5	 disabled =20
-> > |XVR1	  S5	 disabled  pci:0000:00:0e.0
-> > |XVR2	  S5	 disabled =20
-> > |XVR3	  S5	 disabled =20
-> > |XVR4	  S5	 disabled =20
-> > |XVR5	  S5	 disabled  pci:0000:00:0a.0
-> > |UAR1	  S5	 disabled  pnp:00:09
-> > |PS2K	  S4	 disabled  pnp:00:0b
-> > |USB0	  S4	 disabled  pci:0000:00:02.0
-> > |USB2	  S4	 disabled  pci:0000:00:02.1
-> > |AZAD	  S5	 disabled  pci:0000:00:06.1
-> > |MMAC	  S5	 enabled   pci:0000:00:08.0
-> > |MAC1	  S5	 enabled   pci:0000:00:09.0
-> > (values after manually enabling MMAC and MAC1)
-> >=20
-> > 2) kernel/power/disk.c calls hibernation_ops->enter(), which is
-> > acpi_suspend_enter, which calls acpi_enable_wakeup_device, which
-> > sets up GPE wakup bits.  This _should_ take care of enabling MMAC
-> > and MAC1 automatically, but apparently does not work correctly at
-> > some point.
-> >=20
-> > I guess someone more knowledgable in ACPI stuff should have a look
-> > at this.
->=20
-> Any reason this patch hasn't made it into the kernel so far?
-> http://lists.laptop.org/pipermail/devel/2007-April/004691.html
->=20
-> (Ok, I tried getting it to apply to a current kernel, but it
-> a splodes (reboots instead of powering off, last message on the
-> serial console is "ACPI handle has no context!", see below))
->=20
-> The platform_enable_wakeup() hook is still there, but unused.
-> AFAICS this patch should solve the "'ethtool -s eth0 wol g' doesn't
-> suffice, I also have to write magic values into /proc/acpi/wakeup"
-> issue.
+make me nervous; while I'm at a loss to explain what might be going on
+in particular, let me offer an apology in advance should the revert hel=
+p
+resolve the issue.
 
-Ok, after another long debugging session I finally found out the
-reason for the immediate reboot (after finding the place that
-suspends the serial console (drivers/pnp) and disabling that suspend
-path):
-The system is woken up by USB activity! (Optical mouse, anyone?)
+Here's what makes me nervous:
 
-Lo and behold:
-drivers/usb/core/hcd-pci.c tries it's best to activate 'wake on
-usb', which I didn't know since it apparently also never worked.
-However, after applying the 'use platform_enable_wakeup'-patch,
-not only forcedeth wake starts working, also usb wake.
-If I prevent usb wake:
-|echo disabled > /sys/devices/pci0000\:00/0000\:00\:02.0/power/wakeup'
-|echo disabled > /sys/devices/pci0000\:00/0000\:00\:02.1/power/wakeup'
-And then hibernate in platform mode, the immediate reboot is gone
-and waking up using magic packets works fine even without setting up
-/proc/acpi/wakeup first.
+ * not a lot of code uses DEFER_ACCEPT.. frankly it was pretty broken
+before 26 - but not broken this way .. the correlation of your bug usin=
+g
+it is significant.=20
 
-Maybe I should try hooking mouse and keyboard onto different usb
-host controllers, so I can disable wakeup for the mouse host
-controller and enable wakeup for the keyboard host controller,
-then it should be possible to wake the system by pressing a key. :)
+ * in 26, a server TCP socket (with DA) goes to ESTABLISHED when the 3r=
+d
+part of the handshake is received (as normal without DA), but the socke=
+t
+isn't put on the accept queue until a real data packet arrives. (That's
+the point of DA). In <=3D 25 this socket would have syn-recv until the
+data packet arrived.
 
---=20
-Tobias						PGP: http://9ac7e0bc.uguu.de
-=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
-=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
-=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
-=E3=81=99=E3=80=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  - I did run tests where the server died in between the handshake bein=
+g
+completed and first data packet arriving - the client should see RST an=
+d
+the server socket should disappear. But maybe something was missed?
+
+Do I understand this correctly, the server process is gone but the
+socket is still in the table? And the client process is still there
+waiting for the server to do something - having sent a bunch of data?
+
+Do we know if any data bytes (not handshake bytes) have been consumed b=
+y
+the server side? If they were, that would seem to vindicate DA.
+
+Also pointing away from DA is that you started seeing this with rc3 -
+that code was included in rc1.Is that a firm observation, or maybe ther=
+e
+weren't enough datapoints to conclude that rc1 and rc2 were clean?
+
+The most interesting patch is ec3c0982a2dd1e671bad8e9d26c28dcba0039d87
+if anyone wants to eyeball it.
+
+
+
+=20
+
