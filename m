@@ -1,90 +1,57 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
 Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Sat, 31 May 2008 21:37:44 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805312119270.2672@wrl-59.cs.helsinki.fi>
+Date: Sat, 31 May 2008 22:25:22 +0200
+Message-ID: <a01a16b50805311325w7f58ca69h93d02af9bc28d2ea@mail.gmail.com>
 References: <20080526115628.GA31316@elte.hu> <1211966834.12349.62.camel@twins>
- <a01a16b50805310725x4f1c375ep2d091bb044ac0787@mail.gmail.com>
- <Pine.LNX.4.64.0805311839540.2657@wrl-59.cs.helsinki.fi> <484191BD.8000904@gmail.com>
+	 <a01a16b50805310725x4f1c375ep2d091bb044ac0787@mail.gmail.com>
+	 <Pine.LNX.4.64.0805311839540.2657@wrl-59.cs.helsinki.fi>
+	 <484191BD.8000904@gmail.com>
+	 <Pine.LNX.4.64.0805312119270.2672@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1135271880-1212259064=:2672"
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
 Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	Netdev <netdev@vger.kernel.org>, "Ingo Molnar" <mingo@elte.hu>,
 	"David S. Miller" <davem@davemloft.net>,
 	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "=?UTF-8?B?SMOla29uIEzDuHZkYWw=?=" <hlovdal@gmail.com>
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48570 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753338AbYEaSiG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 14:38:06 -0400
-In-Reply-To: <484191BD.8000904@gmail.com>
+Received: from rv-out-0506.google.com ([209.85.198.234]:42518 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752811AbYEaUZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 16:25:23 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so396208rvb.1
+        for <netdev@vger.kernel.org>; Sat, 31 May 2008 13:25:22 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0805312119270.2672@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-1135271880-1212259064=:2672
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Sat, 31 May 2008, Håkon Løvdal wrote:
-
-> Ilpo Järvinen wrote:
-> > Hmm, are the other end's processes still there? ...I'd be interested to know
-> > what they're doing at the moment...
-> 
-> > I meant that end where you see this '-'. I suppose it's easy for you to
-> > figure out which process is the right one, something that wouldn't be so
-> > easy with the Ingo's test case which forks/exits numerous times.
-> 
-> > Died? Do you mean that they don't exist all at the other end anymore?
-
-Ok, like you said, this is not exactly the same, though it might be due to 
-the same bug. In Ingo's case both endpoints were doing pretty healtily, 
-with periodic window probes as expected. In your case TCP is not doing 
-window probes but got that interesting RTO value.
-
-So you had that '-' earlier and you checked at that time but the 
-connection is now already dead?
-
-> The ssh connection used for copying (using the command <ssh old_pc "cd
-> /directory; tar cvf - *" | pv | tar xvf ->) died in the following way:
->   ...
->   Read from remote host old_pc: Connection timed out
->   51.4GB 4:26:19 [3.29MB/s] [<=>                                   ]
->   tar: Unexpected EOF in archive
->   tar: Unexpected EOF in archive
->   tar: Error is not recoverable: exiting now
-> 
-> and there are currently no traces of those ssh processes any longer on
-> the new PC, only these two active ssh interactive connections are present:
-
-:-(, I would some much liked to see what they were doing.
-
-> old_pc>sed -n '1p; /:0016/p' /proc/net/tcp
-> sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt
-> uid  timeout inode
-> 12: 00000000:0016 00000000:0000 0A 00000000:00000000 00:00000000 00000000
-> 0        0 7627 1 f384b080 3000 0 0 2 -1
-> 17: 111111AC:0016 480111AC:CDBB 01 00000000:00000000 02:0001AA7B 00000000
-> 0        0 1110320 2 f02e6580 201 53 7 3 -1
-> 20: 111111AC:0016 480111AC:AB31 01 00000000:00000000 02:000A18F1 00000000
-> 0        0 583506 4 f71a8080 201 40 29 3 -1
-> 21: 111111AC:0016 480111AC:E4E9 01 00000B50:00000000 01:7D1F8746 00000000
-> 0        0 398713 5 f71a8580 205 40 1 36 -1
-> 23: 111111AC:0016 480111AC:D359 01 000010F8:00000000 01:7D19A035 00000000
-> 0        0 396426 5 f71a8a80 202 42 1 144 -1
-> 25: 111111AC:0016 480111AC:8565 01 00000B50:00000000 01:7CEBA7D1 00000000
-> 0        0 349113 5 eeeaf580 204 40 1 26 -1
-> old_pc>
-
-These 7C/D... certainly seem strange values. Which TCP variant you have in 
-use (cat /proc/sys/net/ipv4/tcp_congestion_control)? It seems that vegas, 
-veno and yeah at least contain 0x7fffffff there for some rtt, which could 
-perhaps somehow leak.
-
--- 
- i.
----696208474-1135271880-1212259064=:2672--
+MjAwOC81LzMxIElscG8gSsOkcnZpbmVuIDxpbHBvLmphcnZpbmVuQGhlbHNpbmtpLmZpPjoKPiBP
+aywgbGlrZSB5b3Ugc2FpZCwgdGhpcyBpcyBub3QgZXhhY3RseSB0aGUgc2FtZSwgdGhvdWdoIGl0
+IG1pZ2h0IGJlIGR1ZSB0bwo+IHRoZSBzYW1lIGJ1Zy4gSW4gSW5nbydzIGNhc2UgYm90aCBlbmRw
+b2ludHMgd2VyZSBkb2luZyBwcmV0dHkgaGVhbHRpbHksCj4gd2l0aCBwZXJpb2RpYyB3aW5kb3cg
+cHJvYmVzIGFzIGV4cGVjdGVkLiBJbiB5b3VyIGNhc2UgVENQIGlzIG5vdCBkb2luZwo+IHdpbmRv
+dyBwcm9iZXMgYnV0IGdvdCB0aGF0IGludGVyZXN0aW5nIFJUTyB2YWx1ZS4KPgo+IFNvIHlvdSBo
+YWQgdGhhdCAnLScgZWFybGllciBhbmQgeW91IGNoZWNrZWQgYXQgdGhhdCB0aW1lIGJ1dCB0aGUK
+PiBjb25uZWN0aW9uIGlzIG5vdyBhbHJlYWR5IGRlYWQ/CgpUaGlzIGlzIG9ubHkgZnJvbSBjaGVj
+a2luZyBhZnRlciB0aGUgY29ubmVjdGlvbiB3YXMgZGVhZC4gQnkgdGhlIHdheSwKSSBqdXN0IGhh
+ZCB0byByZW1vdGVseSByZWJvb3QgdGhlIG5ldyBtYWNoaW5lIGJlY2F1c2UgdGhlIHdpbmRvdwpt
+YW5hZ2VyIGxvY2tlZCB1cCwgaG93ZXZlciB0aGUgb2xkIFBDIGFyZSBzdGlsbCBsaXN0aW5nIHRo
+ZSBkZWZ1bmN0CmNvbm5lY3Rpb25zIGFmdGVyIHRoaXMuCgoKPiA6LSgsIEkgd291bGQgc29tZSBt
+dWNoIGxpa2VkIHRvIHNlZSB3aGF0IHRoZXkgd2VyZSBkb2luZy4KCkkgY2FuIG9mIGNvdXJzZSBr
+ZWVwIG9uIGNvcHlpbmcgZm9yIHRlc3RpbmcgcHVycG9zZXMsIGJ1dCB0aGVuIEkgd291bGQgbGlr
+ZSB0bwpiZSBhYmxlIHRvIGR1bXAgb25seSB0aGF0IHNpbmdsZSB0Y3AgY29ubmVjdGlvbiwgYW55
+IHRpcHMgb2YgaG93IHRvIGRvIHRoYXQ/CkkgZm91bmQgbm90aGluZyBzcGVjaWZpYyBpbiB0aGUg
+bWFudWFscyBvZiB3aXJlc2hhcmsgYW5kIHRjcGR1bXAuIE9mIGNvdXJzZQppdCBpcyBwb3NzaWJs
+ZSB0byBjYXB0dXJlIGV2ZXJ5dGhpbmcgYW5kIGZpbHRlciBhZnRlcndhcmRzLCBidXQgc2luY2Ug
+SSB3aWxsIGJlCnRyYW5zZmVycmluZyBsb3RzIG9mIGRhdGEgdGhlIGxvZ3Mgd2lsbCBnZXQgaHVn
+ZSBhbmQgSSB3b3VsZCBub3QgbGlrZSB0byBoYXZlCmV2ZW4gYWRkaXRpb25hbCB0cmFmZmljIGlu
+c2lkZS4uLgoKCj4gVGhlc2UgN0MvRC4uLiBjZXJ0YWlubHkgc2VlbSBzdHJhbmdlIHZhbHVlcy4g
+V2hpY2ggVENQIHZhcmlhbnQgeW91IGhhdmUgaW4KPiB1c2UgKGNhdCAvcHJvYy9zeXMvbmV0L2lw
+djQvdGNwX2Nvbmdlc3Rpb25fY29udHJvbCk/IEl0IHNlZW1zIHRoYXQgdmVnYXMsCj4gdmVubyBh
+bmQgeWVhaCBhdCBsZWFzdCBjb250YWluIDB4N2ZmZmZmZmYgdGhlcmUgZm9yIHNvbWUgcnR0LCB3
+aGljaCBjb3VsZAo+IHBlcmhhcHMgc29tZWhvdyBsZWFrLgoKSSBoYXZlIG5vdCBkb25lIGFueSBz
+cGVjaWZpYyBzZWxlY3Rpb24gbXlzZWxmLiBPbiBvbGRfcGM6IGJpYywgbmV3X3BjOiBjdWJpYy4K
+CkJSIEjDpWtvbiBMw7h2ZGFsCg==
