@@ -1,46 +1,44 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
- e1000/pcnet32
-Date: Sat, 31 May 2008 13:11:43 +0100
-Message-ID: <20080531131143.516ca56e@core>
-References: <482DA5B6.1020606@sngx.net>
-	<482DB46A.8020103@cosmosbay.com>
-	<482EF192.4070707@sngx.net>
-	<482F5113.5090703@cosmosbay.com>
-	<482F610D.2080108@sngx.net>
-	<20080518003104.GK28241@solarflare.com>
-	<482FBA09.80201@sngx.net>
-	<483E0AAE.2020107@sngx.net>
-	<20080528221118.63da4092.akpm@linux-foundation.org>
-	<483EA2D1.8050603@sngx.net>
-	<20080529154525.3916c7b5@core>
-	<20080530151250.b44a119a.billfink@mindspring.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Sat, 31 May 2008 14:54:28 +0200
+Message-ID: <20080531125428.GA22111@elte.hu>
+References: <20080526115628.GA31316@elte.hu> <20080529084524.GA24892@elte.hu> <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi> <20080529112257.GA18130@elte.hu> <20080530181839.GA31915@elte.hu> <20080531060947.GA26441@elte.hu> <Pine.LNX.4.64.0805311431100.2329@wrl-59.cs.helsinki.fi> <Pine.LNX.4.64.0805311505410.2329@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: James Cammarata <jimi@sngx.net>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Bill Fink <billfink@mindspring.com>
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:53841 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751601AbYEaM0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 08:26:13 -0400
-In-Reply-To: <20080530151250.b44a119a.billfink@mindspring.com>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:35077 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751869AbYEaMzL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 May 2008 08:55:11 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0805311505410.2329@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> When diagnosing network problems, the ability to zero counters is
-> a major aid in diagnosis.  Writing scripts is not a general solution
-> since often several systems are involved and it's not simple to do
-> this via a script.  Saving stats output and running beforeafter on
-> a number of systems is a royal pain when troubleshooting.
 
-Zeroing them is not a general solution either - you break all the other
-tools monitoring the same stats in parallel - like network usage monitors.
+* Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
 
-This is a user space tools problem, scripts or otherwise.
+> > Btw, does your distcc perhaps happen enable TCP_DEFER_ACCEPT (there=
+=20
+> > were some post 2.6.25 changes into it)?
+>=20
+> Hmm, if so, please try this revert below (I hope I got everything tha=
+t=20
+> is related there, gitk is currently broken for me so that viewing man=
+y=20
+> commits quickly is a pain, so I might have accidently missed=20
+> something)...
 
-Alan
+what is the easiest way to figure out whether my version of distcc=20
+enables TCP_DEFER_ACCEPT?
+
+	Ingo
