@@ -1,47 +1,57 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] sysctl: allow override of /proc/sys/net with CAP_NET_ADMIN
-Date: Fri, 30 May 2008 18:59:26 -0700
-Message-ID: <m1wslbcjy9.fsf@frodo.ebiederm.org>
-References: <200805292349.m4TNneua029348@imap1.linux-foundation.org>
-	<20080530161857.25e3fbc5@extreme>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: PATCH for [Bug 8952] tulip driver oops in tulip_interrupt when
+ hibernating with swsusp/suspend2
+Date: Fri, 30 May 2008 22:09:35 -0400
+Message-ID: <4840B35F.7080807@pobox.com>
+References: <20080512063751.GH32317@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linuxfoundation.org, Chris Wright <chrisw@sous-sol.org>,
-	stephen.hemminger@vyatta.com, adobriyan@gmail.com,
-	morgan@kernel.org, xemul@openvz.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:49052 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbYEaCBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 22:01:01 -0400
-In-Reply-To: <20080530161857.25e3fbc5@extreme> (Stephen Hemminger's message of
-	"Fri, 30 May 2008 16:18:57 -0700")
+Received: from srv5.dvmed.net ([207.36.208.214]:37052 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750705AbYEaCJi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 22:09:38 -0400
+In-Reply-To: <20080512063751.GH32317@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+Grant Grundler wrote:
+> Jeff,
+> The following patch is seems to fix the tulip suspend/resume panic:
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=8952#c46
+> 
+> My attempts at a cleaner patch failed and Pavel thinks this is OK.
+> Since suspend/resume is getting an overhaul in 2.6.27 (per comment
+> #49 by  Rafael J. Wysocki), it makes sense to invest more time as
+> part of that rework and apply the known fix to 2.6.26.
+> 
+> hth,
+> grant
+> 
+> Original from:  kernelbugs@tap.homeip.net
+> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+> 
+> diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
+> index f9d13fa..088d3bf 100644
+> --- a/drivers/net/tulip/tulip_core.c
+> +++ b/drivers/net/tulip/tulip_core.c
+> @@ -1729,12 +1729,15 @@ static int tulip_suspend (struct pci_dev *pdev, pm_message_t state)
+>  	if (!dev)
+>  		return -EINVAL;
+>  
+> -	if (netif_running(dev))
+> -		tulip_down(dev);
+> +	if (!netif_running(dev))
+> +		goto save_state:
+> +
+> +	tulip_down(dev);
 
-> Extend the permission check for networking sysctl's to allow
-> modification when current process has CAP_NET_ADMIN capability and
-> is not root. This version uses the until now unused permissions hook
-> to override the mode value for /proc/sys/net if accessed by a user
-> with capabilities.
+how could this be tested if it doesn't even compile?
 
-Looks reasonable but a little incomplete.
+Oh well, seems sane, let's see...
 
-Could you modify register_net_sysctl_table to set this attribute?
-Or alternatively all of the tables registered with register_net_sysctl.
 
-Otherwise I this will not affect all of the sysctls under
-/proc/sys/net.  Which appears to be your intent.
 
-> Found while working with Quagga. It is impossible to turn forwarding
-> on/off through the command interface because Quagga uses secure coding
-> practice of dropping privledges during initialization and only raising
-> via capabilities when necessary. Since the dameon has reset real/effective
-> uid after initialization, all attempts to access /proc/sys/net variables
-> will fail. 
-
-Eric
