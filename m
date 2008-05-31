@@ -1,112 +1,62 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH BUGFIX -rc4] Smack: Respect 'unlabeled' netlabel mode
-Date: Fri, 30 May 2008 17:37:48 -0700 (PDT)
-Message-ID: <806671.48689.qm@web36606.mail.mud.yahoo.com>
-References: <20080531005826.GA6945@ubuntu>
-Reply-To: casey@schaufler-ca.com
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
+ e1000/pcnet32
+Date: Fri, 30 May 2008 21:09:31 -0400
+Message-ID: <20080530210931.5970c975.billfink@mindspring.com>
+References: <482DA5B6.1020606@sngx.net>
+	<482DB46A.8020103@cosmosbay.com>
+	<482EF192.4070707@sngx.net>
+	<482F5113.5090703@cosmosbay.com>
+	<482F610D.2080108@sngx.net>
+	<20080518003104.GK28241@solarflare.com>
+	<482FBA09.80201@sngx.net>
+	<483E0AAE.2020107@sngx.net>
+	<20080528221118.63da4092.akpm@linux-foundation.org>
+	<483EA2D1.8050603@sngx.net>
+	<20080529154525.3916c7b5@core>
+	<20080530151250.b44a119a.billfink@mindspring.com>
+	<48407C51.7090405@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Paul Moore <paul.moore@hp.com>,
-	linux-security-module@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
-	Casey Schaufler <casey@schaufler-ca.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080531005826.GA6945@ubuntu>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	James Cammarata <jimi@sngx.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:39089 "EHLO
+	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751367AbYEaBJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2008 21:09:41 -0400
+In-Reply-To: <48407C51.7090405@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 30 May 2008, Rick Jones wrote:
 
---- "Ahmed S. Darwish" <darwish.07@gmail.com> wrote:
-
-> Hi Casey,
+> > Saving stats output and running beforeafter on a number of systems is
+> > a royal pain when troubleshooting.
 > 
-> On Fri, May 30, 2008 at 04:10:37PM -0700, Casey Schaufler wrote:
-> > 
-> > 
-> > To date the behavior of a Smack system running with nltype
-> > unlabeled has been carefully undefined. 
-> >
+> Well, with that ringing endorsement :) I would like to state that 
+> Yoshihiro Ishijima has fixed some bugs in beforeafter and it will now 
+> deal with /proc/interrupts output better than before.
 > 
-> In the early days (before the 'Smack: unlabeled outgoing ambient packets'
-> patch - 4bc87e62), I used '$ echo unlabeled > /smack/nltype' in my startup 
-> scripts to avoid sending cipso-affected packets. When I upgraded this 
-> machine's kernel, I faced the -EPERM problem mentiond above. 
+> ftp://ftp.cup.hp.com/dist/networking/tools/
 
-Ok. I haven't done much work with nltype != CIPSO since that change.
-Since that change the behavior with nltype == CIPSO appears to meet
-most people's needs because:
-   - there's a way to talk to non-cipso systems (use the ambient label)
-   - you can talk multi-label to cipso aware systems (including yourself)
+Nothing against beforefter.  It's a very useful tool, especially
+given Linux's lack of a method to clear interface counters.  But
+it still is very cumbersome to use in the scenario I mentioned,
+having to save the stats before and after a test on each of several
+systems, and then having to run beforeafter on each of those systems.
+Then you need to do this all again for every test run.  It's just
+not very efficient.
 
-> > The way you're defining
-> > it will result in a system in which only processes running with
-> > the ambient label will be able to use sockets, unless I'm reading
-> > the code incorrectly. 
-> 
-> I've tried to see the relation but failed, any help?
+I don't know why the major objection to adding a small amount of
+code to the kernel that would make life a lot easier for hundreds
+(or more) of Linux network adminstrators.  And the snapshot/diff
+idea would not be complex to maintain and would also address the
+issue of some hardware not having a clear hw stats capability.
 
-Unlabeled packets have to all be treated as having the same label.
-That's what the ambient label is for. If you turn off cipso all
-packets must be treated as if they came from ambient labeled processes.
-If a process is running at some other label, and there is no rule
-to allow the ambient label subject to write to that process' label
-the packet can't be delivered. Thus, only ambient label processes
-will be able to use sockets.
-
-> I'm noticing the opposite though, without defining nltype=unlabeled, 
-> we're forcing every smack-labeled process to send cipso-affected 
-> packets (and usually no machine around understands cipso).
-
-Except at the ambient label, which sends packets unlabeled.
-Unlabeled packets get the ambient label and are delivered only
-to sockets that an ambient label subject can write to.
-This is the desired behavior. We don't want to deliver unlabeled
-packets to sockets that can't be writen to by ambient labeled subjects.
-
-> _Assuming_ the concept is accepted, depending on the ambient label
-> may actually lead to a race condition though:
-> 
-> - A packet is set with the ambient label domain
-> - Ambient label changes
->   - old ambient-label netlabel domain is deleted
->   - new ambient-label is set
->   - new ambient-label netlabel domain is created
-> - call netlabel_sock_setattr(), uses the old ambient label, leads
->   to the -EPERM problem.
->   -- Rare, but can happen
-
-I would consider additional restrictions on changing the
-ambient label and nltype. They should not be changing on
-a running system once it gets going.
-
-
-> There are two possible solutions in my mind:
-> 
-> - Using a predefined netlabel domain to denote to unlabeled packets.
->   Defect: May collide with a user chosen label and used to break security.
->   Solution: Use a domain name that can't become a label (Hackery ?)
-> 
-> - I've tried first to use what was done before the 'Smack: unlabeled outgoing
-> 
->   ambient packets' patch, which honored nltype=unlabeled, but ignored
-> netlabel
->   completely:
->   i.e.
-> 
->   int rc = 0;
->   if (secattr.flags != NETLBL_SECATTR_NONE)
->        rc = netlbl_sock_setattr(sk, &secattr);
->   return rc
-> 
->   Paul, would this be right from a netlabel perspective ?
-
-It might be that the right thing to do is remove nltype unlabeled.
-It's pretty pointless with the cipso nltype dealing with unlabeled
-packets by treating them as ambient.
-
-
-Casey Schaufler
-casey@schaufler-ca.com
+						-Bill
