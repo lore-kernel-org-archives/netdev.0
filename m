@@ -1,60 +1,41 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [Fwd: [PATCH 1/2] CS89X0: Add cleanup for dma after fail]
-Date: Fri, 30 May 2008 22:12:57 -0400
-Message-ID: <4840B429.60506@pobox.com>
-References: <483F721F.1090204@cn.fujitsu.com>
+Subject: Re: [PATCH] sfc: Report XAUI link down at default log level
+Date: Fri, 30 May 2008 22:13:02 -0400
+Message-ID: <4840B42E.4030707@pobox.com>
+References: <20080530211835.GE1743@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>, akpm@linux-foundation.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37113 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:37118 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752166AbYEaCNC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2008 22:13:02 -0400
-In-Reply-To: <483F721F.1090204@cn.fujitsu.com>
+	id S1752219AbYEaCNE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 22:13:04 -0400
+In-Reply-To: <20080530211835.GE1743@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-> Jeff, will you pick up this one?
-> I also cc Andrew, because his name is in the code.
+Ben Hutchings wrote:
+> This is normal when the external link is down so don't report it as an error.
 > 
-> From: Wang Chen <wangchen@cn.fujitsu.com>
-> 
-> After request_dma() succeeding, any error path should do free_dma().
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 > ---
->  drivers/net/cs89x0.c |   10 +++++++---
->  1 files changed, 7 insertions(+), 3 deletions(-)
+>  drivers/net/sfc/falcon_xmac.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
-> index 348371f..fba87ab 100644
-> --- a/drivers/net/cs89x0.c
-> +++ b/drivers/net/cs89x0.c
-> @@ -1394,7 +1394,11 @@ net_open(struct net_device *dev)
->  #endif
->          if (!result) {
->                  printk(KERN_ERR "%s: EEPROM is configured for unavailable media\n", dev->name);
-> -        release_irq:
-> +release_dma:
-> +#if ALLOW_DMA
-> +		free_dma(dev->dma);
-> +#endif
-> +release_irq:
->  #if ALLOW_DMA
->  		release_dma_buff(lp);
->  #endif
-> @@ -1442,12 +1446,12 @@ net_open(struct net_device *dev)
->  			if ((result = detect_bnc(dev)) != DETECTED_NONE)
->  				break;
->  		printk(KERN_ERR "%s: no media detected\n", dev->name);
-> -                goto release_irq;
-> +		goto release_dma;
+> diff --git a/drivers/net/sfc/falcon_xmac.c b/drivers/net/sfc/falcon_xmac.c
+> index 264e1ee..37d3cae 100644
+> --- a/drivers/net/sfc/falcon_xmac.c
+> +++ b/drivers/net/sfc/falcon_xmac.c
+> @@ -513,7 +513,7 @@ static int falcon_check_xaui_link_up(struct efx_nic *efx)
+>  		tries--;
 >  	}
+>  
+> -	EFX_ERR(efx, "Failed to bring XAUI link back up in %d tries!\n",
+> +	EFX_LOG(efx, "Failed to bring XAUI link back up in %d tries!\n",
+>  		max_tries);
 
 applied
 
