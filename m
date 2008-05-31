@@ -1,114 +1,78 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [Patch v3 1/1] [tcp/dccp]: Consolidate duplicate code which does
-	RFC3390 conversion
-Date: Sat, 31 May 2008 14:49:01 +0100
-Message-ID: <20080531134901.GA4757@gerrit.erg.abdn.ac.uk>
-References: <1211877167-10995-6-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-7-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-8-git-send-email-gerrit@erg.abdn.ac.uk> <20080527.063745.105720366.davem@davemloft.net> <20080528062451.GB4480@gerrit.erg.abdn.ac.uk>
+From: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Sat, 31 May 2008 16:25:47 +0200
+Message-ID: <a01a16b50805310725x4f1c375ep2d091bb044ac0787@mail.gmail.com>
+References: <20080526115628.GA31316@elte.hu> <1211966834.12349.62.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: "Ingo Molnar" <mingo@elte.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:51336 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754216AbYEaNtZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 May 2008 09:49:25 -0400
+Received: from rv-out-0506.google.com ([209.85.198.239]:12298 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752629AbYEaOZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 10:25:49 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so304659rvb.1
+        for <netdev@vger.kernel.org>; Sat, 31 May 2008 07:25:47 -0700 (PDT)
+In-Reply-To: <1211966834.12349.62.camel@twins>
 Content-Disposition: inline
-In-Reply-To: <20080528062451.GB4480@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please disregard previous version of this patch, which had an error:
-when `bytes' == 1095, the sender can still send 4 full windows (4*1095 = 4380).
-The inter-diff to the previous version is:
-
-	-	return bytes < 1095 ? 4 : (bytes > 1460 ? 2 : 3);
-	+	return bytes <= 1095 ? 4 : (bytes > 1460 ? 2 : 3);
-
-
------------------------------> Patch v2 <------------------------------------------	
-tcp/dccp: Consolidate duplicate code which does RFC3390 conversion
-
-This patch consolidates the code common to TCP and CCID-2:
-
- * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
- * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- include/net/tcp.h      |   15 +++++++++++++++
- net/dccp/ccids/ccid2.c |    8 ++------
- net/ipv4/tcp_input.c   |   17 ++---------------
- 3 files changed, 19 insertions(+), 21 deletions(-)
-
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -783,6 +783,21 @@ static inline __u32 tcp_current_ssthresh
- /* Use define here intentionally to get WARN_ON location shown at the caller */
- #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
- 
-+/*
-+ * Convert RFC3390 larger initial windows into an equivalent number of packets.
-+ *
-+ * John Heffner states:
-+ *
-+ *	The RFC specifies a window of no more than 4380 bytes
-+ *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-+ *	is a bit misleading because they use a clamp at 4380 bytes
-+ *	rather than a multiplier in the relevant range.
-+ */
-+static inline u32 rfc3390_bytes_to_packets(const u32 bytes)
-+{
-+	return bytes <= 1095 ? 4 : (bytes > 1460 ? 2 : 3);
-+}
-+
- extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
- extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
- 
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -808,25 +808,12 @@ void tcp_update_metrics(struct sock *sk)
- 	}
- }
- 
--/* Numbers are taken from RFC3390.
-- *
-- * John Heffner states:
-- *
-- *	The RFC specifies a window of no more than 4380 bytes
-- *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-- *	is a bit misleading because they use a clamp at 4380 bytes
-- *	rather than use a multiplier in the relevant range.
-- */
- __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
- {
- 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
- 
--	if (!cwnd) {
--		if (tp->mss_cache > 1460)
--			cwnd = 2;
--		else
--			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
--	}
-+	if (!cwnd)
-+		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
- 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
- }
- 
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -711,12 +711,8 @@ static int ccid2_hc_tx_init(struct ccid 
- 	/* RFC 4341, 5: initialise ssthresh to arbitrarily high (max) value */
- 	hctx->ccid2hctx_ssthresh  = ~0U;
- 
--	/*
--	 * RFC 4341, 5: "The cwnd parameter is initialized to at most four
--	 * packets for new connections, following the rules from [RFC3390]".
--	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
--	 */
--	hctx->ccid2hctx_cwnd = clamp(4380U / dp->dccps_mss_cache, 2U, 4U);
-+	/* Use larger initial windows (RFC 3390, rfc2581bis) */
-+	hctx->ccid2hctx_cwnd = rfc3390_bytes_to_packets(dp->dccps_mss_cache);
- 
- 	/* Make sure that Ack Ratio is enabled and within bounds. */
- 	max_ratio = DIV_ROUND_UP(hctx->ccid2hctx_cwnd, 2);
+MjAwOC81LzI4IFBldGVyIFppamxzdHJhIDxwZXRlcnpAaW5mcmFkZWFkLm9yZz46Cj4gSnVzdCBh
+IHF1aWNrIG5vdGUgdG8gc2F5LCBtZSB0b28hIQo+Cj4gc2FtZSBzY2VuYXJpbzogZGlzdGNjIG9u
+IGxvY2FsaG9zdC4KCk1lIHRvbywgaG93ZXZlciB3aXRoIGEgY29tcGxldGVseSBkaWZmZXJlbnQg
+c2NlbmFyaW87IG15IGh1bmcgY29ubmVjdGlvbnMKYXJlIG5vdCByZWxhdGVkIHRvIGRpc3RjYyBh
+dCBhbGwuIFRoZSBvdXRwdXQgZnJvbSAvcHJvYy9uZXQvdGNwIHRoYXQgSW5nbwpwb3N0ZWQgYSBm
+ZXcgZGF5cyBhZ28gYXJlIHNvbWV3aGF0IGRpZmZlcmVudCBmcm9tIG1pbmUsIGhvd2V2ZXIgSSBi
+ZWxpZXZlCnRoaXMgaXMgdGhlIHNhbWUgcHJvYmxlbSBvciBhdCBsZWFzdCByZWxhdGVkLiBKdXN0
+IGFzIEluZ28gZXhwZXJpZW5jZWQsCm5ldHN0YXQgLXAgb25seSBzaG93cyBQSUQvcHJvZ3JhbSBh
+cyAnLScgZm9yIHRoZSBodW5nIGNvbm5lY3Rpb25zIHdoaWxlCmZvciBvdGhlciBjb25uZWN0aW9u
+cyBpdCBzaG93cyB0aGUgZXhwZWN0ZWQgcmVzdWx0cy4KCkkgaGF2ZSByZWNlbnRseSBib3VnaHQg
+YSBuZXcgUEMgYW5kIGhhdmUgc3RhcnRlZCB0aGUgcHJvY2VzcyBvZiBjb3B5aW5nCnN0dWZmIGZy
+b20gbXkgb2xkIFBDIHRvIHRoZSBuZXcgUEMuIER1cmluZyB0aGlzIEkgaGF2ZSBleHBlcmllbmNl
+ZCB0aGlzCmhhbmcgc2V2ZXJhbCB0aW1lcy4gSSBzdGFydGVkIGNvcHlpbmcgYnkgdXNpbmcgdGFy
+IG9uIGJvdGggZW5kcyBvdmVyIGEgc3NoCnBpcGUgYnV0IGluIG9yZGVyIHRvIGVsaW1pbmF0ZSBw
+b3NzaWJsZSBzc2ggcHJvYmxlbXMgSSBhbHNvIGhhdmUgdHJpZWQgdGFyCm92ZXIgYSB0dGNwIGNv
+bm5lY3Rpb24gd2hpY2ggYWxzbyBmYWlscy4gVGhlcmUgaXMgbm8gb2J2aW91cyBwYXR0ZXJuIG9m
+CndoZW4gdGhpcyBoYXBwZW5zLCBJIGhhdmUgZXhwZXJpZW5jZWQgZmFpbHVyZXMgYWZ0ZXIgdHJh
+bnNmZXJyaW5nIDEuMTVHQiwKNTEuNEdCIGFuZCAyMy42R0IuCgpIZXJlIGlzIHRoZSBvdXRwdXQg
+ZnJvbSBuZXRzdGF0IC1uIC1vIGZpbHRlcmVkIGZvciBwb3J0IDIyIGFuZCBzbGlnaHRseQplZGl0
+ZWQuIEFsbCB0aGUgbGluZXMgc3RhcnRlZCB3aXRoIFByb3RvID09IHRjcCBhbmQgUmVjdi1RID09
+IDAuCgpTZW5kLVEgTG9jYWwgQWRkciBGb3JlaWduIEFkZHIgIFN0YXRlICAgICAgIFRpbWVyCiAg
+ICAgMCBvbGRfcGM6MjIgIG5ld19wYzo1MjY2NyAgRVNUQUJMSVNIRUQga2VlcGFsaXZlICgzNTEz
+LjkzLzAvMCkKICAgICAwIG9sZF9wYzoyMiAgbmV3X3BjOjQzODI1ICBFU1RBQkxJU0hFRCBrZWVw
+YWxpdmUgKDU0NjcuMzgvMC8wKQogIDI4OTYgb2xkX3BjOjIyICBuZXdfcGM6NTg2MDEgIEVTVEFC
+TElTSEVEIG9uICgyMTAyMDg4NC42NS8wLzApCiAgNDM0NCBvbGRfcGM6MjIgIG5ld19wYzo1NDEw
+NSAgRVNUQUJMSVNIRUQgb24gKDIxMDE3MDE2LjMzLzAvMCkKICAyODk2IG9sZF9wYzoyMiAgbmV3
+X3BjOjM0MTQ5ICBFU1RBQkxJU0hFRCBvbiAoMjA5ODY4ODkuMjQvMC8wKQoKVGhlIGZpcnN0IHR3
+byBjb25uZWN0aW9ucyBhcmUgb25nb2luZywgd29ya2luZywgaW50ZXJhY3RpdmUgc3NoCmNvbm5l
+Y3Rpb25zLiBUaGUgb3RoZXIgdGhyZWUgY29ubmVjdGlvbnMgZGllZCBkYXlzIGFnbyBvbiBteSBu
+ZXcgUEMuCgpPbmUgdGhpbmcgdGhhdCBjYXVnaHQgbXkgZXllcyB3YXMgdGhlc2UgdmVyeSBoaWdo
+IHRpbWVyIHZhbHVlcy4KQ2hlY2tpbmcgdGhlIG5ldHN0YXQgc291cmNlIHJldmVhbHMgdGhhdCB0
+aGUgdmFsdWUgcHJpbnRlZCBpcyAiKGRvdWJsZSkKdGltZV9sZW4gLyBIWiIgYW5kIHRoYXQgdGlt
+ZV9sZW4gaXMgZXh0cmFjdGVkIGZyb20gL3Byb2MvbmV0L3RjcC4gV2hpbGUKbXkgQ09ORklHX0ha
+IGlzIDEwMDAsIEkgYXNzdW1lIG5ldHN0YXQgaGFzIHBpY2tlZCB1cCBIWiBhcyAxMDAgZnJvbQov
+dXNyL2luY2x1ZGUvYXNtL3BhcmFtLmgsIGFuZCB0aGVuIHRoaW5ncyByZWFsbHkgc2VlbXMgdG8g
+aW1wbHkgdGhhdAp0aGVyZSBpcyBzb21lIGludGVnZXIgb3ZlcmZsb3cgc2luY2UgMl4zMSA9IDIx
+NDc0ODM2NDguCgpMb29raW5nIGludG8gZ2V0X3RjcDRfc29jayBpbiBuZXQvaXB2NC90Y3BfaXB2
+NC5jIEkgc2VlIHRoYXQgdGltZXJfZXhwaXJlcwppcyBpbml0aWFsaXplZCB3aXRoIGljc2stPmlj
+c2tfdGltZW91dCBmb3IgdGhlIHRyb3VibGVzb21lIGNhc2VzLiBCdXQKaGVyZSBteSBjb21wZXRl
+bmNlIHRvIHRyYWNlIHRoaXMgZnVydGhlciBzdG9wcywgc28gSSBoYXZlIG5vIGlkZWEgb2YKaG93
+IGljc2stPmljc2tfdGltZW91dCBnZXRzIHN1Y2ggaGlnaCB2YWx1ZXMuCgpNeSBvbGQgUEMgaXMg
+Y3VycmVudGx5IHN0aWxsIHJ1bm5pbmcgd2l0aCB0aGVzZSBzdGFsbGVkIGNvbm5lY3Rpb25zCnBy
+ZXNlbnQgc28gbGV0IG1lIGtub3cgaWYgdGhlcmUgaXMgc29tZXRoaW5nIEkgc2hvdWxkIHRyeSB0
+byBpbnZlc3RpZ2F0ZQpmdXJ0aGVyLiBJIGNhbiBwb3N0IG91dHB1dCBmcm9tIC9wcm9jL25ldC90
+Y3AgYW5kIG15IC5jb25maWcgaWYgeW91IHdhbnQKdG8gaGF2ZSBhIGxvb2suIE15IG9sZCBQQyBp
+cyAzMiBiaXQvQ2VsZXJvbiBzaW5nbGUgY29yZSwga2VybmVsIDIuNi4yNCwKd2hpbGUgbXkgbmV3
+IGlzIDY0IGJpdC9ROTMwMCBxdWFkIGNvcmUsIGtlcm5lbCAyLjYuMjUuMy4gVGhlIGV0aGVybmV0
+CmNhcmRzIGFyZSB0aGUgZm9sbG93aW5nOgoKMDI6MGQuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBS
+ZWFsdGVrIFNlbWljb25kdWN0b3IgQ28uLCBMdGQuClJUTC04MTM5LzgxMzlDLzgxMzlDKyAocmV2
+IDEwKQowMjowMC4wIEV0aGVybmV0IGNvbnRyb2xsZXI6IE1hcnZlbGwgVGVjaG5vbG9neSBHcm91
+cCBMdGQuIDg4RTgwNTYKUENJLUUgR2lnYWJpdCBFdGhlcm5ldCBDb250cm9sbGVyIChyZXYgMTIp
+CgpCUiBIw6Vrb24gTMO4dmRhbAo=
