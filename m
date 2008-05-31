@@ -1,55 +1,114 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH BUGFIX -rc4] Smack: Respect 'unlabeled' netlabel mode
-Date: Sat, 31 May 2008 09:08:59 -0400
-Message-ID: <200805310909.00106.paul.moore@hp.com>
-References: <20080530233603.GA2994@ubuntu> <538684.41302.qm@web36603.mail.mud.yahoo.com> <20080531005826.GA6945@ubuntu>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [Patch v3 1/1] [tcp/dccp]: Consolidate duplicate code which does
+	RFC3390 conversion
+Date: Sat, 31 May 2008 14:49:01 +0100
+Message-ID: <20080531134901.GA4757@gerrit.erg.abdn.ac.uk>
+References: <1211877167-10995-6-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-7-git-send-email-gerrit@erg.abdn.ac.uk> <1211877167-10995-8-git-send-email-gerrit@erg.abdn.ac.uk> <20080527.063745.105720366.davem@davemloft.net> <20080528062451.GB4480@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Casey Schaufler <casey@schaufler-ca.com>,
-	linux-security-module@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080531005826.GA6945@ubuntu>
+Content-Type: text/plain; charset=us-ascii
+To: David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:51336 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754216AbYEaNtZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 May 2008 09:49:25 -0400
 Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080528062451.GB4480@gerrit.erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry I'm late to the party ...
+Please disregard previous version of this patch, which had an error:
+when `bytes' == 1095, the sender can still send 4 full windows (4*1095 = 4380).
+The inter-diff to the previous version is:
 
-On Friday 30 May 2008 8:58:26 pm Ahmed S. Darwish wrote:
-> There are two possible solutions in my mind:
->
-> - Using a predefined netlabel domain to denote to unlabeled packets.
->   Defect: May collide with a user chosen label and used to break
-> security. Solution: Use a domain name that can't become a label
-> (Hackery ?)
+	-	return bytes < 1095 ? 4 : (bytes > 1460 ? 2 : 3);
+	+	return bytes <= 1095 ? 4 : (bytes > 1460 ? 2 : 3);
 
->From my understanding of Smack that is what the ambient label does 
-currently.  Does this not work correctly for you?
 
-> - I've tried first to use what was done before the 'Smack: unlabeled
-> outgoing ambient packets' patch, which honored nltype=unlabeled, but
-> ignored netlabel completely:
->   i.e.
->
->   int rc = 0;
->   if (secattr.flags != NETLBL_SECATTR_NONE)
->        rc = netlbl_sock_setattr(sk, &secattr);
->   return rc
->
->   Paul, would this be right from a netlabel perspective ?
+-----------------------------> Patch v2 <------------------------------------------	
+tcp/dccp: Consolidate duplicate code which does RFC3390 conversion
 
-Well, what are you trying to do (it isn't clear to me from the code 
-snippet above)?  The netlbl_sock_setattr() function looks at the 
-secattr->domain field and uses the value their to lookup the desired 
-labeling protocol (currently either CIPSO or unlabeled) and then the 
-NetLabel subsystem passes the socket and the secattr information onto 
-the specific protocol handler where the secattr->attr information is 
-used to assign on-the-wire labels to the socket.
+This patch consolidates the code common to TCP and CCID-2:
 
--- 
-paul moore
-linux @ hp
+ * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
+ * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ include/net/tcp.h      |   15 +++++++++++++++
+ net/dccp/ccids/ccid2.c |    8 ++------
+ net/ipv4/tcp_input.c   |   17 ++---------------
+ 3 files changed, 19 insertions(+), 21 deletions(-)
+
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -783,6 +783,21 @@ static inline __u32 tcp_current_ssthresh
+ /* Use define here intentionally to get WARN_ON location shown at the caller */
+ #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
+ 
++/*
++ * Convert RFC3390 larger initial windows into an equivalent number of packets.
++ *
++ * John Heffner states:
++ *
++ *	The RFC specifies a window of no more than 4380 bytes
++ *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
++ *	is a bit misleading because they use a clamp at 4380 bytes
++ *	rather than a multiplier in the relevant range.
++ */
++static inline u32 rfc3390_bytes_to_packets(const u32 bytes)
++{
++	return bytes <= 1095 ? 4 : (bytes > 1460 ? 2 : 3);
++}
++
+ extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+ extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
+ 
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -808,25 +808,12 @@ void tcp_update_metrics(struct sock *sk)
+ 	}
+ }
+ 
+-/* Numbers are taken from RFC3390.
+- *
+- * John Heffner states:
+- *
+- *	The RFC specifies a window of no more than 4380 bytes
+- *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
+- *	is a bit misleading because they use a clamp at 4380 bytes
+- *	rather than use a multiplier in the relevant range.
+- */
+ __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
+ {
+ 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+ 
+-	if (!cwnd) {
+-		if (tp->mss_cache > 1460)
+-			cwnd = 2;
+-		else
+-			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
+-	}
++	if (!cwnd)
++		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
+ 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
+ }
+ 
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -711,12 +711,8 @@ static int ccid2_hc_tx_init(struct ccid 
+ 	/* RFC 4341, 5: initialise ssthresh to arbitrarily high (max) value */
+ 	hctx->ccid2hctx_ssthresh  = ~0U;
+ 
+-	/*
+-	 * RFC 4341, 5: "The cwnd parameter is initialized to at most four
+-	 * packets for new connections, following the rules from [RFC3390]".
+-	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
+-	 */
+-	hctx->ccid2hctx_cwnd = clamp(4380U / dp->dccps_mss_cache, 2U, 4U);
++	/* Use larger initial windows (RFC 3390, rfc2581bis) */
++	hctx->ccid2hctx_cwnd = rfc3390_bytes_to_packets(dp->dccps_mss_cache);
+ 
+ 	/* Make sure that Ack Ratio is enabled and within bounds. */
+ 	max_ratio = DIV_ROUND_UP(hctx->ccid2hctx_cwnd, 2);
