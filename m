@@ -1,44 +1,78 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: Re: [PATCH 16/37] net/usb: use get/put_endian helpers
-Date: Sat, 31 May 2008 02:43:36 +0300
-Message-ID: <20080531024336.gszdaepdog8woow0@hayate.ip6>
-References: <1212092310.28403.118.camel@brick>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: Re: [PATCH BUGFIX -rc4] Smack: Respect 'unlabeled' netlabel mode
+Date: Sat, 31 May 2008 03:58:26 +0300
+Message-ID: <20080531005826.GA6945@ubuntu>
+References: <20080530233603.GA2994@ubuntu> <538684.41302.qm@web36603.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: dbrownell@users.sourceforge.net,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>,
-	linux-arch <linux-arch@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1212092310.28403.118.camel@brick>
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <paul.moore@hp.com>,
+	linux-security-module@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-arch-owner@vger.kernel.org
+In-Reply-To: <538684.41302.qm@web36603.mail.mud.yahoo.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Harvey Harrison <harvey.harrison@gmail.com>:
+Hi Casey,
 
-> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-> index ae467f1..bda89c9 100644
-> --- a/drivers/net/usb/rndis_host.c
-> +++ b/drivers/net/usb/rndis_host.c
-> @@ -407,7 +407,7 @@ generic_rndis_bind(struct usbnet *dev, struct   
-> usb_interface *intf, int flags)
->  	u.set->oid = OID_GEN_CURRENT_PACKET_FILTER;
->  	u.set->len = ccpu2(4);
->  	u.set->offset = ccpu2((sizeof *u.set) - 8);
-> -	*(__le32 *)(u.buf + sizeof *u.set) = RNDIS_DEFAULT_FILTER;
-> +	put_le32(RNDIS_DEFAULT_FILTER, (__le32 *)(u.buf + sizeof(*u.set)));
+On Fri, May 30, 2008 at 04:10:37PM -0700, Casey Schaufler wrote:
+> 
+> 
+> To date the behavior of a Smack system running with nltype
+> unlabeled has been carefully undefined. 
 >
->  	retval = rndis_command(dev, u.header);
->  	if (unlikely(retval < 0)) {
 
-RNDIS_DEFAULT_FILTER already is le32, put_le32 breaks it.
+In the early days (before the 'Smack: unlabeled outgoing ambient packets'
+patch - 4bc87e62), I used '$ echo unlabeled > /smack/nltype' in my startup 
+scripts to avoid sending cipso-affected packets. When I upgraded this 
+machine's kernel, I faced the -EPERM problem mentiond above. 
 
-  - Jussi
+> The way you're defining
+> it will result in a system in which only processes running with
+> the ambient label will be able to use sockets, unless I'm reading
+> the code incorrectly. 
+
+I've tried to see the relation but failed, any help?
+
+I'm noticing the opposite though, without defining nltype=unlabeled, 
+we're forcing every smack-labeled process to send cipso-affected 
+packets (and usually no machine around understands cipso).
+
+_Assuming_ the concept is accepted, depending on the ambient label
+may actually lead to a race condition though:
+
+- A packet is set with the ambient label domain
+- Ambient label changes
+  - old ambient-label netlabel domain is deleted
+  - new ambient-label is set
+  - new ambient-label netlabel domain is created
+- call netlabel_sock_setattr(), uses the old ambient label, leads
+  to the -EPERM problem.
+  -- Rare, but can happen
+
+There are two possible solutions in my mind:
+
+- Using a predefined netlabel domain to denote to unlabeled packets.
+  Defect: May collide with a user chosen label and used to break security.
+  Solution: Use a domain name that can't become a label (Hackery ?)
+
+- I've tried first to use what was done before the 'Smack: unlabeled outgoing 
+  ambient packets' patch, which honored nltype=unlabeled, but ignored netlabel
+  completely:
+  i.e.
+
+  int rc = 0;
+  if (secattr.flags != NETLBL_SECATTR_NONE)
+       rc = netlbl_sock_setattr(sk, &secattr);
+  return rc
+
+  Paul, would this be right from a netlabel perspective ?
+
+-- 
+Ahmed S. Darwish
+Homepage: http://darwish.07.googlepages.com
+Blog: http://darwish-07.blogspot.com
+
