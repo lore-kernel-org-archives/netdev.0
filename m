@@ -1,77 +1,63 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
- e1000/pcnet32
-Date: Sat, 31 May 2008 00:47:03 -0400
-Message-ID: <20080531004703.a081c18f.billfink@mindspring.com>
-References: <482DA5B6.1020606@sngx.net>
-	<482DB46A.8020103@cosmosbay.com>
-	<482EF192.4070707@sngx.net>
-	<482F5113.5090703@cosmosbay.com>
-	<482F610D.2080108@sngx.net>
-	<20080518003104.GK28241@solarflare.com>
-	<482FBA09.80201@sngx.net>
-	<483E0AAE.2020107@sngx.net>
-	<20080528221118.63da4092.akpm@linux-foundation.org>
-	<483EA2D1.8050603@sngx.net>
-	<20080529154525.3916c7b5@core>
-	<20080530151250.b44a119a.billfink@mindspring.com>
-	<48407C51.7090405@hp.com>
-	<20080530210931.5970c975.billfink@mindspring.com>
-	<20080530194113.25b77988@extreme>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Sat, 31 May 2008 10:03:15 +0400
+Message-ID: <20080531060315.GA2692@2ka.mipt.ru>
+References: <48402BD7.2080705@madrabbit.org> <Pine.LNX.4.64.0805302105170.1761@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:40964 "EHLO
-	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750889AbYEaErJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 00:47:09 -0400
-In-Reply-To: <20080530194113.25b77988@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ray Lee <ray-lk@madrabbit.org>, Ingo Molnar <mingo@elte.hu>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754369AbYEaGED@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0805302105170.1761@wrl-59.cs.helsinki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 30 May 2008, Stephen Hemminger wrote:
+On Sat, May 31, 2008 at 12:11:32AM +0300, Ilpo J=C3=A4rvinen (ilpo.jarv=
+inen@helsinki.fi) wrote:
+> > > > Active Internet connections (w/o servers)
+> > > > Proto Recv-Q Send-Q Local Address               Foreign Address
+> > > > State
+> > > > tcp        0 174592 10.0.1.14:58015             10.0.1.14:3632 =
+ ESTABLISHED
+> > > > tcp    72134      0 10.0.1.14:3632              10.0.1.14:58015=
+ ESTABLISHED
+>=20
+>              ^^^^^
+>=20
+> Can you perhaps find/guess/think some explanation for this _receiver=20
+> queue_...? This was a trick question :-), as we already know that the=
+=20
+> receiving process is no longer there and therefore obviously won't be=
+=20
+> reading anything anymore. But that opened another question, why TCP i=
+s=20
+> then still in ESTABLISHED as orphaned TCP shouldn't be in establised =
+state=20
+> anymore, tcp_close should have changed the state (either at close or =
+at=20
+> process exit). I guess once it becomes known why tcp_close either was=
+n't=20
+> called at all or it didn't change the state of the flow (it's quite=20
+> simple, see for yourself), the cause of the bug is found (it might ev=
+en be=20
+> that the process went away when it shouldn't have, either a bookkeepi=
+ng=20
+> bug somewhere or real death, or something along those lines).
 
-> On Fri, 30 May 2008 21:09:31 -0400
-> Bill Fink <billfink@mindspring.com> wrote:
-> 
-> > On Fri, 30 May 2008, Rick Jones wrote:
-> > 
-> > > > Saving stats output and running beforeafter on a number of systems is
-> > > > a royal pain when troubleshooting.
-> > > 
-> > > Well, with that ringing endorsement :) I would like to state that 
-> > > Yoshihiro Ishijima has fixed some bugs in beforeafter and it will now 
-> > > deal with /proc/interrupts output better than before.
-> > > 
-> > > ftp://ftp.cup.hp.com/dist/networking/tools/
-> > 
-> > Nothing against beforefter.  It's a very useful tool, especially
-> > given Linux's lack of a method to clear interface counters.  But
-> > it still is very cumbersome to use in the scenario I mentioned,
-> > having to save the stats before and after a test on each of several
-> > systems, and then having to run beforeafter on each of those systems.
-> > Then you need to do this all again for every test run.  It's just
-> > not very efficient.
-> > 
-> > I don't know why the major objection to adding a small amount of
-> > code to the kernel that would make life a lot easier for hundreds
-> > (or more) of Linux network adminstrators.  And the snapshot/diff
-> > idea would not be complex to maintain and would also address the
-> > issue of some hardware not having a clear hw stats capability.
-> > 
-> > 						-Bill
-> 
-> ifstat from iproute2 tools also keeps state to compute number
-> of packets since last update as well. Come on, it isn't that
-> hard.
+In that case pid Ingo straced was still valid and existed (ans stuck
+probably in tcp_sendpage() - sysrq-t dump was messy), so process still
+exist, but sock somewhat lost its reference to socket. AFICS all (three=
+)
+calls for sk_orphan() can not happen without state change to something
+closing (like fin wait or close), except some linger things and
+listening socket, which frees its connection requests.
 
-Thanks for the pointer.  I wasn't aware of ifstat (it's not installed
-by default on any of my systems).  I will check out ifstat and see what
-it can do.
-
-						-Thanks
-
-						-Bill
+--=20
+	Evgeniy Polyakov
