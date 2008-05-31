@@ -1,44 +1,38 @@
-From: Harald Dunkel <harald.dunkel@t-online.de>
-Subject: increase priority of tcp ACK packages in the kernel?
-Date: Sat, 31 May 2008 09:10:23 +0200
-Message-ID: <4840F9DF.5080106@t-online.de>
+From: Brice Goglin <brice@myri.com>
+Subject: howto use ioremap_wc?
+Date: Sat, 31 May 2008 11:02:54 +0200
+Message-ID: <4841143E.5080003@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	"venkatesh.pallipadi@intel.com" <venkatesh.pallipadi@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout10.t-online.de ([194.25.134.21]:50411 "EHLO
-	mailout10.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbYEaH3K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 03:29:10 -0400
+Received: from mailbox2.myri.com ([64.172.73.26]:2028 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750710AbYEaJDF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 May 2008 05:03:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+Hello,
 
-AFAICS there is a performance problem for tcp: High volume
-outgoing traffic seriously affects throughput for incoming
-traffic due to the tcp ACK packages waiting between the
-giant packages in the outgoing fifo.
+We're looking at using ioremap_wc() in myri10ge. No drivers seem to be
+using it yet, so I'd like to get some clarification regarding ioremap_wc
+failures, MTRR and so on.
 
-Do you think it would be possible to increase the priority of
-outgoing tcp ACK packages in the kernel by default?
+What we currently do is mtrr_add() and then ioremap. Depending on the
+mtrr_add() success, we use the "wc_fifo" or regular PIO with fences to
+submit requests to the NIC. How are we supposed to switch this to
+ioremap_wc?
 
-The performance improvement on busy lines can be pretty high,
-as the before-after images on http://www.benzedrine.cx/ackpri.html
-show for OpenBSD.
+Are we sure that if the arch supports _wc, it does not return success
+when the underlying plain ioremap worked but setting up _wc() failed? If
+so, why does it revert to ioremap_nocache when PAT isn't enabled?
 
-I have found some solutions for Linux using tc and iptables,
-e.g.
+Can we keep the mtrr_add() in the regular path? Or are we supposed to
+drop it when the arch provides ioremap_wc and it did not fail?
 
-     http://www.3e.me.uk/dm/
-     http://shearer.org/Linux_Shaping_Template
-
-But maybe there is a more general solution that I haven't seen
-yet.
-
-
-Regards
-
-Harri
+thanks,
+Brice
 
