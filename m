@@ -1,42 +1,60 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sc92031: remove bogus unlikely()
-Date: Fri, 30 May 2008 22:12:52 -0400
-Message-ID: <4840B424.8060308@pobox.com>
-References: <483F513C.5010303@cesarb.net>
+Subject: Re: [Fwd: [PATCH 1/2] CS89X0: Add cleanup for dma after fail]
+Date: Fri, 30 May 2008 22:12:57 -0400
+Message-ID: <4840B429.60506@pobox.com>
+References: <483F721F.1090204@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Cesar Eduardo Barros <cesarb@cesarb.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>, akpm@linux-foundation.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37104 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:37113 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752081AbYEaCMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2008 22:12:54 -0400
-In-Reply-To: <483F513C.5010303@cesarb.net>
+	id S1752166AbYEaCNC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2008 22:13:02 -0400
+In-Reply-To: <483F721F.1090204@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cesar Eduardo Barros wrote:
-> Commit 5a0a92e67b5009a71e011658da04fb92dad8961f mentions len < ETH_ZLEN
-> is true for ARP packets. This obviously is not unlikely.
+Wang Chen wrote:
+> Jeff, will you pick up this one?
+> I also cc Andrew, because his name is in the code.
 > 
-> Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> 
+> After request_dma() succeeding, any error path should do free_dma().
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 > ---
->  drivers/net/sc92031.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+>  drivers/net/cs89x0.c |   10 +++++++---
+>  1 files changed, 7 insertions(+), 3 deletions(-)
 > 
-> diff --git a/drivers/net/sc92031.c b/drivers/net/sc92031.c
-> index b4b6380..61955f8 100644
-> --- a/drivers/net/sc92031.c
-> +++ b/drivers/net/sc92031.c
-> @@ -972,7 +972,7 @@ static int sc92031_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	skb_copy_and_csum_dev(skb, priv->tx_bufs + entry * TX_BUF_SIZE);
->  
->  	len = skb->len;
-> -	if (unlikely(len < ETH_ZLEN)) {
-> +	if (len < ETH_ZLEN) {
->  		memset(priv->tx_bufs + entry * TX_BUF_SIZE + len,
+> diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+> index 348371f..fba87ab 100644
+> --- a/drivers/net/cs89x0.c
+> +++ b/drivers/net/cs89x0.c
+> @@ -1394,7 +1394,11 @@ net_open(struct net_device *dev)
+>  #endif
+>          if (!result) {
+>                  printk(KERN_ERR "%s: EEPROM is configured for unavailable media\n", dev->name);
+> -        release_irq:
+> +release_dma:
+> +#if ALLOW_DMA
+> +		free_dma(dev->dma);
+> +#endif
+> +release_irq:
+>  #if ALLOW_DMA
+>  		release_dma_buff(lp);
+>  #endif
+> @@ -1442,12 +1446,12 @@ net_open(struct net_device *dev)
+>  			if ((result = detect_bnc(dev)) != DETECTED_NONE)
+>  				break;
+>  		printk(KERN_ERR "%s: no media detected\n", dev->name);
+> -                goto release_irq;
+> +		goto release_dma;
+>  	}
 
 applied
 
