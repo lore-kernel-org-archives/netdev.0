@@ -1,78 +1,62 @@
-From: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Sat, 31 May 2008 16:25:47 +0200
-Message-ID: <a01a16b50805310725x4f1c375ep2d091bb044ac0787@mail.gmail.com>
-References: <20080526115628.GA31316@elte.hu> <1211966834.12349.62.camel@twins>
+From: Jean Delvare <khali@linux-fr.org>
+Subject: Re: [PATCH 1/2] sfc: Use kernel I2C system and i2c-algo-bit driver
+Date: Sat, 31 May 2008 17:07:40 +0200
+Message-ID: <20080531170740.5f4606c5@hyperion.delvare>
+References: <cover.1212182201.git.bhutchings@solarflare.com>
+	<20080530212703.GG1743@solarflare.com>
+	<20080531131848.24b9e465@hyperion.delvare>
+	<20080531112700.GL1743@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: "Ingo Molnar" <mingo@elte.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.239]:12298 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752629AbYEaOZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 10:25:49 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so304659rvb.1
-        for <netdev@vger.kernel.org>; Sat, 31 May 2008 07:25:47 -0700 (PDT)
-In-Reply-To: <1211966834.12349.62.camel@twins>
-Content-Disposition: inline
+Received: from zone0.gcu-squad.org ([212.85.147.21]:22015 "EHLO
+	services.gcu-squad.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752848AbYEaPH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 11:07:59 -0400
+In-Reply-To: <20080531112700.GL1743@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MjAwOC81LzI4IFBldGVyIFppamxzdHJhIDxwZXRlcnpAaW5mcmFkZWFkLm9yZz46Cj4gSnVzdCBh
-IHF1aWNrIG5vdGUgdG8gc2F5LCBtZSB0b28hIQo+Cj4gc2FtZSBzY2VuYXJpbzogZGlzdGNjIG9u
-IGxvY2FsaG9zdC4KCk1lIHRvbywgaG93ZXZlciB3aXRoIGEgY29tcGxldGVseSBkaWZmZXJlbnQg
-c2NlbmFyaW87IG15IGh1bmcgY29ubmVjdGlvbnMKYXJlIG5vdCByZWxhdGVkIHRvIGRpc3RjYyBh
-dCBhbGwuIFRoZSBvdXRwdXQgZnJvbSAvcHJvYy9uZXQvdGNwIHRoYXQgSW5nbwpwb3N0ZWQgYSBm
-ZXcgZGF5cyBhZ28gYXJlIHNvbWV3aGF0IGRpZmZlcmVudCBmcm9tIG1pbmUsIGhvd2V2ZXIgSSBi
-ZWxpZXZlCnRoaXMgaXMgdGhlIHNhbWUgcHJvYmxlbSBvciBhdCBsZWFzdCByZWxhdGVkLiBKdXN0
-IGFzIEluZ28gZXhwZXJpZW5jZWQsCm5ldHN0YXQgLXAgb25seSBzaG93cyBQSUQvcHJvZ3JhbSBh
-cyAnLScgZm9yIHRoZSBodW5nIGNvbm5lY3Rpb25zIHdoaWxlCmZvciBvdGhlciBjb25uZWN0aW9u
-cyBpdCBzaG93cyB0aGUgZXhwZWN0ZWQgcmVzdWx0cy4KCkkgaGF2ZSByZWNlbnRseSBib3VnaHQg
-YSBuZXcgUEMgYW5kIGhhdmUgc3RhcnRlZCB0aGUgcHJvY2VzcyBvZiBjb3B5aW5nCnN0dWZmIGZy
-b20gbXkgb2xkIFBDIHRvIHRoZSBuZXcgUEMuIER1cmluZyB0aGlzIEkgaGF2ZSBleHBlcmllbmNl
-ZCB0aGlzCmhhbmcgc2V2ZXJhbCB0aW1lcy4gSSBzdGFydGVkIGNvcHlpbmcgYnkgdXNpbmcgdGFy
-IG9uIGJvdGggZW5kcyBvdmVyIGEgc3NoCnBpcGUgYnV0IGluIG9yZGVyIHRvIGVsaW1pbmF0ZSBw
-b3NzaWJsZSBzc2ggcHJvYmxlbXMgSSBhbHNvIGhhdmUgdHJpZWQgdGFyCm92ZXIgYSB0dGNwIGNv
-bm5lY3Rpb24gd2hpY2ggYWxzbyBmYWlscy4gVGhlcmUgaXMgbm8gb2J2aW91cyBwYXR0ZXJuIG9m
-CndoZW4gdGhpcyBoYXBwZW5zLCBJIGhhdmUgZXhwZXJpZW5jZWQgZmFpbHVyZXMgYWZ0ZXIgdHJh
-bnNmZXJyaW5nIDEuMTVHQiwKNTEuNEdCIGFuZCAyMy42R0IuCgpIZXJlIGlzIHRoZSBvdXRwdXQg
-ZnJvbSBuZXRzdGF0IC1uIC1vIGZpbHRlcmVkIGZvciBwb3J0IDIyIGFuZCBzbGlnaHRseQplZGl0
-ZWQuIEFsbCB0aGUgbGluZXMgc3RhcnRlZCB3aXRoIFByb3RvID09IHRjcCBhbmQgUmVjdi1RID09
-IDAuCgpTZW5kLVEgTG9jYWwgQWRkciBGb3JlaWduIEFkZHIgIFN0YXRlICAgICAgIFRpbWVyCiAg
-ICAgMCBvbGRfcGM6MjIgIG5ld19wYzo1MjY2NyAgRVNUQUJMSVNIRUQga2VlcGFsaXZlICgzNTEz
-LjkzLzAvMCkKICAgICAwIG9sZF9wYzoyMiAgbmV3X3BjOjQzODI1ICBFU1RBQkxJU0hFRCBrZWVw
-YWxpdmUgKDU0NjcuMzgvMC8wKQogIDI4OTYgb2xkX3BjOjIyICBuZXdfcGM6NTg2MDEgIEVTVEFC
-TElTSEVEIG9uICgyMTAyMDg4NC42NS8wLzApCiAgNDM0NCBvbGRfcGM6MjIgIG5ld19wYzo1NDEw
-NSAgRVNUQUJMSVNIRUQgb24gKDIxMDE3MDE2LjMzLzAvMCkKICAyODk2IG9sZF9wYzoyMiAgbmV3
-X3BjOjM0MTQ5ICBFU1RBQkxJU0hFRCBvbiAoMjA5ODY4ODkuMjQvMC8wKQoKVGhlIGZpcnN0IHR3
-byBjb25uZWN0aW9ucyBhcmUgb25nb2luZywgd29ya2luZywgaW50ZXJhY3RpdmUgc3NoCmNvbm5l
-Y3Rpb25zLiBUaGUgb3RoZXIgdGhyZWUgY29ubmVjdGlvbnMgZGllZCBkYXlzIGFnbyBvbiBteSBu
-ZXcgUEMuCgpPbmUgdGhpbmcgdGhhdCBjYXVnaHQgbXkgZXllcyB3YXMgdGhlc2UgdmVyeSBoaWdo
-IHRpbWVyIHZhbHVlcy4KQ2hlY2tpbmcgdGhlIG5ldHN0YXQgc291cmNlIHJldmVhbHMgdGhhdCB0
-aGUgdmFsdWUgcHJpbnRlZCBpcyAiKGRvdWJsZSkKdGltZV9sZW4gLyBIWiIgYW5kIHRoYXQgdGlt
-ZV9sZW4gaXMgZXh0cmFjdGVkIGZyb20gL3Byb2MvbmV0L3RjcC4gV2hpbGUKbXkgQ09ORklHX0ha
-IGlzIDEwMDAsIEkgYXNzdW1lIG5ldHN0YXQgaGFzIHBpY2tlZCB1cCBIWiBhcyAxMDAgZnJvbQov
-dXNyL2luY2x1ZGUvYXNtL3BhcmFtLmgsIGFuZCB0aGVuIHRoaW5ncyByZWFsbHkgc2VlbXMgdG8g
-aW1wbHkgdGhhdAp0aGVyZSBpcyBzb21lIGludGVnZXIgb3ZlcmZsb3cgc2luY2UgMl4zMSA9IDIx
-NDc0ODM2NDguCgpMb29raW5nIGludG8gZ2V0X3RjcDRfc29jayBpbiBuZXQvaXB2NC90Y3BfaXB2
-NC5jIEkgc2VlIHRoYXQgdGltZXJfZXhwaXJlcwppcyBpbml0aWFsaXplZCB3aXRoIGljc2stPmlj
-c2tfdGltZW91dCBmb3IgdGhlIHRyb3VibGVzb21lIGNhc2VzLiBCdXQKaGVyZSBteSBjb21wZXRl
-bmNlIHRvIHRyYWNlIHRoaXMgZnVydGhlciBzdG9wcywgc28gSSBoYXZlIG5vIGlkZWEgb2YKaG93
-IGljc2stPmljc2tfdGltZW91dCBnZXRzIHN1Y2ggaGlnaCB2YWx1ZXMuCgpNeSBvbGQgUEMgaXMg
-Y3VycmVudGx5IHN0aWxsIHJ1bm5pbmcgd2l0aCB0aGVzZSBzdGFsbGVkIGNvbm5lY3Rpb25zCnBy
-ZXNlbnQgc28gbGV0IG1lIGtub3cgaWYgdGhlcmUgaXMgc29tZXRoaW5nIEkgc2hvdWxkIHRyeSB0
-byBpbnZlc3RpZ2F0ZQpmdXJ0aGVyLiBJIGNhbiBwb3N0IG91dHB1dCBmcm9tIC9wcm9jL25ldC90
-Y3AgYW5kIG15IC5jb25maWcgaWYgeW91IHdhbnQKdG8gaGF2ZSBhIGxvb2suIE15IG9sZCBQQyBp
-cyAzMiBiaXQvQ2VsZXJvbiBzaW5nbGUgY29yZSwga2VybmVsIDIuNi4yNCwKd2hpbGUgbXkgbmV3
-IGlzIDY0IGJpdC9ROTMwMCBxdWFkIGNvcmUsIGtlcm5lbCAyLjYuMjUuMy4gVGhlIGV0aGVybmV0
-CmNhcmRzIGFyZSB0aGUgZm9sbG93aW5nOgoKMDI6MGQuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBS
-ZWFsdGVrIFNlbWljb25kdWN0b3IgQ28uLCBMdGQuClJUTC04MTM5LzgxMzlDLzgxMzlDKyAocmV2
-IDEwKQowMjowMC4wIEV0aGVybmV0IGNvbnRyb2xsZXI6IE1hcnZlbGwgVGVjaG5vbG9neSBHcm91
-cCBMdGQuIDg4RTgwNTYKUENJLUUgR2lnYWJpdCBFdGhlcm5ldCBDb250cm9sbGVyIChyZXYgMTIp
-CgpCUiBIw6Vrb24gTMO4dmRhbAo=
+On Sat, 31 May 2008 12:27:02 +0100, Ben Hutchings wrote:
+> Jean Delvare wrote:
+> > > @@ -2459,6 +2475,18 @@ int falcon_probe_nic(struct efx_nic *efx)
+> > >  	if (rc)
+> > >  		goto fail5;
+> > >  
+> > > +	/* Initialise I2C adapter */
+> > > + 	efx->i2c_adap.owner = THIS_MODULE;
+> > > + 	efx->i2c_adap.class = I2C_CLASS_HWMON;
+> > 
+> > I doubt you want to do this. This would let any hardware monitoring
+> > driver probe your bus for a device, while presumably you already know
+> > which hardware monitoring device is present and you want to instantiate
+> > the i2c client yourself. This will probably become clearer when you
+> > start using the lm87 driver and modify it to support new-style i2c
+> > binding.
+>  
+> So the class should be, what, 0?
+
+Yes. Assuming a kzalloc'd structure, you can simply omit it.
+
+> > > +	nic_data->i2c_data = falcon_i2c_bit_operations;
+> > > +	nic_data->i2c_data.data = efx;
+> > > + 	efx->i2c_adap.algo_data = &nic_data->i2c_data;
+> > > +	efx->i2c_adap.dev.parent = &efx->pci_dev->dev;
+> > > +	strcpy(efx->i2c_adap.name, "SFC4000 GPIO");
+> > 
+> > Please always use strlcpy.
+>  
+> OK.  I thought about it but it didn't seem worthwhile for a short constant
+> string.
+
+Until someone changes the string for a longer one (it's common to
+include the I/O base) or the structure field is shortened to save some
+memory... Always use strlcpy. In fact I'd like to see strcpy removed
+from the kernel, it's almost always the wrong function to use.
+
+-- 
+Jean Delvare
