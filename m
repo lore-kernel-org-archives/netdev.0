@@ -1,55 +1,55 @@
-From: "Avuton Olrich" <avuton@gmail.com>
-Subject: Re: atl1 card hibernation regression
-Date: Sun, 1 Jun 2008 15:57:07 -0700
-Message-ID: <3aa654a40806011557u2007745dw212a83882a93f837@mail.gmail.com>
-References: <3aa654a40806010742s7529b9fxe02d0204f329065b@mail.gmail.com>
-	 <20080601134120.3eb6651a@osprey.hogchain.net>
-	 <3aa654a40806011326o2cfddfa0o6bc743041b5df8d6@mail.gmail.com>
-	 <20080601164954.102d0fa1@osprey.hogchain.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@redhat.com>, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: "Jay Cliburn" <jacliburn@bellsouth.net>
+From: akinobu.mita@gmail.com
+Subject: [patch -v2 01/23] sunrpc: use simple_read_from_buffer
+Date: Mon, 02 Jun 2008 08:13:30 +0900
+Message-ID: <20080601231451.529328123@gmail.com>
+References: <20080601231329.223608711@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.29]:37860 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751908AbYFAW5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 18:57:13 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so359391ywe.1
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2008 15:57:12 -0700 (PDT)
-In-Reply-To: <20080601164954.102d0fa1@osprey.hogchain.net>
-Content-Disposition: inline
+Received: from rv-out-0506.google.com ([209.85.198.231]:24561 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752997AbYFAX1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 19:27:06 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so767550rvb.1
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2008 16:27:06 -0700 (PDT)
+Content-Disposition: inline; filename=sunrpc-simple-read-from-buffer.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 1, 2008 at 2:49 PM, Jay Cliburn <jacliburn@bellsouth.net> wrote:
-> On Sun, 1 Jun 2008 13:26:26 -0700
-> "Avuton Olrich" <avuton@gmail.com> wrote:
->
->> On Sun, Jun 1, 2008 at 11:41 AM, Jay Cliburn
->> <jacliburn@bellsouth.net> wrote:
->> > On Sun, 1 Jun 2008 07:42:02 -0700
->> > "Avuton Olrich" <avuton@gmail.com> wrote:
->> >
->> >> After resuming from hibernate, my network card refuses to get back
->> >> online. The bisection and much more information are below.
->> >
->> > Can you please try this patch?
-> [...]
->>
->> Brilliant! Works as advertised, thanks for the quick fix!
->
-> Thank you for the very thorough bug report.
->
-> May I include you in the Tested-by line?
->
-> Jay
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+ net/sunrpc/cache.c |   15 +++------------
+ 1 file changed, 3 insertions(+), 12 deletions(-)
 
-Sure, thanks.
+Index: 2.6-git/net/sunrpc/cache.c
+===================================================================
+--- 2.6-git.orig/net/sunrpc/cache.c
++++ 2.6-git/net/sunrpc/cache.c
+@@ -1271,20 +1271,11 @@ static ssize_t read_flush(struct file *f
+ {
+ 	struct cache_detail *cd = PDE(file->f_path.dentry->d_inode)->data;
+ 	char tbuf[20];
+-	unsigned long p = *ppos;
+ 	size_t len;
+ 
+-	sprintf(tbuf, "%lu\n", cd->flush_time);
+-	len = strlen(tbuf);
+-	if (p >= len)
+-		return 0;
+-	len -= p;
+-	if (len > count)
+-		len = count;
+-	if (copy_to_user(buf, (void*)(tbuf+p), len))
+-		return -EFAULT;
+-	*ppos += len;
+-	return len;
++	len = sprintf(tbuf, "%lu\n", cd->flush_time);
++
++	return simple_read_from_buffer(buf, count, ppos, tbuf, len);
+ }
+ 
+ static ssize_t write_flush(struct file * file, const char __user * buf,
+
 -- 
-avuton
---
- "I've got a fever. And the only prescription is more cowbell." --
-Christopher Walken
