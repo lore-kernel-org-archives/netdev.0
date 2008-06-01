@@ -1,62 +1,83 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [linux-pm] [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan
- problems
-Date: Sat, 31 May 2008 22:51:19 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0805312247100.18240-100000@netrider.rowland.org>
-References: <20080531221223.GA2630@yamamaya.is-a-geek.org>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: PATCH] net: b44.c fix sleeping-with-spinlock-helt during resume
+Date: Sat, 31 May 2008 20:11:30 -0700
+Message-ID: <20080531201130.0244dc29@infradead.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, <linux-kernel@vger.kernel.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Brownell <david-b@pacbell.net>,
-	<linux-acpi@vger.kernel.org>, <linux-pm@lists.linux-foundation.org>
-To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20080531221223.GA2630@yamamaya.is-a-geek.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Michael Buesch <mb@bu3sch.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:54742 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751469AbYFADM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 23:12:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 1 Jun 2008, Tobias Diedrich wrote:
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: [PATCH] net: b44.c fix sleeping-with-spinlock-helt during resume
+CC: Michael Buesch <mb@bu3sch.de>
 
-> Ok, after another long debugging session I finally found out the
-> reason for the immediate reboot (after finding the place that
-> suspends the serial console (drivers/pnp) and disabling that suspend
-> path):
-> The system is woken up by USB activity! (Optical mouse, anyone?)
-> 
-> Lo and behold:
-> drivers/usb/core/hcd-pci.c tries it's best to activate 'wake on
-> usb', which I didn't know since it apparently also never worked.
-> However, after applying the 'use platform_enable_wakeup'-patch,
-> not only forcedeth wake starts working, also usb wake.
-> If I prevent usb wake:
-> |echo disabled > /sys/devices/pci0000\:00/0000\:00\:02.0/power/wakeup'
-> |echo disabled > /sys/devices/pci0000\:00/0000\:00\:02.1/power/wakeup'
-> And then hibernate in platform mode, the immediate reboot is gone
-> and waking up using magic packets works fine even without setting up
-> /proc/acpi/wakeup first.
-> 
-> Maybe I should try hooking mouse and keyboard onto different usb
-> host controllers, so I can disable wakeup for the mouse host
-> controller and enable wakeup for the keyboard host controller,
-> then it should be possible to wake the system by pressing a key. :)
+The b44.c driver calls b44_chip_reset() from the resume path,
+with the device spinlock held.
+Unfortunately, b44_chip_reset() calls ssb_pcicore_dev_irqvecs_enable()
+which is a sleeping function (and calls might_sleep), if and only if
+the device hasn't been enabled yet.
 
-You don't need to do that.  Wakeup can be set specifically for each 
-individual USB device, provided CONFIG_USB_SUSPEND is enabled.
+Not having this hardware, the safest solution seems to be to enable
+the irqvec before taking the spinlock...
+
+http://www.kerneloops.org/search.php?search=ssb_pcicore_dev_irqvecs_enable
+
+Reported-by: www.kerneloops.org
+Signed-off-by: Arjan van de Ven
+---
+ drivers/net/b44.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 59dce6a..6028129 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -1278,6 +1278,7 @@ static void b44_chip_reset(struct b44 *bp, int reset_kind)
+ 		bw32(bp, B44_DMARX_CTRL, 0);
+ 		bp->rx_prod = bp->rx_cons = 0;
+ 	} else
++		/* this function sleeps! */
+ 		ssb_pcicore_dev_irqvecs_enable(&sdev->bus->pcicore, sdev);
+ 
+ 	ssb_device_enable(bp->sdev, 0);
+@@ -1374,7 +1375,7 @@ static int b44_set_mac_addr(struct net_device *dev, void *p)
+ }
+ 
+ /* Called at device open time to get the chip ready for
+- * packet processing.  Invoked with bp->lock held.
++ * packet processing.  Sometimes invoked with bp->lock held.
+  */
+ static void __b44_set_rx_mode(struct net_device *);
+ static void b44_init_hw(struct b44 *bp, int reset_kind)
+@@ -2288,6 +2289,13 @@ static int b44_resume(struct ssb_device *sdev)
+ 		return rc;
+ 	}
+ 
++	/*
++	 * If the device isn't enabled yet, we need to do so before taking
++	 * the spinlock, since the enablinging function sleeps.
++	 */
++	if (!ssb_device_is_enabled(bp->sdev))
++		ssb_pcicore_dev_irqvecs_enable(&sdev->bus->pcicore, sdev);
++
+ 	spin_lock_irq(&bp->lock);
+ 
+ 	b44_init_rings(bp);
+-- 
+1.5.5.1
 
 
-On Sun, 1 Jun 2008, Tobias Diedrich wrote:
 
-> (BTW I first thought the 'immediate reboot because of usb wake' effect is
-> caused by the optical mouse generating a wake event, but it rather
-> seems to be a problem with a flaky secondary usb host controller,
-> which sees a connected device where nothing is attached)
-
-Can you provide debugging information (i.e., CONFIG_USB_DEBUG) with the 
-details on this bogus wakeup?
-
-Alan Stern
-
-
+-- 
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
