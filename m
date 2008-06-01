@@ -1,331 +1,98 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky2 unsupported chip type 0xff failure
-Date: Sun, 1 Jun 2008 15:19:27 -0700
-Message-ID: <20080601151927.43869d06@extreme>
-References: <18498.24460.411071.234025@harpo.it.uu.se>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
+Date: Sun, 1 Jun 2008 23:29:08 +0100
+Message-ID: <20080601222906.GH30769@solarflare.com>
+References: <482FBA09.80201@sngx.net> <483E0AAE.2020107@sngx.net> <20080528221118.63da4092.akpm@linux-foundation.org> <483EA2D1.8050603@sngx.net> <20080529154525.3916c7b5@core> <20080530151250.b44a119a.billfink@mindspring.com> <20080531131143.516ca56e@core> <20080531195702.0b879dd1.billfink@mindspring.com> <20080601014620.GG30769@solarflare.com> <20080601164614.012fe1f6.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mikael Pettersson <mikpe@it.uu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	James Cammarata <jimi@sngx.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53827 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751961AbYFAWTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 18:19:37 -0400
-In-Reply-To: <18498.24460.411071.234025@harpo.it.uu.se>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:39566 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751956AbYFAW3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 18:29:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20080601164614.012fe1f6.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 1 Jun 2008 10:36:28 +0200
-Mikael Pettersson <mikpe@it.uu.se> wrote:
+Bill Fink wrote:
+> On Sun, 1 Jun 2008, Ben Hutchings wrote:
+> 
+> > Bill Fink wrote:
+> > <snip>
+> > > Yes, every individual Linux network administrator can re-create the
+> > > wheel by devising their own scripts, but it makes much more sense
+> > > to me to implement a simple general kernel mechanism once that could
+> > > be used generically, than to have hundreds (or thousands) of Linux
+> > > network administrators each having to do it themselves (perhaps
+> > > multiple times if they have a variety of types of systems and types
+> > > of NICs).
+> > 
+> > The ethtool interface is pretty generic, even if the names aren't.
+> > Here's some Python code I just knocked up which demonstrates how
+> > to get a set of named stats.  It shouldn't be terribly hard to
+> > extend this to saving and subtracting stat sets.
+> 
+> I'm not sure what that proves.  Your python code just basically gives
+> the same info as running the "ethtool -S" command.
 
-> I mentioned earlier that the sky2 chip in my ASUS P5B-E Plus
-> sometimes doesn't get recognized on a cold boot. Well, today
-> it happened again (first time in over a week).
-> This is with the 2.6.26-rc4 kernel:
-> 
-> >sky2 0000:02:00.0: enabling device (0000 -> 0003)
-> >ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 17 (level, low) -> IRQ 17
-> >PCI: Setting latency timer of device 0000:02:00.0 to 64
-> >sky2 0000:02:00.0: unsupported chip type 0xff
-> >ACPI: PCI interrupt for device 0000:02:00.0 disabled
-> >sky2: probe of 0000:02:00.0 failed with error -95
-> 
-> Here's an lspci dump of the device when it isn't recognized:
-> 
-> 02:00.0 Ethernet controller: Marvell Technology Group Ltd. Unknown device 4364 (rev 12)
-> 	Subsystem: ASUSTeK Computer Inc. Unknown device 81f8
-> 	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Interrupt: pin A routed to IRQ 17
-> 	Region 0: Memory at ff9fc000 (64-bit, non-prefetchable) [size=16K]
-> 	Region 2: I/O ports at c800 [size=256]
-> 	[virtual] Expansion ROM at ff9c0000 [disabled] [size=128K]
-> 	Capabilities: [48] Power Management version 3
-> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-> 		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-> 	Capabilities: [50] Vital Product Data
-> 	Capabilities: [5c] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
-> 		Address: 0000000000000000  Data: 0000
-> 	Capabilities: [e0] Express Legacy Endpoint IRQ 0
-> 		Device: Supported: MaxPayload 128 bytes, PhantFunc 0, ExtTag-
-> 		Device: Latency L0s unlimited, L1 unlimited
-> 		Device: AtnBtn- AtnInd- PwrInd-
-> 		Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
-> 		Device: RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-> 		Device: MaxPayload 128 bytes, MaxReadReq 512 bytes
-> 		Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s L1, Port 0
-> 		Link: Latency L0s <256ns, L1 unlimited
-> 		Link: ASPM Disabled RCB 128 bytes CommClk- ExtSynch-
-> 		Link: Speed 2.5Gb/s, Width x1
-> 	Capabilities: [100] Advanced Error Reporting
-> 00: ab 11 64 43 03 00 10 00 12 00 00 02 00 00 00 00
-> 10: 04 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00
-> 20: 00 00 00 00 00 00 00 00 00 00 00 00 43 10 f8 81
-> 30: 00 00 00 00 48 00 00 00 00 00 00 00 00 01 00 00
-> 40: 00 00 f0 01 00 80 a0 01 01 50 03 fe 00 20 00 13
-> 50: 03 5c 00 80 00 00 00 01 00 00 00 01 05 e0 80 00
-> 60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 70: 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 80: 00 00 00 00 00 70 00 00 00 00 00 00 82 a8 e8 00
-> 90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e0: 10 00 11 00 c0 8f 00 00 00 20 1b 00 11 ac 07 00
-> f0: 08 00 11 10 00 00 00 00 00 00 00 00 00 00 00 00
-> 100: 01 00 01 00 00 00 10 00 00 00 00 00 11 20 06 00
-> 110: 01 20 00 00 00 20 00 00 14 00 00 00 01 00 00 40
-> 120: 0f 00 00 00 80 dc 9f ff 00 00 00 00 00 00 00 00
-> 130: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 140: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 150: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 160: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 170: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 180: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 190: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 1a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 1b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 1c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 1d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 1e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 1f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 200: 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 210: 00 14 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 220: 30 75 00 00 78 00 02 02 04 00 20 03 04 00 2c 01
-> 230: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 240: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 250: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 260: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 270: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 280: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 290: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 2a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 2b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 2c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 2d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 2e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 2f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 300: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 310: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 320: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 330: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 340: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 350: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 360: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 370: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 380: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 390: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 3a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 3b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 3c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 3d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 3e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 3f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 400: ab 11 64 43 03 00 10 00 12 00 00 02 00 00 00 00
-> 410: 04 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00
-> 420: 00 00 00 00 00 00 00 00 00 00 00 00 43 10 f8 81
-> 430: 00 00 00 00 48 00 00 00 00 00 00 00 00 01 00 00
-> 440: 00 00 f0 01 00 80 a0 01 01 50 03 fe 00 20 00 13
-> 450: 03 5c 00 80 00 00 00 01 00 00 00 01 05 e0 80 00
-> 460: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 470: 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 480: 00 00 00 00 00 70 00 00 00 00 00 00 82 a8 e8 00
-> 490: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 4a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 4b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 4c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 4d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 4e0: 10 00 11 00 c0 8f 00 00 00 20 1b 00 11 ac 07 00
-> 4f0: 08 00 11 10 00 00 00 00 00 00 00 00 00 00 00 00
-> 500: 01 00 01 00 00 00 10 00 00 00 00 00 11 20 06 00
-> 510: 01 20 00 00 00 20 00 00 14 00 00 00 01 00 00 40
-> 520: 0f 00 00 00 80 dc 9f ff 00 00 00 00 00 00 00 00
-> 530: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 540: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 550: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 560: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 570: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 580: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 590: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 5a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 5b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 5c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 5d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 5e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 5f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 600: 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 610: 00 14 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 620: 30 75 00 00 78 00 02 02 04 00 20 03 04 00 2c 01
-> 630: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 640: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 650: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 660: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 670: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 680: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 690: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 6a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 6b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 6c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 6d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 6e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 6f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 700: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 710: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 720: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 730: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 740: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 750: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 760: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 770: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 780: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 790: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 7a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 7b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 7c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 7d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 7e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 7f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 800: ab 11 64 43 03 00 10 00 12 00 00 02 00 00 00 00
-> 810: 04 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00
-> 820: 00 00 00 00 00 00 00 00 00 00 00 00 43 10 f8 81
-> 830: 00 00 00 00 48 00 00 00 00 00 00 00 00 01 00 00
-> 840: 00 00 f0 01 00 80 a0 01 01 50 03 fe 00 20 00 13
-> 850: 03 5c 00 80 00 00 00 01 00 00 00 01 05 e0 80 00
-> 860: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 870: 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 880: 00 00 00 00 00 70 00 00 00 00 00 00 82 a8 e8 00
-> 890: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 8a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 8b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 8c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 8d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 8e0: 10 00 11 00 c0 8f 00 00 00 20 1b 00 11 ac 07 00
-> 8f0: 08 00 11 10 00 00 00 00 00 00 00 00 00 00 00 00
-> 900: 01 00 01 00 00 00 10 00 00 00 00 00 11 20 06 00
-> 910: 01 20 00 00 00 20 00 00 14 00 00 00 01 00 00 40
-> 920: 0f 00 00 00 80 dc 9f ff 00 00 00 00 00 00 00 00
-> 930: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 940: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 950: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 960: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 970: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 980: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 990: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 9a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 9b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 9c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 9d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 9e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 9f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a00: 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a10: 00 14 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a20: 30 75 00 00 78 00 02 02 04 00 20 03 04 00 2c 01
-> a30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> a90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> aa0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ab0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ac0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ad0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ae0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> af0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> b90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ba0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> bb0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> bc0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> bd0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> be0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> bf0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> c00: ab 11 64 43 03 00 10 00 12 00 00 02 00 00 00 00
-> c10: 04 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00
-> c20: 00 00 00 00 00 00 00 00 00 00 00 00 43 10 f8 81
-> c30: 00 00 00 00 48 00 00 00 00 00 00 00 00 01 00 00
-> c40: 00 00 f0 01 00 80 a0 01 01 50 03 fe 00 20 00 13
-> c50: 03 5c 00 80 00 00 00 01 00 00 00 01 05 e0 80 00
-> c60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> c70: 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> c80: 00 00 00 00 00 70 00 00 00 00 00 00 82 a8 e8 00
-> c90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ca0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> cb0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> cc0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> cd0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ce0: 10 00 11 00 c0 8f 00 00 00 20 1b 00 11 ac 07 00
-> cf0: 08 00 11 10 00 00 00 00 00 00 00 00 00 00 00 00
-> d00: 01 00 01 00 00 00 10 00 00 00 00 00 11 20 06 00
-> d10: 01 20 00 00 00 20 00 00 14 00 00 00 01 00 00 40
-> d20: 0f 00 00 00 80 dc 9f ff 00 00 00 00 00 00 00 00
-> d30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> d40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> d50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> d60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> d70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> d80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> d90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> da0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> db0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> dc0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> dd0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> de0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> df0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e00: 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e10: 00 14 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e20: 30 75 00 00 78 00 02 02 04 00 20 03 04 00 2c 01
-> e30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> e90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ea0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> eb0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ec0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ed0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ee0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ef0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> f90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> fa0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> fb0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> fc0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> fd0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> fe0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> ff0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 
-> A warm reboot typically solves this problem, though
-> it's annoying.
-> 
-> I suspect the BIOS failed to complete some initialisation
-> the first time, which caused the sky2 driver to bail.
-> Which makes me think that maybe sky2 is missing some
-> low-level reset or init code.
-> 
-> /Mikael
+Yes, but in a form you can more easily manipulate.
 
-More likely it takes longer to reset and the processor
-is too fast.
+> But the question
+> is how does one devise a generic script or tool that doesn't require
+> any special knowledge of the specific NIC being used.  For example,
+> here's the "ethtool -S" info for my myri10ge NIC:
+> 
+> [root@chance8 ~]# ethtool -S eth2
+> NIC statistics:
+[...]
+>      WC: 1
+>      irq: 8413
+>      MSI: 1
+>      read_dma_bw_MBs: 1398
+>      write_dma_bw_MBs: 1613
+>      read_write_dma_bw_MBs: 2711
+>      serial_number: 287046
+[...]
+>      tx_linearized: 0
+>      link_changes: 8
+>      link_up: 1
+[...]
+> 
+> How does one know which of these reported values are counter stats
+> that one wishes to zero/snapshot, and which are not?
+
+Ah, I see, I didn't realise some drivers were abusing ethtool stats in
+this way.  But for the most part the differences will show up as zeroes.
+
+If there's really a need for ethtool stats that aren't counters,
+maybe the ethtool API should include flags to indicate which they are.
+
+> Another issue that occurred to me is if multiple people are working
+> on troubleshooting a network problem, how do we insure that they all
+> get a consistent view of the stats?  If this is done via a kernel
+> mechanism then there isn't an issue.  But if it's done via user space,
+> then you have to make sure that everyone zeros/snapshots the stats
+> at the same time.
+> 
+> Ideally, one should be able to do something like "ethtool -z ethX"
+> to zero/snapshot the driver stats, and then "ethtool -S ethX" to get
+> the stats since the last snapshot.  You should be able to use the
+> same tool ("ethtool") to do all of this, and not some other special
+> tool or specially devised homegrown script.  Why make users lives
+> any more difficult than need be?
+
+No-one's stopping you from adding these options to ethtool.  You could
+have it save statistic sets in, say, /var/run/ethtool.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
