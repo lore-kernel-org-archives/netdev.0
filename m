@@ -1,45 +1,53 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
-Date: Sat, 31 May 2008 09:20:36 +0200
-Message-ID: <20080531072036.GC5405@ucw.cz>
-References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <20080525181329.GA5044@yamamaya.is-a-geek.org> <20080527062153.GA3651@yamamaya.is-a-geek.org> <200805271432.12881.david-b@pacbell.net>
+From: "Avuton Olrich" <avuton@gmail.com>
+Subject: atl1 card hibernation regression
+Date: Sun, 1 Jun 2008 07:42:02 -0700
+Message-ID: <3aa654a40806010742s7529b9fxe02d0204f329065b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tobias Diedrich <ranma+kernel@tdiedrich.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	linux-acpi@vger.kernel.org, linux-pm@lists.linux-foundation.org
-To: David Brownell <david-b@pacbell.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jgarzik@redhat.com>, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: "Jay Cliburn" <jacliburn@bellsouth.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.29]:62455 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986AbYFAOmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 10:42:04 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so305137ywe.1
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2008 07:42:03 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <200805271432.12881.david-b@pacbell.net>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+After resuming from hibernate, my network card refuses to get back
+online. The bisection and much more information are below.
 
-> > The platform_enable_wakeup() hook is still there, but unused.
-> 
-> The patches to support it (still) haven't been merged.
-> 
-> 
-> > AFAICS this patch should solve the "'ethtool -s eth0 wol g' doesn't
-> > suffice, I also have to write magic values into /proc/acpi/wakeup"
-> > issue.
-> 
-> Yeah; under ACPI, PCI does not act like it does everywhere else.
-> Nor does wakeup in general.
-> 
-> After sending patches to fix that for a couple years now, I'm
-> well past being tired of doing that.  I suggest it's overdue for
-> the ACPI team to get this part of their act together.
+http://avuton.googlepages.com/network-hibernate-config.gz
+http://avuton.googlepages.com/network-hibernate-cpuinfo
+http://avuton.googlepages.com/network-hibernate-dmesg
+http://avuton.googlepages.com/network-hibernate-ioports
+http://avuton.googlepages.com/network-hibernate-lspci-vvv
+http://avuton.googlepages.com/network-hibernate-modules
+http://avuton.googlepages.com/network-hibernate-ver-linux
+http://avuton.googlepages.com/network-hibernate-version
 
-I'm afraid you expect too much from the acpi team. If you can't merge
-patches yourself, perhaps someone interested (Tobias? me?) can push
-them for you?
-							Pavel
+08e0f1dc8388b3e134c714672c59edc2a7059430 is first bad commit
+commit 08e0f1dc8388b3e134c714672c59edc2a7059430
+Author: Jay Cliburn <jacliburn@bellsouth.net>
+Date:   Fri May 9 22:12:07 2008 -0500
+
+    atl1: fix broken suspend and resume
+
+    Fix atl1_suspend() and atl1_resume() so they actually work.  We'll use
+    the suspend function for wake-on-lan in addition to just suspending.
+
+    Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+
+:040000 040000 3f637343c4cf04bf6579699f9780677ba2ec6001
+1836f1832ced72a7265085f0395695d2914130ba M      drivers
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+avuton
+--
+ "I've got a fever. And the only prescription is more cowbell." --
+Christopher Walken
