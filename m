@@ -1,98 +1,98 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
-Date: Sun, 1 Jun 2008 02:46:22 +0100
-Message-ID: <20080601014620.GG30769@solarflare.com>
-References: <482F610D.2080108@sngx.net> <20080518003104.GK28241@solarflare.com> <482FBA09.80201@sngx.net> <483E0AAE.2020107@sngx.net> <20080528221118.63da4092.akpm@linux-foundation.org> <483EA2D1.8050603@sngx.net> <20080529154525.3916c7b5@core> <20080530151250.b44a119a.billfink@mindspring.com> <20080531131143.516ca56e@core> <20080531195702.0b879dd1.billfink@mindspring.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during MTU
+ change
+Date: Sat, 31 May 2008 18:46:15 -0700
+Message-ID: <20080531184615.350bac00@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	James Cammarata <jimi@sngx.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: alan@redhat.com, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:37995 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754278AbYFABqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 21:46:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20080531195702.0b879dd1.billfink@mindspring.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:40881 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756269AbYFABri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 21:47:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bill Fink wrote:
-<snip>
-> Yes, every individual Linux network administrator can re-create the
-> wheel by devising their own scripts, but it makes much more sense
-> to me to implement a simple general kernel mechanism once that could
-> be used generically, than to have hundreds (or thousands) of Linux
-> network administrators each having to do it themselves (perhaps
-> multiple times if they have a variety of types of systems and types
-> of NICs).
 
-The ethtool interface is pretty generic, even if the names aren't.
-Here's some Python code I just knocked up which demonstrates how
-to get a set of named stats.  It shouldn't be terribly hard to
-extend this to saving and subtracting stat sets.
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during MTU change
 
-Ben.
+The via-velocity.c driver reinitializes (frees/allocates) several
+metadata structures during an MTU change. Unfortunately the allocations
+of the new versions of the metadata is done with GFP_KERNEL, even
+though this change of datastructures is (and needs to be) done while
+holding a spinlock (with irqs off).
 
-import array, fcntl, os, socket, struct
+Clearly that isn't a good thing, and kerneloops.org has trapped a large
+deal of the resulting warnings. The fix is to use GFP_ATOMIC.
+While not elegant, avoiding the lock is going to be extremely complex.
+In addition, this is a "static", long lived allocation (after all, how
+often do you actually change your mtu) and not something that happens
+on an ongoing basis.
 
-SIOCETHTOOL = 0x8946
+Reported-by: www.kerneloops.org
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+ drivers/net/via-velocity.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
-ETH_GSTRING_LEN = 32
-ETH_SS_STATS = 1
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 6b8d882..4bf08fd 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -1,4 +1,4 @@
+-/*
++;/*
+  * This code is derived from the VIA reference driver (copyright message
+  * below) provided to Red Hat by VIA Networking Technologies, Inc. for
+  * addition to the Linux kernel.
+@@ -1241,6 +1241,9 @@ static int velocity_rx_refill(struct velocity_info *vptr)
+  *
+  *	Allocate and set up the receive buffers for each ring slot and
+  *	assign them to the network adapter.
++ *
++ *	Note: This function gets called with irqs off/lock held
++ *	from velocity_change_mtu()
+  */
+ 
+ static int velocity_init_rd_ring(struct velocity_info *vptr)
+@@ -1251,7 +1254,7 @@ static int velocity_init_rd_ring(struct velocity_info *vptr)
+ 	vptr->rx_buf_sz = (mtu <= ETH_DATA_LEN) ? PKT_BUF_SZ : mtu + 32;
+ 
+ 	vptr->rd_info = kcalloc(vptr->options.numrx,
+-				sizeof(struct velocity_rd_info), GFP_KERNEL);
++				sizeof(struct velocity_rd_info), GFP_ATOMIC);
+ 	if (!vptr->rd_info)
+ 		return -ENOMEM;
+ 
+@@ -1309,6 +1312,9 @@ static void velocity_free_rd_ring(struct velocity_info *vptr)
+  *	Set up the transmit ring and chain the ring pointers together.
+  *	Returns zero on success or a negative posix errno code for
+  *	failure.
++ *
++ *	Note: This function gets called with irqs off/lock held
++ *	from velocity_change_mtu()
+  */
+ 
+ static int velocity_init_td_ring(struct velocity_info *vptr)
+@@ -1324,7 +1330,7 @@ static int velocity_init_td_ring(struct velocity_info *vptr)
+ 
+ 		vptr->td_infos[j] = kcalloc(vptr->options.numtx,
+ 					    sizeof(struct velocity_td_info),
+-					    GFP_KERNEL);
++					    GFP_ATOMIC);
+ 		if (!vptr->td_infos[j])	{
+ 			while(--j >= 0)
+ 				kfree(vptr->td_infos[j]);
+-- 
+1.5.5.1
 
-ETHTOOL_GDRVINFO = 0x00000003
-ETHTOOL_GSTRINGS = 0x0000001b
-ETHTOOL_GSTATS = 0x0000001d
-
-def ethtool(sock, name, buf):
-    ifreq = struct.pack('16sP', name, buf.buffer_info()[0])
-    fcntl.ioctl(sock.fileno(), SIOCETHTOOL, ifreq)
-
-def ethtool_gdrvinfo(sock, name):
-    cmd = struct.pack('=I', ETHTOOL_GDRVINFO)
-    buf = array.array('c', cmd)
-    format = '=32s32s32s32s32x12xIIIII'
-    buf.extend('\0' * struct.calcsize(format))
-    ethtool(sock, name, buf)
-    return dict(zip(['driver', 'version', 'fw_version', 'bus_info',
-                     'n_priv_flags', 'n_stats', 'testinfo_len',
-                     'eedump_len', 'regdump_len'],
-                    struct.unpack(format, buf[len(cmd):])))
-
-def ethtool_gstrings(sock, name, string_set, count):
-    cmd = struct.pack('=II', ETHTOOL_GSTRINGS, string_set)
-    buf = array.array('c', cmd)
-    buf.extend('\0' * (4 + count * ETH_GSTRING_LEN))
-    ethtool(sock, name, buf)
-    def nth_string(buf, n):
-        data = buf[12 + n * ETH_GSTRING_LEN : 12 + (n + 1) * ETH_GSTRING_LEN]
-        return data.tostring().replace('\0', '')
-    return [nth_string(buf, n) for n in range(count)]
-
-def ethtool_gstats(sock, name, count):
-    cmd = struct.pack('=I', ETHTOOL_GSTATS)
-    buf = array.array('c', cmd)
-    buf.extend('\0' * (4 + count * 8))
-    ethtool(sock, name, buf)
-    def nth_stat(buf, n):
-        data = buf[8 + n * 8 : 8 + (n + 1) * 8]
-        return struct.unpack('=Q', data)[0]
-    return [nth_stat(buf, n) for n in range(count)]
-
-if __name__ == '__main__':
-    import sys
-    name = sys.argv[1]
-    sock = socket.socket()
-    drvinfo = ethtool_gdrvinfo(sock, name)
-    count = drvinfo['n_stats']
-    print dict(zip(ethtool_gstrings(sock, name, ETH_SS_STATS, count),
-                   ethtool_gstats(sock, name, count)))
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
