@@ -1,105 +1,56 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH net-next 13/13]bnx2x: add BCM57711 and new features
-Date: Sun, 01 Jun 2008 11:13:22 -0400
-Message-ID: <1212333202.6967.132.camel@ubuntu804desktop.localdomain>
-Reply-To: eilong@broadcom.com
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: PATCH] net: b44.c fix sleeping-with-spinlock-helt during resume
+Date: Sun, 1 Jun 2008 09:01:07 -0700
+Message-ID: <20080601090107.1ed8d5a7@infradead.org>
+References: <20080531201130.0244dc29@infradead.org>
+	<200806011203.40437.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Eliezer Tamir" <eliezert@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
-	davem@davemloft.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2506 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752138AbYFAPNi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jun 2008 11:13:38 -0400
+Received: from pentafluge.infradead.org ([213.146.154.40]:43996 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859AbYFAQBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 12:01:16 -0400
+In-Reply-To: <200806011203.40437.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I would like to thank Eliezer Tamir again for his two years of bringing
-up the bnx2x and maintaining it up until now. From this point, I will
-take the bnx2x maintenance
+On Sun, 1 Jun 2008 12:03:40 +0200
+Michael Buesch <mb@bu3sch.de> wrote:
 
-Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
-Signed-off-by: Eilong Greenstein <eilong@broadcom.com>
----
- MAINTAINERS              |    4 ++--
- drivers/net/bnx2x.h      |    3 ++-
- drivers/net/bnx2x_init.h |    3 ++-
- drivers/net/bnx2x_main.c |    5 +++--
- 4 files changed, 9 insertions(+), 6 deletions(-)
+> Index: wireless-testing/drivers/ssb/driver_pcicore.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/ssb/driver_pcicore.c
+> 2008-04-23 16:06:56.000000000 +0200 +++
+> wireless-testing/drivers/ssb/driver_pcicore.c	2008-06-01
+> 12:02:33.000000000 +0200 @@ -537,12 +537,12 @@ int
+> ssb_pcicore_dev_irqvecs_enable(struc int err = 0; u32 tmp;
+>  
+> -	might_sleep();
+> -
+>  	if (!pdev)
+>  		goto out;
+>  	bus = pdev->bus;
+>  
+> +	might_sleep_if(pdev->id.coreid != SSB_DEV_PCI);
+> +
+>  	/* Enable interrupts for this device. */
+>  	if (bus->host_pci &&
+>  	    ((pdev->id.revision >= 6) || (pdev->id.coreid ==
+> SSB_DEV_PCIE))) {
+> 
+> 
+> 
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index bc1c008..7738f31 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1002,8 +1002,8 @@ L:	netdev@vger.kernel.org
- S:	Supported
- 
- BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
--P:	Eliezer Tamir
--M:	eliezert@broadcom.com
-+P:	Eilon Greenstein
-+M:	eilong@broadcom.com
- L:	netdev@vger.kernel.org
- S:	Supported
- 
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 4e3e18d..8433ebe 100755
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -6,7 +6,8 @@
-  * it under the terms of the GNU General Public License as published by
-  * the Free Software Foundation.
-  *
-- * Written by: Eliezer Tamir <eliezert@broadcom.com>
-+ * Maintained by: Eilon Greenstein <eilong@broadcom.com>
-+ * Written by: Eliezer Tamir
-  * Based on code from Michael Chan's bnx2 driver
-  */
- 
-diff --git a/drivers/net/bnx2x_init.h b/drivers/net/bnx2x_init.h
-index a01fd8a..42713ff 100644
---- a/drivers/net/bnx2x_init.h
-+++ b/drivers/net/bnx2x_init.h
-@@ -6,7 +6,8 @@
-  * it under the terms of the GNU General Public License as published by
-  * the Free Software Foundation.
-  *
-- * Written by: Eliezer Tamir <eliezert@broadcom.com>
-+ * Maintained by: Eilon Greenstein <eilong@broadcom.com>
-+ * Written by: Eliezer Tamir
-  */
- 
- #ifndef BNX2X_INIT_H
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index f093174..03294a7 100755
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -6,7 +6,8 @@
-  * it under the terms of the GNU General Public License as published by
-  * the Free Software Foundation.
-  *
-- * Written by: Eliezer Tamir <eliezert@broadcom.com>
-+ * Maintained by: Eilon Greenstein <eilong@broadcom.com>
-+ * Written by: Eliezer Tamir
-  * Based on code from Michael Chan's bnx2 driver
-  * UDP CSUM errata workaround by Arik Gendelman
-  * Slowpath rework by Vladislav Zolotarov
-@@ -76,7 +77,7 @@ static char version[] __devinitdata =
- 	"Broadcom NetXtreme II 5771x 10Gigabit Ethernet Driver "
- 	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
- 
--MODULE_AUTHOR("Eliezer Tamir <eliezert@broadcom.com>");
-+MODULE_AUTHOR("Eliezer Tamir");
- MODULE_DESCRIPTION("Broadcom NetXtreme II BCM57710 Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_MODULE_VERSION);
+fair enough.... can we get something like this into 2.6.26 still? Quite
+a few people are hitting this (even though the warning is harmless, it
+still is better to silence it)
+
 -- 
-1.5.5
-
-
-
-
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
