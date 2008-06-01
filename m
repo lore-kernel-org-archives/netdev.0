@@ -1,43 +1,68 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows
- with MD5SIG enabled
-Date: Mon, 2 Jun 2008 09:40:15 +1000 (EST)
-Message-ID: <Xine.LNX.4.64.0806020938240.8594@us.intercode.com.au>
-References: <396556a20805301140x586093e5o92d44e38f7c2869a@mail.gmail.com>
- <396556a20805301217k293e5718h6bbf02bfe0683143@europa>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH] atl1: fix suspend regression
+Date: Sun, 1 Jun 2008 18:44:41 -0500
+Message-ID: <20080601184441.790521f8@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Adam Langley <agl@imperialviolet.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, csnook@redhat.com, avuton@gmail.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from namei.org ([69.55.235.186]:46544 "EHLO us.intercode.com.au"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752391AbYFAXkU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jun 2008 19:40:20 -0400
-In-Reply-To: <396556a20805301217k293e5718h6bbf02bfe0683143@europa>
+Received: from fmailhost05.isp.att.net ([207.115.11.55]:41225 "EHLO
+	fmailhost05.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752610AbYFAXot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 19:44:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 31 May 2008, Adam Langley wrote:
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Date: Sun, 1 Jun 2008 16:57:11 -0500
+Subject: [PATCH] atl1: fix suspend regression
 
-> When MD5 signatures are turned on we can end up with syntactically invalid
-> packets with a header length < 20 bytes. This is because tcp_header_size
-> overflows with 12 bytes of timestamp, 20 bytes of signature and > 8 bytes of
-> SACK option.
-> 
-> Since we can't fit any SACK blocks in the final 8 bytes of options space, and
-> the MD5 signature is more important, we disable including SACK, or even
-> advertising it, when MD5 is enabled.
-> 
-> Signed-off-by: Adam Langley <agl@imperialviolet.org>
+Using vendor magic to force the PHY into power save mode breaks
+suspend.  It isn't needed anyway, so remove it.
 
-Reviewed-by: James Morris <jmorris@namei.org>
+Tested-by: Avuton Olrich <avuton@gmail.com>
+Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+---
+ drivers/net/atlx/atl1.c |   17 -----------------
+ 1 files changed, 0 insertions(+), 17 deletions(-)
 
-
-(FYI, the upcoming replacement for this, TCP-AO, is designed to be SACK 
-compatible)
-
-
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+index 6e4c80d..1a2f93d 100644
+--- a/drivers/net/atlx/atl1.c
++++ b/drivers/net/atlx/atl1.c
+@@ -637,22 +637,6 @@ static s32 atl1_phy_leave_power_saving(struct atl1_hw *hw)
+ }
+ 
+ /*
+- * Force the PHY into power saving mode using vendor magic.
+- */
+-#ifdef CONFIG_PM
+-static void atl1_phy_enter_power_saving(struct atl1_hw *hw)
+-{
+-	atl1_write_phy_reg(hw, MII_DBG_ADDR, 0);
+-	atl1_write_phy_reg(hw, MII_DBG_DATA, 0x124E);
+-	atl1_write_phy_reg(hw, MII_DBG_ADDR, 2);
+-	atl1_write_phy_reg(hw, MII_DBG_DATA, 0x3000);
+-	atl1_write_phy_reg(hw, MII_DBG_ADDR, 3);
+-	atl1_write_phy_reg(hw, MII_DBG_DATA, 0);
+-
+-}
+-#endif
+-
+-/*
+  * Resets the PHY and make all config validate
+  * hw - Struct containing variables accessed by shared code
+  *
+@@ -2859,7 +2843,6 @@ disable_wol:
+ 	ctrl |= PCIE_PHYMISC_FORCE_RCV_DET;
+ 	iowrite32(ctrl, hw->hw_addr + REG_PCIE_PHYMISC);
+ 	ioread32(hw->hw_addr + REG_PCIE_PHYMISC);
+-	atl1_phy_enter_power_saving(hw);
+ 	hw->phy_configured = false;
+ 	pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
+ exit:
 -- 
-James Morris
-<jmorris@namei.org>
+1.5.5.1
+
