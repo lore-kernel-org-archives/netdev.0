@@ -1,83 +1,130 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: PATCH] net: b44.c fix sleeping-with-spinlock-helt during resume
-Date: Sat, 31 May 2008 20:11:30 -0700
-Message-ID: <20080531201130.0244dc29@infradead.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Sun, 1 Jun 2008 08:51:34 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0806010826040.18717@wrl-59.cs.helsinki.fi>
+References: <20080526115628.GA31316@elte.hu>  <20080529084524.GA24892@elte.hu>
+  <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi>
+ <20080529112257.GA18130@elte.hu> <20080530181839.GA31915@elte.hu>
+ <20080531060947.GA26441@elte.hu>  <Pine.LNX.4.64.0805311431100.2329@wrl-59.cs.helsinki.fi>
+  <Pine.LNX.4.64.0805311505410.2329@wrl-59.cs.helsinki.fi>
+ <20080531125428.GA22111@elte.hu>  <Pine.LNX.4.64.0805311555570.2329@wrl-59.cs.helsinki.fi>
+  <20080531163501.GB22607@elte.hu> <1212273974.28319.107.camel@tng>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1771556638-1212299494=:18717"
+Cc: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Patrick McManus <mcmanus@ducksong.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:54742 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469AbYFADM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2008 23:12:29 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:55865 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbYFAFvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 01:51:37 -0400
+In-Reply-To: <1212273974.28319.107.camel@tng>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: [PATCH] net: b44.c fix sleeping-with-spinlock-helt during resume
-CC: Michael Buesch <mb@bu3sch.de>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-The b44.c driver calls b44_chip_reset() from the resume path,
-with the device spinlock held.
-Unfortunately, b44_chip_reset() calls ssb_pcicore_dev_irqvecs_enable()
-which is a sleeping function (and calls might_sleep), if and only if
-the device hasn't been enabled yet.
+---696208474-1771556638-1212299494=:18717
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Not having this hardware, the safest solution seems to be to enable
-the irqvec before taking the spinlock...
+On Sat, 31 May 2008, Patrick McManus wrote:
 
-http://www.kerneloops.org/search.php?search=ssb_pcicore_dev_irqvecs_enable
+> On Sat, 2008-05-31 at 18:35 +0200, Ingo Molnar wrote:
+> > * Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> > 
+> 
+> > > ...setsockopt(listenfd, SOL_TCP, TCP_DEFER_ACCEPT, &val, sizeof(val)) 
+> > > seems to be the magic trick that is interestion here.
+> > 
+> > seems to be used:
+> > 
+> >  22003 write(3, "distccd[22003] (dcc_listen_by_ad"..., 62) = 62
+> >  22003 listen(4, 10)                     = 0
+> >  22003 setsockopt(4, SOL_TCP, TCP_DEFER_ACCEPT, [1], 4) = 0
+> > 
+> > i'll queue up your reverts for testing in -tip.
+> 
+> 
+> So the code you will revert came from my fingers. The circumstances here
+> make me nervous; while I'm at a loss to explain what might be going on
+> in particular, let me offer an apology in advance should the revert help
+> resolve the issue.
 
-Reported-by: www.kerneloops.org
-Signed-off-by: Arjan van de Ven
----
- drivers/net/b44.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+Yes, don't worry just yet. It far from proven yet that this is the cause 
+(or contributes to easiness of reproducal in any way). The patch was just 
+for Ingo's testing in his -tip branch. I didn't even bother to cc you yet 
+because it's more or less a stab into dark, but it's definately worth of 
+testing still even though Ingo probably comes back soon and tells that it 
+didn't help any because it's clearly related :-).
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 59dce6a..6028129 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -1278,6 +1278,7 @@ static void b44_chip_reset(struct b44 *bp, int reset_kind)
- 		bw32(bp, B44_DMARX_CTRL, 0);
- 		bp->rx_prod = bp->rx_cons = 0;
- 	} else
-+		/* this function sleeps! */
- 		ssb_pcicore_dev_irqvecs_enable(&sdev->bus->pcicore, sdev);
- 
- 	ssb_device_enable(bp->sdev, 0);
-@@ -1374,7 +1375,7 @@ static int b44_set_mac_addr(struct net_device *dev, void *p)
- }
- 
- /* Called at device open time to get the chip ready for
-- * packet processing.  Invoked with bp->lock held.
-+ * packet processing.  Sometimes invoked with bp->lock held.
-  */
- static void __b44_set_rx_mode(struct net_device *);
- static void b44_init_hw(struct b44 *bp, int reset_kind)
-@@ -2288,6 +2289,13 @@ static int b44_resume(struct ssb_device *sdev)
- 		return rc;
- 	}
- 
-+	/*
-+	 * If the device isn't enabled yet, we need to do so before taking
-+	 * the spinlock, since the enablinging function sleeps.
-+	 */
-+	if (!ssb_device_is_enabled(bp->sdev))
-+		ssb_pcicore_dev_irqvecs_enable(&sdev->bus->pcicore, sdev);
-+
- 	spin_lock_irq(&bp->lock);
- 
- 	b44_init_rings(bp);
+> Here's what makes me nervous:
+> 
+>  * not a lot of code uses DEFER_ACCEPT.. frankly it was pretty broken
+> before 26 - but not broken this way .. the correlation of your bug using
+> it is significant. 
+>
+>  * in 26, a server TCP socket (with DA) goes to ESTABLISHED when the 3rd
+> part of the handshake is received (as normal without DA), but the socket
+> isn't put on the accept queue until a real data packet arrives. (That's
+> the point of DA). In <= 25 this socket would have syn-recv until the
+> data packet arrived.
+> 
+>   - I did run tests where the server died in between the handshake being
+> completed and first data packet arriving - the client should see RST and
+> the server socket should disappear. But maybe something was missed?
+
+Also in this Ingo's case RST seems to be missing, ie., there's unread data 
+and both ends remain ESTABLISHED while the receiver is already gone (or 
+not referencing to the connection correctly).
+
+> Do I understand this correctly, the server process is gone but the
+> socket is still in the table? And the client process is still there
+> waiting for the server to do something - having sent a bunch of data?
+
+Yes, this seems to be the case, sender was doing window probes because 
+window became to zero.
+
+Because it's distcc, tracking a particular process is not that simple 
+task. Either the process is gone or it doesn't correctly reference to the 
+connection.
+
+> Do we know if any data bytes (not handshake bytes) have been consumed by
+> the server side? If they were, that would seem to vindicate DA.
+
+We don't know. We cannot currently track the particular process which 
+would definately be helpful here.
+
+> Also pointing away from DA is that you started seeing this with rc3 -
+> that code was included in rc1.Is that a firm observation, or maybe there
+> weren't enough datapoints to conclude that rc1 and rc2 were clean?
+
+Timeline won't match too well yes. I also find it quite unlikely, but 
+still worth of test because it's hard to know when this begun, luck might 
+have just played some role there because it's quite evasive in Ingo's 
+case anyway.
+
+Anything you find suspicious between rc1..rc3?
+
+...I suspected my rc3 FRTO fixes first but they have nothing to do with 
+window probing and orphan handling.
+
+> The most interesting patch is ec3c0982a2dd1e671bad8e9d26c28dcba0039d87
+> if anyone wants to eyeball it.
+
+I personally think it might as well be some other issue which just become 
+more visible after DA but lets wait until Ingo has some results which may 
+well result in that DA is not making it to become visible in his case. 
+...Also, I doubt Arjan's mua has nothing to do with DA.
+
+
 -- 
-1.5.5.1
-
-
-
--- 
-If you want to reach me at my work email, use arjan@linux.intel.com
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+ i.
+---696208474-1771556638-1212299494=:18717--
