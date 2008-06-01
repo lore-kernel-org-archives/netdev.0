@@ -1,44 +1,43 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] net/core/sock.c remove extra wakeup
-Date: Sun, 01 Jun 2008 23:03:41 +0200
-Message-ID: <87prr027gy.fsf@basil.nowhere.org>
-References: <483F99090200005A00037FFE@lucius.provo.novell.com>
-	<483F990C0200005A00038001@lucius.provo.novell.com>
-	<483FDE61020000C7000389F6@lucius.provo.novell.com>
-	<483FDE61020000C7000389F6@lucius.provo.novell.com>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: atl1 card hibernation regression
+Date: Sun, 1 Jun 2008 16:49:54 -0500
+Message-ID: <20080601164954.102d0fa1@osprey.hogchain.net>
+References: <3aa654a40806010742s7529b9fxe02d0204f329065b@mail.gmail.com>
+ <20080601134120.3eb6651a@osprey.hogchain.net>
+ <3aa654a40806011326o2cfddfa0o6bc743041b5df8d6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Gregory Haskins" <GHaskins@novell.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: "Patrick Mullaney" <pmullaney@novell.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jgarzik@redhat.com>, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: "Avuton Olrich" <avuton@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:41433 "EHLO
-	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751931AbYFAVFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 17:05:38 -0400
-In-Reply-To: <483FDE61020000C7000389F6@lucius.provo.novell.com> (Patrick Mullaney's message of "Fri, 30 May 2008 11:00:49 -0600")
+Received: from fmailhost02.isp.att.net ([207.115.11.52]:45435 "EHLO
+	fmailhost02.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754085AbYFAVuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 17:50:03 -0400
+In-Reply-To: <3aa654a40806011326o2cfddfa0o6bc743041b5df8d6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Patrick Mullaney" <pmullaney@novell.com> writes:
->
-> Would a better approach be?
->
-> 1) clear the bit when the waiter returns(bottom of sock_wait_for_wmem)
-> 2) add a new wait-queue to the socket to separate the writers
-> 3) another idea?
+On Sun, 1 Jun 2008 13:26:26 -0700
+"Avuton Olrich" <avuton@gmail.com> wrote:
 
-A large reason this is tricky is because it is essentially lockless. So
-alternative would be:
+> On Sun, Jun 1, 2008 at 11:41 AM, Jay Cliburn
+> <jacliburn@bellsouth.net> wrote:
+> > On Sun, 1 Jun 2008 07:42:02 -0700
+> > "Avuton Olrich" <avuton@gmail.com> wrote:
+> >
+> >> After resuming from hibernate, my network card refuses to get back
+> >> online. The bisection and much more information are below.
+> >
+> > Can you please try this patch?
+[...]
+> 
+> Brilliant! Works as advertised, thanks for the quick fix!
 
-4) you add a spinlock which is always taken around the various condition
-checks and bit manipulation. Not 100% sure if it would be bad to 
-general SMP scalability (you would need to ensure that the bouncing
-lock cache line isn't a performance problem), but at least it would 
-be much safer and makes it much easier to verify your change is correct.
+Thank you for the very thorough bug report.
 
-Actually the wait queue already has such a lock, so it might not be
-that expensive if you switch the wait queue to a lockless version.
+May I include you in the Tested-by line?
 
--Andi
-
+Jay
