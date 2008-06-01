@@ -1,56 +1,35 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: PATCH] net: b44.c fix sleeping-with-spinlock-helt during resume
-Date: Sun, 1 Jun 2008 09:01:07 -0700
-Message-ID: <20080601090107.1ed8d5a7@infradead.org>
-References: <20080531201130.0244dc29@infradead.org>
-	<200806011203.40437.mb@bu3sch.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Sun, 01 Jun 2008 09:01:27 -0700 (PDT)
+Message-ID: <20080601.090127.193706900.davem@davemloft.net>
+References: <4835A007.7020601@krogh.cc>
+	<20080522.104145.193700531.davem@davemloft.net>
+	<20080601072528.GA786@pazke.donpac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Michael Buesch <mb@bu3sch.de>
+Cc: jesper@krogh.cc, Matheos.Worku@Sun.COM, yhlu.kernel@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: pazke@pazke.donpac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:43996 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859AbYFAQBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 12:01:16 -0400
-In-Reply-To: <200806011203.40437.mb@bu3sch.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48108
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753205AbYFAQBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 12:01:31 -0400
+In-Reply-To: <20080601072528.GA786@pazke.donpac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 1 Jun 2008 12:03:40 +0200
-Michael Buesch <mb@bu3sch.de> wrote:
+From: Andrey Panin <pazke@pazke.donpac.ru>
+Date: Sun, 1 Jun 2008 11:25:28 +0400
 
-> Index: wireless-testing/drivers/ssb/driver_pcicore.c
-> ===================================================================
-> --- wireless-testing.orig/drivers/ssb/driver_pcicore.c
-> 2008-04-23 16:06:56.000000000 +0200 +++
-> wireless-testing/drivers/ssb/driver_pcicore.c	2008-06-01
-> 12:02:33.000000000 +0200 @@ -537,12 +537,12 @@ int
-> ssb_pcicore_dev_irqvecs_enable(struc int err = 0; u32 tmp;
->  
-> -	might_sleep();
-> -
->  	if (!pdev)
->  		goto out;
->  	bus = pdev->bus;
->  
-> +	might_sleep_if(pdev->id.coreid != SSB_DEV_PCI);
-> +
->  	/* Enable interrupts for this device. */
->  	if (bus->host_pci &&
->  	    ((pdev->id.revision >= 6) || (pdev->id.coreid ==
-> SSB_DEV_PCIE))) {
+> On 143, 05 22, 2008 at 10:41:45 -0700, David Miller wrote:
+> > For now, yes.  The transmit path itself in the generic network
+> > device layer is where the serialization comes from.
 > 
-> 
-> 
+> BTW does this problem affects bonded interfaces ?
 
-fair enough.... can we get something like this into 2.6.26 still? Quite
-a few people are hitting this (even though the warning is harmless, it
-still is better to silence it)
-
--- 
-If you want to reach me at my work email, use arjan@linux.intel.com
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+The toplevel bond device uses lockless transmit because
+it does not queue, so the arity of the locking is equal
+to the arity of the number of slave devices sitting
+under the toplevel bond device.
