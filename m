@@ -1,65 +1,76 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH] tcp_read_sock: fix a size_t < 0 comparison
-Date: Sun, 1 Jun 2008 22:39:07 +0300
-Message-ID: <200806012239.07308.opurdila@ixiacom.com>
+From: "Avuton Olrich" <avuton@gmail.com>
+Subject: Re: atl1 card hibernation regression
+Date: Sun, 1 Jun 2008 13:26:26 -0700
+Message-ID: <3aa654a40806011326o2cfddfa0o6bc743041b5df8d6@mail.gmail.com>
+References: <3aa654a40806010742s7529b9fxe02d0204f329065b@mail.gmail.com>
+	 <20080601134120.3eb6651a@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_brvQInhAovkXh2o"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jgarzik@redhat.com>, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: "Jay Cliburn" <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:2547 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751233AbYFATkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 15:40:25 -0400
+Received: from gv-out-0910.google.com ([216.239.58.191]:40321 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751682AbYFAU0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 16:26:32 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so86557gvc.37
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2008 13:26:28 -0700 (PDT)
+In-Reply-To: <20080601134120.3eb6651a@osprey.hogchain.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_brvQInhAovkXh2o
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Sun, Jun 1, 2008 at 11:41 AM, Jay Cliburn <jacliburn@bellsouth.net> wrote:
+> On Sun, 1 Jun 2008 07:42:02 -0700
+> "Avuton Olrich" <avuton@gmail.com> wrote:
+>
+>> After resuming from hibernate, my network card refuses to get back
+>> online. The bisection and much more information are below.
+>
+> Can you please try this patch?
+>
+> diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+> index 6e4c80d..1a2f93d 100644
+> --- a/drivers/net/atlx/atl1.c
+> +++ b/drivers/net/atlx/atl1.c
+> @@ -637,22 +637,6 @@ static s32 atl1_phy_leave_power_saving(struct atl1_hw *hw)
+>  }
+>
+>  /*
+> - * Force the PHY into power saving mode using vendor magic.
+> - */
+> -#ifdef CONFIG_PM
+> -static void atl1_phy_enter_power_saving(struct atl1_hw *hw)
+> -{
+> -       atl1_write_phy_reg(hw, MII_DBG_ADDR, 0);
+> -       atl1_write_phy_reg(hw, MII_DBG_DATA, 0x124E);
+> -       atl1_write_phy_reg(hw, MII_DBG_ADDR, 2);
+> -       atl1_write_phy_reg(hw, MII_DBG_DATA, 0x3000);
+> -       atl1_write_phy_reg(hw, MII_DBG_ADDR, 3);
+> -       atl1_write_phy_reg(hw, MII_DBG_DATA, 0);
+> -
+> -}
+> -#endif
+> -
+> -/*
+>  * Resets the PHY and make all config validate
+>  * hw - Struct containing variables accessed by shared code
+>  *
+> @@ -2859,7 +2843,6 @@ disable_wol:
+>        ctrl |= PCIE_PHYMISC_FORCE_RCV_DET;
+>        iowrite32(ctrl, hw->hw_addr + REG_PCIE_PHYMISC);
+>        ioread32(hw->hw_addr + REG_PCIE_PHYMISC);
+> -       atl1_phy_enter_power_saving(hw);
+>        hw->phy_configured = false;
+>        pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
+>  exit:
+>
 
-
-
---Boundary-00=_brvQInhAovkXh2o
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="0001-tcp_read_sock-fix-a-size_t-0-comparison.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="0001-tcp_read_sock-fix-a-size_t-0-comparison.diff"
-
->From 8a8e438947d1dd0848cedcaacaf956387184300f Mon Sep 17 00:00:00 2001
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Sun, 1 Jun 2008 21:39:48 +0300
-Subject: [PATCH] tcp_read_sock: fix a size_t < 0 comparison
-
-<used> should be of type int (not size_t) since recv_actor can
-return negative values and it is also used in a < 0 comparison.
-
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
----
- net/ipv4/tcp.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 680546a..78c66b6 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1206,7 +1206,8 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
- 		return -ENOTCONN;
- 	while ((skb = tcp_recv_skb(sk, seq, &offset)) != NULL) {
- 		if (offset < skb->len) {
--			size_t used, len;
-+			int used;
-+			size_t len;
- 
- 			len = skb->len - offset;
- 			/* Stop reading if we hit a patch of urgent data */
+Brilliant! Works as advertised, thanks for the quick fix!
 -- 
-1.5.4.3
-
-
---Boundary-00=_brvQInhAovkXh2o--
+avuton
+--
+ "I've got a fever. And the only prescription is more cowbell." --
+Christopher Walken
