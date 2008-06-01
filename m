@@ -1,65 +1,63 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies available to userspace
-Date: Sun, 1 Jun 2008 19:48:39 +0200
-Message-ID: <200806011948.39770.tomasz@grobelny.oswiecenia.net>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net> <20080526142209.GA20164@gerrit.erg.abdn.ac.uk> <200805262340.53355.tomasz@grobelny.oswiecenia.net>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: atl1 card hibernation regression
+Date: Sun, 1 Jun 2008 13:41:20 -0500
+Message-ID: <20080601134120.3eb6651a@osprey.hogchain.net>
+References: <3aa654a40806010742s7529b9fxe02d0204f329065b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jgarzik@redhat.com>, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: "Avuton Olrich" <avuton@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:2548 "EHLO poczta.oswiecenia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751165AbYFARs6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 13:48:58 -0400
-In-Reply-To: <200805262340.53355.tomasz@grobelny.oswiecenia.net>
-Content-Disposition: inline
+Received: from fmailhost03.isp.att.net ([207.115.11.53]:57292 "EHLO
+	fmailhost03.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346AbYFASl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 14:41:27 -0400
+In-Reply-To: <3aa654a40806010742s7529b9fxe02d0204f329065b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dnia Monday 26 of May 2008, napisa=B3e=B6:
-> Dnia Monday 26 of May 2008, Gerrit Renker napisa=B3:
-> > | As for information we can get from kernel wrt dccp we have at lea=
-st:
-> > | 1. fixed information that depends only on kernel version. For exa=
-mple
-> > | list of ccids, list of available qpolicies, list of parameters fo=
-r
-> > | given qpolicy, etc. These are system wide and don't need referenc=
-e to
-> > | socket. These could even be exposed by read-only entries in /sys =
-or
-> > | /proc.
-> >
-> > That is a good point - I think Arnaldo had a similar idea once for
-> > implenting system-wide policies regarding which CCIDs are supported=
-=2E
-> > Something like net.ipv4.tcp_available_congestion_control.
->
-> Ok, we may go this way. I'll try to write a patch in a few days (quit=
-e busy
-> now).
->
-Now that I had a closer look at implementing this functionality I have =
-a few=20
-questions:
-1. Where should information about available qpolicies and their paramet=
-rs be=20
-exported? Would /proc/net/dccp/qpolicies/ be a good choice?
-2. I guess we should have at least one file per qpolicy with parameters=
- listed=20
-inside. Like that:
-/proc/.../qpolicies/simple: <empty>
-/proc/.../qpolicies/prio: 1 (DCCP_SCM_PRIORITY) 2 (DCCP_SCM_TIMEOUT)
-But we could also have qpolicy represented by directory and parameters =
-by=20
-files:
-/proc/.../qpolicies/simple/
-/proc/.../qpolicies/prio/
-/proc/.../qpolicies/prio/priority: <empty>
-/proc/.../qpolicies/prio/timeout: <empty>
-Which layout do you find better?
---=20
-Regards,
-Tomasz Grobelny
+On Sun, 1 Jun 2008 07:42:02 -0700
+"Avuton Olrich" <avuton@gmail.com> wrote:
+
+> After resuming from hibernate, my network card refuses to get back
+> online. The bisection and much more information are below.
+
+Can you please try this patch?
+
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+index 6e4c80d..1a2f93d 100644
+--- a/drivers/net/atlx/atl1.c
++++ b/drivers/net/atlx/atl1.c
+@@ -637,22 +637,6 @@ static s32 atl1_phy_leave_power_saving(struct atl1_hw *hw)
+ }
+ 
+ /*
+- * Force the PHY into power saving mode using vendor magic.
+- */
+-#ifdef CONFIG_PM
+-static void atl1_phy_enter_power_saving(struct atl1_hw *hw)
+-{
+-	atl1_write_phy_reg(hw, MII_DBG_ADDR, 0);
+-	atl1_write_phy_reg(hw, MII_DBG_DATA, 0x124E);
+-	atl1_write_phy_reg(hw, MII_DBG_ADDR, 2);
+-	atl1_write_phy_reg(hw, MII_DBG_DATA, 0x3000);
+-	atl1_write_phy_reg(hw, MII_DBG_ADDR, 3);
+-	atl1_write_phy_reg(hw, MII_DBG_DATA, 0);
+-
+-}
+-#endif
+-
+-/*
+  * Resets the PHY and make all config validate
+  * hw - Struct containing variables accessed by shared code
+  *
+@@ -2859,7 +2843,6 @@ disable_wol:
+ 	ctrl |= PCIE_PHYMISC_FORCE_RCV_DET;
+ 	iowrite32(ctrl, hw->hw_addr + REG_PCIE_PHYMISC);
+ 	ioread32(hw->hw_addr + REG_PCIE_PHYMISC);
+-	atl1_phy_enter_power_saving(hw);
+ 	hw->phy_configured = false;
+ 	pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
+ exit:
