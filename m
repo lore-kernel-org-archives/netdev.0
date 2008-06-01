@@ -1,55 +1,57 @@
-From: akinobu.mita@gmail.com
-Subject: [patch -v2 01/23] sunrpc: use simple_read_from_buffer
-Date: Mon, 02 Jun 2008 08:13:30 +0900
-Message-ID: <20080601231451.529328123@gmail.com>
+From: akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Subject: [patch -v2 11/23] airo: use simple_read_from_buffer
+Date: Mon, 02 Jun 2008 08:13:40 +0900
+Message-ID: <20080601231543.372911291@gmail.com>
 References: <20080601231329.223608711@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:24561 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752997AbYFAX1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 19:27:06 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so767550rvb.1
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2008 16:27:06 -0700 (PDT)
-Content-Disposition: inline; filename=sunrpc-simple-read-from-buffer.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline; filename=airo-use-simple-read-from-buffer.patch
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
+Signed-off-by: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- net/sunrpc/cache.c |   15 +++------------
+ drivers/net/wireless/airo.c |   15 +++------------
  1 file changed, 3 insertions(+), 12 deletions(-)
 
-Index: 2.6-git/net/sunrpc/cache.c
+Index: 2.6-git/drivers/net/wireless/airo.c
 ===================================================================
---- 2.6-git.orig/net/sunrpc/cache.c
-+++ 2.6-git/net/sunrpc/cache.c
-@@ -1271,20 +1271,11 @@ static ssize_t read_flush(struct file *f
+--- 2.6-git.orig/drivers/net/wireless/airo.c
++++ 2.6-git/drivers/net/wireless/airo.c
+@@ -4560,22 +4560,13 @@ static ssize_t proc_read( struct file *f
+ 			  size_t len,
+ 			  loff_t *offset )
  {
- 	struct cache_detail *cd = PDE(file->f_path.dentry->d_inode)->data;
- 	char tbuf[20];
--	unsigned long p = *ppos;
- 	size_t len;
+-	loff_t pos = *offset;
+-	struct proc_data *priv = (struct proc_data*)file->private_data;
++	struct proc_data *priv = file->private_data;
  
--	sprintf(tbuf, "%lu\n", cd->flush_time);
--	len = strlen(tbuf);
--	if (p >= len)
+ 	if (!priv->rbuffer)
+ 		return -EINVAL;
+ 
+-	if (pos < 0)
+-		return -EINVAL;
+-	if (pos >= priv->readlen)
 -		return 0;
--	len -= p;
--	if (len > count)
--		len = count;
--	if (copy_to_user(buf, (void*)(tbuf+p), len))
+-	if (len > priv->readlen - pos)
+-		len = priv->readlen - pos;
+-	if (copy_to_user(buffer, priv->rbuffer + pos, len))
 -		return -EFAULT;
--	*ppos += len;
+-	*offset = pos + len;
 -	return len;
-+	len = sprintf(tbuf, "%lu\n", cd->flush_time);
-+
-+	return simple_read_from_buffer(buf, count, ppos, tbuf, len);
++	return simple_read_from_buffer(buffer, len, offset, priv->rbuffer,
++					priv->readlen);
  }
  
- static ssize_t write_flush(struct file * file, const char __user * buf,
+ /*
 
 -- 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
