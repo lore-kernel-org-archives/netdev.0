@@ -1,44 +1,99 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH] phylib: Don't allow core of phylib to build as a module
-Date: Mon, 02 Jun 2008 18:20:00 -0500
-Message-ID: <48448020.5020407@freescale.com>
-References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net>	<484419EE.5040503@garzik.org>	<1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org>	<48442239.7090906@garzik.org>	<BF15FEBB-4876-4B16-915B-1D21BF989DA8@kernel.crashing.org>	<83820D83-487C-4586-9867-F4226A87A276@freescale.com>	<48445851.4090105@garzik.org> <095F258F-72DD-4F27-A457-A57D9FAA1E76@kernel.crashing.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/2] IPV4: remove addresses and routes when carrier is lost
+Date: Mon, 2 Jun 2008 16:52:49 -0700
+Message-ID: <20080602165249.52a467dc@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:63603 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753039AbYFBXUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 19:20:15 -0400
-In-Reply-To: <095F258F-72DD-4F27-A457-A57D9FAA1E76@kernel.crashing.org>
+Received: from mail.vyatta.com ([216.93.170.194]:49272 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753876AbYFBXxz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2008 19:53:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kumar Gala wrote:
-> On Jun 2, 2008, at 3:30 PM, Jeff Garzik wrote:
-> 
->> Andy Fleming wrote:
->>> I'm partial to the select-it-if-you-need-it paradigm.
->>
->>
->> AFAICS this can all be solved by the platform Kconfig ensuring that 
->> phylib=y
-> 
-> I don't care for this as it means making sure each platform/board port 
-> gets it right.
+This patch adds a new configuration sysctl that causes link loss to clear
+FIB state in the same way as admin down. This allows for routing daemons
+like Quagga which have option to remove routes when carrier is lost.
 
-How is this different from any other kconfig dependency?  It's not too 
-hard to scan through your platform code and see what you call...
+This has been a long standing problem with Quagga on Linux with complaints
+on the developers list going back to 2004. Fixing it properly, so the routing 
+daemon manages the RIB, and the kernel manages the FIB, requires changes to
+both parts.
 
-> I think we'd be better off with a small stub that is 
-> always built into the kernel for phy_read/phy_write, etc or the function 
-> pointer indirection mechanism.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-And then instead of build failures, you'd get a silent runtime failure 
-to apply the workaround if phylib is built as a module.
+---
+Patch is against net-next-2.6, so it can be integrated in 2.6.27.
 
--Scott
+--- a/Documentation/networking/ip-sysctl.txt	2008-06-02 14:35:36.000000000 -0700
++++ b/Documentation/networking/ip-sysctl.txt	2008-06-02 15:30:03.000000000 -0700
+@@ -788,7 +788,10 @@ disable_policy - BOOLEAN
+ disable_xfrm - BOOLEAN
+ 	Disable IPSEC encryption on this interface, whatever the policy
+ 
+-
++link_detect - BOOLEAN
++	Causes loss of carrier remove interface addresses the same as
++	setting device down. When carrier is restored, the addresses
++	are restored.
+ 
+ tag - INTEGER
+ 	Allows you to write a number, which can be used as required.
+--- a/include/linux/inetdevice.h	2008-06-02 14:35:43.000000000 -0700
++++ b/include/linux/inetdevice.h	2008-06-02 14:36:54.000000000 -0700
+@@ -97,6 +97,7 @@ static inline void ipv4_devconf_setall(s
+ #define IN_DEV_PROMOTE_SECONDARIES(in_dev) \
+ 					IN_DEV_ORCONF((in_dev), \
+ 						      PROMOTE_SECONDARIES)
++#define IN_DEV_LINK_DETECT(in_dev)	IN_DEV_ORCONF((in_dev), LINK_DETECT)
+ 
+ #define IN_DEV_RX_REDIRECTS(in_dev) \
+ 	((IN_DEV_FORWARD(in_dev) && \
+--- a/include/linux/sysctl.h	2008-06-02 14:35:44.000000000 -0700
++++ b/include/linux/sysctl.h	2008-06-02 15:30:03.000000000 -0700
+@@ -490,6 +490,7 @@ enum
+ 	NET_IPV4_CONF_ARP_IGNORE=19,
+ 	NET_IPV4_CONF_PROMOTE_SECONDARIES=20,
+ 	NET_IPV4_CONF_ARP_ACCEPT=21,
++	NET_IPV4_CONF_LINK_DETECT=22,
+ 	__NET_IPV4_CONF_MAX
+ };
+ 
+--- a/net/ipv4/devinet.c	2008-06-02 14:35:45.000000000 -0700
++++ b/net/ipv4/devinet.c	2008-06-02 14:36:54.000000000 -0700
+@@ -1443,6 +1443,7 @@ static struct devinet_sysctl_table {
+ 					      "force_igmp_version"),
+ 		DEVINET_SYSCTL_FLUSHING_ENTRY(PROMOTE_SECONDARIES,
+ 					      "promote_secondaries"),
++		DEVINET_SYSCTL_RW_ENTRY(LINK_DETECT, "link_detect"),
+ 	},
+ };
+ 
+--- a/net/ipv4/fib_frontend.c	2008-06-02 14:35:45.000000000 -0700
++++ b/net/ipv4/fib_frontend.c	2008-06-02 14:36:54.000000000 -0700
+@@ -944,6 +944,11 @@ static int fib_netdev_event(struct notif
+ 	if (!in_dev)
+ 		return NOTIFY_DONE;
+ 
++	/* Link detect causes changes in carrier to add/remove addresses from FIB */
++	if (event == NETDEV_CHANGE && netif_running(dev)
++	    && IN_DEV_LINK_DETECT(in_dev))
++		event = netif_carrier_ok(dev) ? NETDEV_UP : NETDEV_DOWN;
++
+ 	switch (event) {
+ 	case NETDEV_UP:
+ 		for_ifa(in_dev) {
+--- a/kernel/sysctl_check.c	2008-06-02 16:31:09.000000000 -0700
++++ b/kernel/sysctl_check.c	2008-06-02 16:31:31.000000000 -0700
+@@ -219,6 +219,7 @@ static const struct trans_ctl_table tran
+ 	{ NET_IPV4_CONF_ARP_IGNORE,		"arp_ignore" },
+ 	{ NET_IPV4_CONF_PROMOTE_SECONDARIES,	"promote_secondaries" },
+ 	{ NET_IPV4_CONF_ARP_ACCEPT,		"arp_accept" },
++	{ NET_IPV4_CONF_LINK_DETECT,		"link_detect" },
+ 	{}
+ };
+ 
