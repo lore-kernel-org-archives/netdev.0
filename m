@@ -1,102 +1,66 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies available to userspace
-Date: Mon, 2 Jun 2008 23:56:27 +0200
-Message-ID: <200806022356.27743.tomasz@grobelny.oswiecenia.net>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200805262340.53355.tomasz@grobelny.oswiecenia.net> <20080602102136.GB10306@gerrit.erg.abdn.ac.uk>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: [PATCH]  Fix routing tables with id > 255 for legacy software
+Date: Tue, 03 Jun 2008 00:09:47 +0200
+Message-ID: <48446fab.fEFxpuNLP1rSMKv2%olel@ans.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:2999 "EHLO poczta.oswiecenia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751859AbYFBV4v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 17:56:51 -0400
-In-Reply-To: <20080602102136.GB10306@gerrit.erg.abdn.ac.uk>
-Content-Disposition: inline
+Received: from bizon.gios.gov.pl ([212.244.124.8]:41999 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752395AbYFBWJ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 18:09:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dnia Monday 02 of June 2008, Gerrit Renker napisa=B3:
-> | > It was for this part that I looked at netlink. This goes into the
-> | > direction of a new API or at least API extensions.
-> |
-> | We basically need a callback from code that can access struct sock.=
-=2E.
-> |
-> | > (...)
-> | > For per-socket statistics there is indeed a need for a notificati=
-on
-> | > mechanism. If a synchronous mechanism is sufficient, then somethi=
-ng
-> | > like the current CCID-3 getsockopt(DCCP_SOCKOPT_CCID_{RX,TX}_INFO=
-) can
-> | > be used.
-> |
-> | Synchronous mechanism is acceptable but callback (at least as an op=
-tion)
-> | would be way nicer.
->
-> I have been looking around for alternatives - there are some
-> very good solutions for such aspects in the SCTP subsystem.
->
-> They implement the subscription of event notifications on a socket fo=
-r
-> all sorts of events.
->
-> A socket option performs this subscription, notifications are then pa=
-ssed
-> along with data (I think also without, have not dug deep enough into =
-the
-> sources), via recvmsg(). This is the inverse path to qpolicies: the
-> ancillary data is passed via cmsg(3) wrappers to the user.
->
-> To distinguish events from normal (ancillary) data, SCTP sets the
-> flag fields to MSG_NOTIFICATION.
->
-> There are two good papers on this (the second one is a bit older):
-> http://www.bsdcan.org/2008/schedule/events/91.en.html
-> http://lwn.net/2001/features/OLS/pdf/pdf/sctp.pdf
->
-> The sources are in net/sctp, the lksctp project is hosted at
-> http://sourceforge.net/projects/lksctp
->
-> I think that this approach is elegant and has something to offer for
-> DCCP as well. What do you think?
->
-I also thought about such a solution but I didn't state it because I th=
-ought=20
-it is even more hackish than the one below. Mostly because it=20
-interleaves "real data" with events (and there is no logical connection=
-=20
-between the two as opposed to sending scenario). But if it is used in S=
-CTP=20
-then maybe the whole idea is not that bad...
-Anyway, I'll have a look at the documents and at the SCTP implementatio=
-n.
+>From 4cb8c341fc444afc638cf9ce4efb7e4248e88b5e Mon Sep 17 00:00:00 2001
+From: Krzysztof Piotr Oledzki <ole@ans.pl>
+Date: Tue, 3 Jun 2008 00:03:41 +0200
+Subject: [NET] Fix routing tables with id > 255 for legacy software
 
-> | Ok, but if we are at hackish ideas what about this one: use dccp_io=
-ctl to
-> | wait on a mutex. If an event occurs we release mutex thus allowing
-> | dccp_ioctl to finish execution and consequently informing user that
-> | something interesting has just happened - what it exactly is would =
-have
-> | to be determined by other means.
->
-> I am trying to think in terms of how much documentation this would ne=
-ed
-> in order to explain to someone how to use it. It seems feasible, but =
-to
-> me a bit complicated.
->
-The basic idea is the same as above. The difference is that it would ov=
-erload=20
-ioctl, not recv. But maybe we should use recv. Not because it is in any=
- way=20
-better but just because it is already used that way in SCTP and has a f=
-ew=20
-documents describing the approach.
---=20
-Regards,
-Tomasz Grobelny
+Most legacy software do not like tables > 255 as rtm_table is u8
+so tb_id is sent &0xff and it is possible to mismatch for example
+table 510 with table 254 (main).
+
+This patch introduces RT_TABLE_COMPAT=253 so the code uses it if
+tb_id > 255. It makes such old applications happy, new
+ones are still able to use RTA_TABLE to get a proper table id.
+
+Signed-off-by: Krzysztof Piotr Oledzki <ole@ans.pl>
+---
+ include/linux/rtnetlink.h |    1 +
+ net/ipv4/fib_semantics.c  |    5 ++++-
+ 2 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 44c81c7..8bcdea8 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -246,6 +246,7 @@ enum rt_class_t
+ {
+ 	RT_TABLE_UNSPEC=0,
+ /* User defined values */
++	RT_TABLE_COMPAT=252,
+ 	RT_TABLE_DEFAULT=253,
+ 	RT_TABLE_MAIN=254,
+ 	RT_TABLE_LOCAL=255,
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 3b83c34..0d4d728 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -960,7 +960,10 @@ int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+ 	rtm->rtm_dst_len = dst_len;
+ 	rtm->rtm_src_len = 0;
+ 	rtm->rtm_tos = tos;
+-	rtm->rtm_table = tb_id;
++	if (tb_id < 256)
++		rtm->rtm_table = tb_id;
++	else
++		rtm->rtm_table = RT_TABLE_COMPAT;
+ 	NLA_PUT_U32(skb, RTA_TABLE, tb_id);
+ 	rtm->rtm_type = type;
+ 	rtm->rtm_flags = fi->fib_flags;
+-- 
+1.5.5.3
+
