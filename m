@@ -1,34 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Mon, 02 Jun 2008 16:19:33 +1000
-Message-ID: <E1K33OH-0005QX-00@gondolin.me.apana.org.au>
-References: <Pine.LNX.4.64.0805311044360.2189@wrl-59.cs.helsinki.fi>
-Cc: johnpol@2ka.mipt.ru, ray-lk@madrabbit.org, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, rjw@sisk.pl, akpm@linux-foundation.org
-To: ilpo.jarvinen@helsinki.fi (Ilpo J??rvinen)
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH net-2.6 0/2] [IPV4] [NETFILTER] Misc Cleanups.
+Date: Mon, 2 Jun 2008 09:36:35 +0300
+Message-ID: <eb3ff54b0806012336s687b0d89t767c31615d955c61@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37998 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751495AbYFBGUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 02:20:23 -0400
-In-Reply-To: <Pine.LNX.4.64.0805311044360.2189@wrl-59.cs.helsinki.fi>
+Received: from rv-out-0506.google.com ([209.85.198.230]:56122 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751110AbYFBGgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 02:36:35 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so907782rvb.1
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2008 23:36:35 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
->
-> Before:
-> tcp    65436      0 lo:5000          lo:59980         ESTABLISHED -
+Hi,
+  While probing into IPV4 netfilter code, I came across these cleanups in
+  net/ipv4/netfilter/ip_queue.c and in
+include/net/netfilter/ipv4/nf_conntrack_ipv4.h.
 
-This is what happens before accept(2) is called.  Ingo, please
-strace the process that owns the listening socket to make sure
-that it is actually calling accept(2).  If it ever stops calling
-accept(2) then this is expected behaviour.
+Regards,
+Rami Rosen
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
