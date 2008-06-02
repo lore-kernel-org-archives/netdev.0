@@ -1,106 +1,88 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
- e1000/pcnet32
-Date: Sun, 1 Jun 2008 23:55:58 -0400
-Message-ID: <20080601235558.66e1ed7b.billfink@mindspring.com>
-References: <482FBA09.80201@sngx.net>
-	<483E0AAE.2020107@sngx.net>
-	<20080528221118.63da4092.akpm@linux-foundation.org>
-	<483EA2D1.8050603@sngx.net>
-	<20080529154525.3916c7b5@core>
-	<20080530151250.b44a119a.billfink@mindspring.com>
-	<20080531131143.516ca56e@core>
-	<20080531195702.0b879dd1.billfink@mindspring.com>
-	<20080601014620.GG30769@solarflare.com>
-	<20080601164614.012fe1f6.billfink@mindspring.com>
-	<20080601222906.GH30769@solarflare.com>
+From: Glen Turner <gdt@gdt.id.au>
+Subject: Re: increase priority of tcp ACK packages in the kernel?
+Date: Mon, 02 Jun 2008 14:00:44 +0930
+Message-ID: <48437774.1060404@gdt.id.au>
+References: <4840F9DF.5080106@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	James Cammarata <jimi@sngx.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: Harald Dunkel <harald.dunkel@t-online.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:35431
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754293AbYFBD4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 23:56:08 -0400
-In-Reply-To: <20080601222906.GH30769@solarflare.com>
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:50299 "EHLO
+	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750862AbYFBEap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 00:30:45 -0400
+In-Reply-To: <4840F9DF.5080106@t-online.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 1 Jun 2008, Ben Hutchings wrote:
-
-> Bill Fink wrote:
+Harald Dunkel wrote:
+> AFAICS there is a performance problem for tcp: High volume
+> outgoing traffic seriously affects throughput for incoming
+> traffic due to the tcp ACK packages waiting between the
+> giant packages in the outgoing fifo.
 > 
-> > But the question
-> > is how does one devise a generic script or tool that doesn't require
-> > any special knowledge of the specific NIC being used.  For example,
-> > here's the "ethtool -S" info for my myri10ge NIC:
-> > 
-> > [root@chance8 ~]# ethtool -S eth2
-> > NIC statistics:
-> [...]
-> >      WC: 1
-> >      irq: 8413
-> >      MSI: 1
-> >      read_dma_bw_MBs: 1398
-> >      write_dma_bw_MBs: 1613
-> >      read_write_dma_bw_MBs: 2711
-> >      serial_number: 287046
-> [...]
-> >      tx_linearized: 0
-> >      link_changes: 8
-> >      link_up: 1
-> [...]
-> > 
-> > How does one know which of these reported values are counter stats
-> > that one wishes to zero/snapshot, and which are not?
-> 
-> Ah, I see, I didn't realise some drivers were abusing ethtool stats in
-> this way.  But for the most part the differences will show up as zeroes.
+> Do you think it would be possible to increase the priority of
+> outgoing tcp ACK packages in the kernel by default?
 
-I'm not sure I would characterize that as abuse of the ethtool stats,
-but rather just a different category of stats.  And I wouldn't want
-them to show up as zeros after doing a clear/snapshot of the counter
-stats.  The "ethtool -S" output should be completely normal afterward,
-with just the counter stats being zeroed.
+An embedded wireless router running Linux would want the
+opposite policy. So the current user-space configuration
+of kernel-provided services appears about right.
 
-> If there's really a need for ethtool stats that aren't counters,
-> maybe the ethtool API should include flags to indicate which they are.
+ADSL customers often see your problem, since their uplink
+is just big enough for Acks and if you run a web server
+too then those Acks have to compete on congested capacity.
+Use iptables and tc to queue the Acks out first (you can
+use the ingress interface to identify the routed Acks),
+don't fiddle with the DSCP -- there's no need.
 
-That would be useful.  Maybe some way of determining the type of an
-ethtool stat such as COUNTER (perhaps with subtypes for signed versus
-unsigned, 32-bit versus 64-bit), RUNTIME_INFO, etc.
+This is deep policy, and it doesn't belong in the kernel.
 
-> > Another issue that occurred to me is if multiple people are working
-> > on troubleshooting a network problem, how do we insure that they all
-> > get a consistent view of the stats?  If this is done via a kernel
-> > mechanism then there isn't an issue.  But if it's done via user space,
-> > then you have to make sure that everyone zeros/snapshots the stats
-> > at the same time.
-> > 
-> > Ideally, one should be able to do something like "ethtool -z ethX"
-> > to zero/snapshot the driver stats, and then "ethtool -S ethX" to get
-> > the stats since the last snapshot.  You should be able to use the
-> > same tool ("ethtool") to do all of this, and not some other special
-> > tool or specially devised homegrown script.  Why make users lives
-> > any more difficult than need be?
-> 
-> No-one's stopping you from adding these options to ethtool.  You could
-> have it save statistic sets in, say, /var/run/ethtool.
 
-Yes, that could be done if the ability to determine which ethtool stats
-were counter stats was added to the ethtool API.  And I guess they
-should be saved in something like /var/run/ethtool/ethX.  But then
-what happens when you start using multiple network namespaces, and
-for example have eth0 in several different network namespaces.  How
-could that be handled, to keep the different network namespaces from
-clobbering the stats of another namespace?  If done in the kernel,
-I believe it would all work as expected, but it's not clear to me
-how to handle this in user space.
 
-						-Bill
+Note that the --set-tos components in the configurations
+you reference are near totally bogus with many ISPs.
+
+You do not know how the ISP is going to interpret the DSCP.
+For example, we offer these traffic classes to the public:
+  - worst effort
+  - best effort (default)
+  - video
+  - voice
+
+Anything else we interpret as Best Effort.  If you do select
+one of these classes then we either rate-limit the ingress or
+require a matching control plane call establishment.  If you
+exceed these limits your traffic is placed in worst effort.
+
+We are not required to give better effort to priority markings
+within the DSCP (we are required not to give them worse service).
+So we don't give them better service, because unauthenticated
+better service is obviously a DoS vector. In fact, such a common
+setting on DoS traffic that setting ToS actually increases your
+odds of being placed into the Worst Effort class (the class where
+we map all suspicious traffic we can't quite bring ourselves
+to discard).
+
+For example, the page recommends Minimize-Delay, which is
+meant for interactive terminal traffic. We know a screen
+refresh is two back-to-back packets and anything more than
+two per second is superhuman typing. So anything more than
+that burst is a DoS.  You can see already how your Ack
+channel may be limited to the speed of a typist because you
+lied about the traffic you marked with Minimize-Delay.
+
+In short, ISPs are increasingly checking that traffic markings
+are reasonable -- we have wire-speed routers and we're not afraid
+to use them. The only reasonable thing you can do with marking
+Acks is put them in the same DSCP as the data. Otherwise you are
+lying about the contents of the class and when we go looking
+for odd data we'll penalise that.
+
+Oh, and marking Ack traffic and non-Ack traffic in the same
+direction with different DSCPs will drop performance, because
+we'll deliver them out of order if congestion is seen.
+
+-- 
+  Glen Turner
