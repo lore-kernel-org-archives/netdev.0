@@ -1,58 +1,81 @@
-From: Andy Fleming <afleming@freescale.com>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [PATCH] phylib: Don't allow core of phylib to build as a module
-Date: Mon, 2 Jun 2008 14:44:42 -0500
-Message-ID: <83820D83-487C-4586-9867-F4226A87A276@freescale.com>
-References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org> <48442239.7090906@garzik.org> <BF15FEBB-4876-4B16-915B-1D21BF989DA8@kernel.crashing.org>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Date: Mon, 02 Jun 2008 16:29:08 -0400
+Message-ID: <48445814.4030004@garzik.org>
+References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org> <48442239.7090906@garzik.org> <B2D5CE7E-3635-4C18-BD99-E0B5B0BBC70B@kernel.crashing.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>
 To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:57319 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755094AbYFBTpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 15:45:09 -0400
-In-Reply-To: <BF15FEBB-4876-4B16-915B-1D21BF989DA8@kernel.crashing.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:57722 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751571AbYFBU3L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2008 16:29:11 -0400
+In-Reply-To: <B2D5CE7E-3635-4C18-BD99-E0B5B0BBC70B@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Jun 2, 2008, at 14:30, Kumar Gala wrote:
-
->
+Kumar Gala wrote:
+> 
 > On Jun 2, 2008, at 11:39 AM, Jeff Garzik wrote:
->
-> If you really think the core of the phylib should be able to be  
-> built as a module than we could possibly add function pointers to  
-> phy_dev to do the real phy_read()/phy_write() and change phy_read/ 
-> _write to look like:
->
-> int phy_read(struct phy_device *phydev, u16 regnum) {
-> 	return phydev->read(phydev, regnum);
-> }
+> 
+>> Kumar Gala wrote:
+>>> On Jun 2, 2008, at 11:03 AM, Jeff Garzik wrote:
+>>>> Kumar Gala wrote:
+>>>>> The core portions of the phylib aren't capable of being used as
+>>>>> a module.  This isn't really any different than something like i2c
+>>>>> in that the bus driver and core need to be built into the kernel.
+>>>>> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+>>>>> ---
+>>>>> Jeff, please consider this for 2.6.26 as w/o it we get build issues
+>>>>> if phylib is config'd as a module on ppc.
+>>>>> drivers/net/phy/Kconfig |    2 +-
+>>>>> 1 files changed, 1 insertions(+), 1 deletions(-)
+>>>>> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+>>>>> index 6eb2d31..ab04cc7 100644
+>>>>> --- a/drivers/net/phy/Kconfig
+>>>>> +++ b/drivers/net/phy/Kconfig
+>>>>> @@ -3,7 +3,7 @@
+>>>>> #
+>>>>> menuconfig PHYLIB
+>>>>> -    tristate "PHY Device support and infrastructure"
+>>>>> +    bool "PHY Device support and infrastructure"
+>>>>>    depends on !S390
+>>>>>    depends on NET_ETHERNET
+>>>>
+>>>> What are the issues?
+>>>>
+>>>> The core _should_ be able to be built as a module.
+>>> The core provides functions like phy_read/phy_write.  Andy has 
+>>> recently introduced board level workaround/fixups.  The problem is 
+>>> these workarounds tend to use phy_read/phy_write and the 
+>>> board/platform code is not built as modules.
+>>> So we get errors like:
+>>> arch/powerpc/platforms/built-in.o: In function `mpc8568_mds_phy_fixups':
+>>> /home/galak/git/master/powerpc/arch/powerpc/platforms/85xx/mpc85xx_mds.c:99: 
+>>> undefined reference to `phy_write'
+>>> /home/galak/git/master/powerpc/arch/powerpc/platforms/85xx/mpc85xx_mds.c:104: 
+>>> undefined reference to `phy_read'
+>>
+>> The whole world isn't embedded ppc, we use this stuff elsewhere too.
+>>
+>> You guys need to figure out something that doesn't require phylib be 
+>> built-in on ALL platforms, but only the platforms that require it.
+> 
+> I wasn't suggesting we build it always, just not let it be built as a 
+> module.
 
-That would be a bit silly, since this is the definition of phy_read():
+I was saying, you are requiring everyone to bloat their kernel with 
+phylib, if they enable phylib, because of your particular platform details.
 
-int phy_read(struct phy_device *phydev, u16 regnum)
-{
-         int retval;
-         struct mii_bus *bus = phydev->bus;
+That is not a path we want to follow -- limiting everyone else because 
+of one case is not acceptable.
 
-         BUG_ON(in_interrupt());
-
-         mutex_lock(&bus->mdio_lock);
-         retval = bus->read(bus, phydev->addr, regnum);
-         mutex_unlock(&bus->mdio_lock);
-
-         return retval;
-}
+	Jeff
 
 
-We could, of course, move phy_read *out* of the phylib module.  And  
-also phy_register_fixup and any other functions needed by board code.
 
-I'm partial to the select-it-if-you-need-it paradigm.
 
-Andy
