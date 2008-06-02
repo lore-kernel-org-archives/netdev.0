@@ -1,40 +1,52 @@
-From: "Akinobu Mita" <akinobu.mita@gmail.com>
-Subject: Re: [patch -v2 01/23] sunrpc: use simple_read_from_buffer
-Date: Mon, 2 Jun 2008 21:11:19 +0900
-Message-ID: <961aa3350806020511u78896881raef7f5e12b94c121@mail.gmail.com>
-References: <20080601231329.223608711@gmail.com>
-	 <20080601231451.529328123@gmail.com>
-	 <20080602053552.GA6592@martell.zuzino.mipt.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][NETFILTER]: fix inconsistent lock state in
+	nf_ct_frag6_gather()
+Date: Mon, 2 Jun 2008 12:45:01 +0000
+Message-ID: <20080602124500.GA4463@ff.dom.local>
+References: <20080529120248.GA9702@alice> <20080530105334.GA7378@ff.dom.local> <20080530211315.GA16064@alice> <20080530215314.GA2485@ami.dom.local> <4843CEDE.8030409@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Alexey Dobriyan" <adobriyan@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Sesterhenn <snakebyte@gmx.de>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.239]:10597 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757981AbYFBMLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 08:11:19 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so1013787rvb.1
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2008 05:11:19 -0700 (PDT)
-In-Reply-To: <20080602053552.GA6592@martell.zuzino.mipt.ru>
+Received: from fg-out-1718.google.com ([72.14.220.159]:14795 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753471AbYFBMlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 08:41:06 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so726628fgg.17
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2008 05:41:05 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <4843CEDE.8030409@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +     len = sprintf(tbuf, "%lu\n", cd->flush_time);
->> +
->> +     return simple_read_from_buffer(buf, count, ppos, tbuf, len);
->>  }
+On Mon, Jun 02, 2008 at 12:43:42PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> According to this and another similar lockdep report inet_fragment
+>> locks are taken from nf_ct_frag6_gather() with softirqs enabled, but
+>> these locks are mainly used in softirq context, so disabling BHs is
+>> necessary.
 >
-> Please, switch to seq_file:
+> Yes, this can happen on the local output path,
 >
->        seq_printf(m, "%lu\n", cd->flush_time);
->        return 0;
+>> David & Patrick,
+>>
+>> It looks like this patch could be applied.
 >
-> and that's everything module have to worry about.
+> Looks mostly fine, but don't we also have to disable BHs for
+> the inet_frag_find() call in nf_ct_frag6_gather()?
 >
 
-OK. I'll drop this patch from the patch series.
-And I'll send this seq_file convertion in another chance.
+Probably I miss something, but I think this patch seems to do it:
+I can see only one such call in nf_ct_frag6_gather() - with
+fq_find()?
+
+BTW, it looks like this lockdep warning points at some other possible
+problem: inet_fragment.c uses an SMP "optimization" in
+inet_frag_intern(), probably assuming softirq context; so without such
+BH blocking around inet_frag_find(), there should be at least
+preemption disabled, but I don't know if it's a problem for nf_ct.
+
+Regards,
+Jarek P.
