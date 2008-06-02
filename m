@@ -1,75 +1,306 @@
 From: Kumar Gala <galak@kernel.crashing.org>
 Subject: Re: [PATCH] phylib: Don't allow core of phylib to build as a module
-Date: Mon, 2 Jun 2008 14:19:39 -0500
-Message-ID: <B2D5CE7E-3635-4C18-BD99-E0B5B0BBC70B@kernel.crashing.org>
-References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org> <48442239.7090906@garzik.org>
-Mime-Version: 1.0 (Apple Message framework v924)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Andy Fleming <afleming@freescale.com>
-To: Jeff Garzik <jeff@garzik.org>
+Date: Mon, 2 Jun 2008 14:24:49 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0806021423380.11043@blarg.am.freescale.net>
+References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net>
+ <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org>
+ <20080602165422.GA22051@cs181133002.pp.htv.fi>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="330304082-654046157-1212434689=:11043"
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Adrian Bunk <adrian.bunk@movial.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:59343 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:57524 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752038AbYFBTUA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2008 15:20:00 -0400
-In-Reply-To: <48442239.7090906@garzik.org>
+	id S1752999AbYFBTZK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2008 15:25:10 -0400
+In-Reply-To: <20080602165422.GA22051@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Jun 2, 2008, at 11:39 AM, Jeff Garzik wrote:
+--330304082-654046157-1212434689=:11043
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-> Kumar Gala wrote:
->> On Jun 2, 2008, at 11:03 AM, Jeff Garzik wrote:
->>> Kumar Gala wrote:
->>>> The core portions of the phylib aren't capable of being used as
->>>> a module.  This isn't really any different than something like i2c
->>>> in that the bus driver and core need to be built into the kernel.
->>>> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
->>>> ---
->>>> Jeff, please consider this for 2.6.26 as w/o it we get build issues
->>>> if phylib is config'd as a module on ppc.
->>>> drivers/net/phy/Kconfig |    2 +-
->>>> 1 files changed, 1 insertions(+), 1 deletions(-)
->>>> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
->>>> index 6eb2d31..ab04cc7 100644
->>>> --- a/drivers/net/phy/Kconfig
->>>> +++ b/drivers/net/phy/Kconfig
->>>> @@ -3,7 +3,7 @@
->>>> #
->>>> menuconfig PHYLIB
->>>> -    tristate "PHY Device support and infrastructure"
->>>> +    bool "PHY Device support and infrastructure"
->>>>    depends on !S390
->>>>    depends on NET_ETHERNET
->>>
->>> What are the issues?
->>>
->>> The core _should_ be able to be built as a module.
->> The core provides functions like phy_read/phy_write.  Andy has  
->> recently introduced board level workaround/fixups.  The problem is  
->> these workarounds tend to use phy_read/phy_write and the board/ 
->> platform code is not built as modules.
->> So we get errors like:
->> arch/powerpc/platforms/built-in.o: In function  
->> `mpc8568_mds_phy_fixups':
->> /home/galak/git/master/powerpc/arch/powerpc/platforms/85xx/ 
->> mpc85xx_mds.c:99: undefined reference to `phy_write'
->> /home/galak/git/master/powerpc/arch/powerpc/platforms/85xx/ 
->> mpc85xx_mds.c:104: undefined reference to `phy_read'
+On Mon, 2 Jun 2008, Adrian Bunk wrote:
+
+> On Mon, Jun 02, 2008 at 11:25:14AM -0500, Kumar Gala wrote:
+> >
+> > On Jun 2, 2008, at 11:03 AM, Jeff Garzik wrote:
+> >
+> >> Kumar Gala wrote:
+> >>> The core portions of the phylib aren't capable of being used as
+> >>> a module.  This isn't really any different than something like i2c
+> >>> in that the bus driver and core need to be built into the kernel.
+> >>> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+> >>> ---
+> >>> Jeff, please consider this for 2.6.26 as w/o it we get build issues
+> >>> if phylib is config'd as a module on ppc.
+> >>> drivers/net/phy/Kconfig |    2 +-
+> >>> 1 files changed, 1 insertions(+), 1 deletions(-)
+> >>> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> >>> index 6eb2d31..ab04cc7 100644
+> >>> --- a/drivers/net/phy/Kconfig
+> >>> +++ b/drivers/net/phy/Kconfig
+> >>> @@ -3,7 +3,7 @@
+> >>> #
+> >>> menuconfig PHYLIB
+> >>> -	tristate "PHY Device support and infrastructure"
+> >>> +	bool "PHY Device support and infrastructure"
+> >>> 	depends on !S390
+> >>> 	depends on NET_ETHERNET
+> >>
+> >> What are the issues?
+> >>
+> >> The core _should_ be able to be built as a module.
+> >
+> > The core provides functions like phy_read/phy_write.  Andy has recently
+> > introduced board level workaround/fixups.  The problem is these
+> > workarounds tend to use phy_read/phy_write and the board/platform code is
+> > not built as modules.
+> >
+> > So we get errors like:
+> >
+> > arch/powerpc/platforms/built-in.o: In function `mpc8568_mds_phy_fixups':
+> > /home/galak/git/master/powerpc/arch/powerpc/platforms/85xx/
+> > mpc85xx_mds.c:99: undefined reference to `phy_write'
+> >...
 >
-> The whole world isn't embedded ppc, we use this stuff elsewhere too.
+> At first glance PHYLIB=n might also cause similar problems.
 >
-> You guys need to figure out something that doesn't require phylib be  
-> built-in on ALL platforms, but only the platforms that require it.
+> Please send me the failing .config and I'll cook up a fix.
+>
+> > - k
+>
+> cu
+> Adrian
 
-I wasn't suggesting we build it always, just not let it be built as a  
-module.
-
-> Or, update the platform to not require built-in -- convert the board  
-> code to function pointers, and execute them later on somehow, for  
-> example.
+defconfig attached.  I think Scott might be right in that the simple fix
+would be to select PHYLIB from the MPC8568_MDS config in
+arch/powerpc/platforms/85xx/Kconfig.
 
 - k
+--330304082-654046157-1212434689=:11043
+Content-Type: APPLICATION/x-gzip; name=phylib-module.config.gz
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.64.0806021424490.11043@blarg.am.freescale.net>
+Content-Description: 
+Content-Disposition: attachment; filename=phylib-module.config.gz
+
+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
+
+--330304082-654046157-1212434689=:11043--
