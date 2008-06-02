@@ -1,93 +1,82 @@
-From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Subject: [PATCH] Display Correct Error For Addrlabel Info
-Date: Mon, 2 Jun 2008 13:55:56 +0530
-Message-ID: <20080602135556.0f4bc82a.varunc@linux.vnet.ibm.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH v2] IPv6: fix bug when specifying the non-exist outgoing
+ interface
+Date: Mon, 02 Jun 2008 16:52:16 +0800
+Message-ID: <4843B4C0.2020705@cn.fujitsu.com>
+References: <4843AB51.6010206@cn.fujitsu.com> <20080602.172009.84304151.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: =?GB2312?B?WU9TSElGVUpJIEhpZGVha2kgLyC8qszZ06LD9w==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([59.145.155.5]:33113 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751786AbYFBI0K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 04:26:10 -0400
-Received: from d28relay02.in.ibm.com (d28relay02.in.ibm.com [9.184.220.59])
-	by e28smtp05.in.ibm.com (8.13.1/8.13.1) with ESMTP id m528PsbR021203
-	for <netdev@vger.kernel.org>; Mon, 2 Jun 2008 13:55:55 +0530
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay02.in.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m528PS9f819450
-	for <netdev@vger.kernel.org>; Mon, 2 Jun 2008 13:55:28 +0530
-Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
-	by d28av03.in.ibm.com (8.13.1/8.13.3) with ESMTP id m528PsbP022398
-	for <netdev@vger.kernel.org>; Mon, 2 Jun 2008 13:55:54 +0530
+Received: from cn.fujitsu.com ([222.73.24.84]:60564 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752103AbYFBIxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2008 04:53:13 -0400
+In-Reply-To: <20080602.172009.84304151.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+  When specifying the outgoing interface with sendmsg, if the ipi6_addr=
+ is=20
+the unspecified address and the ipi6_ifindex is the not-exist interface=
+,=20
+it should be fail and the errno should be set ENODEV.
+  Actually, it does well(sendmsg returns on success ), because the kern=
+el=20
+don't check the interface=A1=A3
+ =20
+  The patch is against 2.6.26-rc4.
 
-The command "ip addrlabel add/del" displays incorrect error message when provided with insufficient inputs. This patch fixes it in par with "ip addr add/del".
+Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
 
-Currently:
-# ./ip addrlabel add
-RTNETLINK answers: Numerical result out of range
-
-# ./ip addr add
-Not enough information: "dev" argument is required.
-
-After patch:
-# ./ip addrlabel add
-Not enough information: "prefix" argument is required.
-
-Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
 ---
- ip/ipaddrlabel.c |   13 ++++++++++++-
- 1 files changed, 12 insertions(+), 1 deletions(-)
+net/ipv6/datagram.c | 24 +++++++++++++++---------
+1 files changed, 15 insertions(+), 9 deletions(-)
 
-diff --git a/ip/ipaddrlabel.c b/ip/ipaddrlabel.c
-index a4cdece..cf438d6 100644
---- a/ip/ipaddrlabel.c
-+++ b/ip/ipaddrlabel.c
-@@ -139,6 +139,8 @@ static int ipaddrlabel_modify(int cmd, int argc, char **argv)
- 
- 	inet_prefix prefix;
- 	uint32_t label = 0xffffffffUL;
-+	char *p = NULL;
-+	char *l = NULL;        
- 
- 	memset(&req, 0, sizeof(req));
- 	memset(&prefix, 0, sizeof(prefix));
-@@ -157,6 +159,7 @@ static int ipaddrlabel_modify(int cmd, int argc, char **argv)
- 	while (argc > 0) {
- 		if (strcmp(*argv, "prefix") == 0) {
- 			NEXT_ARG();
-+			p = *argv;
- 			get_prefix(&prefix, *argv, preferred_family);
- 		} else if (strcmp(*argv, "dev") == 0) {
- 			NEXT_ARG();
-@@ -164,13 +167,21 @@ static int ipaddrlabel_modify(int cmd, int argc, char **argv)
- 				invarg("dev is invalid\n", *argv);
- 		} else if (strcmp(*argv, "label") == 0) {
- 			NEXT_ARG();
-+			l = *argv;
- 			if (get_u32(&label, *argv, 0) || label == 0xffffffffUL)
- 				invarg("label is invalid\n", *argv);
- 		}
- 		argc--;
- 		argv++;
- 	}
--
-+	if (p == NULL) {
-+		fprintf(stderr, "Not enough information: \"prefix\" argument is required.\n");
-+		return -1;
-+	}
-+	if (l == NULL) {
-+		fprintf(stderr, "Not enough information: \"label\" argument is required.\n");
-+		return -1;
-+	}
- 	addattr32(&req.n, sizeof(req), IFAL_LABEL, label);
- 	addattr_l(&req.n, sizeof(req), IFAL_ADDRESS, &prefix.data, prefix.bytelen);
- 	req.ifal.ifal_prefixlen = prefix.bitlen;
--- 
-1.5.0.6
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 94fa6ae..47b85cc 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -534,20 +534,26 @@ int datagram_send_ctl(struct msghdr *msg, struct
+flowi *fl,
+return -EINVAL;
+fl->oif =3D src_info->ipi6_ifindex;
+}
++
++ if (fl->oif) {
++ dev =3D dev_get_by_index(&init_net, fl->oif);
++ if (!dev)
++ return -ENODEV;
++ }
+
+addr_type =3D ipv6_addr_type(&src_info->ipi6_addr);
+
+- if (addr_type =3D=3D IPV6_ADDR_ANY)
++ if (addr_type =3D=3D IPV6_ADDR_ANY) {
++ if (dev)
++ dev_put(dev);
+break;
++ }
+
+- if (addr_type & IPV6_ADDR_LINKLOCAL) {
+- if (!src_info->ipi6_ifindex)
+- return -EINVAL;
+- else {
+- dev =3D dev_get_by_index(&init_net, src_info->ipi6_ifindex);
+- if (!dev)
+- return -ENODEV;
+- }
++ if ((addr_type & IPV6_ADDR_LINKLOCAL) &&
++ !src_info->ipi6_ifindex) {
++ if (dev)
++ dev_put(dev);
++ return -EINVAL;
+}
+if (!ipv6_chk_addr(&init_net, &src_info->ipi6_addr,
+dev, 0)) {
+--=20
+1.5.4.4
 
