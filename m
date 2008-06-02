@@ -1,65 +1,60 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH v2] IPv6: fix bug when specifying the non-exist outgoing
- interface
-Date: Mon, 02 Jun 2008 12:26:48 -0400
-Message-ID: <48441F48.2080607@hp.com>
-References: <4843AB51.6010206@cn.fujitsu.com> <20080602.172009.84304151.yoshfuji@linux-ipv6.org> <4843B65C.1060702@cn.fujitsu.com> <48441C82.1070609@hp.com>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: howto use ioremap_wc?
+Date: Mon, 02 Jun 2008 18:27:31 +0200
+Message-ID: <48441F73.5040005@myri.com>
+References: <4841143E.5080003@myri.com> <20080531185424.1cd18220@infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000308070901070406080708"
-Cc: =?windows-1252?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
-	<yoshfuji@linux-ipv6.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Shan Wei <shanwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:31162 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751542AbYFBQ0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 12:26:51 -0400
-In-Reply-To: <48441C82.1070609@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------000308070901070406080708
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	"venkatesh.pallipadi@intel.com" <venkatesh.pallipadi@intel.com>
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757331AbYFBQ1p@vger.kernel.org>
+In-Reply-To: <20080531185424.1cd18220@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I did notice a slight problem where if fl->oif is set in the caller (for 
-> example via SO_BINDTODEVICE), it's ignored in datagram_send_ctl() if 
-> src_info->ipi6_ifindex is zero, attached patch fixes that.
+Arjan van de Ven wrote:
+> Brice Goglin <brice@myri.com> wrote
+>> We're looking at using ioremap_wc() in myri10ge. No drivers seem to be
+>> using it yet, so I'd like to get some clarification regarding
+>> ioremap_wc failures, MTRR and so on.
+>>
+>> What we currently do is mtrr_add() and then ioremap. Depending on the
+>> mtrr_add() success, we use the "wc_fifo" or regular PIO with fences to
+>> submit requests to the NIC. 
+>>     
+>
+> Ok this leads to a question: since write combining is effectively an
+> extension (eg relaxation) to uncached, how much do you care if you
+> actually get uncached? Eg can you just use the "WC" function even for
+> the case where you get an uncached mapping ?
+>   
 
-Actually, previous patch wasn't exactly correct either, I missed one 
-conversion, below is ok.
+WC is strictly required for our "wcfifo" path, but this path is actually
+not so important nowadays. It is disabled by default and might even be
+removed in the future. So, no, myri10ge itself does not really need to
+know whether the mapping is actually WC.
 
--Brian
+The only case I see where it would be helpful is to avoid calling
+mtrr_add when WC got enabled through PAT. See below.
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
+> Actually it would make sense for the ioremap_wc() implementation to try
+> to add an mtrr I suppose... it's better to be done there than trying to
+> do it in some driver....
+>   
 
---------------000308070901070406080708
-Content-Type: text/x-diff;
- name="datagram_send_ctl.floif.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="datagram_send_ctl.floif.patch"
+Agreed, that would be nice!
 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 94fa6ae..3abe181 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -541,10 +541,10 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
- 				break;
- 
- 			if (addr_type & IPV6_ADDR_LINKLOCAL) {
--				if (!src_info->ipi6_ifindex)
-+				if (!fl->oif)
- 					return -EINVAL;
- 				else {
--					dev = dev_get_by_index(&init_net, src_info->ipi6_ifindex);
-+					dev = dev_get_by_index(&init_net, fl->oif);
- 					if (!dev)
- 						return -ENODEV;
- 				}
+>From what we discussed here after your reply, our plan is now to just
+replace
+    ioremap+mtrr_add
+with
+    ioremap_wc+mtrr_add
 
---------------000308070901070406080708--
+If mtrr_add() is moved into ioremap_wc(), we'll remove it from myri10ge.
+For now, when PAT is enabled, we may have PAT + MTRR both doing WC, but
+I don't think it can break anything, right?
+
+thanks,
+Brice
