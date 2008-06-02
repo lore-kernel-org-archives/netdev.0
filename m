@@ -1,83 +1,122 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
-Date: Mon, 02 Jun 2008 20:47:38 +0200
-Message-ID: <87abi365dh.fsf@macbook.be.48ers.dk>
-References: <20080515170728.GA3176@PTXN0038.genpitfi01.og.ge.com>
-	<1211200476-21297-1-git-send-email-steve.glendinning@smsc.com>
+Date: Mon, 2 Jun 2008 20:03:30 +0100
+Message-ID: <20080602190329.GC6192@solarflare.com>
+References: <20080602155415.GA6192@solarflare.com> <OF3A2B75A8.48ADA40F-ON8025745C.00633ABA-8025745C.0065B74E@smsc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michael.Hennerich@analog.com, Enrik.Berkhan@ge.com,
+Cc: Bahadir Balban <Bahadir.Balban@arm.com>,
+	Bill Gatliff <bgat@billgatliff.com>, catalin.marinas@arm.com,
+	Dustin Mcintire <dustin@sensoria.com>, Enrik.Berkhan@ge.com,
 	hennerich@blackfin.uclinux.org, ian.saturley@smsc.com,
-	uclinux-dist-devel@blackfin.uclinux.org, catalin.marinas@arm.com,
-	netdev@vger.kernel.org, Bahadir Balban <Bahadir.Balban@arm.com>,
-	Dustin Mcintire <dustin@sensoria.com>,
-	Bill Gatliff <bgat@billgatliff.com>
-To: Steve Glendinning <steve.glendinning@smsc.com>
+	Michael.Hennerich@analog.com, netdev@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.189]:34553 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752576AbYFBSsJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 14:48:09 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so1195930mue.1
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2008 11:48:06 -0700 (PDT)
-In-Reply-To: <1211200476-21297-1-git-send-email-steve.glendinning@smsc.com> (Steve Glendinning's message of "Mon\, 19 May 2008 13\:34\:36 +0100")
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:41618 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751707AbYFBTEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 15:04:12 -0400
+Content-Disposition: inline
+In-Reply-To: <OF3A2B75A8.48ADA40F-ON8025745C.00633ABA-8025745C.0065B74E@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Steve" == Steve Glendinning <steve.glendinning@smsc.com> writes:
+Steve.Glendinning@smsc.com wrote:
+> Hi Ben,
+> 
+> Thanks for the feedback.  I've implemented most of your suggestions, but 
+> have a few questions:
+> 
+> > [...]
+> > > +/* Set a mac register, phy_lock must be acquired before calling */
+> > > +static void smsc911x_mac_write(struct smsc911x_data *pdata,
+> > > +                unsigned int offset, u32 val)
+> > > +{
+> > > +   unsigned int temp;
+> > > +
+> > > +#ifdef CONFIG_DEBUG_SPINLOCK
+> > > +   if (!spin_is_locked(&pdata->phy_lock))
+> > > +      SMSC_WARNING("phy_lock not held");
+> > > +#endif            /* CONFIG_DEBUG_SPINLOCK */
+> > > +
+> > > +   temp = smsc911x_reg_read(pdata, MAC_CSR_CMD);
+> > > +   if (unlikely(temp & MAC_CSR_CMD_CSR_BUSY_)) {
+> > > +      SMSC_WARNING("smsc911x_mac_write failed, MAC busy at entry");
+> > > +      return;
+> > > +   }
+> > 
+> > Shouldn't this return an error code?
+> > 
+> > [...]
+> > > +/* Sets a phy register, phy_lock must be acquired before calling */
+> > > +static void smsc911x_phy_write(struct smsc911x_data *pdata,
+> > > +                unsigned int index, u16 val)
+> > > +{
+> > > +   unsigned int addr;
+> > > +   int i;
+> > > +
+> > > +#ifdef CONFIG_DEBUG_SPINLOCK
+> > > +   if (!spin_is_locked(&pdata->phy_lock))
+> > > +      SMSC_WARNING("phy_lock not held");
+> > > +#endif            /* CONFIG_DEBUG_SPINLOCK */
+> > > +
+> > > +   /* Confirm MII not busy */
+> > > +   if (unlikely(smsc911x_mac_read(pdata, MII_ACC) & 
+> MII_ACC_MII_BUSY_)) {
+> > > +      SMSC_WARNING("MII is busy in smsc911x_write_phy???");
+> > > +      return;
+> > > +   }
+> > 
+> > Similarly for this function.
+> 
+> I could return an error code from these write functions, but the 
+> equivalent read functions currently return their register value.  Would 
+> you change the read functions to take a result pointer?
 
-Hi,
+If you can't reserve some range of values for errors (e.g. 32-bit reads
+which may yield any 32-bit value) then I suppose so.  For 16-bit reads you
+can return an int with negative values reserved for errors.
 
- Steve> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
- Steve> index 9f6cc8a..8f12a8e 100644
- Steve> --- a/drivers/net/Kconfig
- Steve> +++ b/drivers/net/Kconfig
- Steve> @@ -967,6 +967,19 @@ config SMC911X
- Steve>  	  called smc911x.  If you want to compile it as a module, say M 
- Steve>  	  here and read <file:Documentation/kbuild/modules.txt>
- 
- Steve> +config SMSC911X
- Steve> +	tristate "SMSC LAN911x/LAN921x families embedded ethernet support"
- Steve> +	depends on NET_ETHERNET
- Steve> +	select CRC32
- Steve> +	select MII
- Steve> +	---help---
- Steve> +	  Say Y here if you want support for SMSC LAN911x and LAN921x families
- Steve> +	  of ethernet controllers.
- Steve> +
- Steve> +	  To compile this driver as a module, choose M here and read
- Steve> +	  <file:Documentation/networking/net-modules.txt>. The module
- Steve> +	  will be called smsc911x.
- Steve> +
+> I should mention this "MAC busy at entry" check is an assert to catch 
+> driver locking problems during development (as is the spinlock check 
+> above).  If the driver is "correct" it should only be seen in the case of 
+> hardware failure.
 
-What is the point of 2 drivers for the same hardware? Either fix the
-existing driver or remove the old one and reuse the Kconfig symbols
-for the new one so the existing defconfig continues to work.
+Hardware failure does happen though, and once you've detected it it seems
+like a bad idea to hide it.
 
-Like I said last year, I would really prefer the first option:
+> > [...]
+> > > +static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+> > > +{
+> > > +   unsigned int timeout;
+> > > +   unsigned int temp;
+> > > +
+> > > +   /* Reset the LAN911x */
+> > > +   smsc911x_reg_write(HW_CFG_SRST_, pdata, HW_CFG);
+> > > +   timeout = 10;
+> > > +   do {
+> > > +      udelay(10);
+> > > +      temp = smsc911x_reg_read(pdata, HW_CFG);
+> > > +   } while ((--timeout) && (temp & HW_CFG_SRST_));
+> > > +
+> > > +   if (unlikely(temp & HW_CFG_SRST_)) {
+> > > +      SMSC_WARNING("Failed to complete reset");
+> > > +      return -ENODEV;
+> > 
+> > I think this should be -EIO unless this is only called during probe.
+> 
+> This reset function is called from both probe and open, although its 
+> return code is only checked for nonzero by both.  Should probe return 
+> -ENODEV, and open return -EIO if this device reset fails?
 
-http://thread.gmane.org/gmane.linux.network/66703/focus=67812
+Personally I think -EIO is a perfectly reasonable error code for I/O
+errors after the device has been positively identified, even during
+probe.  You could have the probe function squash other errors into
+-ENODEV if you want.
 
-You also don't seem to have added the big endian test I mentioned
-further in the thread.
-
- Steve> +static void smsc911x_mdio_write(struct net_device *dev, int phy_id,
- Steve> +				int location, int val)
- Steve> +{
- Steve> +	struct smsc911x_data *pdata = netdev_priv(dev);
- Steve> +	unsigned long flags;
- Steve> +
- Steve> +	spin_lock_irqsave(&pdata->phy_lock, flags);
- Steve> +	smsc911x_phy_write(pdata, location, val);
- Steve> +	spin_unlock_irqrestore(&pdata->phy_lock, flags);
- Steve> +}
- Steve> +
- Steve> +/* Autodetects and initialises external phy for SMSC9115 and SMSC9117 flavors.
- Steve> + * If something goes wrong, returns -ENODEV to revert back to internal phy.
- Steve> + * Performed at initialisation only, so interrupts are enabled */
- Steve> +static int smsc911x_phy_initialise_external(struct smsc911x_data *pdata)
-
-Any reason why you don't use phylib?
+Ben.
 
 -- 
-Bye, Peter Korsgaard
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
