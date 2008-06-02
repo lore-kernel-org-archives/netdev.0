@@ -1,41 +1,83 @@
-From: Adrian-Ken Rueegsegger <rueegsegger@swiss-it.ch>
-Subject: [RFC PATCH] [XFRM] xfrm_algo: correct usage of RIPEMD-160
-Date: Mon,  2 Jun 2008 11:33:09 +0200
-Message-ID: <12123991893044-git-send-email-rueegsegger@swiss-it.ch>
-References: <1212399189188-git-send-email-rueegsegger@swiss-it.ch>
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org,
-	Adrian-Ken Rueegsegger <rueegsegger@swiss-it.ch>
-To: davem@davemloft.net
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1212399189188-git-send-email-rueegsegger@swiss-it.ch>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
+	available to userspace
+Date: Mon, 2 Jun 2008 11:21:36 +0100
+Message-ID: <20080602102136.GB10306@gerrit.erg.abdn.ac.uk>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200805221948.18305.tomasz@grobelny.oswiecenia.net> <20080526142209.GA20164@gerrit.erg.abdn.ac.uk> <200805262340.53355.tomasz@grobelny.oswiecenia.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60344 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751192AbYFBKWS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2008 06:22:18 -0400
+Content-Disposition: inline
+In-Reply-To: <200805262340.53355.tomasz@grobelny.oswiecenia.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the usage of RIPEMD-160 in xfrm_algo which in turn
-allows hmac(rmd160) to be used as authentication mechanism in IPsec
-ESP and AH (see RFC 2857).
+| > It was for this part that I looked at netlink. This goes into the
+| > direction of a new API or at least API extensions.
+| > 
+| We basically need a callback from code that can access struct sock...
+| 
+| > (...)
+| > For per-socket statistics there is indeed a need for a notification
+| > mechanism. If a synchronous mechanism is sufficient, then something like
+| > the current CCID-3 getsockopt(DCCP_SOCKOPT_CCID_{RX,TX}_INFO) can be used.
+| >
+| Synchronous mechanism is acceptable but callback (at least as an option) would 
+| be way nicer.
+| 
+I have been looking around for alternatives - there are some
+very good solutions for such aspects in the SCTP subsystem. 
 
-Signed-off-by: Adrian-Ken Rueegsegger <rueegsegger@swiss-it.ch>
----
- net/xfrm/xfrm_algo.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+They implement the subscription of event notifications on a socket for
+all sorts of events.
 
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index ac765dd..23a2cc0 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -200,8 +200,8 @@ static struct xfrm_algo_desc aalg_list[] = {
- 	}
- },
- {
--	.name = "hmac(ripemd160)",
--	.compat = "ripemd160",
-+	.name = "hmac(rmd160)",
-+	.compat = "rmd160",
- 
- 	.uinfo = {
- 		.auth = {
--- 
-1.5.2.5
+A socket option performs this subscription, notifications are then passed
+along with data (I think also without, have not dug deep enough into the
+sources), via recvmsg(). This is the inverse path to qpolicies: the
+ancillary data is passed via cmsg(3) wrappers to the user.
 
+To distinguish events from normal (ancillary) data, SCTP sets the
+flag fields to MSG_NOTIFICATION.
+
+There are two good papers on this (the second one is a bit older):
+http://www.bsdcan.org/2008/schedule/events/91.en.html
+http://lwn.net/2001/features/OLS/pdf/pdf/sctp.pdf
+
+The sources are in net/sctp, the lksctp project is hosted at
+http://sourceforge.net/projects/lksctp
+
+I think that this approach is elegant and has something to offer for
+DCCP as well. What do you think?
+
+| Ok, but if we are at hackish ideas what about this one: use dccp_ioctl to 
+| wait on a mutex. If an event occurs we release mutex thus allowing dccp_ioctl 
+| to finish execution and consequently informing user that something 
+| interesting has just happened - what it exactly is would have to be 
+| determined by other means.
+| 
+I am trying to think in terms of how much documentation this would need
+in order to explain to someone how to use it. It seems feasible, but to
+me a bit complicated.
+
+
+| > The best that I can think of is to map a segment of userspace memory
+| > into the kernel and use this memory area as a (ready-only) statistics
+| > struct. That would save the system call overhead of using getsockopt().
+| >
+| I don't think the syscall overhead is big enough to care. After all you don't 
+| need statistics that often. Shared memory creates potential problems with 
+| synchronization (ok, it is read-only but you need to provide consistent 
+| data). Plus you must update them whether needed or not because you never know 
+| when the user will want to read them (it may be a problem in some scenarios 
+| and may not be a problem in others). IMO more problems that it's worth.
+Yes that was why I had reservations against using the ringbuffer API by Lai/Kohler
+(implemented for TCP in	http://heim.ifi.uio.no/paalh/publications/files/ism07.pdf ).
+
+We could consider this for later, but it does not seem easy to do this
+both in a safe and in a non-complicated way.
