@@ -1,73 +1,66 @@
-From: "office@magicsoft.tv" <office@magicsoft.tv>
-Subject: Broadcast 3D Character Generator SD and HD free Demo release
-Date: Mon, 02 Jun 2008 19:54:47 +0300
-Message-ID: <484425D7.8020902@magicsoft.tv>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC] Running single tests via ethtool
+Date: Mon, 02 Jun 2008 13:46:47 -0400
+Message-ID: <48443207.5090009@garzik.org>
+References: <20080530220819.GJ1743@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e-forum.ro ([88.198.15.166]:59833 "EHLO e-forum.ro"
+Received: from srv5.dvmed.net ([207.36.208.214]:43514 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758320AbYFBRmK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2008 13:42:10 -0400
+	id S1751727AbYFBRqt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2008 13:46:49 -0400
+In-Reply-To: <20080530220819.GJ1743@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir
+Ben Hutchings wrote:
+> We have had a customer request to be able to run individual self-tests in
+> a future version of our driver.  Now we could do this any way we want in
+> an out-of-tree driver, but I'd rather find some way of doing this that
+> will also be acceptable in-tree.  I think that would mean extending the
+> ethtool self-test API in some way.
+> 
+> One possibility might be to add a new flag and to assign the reserved field
+> as a test index:
+> 
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -235,13 +235,14 @@ struct ethtool_gstrings {
+>  enum ethtool_test_flags {
+>  	ETH_TEST_FL_OFFLINE	= (1 << 0),	/* online / offline */
+>  	ETH_TEST_FL_FAILED	= (1 << 1),	/* test passed / failed */
+> +	ETH_TEST_FL_SINGLE	= (1 << 2),	/* run single test */
+>  };
+>  
+>  /* for requesting NIC test and getting results*/
+>  struct ethtool_test {
+>  	__u32	cmd;		/* ETHTOOL_TEST */
+>  	__u32	flags;		/* ETH_TEST_FL_xxx */
+> -	__u32	reserved;
+> +	__u32	index;		/* test index if ETH_TEST_FL_SINGLE */
+>  	__u32	len;		/* result length, in number of u64 elements */
+>  	__u64	data[0];
+>  };
+> 
+> Clients would need to check len on return since the ethtool core and driver
+> ethtool functions ignore unknown flags.  I am assuming that running all
+> online self-tests instead of a single self-test will be harmless.
+> 
+> Ideally the ethtool core would allocate only the necessary memory for the
+> results of the selected test set or single test, but it would need to know
+> whether the driver also supports this extension.
 
-Magicsoft is pleased to announce a new release of the free downloadable=
- demo
-version of the CG and Playout software from Magicsoft=92s web site
-www.magicsoft.tv
+Well it really becomes of question of whether or not you want to be 
+importing a huge test suite into a kernel driver.  The ethtool stuff was 
+not meant to cover exhaustive tests, just a way to run "it works" 
+self-checks and diagnostics.
 
-In UltraRed, Magicsoft has created an SD and HD broadcast solution
-that can handle simultaneous previewing, creating, displaying and
-controlling of projects for logos, tickers, crawls, image sequences,
-analog and digital clocks and playback of AVI DV clips.
-
-The software runs on Windows XP and uses an nVidia video card for
-real-time GPU rendering.
-
-MagicSoft CG works in standard or high definition, analog or digital
-and the keying can be either internal or external.
-
-The Blackmagic-Design, BlueFish444, Deltacast and StreamLabs cards
-are supported in the lastest version of the software.
-
-UltraRed graphics is 24 bit (TrueColor) with an 8 bit alpha channel
-(256 transparency levels) and keying can be internal or external.
-Anti-aliasing for TrueType Fonts and Anisotropic Filtering for images
-are implemented using the GPU.
-Objects can be animated by moving, rotating and changing color.
-Objects also can be moved on a Z-axis eliminating the limitations of
-layer oriented programs.
-Rendering for both Preview and OnAir is done by GPU so powerful CPUs
-are not required.
-
-New supported hardware/drivers :
-GeForce 9600GT cards
-X38 DDR3 Intel based motherboards
-DeckLink driver 6.6.4 supported
-
-Please try to watch our video tutorials before installing the software.
-
-=46eel free to contact us for feedback or help.
-
-Best regards
-
-Cristi
+	Jeff
 
 
 
-Cristi Mirea
-General Manager MagicSoft
-web: www.magicsoft.tv
-mail: office@magicsoft.tv
-phone : 0040.722.76.32.65
 
-(If you would prefer not to receive notice of messages please send an=20
-email at
-mailto:unscribe@magicsoft.tv
-and we will take you off our list ).
