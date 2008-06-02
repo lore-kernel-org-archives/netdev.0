@@ -1,78 +1,61 @@
-From: Adrian Bunk <adrian.bunk@movial.fi>
-Subject: Re: [PATCH] phylib: Don't allow core of phylib to build as a module
-Date: Mon, 2 Jun 2008 19:54:22 +0300
-Message-ID: <20080602165422.GA22051@cs181133002.pp.htv.fi>
-References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [RFC] Running single tests via ethtool
+Date: Mon, 2 Jun 2008 19:00:17 +0200
+Message-ID: <200806021900.17817.netdev@axxeo.de>
+References: <20080530220819.GJ1743@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:47601 "EHLO smtp4.pp.htv.fi"
+Received: from mail.axxeo.de ([82.100.226.146]:56799 "EHLO mail.axxeo.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752317AbYFBQyo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2008 12:54:44 -0400
+	id S1752138AbYFBRA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2008 13:00:28 -0400
+In-Reply-To: <20080530220819.GJ1743@solarflare.com>
 Content-Disposition: inline
-In-Reply-To: <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 02, 2008 at 11:25:14AM -0500, Kumar Gala wrote:
->
-> On Jun 2, 2008, at 11:03 AM, Jeff Garzik wrote:
->
->> Kumar Gala wrote:
->>> The core portions of the phylib aren't capable of being used as
->>> a module.  This isn't really any different than something like i2c
->>> in that the bus driver and core need to be built into the kernel.
->>> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
->>> ---
->>> Jeff, please consider this for 2.6.26 as w/o it we get build issues
->>> if phylib is config'd as a module on ppc.
->>> drivers/net/phy/Kconfig |    2 +-
->>> 1 files changed, 1 insertions(+), 1 deletions(-)
->>> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
->>> index 6eb2d31..ab04cc7 100644
->>> --- a/drivers/net/phy/Kconfig
->>> +++ b/drivers/net/phy/Kconfig
->>> @@ -3,7 +3,7 @@
->>> #
->>> menuconfig PHYLIB
->>> -	tristate "PHY Device support and infrastructure"
->>> +	bool "PHY Device support and infrastructure"
->>> 	depends on !S390
->>> 	depends on NET_ETHERNET
->>
->> What are the issues?
->>
->> The core _should_ be able to be built as a module.
->
-> The core provides functions like phy_read/phy_write.  Andy has recently 
-> introduced board level workaround/fixups.  The problem is these 
-> workarounds tend to use phy_read/phy_write and the board/platform code is 
-> not built as modules.
->
-> So we get errors like:
->
-> arch/powerpc/platforms/built-in.o: In function `mpc8568_mds_phy_fixups':
-> /home/galak/git/master/powerpc/arch/powerpc/platforms/85xx/ 
-> mpc85xx_mds.c:99: undefined reference to `phy_write'
->...
+Hello Ben,
 
-At first glance PHYLIB=n might also cause similar problems.
+Ben Hutchings schrieb:
+> We have had a customer request to be able to run individual self-tests in
+> a future version of our driver.  Now we could do this any way we want in
+> an out-of-tree driver, but I'd rather find some way of doing this that
+> will also be acceptable in-tree.  I think that would mean extending the
+> ethtool self-test API in some way.
+> 
+> One possibility might be to add a new flag and to assign the reserved field
+> as a test index:
+> 
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -235,13 +235,14 @@ struct ethtool_gstrings {
+>  enum ethtool_test_flags {
+>  	ETH_TEST_FL_OFFLINE	= (1 << 0),	/* online / offline */
+>  	ETH_TEST_FL_FAILED	= (1 << 1),	/* test passed / failed */
+> +	ETH_TEST_FL_SINGLE	= (1 << 2),	/* run single test */
+>  };
+>  
+>  /* for requesting NIC test and getting results*/
+>  struct ethtool_test {
+>  	__u32	cmd;		/* ETHTOOL_TEST */
+>  	__u32	flags;		/* ETH_TEST_FL_xxx */
+> -	__u32	reserved;
+> +	__u32	index;		/* test index if ETH_TEST_FL_SINGLE */
+>  	__u32	len;		/* result length, in number of u64 elements */
+>  	__u64	data[0];
+>  };
 
-Please send me the failing .config and I'll cook up a fix.
+2^32 possible tests are really an extensive test suite :-)
 
-> - k
+Maybe limit it to 16 bits, so we have some reserved space left for further
+extensions.
 
-cu
-Adrian
 
--- 
+Best Regards
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Ingo Oeser
