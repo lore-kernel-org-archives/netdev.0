@@ -1,57 +1,78 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH v2] IPv6: fix bug when specifying the non-exist
- outgoing interface
-Date: Tue, 03 Jun 2008 01:48:19 +0900 (JST)
-Message-ID: <20080603.014819.38527291.yoshfuji@linux-ipv6.org>
-References: <48441C82.1070609@hp.com>
-	<20080603.014105.73332390.yoshfuji@linux-ipv6.org>
-	<20080603.014604.26891059.yoshfuji@linux-ipv6.org>
+From: Adrian Bunk <adrian.bunk@movial.fi>
+Subject: Re: [PATCH] phylib: Don't allow core of phylib to build as a module
+Date: Mon, 2 Jun 2008 19:54:22 +0300
+Message-ID: <20080602165422.GA22051@cs181133002.pp.htv.fi>
+References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: shanwei@cn.fujitsu.com, davem@davemloft.net,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: brian.haley@hp.com
+Content-Type: text/plain; charset=utf-8
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:57979 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbYFBQro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 12:47:44 -0400
-In-Reply-To: <20080603.014604.26891059.yoshfuji@linux-ipv6.org>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:47601 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752317AbYFBQyo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2008 12:54:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080603.014604.26891059.yoshfuji@linux-ipv6.org> (at Tue, 03 Jun 2008 01:46:04 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+On Mon, Jun 02, 2008 at 11:25:14AM -0500, Kumar Gala wrote:
+>
+> On Jun 2, 2008, at 11:03 AM, Jeff Garzik wrote:
+>
+>> Kumar Gala wrote:
+>>> The core portions of the phylib aren't capable of being used as
+>>> a module.  This isn't really any different than something like i2c
+>>> in that the bus driver and core need to be built into the kernel.
+>>> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+>>> ---
+>>> Jeff, please consider this for 2.6.26 as w/o it we get build issues
+>>> if phylib is config'd as a module on ppc.
+>>> drivers/net/phy/Kconfig |    2 +-
+>>> 1 files changed, 1 insertions(+), 1 deletions(-)
+>>> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+>>> index 6eb2d31..ab04cc7 100644
+>>> --- a/drivers/net/phy/Kconfig
+>>> +++ b/drivers/net/phy/Kconfig
+>>> @@ -3,7 +3,7 @@
+>>> #
+>>> menuconfig PHYLIB
+>>> -	tristate "PHY Device support and infrastructure"
+>>> +	bool "PHY Device support and infrastructure"
+>>> 	depends on !S390
+>>> 	depends on NET_ETHERNET
+>>
+>> What are the issues?
+>>
+>> The core _should_ be able to be built as a module.
+>
+> The core provides functions like phy_read/phy_write.  Andy has recently 
+> introduced board level workaround/fixups.  The problem is these 
+> workarounds tend to use phy_read/phy_write and the board/platform code is 
+> not built as modules.
+>
+> So we get errors like:
+>
+> arch/powerpc/platforms/built-in.o: In function `mpc8568_mds_phy_fixups':
+> /home/galak/git/master/powerpc/arch/powerpc/platforms/85xx/ 
+> mpc85xx_mds.c:99: undefined reference to `phy_write'
+>...
 
-> In article <20080603.014105.73332390.yoshfuji@linux-ipv6.org> (at Tue, 03 Jun 2008 01:41:05 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-> 
-> > In article <48441C82.1070609@hp.com> (at Mon, 02 Jun 2008 12:14:58 -0400), Brian Haley <brian.haley@hp.com> says:
-> > 
-> > > Shan Wei wrote:
-> > > >   When specifying the outgoing interface with sendmsg, if the ipi6_addr is 
-> > > > the unspecified address and the ipi6_ifindex is the not-exist interface, 
-> > > > it should be fail and the errno should be set ENODEV.
-> > > >   Actually, it does well(sendmsg returns on success ), because the kernel 
-> > > > don't check the interface。
-> > > 
-> > > This patch changes this code path to be different than most others that 
-> > > completely ignore the device for the unspecified address - for example 
-> > > inet6_bind() and rawv6_bind().  Those paths only care about the device 
-> > > for a link-local address, so I don't think this patch is correct.
-> > 
-> > Semantics are different.  sin6_scope_id is valid ifindex only if
-> > the scope is  link-local (Note: scope-id is scope-specific; 
-> > for example, for "site-local" addresses, the values cannot be
-> > directly mapped onto ifindex space).  On the other hand, ipi6_ifindex
-> > is always effective even if the source address is global.
-> 
-> 2 things:
-> - Check if ifindex is valid is always needed, anyway.
+At first glance PHYLIB=n might also cause similar problems.
 
-> - Check for valid address ipv6_chk_addr() should not device-specific
-                                                   ~~~delete this
->   if the destination (or source) is link-local (or multicast, maybe).
+Please send me the failing .config and I'll cook up a fix.
 
---yoshfuji
+> - k
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
