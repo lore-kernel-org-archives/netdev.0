@@ -1,124 +1,106 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [git patches] net driver updates for .27
-Date: Mon, 2 Jun 2008 10:41:37 +1000
-Message-ID: <20080602104137.8d8c0db5.sfr@canb.auug.org.au>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
+ e1000/pcnet32
+Date: Sun, 1 Jun 2008 23:55:58 -0400
+Message-ID: <20080601235558.66e1ed7b.billfink@mindspring.com>
+References: <482FBA09.80201@sngx.net>
+	<483E0AAE.2020107@sngx.net>
+	<20080528221118.63da4092.akpm@linux-foundation.org>
+	<483EA2D1.8050603@sngx.net>
+	<20080529154525.3916c7b5@core>
+	<20080530151250.b44a119a.billfink@mindspring.com>
+	<20080531131143.516ca56e@core>
+	<20080531195702.0b879dd1.billfink@mindspring.com>
+	<20080601014620.GG30769@solarflare.com>
+	<20080601164614.012fe1f6.billfink@mindspring.com>
+	<20080601222906.GH30769@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Tony Breeds <tony@bakeyournoodle.com>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	James Cammarata <jimi@sngx.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:46035 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752755AbYFBAlk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jun 2008 20:41:40 -0400
+Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:35431
+	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754293AbYFBD4I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2008 23:56:08 -0400
+In-Reply-To: <20080601222906.GH30769@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+On Sun, 1 Jun 2008, Ben Hutchings wrote:
 
-Another update, another ping ....
-
-Begin forwarded message:
-
-Date: Thu, 29 May 2008 22:39:28 +1000
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-To: Jeff Garzik <jeff@garzik.org>
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Breeds <tony@bakeyournoodle.com>
-Subject: Re: [git patches] net driver updates for .27
-
-
-Hi Jeff,
-
-On Thu, 29 May 2008 03:33:02 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
->
-> From: Jeff Garzik <jeff@garzik.org>
-> Date: Thu, 22 May 2008 15:10:49 -0400
+> Bill Fink wrote:
 > 
-> > Please pull from 'upstream-next-davem' branch of
-> > master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-next-davem
+> > But the question
+> > is how does one devise a generic script or tool that doesn't require
+> > any special knowledge of the specific NIC being used.  For example,
+> > here's the "ethtool -S" info for my myri10ge NIC:
+> > 
+> > [root@chance8 ~]# ethtool -S eth2
+> > NIC statistics:
+> [...]
+> >      WC: 1
+> >      irq: 8413
+> >      MSI: 1
+> >      read_dma_bw_MBs: 1398
+> >      write_dma_bw_MBs: 1613
+> >      read_write_dma_bw_MBs: 2711
+> >      serial_number: 287046
+> [...]
+> >      tx_linearized: 0
+> >      link_changes: 8
+> >      link_up: 1
+> [...]
+> > 
+> > How does one know which of these reported values are counter stats
+> > that one wishes to zero/snapshot, and which are not?
+> 
+> Ah, I see, I didn't realise some drivers were abusing ethtool stats in
+> this way.  But for the most part the differences will show up as zeroes.
 
-Is there some reason you missed "Fix various 8390 builds" from Tony
-Breeds.  I have been carrying it in linux-next for some time and would
-appreciate it being merged.  It fixes a build regression in the current
-net-next tree.
+I'm not sure I would characterize that as abuse of the ethtool stats,
+but rather just a different category of stats.  And I wouldn't want
+them to show up as zeros after doing a clear/snapshot of the counter
+stats.  The "ethtool -S" output should be completely normal afterward,
+with just the counter stats being zeroed.
 
-I have included the patch below.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+> If there's really a need for ethtool stats that aren't counters,
+> maybe the ethtool API should include flags to indicate which they are.
 
-Date: Mon, 19 May 2008 15:03:52 +1000
-To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@redhat.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Randy Dunlap <randy.dunlap@oracle.com>, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Linux/m68k <linux-m68k@vger.kernel.org>
-Subject: [PATCH v3] Fix various 8390 builds
-From: tony@bakeyournoodle.com (Tony Breeds)
+That would be useful.  Maybe some way of determining the type of an
+ethtool stat such as COUNTER (perhaps with subtypes for signed versus
+unsigned, 32-bit versus 64-bit), RUNTIME_INFO, etc.
 
-The commit 3f8cb098859bbea29d7b3765a3102e4a6bf81b85
-(drivers/net/lib8390: fix warning, trim trailing whitespace) removed
-ei_local from ei_tx_err() and ei_rx_overrun() resulting in the following
-build errors on m68k and sh:
+> > Another issue that occurred to me is if multiple people are working
+> > on troubleshooting a network problem, how do we insure that they all
+> > get a consistent view of the stats?  If this is done via a kernel
+> > mechanism then there isn't an issue.  But if it's done via user space,
+> > then you have to make sure that everyone zeros/snapshots the stats
+> > at the same time.
+> > 
+> > Ideally, one should be able to do something like "ethtool -z ethX"
+> > to zero/snapshot the driver stats, and then "ethtool -S ethX" to get
+> > the stats since the last snapshot.  You should be able to use the
+> > same tool ("ethtool") to do all of this, and not some other special
+> > tool or specially devised homegrown script.  Why make users lives
+> > any more difficult than need be?
+> 
+> No-one's stopping you from adding these options to ethtool.  You could
+> have it save statistic sets in, say, /var/run/ethtool.
 
-Using /scratch1/tony/next as source for kernel
-GEN     /scratch1/tony/next_out/Makefile
-CHK     include/linux/version.h
-CHK     include/linux/utsrelease.h
-CALL    /scratch1/tony/next/scripts/checksyscalls.sh
-CHK     include/linux/compile.h
-CC [M]  drivers/net/zorro8390.o
-In file included from /scratch1/tony/next/drivers/net/zorro8390.c:47:
-drivers/net/lib8390.c: In function 'ei_tx_err':
-drivers/net/lib8390.c:556: error: 'ei_local' undeclared (first use in this function)
-drivers/net/lib8390.c:556: error: (Each undeclared identifier is reported only once
-drivers/net/lib8390.c:556: error: for each function it appears in.)
-drivers/net/lib8390.c: In function 'ei_rx_overrun':
-drivers/net/lib8390.c:823: error: 'ei_local' undeclared (first use in this function)
-make[3]: *** [drivers/net/zorro8390.o] Error 1
-make[2]: *** [drivers/net] Error 2
-make[1]: *** [drivers] Error 2
-make: *** [sub-make] Error 2
+Yes, that could be done if the ability to determine which ethtool stats
+were counter stats was added to the ethtool API.  And I guess they
+should be saved in something like /var/run/ethtool/ethX.  But then
+what happens when you start using multiple network namespaces, and
+for example have eth0 in several different network namespaces.  How
+could that be handled, to keep the different network namespaces from
+clobbering the stats of another namespace?  If done in the kernel,
+I believe it would all work as expected, but it's not clear to me
+how to handle this in user space.
 
-The problem is that ei_inb_p() is using various #defines (from
-drivers/net/8390.h) that use EI_SHIFT, which in some drivers on some
-architectures use ei_local.  Tag ei_local as "__maybe_unused" to keep it
-around and keep the warnings the original commit is trying to silence
-... silenced.
-
-Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
----
-Updated to remove pointless casts
-
- drivers/net/lib8390.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
- Dave, Jeff can one of you take this?
-
-
-diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
-index ed49527..00d59ab 100644
---- a/drivers/net/lib8390.c
-+++ b/drivers/net/lib8390.c
-@@ -553,6 +553,8 @@ static void __ei_poll(struct net_device *dev)
- static void ei_tx_err(struct net_device *dev)
- {
- 	unsigned long e8390_base = dev->base_addr;
-+	/* ei_local is used on some platforms via the EI_SHIFT macro */
-+	struct ei_device *ei_local __maybe_unused = netdev_priv(dev);
- 	unsigned char txsr = ei_inb_p(e8390_base+EN0_TSR);
- 	unsigned char tx_was_aborted = txsr & (ENTSR_ABT+ENTSR_FU);
- 
-@@ -815,6 +817,8 @@ static void ei_rx_overrun(struct net_device *dev)
- {
- 	unsigned long e8390_base = dev->base_addr;
- 	unsigned char was_txing, must_resend = 0;
-+	/* ei_local is used on some platforms via the EI_SHIFT macro */
-+	struct ei_device *ei_local __maybe_unused = netdev_priv(dev);
- 
- 	/*
- 	 * Record whether a Tx was in progress and then issue the
+						-Bill
