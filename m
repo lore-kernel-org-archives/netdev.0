@@ -1,54 +1,33 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [PATCH RFC] net/bonding: announce fail-over for the active-backup
- mode
-Date: Mon, 02 Jun 2008 13:39:52 +0300
-Message-ID: <4843CDF8.5010200@voltaire.com>
-References: <Pine.LNX.4.64.0805211550060.27300@zuben.voltaire.com> <Pine.LNX.4.64.0805271012220.18192@zuben.voltaire.com> <12513.1212013148@death> <483E847A.9090508@voltaire.com> <28012.1212131745@death>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH] [XFRM] xfrm_algo: correct usage of RIPEMD-160
+Date: Mon, 2 Jun 2008 20:41:07 +1000
+Message-ID: <20080602104107.GA22943@gondor.apana.org.au>
+References: <1212399189188-git-send-email-rueegsegger@swiss-it.ch> <12123991893044-git-send-email-rueegsegger@swiss-it.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Adrian-Ken Rueegsegger <rueegsegger@swiss-it.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:14856 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758225AbYFBKj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2008 06:39:57 -0400
-In-Reply-To: <28012.1212131745@death>
+Received: from rhun.apana.org.au ([64.62.148.172]:34156 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751577AbYFBKlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 06:41:14 -0400
+Content-Disposition: inline
+In-Reply-To: <12123991893044-git-send-email-rueegsegger@swiss-it.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> 	I'm suggesting you do exactly that: release the locks, do your
-> stuff, then reacquire the locks.
-OK
-> 	I took a look, and I think this is how it stands: I recently
-> refactored the active-backup ARP monitor, and I believe that all of its
-> calls are now correct; this would have been the difficult one to fix, so
-> you timed this just right.  The load-balance ARP monitor is still wrong,
-> but you don't care about that one since it isn't used for active-backup
-> mode.
-sounds like I am lucky.
-> 	I think the only cases that will require fixing for you are the
-> bond_release and bond_release_all.
->
-> 	For bond_release, there are two calls to change_active: one sets
-> it to NULL, and the second sets to to a slave.  The first of those calls
-> has nominally incorrect locking; the second has proper locking.
-> Changing the first call to mimic the methodology of the second call
-> should be pretty straightforward.  Alternately, if your notifier doesn't
-> want to log "change to nothing" events (i.e., put it inside the "if
-> (new_active)" block), then you could probably get away with not fixing
-> the first call.
->
-> 	For bond_release_all, there's just one call, and it sets the
-> current slave to NULL (and then goes off and frees all of the slaves).
-> The same caveats from the bond_release case apply here.
+On Mon, Jun 02, 2008 at 11:33:09AM +0200, Adrian-Ken Rueegsegger wrote:
+> This patch fixes the usage of RIPEMD-160 in xfrm_algo which in turn
+> allows hmac(rmd160) to be used as authentication mechanism in IPsec
+> ESP and AH (see RFC 2857).
+> 
+> Signed-off-by: Adrian-Ken Rueegsegger <rueegsegger@swiss-it.ch>
 
-Thanks for this deep dive and guidance. I don't think there's a need to 
-deliver "change to nothing" event and as such I took the approach of 
-setting this event to happen only (under the acrtive-backup mode AND) 
-when new_active is not NULL, will send now the patches which I tested today.
-
-Or.
-
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
