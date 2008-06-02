@@ -1,77 +1,102 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [linux-pm] [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan
- problems
-Date: Mon, 2 Jun 2008 17:09:47 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0806021706130.17236-100000@iolanthe.rowland.org>
-References: <20080601074935.GA2529@yamamaya.is-a-geek.org>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies available to userspace
+Date: Mon, 2 Jun 2008 23:56:27 +0200
+Message-ID: <200806022356.27743.tomasz@grobelny.oswiecenia.net>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200805262340.53355.tomasz@grobelny.oswiecenia.net> <20080602102136.GB10306@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, <linux-kernel@vger.kernel.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Brownell <david-b@pacbell.net>,
-	<linux-acpi@vger.kernel.org>, <linux-pm@lists.linux-foundation.org>
-To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20080601074935.GA2529@yamamaya.is-a-geek.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oswiecenia.net ([83.13.108.58]:2999 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751859AbYFBV4v convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 17:56:51 -0400
+In-Reply-To: <20080602102136.GB10306@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 1 Jun 2008, Tobias Diedrich wrote:
+Dnia Monday 02 of June 2008, Gerrit Renker napisa=B3:
+> | > It was for this part that I looked at netlink. This goes into the
+> | > direction of a new API or at least API extensions.
+> |
+> | We basically need a callback from code that can access struct sock.=
+=2E.
+> |
+> | > (...)
+> | > For per-socket statistics there is indeed a need for a notificati=
+on
+> | > mechanism. If a synchronous mechanism is sufficient, then somethi=
+ng
+> | > like the current CCID-3 getsockopt(DCCP_SOCKOPT_CCID_{RX,TX}_INFO=
+) can
+> | > be used.
+> |
+> | Synchronous mechanism is acceptable but callback (at least as an op=
+tion)
+> | would be way nicer.
+>
+> I have been looking around for alternatives - there are some
+> very good solutions for such aspects in the SCTP subsystem.
+>
+> They implement the subscription of event notifications on a socket fo=
+r
+> all sorts of events.
+>
+> A socket option performs this subscription, notifications are then pa=
+ssed
+> along with data (I think also without, have not dug deep enough into =
+the
+> sources), via recvmsg(). This is the inverse path to qpolicies: the
+> ancillary data is passed via cmsg(3) wrappers to the user.
+>
+> To distinguish events from normal (ancillary) data, SCTP sets the
+> flag fields to MSG_NOTIFICATION.
+>
+> There are two good papers on this (the second one is a bit older):
+> http://www.bsdcan.org/2008/schedule/events/91.en.html
+> http://lwn.net/2001/features/OLS/pdf/pdf/sctp.pdf
+>
+> The sources are in net/sctp, the lksctp project is hosted at
+> http://sourceforge.net/projects/lksctp
+>
+> I think that this approach is elegant and has something to offer for
+> DCCP as well. What do you think?
+>
+I also thought about such a solution but I didn't state it because I th=
+ought=20
+it is even more hackish than the one below. Mostly because it=20
+interleaves "real data" with events (and there is no logical connection=
+=20
+between the two as opposed to sending scenario). But if it is used in S=
+CTP=20
+then maybe the whole idea is not that bad...
+Anyway, I'll have a look at the documents and at the SCTP implementatio=
+n.
 
-> > > (BTW I first thought the 'immediate reboot because of usb wake' effect is
-> > > caused by the optical mouse generating a wake event, but it rather
-> > > seems to be a problem with a flaky secondary usb host controller,
-> > > which sees a connected device where nothing is attached)
-> > 
-> > Can you provide debugging information (i.e., CONFIG_USB_DEBUG) with the 
-> > details on this bogus wakeup?
-> 
-> Sure.
-> Here is the complete log of one boot and two s2disk_platform cycles
-> captured using the serial console (in the first s2disk I forgot to
-> remove the 'turn off /sys/bus/usb/device/usb?/power/wakeup' part).
-> 
-> Interestingly even with power/wakeup disabled for usb1 and usb2,
-> which I assume to be the usb root ports, I could wake up the system
-> by pressing a key on my keyboard (which didn't work before turning
-> on CONFIG_USB_SUSPEND).
-> 
-> On the second suspend the system rebooted immediately as expected
-> (I power/wakeup for usb1 and usb2 back on and disabled the part in
-> the script).
-> 
-> I think this might be some general usb hw flakiness, since it seems
-> to detect (and has so for a long time) a non-existing device:
-> 
-> lsusb output:
-> Bus 002 Device 003: ID 045e:00db Microsoft Corp. Natural Ergonomic Keyboard 4000 V1.0
-> Bus 002 Device 002: ID 045e:0040 Microsoft Corp. Wheel Mouse Optical
-> Bus 002 Device 001: ID 1d6b:0001  
-> Bus 001 Device 001: ID 1d6b:0002  
-> 
-> bogus device?:
-> [14316046.469949] usb 2-4: new full speed USB device using ohci_hcd and address 12
-> [14316046.679951] usb 2-4: device descriptor read/64, error -62
-> [14316046.986619] usb 2-4: device descriptor read/64, error -62
-> [14316047.263284] usb 2-4: new full speed USB device using ohci_hcd and address 13
-> [14316047.476614] usb 2-4: device descriptor read/64, error -62
-> [14316047.786618] usb 2-4: device descriptor read/64, error -62
-> [14316048.063282] usb 2-4: new full speed USB device using ohci_hcd and address 14
-> [14316048.499945] usb 2-4: device not accepting address 14, error -62
-> [14316048.669950] usb 2-4: new full speed USB device using ohci_hcd and address 15
-> [14316049.106612] usb 2-4: device not accepting address 15, error -62
-> [14316049.112960] hub 2-0:1.0: unable to enumerate USB device on port 4
-
-It's possible.  Maybe there's a builtin broken USB device, or maybe the 
-D+ pin on port 4 is wired to a positive voltage source.
-
-The log didn't reveal anything.  Perhaps you can learn more by looking 
-at the "registers" file for that OHCI controller in debugfs.
-
-Also, you should run "lspci -vv" as root to see what wakeup signals the 
-USB controllers are issuing.
-
-Alan Stern
-
+> | Ok, but if we are at hackish ideas what about this one: use dccp_io=
+ctl to
+> | wait on a mutex. If an event occurs we release mutex thus allowing
+> | dccp_ioctl to finish execution and consequently informing user that
+> | something interesting has just happened - what it exactly is would =
+have
+> | to be determined by other means.
+>
+> I am trying to think in terms of how much documentation this would ne=
+ed
+> in order to explain to someone how to use it. It seems feasible, but =
+to
+> me a bit complicated.
+>
+The basic idea is the same as above. The difference is that it would ov=
+erload=20
+ioctl, not recv. But maybe we should use recv. Not because it is in any=
+ way=20
+better but just because it is already used that way in SCTP and has a f=
+ew=20
+documents describing the approach.
+--=20
+Regards,
+Tomasz Grobelny
