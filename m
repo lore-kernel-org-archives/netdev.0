@@ -1,88 +1,62 @@
 From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: increase priority of tcp ACK packages in the kernel?
-Date: Mon, 02 Jun 2008 14:00:44 +0930
-Message-ID: <48437774.1060404@gdt.id.au>
-References: <4840F9DF.5080106@t-online.de>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
+Date: Mon, 02 Jun 2008 14:20:45 +0930
+Message-ID: <48437C25.7080400@gdt.id.au>
+References: <482DA5B6.1020606@sngx.net>	<482DB46A.8020103@cosmosbay.com>	<482EF192.4070707@sngx.net>	<482F5113.5090703@cosmosbay.com>	<482F610D.2080108@sngx.net>	<20080518003104.GK28241@solarflare.com>	<482FBA09.80201@sngx.net>	<483E0AAE.2020107@sngx.net>	<20080528221118.63da4092.akpm@linux-foundation.org>	<483EA2D1.8050603@sngx.net>	<20080529154525.3916c7b5@core>	<20080530151250.b44a119a.billfink@mindspring.com>	<20080531131143.516ca56e@core> <20080531195702.0b879dd1.billfink@mindspring.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Harald Dunkel <harald.dunkel@t-online.de>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	James Cammarata <jimi@sngx.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:50299 "EHLO
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:47480 "EHLO
 	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750862AbYFBEap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 00:30:45 -0400
-In-Reply-To: <4840F9DF.5080106@t-online.de>
+	with ESMTP id S1750810AbYFBEvM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 00:51:12 -0400
+In-Reply-To: <20080531195702.0b879dd1.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Harald Dunkel wrote:
-> AFAICS there is a performance problem for tcp: High volume
-> outgoing traffic seriously affects throughput for incoming
-> traffic due to the tcp ACK packages waiting between the
-> giant packages in the outgoing fifo.
-> 
-> Do you think it would be possible to increase the priority of
-> outgoing tcp ACK packages in the kernel by default?
 
-An embedded wireless router running Linux would want the
-opposite policy. So the current user-space configuration
-of kernel-provided services appears about right.
+> Yes, every individual Linux network administrator can re-create the
+> wheel by devising their own scripts, but it makes much more sense
+> to me to implement a simple general kernel mechanism once that could
+> be used generically, than to have hundreds (or thousands) of Linux
+> network administrators each having to do it themselves (perhaps
+> multiple times if they have a variety of types of systems and types
+> of NICs).
 
-ADSL customers often see your problem, since their uplink
-is just big enough for Acks and if you run a web server
-too then those Acks have to compete on congested capacity.
-Use iptables and tc to queue the Acks out first (you can
-use the ingress interface to identify the routed Acks),
-don't fiddle with the DSCP -- there's no need.
+Hi Bill,
 
-This is deep policy, and it doesn't belong in the kernel.
+If you pull the stats using a SNMP polling tool (torrus, cacti, mrtg)
+then those package's graphs give nice "did this get better or worse"
+output for debugging network issues.
 
+I'd suggest you use one of those tools rather than writing your
+own scripts.  Even if 99% of the time the graphs record zero errors,
+knowing when those errors started is very valuable and well worth
+the additional effort of configuring the tools over a command-line
+or a kernel hack.
 
+The more sophisticated tools can do alerting to Nagios should
+a variable suddenly change its behaviour.
 
-Note that the --set-tos components in the configurations
-you reference are near totally bogus with many ISPs.
+The Cisco/Juniper/everyone-else feature to run console stats
+separately from SNMP stats is nice, but it's rather tuned to
+the needs of router-heads and tends to fall apart when multiple
+staff are debugging a fault.
 
-You do not know how the ISP is going to interpret the DSCP.
-For example, we offer these traffic classes to the public:
-  - worst effort
-  - best effort (default)
-  - video
-  - voice
+If we do proceed with better command line stats then the number
+of errored seconds and the worst errored second and its value
+would be useful. These useful numbers can't be calculated by
+the SNMP polling tools and it's hard to see how they could be
+done in user-space.
 
-Anything else we interpret as Best Effort.  If you do select
-one of these classes then we either rate-limit the ingress or
-require a matching control plane call establishment.  If you
-exceed these limits your traffic is placed in worst effort.
-
-We are not required to give better effort to priority markings
-within the DSCP (we are required not to give them worse service).
-So we don't give them better service, because unauthenticated
-better service is obviously a DoS vector. In fact, such a common
-setting on DoS traffic that setting ToS actually increases your
-odds of being placed into the Worst Effort class (the class where
-we map all suspicious traffic we can't quite bring ourselves
-to discard).
-
-For example, the page recommends Minimize-Delay, which is
-meant for interactive terminal traffic. We know a screen
-refresh is two back-to-back packets and anything more than
-two per second is superhuman typing. So anything more than
-that burst is a DoS.  You can see already how your Ack
-channel may be limited to the speed of a typist because you
-lied about the traffic you marked with Minimize-Delay.
-
-In short, ISPs are increasingly checking that traffic markings
-are reasonable -- we have wire-speed routers and we're not afraid
-to use them. The only reasonable thing you can do with marking
-Acks is put them in the same DSCP as the data. Otherwise you are
-lying about the contents of the class and when we go looking
-for odd data we'll penalise that.
-
-Oh, and marking Ack traffic and non-Ack traffic in the same
-direction with different DSCPs will drop performance, because
-we'll deliver them out of order if congestion is seen.
+Cheers, Glen
 
 -- 
   Glen Turner
