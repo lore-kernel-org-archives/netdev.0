@@ -1,84 +1,39 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [PATCH v2] IPv6: fix bug when specifying the non-exist outgoing
- interface
-Date: Mon, 02 Jun 2008 16:59:08 +0800
-Message-ID: <4843B65C.1060702@cn.fujitsu.com>
-References: <4843AB51.6010206@cn.fujitsu.com> <20080602.172009.84304151.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH v2] IPv6: fix bug when specifying the non-exist
+ outgoing interface
+Date: Mon, 02 Jun 2008 18:17:45 +0900 (JST)
+Message-ID: <20080602.181745.29009203.yoshfuji@linux-ipv6.org>
+References: <4843AB51.6010206@cn.fujitsu.com>
+	<20080602.172009.84304151.yoshfuji@linux-ipv6.org>
+	<4843B65C.1060702@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: shanwei@cn.fujitsu.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64970 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751531AbYFBI77 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2008 04:59:59 -0400
-In-Reply-To: <20080602.172009.84304151.yoshfuji@linux-ipv6.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:57950 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986AbYFBJRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2008 05:17:10 -0400
+In-Reply-To: <4843B65C.1060702@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  When specifying the outgoing interface with sendmsg, if the ipi6_addr=
- is=20
-the unspecified address and the ipi6_ifindex is the not-exist interface=
-,=20
-it should be fail and the errno should be set ENODEV.
-  Actually, it does well(sendmsg returns on success ), because the kern=
-el=20
-don't check the interface=E3=80=82
+In article <4843B65C.1060702@cn.fujitsu.com> (at Mon, 02 Jun 2008 16:59:08 +0800), Shan Wei <shanwei@cn.fujitsu.com> says:
 
- The patch is against 2.6.26-rc4.
+>   When specifying the outgoing interface with sendmsg, if the ipi6_addr is 
+> the unspecified address and the ipi6_ifindex is the not-exist interface, 
+> it should be fail and the errno should be set ENODEV.
+>   Actually, it does well(sendmsg returns on success ), because the kernel 
+> don't check the interface。
+> 
+>  The patch is against 2.6.26-rc4.
+> 
+> Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
 
-Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
+Patch (white spaces) is broken, but I'm going to apply this by hand.
+Thanks.
 
----
- net/ipv6/datagram.c |   24 +++++++++++++++---------
- 1 files changed, 15 insertions(+), 9 deletions(-)
-
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 94fa6ae..47b85cc 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -534,20 +534,26 @@ int datagram_send_ctl(struct msghdr *msg, struct
-flowi *fl,
-                     return -EINVAL;
-                 fl->oif =3D src_info->ipi6_ifindex;
-             }
-+          =20
-+            if (fl->oif) {
-+                dev =3D dev_get_by_index(&init_net, fl->oif);
-+                if (!dev)
-+                    return -ENODEV;
-+            }
-=20
-             addr_type =3D ipv6_addr_type(&src_info->ipi6_addr);
-=20
--            if (addr_type =3D=3D IPV6_ADDR_ANY)
-+            if (addr_type =3D=3D IPV6_ADDR_ANY) {
-+                if (dev)
-+                    dev_put(dev);
-                 break;
-+            }
-=20
--            if (addr_type & IPV6_ADDR_LINKLOCAL) {
--                if (!src_info->ipi6_ifindex)
--                    return -EINVAL;
--                else {
--                    dev =3D dev_get_by_index(&init_net,
-src_info->ipi6_ifindex);
--                    if (!dev)
--                        return -ENODEV;
--                }
-+            if ((addr_type & IPV6_ADDR_LINKLOCAL) &&
-+                !src_info->ipi6_ifindex) {
-+                if (dev)
-+                    dev_put(dev);
-+                return -EINVAL;
-             }
-             if (!ipv6_chk_addr(&init_net, &src_info->ipi6_addr,
-                        dev, 0)) {
---=20
-1.5.4.4
-
-
+--yoshfuji
