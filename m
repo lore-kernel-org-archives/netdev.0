@@ -1,45 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2] IPV4: remove addresses and routes when carrier is
- lost
-Date: Tue, 03 Jun 2008 18:03:46 +0200
-Message-ID: <48456B62.8050909@trash.net>
-References: <20080602165249.52a467dc@extreme>	<20080603150524.GA16165@csclub.uwaterloo.ca> <20080603085707.51fdabbb@speedy>
+From: David Miller <davem@davemloft.net>
+Subject: Re: How do I use multiqueue tx
+Date: Tue, 03 Jun 2008 09:10:38 -0700 (PDT)
+Message-ID: <20080603.091038.208527273.davem@davemloft.net>
+References: <4845647A.7060002@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44665 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751824AbYFCQDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:03:48 -0400
-In-Reply-To: <20080603085707.51fdabbb@speedy>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54302
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752086AbYFCQKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:10:42 -0400
+In-Reply-To: <4845647A.7060002@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 3 Jun 2008 11:05:24 -0400
-> lsorense@csclub.uwaterloo.ca (Lennart Sorensen) wrote:
-> 
->> On Mon, Jun 02, 2008 at 04:52:49PM -0700, Stephen Hemminger wrote:
->>> This patch adds a new configuration sysctl that causes link loss to clear
->>> FIB state in the same way as admin down. This allows for routing daemons
->>> like Quagga which have option to remove routes when carrier is lost.
->>>
->>> This has been a long standing problem with Quagga on Linux with complaints
->>> on the developers list going back to 2004. Fixing it properly, so the routing 
->>> daemon manages the RIB, and the kernel manages the FIB, requires changes to
->>> both parts.
->> Does this cover only the local route for the interface, or all routes
->> assigned staticly to the interface too?
-> 
-> The patch makes carrier down == interface down. So the same
-> behaviour as doing 'ip link set dev eth3 down'
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Tue, 03 Jun 2008 11:34:18 -0400
 
+> I've done a patch to myri10ge which enables the use of multiple
+> transmit queues in our Linux driver using CONFIG_NETDEVICES_MULTIQUEUE
+> netdev subqueues.  Our current hardware uses multiple queues purely
+> for increasing host parallelism, not priority/QOS.  I'm looking for a
+> way, beyond pktgen, to actually use any transmit queue other than 0 to
+> increase parallelism.
 
-Can't the routing daemon simply ignore routes with a
-device that has no carrier?
+Even though there are seperate per-TX-queue start/stop states
+available to manage, all of the transmit path still uses a
+single global lock to manage the packet queue in the generic
+device structure.
 
+So you will get zero extra parallelism by using the other queues.
+
+I plan to work on this and have presented my ideas about how to
+solve this problem in two presentations I gave in Japan several
+months ago, and last week in Berlin.
+
+http://vger.kernel.org/~davem/davem_tokyo08.pdf
+http://vger.kernel.org/~davem/davem_berlin08.pdf
+
+Don't even bother trying to get better TX parallelism at the
+current time, it'll be so much easier to accomplish after
+I do this development which I anticipate should be in a testable
+state in about one month.
