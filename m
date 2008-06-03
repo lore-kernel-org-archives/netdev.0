@@ -1,34 +1,45 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface
-	implementation for the driver
-Date: Tue, 03 Jun 2008 08:10:05 -0700
-Message-ID: <ada8wxm4ks2.fsf@cisco.com>
-References: <20080529095126.9943.84692.stgit@localhost.localdomain>
-	<20080529095754.9943.27936.stgit@localhost.localdomain>
-	<20080529103003.010c4a08@extreme> <20080529174805.GA10903@kroah.com>
-	<ada7id7685e.fsf@cisco.com>
-	<71d336490806030524r6aa6fed6rdb166efb11385969@mail.gmail.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [RFC] Make board force selection of PHYLIB
+Date: Tue, 03 Jun 2008 10:10:34 -0500
+Message-ID: <48455EEA.3040909@freescale.com>
+References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org> <48442239.7090906@garzik.org> <BF15FEBB-4876-4B16-915B-1D21BF989DA8@kernel.crashing.org> <83820D83-487C-4586-9867-F4226A87A276@freescale.com> <48445851.4090105@garzik.org> <095F258F-72DD-4F27-A457-A57D9FAA1E76@kernel.crashing.org> <48448020.5020407@freescale.com> <Pine.LNX.4.64.0806030945540.21537@blarg.am.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: amar.mudrankit@qlogic.com, Greg KH <greg@kroah.com>,
-	general@lists.openfabrics.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>, poornima.kamath@qlogic.com
-To: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <71d336490806030524r6aa6fed6rdb166efb11385969@mail.gmail.com>
-	(Ramachandra K.'s message of "Tue, 3 Jun 2008 17:54:19 +0530")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, adrian.bunk@movial.fi
+To: Kumar Gala <galak@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:60186 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751685AbYFCPLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 11:11:14 -0400
+In-Reply-To: <Pine.LNX.4.64.0806030945540.21537@blarg.am.freescale.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > OK. We will investigate moving the qlgc_vnic driver to configfs. What is the
- > deadline by which we need to be ready for a merge to 2.6.27 ?
+Kumar Gala wrote:
+> How is this as a fix.
+> 
+> - k
+> 
+> diff --git a/arch/powerpc/platforms/85xx/Kconfig b/arch/powerpc/platforms/85xx/Kconfig
+> index 7ff29d5..9e5c884 100644
+> --- a/arch/powerpc/platforms/85xx/Kconfig
+> +++ b/arch/powerpc/platforms/85xx/Kconfig
+> @@ -34,6 +34,7 @@ config MPC85xx_MDS
+>  	bool "Freescale MPC85xx MDS"
+>  	select DEFAULT_UIMAGE
+>  	select QUICC_ENGINE
+> +	select PHYLIB if GIANFAR=m
+>  	help
+>  	  This option enables support for the MPC85xx MDS board
 
-By the release of 2.6.26.
+I assume you'll also ifdef-protect the phy calls in the platform code?
+
+I'd rather avoid adding another case where the kernel needs to know what 
+modules are being built, though, especially if the result of changing 
+the .config and building modules is a mysterious runtime failure (due to 
+a missing platform fixup) rather than compile- or insertion-time.
+
+-Scott
