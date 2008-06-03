@@ -1,65 +1,66 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [UDPv6] Possible dst leak in udpv6_sendmsg.
-Date: Wed, 04 Jun 2008 01:26:19 +0900 (JST)
-Message-ID: <20080604.012619.30196060.yoshfuji@linux-ipv6.org>
-References: <1212491322-9161-1-git-send-email-den@openvz.org>
-	<20080603.203532.39634783.yoshfuji@linux-ipv6.org>
-	<1212493845.6499.29.camel@iris.sw.ru>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows with MD5SIG enabled
+Date: Tue, 3 Jun 2008 09:31:02 -0700
+Message-ID: <396556a20806030931s9e8ec42hba9e39d9fe3514f1@mail.gmail.com>
+References: <396556a20805301140x586093e5o92d44e38f7c2869a@mail.gmail.com>
+	 <396556a20805301217k293e5718h6bbf02bfe0683143@europa>
+	 <Xine.LNX.4.64.0806020938240.8594@us.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
-	yoshfuji@linux-ipv6.org
-To: den@openvz.org
+Cc: netdev@vger.kernel.org
+To: "James Morris" <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:58015 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbYFCQZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:25:41 -0400
-In-Reply-To: <1212493845.6499.29.camel@iris.sw.ru>
+Received: from rv-out-0506.google.com ([209.85.198.233]:21774 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751409AbYFCQbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:31:04 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so1653335rvb.1
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2008 09:31:03 -0700 (PDT)
+In-Reply-To: <Xine.LNX.4.64.0806020938240.8594@us.intercode.com.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <1212493845.6499.29.camel@iris.sw.ru> (at Tue, 03 Jun 2008 15:50:45 +0400), "Denis V. Lunev" <den@openvz.org> says:
+On Sun, Jun 1, 2008 at 4:40 PM, James Morris <jmorris@namei.org> wrote:
+> Reviewed-by: James Morris <jmorris@namei.org>
 
-> On Tue, 2008-06-03 at 20:35 +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> > In article <1212491322-9161-1-git-send-email-den@openvz.org> (at Tue,  3 Jun 2008 15:08:42 +0400), "Denis V. Lunev" <den@openvz.org> says:
-> > 
-> > > ip6_sk_dst_lookup returns held dst entry. It should be released on all paths
-> > > beyond this point. Add missed release when up->pending is set.
-> > 
-> > Which kernel are you refering?
-> The patch is made against current net-2.6 tree, though all kernels are
-> affected, starting at least RHEL5
-> 
-> > And, would you please take a look at ipv4 side as well?
-> 
-> ipv4 is ok, the code looks the same but there is an ip_rt_put at the
-> out: label.
-> 
 
-Okay, I think we have one more leakage here (in do_confirm path).
-How about this?
+Looking at this code some more, I fear that I've fucked up that patch.
+The logic for TCP options seems to be duplicated three times in the
+code: the size calculation (patched), the building of the actual
+options (tcp_build_and_update_options / tcp_syn_build_options) and the
+MSS calculations (tcp_current_mss).
 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 1fd784f..47123bf 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -848,12 +848,14 @@ do_append_data:
- 		} else {
- 			dst_release(dst);
- 		}
-+		dst = NULL;
- 	}
- 
- 	if (err > 0)
- 		err = np->recverr ? net_xmit_errno(err) : 0;
- 	release_sock(sk);
- out:
-+	dst_release(dst);
- 	fl6_sock_release(flowlabel);
- 	if (!err)
- 		return len;
+It looks, on second glance, that this code in
+tcp_build_and_update_options will include the options even though we
+calculated the size without:
 
---yoshfuji
+if (tp->rx_opt.eff_sacks) {
+	struct tcp_sack_block *sp = tp->rx_opt.dsack ? tp->duplicate_sack :
+tp->selective_acks;
+	int this_sack;
+
+	*ptr++ = htonl((TCPOPT_NOP  << 24) |
+		       (TCPOPT_NOP  << 16) |
+		       (TCPOPT_SACK <<  8) |
+		       (TCPOLEN_SACK_BASE + (tp->rx_opt.eff_sacks *
+			     TCPOLEN_SACK_PERBLOCK)));
+...
+
+Unless I'm missing something, that patch was incomplete and we're
+still sending invalid packets on in the MD5SIG + SACK case.
+
+If so, I'll try and get the other two cases with another patch.
+
+Additionally, it would appear that it would be useful to pull this
+logic into a single place: maybe a function which runs multiple times
+(to calculate the MSS / header size and a second time to actually
+perform the options writes). But that'll be a different patch.
+
+Cheers,
+
+AGL
+
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
