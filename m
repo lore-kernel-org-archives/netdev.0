@@ -1,83 +1,156 @@
-From: martin f krafft <madduck@madduck.net>
-Subject: non-root, non-real network manipulation for netconf testing
-Date: Tue, 3 Jun 2008 10:05:29 +0200
-Message-ID: <20080603080529.GA9010@lapse.madduck.net>
+From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/3] [2.6.26] ehea: Add dependency to Kconfig
+Date: Tue, 3 Jun 2008 10:07:39 +0200
+Message-ID: <200806031007.40162.hannes.hering@linux.vnet.ibm.com>
+References: <200805071443.20192.hannes.hering@linux.vnet.ibm.com> <20080528164405.GA4836@localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="X1bOJ3K7DJ5YkBrT"
-Cc: netconf developers list <netconf-devel@lists.alioth.debian.org>
-To: netdev discussion list <netdev@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, tklein@de.ibm.com, themann@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	raisch@de.ibm.com, ossrosch@linux.vnet.ibm.com,
+	linuxppc-dev@ozlabs.org, ossthema@de.ibm.com
+To: Nathan Lynch <ntl@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from seamus.madduck.net ([213.203.238.82]:49241 "EHLO
-	seamus.madduck.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818AbYFCIFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 04:05:41 -0400
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:37935 "EHLO
+	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751637AbYFCIHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 04:07:47 -0400
+In-Reply-To: <20080528164405.GA4836@localdomain>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Nathan,
 
---X1bOJ3K7DJ5YkBrT
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I agree that the ehea cannot be built without MEMORY_HOTPLUG. The problem is
+the fact that the ppc walk_memory_resource declaration is in the scope of
+MEMORY_HOTPLUG. At the moment I don't have complete overview if the move of the
+code as you propose in your patch has any side effects. We probably need to
+talk to Badari who provided the walk_memory_resource code. We can also just
+throw it onto one of our boxes to see what happens. ;)
 
-Dear networking wizards,
+Regards
 
-This is a bit of a self-reflexive mail, but I hope some of you might
-have some input...
+Hannes
 
-In writing netconf[0], we are having a bit of a problem with the
-test suite, since many of netconf's operations require root rights
-(e.g. interface manipulation with /bin/ip). In addition, a test
-suite manipulating the network configuration of the running machine
-is not really something I feel comfortable with.
+On Wednesday 28 May 2008 18:44:05 Nathan Lynch wrote:
+> Hello,
+> 
+> Hannes Hering wrote:
+> > The new ehea memory hot plug implementation depends on MEMORY_HOTPLUG.
+> > 
+> > Signed-off-by: Hannes Hering <hering2@de.ibm.com>
+> > ---
+> > 
+> > diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> > index f90a86b..181cd86 100644
+> > --- a/drivers/net/Kconfig
+> > +++ b/drivers/net/Kconfig
+> > @@ -2440,7 +2440,7 @@ config CHELSIO_T3
+> >  
+> >  config EHEA
+> >  	tristate "eHEA Ethernet support"
+> > -	depends on IBMEBUS && INET && SPARSEMEM
+> > +	depends on IBMEBUS && INET && SPARSEMEM && MEMORY_HOTPLUG
+> >  	select INET_LRO
+> >  	---help---
+> >  	  This driver supports the IBM pSeries eHEA ethernet adapter.
+> 
+> I disagree with this change.
+> 
+> It makes it impossible to build the ehea driver without memory hotplug
+> enabled.  Presumably, this commit was intended to work around a build
+> break of this sort (with EHEA=m and MEMORY_HOTPLUG=n):
+> 
+> drivers/net/ehea/ehea_qmr.c: In function 'ehea_create_busmap':
+> drivers/net/ehea/ehea_qmr.c:635: error: implicit declaration of function 'walk_memory_resource'
+> 
+> (some indication of this should have been in the commit message, btw)
+> 
+> I think this was the wrong way to fix the issue.  EHEA=m and
+> MEMORY_HOTPLUG=n is a valid configuration for machines I test.
+> 
+> Any thoughts on the following, which makes walk_memory_resource()
+> available regardless of MEMORY_HOTPLUG's setting?  I've tested it on a
+> JS22 (Power6 blade).
+> 
+> ---
+> 
+>  arch/powerpc/mm/mem.c          |    3 +--
+>  drivers/net/Kconfig            |    2 +-
+>  include/linux/memory_hotplug.h |   16 ++++++++--------
+>  3 files changed, 10 insertions(+), 11 deletions(-)
+> 
+> diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+> index f67e118..51f82d8 100644
+> --- a/arch/powerpc/mm/mem.c
+> +++ b/arch/powerpc/mm/mem.c
+> @@ -151,6 +151,7 @@ out:
+>  	return ret;
+>  }
+>  #endif /* CONFIG_MEMORY_HOTREMOVE */
+> +#endif /* CONFIG_MEMORY_HOTPLUG */
+> 
+>  /*
+>   * walk_memory_resource() needs to make sure there is no holes in a given
+> @@ -184,8 +185,6 @@ walk_memory_resource(unsigned long start_pfn, unsigned long nr_pages, void *arg,
+>  }
+>  EXPORT_SYMBOL_GPL(walk_memory_resource);
+> 
+> -#endif /* CONFIG_MEMORY_HOTPLUG */
+> -
+>  void show_mem(void)
+>  {
+>  	unsigned long total = 0, reserved = 0;
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index dd0ec9e..f4182cf 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2426,7 +2426,7 @@ config CHELSIO_T3
+> 
+>  config EHEA
+>  	tristate "eHEA Ethernet support"
+> -	depends on IBMEBUS && INET && SPARSEMEM && MEMORY_HOTPLUG
+> +	depends on IBMEBUS && INET && SPARSEMEM
+>  	select INET_LRO
+>  	---help---
+>  	  This driver supports the IBM pSeries eHEA ethernet adapter.
+> diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+> index 73e3586..ea9f5ad 100644
+> --- a/include/linux/memory_hotplug.h
+> +++ b/include/linux/memory_hotplug.h
+> @@ -77,14 +77,6 @@ extern int __add_pages(struct zone *zone, unsigned long start_pfn,
+>  extern int __remove_pages(struct zone *zone, unsigned long start_pfn,
+>  	unsigned long nr_pages);
+> 
+> -/*
+> - * Walk through all memory which is registered as resource.
+> - * arg is (start_pfn, nr_pages, private_arg_pointer)
+> - */
+> -extern int walk_memory_resource(unsigned long start_pfn,
+> -			unsigned long nr_pages, void *arg,
+> -			int (*func)(unsigned long, unsigned long, void *));
+> -
+>  #ifdef CONFIG_NUMA
+>  extern int memory_add_physaddr_to_nid(u64 start);
+>  #else
+> @@ -199,6 +191,14 @@ static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
+> 
+>  #endif /* ! CONFIG_MEMORY_HOTPLUG */
+> 
+> +/*
+> + * Walk through all memory which is registered as resource.
+> + * arg is (start_pfn, nr_pages, private_arg_pointer)
+> + */
+> +extern int walk_memory_resource(unsigned long start_pfn,
+> +			unsigned long nr_pages, void *arg,
+> +			int (*func)(unsigned long, unsigned long, void *));
+> +
+>  extern int add_memory(int nid, u64 start, u64 size);
+>  extern int arch_add_memory(int nid, u64 start, u64 size);
+>  extern int remove_memory(u64 start, u64 size);
+> 
 
-0. http://netconf.alioth.debian.org
 
-So I am trying to come up with alternative plans, of which there are
-three:
-
-1. do not fail tests that need root rights when run as non-root
-2. set up a VDE network (which still requires root rights)
-3. write a mock /bin/ip which pretends to be doing what it'd be doing
-
-None of these three is satisfactory. (1) provides incomplete test
-coverage unless run by root, which is not going to be done very
-often, (2) can be combined with (1) but still puts the host machine
-in danger of losing connectivity, and (3) just sounds terrible,
-especially when other stuff, like dhclient or wpa_supplicant come
-into play.
-
-Of course, I am asking a bit much, but maybe you guys have some
-input that could help us move along?
-
-What I really want is some context handler that can emulate
-a complete network and process stack for my test scripts, let
-a normal user modify anything they want, but not touch anything on
-the actual system. Sort of like database transactions. I think I may
-be out of luck though, no?
-
---=20
-martin | http://madduck.net/ | http://two.sentenc.es/
-=20
-"you don't sew with a fork, so I see no reason
- to eat with knitting needles."
-                               -- miss piggy, on eating chinese food
-=20
-spamtraps: madduck.bogus@madduck.net
-
---X1bOJ3K7DJ5YkBrT
-Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
-Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFIRPtJIgvIgzMMSnURAqPvAKCIBf+dfFa2X7h/CWYtRpqApd4XpwCfbo+n
-jsbpZwQJPnUScy6wob/x4gM=
-=oEx5
------END PGP SIGNATURE-----
-
---X1bOJ3K7DJ5YkBrT--
