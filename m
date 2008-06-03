@@ -1,28 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] bridge: update URL
-Date: Tue, 03 Jun 2008 16:00:10 -0700 (PDT)
-Message-ID: <20080603.160010.252001854.davem@davemloft.net>
-References: <20080519220834.GT17716@cs181133002.pp.htv.fi>
+Subject: Re: [PATCH] net: neighbour table ABI problem
+Date: Tue, 03 Jun 2008 16:03:27 -0700 (PDT)
+Message-ID: <20080603.160327.105786253.davem@davemloft.net>
+References: <20080521104019.22f9c712@extreme>
+	<20080521.133510.145260976.davem@davemloft.net>
+	<20080522002042.GO20815@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bunk@kernel.org
+Cc: shemminger@vyatta.com, kaber@trash.net, Stephane_Chazelas@yahoo.fr,
+	netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55213
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55216
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752225AbYFCXAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 19:00:10 -0400
-In-Reply-To: <20080519220834.GT17716@cs181133002.pp.htv.fi>
+	by vger.kernel.org with ESMTP id S1753001AbYFCXD2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 19:03:28 -0400
+In-Reply-To: <20080522002042.GO20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Adrian Bunk <bunk@kernel.org>
-Date: Tue, 20 May 2008 01:08:34 +0300
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 22 May 2008 02:20:42 +0200
 
-> This patch updates the URL of the bridge homepage.
+> * David Miller <davem@davemloft.net> 2008-05-21 13:35
+> > From: Stephen Hemminger <shemminger@vyatta.com>
+> > Date: Wed, 21 May 2008 10:40:19 -0700
+> > 
+> > > This change is small, but it breaks the ABI for older version of iproute2 utilities.
+> > > But these utilities are already broken since they are looking at the psched_hz values
+> > > which are completely different. So let's just go ahead and fix both kernel and user
+> > > space. Older utilities will just print wrong values.
+> > > 
+> > 
+> > Can we add a new attribute or something like that?
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> We could do but I agree with Stephen to just fix it the way he
+> proposes. The value we're talking is only useful in a debugging
+> or statistical context. We're not changing the format of the
+> attribute at all, not even the unit, srictly speaking.
 
-Applied, thanks Adrian.
+Fair enough, I've applied Stephen's patch.
+
+Thanks.
