@@ -1,85 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: : Emit event stream compat iw_point objects correctly.
-Date: Tue, 03 Jun 2008 09:57:50 -0700 (PDT)
-Message-ID: <20080603.095750.120470495.davem@davemloft.net>
-References: <20071227181439.6F59.40F06B3A@sm.sony.co.jp>
-	<20080110.011602.74511551.davem@davemloft.net>
-	<20080111112248.610C.40F06B3A@sm.sony.co.jp>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [RFC] Make board force selection of PHYLIB
+Date: Tue, 3 Jun 2008 20:00:22 +0300
+Message-ID: <20080603170022.GE9605@cs181133002.pp.htv.fi>
+References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org> <48442239.7090906@garzik.org> <BF15FEBB-4876-4B16-915B-1D21BF989DA8@kernel.crashing.org> <83820D83-487C-4586-9867-F4226A87A276@freescale.com> <48445851.4090105@garzik.org> <095F258F-72DD-4F27-A457-A57D9FAA1E76@kernel.crashing.org> <48448020.5020407@freescale.com> <Pine.LNX.4.64.0806030945540.21537@blarg.am.freescale.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: mokuno@sm.sony.co.jp
+Content-Type: text/plain; charset=utf-8
+Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, linuxppc-dev@ozlabs.org
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35842
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751795AbYFCQ5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:57:53 -0400
-In-Reply-To: <20080111112248.610C.40F06B3A@sm.sony.co.jp>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:44309 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753200AbYFCRAt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 13:00:49 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0806030945540.21537@blarg.am.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Date: Fri, 11 Jan 2008 13:16:29 +0900
+On Tue, Jun 03, 2008 at 09:47:19AM -0500, Kumar Gala wrote:
+> How is this as a fix.
+> 
+> - k
+> 
+> diff --git a/arch/powerpc/platforms/85xx/Kconfig b/arch/powerpc/platforms/85xx/Kconfig
+> index 7ff29d5..9e5c884 100644
+> --- a/arch/powerpc/platforms/85xx/Kconfig
+> +++ b/arch/powerpc/platforms/85xx/Kconfig
+> @@ -34,6 +34,7 @@ config MPC85xx_MDS
+>  	bool "Freescale MPC85xx MDS"
+>  	select DEFAULT_UIMAGE
+>  	select QUICC_ENGINE
+> +	select PHYLIB if GIANFAR=m
+>  	help
+>  	  This option enables support for the MPC85xx MDS board
 
-> On Thu, 10 Jan 2008 01:16:02 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > diff --git a/include/net/iw_handler.h b/include/net/iw_handler.h
-> > index c99a8ee..d6f0c51 100644
-> > --- a/include/net/iw_handler.h
-> > +++ b/include/net/iw_handler.h
-> > @@ -483,19 +483,26 @@ extern void wireless_spy_update(struct net_device *	dev,
-> >   * Wrapper to add an Wireless Event to a stream of events.
-> >   */
-> >  static inline char *
-> > -iwe_stream_add_event(char *	stream,		/* Stream of events */
-> > -		     char *	ends,		/* End of stream */
-> > -		     struct iw_event *iwe,	/* Payload */
-> > -		     int	event_len)	/* Real size of payload */
-> > +iwe_stream_add_event(struct iw_request_info *info, char *stream, char *ends,
-> > +		     struct iw_event *iwe, int event_len)
-> >  {
-> > +	int lcp_len = IW_EV_LCP_LEN;
-> > +
-> > +#ifdef CONFIG_COMPAT
-> > +	if (info->flags & IW_REQUEST_FLAG_COMPAT) {
-> > +		event_len -= IW_EV_LCP_LEN;
-> > +		event_len += IW_EV_COMPAT_LCP_LEN;
-> > +		lcp_len = IW_EV_COMPAT_LCP_LEN;
-> > +	}
-> > +#endif
-> >  	/* Check if it's possible */
-> >  	if(likely((stream + event_len) < ends)) {
-> >  		iwe->len = event_len;
-> >  		/* Beware of alignement issues on 64 bits */
-> >  		memcpy(stream, (char *) iwe, IW_EV_LCP_PK_LEN);
-> > -		memcpy(stream + IW_EV_LCP_LEN,
-> > -		       ((char *) iwe) + IW_EV_LCP_LEN,
-> > -		       event_len - IW_EV_LCP_LEN);
-> > +		memcpy(stream + lcp_len,
-> > +		       ((char *) iwe) + lcp_len,
-> 
-> The source address does not have to be adjusted.  I think it should be
-> 		       ((char *) iwe) + IW_EV_LCP_LEN,
-> or just
-> 		       &iwe->u
-> I think it is more readable what we want to do here.
-> 
-> 
-> > +		       event_len - lcp_len);
-> 
-> The length of the real payload does not need to take account of the
-> destination offset change.  So we can keep the original code like:
-> 
-> 		       org_event_len - IW_EV_LCP_LEN);
+The .config you sent me as an example didn't have GIANFAR set, so it 
+couldn't help there.
 
-As long as IW_EV_LCP_LEN and IW_EV_COMPAT_LCP_LEN are different, I am
-pretty sure we need to make these adjustments.
+How early do the fixups have to run?
 
-There are so many differences in how struct vs. sub-struct alignment will
-occur in these cases, that we need to be very careful.
+I see two possible solutions:
+- let MPC85xx_MDS unconditionally select PHYLIB or
+- move the fixups to the gianfar driver
 
-I'll try to look more closely at this and do some testing of my own on
-a compat platform.
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
