@@ -1,8 +1,8 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 2/12]: wext: Make adjust_priv_size() take a "struct
- iw_point *".
-Date: Tue, 03 Jun 2008 13:28:10 -0700 (PDT)
-Message-ID: <20080603.132810.05908596.davem@davemloft.net>
+Subject: [PATCH 5/12]: wext: Pull ioctl permission checking out into helper
+ function.
+Date: Tue, 03 Jun 2008 13:28:26 -0700 (PDT)
+Message-ID: <20080603.132826.197798175.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -16,34 +16,47 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- net/wireless/wext.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ net/wireless/wext.c |   22 +++++++++++++++-------
+ 1 files changed, 15 insertions(+), 7 deletions(-)
 
 diff --git a/net/wireless/wext.c b/net/wireless/wext.c
-index e83d74a..cd2cf9f 100644
+index a1cd19a..e96559e 100644
 --- a/net/wireless/wext.c
 +++ b/net/wireless/wext.c
-@@ -512,9 +512,9 @@ static int get_priv_size(__u16 args)
- /*
-  * Re-calculate the size of private arguments
-  */
--static int adjust_priv_size(__u16 args, union iwreq_data *wrqu)
-+static int adjust_priv_size(__u16 args, struct iw_point *iwp)
+@@ -1061,18 +1061,26 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr, unsigned i
+ 	return -EOPNOTSUPP;
+ }
+ 
++/* If command is `set a parameter', or `get the encoding parameters',
++ * check if the user has the right to do it.
++ */
++static int wext_permission_check(unsigned int cmd)
++{
++	if ((IW_IS_SET(cmd) || cmd == SIOCGIWENCODE || cmd == SIOCGIWENCODEEXT)
++	    && !capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	return 0;
++}
++
+ /* entry point from dev ioctl */
+ int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
+ 		      void __user *arg)
  {
--	int	num = wrqu->data.length;
-+	int	num = iwp->length;
- 	int	max = args & IW_PRIV_SIZE_MASK;
- 	int	type = (args & IW_PRIV_TYPE_MASK) >> 12;
+-	int ret;
++	int ret = wext_permission_check(cmd);
  
-@@ -976,7 +976,7 @@ static int ioctl_private_call(struct net_device *dev, struct ifreq *ifr,
- 			 * avoid leaking kernel bits outside. */
- 			if (!(descr->get_args & IW_PRIV_SIZE_FIXED)) {
- 				extra_size = adjust_priv_size(descr->get_args,
--							      &(iwr->u));
-+							      &(iwr->u.data));
- 			}
+-	/* If command is `set a parameter', or
+-	 * `get the encoding parameters', check if
+-	 * the user has the right to do it */
+-	if ((IW_IS_SET(cmd) || cmd == SIOCGIWENCODE || cmd == SIOCGIWENCODEEXT)
+-	    && !capable(CAP_NET_ADMIN))
+-		return -EPERM;
++	if (ret)
++		return ret;
  
- 			err = copy_to_user(iwr->u.data.pointer, extra,
+ 	dev_load(net, ifr->ifr_name);
+ 	rtnl_lock();
 -- 
 1.5.5.1.308.g1fbb5
 
