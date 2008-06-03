@@ -1,86 +1,52 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: PATCH: fix bridged 802.3ad bonding
-Date: Tue, 3 Jun 2008 13:13:26 -0700
-Message-ID: <20080603131326.1f70915e@extreme>
-References: <20080603132106.GA3256@midget.suse.cz>
-	<20080603094604.6a7dfe7d@extreme>
-	<20080603193227.GA4050@midget.suse.cz>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH]  Fix routing tables with id > 255 for legacy software
+Date: Tue, 03 Jun 2008 22:28:19 +0200
+Message-ID: <4845A963.2050208@trash.net>
+References: <20080603080812.GA4514@ff.dom.local> <Pine.LNX.4.64.0806031220490.3438@bizon.gios.gov.pl> <20080603113343.GA4714@ff.dom.local> <48453C70.1040303@trash.net> <Pine.LNX.4.64.0806031449540.3438@bizon.gios.gov.pl> <484542B5.4070401@trash.net> <Pine.LNX.4.64.0806031617310.3438@bizon.gios.gov.pl> <48458D59.5030101@trash.net> <Pine.LNX.4.64.0806032036070.3438@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Jiri Bohac <jbohac@suse.cz>
+Cc: davem@davemloft.net, Jarek Poplawski <jarkao2@gmail.com>,
+	netdev@vger.kernel.org
+To: Krzysztof Oledzki <olel@ans.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51239 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750900AbYFCUTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 16:19:20 -0400
-In-Reply-To: <20080603193227.GA4050@midget.suse.cz>
+Received: from stinky.trash.net ([213.144.137.162]:50834 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbYFCU2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 16:28:23 -0400
+In-Reply-To: <Pine.LNX.4.64.0806032036070.3438@bizon.gios.gov.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 3 Jun 2008 21:32:27 +0200
-Jiri Bohac <jbohac@suse.cz> wrote:
+Krzysztof Oledzki wrote:
+> 
+> 
+> On Tue, 3 Jun 2008, Patrick McHardy wrote:
+> 
+>> Krzysztof Oledzki wrote:
+>>> On Tue, 3 Jun 2008, Patrick McHardy wrote:
+>>>
+>>>> I think the proper solution is what I wrote in the changelog
+>>>> entry: fix userspace applications when using extended table
+>>>> IDs.
+>>>
+>>> It is unquestionably true, however it may take some time and people 
+>>> may still use old version of such applications for whatsoever reasons.
+>>>
+>>>> Your patch makes it more predictable, so I'm not completely
+>>>> opposed, but still its just a workaround.
+>>>
+>>> Indeed - it is a workaround but I believe we need it.
+>>
+>> I'm neither opposed (as long as we don't add CONFIG options for
+>> this) nor in favour - people using fixed applications won't notice,
+>> and for other people it substitutes undesired behaviour by more
+>> predictable undesirable behaviour,
+> 
+> Exactly,
+> 
+>> which is at least no loss :)
+> 
+> OK, so I assume it is a very weak ack-by? ;)
 
-> Hi,
-> 
-> On Tue, Jun 03, 2008 at 09:46:04AM -0700, Stephen Hemminger wrote:
-> > On Tue, 3 Jun 2008 15:21:06 +0200 Jiri Bohac <jbohac@suse.cz> wrote:
-> > 
-> > > Bonding in 802.3ad mode breaks when the bond interface is added
-> > > to a bridge (which makes 802.3ad unusable in XEN, for example).
-> > > 
-> > > The problem is that br_pass_frame_up() will change the skb's dev
-> > > pointer to point to the bridge interface. As a result, the LACP
-> > > packets will not reach the bond_3ad_lacpdu_recv() protocol
-> > > handler registered on the bonding device. Even if they did, the
-> > > handler won't work with the changed skb->dev.
-> 
-> ... actually, now I realized the above statement is wrong. The
-> bridging code does not change the LACP frames, it just drops
-> them, because the LACP frames always have the link-local
-> destination MAC address.
->  
-> > The packets do arrive on the bridge
-> > interface which is an aggregation of all the interfaces in the bridge.
-> > 
-> > The LACPDU's are received via now on the bond device. If you moved
-> > the packet type handler down to the physical interface, this problem
-> > would go away because the packets would be handled to bond_3ad_lacpdu_recv
-> > prior to being handled by the bridge.
-> 
-> This wouldn't really work, because with bonding the packet only
-> passes through netif_receive_skb() once, it just has the skb->dev
-> modified by skb_bond() at the very beginning.
-> 
-> But I think I found a much nicer fix for the problem:
-> 
-> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> --- a/net/bridge/br_input.c
-> +++ b/net/bridge/br_input.c
-> @@ -136,6 +136,10 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
->  		if (skb->protocol == htons(ETH_P_PAUSE))
->  			goto drop;
->  
-> +		/* Don't touch SLOW frames (LACP, etc.) */
-> +		if (skb->protocol == htons(ETH_P_SLOW))
-> +			return skb;
-> +
->  		/* Process STP BPDU's through normal netif_receive_skb() path */
->  		if (p->br->stp_enabled != BR_NO_STP) {
->  			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-> 
-> The LACP frames always have the link-local destination MAC
-> address and so they are not handled by the bridge anyway. They
-> are only dropped, unless STP is turned on. So let's just not drop
-> the SLOW packets. Does this look better?
-> 
-
-Better, but still have a couple of questions:
-1) Do you want to processing frames when bridge port is in blocking
-   state (because STP detected a loop)?
-2) Do you want to process after netfilter processing to allow
-   some firewalling possiblity?
-
+Its a Not-NACKed-by: Patrick McHardy <kaber@trash.net> :)
