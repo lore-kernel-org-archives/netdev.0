@@ -1,112 +1,146 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 35/39] mv643xx_eth: detect alternate TX BW control register location
-Date: Tue,  3 Jun 2008 13:02:50 +0200
-Message-ID: <1212490974-23719-36-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 25/39] mv643xx_eth: massively simplify multicast address crc8 computation
+Date: Tue,  3 Jun 2008 13:02:40 +0200
+Message-ID: <1212490974-23719-26-git-send-email-buytenh@wantstofly.org>
 References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Cc: netdev@vger.kernel.org
 To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:48753 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:48756 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754396AbYFCMA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:28 -0400
+	with ESMTP id S1754641AbYFCMA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:29 -0400
 In-Reply-To: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some SoCs have the TX bandwidth control registers in a slightly
-different place.  This patch detects that case at run time, and
-re-directs accesses to those registers to the proper place at
-run time if needed.
+Replace the 70-line crc8 computation (used for multicast address
+filtering tables) by a 5-line version.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |   37 ++++++++++++++++++++++++++++++++-----
- 1 files changed, 32 insertions(+), 5 deletions(-)
+ drivers/net/mv643xx_eth.c |   95 ++++++++++-----------------------------------
+ 1 files changed, 21 insertions(+), 74 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 4168a8a..a7c5421 100644
+index b3be8fe..beb4cf9 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -99,6 +99,10 @@ static char mv643xx_eth_driver_version[] = "1.0";
- #define INT_MASK(p)			(0x0468 + ((p) << 10))
- #define INT_MASK_EXT(p)			(0x046c + ((p) << 10))
- #define TX_FIFO_URGENT_THRESHOLD(p)	(0x0474 + ((p) << 10))
-+#define TXQ_FIX_PRIO_CONF_MOVED(p)	(0x04dc + ((p) << 10))
-+#define TX_BW_RATE_MOVED(p)		(0x04e0 + ((p) << 10))
-+#define TX_BW_MTU_MOVED(p)		(0x04e8 + ((p) << 10))
-+#define TX_BW_BURST_MOVED(p)		(0x04ec + ((p) << 10))
- #define RXQ_CURRENT_DESC_PTR(p, q)	(0x060c + ((p) << 10) + ((q) << 4))
- #define RXQ_COMMAND(p)			(0x0680 + ((p) << 10))
- #define TXQ_CURRENT_DESC_PTR(p, q)	(0x06c0 + ((p) << 10) + ((q) << 2))
-@@ -241,6 +245,7 @@ struct mv643xx_eth_shared_private {
- 	 */
- 	unsigned int t_clk;
- 	int extended_rx_coal_limit;
-+	int tx_bw_control_moved;
- };
- 
- 
-@@ -813,9 +818,15 @@ static void tx_set_rate(struct mv643xx_eth_private *mep, int rate, int burst)
- 	if (bucket_size > 65535)
- 		bucket_size = 65535;
- 
--	wrl(mep, TX_BW_RATE(mep->port_num), token_rate);
--	wrl(mep, TX_BW_MTU(mep->port_num), mtu);
--	wrl(mep, TX_BW_BURST(mep->port_num), bucket_size);
-+	if (mep->shared->tx_bw_control_moved) {
-+		wrl(mep, TX_BW_RATE_MOVED(mep->port_num), token_rate);
-+		wrl(mep, TX_BW_MTU_MOVED(mep->port_num), mtu);
-+		wrl(mep, TX_BW_BURST_MOVED(mep->port_num), bucket_size);
-+	} else {
-+		wrl(mep, TX_BW_RATE(mep->port_num), token_rate);
-+		wrl(mep, TX_BW_MTU(mep->port_num), mtu);
-+		wrl(mep, TX_BW_BURST(mep->port_num), bucket_size);
-+	}
+@@ -1132,16 +1132,29 @@ static int mv643xx_eth_set_mac_address(struct net_device *dev, void *addr)
+ 	return 0;
  }
  
- static void txq_set_rate(struct tx_queue *txq, int rate, int burst)
-@@ -846,7 +857,10 @@ static void txq_set_fixed_prio_mode(struct tx_queue *txq)
- 	/*
- 	 * Turn on fixed priority mode.
- 	 */
--	off = TXQ_FIX_PRIO_CONF(mep->port_num);
-+	if (mep->shared->tx_bw_control_moved)
-+		off = TXQ_FIX_PRIO_CONF_MOVED(mep->port_num);
-+	else
-+		off = TXQ_FIX_PRIO_CONF(mep->port_num);
- 
- 	val = rdl(mep, off);
- 	val |= 1 << txq->index;
-@@ -862,7 +876,10 @@ static void txq_set_wrr(struct tx_queue *txq, int weight)
- 	/*
- 	 * Turn off fixed priority mode.
- 	 */
--	off = TXQ_FIX_PRIO_CONF(mep->port_num);
-+	if (mep->shared->tx_bw_control_moved)
-+		off = TXQ_FIX_PRIO_CONF_MOVED(mep->port_num);
-+	else
-+		off = TXQ_FIX_PRIO_CONF(mep->port_num);
- 
- 	val = rdl(mep, off);
- 	val &= ~(1 << txq->index);
-@@ -2089,6 +2106,16 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *mesp)
- 		mesp->extended_rx_coal_limit = 1;
- 	else
- 		mesp->extended_rx_coal_limit = 0;
++static int addr_crc(unsigned char *addr)
++{
++	int crc = 0;
++	int i;
 +
-+	/*
-+	 * Check whether the TX rate control registers are in the
-+	 * old or the new place.
-+	 */
-+	writel(1, mesp->base + TX_BW_MTU_MOVED(0));
-+	if (readl(mesp->base + TX_BW_MTU_MOVED(0)) & 1)
-+		mesp->tx_bw_control_moved = 1;
-+	else
-+		mesp->tx_bw_control_moved = 0;
++	for (i = 0; i < 6; i++) {
++		int j;
++
++		crc = (crc ^ addr[i]) << 8;
++		for (j = 7; j >= 0; j--) {
++			if (crc & (0x100 << j))
++				crc ^= 0x107 << j;
++		}
++	}
++
++	return crc;
++}
++
+ static void mc_addr(struct mv643xx_eth_private *mep, unsigned char *addr)
+ {
+ 	unsigned int port_num = mep->port_num;
+-	unsigned int mac_h;
+-	unsigned int mac_l;
+-	unsigned char crc_result = 0;
+ 	int table;
+-	int mac_array[48];
+-	int crc[8];
+-	int i;
++	int crc;
+ 
+ 	if ((addr[0] == 0x01) && (addr[1] == 0x00) &&
+ 	    (addr[2] == 0x5E) && (addr[3] == 0x00) && (addr[4] == 0x00)) {
+@@ -1150,76 +1163,10 @@ static void mc_addr(struct mv643xx_eth_private *mep, unsigned char *addr)
+ 		return;
+ 	}
+ 
+-	/* Calculate CRC-8 out of the given address */
+-	mac_h = (addr[0] << 8) | (addr[1]);
+-	mac_l = (addr[2] << 24) | (addr[3] << 16) |
+-			(addr[4] << 8) | (addr[5] << 0);
+-
+-	for (i = 0; i < 32; i++)
+-		mac_array[i] = (mac_l >> i) & 0x1;
+-	for (i = 32; i < 48; i++)
+-		mac_array[i] = (mac_h >> (i - 32)) & 0x1;
+-
+-	crc[0] = mac_array[45] ^ mac_array[43] ^ mac_array[40] ^ mac_array[39] ^
+-		 mac_array[35] ^ mac_array[34] ^ mac_array[31] ^ mac_array[30] ^
+-		 mac_array[28] ^ mac_array[23] ^ mac_array[21] ^ mac_array[19] ^
+-		 mac_array[18] ^ mac_array[16] ^ mac_array[14] ^ mac_array[12] ^
+-		 mac_array[8]  ^ mac_array[7]  ^ mac_array[6]  ^ mac_array[0];
+-
+-	crc[1] = mac_array[46] ^ mac_array[45] ^ mac_array[44] ^ mac_array[43] ^
+-		 mac_array[41] ^ mac_array[39] ^ mac_array[36] ^ mac_array[34] ^
+-		 mac_array[32] ^ mac_array[30] ^ mac_array[29] ^ mac_array[28] ^
+-		 mac_array[24] ^ mac_array[23] ^ mac_array[22] ^ mac_array[21] ^
+-		 mac_array[20] ^ mac_array[18] ^ mac_array[17] ^ mac_array[16] ^
+-		 mac_array[15] ^ mac_array[14] ^ mac_array[13] ^ mac_array[12] ^
+-		 mac_array[9]  ^ mac_array[6]  ^ mac_array[1]  ^ mac_array[0];
+-
+-	crc[2] = mac_array[47] ^ mac_array[46] ^ mac_array[44] ^ mac_array[43] ^
+-		 mac_array[42] ^ mac_array[39] ^ mac_array[37] ^ mac_array[34] ^
+-		 mac_array[33] ^ mac_array[29] ^ mac_array[28] ^ mac_array[25] ^
+-		 mac_array[24] ^ mac_array[22] ^ mac_array[17] ^ mac_array[15] ^
+-		 mac_array[13] ^ mac_array[12] ^ mac_array[10] ^ mac_array[8]  ^
+-		 mac_array[6]  ^ mac_array[2]  ^ mac_array[1]  ^ mac_array[0];
+-
+-	crc[3] = mac_array[47] ^ mac_array[45] ^ mac_array[44] ^ mac_array[43] ^
+-		 mac_array[40] ^ mac_array[38] ^ mac_array[35] ^ mac_array[34] ^
+-		 mac_array[30] ^ mac_array[29] ^ mac_array[26] ^ mac_array[25] ^
+-		 mac_array[23] ^ mac_array[18] ^ mac_array[16] ^ mac_array[14] ^
+-		 mac_array[13] ^ mac_array[11] ^ mac_array[9]  ^ mac_array[7]  ^
+-		 mac_array[3]  ^ mac_array[2]  ^ mac_array[1];
+-
+-	crc[4] = mac_array[46] ^ mac_array[45] ^ mac_array[44] ^ mac_array[41] ^
+-		 mac_array[39] ^ mac_array[36] ^ mac_array[35] ^ mac_array[31] ^
+-		 mac_array[30] ^ mac_array[27] ^ mac_array[26] ^ mac_array[24] ^
+-		 mac_array[19] ^ mac_array[17] ^ mac_array[15] ^ mac_array[14] ^
+-		 mac_array[12] ^ mac_array[10] ^ mac_array[8]  ^ mac_array[4]  ^
+-		 mac_array[3]  ^ mac_array[2];
+-
+-	crc[5] = mac_array[47] ^ mac_array[46] ^ mac_array[45] ^ mac_array[42] ^
+-		 mac_array[40] ^ mac_array[37] ^ mac_array[36] ^ mac_array[32] ^
+-		 mac_array[31] ^ mac_array[28] ^ mac_array[27] ^ mac_array[25] ^
+-		 mac_array[20] ^ mac_array[18] ^ mac_array[16] ^ mac_array[15] ^
+-		 mac_array[13] ^ mac_array[11] ^ mac_array[9]  ^ mac_array[5]  ^
+-		 mac_array[4]  ^ mac_array[3];
+-
+-	crc[6] = mac_array[47] ^ mac_array[46] ^ mac_array[43] ^ mac_array[41] ^
+-		 mac_array[38] ^ mac_array[37] ^ mac_array[33] ^ mac_array[32] ^
+-		 mac_array[29] ^ mac_array[28] ^ mac_array[26] ^ mac_array[21] ^
+-		 mac_array[19] ^ mac_array[17] ^ mac_array[16] ^ mac_array[14] ^
+-		 mac_array[12] ^ mac_array[10] ^ mac_array[6]  ^ mac_array[5]  ^
+-		 mac_array[4];
+-
+-	crc[7] = mac_array[47] ^ mac_array[44] ^ mac_array[42] ^ mac_array[39] ^
+-		 mac_array[38] ^ mac_array[34] ^ mac_array[33] ^ mac_array[30] ^
+-		 mac_array[29] ^ mac_array[27] ^ mac_array[22] ^ mac_array[20] ^
+-		 mac_array[18] ^ mac_array[17] ^ mac_array[15] ^ mac_array[13] ^
+-		 mac_array[11] ^ mac_array[7]  ^ mac_array[6]  ^ mac_array[5];
+-
+-	for (i = 0; i < 8; i++)
+-		crc_result = crc_result | (crc[i] << i);
++	crc = addr_crc(addr);
+ 
+ 	table = OTHER_MCAST_TABLE(port_num);
+-	set_filter_table_entry(mep, table, crc_result);
++	set_filter_table_entry(mep, table, crc);
  }
  
- static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ static void set_multicast_list(struct net_device *dev)
 -- 
 1.5.3.4
 
