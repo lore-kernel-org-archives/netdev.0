@@ -1,52 +1,43 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: [PATCH 1/2] HTB scheduler, change default hysteresis mode to off.
-Date: Tue, 03 Jun 2008 16:05:07 +0200
-Message-ID: <1212501907.13164.30.camel@localhost.localdomain>
-References: <1212501803.13164.27.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: David Miller <davem@davemloft.net>
+Subject: Re: [WEXT 8/12]: Pull top-level ioctl dispatch logic into helper
+ function.
+Date: Tue, 03 Jun 2008 07:34:53 -0700 (PDT)
+Message-ID: <20080603.073453.69571531.davem@davemloft.net>
+References: <20071221.205623.141035851.davem@davemloft.net>
+	<20080121194758.6139.40F06B3A@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Martin Devera <devik@cdi.cz>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: mokuno@sm.sony.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:56445 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752662AbYFCObN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 10:31:13 -0400
-In-Reply-To: <1212501803.13164.27.camel@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48689
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754042AbYFCOe5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 10:34:57 -0400
+In-Reply-To: <20080121194758.6139.40F06B3A@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Date: Mon, 21 Jan 2008 20:16:19 +0900
 
-The HTB hysteresis mode reduce the CPU load, but at the
-cost of scheduling accuracy.
+I am working on these patches again, thank you for your
+extreme patience...
 
-On ADSL links (512 kbit/s upstream), this inaccuracy introduce
-significant jitter, enought to disturbe VoIP.  For details see my
-masters thesis (http://www.adsl-optimizer.dk/thesis/), chapter 7,
-section 7.3.1, pp 69-70.
+> > +int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
+> > +		      void __user *arg)
+> > +{
+> > +	int ret = wext_ioctl_dispatch(net, ifr, cmd,
+> > +				      ioctl_standard_call,
+> > +				      ioctl_private_call);
+> > +
+> > +	if (ret > 0 &&
+> 
+> As the return value 0 is legal, should we allow copybacking in the case
+> of 'ret == 0'?
+> 
+> Same issue exists in compat_wext_handle_ioctl() of the #9 patch.
 
-Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
----
- net/sched/sch_htb.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 5bc1ed4..9134f02 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -53,7 +53,7 @@
- */
- 
- #define HTB_HSIZE 16		/* classid hash size */
--#define HTB_HYSTERESIS 1	/* whether to use mode hysteresis for speedup */
-+#define HTB_HYSTERESIS 0	/* whether to use mode hysteresis for speedup */
- #define HTB_VER 0x30011		/* major must be matched with number suplied by TC as version */
- 
- #if HTB_VER >> 16 != TC_HTB_PROTOVER
--- 
-1.5.4.2
-
-
+You are right, I wonder why I made this strange test.  It should
+definitely be "ret >= 0".  I'll make that fix.
