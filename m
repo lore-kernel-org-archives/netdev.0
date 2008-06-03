@@ -1,53 +1,77 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [RFC] Make board force selection of PHYLIB
-Date: Tue, 3 Jun 2008 10:14:33 -0500
-Message-ID: <57B740A4-A3E0-4D93-A5D9-77B14C6E9E92@kernel.crashing.org>
-References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org> <48442239.7090906@garzik.org> <BF15FEBB-4876-4B16-915B-1D21BF989DA8@kernel.crashing.org> <83820D83-487C-4586-9867-F4226A87A276@freescale.com> <48445851.4090105@garzik.org> <095F258F-72DD-4F27-A457-A57D9FAA1E76@kernel.crashing.org> <48448020.5020407@freescale.com> <Pine.LNX.4.64.0806030945540.21537@blarg.am.freescale.net> <48455EEA.3040909@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v924)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, adrian.bunk@movial.fi
-To: Scott Wood <scottwood@freescale.com>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: [PATCH]  Fix routing tables with id > 255 for legacy software
+Date: Tue, 3 Jun 2008 17:15:04 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0806031617310.3438@bizon.gios.gov.pl>
+References: <20080603080812.GA4514@ff.dom.local> <Pine.LNX.4.64.0806031220490.3438@bizon.gios.gov.pl>
+ <20080603113343.GA4714@ff.dom.local> <48453C70.1040303@trash.net>
+ <Pine.LNX.4.64.0806031449540.3438@bizon.gios.gov.pl> <484542B5.4070401@trash.net>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-2002133025-1212506104=:3438"
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:54020 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750900AbYFCPOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2008 11:14:49 -0400
-In-Reply-To: <48455EEA.3040909@freescale.com>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:38023 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752009AbYFCPPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 11:15:22 -0400
+In-Reply-To: <484542B5.4070401@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Jun 3, 2008, at 10:10 AM, Scott Wood wrote:
+---187430788-2002133025-1212506104=:3438
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-> Kumar Gala wrote:
->> How is this as a fix.
->> - k
->> diff --git a/arch/powerpc/platforms/85xx/Kconfig b/arch/powerpc/ 
->> platforms/85xx/Kconfig
->> index 7ff29d5..9e5c884 100644
->> --- a/arch/powerpc/platforms/85xx/Kconfig
->> +++ b/arch/powerpc/platforms/85xx/Kconfig
->> @@ -34,6 +34,7 @@ config MPC85xx_MDS
->> 	bool "Freescale MPC85xx MDS"
->> 	select DEFAULT_UIMAGE
->> 	select QUICC_ENGINE
->> +	select PHYLIB if GIANFAR=m
->> 	help
->> 	  This option enables support for the MPC85xx MDS board
+
+
+On Tue, 3 Jun 2008, Patrick McHardy wrote:
+
+> Krzysztof Oledzki wrote:
+>> On Tue, 3 Jun 2008, Patrick McHardy wrote:
+>>=20
+>>> Well, if people already use table 253, I guess they might care.
+>>=20
+>> Not really as if pople use a FRA_TABLE aware application they should not=
+=20
+>> notice any difference.
 >
-> I assume you'll also ifdef-protect the phy calls in the platform code?
+> In that case not of course.
+>
+>>> I'm not convinced this is any better than overflowing.
+>>=20
+>> But if they use FRA_TABLE unaware application than overflowing means=20
+>> mismatching all:
+>>  - N*256 table as RT_TABLE_UNSPEC
+>>  - N*256+253 tables as RT_TABLE_DEFAULT
+>>  - N*256+254 tables as RT_TABLE_MAIN
+>>  - N*256+255 tables as RT_TABLE_LOCAL
+>>=20
+>> And as I just find out, when it happens is quite unexpected and can real=
+ly=20
+>> hurt. :(
+>>=20
+>>> And I still don't see any other way to handle this properly.
+>>=20
+>> Exactly. So that's why I came with above solution, similar to AS_TRANSIT=
+=20
+>> idea used in BGP to handle 16bit -> 32bit ASN transformation.
+>
+> I think the proper solution is what I wrote in the changelog
+> entry: fix userspace applications when using extended table
+> IDs.
 
-yes this needs to get done.
+It is unquestionably true, however it may take some time and people may=20
+still use old version of such applications for whatsoever reasons.
 
-> I'd rather avoid adding another case where the kernel needs to know  
-> what modules are being built, though, especially if the result of  
-> changing the .config and building modules is a mysterious runtime  
-> failure (due to a missing platform fixup) rather than compile- or  
-> insertion-time.
+> Your patch makes it more predictable, so I'm not completely
+> opposed, but still its just a workaround.
 
-I don't follow what you are getting at here.  Is this something more  
-than #ifdef PHYLIB in the platform code?
+Indeed - it is a workaround but I believe we need it.
 
-- k
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-2002133025-1212506104=:3438--
