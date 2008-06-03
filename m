@@ -1,107 +1,70 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [2.6 patch] drivers/net/: remove CVS keywords
-Date: Tue, 3 Jun 2008 21:14:08 +0300
-Message-ID: <20080603181408.GC2663@cs181133002.pp.htv.fi>
-References: <20080519220619.GL17716@cs181133002.pp.htv.fi> <48354660.7060500@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:49793 "EHLO smtp4.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753896AbYFCSOf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2008 14:14:35 -0400
-Content-Disposition: inline
-In-Reply-To: <48354660.7060500@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [RFC] Make board force selection of PHYLIB
+Date: Tue, 3 Jun 2008 13:23:44 -0500
+Message-ID: <C370EEA4-D32D-48A6-A92B-7C21F6F17BF5@kernel.crashing.org>
+References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net>
+	<484419EE.5040503@garzik.org>
+	<1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org>
+	<48442239.7090906@garzik.org>
+	<BF15FEBB-4876-4B16-915B-1D21BF989DA8@kernel.crashing.org>
+	<83820D83-487C-4586-9867-F4226A87A276@freescale.com>
+	<48445851.4090105@garzik.org>
+	<095F258F-72DD-4F27-A457-A57D9FAA1E76@kernel.crashing.org>
+	<48448020.5020407@freescale.com>
+	<Pine.LNX.4.64.0806030945540.21537@blarg.am.freescale.net>
+	<20080603170022.GE9605@cs181133002.pp.htv.fi>
+Mime-Version: 1.0 (Apple Message framework v924)
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
+Content-Transfer-Encoding: 7bit
+Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, linuxppc-dev@ozlabs.org
+To: Adrian Bunk <bunk@stusta.de>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20080603170022.GE9605@cs181133002.pp.htv.fi>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 22, 2008 at 06:09:36AM -0400, Jeff Garzik wrote:
-> Adrian Bunk wrote:
->> This patch removes some CVS keywords that weren't updated for a long  
->> time.
+
+On Jun 3, 2008, at 12:00 PM, Adrian Bunk wrote:
+
+> On Tue, Jun 03, 2008 at 09:47:19AM -0500, Kumar Gala wrote:
+>> How is this as a fix.
 >>
->> I haven't touched drivers that looked as if they might still be used.
+>> - k
 >>
->> In three drivers I've also removed printk's printing them since they  
->> were part of several printk's in a row and it doesn't make sense to  
->> print ancient version information to the user.
->>
->> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+>> diff --git a/arch/powerpc/platforms/85xx/Kconfig b/arch/powerpc/ 
+>> platforms/85xx/Kconfig
+>> index 7ff29d5..9e5c884 100644
+>> --- a/arch/powerpc/platforms/85xx/Kconfig
+>> +++ b/arch/powerpc/platforms/85xx/Kconfig
+>> @@ -34,6 +34,7 @@ config MPC85xx_MDS
+>> 	bool "Freescale MPC85xx MDS"
+>> 	select DEFAULT_UIMAGE
+>> 	select QUICC_ENGINE
+>> +	select PHYLIB if GIANFAR=m
+>> 	help
+>> 	  This option enables support for the MPC85xx MDS board
 >
-> I'm fine with removing CVS keywords, but I do not agree with removing  
-> net driver version numbers that have been in the drivers for a while.
+> The .config you sent me as an example didn't have GIANFAR set, so it
+> couldn't help there.
+>
+> How early do the fixups have to run?
+>
+> I see two possible solutions:
+> - let MPC85xx_MDS unconditionally select PHYLIB or
+> - move the fixups to the gianfar driver
 
-Below is the part of the patches that removes these printk's.
+I'm ok w/unconditionally selecting PHYLIB for MPC85xx_MDS as that  
+seems to be the best solution at this point.
 
-Do CVS $Revision tags that haven't been updated for ages really qualify 
-as net driver version numbers?
+I'll workup a patch and send it via the powerpc.git tree.
 
-I can resend the patch with these changes removed, I'm just asking 
-whether you might confuse this with regular version numbers.
-
-> 	Jeff
-
-cu
-Adrian
-
---- a/drivers/net/82596.c
-+++ b/drivers/net/82596.c
-@@ -59,9 +59,6 @@
- #include <asm/pgtable.h>
- #include <asm/cacheflush.h>
- 
--static char version[] __initdata =
--	"82596.c $Revision: 1.5 $\n";
--
- #define DRV_NAME	"82596"
- 
- /* DEBUG flags
-@@ -1227,8 +1224,6 @@ struct net_device * __init i82596_probe(int unit)
- 
- 	DEB(DEB_PROBE,printk(" IRQ %d.\n", dev->irq));
- 
--	DEB(DEB_PROBE,printk(KERN_INFO "%s", version));
--
- 	/* The 82596-specific entries in the device structure. */
- 	dev->open = i596_open;
- 	dev->stop = i596_close;
---- a/drivers/net/de600.c
-+++ b/drivers/net/de600.c
-@@ -1,4 +1,3 @@
--static const char version[] = "de600.c: $Revision: 1.41-2.5 $,  Bjorn Ekwall (bj0rn@blox.se)\n";
- /*
-  *	de600.c
-  *
-@@ -398,9 +397,6 @@ static struct net_device * __init de600_probe(void)
- 	}
- 
- 	printk(KERN_INFO "%s: D-Link DE-600 pocket adapter", dev->name);
--	/* Alpha testers must have the version number to report bugs. */
--	if (de600_debug > 1)
--		printk(version);
- 
- 	/* probe for adapter */
- 	err = -ENODEV;
---- a/drivers/net/de620.c
-+++ b/drivers/net/de620.c
-@@ -38,8 +35,6 @@
-  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-  *
-  *****************************************************************************/
--static const char version[] =
--	"de620.c: $Revision: 1.40 $,  Bjorn Ekwall <bj0rn@blox.se>\n";
- 
- /***********************************************************************
-  *
-@@ -828,9 +823,6 @@ struct net_device * __init de620_probe(int unit)
- 		netdev_boot_setup_check(dev);
- 	}
- 
--	if (de620_debug)
--		printk(version);
--
- 	printk(KERN_INFO "D-Link DE-620 pocket adapter");
- 
- 	if (!request_region(dev->base_addr, 3, "de620")) {
+- k
