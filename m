@@ -1,43 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] IPV6: remove addresses and routes when carrier is
- lost
-Date: Tue, 03 Jun 2008 10:53:08 -0700 (PDT)
-Message-ID: <20080603.105308.196677970.davem@davemloft.net>
-References: <20080604.022836.31952523.yoshfuji@linux-ipv6.org>
-	<20080603.103059.193720094.davem@davemloft.net>
-	<20080603104640.21026cdb@extreme>
+From: Bas Wijnen <wijnen@debian.org>
+Subject: Re: non-root, non-real network manipulation for netconf testing
+Date: Tue, 3 Jun 2008 19:43:57 +0200
+Message-ID: <20080603174357.GB15355@a82-93-13-222.adsl.xs4all.nl>
+References: <20080603080529.GA9010@lapse.madduck.net> <20080603100513.GA18161@solarflare.com> <20080603102050.GA14461@lapse.madduck.net> <20080603080529.GA9010@lapse.madduck.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="qlTNgmc+xy1dBmNv"
+Cc: netdev discussion list <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: netconf developers list <netconf-devel@lists.alioth.debian.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56971
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752427AbYFCRxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 13:53:12 -0400
-In-Reply-To: <20080603104640.21026cdb@extreme>
+Received: from smtp-vbr16.xs4all.nl ([194.109.24.36]:3070 "EHLO
+	smtp-vbr16.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753493AbYFCRzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 13:55:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20080603102050.GA14461@lapse.madduck.net> <20080603080529.GA9010@lapse.madduck.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 3 Jun 2008 10:46:40 -0700
 
-> It is not what desktop users want, that is why it is a dynamic configuration
-> option via /proc/sys/net/ipv6/conf/ethX/link_detect.
-> 
-> But it is what a router wants. So why not allow it? Obviously, Vyatta
-> users expect systems behave same as Cisco.
-> 
-> The problem with doing it all in user space are not impossible just more difficult:
->   * links bouncing lead to synchronization problems
->   * existing Quagga code avoids messing with "system routes" 
->   * Quagga has to be portable to Solaris/BSD etc..
-> 
-> More at:
-> http://osdir.com/ml/network.quagga.devel/2004-08/msg00009.html
+--qlTNgmc+xy1dBmNv
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-If it's a route behavioral attribute, make it as such and add
-a new rtnetlink route attribute.  If it's not there, existing
-behavior is maintained.
+Hi,
 
+On Tue, Jun 03, 2008 at 10:05:29AM +0200, martin f krafft wrote:
+> Of course, I am asking a bit much, but maybe you guys have some
+> input that could help us move along?
+
+The best way would be to use the Hurd, and write a network device
+emulator (which can be modified without messing up actual network
+devices).  But I suppose that's not an option. ;-)
+
+As a second option, I'd go for qemu.  It can be run as non-root and
+communicate about its test results over the serial port (connected to
+stdout).  However, building a qemu image takes a long time, and I think
+you still need root for that.
+
+> What I really want is some context handler that can emulate
+> a complete network and process stack for my test scripts, let
+> a normal user modify anything they want, but not touch anything on
+> the actual system.
+
+Qemu does all that, it emulates a whole computer with it. :-)
+
+On Tue, Jun 03, 2008 at 12:20:50PM +0200, martin f krafft wrote:
+> also sprach Ben Hutchings <bhutchings@solarflare.com> [2008.06.03.1205 +0=
+200]:
+> > Have you considering running the tests in User-Mode Linux or some
+> > other kind of virtualised environment?
+>=20
+> Yes, but that would require root rights as well, and quite a lot of
+> setup, making it pretty unlikely that passerby developers would run
+> tests, or allowing me to run the tests automatically on build
+> daemons.
+
+You can do all the setup automatically, so passerby developers don't
+need to know how to do it.  However, the root rights (or, in case of
+qemu, the heavy setup process) does probably make it impractical to do
+it on a buildd, for example.
+
+An option would be to create a dummy network device of the type I
+described for the Hurd, but for Linux, and package that in a separate
+package.  Netconf can build-depend on it, so it is installed (and can
+make sure it is available for normal users).
+
+However, I don't think Linux allows network interfaces to tell that
+normal users may modify them...
+
+Thanks,
+Bas
+
+--=20
+I encourage people to send encrypted e-mail (see http://www.gnupg.org).
+If you have problems reading my e-mail, use a better reader.
+Please send the central message of e-mails as plain text
+   in the message body, not as HTML and definitely not as MS Word.
+Please do not use the MS Word format for attachments either.
+For more information, see http://pcbcn10.phys.rug.nl/e-mail.html
+
+--qlTNgmc+xy1dBmNv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFIRYLcFShl+2J8z5URAmj+AKCm0csvMO+xyv6QDyHxHvVW6ZKAoACfRjbf
+D/JUT8LhiDKGXqtPkYVWlnk=
+=rTKB
+-----END PGP SIGNATURE-----
+
+--qlTNgmc+xy1dBmNv--
