@@ -1,40 +1,38 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH] [UDPv6] Possible dst leak in udpv6_sendmsg.
-Date: Tue, 03 Jun 2008 15:50:45 +0400
-Message-ID: <1212493845.6499.29.camel@iris.sw.ru>
-References: <1212491322-9161-1-git-send-email-den@openvz.org>
-	 <20080603.203532.39634783.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net
-To: YOSHIFUJI Hideaki /
-	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: netlink receive error No buffer space available (105)
+Date: Tue, 3 Jun 2008 13:54:18 +0200
+Message-ID: <BAY103-DAV5D8D1E1CF45D5B9F3359DB2BA0@phx.gbl>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:19481 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753684AbYFCLvC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2008 07:51:02 -0400
-In-Reply-To: <20080603.203532.39634783.yoshfuji@linux-ipv6.org>
+Received: from bay0-omc2-s14.bay0.hotmail.com ([65.54.246.150]:10867 "EHLO
+	bay0-omc2-s14.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751401AbYFCLyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 07:54:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-06-03 at 20:35 +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
-=E8=8B=B1=E6=98=8E wrote:
-> In article <1212491322-9161-1-git-send-email-den@openvz.org> (at Tue,=
-  3 Jun 2008 15:08:42 +0400), "Denis V. Lunev" <den@openvz.org> says:
->=20
-> > ip6_sk_dst_lookup returns held dst entry. It should be released on =
-all paths
-> > beyond this point. Add missed release when up->pending is set.
->=20
-> Which kernel are you refering?
-The patch is made against current net-2.6 tree, though all kernels are
-affected, starting at least RHEL5
+I'm running 'ip x mon' on linux 2.6.26-rc4
+and it stop with this message after printing
+few lines like these:
 
-> And, would you please take a look at ipv4 side as well?
+[...]
+Async event  (0x10)  replay update
+     src ...
+Async event  (0x10)  replay update
+     src ...
+netlink receive error No buffer space available (105)
 
-ipv4 is ok, the code looks the same but there is an ip_rt_put at the
-out: label.
+This is my ip and kernel version:
+
+root@Venus:~# ip -V
+ip utility, iproute2-ss080417
+root@Venus:~# uname -a
+Linux Venus 2.6.26-rc4 #1 SMP PREEMPT Tue Jun 3 13:10:36 CEST 2008 i686
+Intel(R) Core(TM)2 Duo CPU     T8100  @ 2.10GHz GenuineIntel GNU/Linux
+
+The strange thing is that on my pc (which is
+an old PIII with 512MB) this problem doesn't
+happen. Any hints?
+TIA
+
 
