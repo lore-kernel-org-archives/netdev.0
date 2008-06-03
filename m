@@ -1,77 +1,49 @@
-From: Jens Gehrlein <sew_s@tqs.de>
-Subject: Re: [Uclinux-dist-devel] [PATCH 01/01] smsc911x: fix MAC addresssetting
- after reset
-Date: Tue, 03 Jun 2008 12:01:12 +0200
-Message-ID: <48451668.1060407@tqs.de>
-References: <OF35F08D73.56884FA4-ON8025744E.0047900A-8025744E.0047BBC0@smsc.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: non-root, non-real network manipulation for netconf testing
+Date: Tue, 3 Jun 2008 11:05:14 +0100
+Message-ID: <20080603100513.GA18161@solarflare.com>
+References: <20080603080529.GA9010@lapse.madduck.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Steve.Glendinning@smsc.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev discussion list <netdev@vger.kernel.org>,
+	netconf developers list <netconf-devel@lists.alioth.debian.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tqs.de ([62.157.136.17]:15500 "EHLO mail.tqs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750971AbYFCKB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2008 06:01:27 -0400
-In-Reply-To: <OF35F08D73.56884FA4-ON8025744E.0047900A-8025744E.0047BBC0@smsc.com>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:42911 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752143AbYFCKF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 06:05:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20080603080529.GA9010@lapse.madduck.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Steve,
+martin f krafft wrote:
+> Dear networking wizards,
+> 
+> This is a bit of a self-reflexive mail, but I hope some of you might
+> have some input...
+> 
+> In writing netconf[0], we are having a bit of a problem with the
+> test suite, since many of netconf's operations require root rights
+> (e.g. interface manipulation with /bin/ip). In addition, a test
+> suite manipulating the network configuration of the running machine
+> is not really something I feel comfortable with.
+> 
+> 0. http://netconf.alioth.debian.org
+> 
+> So I am trying to come up with alternative plans, of which there are
+> three:
+> 
+> 1. do not fail tests that need root rights when run as non-root
+> 2. set up a VDE network (which still requires root rights)
+> 3. write a mock /bin/ip which pretends to be doing what it'd be doing
+[...]
 
-Steve.Glendinning@smsc.com schrieb:
->> If the MAC address has been set externally (e. g. by the bootloader
->> or via command line), this setting is lost. This patch fixes the
->> problem by always setting the saved MAC address after soft reset.
+Have you considering running the tests in User-Mode Linux or some
+other kind of virtualised environment?
 
-Sorry. Newbie question:
-How can I pass the MAC address via kernel command line for this driver? 
-Is there a predefined parameter?
-My problem is:
-U-Boot resets the chip after each completed transfer. Wolfgang Denk 
-suggested to pass the MAC address via kernel command line. I need the 
-ethernet device at kernel startup to mount a root filesystem via NFS, so 
-I added the platform device in my board specific code as shown below (it 
-still relates to the old driver).
-Should I patch the driver directly to get the MAC address via __setup()
-or can I pass the MAC address via the device structures.
+Ben.
 
-What do you suggest?
-
-Thanks and best regards
-Jens
 -- 
-
-static struct resource smc911x_resources[] = {
-	[0] = {
-		.start		= CS4_BASE_ADDR,
-		.end		= CS4_BASE_ADDR + 0xFF,
-		.flags		= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start		= MXC_GPIO_BASE + 4,
-		.end		= MXC_GPIO_BASE + 4,
-		.flags		= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device smc911x_device = {
-	.name		= "smc911x",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(smc911x_resources),
-	.resource	= smc911x_resources,
-};
-
-static struct platform_device *myboard_devices[] __initdata = {
-	&smc911x_device,
-};
-
-
-static int __init <myboard>_devices_setup(void)
-{
-	return platform_add_devices(myboard_devices, ARRAY_SIZE(myboard_devices));
-}
-device_initcall(myboard_devices_setup);
-
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
