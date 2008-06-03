@@ -1,119 +1,99 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 33/39] mv643xx_eth: work around TX hang hardware issue
-Date: Tue,  3 Jun 2008 13:02:48 +0200
-Message-ID: <1212490974-23719-34-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 34/39] mv643xx_eth: detect extended rx coal register field
+Date: Tue,  3 Jun 2008 13:02:49 +0200
+Message-ID: <1212490974-23719-35-git-send-email-buytenh@wantstofly.org>
 References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Cc: netdev@vger.kernel.org
 To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:48758 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:48750 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753833AbYFCMAb (ORCPT
+	with ESMTP id S1753649AbYFCMAb (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:31 -0400
 In-Reply-To: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Under some conditions, the TXQ ('TX queue being served') bit can clear
-before all packets queued for that TX queue have been transmitted.
-This patch enables TXend interrupts, and uses those to re-kick TX
-queues that claim to be idle but still have queued descriptors from
-the interrupt handler.
+Newer hardware has a 16-bit instead of a 14-bit RX coalescing
+count field in the SDMA_CONFIG register.  This patch adds a run-time
+check for which of the two we have, and adjusts further writes to the
+rx coal count field accordingly.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |   35 ++++++++++++++++++++++++++++++-----
- 1 files changed, 30 insertions(+), 5 deletions(-)
+ drivers/net/mv643xx_eth.c |   38 +++++++++++++++++++++++++++++++-------
+ 1 files changed, 31 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index fd9e492..8e4ca2b 100644
+index 8e4ca2b..4168a8a 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -87,6 +87,7 @@ static char mv643xx_eth_driver_version[] = "1.0";
- #define TX_BW_MTU(p)			(0x0458 + ((p) << 10))
- #define TX_BW_BURST(p)			(0x045c + ((p) << 10))
- #define INT_CAUSE(p)			(0x0460 + ((p) << 10))
-+#define  INT_TX_END			0x07f80000
- #define  INT_RX				0x0007fbfc
- #define  INT_EXT			0x00000002
- #define INT_CAUSE_EXT(p)		(0x0464 + ((p) << 10))
-@@ -601,7 +602,7 @@ static int mv643xx_eth_poll(struct napi_struct *napi, int budget)
- 		netif_rx_complete(mep->dev, napi);
- 		wrl(mep, INT_CAUSE(mep->port_num), 0);
- 		wrl(mep, INT_CAUSE_EXT(mep->port_num), 0);
--		wrl(mep, INT_MASK(mep->port_num), INT_RX | INT_EXT);
-+		wrl(mep, INT_MASK(mep->port_num), INT_TX_END | INT_RX | INT_EXT);
- 	}
- 
- 	return rx;
-@@ -1603,8 +1604,10 @@ static irqreturn_t mv643xx_eth_irq(int irq, void *dev_id)
- 	struct mv643xx_eth_private *mep = netdev_priv(dev);
- 	u32 int_cause;
- 	u32 int_cause_ext;
-+	u32 txq_active;
- 
--	int_cause = rdl(mep, INT_CAUSE(mep->port_num)) & (INT_RX | INT_EXT);
-+	int_cause = rdl(mep, INT_CAUSE(mep->port_num)) &
-+			(INT_TX_END | INT_RX | INT_EXT);
- 	if (int_cause == 0)
- 		return IRQ_NONE;
- 
-@@ -1656,6 +1659,8 @@ static irqreturn_t mv643xx_eth_irq(int irq, void *dev_id)
- 	}
- #endif
- 
-+	txq_active = rdl(mep, TXQ_COMMAND(mep->port_num));
-+
- 	/*
- 	 * TxBuffer or TxError set for any of the 8 queues?
+@@ -240,6 +240,7 @@ struct mv643xx_eth_shared_private {
+ 	 * Hardware-specific parameters.
  	 */
-@@ -1665,8 +1670,28 @@ static irqreturn_t mv643xx_eth_irq(int irq, void *dev_id)
- 		for (i = 0; i < 8; i++)
- 			if (mep->txq_mask & (1 << i))
- 				txq_reclaim(mep->txq + i, 0);
+ 	unsigned int t_clk;
++	int extended_rx_coal_limit;
+ };
+ 
+ 
+@@ -1796,14 +1797,22 @@ static void port_start(struct mv643xx_eth_private *mep)
+ static void set_rx_coal(struct mv643xx_eth_private *mep, unsigned int delay)
+ {
+ 	unsigned int coal = ((mep->shared->t_clk / 1000000) * delay) / 64;
++	u32 val;
+ 
+-	if (coal > 0x3fff)
+-		coal = 0x3fff;
+-
+-	wrl(mep, SDMA_CONFIG(mep->port_num),
+-		((coal & 0x3fff) << 8) |
+-		(rdl(mep, SDMA_CONFIG(mep->port_num))
+-			& 0xffc000ff));
++	val = rdl(mep, SDMA_CONFIG(mep->port_num));
++	if (mep->shared->extended_rx_coal_limit) {
++		if (coal > 0xffff)
++			coal = 0xffff;
++		val &= ~0x023fff80;
++		val |= (coal & 0x8000) << 10;
++		val |= (coal & 0x7fff) << 7;
++	} else {
++		if (coal > 0x3fff)
++			coal = 0x3fff;
++		val &= ~0x003fff00;
++		val |= (coal & 0x3fff) << 8;
 +	}
- 
--		__txq_maybe_wake(mep->txq + mep->txq_primary);
-+	/*
-+	 * Any TxEnd interrupts?
-+	 */
-+	if (int_cause & INT_TX_END) {
-+		int i;
-+
-+		wrl(mep, INT_CAUSE(mep->port_num), ~(int_cause & INT_TX_END));
-+		for (i = 0; i < 8; i++) {
-+			struct tx_queue *txq = mep->txq + i;
-+			if (txq->tx_desc_count && !((txq_active >> i) & 1))
-+				txq_enable(txq);
-+		}
-+	}
-+
-+	/*
-+	 * Enough space again in the primary TX queue for a full packet?
-+	 */
-+	if (int_cause_ext & INT_EXT_TX) {
-+		struct tx_queue *txq = mep->txq + mep->txq_primary;
-+		__txq_maybe_wake(txq);
- 	}
- 
- 	return IRQ_HANDLED;
-@@ -1850,7 +1875,7 @@ static int mv643xx_eth_open(struct net_device *dev)
- 	wrl(mep, INT_MASK_EXT(mep->port_num),
- 	    INT_EXT_LINK | INT_EXT_PHY | INT_EXT_TX);
- 
--	wrl(mep, INT_MASK(mep->port_num), INT_RX | INT_EXT);
-+	wrl(mep, INT_MASK(mep->port_num), INT_TX_END | INT_RX | INT_EXT);
- 
- 	return 0;
- 
-@@ -1986,7 +2011,7 @@ static void mv643xx_eth_netpoll(struct net_device *dev)
- 
- 	mv643xx_eth_irq(dev->irq, dev);
- 
--	wrl(mep, INT_MASK(mep->port_num), INT_RX | INT_CAUSE_EXT);
-+	wrl(mep, INT_MASK(mep->port_num), INT_TX_END | INT_RX | INT_CAUSE_EXT);
++	wrl(mep, SDMA_CONFIG(mep->port_num), val);
  }
- #endif
+ 
+ static void set_tx_coal(struct mv643xx_eth_private *mep, unsigned int delay)
+@@ -2068,6 +2077,20 @@ mv643xx_eth_conf_mbus_windows(struct mv643xx_eth_shared_private *mesp,
+ 	mesp->win_protect = win_protect;
+ }
+ 
++static void infer_hw_params(struct mv643xx_eth_shared_private *mesp)
++{
++	/*
++	 * Check whether we have a 14-bit coal limit field in bits
++	 * [21:8], or a 16-bit coal limit in bits [25,21:7] of the
++	 * SDMA config register.
++	 */
++	writel(0x02000000, mesp->base + SDMA_CONFIG(0));
++	if (readl(mesp->base + SDMA_CONFIG(0)) & 0x02000000)
++		mesp->extended_rx_coal_limit = 1;
++	else
++		mesp->extended_rx_coal_limit = 0;
++}
++
+ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ {
+ 	static int mv643xx_eth_version_printed = 0;
+@@ -2106,6 +2129,7 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ 	 * Detect hardware parameters.
+ 	 */
+ 	mesp->t_clk = (pd != NULL && pd->t_clk != 0) ? pd->t_clk : 133000000;
++	infer_hw_params(mesp);
+ 
+ 	platform_set_drvdata(pdev, mesp);
  
 -- 
 1.5.3.4
