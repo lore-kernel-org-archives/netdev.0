@@ -1,191 +1,142 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 38/39] mv643xx_eth: add PHY-less mode
-Date: Tue,  3 Jun 2008 13:02:53 +0200
-Message-ID: <1212490974-23719-39-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 15/39] mv643xx_eth: clean up rx/tx descriptor field defines
+Date: Tue,  3 Jun 2008 13:02:30 +0200
+Message-ID: <1212490974-23719-16-git-send-email-buytenh@wantstofly.org>
 References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Cc: netdev@vger.kernel.org
 To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:48750 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:48747 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753018AbYFCMA1 (ORCPT
+	with ESMTP id S1754212AbYFCMA1 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:27 -0400
 In-Reply-To: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some boards, the mv643xx_eth MAC isn't connected to a PHY but
-directly (via the MII/GMII/RGMII interface) to another MAC-layer
-device.  This patch allows specifying ->phy_addr = -1 to skip all
-PHY-related initialisation and run-time poking in that case.
+Remove the unused rx/tx descriptor field defines, and move the ones
+that are actually used to the actual definitions of the rx/tx
+descriptor format.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |   87 ++++++++++++++++++++++++++++++++++++++-------
- 1 files changed, 74 insertions(+), 13 deletions(-)
+ drivers/net/mv643xx_eth.c |   82 +++++++++++++++-----------------------------
+ 1 files changed, 28 insertions(+), 54 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 54c9c76..4b6c810 100644
+index 34bfdf6..ea1af64 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -1092,6 +1092,22 @@ static int mv643xx_eth_get_settings(struct net_device *dev, struct ethtool_cmd *
- 	return err;
- }
+@@ -167,57 +167,6 @@ static char mv643xx_driver_version[] = "1.0";
+ #define ETH_SMI_OPCODE_WRITE	0		/* Completion of Read	*/
+ #define ETH_SMI_OPCODE_READ	0x04000000	/* Operation is in progress */
  
-+static int mv643xx_eth_get_settings_phyless(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	cmd->supported = SUPPORTED_MII;
-+	cmd->advertising = ADVERTISED_MII;
-+	cmd->speed = SPEED_1000;
-+	cmd->duplex = DUPLEX_FULL;
-+	cmd->port = PORT_MII;
-+	cmd->phy_address = 0;
-+	cmd->transceiver = XCVR_INTERNAL;
-+	cmd->autoneg = AUTONEG_DISABLE;
-+	cmd->maxtxpkt = 1;
-+	cmd->maxrxpkt = 1;
+-/* Interrupt Cause Register Bit Definitions */
+-
+-/* SDMA command status fields macros */
+-
+-/* Tx & Rx descriptors status */
+-#define ETH_ERROR_SUMMARY			0x00000001
+-
+-/* Tx & Rx descriptors command */
+-#define ETH_BUFFER_OWNED_BY_DMA			0x80000000
+-
+-/* Tx descriptors status */
+-#define ETH_LC_ERROR				0
+-#define ETH_UR_ERROR				0x00000002
+-#define ETH_RL_ERROR				0x00000004
+-#define ETH_LLC_SNAP_FORMAT			0x00000200
+-
+-/* Rx descriptors status */
+-#define ETH_OVERRUN_ERROR			0x00000002
+-#define ETH_MAX_FRAME_LENGTH_ERROR		0x00000004
+-#define ETH_RESOURCE_ERROR			0x00000006
+-#define ETH_VLAN_TAGGED				0x00080000
+-#define ETH_BPDU_FRAME				0x00100000
+-#define ETH_UDP_FRAME_OVER_IP_V_4		0x00200000
+-#define ETH_OTHER_FRAME_TYPE			0x00400000
+-#define ETH_LAYER_2_IS_ETH_V_2			0x00800000
+-#define ETH_FRAME_TYPE_IP_V_4			0x01000000
+-#define ETH_FRAME_HEADER_OK			0x02000000
+-#define ETH_RX_LAST_DESC			0x04000000
+-#define ETH_RX_FIRST_DESC			0x08000000
+-#define ETH_UNKNOWN_DESTINATION_ADDR		0x10000000
+-#define ETH_RX_ENABLE_INTERRUPT			0x20000000
+-#define ETH_LAYER_4_CHECKSUM_OK			0x40000000
+-
+-/* Rx descriptors byte count */
+-#define ETH_FRAME_FRAGMENTED			0x00000004
+-
+-/* Tx descriptors command */
+-#define ETH_LAYER_4_CHECKSUM_FIRST_DESC		0x00000400
+-#define ETH_FRAME_SET_TO_VLAN			0x00008000
+-#define ETH_UDP_FRAME				0x00010000
+-#define ETH_GEN_TCP_UDP_CHECKSUM		0x00020000
+-#define ETH_GEN_IP_V_4_CHECKSUM			0x00040000
+-#define ETH_ZERO_PADDING			0x00080000
+-#define ETH_TX_LAST_DESC			0x00100000
+-#define ETH_TX_FIRST_DESC			0x00200000
+-#define ETH_GEN_CRC				0x00400000
+-#define ETH_TX_ENABLE_INTERRUPT			0x00800000
+-#define ETH_AUTO_MODE				0x40000000
+-
+-#define ETH_TX_IHL_SHIFT			11
+-
+ /* typedefs */
+ 
+ typedef enum _eth_func_ret_status {
+@@ -229,8 +178,8 @@ typedef enum _eth_func_ret_status {
+ 	ETH_QUEUE_LAST_RESOURCE	/* Ring resources about to exhaust.	*/
+ } ETH_FUNC_RET_STATUS;
+ 
+-/* These are for big-endian machines.  Little endian needs different
+- * definitions.
++/*
++ * RX/TX descriptors.
+  */
+ #if defined(__BIG_ENDIAN)
+ struct eth_rx_desc {
+@@ -268,6 +217,31 @@ struct eth_tx_desc {
+ #error One of __BIG_ENDIAN or __LITTLE_ENDIAN must be defined
+ #endif
+ 
++/* RX & TX descriptor command */
++#define ETH_BUFFER_OWNED_BY_DMA			0x80000000
 +
-+	return 0;
-+}
++/* RX & TX descriptor status */
++#define ETH_ERROR_SUMMARY			0x00000001
 +
- static int mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct mv643xx_eth_private *mep = netdev_priv(dev);
-@@ -1109,6 +1125,11 @@ static int mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *
- 	return err;
- }
- 
-+static int mv643xx_eth_set_settings_phyless(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	return -EINVAL;
-+}
++/* RX descriptor status */
++#define ETH_LAYER_4_CHECKSUM_OK			0x40000000
++#define ETH_RX_ENABLE_INTERRUPT			0x20000000
++#define ETH_RX_FIRST_DESC			0x08000000
++#define ETH_RX_LAST_DESC			0x04000000
 +
- static void mv643xx_eth_get_drvinfo(struct net_device *dev,
- 				    struct ethtool_drvinfo *drvinfo)
- {
-@@ -1126,12 +1147,22 @@ static int mv643xx_eth_nway_reset(struct net_device *dev)
- 	return mii_nway_restart(&mep->mii);
- }
- 
-+static int mv643xx_eth_nway_reset_phyless(struct net_device *dev)
-+{
-+	return -EINVAL;
-+}
++/* TX descriptor command */
++#define ETH_TX_ENABLE_INTERRUPT			0x00800000
++#define ETH_GEN_CRC				0x00400000
++#define ETH_TX_FIRST_DESC			0x00200000
++#define ETH_TX_LAST_DESC			0x00100000
++#define ETH_ZERO_PADDING			0x00080000
++#define ETH_GEN_IP_V4_CHECKSUM			0x00040000
++#define ETH_GEN_TCP_UDP_CHECKSUM		0x00020000
++#define ETH_UDP_FRAME				0x00010000
 +
- static u32 mv643xx_eth_get_link(struct net_device *dev)
- {
- 	struct mv643xx_eth_private *mep = netdev_priv(dev);
- 	return mii_link_ok(&mep->mii);
- }
- 
-+static u32 mv643xx_eth_get_link_phyless(struct net_device *dev)
-+{
-+	return 1;
-+}
++#define ETH_TX_IHL_SHIFT			11
 +
- static void mv643xx_eth_get_strings(struct net_device *dev,
- 				    uint32_t stringset, uint8_t *data)
- {
-@@ -1191,6 +1222,18 @@ static const struct ethtool_ops mv643xx_eth_ethtool_ops = {
- 	.get_sset_count		= mv643xx_eth_get_sset_count,
- };
- 
-+static const struct ethtool_ops mv643xx_eth_ethtool_ops_phyless = {
-+	.get_settings		= mv643xx_eth_get_settings_phyless,
-+	.set_settings		= mv643xx_eth_set_settings_phyless,
-+	.get_drvinfo		= mv643xx_eth_get_drvinfo,
-+	.nway_reset		= mv643xx_eth_nway_reset_phyless,
-+	.get_link		= mv643xx_eth_get_link_phyless,
-+	.set_sg			= ethtool_op_set_sg,
-+	.get_strings		= mv643xx_eth_get_strings,
-+	.get_ethtool_stats	= mv643xx_eth_get_ethtool_stats,
-+	.get_sset_count		= mv643xx_eth_get_sset_count,
-+};
 +
+ /* Unified struct for Rx and Tx operations. The user is not required to	*/
+ /* be familier with neither Tx nor Rx descriptors.			*/
+ struct pkt_info {
+@@ -896,7 +870,7 @@ static void eth_tx_submit_descs_for_skb(struct mv643xx_private *mp,
+ 		BUG_ON(skb->protocol != htons(ETH_P_IP));
  
- /* address handling *********************************************************/
- static void uc_addr_get(struct mv643xx_eth_private *mep, unsigned char *addr)
-@@ -1637,12 +1680,16 @@ static irqreturn_t mv643xx_eth_irq(int irq, void *dev_id)
- 	}
+ 		cmd_sts |= ETH_GEN_TCP_UDP_CHECKSUM |
+-			   ETH_GEN_IP_V_4_CHECKSUM  |
++			   ETH_GEN_IP_V4_CHECKSUM   |
+ 			   ip_hdr(skb)->ihl << ETH_TX_IHL_SHIFT;
  
- 	if (int_cause_ext & (INT_EXT_PHY | INT_EXT_LINK)) {
--		if (mii_link_ok(&mep->mii)) {
--			struct ethtool_cmd cmd;
-+		if (mep->phy_addr == -1 || mii_link_ok(&mep->mii)) {
- 			int i;
- 
--			mii_ethtool_gset(&mep->mii, &cmd);
--			update_pscr(mep, cmd.speed, cmd.duplex);
-+			if (mep->phy_addr != -1) {
-+				struct ethtool_cmd cmd;
-+
-+				mii_ethtool_gset(&mep->mii, &cmd);
-+				update_pscr(mep, cmd.speed, cmd.duplex);
-+			}
-+
- 			for (i = 0; i < 8; i++)
- 				if (mep->txq_mask & (1 << i))
- 					txq_enable(mep->txq + i);
-@@ -1732,7 +1779,6 @@ static void phy_reset(struct mv643xx_eth_private *mep)
- static void port_start(struct mv643xx_eth_private *mep)
- {
- 	u32 pscr;
--	struct ethtool_cmd ethtool_cmd;
- 	int i;
- 
- 	/*
-@@ -1752,9 +1798,16 @@ static void port_start(struct mv643xx_eth_private *mep)
- 
- 	wrl(mep, SDMA_CONFIG(mep->port_num), PORT_SDMA_CONFIG_DEFAULT_VALUE);
- 
--	mv643xx_eth_get_settings(mep->dev, &ethtool_cmd);
--	phy_reset(mep);
--	mv643xx_eth_set_settings(mep->dev, &ethtool_cmd);
-+	/*
-+	 * Perform PHY reset, if there is a PHY.
-+	 */
-+	if (mep->phy_addr != -1) {
-+		struct ethtool_cmd cmd;
-+
-+		mv643xx_eth_get_settings(mep->dev, &cmd);
-+		phy_reset(mep);
-+		mv643xx_eth_set_settings(mep->dev, &cmd);
-+	}
- 
- 	/*
- 	 * Configure TX path and queues.
-@@ -1971,7 +2024,10 @@ static int mv643xx_eth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct mv643xx_eth_private *mep = netdev_priv(dev);
- 
--	return generic_mii_ioctl(&mep->mii, if_mii(ifr), cmd, NULL);
-+	if (mep->phy_addr != -1)
-+		return generic_mii_ioctl(&mep->mii, if_mii(ifr), cmd, NULL);
-+
-+	return -EOPNOTSUPP;
- }
- 
- static int mv643xx_eth_change_mtu(struct net_device *dev, int new_mtu)
-@@ -2368,10 +2424,15 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 	mib_counters_clear(mep);
- 	INIT_WORK(&mep->tx_timeout_task, tx_timeout_task);
- 
--	err = phy_init(mep, pd);
--	if (err)
--		goto out;
--	SET_ETHTOOL_OPS(dev, &mv643xx_eth_ethtool_ops);
-+	if (mep->phy_addr != -1) {
-+		err = phy_init(mep, pd);
-+		if (err)
-+			goto out;
-+
-+		SET_ETHTOOL_OPS(dev, &mv643xx_eth_ethtool_ops);
-+	} else {
-+		SET_ETHTOOL_OPS(dev, &mv643xx_eth_ethtool_ops_phyless);
-+	}
- 
- 
- 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+ 		switch (ip_hdr(skb)->protocol) {
 -- 
 1.5.3.4
 
