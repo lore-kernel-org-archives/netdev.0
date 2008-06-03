@@ -1,99 +1,77 @@
-From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATCH 12/12] BE NIC driver - Kconfig, Makefile, MAINTAINERS
-Date: Tue, 03 Jun 2008 02:52:50 -0700
-Message-ID: <20080603095250.11769b4e@mailhost.serverengines.com>
+From: Jens Gehrlein <sew_s@tqs.de>
+Subject: Re: [Uclinux-dist-devel] [PATCH 01/01] smsc911x: fix MAC addresssetting
+ after reset
+Date: Tue, 03 Jun 2008 12:01:12 +0200
+Message-ID: <48451668.1060407@tqs.de>
+References: <OF35F08D73.56884FA4-ON8025744E.0047900A-8025744E.0047BBC0@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:32914 "EHLO
-	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751935AbYFCJwv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 05:52:51 -0400
-Received: from 124.30.166.146 ([124.30.166.146])
-	by mailhost.serverengines.com
-	for netdev@vger.kernel.org;
-	Tue, 3 Jun 2008 02:52:50 -0700
+Received: from mail.tqs.de ([62.157.136.17]:15500 "EHLO mail.tqs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750971AbYFCKB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 06:01:27 -0400
+In-Reply-To: <OF35F08D73.56884FA4-ON8025744E.0047900A-8025744E.0047BBC0@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Steve,
 
-Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
----
- MAINTAINERS          |    7 +++++++
- drivers/net/Kconfig  |   17 +++++++++++++++++
- drivers/net/Makefile |    1 +
- 3 files changed, 25 insertions(+), 0 deletions(-)
+Steve.Glendinning@smsc.com schrieb:
+>> If the MAC address has been set externally (e. g. by the bootloader
+>> or via command line), this setting is lost. This patch fixes the
+>> problem by always setting the saved MAC address after soft reset.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 0a6d2ca..01c93be 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3622,6 +3622,13 @@ L:	linux-ide@vger.kernel.org
- T:	git kernel.org:/pub/scm/linux/kernel/git/jgarzik/libata-dev.git
- S:	Supported
- 
-+SERVER ENGINES 10Gbe NIC - BLADE-ENGINE
-+P:	Subbu Seetharaman
-+M:	subbus@serverengines.com
-+L:	netdev@vger.kernel.org
-+W:	http://www.serverengines.com
-+S:	Supported
-+
- SGI SN-IA64 (Altix) SERIAL CONSOLE DRIVER
- P:	Pat Gefre
- M:	pfg@sgi.com
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index dd0ec9e..549b186 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2581,6 +2581,23 @@ config BNX2X
- 
- source "drivers/net/sfc/Kconfig"
- 
-+config BENET
-+	tristate "ServerEngines 10Gb NIC - BladeEngine"
-+	depends on PCI
-+	select INET_LRO
-+	help
-+	  This driver implements the NIC functionality for ServerEngines
-+	  10Gb network adapter BladeEngine (EC 3210).
-+
-+config BENET_NAPI
-+	bool "Use Rx Polling (NAPI) for benet"
-+	depends on BENET
-+	default y
-+	help
-+	  NAPI is a new driver API designed to reduce CPU and interrupt load
-+	  when the driver is receiving lots of packets from the card. Selecting
-+	  this feature will give better performance in high traffic conditions.
-+
- endif # NETDEV_10000
- 
- source "drivers/net/tokenring/Kconfig"
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index dcbfe84..8f3c1ff 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -18,6 +18,7 @@ obj-$(CONFIG_BONDING) += bonding/
- obj-$(CONFIG_ATL1) += atlx/
- obj-$(CONFIG_GIANFAR) += gianfar_driver.o
- obj-$(CONFIG_TEHUTI) += tehuti.o
-+obj-$(CONFIG_BENET) += benet/
- 
- gianfar_driver-objs := gianfar.o \
- 		gianfar_ethtool.o \
+Sorry. Newbie question:
+How can I pass the MAC address via kernel command line for this driver? 
+Is there a predefined parameter?
+My problem is:
+U-Boot resets the chip after each completed transfer. Wolfgang Denk 
+suggested to pass the MAC address via kernel command line. I need the 
+ethernet device at kernel startup to mount a root filesystem via NFS, so 
+I added the platform device in my board specific code as shown below (it 
+still relates to the old driver).
+Should I patch the driver directly to get the MAC address via __setup()
+or can I pass the MAC address via the device structures.
+
+What do you suggest?
+
+Thanks and best regards
+Jens
 -- 
-1.5.5
+
+static struct resource smc911x_resources[] = {
+	[0] = {
+		.start		= CS4_BASE_ADDR,
+		.end		= CS4_BASE_ADDR + 0xFF,
+		.flags		= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start		= MXC_GPIO_BASE + 4,
+		.end		= MXC_GPIO_BASE + 4,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device smc911x_device = {
+	.name		= "smc911x",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(smc911x_resources),
+	.resource	= smc911x_resources,
+};
+
+static struct platform_device *myboard_devices[] __initdata = {
+	&smc911x_device,
+};
 
 
+static int __init <myboard>_devices_setup(void)
+{
+	return platform_add_devices(myboard_devices, ARRAY_SIZE(myboard_devices));
+}
+device_initcall(myboard_devices_setup);
 
-___________________________________________________________________________________
-This message, together with any attachment(s), contains confidential and proprietary information of
-ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by reply email message and
-delete all copies of this message and any attachment(s). Thank you.
 
