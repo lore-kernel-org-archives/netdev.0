@@ -1,144 +1,98 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 13/39] mv643xx_eth: move MIB offset defines into their only user
-Date: Tue,  3 Jun 2008 13:02:28 +0200
-Message-ID: <1212490974-23719-14-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 04/39] mv643xx_eth: get rid of individual port config register bit defines
+Date: Tue,  3 Jun 2008 13:02:19 +0200
+Message-ID: <1212490974-23719-5-git-send-email-buytenh@wantstofly.org>
 References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Cc: netdev@vger.kernel.org
 To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:48747 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:48756 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756375AbYFCMAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:45 -0400
+	with ESMTP id S1756122AbYFCMAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:42 -0400
 In-Reply-To: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The only user of the ETH_MIB_VERY_LONG_NAME_HERE defines is the
-eth_update_mib_counters() function.  Get rid of the defines by
-open-coding the register offsets in the latter.
+The mv643xx_eth driver only ever changes bit 0 of the port config
+register at run time, the rest of the register bits are fixed (and
+always zero).  Document the meaning of the chosen default value,
+and get rid of all the defines for each of the individual bits.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |   92 ++++++++++++++++----------------------------
- 1 files changed, 34 insertions(+), 58 deletions(-)
+ drivers/net/mv643xx_eth.c |   44 +++++++-------------------------------------
+ 1 files changed, 7 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 3c5c992..075ee2a 100644
+index 9a9218f..38ba365 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -160,42 +160,6 @@ static char mv643xx_driver_version[] = "1.0";
- #define PORT_DEFAULT_TRANSMIT_QUEUE_SIZE	800
- #define PORT_DEFAULT_RECEIVE_QUEUE_SIZE		400
+@@ -109,39 +109,6 @@ static char mv643xx_driver_version[] = "1.0";
+ #define OTHER_MCAST_TABLE(p)		(0x1500 + ((p) << 10))
+ #define UNICAST_TABLE(p)		(0x1600 + ((p) << 10))
  
--/* Gigabit Ethernet Unit Global Registers */
+-/* These macros describe Ethernet Port configuration reg (Px_cR) bits */
+-#define UNICAST_NORMAL_MODE		(0 << 0)
+-#define UNICAST_PROMISCUOUS_MODE	(1 << 0)
+-#define DEFAULT_RX_QUEUE(queue)		((queue) << 1)
+-#define DEFAULT_RX_ARP_QUEUE(queue)	((queue) << 4)
+-#define RECEIVE_BC_IF_NOT_IP_OR_ARP	(0 << 7)
+-#define REJECT_BC_IF_NOT_IP_OR_ARP	(1 << 7)
+-#define RECEIVE_BC_IF_IP		(0 << 8)
+-#define REJECT_BC_IF_IP			(1 << 8)
+-#define RECEIVE_BC_IF_ARP		(0 << 9)
+-#define REJECT_BC_IF_ARP		(1 << 9)
+-#define TX_AM_NO_UPDATE_ERROR_SUMMARY	(1 << 12)
+-#define CAPTURE_TCP_FRAMES_DIS		(0 << 14)
+-#define CAPTURE_TCP_FRAMES_EN		(1 << 14)
+-#define CAPTURE_UDP_FRAMES_DIS		(0 << 15)
+-#define CAPTURE_UDP_FRAMES_EN		(1 << 15)
+-#define DEFAULT_RX_TCP_QUEUE(queue)	((queue) << 16)
+-#define DEFAULT_RX_UDP_QUEUE(queue)	((queue) << 19)
+-#define DEFAULT_RX_BPDU_QUEUE(queue)	((queue) << 22)
 -
--/* MIB Counters register definitions */
--#define ETH_MIB_GOOD_OCTETS_RECEIVED_LOW	0x0
--#define ETH_MIB_GOOD_OCTETS_RECEIVED_HIGH	0x4
--#define ETH_MIB_BAD_OCTETS_RECEIVED		0x8
--#define ETH_MIB_INTERNAL_MAC_TRANSMIT_ERR	0xc
--#define ETH_MIB_GOOD_FRAMES_RECEIVED		0x10
--#define ETH_MIB_BAD_FRAMES_RECEIVED		0x14
--#define ETH_MIB_BROADCAST_FRAMES_RECEIVED	0x18
--#define ETH_MIB_MULTICAST_FRAMES_RECEIVED	0x1c
--#define ETH_MIB_FRAMES_64_OCTETS		0x20
--#define ETH_MIB_FRAMES_65_TO_127_OCTETS		0x24
--#define ETH_MIB_FRAMES_128_TO_255_OCTETS	0x28
--#define ETH_MIB_FRAMES_256_TO_511_OCTETS	0x2c
--#define ETH_MIB_FRAMES_512_TO_1023_OCTETS	0x30
--#define ETH_MIB_FRAMES_1024_TO_MAX_OCTETS	0x34
--#define ETH_MIB_GOOD_OCTETS_SENT_LOW		0x38
--#define ETH_MIB_GOOD_OCTETS_SENT_HIGH		0x3c
--#define ETH_MIB_GOOD_FRAMES_SENT		0x40
--#define ETH_MIB_EXCESSIVE_COLLISION		0x44
--#define ETH_MIB_MULTICAST_FRAMES_SENT		0x48
--#define ETH_MIB_BROADCAST_FRAMES_SENT		0x4c
--#define ETH_MIB_UNREC_MAC_CONTROL_RECEIVED	0x50
--#define ETH_MIB_FC_SENT				0x54
--#define ETH_MIB_GOOD_FC_RECEIVED		0x58
--#define ETH_MIB_BAD_FC_RECEIVED			0x5c
--#define ETH_MIB_UNDERSIZE_RECEIVED		0x60
--#define ETH_MIB_FRAGMENTS_RECEIVED		0x64
--#define ETH_MIB_OVERSIZE_RECEIVED		0x68
--#define ETH_MIB_JABBER_RECEIVED			0x6c
--#define ETH_MIB_MAC_RECEIVE_ERROR		0x70
--#define ETH_MIB_BAD_CRC_EVENT			0x74
--#define ETH_MIB_COLLISION			0x78
--#define ETH_MIB_LATE_COLLISION			0x7c
+-#define PORT_CONFIG_DEFAULT_VALUE			\
+-		UNICAST_NORMAL_MODE		|	\
+-		DEFAULT_RX_QUEUE(0)		|	\
+-		DEFAULT_RX_ARP_QUEUE(0)		|	\
+-		RECEIVE_BC_IF_NOT_IP_OR_ARP	|	\
+-		RECEIVE_BC_IF_IP		|	\
+-		RECEIVE_BC_IF_ARP		|	\
+-		CAPTURE_TCP_FRAMES_DIS		|	\
+-		CAPTURE_UDP_FRAMES_DIS		|	\
+-		DEFAULT_RX_TCP_QUEUE(0)		|	\
+-		DEFAULT_RX_UDP_QUEUE(0)		|	\
+-		DEFAULT_RX_BPDU_QUEUE(0)
 -
- /* Port serial status reg (PSR) */
- #define ETH_INTERFACE_PCM			0x00000001
- #define ETH_LINK_IS_UP				0x00000002
-@@ -1147,8 +1111,7 @@ static void eth_clear_mib_counters(struct mv643xx_private *mp)
- 	int i;
+ /* These macros describe Ethernet Port configuration extend reg (Px_cXR) bits*/
+ #define CLASSIFY_EN				(1 << 0)
+ #define SPAN_BPDU_PACKETS_AS_NORMAL		(0 << 1)
+@@ -1802,9 +1769,9 @@ static void mv643xx_eth_set_rx_mode(struct net_device *dev)
  
- 	/* Perform dummy reads from MIB counters */
--	for (i = ETH_MIB_GOOD_OCTETS_RECEIVED_LOW; i < ETH_MIB_LATE_COLLISION;
--									i += 4)
-+	for (i = 0; i < 0x80; i += 4)
- 		rdl(mp, MIB_COUNTERS(port_num) + i);
- }
+ 	config_reg = rdl(mp, PORT_CONFIG(mp->port_num));
+ 	if (dev->flags & IFF_PROMISC)
+-		config_reg |= (u32) UNICAST_PROMISCUOUS_MODE;
++		config_reg |= 0x00000001;
+ 	else
+-		config_reg &= ~(u32) UNICAST_PROMISCUOUS_MODE;
++		config_reg &= ~0x00000001;
+ 	wrl(mp, PORT_CONFIG(mp->port_num), config_reg);
  
-@@ -1160,26 +1123,39 @@ static inline u32 read_mib(struct mv643xx_private *mp, int offset)
- static void eth_update_mib_counters(struct mv643xx_private *mp)
- {
- 	struct mv643xx_mib_counters *p = &mp->mib_counters;
--	int offset;
--
--	p->good_octets_received +=
--		read_mib(mp, ETH_MIB_GOOD_OCTETS_RECEIVED_LOW);
--	p->good_octets_received +=
--		(u64)read_mib(mp, ETH_MIB_GOOD_OCTETS_RECEIVED_HIGH) << 32;
--
--	for (offset = ETH_MIB_BAD_OCTETS_RECEIVED;
--			offset <= ETH_MIB_FRAMES_1024_TO_MAX_OCTETS;
--			offset += 4)
--		*(u32 *)((char *)p + offset) += read_mib(mp, offset);
--
--	p->good_octets_sent += read_mib(mp, ETH_MIB_GOOD_OCTETS_SENT_LOW);
--	p->good_octets_sent +=
--		(u64)read_mib(mp, ETH_MIB_GOOD_OCTETS_SENT_HIGH) << 32;
--
--	for (offset = ETH_MIB_GOOD_FRAMES_SENT;
--			offset <= ETH_MIB_LATE_COLLISION;
--			offset += 4)
--		*(u32 *)((char *)p + offset) += read_mib(mp, offset);
-+
-+	p->good_octets_received += read_mib(mp, 0x00);
-+	p->good_octets_received += (u64)read_mib(mp, 0x04) << 32;
-+	p->bad_octets_received += read_mib(mp, 0x08);
-+	p->internal_mac_transmit_err += read_mib(mp, 0x0c);
-+	p->good_frames_received += read_mib(mp, 0x10);
-+	p->bad_frames_received += read_mib(mp, 0x14);
-+	p->broadcast_frames_received += read_mib(mp, 0x18);
-+	p->multicast_frames_received += read_mib(mp, 0x1c);
-+	p->frames_64_octets += read_mib(mp, 0x20);
-+	p->frames_65_to_127_octets += read_mib(mp, 0x24);
-+	p->frames_128_to_255_octets += read_mib(mp, 0x28);
-+	p->frames_256_to_511_octets += read_mib(mp, 0x2c);
-+	p->frames_512_to_1023_octets += read_mib(mp, 0x30);
-+	p->frames_1024_to_max_octets += read_mib(mp, 0x34);
-+	p->good_octets_sent += read_mib(mp, 0x38);
-+	p->good_octets_sent += (u64)read_mib(mp, 0x3c) << 32;
-+	p->good_frames_sent += read_mib(mp, 0x40);
-+	p->excessive_collision += read_mib(mp, 0x44);
-+	p->multicast_frames_sent += read_mib(mp, 0x48);
-+	p->broadcast_frames_sent += read_mib(mp, 0x4c);
-+	p->unrec_mac_control_received += read_mib(mp, 0x50);
-+	p->fc_sent += read_mib(mp, 0x54);
-+	p->good_fc_received += read_mib(mp, 0x58);
-+	p->bad_fc_received += read_mib(mp, 0x5c);
-+	p->undersize_received += read_mib(mp, 0x60);
-+	p->fragments_received += read_mib(mp, 0x64);
-+	p->oversize_received += read_mib(mp, 0x68);
-+	p->jabber_received += read_mib(mp, 0x6c);
-+	p->mac_receive_error += read_mib(mp, 0x70);
-+	p->bad_crc_event += read_mib(mp, 0x74);
-+	p->collision += read_mib(mp, 0x78);
-+	p->late_collision += read_mib(mp, 0x7c);
- }
+ 	eth_port_set_multicast_list(dev);
+@@ -2226,8 +2193,11 @@ static void eth_port_start(struct net_device *dev)
+ 	/* Add the assigned Ethernet address to the port's address table */
+ 	eth_port_uc_addr_set(mp, dev->dev_addr);
  
+-	/* Assign port configuration and command. */
+-	wrl(mp, PORT_CONFIG(port_num), PORT_CONFIG_DEFAULT_VALUE);
++	/*
++	 * Receive all unmatched unicast, TCP, UDP, BPDU and broadcast
++	 * frames to RX queue #0.
++	 */
++	wrl(mp, PORT_CONFIG(port_num), 0x00000000);
+ 
+ 	wrl(mp, PORT_CONFIG_EXT(port_num), PORT_CONFIG_EXTEND_DEFAULT_VALUE);
  
 -- 
 1.5.3.4
