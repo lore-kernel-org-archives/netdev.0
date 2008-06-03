@@ -1,45 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
-Date: Tue, 3 Jun 2008 13:35:22 +0100
-Message-ID: <20080603123520.GF18161@solarflare.com>
-References: <483E0AAE.2020107@sngx.net> <20080528221118.63da4092.akpm@linux-foundation.org> <483EA2D1.8050603@sngx.net> <20080529154525.3916c7b5@core> <20080530151250.b44a119a.billfink@mindspring.com> <20080531131143.516ca56e@core> <20080531195702.0b879dd1.billfink@mindspring.com> <48437C25.7080400@gdt.id.au> <20080602121007.1e81cf05.billfink@mindspring.com> <48453909.4000301@sngx.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH]  Fix routing tables with id > 255 for legacy software
+Date: Tue, 03 Jun 2008 14:43:28 +0200
+Message-ID: <48453C70.1040303@trash.net>
+References: <20080603080812.GA4514@ff.dom.local> <Pine.LNX.4.64.0806031220490.3438@bizon.gios.gov.pl> <20080603113343.GA4714@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bill Fink <billfink@mindspring.com>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: James Cammarata <jimi@sngx.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Krzysztof Oledzki <olel@ans.pl>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:43110 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753399AbYFCMfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:35:33 -0400
-Content-Disposition: inline
-In-Reply-To: <48453909.4000301@sngx.net>
+Received: from stinky.trash.net ([213.144.137.162]:38893 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753073AbYFCMnc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:43:32 -0400
+In-Reply-To: <20080603113343.GA4714@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-James Cammarata wrote:
-> >First of all, when assisting a user, they typically aren't even
-> >running an snmp daemon (and there might be firewall issues to
-> >access it if they are).  And I don't think the "ethtool -S" driver
-> >stats are even accessible via SNMP (although they may contribute
-> >to more generic interface stats which are), and it is the specific
-> >driver stats which are often key to help diagnosing the problem.
+Jarek Poplawski wrote:
+> On Tue, Jun 03, 2008 at 12:37:35PM +0200, Krzysztof Oledzki wrote:
+>>
+> If such an old app uses rtm_table, this 253 table could be used for
+> something and get additional entries after this patch. Another case
+> would be when such an overflow on 0xff is "expected", then old tables
+> would loose their entries. I hope I'm wrong with this, but it looks
+> like admins can do strange things, and then this would be called a
+> regression. So, I think this patch is right if we are sure there are
+> no such cases...
 > 
-> Ok, just to jump back in and add my $0.02, I plan to send a patch to 
-> the ethtool project to do what was suggested (snapshot to /var, and 
-> diff stats against that for future reference).  I would just like to 
-> point out that this will introduce inconsistencies between _every_ 
-> other source of interface stats (ifconfig/procfs/etc).  I can deal 
-> with that, it just means one more thing to keep track of when you're 
-> troubleshooting.
+>>> BTW, I wonder, how these old appliction would treat RT_TABLE_UNSPEC  
+>>> instead.
+>> Such old appliction is for example zebra/quagga: it asks for all routes,  
+>> does not know about RTA_TABLE so uses rtm_table and selects all entries  
+>> with rtm_table == RT_TABLE_MAIN or zebrad.rtm_table_default which is  
+>> unfortunately 0 by default. So no, RT_TABLE_UNSPEC (0) does not help, 
+>> even makes everythink worse here.
+> 
+> I see: so we don't care for these RT_TABLE_COMPAT entries, let only
+> they don't go to _MAIN or _UNSPEC!
 
-You could perhaps add a third column to the statistics when a snapshot
-exists, with the second column still showing absolute values and the
-third showing the difference from the snapshot.
+Well, if people already use table 253, I guess they might care.
+I'm not convinced this is any better than overflowing.
 
-Ben.
+Quoting the changelog from the patch which introduces this:
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+     Introduce RTA_TABLE route attribute and FRA_TABLE routing rule 
+attribute
+     to hold 32 bit routing table IDs. Usespace compatibility is provided by
+     continuing to accept and send the rtm_table field, but because of its
+     limited size it can only carry the low 8 bits of the table ID. This
+     implies that if larger IDs are used, _all_ userspace programs using 
+them
+     need to use RTA_TABLE.
+
+And I still don't see any other way to handle this properly.
