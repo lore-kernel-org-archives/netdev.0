@@ -1,170 +1,112 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 21/39] mv643xx_eth: move port_receive() into its only caller
-Date: Tue,  3 Jun 2008 13:02:36 +0200
-Message-ID: <1212490974-23719-22-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 35/39] mv643xx_eth: detect alternate TX BW control register location
+Date: Tue,  3 Jun 2008 13:02:50 +0200
+Message-ID: <1212490974-23719-36-git-send-email-buytenh@wantstofly.org>
 References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Cc: netdev@vger.kernel.org
 To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:48757 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:48753 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754947AbYFCMAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:30 -0400
+	with ESMTP id S1754396AbYFCMA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:28 -0400
 In-Reply-To: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The port_receive() function is a remnant of the original mv643xx_eth
-HAL split.  This patch moves port_receive() into its caller, so that
-the top and the bottom half of RX processing no longer communicate
-via the HAL FUNC_RET_STATUS/pkt_info mechanism abstraction anymore.
+Some SoCs have the TX bandwidth control registers in a slightly
+different place.  This patch detects that case at run time, and
+re-directs accesses to those registers to the proper place at
+run time if needed.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |   91 ++++++++++++++++-----------------------------
- 1 files changed, 32 insertions(+), 59 deletions(-)
+ drivers/net/mv643xx_eth.c |   37 ++++++++++++++++++++++++++++++++-----
+ 1 files changed, 32 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 15a17e2..2fac2b6 100644
+index 4168a8a..a7c5421 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -509,64 +509,38 @@ static inline void mv643xx_eth_rx_refill_descs_timer_wrapper(unsigned long data)
- 	mv643xx_eth_rx_refill_descs((struct net_device *)data);
+@@ -99,6 +99,10 @@ static char mv643xx_eth_driver_version[] = "1.0";
+ #define INT_MASK(p)			(0x0468 + ((p) << 10))
+ #define INT_MASK_EXT(p)			(0x046c + ((p) << 10))
+ #define TX_FIFO_URGENT_THRESHOLD(p)	(0x0474 + ((p) << 10))
++#define TXQ_FIX_PRIO_CONF_MOVED(p)	(0x04dc + ((p) << 10))
++#define TX_BW_RATE_MOVED(p)		(0x04e0 + ((p) << 10))
++#define TX_BW_MTU_MOVED(p)		(0x04e8 + ((p) << 10))
++#define TX_BW_BURST_MOVED(p)		(0x04ec + ((p) << 10))
+ #define RXQ_CURRENT_DESC_PTR(p, q)	(0x060c + ((p) << 10) + ((q) << 4))
+ #define RXQ_COMMAND(p)			(0x0680 + ((p) << 10))
+ #define TXQ_CURRENT_DESC_PTR(p, q)	(0x06c0 + ((p) << 10) + ((q) << 2))
+@@ -241,6 +245,7 @@ struct mv643xx_eth_shared_private {
+ 	 */
+ 	unsigned int t_clk;
+ 	int extended_rx_coal_limit;
++	int tx_bw_control_moved;
+ };
+ 
+ 
+@@ -813,9 +818,15 @@ static void tx_set_rate(struct mv643xx_eth_private *mep, int rate, int burst)
+ 	if (bucket_size > 65535)
+ 		bucket_size = 65535;
+ 
+-	wrl(mep, TX_BW_RATE(mep->port_num), token_rate);
+-	wrl(mep, TX_BW_MTU(mep->port_num), mtu);
+-	wrl(mep, TX_BW_BURST(mep->port_num), bucket_size);
++	if (mep->shared->tx_bw_control_moved) {
++		wrl(mep, TX_BW_RATE_MOVED(mep->port_num), token_rate);
++		wrl(mep, TX_BW_MTU_MOVED(mep->port_num), mtu);
++		wrl(mep, TX_BW_BURST_MOVED(mep->port_num), bucket_size);
++	} else {
++		wrl(mep, TX_BW_RATE(mep->port_num), token_rate);
++		wrl(mep, TX_BW_MTU(mep->port_num), mtu);
++		wrl(mep, TX_BW_BURST(mep->port_num), bucket_size);
++	}
  }
  
--static FUNC_RET_STATUS port_receive(struct mv643xx_eth_private *mep,
--						struct pkt_info *pkt_info)
-+static int mv643xx_eth_receive_queue(struct net_device *dev, int budget)
- {
--	int rx_next_curr_desc, rx_curr_desc, rx_used_desc;
--	volatile struct rx_desc *rx_desc;
--	unsigned int command_status;
--	unsigned long flags;
--
--	spin_lock_irqsave(&mep->lock, flags);
--
--	/* Get the Rx Desc ring 'curr and 'used' indexes */
--	rx_curr_desc = mep->rx_curr_desc;
--	rx_used_desc = mep->rx_used_desc;
--
--	rx_desc = &mep->rx_desc_area[rx_curr_desc];
--
--	/* The following parameters are used to save readings from memory */
--	command_status = rx_desc->cmd_sts;
--	rmb();
-+	struct mv643xx_eth_private *mep = netdev_priv(dev);
-+	struct net_device_stats *stats = &dev->stats;
-+	unsigned int received_packets = 0;
+ static void txq_set_rate(struct tx_queue *txq, int rate, int burst)
+@@ -846,7 +857,10 @@ static void txq_set_fixed_prio_mode(struct tx_queue *txq)
+ 	/*
+ 	 * Turn on fixed priority mode.
+ 	 */
+-	off = TXQ_FIX_PRIO_CONF(mep->port_num);
++	if (mep->shared->tx_bw_control_moved)
++		off = TXQ_FIX_PRIO_CONF_MOVED(mep->port_num);
++	else
++		off = TXQ_FIX_PRIO_CONF(mep->port_num);
  
--	/* Nothing to receive... */
--	if (command_status & BUFFER_OWNED_BY_DMA) {
--		spin_unlock_irqrestore(&mep->lock, flags);
--		return ETH_END_OF_JOB;
--	}
-+	while (budget-- > 0) {
-+		struct sk_buff *skb;
-+		volatile struct rx_desc *rx_desc;
-+		unsigned int cmd_sts;
-+		unsigned long flags;
+ 	val = rdl(mep, off);
+ 	val |= 1 << txq->index;
+@@ -862,7 +876,10 @@ static void txq_set_wrr(struct tx_queue *txq, int weight)
+ 	/*
+ 	 * Turn off fixed priority mode.
+ 	 */
+-	off = TXQ_FIX_PRIO_CONF(mep->port_num);
++	if (mep->shared->tx_bw_control_moved)
++		off = TXQ_FIX_PRIO_CONF_MOVED(mep->port_num);
++	else
++		off = TXQ_FIX_PRIO_CONF(mep->port_num);
  
--	pkt_info->byte_cnt = rx_desc->byte_cnt - ETH_HW_IP_ALIGN;
--	pkt_info->cmd_sts = command_status;
--	pkt_info->buf_ptr = rx_desc->buf_ptr + ETH_HW_IP_ALIGN;
--	pkt_info->return_info = mep->rx_skb[rx_curr_desc];
--	pkt_info->l4i_chk = rx_desc->buf_size;
-+		spin_lock_irqsave(&mep->lock, flags);
- 
--	/*
--	 * Clean the return info field to indicate that the
--	 * packet has been moved to the upper layers
--	 */
--	mep->rx_skb[rx_curr_desc] = NULL;
-+		rx_desc = &mep->rx_desc_area[mep->rx_curr_desc];
- 
--	/* Update current index in data structure */
--	rx_next_curr_desc = (rx_curr_desc + 1) % mep->rx_ring_size;
--	mep->rx_curr_desc = rx_next_curr_desc;
-+		cmd_sts = rx_desc->cmd_sts;
-+		if (cmd_sts & BUFFER_OWNED_BY_DMA) {
-+			spin_unlock_irqrestore(&mep->lock, flags);
-+			break;
-+		}
-+		rmb();
- 
--	spin_unlock_irqrestore(&mep->lock, flags);
-+		skb = mep->rx_skb[mep->rx_curr_desc];
-+		mep->rx_skb[mep->rx_curr_desc] = NULL;
- 
--	return ETH_OK;
--}
-+		mep->rx_curr_desc = (mep->rx_curr_desc + 1) % mep->rx_ring_size;
- 
--static int mv643xx_eth_receive_queue(struct net_device *dev, int budget)
--{
--	struct mv643xx_eth_private *mep = netdev_priv(dev);
--	struct net_device_stats *stats = &dev->stats;
--	unsigned int received_packets = 0;
--	struct sk_buff *skb;
--	struct pkt_info pkt_info;
-+		spin_unlock_irqrestore(&mep->lock, flags);
- 
--	while (budget-- > 0 && port_receive(mep, &pkt_info) == ETH_OK) {
--		dma_unmap_single(NULL, pkt_info.buf_ptr, ETH_RX_SKB_SIZE,
--							DMA_FROM_DEVICE);
-+		dma_unmap_single(NULL, rx_desc->buf_ptr + ETH_HW_IP_ALIGN,
-+					ETH_RX_SKB_SIZE, DMA_FROM_DEVICE);
- 		mep->rx_desc_count--;
- 		received_packets++;
- 
-@@ -575,18 +549,17 @@ static int mv643xx_eth_receive_queue(struct net_device *dev, int budget)
- 		 * Note byte count includes 4 byte CRC count
- 		 */
- 		stats->rx_packets++;
--		stats->rx_bytes += pkt_info.byte_cnt;
--		skb = pkt_info.return_info;
-+		stats->rx_bytes += rx_desc->byte_cnt - ETH_HW_IP_ALIGN;
+ 	val = rdl(mep, off);
+ 	val &= ~(1 << txq->index);
+@@ -2089,6 +2106,16 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *mesp)
+ 		mesp->extended_rx_coal_limit = 1;
+ 	else
+ 		mesp->extended_rx_coal_limit = 0;
 +
- 		/*
- 		 * In case received a packet without first / last bits on OR
- 		 * the error summary bit is on, the packets needs to be dropeed.
- 		 */
--		if (((pkt_info.cmd_sts & (RX_FIRST_DESC | RX_LAST_DESC)) !=
-+		if (((cmd_sts & (RX_FIRST_DESC | RX_LAST_DESC)) !=
- 					(RX_FIRST_DESC | RX_LAST_DESC))
--				|| (pkt_info.cmd_sts & ERROR_SUMMARY)) {
-+				|| (cmd_sts & ERROR_SUMMARY)) {
- 			stats->rx_dropped++;
--			if ((pkt_info.cmd_sts & (RX_FIRST_DESC |
--							RX_LAST_DESC)) !=
-+			if ((cmd_sts & (RX_FIRST_DESC | RX_LAST_DESC)) !=
- 				(RX_FIRST_DESC | RX_LAST_DESC)) {
- 				if (net_ratelimit())
- 					printk(KERN_ERR
-@@ -594,7 +567,7 @@ static int mv643xx_eth_receive_queue(struct net_device *dev, int budget)
- 						"on multiple descriptors\n",
- 						dev->name);
- 			}
--			if (pkt_info.cmd_sts & ERROR_SUMMARY)
-+			if (cmd_sts & ERROR_SUMMARY)
- 				stats->rx_errors++;
++	/*
++	 * Check whether the TX rate control registers are in the
++	 * old or the new place.
++	 */
++	writel(1, mesp->base + TX_BW_MTU_MOVED(0));
++	if (readl(mesp->base + TX_BW_MTU_MOVED(0)) & 1)
++		mesp->tx_bw_control_moved = 1;
++	else
++		mesp->tx_bw_control_moved = 0;
+ }
  
- 			dev_kfree_skb_irq(skb);
-@@ -603,12 +576,12 @@ static int mv643xx_eth_receive_queue(struct net_device *dev, int budget)
- 			 * The -4 is for the CRC in the trailer of the
- 			 * received packet
- 			 */
--			skb_put(skb, pkt_info.byte_cnt - 4);
-+			skb_put(skb, rx_desc->byte_cnt - ETH_HW_IP_ALIGN - 4);
- 
--			if (pkt_info.cmd_sts & LAYER_4_CHECKSUM_OK) {
-+			if (cmd_sts & LAYER_4_CHECKSUM_OK) {
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
- 				skb->csum = htons(
--					(pkt_info.cmd_sts & 0x0007fff8) >> 3);
-+					(cmd_sts & 0x0007fff8) >> 3);
- 			}
- 			skb->protocol = eth_type_trans(skb, dev);
- #ifdef MV643XX_ETH_NAPI
+ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
 -- 
 1.5.3.4
 
