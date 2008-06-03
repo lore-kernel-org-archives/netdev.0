@@ -1,53 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2] IPV4: remove addresses and routes when carrier is
- lost
-Date: Tue, 03 Jun 2008 18:44:44 +0200
-Message-ID: <484574FC.5050004@trash.net>
-References: <20080602165249.52a467dc@extreme>	<20080603150524.GA16165@csclub.uwaterloo.ca>	<20080603085707.51fdabbb@speedy>	<48456B62.8050909@trash.net> <20080603093159.36070e73@extreme>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: PATCH: fix bridged 802.3ad bonding
+Date: Tue, 3 Jun 2008 09:46:04 -0700
+Message-ID: <20080603094604.6a7dfe7d@extreme>
+References: <20080603132106.GA3256@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45615 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965AbYFCQoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:44:46 -0400
-In-Reply-To: <20080603093159.36070e73@extreme>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54235 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751728AbYFCQra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:47:30 -0400
+In-Reply-To: <20080603132106.GA3256@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 03 Jun 2008 18:03:46 +0200
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
->> Stephen Hemminger wrote:
->>> On Tue, 3 Jun 2008 11:05:24 -0400
->>> lsorense@csclub.uwaterloo.ca (Lennart Sorensen) wrote:
->>>
->>>> On Mon, Jun 02, 2008 at 04:52:49PM -0700, Stephen Hemminger wrote:
->>>>> This patch adds a new configuration sysctl that causes link loss to clear
->>>>> FIB state in the same way as admin down. This allows for routing daemons
->>>>> like Quagga which have option to remove routes when carrier is lost.
->>>>>
->>>>> This has been a long standing problem with Quagga on Linux with complaints
->>>>> on the developers list going back to 2004. Fixing it properly, so the routing 
->>>>> daemon manages the RIB, and the kernel manages the FIB, requires changes to
->>>>> both parts.
->>>> Does this cover only the local route for the interface, or all routes
->>>> assigned staticly to the interface too?
->>> The patch makes carrier down == interface down. So the same
->>> behaviour as doing 'ip link set dev eth3 down'
->>
->> Can't the routing daemon simply ignore routes with a
->> device that has no carrier?
->>
-> 
-> It does that, but the problem is that packets get routed in kernel
-> to interfaces without carrier, rather than being correctly rerouted
-> over alternate paths.
+On Tue, 3 Jun 2008 15:21:06 +0200
+Jiri Bohac <jbohac@suse.cz> wrote:
 
-I see, thanks for the explanation.
+> Hi,
+> 
+> Bonding in 802.3ad mode breaks when the bond interface is added
+> to a bridge (which makes 802.3ad unusable in XEN, for example).
+> 
+> The problem is that br_pass_frame_up() will change the skb's dev
+> pointer to point to the bridge interface. As a result, the LACP
+> packets will not reach the bond_3ad_lacpdu_recv() protocol
+> handler registered on the bonding device. Even if they did, the
+> handler won't work with the changed skb->dev.
+> 
+> The following patch fixes the problem.
+> 
+> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+
+Agree with Patrick, it might be a real problem but your solution
+is doing it in the wrong place. The packets do arrive on the bridge
+interface which is an aggregation of all the interfaces in the bridge.
+
+The LACPDU's are received via now on the bond device. If you moved
+the packet type handler down to the physical interface, this problem
+would go away because the packets would be handled to bond_3ad_lacpdu_recv
+prior to being handled by the bridge.  You would still have to handle
+cases where bonding device was inactive, but that shouldn't be hard.
