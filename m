@@ -1,61 +1,86 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [linux-pm] [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan
- problems
-Date: Tue, 3 Jun 2008 16:06:10 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0806031603410.3524-100000@iolanthe.rowland.org>
-References: <20080603173013.GA9490@yamamaya.is-a-geek.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: PATCH: fix bridged 802.3ad bonding
+Date: Tue, 3 Jun 2008 13:13:26 -0700
+Message-ID: <20080603131326.1f70915e@extreme>
+References: <20080603132106.GA3256@midget.suse.cz>
+	<20080603094604.6a7dfe7d@extreme>
+	<20080603193227.GA4050@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, <linux-kernel@vger.kernel.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Brownell <david-b@pacbell.net>,
-	<linux-acpi@vger.kernel.org>, <linux-pm@lists.linux-foundation.org>
-To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20080603173013.GA9490@yamamaya.is-a-geek.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Jiri Bohac <jbohac@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:51239 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750900AbYFCUTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 16:19:20 -0400
+In-Reply-To: <20080603193227.GA4050@midget.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 3 Jun 2008, Tobias Diedrich wrote:
+On Tue, 3 Jun 2008 21:32:27 +0200
+Jiri Bohac <jbohac@suse.cz> wrote:
 
-> > So for some reason your EHCI controller thinks a wakeup event is 
-> > pending.  This means you should examine the contents of the "registers" 
-> > file in the debugfs directory for the EHCI controller, not OHCI.
+> Hi,
 > 
-> melchior:/mnt/ehci/0000:00:02.1# cat registers
-> bus pci, device 0000:00:02.1 (driver 10 Dec 2004)
-> EHCI Host Controller
-> EHCI 1.00, hcd state 1
-> ownership 00000001
-> SMI sts/enable 0xc0080000
-> structural params 0x00101a8a
-> capability params 0x0000a086
-> status 0008 FLR
-> command 010009 (park)=0 ithresh=1 period=256 RUN
-> intrenable 37 IAA FATAL PCD ERR INT
-> uframe 3f3a
-> port 1 status 003400 POWER OWNER sig=k
-> port 2 status 001000 POWER sig=se0
-> port 3 status 003400 POWER OWNER sig=k
-> port 4 status 003400 POWER OWNER sig=k
-> port 5 status 001000 POWER sig=se0
-> port 6 status 001000 POWER sig=se0
-> port 7 status 001000 POWER sig=se0
-> port 8 status 001000 POWER sig=se0
-> port 9 status 001000 POWER sig=se0
-> port 10 status 001000 POWER sig=se0
-> irq normal 0 err 0 reclaim 0 (lost 0)
-> complete 0 unlink 0
+> On Tue, Jun 03, 2008 at 09:46:04AM -0700, Stephen Hemminger wrote:
+> > On Tue, 3 Jun 2008 15:21:06 +0200 Jiri Bohac <jbohac@suse.cz> wrote:
+> > 
+> > > Bonding in 802.3ad mode breaks when the bond interface is added
+> > > to a bridge (which makes 802.3ad unusable in XEN, for example).
+> > > 
+> > > The problem is that br_pass_frame_up() will change the skb's dev
+> > > pointer to point to the bridge interface. As a result, the LACP
+> > > packets will not reach the bond_3ad_lacpdu_recv() protocol
+> > > handler registered on the bonding device. Even if they did, the
+> > > handler won't work with the changed skb->dev.
+> 
+> ... actually, now I realized the above statement is wrong. The
+> bridging code does not change the LACP frames, it just drops
+> them, because the LACP frames always have the link-local
+> destination MAC address.
+>  
+> > The packets do arrive on the bridge
+> > interface which is an aggregation of all the interfaces in the bridge.
+> > 
+> > The LACPDU's are received via now on the bond device. If you moved
+> > the packet type handler down to the physical interface, this problem
+> > would go away because the packets would be handled to bond_3ad_lacpdu_recv
+> > prior to being handled by the bridge.
+> 
+> This wouldn't really work, because with bonding the packet only
+> passes through netif_receive_skb() once, it just has the skb->dev
+> modified by skb_bond() at the very beginning.
+> 
+> But I think I found a much nicer fix for the problem:
+> 
+> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> --- a/net/bridge/br_input.c
+> +++ b/net/bridge/br_input.c
+> @@ -136,6 +136,10 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
+>  		if (skb->protocol == htons(ETH_P_PAUSE))
+>  			goto drop;
+>  
+> +		/* Don't touch SLOW frames (LACP, etc.) */
+> +		if (skb->protocol == htons(ETH_P_SLOW))
+> +			return skb;
+> +
+>  		/* Process STP BPDU's through normal netif_receive_skb() path */
+>  		if (p->br->stp_enabled != BR_NO_STP) {
+>  			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> 
+> The LACP frames always have the link-local destination MAC
+> address and so they are not handled by the bridge anyway. They
+> are only dropped, unless STP is turned on. So let's just not drop
+> the SLOW packets. Does this look better?
+> 
 
-Got to admit, I'm stumped.  There's nothing in the state description to 
-indicate why the controller should want to signal a wakeup event.
-
-As an experiment, you could try disabling wakeup on the EHCI controller 
-alone, leaving it enabled on the OHCI controller.  Since the keyboard 
--- and in fact all your USB devices -- is attached to the OHCI 
-controller, it should do what you want.
-
-Alan Stern
+Better, but still have a couple of questions:
+1) Do you want to processing frames when bridge port is in blocking
+   state (because STP detected a loop)?
+2) Do you want to process after netfilter processing to allow
+   some firewalling possiblity?
 
