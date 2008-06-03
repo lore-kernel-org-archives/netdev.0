@@ -1,45 +1,42 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH 1/2] IPV4: remove addresses and routes when carrier is lost
-Date: Tue, 3 Jun 2008 11:05:24 -0400
-Message-ID: <20080603150524.GA16165@csclub.uwaterloo.ca>
-References: <20080602165249.52a467dc@extreme>
+From: andrei radulescu-banu <iubica2@yahoo.com>
+Subject: Tcpdump, packet sockets and order of timestamps
+Date: Tue, 3 Jun 2008 07:59:16 -0700 (PDT)
+Message-ID: <13855.16113.qm@web56603.mail.re3.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:54084 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750923AbYFCPFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 11:05:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20080602165249.52a467dc@extreme>
+Received: from web56603.mail.re3.yahoo.com ([66.196.97.47]:30458 "HELO
+	web56603.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751571AbYFCPF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 11:05:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 02, 2008 at 04:52:49PM -0700, Stephen Hemminger wrote:
-> This patch adds a new configuration sysctl that causes link loss to clear
-> FIB state in the same way as admin down. This allows for routing daemons
-> like Quagga which have option to remove routes when carrier is lost.
-> 
-> This has been a long standing problem with Quagga on Linux with complaints
-> on the developers list going back to 2004. Fixing it properly, so the routing 
-> daemon manages the RIB, and the kernel manages the FIB, requires changes to
-> both parts.
+I have a question regarding packet sockets: what ensures the sequentiality of the timestamps? It seems at least theoretically possible that packets are posted to a packet socket with timestamps out of order. 
 
-Does this cover only the local route for the interface, or all routes
-assigned staticly to the interface too?
+Here is a snip of the dev_queue_xmit_nit() routine in net/core/dev.c 
 
-Certianly if I do ifconfig eth3 down, it removes all the routes, but
-doing ifconfig eth3 up only adds back the directly connected network
-based on the IP and netmask, but my static routes are gone which is a
-problem.
+void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+{
+    struct packet_type *ptype;
 
-I have been considering writing a user space daemon to listen on netlink
-for link up/down events to remove routes from the routing table and then
-add them back when the link is restored since I couldn't find a good way
-to make the kernel remember the static routes when the link was brought
-down.
+    net_timestamp(skb);
 
--- 
-Len Sorensen
+    rcu_read_lock();
+ .....
+
+
+The buffer is timestamped outside the lock. That makes sense from a scalability perspective, but it also means that sequentiality of timestamps is not guaranteed. Also, transmit timestamps don't seem to be completely synchronized with receive timestamps.
+
+All this being said, I've never observed a case when tcpdump displays packets out of order with respect to timestamps. I wonder if libpcap or tcpdump reorder packets with respect to timestamps? Does anyone know if that is actually the case?
+
+The reason I ask these questions is not purely theoretical - but because I'd like to try to move timestamping of tx buffers in the driver 'transmit done' interrupt. One of the network interface cards we're developing will perform hardware timestamps, and on the transmit side the timestamp will be available only at the time of the transmit done interrupt.
+
+As I move tx timestamping in the tx done interrupt, all these tiny windows to lose sequentiality in packet sockets become exacerbated. I'd like to understand, for example, if this means that I also have specifically to modify packet socket code to rearrange frames in timestamp order in the socket rx queue.
+
+Please cc me on any response, I am not subscribed to the list.
+
+
+
+      
