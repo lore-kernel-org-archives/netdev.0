@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix NULL pointer dereference and lockup.
-Date: Tue, 03 Jun 2008 14:54:17 -0700 (PDT)
-Message-ID: <20080603.145417.261803290.davem@davemloft.net>
-References: <001a01c87692$cfca8d00$453c822c@dg8ngn>
-	<20080224195101.GA2961@ami.dom.local>
-	<20080526082345.GA27219@linux-mips.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH 12/12]: wext: Emit event stream entries correctly when
+ compat.
+Date: Tue, 03 Jun 2008 17:00:49 -0500
+Message-ID: <4845BF11.7070604@lwfinger.net>
+References: <20080603.132856.202640855.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarkao2@gmail.com, jann@gmx.de,
-	thomas@osterried.de
-To: ralf@linux-mips.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52915
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752795AbYFCVyS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 17:54:18 -0400
-In-Reply-To: <20080526082345.GA27219@linux-mips.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080603.132856.202640855.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Mon, 26 May 2008 09:23:45 +0100
-
-> From: Jarek Poplawski <jarkao2@gmail.com>
+David Miller wrote:
+> Three major portions to this change:
 > 
-> There is only one function in AX25 calling skb_append(), and it really
-> looks suspicious: appends skb after previously enqueued one, but in
-> the meantime this previous skb could be removed from the queue.
+> 1) Add IW_EV_COMPAT_LCP_LEN, IW_EV_COMPAT_POINT_OFF,
+>    and IW_EV_COMPAT_POINT_LEN helper defines.
 > 
-> This patch Fixes it the simple way, so this is not fully compatible with
-> the current method, but testing hasn't shown any problems.
+> 2) Delete iw_stream_check_add_*(), they are unused.
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> 3) Add iw_request_info argument to iwe_stream_add_*(), and use it to
+>    size the event and pointer lengths correctly depending upon whether
+>    IW_REQUEST_FLAG_COMPAT is set or not.
 > 
+> 4) The mechanical transformations to the drivers and wireless stack
+>    bits to get the iw_request_info passed down into the routines
+>    modified in #3.
+> 
+> With a lot of help and bug fixes from Masakazu Mokuno.
+> 
+> Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 > ---
-> I'm told Jarek is currently not reachable, so I'm submitting this for 2.6.26
-> and -stable.
 
-Applied, and queued up for -stable, thanks everyone.
+David,
+
+What tree should be used for this patch? On wireless-testing that 
+git-describe lists as v2.6.26-rc4-8782-gd9a8bd7, hunk 5 for mlme.c fails.
+
+Larry
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
