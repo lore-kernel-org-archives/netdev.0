@@ -1,80 +1,64 @@
-From: martin f krafft <madduck@madduck.net>
-Subject: Re: non-root, non-real network manipulation for netconf testing
-Date: Tue, 3 Jun 2008 12:20:50 +0200
-Message-ID: <20080603102050.GA14461@lapse.madduck.net>
-References: <20080603080529.GA9010@lapse.madduck.net>
-	<20080603100513.GA18161@solarflare.com>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: [PATCH]  Fix routing tables with id > 255 for legacy software
+Date: Tue, 3 Jun 2008 12:37:35 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0806031220490.3438@bizon.gios.gov.pl>
+References: <20080603080812.GA4514@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6186304913721716731=="
-Cc: netdev discussion list <netdev@vger.kernel.org>,
-	netconf developers list <netconf-devel@lists.alioth.debian.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netconf-devel-bounces+glddn-netconf-devel=m.gmane.org@lists.alioth.debian.org>
-In-Reply-To: <20080603100513.GA18161@solarflare.com>
-List-Unsubscribe: <http://lists.alioth.debian.org/mailman/listinfo/netconf-devel>,
-	<mailto:netconf-devel-request@lists.alioth.debian.org?subject=unsubscribe>
-List-Archive: <http://lists.alioth.debian.org/pipermail/netconf-devel>
-List-Post: <mailto:netconf-devel@lists.alioth.debian.org>
-List-Help: <mailto:netconf-devel-request@lists.alioth.debian.org?subject=help>
-List-Subscribe: <http://lists.alioth.debian.org/mailman/listinfo/netconf-devel>,
-	<mailto:netconf-devel-request@lists.alioth.debian.org?subject=subscribe>
-Mime-version: 1.0
-Sender: netconf-devel-bounces+glddn-netconf-devel=m.gmane.org@lists.alioth.debian.org
-Errors-To: netconf-devel-bounces+glddn-netconf-devel=m.gmane.org@lists.alioth.debian.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-109685715-1212489455=:3438"
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:41846 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752455AbYFCKhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 06:37:51 -0400
+In-Reply-To: <20080603080812.GA4514@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---187430788-109685715-1212489455=:3438
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
 
---===============6186304913721716731==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="CE+1k2dSO48ffgeK"
-Content-Disposition: inline
 
+On Tue, 3 Jun 2008, Jarek Poplawski wrote:
 
---CE+1k2dSO48ffgeK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On 03-06-2008 00:09, Krzysztof Oledzki wrote:
+>> From 4cb8c341fc444afc638cf9ce4efb7e4248e88b5e Mon Sep 17 00:00:00 2001
+>> From: Krzysztof Piotr Oledzki <ole@ans.pl>
+>> Date: Tue, 3 Jun 2008 00:03:41 +0200
+>> Subject: [NET] Fix routing tables with id > 255 for legacy software
+>>
+>> Most legacy software do not like tables > 255 as rtm_table is u8
+>> so tb_id is sent &0xff and it is possible to mismatch for example
+>> table 510 with table 254 (main).
+>>
+>> This patch introduces RT_TABLE_COMPAT=3D253 so the code uses it if
+>> tb_id > 255. It makes such old applications happy, new
+>> ones are still able to use RTA_TABLE to get a proper table id.
+>>
+>
+> Probably, as usual, some people will grumble this breaks their scripts,
+> so, probably, some if or ifdef is needed?
+Why? If scripts are based on a recent version of iproute2 that uses=20
+RTA_TABLE then everything should work, especially there is no way to use=20
+tables with id > 255 with old iproute2.
 
-also sprach Ben Hutchings <bhutchings@solarflare.com> [2008.06.03.1205 +020=
-0]:
-> Have you considering running the tests in User-Mode Linux or some
-> other kind of virtualised environment?
+> BTW, I wonder, how these old appliction would treat RT_TABLE_UNSPEC=20
+> instead.
 
-Yes, but that would require root rights as well, and quite a lot of
-setup, making it pretty unlikely that passerby developers would run
-tests, or allowing me to run the tests automatically on build
-daemons.
-
---=20
-martin | http://madduck.net/ | http://two.sentenc.es/
+Such old appliction is for example zebra/quagga: it asks for all routes,=20
+does not know about RTA_TABLE so uses rtm_table and selects all entries=20
+with rtm_table =3D=3D RT_TABLE_MAIN or zebrad.rtm_table_default which is=20
+unfortunately 0 by default. So no, RT_TABLE_UNSPEC (0) does not help, even=
 =20
-"work consists of whatever a body is obliged to do.
- play consists of whatever a body is not obliged to do."
-                                                         -- mark twain
-=20
-spamtraps: madduck.bogus@madduck.net
+makes everythink worse here.
 
---CE+1k2dSO48ffgeK
-Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
-Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
-Content-Disposition: inline
+Best regards,
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFIRRsCIgvIgzMMSnURAldJAKCV/Nu+lvv1VZTomJAetzszxvgeCwCdFcL9
-HUcSGGez1Nb9FOU1H1PkZ0k=
-=OfHe
------END PGP SIGNATURE-----
-
---CE+1k2dSO48ffgeK--
-
-
---===============6186304913721716731==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============6186304913721716731==--
+ =09=09=09Krzysztof Ol=EAdzki
+---187430788-109685715-1212489455=:3438--
