@@ -1,34 +1,40 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH]  Fix routing tables with id > 255 for legacy software
-Date: Tue, 3 Jun 2008 11:47:40 +0000
-Message-ID: <20080603114740.GB4714@ff.dom.local>
-References: <20080603080812.GA4514@ff.dom.local> <Pine.LNX.4.64.0806031220490.3438@bizon.gios.gov.pl> <20080603113343.GA4714@ff.dom.local>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: [PATCH] [UDPv6] Possible dst leak in udpv6_sendmsg.
+Date: Tue, 03 Jun 2008 15:50:45 +0400
+Message-ID: <1212493845.6499.29.camel@iris.sw.ru>
+References: <1212491322-9161-1-git-send-email-den@openvz.org>
+	 <20080603.203532.39634783.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: Krzysztof Oledzki <olel@ans.pl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net
+To: YOSHIFUJI Hideaki /
+	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.191]:60440 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965AbYFCLnp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 07:43:45 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so1481280mue.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2008 04:43:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080603113343.GA4714@ff.dom.local>
+Received: from mailhub.sw.ru ([195.214.232.25]:19481 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753684AbYFCLvC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 07:51:02 -0400
+In-Reply-To: <20080603.203532.39634783.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 03, 2008 at 11:33:43AM +0000, Jarek Poplawski wrote:
-> On Tue, Jun 03, 2008 at 12:37:35PM +0200, Krzysztof Oledzki wrote:
-...
-> > Why? If scripts are based on a recent version of iproute2 that uses  
-> > RTA_TABLE then everything should work, especially there is no way to use  
-> > tables with id > 255 with old iproute2.
-> 
-> If such an old app uses rtm_table, this 253 table could be used for
+On Tue, 2008-06-03 at 20:35 +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
+=E8=8B=B1=E6=98=8E wrote:
+> In article <1212491322-9161-1-git-send-email-den@openvz.org> (at Tue,=
+  3 Jun 2008 15:08:42 +0400), "Denis V. Lunev" <den@openvz.org> says:
+>=20
+> > ip6_sk_dst_lookup returns held dst entry. It should be released on =
+all paths
+> > beyond this point. Add missed release when up->pending is set.
+>=20
+> Which kernel are you refering?
+The patch is made against current net-2.6 tree, though all kernels are
+affected, starting at least RHEL5
 
-...Of course I mean when old apps are used together with new iproute2
-and ids > 255...
+> And, would you please take a look at ipv4 side as well?
 
-Jarek P.
+ipv4 is ok, the code looks the same but there is an ip_rt_put at the
+out: label.
+
