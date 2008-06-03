@@ -1,49 +1,107 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
-	MTU change
-Date: Tue, 3 Jun 2008 23:51:55 +0200
-Message-ID: <20080603215155.GA9712@electric-eye.fr.zoreil.com>
-References: <20080531184615.350bac00@infradead.org> <20080603134019.df2f51d4.akpm@linux-foundation.org>
+From: Nathan Lynch <ntl@pobox.com>
+Subject: [PATCH 1/2] make walk_memory_resource available with MEMORY_HOTPLUG=n
+Date: Tue, 3 Jun 2008 17:30:54 -0500
+Message-ID: <20080603223054.GC7475@localdomain>
+References: <200805071443.20192.hannes.hering@linux.vnet.ibm.com>
+ <20080528164405.GA4836@localdomain>
+ <200806031007.40162.hannes.hering@linux.vnet.ibm.com>
+ <20080603204908.GB7475@localdomain> <1212527335.23656.2.camel@badari-desktop>
+ <4845B382.20205@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>, alan@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Badari Pulavarty <pbadari@us.ibm.com>,
+	Hannes Hering <hannes.hering@linux.vnet.ibm.com>,
+	tklein@de.ibm.com, themann@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, raisch@de.ibm.com,
+	ossrosch@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
+	ossthema@de.ibm.com, Jeff Garzik <jeff@garzik.org>
+To: Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35759 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753158AbYFCWTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 18:19:09 -0400
+Received: from a-sasl-fastnet.sasl.smtp.pobox.com ([207.106.133.19]:55172 "EHLO
+	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbYFCWbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 18:31:03 -0400
 Content-Disposition: inline
-In-Reply-To: <20080603134019.df2f51d4.akpm@linux-foundation.org>
+In-Reply-To: <4845B382.20205@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> :
-[...]
-> So hrm.  It could all be a lot better.  Just looking quickly at the
-> code I _think_ we might be able to do all the needed allocations
-> outside the lock and then swizzle them into place after taking the
-> lock. ie, something as simple as:
-[...]
-> 	velocity_init_rd_ring(temp_vptr);	/* Can use GFP_KERNEL! */
-> 
-> 	spin_lock_irqsave(&vptr->lock, flags);
-> 
-> 	velocity_free_td_ring(vptr);
-> 	velocity_free_rd_ring(vptr);
-> 
-> 	vptr->foo = temp_vptr->foo;
-> 	vptr->bar = temp_vptr->bar;
-> 	...
-> 
-> 	spin_unlock_irqrestore(&vptr->lock, flags);
-> 
-> ?
+The ehea driver was recently changed[1] to use walk_memory_resource() to
+detect the system's memory layout.  However, walk_memory_resource() is
+available only when memory hotplug is enabled.  So CONFIG_EHEA was
+made to depend on MEMORY_HOTPLUG [2], but it is inappropriate for a
+network driver to have such a dependency.
 
-Almost.
+Make the declaration of walk_memory_resource() and its powerpc
+implementation (ehea is powerpc-specific) unconditionally available.
 
-I'll wrap it in the next 24 hours.
+[1] 48cfb14f8b89d4d5b3df6c16f08b258686fb12ad
+    "ehea: Add DLPAR memory remove support"
 
+[2] fb7b6ca2b6b7c23b52be143bdd5f55a23b9780c8
+    "ehea: Add dependency to Kconfig"
+
+Signed-off-by: Nathan Lynch <ntl@pobox.com>
+---
+ arch/powerpc/mm/mem.c          |    3 +--
+ include/linux/memory_hotplug.h |   16 ++++++++--------
+ 2 files changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index f67e118..51f82d8 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -151,6 +151,7 @@ out:
+ 	return ret;
+ }
+ #endif /* CONFIG_MEMORY_HOTREMOVE */
++#endif /* CONFIG_MEMORY_HOTPLUG */
+ 
+ /*
+  * walk_memory_resource() needs to make sure there is no holes in a given
+@@ -184,8 +185,6 @@ walk_memory_resource(unsigned long start_pfn, unsigned long nr_pages, void *arg,
+ }
+ EXPORT_SYMBOL_GPL(walk_memory_resource);
+ 
+-#endif /* CONFIG_MEMORY_HOTPLUG */
+-
+ void show_mem(void)
+ {
+ 	unsigned long total = 0, reserved = 0;
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 73e3586..ea9f5ad 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -77,14 +77,6 @@ extern int __add_pages(struct zone *zone, unsigned long start_pfn,
+ extern int __remove_pages(struct zone *zone, unsigned long start_pfn,
+ 	unsigned long nr_pages);
+ 
+-/*
+- * Walk through all memory which is registered as resource.
+- * arg is (start_pfn, nr_pages, private_arg_pointer)
+- */
+-extern int walk_memory_resource(unsigned long start_pfn,
+-			unsigned long nr_pages, void *arg,
+-			int (*func)(unsigned long, unsigned long, void *));
+-
+ #ifdef CONFIG_NUMA
+ extern int memory_add_physaddr_to_nid(u64 start);
+ #else
+@@ -199,6 +191,14 @@ static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
+ 
+ #endif /* ! CONFIG_MEMORY_HOTPLUG */
+ 
++/*
++ * Walk through all memory which is registered as resource.
++ * arg is (start_pfn, nr_pages, private_arg_pointer)
++ */
++extern int walk_memory_resource(unsigned long start_pfn,
++			unsigned long nr_pages, void *arg,
++			int (*func)(unsigned long, unsigned long, void *));
++
+ extern int add_memory(int nid, u64 start, u64 size);
+ extern int arch_add_memory(int nid, u64 start, u64 size);
+ extern int remove_memory(u64 start, u64 size);
 -- 
-Ueimor
+1.5.5
+
