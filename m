@@ -1,44 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH]  Fix routing tables with id > 255 for legacy software
-Date: Wed, 04 Jun 2008 01:23:24 +0200
-Message-ID: <4845D26C.1030005@trash.net>
-References: <20080603080812.GA4514@ff.dom.local> <Pine.LNX.4.64.0806031220490.3438@bizon.gios.gov.pl> <20080603113343.GA4714@ff.dom.local> <48453C70.1040303@trash.net> <Pine.LNX.4.64.0806031449540.3438@bizon.gios.gov.pl> <484542B5.4070401@trash.net> <Pine.LNX.4.64.0806031617310.3438@bizon.gios.gov.pl> <48458D59.5030101@trash.net> <Pine.LNX.4.64.0806032036070.3438@bizon.gios.gov.pl> <4845A963.2050208@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug 10790] New: driver "sunhme" experiences corrupt packets
+ if machine has more than 2GB of memory (fwd)
+Date: Tue, 03 Jun 2008 16:27:32 -0700 (PDT)
+Message-ID: <20080603.162732.208550164.davem@davemloft.net>
+References: <20080525173008.GE1791@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Jarek Poplawski <jarkao2@gmail.com>,
-	netdev@vger.kernel.org
-To: Krzysztof Oledzki <olel@ans.pl>
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	jeff@garzik.org
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54416 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753918AbYFCXX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 19:23:26 -0400
-In-Reply-To: <4845A963.2050208@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46628
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753190AbYFCX1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 19:27:33 -0400
+In-Reply-To: <20080525173008.GE1791@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Krzysztof Oledzki wrote:
->>
->>> I'm neither opposed (as long as we don't add CONFIG options for
->>> this) nor in favour - people using fixed applications won't notice,
->>> and for other people it substitutes undesired behaviour by more
->>> predictable undesirable behaviour,
->>
->> Exactly,
->>
->>> which is at least no loss :)
->>
->> OK, so I assume it is a very weak ack-by? ;)
-> 
-> Its a Not-NACKed-by: Patrick McHardy <kaber@trash.net> :)
+From: Adrian Bunk <bunk@kernel.org>
+Date: Sun, 25 May 2008 20:30:08 +0300
 
+> David, can you look at this bug (email answers to this email are fine)?
 
-I'll upgrade that to a full ACK - the predictability allows
-to use the new features in combination with legacy apps and
-avoid any trouble if done carefully. There is some small risk
-of new breakage, but things probably won't work as expected
-anyway.
+I've been looking on and off at this bug and haven't forgotten it.
 
-Thanks Krzysztof.
+I've checked the obvious things like whether the PCI front-end supports
+full 32-bit addresses (all documentation states that it does) or whether
+there is some signedness issue with how the driver handles DMA
+addresses (I cannot find any such problems).
+
+I'll reply again if I make any more progress on this bug.
+
+I do have a QFE card somewhere and an x86 system with 4GB of ram
+so I might try to reproduce this problem locally in the end.
