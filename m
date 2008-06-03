@@ -1,42 +1,49 @@
-From: andrei radulescu-banu <iubica2@yahoo.com>
-Subject: Tcpdump, packet sockets and order of timestamps
-Date: Tue, 3 Jun 2008 07:59:16 -0700 (PDT)
-Message-ID: <13855.16113.qm@web56603.mail.re3.yahoo.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
+ e1000/pcnet32
+Date: Tue, 3 Jun 2008 15:46:02 +0100
+Message-ID: <20080603154602.01b10adb@core>
+References: <482DA5B6.1020606@sngx.net>
+	<482DB46A.8020103@cosmosbay.com>
+	<482EF192.4070707@sngx.net>
+	<482F5113.5090703@cosmosbay.com>
+	<482F610D.2080108@sngx.net>
+	<20080518003104.GK28241@solarflare.com>
+	<482FBA09.80201@sngx.net>
+	<483E0AAE.2020107@sngx.net>
+	<20080528221118.63da4092.akpm@linux-foundation.org>
+	<483EA2D1.8050603@sngx.net>
+	<20080529154525.3916c7b5@core>
+	<20080530151250.b44a119a.billfink@mindspring.com>
+	<20080531131143.516ca56e@core>
+	<20080531195702.0b879dd1.billfink@mindspring.com>
+	<48437C25.7080400@gdt.id.au>
+	<20080602121007.1e81cf05.billfink@mindspring.com>
+	<48453909.4000301@sngx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web56603.mail.re3.yahoo.com ([66.196.97.47]:30458 "HELO
-	web56603.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751571AbYFCPF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 11:05:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Bill Fink <billfink@mindspring.com>, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: James Cammarata <jimi@sngx.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756942AbYFCPGW@vger.kernel.org>
+In-Reply-To: <48453909.4000301@sngx.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have a question regarding packet sockets: what ensures the sequentiality of the timestamps? It seems at least theoretically possible that packets are posted to a packet socket with timestamps out of order. 
+> Also, I'd like to point out that the "stepping on other peoples toes" 
+> argument is a bogus one, since most major network vendors include this 
+> ability, and it's not exactly a concern now.
 
-Here is a snip of the dev_queue_xmit_nit() routine in net/core/dev.c 
+I used to work in a large ISP - it was a huge concern then and was
+enforced and managed by the less effective 'do you like your kneecaps'
+approach to permissions.
 
-void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
-{
-    struct packet_type *ptype;
+Its basically impossible to write a correct non-racy application which
+zeros kernel statistics and then measures the change, because you cannot
+know another application did the same while you were running.
 
-    net_timestamp(skb);
+This is the most basic and blindingly obvious stuff. You should not be
+able to zero the kernel stats just because you can't work perl.
 
-    rcu_read_lock();
- .....
-
-
-The buffer is timestamped outside the lock. That makes sense from a scalability perspective, but it also means that sequentiality of timestamps is not guaranteed. Also, transmit timestamps don't seem to be completely synchronized with receive timestamps.
-
-All this being said, I've never observed a case when tcpdump displays packets out of order with respect to timestamps. I wonder if libpcap or tcpdump reorder packets with respect to timestamps? Does anyone know if that is actually the case?
-
-The reason I ask these questions is not purely theoretical - but because I'd like to try to move timestamping of tx buffers in the driver 'transmit done' interrupt. One of the network interface cards we're developing will perform hardware timestamps, and on the transmit side the timestamp will be available only at the time of the transmit done interrupt.
-
-As I move tx timestamping in the tx done interrupt, all these tiny windows to lose sequentiality in packet sockets become exacerbated. I'd like to understand, for example, if this means that I also have specifically to modify packet socket code to rearrange frames in timestamp order in the socket rx queue.
-
-Please cc me on any response, I am not subscribed to the list.
-
-
-
-      
+Alan
