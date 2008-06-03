@@ -1,55 +1,30 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/2] IPV4: remove addresses and routes when carrier is
- lost
-Date: Tue, 3 Jun 2008 09:31:59 -0700
-Message-ID: <20080603093159.36070e73@extreme>
-References: <20080602165249.52a467dc@extreme>
-	<20080603150524.GA16165@csclub.uwaterloo.ca>
-	<20080603085707.51fdabbb@speedy>
-	<48456B62.8050909@trash.net>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: [PATCH] [UDPv6] Possible dst leak in udpv6_sendmsg.
+Date: Tue, 03 Jun 2008 20:34:08 +0400
+Message-ID: <1212510848.12028.0.camel@iris.sw.ru>
+References: <1212491322-9161-1-git-send-email-den@openvz.org>
+	 <20080603.203532.39634783.yoshfuji@linux-ipv6.org>
+	 <1212493845.6499.29.camel@iris.sw.ru>
+	 <20080604.012619.30196060.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net
+To: YOSHIFUJI Hideaki /
+	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:32870 "EHLO mail.vyatta.com"
+Received: from mailhub.sw.ru ([195.214.232.25]:37759 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751244AbYFCQcE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2008 12:32:04 -0400
-In-Reply-To: <48456B62.8050909@trash.net>
+	id S1751637AbYFCQeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 12:34:22 -0400
+In-Reply-To: <20080604.012619.30196060.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 03 Jun 2008 18:03:46 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+Acked-by: Denis V. Lunev <den@openvz.org>
 
-> Stephen Hemminger wrote:
-> > On Tue, 3 Jun 2008 11:05:24 -0400
-> > lsorense@csclub.uwaterloo.ca (Lennart Sorensen) wrote:
-> > 
-> >> On Mon, Jun 02, 2008 at 04:52:49PM -0700, Stephen Hemminger wrote:
-> >>> This patch adds a new configuration sysctl that causes link loss to clear
-> >>> FIB state in the same way as admin down. This allows for routing daemons
-> >>> like Quagga which have option to remove routes when carrier is lost.
-> >>>
-> >>> This has been a long standing problem with Quagga on Linux with complaints
-> >>> on the developers list going back to 2004. Fixing it properly, so the routing 
-> >>> daemon manages the RIB, and the kernel manages the FIB, requires changes to
-> >>> both parts.
-> >> Does this cover only the local route for the interface, or all routes
-> >> assigned staticly to the interface too?
-> > 
-> > The patch makes carrier down == interface down. So the same
-> > behaviour as doing 'ip link set dev eth3 down'
-> 
-> 
-> Can't the routing daemon simply ignore routes with a
-> device that has no carrier?
-> 
+On Wed, 2008-06-04 at 01:26 +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
+=E8=8B=B1=E6=98=8E wrote:
+> udp.c
 
-It does that, but the problem is that packets get routed in kernel
-to interfaces without carrier, rather than being correctly rerouted
-over alternate paths.
