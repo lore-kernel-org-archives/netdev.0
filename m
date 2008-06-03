@@ -1,99 +1,182 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 34/39] mv643xx_eth: detect extended rx coal register field
-Date: Tue,  3 Jun 2008 13:02:49 +0200
-Message-ID: <1212490974-23719-35-git-send-email-buytenh@wantstofly.org>
+Subject: [PATCH 30/39] mv643xx_eth: add tx rate control
+Date: Tue,  3 Jun 2008 13:02:45 +0200
+Message-ID: <1212490974-23719-31-git-send-email-buytenh@wantstofly.org>
 References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Cc: netdev@vger.kernel.org
 To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:48750 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:48754 "EHLO
 	delta.wantstofly.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753649AbYFCMAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:31 -0400
+	with ESMTP id S1754404AbYFCMA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:00:29 -0400
 In-Reply-To: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Newer hardware has a 16-bit instead of a 14-bit RX coalescing
-count field in the SDMA_CONFIG register.  This patch adds a run-time
-check for which of the two we have, and adjusts further writes to the
-rx coal count field accordingly.
+Add an interface for the hardware's per-port and per-subqueue
+TX rate control.  In this stage, this is mainly so that we can
+disable the bandwidth limits during initialisation of the port.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |   38 +++++++++++++++++++++++++++++++-------
- 1 files changed, 31 insertions(+), 7 deletions(-)
+ drivers/net/mv643xx_eth.c |  104 ++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 103 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 8e4ca2b..4168a8a 100644
+index ff31cd8..24426fc 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -240,6 +240,7 @@ struct mv643xx_eth_shared_private {
- 	 * Hardware-specific parameters.
- 	 */
- 	unsigned int t_clk;
-+	int extended_rx_coal_limit;
- };
- 
- 
-@@ -1796,14 +1797,22 @@ static void port_start(struct mv643xx_eth_private *mep)
- static void set_rx_coal(struct mv643xx_eth_private *mep, unsigned int delay)
- {
- 	unsigned int coal = ((mep->shared->t_clk / 1000000) * delay) / 64;
-+	u32 val;
- 
--	if (coal > 0x3fff)
--		coal = 0x3fff;
--
--	wrl(mep, SDMA_CONFIG(mep->port_num),
--		((coal & 0x3fff) << 8) |
--		(rdl(mep, SDMA_CONFIG(mep->port_num))
--			& 0xffc000ff));
-+	val = rdl(mep, SDMA_CONFIG(mep->port_num));
-+	if (mep->shared->extended_rx_coal_limit) {
-+		if (coal > 0xffff)
-+			coal = 0xffff;
-+		val &= ~0x023fff80;
-+		val |= (coal & 0x8000) << 10;
-+		val |= (coal & 0x7fff) << 7;
-+	} else {
-+		if (coal > 0x3fff)
-+			coal = 0x3fff;
-+		val &= ~0x003fff00;
-+		val |= (coal & 0x3fff) << 8;
-+	}
-+	wrl(mep, SDMA_CONFIG(mep->port_num), val);
+@@ -82,7 +82,10 @@ static char mv643xx_eth_driver_version[] = "1.0";
+ #define PORT_STATUS(p)			(0x0444 + ((p) << 10))
+ #define  TX_FIFO_EMPTY			0x00000400
+ #define TXQ_COMMAND(p)			(0x0448 + ((p) << 10))
++#define TXQ_FIX_PRIO_CONF(p)		(0x044c + ((p) << 10))
++#define TX_BW_RATE(p)			(0x0450 + ((p) << 10))
+ #define TX_BW_MTU(p)			(0x0458 + ((p) << 10))
++#define TX_BW_BURST(p)			(0x045c + ((p) << 10))
+ #define INT_CAUSE(p)			(0x0460 + ((p) << 10))
+ #define  INT_RX				0x00000804
+ #define  INT_EXT			0x00000002
+@@ -98,6 +101,9 @@ static char mv643xx_eth_driver_version[] = "1.0";
+ #define RXQ_CURRENT_DESC_PTR(p)		(0x060c + ((p) << 10))
+ #define RXQ_COMMAND(p)			(0x0680 + ((p) << 10))
+ #define TXQ_CURRENT_DESC_PTR(p)		(0x06c0 + ((p) << 10))
++#define TXQ_BW_TOKENS(p)		(0x0700 + ((p) << 10))
++#define TXQ_BW_CONF(p)			(0x0704 + ((p) << 10))
++#define TXQ_BW_WRR_CONF(p)		(0x0708 + ((p) << 10))
+ #define MIB_COUNTERS(p)			(0x1000 + ((p) << 7))
+ #define SPECIAL_MCAST_TABLE(p)		(0x1400 + ((p) << 10))
+ #define OTHER_MCAST_TABLE(p)		(0x1500 + ((p) << 10))
+@@ -757,6 +763,95 @@ static int mv643xx_eth_xmit(struct sk_buff *skb, struct net_device *dev)
  }
  
- static void set_tx_coal(struct mv643xx_eth_private *mep, unsigned int delay)
-@@ -2068,6 +2077,20 @@ mv643xx_eth_conf_mbus_windows(struct mv643xx_eth_shared_private *mesp,
- 	mesp->win_protect = win_protect;
- }
  
-+static void infer_hw_params(struct mv643xx_eth_shared_private *mesp)
++/* tx rate control **********************************************************/
++/*
++ * Set total maximum TX rate (shared by all TX queues for this port)
++ * to 'rate' bits per second, with a maximum burst of 'burst' bytes.
++ */
++static void tx_set_rate(struct mv643xx_eth_private *mep, int rate, int burst)
 +{
-+	/*
-+	 * Check whether we have a 14-bit coal limit field in bits
-+	 * [21:8], or a 16-bit coal limit in bits [25,21:7] of the
-+	 * SDMA config register.
-+	 */
-+	writel(0x02000000, mesp->base + SDMA_CONFIG(0));
-+	if (readl(mesp->base + SDMA_CONFIG(0)) & 0x02000000)
-+		mesp->extended_rx_coal_limit = 1;
-+	else
-+		mesp->extended_rx_coal_limit = 0;
++	int token_rate;
++	int mtu;
++	int bucket_size;
++
++	token_rate = ((rate / 1000) * 64) / (mep->shared->t_clk / 1000);
++	if (token_rate > 1023)
++		token_rate = 1023;
++
++	mtu = (mep->dev->mtu + 255) >> 8;
++	if (mtu > 63)
++		mtu = 63;
++
++	bucket_size = (burst + 255) >> 8;
++	if (bucket_size > 65535)
++		bucket_size = 65535;
++
++	wrl(mep, TX_BW_RATE(mep->port_num), token_rate);
++	wrl(mep, TX_BW_MTU(mep->port_num), mtu);
++	wrl(mep, TX_BW_BURST(mep->port_num), bucket_size);
 +}
 +
- static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- {
- 	static int mv643xx_eth_version_printed = 0;
-@@ -2106,6 +2129,7 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 	 * Detect hardware parameters.
++static void txq_set_rate(struct tx_queue *txq, int rate, int burst)
++{
++	struct mv643xx_eth_private *mep = txq_to_mep(txq);
++	int token_rate;
++	int bucket_size;
++
++	token_rate = ((rate / 1000) * 64) / (mep->shared->t_clk / 1000);
++	if (token_rate > 1023)
++		token_rate = 1023;
++
++	bucket_size = (burst + 255) >> 8;
++	if (bucket_size > 65535)
++		bucket_size = 65535;
++
++	wrl(mep, TXQ_BW_TOKENS(mep->port_num), token_rate << 14);
++	wrl(mep, TXQ_BW_CONF(mep->port_num),
++			(bucket_size << 10) | token_rate);
++}
++
++static void txq_set_fixed_prio_mode(struct tx_queue *txq)
++{
++	struct mv643xx_eth_private *mep = txq_to_mep(txq);
++	int off;
++	u32 val;
++
++	/*
++	 * Turn on fixed priority mode.
++	 */
++	off = TXQ_FIX_PRIO_CONF(mep->port_num);
++
++	val = rdl(mep, off);
++	val |= 1;
++	wrl(mep, off, val);
++}
++
++static void txq_set_wrr(struct tx_queue *txq, int weight)
++{
++	struct mv643xx_eth_private *mep = txq_to_mep(txq);
++	int off;
++	u32 val;
++
++	/*
++	 * Turn off fixed priority mode.
++	 */
++	off = TXQ_FIX_PRIO_CONF(mep->port_num);
++
++	val = rdl(mep, off);
++	val &= ~1;
++	wrl(mep, off, val);
++
++	/*
++	 * Configure WRR weight for this queue.
++	 */
++	off = TXQ_BW_WRR_CONF(mep->port_num);
++
++	val = rdl(mep, off);
++	val = (val & ~0xff) | (weight & 0xff);
++	wrl(mep, off, val);
++}
++
++
+ /* mii management interface *************************************************/
+ #define SMI_BUSY		0x10000000
+ #define SMI_READ_VALID		0x08000000
+@@ -1562,7 +1657,7 @@ static void port_start(struct mv643xx_eth_private *mep)
+ 	/*
+ 	 * Configure TX path and queues.
  	 */
- 	mesp->t_clk = (pd != NULL && pd->t_clk != 0) ? pd->t_clk : 133000000;
-+	infer_hw_params(mesp);
+-	wrl(mep, TX_BW_MTU(mep->port_num), 0);
++	tx_set_rate(mep, 1000000000, 16777216);
+ 	for (i = 0; i < 1; i++) {
+ 		struct tx_queue *txq = mep->txq;
+ 		int off = TXQ_CURRENT_DESC_PTR(mep->port_num);
+@@ -1571,6 +1666,9 @@ static void port_start(struct mv643xx_eth_private *mep)
+ 		addr = (u32)txq->tx_desc_dma;
+ 		addr += txq->tx_curr_desc * sizeof(struct tx_desc);
+ 		wrl(mep, off, addr);
++
++		txq_set_rate(txq, 1000000000, 16777216);
++		txq_set_fixed_prio_mode(txq);
+ 	}
  
- 	platform_set_drvdata(pdev, mesp);
+ 	/*
+@@ -1730,10 +1828,14 @@ static int mv643xx_eth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 
+ static int mv643xx_eth_change_mtu(struct net_device *dev, int new_mtu)
+ {
++	struct mv643xx_eth_private *mep = netdev_priv(dev);
++
+ 	if (new_mtu < 64 || new_mtu > 9500)
+ 		return -EINVAL;
+ 
+ 	dev->mtu = new_mtu;
++	tx_set_rate(mep, 1000000000, 16777216);
++
+ 	if (!netif_running(dev))
+ 		return 0;
  
 -- 
 1.5.3.4
