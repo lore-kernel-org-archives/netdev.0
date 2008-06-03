@@ -1,89 +1,120 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH] forcedeth: msi interrupts
-Date: Tue, 03 Jun 2008 16:51:46 -0400
-Message-ID: <4845AEE2.1090905@nvidia.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+	v2.6.26-rc3+
+Date: Tue, 03 Jun 2008 16:54:01 -0700
+Message-ID: <1212537241.6980.12.camel@localhost>
+References: <20080603094057.GA29480@elte.hu>
+	 <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
+	 <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
+	 <20080603.150344.145518113.davem@davemloft.net>
+	 <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040806060109050803050803"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, mingo@elte.hu,
+	mcmanus@ducksong.com, peterz@infradead.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
+	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:9022 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbYFCX4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 19:56:39 -0400
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:2085 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752807AbYFCX5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 19:57:14 -0400
+In-Reply-To: <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040806060109050803050803
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, 2008-06-04 at 02:22 +0300, Ilpo J=C3=A4rvinen wrote:
+> But here's somewhat more likely explanation... Only compile tested...
+> It probably needs some commenting from people who understand locking=20
+> variants & details (I don't).
+> Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index c9454f0..d21d2b9 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -4562,6 +4562,7 @@ static int tcp_defer_accept_check(struct sock *=
+sk)
+>  	struct tcp_sock *tp =3D tcp_sk(sk);
+> =20
+>  	if (tp->defer_tcp_accept.request) {
+> +		struct sock *listen_sk =3D tp->defer_tcp_accept.listen_sk;
 
-This patch adds a workaround for lost MSI interrupts. There is a race 
-condition in the HW in which future interrupts could be missed. The 
-workaround is to toggle the MSI irq mask.
+Not commenting on the locking, but I think the code
+would be clearer if tp->defer_tcp_accept was used in
+a temporary instead.
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+Perhaps:
 
+ net/ipv4/tcp_input.c |   33 ++++++++++++++++-----------------
+ 1 files changed, 16 insertions(+), 17 deletions(-)
 
---------------040806060109050803050803
-Content-Type: text/plain;
- name="patch-forcedeth-msi-irq"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-msi-irq"
-
---- old/drivers/net/forcedeth.c	2008-06-03 16:16:26.000000000 -0400
-+++ new/drivers/net/forcedeth.c	2008-06-03 16:31:44.000000000 -0400
-@@ -3277,6 +3277,20 @@
- 	dprintk(KERN_DEBUG "%s: link change notification done.\n", dev->name);
- }
- 
-+static inline void nv_msi_workaround(struct net_device *dev)
-+{
-+	struct fe_priv *np = netdev_priv(dev);
-+	u8 __iomem *base = get_hwbase(dev);
-+
-+	/* Need to toggle the msi irq mask within the ethernet device,
-+	 * otherwise, future interrupts will not be detected.
-+	 */
-+	if (np->msi_flags & NV_MSI_ENABLED) {
-+		writel(0, base + NvRegMSIIrqMask);
-+		writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
-+	}
-+}
-+
- static irqreturn_t nv_nic_irq(int foo, void *data)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index b54d9d3..f846e11 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4535,18 +4535,18 @@ static void tcp_urg(struct sock *sk, struct sk_=
+buff *skb, struct tcphdr *th)
+ static int tcp_defer_accept_check(struct sock *sk)
  {
- 	struct net_device *dev = (struct net_device *) data;
-@@ -3299,6 +3313,8 @@
- 		if (!(events & np->irqmask))
- 			break;
- 
-+		nv_msi_workaround(dev);
-+
- 		spin_lock(&np->lock);
- 		nv_tx_done(dev);
- 		spin_unlock(&np->lock);
-@@ -3414,6 +3430,8 @@
- 		if (!(events & np->irqmask))
- 			break;
- 
-+		nv_msi_workaround(dev);
-+
- 		spin_lock(&np->lock);
- 		nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
- 		spin_unlock(&np->lock);
-@@ -3754,6 +3772,8 @@
- 	if (!(events & NVREG_IRQ_TIMER))
- 		return IRQ_RETVAL(0);
- 
-+	nv_msi_workaround(dev);
-+
- 	spin_lock(&np->lock);
- 	np->intr_test = 1;
- 	spin_unlock(&np->lock);
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+-
+-	if (tp->defer_tcp_accept.request) {
+-		int queued_data =3D  tp->rcv_nxt - tp->copied_seq;
+-		int hasfin =3D  !skb_queue_empty(&sk->sk_receive_queue) ?
++	struct tcp_deferred_accept_info *tdai =3D &tp->defer_tcp_accept;
++	if (tdai->request) {
++		int queued_data =3D tp->rcv_nxt - tp->copied_seq;
++		int hasfin =3D !skb_queue_empty(&sk->sk_receive_queue) ?
+ 			tcp_hdr((struct sk_buff *)
+ 				sk->sk_receive_queue.prev)->fin : 0;
+=20
+ 		if (queued_data && hasfin)
+ 			queued_data--;
+=20
+-		if (queued_data &&
+-		    tp->defer_tcp_accept.listen_sk->sk_state =3D=3D TCP_LISTEN) {
++		bh_lock_sock(tdai->listen_sk);
++		if (queued_data && tdai->listen_sk->sk_state =3D=3D TCP_LISTEN) {
+ 			if (sock_flag(sk, SOCK_KEEPOPEN)) {
+ 				inet_csk_reset_keepalive_timer(sk,
+ 							       keepalive_time_when(tp));
+@@ -4554,23 +4554,22 @@ static int tcp_defer_accept_check(struct sock *=
+sk)
+ 				inet_csk_delete_keepalive_timer(sk);
+ 			}
+=20
+-			inet_csk_reqsk_queue_add(
+-				tp->defer_tcp_accept.listen_sk,
+-				tp->defer_tcp_accept.request,
+-				sk);
++			inet_csk_reqsk_queue_add(tdai->listen_sk,
++						 tdai->request,
++						 sk);
+=20
+-			tp->defer_tcp_accept.listen_sk->sk_data_ready(
+-				tp->defer_tcp_accept.listen_sk, 0);
++			tdai->listen_sk->sk_data_ready(tdai->listen_sk, 0);
+=20
+-			sock_put(tp->defer_tcp_accept.listen_sk);
++			sock_put(tdai->listen_sk);
+ 			sock_put(sk);
+-			tp->defer_tcp_accept.listen_sk =3D NULL;
+-			tp->defer_tcp_accept.request =3D NULL;
+-		} else if (hasfin ||
+-			   tp->defer_tcp_accept.listen_sk->sk_state !=3D TCP_LISTEN) {
++			tdai->listen_sk =3D NULL;
++			tdai->request =3D NULL;
++		} else if (hasfin || tdai->listen_sk->sk_state !=3D TCP_LISTEN) {
++			bh_unlock_sock(tdai->listen_sk);
+ 			tcp_reset(sk);
+ 			return -1;
+ 		}
++		bh_unlock_sock(tdai->listen_sk);
+ 	}
+ 	return 0;
+ }
 
---------------040806060109050803050803--
+
