@@ -1,46 +1,50 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs
-	interface implementation for the driver
-Date: Tue, 3 Jun 2008 11:30:39 -0700
-Message-ID: <20080603183039.GA30454@kroah.com>
-References: <20080529095126.9943.84692.stgit@localhost.localdomain> <20080529095754.9943.27936.stgit@localhost.localdomain> <20080529103003.010c4a08@extreme> <20080529174805.GA10903@kroah.com> <c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] IPV6: remove addresses and routes when carrier is
+ lost
+Date: Tue, 3 Jun 2008 11:34:11 -0700
+Message-ID: <20080603113411.0af753d8@extreme>
+References: <20080604.022836.31952523.yoshfuji@linux-ipv6.org>
+	<20080603.103059.193720094.davem@davemloft.net>
+	<20080603104640.21026cdb@extreme>
+	<20080603.105308.196677970.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	rdreier@cisco.com, general@lists.openfabrics.org,
-	poornima.kamath@qlogic.com
-To: Amar Mudrankit <amar.mudrankit@qlogic.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:48717 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753209AbYFCScV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 14:32:21 -0400
-Content-Disposition: inline
-In-Reply-To: <c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>
+Received: from mail.vyatta.com ([216.93.170.194]:39005 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754570AbYFCSeR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 14:34:17 -0400
+In-Reply-To: <20080603.105308.196677970.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 03, 2008 at 11:55:00PM +0530, Amar Mudrankit wrote:
-> Documentation/filesystems/configfs/configfs.txt <<snip>>
+On Tue, 03 Jun 2008 10:53:08 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Tue, 3 Jun 2008 10:46:40 -0700
 > 
->                   [Using configfs]
+> > It is not what desktop users want, that is why it is a dynamic configuration
+> > option via /proc/sys/net/ipv6/conf/ethX/link_detect.
+> > 
+> > But it is what a router wants. So why not allow it? Obviously, Vyatta
+> > users expect systems behave same as Cisco.
+> > 
+> > The problem with doing it all in user space are not impossible just more difficult:
+> >   * links bouncing lead to synchronization problems
+> >   * existing Quagga code avoids messing with "system routes" 
+> >   * Quagga has to be portable to Solaris/BSD etc..
+> > 
+> > More at:
+> > http://osdir.com/ml/network.quagga.devel/2004-08/msg00009.html
 > 
->                   Like sysfs, attributes should be ASCII text files, preferably
->                   with only one value per file.  The same efficiency caveats from sysfs
->                   apply.  Don't mix more than one attribute in one attribute file.
+> If it's a route behavioral attribute, make it as such and add
+> a new rtnetlink route attribute.  If it's not there, existing
+> behavior is maintained.
 > 
-> It looks like configfs also does not allow multiple attributes per file.
 
-But you have attribute/value pairs, right?  Just create multiple
-attribute files then in configfs for them.
-
-> So, in that case, shall we modify our sysfs code to support one value per
-> sysfs file? With this approach, the impact on user space applications that
-> we have which depend on the qlgc_vnic driver sysfs interface will be less.
-
-If you want to, but as this looks like it is used for configuration, I
-suggest using configfs instead.
-
-thanks,
-
-greg k-h
+How would this work for system generated routes which occur
+when address is added to interface?
