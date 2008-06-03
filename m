@@ -1,36 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: non-root, non-real network manipulation for netconf testing
-Date: Tue, 3 Jun 2008 11:47:10 +0100
-Message-ID: <20080603104709.GB18161@solarflare.com>
-References: <20080603080529.GA9010@lapse.madduck.net> <20080603100513.GA18161@solarflare.com> <20080603102050.GA14461@lapse.madduck.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev discussion list <netdev@vger.kernel.org>,
-	netconf developers list <netconf-devel@lists.alioth.debian.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] [UDPv6] Possible dst leak in udpv6_sendmsg.
+Date: Tue,  3 Jun 2008 15:08:42 +0400
+Message-ID: <1212491322-9161-1-git-send-email-den@openvz.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
+	"Denis V. Lunev" <den@openvz.org>
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:42964 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752696AbYFCKrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 06:47:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20080603102050.GA14461@lapse.madduck.net>
+Received: from mailhub.sw.ru ([195.214.232.25]:10809 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750818AbYFCLJA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 07:09:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-martin f krafft wrote:
-> also sprach Ben Hutchings <bhutchings@solarflare.com> [2008.06.03.1205 +0200]:
-> > Have you considering running the tests in User-Mode Linux or some
-> > other kind of virtualised environment?
-> 
-> Yes, but that would require root rights as well, and quite a lot of
-> setup, making it pretty unlikely that passerby developers would run
-> tests, or allowing me to run the tests automatically on build
-> daemons.
+ip6_sk_dst_lookup returns held dst entry. It should be released on all paths
+beyond this point. Add missed release when up->pending is set.
 
-I don't believe that's the case for UML.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv6/udp.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Ben.
-
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 1fd784f..3235528 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -813,6 +813,7 @@ back_from_confirm:
+ 		/* The socket is already corked while preparing it. */
+ 		/* ... which is an evident application bug. --ANK */
+ 		release_sock(sk);
++		dst_release(dst);
+ 
+ 		LIMIT_NETDEBUG(KERN_DEBUG "udp cork app bug 2\n");
+ 		err = -EINVAL;
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+1.5.3.rc5
+
