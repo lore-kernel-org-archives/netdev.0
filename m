@@ -1,53 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/12]: wext: Remove inline from get_priv_size() and
- adjust_priv_size().
-Date: Tue, 03 Jun 2008 13:28:03 -0700 (PDT)
-Message-ID: <20080603.132803.99403702.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [PATCH 8/12]: wext: Pull top-level ioctl dispatch logic into
+ helper function.
+Date: Tue, 03 Jun 2008 12:20:17 -0700 (PDT)
+Message-ID: <20080603.122017.152652193.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, mokuno@sm.sony.co.jp,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47081
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753030AbYFCUgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 16:36:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-The compiler inlines when appropriate.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- net/wireless/wext.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ net/wireless/wext.c |   26 ++++++++++++++++++++------
+ 1 files changed, 20 insertions(+), 6 deletions(-)
 
 diff --git a/net/wireless/wext.c b/net/wireless/wext.c
-index 947188a..e83d74a 100644
+index b72cdd2..91cf548 100644
 --- a/net/wireless/wext.c
 +++ b/net/wireless/wext.c
-@@ -500,7 +500,7 @@ static int call_commit_handler(struct net_device *dev)
- /*
-  * Calculate size of private arguments
-  */
--static inline int get_priv_size(__u16	args)
-+static int get_priv_size(__u16 args)
+@@ -1079,8 +1079,10 @@ static int wext_permission_check(unsigned int cmd)
+ }
+ 
+ /* entry point from dev ioctl */
+-int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
+-		      void __user *arg)
++static int wext_ioctl_dispatch(struct net *net, struct ifreq *ifr,
++			       unsigned int cmd,
++			       wext_ioctl_func standard,
++			       wext_ioctl_func private)
  {
- 	int	num = args & IW_PRIV_SIZE_MASK;
- 	int	type = (args & IW_PRIV_TYPE_MASK) >> 12;
-@@ -512,8 +512,7 @@ static inline int get_priv_size(__u16	args)
- /*
-  * Re-calculate the size of private arguments
-  */
--static inline int adjust_priv_size(__u16		args,
--				   union iwreq_data *	wrqu)
-+static int adjust_priv_size(__u16 args, union iwreq_data *wrqu)
- {
- 	int	num = wrqu->data.length;
- 	int	max = args & IW_PRIV_SIZE_MASK;
+ 	int ret = wext_permission_check(cmd);
+ 
+@@ -1089,12 +1091,24 @@ int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
+ 
+ 	dev_load(net, ifr->ifr_name);
+ 	rtnl_lock();
+-	ret = wireless_process_ioctl(net, ifr, cmd,
+-				     ioctl_standard_call,
+-				     ioctl_private_call);
++	ret = wireless_process_ioctl(net, ifr, cmd, standard, private);
+ 	rtnl_unlock();
+-	if (IW_IS_GET(cmd) && copy_to_user(arg, ifr, sizeof(struct iwreq)))
++
++	return ret;
++}
++
++int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
++		      void __user *arg)
++{
++	int ret = wext_ioctl_dispatch(net, ifr, cmd,
++				      ioctl_standard_call,
++				      ioctl_private_call);
++
++	if (ret >= 0 &&
++	    IW_IS_GET(cmd) &&
++	    copy_to_user(arg, ifr, sizeof(struct iwreq)))
+ 		return -EFAULT;
++
+ 	return ret;
+ }
+ 
 -- 
 1.5.5.1.308.g1fbb5
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
