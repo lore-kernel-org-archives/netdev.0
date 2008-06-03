@@ -1,49 +1,34 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool -
- e1000/pcnet32
-Date: Tue, 3 Jun 2008 15:46:02 +0100
-Message-ID: <20080603154602.01b10adb@core>
-References: <482DA5B6.1020606@sngx.net>
-	<482DB46A.8020103@cosmosbay.com>
-	<482EF192.4070707@sngx.net>
-	<482F5113.5090703@cosmosbay.com>
-	<482F610D.2080108@sngx.net>
-	<20080518003104.GK28241@solarflare.com>
-	<482FBA09.80201@sngx.net>
-	<483E0AAE.2020107@sngx.net>
-	<20080528221118.63da4092.akpm@linux-foundation.org>
-	<483EA2D1.8050603@sngx.net>
-	<20080529154525.3916c7b5@core>
-	<20080530151250.b44a119a.billfink@mindspring.com>
-	<20080531131143.516ca56e@core>
-	<20080531195702.0b879dd1.billfink@mindspring.com>
-	<48437C25.7080400@gdt.id.au>
-	<20080602121007.1e81cf05.billfink@mindspring.com>
-	<48453909.4000301@sngx.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface
+	implementation for the driver
+Date: Tue, 03 Jun 2008 08:10:05 -0700
+Message-ID: <ada8wxm4ks2.fsf@cisco.com>
+References: <20080529095126.9943.84692.stgit@localhost.localdomain>
+	<20080529095754.9943.27936.stgit@localhost.localdomain>
+	<20080529103003.010c4a08@extreme> <20080529174805.GA10903@kroah.com>
+	<ada7id7685e.fsf@cisco.com>
+	<71d336490806030524r6aa6fed6rdb166efb11385969@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: James Cammarata <jimi@sngx.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756942AbYFCPGW@vger.kernel.org>
-In-Reply-To: <48453909.4000301@sngx.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: amar.mudrankit@qlogic.com, Greg KH <greg@kroah.com>,
+	general@lists.openfabrics.org, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>, poornima.kamath@qlogic.com
+To: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <71d336490806030524r6aa6fed6rdb166efb11385969@mail.gmail.com>
+	(Ramachandra K.'s message of "Tue, 3 Jun 2008 17:54:19 +0530")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-> Also, I'd like to point out that the "stepping on other peoples toes" 
-> argument is a bogus one, since most major network vendors include this 
-> ability, and it's not exactly a concern now.
+ > OK. We will investigate moving the qlgc_vnic driver to configfs. What is the
+ > deadline by which we need to be ready for a merge to 2.6.27 ?
 
-I used to work in a large ISP - it was a huge concern then and was
-enforced and managed by the less effective 'do you like your kneecaps'
-approach to permissions.
-
-Its basically impossible to write a correct non-racy application which
-zeros kernel statistics and then measures the change, because you cannot
-know another application did the same while you were running.
-
-This is the most basic and blindingly obvious stuff. You should not be
-able to zero the kernel stats just because you can't work perl.
-
-Alan
+By the release of 2.6.26.
