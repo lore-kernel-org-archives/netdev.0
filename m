@@ -1,40 +1,63 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: Re: net-2.6 being rebased...
-Date: Tue, 3 Jun 2008 15:09:39 -0700
-Message-ID: <396556a20806031509y3d2bb981rdb1f50ad60fc83c6@mail.gmail.com>
-References: <20080603.142407.08652094.davem@davemloft.net>
-	 <20080603.142840.134267001.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+ v2.6.26-rc3+
+Date: Wed, 4 Jun 2008 01:10:03 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0806040104340.3474@wrl-59.cs.helsinki.fi>
+References: <20080603094057.GA29480@elte.hu> <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
+ <20080603.150344.145518113.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, linville@tuxdriver.com
-To: "David Miller" <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1731635768-1212531003=:3474"
+Cc: mingo@elte.hu, peterz@infradead.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
+	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru,
+	mcmanus@ducksong.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:63966 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753310AbYFCWJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 18:09:40 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so1794476rvb.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2008 15:09:40 -0700 (PDT)
-In-Reply-To: <20080603.142840.134267001.davem@davemloft.net>
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:52811 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751909AbYFCWKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 18:10:05 -0400
+In-Reply-To: <20080603.150344.145518113.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 3, 2008 at 2:28 PM, David Miller <davem@davemloft.net> wrote:
-> The rebase of net-2.6 is complete, thanks for your understanding.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I should apologise for this. I don't know the TCP stack well enough
-(obviously); I just sought to highlight a bug that I saw when I was
-hacking around for one of my own pet projects.
+---696208474-1731635768-1212531003=:3474
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-I'll send a v2 patch in a second which should contain all the first,
-plus fixes at all the other places I can find that the contents of the
-header are calculated. (I've tested it between a couple of KVM
-instances, which is all the testing ability I have at the moment). You
-may well want to drop it and wait until someone competent comes along
-to fix it.
+On Tue, 3 Jun 2008, David Miller wrote:
 
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Wed, 4 Jun 2008 01:01:25 +0300 (EEST)
+> 
+> > On Wed, 4 Jun 2008, Ilpo Järvinen wrote:
+> > 
+> > > ...I couldn't immediately find anything obviously wrong with those changes 
+> > > but the patch below might be worth of a try (without the revert of 
+> > > course). If it ever spits out that WARN_ON for you, we were playing with 
+> > > fire too much and it's better to return on the safe side there...
+> > 
+> > 
+> > > [PATCH] tcp DEFER_ACCEPT: see if header prediction got turned on
+> > > 
+> > > If header prediction is turned on under some circumstances,
+> > > DA can deadlock though I have great trouble in figuring out
+> > 
+> > ...Nah, keepalive timer would then eventually kill it then, so no
+> > deadlock seems possible through that one.
+> 
+> Keepalive is very long, it might still "seem" like a deadlock for
+> someone without much patience :-)
+
+Sure, but I think Ingo kept it once hang for hours, ~8h or so...
+...Though I'm not sure if that qualifies as a proof of Ingo's patience 
+but rather shows his willingness to help solving the matter... ;-)
 
 -- 
-Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
+ i.
+---696208474-1731635768-1212531003=:3474--
