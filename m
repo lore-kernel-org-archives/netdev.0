@@ -1,45 +1,38 @@
-From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface implementation for the driver
-Date: Tue, 3 Jun 2008 17:54:19 +0530
-Message-ID: <71d336490806030524r6aa6fed6rdb166efb11385969@mail.gmail.com>
-References: <20080529095126.9943.84692.stgit@localhost.localdomain>
-	 <20080529095754.9943.27936.stgit@localhost.localdomain>
-	 <20080529103003.010c4a08@extreme> <20080529174805.GA10903@kroah.com>
-	 <ada7id7685e.fsf@cisco.com>
+From: James Cammarata <jimi@sngx.net>
+Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
+Date: Tue, 03 Jun 2008 07:28:57 -0500
+Message-ID: <48453909.4000301@sngx.net>
+References: <482DA5B6.1020606@sngx.net>	<482DB46A.8020103@cosmosbay.com>	<482EF192.4070707@sngx.net>	<482F5113.5090703@cosmosbay.com>	<482F610D.2080108@sngx.net>	<20080518003104.GK28241@solarflare.com>	<482FBA09.80201@sngx.net>	<483E0AAE.2020107@sngx.net>	<20080528221118.63da4092.akpm@linux-foundation.org>	<483EA2D1.8050603@sngx.net>	<20080529154525.3916c7b5@core>	<20080530151250.b44a119a.billfink@mindspring.com>	<20080531131143.516ca56e@core>	<20080531195702.0b879dd1.billfink@mindspring.com>	<48437C25.7080400@gdt.id.au> <20080602121007.1e81cf05.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Greg KH" <greg@kroah.com>, amar.mudrankit@qlogic.com,
-	netdev@vger.kernel.org, general@lists.openfabrics.org,
-	"Stephen Hemminger" <shemminger@vyatta.com>,
-	poornima.kamath@qlogic.com
-To: "Roland Dreier" <rdreier@cisco.com>
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.30]:12844 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752107AbYFCMYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:24:20 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so783671ywe.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2008 05:24:19 -0700 (PDT)
-In-Reply-To: <ada7id7685e.fsf@cisco.com>
-Content-Disposition: inline
+Received: from dsl093-193-175.stl1.dsl.speakeasy.net ([66.93.193.175]:59575
+	"EHLO hades.sngx.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752342AbYFCM1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 08:27:03 -0400
+In-Reply-To: <20080602121007.1e81cf05.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland,
+> First of all, when assisting a user, they typically aren't even
+> running an snmp daemon (and there might be firewall issues to
+> access it if they are).  And I don't think the "ethtool -S" driver
+> stats are even accessible via SNMP (although they may contribute
+> to more generic interface stats which are), and it is the specific
+> driver stats which are often key to help diagnosing the problem.
 
-On Sun, Jun 1, 2008 at 11:16 AM, Roland Dreier <rdreier@cisco.com> wrote:
->  > And yes, multiple values per sysfs file are not allowed, sorry, please
->  > change this.  If you need to configure your device through an interface
->  > like this, consider using configfs instead, that is what it is there
->  > for.
->
-> Makes sense... I know that the SRP initiator uses the method of multiple
-> 'token=<value>' entries passed into sysfs, but the excuse is that SRP
-> was merged before configfs.
+Ok, just to jump back in and add my $0.02, I plan to send a patch to 
+the ethtool project to do what was suggested (snapshot to /var, and 
+diff stats against that for future reference).  I would just like to 
+point out that this will introduce inconsistencies between _every_ 
+other source of interface stats (ifconfig/procfs/etc).  I can deal 
+with that, it just means one more thing to keep track of when you're 
+troubleshooting.
 
-OK. We will investigate moving the qlgc_vnic driver to configfs. What is the
-deadline by which we need to be ready for a merge to 2.6.27 ?
-
-Regards,
-Ram
+Also, I'd like to point out that the "stepping on other peoples toes" 
+argument is a bogus one, since most major network vendors include this 
+ability, and it's not exactly a concern now.
