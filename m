@@ -1,32 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/3] [2.6.26] ehea: Add dependency to Kconfig
-Date: Tue, 03 Jun 2008 17:11:30 -0400
-Message-ID: <4845B382.20205@garzik.org>
-References: <200805071443.20192.hannes.hering@linux.vnet.ibm.com>	 <20080528164405.GA4836@localdomain>	 <200806031007.40162.hannes.hering@linux.vnet.ibm.com>	 <20080603204908.GB7475@localdomain> <1212527335.23656.2.camel@badari-desktop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-06-03
+Date: Tue, 03 Jun 2008 14:16:52 -0700 (PDT)
+Message-ID: <20080603.141652.245225529.davem@davemloft.net>
+References: <20080603190943.GB28966@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Nathan Lynch <ntl@pobox.com>,
-	Hannes Hering <hannes.hering@linux.vnet.ibm.com>,
-	tklein@de.ibm.com, themann@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, raisch@de.ibm.com,
-	ossrosch@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
-	ossthema@de.ibm.com
-To: Badari Pulavarty <pbadari@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59743 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751429AbYFCVLw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2008 17:11:52 -0400
-In-Reply-To: <1212527335.23656.2.camel@badari-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080603190943.GB28966-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Badari Pulavarty wrote:
->> It would be nice to get this resolved for 2.6.26 -- this new
->> dependency causes working 2.6.25 configs to effectively fail (by
->> deselecting CONFIG_EHEA during make oldconfig).
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 3 Jun 2008 15:09:43 -0400
 
+> Kirill A. Shutemov (1):
+>       wireless.h: improve userland include-ability
 
-When everybody else is happy, I'm happy :)
+I'm not pulling this into my tree.  I've already replied
+to that patch posting saying why I don't like this.
 
+Even if I found this change as the only way to go and therefore
+had to take it in, the commit log is way too terse about what
+the problem is.  And it must describe the horrifics that are
+now necessary to include this file in userspace after the change.
+
+It needs to describe in detail what the conflicting types and
+definitions in the kernel headers are that cause problems with
+userspace, and the exact sequence of includes userland has to make in
+order to get this right.
+
+And I require such enormously scary details in order to make it clear
+how bogus this change is.
+
+There is zero point in us sanitizing kernel headers for userspace
+usage if this kind of crap is still necessary.  I mean tell me, why
+should we even bother in that case?  And this is why I'm not taking in
+this changeset.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
