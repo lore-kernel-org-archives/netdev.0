@@ -1,66 +1,55 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows with MD5SIG enabled
-Date: Tue, 3 Jun 2008 09:31:02 -0700
-Message-ID: <396556a20806030931s9e8ec42hba9e39d9fe3514f1@mail.gmail.com>
-References: <396556a20805301140x586093e5o92d44e38f7c2869a@mail.gmail.com>
-	 <396556a20805301217k293e5718h6bbf02bfe0683143@europa>
-	 <Xine.LNX.4.64.0806020938240.8594@us.intercode.com.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] IPV4: remove addresses and routes when carrier is
+ lost
+Date: Tue, 3 Jun 2008 09:31:59 -0700
+Message-ID: <20080603093159.36070e73@extreme>
+References: <20080602165249.52a467dc@extreme>
+	<20080603150524.GA16165@csclub.uwaterloo.ca>
+	<20080603085707.51fdabbb@speedy>
+	<48456B62.8050909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "James Morris" <jmorris@namei.org>
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.233]:21774 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751409AbYFCQbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:31:04 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so1653335rvb.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2008 09:31:03 -0700 (PDT)
-In-Reply-To: <Xine.LNX.4.64.0806020938240.8594@us.intercode.com.au>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:32870 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751244AbYFCQcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 12:32:04 -0400
+In-Reply-To: <48456B62.8050909@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 1, 2008 at 4:40 PM, James Morris <jmorris@namei.org> wrote:
-> Reviewed-by: James Morris <jmorris@namei.org>
+On Tue, 03 Jun 2008 18:03:46 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
+> Stephen Hemminger wrote:
+> > On Tue, 3 Jun 2008 11:05:24 -0400
+> > lsorense@csclub.uwaterloo.ca (Lennart Sorensen) wrote:
+> > 
+> >> On Mon, Jun 02, 2008 at 04:52:49PM -0700, Stephen Hemminger wrote:
+> >>> This patch adds a new configuration sysctl that causes link loss to clear
+> >>> FIB state in the same way as admin down. This allows for routing daemons
+> >>> like Quagga which have option to remove routes when carrier is lost.
+> >>>
+> >>> This has been a long standing problem with Quagga on Linux with complaints
+> >>> on the developers list going back to 2004. Fixing it properly, so the routing 
+> >>> daemon manages the RIB, and the kernel manages the FIB, requires changes to
+> >>> both parts.
+> >> Does this cover only the local route for the interface, or all routes
+> >> assigned staticly to the interface too?
+> > 
+> > The patch makes carrier down == interface down. So the same
+> > behaviour as doing 'ip link set dev eth3 down'
+> 
+> 
+> Can't the routing daemon simply ignore routes with a
+> device that has no carrier?
+> 
 
-Looking at this code some more, I fear that I've fucked up that patch.
-The logic for TCP options seems to be duplicated three times in the
-code: the size calculation (patched), the building of the actual
-options (tcp_build_and_update_options / tcp_syn_build_options) and the
-MSS calculations (tcp_current_mss).
-
-It looks, on second glance, that this code in
-tcp_build_and_update_options will include the options even though we
-calculated the size without:
-
-if (tp->rx_opt.eff_sacks) {
-	struct tcp_sack_block *sp = tp->rx_opt.dsack ? tp->duplicate_sack :
-tp->selective_acks;
-	int this_sack;
-
-	*ptr++ = htonl((TCPOPT_NOP  << 24) |
-		       (TCPOPT_NOP  << 16) |
-		       (TCPOPT_SACK <<  8) |
-		       (TCPOLEN_SACK_BASE + (tp->rx_opt.eff_sacks *
-			     TCPOLEN_SACK_PERBLOCK)));
-...
-
-Unless I'm missing something, that patch was incomplete and we're
-still sending invalid packets on in the MD5SIG + SACK case.
-
-If so, I'll try and get the other two cases with another patch.
-
-Additionally, it would appear that it would be useful to pull this
-logic into a single place: maybe a function which runs multiple times
-(to calculate the MSS / header size and a second time to actually
-perform the options writes). But that'll be a different patch.
-
-Cheers,
-
-AGL
-
--- 
-Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
+It does that, but the problem is that packets get routed in kernel
+to interfaces without carrier, rather than being correctly rerouted
+over alternate paths.
