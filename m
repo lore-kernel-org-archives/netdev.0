@@ -1,40 +1,39 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 1/2] IPV6: remove addresses and routes when carrier is
- lost
-Date: Wed, 04 Jun 2008 01:17:17 +0900 (JST)
-Message-ID: <20080604.011717.77875207.yoshfuji@linux-ipv6.org>
-References: <20080602165249.52a467dc@extreme>
-	<20080602165347.5662f602@extreme>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Veth problems with bridge
+Date: Tue, 03 Jun 2008 18:17:29 +0200
+Message-ID: <48456E99.4080803@trash.net>
+References: <4845475A.7020207@inqnet.at> <48455240.8070102@trash.net> <4845621E.6080104@inqnet.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:58010 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150AbYFCQQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 12:16:40 -0400
-In-Reply-To: <20080602165347.5662f602@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-net@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: miklautz@inqnet.at
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <4845621E.6080104@inqnet.at>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In article <20080602165347.5662f602@extreme> (at Mon, 2 Jun 2008 16:53:47 -0700), Stephen Hemminger <shemminger@vyatta.com> says:
-
-> Similar to previous change for IPV4. Allow configuration option to remove
-> addresses from FIB when carrier is lost.
+Bernhard Miklautz wrote:
+> Hi Patrick,
 > 
-> This patch also makes IPV6 ignore changes to carrier state when device
-> is admin down state. This prevents address configuration from starting
-> up on a buggy device driver that signals carrier changes when offline.
+> Patrick McHardy wrote:
+>> Bernhard Miklautz wrote:
+>>> [...]
+>>> I also tried the whole setup without using veth; the IP directly bound
+>>> to br0, as well as without the bridge at all. No problems with that.
+>>> So there might be some problems with veth?
+>> Does "echo 0 > /proc/sys/net/bridge/bridge-nf-call-iptables" fix it?
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> On my hardware machine this seems to fix the problem :). But why does
+> bridge-nf-call-iptables influent source nat on an other interface? -
+> Shouldn't the source address always be translated when an output
+> interface is set (iptables -A POSTROUTING -o eth3 -t nat -j MASQUERADE)?
 
-Well, we need to be careful here.
-IMHO we should not remove addresses (especially link-local address
-based on MAC, or manually assigned addresses, maybe).
-We might want to do Optimistic DAD here.
 
---yoshfuji
+The bridging code passes packets through IPv4 netfilter and
+connection tracking, so when they hit your MASQUERADE rule,
+the NAT mappings have already been set up.
+
+Its a really bad default, but I feel uneasy changing it since
+I'm sure some people are relying on it.
