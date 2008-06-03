@@ -1,53 +1,70 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: : Emit event stream compat iw_point objects correctly.
-Date: Tue, 03 Jun 2008 10:37:16 -0700 (PDT)
-Message-ID: <20080603.103716.193719039.davem@davemloft.net>
-References: <20080110.011602.74511551.davem@davemloft.net>
-	<20080111112248.610C.40F06B3A@sm.sony.co.jp>
-	<20080603.095750.120470495.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] IPV6: remove addresses and routes when carrier is
+ lost
+Date: Tue, 3 Jun 2008 10:46:40 -0700
+Message-ID: <20080603104640.21026cdb@extreme>
+References: <20080603102144.571df55b@extreme>
+	<20080603.102501.193702820.davem@davemloft.net>
+	<20080604.022836.31952523.yoshfuji@linux-ipv6.org>
+	<20080603.103059.193720094.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080603.095750.120470495.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([216.93.170.194]:36485 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753251AbYFCRqm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 13:46:42 -0400
+In-Reply-To: <20080603.103059.193720094.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Date: Tue, 03 Jun 2008 09:57:50 -0700 (PDT)
+On Tue, 03 Jun 2008 10:30:59 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-> Date: Fri, 11 Jan 2008 13:16:29 +0900
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Wed, 04 Jun 2008 02:28:36 +0900 (JST)
 > 
-> > The source address does not have to be adjusted.  I think it should be
-> > 		       ((char *) iwe) + IW_EV_LCP_LEN,
-> > or just
-> > 		       &iwe->u
-> > I think it is more readable what we want to do here.
+> > In article <20080603.102501.193702820.davem@davemloft.net> (at Tue, 03 Jun 2008 10:25:01 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 > > 
+> > > From: Stephen Hemminger <shemminger@vyatta.com>
+> > > Date: Tue, 3 Jun 2008 10:21:44 -0700
+> > > 
+> > > > The patch just makes carrier_off respond the same as doing 'ip link set dev eth0 down'
+> > > > (or ifconfig eth0 down). A router needs to be able to re-route when link fails.
+> > > 
+> > > But I can't see how this behavior makes sense for the normal desktop case
+> > > and it disagrees with existing practice for many years.
+> > > 
+> > > If I pull out my network cable while making some adjustments in my
+> > > rack, and then plug it back in, I don't expect to lose my static
+> > > routes on that interface.
+> > > 
+> > > That doesn't make any sense at all.
 > > 
-> > > +		       event_len - lcp_len);
-> > 
-> > The length of the real payload does not need to take account of the
-> > destination offset change.  So we can keep the original code like:
-> > 
-> > 		       org_event_len - IW_EV_LCP_LEN);
+> > How about ignoring routes via down interface?
 > 
-> As long as IW_EV_LCP_LEN and IW_EV_COMPAT_LCP_LEN are different, I am
-> pretty sure we need to make these adjustments.
+> Look at what happens now in my example case.  The packets simply get
+> queued in the device queue until the carrier comes back up.  Once
+> it comes back up, the packets go out with zero packet loss.
 > 
-> There are so many differences in how struct vs. sub-struct alignment will
-> occur in these cases, that we need to be very careful.
-> 
-> I'll try to look more closely at this and do some testing of my own on
-> a compat platform.
+> With your suggestion, the packets will get dropped if there are no
+> other devices with active routes to the destination, which is a very
+> poor quality of implementation decision in my opinion, especially for
+> this case.
 
-I know understand what you were trying to say, indeed the source
-address does not and should not need to be adjusted, it is in
-non-compat format afterall.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It is not what desktop users want, that is why it is a dynamic configuration
+option via /proc/sys/net/ipv6/conf/ethX/link_detect.
+
+But it is what a router wants. So why not allow it? Obviously, Vyatta
+users expect systems behave same as Cisco.
+
+The problem with doing it all in user space are not impossible just more difficult:
+  * links bouncing lead to synchronization problems
+  * existing Quagga code avoids messing with "system routes" 
+  * Quagga has to be portable to Solaris/BSD etc..
+
+More at:
+http://osdir.com/ml/network.quagga.devel/2004-08/msg00009.html
