@@ -1,56 +1,76 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [RFC] Make board force selection of PHYLIB
-Date: Tue, 3 Jun 2008 20:00:22 +0300
-Message-ID: <20080603170022.GE9605@cs181133002.pp.htv.fi>
-References: <Pine.LNX.4.64.0806021019540.22439@blarg.am.freescale.net> <484419EE.5040503@garzik.org> <1E4EB64C-0618-497E-AABC-74EB7D74B97F@kernel.crashing.org> <48442239.7090906@garzik.org> <BF15FEBB-4876-4B16-915B-1D21BF989DA8@kernel.crashing.org> <83820D83-487C-4586-9867-F4226A87A276@freescale.com> <48445851.4090105@garzik.org> <095F258F-72DD-4F27-A457-A57D9FAA1E76@kernel.crashing.org> <48448020.5020407@freescale.com> <Pine.LNX.4.64.0806030945540.21537@blarg.am.freescale.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/12] BE NIC driver - net_object i/f functions, Makefile
+Date: Tue, 3 Jun 2008 10:02:15 -0700
+Message-ID: <20080603100215.5789bf06@extreme>
+References: <20080603094046.28f72fb5@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, linuxppc-dev@ozlabs.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Subbu Seetharaman" <subbus@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:44309 "EHLO smtp4.pp.htv.fi"
+Received: from mail.vyatta.com ([216.93.170.194]:34339 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753200AbYFCRAt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2008 13:00:49 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0806030945540.21537@blarg.am.freescale.net>
+	id S1752079AbYFCRCU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 13:02:20 -0400
+In-Reply-To: <20080603094046.28f72fb5@mailhost.serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 03, 2008 at 09:47:19AM -0500, Kumar Gala wrote:
-> How is this as a fix.
-> 
-> - k
-> 
-> diff --git a/arch/powerpc/platforms/85xx/Kconfig b/arch/powerpc/platforms/85xx/Kconfig
-> index 7ff29d5..9e5c884 100644
-> --- a/arch/powerpc/platforms/85xx/Kconfig
-> +++ b/arch/powerpc/platforms/85xx/Kconfig
-> @@ -34,6 +34,7 @@ config MPC85xx_MDS
->  	bool "Freescale MPC85xx MDS"
->  	select DEFAULT_UIMAGE
->  	select QUICC_ENGINE
-> +	select PHYLIB if GIANFAR=m
->  	help
->  	  This option enables support for the MPC85xx MDS board
 
-The .config you sent me as an example didn't have GIANFAR set, so it 
-couldn't help there.
+> +/*
+> +
+> +@file
+> +    bni.c
+> +
+> +@brief
+> +    This file contains finctions that will be used by the BladeEngine
+> +    Network drivers to access BladeEngine Hardware. All code in
+> +    this file must be completely OS neutral.
+> +
+> +*/
+> +
+> +#include "bni.h"
+> +
+> +/*!
+> +   This function initializes the data structures in BNI / BECLIB for network
+> +   operation.  The OSM driver must call this function before making any other
+> +   BNI call.
+> +
+> +   If this functions succeeds, the caller must call bni_cleanup() as part
+> +   of driver cleanup procedure.
+> +
+> +@param
+> +    chipobj      -  Address of the space allocated by OSM for chip object
+> +			(struct be_chip_object).  The space for this is
+> +			allocated by OSM, but this object is maintained
+> +			by BECLIB and is opaque to OSM.
+> +@return
+> +    BESTATUS - (0 if successful, non-zero status code if not successful)
+> +
+> + */
 
-How early do the fixups have to run?
 
-I see two possible solutions:
-- let MPC85xx_MDS unconditionally select PHYLIB or
-- move the fixups to the gianfar driver
+You commenting standard is similar but not compatiable with kernel docboock.
+But I don't consider this a blocker to inclusion, just a nuisance.
 
-cu
-Adrian
 
--- 
+> +BESTATUS bni_init(struct be_chip_object *chipobj)
+> +{
+> +	int r;
+> +	r = be_initialize_library();
+> +	if (r != BE_SUCCESS)
+> +		goto error;
+> +	r = be_chip_object_create(chipobj);
+> +	if (r != BE_SUCCESS)
+> +		goto error;
+> +error:
+> +	return (r);
+> +}
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
 
+
+But this overly verbose code style is the style of code which should be cleaned
+up (after inclusion). It is the reason that kernel developers hate drivers that
+try to be OS independent. They end up looking like the kind of rubbish written
+by contracting software houses that are paid by the line of code.
