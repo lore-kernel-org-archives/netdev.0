@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 10/12]: wext: Remove compat handling from fs/compat_ioctl.c
-Date: Tue, 03 Jun 2008 12:20:24 -0700 (PDT)
-Message-ID: <20080603.122024.134382203.davem@davemloft.net>
+Subject: [PATCH 0/12]: Proper compat WEXT support.
+Date: Tue, 03 Jun 2008 13:27:55 -0700 (PDT)
+Message-ID: <20080603.132755.262737024.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -9,160 +9,46 @@ Cc: linville@tuxdriver.com, mokuno@sm.sony.co.jp,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47086
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47095
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752999AbYFCUgy (ORCPT
+	by vger.kernel.org with ESMTP id S1753049AbYFCUgy (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 16:36:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-No longer used.
+This is a refresh of my previous WEXT compat patch set.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- fs/compat_ioctl.c |  107 +----------------------------------------------------
- 1 files changed, 1 insertions(+), 106 deletions(-)
+I've actually tested these exact patches on sparc64 with a RNDIS based
+USB wireless device from Linksys.  I was able to perform iwconfig
+commands, check iwlist, bring up the interface and use it properly.
+All with 32-bit tools.  I've also done an allmodconfig sanity
+build check on sparc64.
 
-diff --git a/fs/compat_ioctl.c b/fs/compat_ioctl.c
-index 8ab850b..05ec7ee 100644
---- a/fs/compat_ioctl.c
-+++ b/fs/compat_ioctl.c
-@@ -58,7 +58,6 @@
- #include <linux/syscalls.h>
- #include <linux/i2c.h>
- #include <linux/i2c-dev.h>
--#include <linux/wireless.h>
- #include <linux/atalk.h>
- #include <linux/loop.h>
- 
-@@ -1757,58 +1756,6 @@ static int do_i2c_smbus_ioctl(unsigned int fd, unsigned int cmd, unsigned long a
- 	return sys_ioctl(fd, cmd, (unsigned long)tdata);
- }
- 
--static int do_wireless_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
--{
--	struct iwreq __user *iwr;
--	struct iwreq __user *iwr_u;
--	struct iw_point __user *iwp;
--	struct compat_iw_point __user *iwp_u;
--	compat_caddr_t pointer_u;
--	void __user *pointer;
--	__u16 length, flags;
--	int ret;
--
--	iwr_u = compat_ptr(arg);
--	iwp_u = (struct compat_iw_point __user *) &iwr_u->u.data;
--	iwr = compat_alloc_user_space(sizeof(*iwr));
--	if (iwr == NULL)
--		return -ENOMEM;
--
--	iwp = &iwr->u.data;
--
--	if (!access_ok(VERIFY_WRITE, iwr, sizeof(*iwr)))
--		return -EFAULT;
--
--	if (__copy_in_user(&iwr->ifr_ifrn.ifrn_name[0],
--			   &iwr_u->ifr_ifrn.ifrn_name[0],
--			   sizeof(iwr->ifr_ifrn.ifrn_name)))
--		return -EFAULT;
--
--	if (__get_user(pointer_u, &iwp_u->pointer) ||
--	    __get_user(length, &iwp_u->length) ||
--	    __get_user(flags, &iwp_u->flags))
--		return -EFAULT;
--
--	if (__put_user(compat_ptr(pointer_u), &iwp->pointer) ||
--	    __put_user(length, &iwp->length) ||
--	    __put_user(flags, &iwp->flags))
--		return -EFAULT;
--
--	ret = sys_ioctl(fd, cmd, (unsigned long) iwr);
--
--	if (__get_user(pointer, &iwp->pointer) ||
--	    __get_user(length, &iwp->length) ||
--	    __get_user(flags, &iwp->flags))
--		return -EFAULT;
--
--	if (__put_user(ptr_to_compat(pointer), &iwp_u->pointer) ||
--	    __put_user(length, &iwp_u->length) ||
--	    __put_user(flags, &iwp_u->flags))
--		return -EFAULT;
--
--	return ret;
--}
--
- /* Since old style bridge ioctl's endup using SIOCDEVPRIVATE
-  * for some operations; this forces use of the newer bridge-utils that
-  * use compatiable ioctls
-@@ -2489,36 +2436,6 @@ COMPATIBLE_IOCTL(I2C_TENBIT)
- COMPATIBLE_IOCTL(I2C_PEC)
- COMPATIBLE_IOCTL(I2C_RETRIES)
- COMPATIBLE_IOCTL(I2C_TIMEOUT)
--/* wireless */
--COMPATIBLE_IOCTL(SIOCSIWCOMMIT)
--COMPATIBLE_IOCTL(SIOCGIWNAME)
--COMPATIBLE_IOCTL(SIOCSIWNWID)
--COMPATIBLE_IOCTL(SIOCGIWNWID)
--COMPATIBLE_IOCTL(SIOCSIWFREQ)
--COMPATIBLE_IOCTL(SIOCGIWFREQ)
--COMPATIBLE_IOCTL(SIOCSIWMODE)
--COMPATIBLE_IOCTL(SIOCGIWMODE)
--COMPATIBLE_IOCTL(SIOCSIWSENS)
--COMPATIBLE_IOCTL(SIOCGIWSENS)
--COMPATIBLE_IOCTL(SIOCSIWRANGE)
--COMPATIBLE_IOCTL(SIOCSIWPRIV)
--COMPATIBLE_IOCTL(SIOCSIWSTATS)
--COMPATIBLE_IOCTL(SIOCSIWAP)
--COMPATIBLE_IOCTL(SIOCGIWAP)
--COMPATIBLE_IOCTL(SIOCSIWRATE)
--COMPATIBLE_IOCTL(SIOCGIWRATE)
--COMPATIBLE_IOCTL(SIOCSIWRTS)
--COMPATIBLE_IOCTL(SIOCGIWRTS)
--COMPATIBLE_IOCTL(SIOCSIWFRAG)
--COMPATIBLE_IOCTL(SIOCGIWFRAG)
--COMPATIBLE_IOCTL(SIOCSIWTXPOW)
--COMPATIBLE_IOCTL(SIOCGIWTXPOW)
--COMPATIBLE_IOCTL(SIOCSIWRETRY)
--COMPATIBLE_IOCTL(SIOCGIWRETRY)
--COMPATIBLE_IOCTL(SIOCSIWPOWER)
--COMPATIBLE_IOCTL(SIOCGIWPOWER)
--COMPATIBLE_IOCTL(SIOCSIWAUTH)
--COMPATIBLE_IOCTL(SIOCGIWAUTH)
- /* hiddev */
- COMPATIBLE_IOCTL(HIDIOCGVERSION)
- COMPATIBLE_IOCTL(HIDIOCAPPLICATION)
-@@ -2749,29 +2666,7 @@ COMPATIBLE_IOCTL(USBDEVFS_IOCTL32)
- HANDLE_IOCTL(I2C_FUNCS, w_long)
- HANDLE_IOCTL(I2C_RDWR, do_i2c_rdwr_ioctl)
- HANDLE_IOCTL(I2C_SMBUS, do_i2c_smbus_ioctl)
--/* wireless */
--HANDLE_IOCTL(SIOCGIWRANGE, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWPRIV, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWSTATS, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWSPY, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWSPY, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWTHRSPY, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWTHRSPY, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWMLME, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWAPLIST, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWSCAN, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWSCAN, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWESSID, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWESSID, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWNICKN, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWNICKN, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWENCODE, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWENCODE, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWGENIE, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWGENIE, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWENCODEEXT, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCGIWENCODEEXT, do_wireless_ioctl)
--HANDLE_IOCTL(SIOCSIWPMKSA, do_wireless_ioctl)
-+/* bridge */
- HANDLE_IOCTL(SIOCSIFBR, old_bridge_ioctl)
- HANDLE_IOCTL(SIOCGIFBR, old_bridge_ioctl)
- /* Not implemented in the native kernel */
--- 
-1.5.5.1.308.g1fbb5
+The one thing I was not able to test yet is wpa_supplicant use, and
+that likely doesn't work properly yet, but we can fix that on top and
+these patches do not break native non-compat binaries.  They do make a
+lot of compat stuff work which wasn't the case before.  So applying
+this stuff makes sense, and we can get wpa_supplicant working if it
+isn't working using follow-on patches.
 
+The patch set starts by cleaning up the code so that we can avoid
+having multiple copies of the WEXT main dispatch routines, one for
+compat and one for the non-compat case.
+
+Next, basic compat level handling of the WEXT ioctl is added, and the
+equivalent code in the compat_ioctl.c file is removed.
+
+Finally, compat IWE stream munging is added for the wireless layer.
+When we get a compat WEXT ioctl request, we set a bit in the request
+info blob, and the stream building helpers tip off this to format the
+stream entries properly.
+
+These patches are against net-next-2.6 and are also available as
+a GIT tree at:
+
+	master.kernel.org:/pub/scm/linux/kernel/git/davem/wireless-2.6.git
+
+John, please pull or apply as you deem appropriate.
+
+Thanks!
