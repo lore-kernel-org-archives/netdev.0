@@ -1,48 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PULL net-2.6] IPv6 fixes.
-Date: Thu, 05 Jun 2008 04:17:39 +0900 (JST)
-Message-ID: <20080605.041739.35779908.yoshfuji@linux-ipv6.org>
-References: <20080604.120250.131119978.yoshfuji@linux-ipv6.org>
-	<48460DDC.4040703@cn.fujitsu.com>
-	<4846E012.9020300@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] IPv6 Fixes (Take 3)
+Date: Wed, 04 Jun 2008 12:36:59 -0700 (PDT)
+Message-ID: <20080604.123659.91234245.davem@davemloft.net>
+References: <20080605.040744.40936723.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: shanwei@cn.fujitsu.com, davem@davemloft.net,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: brian.haley@hp.com
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:58118 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341AbYFDTRC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 15:17:02 -0400
-In-Reply-To: <4846E012.9020300@hp.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48923
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759695AbYFDThA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 15:37:00 -0400
+In-Reply-To: <20080605.040744.40936723.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <4846E012.9020300@hp.com> (at Wed, 04 Jun 2008 14:33:54 -0400), Brian Haley <brian.haley@hp.com> says:
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 05 Jun 2008 04:07:44 +0900 (JST)
 
-> With patch, differences shown with **:
+> Dave,
 > 
-> src/ifindex	result
-> -----------	------
+> I've fixed up coding style and the reference to another commit
+> in commit log.
 > 
-> ::/0		SUCCESS (packet sent on lo)
-> ::/1 (lo)	SUCCESS (packet sent on lo)
-> ::/3 (eth0)	SUCCESS (packet sent on lo)
-> ::/27		ENODEV **
+> Please consider pulling following changes on top of net-2.6
+> (commit 7dccf1f4e1696c79bff064c3770867cc53cbc71c
+> ("ax25: Fix NULL pointer dereference and lockup.").
 > 
-> ::1/0		SUCCESS (packet sent on lo)
-> ::1/1 (lo)	SUCCESS (packet sent on lo)
-> ::1/3 (eth0)	EINVAL **
-> ::1/27		ENODEV **
-> 
-> ff02::1/0	EINVAL
-> ff02::1/1	EINVAL
-> ff02::1/3	EINVAL
-> ff02::1/27	ENODEV
+> git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-fix.git net-2.6-misc-20080605a
 
-At least it is expected, and reasonable to me.
-
---yoshfuji
+Pulled and pushed back out to net-2.6, thanks!
