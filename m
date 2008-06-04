@@ -1,79 +1,54 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2/3] [IPV6]: inet_sk(sk)->cork.opt leak
-Date: Wed,  4 Jun 2008 15:49:07 +0400
-Message-ID: <1212580148-9885-2-git-send-email-den@openvz.org>
-References: <1212580148-9885-1-git-send-email-den@openvz.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
-	"Denis V. Lunev" <den@openvz.org>
-To: yoshfuji@linux-ipv6.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [net-2.6 patch 1/2][NETNS] fix device renaming for sysfs
+Date: Wed, 04 Jun 2008 04:59:53 -0700
+Message-ID: <m1fxrtpg06.fsf@frodo.ebiederm.org>
+References: <20080430213113.410541118@localhost.localdomain>
+	<20080430213320.825349005@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:27680 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753367AbYFDLtP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 07:49:15 -0400
-In-Reply-To: <1212580148-9885-1-git-send-email-den@openvz.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:60585 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751996AbYFDMAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 08:00:25 -0400
+In-Reply-To: <20080430213320.825349005@localhost.localdomain> (Daniel
+	Lezcano's message of "Wed, 30 Apr 2008 23:31:14 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 UDP sockets wth IPv4 mapped address use udp_sendmsg to send the data
-actually. In this case ip_flush_pending_frames should be called instead
-of ip6_flush_pending_frames.
+Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- include/net/udp.h |    1 +
- net/ipv4/udp.c    |    3 ++-
- net/ipv6/udp.c    |    4 +++-
- 3 files changed, 6 insertions(+), 2 deletions(-)
+> When a netdev is moved across namespaces with the 'dev_change_net_namespace' 
+> function, the 'device_rename' function is used to fixup kobject and refresh 
+> the sysfs tree. The device_rename function will call kobject_rename and this
+> one will check if there is an object with the same name and this is the case
+> because we are renaming the object with the same name.
+>
+> The use of 'device_rename' seems for me wrong because we usually don't
+> rename it but just move it across namespaces. As we just want to do a 
+> mini "netdev_[un]register", IMO the functions 'netdev_[un]register_kobject' 
+> should be used instead, like an usual network device [un]registering.
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 3e55a99..ccce837 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -135,6 +135,7 @@ extern void	udp_err(struct sk_buff *, u32);
- 
- extern int	udp_sendmsg(struct kiocb *iocb, struct sock *sk,
- 			    struct msghdr *msg, size_t len);
-+extern void	udp_flush_pending_frames(struct sock *sk);
- 
- extern int	udp_rcv(struct sk_buff *skb);
- extern int	udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index db1cb7c..56fcda3 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -420,7 +420,7 @@ void udp_err(struct sk_buff *skb, u32 info)
- /*
-  * Throw away all pending data and cancel the corking. Socket is locked.
-  */
--static void udp_flush_pending_frames(struct sock *sk)
-+void udp_flush_pending_frames(struct sock *sk)
- {
- 	struct udp_sock *up = udp_sk(sk);
- 
-@@ -430,6 +430,7 @@ static void udp_flush_pending_frames(struct sock *sk)
- 		ip_flush_pending_frames(sk);
- 	}
- }
-+EXPORT_SYMBOL(udp_flush_pending_frames);
- 
- /**
-  * 	udp4_hwcsum_outgoing  -  handle outgoing HW checksumming
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 1fd784f..b0be4b5 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -534,7 +534,9 @@ static void udp_v6_flush_pending_frames(struct sock *sk)
- {
- 	struct udp_sock *up = udp_sk(sk);
- 
--	if (up->pending) {
-+	if (up->pending == AF_INET)
-+		udp_flush_pending_frames(sk);
-+	else if (up->pending) {
- 		up->len = 0;
- 		up->pending = 0;
- 		ip6_flush_pending_frames(sk);
--- 
-1.5.3.rc5
+device_rename is correct.  Because doing device_del; device_add removes
+any driver specific sysfs attributes.
 
+Causing your patch to introduce subtle driver breakage only when we
+move a network device between namespaces.  Ouch!
+
+To support this operation we need something like device_rename that
+can preserve driver specific attributes, and generally handle
+movement between namespaces.  Since device_rename already does 99% of
+what we need it to do I found it easier to extend device_rename to
+handle this case then to introduce yet another function into the
+kobject layer.
+
+> This patch replace device_rename by netdev_unregister_kobject, followed by
+> netdev_register_kobject.
+
+And sysfs comes a' tumblin' down.
+
+My apologies for not replying sooner I just spotted this.
+
+Eric
