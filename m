@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] [XFRM] xfrm_algo: correct usage of RIPEMD-160
-Date: Wed, 04 Jun 2008 12:05:03 -0700 (PDT)
-Message-ID: <20080604.120503.207001089.davem@davemloft.net>
-References: <1212399189188-git-send-email-rueegsegger@swiss-it.ch>
-	<12123991893044-git-send-email-rueegsegger@swiss-it.ch>
-	<20080602104107.GA22943@gondor.apana.org.au>
+Subject: Re: [PATCH] Cleanup use of deprecated calls to save_and_cli and
+ restore_flags.
+Date: Wed, 04 Jun 2008 12:06:36 -0700 (PDT)
+Message-ID: <20080604.120636.167448431.davem@davemloft.net>
+References: <1212509959-8763-1-git-send-email-mark.asselstine@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rueegsegger@swiss-it.ch, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20080602104107.GA22943@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: mark.asselstine@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48058
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754221AbYFDTGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 15:06:36 -0400
+In-Reply-To: <1212509959-8763-1-git-send-email-mark.asselstine@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 2 Jun 2008 20:41:07 +1000
+From: Mark Asselstine <mark.asselstine@windriver.com>
+Date: Tue,  3 Jun 2008 12:19:19 -0400
 
-> On Mon, Jun 02, 2008 at 11:33:09AM +0200, Adrian-Ken Rueegsegger wrote:
-> > This patch fixes the usage of RIPEMD-160 in xfrm_algo which in turn
-> > allows hmac(rmd160) to be used as authentication mechanism in IPsec
-> > ESP and AH (see RFC 2857).
-> > 
-> > Signed-off-by: Adrian-Ken Rueegsegger <rueegsegger@swiss-it.ch>
+> Make use of local_irq_save and local_irq_restore rather then the
+> deprecated save_and_cli and restore_flags calls.
 > 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
 
-Applied, thanks everyone.
+Applied, thanks.
