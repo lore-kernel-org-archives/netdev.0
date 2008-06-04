@@ -1,53 +1,57 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Wed, 4 Jun 2008 18:09:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0806041802360.2580@wrl-59.cs.helsinki.fi>
-References: <20080526115628.GA31316@elte.hu> <1211966834.12349.62.camel@twins>
-  <a01a16b50805310725x4f1c375ep2d091bb044ac0787@mail.gmail.com>
- <Pine.LNX.4.64.0805311839540.2657@wrl-59.cs.helsinki.fi>  <484191BD.8000904@gmail.com>
-  <Pine.LNX.4.64.0805312119270.2672@wrl-59.cs.helsinki.fi>
- <a01a16b50805311325w7f58ca69h93d02af9bc28d2ea@mail.gmail.com>
- <Pine.LNX.4.64.0805312332270.2760@wrl-59.cs.helsinki.fi>
- <a01a16b50806031710u54b9297bkf1fad9c4f8fd581f@mail.gmail.com>
- <Pine.LNX.4.64.0806041402211.16829@wrl-59.cs.helsinki.fi>
- <a01a16b50806040700h1efce63cq2a27b087df0d25be@mail.gmail.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
+	available to userspace
+Date: Wed, 4 Jun 2008 16:09:42 +0100
+Message-ID: <20080604150942.GA4980@gerrit.erg.abdn.ac.uk>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <20080526142209.GA20164@gerrit.erg.abdn.ac.uk> <200805262340.53355.tomasz@grobelny.oswiecenia.net> <200806011948.39770.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1745598132-1212592162=:2580"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36494 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845AbYFDPJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 11:09:24 -0400
-In-Reply-To: <a01a16b50806040700h1efce63cq2a27b087df0d25be@mail.gmail.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45531 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752589AbYFDPKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2008 11:10:13 -0400
+Content-Disposition: inline
+In-Reply-To: <200806011948.39770.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+| Now that I had a closer look at implementing this functionality I have a few 
+| questions:
+| 1. Where should information about available qpolicies and their parametrs be 
+| exported? Would /proc/net/dccp/qpolicies/ be a good choice?
+For a sketch or a first implementation, procfs sounds like a good starting point.
 
----696208474-1745598132-1212592162=:2580
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+But since it is about dynamic runtime configuration, how about using sysfs or configfs
+instead? This is a brainstorming question, I think that sysfs is generally preferred.
+I don't know how well configfs has taken off, it is similar, but needs to be
+added in the configuration (under Pseudeo Filesystems, CONFIG_CONFIGFS_FS=y|m)
+http://lwn.net/Articles/148973/
+and Documentation/filesystems/configs. But this could be done later as well.
 
-On Wed, 4 Jun 2008, Håkon Løvdal wrote:
 
-> 2008/6/4 Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>:
->
-> > Usually such logs compress quite well. A best thing might be to put
-> > somewhere (if possible) and http:// reference them.
+| 2. I guess we should have at least one file per qpolicy with parameters listed 
+| inside. Like that:
+| /proc/.../qpolicies/simple: <empty>
+| /proc/.../qpolicies/prio: 1 (DCCP_SCM_PRIORITY) 2 (DCCP_SCM_TIMEOUT)
+Hm this is a "policy" question -- isn't the `timeout' policy a
+standalone variant?
 
-> The largest file was a strace log of 1.5GB uncompressed. I will try to
-> sort out something.
+| But we could also have qpolicy represented by directory and parameters by files:
+| /proc/.../qpolicies/simple/
+| /proc/.../qpolicies/prio/
+| /proc/.../qpolicies/prio/priority: <empty>
+| /proc/.../qpolicies/prio/timeout: <empty>
+| Which layout do you find better?
+| -- 
+I don't like the empty files. In the procfs for thinkpad Acpi
+configuration, for example, there is a line that says which commands are
+acceptable, similar for /sys/power/state. In that way, the (sysfs|procfs) file
+documents itself and tells the user what can be done with it. It would
+be great if the qpolicies could do something similar.
 
-I guess not all of the strace will be necessary anyway. You could first 
-leave that out completely and concentrate on the other logs first.
-
--- 
- i.
----696208474-1745598132-1212592162=:2580--
+I would start with the utterly simplest possible implementation and
+leave complex cases for later. For a sophisticated, elegant
+implementation, I would seriously consider sysfs or configs.
