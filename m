@@ -1,46 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Increment OUTRSTS in tcp_send_active_reset()
-Date: Wed, 04 Jun 2008 15:20:14 -0700 (PDT)
-Message-ID: <20080604.152014.185732768.davem@davemloft.net>
-References: <1212166947.12643.8.camel@w-sridhar2.beaverton.ibm.com>
+Subject: Re: TCP_SKB_CB(skb)->flags = iph->tos ?
+Date: Wed, 04 Jun 2008 15:26:07 -0700 (PDT)
+Message-ID: <20080604.152607.170576716.davem@davemloft.net>
+References: <200805302353.56440.opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: sri@us.ibm.com
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38763
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40466
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754502AbYFDWUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 18:20:15 -0400
-In-Reply-To: <1212166947.12643.8.camel@w-sridhar2.beaverton.ibm.com>
+	by vger.kernel.org with ESMTP id S1752327AbYFDW0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 18:26:08 -0400
+In-Reply-To: <200805302353.56440.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Fri, 30 May 2008 10:02:27 -0700
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Fri, 30 May 2008 23:53:56 +0300
 
-> TCP "resets sent" counter is not incremented when a TCP Reset is 
-> sent via tcp_send_active_reset().
 > 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> tcp_v4_rcv says: TCP_SKB_CB(skb)->flags = iph->tos;
 > 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index e399bde..23c22d4 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2131,6 +2131,8 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
->  	TCP_SKB_CB(skb)->when = tcp_time_stamp;
->  	if (tcp_transmit_skb(sk, skb, 0, priority))
->  		NET_INC_STATS(LINUX_MIB_TCPABORTFAILED);
-> + 
-> +	TCP_INC_STATS(TCP_MIB_OUTRSTS);
->  }
->  
->  /* WARNING: This routine must only be called when we have already sent
+> I am probably missing something obvious, but shouldn't flags be initialized 
+> with the TCP headers instead of the IP TOS value?
 
-Patch applied.
+On packet output ->flags holds the TCP header flags, on packet input
+it holds the TOS field for testing ECN flags.
 
-That line before the new TCP_INC_STATS() adds trailing whitespace.
-I fixed it up this time, but please have all of these details sorted
-out before posting patches in the future, thank you.
+You could have had a look at how the ->flags field is used on TCP
+output vs. TCP input processing to get a better idea of what might be
+going on here.
+
+That's exactly how I figured it out, I didn't know the answer either,
+but constantly I'm doing simple searches for people and learning the
+code for other people it seems even when I really don't even have
+the time to do so :-/
