@@ -1,66 +1,31 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [net-2.6 patch 1/2][NETNS] fix device renaming for sysfs
-Date: Wed, 04 Jun 2008 15:50:13 +0200
-Message-ID: <48469D95.3050703@fr.ibm.com>
-References: <20080430213113.410541118@localhost.localdomain> <20080430213320.825349005@localhost.localdomain> <m1fxrtpg06.fsf@frodo.ebiederm.org>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [PATCH 1/2] IPV4: remove addresses and routes when carrier is lost
+Date: Wed, 4 Jun 2008 09:53:07 -0400
+Message-ID: <20080604135307.GI16162@csclub.uwaterloo.ca>
+References: <20080602165249.52a467dc@extreme> <20080603150524.GA16165@csclub.uwaterloo.ca> <20080603085707.51fdabbb@speedy> <48456B62.8050909@trash.net> <20080603214527.GG16162@csclub.uwaterloo.ca> <4845C676.5080801@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.29.151]:17749 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752547AbYFDNuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 09:50:23 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id m54DoG2o180116
-	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 13:50:16 GMT
-Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m54DoFax3751968
-	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 15:50:15 +0200
-Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m54DoFqe007185
-	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 15:50:15 +0200
-In-Reply-To: <m1fxrtpg06.fsf@frodo.ebiederm.org>
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:36267 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752547AbYFDNxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 09:53:08 -0400
+Content-Disposition: inline
+In-Reply-To: <4845C676.5080801@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
-> 
->> When a netdev is moved across namespaces with the 'dev_change_net_namespace' 
->> function, the 'device_rename' function is used to fixup kobject and refresh 
->> the sysfs tree. The device_rename function will call kobject_rename and this
->> one will check if there is an object with the same name and this is the case
->> because we are renaming the object with the same name.
->>
->> The use of 'device_rename' seems for me wrong because we usually don't
->> rename it but just move it across namespaces. As we just want to do a 
->> mini "netdev_[un]register", IMO the functions 'netdev_[un]register_kobject' 
->> should be used instead, like an usual network device [un]registering.
-> 
-> device_rename is correct.  Because doing device_del; device_add removes
-> any driver specific sysfs attributes.
-> 
-> Causing your patch to introduce subtle driver breakage only when we
-> move a network device between namespaces.  Ouch!
-> 
-> To support this operation we need something like device_rename that
-> can preserve driver specific attributes, and generally handle
-> movement between namespaces.  Since device_rename already does 99% of
-> what we need it to do I found it easier to extend device_rename to
-> handle this case then to introduce yet another function into the
-> kobject layer.
-> 
->> This patch replace device_rename by netdev_unregister_kobject, followed by
->> netdev_register_kobject.
-> 
-> And sysfs comes a' tumblin' down.
-> My apologies for not replying sooner I just spotted this.
+On Wed, Jun 04, 2008 at 12:32:22AM +0200, Patrick McHardy wrote:
+> That should be easily fixed, the kernel provides all necessary
+> information to make this decision in userspace.
 
-My fault, I should have Cc'ed you when sending the email :(
-Thanks for looking at this patch.
+It seems much cleaner for zebra to only ever touch routes that it
+created, which would be the ones of type zebra.  Type kernel seems best
+only managed by the kernel.
 
-   -- Daniel
-
+-- 
+Len Sorensen
