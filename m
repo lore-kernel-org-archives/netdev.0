@@ -1,38 +1,51 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2213
-Date: Thu, 5 Jun 2008 02:29:24 +0400
-Message-ID: <a4423d670806041529q6911f68fq68ee9ed8f8f50139@mail.gmail.com>
-References: <a4423d670806041450h17a2d3b1w40ea9ff8550a4b11@mail.gmail.com>
-	 <20080604.145244.07802877.davem@davemloft.net>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH 1/2][L2TP]: Fix possible WARN_ON from socket code when
+ UDP socket is closed
+Date: Wed, 04 Jun 2008 23:33:06 +0100
+Message-ID: <48471822.3050202@katalix.com>
+References: <200806042056.m54KuiI7003060@quickie.katalix.com>	<20080604.150835.73786340.davem@davemloft.net> <20080604.151146.104754883.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kernel-testers@vger.kernel.org, netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.236]:46851 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754818AbYFDW3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 18:29:25 -0400
-Received: by wx-out-0506.google.com with SMTP id h29so236240wxd.4
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2008 15:29:24 -0700 (PDT)
-In-Reply-To: <20080604.145244.07802877.davem@davemloft.net>
-Content-Disposition: inline
+Received: from s36.avahost.net ([74.53.95.194]:53621 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758423AbYFDWdL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2008 18:33:11 -0400
+In-Reply-To: <20080604.151146.104754883.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2008/6/5 David Miller <davem@davemloft.net>:
-> From: "Alexander Beregalov" <a.beregalov@gmail.com>
-> Date: Thu, 5 Jun 2008 01:50:49 +0400
->
->> I have got the following message:
->
-> We need to know the exact kernel version you were running, what
-> kinds of things the system was doing at the time, etc.
->
+David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 04 Jun 2008 15:08:35 -0700 (PDT)
+> 
+>> Applied, thanks.
+> 
+> James your second patch doesn't apply cleanly:
+> 
+> @@ -1066,7 +1100,7 @@ static int pppol2tp_xmit(struct ppp_chan
+>  	dst_release(skb->dst);
+>  	skb->dst = dst_clone(__sk_dst_get(sk_tun));
+>  	skb_orphan(skb);
+> -	skb->sk = sk_tun;
+> +	pppol2tp_skb_set_owner_w(skb, sk_tun);
+>  
+>  	/* Queue the packet to IP for output */
+>  	len = skb->len;
+> 
+> There is no skb_orphan() call in the current pppol2tp.c code.
+> 
+> Please always prepare your patches against the current tree.
 
-It is 2.6.26-rc3-00332-gcbff290.
-Host runs as a NFS server and rtorrent client.
-That is all network activity on it.
-I do not know what system was doing at this time, I have found this
-warning only after some time.
+My apologies. I sent the wrong patch version. The skb_orphan() call was 
+moved in the truesize patch that has already been applied. Shall I resend?
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
