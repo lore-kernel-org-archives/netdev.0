@@ -1,120 +1,135 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
-	v2.6.26-rc3+
-Date: Tue, 03 Jun 2008 16:54:01 -0700
-Message-ID: <1212537241.6980.12.camel@localhost>
-References: <20080603094057.GA29480@elte.hu>
-	 <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
-	 <20080603.150344.145518113.davem@davemloft.net>
-	 <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
+From: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
+Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Wed, 4 Jun 2008 02:10:13 +0200
+Message-ID: <a01a16b50806031710u54b9297bkf1fad9c4f8fd581f@mail.gmail.com>
+References: <20080526115628.GA31316@elte.hu> <1211966834.12349.62.camel@twins>
+	 <a01a16b50805310725x4f1c375ep2d091bb044ac0787@mail.gmail.com>
+	 <Pine.LNX.4.64.0805311839540.2657@wrl-59.cs.helsinki.fi>
+	 <484191BD.8000904@gmail.com>
+	 <Pine.LNX.4.64.0805312119270.2672@wrl-59.cs.helsinki.fi>
+	 <a01a16b50805311325w7f58ca69h93d02af9bc28d2ea@mail.gmail.com>
+	 <Pine.LNX.4.64.0805312332270.2760@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, mingo@elte.hu,
-	mcmanus@ducksong.com, peterz@infradead.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
-	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, "Ingo Molnar" <mingo@elte.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.labridge.com ([206.117.136.22]:2085 "EHLO
-	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1752807AbYFCX5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 19:57:14 -0400
-In-Reply-To: <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
+Received: from rv-out-0506.google.com ([209.85.198.234]:20175 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752846AbYFDAKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 20:10:14 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so1835476rvb.1
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2008 17:10:13 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0805312332270.2760@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-06-04 at 02:22 +0300, Ilpo J=C3=A4rvinen wrote:
-> But here's somewhat more likely explanation... Only compile tested...
-> It probably needs some commenting from people who understand locking=20
-> variants & details (I don't).
-> Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index c9454f0..d21d2b9 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -4562,6 +4562,7 @@ static int tcp_defer_accept_check(struct sock *=
-sk)
->  	struct tcp_sock *tp =3D tcp_sk(sk);
-> =20
->  	if (tp->defer_tcp_accept.request) {
-> +		struct sock *listen_sk =3D tp->defer_tcp_accept.listen_sk;
-
-Not commenting on the locking, but I think the code
-would be clearer if tp->defer_tcp_accept was used in
-a temporary instead.
-
-Perhaps:
-
- net/ipv4/tcp_input.c |   33 ++++++++++++++++-----------------
- 1 files changed, 16 insertions(+), 17 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index b54d9d3..f846e11 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4535,18 +4535,18 @@ static void tcp_urg(struct sock *sk, struct sk_=
-buff *skb, struct tcphdr *th)
- static int tcp_defer_accept_check(struct sock *sk)
- {
- 	struct tcp_sock *tp =3D tcp_sk(sk);
--
--	if (tp->defer_tcp_accept.request) {
--		int queued_data =3D  tp->rcv_nxt - tp->copied_seq;
--		int hasfin =3D  !skb_queue_empty(&sk->sk_receive_queue) ?
-+	struct tcp_deferred_accept_info *tdai =3D &tp->defer_tcp_accept;
-+	if (tdai->request) {
-+		int queued_data =3D tp->rcv_nxt - tp->copied_seq;
-+		int hasfin =3D !skb_queue_empty(&sk->sk_receive_queue) ?
- 			tcp_hdr((struct sk_buff *)
- 				sk->sk_receive_queue.prev)->fin : 0;
-=20
- 		if (queued_data && hasfin)
- 			queued_data--;
-=20
--		if (queued_data &&
--		    tp->defer_tcp_accept.listen_sk->sk_state =3D=3D TCP_LISTEN) {
-+		bh_lock_sock(tdai->listen_sk);
-+		if (queued_data && tdai->listen_sk->sk_state =3D=3D TCP_LISTEN) {
- 			if (sock_flag(sk, SOCK_KEEPOPEN)) {
- 				inet_csk_reset_keepalive_timer(sk,
- 							       keepalive_time_when(tp));
-@@ -4554,23 +4554,22 @@ static int tcp_defer_accept_check(struct sock *=
-sk)
- 				inet_csk_delete_keepalive_timer(sk);
- 			}
-=20
--			inet_csk_reqsk_queue_add(
--				tp->defer_tcp_accept.listen_sk,
--				tp->defer_tcp_accept.request,
--				sk);
-+			inet_csk_reqsk_queue_add(tdai->listen_sk,
-+						 tdai->request,
-+						 sk);
-=20
--			tp->defer_tcp_accept.listen_sk->sk_data_ready(
--				tp->defer_tcp_accept.listen_sk, 0);
-+			tdai->listen_sk->sk_data_ready(tdai->listen_sk, 0);
-=20
--			sock_put(tp->defer_tcp_accept.listen_sk);
-+			sock_put(tdai->listen_sk);
- 			sock_put(sk);
--			tp->defer_tcp_accept.listen_sk =3D NULL;
--			tp->defer_tcp_accept.request =3D NULL;
--		} else if (hasfin ||
--			   tp->defer_tcp_accept.listen_sk->sk_state !=3D TCP_LISTEN) {
-+			tdai->listen_sk =3D NULL;
-+			tdai->request =3D NULL;
-+		} else if (hasfin || tdai->listen_sk->sk_state !=3D TCP_LISTEN) {
-+			bh_unlock_sock(tdai->listen_sk);
- 			tcp_reset(sk);
- 			return -1;
- 		}
-+		bh_unlock_sock(tdai->listen_sk);
- 	}
- 	return 0;
- }
-
-
+MjAwOC81LzMxIElscG8gSsOkcnZpbmVuIDxpbHBvLmphcnZpbmVuQGhlbHNpbmtpLmZpPjoKPiBJ
+IGRpZG4ndCByZWFsbHkgbWVhbiB0Y3BkdW1wLCBJIHdhcyBtb3JlIHRoaW5raW5nIG9mIHN5c2Nh
+bGwgd2hhdCBpcyB0aGUKPiBzeXNjYWxsIHdoZXJlIHRoZSBwcm9jZXNzIGlzIHdhaXRpbmcuIFRo
+b3VnaCB0Y3BkdW1wIG1pZ2h0IHJldmVhbAo+IHNvbWV0aGluZyBhcyB3ZWxsIGFib3V0IHRoZSBi
+ZWhhdmlvciB3aGVuIG5lYXJpbmcgdGhlIHByb2JsZW0sCgo+IEhtbSwgcGVyaGFwcyBwZXJpb2Rp
+Y2FsbHkgY2hlY2tpbmcgL3Byb2MvbmV0L3RjcCAoZS5nLiwgb25jZSBwZXIgMTBzKSBpZgo+IHRo
+ZSB0aW1lb3V0IGlzIGxhcmdlciB0aGFuIFRDUF9SVE9fTUFYIG1pZ2h0IGFsbG93IHNvbWUgc2Ny
+aXB0IHRvCj4gaW1tZWRpYXRlbHkgbm90aWNlIHdoZW4gdGhpbmdzIGJyb2tlIHdoaWxlIHJlcHJv
+ZHVjaW5nIGl0LiBTdG9yaW5nIGFsbAo+IHRob3NlIG9uY2UgcGVyIDEwcyB2YWx1ZXMgc2hvdWxk
+bid0IGJlIGEgdG9vIGJpZyBlaXRoZXIsIGl0IGNvdWxkIGV2ZW4gYmUKPiBkb25lIGluIGJvdGgg
+ZW5kcyBmb3IgYSBzaW5nbGUgZmxvdyAoYnV0IEknbGwgbGVhdmUgYSBzY3JpcHQgdG8gZG8gdGhh
+dCBvbgo+IE1vbmRheSkuCgpIaS4gSSBoYXZlIG5vdyB0ZXN0ZWQgYW5kIHRha2VuIHZhcmlvdXMg
+bG9ncyBiZWZvcmUvdW5kZXIvYWZ0ZXIgKHBzLCBuZXRzdGF0LAp0Y3BkdW1wLCBzdHJhY2UsIC9w
+cm9jL25ldC90Y3ApLiBUaGUgbG9ncyBkaWQgbm90IGdyb3cgYXMgYmlnIGFzIEkgZmVhcmVkCmhv
+d2V2ZXIgdGhleSBhcmUgd2F5IHRvbyBiaWcgYXR0YWNoIGhlcmUuIEFueSB0aXBzIG9uIGhvdyB0
+byBkaXN0cmlidXRlPwoKSSBtZW50aW9uZWQgYmVmb3JlIHRoYXQgdGhlIHNzaCBjb25uZWN0aW9u
+IGRpZWQgb24gdGhlIG5ldyBQQywgYnV0IHNvbWV0aW1lcwppdCBqdXN0IGhhbmdzIGFzIHdlbGws
+IGkuZS4gdGhlIHNzaCBjb25uZWN0aW9uIGlzIGFsaXZlIGJ1dCB0aGVyZSBpcwpubyBkYXRhIHRy
+YW5zZmVycmVkLgpUaGUgbGFzdCB0ZXN0IEkgZGlkIGhhbmcgYWZ0ZXIganVzdCAyOTJNQiB0cmFu
+c2ZlcnJlZC4gSW4gdGhpcyBjYXNlIHB2Cmp1c3QgaGFuZ3MKb24gdGhlIG5ldyBQQywgd2FpdGlu
+ZyBmb3IgZGF0YSB0aGF0IG5ldmVyIGFycml2ZXMuIE9uIHRoZSBzZW5kaW5nCnNpZGUgdGFyIHdo
+aWNoCmlzIHByb2R1Y2luZyBkYXRhIGhhdmUgZGllZCBhbmQgdGhlIGNvcnJlc3BvbmRpbmcgc3No
+IGlzIGxvY2tlZCBpbiBzb21lCnVuaW50ZXJydXB0aWJsZSBzbGVlcDoKCi8vbmV0c3RhdCBiZWZv
+cmUgdGhlIGhhbmc6ClByb3RvIFJlY3YtUSBTZW5kLVEgTG9jYWwgQWRkcmVzcyAgICAgICAgICAg
+ICAgIEZvcmVpZ24gQWRkcmVzcwogICAgIFN0YXRlICAgICAgIFBJRC9Qcm9ncmFtIG5hbWUgICAg
+VGltZXIKdGNwICAgICAgICAwICAgIDUwNCBuZXdfcGM6MjIgICAgICAgICAgICAgICAgICAgb2xk
+X3BjOjM5NDY0CiAgICAgRVNUQUJMSVNIRUQgMTcwNTQvc3NoZDogaGxvdmRhbCBvbiAoMC4yMC8w
+LzApCgovLyBhZnRlciB0aGUgaGFuZzoKUHJvdG8gUmVjdi1RIFNlbmQtUSBMb2NhbCBBZGRyZXNz
+ICAgICAgICAgICAgICAgRm9yZWlnbiBBZGRyZXNzCiAgICAgU3RhdGUgICAgICAgUElEL1Byb2dy
+YW0gbmFtZSAgICBUaW1lcgp0Y3AgICAgICAgIDAgICAyODk2IG9sZF9wYzoyMiAgICAgICAgICAg
+ICAgICAgICBuZXdfcGM6Mzk0NjQKICAgICBFU1RBQkxJU0hFRCAtICAgICAgICAgICAgICAgICAg
+IG9uICgyMTMyOTQ0MS4xOS8wLzApCgpvbGRfcGM+LnBzIC1lbGYgfCBzZWQgLW4gJzFwOyAvMTcw
+NTQuKnNzaC9wCkYgUyBVSUQgICAgICAgIFBJRCAgUFBJRCAgQyBQUkkgIE5JIEFERFIgU1ogV0NI
+QU4gIFNUSU1FIFRUWSAgICAgICAgICBUSU1FIENNRAo0IEQgcm9vdCAgICAgMTcwNTQgIDQ0MDIg
+IDAgIDgwICAgMCAtICAgICAwIC0gICAgICAwMDowOCA/CjAwOjAwOjAwIFtzc2hkXQo1IFogaGxv
+dmRhbCAgMTcwNTggMTcwNTQgIDAgIDgwICAgMCAtICAgICAwIC0gICAgICAwMDowOCA/CjAwOjAw
+OjMzIFtzc2hkXSA8ZGVmdW5jdD4Kb2xkX3BjPnN0cmFjZSAtcCAxNzA1NAphdHRhY2g6IHB0cmFj
+ZShQVFJBQ0VfQVRUQUNILCAuLi4pOiBPcGVyYXRpb24gbm90IHBlcm1pdHRlZApvbGRfcGM+CgpN
+YW55IHRoaW5ncyAgaW4gL3Byb2MvMTcwNTQvIGFyZSBpbiBhIG5vbi1ub3JtYWwgc3RhdGUgKGV4
+ZSBpcyBhbgplbXB0eSBzeW1saW5rLCBmZCBpcyBlbXB0eSwgZXRjKQpidXQgdGhlIHN0YXQqIGZp
+bGVzIHNlZW0gbm9ybWFsOgoKL3Byb2MvMTcwNTQvc3RhdAoxNzA1NCAoc3NoZCkgRCA0NDAyIDE3
+MDU0IDE3MDU0IDAgLTEgNDIwMjc1NiAxMDA3IDM5NSAxMSAyIDEgNiAwIDEgMjAKMCAxIDAgODAz
+NzM1NjQgMCAwIDQyOTQ5NjcyOTUgMCAwIDAgMCAwIDAgMCA0MDk2IDE2Mzg3IDAgMCAwIDE3IDAg
+MCAwCjM3IDAgMAoKL3Byb2MvMTcwNTQvc3RhdG0KMCAwIDAgMCAwIDAgMAoKL3Byb2MvMTcwNTQv
+c3RhdHVzCk5hbWU6ICAgc3NoZApTdGF0ZTogIEQgKGRpc2sgc2xlZXApClRnaWQ6ICAgMTcwNTQK
+UGlkOiAgICAxNzA1NApQUGlkOiAgIDQ0MDIKVHJhY2VyUGlkOiAgICAgIDAKVWlkOiAgICAwICAg
+ICAgIDAgICAgICAgNTAwICAgICAwCkdpZDogICAgMCAgICAgICAwICAgICAgIDUwMCAgICAgMApG
+RFNpemU6IDAKR3JvdXBzOgpUaHJlYWRzOiAgICAgICAgMQpTaWdROiAgIDAvMzI2MzkKU2lnUG5k
+OiAwMDAwMDAwMDAwMDAwMDAwClNoZFBuZDogMDAwMDAwMDAwMDAwMDAwMApTaWdCbGs6IDAwMDAw
+MDAwMDAwMDAwMDAKU2lnSWduOiAwMDAwMDAwMDAwMDAxMDAwClNpZ0NndDogMDAwMDAwMDE4MDAw
+NDAwMwpDYXBJbmg6IDAwMDAwMDAwMDAwMDAwMDAKQ2FwUHJtOiAwMDAwMDAwMGZmZmZmZmZmCkNh
+cEVmZjogMDAwMDAwMDBmZmZmZmZmZgp2b2x1bnRhcnlfY3R4dF9zd2l0Y2hlczogICAgICAgIDg2
+Cm5vbnZvbHVudGFyeV9jdHh0X3N3aXRjaGVzOiAgICAgNDMKCkkgYWxzbyB0b29rIGEgc3lzcnEt
+dCBkdW1wIGFuZCBoZXJlIGlzIHRoZSB0aGUgb3V0cHV0IHJlbGF0ZWQgdG8gMTcwNTQ6Cgpzc2hk
+ICAgICAgICAgIEQgMDAwMTEwYWIgIDE5NzIgMTcwNTQgICA0NDAyCiAgICAgICBmMDYyOGFhMCAw
+MDIwMDA0NiBhM2ZiZTcyOCAwMDAxMTBhYiBmMzc4ODY0MCBhNDA4OGMzNCAwMDAxMTBhYiBlZmZi
+MWE4MAogICAgICAgZWZmYjFhYjAgZWZmYjFhYzQgZTc2OWEzODAgYzA1YmUyNjAgMDAwMDAwMDEg
+ZjA2MjhhYTAgYzA0MmYzMjEgZWZmYjFhZDQKICAgICAgIGVmZmIxYWQ0IGVmZmIxYTgwIGU3Njlh
+M2I0IDAwMDAwMDAwIGU3NjlhMzgwIGMwNWJiOWFhIDAwMDAwMDAwIGM5ZTgyYzAwCkNhbGwgVHJh
+Y2U6CiBbPGMwNWJlMjYwPl0gbG9ja19zb2NrX25lc3RlZCsweDZjLzB4OWQKIFs8YzA0MmYzMjE+
+XSBhdXRvcmVtb3ZlX3dha2VfZnVuY3Rpb24rMHgwLzB4MzUKIFs8YzA1YmI5YWE+XSBzb2NrX2Zh
+c3luYysweDVlLzB4MTEzCiBbPGMwNWJjYzY4Pl0gc29ja19jbG9zZSsweDIyLzB4MmYKIFs8YzA0
+NjhiMDc+XSBfX2ZwdXQrMHhhZi8weDE4MAogWzxjMDQ2NjIzYT5dIGZpbHBfY2xvc2UrMHg1MS8w
+eDU4CiBbPGMwNDIxMzE4Pl0gcHV0X2ZpbGVzX3N0cnVjdCsweDVmLzB4YTcKIFs8YzA0MjI0NDM+
+XSBkb19leGl0KzB4MjA4LzB4NmI1CiBbPGMwNDU5OTBiPl0gZG9fbXVubWFwKzB4MTkzLzB4MWFj
+CiBbPGMwNDIyOTViPl0gc3lzX2V4aXRfZ3JvdXArMHgwLzB4ZAogWzxjMDQwNGRhYT5dIHN5c2Vu
+dGVyX3Bhc3RfZXNwKzB4NWYvMHg4NQogPT09PT09PT09PT09PT09PT09PT09PT0Kc3NoZCAgICAg
+ICAgICA/IGMwNGRjMWE2ICAxMjk2IDE3MDU4ICAxNzA1NAogICAgICAgZDI0MGQ3NDAgMDAyMDAw
+NDYgYzA2MjZlYTMgYzA0ZGMxYTYgYzc4ODYzODAgZDI0MGQ3NDAgMDAwMDAwMDAgMDAwMDAwMTAK
+ICAgICAgIGQyNDBkNzQwIGYwNjI4YWEwIGY3ODNmNDQwIGMwNDIyOGVjIGMwNmQwYjUwIGQyNDBk
+OWZkIDAwMDA0MmEyIDAwMDAwMDAyCiAgICAgICBkMjQwZDhjNCAwMDAwMDAwMCBmMzk0ZWI2MCBm
+Mzk0ZWI2MCBmMzk0ZWJlOCBmMzk0ZWMyMCBjMDZjMDA2OCAwMDIwMDAwNgpDYWxsIFRyYWNlOgog
+WzxjMDYyNmVhMz5dIF9zcGluX3VubG9jaysweGYvMHgyMwogWzxjMDRkYzFhNj5dIF9hdG9taWNf
+ZGVjX2FuZF9sb2NrKzB4MjIvMHgyYwogWzxjMDQyMjhlYz5dIGRvX2V4aXQrMHg2YjEvMHg2YjUK
+IFs8YzA0MDYwZDA+XSBkaWUrMHgxZDgvMHgxZTAKIFs8YzA2MjgzOGU+XSBkb19wYWdlX2ZhdWx0
+KzB4MC8weDYxNQogWzxjMDYyODhiOT5dIGRvX3BhZ2VfZmF1bHQrMHg1MmIvMHg2MTUKIFs8YzA2
+MjgzOGU+XSBkb19wYWdlX2ZhdWx0KzB4MC8weDYxNQogWzxjMDYyNzEwYT5dIGVycm9yX2NvZGUr
+MHg2YS8weDcwCiBbPGY4Yzc3YjM5Pl0gbmZfY29ubnRyYWNrX2ZpbmRfZ2V0KzB4MzYvMHgzYSBb
+bmZfY29ubnRyYWNrXQogWzxmOGM3ODM3OT5dIG5mX2Nvbm50cmFja19pbisweDEzNS8weDNlOCBb
+bmZfY29ubnRyYWNrXQogWzxjMDQyM2M1ZD5dIGxvY2FsX2JoX2Rpc2FibGUrMHhhLzB4YgogWzxj
+MDYyNmQ1ND5dIF9yZWFkX2xvY2tfYmgrMHgxMi8weDFhCiBbPGMwNDIzZDJjPl0gbG9jYWxfYmhf
+ZW5hYmxlX2lwKzB4MzcvMHg0YgogWzxmOGE0YTNhMz5dIGlwdF9kb190YWJsZSsweDJhZi8weDJk
+OCBbaXBfdGFibGVzXQogWzxmOGM4ODE2MT5dIGlwdjRfY29ubnRyYWNrX2xvY2FsKzB4MC8weDUx
+IFtuZl9jb25udHJhY2tfaXB2NF0KIFs8YzA1ZGJkZTY+XSBuZl9pdGVyYXRlKzB4M2EvMHg2ZQog
+WzxjMDVlMzNiMD5dIGRzdF9vdXRwdXQrMHgwLzB4NwogWzxjMDVkYzEyZj5dIG5mX2hvb2tfc2xv
+dysweDU3LzB4ZGUKIFs8YzA1ZTMzYjA+XSBkc3Rfb3V0cHV0KzB4MC8weDcKIFs8YzA1ZTU2Nzg+
+XSBpcF9xdWV1ZV94bWl0KzB4MmZmLzB4MzQwCiBbPGMwNWUzM2IwPl0gZHN0X291dHB1dCsweDAv
+MHg3CiBbPGMwNWYzNGQ3Pl0gdGNwX3RyYW5zbWl0X3NrYisweDZjYy8weDZmZgogWzxjMDVmMzRk
+Nz5dIHRjcF90cmFuc21pdF9za2IrMHg2Y2MvMHg2ZmYKIFs8YzA0MDU3YmI+XSBjb21tb25faW50
+ZXJydXB0KzB4MjMvMHgyOAogWzxjMDVmMmFjYz5dIHRjcF9zbmRfdGVzdCsweDEzLzB4ZTEKIFs8
+YzA1ZjU1NGM+XSB0Y3BfcHVzaF9vbmUrMHhiMy8weGQ0CiBbPGMwNWViMTFlPl0gdGNwX3NlbmRt
+c2crMHg3ZjEvMHhhM2IKIFs8YzA1ZWJhZTQ+XSB0Y3BfcmVjdm1zZysweDYwYi8weDcxNwogWzxj
+MDRiY2I3NT5dIGF2Y19oYXNfcGVybV9ub2F1ZGl0KzB4Mzg5LzB4NDMxCiBbPGMwNGM1N2U0Pl0g
+c2VsaW51eF9uZXRsYmxfaW5vZGVfcGVybWlzc2lvbisweDQwLzB4YTMKIFs8YzA1YmJkNzM+XSBz
+b2NrX2Fpb193cml0ZSsweGUzLzB4ZWYKIFs8YzA0Njc4ZTE+XSBkb19zeW5jX3dyaXRlKzB4YzYv
+MHgxMDkKIFs8YzA2MjZmMTE+XSBfc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSsweDE0LzB4MmEKIFs8
+YzA0MmYzMjE+XSBhdXRvcmVtb3ZlX3dha2VfZnVuY3Rpb24rMHgwLzB4MzUKIFs8YzA0NjgxMzU+
+XSB2ZnNfd3JpdGUrMHhiNS8weDE0YgogWzxjMDQ2ODY5Zj5dIHN5c193cml0ZSsweDQxLzB4NjcK
+IFs8YzA0MDRkYWE+XSBzeXNlbnRlcl9wYXN0X2VzcCsweDVmLzB4ODUKID09PT09PT09PT09PT09
+PT09PT09PT09CgpBbGwgdGhlIG90aGVyIHNzaCB6b21iaWVzIGFyZSBhbHNvIHN0dWNrIGluIGxv
+Y2tfc29ja19uZXN0ZWQvX3NwaW5fdW5sb2NrCihleGNlcHQgb25lIHBhaXIgb2YgbG9ja19zb2Nr
+X25lc3RlZC9kb19leGl0KS4KCkFueSBvdGhlciB0ZXN0cyBJIHNob3VsZCBkby9sb2dzIHlvdSB3
+YW50PwoKQlIgSMOla29uIEzDuHZkYWwK
