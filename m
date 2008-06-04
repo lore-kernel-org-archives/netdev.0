@@ -1,42 +1,46 @@
-From: Karen Shaeffer <shaeffer@neuralscape.com>
-Subject: Re: [PATCH] forcedeth: msi interrupts
-Date: Wed, 4 Jun 2008 16:00:38 -0700
-Message-ID: <20080604230038.GB26514@synapse.neuralscape.com>
-References: <4845AEE2.1090905@nvidia.com> <20080604151854.4a6f22b8.akpm@linux-foundation.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] ipv6 addrconf: Ignore requests to set NODAD flag when changing addresses
+Date: Thu, 5 Jun 2008 01:47:51 +0200
+Message-ID: <20080604234751.GH20815@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
-	manfred@colorfullife.com, akpm@linuxfoundation.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.144.200.82] ([198.144.200.82]:58548 "EHLO neuralscape.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757419AbYFDXhc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 19:37:32 -0400
+Received: from postel.suug.ch ([194.88.212.233]:60295 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759184AbYFDXrb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2008 19:47:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20080604151854.4a6f22b8.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 04, 2008 at 03:18:54PM -0700, Andrew Morton wrote:
-> On Tue, 03 Jun 2008 16:51:46 -0400
-> Ayaz Abdulla <aabdulla@nvidia.com> wrote:
-> 
-> > This patch adds a workaround for lost MSI interrupts. There is a race 
-> > condition in the HW in which future interrupts could be missed. The 
-> > workaround is to toggle the MSI irq mask.
-> > 
-> 
-> Do you think this is a 2.6.26 thing?
+The decision to run DAD has already been made at the time the address
+was added. Changing the flag later on does not have any effect and
+is only confusing.
 
-Or does it go back even further, maybe even as far as 2.6.18?
-I've observed the CK48 NICs hang on 2.6.18 - 2.6.24 kernels.
-Just wondering if this is relevant.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Thanks,
-Karen
--- 
- Karen Shaeffer
- Neuralscape, Palo Alto, Ca. 94306
- shaeffer@neuralscape.com  http://www.neuralscape.com
+Index: net-2.6/net/ipv6/addrconf.c
+===================================================================
+--- net-2.6.orig/net/ipv6/addrconf.c	2008-06-04 22:57:41.000000000 +0200
++++ net-2.6/net/ipv6/addrconf.c	2008-06-04 22:59:11.000000000 +0200
+@@ -3200,7 +3200,7 @@
+ 	}
+ 
+ 	spin_lock_bh(&ifp->lock);
+-	ifp->flags = (ifp->flags & ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_NODAD | IFA_F_HOMEADDRESS)) | ifa_flags;
++	ifp->flags = (ifp->flags & ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_HOMEADDRESS)) | ifa_flags;
+ 	ifp->tstamp = jiffies;
+ 	ifp->valid_lft = valid_lft;
+ 	ifp->prefered_lft = prefered_lft;
+@@ -3267,6 +3267,9 @@
+ 				      preferred_lft, valid_lft);
+ 	}
+ 
++	/* It's too late to disable DOD now, ignore the flag */
++	ifa_flags &= ~IFA_F_NODAD;
++
+ 	if (nlh->nlmsg_flags & NLM_F_EXCL ||
+ 	    !(nlh->nlmsg_flags & NLM_F_REPLACE))
+ 		err = -EEXIST;
