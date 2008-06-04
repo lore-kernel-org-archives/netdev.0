@@ -1,79 +1,45 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
-Date: Wed, 4 Jun 2008 17:34:24 +0100
-Message-ID: <OFC24FA00D.3871FCA2-ON8025745E.00558124-8025745E.005B0AEE@smsc.com>
-References: <20080602155415.GA6192@solarflare.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/12] BE NIC driver - Header files and initialization
+ functions
+Date: Wed, 4 Jun 2008 10:11:33 -0700
+Message-ID: <20080604101133.2188c8f6@extreme>
+References: <20080604082514.241e7aad@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Bahadir Balban <Bahadir.Balban@arm.com>,
-	Bill Gatliff <bgat@billgatliff.com>, catalin.marinas@arm.com,
-	hennerich@blackfin.uclinux.org, ian.saturley@smsc.com,
-	Michael.Hennerich@analog.com, netdev@vger.kernel.org,
-	jeff@garzik.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Subbu Seetharaman" <subbus@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:4403 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753645AbYFDQes (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 12:34:48 -0400
-In-Reply-To: <20080602155415.GA6192@solarflare.com>
+Received: from mail.vyatta.com ([216.93.170.194]:40440 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755113AbYFDRLf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2008 13:11:35 -0400
+In-Reply-To: <20080604082514.241e7aad@mailhost.serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ben,
+On Wed, 04 Jun 2008 01:25:14 -0700
+"Subbu Seetharaman" <subbus@serverengines.com> wrote:
 
-> [...]
-> > +static void smsc911x_ethtool_setmsglevel(struct net_device *dev, u32 
-level)
-> > +{
-> > +   struct smsc911x_data *pdata = netdev_priv(dev);
-> > +   pdata->msg_enable = level;
-> > +}
+> Thanks for you comments Stephen.  
 > 
-> It would be nice if the logging macros actually tested msg_enable too. 
-;-)
+> We did not make MSIx the default since most testing
+> was done with INTx.  Since this version of the driver does not use multiple
+> interrupt vectors, there is no performance advantage in using MSIx.
+> If MSIx is still the preferred default, we can change it.
 
-I'm implementing this now, using e100's approach (and DPRINTF macro) as a 
-guide.
-I have a few questions on the "right way" to do this.
+MSIx isn't shared but INTx is so there is at least some gain on big systems.
 
-1. What's the recommended way to initialise msg_enable? Some drivers set 
-it to
-a constant, but e100 has a module param called debug and sets msg_enable 
-to
-((1 << debug) - 1) during probe.  This implies the bits are in order of
-importance (i.e. to debug IFDOWN messages one would also have to view DRV,
-PROBE, LINK and TIMER messages), is this right?
+> 
+> NAPI makes tasklet redundant in the RX completion processing; but
+> we felt deffering TX completion processing to a tasklet is a better
+> idea for 10Gb data rates than doing it in hard interrupt.
 
-Once the interface is up, we can turn any combination of bits on and off 
-using
-ethtool, but a lot of this embedded driver's debugging is done in probe(), 
-when
-embedded developers/platform integrators are verifying the platform's bus 
-layout
-and timing.
+Okay, other drivers do TX completion processing  in NAPI handler.
+It has the advantage of rate limiting the the TX completion in case
+of really high transmit load.
 
-2. My driver had two levels of message importance (warning and trace), 
-chosen
-at compile-time so they were #defined out on non-debug builds.  Should I 
-remove
-this compile-time decision and print the two as KERN_WARNING and 
-KERN_DEBUG,
-or would printing KERN_DEBUG messages in non-debug builds (when no-one is
-interested) be discouraged?
-
-3. DPRINTF adds dev->name to the messages, which is useful.  If I use it 
-before
-I call register_netdev, dev->name is set to "eth%d" so the debugging 
-messages
-look strange.  Should I skip the whole msg_enable/DPRINTF thing in probe 
-or is
-there a better way?
-
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
-
+> I will get back soon with other comments taken care of.
+> 
+> Subbu
+>
