@@ -1,59 +1,57 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [patch -v3 10/22] airo: use simple_read_from_buffer
-Date: Wed, 04 Jun 2008 20:56:43 +0900
-Message-ID: <20080604115751.496499508@gmail.com>
-References: <20080604115633.116832712@gmail.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 9/12]: wext: Dispatch and handle compat ioctls entirely in net/wireless/wext.c
+Date: Wed, 4 Jun 2008 14:20:48 +0200
+Message-ID: <200806041420.49316.arnd@arndb.de>
+References: <20080603.132842.123235332.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, linville@tuxdriver.com,
+	mokuno@sm.sony.co.jp, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:20551 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760755AbYFDMKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 08:10:13 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so41414waf.23
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2008 05:10:13 -0700 (PDT)
-Content-Disposition: inline; filename=airo-use-simple-read-from-buffer.patch
+Received: from moutng.kundenserver.de ([212.227.126.171]:52237 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130AbYFDMVt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 08:21:49 -0400
+In-Reply-To: <20080603.132842.123235332.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Cc: John W. Linville <linville@tuxdriver.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-wireless@vger.kernel.org
----
- drivers/net/wireless/airo.c |   15 +++------------
- 1 file changed, 3 insertions(+), 12 deletions(-)
+On Tuesday 03 June 2008, David Miller wrote:
+> Next we can kill the hacks in fs/compat_ioctl.c and also
+> dispatch compat ioctls down into the driver and 80211 protocol
+> helper layers in order to handle iw_point objects embedded in
+> stream replies which need to be translated.
 
-Index: 2.6-git/drivers/net/wireless/airo.c
-===================================================================
---- 2.6-git.orig/drivers/net/wireless/airo.c
-+++ 2.6-git/drivers/net/wireless/airo.c
-@@ -4560,22 +4560,13 @@ static ssize_t proc_read( struct file *f
- 			  size_t len,
- 			  loff_t *offset )
- {
--	loff_t pos = *offset;
--	struct proc_data *priv = (struct proc_data*)file->private_data;
-+	struct proc_data *priv = file->private_data;
- 
- 	if (!priv->rbuffer)
- 		return -EINVAL;
- 
--	if (pos < 0)
--		return -EINVAL;
--	if (pos >= priv->readlen)
--		return 0;
--	if (len > priv->readlen - pos)
--		len = priv->readlen - pos;
--	if (copy_to_user(buffer, priv->rbuffer + pos, len))
--		return -EFAULT;
--	*offset = pos + len;
--	return len;
-+	return simple_read_from_buffer(buffer, len, offset, priv->rbuffer,
-+					priv->readlen);
- }
- 
- /*
+Great work! Thanks for getting one large chunk of fs/compat_ioctl.c
+removed on the way.
 
--- 
+> diff --git a/include/net/wext.h b/include/net/wext.h
+> index 80b31d8..6d76a39 100644
+> --- a/include/net/wext.h
+> +++ b/include/net/wext.h
+> @@ -12,6 +12,8 @@ extern int wext_proc_init(struct net *net);
+>  extern void wext_proc_exit(struct net *net);
+>  extern int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
+>  			     void __user *arg);
+> +extern int compat_wext_handle_ioctl(struct net *net, unsigned int cmd,
+> +				    unsigned long arg);
+
+Is it intentional that the prototypes are so different? Why not
+pass a void __user *arg instead of unsigned long arg?
+
+> +int compat_wext_handle_ioctl(struct net *net, unsigned int cmd,
+> +			     unsigned long arg)
+> +{
+> +	void __user *argp = (void __user *)arg;
+
+For the conversion, you should also use compat_ptr() instead of the
+cast. This currently only makes a difference on s390, which does
+not have wireless, but it's better not to give wrong examples in the
+code.
+
+	Arnd <><
