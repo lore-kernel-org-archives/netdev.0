@@ -1,81 +1,62 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [GIT PULL net-2.6] IPv6 fixes.
-Date: Wed, 04 Jun 2008 14:33:54 -0400
-Message-ID: <4846E012.9020300@hp.com>
-References: <4845EDB0.7030809@hp.com>	<4845FDA1.1040009@cn.fujitsu.com>	<20080604.113751.123223388.yoshfuji@linux-ipv6.org> <20080604.120250.131119978.yoshfuji@linux-ipv6.org> <48460DDC.4040703@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: DCB generic netlink interface
+Date: Wed, 04 Jun 2008 11:44:56 -0700 (PDT)
+Message-ID: <20080604.114456.32717312.davem@davemloft.net>
+References: <20080527141339.12851.98781.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:18890 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752537AbYFDSd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 14:33:57 -0400
-In-Reply-To: <48460DDC.4040703@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42051
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756640AbYFDSo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 14:44:57 -0400
+In-Reply-To: <20080527141339.12851.98781.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shan Wei wrote:
->> +			if (addr_type != IPV6_ADDR_ANY) {
->> +				if (!ipv6_chk_addr(&init_net, &src_info->ipi6_addr,
->> +						   addr_type & IPV6_ADDR_LINKLOCAL ? dev : NULL, 0))
->>
-> if ipi6_ifindex==2(eth0) and the ipi6_addr is loopback addr or multicast addr,
-> ipv6_chk_addr() will return ture.
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Date: Tue, 27 May 2008 07:13:39 -0700
 
-Won't ipv6_chk_addr() fail if given a multicast address since it's
-looking in inet6_addr_lst[]?
+> This patchset adds the initial DCB generic netlink interface to the kernel.
+> It adds the layer as a generic interface for any DCB-capable device through
+> the netdevice.
+> 
+> This patchset also includes an implementation using this interface in the
+> ixgbe driver.  It adds the hardware-specific code to turn the interface on,
+> and includes the netlink callbacks in the driver to perform the requested
+> operations.
+> 
+> These patches are targeted at the net-next-2.6 tree, for 2.6.27.  The patch
+> series is as follows:
+> 
+> patch 1: DCB netlink interface in-kernel
+> patch 2: ixgbe DCB hardware-specific patches
+> patch 3: enable DCB in ixgbe
 
-Anyways, I've created a little chart showing the before/after
-differences based on Yoshifuji's latest patch:
+Overall the changes look OK.  In particular the netlink implementation
+looks clean.
 
-Behavior today:
+However we need to think about how this stuff overlaps with existing
+'tc' facilities.  For example, what we really need to do here is
+define this generic DCB interface such that it normally just sits on
+top of a software scheduler layer implementation and therefore there
+are always non-NULL DCB ops to invoke.
 
-src/ifindex	result
------------	------
+If there is a device that can implement this in hardware, that's
+fine and we define some interface for invoking that.
 
-::/0		SUCCESS (packet sent on lo)
-::/1 (lo)	SUCCESS (packet sent on lo)
-::/3 (eth0)	SUCCESS (packet sent on lo)
-::/27		SUCCESS (packet sent on lo)
+Because of that, the netdevice is likely not the correct place for the
+ops (the only actual ugly part of the patches in my opinion).
 
-::1/0		SUCCESS (packet sent on lo)
-::1/1 (lo)	SUCCESS (packet sent on lo)
-::1/3 (eth0)	SUCCESS (packet sent on lo)
-::1/27		SUCCESS (packet sent on lo)
+I'm still very active travelling which is why I haven't responded to
+this earlier.  I ask that you express some understanding about this as
+there is really nothing I can do to review these kinds of important
+changes properly when I am changing 10 timezones every other day.
 
-ff02::1/0	EINVAL
-ff02::1/1	EINVAL
-ff02::1/3	EINVAL
-ff02::1/27	ENODEV
-
-
-With patch, differences shown with **:
-
-src/ifindex	result
------------	------
-
-::/0		SUCCESS (packet sent on lo)
-::/1 (lo)	SUCCESS (packet sent on lo)
-::/3 (eth0)	SUCCESS (packet sent on lo)
-::/27		ENODEV **
-
-::1/0		SUCCESS (packet sent on lo)
-::1/1 (lo)	SUCCESS (packet sent on lo)
-::1/3 (eth0)	EINVAL **
-::1/27		ENODEV **
-
-ff02::1/0	EINVAL
-ff02::1/1	EINVAL
-ff02::1/3	EINVAL
-ff02::1/27	ENODEV
-
-
-Is that change good with you?
-
--Brian
-
+Besides we're still in bug fix phase, so nothing I say will get this
+upstream into Linus's tree any faster, and we really need to get
+something like this right because it will be hard to undo this
+afterwards if we get it wrong.
