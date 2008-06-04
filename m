@@ -1,30 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix skb vs fack_count out-of-sync condition
-Date: Wed, 04 Jun 2008 12:08:07 -0700 (PDT)
-Message-ID: <20080604.120807.263602912.davem@davemloft.net>
-References: <Pine.LNX.4.64.0805121349400.1888@wrl-59.cs.helsinki.fi>
-	<483E0848.6030307@andyfurniss.entadsl.com>
-	<Pine.LNX.4.64.0806041330030.16829@wrl-59.cs.helsinki.fi>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [GIT PULL net-2.6] IPv6 fixes.
+Date: Thu, 05 Jun 2008 04:17:39 +0900 (JST)
+Message-ID: <20080605.041739.35779908.yoshfuji@linux-ipv6.org>
+References: <20080604.120250.131119978.yoshfuji@linux-ipv6.org>
+	<48460DDC.4040703@cn.fujitsu.com>
+	<4846E012.9020300@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lists@andyfurniss.entadsl.com, netdev@vger.kernel.org,
-	int986@gmail.com, brian.vowell@gmail.com, robbat2@gentoo.org,
-	rjw@sisk.pl, akpm@linux-foundation.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shanwei@cn.fujitsu.com, davem@davemloft.net,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48065
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758326AbYFDTII convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 15:08:08 -0400
-In-Reply-To: <Pine.LNX.4.64.0806041330030.16829@wrl-59.cs.helsinki.fi>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:58118 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753341AbYFDTRC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 15:17:02 -0400
+In-Reply-To: <4846E012.9020300@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 4 Jun 2008 13:42:43 +0300 (EEST)
+In article <4846E012.9020300@hp.com> (at Wed, 04 Jun 2008 14:33:54 -0400), Brian Haley <brian.haley@hp.com> says:
 
-> [PATCH] tcp: fix skb vs fack_count out-of-sync condition
+> With patch, differences shown with **:
+> 
+> src/ifindex	result
+> -----------	------
+> 
+> ::/0		SUCCESS (packet sent on lo)
+> ::/1 (lo)	SUCCESS (packet sent on lo)
+> ::/3 (eth0)	SUCCESS (packet sent on lo)
+> ::/27		ENODEV **
+> 
+> ::1/0		SUCCESS (packet sent on lo)
+> ::1/1 (lo)	SUCCESS (packet sent on lo)
+> ::1/3 (eth0)	EINVAL **
+> ::1/27		ENODEV **
+> 
+> ff02::1/0	EINVAL
+> ff02::1/1	EINVAL
+> ff02::1/3	EINVAL
+> ff02::1/27	ENODEV
 
-Applied and queued up for -stable, thanks!
+At least it is expected, and reasonable to me.
+
+--yoshfuji
