@@ -1,81 +1,64 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: PATCH: fix bridged 802.3ad bonding
-Date: Wed, 4 Jun 2008 09:06:33 -0700
-Message-ID: <20080604090633.2a12cecc@extreme>
-References: <20080603132106.GA3256@midget.suse.cz>
-	<20080603094604.6a7dfe7d@extreme>
-	<20080603193227.GA4050@midget.suse.cz>
-	<20080603131326.1f70915e@extreme>
-	<18105.1212528128@death>
-	<20080603215519.298c0cd3@extreme>
-	<20080604082425.GA3272@midget.suse.cz>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: How I can reset TCP sockets after long suspend/resume cyscle
+Date: Wed, 4 Jun 2008 09:21:54 -0700
+Message-ID: <20080604092154.7511c9d3@extreme>
+References: <200806011515.14103.maximlevitsky@gmail.com>
+	<4846B5F2.8090805@gmail.com>
+	<396556a20806040909q7e5eb8abi7cbc8b5ed11ed54e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Jiri Bohac <jbohac@suse.cz>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Jiri Bohac <jbohac@suse.cz>
+Cc: "Maxim Levitsky" <maximlevitsky@gmail.com>, netdev@vger.kernel.org
+To: "Adam Langley" <agl@imperialviolet.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54763 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758683AbYFDQMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 12:12:37 -0400
-In-Reply-To: <20080604082425.GA3272@midget.suse.cz>
+Received: from mail.vyatta.com ([216.93.170.194]:37872 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752574AbYFDQV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2008 12:21:56 -0400
+In-Reply-To: <396556a20806040909q7e5eb8abi7cbc8b5ed11ed54e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 Jun 2008 10:24:25 +0200
-Jiri Bohac <jbohac@suse.cz> wrote:
+On Wed, 4 Jun 2008 09:09:29 -0700
+"Adam Langley" <agl@imperialviolet.org> wrote:
 
-> On Tue, Jun 03, 2008 at 09:55:19PM -0700, Stephen Hemminger wrote:
-> > I prefer the following because it process all link-local frames through
-> > the normal input path. This means the frames will:
-> > 	* be filterable by netfilter
+> On Wed, Jun 4, 2008 at 8:34 AM, Maxim Levitsky <maximlevitsky@gmail.com> wrote:
+> >> Is there a way to close all TCP sockets before/after suspend to ram?
 > 
-> Well, the LACP frames are not filtered by netfilter when there is
-> bonding on its own (not part of a bridge), so I don't see why
-> this should change when the bond is made part of a bridge.
+> As with most things, you should consider how this can be done from
+> userspace first.
 > 
-> Maybe it is a good idea to run the LACP frames through netfilter,
-> but I think this should be done consistently in the bonding code,
-> whether or not bridging is set up, and probably on the individual
-> slave interfaces. It does not make sense to filter bonding's LACP
-> frames in ebtables, IMHO.
+> You can find the processes with TCP connections open by walking
+> /proc/*/fd and readlink()ing the dents therein. Then you can match the
+> inode numbers up with /proc/net/tcp to see if the given TCP connection
+> is remote or not.
 > 
-> > 	* not forwarded across bridge (this is important).
+> Now you want to kill those connections somehow. You could imagine
+> doing it by injecting RST packets back into the kernel, but for that
+> you would need to know the SEQ/ACK numbers for the connection. Since
+> that's sensitive information, /proc/net/tcp doesn't carry it. It would
+> have to be CAP_NET_ADMIN (read: root user) only and changing the
+> formats of proc files based on the reading user is a no-no. So that
+> would require another proc file; I've no idea how well that patch
+> would be received.
 > 
-> I thought this was the case with my second patch as well (?)
+> Another option would be to close the TCP connections from within the
+> processes which have them. You could enumerate the processes, ptrace
+> attach each one, wait() for SIGSTOP, get the current instr pointer and
+> patch in some code to close the fds then unpatch the process and let
+> it continue. That would be architecture specific, of couse.
 > 
->  
-> > --- a/net/bridge/br_input.c	2008-06-03 21:44:54.000000000 -0700
-> > +++ b/net/bridge/br_input.c	2008-06-03 21:52:20.000000000 -0700
-> > @@ -135,15 +135,12 @@ struct sk_buff *br_handle_frame(struct n
-> >  		/* Pause frames shouldn't be passed up by driver anyway */
-> >  		if (skb->protocol == htons(ETH_P_PAUSE))
-> >  			goto drop;
-> > -
-> > -		/* Process STP BPDU's through normal netif_receive_skb() path */
-> > -		if (p->br->stp_enabled != BR_NO_STP) {
-> > -			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-> > -				    NULL, br_handle_local_finish))
-> > -				return NULL;
-> > -			else
-> > -				return skb;
-> > -		}
-> > +
-> > +		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-> > +			    NULL, br_handle_local_finish))
-> > +			return NULL;	/* frame consumed by filter */
-> > +		else
-> > +			return skb;	/* continue processing */
-> >  	}
-> >  
-> >  	switch (p->state) {
+> When the process comes to reading/selecting the fds again it would get
+> a 0 read and act like they had been closed.
 > 
-> where did the "if (p->br->stp_enabled != BR_NO_STP)" condition
-> go? Is it not needed? I thought it was there to prevent the STP
-> BPDUs from being handled when STP is turned off.
+> I'll admit that neither solution is terribly wonderful.
 > 
+> 
+> AGL
 
-That is already done in br_stp_rcv so the check here was not
-needed.
+TCP should recover from this anyway. As soon as any activity happens
+on the connection the other end will respond with reset.  For an IMAP
+session doing the next get-mail should cause a connection reset.
+Now it is possible that mail client has other problems.
+
+> 
