@@ -1,51 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 10790] New: driver "sunhme" experiences
- corrupt packets if machine has more than 2GB of memory
-Date: Wed, 04 Jun 2008 11:33:17 -0700 (PDT)
-Message-ID: <20080604.113317.213189757.davem@davemloft.net>
-References: <20080525114548.6ad40fd7.akpm@linux-foundation.org>
-	<20080603.163317.148261530.davem@davemloft.net>
-	<20080604082121.GA23128@pingi.kke.suse.de>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [GIT PULL net-2.6] IPv6 fixes.
+Date: Wed, 04 Jun 2008 14:33:54 -0400
+Message-ID: <4846E012.9020300@hp.com>
+References: <4845EDB0.7030809@hp.com>	<4845FDA1.1040009@cn.fujitsu.com>	<20080604.113751.123223388.yoshfuji@linux-ipv6.org> <20080604.120250.131119978.yoshfuji@linux-ipv6.org> <48460DDC.4040703@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, f0h3a-kernel@yahoo.com
-To: kkeil@suse.de
+Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33370
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759051AbYFDSdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 14:33:18 -0400
-In-Reply-To: <20080604082121.GA23128@pingi.kke.suse.de>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:18890 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752537AbYFDSd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 14:33:57 -0400
+In-Reply-To: <48460DDC.4040703@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <kkeil@suse.de>
-Date: Wed, 4 Jun 2008 10:21:21 +0200
+Shan Wei wrote:
+>> +			if (addr_type != IPV6_ADDR_ANY) {
+>> +				if (!ipv6_chk_addr(&init_net, &src_info->ipi6_addr,
+>> +						   addr_type & IPV6_ADDR_LINKLOCAL ? dev : NULL, 0))
+>>
+> if ipi6_ifindex==2(eth0) and the ipi6_addr is loopback addr or multicast addr,
+> ipv6_chk_addr() will return ture.
 
-> Yes it is x86_64 and I think, that if you put more as 2G in this machine,
-> some physical addresses are behind the 4 GB border.
+Won't ipv6_chk_addr() fail if given a multicast address since it's
+looking in inet6_addr_lst[]?
 
-If that is the case then I think there might be some bug in the
-dma_sync_single_for_cpu() implementation on whatever IOMMU
-implementation is being used on this x86_64 system.
+Anyways, I've created a little chart showing the before/after
+differences based on Yoshifuji's latest patch:
 
-sunhme has two cases:
+Behavior today:
 
-1) If the packet is greater than 256 bytes the original packet
-   is unmapped.  So, if soft-iommu uses a bounce buffer,
-   for example, this should do the necessary copy from
-   the bounce buffer to the actual SKB data area.
+src/ifindex	result
+-----------	------
 
-2) If the packet is less than or equal to 256 bytes, the
-   packet is DMA sync'd using pci_dma_sync_single_for_cpu(),
-   which should cause soft-iommu or similar to copy from any
-   bounce buffer to the real buffer, and then we copy the
-   SKB data into a new freshly allocated SKB and reuse the original
-   one after calling pci_dma_sync_single_for_device().
+::/0		SUCCESS (packet sent on lo)
+::/1 (lo)	SUCCESS (packet sent on lo)
+::/3 (eth0)	SUCCESS (packet sent on lo)
+::/27		SUCCESS (packet sent on lo)
 
-I've validated that the DMA address and lengths used by those
-calls in the sunmhe driver are correct, so really my top suspect
-would be the IOMMU implementation being used on this system for
-these specific kinds of cases.
+::1/0		SUCCESS (packet sent on lo)
+::1/1 (lo)	SUCCESS (packet sent on lo)
+::1/3 (eth0)	SUCCESS (packet sent on lo)
+::1/27		SUCCESS (packet sent on lo)
+
+ff02::1/0	EINVAL
+ff02::1/1	EINVAL
+ff02::1/3	EINVAL
+ff02::1/27	ENODEV
+
+
+With patch, differences shown with **:
+
+src/ifindex	result
+-----------	------
+
+::/0		SUCCESS (packet sent on lo)
+::/1 (lo)	SUCCESS (packet sent on lo)
+::/3 (eth0)	SUCCESS (packet sent on lo)
+::/27		ENODEV **
+
+::1/0		SUCCESS (packet sent on lo)
+::1/1 (lo)	SUCCESS (packet sent on lo)
+::1/3 (eth0)	EINVAL **
+::1/27		ENODEV **
+
+ff02::1/0	EINVAL
+ff02::1/1	EINVAL
+ff02::1/3	EINVAL
+ff02::1/27	ENODEV
+
+
+Is that change good with you?
+
+-Brian
+
