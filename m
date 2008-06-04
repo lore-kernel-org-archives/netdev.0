@@ -1,143 +1,107 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 3/6] SCTP: Correctly implement Fast Recovery cwnd manipulations.
-Date: Wed,  4 Jun 2008 14:25:48 -0400
-Message-ID: <1212603951-24932-4-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 6/6] [SCTP]: Fix ECN markings for IPv6
+Date: Wed,  4 Jun 2008 14:25:51 -0400
+Message-ID: <1212603951-24932-7-git-send-email-vladislav.yasevich@hp.com>
 References: <1212603951-24932-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: linux-sctp@vger.kernel.org, davem@davemloft.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:15288 "EHLO
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:15326 "EHLO
 	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757431AbYFDS0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 14:26:00 -0400
+	with ESMTP id S1756354AbYFDS0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 14:26:03 -0400
 In-Reply-To: <1212603951-24932-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Correctly keep track of Fast Recovery state and do not reduce
-congestion window multiple times during sucht state.
+Commit e9df2e8fd8fbc95c57dbd1d33dada66c4627b44c
+([IPV6]: Use appropriate sock tclass setting for routing lookup.) also
+changed the way that ECN capable transports mark this capability in IPv6.
+As a result, SCTP was not marking ECN capablity because the traffic class
+was never set.  This patch brings back the markings for IPv6 traffic.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-Tested-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 ---
- include/net/sctp/structs.h |    8 +++++++-
- net/sctp/transport.c       |   44 ++++++++++++++++++++++++++++++++------------
- 2 files changed, 39 insertions(+), 13 deletions(-)
+ include/net/sctp/structs.h |    1 +
+ net/sctp/ipv6.c            |    6 ++++++
+ net/sctp/output.c          |    2 +-
+ net/sctp/protocol.c        |    6 ++++++
+ 4 files changed, 14 insertions(+), 1 deletions(-)
 
 diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 0ce0443..4f7b587 100644
+index 1014c77..2fb05b8 100644
 --- a/include/net/sctp/structs.h
 +++ b/include/net/sctp/structs.h
-@@ -901,7 +901,10 @@ struct sctp_transport {
- 	 *		calculation completes (i.e. the DATA chunk
- 	 *		is SACK'd) clear this flag.
+@@ -587,6 +587,7 @@ struct sctp_af {
+ 	int		(*is_ce)	(const struct sk_buff *sk);
+ 	void		(*seq_dump_addr)(struct seq_file *seq,
+ 					 union sctp_addr *addr);
++	void		(*ecn_capable)(struct sock *sk);
+ 	__u16		net_header_len;
+ 	int		sockaddr_len;
+ 	sa_family_t	sa_family;
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index e45e44c..6244367 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -726,6 +726,11 @@ static void sctp_v6_seq_dump_addr(struct seq_file *seq, union sctp_addr *addr)
+ 	seq_printf(seq, NIP6_FMT " ", NIP6(addr->v6.sin6_addr));
+ }
+ 
++static void sctp_v6_ecn_capable(struct sock *sk)
++{
++	inet6_sk(sk)->tclass |= INET_ECN_ECT_0;
++}
++
+ /* Initialize a PF_INET6 socket msg_name. */
+ static void sctp_inet6_msgname(char *msgname, int *addr_len)
+ {
+@@ -996,6 +1001,7 @@ static struct sctp_af sctp_af_inet6 = {
+ 	.skb_iif	   = sctp_v6_skb_iif,
+ 	.is_ce		   = sctp_v6_is_ce,
+ 	.seq_dump_addr	   = sctp_v6_seq_dump_addr,
++	.ecn_capable	   = sctp_v6_ecn_capable,
+ 	.net_header_len	   = sizeof(struct ipv6hdr),
+ 	.sockaddr_len	   = sizeof(struct sockaddr_in6),
+ #ifdef CONFIG_COMPAT
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index cf4f9fb..6d45bae 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -548,7 +548,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	 * Note: The works for IPv6 layer checks this bit too later
+ 	 * in transmission.  See IP6_ECN_flow_xmit().
  	 */
--	int rto_pending;
-+	__u8 rto_pending;
+-	INET_ECN_xmit(nskb->sk);
++	(*tp->af_specific->ecn_capable)(nskb->sk);
+ 
+ 	/* Set up the IP options.  */
+ 	/* BUG: not implemented
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 040e489..481baf1 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -616,6 +616,11 @@ static void sctp_v4_seq_dump_addr(struct seq_file *seq, union sctp_addr *addr)
+ 	seq_printf(seq, "%d.%d.%d.%d ", NIPQUAD(addr->v4.sin_addr));
+ }
+ 
++static void sctp_v4_ecn_capable(struct sock *sk)
++{
++	INET_ECN_xmit(sk);
++}
 +
-+	/* Flag to track the current fast recovery state */
-+	__u8 fast_recovery;
- 
- 	/*
- 	 * These are the congestion stats.
-@@ -920,6 +923,9 @@ struct sctp_transport {
- 	/* Data that has been sent, but not acknowledged. */
- 	__u32 flight_size;
- 
-+	/* TSN marking the fast recovery exit point */
-+	__u32 fast_recovery_exit;
-+
- 	/* Destination */
- 	struct dst_entry *dst;
- 	/* Source address. */
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index f4938f6..3759027 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -79,6 +79,7 @@ static struct sctp_transport *sctp_transport_init(struct sctp_transport *peer,
- 	peer->rttvar = 0;
- 	peer->srtt = 0;
- 	peer->rto_pending = 0;
-+	peer->fast_recovery = 0;
- 
- 	peer->last_time_heard = jiffies;
- 	peer->last_time_used = jiffies;
-@@ -403,11 +404,16 @@ void sctp_transport_raise_cwnd(struct sctp_transport *transport,
- 	cwnd = transport->cwnd;
- 	flight_size = transport->flight_size;
- 
-+	/* See if we need to exit Fast Recovery first */
-+	if (transport->fast_recovery &&
-+	    TSN_lte(transport->fast_recovery_exit, sack_ctsn))
-+		transport->fast_recovery = 0;
-+
- 	/* The appropriate cwnd increase algorithm is performed if, and only
--	 * if the cumulative TSN has advanced and the congestion window is
-+	 * if the cumulative TSN whould advanced and the congestion window is
- 	 * being fully utilized.
- 	 */
--	if ((transport->asoc->ctsn_ack_point >= sack_ctsn) ||
-+	if (TSN_lte(sack_ctsn, transport->asoc->ctsn_ack_point) ||
- 	    (flight_size < cwnd))
- 		return;
- 
-@@ -416,17 +422,23 @@ void sctp_transport_raise_cwnd(struct sctp_transport *transport,
- 	pmtu = transport->asoc->pathmtu;
- 
- 	if (cwnd <= ssthresh) {
--		/* RFC 2960 7.2.1, sctpimpguide-05 2.14.2 When cwnd is less
--		 * than or equal to ssthresh an SCTP endpoint MUST use the
--		 * slow start algorithm to increase cwnd only if the current
--		 * congestion window is being fully utilized and an incoming
--		 * SACK advances the Cumulative TSN Ack Point. Only when these
--		 * two conditions are met can the cwnd be increased otherwise
--		 * the cwnd MUST not be increased. If these conditions are met
--		 * then cwnd MUST be increased by at most the lesser of
--		 * 1) the total size of the previously outstanding DATA
--		 * chunk(s) acknowledged, and 2) the destination's path MTU.
-+		/* RFC 4960 7.2.1
-+		 * o  When cwnd is less than or equal to ssthresh, an SCTP
-+		 *    endpoint MUST use the slow-start algorithm to increase
-+		 *    cwnd only if the current congestion window is being fully
-+		 *    utilized, an incoming SACK advances the Cumulative TSN
-+		 *    Ack Point, and the data sender is not in Fast Recovery.
-+		 *    Only when these three conditions are met can the cwnd be
-+		 *    increased; otherwise, the cwnd MUST not be increased.
-+		 *    If these conditions are met, then cwnd MUST be increased
-+		 *    by, at most, the lesser of 1) the total size of the
-+		 *    previously outstanding DATA chunk(s) acknowledged, and
-+		 *    2) the destination's path MTU.  This upper bound protects
-+		 *    against the ACK-Splitting attack outlined in [SAVAGE99].
- 		 */
-+		if (transport->fast_recovery)
-+			return;
-+
- 		if (bytes_acked > pmtu)
- 			cwnd += pmtu;
- 		else
-@@ -502,6 +514,13 @@ void sctp_transport_lower_cwnd(struct sctp_transport *transport,
- 		 *      cwnd = ssthresh
- 		 *      partial_bytes_acked = 0
- 		 */
-+		if (transport->fast_recovery)
-+			return;
-+
-+		/* Mark Fast recovery */
-+		transport->fast_recovery = 1;
-+		transport->fast_recovery_exit = transport->asoc->next_tsn - 1;
-+
- 		transport->ssthresh = max(transport->cwnd/2,
- 					  4*transport->asoc->pathmtu);
- 		transport->cwnd = transport->ssthresh;
-@@ -586,6 +605,7 @@ void sctp_transport_reset(struct sctp_transport *t)
- 	t->flight_size = 0;
- 	t->error_count = 0;
- 	t->rto_pending = 0;
-+	t->fast_recovery = 0;
- 
- 	/* Initialize the state information for SFR-CACC */
- 	t->cacc.changeover_active = 0;
+ /* Event handler for inet address addition/deletion events.
+  * The sctp_local_addr_list needs to be protocted by a spin lock since
+  * multiple notifiers (say IPv4 and IPv6) may be running at the same
+@@ -934,6 +939,7 @@ static struct sctp_af sctp_af_inet = {
+ 	.skb_iif	   = sctp_v4_skb_iif,
+ 	.is_ce		   = sctp_v4_is_ce,
+ 	.seq_dump_addr	   = sctp_v4_seq_dump_addr,
++	.ecn_capable	   = sctp_v4_ecn_capable,
+ 	.net_header_len	   = sizeof(struct iphdr),
+ 	.sockaddr_len	   = sizeof(struct sockaddr_in),
+ #ifdef CONFIG_COMPAT
 -- 
 1.5.3.5
 
