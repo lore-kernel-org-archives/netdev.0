@@ -1,57 +1,55 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
-	available to userspace
-Date: Wed, 4 Jun 2008 16:09:42 +0100
-Message-ID: <20080604150942.GA4980@gerrit.erg.abdn.ac.uk>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net> <20080526142209.GA20164@gerrit.erg.abdn.ac.uk> <200805262340.53355.tomasz@grobelny.oswiecenia.net> <200806011948.39770.tomasz@grobelny.oswiecenia.net>
+From: Martin Devera <devik@cdi.cz>
+Subject: Re: [PATCH 0/2] HTB scheduler HTB_HYSTERESIS modifications
+Date: Wed, 04 Jun 2008 17:31:41 +0200
+Message-ID: <4846B55D.4060306@cdi.cz>
+References: <1212501803.13164.27.camel@localhost.localdomain>	 <48469323.8000506@cdi.cz> <1212589713.13164.75.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45531 "EHLO erg.abdn.ac.uk"
+Received: from smtp.wifcom.cz ([89.185.251.8]:53290 "EHLO wifcom.cz"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752589AbYFDPKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 11:10:13 -0400
-Content-Disposition: inline
-In-Reply-To: <200806011948.39770.tomasz@grobelny.oswiecenia.net>
+	id S1752589AbYFDPcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2008 11:32:04 -0400
+In-Reply-To: <1212589713.13164.75.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| Now that I had a closer look at implementing this functionality I have a few 
-| questions:
-| 1. Where should information about available qpolicies and their parametrs be 
-| exported? Would /proc/net/dccp/qpolicies/ be a good choice?
-For a sketch or a first implementation, procfs sounds like a good starting point.
+>> I'm thinking about removing HYSTERESIS code altogether, but
+>> (and it holds for setting HYSTERESIS=off as default) 
+> 
+> I prefer a turn knob, where the default is off.
 
-But since it is about dynamic runtime configuration, how about using sysfs or configfs
-instead? This is a brainstorming question, I think that sysfs is generally preferred.
-I don't know how well configfs has taken off, it is similar, but needs to be
-added in the configuration (under Pseudeo Filesystems, CONFIG_CONFIGFS_FS=y|m)
-http://lwn.net/Articles/148973/
-and Documentation/filesystems/configs. But this could be done later as well.
+Ok. As seen from interrupt load below, it is reasonable.
 
+> With current testing (on 2.6.25.4) I could not see any changes with CPU
+> usage, but thats probably caused by the fast CPU on the test system
+> (Dual Xeon). BUT an interesting observation was that the number of
+> interrupts increased significantly, from approx 1300 to 2000 per sec.
+> The other observation was that I got significantly less jitter.
 
-| 2. I guess we should have at least one file per qpolicy with parameters listed 
-| inside. Like that:
-| /proc/.../qpolicies/simple: <empty>
-| /proc/.../qpolicies/prio: 1 (DCCP_SCM_PRIORITY) 2 (DCCP_SCM_TIMEOUT)
-Hm this is a "policy" question -- isn't the `timeout' policy a
-standalone variant?
+Interesting. It is probably result of merging of subsequent yellow/red
+states without going to green for while. The traffic is more bursty then
+(it is no longer only timer-granular, but {c,}burst sized bursts are
+FORCED in output) but NIC driver can emit more outgoing packets
+per in single "buffer free" interrupt.
 
-| But we could also have qpolicy represented by directory and parameters by files:
-| /proc/.../qpolicies/simple/
-| /proc/.../qpolicies/prio/
-| /proc/.../qpolicies/prio/priority: <empty>
-| /proc/.../qpolicies/prio/timeout: <empty>
-| Which layout do you find better?
-| -- 
-I don't like the empty files. In the procfs for thinkpad Acpi
-configuration, for example, there is a line that says which commands are
-acceptable, similar for /sys/power/state. In that way, the (sysfs|procfs) file
-documents itself and tells the user what can be done with it. It would
-be great if the qpolicies could do something similar.
+>> Also, I'm a bit busy for a few weeks, would you be able/interested
+>> to do such testing ?
+> 
+> Okay, lets wait until I get this kernel into our real-life production
+> system.  Then I can report on the real-life impact on CPU performance.
 
-I would start with the utterly simplest possible implementation and
-leave complex cases for later. For a sophisticated, elegant
-implementation, I would seriously consider sysfs or configs.
+Thanks, I'll try to set some test up later. With large class-count as
+state changes will cost more then (RB tree deletes/inserts).
+
+Regarding your intr/sec count, what about to keep default value
+of hysteresis switch as "on" (just to be on safe side) ?
+I'm afraid what that 40% larger interrupt load might do with bigger
+routers (I already got some performance related questions from ppl
+with hundreds classes on 100's Mb links).
+
+m.
