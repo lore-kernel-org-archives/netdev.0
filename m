@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] IPv6 Fixes (Take 3)
-Date: Wed, 04 Jun 2008 12:36:59 -0700 (PDT)
-Message-ID: <20080604.123659.91234245.davem@davemloft.net>
-References: <20080605.040744.40936723.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 1/6] SCTP: retran_path update bug fix
+Date: Wed, 04 Jun 2008 12:37:43 -0700 (PDT)
+Message-ID: <20080604.123743.54863058.davem@davemloft.net>
+References: <1212603951-24932-1-git-send-email-vladislav.yasevich@hp.com>
+	<1212603951-24932-2-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	guijianfeng@cn.fujitsu.com
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48923
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48926
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759695AbYFDThA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 15:37:00 -0400
-In-Reply-To: <20080605.040744.40936723.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1756063AbYFDTho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 15:37:44 -0400
+In-Reply-To: <1212603951-24932-2-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Thu, 05 Jun 2008 04:07:44 +0900 (JST)
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Wed,  4 Jun 2008 14:25:46 -0400
 
-> Dave,
+> If the current retran_path is the only active one, it should
+> update it to the the next inactive one.
 > 
-> I've fixed up coding style and the reference to another commit
-> in commit log.
-> 
-> Please consider pulling following changes on top of net-2.6
-> (commit 7dccf1f4e1696c79bff064c3770867cc53cbc71c
-> ("ax25: Fix NULL pointer dereference and lockup.").
-> 
-> git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-fix.git net-2.6-misc-20080605a
+> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-Pulled and pushed back out to net-2.6, thanks!
+Applied.
