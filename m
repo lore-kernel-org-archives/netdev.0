@@ -1,73 +1,61 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: How I can reset TCP sockets after long suspend/resume cyscle
-Date: Wed, 04 Jun 2008 23:52:54 +0300
-Message-ID: <484700A6.3020707@gmail.com>
-References: <200806011515.14103.maximlevitsky@gmail.com>	 <4846B5F2.8090805@gmail.com> <396556a20806040909q7e5eb8abi7cbc8b5ed11ed54e@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+ v2.6.26-rc3+
+Date: Wed, 4 Jun 2008 23:56:34 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0806042202030.6328@wrl-59.cs.helsinki.fi>
+References: <20080603094057.GA29480@elte.hu> <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
+ <20080604072311.GA32491@elte.hu> <20080604.112426.62778239.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Adam Langley <agl@imperialviolet.org>
+Content-Type: MULTIPART/MIXED; boundary="-696208474-246666717-1212606363=:6328"
+Cc: mingo@elte.hu, peterz@infradead.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
+	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru,
+	mcmanus@ducksong.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.188]:47559 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753371AbYFDUw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 16:52:59 -0400
-Received: by gv-out-0910.google.com with SMTP id e6so109187gvc.37
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2008 13:52:57 -0700 (PDT)
-In-Reply-To: <396556a20806040909q7e5eb8abi7cbc8b5ed11ed54e@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45546 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752903AbYFDU4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 16:56:38 -0400
+In-Reply-To: <20080604.112426.62778239.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0806042336130.8012@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adam Langley wrote:
-> On Wed, Jun 4, 2008 at 8:34 AM, Maxim Levitsky <maximlevitsky@gmail.com> wrote:
->>> Is there a way to close all TCP sockets before/after suspend to ram?
-> 
-> As with most things, you should consider how this can be done from
-> userspace first.
-> 
-> You can find the processes with TCP connections open by walking
-> /proc/*/fd and readlink()ing the dents therein. Then you can match the
-> inode numbers up with /proc/net/tcp to see if the given TCP connection
-> is remote or not.
-> 
-> Now you want to kill those connections somehow. You could imagine
-> doing it by injecting RST packets back into the kernel, but for that
-> you would need to know the SEQ/ACK numbers for the connection. Since
-> that's sensitive information, /proc/net/tcp doesn't carry it. It would
-> have to be CAP_NET_ADMIN (read: root user) only and changing the
-> formats of proc files based on the reading user is a no-no. So that
-> would require another proc file; I've no idea how well that patch
-> would be received.
-This isn't a problem, since suspend/resume is done by root.
-I was thinking about something like that, and thought that it is 
-implemented, so I asked here.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-So small question, as a root, I can get SEQ/ACK numbers of a connection?
+---696208474-246666717-1212606363=:6328
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0806042336131.8012@wrl-59.cs.helsinki.fi>
 
-I am thinking, that maybe such thing can be put in kernel (as optional 
-feature)
+On Wed, 4 Jun 2008, David Miller wrote:
 
-I can even add a suspend timeout, so if suspend was longer that it, then 
-reset the sockets, otherwise not.
-setting the timeout to 0 (default) will disable the feature.
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Wed, 4 Jun 2008 09:23:11 +0200
+> 
+> > * Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> >
+> > > ...I couldn't immediately find anything obviously wrong with those 
+> > > changes but the patch below might be worth of a try (without the 
+> > > revert of course). If it ever spits out that WARN_ON for you, we were 
+> > > playing with fire too much and it's better to return on the safe side 
+> > > there...
+> > 
+> > i'll queue it up for testing, but no promises about speedy action here - 
+> > the test cycle is really long with this bug.
+> 
+> Ilpo posted another patch which fixes a locking bug in the
+> code, please test with that patch.  I include it below so
+> that you know exactly which one I am referring to.
+
+Do you know if TCP ever needs to lock the child sk again (after creating 
+it and it has started to live on its own) from a context that has already 
+locked the listen_sk (it could deadlock after this change)?
 
 
-> 
-> Another option would be to close the TCP connections from within the
-> processes which have them. You could enumerate the processes, ptrace
-> attach each one, wait() for SIGSTOP, get the current instr pointer and
-> patch in some code to close the fds then unpatch the process and let
-> it continue. That would be architecture specific, of couse.
-> 
-> When the process comes to reading/selecting the fds again it would get
-> a 0 read and act like they had been closed.
-> 
-> I'll admit that neither solution is terribly wonderful.
-> 
-> 
-> AGL
-> 
-
-Best regards,
-	Maxim Levitsky
+-- 
+ i.
+---696208474-246666717-1212606363=:6328--
