@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix for race
- =?koi8-r?Q?condition=5Fintroduced=5Fby=5Fthe=5Ftem?=
- =?koi8-r?Q?porary=5Fdrop=5Fof=5Fthe=5Fsocket=5F=9Alock?= in
- skb_splice_bits.
-Date: Wed, 04 Jun 2008 15:45:37 -0700 (PDT)
-Message-ID: <20080604.154537.192232416.davem@davemloft.net>
-References: <200805282253.22688.opurdila@ixiacom.com>
-	<20080528200504.GA7349@2ka.mipt.ru>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/12]: Proper compat WEXT support.
+Date: Wed, 04 Jun 2008 15:48:34 -0700 (PDT)
+Message-ID: <20080604.154834.80521372.davem@davemloft.net>
+References: <20080603.132755.262737024.davem@davemloft.net>
+	<20080604184955.B033.40F06B3A@sm.sony.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
-To: johnpol@2ka.mipt.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52567
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751934AbYFDWpi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 18:45:38 -0400
-In-Reply-To: <20080528200504.GA7349@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080604184955.B033.40F06B3A-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Thu, 29 May 2008 00:05:04 +0400
+From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
+Date: Wed, 04 Jun 2008 19:09:06 +0900
 
-> On Wed, May 28, 2008 at 10:53:22PM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
-> > This patch applies to 2.6.25 and fixes the crashes in tcp_read_sock and 
-> > skb_splice_bits reported on the mailing list earlier. 
+> I'm testing these patches on my PS3.  I've found a problem.
 > 
-> Ack :)
+> With 32-bit wireless-tools v28, the bitrates from the scan result were
+> wrong (with gelic/rt2x00 driver):
 
-Applied, thanks everyone.
+Thanks, I'll look into this when I get a chance.
+
+I want to redesign the interfaces so that the callers give
+enough information to the helper routines such that the
+compat stuff can be handled completely inside of the
+helpers.
+
+It is unpleasant (and error prone) to put this compat handling
+at all of the call sites.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
