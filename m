@@ -1,337 +1,38 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 2/2][L2TP]: Fix possible oops if transmitting or receiving when tunnel goes down
-Date: Wed, 4 Jun 2008 21:56:46 +0100
-Message-ID: <200806042056.m54Kuk7a003067@quickie.katalix.com>
-To: netdev@vger.kernel.org
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: How I can reset TCP sockets after long suspend/resume cyscle
+Date: Thu, 05 Jun 2008 00:00:08 +0300
+Message-ID: <48470258.8050701@gmail.com>
+References: <200806011515.14103.maximlevitsky@gmail.com>	<4846B5F2.8090805@gmail.com>	<396556a20806040909q7e5eb8abi7cbc8b5ed11ed54e@mail.gmail.com> <20080604092154.7511c9d3@extreme>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Adam Langley <agl@imperialviolet.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:42677 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759314AbYFDU4u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 16:56:50 -0400
-Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
-	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
-	(Exim 4.68)
-	(envelope-from <jchapman@katalix.com>)
-	id 1K407a-0001Re-LK
-	for netdev@vger.kernel.org; Wed, 04 Jun 2008 16:02:15 -0500
-Received: from quickie.katalix.com (localhost.localdomain [127.0.0.1])
-	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id m54Kukup003068
-	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 21:56:46 +0100
-Received: (from james@localhost)
-	by quickie.katalix.com (8.13.5/8.13.5/Submit) id m54Kuk7a003067
-	for netdev@vger.kernel.org; Wed, 4 Jun 2008 21:56:46 +0100
+Received: from fg-out-1718.google.com ([72.14.220.157]:50846 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752792AbYFDVAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 17:00:17 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so152741fgg.17
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2008 14:00:11 -0700 (PDT)
+In-Reply-To: <20080604092154.7511c9d3@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[L2TP] Fix possible oops if transmitting or receiving when tunnel goes down
+> TCP should recover from this anyway. As soon as any activity happens
+> on the connection the other end will respond with reset.  For an IMAP
+> session doing the next get-mail should cause a connection reset.
+> Now it is possible that mail client has other problems.
+> 
 
-Some problems have been experienced in the field which cause an oops
-in the pppol2tp driver if L2TP tunnels fail while passing data.
+I will check this again, but this isn't specific to imap,
+I remember that leaving a running download results is same hang behavior.
+(I agree that after a bit long timeout (about 1~2 minutes) connection is 
+reset, but this is annoying, especially if you turned up your system to 
+read mail.)
 
-The pppol2tp driver uses private data that is referenced via the
-sk->sk_user_data of its UDP and PPPoL2TP sockets. This patch makes
-sure that the driver uses sock_hold() when it holds a reference to the
-sk pointer. This affects its sendmsg(), recvmsg(), getname(),
-[gs]etsockopt() and ioctl() handlers.
+And exiting kmail won't help, since it does mail i/o via kio ioslave
+and thus I have to ether wait 2 minutes or kill this ioslave.
 
-Tested by ISP where problem was seen. System has been up 10 days with
-no oops since running this patch. Without the patch, an oops would
-occur every 1-2 days.
-
-Signed-off-by: James Chapman <jchapman@katalix.com> 
-
-Index: linux-2.6.25/drivers/net/pppol2tp.c
-===================================================================
---- linux-2.6.25.orig/drivers/net/pppol2tp.c
-+++ linux-2.6.25/drivers/net/pppol2tp.c
-@@ -240,12 +240,15 @@ static inline struct pppol2tp_session *p
- 	if (sk == NULL)
- 		return NULL;
- 
-+	sock_hold(sk);
- 	session = (struct pppol2tp_session *)(sk->sk_user_data);
--	if (session == NULL)
--		return NULL;
-+	if (session == NULL) {
-+		sock_put(sk);
-+		goto out;
-+	}
- 
- 	BUG_ON(session->magic != L2TP_SESSION_MAGIC);
--
-+out:
- 	return session;
- }
- 
-@@ -256,12 +259,15 @@ static inline struct pppol2tp_tunnel *pp
- 	if (sk == NULL)
- 		return NULL;
- 
-+	sock_hold(sk);
- 	tunnel = (struct pppol2tp_tunnel *)(sk->sk_user_data);
--	if (tunnel == NULL)
--		return NULL;
-+	if (tunnel == NULL) {
-+		sock_put(sk);
-+		goto out;
-+	}
- 
- 	BUG_ON(tunnel->magic != L2TP_TUNNEL_MAGIC);
--
-+out:
- 	return tunnel;
- }
- 
-@@ -716,12 +722,14 @@ discard:
- 	session->stats.rx_errors++;
- 	kfree_skb(skb);
- 	sock_put(session->sock);
-+	sock_put(sock);
- 
- 	return 0;
- 
- error:
- 	/* Put UDP header back */
- 	__skb_push(skb, sizeof(struct udphdr));
-+	sock_put(sock);
- 
- no_tunnel:
- 	return 1;
-@@ -745,10 +753,13 @@ static int pppol2tp_udp_encap_recv(struc
- 	       "%s: received %d bytes\n", tunnel->name, skb->len);
- 
- 	if (pppol2tp_recv_core(sk, skb))
--		goto pass_up;
-+		goto pass_up_put;
- 
-+	sock_put(sk);
- 	return 0;
- 
-+pass_up_put:
-+	sock_put(sk);
- pass_up:
- 	return 1;
- }
-@@ -858,7 +869,7 @@ static int pppol2tp_sendmsg(struct kiocb
- 
- 	tunnel = pppol2tp_sock_to_tunnel(session->tunnel_sock);
- 	if (tunnel == NULL)
--		goto error;
-+		goto error_put_sess;
- 
- 	/* What header length is configured for this session? */
- 	hdr_len = pppol2tp_l2tp_header_len(session);
-@@ -870,7 +881,7 @@ static int pppol2tp_sendmsg(struct kiocb
- 			   sizeof(ppph) + total_len,
- 			   0, GFP_KERNEL);
- 	if (!skb)
--		goto error;
-+		goto error_put_sess_tun;
- 
- 	/* Reserve space for headers. */
- 	skb_reserve(skb, NET_SKB_PAD);
-@@ -900,7 +911,7 @@ static int pppol2tp_sendmsg(struct kiocb
- 	error = memcpy_fromiovec(skb->data, m->msg_iov, total_len);
- 	if (error < 0) {
- 		kfree_skb(skb);
--		goto error;
-+		goto error_put_sess_tun;
- 	}
- 	skb_put(skb, total_len);
- 
-@@ -947,10 +958,33 @@ static int pppol2tp_sendmsg(struct kiocb
- 		session->stats.tx_errors++;
- 	}
- 
-+	return error;
-+
-+error_put_sess_tun:
-+	sock_put(session->tunnel_sock);
-+error_put_sess:
-+	sock_put(sk);
- error:
- 	return error;
- }
- 
-+/* Automatically called when the skb is freed.
-+ */
-+static void pppol2tp_sock_wfree(struct sk_buff *skb)
-+{
-+	sock_put(skb->sk);
-+}
-+
-+/* For data skbs that we transmit, we associate with the tunnel socket
-+ * but don't do accounting.
-+ */
-+static inline void pppol2tp_skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
-+{
-+	sock_hold(sk);
-+	skb->sk = sk;
-+	skb->destructor = pppol2tp_sock_wfree;
-+}
-+
- /* Transmit function called by generic PPP driver.  Sends PPP frame
-  * over PPPoL2TP socket.
-  *
-@@ -991,10 +1025,10 @@ static int pppol2tp_xmit(struct ppp_chan
- 
- 	sk_tun = session->tunnel_sock;
- 	if (sk_tun == NULL)
--		goto abort;
-+		goto abort_put_sess;
- 	tunnel = pppol2tp_sock_to_tunnel(sk_tun);
- 	if (tunnel == NULL)
--		goto abort;
-+		goto abort_put_sess;
- 
- 	/* What header length is configured for this session? */
- 	hdr_len = pppol2tp_l2tp_header_len(session);
-@@ -1009,7 +1043,7 @@ static int pppol2tp_xmit(struct ppp_chan
- 	headroom = NET_SKB_PAD + sizeof(struct iphdr) +
- 		sizeof(struct udphdr) + hdr_len + sizeof(ppph);
- 	if (skb_cow_head(skb, headroom))
--		goto abort;
-+		goto abort_put_sess_tun;
- 
- 	/* Setup PPP header */
- 	__skb_push(skb, sizeof(ppph));
-@@ -1066,7 +1100,7 @@ static int pppol2tp_xmit(struct ppp_chan
- 	dst_release(skb->dst);
- 	skb->dst = dst_clone(__sk_dst_get(sk_tun));
- 	skb_orphan(skb);
--	skb->sk = sk_tun;
-+	pppol2tp_skb_set_owner_w(skb, sk_tun);
- 
- 	/* Queue the packet to IP for output */
- 	len = skb->len;
-@@ -1083,8 +1117,14 @@ static int pppol2tp_xmit(struct ppp_chan
- 		session->stats.tx_errors++;
- 	}
- 
-+	sock_put(sk_tun);
-+	sock_put(sk);
- 	return 1;
- 
-+abort_put_sess_tun:
-+	sock_put(sk_tun);
-+abort_put_sess:
-+	sock_put(sk);
- abort:
- 	/* Free the original skb */
- 	kfree_skb(skb);
-@@ -1188,7 +1228,7 @@ static void pppol2tp_tunnel_destruct(str
- {
- 	struct pppol2tp_tunnel *tunnel;
- 
--	tunnel = pppol2tp_sock_to_tunnel(sk);
-+	tunnel = sk->sk_user_data;
- 	if (tunnel == NULL)
- 		goto end;
- 
-@@ -1227,10 +1267,12 @@ static void pppol2tp_session_destruct(st
- 	if (sk->sk_user_data != NULL) {
- 		struct pppol2tp_tunnel *tunnel;
- 
--		session = pppol2tp_sock_to_session(sk);
-+		session = sk->sk_user_data;
- 		if (session == NULL)
- 			goto out;
- 
-+		BUG_ON(session->magic != L2TP_SESSION_MAGIC);
-+
- 		/* Don't use pppol2tp_sock_to_tunnel() here to
- 		 * get the tunnel context because the tunnel
- 		 * socket might have already been closed (its
-@@ -1598,7 +1640,7 @@ static int pppol2tp_connect(struct socke
- 
- 	error = ppp_register_channel(&po->chan);
- 	if (error)
--		goto end;
-+		goto end_put_tun;
- 
- 	/* This is how we get the session context from the socket. */
- 	sk->sk_user_data = session;
-@@ -1618,6 +1660,8 @@ out_no_ppp:
- 	PRINTK(session->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
- 	       "%s: created\n", session->name);
- 
-+end_put_tun:
-+	sock_put(tunnel_sock);
- end:
- 	release_sock(sk);
- 
-@@ -1665,6 +1709,7 @@ static int pppol2tp_getname(struct socke
- 	*usockaddr_len = len;
- 
- 	error = 0;
-+	sock_put(sock->sk);
- 
- end:
- 	return error;
-@@ -1903,14 +1948,17 @@ static int pppol2tp_ioctl(struct socket 
- 		err = -EBADF;
- 		tunnel = pppol2tp_sock_to_tunnel(session->tunnel_sock);
- 		if (tunnel == NULL)
--			goto end;
-+			goto end_put_sess;
- 
- 		err = pppol2tp_tunnel_ioctl(tunnel, cmd, arg);
--		goto end;
-+		sock_put(session->tunnel_sock);
-+		goto end_put_sess;
- 	}
- 
- 	err = pppol2tp_session_ioctl(session, cmd, arg);
- 
-+end_put_sess:
-+	sock_put(sk);
- end:
- 	return err;
- }
-@@ -2056,14 +2104,17 @@ static int pppol2tp_setsockopt(struct so
- 		err = -EBADF;
- 		tunnel = pppol2tp_sock_to_tunnel(session->tunnel_sock);
- 		if (tunnel == NULL)
--			goto end;
-+			goto end_put_sess;
- 
- 		err = pppol2tp_tunnel_setsockopt(sk, tunnel, optname, val);
-+		sock_put(session->tunnel_sock);
- 	} else
- 		err = pppol2tp_session_setsockopt(sk, session, optname, val);
- 
- 	err = 0;
- 
-+end_put_sess:
-+	sock_put(sk);
- end:
- 	return err;
- }
-@@ -2178,20 +2229,24 @@ static int pppol2tp_getsockopt(struct so
- 		err = -EBADF;
- 		tunnel = pppol2tp_sock_to_tunnel(session->tunnel_sock);
- 		if (tunnel == NULL)
--			goto end;
-+			goto end_put_sess;
- 
- 		err = pppol2tp_tunnel_getsockopt(sk, tunnel, optname, &val);
-+		sock_put(session->tunnel_sock);
- 	} else
- 		err = pppol2tp_session_getsockopt(sk, session, optname, &val);
- 
- 	err = -EFAULT;
- 	if (put_user(len, (int __user *) optlen))
--		goto end;
-+		goto end_put_sess;
- 
- 	if (copy_to_user((void __user *) optval, &val, len))
--		goto end;
-+		goto end_put_sess;
- 
- 	err = 0;
-+
-+end_put_sess:
-+	sock_put(sk);
- end:
- 	return err;
- }
+Best regards,
+	Maxim Levitsky
