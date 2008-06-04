@@ -1,41 +1,132 @@
-From: James Cammarata <jimi@sngx.net>
-Subject: Re: [PATCH] net: add ability to clear stats via ethtool - e1000/pcnet32
-Date: Tue, 03 Jun 2008 22:05:32 -0500
-Message-ID: <4846067C.1020807@sngx.net>
-References: <482DA5B6.1020606@sngx.net>	<482DB46A.8020103@cosmosbay.com>	<482EF192.4070707@sngx.net>	<482F5113.5090703@cosmosbay.com>	<482F610D.2080108@sngx.net>	<20080518003104.GK28241@solarflare.com>	<482FBA09.80201@sngx.net>	<483E0AAE.2020107@sngx.net>	<20080528221118.63da4092.akpm@linux-foundation.org>	<483EA2D1.8050603@sngx.net>	<20080529154525.3916c7b5@core>	<20080530151250.b44a119a.billfink@mindspring.com>	<20080531131143.516ca56e@core>	<20080531195702.0b879dd1.billfink@mindspring.com>	<48437C25.7080400@gdt.id.au>	<20080602121007.1e81cf05.billfink@mindspring.com>	<48453909.4000301@sngx.net> <20080603154602.01b10adb@core>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [GIT PULL net-2.6] IPv6 fixes.
+Date: Wed, 04 Jun 2008 11:37:00 +0800
+Message-ID: <48460DDC.4040703@cn.fujitsu.com>
+References: <4845EDB0.7030809@hp.com>	<4845FDA1.1040009@cn.fujitsu.com>	<20080604.113751.123223388.yoshfuji@linux-ipv6.org> <20080604.120250.131119978.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: Brian.Haley@hp.com, davem@davemloft.net, netdev@vger.kernel.org
+To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl093-193-175.stl1.dsl.speakeasy.net ([66.93.193.175]:58058
-	"EHLO hades.sngx.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751652AbYFDDDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2008 23:03:33 -0400
-In-Reply-To: <20080603154602.01b10adb@core>
+Received: from cn.fujitsu.com ([222.73.24.84]:57169 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751776AbYFDDiF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2008 23:38:05 -0400
+In-Reply-To: <20080604.120250.131119978.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I used to work in a large ISP - it was a huge concern then and was
-> enforced and managed by the less effective 'do you like your kneecaps'
-> approach to permissions.
-
-I work at a large ISP now, and you're absolutely right.  You don't just go 
-around resetting interface counters on backbone routers for the hell of it, 
-and we never do it without customer permission while troubleshooting an 
-issue with a connection, that is why I said I thought it was a non-argument.
-There seems to be an irrational fear of counter-based anarchy here.
-
-> Its basically impossible to write a correct non-racy application which
-> zeros kernel statistics and then measures the change, because you cannot
-> know another application did the same while you were running.
+YOSHIFUJI Hideaki / 吉藤英明 写道:
+> In article <20080604.113751.123223388.yoshfuji@linux-ipv6.org> (at Wed, 04 Jun 2008 11:37:51 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 > 
-> This is the most basic and blindingly obvious stuff. You should not be
-> able to zero the kernel stats just because you can't work perl.
+>>> the attached patch fix it.
+>> Ah, this reminds me I used wrong patch, sorry...
+> 
+> How about this?
+> 
+> If okay, tree is available at
+>     git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-fix.git net-2.6-misc-20080604d
+> 
+> Thanks.
+> 
+> If it is okay, I'll prepare -stable with some adjustments.
 
-I've already said I'd drop the issue 4+ days ago, and that I'd be more
-than happy to do it in userland as you suggested, my point was simply that
-adding it to only one userland tool will lead to inconsistencies.  It is not
-an issue of being able to "work perl" or not.
+> 
+some problem. see following ...
+
+> ---
+> [IPV6]: Check outgoing interface even if source address is unspecified.
+> 
+> The outgoing interface index (ipi6_ifindex) in IPV6_PKTINFO
+> ancillary data, is not checked if the source address (ipi6_addr)
+> is unspecified.  If the ipi6_ifindex is the not-exist interface,
+> it should be fail and the errno should be set ENODEV.
+> 
+> Based on patch from Shan Wei <shanwei@cn.fujitsu.com> and
+> Brian Haley <brian.haley@hp.com>.
+> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> ---
+>  net/ipv6/datagram.c |   39 ++++++++++++++++++++-------------------
+>  1 files changed, 20 insertions(+), 19 deletions(-)
+> 
+> diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+> index 94fa6ae..8091b20 100644
+> --- a/net/ipv6/datagram.c
+> +++ b/net/ipv6/datagram.c
+> @@ -509,7 +509,6 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
+>  
+>  	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+>  		int addr_type;
+> -		struct net_device *dev = NULL;
+>  
+>  		if (!CMSG_OK(msg, cmsg)) {
+>  			err = -EINVAL;
+> @@ -522,6 +521,9 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
+>  		switch (cmsg->cmsg_type) {
+>  		case IPV6_PKTINFO:
+>  		case IPV6_2292PKTINFO:
+> +		    {
+> +			struct net_device *dev = NULL;
+> +
+>  			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct in6_pktinfo))) {
+>  				err = -EINVAL;
+>  				goto exit_f;
+> @@ -537,30 +539,29 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
+>  
+>  			addr_type = ipv6_addr_type(&src_info->ipi6_addr);
+>  
+> -			if (addr_type == IPV6_ADDR_ANY)
+> -				break;
+> +			if (fl->oif) {
+> +				dev = dev_get_by_index(&init_net, fl->oif);
+> +				if (!dev)
+> +					return -ENODEV;
+> +			} else if (addr_type & IPV6_ADDR_LINKLOCAL)
+> +				return -EINVAL;
+>  
+> -			if (addr_type & IPV6_ADDR_LINKLOCAL) {
+> -				if (!src_info->ipi6_ifindex)
+> -					return -EINVAL;
+> -				else {
+> -					dev = dev_get_by_index(&init_net, src_info->ipi6_ifindex);
+> -					if (!dev)
+> -						return -ENODEV;
+> -				}
+> -			}
+> -			if (!ipv6_chk_addr(&init_net, &src_info->ipi6_addr,
+> -					   dev, 0)) {
+> -				if (dev)
+> -					dev_put(dev);
+> -				err = -EINVAL;
+> -				goto exit_f;
+> +			if (addr_type != IPV6_ADDR_ANY) {
+> +				if (!ipv6_chk_addr(&init_net, &src_info->ipi6_addr,
+> +						   addr_type & IPV6_ADDR_LINKLOCAL ? dev : NULL, 0))
+> 
+if ipi6_ifindex==2(eth0) and the ipi6_addr is loopback addr or multicast addr,
+ipv6_chk_addr() will return ture. 
+
+
++					err = -EINVAL;
+> +				else
+> +					ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
+>  			}
+> +
+>  			if (dev)
+>  				dev_put(dev);
+>  
+> -			ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
+> +			if (err)
+> +				goto exit_f;
+> +
+>  			break;
+> +		    }
+>  
+>  		case IPV6_FLOWINFO:
+>  			if (cmsg->cmsg_len < CMSG_LEN(4)) {
+
