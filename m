@@ -1,132 +1,87 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [GIT PULL net-2.6] IPv6 fixes.
-Date: Wed, 04 Jun 2008 11:37:00 +0800
-Message-ID: <48460DDC.4040703@cn.fujitsu.com>
-References: <4845EDB0.7030809@hp.com>	<4845FDA1.1040009@cn.fujitsu.com>	<20080604.113751.123223388.yoshfuji@linux-ipv6.org> <20080604.120250.131119978.yoshfuji@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: PATCH: fix bridged 802.3ad bonding
+Date: Tue, 3 Jun 2008 21:55:19 -0700
+Message-ID: <20080603215519.298c0cd3@extreme>
+References: <20080603132106.GA3256@midget.suse.cz>
+	<20080603094604.6a7dfe7d@extreme>
+	<20080603193227.GA4050@midget.suse.cz>
+	<20080603131326.1f70915e@extreme>
+	<18105.1212528128@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Brian.Haley@hp.com, davem@davemloft.net, netdev@vger.kernel.org
-To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+Cc: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:57169 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751776AbYFDDiF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2008 23:38:05 -0400
-In-Reply-To: <20080604.120250.131119978.yoshfuji@linux-ipv6.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:37896 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751090AbYFDFC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 01:02:29 -0400
+In-Reply-To: <18105.1212528128@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-YOSHIFUJI Hideaki / 吉藤英明 写道:
-> In article <20080604.113751.123223388.yoshfuji@linux-ipv6.org> (at Wed, 04 Jun 2008 11:37:51 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-> 
->>> the attached patch fix it.
->> Ah, this reminds me I used wrong patch, sorry...
-> 
-> How about this?
-> 
-> If okay, tree is available at
->     git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-fix.git net-2.6-misc-20080604d
-> 
-> Thanks.
-> 
-> If it is okay, I'll prepare -stable with some adjustments.
+On Tue, 03 Jun 2008 14:22:08 -0700
+Jay Vosburgh <fubar@us.ibm.com> wrote:
 
+> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 > 
-some problem. see following ...
-
-> ---
-> [IPV6]: Check outgoing interface even if source address is unspecified.
-> 
-> The outgoing interface index (ipi6_ifindex) in IPV6_PKTINFO
-> ancillary data, is not checked if the source address (ipi6_addr)
-> is unspecified.  If the ipi6_ifindex is the not-exist interface,
-> it should be fail and the errno should be set ENODEV.
-> 
-> Based on patch from Shan Wei <shanwei@cn.fujitsu.com> and
-> Brian Haley <brian.haley@hp.com>.
-> 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> ---
->  net/ipv6/datagram.c |   39 ++++++++++++++++++++-------------------
->  1 files changed, 20 insertions(+), 19 deletions(-)
-> 
-> diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-> index 94fa6ae..8091b20 100644
-> --- a/net/ipv6/datagram.c
-> +++ b/net/ipv6/datagram.c
-> @@ -509,7 +509,6 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
->  
->  	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
->  		int addr_type;
-> -		struct net_device *dev = NULL;
->  
->  		if (!CMSG_OK(msg, cmsg)) {
->  			err = -EINVAL;
-> @@ -522,6 +521,9 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
->  		switch (cmsg->cmsg_type) {
->  		case IPV6_PKTINFO:
->  		case IPV6_2292PKTINFO:
-> +		    {
-> +			struct net_device *dev = NULL;
-> +
->  			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct in6_pktinfo))) {
->  				err = -EINVAL;
->  				goto exit_f;
-> @@ -537,30 +539,29 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
->  
->  			addr_type = ipv6_addr_type(&src_info->ipi6_addr);
->  
-> -			if (addr_type == IPV6_ADDR_ANY)
-> -				break;
-> +			if (fl->oif) {
-> +				dev = dev_get_by_index(&init_net, fl->oif);
-> +				if (!dev)
-> +					return -ENODEV;
-> +			} else if (addr_type & IPV6_ADDR_LINKLOCAL)
-> +				return -EINVAL;
->  
-> -			if (addr_type & IPV6_ADDR_LINKLOCAL) {
-> -				if (!src_info->ipi6_ifindex)
-> -					return -EINVAL;
-> -				else {
-> -					dev = dev_get_by_index(&init_net, src_info->ipi6_ifindex);
-> -					if (!dev)
-> -						return -ENODEV;
-> -				}
-> -			}
-> -			if (!ipv6_chk_addr(&init_net, &src_info->ipi6_addr,
-> -					   dev, 0)) {
-> -				if (dev)
-> -					dev_put(dev);
-> -				err = -EINVAL;
-> -				goto exit_f;
-> +			if (addr_type != IPV6_ADDR_ANY) {
-> +				if (!ipv6_chk_addr(&init_net, &src_info->ipi6_addr,
-> +						   addr_type & IPV6_ADDR_LINKLOCAL ? dev : NULL, 0))
-> 
-if ipi6_ifindex==2(eth0) and the ipi6_addr is loopback addr or multicast addr,
-ipv6_chk_addr() will return ture. 
+> >On Tue, 3 Jun 2008 21:32:27 +0200
+> >Jiri Bohac <jbohac@suse.cz> wrote:
+> [...]
+> >> But I think I found a much nicer fix for the problem:
+> >> 
+> >> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> >> --- a/net/bridge/br_input.c
+> >> +++ b/net/bridge/br_input.c
+> >> @@ -136,6 +136,10 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
+> >>  		if (skb->protocol == htons(ETH_P_PAUSE))
+> >>  			goto drop;
+> >>  
+> >> +		/* Don't touch SLOW frames (LACP, etc.) */
+> >> +		if (skb->protocol == htons(ETH_P_SLOW))
+> >> +			return skb;
+> >> +
+> >>  		/* Process STP BPDU's through normal netif_receive_skb() path */
+> >>  		if (p->br->stp_enabled != BR_NO_STP) {
+> >>  			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> >> 
+> >> The LACP frames always have the link-local destination MAC
+> >> address and so they are not handled by the bridge anyway. They
+> >> are only dropped, unless STP is turned on. So let's just not drop
+> >> the SLOW packets. Does this look better?
+> >> 
 
 
-+					err = -EINVAL;
-> +				else
-> +					ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
->  			}
-> +
->  			if (dev)
->  				dev_put(dev);
->  
-> -			ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
-> +			if (err)
-> +				goto exit_f;
-> +
->  			break;
-> +		    }
->  
->  		case IPV6_FLOWINFO:
->  			if (cmsg->cmsg_len < CMSG_LEN(4)) {
+I prefer the following because it process all link-local frames through
+the normal input path. This means the frames will:
+	* be filterable by netfilter
+	* processed by af_packet users
+	* not forwarded across bridge (this is important).
 
+
+--- a/net/bridge/br_input.c	2008-06-03 21:44:54.000000000 -0700
++++ b/net/bridge/br_input.c	2008-06-03 21:52:20.000000000 -0700
+@@ -135,15 +135,12 @@ struct sk_buff *br_handle_frame(struct n
+ 		/* Pause frames shouldn't be passed up by driver anyway */
+ 		if (skb->protocol == htons(ETH_P_PAUSE))
+ 			goto drop;
+-
+-		/* Process STP BPDU's through normal netif_receive_skb() path */
+-		if (p->br->stp_enabled != BR_NO_STP) {
+-			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+-				    NULL, br_handle_local_finish))
+-				return NULL;
+-			else
+-				return skb;
+-		}
++
++		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
++			    NULL, br_handle_local_finish))
++			return NULL;	/* frame consumed by filter */
++		else
++			return skb;	/* continue processing */
+ 	}
+ 
+ 	switch (p->state) {
