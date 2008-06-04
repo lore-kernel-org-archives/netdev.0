@@ -1,50 +1,66 @@
-From: Martin Devera <devik@cdi.cz>
-Subject: Re: [PATCH 0/2] HTB scheduler HTB_HYSTERESIS modifications
-Date: Wed, 04 Jun 2008 15:05:39 +0200
-Message-ID: <48469323.8000506@cdi.cz>
-References: <1212501803.13164.27.camel@localhost.localdomain>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [net-2.6 patch 1/2][NETNS] fix device renaming for sysfs
+Date: Wed, 04 Jun 2008 15:50:13 +0200
+Message-ID: <48469D95.3050703@fr.ibm.com>
+References: <20080430213113.410541118@localhost.localdomain> <20080430213320.825349005@localhost.localdomain> <m1fxrtpg06.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: jdb@comx.dk
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.wifcom.cz ([89.185.251.8]:44801 "EHLO wifcom.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752253AbYFDNrm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 09:47:42 -0400
-In-Reply-To: <1212501803.13164.27.camel@localhost.localdomain>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:17749 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752547AbYFDNuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 09:50:23 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id m54DoG2o180116
+	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 13:50:16 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m54DoFax3751968
+	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 15:50:15 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m54DoFqe007185
+	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 15:50:15 +0200
+In-Reply-To: <m1fxrtpg06.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer wrote:
-> This patch set modifies the HTB schedulers hysteresis mode.  The HTB
-> hysteresis is a hack to reduce the CPU load, it introduces significant
-> jitter, enough to disturbe VoIP quality on e.g. ADSL.
+Eric W. Biederman wrote:
+> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 > 
-> The first patch changes HTB_HYSTERESIS to default off.
+>> When a netdev is moved across namespaces with the 'dev_change_net_namespace' 
+>> function, the 'device_rename' function is used to fixup kobject and refresh 
+>> the sysfs tree. The device_rename function will call kobject_rename and this
+>> one will check if there is an object with the same name and this is the case
+>> because we are renaming the object with the same name.
+>>
+>> The use of 'device_rename' seems for me wrong because we usually don't
+>> rename it but just move it across namespaces. As we just want to do a 
+>> mini "netdev_[un]register", IMO the functions 'netdev_[un]register_kobject' 
+>> should be used instead, like an usual network device [un]registering.
 > 
-> The second patch Change HTB_HYSTERESIS to a runtime parameter
-> htb_hysteresis, adjustable via
-> sys/module/sch_htb/parameters/htb_hysteresis.
+> device_rename is correct.  Because doing device_del; device_add removes
+> any driver specific sysfs attributes.
 > 
-> For details about my measurements see masters thesis
-> (http://www.adsl-optimizer.dk/thesis/), chapter 7, section 7.3.1,
-> page 69-70.
+> Causing your patch to introduce subtle driver breakage only when we
+> move a network device between namespaces.  Ouch!
 > 
+> To support this operation we need something like device_rename that
+> can preserve driver specific attributes, and generally handle
+> movement between namespaces.  Since device_rename already does 99% of
+> what we need it to do I found it easier to extend device_rename to
+> handle this case then to introduce yet another function into the
+> kobject layer.
+> 
+>> This patch replace device_rename by netdev_unregister_kobject, followed by
+>> netdev_register_kobject.
+> 
+> And sysfs comes a' tumblin' down.
+> My apologies for not replying sooner I just spotted this.
 
-Hello Jesper,
+My fault, I should have Cc'ed you when sending the email :(
+Thanks for looking at this patch.
 
-I just took time to read your thesis. Nice!
-I'm thinking about removing HYSTERESIS code altogether, but
-(and it holds for setting HYSTERESIS=off as default) I'd like
-to measure cpu impact again.
-IMHO we need to assure that there will be no surprise when some big
-router is upgraded to new kernel and will not catch on speed
-(unlikely, but....).
+   -- Daniel
 
-Also, I'm a bit busy for a few weeks, would you be able/interested
-to do such testing ?
-
-thanks, Martin
