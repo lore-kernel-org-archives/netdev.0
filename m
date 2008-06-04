@@ -1,40 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] Running single tests via ethtool
-Date: Wed, 4 Jun 2008 15:13:50 +0100
-Message-ID: <20080604141349.GA11300@solarflare.com>
-References: <20080530220819.GJ1743@solarflare.com> <48443207.5090009@garzik.org>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: Re: [PATCH 0/2] HTB scheduler HTB_HYSTERESIS modifications
+Date: Wed, 04 Jun 2008 16:28:33 +0200
+Message-ID: <1212589713.13164.75.camel@localhost.localdomain>
+References: <1212501803.13164.27.camel@localhost.localdomain>
+	 <48469323.8000506@cdi.cz>
+Reply-To: jdb@comx.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Martin Devera <devik@cdi.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:45797 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757963AbYFDOOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 10:14:01 -0400
-Content-Disposition: inline
-In-Reply-To: <48443207.5090009@garzik.org>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:49218 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104AbYFDO2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 10:28:36 -0400
+In-Reply-To: <48469323.8000506@cdi.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-[...]
-> Well it really becomes of question of whether or not you want to be 
-> importing a huge test suite into a kernel driver.  The ethtool stuff was 
-> not meant to cover exhaustive tests, just a way to run "it works" 
-> self-checks and diagnostics.
+On Wed, 2008-06-04 at 15:05 +0200, Martin Devera wrote:
+> Jesper Dangaard Brouer wrote:
+> > This patch set modifies the HTB schedulers hysteresis mode.  The HTB
+> > hysteresis is a hack to reduce the CPU load, it introduces significant
+> > jitter, enough to disturbe VoIP quality on e.g. ADSL.
 
-We're not intending to expand the tests massively, though there are a few
-that should be added.  We just want to pick which to run.  I'm not entirely
-clear why the customer wants this, but I can imagine wanting to run a single
-test repeatedly if some aspect of a board is suspected to be intermittently
-faulty.  Since there is no firmware in our current controller, the
-initialisation is fairly complex and we wouldn't want to duplicate it outside
-the driver in a standalone diagnostic program.  Besides which, unloading a
-driver and keeping it unloaded seems to be increasingly tricky.
+> I just took time to read your thesis. Nice!
+Thanks
 
-Ben.
+> I'm thinking about removing HYSTERESIS code altogether, but
+> (and it holds for setting HYSTERESIS=off as default) 
+
+I prefer a turn knob, where the default is off.
+
+> I'd like to measure cpu impact again.
+> IMHO we need to assure that there will be no surprise when some big
+> router is upgraded to new kernel and will not catch on speed
+> (unlikely, but....).
+
+Agreed, lets measure the impact.
+
+With current testing (on 2.6.25.4) I could not see any changes with CPU
+usage, but thats probably caused by the fast CPU on the test system
+(Dual Xeon). BUT an interesting observation was that the number of
+interrupts increased significantly, from approx 1300 to 2000 per sec.
+The other observation was that I got significantly less jitter.
+
+> Also, I'm a bit busy for a few weeks, would you be able/interested
+> to do such testing ?
+
+Okay, lets wait until I get this kernel into our real-life production
+system.  Then I can report on the real-life impact on CPU performance.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
