@@ -1,35 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: commit header lines...
-Date: Wed, 04 Jun 2008 15:56:18 -0700 (PDT)
-Message-ID: <20080604.155618.242269951.davem@davemloft.net>
+From: Karen Shaeffer <shaeffer@neuralscape.com>
+Subject: Re: [PATCH] forcedeth: msi interrupts
+Date: Wed, 4 Jun 2008 16:00:38 -0700
+Message-ID: <20080604230038.GB26514@synapse.neuralscape.com>
+References: <4845AEE2.1090905@nvidia.com> <20080604151854.4a6f22b8.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
+	manfred@colorfullife.com, akpm@linuxfoundation.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34585
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755260AbYFDW4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 18:56:19 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 1C2CDC8C182
-	for <netdev@vger.kernel.org>; Wed,  4 Jun 2008 15:56:19 -0700 (PDT)
+Received: from [198.144.200.82] ([198.144.200.82]:58548 "EHLO neuralscape.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1757419AbYFDXhc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2008 19:37:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20080604151854.4a6f22b8.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 04, 2008 at 03:18:54PM -0700, Andrew Morton wrote:
+> On Tue, 03 Jun 2008 16:51:46 -0400
+> Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+> 
+> > This patch adds a workaround for lost MSI interrupts. There is a race 
+> > condition in the HW in which future interrupts could be missed. The 
+> > workaround is to toggle the MSI irq mask.
+> > 
+> 
+> Do you think this is a 2.6.26 thing?
 
-Some of you may have noticed, but I have been editing commit
-header lines to be more in tune with what people use in the
-rest of the kernel and what is facilitated best by the tools.
+Or does it go back even further, maybe even as far as 2.6.18?
+I've observed the CK48 NICs hang on 2.6.18 - 2.6.24 kernels.
+Just wondering if this is relevant.
 
-This basically means:
-
-subsystem: Commit description
-
-Where "subsystem" is in lower case and not surrounded by
-"[" and "]" as we previously did in the past.
-
-Please try to adhere to this in your patch submissions as
-it saves work for me.
-
-Thanks.
+Thanks,
+Karen
+-- 
+ Karen Shaeffer
+ Neuralscape, Palo Alto, Ca. 94306
+ shaeffer@neuralscape.com  http://www.neuralscape.com
