@@ -1,60 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 10767] New: Seg Fault Instead of Swapping
-Date: Wed, 04 Jun 2008 11:20:15 -0700 (PDT)
-Message-ID: <20080604.112015.241905253.davem@davemloft.net>
-References: <Pine.LNX.4.64.0805261349510.16829@wrl-59.cs.helsinki.fi>
-	<20080603.163518.153888925.davem@davemloft.net>
-	<Pine.LNX.4.64.0806040943120.16057@wrl-59.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: brian.vowell@gmail.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+From: Trent Piepho <tpiepho@freescale.com>
+Subject: [PATCH] gianfar: Fix error in mdio reset timeout
+Date: Wed,  4 Jun 2008 11:20:53 -0700
+Message-ID: <1212603653-25141-1-git-send-email-tpiepho@freescale.com>
+Cc: Trent Piepho <tpiepho@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50055
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753300AbYFDSUQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 14:20:16 -0400
-In-Reply-To: <Pine.LNX.4.64.0806040943120.16057@wrl-59.cs.helsinki.fi>
+Received: from az33egw01.freescale.net ([192.88.158.102]:40390 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752922AbYFDSVb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 14:21:31 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m54ILTRs008386
+	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 11:21:29 -0700 (MST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 4 Jun 2008 10:12:04 +0300 (EEST)
+The loop getting timed-out used "while (...  && timeout--)", which means
+than when the timeout occurs, timeout will be -1 after the loop has exited.
+Except timeout is unsigned, so it won't be negative!  The code that checks
+if the looped exited because of a timeout used "if (timeout <= 0)", which
+doesn't work, as (unsigned)-1 isn't <= 0.
 
-> On Tue, 3 Jun 2008, David Miller wrote:
->=20
-> > From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> > Date: Mon, 26 May 2008 14:24:33 +0300 (EEST)
-> >=20
-> > Ilpo, do you want me to apply this to net-2.6?
->=20
-> Yes thanks, it is necessary to keep the state consistent (it also exp=
-lains=20
-> some .22/23 time left_out warn_ons too which were mysterious back the=
-n).
-> Also -stable (I guess it would be necessary to almost any older stabl=
-e
-> too though some older ones might want to sync left_out on that same p=
-lace=20
-> too).
->=20
-> It was nice that this path was also triggered while running the TCP=20
-> debug patch (I haven't gotten a one in here), otherwise we would neve=
-r
-> have known though I started to suspect that such path existed once I
-> tried to analyze those left_out problems (before it got dropped=20
-> altogether), but I just couldn't find the problem because it lies on=20
-> such "error path" which was too easy to overlook.
+Using "--timeout" in the loop fixes this problem.
 
-Ok I've add the patch to net-2.6, thanks!
+This also fixes a bug in the existing code, where it will erroneously think
+a timeout occurred if the condition the loop was waiting for was satisfied
+on the final iteration before a timeout.
 
-> I also finally have found the cause to the !sacked_out && fackets_out
-> trap :-). ...I'll post the fix to that later today to relevant partie=
-s.
+Signed-off-by: Trent Piepho <tpiepho@freescale.com>
+---
+ drivers/net/gianfar_mii.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-I'll have a look at this too :-)
+diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
+index ebcfb27..906aba2 100644
+--- a/drivers/net/gianfar_mii.c
++++ b/drivers/net/gianfar_mii.c
+@@ -136,12 +136,12 @@ static int gfar_mdio_reset(struct mii_bus *bus)
+ 
+ 	/* Wait until the bus is free */
+ 	while ((gfar_read(&regs->miimind) & MIIMIND_BUSY) &&
+-			timeout--)
++			--timeout)
+ 		cpu_relax();
+ 
+ 	mutex_unlock(&bus->mdio_lock);
+ 
+-	if(timeout <= 0) {
++	if(timeout == 0) {
+ 		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
+ 				bus->name);
+ 		return -EBUSY;
+-- 
+1.5.4.1
 
-Thanks for all of your incredible work on TCP bug fixing!
