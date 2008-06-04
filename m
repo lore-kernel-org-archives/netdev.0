@@ -1,154 +1,138 @@
-From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-Subject: Re: [PATCH 0/12]: Proper compat WEXT support.
-Date: Wed, 04 Jun 2008 19:09:06 +0900
-Message-ID: <20080604184955.B033.40F06B3A@sm.sony.co.jp>
-References: <20080603.132755.262737024.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] tcp: fix skb vs fack_count out-of-sync condition
+Date: Wed, 4 Jun 2008 13:42:43 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0806041330030.16829@wrl-59.cs.helsinki.fi>
+References: <4815BCDF.6070704@andyfurniss.entadsl.com>
+ <Pine.LNX.4.64.0804281714090.1888@wrl-59.cs.helsinki.fi>
+ <48162070.4030405@andyfurniss.entadsl.com> <Pine.LNX.4.64.0804282210390.16635@wrl-59.cs.helsinki.fi>
+ <481986FD.8070108@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805011216230.19286@wrl-59.cs.helsinki.fi>
+ <48199342.9010406@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805021342480.30402@wrl-59.cs.helsinki.fi>
+ <481C54AF.1050109@andyfurniss.entadsl.com> <Pine.LNX.4.64.0805121349400.1888@wrl-59.cs.helsinki.fi>
+ <483E0848.6030307@andyfurniss.entadsl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080603.132755.262737024.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-312798771-1212576163=:16829"
+Cc: Netdev <netdev@vger.kernel.org>, int 986 <int986@gmail.com>,
+	Brian Vowell <brian.vowell@gmail.com>,
+	Robin Johnson <robbat2@gentoo.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Andy Furniss <lists@andyfurniss.entadsl.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46334 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753585AbYFDKmq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 06:42:46 -0400
+In-Reply-To: <483E0848.6030307@andyfurniss.entadsl.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Thanks for updating the patch set!!
+---696208474-312798771-1212576163=:16829
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-On Tue, 03 Jun 2008 13:27:55 -0700 (PDT)
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+On Thu, 29 May 2008, Andy Furniss wrote:
 
-
-> This is a refresh of my previous WEXT compat patch set.
+> ? wrote:
+> > On Sat, 3 May 2008, Andy Furniss wrote:
+> > 
+> > > Ilpo J?rvinen wrote:
+> > >
+> > > > Since I've not yet found any other path that could lead to it except the
+> > > > yesterday's false-positive, getting the write queue state more
+> > > > accurately
+> > > > captured by the debug patch on the very first occassion might help.
+> > > > Here's
+> > > > less spammy version of the debug patch (I added one printout as well to
+> > > > get
+> > > > more usefulness to transitional state reported).
+> > > >
+> > > OK, increased CONFIG_LOG_BUF_SHIFT from 14 to 18 and reversed old /
+> > > applied
+> > > new patch.
+> > 
+> > Any luck so far?
+> > 
 > 
-> I've actually tested these exact patches on sparc64 with a RNDIS based
-> USB wireless device from Linksys.  I was able to perform iwconfig
-> commands, check iwlist, bring up the interface and use it properly.
-> All with 32-bit tools.  I've also done an allmodconfig sanity
-> build check on sparc64.
+> Finally - looks like I got two together.
 > 
-> The one thing I was not able to test yet is wpa_supplicant use, and
-> that likely doesn't work properly yet, but we can fix that on top and
-> these patches do not break native non-compat binaries.  They do make a
-> lot of compat stuff work which wasn't the case before.  So applying
-> this stuff makes sense, and we can get wpa_supplicant working if it
-> isn't working using follow-on patches.
-> 
-> The patch set starts by cleaning up the code so that we can avoid
-> having multiple copies of the WEXT main dispatch routines, one for
-> compat and one for the non-compat case.
-> 
-> Next, basic compat level handling of the WEXT ioctl is added, and the
-> equivalent code in the compat_ioctl.c file is removed.
-> 
-> Finally, compat IWE stream munging is added for the wireless layer.
-> When we get a compat WEXT ioctl request, we set a bit in the request
-> info blob, and the stream building helpers tip off this to format the
-> stream entries properly.
+> It doesn't start with WARNING - but dmesg isn't full.
 
-
-I'm testing these patches on my PS3.  I've found a problem.
-
-With 32-bit wireless-tools v28, the bitrates from the scan result were
-wrong (with gelic/rt2x00 driver):
-
-[root@localhost wireless_tools.28]# ./iwlist wlan3 scanning
-Warning: Driver for device wlan3 has been compiled with version 22
-of Wireless Extension, while this program supports up to version 20.
-Some things may be broken...
-
-wlan3     Scan completed :
-          Cell 01 - Address: 00:06:25:C6:B9:A7
-                    ESSID:"planexuser"
-                    Mode:Master
-                    Channel:1
-                    Frequency:2.412 GHz (Channel 1)
-                    Quality=51/100  Signal level=-50 dBm  
-                    Encryption key:on
-                    IE: WPA Version 1
-                        Group Cipher : CCMP 
-                        Pairwise Ciphers (1) : CCMP 
-                        Authentication Suites (1) : PSK  
-                    Bit Rates:0 kb/s; 0 kb/s; 0 kb/s; 0 kb/s; 0 kb/s
-                              0 kb/s; 0 kb/s; 0 kb/s; 0 kb/s; 0 kb/s
-                              0 kb/s; 0 kb/s
-                    Extra:tsf=000000013f454d92
-
-With 32-bit wireless-tools v30 (i.e. the SOIGIWSCAN workaround
-included):
-
-[root@localhost wireless_tools.30]# ./iwlist wlan3 scanning
-wlan3     Scan completed :
-          Cell 01 - Address: 00:06:25:C6:B9:A7
-                    ESSID:"planexuser"
-                    Mode:Master
-                    Channel:1
-                    Frequency:2.412 GHz (Channel 1)
-                    Quality=48/100  Signal level=-68 dBm  
-                    Encryption key:on
-                    IE: WPA Version 1
-                        Group Cipher : CCMP
-                        Pairwise Ciphers (1) : CCMP
-                        Authentication Suites (1) : PSK
-                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
-                              24 Mb/s; 36 Mb/s; 54 Mb/s; 6 Mb/s; 9 Mb/s
-                              12 Mb/s; 48 Mb/s
-                    Extra:tsf=000000014e16ea91
-
-I think the callers of iwe_stream_add_value() need to do some
-preparations before the call if iocompat is needed, like the following.
-
----
- drivers/net/ps3_gelic_wireless.c |    7 +++++++
- net/mac80211/mlme.c              |   11 ++++++++++-
- 2 files changed, 17 insertions(+), 1 deletion(-)
-
---- a/drivers/net/ps3_gelic_wireless.c
-+++ b/drivers/net/ps3_gelic_wireless.c
-@@ -605,7 +605,14 @@ static char *gelic_wl_translate_scan(str
- 	iwe.cmd = SIOCGIWRATE;
- 	iwe.u.bitrate.fixed = iwe.u.bitrate.disabled = 0;
- 	/* to stuff multiple values in one event */
-+#ifdef CONFIG_COMPAT
-+	if (info->flags & IW_REQUEST_FLAG_COMPAT)
-+		tmp = ev + IW_EV_COMPAT_LCP_LEN;
-+	else
-+		tmp = ev + IW_EV_LCP_LEN;
-+#else
- 	tmp = ev + IW_EV_LCP_LEN;
-+#endif
- 	/* put them in ascendant order (older is first) */
- 	i = 0;
- 	j = 0;
---- a/net/mac80211/mlme.c
-+++ b/net/mac80211/mlme.c
-@@ -4147,9 +4147,18 @@ ieee80211_sta_scan_result(struct net_dev
- 
- 	if (bss && bss->supp_rates_len > 0) {
- 		/* display all supported rates in readable format */
--		char *p = current_ev + IW_EV_LCP_LEN;
-+		char *p;
- 		int i;
- 
-+#ifdef CONFIG_COMPAT
-+		if (info->flags & IW_REQUEST_FLAG_COMPAT)
-+			p = current_ev + IW_EV_COMPAT_LCP_LEN;
-+		else
-+			p = current_ev + IW_EV_LCP_LEN;
-+#else
-+		p = current_ev + IW_EV_LCP_LEN;
-+#endif
-+
- 		memset(&iwe, 0, sizeof(iwe));
- 		iwe.cmd = SIOCGIWRATE;
- 		/* Those two flags are ignored... */
+Ok, here's finally the fix to those WARN_ON(!tp->sacked_out && 
+tp->fackets_out) WARNINGs, both stable-2.6.25 and linus' tree affected.
 
 -- 
-Masakazu Mokuno
+ i.
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[PATCH] tcp: fix skb vs fack_count out-of-sync condition
+
+This bug is able to corrupt fackets_out in very rare cases.
+In order for this to cause corruption:
+  1) DSACK in the middle of previous SACK block must be generated.
+  2) In order to take that particular branch, part or all of the
+     DSACKed segment must already be SACKed so that we have that
+     in cache in the first place.
+  3) The new info must be top enough so that fackets_out will be
+     updated on this iteration.
+...then fack_count is updated while skb wasn't, then we walk again
+that particular segment thus updating fack_count twice for
+a single skb and finally that value is assigned to fackets_out
+by tcp_sacktag_one.
+
+It is safe to call tcp_sacktag_one just once for a segment (at
+DSACK), no need to call again for plain SACK.
+
+Potential problem of the miscount are limited to premature entry
+to recovery and to inflated reordering metric (which could even
+cancel each other out in the most the luckiest scenarios :-)).
+Both are quite insignificant in worst case too and there exists
+also code to reset them (fackets_out once sacked_out becomes zero
+and reordering metric on RTO).
+
+This has been reported by a number of people, because it occurred
+quite rarely, it has been very evasive. Andy Furniss was able to
+get it to occur couple of times so that a bit more info was
+collected about the problem using a debug patch, though it still
+required lot of checking around. Thanks also to others who have
+tried to help here.
+
+This is listed as Bugzilla #10346. The bug was introduced by
+me in commit 68f8353b48 ([TCP]: Rewrite SACK block processing & 
+sack_recv_cache use), I probably thought back then that there's
+need to scan that entry twice or didn't dare to make it go
+through it just once there. Going through twice would have
+required restoring fack_count after the walk but as noted above,
+I chose to drop the additional walk step altogether here.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Cc: int 986 <int986@gmail.com>
+Cc: Andy Furniss <lists@andyfurniss.entadsl.com>
+Cc: Brian Vowell <brian.vowell@gmail.com>
+---
+ net/ipv4/tcp_input.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 5d5b08b..a00c7f8 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1392,9 +1392,9 @@ static struct sk_buff *tcp_maybe_skipping_dsack(struct sk_buff *skb,
+ 
+ 	if (before(next_dup->start_seq, skip_to_seq)) {
+ 		skb = tcp_sacktag_skip(skb, sk, next_dup->start_seq, fack_count);
+-		tcp_sacktag_walk(skb, sk, NULL,
+-				 next_dup->start_seq, next_dup->end_seq,
+-				 1, fack_count, reord, flag);
++		skb = tcp_sacktag_walk(skb, sk, NULL,
++				     next_dup->start_seq, next_dup->end_seq,
++				     1, fack_count, reord, flag);
+ 	}
+ 
+ 	return skb;
+-- 
+1.5.2.2
+---696208474-312798771-1212576163=:16829--
