@@ -1,61 +1,78 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
- v2.6.26-rc3+
-Date: Wed, 4 Jun 2008 23:56:34 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0806042202030.6328@wrl-59.cs.helsinki.fi>
-References: <20080603094057.GA29480@elte.hu> <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
- <20080604072311.GA32491@elte.hu> <20080604.112426.62778239.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-246666717-1212606363=:6328"
-Cc: mingo@elte.hu, peterz@infradead.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
-	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru,
-	mcmanus@ducksong.com
-To: David Miller <davem@davemloft.net>
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 1/2][L2TP]: Fix possible WARN_ON from socket code when UDP socket is closed
+Date: Wed, 4 Jun 2008 21:56:44 +0100
+Message-ID: <200806042056.m54KuiI7003060@quickie.katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45546 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752903AbYFDU4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 16:56:38 -0400
-In-Reply-To: <20080604.112426.62778239.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0806042336130.8012@wrl-59.cs.helsinki.fi>
+Received: from s36.avahost.net ([74.53.95.194]:42672 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758655AbYFDU4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2008 16:56:49 -0400
+Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
+	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.68)
+	(envelope-from <jchapman@katalix.com>)
+	id 1K407Z-0001R3-3C
+	for netdev@vger.kernel.org; Wed, 04 Jun 2008 16:02:13 -0500
+Received: from quickie.katalix.com (localhost.localdomain [127.0.0.1])
+	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id m54KuiTd003062
+	for <netdev@vger.kernel.org>; Wed, 4 Jun 2008 21:56:44 +0100
+Received: (from james@localhost)
+	by quickie.katalix.com (8.13.5/8.13.5/Submit) id m54KuiI7003060
+	for netdev@vger.kernel.org; Wed, 4 Jun 2008 21:56:44 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+If an L2TP daemon closes a tunnel socket while packets are queued in
+the tunnel's reorder queue, a kernel warning is logged because the
+socket is closed while skbs are still referencing it. The fix is to
+purge the queue in the socket's release handler.
 
----696208474-246666717-1212606363=:6328
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0806042336131.8012@wrl-59.cs.helsinki.fi>
+WARNING: at include/net/sock.h:351 udp_lib_unhash+0x41/0x68()
+Pid: 12998, comm: openl2tpd Not tainted 2.6.25 #8
+ [<c0423c58>] warn_on_slowpath+0x41/0x51
+ [<c05d33a7>] udp_lib_unhash+0x41/0x68
+ [<c059424d>] sk_common_release+0x23/0x90
+ [<c05d16be>] udp_lib_close+0x8/0xa
+ [<c05d8684>] inet_release+0x42/0x48
+ [<c0592599>] sock_release+0x14/0x60
+ [<c059299f>] sock_close+0x29/0x30
+ [<c046ef52>] __fput+0xad/0x15b
+ [<c046f1d9>] fput+0x17/0x19
+ [<c046c8c4>] filp_close+0x50/0x5a
+ [<c046da06>] sys_close+0x69/0x9f
+ [<c04048ce>] syscall_call+0x7/0xb
 
-On Wed, 4 Jun 2008, David Miller wrote:
+Signed-off-by: James Chapman <jchapman@katalix.com> 
 
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Wed, 4 Jun 2008 09:23:11 +0200
-> 
-> > * Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
-> >
-> > > ...I couldn't immediately find anything obviously wrong with those 
-> > > changes but the patch below might be worth of a try (without the 
-> > > revert of course). If it ever spits out that WARN_ON for you, we were 
-> > > playing with fire too much and it's better to return on the safe side 
-> > > there...
-> > 
-> > i'll queue it up for testing, but no promises about speedy action here - 
-> > the test cycle is really long with this bug.
-> 
-> Ilpo posted another patch which fixes a locking bug in the
-> code, please test with that patch.  I include it below so
-> that you know exactly which one I am referring to.
-
-Do you know if TCP ever needs to lock the child sk again (after creating 
-it and it has started to live on its own) from a context that has already 
-locked the listen_sk (it could deadlock after this change)?
-
-
--- 
- i.
----696208474-246666717-1212606363=:6328--
+Index: linux-2.6.25/drivers/net/pppol2tp.c
+===================================================================
+--- linux-2.6.25.orig/drivers/net/pppol2tp.c
++++ linux-2.6.25/drivers/net/pppol2tp.c
+@@ -1318,6 +1318,7 @@ out:
+ static int pppol2tp_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
++	struct pppol2tp_session *session;
+ 	int error;
+ 
+ 	if (!sk)
+@@ -1335,9 +1336,18 @@ static int pppol2tp_release(struct socke
+ 	sock_orphan(sk);
+ 	sock->sk = NULL;
+ 
++	session = pppol2tp_sock_to_session(sk);
++
+ 	/* Purge any queued data */
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ 	skb_queue_purge(&sk->sk_write_queue);
++	if (session != NULL) {
++		struct sk_buff *skb;
++		while ((skb = skb_dequeue(&session->reorder_q))) {
++			kfree_skb(skb);
++			sock_put(sk);
++		}
++	}
+ 
+ 	release_sock(sk);
+ 
