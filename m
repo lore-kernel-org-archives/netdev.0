@@ -1,72 +1,33 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-next] netlink: Remove nonblock parameter from netlink_attachskb
-Date: Thu,  5 Jun 2008 18:24:56 +0400
-Message-ID: <1212675896-18012-1-git-send-email-den@openvz.org>
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Brent Cook <bcook@bpointsys.com>
+Subject: Re: [PATCH 25/39] mv643xx_eth: massively simplify multicast address crc8 computation
+Date: Thu, 5 Jun 2008 09:08:56 -0500
+Message-ID: <200806050908.56427.bcook@bpointsys.com>
+References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org> <1212490974-23719-26-git-send-email-buytenh@wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:23550 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755471AbYFEOYr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 10:24:47 -0400
+Received: from smtp.bpointsys.com ([70.253.197.130]:4250 "EHLO bpointsys.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755459AbYFEO2K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2008 10:28:10 -0400
+In-Reply-To: <1212490974-23719-26-git-send-email-buytenh@wantstofly.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- include/linux/netlink.h  |    2 +-
- ipc/mqueue.c             |    2 +-
- net/netlink/af_netlink.c |    4 ++--
- 3 files changed, 4 insertions(+), 4 deletions(-)
+On Tuesday 03 June 2008 06:02:40 Lennert Buytenhek wrote:
+> Replace the 70-line crc8 computation (used for multicast address
+> filtering tables) by a 5-line version.
+>
+> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> ---
+>  drivers/net/mv643xx_eth.c |   95
+> ++++++++++----------------------------------- 1 files changed, 21
+> insertions(+), 74 deletions(-)
+>
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index bec1062..9ff1b54 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -193,7 +193,7 @@ extern int netlink_unregister_notifier(struct notifier_block *nb);
- 
- /* finegrained unicast helpers: */
- struct sock *netlink_getsockbyfilp(struct file *filp);
--int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
-+int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
- 		      long *timeo, struct sock *ssk);
- void netlink_detachskb(struct sock *sk, struct sk_buff *skb);
- int netlink_sendskb(struct sock *sk, struct sk_buff *skb);
-diff --git a/ipc/mqueue.c b/ipc/mqueue.c
-index b3b69fd..3e84b95 100644
---- a/ipc/mqueue.c
-+++ b/ipc/mqueue.c
-@@ -1054,7 +1054,7 @@ retry:
- 			}
- 
- 			timeo = MAX_SCHEDULE_TIMEOUT;
--			ret = netlink_attachskb(sock, nc, 0, &timeo, NULL);
-+			ret = netlink_attachskb(sock, nc, &timeo, NULL);
- 			if (ret == 1)
- 		       		goto retry;
- 			if (ret) {
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 9b97f80..6507c02 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -759,7 +759,7 @@ struct sock *netlink_getsockbyfilp(struct file *filp)
-  * 0: continue
-  * 1: repeat lookup - reference dropped while waiting for socket memory.
-  */
--int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
-+int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
- 		      long *timeo, struct sock *ssk)
- {
- 	struct netlink_sock *nlk;
-@@ -892,7 +892,7 @@ retry:
- 		return err;
- 	}
- 
--	err = netlink_attachskb(sk, skb, nonblock, &timeo, ssk);
-+	err = netlink_attachskb(sk, skb, &timeo, ssk);
- 	if (err == 1)
- 		goto retry;
- 	if (err)
--- 
-1.5.3.rc5
-
+The original looks like someone ported Verilog code to C.
