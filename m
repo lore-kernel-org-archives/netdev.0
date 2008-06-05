@@ -1,51 +1,58 @@
-From: Ursula Braun <braunu@de.ibm.com>
-Subject: [patch 1/3] iucv: fix section mismatch warning.
-Date: Thu, 05 Jun 2008 11:08:38 +0200
-Message-ID: <20080605091436.838486000@linux.vnet.ibm.com>
-References: <20080605090837.212105000@linux.vnet.ibm.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
+From: Steve.Glendinning@smsc.com
+Subject: Re: [Uclinux-dist-devel] [PATCH 01/01] smsc911x: fix MAC addresssetting
+ after reset
+Date: Thu, 5 Jun 2008 10:47:00 +0100
+Message-ID: <OF45087A0F.05ABBB48-ON8025745F.00349549-8025745F.0035BEBE@smsc.com>
+References: <48451668.1060407@tqs.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
+To: Jens Gehrlein <sew_s@tqs.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:39130 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbYFEJPV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 05:15:21 -0400
-Content-Disposition: inline; filename=605-iucv-sections.diff
+Received: from mail.smsc.com ([170.129.50.11]:1283 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753741AbYFEJrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2008 05:47:18 -0400
+In-Reply-To: <48451668.1060407@tqs.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Hi Jens,
 
-WARNING: net/iucv/built-in.o(.exit.text+0x9c): Section mismatch in
-reference from the function iucv_exit() to the variable
-.cpuinit.data:iucv_cpu_notifier
+> Sorry. Newbie question:
+> How can I pass the MAC address via kernel command line for this driver? 
+> Is there a predefined parameter?
+> My problem is:
+> U-Boot resets the chip after each completed transfer. Wolfgang Denk 
+> suggested to pass the MAC address via kernel command line. I need the 
+> ethernet device at kernel startup to mount a root filesystem via NFS, so 
 
-This warning is caused by a reference from unregister_hotcpu_notifier()
-from an exit function to a cpuinitdata annotated data structurre.
-This is a false positive warning since for the non CPU_HOTPLUG case
-unregister_hotcpu_notifier() is a nop.
-Use __refdata instead of __cpuinitdata to get rid of the warning.
+> I added the platform device in my board specific code as shown below (it 
 
-Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-Signed-off-by: Ursula Braun <braunu@de.ibm.com>
----
+> still relates to the old driver).
+> Should I patch the driver directly to get the MAC address via __setup()
+> or can I pass the MAC address via the device structures.
+> 
+> What do you suggest?
 
- net/iucv/iucv.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The smsc911x driver accepts mac addresses set "by configuration", so if 
+brought up after boot you could assign the mac address like this:
 
-Index: net-2.6-uschi/net/iucv/iucv.c
-===================================================================
---- net-2.6-uschi.orig/net/iucv/iucv.c
-+++ net-2.6-uschi/net/iucv/iucv.c
-@@ -598,7 +598,7 @@ static int __cpuinit iucv_cpu_notify(str
- 	return NOTIFY_OK;
- }
- 
--static struct notifier_block __cpuinitdata iucv_cpu_notifier = {
-+static struct notifier_block __refdata iucv_cpu_notifier = {
- 	.notifier_call = iucv_cpu_notify,
- };
- 
+ifconfig eth0 hw ether 00:11:22:33:44:55 up
 
--- 
+But as you're using an NFS root, you need to assign the mac address during 
+boot.  I'm not sure of the best way to do this, there isn't currently a 
+dev_addr field in smsc911x_platform_config, but you could add one.
+
+Alternatively, if the bootloader already sets the mac address you could 
+modify the driver to read it off the device (into dev->dev_addr) before 
+resetting it?
+
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
+
+
