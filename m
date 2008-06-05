@@ -1,50 +1,53 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: multicast with multiple devices
-Date: Thu, 5 Jun 2008 10:25:18 -0700
-Message-ID: <OF839A1C25.E7A3F5EA-ON8825745F.005E9988-8825745F.005FB2EC@us.ibm.com>
-References: <alpine.LNX.1.10.0806051154300.29055@fbirervta.pbzchgretzou.qr>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface
+	implementation for the driver
+Date: Thu, 05 Jun 2008 19:32:59 +0200
+Message-ID: <4848234B.1080200@trash.net>
+References: <20080529095126.9943.84692.stgit@localhost.localdomain>	<20080529095754.9943.27936.stgit@localhost.localdomain>	<20080529103003.010c4a08@extreme>	<20080529174805.GA10903@kroah.com>	<c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>	<1212518703.2217.22.camel@lap75545.ornl.gov>	<aday75k1pzh.fsf@cisco.com>	<20080605054035.GA8059@ornl.gov>	<adazlpzzvjn.fsf@cisco.com>
+	<20080605100103.38ce7c4b@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:46681 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752751AbYFERZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 13:25:24 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m55HPNVl007099
-	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 13:25:23 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m55HPM6j075506
-	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 11:25:22 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m55HPLl6001573
-	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 11:25:22 -0600
-In-Reply-To: <alpine.LNX.1.10.0806051154300.29055@fbirervta.pbzchgretzou.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, Dave Dillow <dillowda@ornl.gov>,
+	Greg KH <greg@kroah.com>, Roland Dreier <rdreier@cisco.com>,
+	general@lists.openfabrics.org, netdev@vger.kernel.org,
+	poornima.kamath@qlogic.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080605100103.38ce7c4b@extreme>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote on 06/05/2008 02:54:54 AM:
+Stephen Hemminger wrote:
+> On Thu, 05 Jun 2008 09:38:36 -0700
+> Roland Dreier <rdreier@cisco.com> wrote:
+> 
+>>  > That said, given that SRP's been using sysfs since it went in, is there
+>>  > a reason to move to configfs other than it's the new preferred way to do
+>>  > it? Given the desire to not break ABI's -- and IIRC sysfs was declared to
+>>  > be under that unbrella -- wouldn't we have to at least carry both
+>>  > interfaces for a while, assuming we can even get rid of the sysfs one?
+>>
+>> Yes, we'd definitely be carrying both interfaces for at least a year.
+>>
+>> Looking further into this, I'm not sure it makes much sense either.
+>> Another problem with configfs is that the lifetime of the object is
+>> controlled by userspace.  So if we lose a connection to a target,
+>> the object will persist in configfs until userspace notices.
+>>
+>>  - R.
+> 
+> There is nothing stopping adding a well designed alternate interface.
+> Either netlink or ioctl's are okay. As long as it is 32/64 bit clean.
 
-> But what if you do not have an application to begin with?
-> Does not the kernel do autonomic forwarding of multicast
-> like it does for unicast?
 
-        I'm not sure I understand your question, but if I
-do, then "no." The kernel uses multicasting itself on
-particular interfaces (e.g., with IPv6 neighbor discovery).
-Multicast packets are not forwarded unless the system
-is configured as a multicast router. Being a unicast
-router does not cause forwarding of multicast packets,
-and multicast routers maintain a completely separate
-routing table from the unicast routing table. Multicast
-routers and unicast routers need not be the same set
-of machines.
-        Really, multicast routing has nothing to do with
-unicast routing, and relying on the unicast routing
-table for multicast interface selection is usually
-just a source of application failures.
-
-                                                +-DLS
-
+ From a quick look it seems it should use rtnl_link instead
+of adding yet another private sysfs interface.
