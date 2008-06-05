@@ -1,62 +1,58 @@
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Subject: Re: [PATCH 12/12]: wext: Emit event stream entries correctly when
- compat.
-Date: Thu, 5 Jun 2008 09:43:08 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0806050940290.14577@vixen.sonytel.be>
-References: <20080603.132856.202640855.davem@davemloft.net>
- <1212526129.14371.5.camel@johannes.berg> <20080603.135728.103448928.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] ipv6 addrconf: Ignore requests to set NODAD flag when changing addresses
+Date: Thu, 5 Jun 2008 11:04:47 +0200
+Message-ID: <20080605090447.GL20815@postel.suug.ch>
+References: <20080604234751.GH20815@postel.suug.ch> <20080605.115314.80065467.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-584349381-1031041274-1212651788=:14577"
-Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-	linville@tuxdriver.com, mokuno@sm.sony.co.jp,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, usagi-core@ml.linux-ipv6.org,
+	nakam@gomagoma.org, takamiya@po.ntts.co.jp
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vervifontaine.sonytel.be ([80.88.33.193]:36968 "EHLO
-	vervifontaine.sonycom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752391AbYFEHnP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 03:43:15 -0400
-In-Reply-To: <20080603.135728.103448928.davem@davemloft.net>
+Received: from postel.suug.ch ([194.88.212.233]:44323 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751721AbYFEJE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2008 05:04:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20080605.115314.80065467.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+* YOSHIFUJI Hideaki / ?$B5HF#1QL@ <yoshfuji@linux-ipv6.org> 2008-06-05 11:53
+> And well, it does not take effect so far, but 
+> DAD after link failure logic is planned in long term.
+> So current code is okay to me.
 
----584349381-1031041274-1212651788=:14577
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+Alright, that makes sense if that code ever is written.
 
-On Tue, 3 Jun 2008, David Miller wrote:
-> > Did you miss drivers/net/ps3_gelic_wireless.c?
+I'm not sure I understand your new patch though, why do you want to
+disable setting the nodad flag for new addresses nowW?
+
 > 
-> Likely yes, I guess that won't get hit with an allmodconfig
-> build on sparc64 :(
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 > 
-> It would be really nice if we had some more compat layers
-> so that the ps3 bus probing layer just nopped out but you
-> could at least build test drivers on other platforms.
-
-That wouldn't help, as it runs on top of an hypervisor API.
-
-The wired part may be merged back with spider_net one day...
-
-With kind regards,
-
-Geert Uytterhoeven
-Software Architect
-
-Sony Techsoft Centre
-The Corporate Village · Da Vincilaan 7-D1 · B-1935 Zaventem · Belgium
-
-Phone:    +32 (0)2 700 8453
-Fax:      +32 (0)2 700 8622
-E-mail:   Geert.Uytterhoeven@sonycom.com
-Internet: http://www.sony-europe.com/
-
-Sony Technology and Software Centre Europe
-A division of Sony Service Centre (Europe) N.V.
-Registered office: Technologielaan 7 · B-1840 Londerzeel · Belgium
-VAT BE 0413.825.160 · RPR Brussels
-Fortis 293-0376800-10 GEBA-BE-BB
----584349381-1031041274-1212651788=:14577--
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 3a83557..05dcfd8 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -3191,7 +3191,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
+>  		prefered_lft = 0x7FFFFFFF/HZ;
+>  
+>  	spin_lock_bh(&ifp->lock);
+> -	ifp->flags = (ifp->flags & ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_NODAD | IFA_F_HOMEADDRESS)) | ifa_flags;
+> +	ifp->flags = (ifp->flags & ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_HOMEADDRESS)) | ifa_flags;
+>  	ifp->tstamp = jiffies;
+>  	ifp->valid_lft = valid_lft;
+>  	ifp->prefered_lft = prefered_lft;
+> @@ -3245,7 +3245,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+>  		return -ENODEV;
+>  
+>  	/* We ignore other flags so far. */
+> -	ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS);
+> +	ifa_flags = ifm->ifa_flags & IFA_F_HOMEADDRESS;
+>  
+>  	ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
+>  	if (ifa == NULL) {
+> 
+> --yoshfuji
+> 
