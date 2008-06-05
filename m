@@ -1,91 +1,53 @@
-From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATCH 12/12] BE NIC driver - Kconfig, Makefile, MAINTAINERS
-Date: Thu, 05 Jun 2008 09:49:02 -0700
-Message-ID: <20080605164902.5bd7fcfb@mailhost.serverengines.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface
+	implementation for the driver
+Date: Thu, 5 Jun 2008 10:01:03 -0700
+Message-ID: <20080605100103.38ce7c4b@extreme>
+References: <20080529095126.9943.84692.stgit@localhost.localdomain>
+	<20080529095754.9943.27936.stgit@localhost.localdomain>
+	<20080529103003.010c4a08@extreme>
+	<20080529174805.GA10903@kroah.com>
+	<c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>
+	<1212518703.2217.22.camel@lap75545.ornl.gov>
+	<aday75k1pzh.fsf@cisco.com> <20080605054035.GA8059@ornl.gov>
+	<adazlpzzvjn.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:11509 "EHLO
-	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606AbYFEQtF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 12:49:05 -0400
-Received: from 59.93.88.166 ([59.93.88.166])
-	by mailhost.serverengines.com
-	for netdev@vger.kernel.org;
-	Thu, 5 Jun 2008 09:49:02 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, Dave Dillow <dillowda@ornl.gov>,
+	Greg KH <greg@kroah.com>, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, poornima.kamath@qlogic.com
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adazlpzzvjn.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 05 Jun 2008 09:38:36 -0700
+Roland Dreier <rdreier@cisco.com> wrote:
 
+>  > That said, given that SRP's been using sysfs since it went in, is there
+>  > a reason to move to configfs other than it's the new preferred way to do
+>  > it? Given the desire to not break ABI's -- and IIRC sysfs was declared to
+>  > be under that unbrella -- wouldn't we have to at least carry both
+>  > interfaces for a while, assuming we can even get rid of the sysfs one?
+> 
+> Yes, we'd definitely be carrying both interfaces for at least a year.
+> 
+> Looking further into this, I'm not sure it makes much sense either.
+> Another problem with configfs is that the lifetime of the object is
+> controlled by userspace.  So if we lose a connection to a target,
+> the object will persist in configfs until userspace notices.
+> 
+>  - R.
 
-Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
----
- MAINTAINERS          |    7 +++++++
- drivers/net/Kconfig  |    8 ++++++++
- drivers/net/Makefile |    1 +
- 3 files changed, 16 insertions(+), 0 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 46fa179..7896005 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3622,6 +3622,13 @@ L:	linux-ide@vger.kernel.org
- T:	git kernel.org:/pub/scm/linux/kernel/git/jgarzik/libata-dev.git
- S:	Supported
- 
-+SERVER ENGINES 10Gbe NIC - BLADE-ENGINE
-+P:	Subbu Seetharaman
-+M:	subbus@serverengines.com
-+L:	netdev@vger.kernel.org
-+W:	http://www.serverengines.com
-+S:	Supported
-+
- SGI SN-IA64 (Altix) SERIAL CONSOLE DRIVER
- P:	Pat Gefre
- M:	pfg@sgi.com
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index dd0ec9e..2761428 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2581,6 +2581,14 @@ config BNX2X
- 
- source "drivers/net/sfc/Kconfig"
- 
-+config BENET
-+	tristate "ServerEngines 10Gb NIC - BladeEngine"
-+	depends on PCI
-+	select INET_LRO
-+	help
-+	  This driver implements the NIC functionality for ServerEngines
-+	  10Gb network adapter BladeEngine (EC 3210).
-+
- endif # NETDEV_10000
- 
- source "drivers/net/tokenring/Kconfig"
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index dcbfe84..8f3c1ff 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -18,6 +18,7 @@ obj-$(CONFIG_BONDING) += bonding/
- obj-$(CONFIG_ATL1) += atlx/
- obj-$(CONFIG_GIANFAR) += gianfar_driver.o
- obj-$(CONFIG_TEHUTI) += tehuti.o
-+obj-$(CONFIG_BENET) += benet/
- 
- gianfar_driver-objs := gianfar.o \
- 		gianfar_ethtool.o \
--- 
-1.5.5
-
-
-
-___________________________________________________________________________________
-This message, together with any attachment(s), contains confidential and proprietary information of
-ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by reply email message and
-delete all copies of this message and any attachment(s). Thank you.
-
+There is nothing stopping adding a well designed alternate interface.
+Either netlink or ioctl's are okay. As long as it is 32/64 bit clean.
