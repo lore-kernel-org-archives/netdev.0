@@ -1,58 +1,32 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [Uclinux-dist-devel] [PATCH 01/01] smsc911x: fix MAC addresssetting
- after reset
-Date: Thu, 5 Jun 2008 10:47:00 +0100
-Message-ID: <OF45087A0F.05ABBB48-ON8025745F.00349549-8025745F.0035BEBE@smsc.com>
-References: <48451668.1060407@tqs.de>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: multicast with multiple devices
+Date: Thu, 5 Jun 2008 11:54:54 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0806051154300.29055@fbirervta.pbzchgretzou.qr>
+References: <OFD882A076.C7BD1EA7-ON88257455.005F4F9F-88257455.005FC5BC@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: Jens Gehrlein <sew_s@tqs.de>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:1283 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753741AbYFEJrS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 05:47:18 -0400
-In-Reply-To: <48451668.1060407@tqs.de>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:32862 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756870AbYFEJy4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 05:54:56 -0400
+In-Reply-To: <OFD882A076.C7BD1EA7-ON88257455.005F4F9F-88257455.005FC5BC@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jens,
 
-> Sorry. Newbie question:
-> How can I pass the MAC address via kernel command line for this driver? 
-> Is there a predefined parameter?
-> My problem is:
-> U-Boot resets the chip after each completed transfer. Wolfgang Denk 
-> suggested to pass the MAC address via kernel command line. I need the 
-> ethernet device at kernel startup to mount a root filesystem via NFS, so 
+On Monday 2008-05-26 19:26, David Stevens wrote:
 
-> I added the platform device in my board specific code as shown below (it 
+>Most multicast applications don't use the routing table at all. Instead,
+>you should specify the particular interface you want, since the same
+>group number on different interfaces often isn't the same group.
+>
+>You can use IP_MULTICAST_IF, SO_BINDTODEVICE, etc., and 
+>of course specify the interface in the IP_ADD_MEMBERSHIP call
+>for listeners.
 
-> still relates to the old driver).
-> Should I patch the driver directly to get the MAC address via __setup()
-> or can I pass the MAC address via the device structures.
-> 
-> What do you suggest?
-
-The smsc911x driver accepts mac addresses set "by configuration", so if 
-brought up after boot you could assign the mac address like this:
-
-ifconfig eth0 hw ether 00:11:22:33:44:55 up
-
-But as you're using an NFS root, you need to assign the mac address during 
-boot.  I'm not sure of the best way to do this, there isn't currently a 
-dev_addr field in smsc911x_platform_config, but you could add one.
-
-Alternatively, if the bootloader already sets the mac address you could 
-modify the driver to read it off the device (into dev->dev_addr) before 
-resetting it?
-
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
-
-
+But what if you do not have an application to begin with?
+Does not the kernel do autonomic forwarding of multicast
+like it does for unicast?
