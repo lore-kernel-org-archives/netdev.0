@@ -1,56 +1,46 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH 25/39] mv643xx_eth: massively simplify multicast address crc8 computation
-Date: Thu, 5 Jun 2008 22:44:50 +0200
-Message-ID: <20080605204450.GE30083@xi.wantstofly.org>
-References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org> <1212490974-23719-26-git-send-email-buytenh@wantstofly.org> <200806050908.56427.bcook@bpointsys.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface
+	implementation for the driver
+Date: Thu, 05 Jun 2008 13:47:39 -0700
+Message-ID: <adave0nzk0k.fsf@cisco.com>
+References: <20080529095126.9943.84692.stgit@localhost.localdomain>
+	<20080529095754.9943.27936.stgit@localhost.localdomain>
+	<20080529103003.010c4a08@extreme> <20080529174805.GA10903@kroah.com>
+	<c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>
+	<1212518703.2217.22.camel@lap75545.ornl.gov>
+	<aday75k1pzh.fsf@cisco.com> <20080605054035.GA8059@ornl.gov>
+	<adazlpzzvjn.fsf@cisco.com> <20080605100103.38ce7c4b@extreme>
+	<4848234B.1080200@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org
-To: Brent Cook <bcook@bpointsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:54940 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752392AbYFEUpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 16:45:23 -0400
-Content-Disposition: inline
-In-Reply-To: <200806050908.56427.bcook@bpointsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, Dave Dillow <dillowda@ornl.gov>,
+	Greg KH <greg@kroah.com>, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	poornima.kamath@qlogic.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <4848234B.1080200@trash.net> (Patrick McHardy's message of "Thu,
+	05 Jun 2008 19:32:59 +0200")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 05, 2008 at 09:08:56AM -0500, Brent Cook wrote:
+ > > There is nothing stopping adding a well designed alternate interface.
+ > > Either netlink or ioctl's are okay. As long as it is 32/64 bit clean.
 
-> > Replace the 70-line crc8 computation (used for multicast address
-> > filtering tables) by a 5-line version.
-> 
-> The original looks like someone ported Verilog code to C.
+ > From a quick look it seems it should use rtnl_link instead
+ > of adding yet another private sysfs interface.
 
-E.g. the EASICS crc web tool (http://www.easics.com/webtools/crctool)
-gives you pretty much that same code.  :-)
+This seems crazy -- why do we want to push things towards the complexity
+of rtnl_link instead of a simple text-based interface that can be
+trivial used with 'echo' from the shell?  What advantages does that
+give?
 
-I.e.:
-
-    NewCRC[0] = D[45] ^ D[43] ^ D[40] ^ D[39] ^ D[35] ^ D[34] ^ D[31] ^ 
-                D[30] ^ D[28] ^ D[23] ^ D[21] ^ D[19] ^ D[18] ^ D[16] ^ 
-                D[14] ^ D[12] ^ D[8] ^ D[7] ^ D[6] ^ D[0] ^ C[0] ^ 
-                C[3] ^ C[5];
-    NewCRC[1] = D[46] ^ D[45] ^ D[44] ^ D[43] ^ D[41] ^ D[39] ^ D[36] ^ 
-                D[34] ^ D[32] ^ D[30] ^ D[29] ^ D[28] ^ D[24] ^ D[23] ^ 
-                D[22] ^ D[21] ^ D[20] ^ D[18] ^ D[17] ^ D[16] ^ D[15] ^ 
-                D[14] ^ D[13] ^ D[12] ^ D[9] ^ D[6] ^ D[1] ^ D[0] ^ 
-                C[1] ^ C[3] ^ C[4] ^ C[5] ^ C[6];
-
-versus mv643xx_eth's:
-
--       crc[0] = mac_array[45] ^ mac_array[43] ^ mac_array[40] ^ mac_array[39] ^
--                mac_array[35] ^ mac_array[34] ^ mac_array[31] ^ mac_array[30] ^
--                mac_array[28] ^ mac_array[23] ^ mac_array[21] ^ mac_array[19] ^
--                mac_array[18] ^ mac_array[16] ^ mac_array[14] ^ mac_array[12] ^
--                mac_array[8]  ^ mac_array[7]  ^ mac_array[6]  ^ mac_array[0];
--
--       crc[1] = mac_array[46] ^ mac_array[45] ^ mac_array[44] ^ mac_array[43] ^
--                mac_array[41] ^ mac_array[39] ^ mac_array[36] ^ mac_array[34] ^
--                mac_array[32] ^ mac_array[30] ^ mac_array[29] ^ mac_array[28] ^
--                mac_array[24] ^ mac_array[23] ^ mac_array[22] ^ mac_array[21] ^
--                mac_array[20] ^ mac_array[18] ^ mac_array[17] ^ mac_array[16] ^
--                mac_array[15] ^ mac_array[14] ^ mac_array[13] ^ mac_array[12] ^
--                mac_array[9]  ^ mac_array[6]  ^ mac_array[1]  ^ mac_array[0];
+ - R.
