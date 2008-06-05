@@ -1,40 +1,52 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: How I can reset TCP sockets after long suspend/resume cyscle
-Date: Fri, 6 Jun 2008 00:19:17 +0300
-Message-ID: <200806060019.17589.maximlevitsky@gmail.com>
-References: <200806011515.14103.maximlevitsky@gmail.com> <20080605071339.GA11562@2ka.mipt.ru>
+From: Dale Farnsworth <dale@farnsworth.org>
+Subject: Re: [PATCH 10/39] mv643xx_eth: clarify irq masking and unmasking
+Date: Thu, 5 Jun 2008 14:22:49 -0700
+Message-ID: <20080605212249.GA2190@farnsworth.org>
+References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org> <1212490974-23719-11-git-send-email-buytenh@wantstofly.org> <20080605114406.GA3807@farnsworth.org> <20080605203605.GD30083@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:55810 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751874AbYFEVTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 17:19:25 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so604019ugf.16
-        for <netdev@vger.kernel.org>; Thu, 05 Jun 2008 14:19:22 -0700 (PDT)
-In-Reply-To: <20080605071339.GA11562@2ka.mipt.ru>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:60507 "EHLO
+	xyzzy.farnsworth.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751796AbYFEVW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 17:22:56 -0400
 Content-Disposition: inline
+In-Reply-To: <20080605203605.GD30083@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, 5 June 2008 10:13:40 Evgeniy Polyakov wrote:
-> On Sun, Jun 01, 2008 at 03:15:14PM +0300, Maxim Levitsky (maximlevitsky@gmail.com) wrote:
-> > Is there a way to close all TCP sockets before/after suspend to ram?
+On Thu, Jun 05, 2008 at 10:36:05PM +0200, Lennert Buytenhek wrote:
+> On Thu, Jun 05, 2008 at 04:44:06AM -0700, Dale Farnsworth wrote:
 > 
-> You can do that with frevoke patchset (not in mainline though iirc),
-> which allows you to close any file descriptor, which you can find via
-> /proc/$pid/fd
+> > > diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+> > > index bdb03f3..ffdd3fc 100644
+> > > --- a/drivers/net/mv643xx_eth.c
+> > > +++ b/drivers/net/mv643xx_eth.c
+> > > @@ -97,7 +97,14 @@ static char mv643xx_driver_version[] = "1.0";
+> > >  #define TXQ_COMMAND(p)			(0x0448 + ((p) << 10))
+> > >  #define TX_BW_MTU(p)			(0x0458 + ((p) << 10))
+> > >  #define INT_CAUSE(p)			(0x0460 + ((p) << 10))
+> > > +#define  INT_RX				0x00000804
+> > > +#define  INT_EXT			0x00000002
+> > >  #define INT_CAUSE_EXT(p)		(0x0464 + ((p) << 10))
+> > > +#define  INT_EXT_LINK			0x00100000
+> > > +#define  INT_EXT_PHY			0x00010000
+> > > +#define  INT_EXT_TX_ERROR_0		0x00000100
+> > > +#define  INT_EXT_TX_0			0x00000001
+> > > +#define  INT_EXT_TX			0x00000101
+> > 
+> > Oops, I missed this the first time.  You have an extra space in each
+> > of the above added defines.
 > 
+> Right, that's because they are possible values of that register,
+> instead of the definition of a new register.  A couple of existing
+> drivers follow this format (e.g. look at b44.h or tg3.h), and I kind
+> of like it, because it groups things logically together.
 
-Seems like a great idea.
-Do you know the status of this patchset, when to expect it to be
-in included in mainline?
+Yes, it makes sense.  I think I'd use at least a couple of
+spaces of indent though.  But, I'm fine with it either way.
 
-
-Thanks a lot,
-	Best regards,
-		Maxim Levitsky
+Thanks,
+-Dale
