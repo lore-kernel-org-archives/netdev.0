@@ -1,28 +1,62 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: How I can reset TCP sockets after long suspend/resume cyscle
-Date: Thu, 5 Jun 2008 11:13:40 +0400
-Message-ID: <20080605071339.GA11562@2ka.mipt.ru>
-References: <200806011515.14103.maximlevitsky@gmail.com>
+From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Subject: Re: [PATCH 12/12]: wext: Emit event stream entries correctly when
+ compat.
+Date: Thu, 5 Jun 2008 09:43:08 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0806050940290.14577@vixen.sonytel.be>
+References: <20080603.132856.202640855.davem@davemloft.net>
+ <1212526129.14371.5.camel@johannes.berg> <20080603.135728.103448928.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Maxim Levitsky <maximlevitsky@gmail.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-584349381-1031041274-1212651788=:14577"
+Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
+	linville@tuxdriver.com, mokuno@sm.sony.co.jp,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:53618 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751882AbYFEHNn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 03:13:43 -0400
-Content-Disposition: inline
-In-Reply-To: <200806011515.14103.maximlevitsky@gmail.com>
+Received: from vervifontaine.sonytel.be ([80.88.33.193]:36968 "EHLO
+	vervifontaine.sonycom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752391AbYFEHnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 03:43:15 -0400
+In-Reply-To: <20080603.135728.103448928.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 01, 2008 at 03:15:14PM +0300, Maxim Levitsky (maximlevitsky@gmail.com) wrote:
-> Is there a way to close all TCP sockets before/after suspend to ram?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-You can do that with frevoke patchset (not in mainline though iirc),
-which allows you to close any file descriptor, which you can find via
-/proc/$pid/fd
+---584349381-1031041274-1212651788=:14577
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
--- 
-	Evgeniy Polyakov
+On Tue, 3 Jun 2008, David Miller wrote:
+> > Did you miss drivers/net/ps3_gelic_wireless.c?
+> 
+> Likely yes, I guess that won't get hit with an allmodconfig
+> build on sparc64 :(
+> 
+> It would be really nice if we had some more compat layers
+> so that the ps3 bus probing layer just nopped out but you
+> could at least build test drivers on other platforms.
+
+That wouldn't help, as it runs on top of an hypervisor API.
+
+The wired part may be merged back with spider_net one day...
+
+With kind regards,
+
+Geert Uytterhoeven
+Software Architect
+
+Sony Techsoft Centre
+The Corporate Village · Da Vincilaan 7-D1 · B-1935 Zaventem · Belgium
+
+Phone:    +32 (0)2 700 8453
+Fax:      +32 (0)2 700 8622
+E-mail:   Geert.Uytterhoeven@sonycom.com
+Internet: http://www.sony-europe.com/
+
+Sony Technology and Software Centre Europe
+A division of Sony Service Centre (Europe) N.V.
+Registered office: Technologielaan 7 · B-1840 Londerzeel · Belgium
+VAT BE 0413.825.160 · RPR Brussels
+Fortis 293-0376800-10 GEBA-BE-BB
+---584349381-1031041274-1212651788=:14577--
