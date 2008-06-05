@@ -1,33 +1,41 @@
-From: Brent Cook <bcook@bpointsys.com>
-Subject: Re: [PATCH 25/39] mv643xx_eth: massively simplify multicast address crc8 computation
-Date: Thu, 5 Jun 2008 09:08:56 -0500
-Message-ID: <200806050908.56427.bcook@bpointsys.com>
-References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org> <1212490974-23719-26-git-send-email-buytenh@wantstofly.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] ipv6 addrconf: Ignore requests to set NODAD flag when
+ changing addresses
+Date: Thu, 05 Jun 2008 23:32:56 +0900 (JST)
+Message-ID: <20080605.233256.53155823.yoshfuji@linux-ipv6.org>
+References: <20080604234751.GH20815@postel.suug.ch>
+	<20080605.115314.80065467.yoshfuji@linux-ipv6.org>
+	<20080605090447.GL20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: netdev@vger.kernel.org, usagi-core@ml.linux-ipv6.org,
+	nakam@gomagoma.org, takamiya@po.ntts.co.jp, yoshfuji@linux-ipv6.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.bpointsys.com ([70.253.197.130]:4250 "EHLO bpointsys.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755459AbYFEO2K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 10:28:10 -0400
-In-Reply-To: <1212490974-23719-26-git-send-email-buytenh@wantstofly.org>
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:58154 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753808AbYFEOcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 10:32:21 -0400
+In-Reply-To: <20080605090447.GL20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 03 June 2008 06:02:40 Lennert Buytenhek wrote:
-> Replace the 70-line crc8 computation (used for multicast address
-> filtering tables) by a 5-line version.
->
-> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-> ---
->  drivers/net/mv643xx_eth.c |   95
-> ++++++++++----------------------------------- 1 files changed, 21
-> insertions(+), 74 deletions(-)
->
+In article <20080605090447.GL20815@postel.suug.ch> (at Thu, 5 Jun 2008 11:04:47 +0200), Thomas Graf <tgraf@suug.ch> says:
 
-The original looks like someone ported Verilog code to C.
+> * YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> 2008-06-05 11:53
+> > And well, it does not take effect so far, but 
+> > DAD after link failure logic is planned in long term.
+> > So current code is okay to me.
+> 
+> Alright, that makes sense if that code ever is written.
+> 
+> I'm not sure I understand your new patch though, why do you want to
+> disable setting the nodad flag for new addresses nowW?
+
+If we should really need to avoid the confusion, we have an option
+to disallow modification of NODAD flag so far with the patch I've posted.
+But anyway, I'm going to leave it as-is if you are okay.
+
+--yoshfuji
