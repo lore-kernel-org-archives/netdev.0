@@ -1,41 +1,36 @@
 From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs	interface
-	implementation for the driver
-Date: Wed, 04 Jun 2008 21:10:26 -0700
-Message-ID: <aday75k1pzh.fsf@cisco.com>
-References: <20080529095126.9943.84692.stgit@localhost.localdomain>
-	<20080529095754.9943.27936.stgit@localhost.localdomain>
-	<20080529103003.010c4a08@extreme> <20080529174805.GA10903@kroah.com>
-	<c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>
-	<1212518703.2217.22.camel@lap75545.ornl.gov>
+Subject: Re: howto use ioremap_wc?
+Date: Wed, 04 Jun 2008 21:53:54 -0700
+Message-ID: <adad4mw1nz1.fsf@cisco.com>
+References: <4841143E.5080003@myri.com>
+	<20080531185424.1cd18220@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, Greg KH <greg@kroah.com>,
-	general@lists.openfabrics.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>, poornima.kamath@qlogic.com
-To: David Dillow <dillowda@ornl.gov>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1212518703.2217.22.camel@lap75545.ornl.gov> (David Dillow's
-	message of "Tue, 03 Jun 2008 14:45:03 -0400")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: Brice Goglin <brice@myri.com>, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"venkatesh.pallipadi\@intel.com" <venkatesh.pallipadi@intel.com>
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:16418 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241AbYFEEyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 00:54:45 -0400
+In-Reply-To: <20080531185424.1cd18220@infradead.org> (Arjan van de Ven's
+	message of "Sat, 31 May 2008 18:54:24 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > Or so the theory goes. Unfortunately, you need all that information
- > before you can create the connection. The configfs guys have thought
- > about that, but not implemented yet:
- > 
- > > [Committable Items]
- > > NOTE: Committable items are currently unimplemented.
+This thread reminds me of another question about interfaces for using
+PAT.  Are there any plans for making pgprot_writecombine() a generic
+interface that portable drivers can use to map PCI memory into userspace
+with WC turned on?  (Falling back to uncached when WC is not available
+for whatever reason is fine for the case I have in mind)
 
-The netconsole code in-tree has a separate "enabled" attribute that
-serves the purpose of "committing" something.  Seems good enough for SRP
-to use to me... the rename to commit idea seems cute but I don't see
-that it buys much beyond this.
+Maybe it's better to ask at a higher level: what's the right thing for a
+driver to do in an mmap method when it wants to expose PCI memory to
+userspace with WC turned on if possible?  I see that the PCI sysfs code
+on x86 does it using non-exported (hence not available to a driver
+buildable as a module) interfaces.
+
+Thanks,
+  Roland
