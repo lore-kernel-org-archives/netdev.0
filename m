@@ -1,154 +1,84 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [dccp] [RFC/RFT] [Patch 1/2]: Allow to distinguish original
-	and retransmitted packets
-Date: Thu, 5 Jun 2008 15:46:09 +0100
-Message-ID: <20080605144609.GC8800@gerrit.erg.abdn.ac.uk>
-References: <4846462F.3020004@cn.fujitsu.com> <20080604132152.GA17595@ghostprotocols.net> <20080604133849.GA5583@gerrit.erg.abdn.ac.uk> <20080604154452.GB4625@ghostprotocols.net> <20080604155540.GA16194@gerrit.erg.abdn.ac.uk> <20080605144435.GA8800@gerrit.erg.abdn.ac.uk> <20080605144529.GB8800@gerrit.erg.abdn.ac.uk>
+Subject: [dccp] [RFC/RFT] [Patch 2/2]: Combine the functionality of
+	enqeueing and cloning
+Date: Thu, 5 Jun 2008 15:47:12 +0100
+Message-ID: <20080605144712.GD8800@gerrit.erg.abdn.ac.uk>
+References: <4846462F.3020004@cn.fujitsu.com> <20080604132152.GA17595@ghostprotocols.net> <20080604133849.GA5583@gerrit.erg.abdn.ac.uk> <20080604154452.GB4625@ghostprotocols.net> <20080604155540.GA16194@gerrit.erg.abdn.ac.uk> <20080605144435.GA8800@gerrit.erg.abdn.ac.uk> <20080605144529.GB8800@gerrit.erg.abdn.ac.uk> <20080605144609.GC8800@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org, Wei Yongjun <yjwei@cn.fujitsu.com>,
 	dccp@vger.kernel.orgu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61180 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61227 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753730AbYFEOqQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 10:46:16 -0400
+	id S1752917AbYFEOrR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2008 10:47:17 -0400
 Content-Disposition: inline
-In-Reply-To: <20080605144529.GB8800@gerrit.erg.abdn.ac.uk>
+In-Reply-To: <20080605144609.GC8800@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp: Allow to distinguish original and retransmitted packets
+dccp: Combine the functionality of enqeueing and cloning
 
-This patch allows the sending code to distinguish original/initial packets
-from retransmitted ones.
+Realising that there is a pattern in that
 
-This is in particular needed for the retransmission of Request packets, since
- * the first packet uses ISS (generated in net/dccp/ipv?.c) and sets GSS=ISS;
- * all retransmitted packets use GSS' = GSS+1, so that the n-th retransmitted
-   packet has sequence number ISS+n (mod 48).
+ * first dccp_entail() is called to enqueue a new skb;
+ * then skb_clone() is called to transmit a clone of that skb,
 
-To add this support, the patch reorganises existing code in such a manner that
- * icsk_retransmits == 0 for original packet and
- * icsk_retransmits = n > 0 for n-th retransmitted packet
-at the time dccp_transmit_skb() is called via dccp_retransmit_skb().
- 
-The patch further exploits that, since sk_send_head always contains the original
-skb (enqueued/tailed by dccp_entail()), skb_cloned() never evaluated to true.
+this patch integrates these two interrelated steps into dccp_entail.
 
-Lastly, removed the `skb' argument from dccp_retransmit_skb(), since sk_send_head
-is used for all retransmissions (the exception is client-Acks in PARTOPEN state,
-but these are not put onto the sk_send_head). Updated the documentation also.
-
-Many thanks to Arnaldo Carvalho de Melo and Wei Yongjun for pointing out
-unresolved problems during development and for providing helpful input.
+Note: the return value of skb_clone is not checked. It may be an idea to add a
+      warning if this occurs. In both instances, however, a timer is set for
+      retransmission, so that cloning is re-tried via dccp_retransmit_skb().
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/dccp.h   |    2 +-
- net/dccp/output.c |   20 ++++++++++++++++----
- net/dccp/timer.c  |   20 ++++----------------
- 3 files changed, 21 insertions(+), 21 deletions(-)
+ net/dccp/output.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -207,7 +207,7 @@ static inline void dccp_csum_outgoing(st
- 
- extern void dccp_v4_send_check(struct sock *sk, int len, struct sk_buff *skb);
- 
--extern int  dccp_retransmit_skb(struct sock *sk, struct sk_buff *skb);
-+extern int  dccp_retransmit_skb(struct sock *sk);
- 
- extern void dccp_send_ack(struct sock *sk);
- extern void dccp_reqsk_send_ack(struct sk_buff *sk, struct request_sock *rsk);
 --- a/net/dccp/output.c
 +++ b/net/dccp/output.c
-@@ -290,14 +290,26 @@ void dccp_write_xmit(struct sock *sk, in
- 	}
+@@ -26,11 +26,13 @@ static inline void dccp_event_ack_sent(s
+ 	inet_csk_clear_xmit_timer(sk, ICSK_TIME_DACK);
  }
  
--int dccp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
-+/**
-+ * dccp_retransmit_skb  -  Retransmit Request, Close, or CloseReq packets
-+ * There are only four retransmittable packet types in DCCP:
-+ * - Request  in client-REQUEST  state (sec. 8.1.1),
-+ * - CloseReq in server-CLOSEREQ state (sec. 8.3),
-+ * - Close    in   node-CLOSING  state (sec. 8.3),
-+ * - Acks in client-PARTOPEN state (sec. 8.1.5, handled by dccp_delack_timer()).
-+ * This function expects sk->sk_send_head to contain the original skb.
-+ */
-+int dccp_retransmit_skb(struct sock *sk)
+-static void dccp_skb_entail(struct sock *sk, struct sk_buff *skb)
++/* enqueue @skb on sk_send_head for retransmission, return clone to send now */
++static struct sk_buff *dccp_skb_entail(struct sock *sk, struct sk_buff *skb)
  {
-+	BUG_TRAP(sk->sk_send_head != NULL);
-+
- 	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk) != 0)
- 		return -EHOSTUNREACH; /* Routing failure or similar. */
- 
--	return dccp_transmit_skb(sk, (skb_cloned(skb) ?
--				      pskb_copy(skb, GFP_ATOMIC):
--				      skb_clone(skb, GFP_ATOMIC)));
-+	/* this count is used to distinguish original and retransmitted skb */
-+	inet_csk(sk)->icsk_retransmits++;
-+
-+	return dccp_transmit_skb(sk, skb_clone(sk->sk_send_head, GFP_ATOMIC));
+ 	skb_set_owner_w(skb, sk);
+ 	WARN_ON(sk->sk_send_head);
+ 	sk->sk_send_head = skb;
++	return skb_clone(sk->sk_send_head, gfp_any());
  }
  
- struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
---- a/net/dccp/timer.c
-+++ b/net/dccp/timer.c
-@@ -88,21 +88,11 @@ static void dccp_retransmit_timer(struct
- 	struct inet_connection_sock *icsk = inet_csk(sk);
+ /*
+@@ -536,8 +538,7 @@ int dccp_connect(struct sock *sk)
  
- 	/*
--	 * sk->sk_send_head has to have one skb with
--	 * DCCP_SKB_CB(skb)->dccpd_type set to one of the retransmittable DCCP
--	 * packet types. The only packets eligible for retransmission are:
--	 *	-- Requests in client-REQUEST  state (sec. 8.1.1)
--	 *	-- Acks     in client-PARTOPEN state (sec. 8.1.5)
--	 *	-- CloseReq in server-CLOSEREQ state (sec. 8.3)
--	 *	-- Close    in   node-CLOSING  state (sec. 8.3)                */
--	BUG_TRAP(sk->sk_send_head != NULL);
--
--	/*
- 	 * More than than 4MSL (8 minutes) has passed, a RESET(aborted) was
- 	 * sent, no need to retransmit, this sock is dead.
- 	 */
- 	if (dccp_write_timeout(sk))
--		goto out;
-+		return;
+ 	DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_REQUEST;
  
- 	/*
- 	 * We want to know the number of packets retransmitted, not the
-@@ -111,29 +101,27 @@ static void dccp_retransmit_timer(struct
- 	if (icsk->icsk_retransmits == 0)
- 		DCCP_INC_STATS_BH(DCCP_MIB_TIMEOUTS);
+-	dccp_skb_entail(sk, skb);
+-	dccp_transmit_skb(sk, skb_clone(skb, GFP_KERNEL));
++	dccp_transmit_skb(sk, dccp_skb_entail(sk, skb));
+ 	DCCP_INC_STATS(DCCP_MIB_ACTIVEOPENS);
  
--	if (dccp_retransmit_skb(sk, sk->sk_send_head) < 0) {
-+	if (dccp_retransmit_skb(sk) != 0) {
+ 	/* Timer for repeating the REQUEST until an answer. */
+@@ -662,8 +663,7 @@ void dccp_send_close(struct sock *sk, co
+ 		DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_CLOSE;
+ 
+ 	if (active) {
+-		dccp_skb_entail(sk, skb);
+-		dccp_transmit_skb(sk, skb_clone(skb, prio));
++		skb = dccp_skb_entail(sk, skb);
  		/*
- 		 * Retransmission failed because of local congestion,
- 		 * do not backoff.
+ 		 * Retransmission timer for active-close: RFC 4340, 8.3 requires
+ 		 * to retransmit the Close/CloseReq until the CLOSING/CLOSEREQ
+@@ -676,6 +676,6 @@ void dccp_send_close(struct sock *sk, co
  		 */
--		if (icsk->icsk_retransmits == 0)
-+		if (--icsk->icsk_retransmits == 0)
- 			icsk->icsk_retransmits = 1;
  		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 					  min(icsk->icsk_rto,
- 					      TCP_RESOURCE_PROBE_INTERVAL),
- 					  DCCP_RTO_MAX);
--		goto out;
-+		return;
- 	}
- 
- 	icsk->icsk_backoff++;
--	icsk->icsk_retransmits++;
- 
- 	icsk->icsk_rto = min(icsk->icsk_rto << 1, DCCP_RTO_MAX);
- 	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto,
- 				  DCCP_RTO_MAX);
- 	if (icsk->icsk_retransmits > sysctl_dccp_retries1)
- 		__sk_dst_reset(sk);
--out:;
+ 					  DCCP_TIMEOUT_INIT, DCCP_RTO_MAX);
+-	} else
+-		dccp_transmit_skb(sk, skb);
++	}
++	dccp_transmit_skb(sk, skb);
  }
- 
- static void dccp_write_timer(unsigned long data)
