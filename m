@@ -1,49 +1,65 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
-Date: Wed, 4 Jun 2008 19:38:01 -0700
-Message-ID: <200806041938.02045.david-b@pacbell.net>
-References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <200805271432.12881.david-b@pacbell.net> <20080531072036.GC5405@ucw.cz>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] ipv6 addrconf: Ignore requests to set NODAD flag when
+ changing addresses
+Date: Thu, 05 Jun 2008 11:53:14 +0900 (JST)
+Message-ID: <20080605.115314.80065467.yoshfuji@linux-ipv6.org>
+References: <20080604234751.GH20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tobias Diedrich <ranma+kernel@tdiedrich.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	linux-acpi@vger.kernel.org, linux-pm@lists.linux-foundation.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763592AbYFECis@vger.kernel.org>
-In-Reply-To: <20080531072036.GC5405@ucw.cz>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, usagi-core@ml.linux-ipv6.org,
+	nakam@gomagoma.org, takamiya@po.ntts.co.jp
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:58141 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752472AbYFECwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 22:52:37 -0400
+In-Reply-To: <20080604234751.GH20815@postel.suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 31 May 2008, Pavel Machek wrote:
->=20
-> > Yeah; under ACPI, PCI does not act like it does everywhere else.
-> > Nor does wakeup in general.
-> >=20
-> > After sending patches to fix that for a couple years now, I'm
-> > well past being tired of doing that. =A0I suggest it's overdue for
-> > the ACPI team to get this part of their act together.
->=20
-> I'm afraid you expect too much from the acpi team.
+In article <20080604234751.GH20815@postel.suug.ch> (at Thu, 5 Jun 2008 01:47:51 +0200), Thomas Graf <tgraf@suug.ch> says:
 
-I'm likewise "afraid" that may be too much to expect.
+> The decision to run DAD has already been made at the time the address
+> was added. Changing the flag later on does not have any effect and
+> is only confusing.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-If that's true, it's going to be even harder making
-the cross-platform Linux PM framework do what it needs
-to do.  Having various devices (not just laptop lids or
-power buttons, or RTC alarms) wake systems from low power
-states is pretty fundamental to the "P" part of ACPI.
-And it's not like wakeup events are unique to ACPI.
+I need let MIP team check this but anyway....
 
+If the NODAD flag change is confusing, just clear
+that flag in the caller.
 
-> If you can't merge=20
-> patches yourself, perhaps someone interested (Tobias? me?) can push
-> them for you?
+And well, it does not take effect so far, but 
+DAD after link failure logic is planned in long term.
+So current code is okay to me.
 
-I kind of think the ACPI team needs to just become more
-responsive.  They helped Windows do this stuff; why has
-Linux only seen delays and obstacles in this area?
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3a83557..05dcfd8 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3191,7 +3191,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
+ 		prefered_lft = 0x7FFFFFFF/HZ;
+ 
+ 	spin_lock_bh(&ifp->lock);
+-	ifp->flags = (ifp->flags & ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_NODAD | IFA_F_HOMEADDRESS)) | ifa_flags;
++	ifp->flags = (ifp->flags & ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_HOMEADDRESS)) | ifa_flags;
+ 	ifp->tstamp = jiffies;
+ 	ifp->valid_lft = valid_lft;
+ 	ifp->prefered_lft = prefered_lft;
+@@ -3245,7 +3245,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 		return -ENODEV;
+ 
+ 	/* We ignore other flags so far. */
+-	ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS);
++	ifa_flags = ifm->ifa_flags & IFA_F_HOMEADDRESS;
+ 
+ 	ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
+ 	if (ifa == NULL) {
+
+--yoshfuji
