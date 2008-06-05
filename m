@@ -1,84 +1,79 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [dccp] [RFC/RFT] [Patch 2/2]: Combine the functionality of
-	enqeueing and cloning
-Date: Thu, 5 Jun 2008 15:47:12 +0100
-Message-ID: <20080605144712.GD8800@gerrit.erg.abdn.ac.uk>
-References: <4846462F.3020004@cn.fujitsu.com> <20080604132152.GA17595@ghostprotocols.net> <20080604133849.GA5583@gerrit.erg.abdn.ac.uk> <20080604154452.GB4625@ghostprotocols.net> <20080604155540.GA16194@gerrit.erg.abdn.ac.uk> <20080605144435.GA8800@gerrit.erg.abdn.ac.uk> <20080605144529.GB8800@gerrit.erg.abdn.ac.uk> <20080605144609.GC8800@gerrit.erg.abdn.ac.uk>
+From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Subject: DM9000 issue with mem resource management
+Date: Thu, 5 Jun 2008 17:42:58 +0200
+Message-ID: <200806051743.00614.laurentp@cse-semaphore.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, Wei Yongjun <yjwei@cn.fujitsu.com>,
-	dccp@vger.kernel.orgu
+Content-Type: multipart/signed;
+  boundary="nextPart151589832.5msRuPoDZE";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61227 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752917AbYFEOrR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 10:47:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20080605144609.GC8800@gerrit.erg.abdn.ac.uk>
+Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:59907 "EHLO
+	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752391AbYFEPnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 11:43:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp: Combine the functionality of enqeueing and cloning
+--nextPart151589832.5msRuPoDZE
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Realising that there is a pattern in that
+Hi everybody,
 
- * first dccp_entail() is called to enqueue a new skb;
- * then skb_clone() is called to transmit a clone of that skb,
+I ran into a resource-related bug in the DM9000 driver.
 
-this patch integrates these two interrelated steps into dccp_entail.
+When the platform device has only 2 resources, dm9000_probe() doesn't set=20
+db->irq_res, which results in a segfault when the pointer gets dereferenced=
+=20
+in dm9000_open().
 
-Note: the return value of skb_clone is not checked. It may be an idea to add a
-      warning if this occurs. In both instances, however, a timer is set for
-      retransmission, so that cloning is re-tried via dccp_retransmit_skb().
+I tried to fix the issue, and found out that the resource management code i=
+s=20
+quite broken.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/output.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+If I understand things correctly, specifying 3 resources makes the DM9000=20
+driver ioremap() the memory, while specifying 2 resources implies that the=
+=20
+platform code already ioremap()ed the memory. Is that right ?
 
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -26,11 +26,13 @@ static inline void dccp_event_ack_sent(s
- 	inet_csk_clear_xmit_timer(sk, ICSK_TIME_DACK);
- }
- 
--static void dccp_skb_entail(struct sock *sk, struct sk_buff *skb)
-+/* enqueue @skb on sk_send_head for retransmission, return clone to send now */
-+static struct sk_buff *dccp_skb_entail(struct sock *sk, struct sk_buff *skb)
- {
- 	skb_set_owner_w(skb, sk);
- 	WARN_ON(sk->sk_send_head);
- 	sk->sk_send_head = skb;
-+	return skb_clone(sk->sk_send_head, gfp_any());
- }
- 
- /*
-@@ -536,8 +538,7 @@ int dccp_connect(struct sock *sk)
- 
- 	DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_REQUEST;
- 
--	dccp_skb_entail(sk, skb);
--	dccp_transmit_skb(sk, skb_clone(skb, GFP_KERNEL));
-+	dccp_transmit_skb(sk, dccp_skb_entail(sk, skb));
- 	DCCP_INC_STATS(DCCP_MIB_ACTIVEOPENS);
- 
- 	/* Timer for repeating the REQUEST until an answer. */
-@@ -662,8 +663,7 @@ void dccp_send_close(struct sock *sk, co
- 		DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_CLOSE;
- 
- 	if (active) {
--		dccp_skb_entail(sk, skb);
--		dccp_transmit_skb(sk, skb_clone(skb, prio));
-+		skb = dccp_skb_entail(sk, skb);
- 		/*
- 		 * Retransmission timer for active-close: RFC 4340, 8.3 requires
- 		 * to retransmit the Close/CloseReq until the CLOSING/CLOSEREQ
-@@ -676,6 +676,6 @@ void dccp_send_close(struct sock *sk, co
- 		 */
- 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 					  DCCP_TIMEOUT_INIT, DCCP_RTO_MAX);
--	} else
--		dccp_transmit_skb(sk, skb);
-+	}
-+	dccp_transmit_skb(sk, skb);
- }
+If so, why does dm9000_probe() call request_mem_region() on ioremap()ed=20
+memory ?
+
+Wouldn't it also be simpler to use release_mem_region() in=20
+dm9000_release_board() instead of release_resource() + kfree() ?
+
+I'd be grateful if someone could confirm my assumptions. I'll then submit a=
+=20
+patch to fix those issues.
+
+Best regards,
+
+=2D-=20
+Laurent Pinchart
+CSE Semaphore Belgium
+
+Chaussee de Bruxelles, 732A
+B-1410 Waterloo
+Belgium
+
+T +32 (2) 387 42 59
+=46 +32 (2) 387 42 75
+
+--nextPart151589832.5msRuPoDZE
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBISAmE8y9gWxC9vpcRAu6VAJ0UVedUkDvwa0VF/8RMfrizm4yX5ACgnWrv
+umLf6Vz4u/7Ni+XBy2fy0Tw=
+=joMe
+-----END PGP SIGNATURE-----
+
+--nextPart151589832.5msRuPoDZE--
