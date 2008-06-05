@@ -1,37 +1,76 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: multicast with multiple devices
-Date: Thu, 5 Jun 2008 11:48:24 -0700
-Message-ID: <OF0926BA3A.E49D3C0F-ON8825745F.0066E9B1-8825745F.00674E75@us.ibm.com>
-References: <alpine.LNX.1.10.0806052024240.29055@fbirervta.pbzchgretzou.qr>
+From: Trent Piepho <tpiepho@freescale.com>
+Subject: Re: RFC: Custom PHY device detection functions
+Date: Thu, 5 Jun 2008 11:52:27 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0806051152050.3242@t2.domain.actdsltmp>
+References: <4847013B.4090408@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+To: Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:37617 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751691AbYFESs3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 14:48:29 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m55ImRli025536
-	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 14:48:27 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m55ImQxN087558
-	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 12:48:26 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m55ImQD3024404
-	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 12:48:26 -0600
-In-Reply-To: <alpine.LNX.1.10.0806052024240.29055@fbirervta.pbzchgretzou.qr>
+Received: from az33egw01.freescale.net ([192.88.158.102]:50485 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750767AbYFESxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 14:53:53 -0400
+In-Reply-To: <4847013B.4090408@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No, multicast routing requires knowledge of group
-membership information on remote networks, which
-is the job of multicast routing protocols.
+On Wed, 4 Jun 2008, Felix Fietkau wrote:
+> I'm working on Linux on small consumer grade wireless routers. Many of these 
+> have switches that connect directly to the Ethernet controller through 
+> MII/MDIO. These typically support 6-8 ports, one of which connects to the 
+> CPU. I am working on supporting some of these with PHY drivers, which I will 
+> submit for review when they're ready.
+> Most of these devices can be detected with the regular PHY ID and mask, but 
+> unfortunately there are some that lay out their registers a bit differently 
+> and thus need custom detection.
+> I worked around this with the following patch, that allows drivers to do 
+> their own detection, but I'm not sure if this is suitable for inclusion in 
+> the PHY layer or if there is a different way to solve this.
+> Any ideas?
 
-If the kernel is originating a multicast packet, it needs
-to select the interface, just as applications should.
-Otherwise, which one it gets is arbitrary, and it matters.
+If the phy uses non-standard registers, isn't it too late after the phy
+layer has already read the phy_id?
 
-                                        +-DLS
+If not, could you use the existing probe function?  Set phy_id_mask to 0 and
+have the probe function return ENODEV if it's the wrong device.  I think the
+driver layer will go through all matching drivers, calling each one's probe
+function, until one of them claims the device.
 
+>
+> - Felix
+>
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -132,6 +132,9 @@
+> 	 struct phy_device *phydev = to_phy_device(dev);
+> 	 struct phy_driver *phydrv = to_phy_driver(drv);
+>
+> +	if (phydrv->detect)
+> +		return (phydrv->detect(phydev->bus, phydev->addr));
+> +
+> 	 return ((phydrv->phy_id & phydrv->phy_id_mask) ==
+>  		(phydev->phy_id & phydrv->phy_id_mask));
+> }
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -325,6 +325,11 @@
+> 	 u32 features;
+> 	 u32 flags;
+>
+> +	/* Called during discovery to test if the
+> +	 * device can attach to the bus, even if
+> +	 * phy id and mask do not match */
+> +	bool (*detect)(struct mii_bus *bus, int addr);
+> +
+> 	 /* Called to initialize the PHY,
+> 	 * including after a reset */
+> 	 int (*config_init)(struct phy_device *phydev);
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
