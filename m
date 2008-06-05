@@ -1,35 +1,54 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: How I can reset TCP sockets after long suspend/resume cyscle
-Date: Fri, 6 Jun 2008 02:20:43 +0400
-Message-ID: <20080605222039.GB1071@2ka.mipt.ru>
-References: <200806011515.14103.maximlevitsky@gmail.com> <20080605071339.GA11562@2ka.mipt.ru> <200806060019.17589.maximlevitsky@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface
+	implementation for the driver
+Date: Fri, 06 Jun 2008 00:54:49 +0200
+Message-ID: <48486EB9.4010706@trash.net>
+References: <20080529095126.9943.84692.stgit@localhost.localdomain>	<20080529095754.9943.27936.stgit@localhost.localdomain>	<20080529103003.010c4a08@extreme>
+	<20080529174805.GA10903@kroah.com>	<c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>	<1212518703.2217.22.camel@lap75545.ornl.gov>	<aday75k1pzh.fsf@cisco.com>
+	<20080605054035.GA8059@ornl.gov>	<adazlpzzvjn.fsf@cisco.com>
+	<20080605100103.38ce7c4b@extreme>	<4848234B.1080200@trash.net>
+	<adave0nzk0k.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Maxim Levitsky <maximlevitsky@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:46025 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539AbYFEWUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 18:20:46 -0400
-Content-Disposition: inline
-In-Reply-To: <200806060019.17589.maximlevitsky@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, Dave Dillow <dillowda@ornl.gov>,
+	Greg KH <greg@kroah.com>, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	poornima.kamath@qlogic.com
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adave0nzk0k.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+Roland Dreier wrote:
+>  > > There is nothing stopping adding a well designed alternate interface.
+>  > > Either netlink or ioctl's are okay. As long as it is 32/64 bit clean.
+>
+>  > From a quick look it seems it should use rtnl_link instead
+>  > of adding yet another private sysfs interface.
+>
+> This seems crazy -- why do we want to push things towards the complexity
+> of rtnl_link instead of a simple text-based interface that can be
+> trivial used with 'echo' from the shell?
 
-On Fri, Jun 06, 2008 at 12:19:17AM +0300, Maxim Levitsky (maximlevitsky@gmail.com) wrote:
-> 
-> Seems like a great idea.
-> Do you know the status of this patchset, when to expect it to be
-> in included in mainline?
+Its not complicated at all. Ability to use "echo" seems like a
+pretty poor argument to me.
 
-It was quite active not that long ago IIRC, but seems to be abandoned
-now, at least I did not see it in fsdevel, where it was copied before.
-Idea is very interesting indeed, so I think it has to be moved forward,
-so you should contact original author, so it got some progress, or push
-it upstream yourself otherwise.
+>   What advantages does that give?
 
--- 
-	Evgeniy Polyakov
+- atomic configuration changes
+- atomic configuration dumps
+- configuration change notifications
+- same interface as for all other network-related configurations
+- easily extensible
+- not yet another private driver interface
+- not text based, which makes it a lot more convenient for using in programs
