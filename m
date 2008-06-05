@@ -1,65 +1,40 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] ipv6 addrconf: Ignore requests to set NODAD flag when
- changing addresses
-Date: Thu, 05 Jun 2008 11:53:14 +0900 (JST)
-Message-ID: <20080605.115314.80065467.yoshfuji@linux-ipv6.org>
-References: <20080604234751.GH20815@postel.suug.ch>
+From: "Yusuke.Goda" <goda.yusuke@renesas.com>
+Subject: Re: smc911x: Add AP325RXA board support
+Date: Thu, 05 Jun 2008 12:00:19 +0900
+Message-ID: <484756C3.4010900@renesas.com>
+References: <4846744B.4000407@renesas.com>
+ <aec7e5c30806041855j604311b8xad79d9050897d0f1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; format=flowed; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@ml.linux-ipv6.org,
-	nakam@gomagoma.org, takamiya@po.ntts.co.jp
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Magnus Damm <magnus.damm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:58141 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472AbYFECwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 22:52:37 -0400
-In-Reply-To: <20080604234751.GH20815@postel.suug.ch>
+Received: from mail.renesas.com ([202.234.163.13]:56339 "EHLO
+	mail05.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750769AbYFEDA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 23:00:26 -0400
+In-reply-to: <aec7e5c30806041855j604311b8xad79d9050897d0f1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080604234751.GH20815@postel.suug.ch> (at Thu, 5 Jun 2008 01:47:51 +0200), Thomas Graf <tgraf@suug.ch> says:
+Hi Magnus-san
 
-> The decision to run DAD has already been made at the time the address
-> was added. Changing the flag later on does not have any effect and
-> is only confusing.
+Magnus Damm wrote:
+> Hi Goda-san,
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> On Wed, Jun 4, 2008 at 7:54 PM, Yusuke.Goda <goda.yusuke@renesas.com> wrote:
+>> This patch adds AP325RXA board support to scc911x driver.
+> 
+> I posted a few patches recently (smc911x: Request bus width using
+> platform data) that are conflicting with your patch. Hopefully my
+> patches will be included in 2.6.27, and at that point we can modify
+> the ap32x board code to add board specific configuration to the
+> smc911x platform data.
 
-I need let MIP team check this but anyway....
+I'm sorry I did not watch your patch.
+With your patch, my patch was not necessary.
 
-If the NODAD flag change is confusing, just clear
-that flag in the caller.
+Thanks,
+Goda
 
-And well, it does not take effect so far, but 
-DAD after link failure logic is planned in long term.
-So current code is okay to me.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 3a83557..05dcfd8 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3191,7 +3191,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
- 		prefered_lft = 0x7FFFFFFF/HZ;
- 
- 	spin_lock_bh(&ifp->lock);
--	ifp->flags = (ifp->flags & ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_NODAD | IFA_F_HOMEADDRESS)) | ifa_flags;
-+	ifp->flags = (ifp->flags & ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_HOMEADDRESS)) | ifa_flags;
- 	ifp->tstamp = jiffies;
- 	ifp->valid_lft = valid_lft;
- 	ifp->prefered_lft = prefered_lft;
-@@ -3245,7 +3245,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		return -ENODEV;
- 
- 	/* We ignore other flags so far. */
--	ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS);
-+	ifa_flags = ifm->ifa_flags & IFA_F_HOMEADDRESS;
- 
- 	ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
- 	if (ifa == NULL) {
-
---yoshfuji
