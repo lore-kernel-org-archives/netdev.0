@@ -1,51 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] NET: DCB generic netlink interface
-Date: Thu, 5 Jun 2008 22:29:53 +0200
-Message-ID: <20080605202953.GN20815@postel.suug.ch>
-References: <20080527141339.12851.98781.stgit@localhost.localdomain> <20080604.114456.32717312.davem@davemloft.net> <D5C1322C3E673F459512FB59E0DDC32905348FD4@orsmsx414.amr.corp.intel.com> <20080605.074324.38999631.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 10/39] mv643xx_eth: clarify irq masking and unmasking
+Date: Thu, 5 Jun 2008 22:36:05 +0200
+Message-ID: <20080605203605.GD30083@xi.wantstofly.org>
+References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org> <1212490974-23719-11-git-send-email-buytenh@wantstofly.org> <20080605114406.GA3807@farnsworth.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: peter.p.waskiewicz.jr@intel.com, jeff@garzik.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:60038 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751466AbYFEU3d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 16:29:33 -0400
+Received: from xi.wantstofly.org ([83.160.184.112]:42721 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753325AbYFEUgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 16:36:37 -0400
 Content-Disposition: inline
-In-Reply-To: <20080605.074324.38999631.davem@davemloft.net>
+In-Reply-To: <20080605114406.GA3807@farnsworth.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Miller <davem@davemloft.net> 2008-06-05 07:43
-> From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-> Date: Wed, 4 Jun 2008 23:23:00 -0700
+On Thu, Jun 05, 2008 at 04:44:06AM -0700, Dale Farnsworth wrote:
+
+> > diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+> > index bdb03f3..ffdd3fc 100644
+> > --- a/drivers/net/mv643xx_eth.c
+> > +++ b/drivers/net/mv643xx_eth.c
+> > @@ -97,7 +97,14 @@ static char mv643xx_driver_version[] = "1.0";
+> >  #define TXQ_COMMAND(p)			(0x0448 + ((p) << 10))
+> >  #define TX_BW_MTU(p)			(0x0458 + ((p) << 10))
+> >  #define INT_CAUSE(p)			(0x0460 + ((p) << 10))
+> > +#define  INT_RX				0x00000804
+> > +#define  INT_EXT			0x00000002
+> >  #define INT_CAUSE_EXT(p)		(0x0464 + ((p) << 10))
+> > +#define  INT_EXT_LINK			0x00100000
+> > +#define  INT_EXT_PHY			0x00010000
+> > +#define  INT_EXT_TX_ERROR_0		0x00000100
+> > +#define  INT_EXT_TX_0			0x00000001
+> > +#define  INT_EXT_TX			0x00000101
 > 
-> > I'm not sure I follow this.  DCB is a scheduling policy, but that
-> > scheduling policy is in the hardware.  The configuration interface,
-> > which is what this is, happens out of band of any scheduling policies in
-> > the kernel.  It's very analogous to the wireless configuration layer for
-> > mac80211 that uses generic netlink.
-> 
-> And I'm saying we should have a equivalent software scheduler in
-> the kernel that can implement this if the hardware offloaded version
-> isn't present.
+> Oops, I missed this the first time.  You have an extra space in each
+> of the above added defines.
 
-I agree, I think we should make it possible to use DCB without the strict
-need for hardware support. Our current classful qdiscs htb and cbq already
-fullfil the requirements of priority grouping as specified in 802.1.qaz
-except that the configuration interface is different as it does not use
-percentage values.
+Right, that's because they are possible values of that register,
+instead of the definition of a new register.  A couple of existing
+drivers follow this format (e.g. look at b44.h or tg3.h), and I kind
+of like it, because it groups things logically together.
 
-There is also demand for a networking cgroup subsystem which requires
-exactly the same kind of priority grouping. It would be only logical
-to be able to use hardware support where possible.
-
-Therefore I believe the way to go is to build a new or extend the
-current tc system. Like with the current default qdisc, it should be
-possible to automatically create qdiscs for DCB or cgroup while still
-allowing to overwrite the tc configuration with a custom tree for
-
-As Patrick pointed out, this probably belongs in the rtnetlink family as
-it will be strictly attached to the net_device.
+OK?
