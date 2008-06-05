@@ -1,67 +1,73 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: PATCH: fix bridged 802.3ad bonding
-Date: Thu, 5 Jun 2008 12:13:20 +0200
-Message-ID: <20080605101319.GA3756@midget.suse.cz>
-References: <20080603132106.GA3256@midget.suse.cz> <20080603094604.6a7dfe7d@extreme> <20080603193227.GA4050@midget.suse.cz> <20080603131326.1f70915e@extreme> <18105.1212528128@death> <20080603215519.298c0cd3@extreme> <20080604082425.GA3272@midget.suse.cz> <20080604090633.2a12cecc@extreme>
+From: Jens Gehrlein <sew_s@tqs.de>
+Subject: Re: [Uclinux-dist-devel] [PATCH 01/01] smsc911x: fix MAC addresssetting
+ after reset
+Date: Thu, 05 Jun 2008 12:23:35 +0200
+Message-ID: <4847BEA7.4050403@tqs.de>
+References: <OF45087A0F.05ABBB48-ON8025745F.00349549-8025745F.0035BEBE@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Bohac <jbohac@suse.cz>, Jay Vosburgh <fubar@us.ibm.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:51050 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753989AbYFEKNV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2008 06:13:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20080604090633.2a12cecc@extreme>
+Received: from mail.tqs.de ([62.157.136.17]:15252 "EHLO mail.tqs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754717AbYFEKXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2008 06:23:35 -0400
+In-Reply-To: <OF45087A0F.05ABBB48-ON8025745F.00349549-8025745F.0035BEBE@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 04, 2008 at 09:06:33AM -0700, Stephen Hemminger wrote:
-> On Wed, 4 Jun 2008 10:24:25 +0200
-> Jiri Bohac <jbohac@suse.cz> wrote:
+Hi Steve,
+
+Steve.Glendinning@smsc.com schrieb:
+> Hi Jens,
 > 
-> > On Tue, Jun 03, 2008 at 09:55:19PM -0700, Stephen Hemminger wrote:
-> > >
-> > > --- a/net/bridge/br_input.c	2008-06-03 21:44:54.000000000 -0700
-> > > +++ b/net/bridge/br_input.c	2008-06-03 21:52:20.000000000 -0700
-> > > @@ -135,15 +135,12 @@ struct sk_buff *br_handle_frame(struct n
-> > >  		/* Pause frames shouldn't be passed up by driver anyway */
-> > >  		if (skb->protocol == htons(ETH_P_PAUSE))
-> > >  			goto drop;
-> > > -
-> > > -		/* Process STP BPDU's through normal netif_receive_skb() path */
-> > > -		if (p->br->stp_enabled != BR_NO_STP) {
-> > > -			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-> > > -				    NULL, br_handle_local_finish))
-> > > -				return NULL;
-> > > -			else
-> > > -				return skb;
-> > > -		}
-> > > +
-> > > +		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-> > > +			    NULL, br_handle_local_finish))
-> > > +			return NULL;	/* frame consumed by filter */
-> > > +		else
-> > > +			return skb;	/* continue processing */
-> > >  	}
-> > >  
-> > >  	switch (p->state) {
-> > 
-> > where did the "if (p->br->stp_enabled != BR_NO_STP)" condition
-> > go? Is it not needed? I thought it was there to prevent the STP
-> > BPDUs from being handled when STP is turned off.
-> > 
+>> Sorry. Newbie question:
+>> How can I pass the MAC address via kernel command line for this driver? 
+>> Is there a predefined parameter?
+>> My problem is:
+>> U-Boot resets the chip after each completed transfer. Wolfgang Denk 
+>> suggested to pass the MAC address via kernel command line. I need the 
+>> ethernet device at kernel startup to mount a root filesystem via NFS, so 
 > 
-> That is already done in br_stp_rcv so the check here was not
-> needed.
+>> I added the platform device in my board specific code as shown below (it 
+> 
+>> still relates to the old driver).
+>> Should I patch the driver directly to get the MAC address via __setup()
+>> or can I pass the MAC address via the device structures.
+>>
+>> What do you suggest?
+> 
+> The smsc911x driver accepts mac addresses set "by configuration", so if 
+> brought up after boot you could assign the mac address like this:
+> 
+> ifconfig eth0 hw ether 00:11:22:33:44:55 up
+> 
+> But as you're using an NFS root, you need to assign the mac address during 
+> boot.  I'm not sure of the best way to do this, there isn't currently a 
+> dev_addr field in smsc911x_platform_config, but you could add one.
+> 
+> Alternatively, if the bootloader already sets the mac address you could 
+> modify the driver to read it off the device (into dev->dev_addr) before 
+> resetting it?
 
-Ah, I see. So can we get one of the patches in? I still think
-that running the LACP frames through the bridging NF hooks does
-not make sense, but it's your call.
+My hope was, that U-Boot leaves the MAC address in the controller's 
+register, but it resets the chip. We don't have an EEPROM connected to 
+the controller. Unfortunately, ARM Linux doesn't provide board info 
+structures or flat device tree like PowerPC Linux to pass data from the 
+bootloader to the Kernel.
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Additionally, I didn't succeed in compiling your new driver with Kernel 
+2.6.22, because the Kernel API changed, and I can't switch to a new 
+kernel. So I'm creating a private patch: getting the the MAC address 
+from private kernel commmand line parameter using __setup().
 
+However, as a suggestion for improvement of your new driver: could you 
+extend the code, so that the board specific code could pass the MAC 
+address via "struct platform_device", e.g. using the struct member .dev? 
+Like using ifconfig it would allow multiple instances and the board 
+specific code can take care, where it get the MAC addresses from.
+
+Best regards,
+Jens
