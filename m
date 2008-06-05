@@ -1,35 +1,43 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: TCP_SKB_CB(skb)->flags = iph->tos ?
-Date: Thu, 5 Jun 2008 14:55:00 +0300
-Message-ID: <200806051455.00731.opurdila@ixiacom.com>
-References: <200805302353.56440.opurdila@ixiacom.com> <20080604.152607.170576716.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+	v2.6.26-rc3+
+Date: Thu, 5 Jun 2008 16:22:44 +0200
+Message-ID: <20080605142244.GA19216@elte.hu>
+References: <20080603094057.GA29480@elte.hu> <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi> <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi> <20080603.150344.145518113.davem@davemloft.net> <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, mcmanus@ducksong.com,
+	peterz@infradead.org, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
+	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:4322 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753836AbYFENUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 09:20:15 -0400
-In-Reply-To: <20080604.152607.170576716.davem@davemloft.net>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:38082 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755522AbYFEOXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2008 10:23:08 -0400
 Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
->
-> That's exactly how I figured it out, I didn't know the answer either,
-> but constantly I'm doing simple searches for people and learning the
-> code for other people it seems even when I really don't even have
-> the time to do so :-/
+* Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
 
+> [PATCH] tcp DEFER_ACCEPT: fix racy access to listen_sk
 
-Apologies, I did not pay attention to my grep output and was under the 
-impression that ->flags is only used together with the TCP headers and that 
-the ip->tos assignment was never used.
+i unapplied the reverts then applied your fix, and got this hang after=20
+1.5 hours of testing:
 
-Thanks,
-tavi
+ titan:~> netstat -nt
+ Active Internet connections (w/o servers)
+ Proto Recv-Q Send-Q Local Address           Foreign Address   State
+ tcp        0  65032 10.0.1.14:39454         10.0.1.19:3632    ESTABLIS=
+HED
+
+10.0.1.14 is this box, Core2Duo dual-core. 10.0.1.19 is another box wit=
+h=20
+16 CPUs.
+
+	Ingo
