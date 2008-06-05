@@ -1,70 +1,87 @@
-From: Dave Dillow <dillowda@ornl.gov>
-Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface
-	implementation for the driver
-Date: Thu, 5 Jun 2008 01:40:35 -0400
-Message-ID: <20080605054035.GA8059@ornl.gov>
-References: <20080529095126.9943.84692.stgit@localhost.localdomain>
-	<20080529095754.9943.27936.stgit@localhost.localdomain>
-	<20080529103003.010c4a08@extreme>
-	<20080529174805.GA10903@kroah.com>
-	<c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>
-	<1212518703.2217.22.camel@lap75545.ornl.gov>
-	<aday75k1pzh.fsf@cisco.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] NET: DCB generic netlink interface
+Date: Wed, 4 Jun 2008 23:23:00 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32905348FD4@orsmsx414.amr.corp.intel.com>
+References: <20080527141339.12851.98781.stgit@localhost.localdomain> <20080604.114456.32717312.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, Greg KH <greg@kroah.com>,
-	general@lists.openfabrics.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>, poornima.kamath@qlogic.com
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <aday75k1pzh.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:43258 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751850AbYFEGYD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 02:24:03 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080604.114456.32717312.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 04, 2008 at 09:10:26PM -0700, Roland Dreier wrote:
->  > Or so the theory goes. Unfortunately, you need all that information
->  > before you can create the connection. The configfs guys have thought
->  > about that, but not implemented yet:
->  > 
->  > > [Committable Items]
->  > > NOTE: Committable items are currently unimplemented.
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Wednesday, June 04, 2008 11:45 AM
+> To: Waskiewicz Jr, Peter P
+> Cc: jeff@garzik.org; netdev@vger.kernel.org
+> Subject: Re: [PATCH] NET: DCB generic netlink interface
+
+
+> Overall the changes look OK.  In particular the netlink 
+> implementation looks clean.
 > 
-> The netconsole code in-tree has a separate "enabled" attribute that
-> serves the purpose of "committing" something.  Seems good enough for SRP
-> to use to me... the rename to commit idea seems cute but I don't see
-> that it buys much beyond this.
+> However we need to think about how this stuff overlaps with 
+> existing 'tc' facilities.  For example, what we really need 
+> to do here is define this generic DCB interface such that it 
+> normally just sits on top of a software scheduler layer 
+> implementation and therefore there are always non-NULL DCB 
+> ops to invoke.
 
-But... But... I've got nothing.
+I'm not sure I follow this.  DCB is a scheduling policy, but that
+scheduling policy is in the hardware.  The configuration interface,
+which is what this is, happens out of band of any scheduling policies in
+the kernel.  It's very analogous to the wireless configuration layer for
+mac80211 that uses generic netlink.
 
-I mentioned the enable attribute as a possible way to do it, though it is
-counter to the configfs's documented preference.  But it's there, it works
-perfectly well, and the configfs guys have had over 2 years to implement
-their alternate commit feature.
+> If there is a device that can implement this in hardware, 
+> that's fine and we define some interface for invoking that.
+> 
+> Because of that, the netdevice is likely not the correct 
+> place for the ops (the only actual ugly part of the patches 
+> in my opinion).
 
-That said, given that SRP's been using sysfs since it went in, is there
-a reason to move to configfs other than it's the new preferred way to do
-it? Given the desire to not break ABI's -- and IIRC sysfs was declared to
-be under that unbrella -- wouldn't we have to at least carry both
-interfaces for a while, assuming we can even get rid of the sysfs one?
+I agree that having this in the netdevice isn't great.  But given the
+nature of how the hardware can be configured (via a user on the host, or
+via messages from a switch to the userspace utilities), I think it needs
+to be in there.  It's also the only common place the userspace can
+enumerate an ethernet device from userspace; tc is another way, but the
+ethernet device is used, along with the qdisc, which is part of the
+netdevice.  But I am certainly all ears for any suggestions to not have
+it in the netdevice if it can be done.
 
-Carrying both adds a bit of a interesting twist -- targets added using
-the sysfs add-target wouldn't show up under configfs. It may not be a
-real problem, but it could be a bit of a surprise to an admin.
+> I'm still very active travelling which is why I haven't 
+> responded to this earlier.  I ask that you express some 
+> understanding about this as there is really nothing I can do 
+> to review these kinds of important changes properly when I am 
+> changing 10 timezones every other day.
 
-I'm not opposed to configfs, but the more I think about it, it doesn't
-seem to bring much to the table for the SRP initiator other more code
-and data structure size.
--- 
-Dave Dillow
-National Center for Computational Science
-Oak Ridge National Laboratory
-(865) 241-6602 office
+I can certainly sympathize; I've been travelling in Israel this past
+week, and will be getting back to Portland on Friday.  Having a 10-hour
+difference from what your normal timezone is is certainly challenging.
+
+> Besides we're still in bug fix phase, so nothing I say will 
+> get this upstream into Linus's tree any faster, and we really 
+> need to get something like this right because it will be hard 
+> to undo this afterwards if we get it wrong.
+
+Totally understood.  My goal though is to make sure any
+feedback/suggestions can be digested prior to the merge window, since
+the chances of getting any good review during the merge window is next
+to impossible, given the amount of patches flying in that have already
+been queued.  I just want to make sure I'm prepared for a good
+submission by the time the merge window opens.
+
+Thanks Dave.  Any guidance from you, or anyone else, as to how I can get
+this into better shape for acceptance, I'm all ears.
+
+Cheers,
+-PJ Waskiewicz
