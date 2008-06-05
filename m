@@ -1,54 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [ofa-general] Re: [PATCH v3 08/13] QLogic VNIC: sysfs interface
-	implementation for the driver
-Date: Fri, 06 Jun 2008 00:54:49 +0200
-Message-ID: <48486EB9.4010706@trash.net>
-References: <20080529095126.9943.84692.stgit@localhost.localdomain>	<20080529095754.9943.27936.stgit@localhost.localdomain>	<20080529103003.010c4a08@extreme>
-	<20080529174805.GA10903@kroah.com>	<c8028d330806031125x4181d8e3p9cdaf1f4c79e88c6@mail.gmail.com>	<1212518703.2217.22.camel@lap75545.ornl.gov>	<aday75k1pzh.fsf@cisco.com>
-	<20080605054035.GA8059@ornl.gov>	<adazlpzzvjn.fsf@cisco.com>
-	<20080605100103.38ce7c4b@extreme>	<4848234B.1080200@trash.net>
-	<adave0nzk0k.fsf@cisco.com>
+From: Patrick McManus <mcmanus@ducksong.com>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+	v2.6.26-rc3+
+Date: Thu, 05 Jun 2008 19:29:31 -0400
+Message-ID: <1212708571.19522.10.camel@tng>
+References: <20080603094057.GA29480@elte.hu>
+	 <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
+	 <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
+	 <20080603.150344.145518113.davem@davemloft.net>
+	 <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
+	 <20080605142244.GA19216@elte.hu>
+	 <Pine.LNX.4.64.0806052059380.31672@wrl-59.cs.helsinki.fi>
+	 <Pine.LNX.4.64.0806052355420.2522@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, Dave Dillow <dillowda@ornl.gov>,
-	Greg KH <greg@kroah.com>, general@lists.openfabrics.org,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	poornima.kamath@qlogic.com
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adave0nzk0k.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	peterz@infradead.org, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
+	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from linode.ducksong.com ([64.22.125.164]:56784 "EHLO
+	linode.ducksong.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753268AbYFEX32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 19:29:28 -0400
+In-Reply-To: <Pine.LNX.4.64.0806052355420.2522@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Roland Dreier wrote:
->  > > There is nothing stopping adding a well designed alternate interface.
->  > > Either netlink or ioctl's are okay. As long as it is 32/64 bit clean.
->
->  > From a quick look it seems it should use rtnl_link instead
->  > of adding yet another private sysfs interface.
->
-> This seems crazy -- why do we want to push things towards the complexity
-> of rtnl_link instead of a simple text-based interface that can be
-> trivial used with 'echo' from the shell?
+On Fri, 2008-06-06 at 00:13 +0300, Ilpo J=E4rvinen wrote:
 
-Its not complicated at all. Ability to use "echo" seems like a
-pretty poor argument to me.
+>=20
+> I'm out of new ideas what could be still wrong (I got confused and
+> lost=20
+> track number of times while I tried to verify socket locking today an=
+d=20
+> probably don't have more time for that now)... Unless somebody else=20
+> (Patrick?) comes up with something quickly,
 
->   What advantages does that give?
+Sorry, I don't see anything - it seems to boil down to the same code in
+the DA and non-DA case as far as I can tell, but after a while all the
+twisty passages seem to look alike.
 
-- atomic configuration changes
-- atomic configuration dumps
-- configuration change notifications
-- same interface as for all other network-related configurations
-- easily extensible
-- not yet another private driver interface
-- not text based, which makes it a lot more convenient for using in programs
+If Ingo confirms that the recv end was running the locking patch code,
+it would be interesting to just confirm the sysreq+t looks the same as
+before - it is possible the patch turned the race into a non-obvious
+deadlock.
+
+I'm sure your smaller revert will make the problem go away just as the
+larger one did, fwiw.=20
+
+The other odd thing is that Ingo did a lot of experimentation and was
+only making this happen on localhost before (though I agree there is
+nothing inherent about that lock and localhost) - isn't it odd that the
+first trigger of it now is between two hosts? What do you make of that?
+
+
+
+
