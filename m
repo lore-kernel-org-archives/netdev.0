@@ -1,52 +1,49 @@
-From: Dale Farnsworth <dale@farnsworth.org>
-Subject: Re: [PATCH 10/39] mv643xx_eth: clarify irq masking and unmasking
-Date: Thu, 5 Jun 2008 14:22:49 -0700
-Message-ID: <20080605212249.GA2190@farnsworth.org>
-References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org> <1212490974-23719-11-git-send-email-buytenh@wantstofly.org> <20080605114406.GA3807@farnsworth.org> <20080605203605.GD30083@xi.wantstofly.org>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: How I can reset TCP sockets after long suspend/resume cyscle
+Date: Fri, 6 Jun 2008 00:31:16 +0300
+Message-ID: <200806060031.16827.maximlevitsky@gmail.com>
+References: <200806011515.14103.maximlevitsky@gmail.com> <20080604141533.35eb6df0@extreme> <484707D9.3040900@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Adam Langley <agl@imperialviolet.org>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:60507 "EHLO
-	xyzzy.farnsworth.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751796AbYFEVW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 17:22:56 -0400
+Received: from ug-out-1314.google.com ([66.249.92.172]:5869 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411AbYFEVbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 17:31:25 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so605768ugf.16
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2008 14:31:22 -0700 (PDT)
+In-Reply-To: <484707D9.3040900@hp.com>
 Content-Disposition: inline
-In-Reply-To: <20080605203605.GD30083@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 05, 2008 at 10:36:05PM +0200, Lennert Buytenhek wrote:
-> On Thu, Jun 05, 2008 at 04:44:06AM -0700, Dale Farnsworth wrote:
-> 
-> > > diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> > > index bdb03f3..ffdd3fc 100644
-> > > --- a/drivers/net/mv643xx_eth.c
-> > > +++ b/drivers/net/mv643xx_eth.c
-> > > @@ -97,7 +97,14 @@ static char mv643xx_driver_version[] = "1.0";
-> > >  #define TXQ_COMMAND(p)			(0x0448 + ((p) << 10))
-> > >  #define TX_BW_MTU(p)			(0x0458 + ((p) << 10))
-> > >  #define INT_CAUSE(p)			(0x0460 + ((p) << 10))
-> > > +#define  INT_RX				0x00000804
-> > > +#define  INT_EXT			0x00000002
-> > >  #define INT_CAUSE_EXT(p)		(0x0464 + ((p) << 10))
-> > > +#define  INT_EXT_LINK			0x00100000
-> > > +#define  INT_EXT_PHY			0x00010000
-> > > +#define  INT_EXT_TX_ERROR_0		0x00000100
-> > > +#define  INT_EXT_TX_0			0x00000001
-> > > +#define  INT_EXT_TX			0x00000101
+On Thursday, 5 June 2008 00:23:37 Rick Jones wrote:
+> > Another idea would be for the kernel to prematurely run the keepalive
+> > timer for all TCP connections after resume. The keepalive code would send
+> > an ACK (out of window) which causes other side to send a RST or ACK.
 > > 
-> > Oops, I missed this the first time.  You have an extra space in each
-> > of the above added defines.
+> > It is normal behaviour, the change would just make the timer happen sooner.
 > 
-> Right, that's because they are possible values of that register,
-> instead of the definition of a new register.  A couple of existing
-> drivers follow this format (e.g. look at b44.h or tg3.h), and I kind
-> of like it, because it groups things logically together.
+> Would you have it done even for those endpoints on which SO_KEEPALIVE 
+> wasn't set?
 
-Yes, it makes sense.  I think I'd use at least a couple of
-spaces of indent though.  But, I'm fine with it either way.
+Why not?
 
-Thanks,
--Dale
+This seems the right solution,
+if this is possible, why not to check for stuck TCP connections
+on resume?
+
+Obviously, we should be able to turn this off, for some reasons, maybe some
+weird servers, but generally this can be the default.
+
+> 
+> rick jones
+> 
+
+Best regards,
+	Maxim Levitsky
