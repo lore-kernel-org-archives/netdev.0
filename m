@@ -1,44 +1,28 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] ipv4 addr: Send netlink notification for address label changes
-Date: Thu, 5 Jun 2008 02:02:03 +0200
-Message-ID: <20080605000203.GK20815@postel.suug.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/13 net-next-2.6] [TIPC]: More minor fixes and
+ enhancements
+Date: Wed, 04 Jun 2008 18:21:55 -0700 (PDT)
+Message-ID: <20080604.182155.254013379.davem@davemloft.net>
+References: <1212171648-27122-1-git-send-email-allan.stephens@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: allan.stephens@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:60723 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759848AbYFEABv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2008 20:01:51 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47518
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1762966AbYFEBV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 21:21:56 -0400
+In-Reply-To: <1212171648-27122-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Makes people happy who try to keep a list of addresses up to date
-by listening to notifications.
+From: Allan Stephens <allan.stephens@windriver.com>
+Date: Fri, 30 May 2008 14:20:35 -0400
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> This patch set is another collection of small changes to TIPC that fix obscure
+> problems, plus some minor enhancements.  Please see each individual patch for
+> a more detailed description of each change.
 
-Index: net-2.6/net/ipv4/devinet.c
-===================================================================
---- net-2.6.orig/net/ipv4/devinet.c	2008-06-04 23:14:26.000000000 +0200
-+++ net-2.6/net/ipv4/devinet.c	2008-06-05 01:56:41.000000000 +0200
-@@ -1013,7 +1013,7 @@
- 		memcpy(old, ifa->ifa_label, IFNAMSIZ);
- 		memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
- 		if (named++ == 0)
--			continue;
-+			goto skip;
- 		dot = strchr(old, ':');
- 		if (dot == NULL) {
- 			sprintf(old, ":%d", named);
-@@ -1024,6 +1024,8 @@
- 		} else {
- 			strcpy(ifa->ifa_label + (IFNAMSIZ - strlen(dot) - 1), dot);
- 		}
-+skip:
-+		rtmsg_ifa(RTM_NEWADDR, ifa, NULL, 0);
- 	}
- }
- 
+All applied and pushed out to net-next-2.6, thanks Allan.
