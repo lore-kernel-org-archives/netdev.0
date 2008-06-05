@@ -1,55 +1,37 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [2.6 patch] include/linux/ssb/ssb_driver_gige.h typo fix
-Date: Thu, 5 Jun 2008 20:42:43 +0200
-Message-ID: <200806052042.43670.mb@bu3sch.de>
-References: <20080605182945.GO1469@cs181133002.pp.htv.fi>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: multicast with multiple devices
+Date: Thu, 5 Jun 2008 11:48:24 -0700
+Message-ID: <OF0926BA3A.E49D3C0F-ON8825745F.0066E9B1-8825745F.00674E75@us.ibm.com>
+References: <alpine.LNX.1.10.0806052024240.29055@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Robert P. J. Day" <rpjday@crashcourse.ca>
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:34558 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753489AbYFESnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 14:43:21 -0400
-In-Reply-To: <20080605182945.GO1469@cs181133002.pp.htv.fi>
-Content-Disposition: inline
+Received: from e36.co.us.ibm.com ([32.97.110.154]:37617 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751691AbYFESs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 14:48:29 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m55ImRli025536
+	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 14:48:27 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m55ImQxN087558
+	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 12:48:26 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m55ImQD3024404
+	for <netdev@vger.kernel.org>; Thu, 5 Jun 2008 12:48:26 -0600
+In-Reply-To: <alpine.LNX.1.10.0806052024240.29055@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 05 June 2008 20:29:49 Adrian Bunk wrote:
-> This patch fixes a typo in the name of a config variable.
+No, multicast routing requires knowledge of group
+membership information on remote networks, which
+is the job of multicast routing protocols.
 
-Well, it's not a typo. It was renamed. Good catch anyway. :)
+If the kernel is originating a multicast packet, it needs
+to select the interface, just as applications should.
+Otherwise, which one it gets is arbitrary, and it matters.
 
-> Reported-by: Robert P. J. Day <rpjday@crashcourse.ca>
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+                                        +-DLS
 
-Reviewed-by: Michael Buesch <mb@bu3sch.de>
-
-> ---
-> 2aab8eeb46b30baf987c344e1b144caec365373a diff --git a/include/linux/ssb/ssb_driver_gige.h b/include/linux/ssb/ssb_driver_gige.h
-> index 01fbdf5..942e387 100644
-> --- a/include/linux/ssb/ssb_driver_gige.h
-> +++ b/include/linux/ssb/ssb_driver_gige.h
-> @@ -100,7 +100,7 @@ extern char * nvram_get(const char *name);
->  /* Get the device MAC address */
->  static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
->  {
-> -#ifdef CONFIG_BCM947XX
-> +#ifdef CONFIG_BCM47XX
->  	char *res = nvram_get("et0macaddr");
->  	if (res)
->  		memcpy(macaddr, res, 6);
-> 
-> 
-> 
-
-
-
--- 
-Greetings Michael.
