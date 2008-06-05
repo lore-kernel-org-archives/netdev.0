@@ -1,7 +1,7 @@
 From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Subject: [PATCH][ATM] br2684: Fix oops due to skb->dev being NULL
-Date: Thu, 05 Jun 2008 17:43:50 +0200
-Message-ID: <484809B6.2080904@dti2.net>
+Subject: [PATCH][ATM] he: fix for the dreaded "HBUF_ERR" bug
+Date: Thu, 05 Jun 2008 18:11:18 +0200
+Message-ID: <48481026.6000707@dti2.net>
 Reply-To: jorge@dti2.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -9,45 +9,78 @@ Content-Transfer-Encoding: 7bit
 Cc: chas williams <chas@cmf.nrl.navy.mil>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alcalazamora.dti2.net ([81.24.162.8]:1520 "EHLO
+Received: from alcalazamora.dti2.net ([81.24.162.8]:4152 "EHLO
 	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753477AbYFEPvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 11:51:16 -0400
+	with ESMTP id S1751397AbYFEQLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 12:11:31 -0400
 Received: from [172.16.16.6] ([81.24.161.20])
 	(authenticated user jorge@dti2.net)
 	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
 	(MDaemon PRO v9.6.5)
-	with ESMTP id md50013607270.msg
-	for <netdev@vger.kernel.org>; Thu, 05 Jun 2008 17:43:56 +0200
+	with ESMTP id md50013608679.msg
+	for <netdev@vger.kernel.org>; Thu, 05 Jun 2008 18:11:24 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	It happens that if a packet arrives in a VC between the call to open it 
-on the hardware and the call to change the backend to br2684, 
-br2684_regvcc processes the packet and oopses dereferencing skb->dev 
-because it is NULL before the call to br2684_push().
+	If all the buffers in the pool between "head" and "last" are
+used (not LOANED), the "for" bucle continues to check past the last
+entry, corrupting memory and the buffer pool status what causes the
+message "HBUF_ERR" to appear in the kernel log and sometimes the
+receive side of the chip stopping due to lack of buffers.
+	Usually happens under load but I have seen it more frequently
+on cards with lots of VC's opened.
+	I've been running for months with this fix on my systems
+connected to DSLAM's and hundreds of PVC's and my life have been less
+scarier since then.
+
+BTW. It was really hard to find :-(
 
 Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
 ---
-  net/atm/br2684.c |    2 +-
-  1 files changed, 1 insertions(+), 1 deletions(-)
+  drivers/atm/he.c |   10 ++++++++++
+  1 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index 9d52ebf..ac60350 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -518,9 +518,9 @@ static int br2684_regvcc(struct atm_vcc *atmvcc, 
-void __user * arg)
-  		struct sk_buff *next = skb->next;
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index ffc4a5a..c329104 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -2062,6 +2062,7 @@ he_service_rbpl(struct he_dev *he_dev, int group)
+  {
+  	struct he_rbp *newtail;
+  	struct he_rbp *rbpl_head;
++	struct he_rbp *rbpl_last = he_dev->rbpl_base + CONFIG_RBPL_SIZE - 1;
+  	int moved = 0;
 
-  		skb->next = skb->prev = NULL;
-+		br2684_push(atmvcc, skb);
-  		BRPRIV(skb->dev)->stats.rx_bytes -= skb->len;
-  		BRPRIV(skb->dev)->stats.rx_packets--;
--		br2684_push(atmvcc, skb);
+  	rbpl_head = (struct he_rbp *) ((unsigned long)he_dev->rbpl_base |
+@@ -2071,6 +2072,10 @@ he_service_rbpl(struct he_dev *he_dev, int group)
+  		newtail = (struct he_rbp *) ((unsigned long)he_dev->rbpl_base |
+  						RBPL_MASK(he_dev->rbpl_tail+1));
 
-  		skb = next;
-  	}
++		/* Never check past the last buffer */
++		if (newtail > rbpl_last)
++			newtail = he_dev->rbpl_base;
++
+  		/* table 3.42 -- rbpl_tail should never be set to rbpl_head */
+  		if ((newtail == rbpl_head) || (newtail->status & RBP_LOANED))
+  			break;
+@@ -2090,6 +2095,7 @@ he_service_rbps(struct he_dev *he_dev, int group)
+  {
+  	struct he_rbp *newtail;
+  	struct he_rbp *rbps_head;
++	struct he_rbp *rbps_last = he_dev->rbps_base + CONFIG_RBPS_SIZE - 1;
+  	int moved = 0;
+
+  	rbps_head = (struct he_rbp *) ((unsigned long)he_dev->rbps_base |
+@@ -2099,6 +2105,10 @@ he_service_rbps(struct he_dev *he_dev, int group)
+  		newtail = (struct he_rbp *) ((unsigned long)he_dev->rbps_base |
+  						RBPS_MASK(he_dev->rbps_tail+1));
+
++		/* Never check past the last buffer */
++		if (newtail > rbps_last)
++			newtail = he_dev->rbps_base;
++
+  		/* table 3.42 -- rbps_tail should never be set to rbps_head */
+  		if ((newtail == rbps_head) || (newtail->status & RBP_LOANED))
+  			break;
 -- 
-
 
