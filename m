@@ -1,61 +1,49 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] ipv6 addrconf: Fix memory leak when deleting addresses
-Date: Thu, 05 Jun 2008 11:26:46 +0900 (JST)
-Message-ID: <20080605.112646.51075203.yoshfuji@linux-ipv6.org>
-References: <20080604234934.GI20815@postel.suug.ch>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH 0/4] Fix forcedeth hibernate/wake-on-lan problems
+Date: Wed, 4 Jun 2008 19:38:01 -0700
+Message-ID: <200806041938.02045.david-b@pacbell.net>
+References: <20080518125715.GA19229@yamamaya.is-a-geek.org> <200805271432.12881.david-b@pacbell.net> <20080531072036.GC5405@ucw.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:58128 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753176AbYFEC0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2008 22:26:08 -0400
-In-Reply-To: <20080604234934.GI20815@postel.suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tobias Diedrich <ranma+kernel@tdiedrich.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	linux-acpi@vger.kernel.org, linux-pm@lists.linux-foundation.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763592AbYFECis@vger.kernel.org>
+In-Reply-To: <20080531072036.GC5405@ucw.cz>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In article <20080604234934.GI20815@postel.suug.ch> (at Thu, 5 Jun 2008 01:49:34 +0200), Thomas Graf <tgraf@suug.ch> says:
+On Saturday 31 May 2008, Pavel Machek wrote:
+>=20
+> > Yeah; under ACPI, PCI does not act like it does everywhere else.
+> > Nor does wakeup in general.
+> >=20
+> > After sending patches to fix that for a couple years now, I'm
+> > well past being tired of doing that. =A0I suggest it's overdue for
+> > the ACPI team to get this part of their act together.
+>=20
+> I'm afraid you expect too much from the acpi team.
 
-> ip6_del_rt() may fail in which case the dst/route is not released.
+I'm likewise "afraid" that may be too much to expect.
 
-If prefix is ::/64 and ...
+If that's true, it's going to be even harder making
+the cross-platform Linux PM framework do what it needs
+to do.  Having various devices (not just laptop lids or
+power buttons, or RTC alarms) wake systems from low power
+states is pretty fundamental to the "P" part of ACPI.
+And it's not like wakeup events are unique to ACPI.
 
-The only case ip6_del_rt() does not call dst_release() is when rt is
-ip6_null_entry.  In that case we should skip whole the logic in the
-caller, anyway.
 
-Note: it might be better to release refcnt when ip6_del_rt() returns.
+> If you can't merge=20
+> patches yourself, perhaps someone interested (Tobias? me?) can push
+> them for you?
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
--- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 3a83557..d8ce0d7 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -772,7 +772,7 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
- 		ipv6_addr_prefix(&prefix, &ifp->addr, ifp->prefix_len);
- 		rt = rt6_lookup(net, &prefix, NULL, ifp->idev->dev->ifindex, 1);
- 
--		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
-+		if (rt && ((rt->rt6i_flags & (RTF_REJECT | RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
- 			if (onlink == 0) {
- 				ip6_del_rt(rt);
- 				rt = NULL;
-@@ -1789,7 +1789,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
- 		rt = rt6_lookup(dev_net(dev), &pinfo->prefix, NULL,
- 				dev->ifindex, 1);
- 
--		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
-+		if (rt && ((rt->rt6i_flags & (RTF_REJECT | RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
- 			/* Autoconf prefix route */
- 			if (valid_lft == 0) {
- 				ip6_del_rt(rt);
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+I kind of think the ACPI team needs to just become more
+responsive.  They helped Windows do this stuff; why has
+Linux only seen delays and obstacles in this area?
