@@ -1,113 +1,129 @@
-From: Badari Pulavarty <pbadari@us.ibm.com>
-Subject: Re: [PATCH 1/2] make walk_memory_resource available with
-	MEMORY_HOTPLUG=n
-Date: Fri, 06 Jun 2008 12:43:22 -0700
-Message-ID: <1212781402.23656.45.camel@badari-desktop>
-References: <200805071443.20192.hannes.hering@linux.vnet.ibm.com>
-	 <20080528164405.GA4836@localdomain>
-	 <200806031007.40162.hannes.hering@linux.vnet.ibm.com>
-	 <20080603204908.GB7475@localdomain>
-	 <1212527335.23656.2.camel@badari-desktop> <4845B382.20205@garzik.org>
-	 <20080603223054.GC7475@localdomain>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+ v2.6.26-rc3+
+Date: Fri, 6 Jun 2008 22:49:59 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0806062151490.9424@wrl-59.cs.helsinki.fi>
+References: <20080603.150344.145518113.davem@davemloft.net>
+ <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi> <20080605142244.GA19216@elte.hu>
+ <Pine.LNX.4.64.0806052059380.31672@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0806052355420.2522@wrl-59.cs.helsinki.fi> <1212708571.19522.10.camel@tng>
+ <Pine.LNX.4.64.0806061248410.16829@wrl-59.cs.helsinki.fi> <1212772293.23706.22.camel@tng>
+ <20080606173339.GA30894@elte.hu> <Pine.LNX.4.64.0806062037240.9424@wrl-59.cs.helsinki.fi>
+ <20080606183926.GB12651@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Paul Mackerras <paulus@samba.org>,
-	Hannes Hering <hannes.hering@linux.vnet.ibm.com>,
-	tklein@de.ibm.com, themann@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, raisch@de.ibm.com,
-	ossrosch@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
-	ossthema@de.ibm.com, Jeff Garzik <jeff@garzik.org>
-To: Nathan Lynch <ntl@pobox.com>
+Content-Type: MULTIPART/MIXED; boundary="-696208474-368817069-1212778513=:9424"
+Cc: Patrick McManus <mcmanus@ducksong.com>,
+	David Miller <davem@davemloft.net>, peterz@infradead.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
+	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:42455 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752298AbYFFTn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2008 15:43:57 -0400
-In-Reply-To: <20080603223054.GC7475@localdomain>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33295 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754800AbYFFTuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 15:50:03 -0400
+In-Reply-To: <20080606183926.GB12651@elte.hu>
+Content-ID: <Pine.LNX.4.64.0806062227352.9424@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Tue, 2008-06-03 at 17:30 -0500, Nathan Lynch wrote:
-> The ehea driver was recently changed[1] to use walk_memory_resource() to
-> detect the system's memory layout.  However, walk_memory_resource() is
-> available only when memory hotplug is enabled.  So CONFIG_EHEA was
-> made to depend on MEMORY_HOTPLUG [2], but it is inappropriate for a
-> network driver to have such a dependency.
-> 
-> Make the declaration of walk_memory_resource() and its powerpc
-> implementation (ehea is powerpc-specific) unconditionally available.
-> 
-> [1] 48cfb14f8b89d4d5b3df6c16f08b258686fb12ad
->     "ehea: Add DLPAR memory remove support"
-> 
-> [2] fb7b6ca2b6b7c23b52be143bdd5f55a23b9780c8
->     "ehea: Add dependency to Kconfig"
-> 
-> Signed-off-by: Nathan Lynch <ntl@pobox.com>
-> ---
->  arch/powerpc/mm/mem.c          |    3 +--
->  include/linux/memory_hotplug.h |   16 ++++++++--------
->  2 files changed, 9 insertions(+), 10 deletions(-)
-> 
-> diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
-> index f67e118..51f82d8 100644
-> --- a/arch/powerpc/mm/mem.c
-> +++ b/arch/powerpc/mm/mem.c
-> @@ -151,6 +151,7 @@ out:
->  	return ret;
->  }
->  #endif /* CONFIG_MEMORY_HOTREMOVE */
-> +#endif /* CONFIG_MEMORY_HOTPLUG */
-> 
->  /*
->   * walk_memory_resource() needs to make sure there is no holes in a given
-> @@ -184,8 +185,6 @@ walk_memory_resource(unsigned long start_pfn, unsigned long nr_pages, void *arg,
->  }
->  EXPORT_SYMBOL_GPL(walk_memory_resource);
-> 
-> -#endif /* CONFIG_MEMORY_HOTPLUG */
-> -
->  void show_mem(void)
->  {
->  	unsigned long total = 0, reserved = 0;
-> diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-> index 73e3586..ea9f5ad 100644
-> --- a/include/linux/memory_hotplug.h
-> +++ b/include/linux/memory_hotplug.h
-> @@ -77,14 +77,6 @@ extern int __add_pages(struct zone *zone, unsigned long start_pfn,
->  extern int __remove_pages(struct zone *zone, unsigned long start_pfn,
->  	unsigned long nr_pages);
-> 
-> -/*
-> - * Walk through all memory which is registered as resource.
-> - * arg is (start_pfn, nr_pages, private_arg_pointer)
-> - */
-> -extern int walk_memory_resource(unsigned long start_pfn,
-> -			unsigned long nr_pages, void *arg,
-> -			int (*func)(unsigned long, unsigned long, void *));
-> -
->  #ifdef CONFIG_NUMA
->  extern int memory_add_physaddr_to_nid(u64 start);
->  #else
-> @@ -199,6 +191,14 @@ static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
-> 
->  #endif /* ! CONFIG_MEMORY_HOTPLUG */
-> 
-> +/*
-> + * Walk through all memory which is registered as resource.
-> + * arg is (start_pfn, nr_pages, private_arg_pointer)
-> + */
-> +extern int walk_memory_resource(unsigned long start_pfn,
-> +			unsigned long nr_pages, void *arg,
-> +			int (*func)(unsigned long, unsigned long, void *));
-> +
->  extern int add_memory(int nid, u64 start, u64 size);
->  extern int arch_add_memory(int nid, u64 start, u64 size);
->  extern int remove_memory(u64 start, u64 size);
+---696208474-368817069-1212778513=:9424
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0806062200351.9424@wrl-59.cs.helsinki.fi>
 
-Sorry. I couldn't get back earlier.
+On Fri, 6 Jun 2008, Ingo Molnar wrote:
 
-Acked-by: Badari Pulavarty <pbadari@us.ibm.com>
+> 
+> * Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> 
+> > If you want an older kernel, you would have to go basically to 2.6.25 
+> > or so.
+> 
+> correct, that's what i use as fallback, some distro kernel which is 
+> 2.6.25 or older.
+> 
+> but i'm confused a bit, you say v2.6.25-rc6-475-gec3c098 introduced the 
+> locking problem - so 2.6.25 is affected as well?
 
+No, you're probably just falling into a git-describe trap I also used
+to fall:
+
+ijjarvin@pointhope:~/linux/mainline$ git-log -n 1 --pretty=oneline 
+ec3c0982a2dd1e671bad8e9d26c28dcba0039d87 ^v2.6.25 | cat -
+ec3c0982a2dd1e671bad8e9d26c28dcba0039d87 [TCP]: TCP_DEFER_ACCEPT updates - 
+process as established
+ijjarvin@pointhope:~/linux/mainline$ git-log -n 1 --pretty=oneline 
+ec3c0982a2dd1e671bad8e9d26c28dcba0039d87 ^v2.6.26-rc1 | cat -
+ijjarvin@pointhope:~/linux/mainline$ git-describe 
+ec3c0982a2dd1e671bad8e9d26c28dcba0039d87
+v2.6.25-rc6-475-gec3c098
+ijjarvin@pointhope:~/linux/mainline$ 
+
+The git-describe is not the way one can determine into which mainline
+tag a commit was included, it basically just provides the closest tag 
+among ancestors, which can be a vastly different one and has _no_ 
+relation whatsoever to the tag we'd desire to get. In here, Dave had 
+net-2.6 based on 2.5.25-rc6ish (or alternatively last merge to net-2.6 
+from Linus' tree's content came from that point of time), but Linus did 
+the merge from 2.6.25 but git-describe won't look anything that happens 
+after the asked commit. This is similar to the 
+bisect-lands-lower-tag-than-select-good-commit-was "mystery" that was 
+recently discussed extensively, again the Makefile only tracks ancestors, 
+not the future.
+
+If somebody knows a trivial command to get that future information (to
+where merged info), I'd pretty interested to hear.
+
+> This is a significant 
+> question because the fallback kernel is kernel-2.6.25.3-18.fc9.x86_64 on 
+> the 16-way box. (all other build-boxes have 2.6.24 or older as a 
+> fallback kernel)
+
+Please do get the receiver state if you still see such problem with it, 
+it is also relevant but it a different problem then (I'm yet to analyze 
+the data Håkan was collecting, dl it already by didn't even look into 
+that yet).
+
+...Or also if you see stuck TCPs with other cases I've told should fix it:
+
+1. 2.6.25 (pre-ec3c to be accurate)
+2. 3+1 revert
+3. ec3c+locking fix (this is the most unsure one because it still would 
+have the reversed socket lock taking order though nothing bad has been 
+found by some review neither by me nor Patrick)
+
+Please collect at least /proc/net/tcp and the netstat -np, if there's 
+process associated to the flow with _Recv-Q_ (in localhost case there 
+are two of them, the other with Send-Q), also where the process is
+waiting is useful. Hopefully clear enough now... :-)
+
+> > To summarize. Both 3changes+1fix revert (you refer to it only as 
+> > 3-patch revert) _and_ the locking fix I made should fix the problem 
+> > (obviously they exclude each other). ...And end which is significant 
+> > is the one which has LISTENing sockets (please keep this in mind if 
+> > you still get the hang and provide some info).
+> 
+> ok.
+> 
+> For completeness, let me repeat the patch i referred to as the 
+> '3-patch-revert' below. (which indeed is 3+1 as you note)
+
+...I know because there never have been any 3-patch-revert made... :-)
+
+> this is the patch that appears to be working empirically. (Disclaimer: 
+> it might just hide the problem, change timings, have a lucky code 
+> layout, etc.)
+
+Sure, but the revert also removes the obvious locking problem that was 
+introduced in ec3c.
+
+
+--
+ i.
+
+---696208474-368817069-1212778513=:9424--
