@@ -1,60 +1,97 @@
-From: Patrick McManus <mcmanus@ducksong.com>
-Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
-	v2.6.26-rc3+
-Date: Thu, 05 Jun 2008 19:29:31 -0400
-Message-ID: <1212708571.19522.10.camel@tng>
-References: <20080603094057.GA29480@elte.hu>
-	 <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
-	 <20080603.150344.145518113.davem@davemloft.net>
-	 <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
-	 <20080605142244.GA19216@elte.hu>
-	 <Pine.LNX.4.64.0806052059380.31672@wrl-59.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0806052355420.2522@wrl-59.cs.helsinki.fi>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: forcedeth: lockdep warning on ethtool -s
+Date: Thu, 5 Jun 2008 22:18:42 -0700
+Message-ID: <20080605221842.a444ec9d.akpm@linux-foundation.org>
+References: <20080601083700.GA3036@yamamaya.is-a-geek.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	peterz@infradead.org, LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
-	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>
+To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from linode.ducksong.com ([64.22.125.164]:56784 "EHLO
-	linode.ducksong.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753268AbYFEX32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2008 19:29:28 -0400
-In-Reply-To: <Pine.LNX.4.64.0806052355420.2522@wrl-59.cs.helsinki.fi>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44975 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752697AbYFFFTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 01:19:18 -0400
+In-Reply-To: <20080601083700.GA3036@yamamaya.is-a-geek.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-06-06 at 00:13 +0300, Ilpo J=E4rvinen wrote:
+On Sun, 1 Jun 2008 10:37:01 +0200 Tobias Diedrich <ranma+kernel@tdiedrich.de> wrote:
 
->=20
-> I'm out of new ideas what could be still wrong (I got confused and
-> lost=20
-> track number of times while I tried to verify socket locking today an=
-d=20
-> probably don't have more time for that now)... Unless somebody else=20
-> (Patrick?) comes up with something quickly,
+> Hi,
+> 
+> After enabling CONFIG_LOCKDEP and CONFIG_PROVE_LOCKING I get the
+> following warning when ethtool -s is first called on one of the
+> forcedeth ports:
+> 
+> =================================
+> [ INFO: inconsistent lock state ]
+> 2.6.26-rc4 #28
+> ---------------------------------
+> inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
+> ethtool/1985 [HC0[0]:SC0[1]:HE1:SE0] takes:
+>  (&np->lock){++..}, at: [<ffffffffa000c5fd>] nv_set_settings+0xc8/0x3de [forcedeth]
+> {in-hardirq-W} state was registered at:
+>   [<ffffffffffffffff>] 0xffffffffffffffff
+> irq event stamp: 3606
+> hardirqs last  enabled at (3605): [<ffffffff8068106f>] _spin_unlock_irqrestore+0x3f/0x68
+> hardirqs last disabled at (3604): [<ffffffff80680d38>] _spin_lock_irqsave+0x13/0x46
+> softirqs last  enabled at (3534): [<ffffffff80246ba5>] __do_softirq+0xbc/0xc5
+> softirqs last disabled at (3606): [<ffffffff80680b33>] _spin_lock_bh+0x11/0x41
+> 
+> other info that might help us debug this:
+> 2 locks held by ethtool/1985:
+>  #0:  (rtnl_mutex){--..}, at: [<ffffffff80596072>] rtnl_lock+0x12/0x14
+>  #1:  (_xmit_ETHER){-+..}, at: [<ffffffffa000c5e8>] nv_set_settings+0xb3/0x3de [forcedeth]
+> 
+> stack backtrace:
+> Pid: 1985, comm: ethtool Not tainted 2.6.26-rc4 #28
+> 
+> Call Trace:
+>  [<ffffffff8025f190>] print_usage_bug+0x162/0x173
+>  [<ffffffff8025fa8b>] mark_lock+0x231/0x41f
+>  [<ffffffff802607cf>] __lock_acquire+0x4e7/0xcac
+>  [<ffffffff8025fe64>] ? trace_hardirqs_on+0xf1/0x115
+>  [<ffffffff80272c3a>] ? disable_irq_nosync+0x6f/0x7b
+>  [<ffffffff80261375>] lock_acquire+0x55/0x6e
+>  [<ffffffffa000c5fd>] ? :forcedeth:nv_set_settings+0xc8/0x3de
+>  [<ffffffff80680b15>] _spin_lock+0x2f/0x3c
+>  [<ffffffffa000c5fd>] :forcedeth:nv_set_settings+0xc8/0x3de
+>  [<ffffffff8058f8bb>] dev_ethtool+0x186/0xea3
+>  [<ffffffff8067f446>] ? mutex_lock_nested+0x243/0x275
+>  [<ffffffff8025df2b>] ? debug_mutex_free_waiter+0x46/0x4a
+>  [<ffffffff8067f469>] ? mutex_lock_nested+0x266/0x275
+>  [<ffffffff8058e1ce>] dev_ioctl+0x4eb/0x600
+>  [<ffffffff8068106f>] ? _spin_unlock_irqrestore+0x3f/0x68
+>  [<ffffffff80580f91>] sock_ioctl+0x1f5/0x202
+>  [<ffffffff802a322e>] vfs_ioctl+0x2a/0x77
+>  [<ffffffff802a34d6>] do_vfs_ioctl+0x25b/0x270
+>  [<ffffffff806807b6>] ? trace_hardirqs_on_thunk+0x35/0x3a
+>  [<ffffffff802a352d>] sys_ioctl+0x42/0x65
+>  [<ffffffff8021fffb>] system_call_after_swapgs+0x7b/0x80
+> 
+> 
+> I think this is caused by the following snippet in nv_set_settings:
+> 
+> 	netif_carrier_off(dev);
+> 	if (netif_running(dev)) {
+> 		nv_disable_irq(dev);
+> 		netif_tx_lock_bh(dev);
+> 		spin_lock(&np->lock);
+> 		/* stop engines */
+> 		nv_stop_rxtx(dev);
+> 		spin_unlock(&np->lock);
+> 		netif_tx_unlock_bh(dev);
+> 	}
+> 
+> 
+> Because of nv_disable_irq this is probably not really a problem
+> though (I guess) and replacing the spin_lock with spin_lock_irqsave
+> could keep interrupts disabled for a longer period of time because
+> of delays in nv_stop_rx and nv_stop_tx.
 
-Sorry, I don't see anything - it seems to boil down to the same code in
-the DA and non-DA case as far as I can tell, but after a while all the
-twisty passages seem to look alike.
+Could you please try that and if it works, send the patch?
 
-If Ingo confirms that the recv end was running the locking patch code,
-it would be interesting to just confirm the sysreq+t looks the same as
-before - it is possible the patch turned the race into a non-obvious
-deadlock.
-
-I'm sure your smaller revert will make the problem go away just as the
-larger one did, fwiw.=20
-
-The other odd thing is that Ingo did a lot of experimentation and was
-only making this happen on localhost before (though I agree there is
-nothing inherent about that lock and localhost) - isn't it odd that the
-first trigger of it now is between two hosts? What do you make of that?
-
-
-
-
+Thanks.
