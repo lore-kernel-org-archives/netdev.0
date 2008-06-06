@@ -1,44 +1,127 @@
-From: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Fri, 6 Jun 2008 11:32:34 +0200
-Message-ID: <a01a16b50806060232u1eff3867u24fecc539fda1d14@mail.gmail.com>
-References: <20080526115628.GA31316@elte.hu>
-	 <Pine.LNX.4.64.0805311839540.2657@wrl-59.cs.helsinki.fi>
-	 <484191BD.8000904@gmail.com>
-	 <Pine.LNX.4.64.0805312119270.2672@wrl-59.cs.helsinki.fi>
-	 <a01a16b50805311325w7f58ca69h93d02af9bc28d2ea@mail.gmail.com>
-	 <Pine.LNX.4.64.0805312332270.2760@wrl-59.cs.helsinki.fi>
-	 <a01a16b50806031710u54b9297bkf1fad9c4f8fd581f@mail.gmail.com>
-	 <Pine.LNX.4.64.0806041402211.16829@wrl-59.cs.helsinki.fi>
-	 <a01a16b50806040700h1efce63cq2a27b087df0d25be@mail.gmail.com>
-	 <Pine.LNX.4.64.0806041802360.2580@wrl-59.cs.helsinki.fi>
+From: Eric Miao <eric.y.miao@gmail.com>
+Subject: [PATCH] smc91x: remove "irq_flags" from "struct smc91x_platdata"
+Date: Fri, 06 Jun 2008 17:37:04 +0800
+Message-ID: <48490540.2070909@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, "Ingo Molnar" <mingo@elte.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Pitre <nico@cam.org>, Magnus Damm <damm@igel.co.jp>
+To: linux-netdev <netdev@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.235]:62231 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.234]:2228 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752080AbYFFJcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 05:32:35 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so1383549rvb.1
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2008 02:32:34 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0806041802360.2580@wrl-59.cs.helsinki.fi>
-Content-Disposition: inline
+	with ESMTP id S1752136AbYFFJhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 05:37:23 -0400
+Received: by rv-out-0506.google.com with SMTP id l9so1385601rvb.1
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2008 02:37:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gMDQvMDYvMjAwOCwgSWxwbyBKw6RydmluZW4gPGlscG8uamFydmluZW5AaGVsc2lua2kuZmk+
-IHdyb3RlOgo+IEkgZ3Vlc3Mgbm90IGFsbCBvZiB0aGUgc3RyYWNlIHdpbGwgYmUgbmVjZXNzYXJ5
-IGFueXdheS4gWW91IGNvdWxkIGZpcnN0Cj4gIGxlYXZlIHRoYXQgb3V0IGNvbXBsZXRlbHkgYW5k
-IGNvbmNlbnRyYXRlIG9uIHRoZSBvdGhlciBsb2dzIGZpcnN0LgoKSSBoYXZlIG5vdyBzZXQgdXAg
-YSBzZXJ2ZXIgb24gbXkgbWFjaGluZSBhbmQgbWFkZSBhbGwgbG9ncyBhdmFpbGFibGUuCkkgd2ls
-bCBmb2xsb3cgdXAgd2l0aCB0aGUgYWRyZXNzIGluIHByaXZhdGUgZW1haWwgdG8gdGhvc2UgdGhh
-dCBhbHJlYWR5CmhhdmUgcG9zdGVkIGluIHRoaXMgdGhyZWFkLiBGb3Igb3RoZXJzLCBwbGVhc2Ug
-YXNrIHRvIHJlY2VpdmUgaXQuCgpCUiBIw6Vrb24gTMO4dmRhbAoKUFMKSSB3aWxsIGJlIGF3YXkg
-Zm9yIHRoaXMgd2Vla2VuZC4K
+
+IRQ trigger type can be specified in the IRQ resource definition by
+IORESOURCE_IRQ_*, we need only one way to specify this.
+
+This also fixes the following small issue:
+
+To allow dynamic support for multiple platforms, when those relevant
+macros are not defined for one specific platform, the default case
+will be:
+
+	- SMC_DYNAMIC_BUS_CONFIG defined
+	- and SMC_IRQ_FLAGS = IRQF_TRIGGER_RISING
+
+However, if "irq_flags" is missing when defining the smc91x_platdata,
+usually as follows:
+
+  static struct smc91x_platdata xxxx_smc91x_data = {
+	.flags	= SMC91X_USE_XXBIT,
+  };
+
+The lp->cfg.irq_flags will always be overriden by the above structure
+(due to a memcpy), thus rendering lp->cfg.irq_flags to be "0" always.
+(regardless of the default SMC_IRQ_FLAGS or IORESOURCE_IRQ_* flags)
+
+Signed-off-by: Eric Miao <eric.miao@marvell.com>
+---
+ arch/sh/boards/renesas/migor/setup.c |    3 +--
+ drivers/net/smc91x.c                 |    7 ++++---
+ include/linux/smc91x.h               |    1 -
+ 3 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/arch/sh/boards/renesas/migor/setup.c b/arch/sh/boards/renesas/migor/setup.c
+index 01af442..963c993 100644
+--- a/arch/sh/boards/renesas/migor/setup.c
++++ b/arch/sh/boards/renesas/migor/setup.c
+@@ -30,7 +30,6 @@
+ 
+ static struct smc91x_platdata smc91x_info = {
+ 	.flags = SMC91X_USE_16BIT,
+-	.irq_flags = IRQF_TRIGGER_HIGH,
+ };
+ 
+ static struct resource smc91x_eth_resources[] = {
+@@ -42,7 +41,7 @@ static struct resource smc91x_eth_resources[] = {
+ 	},
+ 	[1] = {
+ 		.start  = 32, /* IRQ0 */
+-		.flags  = IORESOURCE_IRQ,
++		.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL,
+ 	},
+ };
+ 
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index a188e33..46097df 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -2134,6 +2134,7 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 	struct net_device *ndev;
+ 	struct resource *res, *ires;
+ 	unsigned int __iomem *addr;
++	unsigned long irq_flags = SMC_IRQ_FLAGS;
+ 	int ret;
+ 
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-regs");
+@@ -2163,7 +2164,6 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 	 */
+ 
+ 	lp = netdev_priv(ndev);
+-	lp->cfg.irq_flags = SMC_IRQ_FLAGS;
+ 
+ #ifdef SMC_DYNAMIC_BUS_CONFIG
+ 	if (pd)
+@@ -2188,8 +2188,9 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	ndev->irq = ires->start;
++
+ 	if (SMC_IRQ_FLAGS == -1)
+-		lp->cfg.irq_flags = ires->flags & IRQF_TRIGGER_MASK;
++		irq_flags = ires->flags & IRQF_TRIGGER_MASK;
+ 
+ 	ret = smc_request_attrib(pdev);
+ 	if (ret)
+@@ -2216,7 +2217,7 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 	}
+ #endif
+ 
+-	ret = smc_probe(ndev, addr, lp->cfg.irq_flags);
++	ret = smc_probe(ndev, addr, irq_flags);
+ 	if (ret != 0)
+ 		goto out_iounmap;
+ 
+diff --git a/include/linux/smc91x.h b/include/linux/smc91x.h
+index 8e0556b..fc7682f 100644
+--- a/include/linux/smc91x.h
++++ b/include/linux/smc91x.h
+@@ -7,7 +7,6 @@
+ 
+ struct smc91x_platdata {
+ 	unsigned long flags;
+-	unsigned long irq_flags; /* IRQF_... */
+ };
+ 
+ #endif /* __SMC91X_H__ */
+-- 
+1.5.4.3
+
