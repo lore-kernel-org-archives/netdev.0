@@ -1,63 +1,84 @@
-From: wcang@nav6.org
-Subject: [PATCH] NET: Proper handling of IPv6 header in tun driver when
-     TUN_NO_PI is set
-Date: Fri, 6 Jun 2008 20:13:38 +0800 (MYT)
-Message-ID: <59966.10.207.160.229.1212754418.squirrel@nav6.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Pull request for mv643xx_eth 'for-2.6.27' branch
+Date: Fri, 6 Jun 2008 13:37:47 +0200
+Message-ID: <20080606113747.GA7778@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, maxk@qualcomm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dale@farnsworth.org, netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.nav6.org ([219.93.2.80]:35991 "EHLO nav6.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753235AbYFFLgF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2008 07:36:05 -0400
+Received: from xi.wantstofly.org ([83.160.184.112]:35562 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753395AbYFFLiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 07:38:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By default, tun.c running in TUN_TUN_DEV mode will set the protocol of packet
-to IPv4 if TUN_NO_PI is set. My program failed to work when I assumed that
-the driver will check the first nibble of packet, determine IP version and set
-the appropriate protocol.
+Jeff,
 
-The test for this change was conducted on 2.6.24.7 kernel. But the diff is
-produced using git commit
-c3b25b32e8bef526cca748e1ba023c6bdd705a99. I couldn't test it on kernel version
-greater than 2.6.25 due to out of tree driver failing to compile. But
-tun_get_user doesn't change that much between 2.6.24 and 2.6.26, so it should
-work, I hope :-D . This patch is trivial because this problem can also be fixed
-by not using TUN_NO_PI.
+Please pull the following mv643xx_eth patches for 2.6.27.  (They
+were all ACKed by Dale, and I've agreed to take over mv643xx_eth
+maintainership from him.)
 
-Signed-off-by: Ang Way Chuang <wcang@nav6.org>
----
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 0ce07a3..77964bc 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -313,6 +313,21 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
+thanks,
+Lennert
 
-        switch (tun->flags & TUN_TYPE_MASK) {
-        case TUN_TUN_DEV:
-+               if (tun->flags & TUN_NO_PI) {
-+                       switch (skb->data[0] & 0xf0) {
-+                       case 0x40:
-+                               pi.proto = __constant_htons(ETH_P_IP);
-+                               break;
-+                       case 0x60:
-+                               pi.proto = __constant_htons(ETH_P_IPV6);
-+                               break;
-+                       default:
-+                               tun->dev->stats.rx_dropped++;
-+                               kfree_skb(skb);
-+                               return -EINVAL;
-+                       }
-+               }
-+
-                skb_reset_mac_header(skb);
-                skb->protocol = pi.proto;
-                skb->dev = tun->dev;
 
--- 
 
+The following changes since commit 39b945a37bac2b692773a470890c8ba301485b15:
+  Linus Torvalds (1):
+        Merge master.kernel.org:/home/rmk/linux-2.6-arm
+
+are available in the git repository at:
+
+  git://git.marvell.com/mv643xx_eth.git for-2.6.27
+
+Dale Farnsworth (1):
+      mv643xx_eth: new maintainer
+
+Lennert Buytenhek (38):
+      mv643xx_eth: reverse topological sort of functions
+      mv643xx_eth: trim unnecessary includes
+      mv643xx_eth: shorten reg names
+      mv643xx_eth: get rid of individual port config register bit defines
+      mv643xx_eth: get rid of individual port config extend register bit defines
+      mv643xx_eth: delete unused SDMA config register bit defines
+      mv643xx_eth: delete unused port serial control register bit defines
+      mv643xx_eth: nuke port status register bit defines
+      mv643xx_eth: remove unused DESC_SIZE define
+      mv643xx_eth: clarify irq masking and unmasking
+      mv643xx_eth: move PHY wait defines into callers
+      mv643xx_eth: get rid of RX_BUF_OFFSET
+      mv643xx_eth: move MIB offset defines into their only user
+      mv643xx_eth: remove port serial status register bit defines
+      mv643xx_eth: clean up rx/tx descriptor field defines
+      mv643xx_eth: get rid of ETH_/ethernet_/eth_ prefixes
+      mv643xx_eth: use 'mv643xx_eth_' prefix consistently
+      mv643xx_eth: kill superfluous comments
+      mv643xx_eth: kill ->rx_resource_err
+      mv643xx_eth: get rid of hungarian variable naming
+      mv643xx_eth: move port_receive() into its only caller
+      mv643xx_eth: move rx_return_buff() into its only caller
+      mv643xx_eth: kill FUNC_RET_STATUS/pkt_info
+      mv643xx_eth: kill private unused instance of struct net_device_stats
+      mv643xx_eth: massively simplify multicast address crc8 computation
+      mv643xx_eth: split out rx queue state
+      mv643xx_eth: split out tx queue state
+      mv643xx_eth: remove write-only interrupt coalescing variables
+      mv643xx_eth: general cleanup
+      mv643xx_eth: add tx rate control
+      mv643xx_eth: allow multiple RX queues
+      mv643xx_eth: allow multiple TX queues
+      mv643xx_eth: work around TX hang hardware issue
+      mv643xx_eth: detect extended rx coal register field
+      mv643xx_eth: detect alternate TX BW control register location
+      mv643xx_eth: be more agressive about RX refill
+      mv643xx_eth: add PHY-less mode
+      mv643xx_eth: update driver version and author fields
+
+ MAINTAINERS                 |    8 +-
+ drivers/net/mv643xx_eth.c   | 4557 ++++++++++++++++++-------------------------
+ include/linux/mv643xx_eth.h |   65 +-
+ 3 files changed, 1935 insertions(+), 2695 deletions(-)
