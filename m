@@ -1,127 +1,81 @@
-From: Eric Miao <eric.y.miao@gmail.com>
-Subject: [PATCH] smc91x: remove "irq_flags" from "struct smc91x_platdata"
-Date: Fri, 06 Jun 2008 17:37:04 +0800
-Message-ID: <48490540.2070909@gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+ v2.6.26-rc3+
+Date: Fri, 6 Jun 2008 13:03:02 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0806061248410.16829@wrl-59.cs.helsinki.fi>
+References: <20080603094057.GA29480@elte.hu>  <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
+  <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
+ <20080603.150344.145518113.davem@davemloft.net>
+ <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>  <20080605142244.GA19216@elte.hu>
+  <Pine.LNX.4.64.0806052059380.31672@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0806052355420.2522@wrl-59.cs.helsinki.fi> <1212708571.19522.10.camel@tng>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Pitre <nico@cam.org>, Magnus Damm <damm@igel.co.jp>
-To: linux-netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-516156546-1212746582=:16829"
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	peterz@infradead.org, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
+	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
+To: Patrick McManus <mcmanus@ducksong.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.234]:2228 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752136AbYFFJhX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 05:37:23 -0400
-Received: by rv-out-0506.google.com with SMTP id l9so1385601rvb.1
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2008 02:37:22 -0700 (PDT)
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:50722 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753200AbYFFKDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 06:03:08 -0400
+In-Reply-To: <1212708571.19522.10.camel@tng>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-IRQ trigger type can be specified in the IRQ resource definition by
-IORESOURCE_IRQ_*, we need only one way to specify this.
+---696208474-516156546-1212746582=:16829
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-This also fixes the following small issue:
+On Thu, 5 Jun 2008, Patrick McManus wrote:
 
-To allow dynamic support for multiple platforms, when those relevant
-macros are not defined for one specific platform, the default case
-will be:
+> On Fri, 2008-06-06 at 00:13 +0300, Ilpo Järvinen wrote:
+> 
+> > 
+> > I'm out of new ideas what could be still wrong (I got confused and
+> > lost 
+> > track number of times while I tried to verify socket locking today and 
+> > probably don't have more time for that now)... Unless somebody else 
+> > (Patrick?) comes up with something quickly,
+> 
+> Sorry, I don't see anything - it seems to boil down to the same code in
+> the DA and non-DA case as far as I can tell, but after a while all the
+> twisty passages seem to look alike.
 
-	- SMC_DYNAMIC_BUS_CONFIG defined
-	- and SMC_IRQ_FLAGS = IRQF_TRIGGER_RISING
+:-)
+ 
+This Ingo's testcase should anyway be quite "simple", I mean that distcc 
+shouldn't do anything unexpected in a sense it shouldn't abort the flows 
+by not sending data, close the listening socket or other things like that.
 
-However, if "irq_flags" is missing when defining the smc91x_platdata,
-usually as follows:
+> If Ingo confirms that the recv end was running the locking patch code,
+> it would be interesting to just confirm the sysreq+t looks the same as
+> before - it is possible the patch turned the race into a non-obvious
+> deadlock.
 
-  static struct smc91x_platdata xxxx_smc91x_data = {
-	.flags	= SMC91X_USE_XXBIT,
-  };
+...Yes, but we want that from the receiver's host rather than from the 
+sender end. Also checking that sender is still doing window probes once 
+per 2min is probably worth of it though a change in that is quite 
+unlikely.
 
-The lp->cfg.irq_flags will always be overriden by the above structure
-(due to a memcpy), thus rendering lp->cfg.irq_flags to be "0" always.
-(regardless of the default SMC_IRQ_FLAGS or IORESOURCE_IRQ_* flags)
+> I'm sure your smaller revert will make the problem go away just as the
+> larger one did, fwiw. 
 
-Signed-off-by: Eric Miao <eric.miao@marvell.com>
----
- arch/sh/boards/renesas/migor/setup.c |    3 +--
- drivers/net/smc91x.c                 |    7 ++++---
- include/linux/smc91x.h               |    1 -
- 3 files changed, 5 insertions(+), 6 deletions(-)
+I'd very much except it to.
 
-diff --git a/arch/sh/boards/renesas/migor/setup.c b/arch/sh/boards/renesas/migor/setup.c
-index 01af442..963c993 100644
---- a/arch/sh/boards/renesas/migor/setup.c
-+++ b/arch/sh/boards/renesas/migor/setup.c
-@@ -30,7 +30,6 @@
- 
- static struct smc91x_platdata smc91x_info = {
- 	.flags = SMC91X_USE_16BIT,
--	.irq_flags = IRQF_TRIGGER_HIGH,
- };
- 
- static struct resource smc91x_eth_resources[] = {
-@@ -42,7 +41,7 @@ static struct resource smc91x_eth_resources[] = {
- 	},
- 	[1] = {
- 		.start  = 32, /* IRQ0 */
--		.flags  = IORESOURCE_IRQ,
-+		.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL,
- 	},
- };
- 
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index a188e33..46097df 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -2134,6 +2134,7 @@ static int smc_drv_probe(struct platform_device *pdev)
- 	struct net_device *ndev;
- 	struct resource *res, *ires;
- 	unsigned int __iomem *addr;
-+	unsigned long irq_flags = SMC_IRQ_FLAGS;
- 	int ret;
- 
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-regs");
-@@ -2163,7 +2164,6 @@ static int smc_drv_probe(struct platform_device *pdev)
- 	 */
- 
- 	lp = netdev_priv(ndev);
--	lp->cfg.irq_flags = SMC_IRQ_FLAGS;
- 
- #ifdef SMC_DYNAMIC_BUS_CONFIG
- 	if (pd)
-@@ -2188,8 +2188,9 @@ static int smc_drv_probe(struct platform_device *pdev)
- 	}
- 
- 	ndev->irq = ires->start;
-+
- 	if (SMC_IRQ_FLAGS == -1)
--		lp->cfg.irq_flags = ires->flags & IRQF_TRIGGER_MASK;
-+		irq_flags = ires->flags & IRQF_TRIGGER_MASK;
- 
- 	ret = smc_request_attrib(pdev);
- 	if (ret)
-@@ -2216,7 +2217,7 @@ static int smc_drv_probe(struct platform_device *pdev)
- 	}
- #endif
- 
--	ret = smc_probe(ndev, addr, lp->cfg.irq_flags);
-+	ret = smc_probe(ndev, addr, irq_flags);
- 	if (ret != 0)
- 		goto out_iounmap;
- 
-diff --git a/include/linux/smc91x.h b/include/linux/smc91x.h
-index 8e0556b..fc7682f 100644
---- a/include/linux/smc91x.h
-+++ b/include/linux/smc91x.h
-@@ -7,7 +7,6 @@
- 
- struct smc91x_platdata {
- 	unsigned long flags;
--	unsigned long irq_flags; /* IRQF_... */
- };
- 
- #endif /* __SMC91X_H__ */
+> The other odd thing is that Ingo did a lot of experimentation and was
+> only making this happen on localhost before (though I agree there is
+> nothing inherent about that lock and localhost) - isn't it odd that the
+> first trigger of it now is between two hosts? What do you make of that?
+
+...No, it occurred couple of times in the past between host as well, 
+nothing new in that.
+
 -- 
-1.5.4.3
-
+ i.
+---696208474-516156546-1212746582=:16829--
