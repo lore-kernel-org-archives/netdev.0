@@ -1,34 +1,39 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH] firmware: convert Ambassador ATM driver to request_firmware()
-Date: Fri, 06 Jun 2008 12:06:46 -0400
-Message-ID: <200806061606.m56G6kiH008958@cmf.nrl.navy.mil>
-References: <1212690489.32207.285.camel@pmac.infradead.org>
-Reply-To: chas3@users.sourceforge.net
-Cc: Giuliano Procida <gprocida@marge.com>,
-	linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+From: Steve.Glendinning@smsc.com
+Subject: phylib interrupt question
+Date: Fri, 6 Jun 2008 17:07:32 +0100
+Message-ID: <OF401D8BC0.37350235-ONC1257460.005643D3-80257460.00589565@smsc.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:53115 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752587AbYFFQHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 12:07:09 -0400
-Reply-To: chas3@users.sourceforge.net
-Reply-To: chas3@users.sourceforge.net
-In-reply-to: <1212690489.32207.285.camel@pmac.infradead.org>
+Received: from mail.smsc.com ([170.129.50.11]:1191 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755761AbYFFQIA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jun 2008 12:08:00 -0400
+Received: from mta.smsc.com (mta [170.129.83.113])
+	by internal.smsc.com (8.12.10/8.8.5) with ESMTP id m56G7bC7011707
+	for <netdev@vger.kernel.org>; Fri, 6 Jun 2008 12:07:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message <1212690489.32207.285.camel@pmac.infradead.org>,David Woodhouse writ
-es:
->On Thu, 2008-06-05 at 14:20 -0400, Chas Williams (CONTRACTOR) wrote:
->> it would need to be converted to the binary form first, or the patch
->> will need to rewritten to use the s-record format.
->
->We can do binary form. We just run it through objcopy -Ibinary -Oihex
->for convenience of handling it (and that's different to the ones we
->actually hand to the kernel in the form of records).
+Hi everybody,
 
-i guess whatever you want to do.  it is just as easy to distribute
-the firmware with the atm tools.  it would also ease your gpl concerns
-which you noted in your first message.
+I'm converting an ethernet driver to use phylib, and I have an interrupt 
+question.  My device is an integrated mac/phy, with the option to disable 
+the internal phy and use an external phy instead.  I've succesfully used 
+phylib in polling mode, but I'd like to convert this to be 
+interrupt-driven if possible.
+
+When using the internal phy, it can raise interrupts via the mac (by 
+setting a "phy interrupt" bit in the mac's interrupt status register).  Is 
+there a way of signalling this phy interrupt to phylib from my mac 
+driver's isr?  Phylib seems to want to connect to a real irq?
+
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
+
+
