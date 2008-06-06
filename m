@@ -1,96 +1,69 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH][ATM] he: fix for the dreaded "HBUF_ERR" bug
-Date: Fri, 06 Jun 2008 12:29:01 -0400
-Message-ID: <200806061629.m56GT1Lu009284@cmf.nrl.navy.mil>
-References: <48481026.6000707@dti2.net>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@vger.kernel.org
-To: jorge@dti2.net
+From: Patrick McManus <mcmanus@ducksong.com>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+	v2.6.26-rc3+
+Date: Fri, 06 Jun 2008 13:11:33 -0400
+Message-ID: <1212772293.23706.22.camel@tng>
+References: <20080603094057.GA29480@elte.hu>
+	 <Pine.LNX.4.64.0806032245490.3474@wrl-59.cs.helsinki.fi>
+	 <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
+	 <20080603.150344.145518113.davem@davemloft.net>
+	 <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
+	 <20080605142244.GA19216@elte.hu>
+	 <Pine.LNX.4.64.0806052059380.31672@wrl-59.cs.helsinki.fi>
+	 <Pine.LNX.4.64.0806052355420.2522@wrl-59.cs.helsinki.fi>
+	 <1212708571.19522.10.camel@tng>
+	 <Pine.LNX.4.64.0806061248410.16829@wrl-59.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	peterz@infradead.org, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
+	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:59909 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbYFFQ30 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 12:29:26 -0400
-In-reply-to: <48481026.6000707@dti2.net>
+Received: from linode.ducksong.com ([64.22.125.164]:56950 "EHLO
+	linode.ducksong.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753066AbYFFRL0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 13:11:26 -0400
+In-Reply-To: <Pine.LNX.4.64.0806061248410.16829@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-this patch doesnt make sense to me, but i wrote that code awhile
-ago.  the counter for the queue interation is:
 
-	newtail = (struct he_rbp *) ((unsigned long)he_dev->rbpl_base |
-					RBPL_MASK(he_dev->rbpl_tail+1));
+> This Ingo's testcase should anyway be quite "simple", I mean that distcc 
+> shouldn't do anything unexpected in a sense it shouldn't abort the flows 
+> by not sending data, close the listening socket or other things like that.
+> 
 
-the incremented (new) tail pointer is masked by the queue size - 1, so
-newtail should never be larger than rbpl_base + CONFIG_RBPL_SIZE*8.
+maybe - I've noted that I can get the distcc server to crash with just a
+little fuzz (telnet to it and close the telnet) - but it is true I
+haven't seen anything odd using the distcc client.
 
-In message <48481026.6000707@dti2.net>,"Jorge Boncompte [DTI2]" writes:
->	If all the buffers in the pool between "head" and "last" are
->used (not LOANED), the "for" bucle continues to check past the last
->entry, corrupting memory and the buffer pool status what causes the
->message "HBUF_ERR" to appear in the kernel log and sometimes the
->receive side of the chip stopping due to lack of buffers.
->	Usually happens under load but I have seen it more frequently
->on cards with lots of VC's opened.
->	I've been running for months with this fix on my systems
->connected to DSLAM's and hundreds of PVC's and my life have been less
->scarier since then.
->
->BTW. It was really hard to find :-(
->
->Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
->---
->  drivers/atm/he.c |   10 ++++++++++
->  1 files changed, 10 insertions(+), 0 deletions(-)
->
->diff --git a/drivers/atm/he.c b/drivers/atm/he.c
->index ffc4a5a..c329104 100644
->--- a/drivers/atm/he.c
->+++ b/drivers/atm/he.c
->@@ -2062,6 +2062,7 @@ he_service_rbpl(struct he_dev *he_dev, int group)
->  {
->  	struct he_rbp *newtail;
->  	struct he_rbp *rbpl_head;
->+	struct he_rbp *rbpl_last = he_dev->rbpl_base + CONFIG_RBPL_SIZE - 1;
->  	int moved = 0;
->
->  	rbpl_head = (struct he_rbp *) ((unsigned long)he_dev->rbpl_base |
->@@ -2071,6 +2072,10 @@ he_service_rbpl(struct he_dev *he_dev, int group)
->  		newtail = (struct he_rbp *) ((unsigned long)he_dev->rbpl_base |
->  						RBPL_MASK(he_dev->rbpl_tail+1))
->;
->
->+		/* Never check past the last buffer */
->+		if (newtail > rbpl_last)
->+			newtail = he_dev->rbpl_base;
->+
->  		/* table 3.42 -- rbpl_tail should never be set to rbpl_head */
->  		if ((newtail == rbpl_head) || (newtail->status & RBP_LOANED))
->  			break;
->@@ -2090,6 +2095,7 @@ he_service_rbps(struct he_dev *he_dev, int group)
->  {
->  	struct he_rbp *newtail;
->  	struct he_rbp *rbps_head;
->+	struct he_rbp *rbps_last = he_dev->rbps_base + CONFIG_RBPS_SIZE - 1;
->  	int moved = 0;
->
->  	rbps_head = (struct he_rbp *) ((unsigned long)he_dev->rbps_base |
->@@ -2099,6 +2105,10 @@ he_service_rbps(struct he_dev *he_dev, int group)
->  		newtail = (struct he_rbp *) ((unsigned long)he_dev->rbps_base |
->  						RBPS_MASK(he_dev->rbps_tail+1))
->;
->
->+		/* Never check past the last buffer */
->+		if (newtail > rbps_last)
->+			newtail = he_dev->rbps_base;
->+
->  		/* table 3.42 -- rbps_tail should never be set to rbps_head */
->  		if ((newtail == rbps_head) || (newtail->status & RBP_LOANED))
->  			break;
->-- 
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Anyhow, my news is that using rc5 I have managed to reproduce it on
+localhost - so it isn't just ingo anymore ! ;)
+
+I didn't have a 16 cpu machine at my disposal, so I was concerned I
+wouldn't be able to make it happen - but I setup a 64 bit kvm image with
+-smp 4, running on my core2-duo and created a makefile with 3 src files
+that I just compiled as "while true; do make -j3 all; done" - the
+makefile uses distcc to localhost and has intentionally broken
+dependencies so it just keeps recompiling stuff. The input files are
+approximately 135k, 98k, and 16k after running gcc -E on them (which I
+what I assume distcc does before putting them down the socket).
+
+On rc5 I could get the lockup in under 20 minutes.. usually 10. I think
+I did it 4 times. My compile test is probably a better trigger than the
+kernel compile because the distcc connects are never staggered like they
+would be in a large directory of files. (3 files, -j4).
+
+When I apply the locking patch you (Ilpo) wrote, I cannot reproduce the
+error at all in the first 90 minutes of testing. I'll let the test run
+and update the list.
+
+I'm holding out hope that Ingo's report did not have the locking patch
+on the distcc server end - because it certainly makes a difference for 
+me.
+
+-Patrick
+
