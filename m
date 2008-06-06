@@ -1,89 +1,138 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [dccp] [RFC/RFT] [Patch 1/2]: Allow to distinguish original
-	and retransmitted packets
-Date: Fri, 6 Jun 2008 09:51:55 +0100
-Message-ID: <20080606085155.GA4343@gerrit.erg.abdn.ac.uk>
-References: <4846462F.3020004@cn.fujitsu.com> <20080604132152.GA17595@ghostprotocols.net> <20080604133849.GA5583@gerrit.erg.abdn.ac.uk> <20080604154452.GB4625@ghostprotocols.net> <20080604155540.GA16194@gerrit.erg.abdn.ac.uk> <20080605144435.GA8800@gerrit.erg.abdn.ac.uk> <20080605144529.GB8800@gerrit.erg.abdn.ac.uk> <20080605202716.GA6823@ghostprotocols.net>
+From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Subject: Re: DM9000 issue with mem resource management
+Date: Fri, 6 Jun 2008 11:01:42 +0200
+Message-ID: <200806061101.44638.laurentp@cse-semaphore.com>
+References: <200806051743.00614.laurentp@cse-semaphore.com> <20080605174030.GM11277@trinity.fluff.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, netdev@vger.kernel.org,
-	Wei Yongjun <yjwei@cn.fujitsu.com>, dccp@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1260187.bApS36Ej6r";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36762 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753355AbYFFIwi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2008 04:52:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20080605202716.GA6823@ghostprotocols.net>
+Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:48785 "EHLO
+	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752989AbYFFJBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 05:01:48 -0400
+In-Reply-To: <20080605174030.GM11277@trinity.fluff.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Arnaldo:
-| Em Thu, Jun 05, 2008 at 03:45:29PM +0100, Gerrit Renker escreveu:
-| > dccp: Allow to distinguish original and retransmitted packets
-| 
-| Why not do it the way I suggested? I.e. using
-| __dccp_transmit_skb/dccp_transmit_skb? Less changes, same effect, or am
-| I missing something?
-| 
-I had sat down and tried to integrate your solution and had replied in a
-separate thread what the difficulties were in doing this. Yes, your
-solution solves the problem of not incrementing GSS when sending the
-initial Request packet via dccp_connect.
+--nextPart1260187.bApS36Ej6r
+Content-Type: text/plain;
+  charset="ansi_x3.4-1968"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-But there are two other problems which it didn't solve
- (a) when GSS is incremented in (__)dccp_transmit_skb() and the
-     option-insertion code fails for some reason, there is a hole in the 
-     sequence space. I don't know whether this is a big problem, but to
-     me it seems cleaner to first assign the incremented value of GSS to
-     a temporary variable and update GSS only if option-insertion succeeds;
- (b) in the mainline code updating AWL=GSS is missing, so we additionally
-     need to call dccp_update_gss to update AWL. This is a bug which is
-     fixed in the test tree. In RFC 4340, 7.5.1 it is defined for DCCP A as
-          AWL := max(GSS + 1 - W', ISS).
-     where W' is the local value of the Sequence Window. The problem in the
-     mainline code is that there is no distinction between local and remote
-     Sequence Window, i.e. there is only one variable and no negotiation.
-     For this particular problem it  does not need feature negotiation
-     since it is the local value and since Sequence Window is a non-negotiable
-     feature (RFC 4340, 6.4), i.e. the remote peer has to accept this value
-     via Change L(Sequence Window).
-     But irrespective of feature negotiation, we need to call dccp_update_gss
-     in dccp_transmit_skb, so that the Ack window is kept up-to-date with
-     regard to GSS.
+Hi Ben,
 
-So, facing these two problems, I was stuck with how to integrate your
-solution with the above and couldn't figure out how to fit that in.
+On Thursday 05 June 2008 19:40, Ben Dooks wrote:
+> On Thu, Jun 05, 2008 at 05:42:58PM +0200, Laurent Pinchart wrote:
+> > Hi everybody,
+> >=20
+> > I ran into a resource-related bug in the DM9000 driver.
+> >=20
+> > When the platform device has only 2 resources, dm9000_probe() doesn't s=
+et=20
+> > db->irq_res, which results in a segfault when the pointer gets
+> > dereferenced in dm9000_open().
+> >=20
+> > I tried to fix the issue, and found out that the resource management co=
+de
+> > is quite broken.
+>=20
+> Personally, I'm thinking about just removing the case for 2, and making it
+> three resources only. The following in-kernel machines use the following
+> resources:
+>=20
+> arch/arm/mach-at91/board-sam9261ek.c			3
+> arch/arm/mach-pxa/cm-x270.c				3
+> arch/arm/mach-pxa/em-x270.c				3
+> arch/arm/mach-pxa/trizeps4.c				3
+> arch/arm/mach-pxa/colibri.c				3
+> arch/arm/mach-s3c2410/mach-bast.c			3
+> arch/arm/mach-s3c2410/mach-vr1000.c			3
+> arch/blackfin/mach-bf527/boards/ezkit.c			2
+> arch/blackfin/mach-bf533/boards/H8606.c			2
+> arch/blackfin/mach-bf533/boards/ip0x.c			3
+> arch/blackfin/mach-bf537/boards/generic_board.c		2
+> arch/blackfin/mach-bf537/boards/stamp.c			2
+>=20
+> As you can see, the #3 outweigh the #2. Unless anyone else objects, I
+> will add a patch to reduce this to the case where the driver expects
+> 3 resources, and ask the users of #2 to submit changes for their
+> bots.
+> =20
+> > If I understand things correctly, specifying 3 resources makes the DM90=
+00=20
+> > driver ioremap() the memory, while specifying 2 resources implies that =
+the=20
+> > platform code already ioremap()ed the memory. Is that right ?
+> >=20
+> > If so, why does dm9000_probe() call request_mem_region() on ioremap()ed=
+=20
+> > memory ?
+>=20
+> Hmm, dunno. I really have no idea why this happened. I don't think this
+> was my fault!
+> =20
+> > Wouldn't it also be simpler to use release_mem_region() in=20
+> > dm9000_release_board() instead of release_resource() + kfree() ?
+>=20
+> If you already have the resource, this is a reasonably simple way of
+> ensuring you're disposing of the right resource.
+> =20
+> > I'd be grateful if someone could confirm my assumptions. I'll then subm=
+it
+> > a patch to fix those issues.
+>=20
+> My recommendation is that we remove the 2 case completely, so I'd not bot=
+her
+> trying to fix this.
 
-That is because the control flow in dccp_transmit_skb, to solve the above, is
- 
-	/* assign incremented value to dccp_skb_cb */
-	dcb->dccpd_seq = ADD48(dp->dccps_gss, 1);
+I'm not too sure on that one.
 
-	switch (dcb->dccpd_type) {
-		case DCCP_PKT_REQUEST:
-                        set_ack = 0;
-                        /* Use ISS on the first (non-retransmitted) Request. */
-                        if (icsk->icsk_retransmits == 0)
-                                dcb->dccpd_seq = dp->dccps_iss;
-			break;
-	// ...
-	}
+I have DM9000 chips on a custom bus. The bus code remaps the whole address=
+=20
+range (32 bytes per card x 32 slots) in one go and initializes the resource=
+=20
+with a subset of the remapped range.
 
-	/* if this fails, GSS is not updated */
-	if (dccp_insert_options(sk, skb)) {
-		kfree_skb(skb);
-		return -EPROTO;
-	}
+Converting that to per-slot ioremaps would create many more mappings. Is th=
+at=20
+an issue (performance-wise, or in term of a maximum number of mappings if=20
+there is a limit) ? I will still need a global mapping, as the bus code nee=
+ds=20
+to access configuration registers on the individual cards, so I won't be ab=
+le=20
+to request_mem_region both the global mapping and the individual mappings.=
+=20
+I'm not sure if that's an issue.
 
-	// ...
-	dccp_update_gss(sk, dcb->dccpd_seq);	/* this updates GSS, AWH, AWL */
-	dccp_hdr_set_seq(dh, dp->dccps_gss);
+Best regards,
 
-	// ...
-	// transmit the skb via queue_xmit
+=2D-=20
+Laurent Pinchart
+CSE Semaphore Belgium
 
-I have tested my code to work correctly with up to net.dccp.default.retries1=5,
-it will also work correctly with higher values.
+Chaussee de Bruxelles, 732A
+B-1410 Waterloo
+Belgium
 
-Gerrit
+T +32 (2) 387 42 59
+=46 +32 (2) 387 42 75
+
+--nextPart1260187.bApS36Ej6r
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBISPz48y9gWxC9vpcRAn6IAJ9BOPtiWtJm69WjQYrdOsinAnqb/wCfamfe
+e/cchfIiv2Yaw94gj5onxvE=
+=ZoBu
+-----END PGP SIGNATURE-----
+
+--nextPart1260187.bApS36Ej6r--
