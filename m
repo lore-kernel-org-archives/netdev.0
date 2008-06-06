@@ -1,75 +1,183 @@
-From: Patrick McManus <mcmanus@ducksong.com>
-Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
-	v2.6.26-rc3+
-Date: Fri, 06 Jun 2008 16:08:57 -0400
-Message-ID: <1212782937.23706.46.camel@tng>
-References: <20080603.150344.145518113.davem@davemloft.net>
-	 <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
-	 <20080605142244.GA19216@elte.hu>
-	 <Pine.LNX.4.64.0806052059380.31672@wrl-59.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0806052355420.2522@wrl-59.cs.helsinki.fi>
-	 <1212708571.19522.10.camel@tng>
-	 <Pine.LNX.4.64.0806061248410.16829@wrl-59.cs.helsinki.fi>
-	 <1212772293.23706.22.camel@tng> <20080606173339.GA30894@elte.hu>
-	 <Pine.LNX.4.64.0806062037240.9424@wrl-59.cs.helsinki.fi>
-	 <20080606183926.GB12651@elte.hu>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: Re: [PATCH] forcedeth: msi interrupts
+Date: Fri, 06 Jun 2008 13:15:32 -0400
+Message-ID: <484970B4.6080500@nvidia.com>
+References: <4845AEE2.1090905@nvidia.com> <20080604151854.4a6f22b8.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>, peterz@infradead.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, rjw@sisk.pl,
-	Andrew Morton <akpm@linux-foundation.org>, johnpol@2ka.mipt.ru
-To: Ingo Molnar <mingo@elte.hu>
+Cc: jgarzik@pobox.com, manfred@colorfullife.com,
+	akpm@linuxfoundation.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from linode.ducksong.com ([64.22.125.164]:33177 "EHLO
-	linode.ducksong.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756096AbYFFUIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 16:08:49 -0400
-In-Reply-To: <20080606183926.GB12651@elte.hu>
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:12792 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758662AbYFFUPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 16:15:53 -0400
+In-Reply-To: <20080604151854.4a6f22b8.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is all a bit confusing, but here are the conclusions I have drawn.
-
-There definitely is a problem with the locking of the DA commit
-ec3c0982a2dd1e671bad8e9d26c28dcba0039d87 . That code was part of 26-rc1
-but it never appeared in 25. It exists in pretty much the same form in
-rc5 (there was 1 patch to it over that time to fix a different problem).
-
-We're certain this code has a problem with the accept queue both because
-of code inspection and the fact that Ingo can back it out (as the
-significant part of the 3-patch revert) and the problem goes away in his
-testing.
-
-I have run tests that can reproduce the hung socket with distcc over
-localhost using 26-rc5. I can also apparently cure it using the locking
-fix patch Ilpo sent (c9454f0..d21d2b9) on top of that. (My test of rc5
-+lockpatch is at 4.5+ hrs and counting without failures, it fails 6
-times an hour with vanilla rc5)
-
-Based on all of that, the right thing to do seems to be to apply the
-lockpatch (c9454f0..d21d2b9) to Linus's tree and not revert anything -
-just fix the code and I'll send Ilpo and Ingo cookies at Christmas time
-for being  great guys. Alternatively, Ingo could run the distcc servers
-and clients on -tip with the lockpatch (nothing reverted) for more
-testing.
-
-The only lingering problem is Ingo's report yesterday
-http://marc.info/?l=linux-netdev&m=121267587715976&w=2
-of a distcc hang. In this one it was not over localhost and the distcc
-server had the ec3c DA changes totally reverted. (The server is really
-the only stack that matters in this case - the client is not impacted by
-the DA changes). This has to be a different issue, because the ec3c code
-we're talking about here wasn't on the server at all. As Ilpo mentions,
-Hakon is beleived to have a different problem and maybe you've tripped
-over that too?
-
-If we're sure of that conclusion we should just take Ilpo's DA patch as
-that will narrow the field for finding Hakon's issue. Its just with all
-of these data points I'm not sure if I'm reaching the right conclusion.
 
 
+Andrew Morton wrote:
+> On Tue, 03 Jun 2008 16:51:46 -0400
+> Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+> 
+>  > This patch adds a workaround for lost MSI interrupts. There is a race
+>  > condition in the HW in which future interrupts could be missed. The
+>  > workaround is to toggle the MSI irq mask.
+>  >
+> 
+> Do you think this is a 2.6.26 thing?
+It is by HW design, not related to the kernel.
 
+> 
+>  > [patch-forcedeth-msi-irq  text/plain (1.3KB)]
+>  > --- old/drivers/net/forcedeth.c       2008-06-03 16:16:26.000000000 -0400
+>  > +++ new/drivers/net/forcedeth.c       2008-06-03 16:31:44.000000000 -0400
+>  > @@ -3277,6 +3277,20 @@
+>  >       dprintk(KERN_DEBUG "%s: link change notification done.\n", 
+> dev->name);
+>  >  }
+>  > 
+>  > +static inline void nv_msi_workaround(struct net_device *dev)
+>  > +{
+>  > +     struct fe_priv *np = netdev_priv(dev);
+>  > +     u8 __iomem *base = get_hwbase(dev);
+>  > +
+>  > +     /* Need to toggle the msi irq mask within the ethernet device,
+>  > +      * otherwise, future interrupts will not be detected.
+>  > +      */
+>  > +     if (np->msi_flags & NV_MSI_ENABLED) {
+>  > +             writel(0, base + NvRegMSIIrqMask);
+>  > +             writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
+>  > +     }
+>  > +}
+>  > +
+>  >  static irqreturn_t nv_nic_irq(int foo, void *data)
+>  >  {
+>  >       struct net_device *dev = (struct net_device *) data;
+>  > @@ -3299,6 +3313,8 @@
+>  >               if (!(events & np->irqmask))
+>  >                       break;
+>  > 
+>  > +             nv_msi_workaround(dev);
+>  > +
+>  >               spin_lock(&np->lock);
+>  >               nv_tx_done(dev);
+>  >               spin_unlock(&np->lock);
+>  > @@ -3414,6 +3430,8 @@
+>  >               if (!(events & np->irqmask))
+>  >                       break;
+>  > 
+>  > +             nv_msi_workaround(dev);
+>  > +
+>  >               spin_lock(&np->lock);
+>  >               nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
+>  >               spin_unlock(&np->lock);
+>  > @@ -3754,6 +3772,8 @@
+>  >       if (!(events & NVREG_IRQ_TIMER))
+>  >               return IRQ_RETVAL(0);
+>  > 
+>  > +     nv_msi_workaround(dev);
+>  > +
+>  >       spin_lock(&np->lock);
+>  >       np->intr_test = 1;
+>  >       spin_unlock(&np->lock);
+>  >
+> 
+> I'm not loving the implementation.
+> 
+> - That `inline' adds 35 bytes more text to the driver, and we expect
+>   that this often yields slower code.
+> 
+> - Every caller of nv_msi_workaround() already has the fe_priv* in a
+>   local variable, so why not pass that in and save the additional
+>   pointer calculation?
+> 
+> So this:
+> 
+> diff -puN drivers/net/forcedeth.c~forcedeth-msi-interrupts-uninlining 
+> drivers/net/forcedeth.c
+> --- a/drivers/net/forcedeth.c~forcedeth-msi-interrupts-uninlining
+> +++ a/drivers/net/forcedeth.c
+> @@ -3277,15 +3277,14 @@ static void nv_link_irq(struct net_devic
+>         dprintk(KERN_DEBUG "%s: link change notification done.\n", 
+> dev->name);
+>  }
+> 
+> -static inline void nv_msi_workaround(struct net_device *dev)
+> +static void nv_msi_workaround(struct fe_priv *np)
+>  {
+> -       struct fe_priv *np = netdev_priv(dev);
+> -       u8 __iomem *base = get_hwbase(dev);
+> -
+>         /* Need to toggle the msi irq mask within the ethernet device,
+>          * otherwise, future interrupts will not be detected.
+>          */
+>         if (np->msi_flags & NV_MSI_ENABLED) {
+> +               u8 __iomem *base = np->base;
+> +
+>                 writel(0, base + NvRegMSIIrqMask);
+>                 writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
+>         }
+> @@ -3313,7 +3312,7 @@ static irqreturn_t nv_nic_irq(int foo, v
+>                 if (!(events & np->irqmask))
+>                         break;
+> 
+> -               nv_msi_workaround(dev);
+> +               nv_msi_workaround(np);
+> 
+>                 spin_lock(&np->lock);
+>                 nv_tx_done(dev);
+> @@ -3430,7 +3429,7 @@ static irqreturn_t nv_nic_irq_optimized(
+>                 if (!(events & np->irqmask))
+>                         break;
+> 
+> -               nv_msi_workaround(dev);
+> +               nv_msi_workaround(np);
+> 
+>                 spin_lock(&np->lock);
+>                 nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
+> @@ -3772,7 +3771,7 @@ static irqreturn_t nv_nic_irq_test(int f
+>         if (!(events & NVREG_IRQ_TIMER))
+>                 return IRQ_RETVAL(0);
+> 
+> -       nv_msi_workaround(dev);
+> +       nv_msi_workaround(np);
+> 
+>         spin_lock(&np->lock);
+>         np->intr_test = 1;
+> _
+> 
+> 
+> save 42 bytes of text.
+> 
+> Now, if the (np->msi_flags & NV_MSI_ENABLED) test is usually false then
+> there might be some advantage in inlining the whole thing.  Or just
+> inlining the NV_MSI_ENABLED test, but those two writel()s probably
+> aren't worth the fuss of uninlining.
+> 
+> 
+Sure, thats fine.
 
+> 
+> Semi-relatedly, the driver does an awful lot of this:
+> 
+>         struct fe_priv *np = get_nvpriv(dev);
+>         u8 __iomem *base = get_hwbase(dev);
+> 
+> but get_hwbase() re-evaluates netdev_priv().  It would be more
+> efficient to pass an fe_priv* into get_hwbase().  Or, better, just
+> remove get_hwbase() and open-code `np->base' everywhere.
+> 
+> 
+> 
+
+-----------------------------------------------------------------------------------
+This email message is for the sole use of the intended recipient(s) and may contain
+confidential information.  Any unauthorized review, use, disclosure or distribution
+is prohibited.  If you are not the intended recipient, please contact the sender by
+reply email and destroy all copies of the original message.
+-----------------------------------------------------------------------------------
