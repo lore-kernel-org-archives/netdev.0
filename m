@@ -1,60 +1,44 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2213
-Date: Fri, 6 Jun 2008 16:03:35 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0806061509530.16829@wrl-59.cs.helsinki.fi>
-References: <a4423d670806041450h17a2d3b1w40ea9ff8550a4b11@mail.gmail.com>
- <20080604.145244.07802877.davem@davemloft.net>
- <a4423d670806041529q6911f68fq68ee9ed8f8f50139@mail.gmail.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [PATCH 1/2] IPV4: remove addresses and routes when carrier is lost
+Date: Fri, 6 Jun 2008 10:56:05 -0400
+Message-ID: <20080606145605.GB31127@csclub.uwaterloo.ca>
+References: <20080602165249.52a467dc@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexander Beregalov <a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <a4423d670806041529q6911f68fq68ee9ed8f8f50139-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:60623 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751691AbYFFO4I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 10:56:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20080602165249.52a467dc@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 5 Jun 2008, Alexander Beregalov wrote:
-
-> 2008/6/5 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
-> > From: "Alexander Beregalov" <a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > Date: Thu, 5 Jun 2008 01:50:49 +0400
-> >
-> >> I have got the following message:
-> >
-> > We need to know the exact kernel version you were running, what
-> > kinds of things the system was doing at the time, etc.
-> >
+On Mon, Jun 02, 2008 at 04:52:49PM -0700, Stephen Hemminger wrote:
+> This patch adds a new configuration sysctl that causes link loss to clear
+> FIB state in the same way as admin down. This allows for routing daemons
+> like Quagga which have option to remove routes when carrier is lost.
 > 
-> It is 2.6.26-rc3-00332-gcbff290.
-> Host runs as a NFS server and rtorrent client.
-> That is all network activity on it.
-> I do not know what system was doing at this time, I have found this
-> warning only after some time.
+> This has been a long standing problem with Quagga on Linux with complaints
+> on the developers list going back to 2004. Fixing it properly, so the routing 
+> daemon manages the RIB, and the kernel manages the FIB, requires changes to
+> both parts.
 
-Thanks for reporting though I'm afraid that until there's somebody able
-to reproduce it at least semi-often, this will remain unsolved. It's 
-probably another reno all-segments already sacked_out situation where then 
-one of them gets marked as lost in addition to that similar to the 
-tcp_simple_retransmit that is already fixed in the kernel you're using. 
-...In case you're worried, I'd say it has been there years and it won't 
-corrupt anything anyway and the situation resolved itself on some later 
-executed path (otherwise you'd see more than those two messages). They're 
-visible only because I recently (in 2.6.23 or .24) started tracking these 
-invariants by making them to complain and number of things have been 
-already fixed because of that :-).
+There is one slight annoyance in the behaviour of this patch.
 
-It seems that there is a small number of reports @ kerneloops.org for 
-this same place but the count is noticably smaller (nearly by magnitude) 
-than what it has been with the same type issues that were finally fixed 
-couple of days ago, ie., after months of waiting. So there might not be
-some near-term breakthrough coming up :-).
+It only takes effect the first time link is lost, so if you boot with a
+port without link, its addresses and routes are still added, and only
+after it gains link and looses it again does it get removed.  Makes for
+a somewhat inconsistent behaviour unfortunately.
+
+Any idea how to change that?
+
+Otherwise this looks like a very useful patch when combined with zebra
+to manage static routes with link-detect (along with vyatta's updates to
+zebra to make it actually obey link detect for routes).
 
 -- 
- i.
---
-To unsubscribe from this list: send the line "unsubscribe kernel-testers" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Len Sorensen
