@@ -1,97 +1,177 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: forcedeth: lockdep warning on ethtool -s
-Date: Thu, 5 Jun 2008 22:18:42 -0700
-Message-ID: <20080605221842.a444ec9d.akpm@linux-foundation.org>
-References: <20080601083700.GA3036@yamamaya.is-a-geek.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 04/39] mv643xx_eth: get rid of individual port config register bit defines
+Date: Fri, 6 Jun 2008 08:58:39 +0200
+Message-ID: <20080606065839.GA5100@xi.wantstofly.org>
+References: <1212490974-23719-1-git-send-email-buytenh@wantstofly.org> <1212490974-23719-5-git-send-email-buytenh@wantstofly.org> <20080605110734.GB1059@farnsworth.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44975 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752697AbYFFFTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 01:19:18 -0400
-In-Reply-To: <20080601083700.GA3036@yamamaya.is-a-geek.org>
+Received: from xi.wantstofly.org ([83.160.184.112]:56225 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753977AbYFFG7N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 02:59:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20080605110734.GB1059@farnsworth.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 1 Jun 2008 10:37:01 +0200 Tobias Diedrich <ranma+kernel@tdiedrich.de> wrote:
+On Thu, Jun 05, 2008 at 04:07:34AM -0700, Dale Farnsworth wrote:
 
-> Hi,
+> > The mv643xx_eth driver only ever changes bit 0 of the port config
+> > register at run time, the rest of the register bits are fixed (and
+> > always zero).  Document the meaning of the chosen default value,
+> > and get rid of all the defines for each of the individual bits.
+> > 
+> > Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> > ---
+> >  drivers/net/mv643xx_eth.c |   44 +++++++-------------------------------------
+> >  1 files changed, 7 insertions(+), 37 deletions(-)
+> > 
+> > diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+> > index 9a9218f..38ba365 100644
+> > --- a/drivers/net/mv643xx_eth.c
+> > +++ b/drivers/net/mv643xx_eth.c
+> > @@ -109,39 +109,6 @@ static char mv643xx_driver_version[] = "1.0";
+> >  #define OTHER_MCAST_TABLE(p)		(0x1500 + ((p) << 10))
+> >  #define UNICAST_TABLE(p)		(0x1600 + ((p) << 10))
+> >  
+> > -/* These macros describe Ethernet Port configuration reg (Px_cR) bits */
+> > -#define UNICAST_NORMAL_MODE		(0 << 0)
+> > -#define UNICAST_PROMISCUOUS_MODE	(1 << 0)
+> > -#define DEFAULT_RX_QUEUE(queue)		((queue) << 1)
+> > -#define DEFAULT_RX_ARP_QUEUE(queue)	((queue) << 4)
+> > -#define RECEIVE_BC_IF_NOT_IP_OR_ARP	(0 << 7)
+> > -#define REJECT_BC_IF_NOT_IP_OR_ARP	(1 << 7)
+> > -#define RECEIVE_BC_IF_IP		(0 << 8)
+> > -#define REJECT_BC_IF_IP			(1 << 8)
+> > -#define RECEIVE_BC_IF_ARP		(0 << 9)
+> > -#define REJECT_BC_IF_ARP		(1 << 9)
+> > -#define TX_AM_NO_UPDATE_ERROR_SUMMARY	(1 << 12)
+> > -#define CAPTURE_TCP_FRAMES_DIS		(0 << 14)
+> > -#define CAPTURE_TCP_FRAMES_EN		(1 << 14)
+> > -#define CAPTURE_UDP_FRAMES_DIS		(0 << 15)
+> > -#define CAPTURE_UDP_FRAMES_EN		(1 << 15)
+> > -#define DEFAULT_RX_TCP_QUEUE(queue)	((queue) << 16)
+> > -#define DEFAULT_RX_UDP_QUEUE(queue)	((queue) << 19)
+> > -#define DEFAULT_RX_BPDU_QUEUE(queue)	((queue) << 22)
+> > -
+> > -#define PORT_CONFIG_DEFAULT_VALUE			\
+> > -		UNICAST_NORMAL_MODE		|	\
+> > -		DEFAULT_RX_QUEUE(0)		|	\
+> > -		DEFAULT_RX_ARP_QUEUE(0)		|	\
+> > -		RECEIVE_BC_IF_NOT_IP_OR_ARP	|	\
+> > -		RECEIVE_BC_IF_IP		|	\
+> > -		RECEIVE_BC_IF_ARP		|	\
+> > -		CAPTURE_TCP_FRAMES_DIS		|	\
+> > -		CAPTURE_UDP_FRAMES_DIS		|	\
+> > -		DEFAULT_RX_TCP_QUEUE(0)		|	\
+> > -		DEFAULT_RX_UDP_QUEUE(0)		|	\
+> > -		DEFAULT_RX_BPDU_QUEUE(0)
+> > -
+> >  /* These macros describe Ethernet Port configuration extend reg (Px_cXR) bits*/
+> >  #define CLASSIFY_EN				(1 << 0)
+> >  #define SPAN_BPDU_PACKETS_AS_NORMAL		(0 << 1)
+> > @@ -1802,9 +1769,9 @@ static void mv643xx_eth_set_rx_mode(struct net_device *dev)
+> >  
+> >  	config_reg = rdl(mp, PORT_CONFIG(mp->port_num));
+> >  	if (dev->flags & IFF_PROMISC)
+> > -		config_reg |= (u32) UNICAST_PROMISCUOUS_MODE;
+> > +		config_reg |= 0x00000001;
 > 
-> After enabling CONFIG_LOCKDEP and CONFIG_PROVE_LOCKING I get the
-> following warning when ethtool -s is first called on one of the
-> forcedeth ports:
-> 
-> =================================
-> [ INFO: inconsistent lock state ]
-> 2.6.26-rc4 #28
-> ---------------------------------
-> inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
-> ethtool/1985 [HC0[0]:SC0[1]:HE1:SE0] takes:
->  (&np->lock){++..}, at: [<ffffffffa000c5fd>] nv_set_settings+0xc8/0x3de [forcedeth]
-> {in-hardirq-W} state was registered at:
->   [<ffffffffffffffff>] 0xffffffffffffffff
-> irq event stamp: 3606
-> hardirqs last  enabled at (3605): [<ffffffff8068106f>] _spin_unlock_irqrestore+0x3f/0x68
-> hardirqs last disabled at (3604): [<ffffffff80680d38>] _spin_lock_irqsave+0x13/0x46
-> softirqs last  enabled at (3534): [<ffffffff80246ba5>] __do_softirq+0xbc/0xc5
-> softirqs last disabled at (3606): [<ffffffff80680b33>] _spin_lock_bh+0x11/0x41
-> 
-> other info that might help us debug this:
-> 2 locks held by ethtool/1985:
->  #0:  (rtnl_mutex){--..}, at: [<ffffffff80596072>] rtnl_lock+0x12/0x14
->  #1:  (_xmit_ETHER){-+..}, at: [<ffffffffa000c5e8>] nv_set_settings+0xb3/0x3de [forcedeth]
-> 
-> stack backtrace:
-> Pid: 1985, comm: ethtool Not tainted 2.6.26-rc4 #28
-> 
-> Call Trace:
->  [<ffffffff8025f190>] print_usage_bug+0x162/0x173
->  [<ffffffff8025fa8b>] mark_lock+0x231/0x41f
->  [<ffffffff802607cf>] __lock_acquire+0x4e7/0xcac
->  [<ffffffff8025fe64>] ? trace_hardirqs_on+0xf1/0x115
->  [<ffffffff80272c3a>] ? disable_irq_nosync+0x6f/0x7b
->  [<ffffffff80261375>] lock_acquire+0x55/0x6e
->  [<ffffffffa000c5fd>] ? :forcedeth:nv_set_settings+0xc8/0x3de
->  [<ffffffff80680b15>] _spin_lock+0x2f/0x3c
->  [<ffffffffa000c5fd>] :forcedeth:nv_set_settings+0xc8/0x3de
->  [<ffffffff8058f8bb>] dev_ethtool+0x186/0xea3
->  [<ffffffff8067f446>] ? mutex_lock_nested+0x243/0x275
->  [<ffffffff8025df2b>] ? debug_mutex_free_waiter+0x46/0x4a
->  [<ffffffff8067f469>] ? mutex_lock_nested+0x266/0x275
->  [<ffffffff8058e1ce>] dev_ioctl+0x4eb/0x600
->  [<ffffffff8068106f>] ? _spin_unlock_irqrestore+0x3f/0x68
->  [<ffffffff80580f91>] sock_ioctl+0x1f5/0x202
->  [<ffffffff802a322e>] vfs_ioctl+0x2a/0x77
->  [<ffffffff802a34d6>] do_vfs_ioctl+0x25b/0x270
->  [<ffffffff806807b6>] ? trace_hardirqs_on_thunk+0x35/0x3a
->  [<ffffffff802a352d>] sys_ioctl+0x42/0x65
->  [<ffffffff8021fffb>] system_call_after_swapgs+0x7b/0x80
-> 
-> 
-> I think this is caused by the following snippet in nv_set_settings:
-> 
-> 	netif_carrier_off(dev);
-> 	if (netif_running(dev)) {
-> 		nv_disable_irq(dev);
-> 		netif_tx_lock_bh(dev);
-> 		spin_lock(&np->lock);
-> 		/* stop engines */
-> 		nv_stop_rxtx(dev);
-> 		spin_unlock(&np->lock);
-> 		netif_tx_unlock_bh(dev);
-> 	}
-> 
-> 
-> Because of nv_disable_irq this is probably not really a problem
-> though (I guess) and replacing the spin_lock with spin_lock_irqsave
-> could keep interrupts disabled for a longer period of time because
-> of delays in nv_stop_rx and nv_stop_tx.
+> Except for the stupid cast, I think the meaning was clearer with the
+> define.
 
-Could you please try that and if it works, send the patch?
+Right, I got a bit carried away. :-)  How about this instead:
 
-Thanks.
+
+
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Sun Jun  1 01:22:06 CEST 2008
+Subject: mv643xx_eth: get rid of individual port config register bit defines
+
+The mv643xx_eth driver only ever changes bit 0 of the port config
+register at run time, the rest of the register bits are fixed (and
+always zero).  Document the meaning of the chosen default value,
+and get rid of all the defines for each of the individual bits.
+
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+
+Index: linux-2.6.26-rc5/drivers/net/mv643xx_eth.c
+===================================================================
+--- linux-2.6.26-rc5.orig/drivers/net/mv643xx_eth.c
++++ linux-2.6.26-rc5/drivers/net/mv643xx_eth.c
+@@ -88,6 +88,7 @@ static char mv643xx_driver_version[] = "
+  * Per-port registers.
+  */
+ #define PORT_CONFIG(p)			(0x0400 + ((p) << 10))
++#define  UNICAST_PROMISCUOUS_MODE	0x00000001
+ #define PORT_CONFIG_EXT(p)		(0x0404 + ((p) << 10))
+ #define MAC_ADDR_LOW(p)			(0x0414 + ((p) << 10))
+ #define MAC_ADDR_HIGH(p)		(0x0418 + ((p) << 10))
+@@ -109,39 +110,6 @@ static char mv643xx_driver_version[] = "
+ #define OTHER_MCAST_TABLE(p)		(0x1500 + ((p) << 10))
+ #define UNICAST_TABLE(p)		(0x1600 + ((p) << 10))
+ 
+-/* These macros describe Ethernet Port configuration reg (Px_cR) bits */
+-#define UNICAST_NORMAL_MODE		(0 << 0)
+-#define UNICAST_PROMISCUOUS_MODE	(1 << 0)
+-#define DEFAULT_RX_QUEUE(queue)		((queue) << 1)
+-#define DEFAULT_RX_ARP_QUEUE(queue)	((queue) << 4)
+-#define RECEIVE_BC_IF_NOT_IP_OR_ARP	(0 << 7)
+-#define REJECT_BC_IF_NOT_IP_OR_ARP	(1 << 7)
+-#define RECEIVE_BC_IF_IP		(0 << 8)
+-#define REJECT_BC_IF_IP			(1 << 8)
+-#define RECEIVE_BC_IF_ARP		(0 << 9)
+-#define REJECT_BC_IF_ARP		(1 << 9)
+-#define TX_AM_NO_UPDATE_ERROR_SUMMARY	(1 << 12)
+-#define CAPTURE_TCP_FRAMES_DIS		(0 << 14)
+-#define CAPTURE_TCP_FRAMES_EN		(1 << 14)
+-#define CAPTURE_UDP_FRAMES_DIS		(0 << 15)
+-#define CAPTURE_UDP_FRAMES_EN		(1 << 15)
+-#define DEFAULT_RX_TCP_QUEUE(queue)	((queue) << 16)
+-#define DEFAULT_RX_UDP_QUEUE(queue)	((queue) << 19)
+-#define DEFAULT_RX_BPDU_QUEUE(queue)	((queue) << 22)
+-
+-#define PORT_CONFIG_DEFAULT_VALUE			\
+-		UNICAST_NORMAL_MODE		|	\
+-		DEFAULT_RX_QUEUE(0)		|	\
+-		DEFAULT_RX_ARP_QUEUE(0)		|	\
+-		RECEIVE_BC_IF_NOT_IP_OR_ARP	|	\
+-		RECEIVE_BC_IF_IP		|	\
+-		RECEIVE_BC_IF_ARP		|	\
+-		CAPTURE_TCP_FRAMES_DIS		|	\
+-		CAPTURE_UDP_FRAMES_DIS		|	\
+-		DEFAULT_RX_TCP_QUEUE(0)		|	\
+-		DEFAULT_RX_UDP_QUEUE(0)		|	\
+-		DEFAULT_RX_BPDU_QUEUE(0)
+-
+ /* These macros describe Ethernet Port configuration extend reg (Px_cXR) bits*/
+ #define CLASSIFY_EN				(1 << 0)
+ #define SPAN_BPDU_PACKETS_AS_NORMAL		(0 << 1)
+@@ -1802,9 +1770,9 @@ static void mv643xx_eth_set_rx_mode(stru
+ 
+ 	config_reg = rdl(mp, PORT_CONFIG(mp->port_num));
+ 	if (dev->flags & IFF_PROMISC)
+-		config_reg |= (u32) UNICAST_PROMISCUOUS_MODE;
++		config_reg |= UNICAST_PROMISCUOUS_MODE;
+ 	else
+-		config_reg &= ~(u32) UNICAST_PROMISCUOUS_MODE;
++		config_reg &= ~UNICAST_PROMISCUOUS_MODE;
+ 	wrl(mp, PORT_CONFIG(mp->port_num), config_reg);
+ 
+ 	eth_port_set_multicast_list(dev);
+@@ -2226,8 +2194,11 @@ static void eth_port_start(struct net_de
+ 	/* Add the assigned Ethernet address to the port's address table */
+ 	eth_port_uc_addr_set(mp, dev->dev_addr);
+ 
+-	/* Assign port configuration and command. */
+-	wrl(mp, PORT_CONFIG(port_num), PORT_CONFIG_DEFAULT_VALUE);
++	/*
++	 * Receive all unmatched unicast, TCP, UDP, BPDU and broadcast
++	 * frames to RX queue #0.
++	 */
++	wrl(mp, PORT_CONFIG(port_num), 0x00000000);
+ 
+ 	wrl(mp, PORT_CONFIG_EXT(port_num), PORT_CONFIG_EXTEND_DEFAULT_VALUE);
