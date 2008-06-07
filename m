@@ -1,146 +1,90 @@
-From: Karen Shaeffer <shaeffer@neuralscape.com>
-Subject: Re: [PATCH] forcedeth: msi interrupts
-Date: Sat, 7 Jun 2008 11:31:06 -0700
-Message-ID: <20080607183106.GA14526@synapse.neuralscape.com>
-References: <20080606141054.432ec910.akpm@linux-foundation.org> <F72FA20C31DD4F4C997B91C5B3690A090B146100@hqemmail07.nvidia.com> <20080606214016.GA3345@synapse.neuralscape.com>
+From: "Oliver Pinter" <oliver.pntr@gmail.com>
+Subject: Re: bug report
+Date: Sat, 7 Jun 2008 20:53:24 +0200
+Message-ID: <6101e8c40806071153r1c3dbd03lffa6c43a9140ad4d@mail.gmail.com>
+References: <48499731.1080807@gmail.com>
+	 <6101e8c40806061844g5b7676d4xb48c5c69ad48391f@mail.gmail.com>
+	 <20080606225643.8be222a9.akpm@linux-foundation.org>
+	 <Pine.LNX.4.64.0806071141480.24862@wrl-59.cs.helsinki.fi>
+	 <6101e8c40806070550h62866816s1d8f8c1ba31f59f@mail.gmail.com>
+	 <20080607150948.GA4690@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, jgarzik@pobox.com,
-	manfred@colorfullife.com, netdev@vger.kernel.org
-To: Ayaz Abdulla <AAbdulla@nvidia.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	"Andrew Morton" <akpm@linux-foundation.org>, zsirmo@zsirmo.hu,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Ingo Molnar" <mingo@elte.hu>, netdev <netdev@vger.kernel.org>,
+	"Matt Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Brian Vowell" <brian.vowell@gmail.com>
+To: "Phil Oester" <kernel@linuxace.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from synapse.neuralscape.com ([198.144.200.82]:40245 "EHLO
-	neuralscape.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762063AbYFGSba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2008 14:31:30 -0400
+Received: from fg-out-1718.google.com ([72.14.220.155]:36590 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755317AbYFGSx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2008 14:53:27 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1028790fgg.17
+        for <netdev@vger.kernel.org>; Sat, 07 Jun 2008 11:53:24 -0700 (PDT)
+In-Reply-To: <20080607150948.GA4690@linuxace.com>
 Content-Disposition: inline
-In-Reply-To: <20080606214016.GA3345@synapse.neuralscape.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 06, 2008 at 02:40:16PM -0700, Karen Shaeffer wrote:
-> On Fri, Jun 06, 2008 at 02:19:31PM -0700, Ayaz Abdulla wrote:
-> > Yes, that would be great!
-> 
-> Hi Ayaz,
-> How far back should it be back ported? Do you know?
+Hi!
+
+Attila first use one other nic (rtl8169), and after one other (3com
+BCM570). All NIC producted this error...
+the full thread in Hungarian Unix Portal: http://hup.hu/node/56295
+
+On 6/7/08, Phil Oester <kernel@linuxace.com> wrote:
+> On Sat, Jun 07, 2008 at 02:50:06PM +0200, Oliver Pinter wrote:
+>> [snip]
+>> Jun  6 14:04:11 www kernel: [ 6464.556309] clamscan: page allocation
+>> failure. order:3, mode:0x4020 <------------- this
+>
+> "Me too".  Lots of order 3 allocation failures on e1000 nics
+> since upgrading some heavy traffic boxes to 2.6.25 (though from 2.6.21,
+> so unclear on when it began).
+>
+> Phil
+>
+> Jun  2 11:11:24 px01 kernel: swapper: page allocation failure. order:3,
+> mode:0x4020
+> Jun  2 11:11:24 px01 kernel: Pid: 0, comm: swapper Not tainted
+> 2.6.25.2-x86_64.1 #1
+> Jun  2 11:11:24 px01 kernel:
+> Jun  2 11:11:24 px01 kernel: Call Trace:
+> Jun  2 11:11:24 px01 kernel:  <IRQ>  [<ffffffff8024ce51>]
+> __alloc_pages+0x2dd/0x2f6
+> Jun  2 11:11:24 px01 kernel:  [<ffffffff8026578d>] __slab_alloc+0x16e/0x4f9
+> Jun  2 11:11:24 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x164/0x394
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff802656d0>] __slab_alloc+0xb1/0x4f9
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x164/0x394
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff8026685d>]
+> __kmalloc_track_caller+0x82/0xb8
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff8036a124>] __alloc_skb+0x5b/0x121
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x164/0x394
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff80395261>]
+> tcp_prune_queue+0x1ad/0x21e
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff803954ba>]
+> tcp_data_queue+0x1e8/0xbab
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff803974e8>]
+> tcp_rcv_established+0x64c/0x6fc
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff8039c76f>] tcp_v4_do_rcv+0x2c/0x1b4
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff8039e43e>] tcp_v4_rcv+0x6b3/0x705
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff80384cdc>]
+> ip_local_deliver_finish+0xf6/0x1b3
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff80384bc3>] ip_rcv_finish+0x2bf/0x2e2
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff8023ada3>] getnstimeofday+0x2f/0x83
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff8036e6b2>]
+> netif_receive_skb+0x1af/0x21b
+> Jun  2 11:11:25 px01 kernel:  [<ffffffff8032da6d>]
+> e1000_clean_rx_irq+0x3f3/0x4e7
+>
+>
 
 
-Hello,
-Let me explain and maybe get some advice. I have recently
-done work with the Sun Netra X4200 M2 Server that uses
-the Nvidia CK48 chipset and the forcedeth driver. You can
-see an architecture overview here:
-http://www.sun.com/servers/netra/x4200/wp.pdf
-
-The Nvidia NIC that is integrated into the Nvidia 2200 chip,
-has a failure mode for the following linux kernels
-2.6.21.x
-2.6.23.x
-2.6.24.x
-RHEL 2.6.18*
-
-The NIC will hang under specific conditions for all these
-kernels. First, you must run the NIC in 100 Mb mode with autoneg
-enabled, then it will always link in a mismatch with the switch.
-The switch will link at 100 Mb full duplex, while the Nvidia NIC
-will link at 100 Mb half duplex. This was shown with both Cisco
-managed switches and HP managed switches, and I suspect it will
-happen with any switch. (You can force the NIC to 100 Mb full,
-but autoneg will always result in the link mismatch.)
-
-Once this link mismatch is in effect, then, if you run it long
-enough, the NIC will eventually hang and become completely
-disabled. (I know you shouldn't run a NIC in link mismatch, but end
-users in the field sometimes don't realize it has happened.) It could
-take days or weeks under reasonably heavy load, but it will always
-hang in the end. Continually rebooting the server will result in the
-hang in a matter of hours, where the link negotiation results in the
-hang. No packets are ever transmitted in these cases. Because it
-is reproducable in a matter of hours, this is the preferred way to
-reproduce the failure mode.
-
-The ethtool online test will pass. The ethtool offline test
-will fail. The driver does TX register dumps into the logs and
-reports TX busy errors. I provided all this information to Ayaz
-in real time, but never got any response or comment from him.
-
-Even a soft reboot will not clear this failure. This initially
-lead me to conclude this is a hardware failure, but it isn't
-100% certain to be the case. This is because the NIC is known
-to hang at boot time during the link negotiation, where no
-packets are ever transmitted. I didn't have time to fully
-understand this failure mode, but it could be that a soft
-reboot does clear the failure. And then at boot time link
-negotiation, it fails immediately, giving the appearance
-of a HW failure sustained across a soft reboot. I did not
-investigate enough to conclude with certainty it is a HW
-failure.
-
-I did determine that a double hard reboot, where the second
-reboot is executed while the Netra is in the BIOS POST will
-always clear the NIC failure. This lead me to conclude with
-reasonable certainty this is a hardware failure that can
-occur at 100 Mb mode with a link mismatch. But I am not
-certain as stated above. Nvidia never did provide a resolution
-to this problem, despite the fact they were provided substantial
-information characterizing the failures and clear instructions
-on how to reproduce it within a few hours.
-
-I've always known there may be a driver workaround for this
-failure. And if there is a driver workaround it would likely
-be related to interrupts. So, that was my motivation to ask
-the original question here. In the future, I will likely
-just dump all the data into bugzilla, as it seems like
-the preferred response to such a set of circumtances.
-
-Thanks,
-Karen
-
-> > -----Original Message-----
-> > From: Andrew Morton [mailto:akpm@linux-foundation.org] 
-> > Sent: Friday, June 06, 2008 2:11 PM
-> > To: Ayaz Abdulla
-> > Cc: jgarzik@pobox.com; manfred@colorfullife.com; netdev@vger.kernel.org
-> > Subject: Re: [PATCH] forcedeth: msi interrupts
-> > 
-> > 
-> > On Fri, 06 Jun 2008 14:04:05 -0400
-> > Ayaz Abdulla <aabdulla@nvidia.com> wrote:
-> > 
-> > > 
-> > > 
-> > > Andrew Morton wrote:
-> > > > On Fri, 06 Jun 2008 13:15:32 -0400
-> > > > Ayaz Abdulla <aabdulla@nvidia.com> wrote:
-> > > > 
-> > > > 
-> > > >>Andrew Morton wrote:
-> > > >>
-> > > >>>On Tue, 03 Jun 2008 16:51:46 -0400
-> > > >>>Ayaz Abdulla <aabdulla@nvidia.com> wrote:
-> > > >>>
-> > > >>> > This patch adds a workaround for lost MSI interrupts. There is a
-> > race
-> > > >>> > condition in the HW in which future interrupts could be missed.
-> > The
-> > > >>> > workaround is to toggle the MSI irq mask.
-> > > >>> >
-> > > >>>
-> > > >>>Do you think this is a 2.6.26 thing?
-> > > >>
-> > > >>It is by HW design, not related to the kernel.
-> > > > 
-> > > > 
-> > > > Sorry, what I meant was: do you believe that this patch should be in
-> > > > 2.6.26?
-> > > Yes, it should be treated as a critical fix.
-> > 
-> > So should it also be backported into 2.6.25.x?
-> > 
-> > Bear in mind that $major_distros are apparently basing product on
-> > 2.6.25.
 -- 
- Karen Shaeffer
- Neuralscape, Palo Alto, Ca. 94306
- shaeffer@neuralscape.com  http://www.neuralscape.com
+Thanks,
+Oliver
