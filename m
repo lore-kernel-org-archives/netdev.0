@@ -1,64 +1,57 @@
-From: Krzysztof Oledzki <ole@ans.pl>
-Subject: Re: Oops in nf_nat_core.c:find_appropriate_src(), kernel 2.6.25.4
-Date: Sat, 7 Jun 2008 17:45:08 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0806071742180.13503@bizon.gios.gov.pl>
-References: <484A9E75.8000601@redhat.com> <484AA276.9090407@trash.net>
- <484AA5D5.10404@trash.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH stable] ssb: Fix context assertion in ssb_pcicore_dev_irqvecs_enable
+Date: Sat, 7 Jun 2008 17:57:37 +0200
+Message-ID: <200806071757.38139.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1016760698-1212853508=:13503"
-Cc: Chuck Ebbert <cebbert@redhat.com>, Netdev <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <484AA5D5.10404@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"linux-kernel" <linux-kernel@vger.kernel.org>
+To: stable@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vs166246.vserver.de ([62.75.166.246]:47481 "EHLO
+	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760061AbYFGP6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2008 11:58:40 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This fixes a context assertion in ssb that makes b44 print
+out warnings on resume.
 
----187430788-1016760698-1212853508=:13503
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+This fixes the following kernel oops:
+http://www.kerneloops.org/oops.php?number=12732
+http://www.kerneloops.org/oops.php?number=11410
+
+Upstream commit is a3bafeedfff2ac5fa0a316bea4570e27900b6fcc
+
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
 
-
-On Sat, 7 Jun 2008, Patrick McHardy wrote:
-
-> Patrick McHardy wrote:
->> Chuck Ebbert wrote:
->>> Reported at https://bugzilla.redhat.com/show_bug.cgi?id=3D449315
->>>=20
->>> In find_appropriate_src():
->>>
->>>         hlist_for_each_entry_rcu(nat, n, &bysource[h], bysource) {
->>>                 ct =3D nat->ct;
->>>                 if (same_src(ct, tuple)) {
->>>=20
->>> Dereference of ct in same_src() causes the oops. This only seems to
->>> happen on heavily loaded firewall machines. Kernel 2.6.24.7 works.
->>>=20
->>> The reporter identifies commit 4d354c5782dc352cec187845d17eedc2c2bfcf67
->>> ("[NETFILTER]: nf_nat: use RCU for bysource hash") as a possible cause
->>> of the problem.
->>=20
->> We have a similar looking report, but that one also affects 2.6.24:
->>=20
->> http://bugzilla.kernel.org/show_bug.cgi?id=3D10875
->>=20
->> Anyways, does this patch help? When reallocating storage
->> for a conntrack, it is replaced in the list before assigning
->> the nat->ct pointer.
->
->
-> I'm afraid we also need this one on top - when reallocating
-> an extension, we must not free the old storage since it may
-> still be used in a RCU read side.
-
-It does not help here: 2.6.26-rc5 plus two above patches still crashes.
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-1016760698-1212853508=:13503--
+Index: linux-2.6.25.4/drivers/ssb/driver_pcicore.c
+===================================================================
+--- linux-2.6.25.4.orig/drivers/ssb/driver_pcicore.c	2008-05-22 16:35:41.000000000 +0200
++++ linux-2.6.25.4/drivers/ssb/driver_pcicore.c	2008-06-07 17:20:55.000000000 +0200
+@@ -516,18 +516,18 @@ int ssb_pcicore_dev_irqvecs_enable(struc
+ {
+ 	struct ssb_device *pdev = pc->dev;
+ 	struct ssb_bus *bus;
+ 	int err = 0;
+ 	u32 tmp;
+ 
+-	might_sleep();
+-
+ 	if (!pdev)
+ 		goto out;
+ 	bus = pdev->bus;
+ 
++	might_sleep_if(pdev->id.coreid != SSB_DEV_PCI);
++
+ 	/* Enable interrupts for this device. */
+ 	if (bus->host_pci &&
+ 	    ((pdev->id.revision >= 6) || (pdev->id.coreid == SSB_DEV_PCIE))) {
+ 		u32 coremask;
+ 
+ 		/* Calculate the "coremask" for the device. */
