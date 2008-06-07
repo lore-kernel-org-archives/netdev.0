@@ -1,57 +1,156 @@
-From: Michele Petrazzo - Unipex srl <michele.petrazzo@unipex.it>
-Subject: vlan lost tag
-Date: Sat, 07 Jun 2008 18:29:40 +0200
-Message-ID: <484AB774.3020608@unipex.it>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: [PATCH] [ROSE] improving AX25 routing frames via ROSE network
+Date: Sat, 7 Jun 2008 19:44:07 +0200
+Message-ID: <200806071944.07304.bpidoux@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay0.fra.interoute.net ([212.23.33.89]:42200 "EHLO
-	relay0.fra.interoute.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762912AbYFGQzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2008 12:55:36 -0400
-Received: from debian-srv (unknown [89.202.235.9])
-	by relay0.fra.interoute.net (Postfix) with ESMTP id 7E223BEE4
-	for <netdev@vger.kernel.org>; Sat,  7 Jun 2008 16:29:40 +0000 (UTC)
-Received: from [192.168.1.103] (michele [192.168.1.103])
-	by debian-srv (Postfix) with ESMTP id 4BAF77082F
-	for <netdev@vger.kernel.org>; Sat,  7 Jun 2008 18:29:40 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	"linux-hams" <linux-hams@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-(I hope that this is the right ml, since vlan one seem to be closed).
-I have a problem with two linux-box configured with a vlan and a HP
-switch (1700 serie):
-I configure the switch with the port 2 and 4 (where pcs are connected)
-for only allow to pass the tag 16, configure both linux-box with vlan
-16, but the communication starts but doesn't end.
+ROSE network is organized through nodes connected via hamradio or Internet.
+AX25 packet radio frames sent to a remote ROSE address destination are routed
+through these nodes.
 
-My tests:
+Without the present patch, automatic routing mechanism did not work optimally
+due to an improper parameter checking.
 
-pc1 -> ping pc2
-pc1 -> tcpdump -> vlan 16, p 0, arp who-has pc2 tell pc1
+rose_get_neigh() function is called either by rose_connect() or by
+rose_route_frame().
 
-(nothing other, or better, one per second :) )
+In the case of a call from rose_connect(), f0 timer is checked to find if a connection
+is already pending. In that case it returns the address of the neighbour, or returns a NULL otherwise.
 
-pc2 -> tcpdump -> arp who-has pc2 tell pc1
-pc2 -> tcpdump -> arp reply pc2 is-at XXXX (the mac)
+When called by rose_route_frame() the purpose was to route a packet AX25 frame
+through an adjacent node given a destination rose address.
+However, in that case, t0 timer checked does not indicate if the adjacent node
+is actually connected even if the timer is not null. Thus, for each frame sent, the
+function often tried to start a new connexion even if the adjacent node was already connected.
 
-And no other traffic.
+The patch adds a "new" parameter that is true when the function is called by
+rose route_frame().
+This instructs rose_get_neigh() to check node parameter "restarted". 
+If restarted is true it means that the route to the destination address is opened via a neighbour
+node already connected.
+If "restarted" is false the function returns a NULL.
+In that case the calling function will initiate a new connection as before.
 
-Like you can see, on the pc2, there is no "vlan" string into the tcpdump
-output...
+This results in a fast routing of frames, from nodes to nodes, until
+destination is reached, as originaly specified by ROSE protocole.
 
-If I try to start the communication from the pc2, it's the same. The
-packet leave with the vlan 16 and arrive without it. Can be a
-switch problem?
+Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+---
+ include/net/rose.h    |    2 +-
+ net/rose/af_rose.c    |    4 ++--
+ net/rose/rose_route.c |   29 ++++++++++++++++++-----------
+ 3 files changed, 21 insertions(+), 14 deletions(-)
 
-Another try that I do was to disable the switch vlan control (hp call
-it "vlan aware enabled port") for my two ports and now the traffic shown
-by tcpdump are both with "vlan 16" and the communication works!!!
+diff --git a/include/net/rose.h b/include/net/rose.h
+index e5bb084..cbd5364 100644
+--- a/include/net/rose.h
++++ b/include/net/rose.h
+@@ -201,7 +201,7 @@ extern void rose_link_device_down(struct net_device *);
+ extern struct net_device *rose_dev_first(void);
+ extern struct net_device *rose_dev_get(rose_address *);
+ extern struct rose_route *rose_route_free_lci(unsigned int, struct rose_neigh *);
+-extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char *, unsigned char *);
++extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char *, unsigned char *, int);
+ extern int  rose_rt_ioctl(unsigned int, void __user *);
+ extern void rose_link_failed(ax25_cb *, int);
+ extern int  rose_route_frame(struct sk_buff *, ax25_cb *);
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index 1ebf652..f7f7ec8 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -759,7 +759,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
+ 	sock->state = SS_UNCONNECTED;
+ 
+ 	rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause,
+-					 &diagnostic);
++					 &diagnostic, 0);
+ 	if (!rose->neighbour) {
+ 		err = -ENETUNREACH;
+ 		goto out_release;
+@@ -855,7 +855,7 @@ rose_try_next_neigh:
+ 
+ 	if (sk->sk_state != TCP_ESTABLISHED) {
+ 	/* Try next neighbour */
+-		rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause, &diagnostic);
++		rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause, &diagnostic, 0);
+ 		if (rose->neighbour)
+ 			goto rose_try_next_neigh;
+ 
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index bd59387..a81066a 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -662,27 +662,34 @@ struct rose_route *rose_route_free_lci(unsigned int lci, struct rose_neigh *neig
+ }
+ 
+ /*
+- *	Find a neighbour given a ROSE address.
++ *	Find a neighbour or a route given a ROSE address.
+  */
+ struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char *cause,
+-	unsigned char *diagnostic)
++	unsigned char *diagnostic, int new)
+ {
+ 	struct rose_neigh *res = NULL;
+ 	struct rose_node *node;
+ 	int failed = 0;
+ 	int i;
+ 
+-	spin_lock_bh(&rose_node_list_lock);
++	if (!new) spin_lock_bh(&rose_node_list_lock);
+ 	for (node = rose_node_list; node != NULL; node = node->next) {
+ 		if (rosecmpm(addr, &node->address, node->mask) == 0) {
+ 			for (i = 0; i < node->count; i++) {
+-				if (!rose_ftimer_running(node->neighbour[i])) {
+-					res = node->neighbour[i];
+-					goto out;
+-				} else
+-					failed = 1;
++				if (new) {
++					if (node->neighbour[i]->restarted) {
++						res = node->neighbour[i];
++						goto out;
++					}
++				}
++				else {
++					if (!rose_ftimer_running(node->neighbour[i])) {
++						res = node->neighbour[i];
++						goto out;
++					} else
++						failed = 1;
++				}
+ 			}
+-			break;
+ 		}
+ 	}
+ 
+@@ -695,7 +702,7 @@ struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char *cause,
+ 	}
+ 
+ out:
+-	spin_unlock_bh(&rose_node_list_lock);
++	if (!new) spin_unlock_bh(&rose_node_list_lock);
+ 
+ 	return res;
+ }
+@@ -1018,7 +1025,7 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+ 		rose_route = rose_route->next;
+ 	}
+ 
+-	if ((new_neigh = rose_get_neigh(dest_addr, &cause, &diagnostic)) == NULL) {
++	if ((new_neigh = rose_get_neigh(dest_addr, &cause, &diagnostic, 1)) == NULL) {
+ 		rose_transmit_clear_request(rose_neigh, lci, cause, diagnostic);
+ 		goto out;
+ 	}
+-- 
+1.5.5
 
-What can be?
-
-Thanks,
-Michele
