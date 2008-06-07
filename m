@@ -1,156 +1,146 @@
-From: Bernard Pidoux <bpidoux@free.fr>
-Subject: [PATCH] [ROSE] improving AX25 routing frames via ROSE network
-Date: Sat, 7 Jun 2008 19:44:07 +0200
-Message-ID: <200806071944.07304.bpidoux@free.fr>
+From: Karen Shaeffer <shaeffer@neuralscape.com>
+Subject: Re: [PATCH] forcedeth: msi interrupts
+Date: Sat, 7 Jun 2008 11:31:06 -0700
+Message-ID: <20080607183106.GA14526@synapse.neuralscape.com>
+References: <20080606141054.432ec910.akpm@linux-foundation.org> <F72FA20C31DD4F4C997B91C5B3690A090B146100@hqemmail07.nvidia.com> <20080606214016.GA3345@synapse.neuralscape.com>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	"linux-hams" <linux-hams@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, jgarzik@pobox.com,
+	manfred@colorfullife.com, netdev@vger.kernel.org
+To: Ayaz Abdulla <AAbdulla@nvidia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from synapse.neuralscape.com ([198.144.200.82]:40245 "EHLO
+	neuralscape.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762063AbYFGSba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2008 14:31:30 -0400
 Content-Disposition: inline
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080606214016.GA3345@synapse.neuralscape.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ROSE network is organized through nodes connected via hamradio or Internet.
-AX25 packet radio frames sent to a remote ROSE address destination are routed
-through these nodes.
+On Fri, Jun 06, 2008 at 02:40:16PM -0700, Karen Shaeffer wrote:
+> On Fri, Jun 06, 2008 at 02:19:31PM -0700, Ayaz Abdulla wrote:
+> > Yes, that would be great!
+> 
+> Hi Ayaz,
+> How far back should it be back ported? Do you know?
 
-Without the present patch, automatic routing mechanism did not work optimally
-due to an improper parameter checking.
 
-rose_get_neigh() function is called either by rose_connect() or by
-rose_route_frame().
+Hello,
+Let me explain and maybe get some advice. I have recently
+done work with the Sun Netra X4200 M2 Server that uses
+the Nvidia CK48 chipset and the forcedeth driver. You can
+see an architecture overview here:
+http://www.sun.com/servers/netra/x4200/wp.pdf
 
-In the case of a call from rose_connect(), f0 timer is checked to find if a connection
-is already pending. In that case it returns the address of the neighbour, or returns a NULL otherwise.
+The Nvidia NIC that is integrated into the Nvidia 2200 chip,
+has a failure mode for the following linux kernels
+2.6.21.x
+2.6.23.x
+2.6.24.x
+RHEL 2.6.18*
 
-When called by rose_route_frame() the purpose was to route a packet AX25 frame
-through an adjacent node given a destination rose address.
-However, in that case, t0 timer checked does not indicate if the adjacent node
-is actually connected even if the timer is not null. Thus, for each frame sent, the
-function often tried to start a new connexion even if the adjacent node was already connected.
+The NIC will hang under specific conditions for all these
+kernels. First, you must run the NIC in 100 Mb mode with autoneg
+enabled, then it will always link in a mismatch with the switch.
+The switch will link at 100 Mb full duplex, while the Nvidia NIC
+will link at 100 Mb half duplex. This was shown with both Cisco
+managed switches and HP managed switches, and I suspect it will
+happen with any switch. (You can force the NIC to 100 Mb full,
+but autoneg will always result in the link mismatch.)
 
-The patch adds a "new" parameter that is true when the function is called by
-rose route_frame().
-This instructs rose_get_neigh() to check node parameter "restarted". 
-If restarted is true it means that the route to the destination address is opened via a neighbour
-node already connected.
-If "restarted" is false the function returns a NULL.
-In that case the calling function will initiate a new connection as before.
+Once this link mismatch is in effect, then, if you run it long
+enough, the NIC will eventually hang and become completely
+disabled. (I know you shouldn't run a NIC in link mismatch, but end
+users in the field sometimes don't realize it has happened.) It could
+take days or weeks under reasonably heavy load, but it will always
+hang in the end. Continually rebooting the server will result in the
+hang in a matter of hours, where the link negotiation results in the
+hang. No packets are ever transmitted in these cases. Because it
+is reproducable in a matter of hours, this is the preferred way to
+reproduce the failure mode.
 
-This results in a fast routing of frames, from nodes to nodes, until
-destination is reached, as originaly specified by ROSE protocole.
+The ethtool online test will pass. The ethtool offline test
+will fail. The driver does TX register dumps into the logs and
+reports TX busy errors. I provided all this information to Ayaz
+in real time, but never got any response or comment from him.
 
-Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
----
- include/net/rose.h    |    2 +-
- net/rose/af_rose.c    |    4 ++--
- net/rose/rose_route.c |   29 ++++++++++++++++++-----------
- 3 files changed, 21 insertions(+), 14 deletions(-)
+Even a soft reboot will not clear this failure. This initially
+lead me to conclude this is a hardware failure, but it isn't
+100% certain to be the case. This is because the NIC is known
+to hang at boot time during the link negotiation, where no
+packets are ever transmitted. I didn't have time to fully
+understand this failure mode, but it could be that a soft
+reboot does clear the failure. And then at boot time link
+negotiation, it fails immediately, giving the appearance
+of a HW failure sustained across a soft reboot. I did not
+investigate enough to conclude with certainty it is a HW
+failure.
 
-diff --git a/include/net/rose.h b/include/net/rose.h
-index e5bb084..cbd5364 100644
---- a/include/net/rose.h
-+++ b/include/net/rose.h
-@@ -201,7 +201,7 @@ extern void rose_link_device_down(struct net_device *);
- extern struct net_device *rose_dev_first(void);
- extern struct net_device *rose_dev_get(rose_address *);
- extern struct rose_route *rose_route_free_lci(unsigned int, struct rose_neigh *);
--extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char *, unsigned char *);
-+extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char *, unsigned char *, int);
- extern int  rose_rt_ioctl(unsigned int, void __user *);
- extern void rose_link_failed(ax25_cb *, int);
- extern int  rose_route_frame(struct sk_buff *, ax25_cb *);
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 1ebf652..f7f7ec8 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -759,7 +759,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
- 	sock->state = SS_UNCONNECTED;
- 
- 	rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause,
--					 &diagnostic);
-+					 &diagnostic, 0);
- 	if (!rose->neighbour) {
- 		err = -ENETUNREACH;
- 		goto out_release;
-@@ -855,7 +855,7 @@ rose_try_next_neigh:
- 
- 	if (sk->sk_state != TCP_ESTABLISHED) {
- 	/* Try next neighbour */
--		rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause, &diagnostic);
-+		rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause, &diagnostic, 0);
- 		if (rose->neighbour)
- 			goto rose_try_next_neigh;
- 
-diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
-index bd59387..a81066a 100644
---- a/net/rose/rose_route.c
-+++ b/net/rose/rose_route.c
-@@ -662,27 +662,34 @@ struct rose_route *rose_route_free_lci(unsigned int lci, struct rose_neigh *neig
- }
- 
- /*
-- *	Find a neighbour given a ROSE address.
-+ *	Find a neighbour or a route given a ROSE address.
-  */
- struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char *cause,
--	unsigned char *diagnostic)
-+	unsigned char *diagnostic, int new)
- {
- 	struct rose_neigh *res = NULL;
- 	struct rose_node *node;
- 	int failed = 0;
- 	int i;
- 
--	spin_lock_bh(&rose_node_list_lock);
-+	if (!new) spin_lock_bh(&rose_node_list_lock);
- 	for (node = rose_node_list; node != NULL; node = node->next) {
- 		if (rosecmpm(addr, &node->address, node->mask) == 0) {
- 			for (i = 0; i < node->count; i++) {
--				if (!rose_ftimer_running(node->neighbour[i])) {
--					res = node->neighbour[i];
--					goto out;
--				} else
--					failed = 1;
-+				if (new) {
-+					if (node->neighbour[i]->restarted) {
-+						res = node->neighbour[i];
-+						goto out;
-+					}
-+				}
-+				else {
-+					if (!rose_ftimer_running(node->neighbour[i])) {
-+						res = node->neighbour[i];
-+						goto out;
-+					} else
-+						failed = 1;
-+				}
- 			}
--			break;
- 		}
- 	}
- 
-@@ -695,7 +702,7 @@ struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char *cause,
- 	}
- 
- out:
--	spin_unlock_bh(&rose_node_list_lock);
-+	if (!new) spin_unlock_bh(&rose_node_list_lock);
- 
- 	return res;
- }
-@@ -1018,7 +1025,7 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
- 		rose_route = rose_route->next;
- 	}
- 
--	if ((new_neigh = rose_get_neigh(dest_addr, &cause, &diagnostic)) == NULL) {
-+	if ((new_neigh = rose_get_neigh(dest_addr, &cause, &diagnostic, 1)) == NULL) {
- 		rose_transmit_clear_request(rose_neigh, lci, cause, diagnostic);
- 		goto out;
- 	}
+I did determine that a double hard reboot, where the second
+reboot is executed while the Netra is in the BIOS POST will
+always clear the NIC failure. This lead me to conclude with
+reasonable certainty this is a hardware failure that can
+occur at 100 Mb mode with a link mismatch. But I am not
+certain as stated above. Nvidia never did provide a resolution
+to this problem, despite the fact they were provided substantial
+information characterizing the failures and clear instructions
+on how to reproduce it within a few hours.
+
+I've always known there may be a driver workaround for this
+failure. And if there is a driver workaround it would likely
+be related to interrupts. So, that was my motivation to ask
+the original question here. In the future, I will likely
+just dump all the data into bugzilla, as it seems like
+the preferred response to such a set of circumtances.
+
+Thanks,
+Karen
+
+> > -----Original Message-----
+> > From: Andrew Morton [mailto:akpm@linux-foundation.org] 
+> > Sent: Friday, June 06, 2008 2:11 PM
+> > To: Ayaz Abdulla
+> > Cc: jgarzik@pobox.com; manfred@colorfullife.com; netdev@vger.kernel.org
+> > Subject: Re: [PATCH] forcedeth: msi interrupts
+> > 
+> > 
+> > On Fri, 06 Jun 2008 14:04:05 -0400
+> > Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+> > 
+> > > 
+> > > 
+> > > Andrew Morton wrote:
+> > > > On Fri, 06 Jun 2008 13:15:32 -0400
+> > > > Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+> > > > 
+> > > > 
+> > > >>Andrew Morton wrote:
+> > > >>
+> > > >>>On Tue, 03 Jun 2008 16:51:46 -0400
+> > > >>>Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+> > > >>>
+> > > >>> > This patch adds a workaround for lost MSI interrupts. There is a
+> > race
+> > > >>> > condition in the HW in which future interrupts could be missed.
+> > The
+> > > >>> > workaround is to toggle the MSI irq mask.
+> > > >>> >
+> > > >>>
+> > > >>>Do you think this is a 2.6.26 thing?
+> > > >>
+> > > >>It is by HW design, not related to the kernel.
+> > > > 
+> > > > 
+> > > > Sorry, what I meant was: do you believe that this patch should be in
+> > > > 2.6.26?
+> > > Yes, it should be treated as a critical fix.
+> > 
+> > So should it also be backported into 2.6.25.x?
+> > 
+> > Bear in mind that $major_distros are apparently basing product on
+> > 2.6.25.
 -- 
-1.5.5
-
+ Karen Shaeffer
+ Neuralscape, Palo Alto, Ca. 94306
+ shaeffer@neuralscape.com  http://www.neuralscape.com
