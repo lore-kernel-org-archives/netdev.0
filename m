@@ -1,57 +1,57 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH stable] ssb: Fix context assertion in ssb_pcicore_dev_irqvecs_enable
-Date: Sat, 7 Jun 2008 17:57:37 +0200
-Message-ID: <200806071757.38139.mb@bu3sch.de>
+From: Michele Petrazzo - Unipex srl <michele.petrazzo@unipex.it>
+Subject: vlan lost tag
+Date: Sat, 07 Jun 2008 18:29:40 +0200
+Message-ID: <484AB774.3020608@unipex.it>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-kernel" <linux-kernel@vger.kernel.org>
-To: stable@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:47481 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760061AbYFGP6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2008 11:58:40 -0400
-Content-Disposition: inline
+Received: from relay0.fra.interoute.net ([212.23.33.89]:42200 "EHLO
+	relay0.fra.interoute.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762912AbYFGQzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2008 12:55:36 -0400
+Received: from debian-srv (unknown [89.202.235.9])
+	by relay0.fra.interoute.net (Postfix) with ESMTP id 7E223BEE4
+	for <netdev@vger.kernel.org>; Sat,  7 Jun 2008 16:29:40 +0000 (UTC)
+Received: from [192.168.1.103] (michele [192.168.1.103])
+	by debian-srv (Postfix) with ESMTP id 4BAF77082F
+	for <netdev@vger.kernel.org>; Sat,  7 Jun 2008 18:29:40 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a context assertion in ssb that makes b44 print
-out warnings on resume.
+Hi all,
+(I hope that this is the right ml, since vlan one seem to be closed).
+I have a problem with two linux-box configured with a vlan and a HP
+switch (1700 serie):
+I configure the switch with the port 2 and 4 (where pcs are connected)
+for only allow to pass the tag 16, configure both linux-box with vlan
+16, but the communication starts but doesn't end.
 
-This fixes the following kernel oops:
-http://www.kerneloops.org/oops.php?number=12732
-http://www.kerneloops.org/oops.php?number=11410
+My tests:
 
-Upstream commit is a3bafeedfff2ac5fa0a316bea4570e27900b6fcc
+pc1 -> ping pc2
+pc1 -> tcpdump -> vlan 16, p 0, arp who-has pc2 tell pc1
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+(nothing other, or better, one per second :) )
 
+pc2 -> tcpdump -> arp who-has pc2 tell pc1
+pc2 -> tcpdump -> arp reply pc2 is-at XXXX (the mac)
 
-Index: linux-2.6.25.4/drivers/ssb/driver_pcicore.c
-===================================================================
---- linux-2.6.25.4.orig/drivers/ssb/driver_pcicore.c	2008-05-22 16:35:41.000000000 +0200
-+++ linux-2.6.25.4/drivers/ssb/driver_pcicore.c	2008-06-07 17:20:55.000000000 +0200
-@@ -516,18 +516,18 @@ int ssb_pcicore_dev_irqvecs_enable(struc
- {
- 	struct ssb_device *pdev = pc->dev;
- 	struct ssb_bus *bus;
- 	int err = 0;
- 	u32 tmp;
- 
--	might_sleep();
--
- 	if (!pdev)
- 		goto out;
- 	bus = pdev->bus;
- 
-+	might_sleep_if(pdev->id.coreid != SSB_DEV_PCI);
-+
- 	/* Enable interrupts for this device. */
- 	if (bus->host_pci &&
- 	    ((pdev->id.revision >= 6) || (pdev->id.coreid == SSB_DEV_PCIE))) {
- 		u32 coremask;
- 
- 		/* Calculate the "coremask" for the device. */
+And no other traffic.
+
+Like you can see, on the pc2, there is no "vlan" string into the tcpdump
+output...
+
+If I try to start the communication from the pc2, it's the same. The
+packet leave with the vlan 16 and arrive without it. Can be a
+switch problem?
+
+Another try that I do was to disable the switch vlan control (hp call
+it "vlan aware enabled port") for my two ports and now the traffic shown
+by tcpdump are both with "vlan 16" and the communication works!!!
+
+What can be?
+
+Thanks,
+Michele
