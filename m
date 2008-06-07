@@ -1,42 +1,88 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: [PATCH 1/2] make walk_memory_resource available with
-	MEMORY_HOTPLUG=n
-Date: Sat, 7 Jun 2008 15:48:47 +1000
-Message-ID: <18506.8511.894470.70244@cargo.ozlabs.ibm.com>
-References: <200805071443.20192.hannes.hering@linux.vnet.ibm.com>
-	<20080528164405.GA4836@localdomain>
-	<200806031007.40162.hannes.hering@linux.vnet.ibm.com>
-	<20080603204908.GB7475@localdomain>
-	<1212527335.23656.2.camel@badari-desktop>
-	<4845B382.20205@garzik.org> <20080603223054.GC7475@localdomain>
-	<20080606230638.GC6638@localdomain>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: bug report
+Date: Fri, 6 Jun 2008 22:56:43 -0700
+Message-ID: <20080606225643.8be222a9.akpm@linux-foundation.org>
+References: <48499731.1080807@gmail.com>
+	<6101e8c40806061844g5b7676d4xb48c5c69ad48391f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tklein@de.ibm.com, Jeff Garzik <jeff@garzik.org>, themann@de.ibm.com,
-	Hannes Hering <hannes.hering@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ossrosch@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
-	raisch@de.ibm.com, Badari Pulavarty <pbadari@us.ibm.com>,
-	ossthema@de.ibm.com
-To: Nathan Lynch <ntl@pobox.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20080606230638.GC6638@localdomain>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: zsirmo@zsirmo.hu, linux-kernel@vger.kernel.org,
+	"Ingo Molnar" <mingo@elte.hu>, netdev <netdev@vger.kernel.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: "Oliver Pinter" <oliver.pntr@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41029 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755259AbYFGF47 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2008 01:56:59 -0400
+In-Reply-To: <6101e8c40806061844g5b7676d4xb48c5c69ad48391f@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nathan Lynch writes:
+On Sat, 7 Jun 2008 03:44:32 +0200 "Oliver Pinter" <oliver.pntr@gmail.com> wrote:
 
-> Paul, can you take these two patches, or should I send them to akpm?
+> Add Ingon and netdev to CC
+> 
+> 
+> On 6/6/08, Zsiros Attila <zsirmo@gmail.com> wrote:
+> > Hy!
+> >
+> > I have a problem.
+> >
+> > http://www.cyberszeg.hu/log/kern.log
+> > http://www.cyberszeg.hu/log/config-2.6.25.4
+> > http://www.cyberszeg.hu/log/lspci.txt
+> > http://www.cyberszeg.hu/log/ifconfig.txt
+> >
 
-I'll take them.  I assume we want this in 2.6.26.
+: Jun  6 14:03:07 www kernel: [ 5897.660390] NETDEV WATCHDOG: eth0: transmit timed out
+: Jun  6 14:03:07 www kernel: [ 5897.660398] tg3: eth0: transmit timed out, resetting
+: Jun  6 14:03:07 www kernel: [ 5897.660432] tg3: DEBUG: MAC_TX_STATUS[0000001e] MAC_RX_STATUS[0000000e]
+: Jun  6 14:03:07 www kernel: [ 5897.660454] tg3: DEBUG: RDMAC_STATUS[00000000] WDMAC_STATUS[00000000]
+: Jun  6 14:03:07 www kernel: [ 5897.762983] tg3: tg3_stop_block timed out, ofs=1800 enable_bit=2
+: Jun  6 14:03:07 www kernel: [ 5897.864168] tg3: tg3_stop_block timed out, ofs=c00 enable_bit=2
+: Jun  6 14:03:07 www kernel: [ 5897.965619] tg3: tg3_stop_block timed out, ofs=4800 enable_bit=2
 
-Paul.
+That looks like a driver failure.
+
+: Jun  6 14:03:07 www kernel: [ 5898.096689] tg3: eth0: Link is down.
+: Jun  6 14:03:11 www kernel: [ 5901.633931] tg3: eth0: Link is up at 1000 Mbps, full duplex.
+: Jun  6 14:03:11 www kernel: [ 5901.633937] tg3: eth0: Flow control is on for TX and on for RX.
+: Jun  6 14:04:11 www kernel: [ 6464.556309] clamscan: page allocation failure. order:3, mode:0x4020
+: Jun  6 14:04:11 www kernel: [ 6464.556319] Pid: 24139, comm: clamscan Not tainted 2.6.25.4 #1
+: Jun  6 14:04:11 www kernel: [ 6464.556325] 
+: Jun  6 14:04:11 www kernel: [ 6464.556326] Call Trace:
+: Jun  6 14:04:11 www kernel: [ 6464.556329]  <IRQ>  [__alloc_pages+544/890] __alloc_pages+0x220/0x37a
+: Jun  6 14:04:11 www kernel: [ 6464.556353]  [tcp_v4_do_rcv+186/504] tcp_v4_do_rcv+0xba/0x1f8
+: Jun  6 14:04:11 www kernel: [ 6464.556359]  [ktime_get+12/98] ktime_get+0xc/0x62
+: Jun  6 14:04:11 www kernel: [ 6464.556364]  [__netdev_alloc_skb+23/49] __netdev_alloc_skb+0x17/0x31
+: Jun  6 14:04:11 www kernel: [ 6464.556370]  [__slab_alloc+330/1403] __slab_alloc+0x14a/0x57b
+: Jun  6 14:04:11 www kernel: [ 6464.556374]  [__netdev_alloc_skb+23/49] __netdev_alloc_skb+0x17/0x31
+: Jun  6 14:04:11 www kernel: [ 6464.556379]  [__netdev_alloc_skb+23/49] __netdev_alloc_skb+0x17/0x31
+: Jun  6 14:04:11 www kernel: [ 6464.556384]  [__kmalloc_track_caller+185/190] __kmalloc_track_caller+0xb9/0xbe
+: Jun  6 14:04:11 www kernel: [ 6464.556391]  [__alloc_skb+86/305] __alloc_skb+0x56/0x131
+: Jun  6 14:04:11 www kernel: [ 6464.556395]  [__netdev_alloc_skb+23/49] __netdev_alloc_skb+0x17/0x31
+: Jun  6 14:04:11 www kernel: [ 6464.556408]  [_end+128472975/2130444940] :tg3:tg3_alloc_rx_skb+0x8f/0x17e
+: Jun  6 14:04:11 www kernel: [ 6464.556418]  [_end+128493403/2130444940] :tg3:tg3_poll+0x6e8/0x922
+: Jun  6 14:04:11 www kernel: [ 6464.556426]  [net_rx_action+134/309] net_rx_action+0x86/0x135
+: Jun  6 14:04:11 www kernel: [ 6464.556433]  [__do_softirq+102/212] __do_softirq+0x66/0xd4
+: Jun  6 14:04:11 www kernel: [ 6464.556439]  [call_softirq+28/48] call_softirq+0x1c/0x30
+: Jun  6 14:04:11 www kernel: [ 6464.556444]  [do_softirq+48/107] do_softirq+0x30/0x6b
+: Jun  6 14:04:11 www kernel: [ 6464.556448]  [do_IRQ+114/212] do_IRQ+0x72/0xd4
+: Jun  6 14:04:11 www kernel: [ 6464.556453]  [ret_from_intr+0/10] ret_from_intr+0x0/0xa
+
+The driver is trying to do a 32 kbyte GFP_ATOMIC memory allocation. 
+rofl, good luck with that.
+
+But the netwoking code sould survive this.
+
+<12 billion more page allocation failures>
+
+Are you using jumbo frames or have you manually set the MTU to
+something enormous?  Because 32k is a pretty crazy amount of memory for
+the driver to be trying to allocate - it's going to fail all over the
+place, as you have discovered.
+
+
