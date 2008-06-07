@@ -1,58 +1,48 @@
-From: "Oliver Pinter" <oliver.pntr@gmail.com>
-Subject: Re: bug report
-Date: Sat, 7 Jun 2008 03:45:04 +0200
-Message-ID: <6101e8c40806061845y20cc6f15ne27bb51142782759@mail.gmail.com>
-References: <48499731.1080807@gmail.com>
-	 <6101e8c40806061844g5b7676d4xb48c5c69ad48391f@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, "Ingo Molnar" <mingo@elte.hu>,
-	netdev <netdev@vger.kernel.org>
-To: zsirmo@zsirmo.hu
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH net-next] sctp: Fix problems with the new SCTP_DELAYED_ACK code
+Date: Fri,  6 Jun 2008 22:50:07 -0400
+Message-ID: <1212807007-24379-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:36667 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753636AbYFGBpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 21:45:06 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so839080fgg.17
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2008 18:45:06 -0700 (PDT)
-In-Reply-To: <6101e8c40806061844g5b7676d4xb48c5c69ad48391f@mail.gmail.com>
-Content-Disposition: inline
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:40339 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753822AbYFGCuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2008 22:50:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, s/Ingon/Ingo/
+The default sack frequency should be 2.  Also fix copy/paste
+error when updating all transports.
 
-On 6/7/08, Oliver Pinter <oliver.pntr@gmail.com> wrote:
-> Add Ingon and netdev to CC
->
->
-> On 6/6/08, Zsiros Attila <zsirmo@gmail.com> wrote:
->> Hy!
->>
->> I have a problem.
->>
->> http://www.cyberszeg.hu/log/kern.log
->> http://www.cyberszeg.hu/log/config-2.6.25.4
->> http://www.cyberszeg.hu/log/lspci.txt
->> http://www.cyberszeg.hu/log/ifconfig.txt
->>
->> Best regards Zsirmo
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
->>
->
->
-> --
-> Thanks,
-> Oliver
->
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/socket.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 81600ee..253e5ea 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2471,7 +2471,7 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
+ 					(trans->param_flags & ~SPP_SACKDELAY) |
+ 					SPP_SACKDELAY_ENABLE;
+ 			}
+-			if (params.sack_delay == 1) {
++			if (params.sack_freq == 1) {
+ 				trans->param_flags =
+ 					(trans->param_flags & ~SPP_SACKDELAY) |
+ 					SPP_SACKDELAY_DISABLE;
+@@ -3536,7 +3536,7 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
+ 	sp->pathmaxrxt  = sctp_max_retrans_path;
+ 	sp->pathmtu     = 0; // allow default discovery
+ 	sp->sackdelay   = sctp_sack_timeout;
+-	sp->sackfreq	= 3;
++	sp->sackfreq	= 2;
+ 	sp->param_flags = SPP_HB_ENABLE |
+ 			  SPP_PMTUD_ENABLE |
+ 			  SPP_SACKDELAY_ENABLE;
 -- 
-Thanks,
-Oliver
+1.5.3.5
+
