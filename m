@@ -1,108 +1,91 @@
-From: Zsiros Attila <zsirmo@zsirmo.hu>
-Subject: Re: bug report
-Date: Sun, 08 Jun 2008 13:56:12 +0200
-Message-ID: <484BC8DC.6080606@zsirmo.hu>
-References: <48499731.1080807@gmail.com>	 <6101e8c40806061844g5b7676d4xb48c5c69ad48391f@mail.gmail.com>	 <20080606225643.8be222a9.akpm@linux-foundation.org>	 <Pine.LNX.4.64.0806071141480.24862@wrl-59.cs.helsinki.fi>	 <6101e8c40806070550h62866816s1d8f8c1ba31f59f@mail.gmail.com>	 <20080607150948.GA4690@linuxace.com> <6101e8c40806071153r1c3dbd03lffa6c43a9140ad4d@mail.gmail.com>
-Reply-To: zsirmo@zsirmo.hu
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies available to userspace
+Date: Sun, 8 Jun 2008 14:21:25 +0200
+Message-ID: <200806081421.25688.tomasz@grobelny.oswiecenia.net>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806011948.39770.tomasz@grobelny.oswiecenia.net> <20080604150942.GA4980@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Phil Oester <kernel@linuxace.com>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
-	netdev <netdev@vger.kernel.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Brian Vowell <brian.vowell@gmail.com>
-To: Oliver Pinter <oliver.pntr@gmail.com>
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.zsirmo.hu ([84.21.11.243]:54583 "EHLO server.zsirmo.hu"
+Received: from oswiecenia.net ([83.13.108.58]:2810 "EHLO poczta.oswiecenia.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758020AbYFHL4b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2008 07:56:31 -0400
-In-Reply-To: <6101e8c40806071153r1c3dbd03lffa6c43a9140ad4d@mail.gmail.com>
+	id S1761000AbYFHMVs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2008 08:21:48 -0400
+In-Reply-To: <20080604150942.GA4980@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hy!
-
-Newer log
-http://www.cyberszeg.hu/log/kern2.log
-
-Zsirmo
-
-Oliver Pinter =EDrta:
-> Hi!
+Dnia Wednesday 04 of June 2008, Gerrit Renker napisa=B3:
+> | Now that I had a closer look at implementing this functionality I h=
+ave a
+> | few questions:
+> | 1. Where should information about available qpolicies and their par=
+ametrs
+> | be exported? Would /proc/net/dccp/qpolicies/ be a good choice?
 >
-> Attila first use one other nic (rtl8169), and after one other (3com
-> BCM570). All NIC producted this error...
-> the full thread in Hungarian Unix Portal: http://hup.hu/node/56295
+> For a sketch or a first implementation, procfs sounds like a good sta=
+rting
+> point.
 >
-> On 6/7/08, Phil Oester <kernel@linuxace.com> wrote:
->  =20
->> On Sat, Jun 07, 2008 at 02:50:06PM +0200, Oliver Pinter wrote:
->>    =20
->>> [snip]
->>> Jun  6 14:04:11 www kernel: [ 6464.556309] clamscan: page allocatio=
-n
->>> failure. order:3, mode:0x4020 <------------- this
->>>      =20
->> "Me too".  Lots of order 3 allocation failures on e1000 nics
->> since upgrading some heavy traffic boxes to 2.6.25 (though from 2.6.=
-21,
->> so unclear on when it began).
->>
->> Phil
->>
->> Jun  2 11:11:24 px01 kernel: swapper: page allocation failure. order=
-:3,
->> mode:0x4020
->> Jun  2 11:11:24 px01 kernel: Pid: 0, comm: swapper Not tainted
->> 2.6.25.2-x86_64.1 #1
->> Jun  2 11:11:24 px01 kernel:
->> Jun  2 11:11:24 px01 kernel: Call Trace:
->> Jun  2 11:11:24 px01 kernel:  <IRQ>  [<ffffffff8024ce51>]
->> __alloc_pages+0x2dd/0x2f6
->> Jun  2 11:11:24 px01 kernel:  [<ffffffff8026578d>] __slab_alloc+0x16=
-e/0x4f9
->> Jun  2 11:11:24 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x16=
-4/0x394
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff802656d0>] __slab_alloc+0xb1=
-/0x4f9
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x16=
-4/0x394
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff8026685d>]
->> __kmalloc_track_caller+0x82/0xb8
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff8036a124>] __alloc_skb+0x5b/=
-0x121
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x16=
-4/0x394
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff80395261>]
->> tcp_prune_queue+0x1ad/0x21e
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff803954ba>]
->> tcp_data_queue+0x1e8/0xbab
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff803974e8>]
->> tcp_rcv_established+0x64c/0x6fc
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff8039c76f>] tcp_v4_do_rcv+0x2=
-c/0x1b4
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff8039e43e>] tcp_v4_rcv+0x6b3/=
-0x705
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff80384cdc>]
->> ip_local_deliver_finish+0xf6/0x1b3
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff80384bc3>] ip_rcv_finish+0x2=
-bf/0x2e2
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff8023ada3>] getnstimeofday+0x=
-2f/0x83
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff8036e6b2>]
->> netif_receive_skb+0x1af/0x21b
->> Jun  2 11:11:25 px01 kernel:  [<ffffffff8032da6d>]
->> e1000_clean_rx_irq+0x3f3/0x4e7
->>
->>
->>    =20
+> But since it is about dynamic runtime configuration, how about using =
+sysfs
+> or configfs instead? This is a brainstorming question, I think that s=
+ysfs
+> is generally preferred. I don't know how well configfs has taken off,=
+ it is
+> similar, but needs to be added in the configuration (under Pseudeo
+> Filesystems, CONFIG_CONFIGFS_FS=3Dy|m) http://lwn.net/Articles/148973=
+/
+> and Documentation/filesystems/configs. But this could be done later a=
+s
+> well.
 >
->
->  =20
+procfs has some fine example of being used for this kind of information=
+,=20
+namely /proc/cpuinfo and /proc/meminfo
+sysfs: from sysfs-rules.txt: "(...) the sysfs interface cannot provide =
+a=20
+stable interface (...)"
+configfs is for configuring kernel from userspace. Which is quite oppos=
+ite to =20
+what we want.
 
+> | 2. I guess we should have at least one file per qpolicy with parame=
+ters
+> | listed inside. Like that:
+> | /proc/.../qpolicies/simple: <empty>
+> | /proc/.../qpolicies/prio: 1 (DCCP_SCM_PRIORITY) 2 (DCCP_SCM_TIMEOUT=
+)
+>
+> Hm this is a "policy" question -- isn't the `timeout' policy a
+> standalone variant?
+>
+It seems we have a bit different views on the subject. But that's to be=
+=20
+decided when somebody comes round to implementing timeout.
+
+> | But we could also have qpolicy represented by directory and paramet=
+ers by
+> | files: /proc/.../qpolicies/simple/
+> | /proc/.../qpolicies/prio/
+> | /proc/.../qpolicies/prio/priority: <empty>
+> | /proc/.../qpolicies/prio/timeout: <empty>
+> | Which layout do you find better?
+> | --
+>
+> I don't like the empty files. In the procfs for thinkpad Acpi
+> configuration, for example, there is a line that says which commands =
+are
+> acceptable, similar for /sys/power/state. In that way, the (sysfs|pro=
+cfs)
+> file documents itself and tells the user what can be done with it. It=
+ would
+> be great if the qpolicies could do something similar.
+>
+Ok, I'll try to write a simple patch for that.
+--=20
+Regards,
+Tomasz Grobelny
