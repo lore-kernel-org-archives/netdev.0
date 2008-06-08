@@ -1,39 +1,43 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: pppoe: Unshare skb before anything else
-Date: Sun, 08 Jun 2008 11:08:59 +0100
-Message-ID: <484BAFBB.6010108@katalix.com>
-References: <20080608062913.GA20871@gondor.apana.org.au>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH 2/4] virtio: Fix typo in virtio_net_hdr comments
+Date: Sun, 8 Jun 2008 20:49:59 +1000
+Message-ID: <200806082050.00149.rusty@rustcorp.com.au>
+References: <200806082049.00641.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Mark McLoughlin <markmc@redhat.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:45049 "EHLO s36.avahost.net"
+Received: from ozlabs.org ([203.10.76.45]:33210 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756171AbYFHKJH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2008 06:09:07 -0400
-In-Reply-To: <20080608062913.GA20871@gondor.apana.org.au>
+	id S1756185AbYFHKuO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2008 06:50:14 -0400
+In-Reply-To: <200806082049.00641.rusty@rustcorp.com.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> Hi Dave:
-> 
-> I noticed that my last patch to move the unshare in pppoe missed
-> the other spot which did the same thing:
-> 
-> pppoe: Unshare skb before anything else
-> 
-> We need to unshare the skb first as otherwise pskb_may_pull may
-> write to a shared skb which could be bad.
+From: Mark McLoughlin <markmc@redhat.com>
 
-The same problem exists in the pppol2tp driver. Patch to follow. I'm 
-also fixing the copy-to-iovec issue.
+Signed-off-by: Mark McLoughlin <markmc@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ include/linux/virtio_net.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
+diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+index 9405aa6..38c0571 100644
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -38,7 +38,7 @@ struct virtio_net_hdr
+ #define VIRTIO_NET_HDR_GSO_ECN		0x80	// TCP has ECN set
+ 	__u8 gso_type;
+ 	__u16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
+-	__u16 gso_size;		/* Bytes to append to gso_hdr_len per frame */
++	__u16 gso_size;		/* Bytes to append to hdr_len per frame */
+ 	__u16 csum_start;	/* Position to start checksumming from */
+ 	__u16 csum_offset;	/* Offset after that to place checksum */
+ };
