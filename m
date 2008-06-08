@@ -1,36 +1,36 @@
-From: Willy Tarreau <w@1wt.eu>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [patch 00/50] 2.6.25.6 -stable review
-Date: Sun, 8 Jun 2008 18:06:56 +0200
-Message-ID: <20080608160656.GL5609@1wt.eu>
-References: <20080607204325.GJ5609@1wt.eu> <BAY103-DAV7370611E1B3FEA8FD69B9B2B10@phx.gbl> <20080608123601.GB10491@1wt.eu> <20080608.071051.212882594.davem@davemloft.net> <20080608103835.0c0b1e83@osprey.hogchain.net>
+Date: Sun, 08 Jun 2008 16:07:47 -0400
+Message-ID: <484C3C13.7020609@garzik.org>
+References: <20080607204325.GJ5609@1wt.eu>	<BAY103-DAV7370611E1B3FEA8FD69B9B2B10@phx.gbl>	<20080608123601.GB10491@1wt.eu>	<20080608.071051.212882594.davem@davemloft.net> <20080608103835.0c0b1e83@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, pupilla@hotmail.com,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, w@1wt.eu, pupilla@hotmail.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	chrisw@sous-sol.org, jeff@garzik.org
+	chrisw@sous-sol.org
 To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1615 "EHLO 1wt.eu"
+Received: from srv5.dvmed.net ([207.36.208.214]:54293 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754762AbYFHQHT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2008 12:07:19 -0400
-Content-Disposition: inline
+	id S1756109AbYFHUH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2008 16:07:56 -0400
 In-Reply-To: <20080608103835.0c0b1e83@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 08, 2008 at 10:38:35AM -0500, Jay Cliburn wrote:
+Jay Cliburn wrote:
 > On Sun, 08 Jun 2008 07:10:51 -0700 (PDT)
 > David Miller <davem@davemloft.net> wrote:
 > 
 > 
-> > If you ask me in the future about the status of a -stable
-> > patch from the networking, I'll let you know exactly what
-> > is happening to that patch wrt. stable.  I rarely forget
-> > to submit an appropriate patch, and when I do forget you
-> > merely have to let me know (rather than submitting it
-> > to -stable directly, please don't do that) so that I can
-> > fit it in with what I plan to submit to -stable already.
+>> If you ask me in the future about the status of a -stable
+>> patch from the networking, I'll let you know exactly what
+>> is happening to that patch wrt. stable.  I rarely forget
+>> to submit an appropriate patch, and when I do forget you
+>> merely have to let me know (rather than submitting it
+>> to -stable directly, please don't do that) so that I can
+>> fit it in with what I plan to submit to -stable already.
 > 
 > 
 > As a netdev driver maintainer, I've been following this workflow for
@@ -47,15 +47,10 @@ On Sun, Jun 08, 2008 at 10:38:35AM -0500, Jay Cliburn wrote:
 > David's admonition tells me I'm doing it wrong, and that I should
 > submit the stable patch to Jeff as well.  Am I right?
 
-The normal recommended method to get patches automatically sent to
-stable is to add a "Cc: stable@kernel.org" line above your signed-off-by
-line. That way it is automatically sent to stable when Linus merges it,
-and David gets notified. This should *theorically* save him some of the
-work consisting in checking his stable queue for unmerged patches, but
-his workflow may be different. Also, this method is particularly suited
-to ensure that patches don't get lost when the maintainer does not have
-a specific stable queue, which is not the case here, according to David.
+I usually encourage a more-parallel process where you simply email 
+stable@kernel.org with the upstream commit id of the change(s) in question.
 
-Regards,
-Willy
+	Jeff
+
+
 
