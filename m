@@ -1,66 +1,108 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: [patch 00/50] 2.6.25.6 -stable review
-Date: Sun, 8 Jun 2008 13:56:01 +0200
-Message-ID: <BAY103-DAV7370611E1B3FEA8FD69B9B2B10@phx.gbl>
-References: <20080520.143238.87085088.davem@davemloft.net> <BAY103-DAV11AE409F40D0878FC3A259B2B60@phx.gbl> <20080607204325.GJ5609@1wt.eu>
+From: Zsiros Attila <zsirmo@zsirmo.hu>
+Subject: Re: bug report
+Date: Sun, 08 Jun 2008 13:56:12 +0200
+Message-ID: <484BC8DC.6080606@zsirmo.hu>
+References: <48499731.1080807@gmail.com>	 <6101e8c40806061844g5b7676d4xb48c5c69ad48391f@mail.gmail.com>	 <20080606225643.8be222a9.akpm@linux-foundation.org>	 <Pine.LNX.4.64.0806071141480.24862@wrl-59.cs.helsinki.fi>	 <6101e8c40806070550h62866816s1d8f8c1ba31f59f@mail.gmail.com>	 <20080607150948.GA4690@linuxace.com> <6101e8c40806071153r1c3dbd03lffa6c43a9140ad4d@mail.gmail.com>
+Reply-To: zsirmo@zsirmo.hu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "David Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	"Chris Wright" <chrisw@sous-sol.org>
-To: "Willy Tarreau" <w@1wt.eu>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Phil Oester <kernel@linuxace.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	netdev <netdev@vger.kernel.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Brian Vowell <brian.vowell@gmail.com>
+To: Oliver Pinter <oliver.pntr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s24.bay0.hotmail.com ([65.54.246.160]:62020 "EHLO
-	bay0-omc2-s24.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758020AbYFHLvg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2008 07:51:36 -0400
+Received: from server.zsirmo.hu ([84.21.11.243]:54583 "EHLO server.zsirmo.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758020AbYFHL4b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2008 07:56:31 -0400
+In-Reply-To: <6101e8c40806071153r1c3dbd03lffa6c43a9140ad4d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Willy Tarreau wrote:
+Hy!
 
-> On Sat, Jun 07, 2008 at 10:27:58PM +0200, Marco Berizzi wrote:
->> David Miller wrote:
->> 
->> > From: Herbert Xu <herbert@gondor.apana.org.au>
->> > Date: Tue, 20 May 2008 17:25:11 +0800
->> > 
->> >> On Wed, May 14, 2008 at 10:19:57AM +0200, Marco Berizzi wrote:
->> >> > 
->> >> > I hope this helps.
->> >> 
->> >> OK found the problem, it was my fault after all :)
->> >> 
->> >> Dave, this patch needs to go into stable too.
->> >> 
->> >> [IPSEC]: Use the correct ip_local_out function
->> >> 
->> >> Because the IPsec output function xfrm_output_resume does its
->> >> own dst_output call it should always call __ip_local_output
->> >> instead of ip_local_output as the latter may invoke dst_output
->> >> directly.  Otherwise the return values from nf_hook and dst_output
->> >> may clash as they both use the value 1 but for different purposes.
->> >> 
->> >> When that clash occurs this can cause a packet to be used after
->> >> it has been freed which usually leads to a crash.  Because the
->> >> offending value is only returned from dst_output with qdiscs
->> >> such as HTB, this bug is normally not visible.
->> >> 
->> >> Thanks to Marco Berizzi for his perseverance in tracking this
->> >> down.
->> >> 
->> >> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->> > 
->> > Applied and queued to -stable, thanks!
->> 
->> Hi David,
->> 
->> I don't see this patch in Chris 2.6.25.6 -stable review message.
-> 
-> Is it already in mainline ?
+Newer log
+http://www.cyberszeg.hu/log/kern2.log
 
-yes, since 2008/05/20
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1ac06e0306d0192a7a4d9ea1c9e06d355ce7e7d3
+Zsirmo
+
+Oliver Pinter =EDrta:
+> Hi!
+>
+> Attila first use one other nic (rtl8169), and after one other (3com
+> BCM570). All NIC producted this error...
+> the full thread in Hungarian Unix Portal: http://hup.hu/node/56295
+>
+> On 6/7/08, Phil Oester <kernel@linuxace.com> wrote:
+>  =20
+>> On Sat, Jun 07, 2008 at 02:50:06PM +0200, Oliver Pinter wrote:
+>>    =20
+>>> [snip]
+>>> Jun  6 14:04:11 www kernel: [ 6464.556309] clamscan: page allocatio=
+n
+>>> failure. order:3, mode:0x4020 <------------- this
+>>>      =20
+>> "Me too".  Lots of order 3 allocation failures on e1000 nics
+>> since upgrading some heavy traffic boxes to 2.6.25 (though from 2.6.=
+21,
+>> so unclear on when it began).
+>>
+>> Phil
+>>
+>> Jun  2 11:11:24 px01 kernel: swapper: page allocation failure. order=
+:3,
+>> mode:0x4020
+>> Jun  2 11:11:24 px01 kernel: Pid: 0, comm: swapper Not tainted
+>> 2.6.25.2-x86_64.1 #1
+>> Jun  2 11:11:24 px01 kernel:
+>> Jun  2 11:11:24 px01 kernel: Call Trace:
+>> Jun  2 11:11:24 px01 kernel:  <IRQ>  [<ffffffff8024ce51>]
+>> __alloc_pages+0x2dd/0x2f6
+>> Jun  2 11:11:24 px01 kernel:  [<ffffffff8026578d>] __slab_alloc+0x16=
+e/0x4f9
+>> Jun  2 11:11:24 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x16=
+4/0x394
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff802656d0>] __slab_alloc+0xb1=
+/0x4f9
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x16=
+4/0x394
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff8026685d>]
+>> __kmalloc_track_caller+0x82/0xb8
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff8036a124>] __alloc_skb+0x5b/=
+0x121
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff80394e84>] tcp_collapse+0x16=
+4/0x394
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff80395261>]
+>> tcp_prune_queue+0x1ad/0x21e
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff803954ba>]
+>> tcp_data_queue+0x1e8/0xbab
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff803974e8>]
+>> tcp_rcv_established+0x64c/0x6fc
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff8039c76f>] tcp_v4_do_rcv+0x2=
+c/0x1b4
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff8039e43e>] tcp_v4_rcv+0x6b3/=
+0x705
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff80384cdc>]
+>> ip_local_deliver_finish+0xf6/0x1b3
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff80384bc3>] ip_rcv_finish+0x2=
+bf/0x2e2
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff8023ada3>] getnstimeofday+0x=
+2f/0x83
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff8036e6b2>]
+>> netif_receive_skb+0x1af/0x21b
+>> Jun  2 11:11:25 px01 kernel:  [<ffffffff8032da6d>]
+>> e1000_clean_rx_irq+0x3f3/0x4e7
+>>
+>>
+>>    =20
+>
+>
+>  =20
 
