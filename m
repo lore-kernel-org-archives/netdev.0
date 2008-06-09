@@ -1,39 +1,56 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/4] drivers/atm/eni.h: remove unused macro KERNEL_OFFSET
-Date: Mon, 09 Jun 2008 16:31:59 -0700
-Message-ID: <200806092331.m59NVxYc014553@imap1.linux-foundation.org>
+Subject: [patch 3/4] isdn divas: fix proc creation
+Date: Mon, 09 Jun 2008 16:32:00 -0700
+Message-ID: <200806092332.m59NW0wf014559@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	rautelap@gmail.com
+	adobriyan@gmail.com, kkeil@suse.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57138 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38498 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755827AbYFIXcC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 19:32:02 -0400
+	by vger.kernel.org with ESMTP id S1755725AbYFIXcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 19:32:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pradeep Singh Rautela <rautelap@gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
 
-KERNEL_OFFSET macro in eni.h is not required as it is not used anywhere. 
-Remove the unused macro from eni.h header file.
+1. creating proc entry and not saving pointer to PDE and checking it
+   is not going to work.
+2. if proc entry wasn't created, no reason to remove it on error path.
 
-Signed-off-by: Pradeep Singh <rautelap@gmail.com>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: Karsten Keil <kkeil@suse.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/atm/eni.h |    1 -
- 1 file changed, 1 deletion(-)
+ drivers/isdn/hardware/eicon/divasmain.c |    1 -
+ drivers/isdn/hardware/eicon/divasproc.c |    4 ++--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff -puN drivers/atm/eni.h~drivers-atm-enih-remove-unused-macro-kernel_offset drivers/atm/eni.h
---- a/drivers/atm/eni.h~drivers-atm-enih-remove-unused-macro-kernel_offset
-+++ a/drivers/atm/eni.h
-@@ -18,7 +18,6 @@
- #include "midway.h"
+diff -puN drivers/isdn/hardware/eicon/divasmain.c~isdn-divas-fix-proc-creation drivers/isdn/hardware/eicon/divasmain.c
+--- a/drivers/isdn/hardware/eicon/divasmain.c~isdn-divas-fix-proc-creation
++++ a/drivers/isdn/hardware/eicon/divasmain.c
+@@ -808,7 +808,6 @@ static int DIVA_INIT_FUNCTION divas_init
  
+ 	if (!create_divas_proc()) {
+ #ifdef MODULE
+-		remove_divas_proc();
+ 		divas_unregister_chrdev();
+ 		divasfunc_exit();
+ #endif
+diff -puN drivers/isdn/hardware/eicon/divasproc.c~isdn-divas-fix-proc-creation drivers/isdn/hardware/eicon/divasproc.c
+--- a/drivers/isdn/hardware/eicon/divasproc.c~isdn-divas-fix-proc-creation
++++ a/drivers/isdn/hardware/eicon/divasproc.c
+@@ -125,8 +125,8 @@ static const struct file_operations diva
  
--#define KERNEL_OFFSET	0xC0000000	/* kernel 0x0 is at phys 0xC0000000 */
- #define DEV_LABEL	"eni"
+ int create_divas_proc(void)
+ {
+-	proc_create(divas_proc_name, S_IFREG | S_IRUGO, proc_net_eicon,
+-		    &divas_fops);
++	divas_proc_entry = proc_create(divas_proc_name, S_IFREG | S_IRUGO,
++					proc_net_eicon, &divas_fops);
+ 	if (!divas_proc_entry)
+ 		return (0);
  
- #define UBR_BUFFER	(128*1024)	/* UBR buffer size */
 _
