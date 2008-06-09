@@ -1,155 +1,49 @@
 From: akpm@linux-foundation.org
-Subject: [patch 03/13] sundance: set carrier status on link change events
-Date: Mon, 09 Jun 2008 16:33:48 -0700
-Message-ID: <200806092333.m59NXme0014673@imap1.linux-foundation.org>
+Subject: [patch 05/13] ipg: fix receivemode IPG_RM_RECEIVEMULTICAST{,HASH} in ipg_nic_set_multicast_list()
+Date: Mon, 09 Jun 2008 16:33:50 -0700
+Message-ID: <200806092333.m59NXoog014679@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	dbn.lists@gmail.com
+	roel.kluin@gmail.com, romieu@fr.zoreil.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44342 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52795 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756492AbYFIXd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 19:33:58 -0400
+	by vger.kernel.org with ESMTP id S1756444AbYFIXeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 19:34:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Nicholson <dbn.lists@gmail.com>
+From: Roel Kluin <roel.kluin@gmail.com>
 
-Check if the link is available when a changed interrupt has been received and
-set the carrier status appropriately.  The code is copied nearly verbatim from
-the dl2k module.  The link status could be used in more places in the driver,
-but this is enough to get the carrier status reported to userspace.  Fixes
-kernel bug #7487:
+The branches are dead code.  even when dev->flag IFF_MULTICAST (defined
+0x1000) is set, dev->flags & IFF_MULTICAST & [boolean] always evaluates to
+0.
 
-    http://bugzilla.kernel.org/show_bug.cgi?id=7487
-
-[akpm@linux-foundation.org: coding-style fixes]
-Signed-off-by: Dan Nicholson <dbn.lists@gmail.com>
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/sundance.c |   95 +++++++++++++++++++++++++--------------
- 1 file changed, 62 insertions(+), 33 deletions(-)
+ drivers/net/ipg.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/sundance.c~sundance-set-carrier-status-on-link-change-events drivers/net/sundance.c
---- a/drivers/net/sundance.c~sundance-set-carrier-status-on-link-change-events
-+++ a/drivers/net/sundance.c
-@@ -409,6 +409,7 @@ static int  change_mtu(struct net_device
- static int  eeprom_read(void __iomem *ioaddr, int location);
- static int  mdio_read(struct net_device *dev, int phy_id, int location);
- static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
-+static int  mdio_wait_link(struct net_device *dev, int wait);
- static int  netdev_open(struct net_device *dev);
- static void check_duplex(struct net_device *dev);
- static void netdev_timer(unsigned long data);
-@@ -785,6 +786,24 @@ static void mdio_write(struct net_device
- 	return;
- }
- 
-+static int mdio_wait_link(struct net_device *dev, int wait)
-+{
-+	int bmsr;
-+	int phy_id;
-+	struct netdev_private *np;
-+
-+	np = netdev_priv(dev);
-+	phy_id = np->phys[0];
-+
-+	do {
-+		bmsr = mdio_read(dev, phy_id, MII_BMSR);
-+		if (bmsr & 0x0004)
-+			return 0;
-+		mdelay(1);
-+	} while (--wait > 0);
-+	return -1;
-+}
-+
- static int netdev_open(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
-@@ -1393,41 +1412,51 @@ static void netdev_error(struct net_devi
- 	int speed;
- 
- 	if (intr_status & LinkChange) {
--		if (np->an_enable) {
--			mii_advertise = mdio_read (dev, np->phys[0], MII_ADVERTISE);
--			mii_lpa= mdio_read (dev, np->phys[0], MII_LPA);
--			mii_advertise &= mii_lpa;
--			printk (KERN_INFO "%s: Link changed: ", dev->name);
--			if (mii_advertise & ADVERTISE_100FULL) {
--				np->speed = 100;
--				printk ("100Mbps, full duplex\n");
--			} else if (mii_advertise & ADVERTISE_100HALF) {
--				np->speed = 100;
--				printk ("100Mbps, half duplex\n");
--			} else if (mii_advertise & ADVERTISE_10FULL) {
--				np->speed = 10;
--				printk ("10Mbps, full duplex\n");
--			} else if (mii_advertise & ADVERTISE_10HALF) {
--				np->speed = 10;
--				printk ("10Mbps, half duplex\n");
--			} else
--				printk ("\n");
-+		if (mdio_wait_link(dev, 10) == 0) {
-+			printk(KERN_INFO "%s: Link up\n", dev->name);
-+			if (np->an_enable) {
-+				mii_advertise = mdio_read(dev, np->phys[0],
-+							   MII_ADVERTISE);
-+				mii_lpa = mdio_read(dev, np->phys[0], MII_LPA);
-+				mii_advertise &= mii_lpa;
-+				printk(KERN_INFO "%s: Link changed: ",
-+					dev->name);
-+				if (mii_advertise & ADVERTISE_100FULL) {
-+					np->speed = 100;
-+					printk("100Mbps, full duplex\n");
-+				} else if (mii_advertise & ADVERTISE_100HALF) {
-+					np->speed = 100;
-+					printk("100Mbps, half duplex\n");
-+				} else if (mii_advertise & ADVERTISE_10FULL) {
-+					np->speed = 10;
-+					printk("10Mbps, full duplex\n");
-+				} else if (mii_advertise & ADVERTISE_10HALF) {
-+					np->speed = 10;
-+					printk("10Mbps, half duplex\n");
-+				} else
-+					printk("\n");
- 
-+			} else {
-+				mii_ctl = mdio_read(dev, np->phys[0], MII_BMCR);
-+				speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
-+				np->speed = speed;
-+				printk(KERN_INFO "%s: Link changed: %dMbps ,",
-+					dev->name, speed);
-+				printk("%s duplex.\n",
-+					(mii_ctl & BMCR_FULLDPLX) ?
-+						"full" : "half");
-+			}
-+			check_duplex(dev);
-+			if (np->flowctrl && np->mii_if.full_duplex) {
-+				iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
-+					ioaddr + MulticastFilter1+2);
-+				iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
-+					ioaddr + MACCtrl0);
-+			}
-+			netif_carrier_on(dev);
- 		} else {
--			mii_ctl = mdio_read (dev, np->phys[0], MII_BMCR);
--			speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
--			np->speed = speed;
--			printk (KERN_INFO "%s: Link changed: %dMbps ,",
--				dev->name, speed);
--			printk ("%s duplex.\n", (mii_ctl & BMCR_FULLDPLX) ?
--				"full" : "half");
--		}
--		check_duplex (dev);
--		if (np->flowctrl && np->mii_if.full_duplex) {
--			iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
--				ioaddr + MulticastFilter1+2);
--			iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
--				ioaddr + MACCtrl0);
-+			printk(KERN_INFO "%s: Link down\n", dev->name);
-+			netif_carrier_off(dev);
- 		}
- 	}
- 	if (intr_status & StatsMax) {
+diff -puN drivers/net/ipg.c~ipg-fix-receivemode-ipg_rm_receivemulticasthash-in-ipg_nic_set_multicast_list drivers/net/ipg.c
+--- a/drivers/net/ipg.c~ipg-fix-receivemode-ipg_rm_receivemulticasthash-in-ipg_nic_set_multicast_list
++++ a/drivers/net/ipg.c
+@@ -577,12 +577,12 @@ static void ipg_nic_set_multicast_list(s
+ 		/* NIC to be configured in promiscuous mode. */
+ 		receivemode = IPG_RM_RECEIVEALLFRAMES;
+ 	} else if ((dev->flags & IFF_ALLMULTI) ||
+-		   (dev->flags & IFF_MULTICAST &
++		   ((dev->flags & IFF_MULTICAST) &&
+ 		    (dev->mc_count > IPG_MULTICAST_HASHTABLE_SIZE))) {
+ 		/* NIC to be configured to receive all multicast
+ 		 * frames. */
+ 		receivemode |= IPG_RM_RECEIVEMULTICAST;
+-	} else if (dev->flags & IFF_MULTICAST & (dev->mc_count > 0)) {
++	} else if ((dev->flags & IFF_MULTICAST) && (dev->mc_count > 0)) {
+ 		/* NIC to be configured to receive selected
+ 		 * multicast addresses. */
+ 		receivemode |= IPG_RM_RECEIVEMULTICASTHASH;
 _
