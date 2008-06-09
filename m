@@ -1,31 +1,50 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: Intel ASF support
-Date: Mon, 9 Jun 2008 15:46:16 -0700
-Message-ID: <20080609224616.GA23092@kroah.com>
-References: <20080609003521.M40819@visp.net.lb>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch, v2.6.26-rc5] net/irda build fix: mcs7780
+Date: Mon, 09 Jun 2008 15:47:52 -0700 (PDT)
+Message-ID: <20080609.154752.148433093.davem@davemloft.net>
+References: <20080604.170123.234927220.davem@davemloft.net>
+	<20080609082257.GA15282@elte.hu>
+	<47304c8330b37ab2677d72f8c8adbe12@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:41676 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751652AbYFIWrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 18:47:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20080609003521.M40819@visp.net.lb>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41836
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754193AbYFIWrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 18:47:52 -0400
+In-Reply-To: <47304c8330b37ab2677d72f8c8adbe12@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 09, 2008 at 03:54:26AM +0300, Denys Fedoryshchenko wrote:
-> I think Intel and Linux developers must be interested in this solution, as
-> soon it let's to manage unreliable software/hardware, people will love such
-> capability.
+From: <samuel@sortiz.org>
+Date: Mon, 09 Jun 2008 11:26:37 +0200
 
-Intel has patches adding this capability, hopefully they will refresh
-them and submit them to the kernel tree.  Please contact them if you are
-interested in helping out.
+> 
+> On Mon, 9 Jun 2008 10:22:57 +0200, Ingo Molnar <mingo@elte.hu> wrote:
+> > 
+> > -tip testing found the following build error:
+> > 
+> >   drivers/built-in.o: In function `mcs_receive_irq':
+> >   mcs7780.c:(.text+0x4e429): undefined reference to `crc32_le'
+> >   drivers/built-in.o: In function `mcs_hard_xmit':
+> >   mcs7780.c:(.text+0x4e9af): undefined reference to `crc32_le'
+> > 
+> > with:
+> > 
+> >   http://redhat.com/~mingo/misc/config-Sun_Jun__8_22_56_14_CEST_2008.bad
+> > 
+> > the reason is a missing enablement of the CRC32 library in the Kconfig.
+> > 
+> > Signed-off-by: Ingo Molnar <mingo@elte.hu>
+> Many thanks Ingo.
+> 
+> Dave, I can take it with my next IrDA patch set. But since it's a build
+> failure, you may want to take it immediatly, it's up to you.
+> In the latter case:
+> 
+> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
-thanks,
-
-greg k-h
+I'll apply this now, thanks everyone.
