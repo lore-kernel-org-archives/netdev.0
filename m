@@ -1,41 +1,83 @@
 From: akpm@linux-foundation.org
-Subject: [patch 06/13] fec_mpc52xx: MPC52xx_MESSAGES_DEFAULT: 2nd NETIF_MSG_IFDOWN => IFUP
-Date: Mon, 09 Jun 2008 16:33:51 -0700
-Message-ID: <200806092333.m59NXpvs014683@imap1.linux-foundation.org>
+Subject: [patch 02/13] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
+Date: Mon, 09 Jun 2008 16:33:47 -0700
+Message-ID: <200806092333.m59NXlmU014670@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	roel.kluin@gmail.com, grant.likely@secretlab.ca, tnt@246tNt.com
+	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
+	stable@kernel.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53581 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55917 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756707AbYFIXeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 19:34:15 -0400
+	by vger.kernel.org with ESMTP id S1756638AbYFIXeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 19:34:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
+From: Michael Pyne <michael.pyne@kdemail.net>
 
-Duplicate NETIF_MSG_IFDOWN, 2nd should be NETIF_MSG_IFUP
+Partially revert a change to mac address detection introduced to the forcedeth
+driver.  The change was intended to correct mac address detection for newer
+nVidia chipsets where the mac address was stored in reverse order.  One of
+those chipsets appears to still have the mac address in reverse order (or at
+least, it does on my system).
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-Acked-by: Sylvain Munaut <tnt@246tNt.com>
-Cc: Grant Likely <grant.likely@secretlab.ca>
+The change that broke mac address detection for my card was commit
+ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
+
+My network card is an nVidia built-in Ethernet card, output from lspci as
+follows (with text and numeric ids):
+$ lspci | grep Ethernet
+00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
+$ lspci -n | grep 07.0
+00:07.0 0680: 10de:03ef (rev a2)
+
+The vendor id is, of course, nVidia.  The device id corresponds to the
+NVIDIA_NVENET_19 entry.
+
+The included patch fixes the MAC address detection on my system.
+Interestingly, the MAC address appears to be in the range reserved for my
+motherboard manufacturer (Gigabyte) and not nVidia.
+
+Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: <stable@kernel.org>
+
+On Wed, 21 Nov 2007 15:34:52 -0800
+"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
+
+> The solution is to get the OEM to update their BIOS (instead of
+> integrating this patch) since the MCP61 specs indicate that the MAC
+> Address should be in correct order from BIOS.
+> 
+> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
+> could cause it to break on other OEM systems who have implemented it
+> correctly.
+> 
+
+On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
+> NAK - this fixes one set of users, and breaks a working set of users.
+> 
+> Need to add DMI check for the specific motherboard (dmi_check_system), 
+> and flip flag according to success/failure of that check.
+
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/fec_mpc52xx.c |    2 +-
+ drivers/net/forcedeth.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/fec_mpc52xx.c~fec_mpc52xx-mpc52xx_messages_default-2nd-netif_msg_ifdown-=-ifup drivers/net/fec_mpc52xx.c
---- a/drivers/net/fec_mpc52xx.c~fec_mpc52xx-mpc52xx_messages_default-2nd-netif_msg_ifdown-=-ifup
-+++ a/drivers/net/fec_mpc52xx.c
-@@ -78,7 +78,7 @@ module_param_array_named(mac, mpc52xx_fe
- MODULE_PARM_DESC(mac, "six hex digits, ie. 0x1,0x2,0xc0,0x01,0xba,0xbe");
- 
- #define MPC52xx_MESSAGES_DEFAULT ( NETIF_MSG_DRV | NETIF_MSG_PROBE | \
--		NETIF_MSG_LINK | NETIF_MSG_IFDOWN | NETIF_MSG_IFDOWN )
-+		NETIF_MSG_LINK | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP)
- static int debug = -1;	/* the above default */
- module_param(debug, int, 0);
- MODULE_PARM_DESC(debug, "debugging messages level");
+diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
++++ a/drivers/net/forcedeth.c
+@@ -5903,7 +5903,7 @@ static struct pci_device_id pci_tbl[] = 
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
 _
