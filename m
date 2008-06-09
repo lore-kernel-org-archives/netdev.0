@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sctp: Fix problems with the new
- SCTP_DELAYED_ACK code
-Date: Mon, 09 Jun 2008 15:45:51 -0700 (PDT)
-Message-ID: <20080609.154551.202822490.davem@davemloft.net>
-References: <1212807007-24379-1-git-send-email-vladislav.yasevich@hp.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Intel ASF support
+Date: Mon, 9 Jun 2008 15:46:16 -0700
+Message-ID: <20080609224616.GA23092@kroah.com>
+References: <20080609003521.M40819@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41834
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751624AbYFIWpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 18:45:51 -0400
-In-Reply-To: <1212807007-24379-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:41676 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751652AbYFIWrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 18:47:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20080609003521.M40819@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Fri,  6 Jun 2008 22:50:07 -0400
+On Mon, Jun 09, 2008 at 03:54:26AM +0300, Denys Fedoryshchenko wrote:
+> I think Intel and Linux developers must be interested in this solution, as
+> soon it let's to manage unreliable software/hardware, people will love such
+> capability.
 
-> The default sack frequency should be 2.  Also fix copy/paste
-> error when updating all transports.
-> 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Intel has patches adding this capability, hopefully they will refresh
+them and submit them to the kernel tree.  Please contact them if you are
+interested in helping out.
 
-Applied to net-next-2.6, thanks Vlad.
+thanks,
+
+greg k-h
