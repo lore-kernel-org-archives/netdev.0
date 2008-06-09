@@ -1,82 +1,155 @@
 From: akpm@linux-foundation.org
-Subject: [patch 01/13] forcedeth: power down phy when interface is down
-Date: Mon, 09 Jun 2008 16:33:45 -0700
-Message-ID: <200806092333.m59NXjDr014666@imap1.linux-foundation.org>
+Subject: [patch 03/13] sundance: set carrier status on link change events
+Date: Mon, 09 Jun 2008 16:33:48 -0700
+Message-ID: <200806092333.m59NXme0014673@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	eswierk@arastra.com, aabdulla@nvidia.com
+	dbn.lists@gmail.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38101 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44342 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756218AbYFIXdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 19:33:54 -0400
+	by vger.kernel.org with ESMTP id S1756492AbYFIXd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 19:33:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ed Swierk" <eswierk@arastra.com>
+From: Dan Nicholson <dbn.lists@gmail.com>
 
-Bring the physical link down when the interface is down by placing the PHY
-in power-down state, unless WOL is enabled.  This mirrors the behavior of
-other drivers including e1000 and tg3.
+Check if the link is available when a changed interrupt has been received and
+set the carrier status appropriately.  The code is copied nearly verbatim from
+the dl2k module.  The link status could be used in more places in the driver,
+but this is enough to get the carrier status reported to userspace.  Fixes
+kernel bug #7487:
 
-Without the patch, ifconfig down leaves the physical link up, which confuses
-datacenter users who expect the link lights both on the NIC and the switch to
-go out when they bring an interface down.
+    http://bugzilla.kernel.org/show_bug.cgi?id=7487
 
-Furthermore, even though the phy is powered on, autonegotiation stops working,
-so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
-interface goes down, and become gigabit when it comes up again.
-
-Ayaz said:
-
-  I would not include this patch until further testing is performed.  NVIDIA
-  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
-  have adverse affects on certain phys.
-
-Signed-off-by: Ed Swierk <eswierk@arastra.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+[akpm@linux-foundation.org: coding-style fixes]
+Signed-off-by: Dan Nicholson <dbn.lists@gmail.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/sundance.c |   95 +++++++++++++++++++++++++--------------
+ 1 file changed, 62 insertions(+), 33 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
-+++ a/drivers/net/forcedeth.c
-@@ -1371,9 +1371,9 @@ static int phy_init(struct net_device *d
- 	/* some phys clear out pause advertisment on reset, set it back */
- 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+diff -puN drivers/net/sundance.c~sundance-set-carrier-status-on-link-change-events drivers/net/sundance.c
+--- a/drivers/net/sundance.c~sundance-set-carrier-status-on-link-change-events
++++ a/drivers/net/sundance.c
+@@ -409,6 +409,7 @@ static int  change_mtu(struct net_device
+ static int  eeprom_read(void __iomem *ioaddr, int location);
+ static int  mdio_read(struct net_device *dev, int phy_id, int location);
+ static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
++static int  mdio_wait_link(struct net_device *dev, int wait);
+ static int  netdev_open(struct net_device *dev);
+ static void check_duplex(struct net_device *dev);
+ static void netdev_timer(unsigned long data);
+@@ -785,6 +786,24 @@ static void mdio_write(struct net_device
+ 	return;
+ }
  
--	/* restart auto negotiation */
-+	/* restart auto negotiation, power down phy */
- 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
--	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-+	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
- 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
- 		return PHY_ERROR;
- 	}
-@@ -5077,6 +5077,10 @@ static int nv_open(struct net_device *de
- 
- 	dprintk(KERN_DEBUG "nv_open: begin\n");
- 
-+	/* power up phy */
-+	mii_rw(dev, np->phyaddr, MII_BMCR,
-+	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++static int mdio_wait_link(struct net_device *dev, int wait)
++{
++	int bmsr;
++	int phy_id;
++	struct netdev_private *np;
 +
- 	/* erase previous misconfiguration */
- 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
- 		nv_mac_reset(dev);
-@@ -5270,6 +5274,10 @@ static int nv_close(struct net_device *d
- 	if (np->wolenabled) {
- 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	} else {
-+		/* power down phy */
-+		mii_rw(dev, np->phyaddr, MII_BMCR,
-+		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
- 	}
++	np = netdev_priv(dev);
++	phy_id = np->phys[0];
++
++	do {
++		bmsr = mdio_read(dev, phy_id, MII_BMSR);
++		if (bmsr & 0x0004)
++			return 0;
++		mdelay(1);
++	} while (--wait > 0);
++	return -1;
++}
++
+ static int netdev_open(struct net_device *dev)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+@@ -1393,41 +1412,51 @@ static void netdev_error(struct net_devi
+ 	int speed;
  
- 	/* FIXME: power down nic */
+ 	if (intr_status & LinkChange) {
+-		if (np->an_enable) {
+-			mii_advertise = mdio_read (dev, np->phys[0], MII_ADVERTISE);
+-			mii_lpa= mdio_read (dev, np->phys[0], MII_LPA);
+-			mii_advertise &= mii_lpa;
+-			printk (KERN_INFO "%s: Link changed: ", dev->name);
+-			if (mii_advertise & ADVERTISE_100FULL) {
+-				np->speed = 100;
+-				printk ("100Mbps, full duplex\n");
+-			} else if (mii_advertise & ADVERTISE_100HALF) {
+-				np->speed = 100;
+-				printk ("100Mbps, half duplex\n");
+-			} else if (mii_advertise & ADVERTISE_10FULL) {
+-				np->speed = 10;
+-				printk ("10Mbps, full duplex\n");
+-			} else if (mii_advertise & ADVERTISE_10HALF) {
+-				np->speed = 10;
+-				printk ("10Mbps, half duplex\n");
+-			} else
+-				printk ("\n");
++		if (mdio_wait_link(dev, 10) == 0) {
++			printk(KERN_INFO "%s: Link up\n", dev->name);
++			if (np->an_enable) {
++				mii_advertise = mdio_read(dev, np->phys[0],
++							   MII_ADVERTISE);
++				mii_lpa = mdio_read(dev, np->phys[0], MII_LPA);
++				mii_advertise &= mii_lpa;
++				printk(KERN_INFO "%s: Link changed: ",
++					dev->name);
++				if (mii_advertise & ADVERTISE_100FULL) {
++					np->speed = 100;
++					printk("100Mbps, full duplex\n");
++				} else if (mii_advertise & ADVERTISE_100HALF) {
++					np->speed = 100;
++					printk("100Mbps, half duplex\n");
++				} else if (mii_advertise & ADVERTISE_10FULL) {
++					np->speed = 10;
++					printk("10Mbps, full duplex\n");
++				} else if (mii_advertise & ADVERTISE_10HALF) {
++					np->speed = 10;
++					printk("10Mbps, half duplex\n");
++				} else
++					printk("\n");
+ 
++			} else {
++				mii_ctl = mdio_read(dev, np->phys[0], MII_BMCR);
++				speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
++				np->speed = speed;
++				printk(KERN_INFO "%s: Link changed: %dMbps ,",
++					dev->name, speed);
++				printk("%s duplex.\n",
++					(mii_ctl & BMCR_FULLDPLX) ?
++						"full" : "half");
++			}
++			check_duplex(dev);
++			if (np->flowctrl && np->mii_if.full_duplex) {
++				iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
++					ioaddr + MulticastFilter1+2);
++				iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
++					ioaddr + MACCtrl0);
++			}
++			netif_carrier_on(dev);
+ 		} else {
+-			mii_ctl = mdio_read (dev, np->phys[0], MII_BMCR);
+-			speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
+-			np->speed = speed;
+-			printk (KERN_INFO "%s: Link changed: %dMbps ,",
+-				dev->name, speed);
+-			printk ("%s duplex.\n", (mii_ctl & BMCR_FULLDPLX) ?
+-				"full" : "half");
+-		}
+-		check_duplex (dev);
+-		if (np->flowctrl && np->mii_if.full_duplex) {
+-			iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
+-				ioaddr + MulticastFilter1+2);
+-			iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
+-				ioaddr + MACCtrl0);
++			printk(KERN_INFO "%s: Link down\n", dev->name);
++			netif_carrier_off(dev);
+ 		}
+ 	}
+ 	if (intr_status & StatsMax) {
 _
