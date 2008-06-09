@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6 netns: init net is used to set bindv6only for new
- sock
-Date: Mon, 09 Jun 2008 15:53:49 -0700 (PDT)
-Message-ID: <20080609.155349.172421727.davem@davemloft.net>
-References: <4847C1EA.6060609@openvz.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 1/2] ixgbe: fix typo
+Date: Mon, 09 Jun 2008 15:57:17 -0700
+Message-ID: <20080609225658.1219.89600.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54970
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757047AbYFIWxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 18:53:50 -0400
-In-Reply-To: <4847C1EA.6060609@openvz.org>
+Received: from mga09.intel.com ([134.134.136.24]:54520 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753052AbYFIW53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2008 18:57:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 05 Jun 2008 14:37:30 +0400
+Define names were accidently transposed.
 
-> The bindv6only is tuned via sysctl. It is already on a struct net
-> and per-net sysctls allow for its modification (ipv6_sysctl_net_init).
-> 
-> Despite this the value configured in the init net is used for the
-> rest of them.
-> 
-> Fits both net-2.6 and net-next-26
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Applied to net-2.6, thanks Pavel.
+ drivers/net/ixgbe/ixgbe_82598.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
+index 6321b05..2f38e84 100644
+--- a/drivers/net/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ixgbe/ixgbe_82598.c
+@@ -58,8 +58,8 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw);
+ 
+ static s32 ixgbe_get_invariants_82598(struct ixgbe_hw *hw)
+ {
+-	hw->mac.num_rx_queues = IXGBE_82598_MAX_TX_QUEUES;
+-	hw->mac.num_tx_queues = IXGBE_82598_MAX_RX_QUEUES;
++	hw->mac.num_rx_queues = IXGBE_82598_MAX_RX_QUEUES;
++	hw->mac.num_tx_queues = IXGBE_82598_MAX_TX_QUEUES;
+ 	hw->mac.num_rx_addrs = IXGBE_82598_RAR_ENTRIES;
+ 
+ 	/* PHY ops are filled in by default properly for Fiber only */
+
