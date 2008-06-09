@@ -1,43 +1,105 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] make hplance_{init,cleanup}_module() static
-Date: Tue, 10 Jun 2008 01:23:32 +0300
-Message-ID: <20080609222332.GP1987@cs181133002.pp.htv.fi>
+Subject: [2.6 patch] drivers/net/macsonic.c: make functions static
+Date: Tue, 10 Jun 2008 01:23:47 +0300
+Message-ID: <20080609222347.GR1987@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:53978 "EHLO smtp4.pp.htv.fi"
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:54001 "EHLO smtp4.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760064AbYFIWY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2008 18:24:27 -0400
+	id S1760259AbYFIWYm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2008 18:24:42 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes the needlessly global hplance_{init,cleanup}_module() 
-static.
+This patch makes the following needlessly global functions static:
+- macsonic_init()
+- mac_onboard_sonic_ethernet_addr()
+- mac_onboard_sonic_probe()
+- mac_nubus_sonic_ethernet_addr()
+- macsonic_ident()
+- mac_nubus_sonic_probe()
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
-7a4763982e5772a5a8c950ae494d88017cad0a83 diff --git a/drivers/net/hplance.c b/drivers/net/hplance.c
-index be6e5bc..2e80263 100644
---- a/drivers/net/hplance.c
-+++ b/drivers/net/hplance.c
-@@ -220,12 +220,12 @@ static int hplance_close(struct net_device *dev)
-         return 0;
+
+ drivers/net/macsonic.c |   19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
+
+f9b145f054e5cee5822cf0ffb7cb3eae49ba104c diff --git a/drivers/net/macsonic.c b/drivers/net/macsonic.c
+index b267161..e64c208 100644
+--- a/drivers/net/macsonic.c
++++ b/drivers/net/macsonic.c
+@@ -83,9 +83,6 @@ static unsigned int sonic_debug = 1;
+ 
+ static int sonic_version_printed;
+ 
+-extern int mac_onboard_sonic_probe(struct net_device* dev);
+-extern int mac_nubus_sonic_probe(struct net_device* dev);
+-
+ /* For onboard SONIC */
+ #define ONBOARD_SONIC_REGISTERS	0x50F0A000
+ #define ONBOARD_SONIC_PROM_BASE	0x50f08000
+@@ -170,7 +167,7 @@ static int macsonic_close(struct net_device* dev)
+ 	return err;
  }
  
--int __init hplance_init_module(void)
-+static int __init hplance_init_module(void)
+-int __init macsonic_init(struct net_device* dev)
++static int __init macsonic_init(struct net_device *dev)
  {
- 	return dio_register_driver(&hplance_driver);
+ 	struct sonic_local* lp = netdev_priv(dev);
+ 
+@@ -218,7 +215,7 @@ int __init macsonic_init(struct net_device* dev)
+ 	return 0;
  }
  
--void __exit hplance_cleanup_module(void)
-+static void __exit hplance_cleanup_module(void)
+-int __init mac_onboard_sonic_ethernet_addr(struct net_device* dev)
++static int __init mac_onboard_sonic_ethernet_addr(struct net_device *dev)
  {
-         dio_unregister_driver(&hplance_driver);
+ 	struct sonic_local *lp = netdev_priv(dev);
+ 	const int prom_addr = ONBOARD_SONIC_PROM_BASE;
+@@ -284,7 +281,7 @@ int __init mac_onboard_sonic_ethernet_addr(struct net_device* dev)
+ 	} else return 0;
  }
+ 
+-int __init mac_onboard_sonic_probe(struct net_device* dev)
++static int __init mac_onboard_sonic_probe(struct net_device *dev)
+ {
+ 	/* Bwahahaha */
+ 	static int once_is_more_than_enough;
+@@ -405,9 +402,9 @@ int __init mac_onboard_sonic_probe(struct net_device* dev)
+ 	return macsonic_init(dev);
+ }
+ 
+-int __init mac_nubus_sonic_ethernet_addr(struct net_device* dev,
+-					 unsigned long prom_addr,
+-					 int id)
++static int __init mac_nubus_sonic_ethernet_addr(struct net_device *dev,
++						unsigned long prom_addr,
++						int id)
+ {
+ 	int i;
+ 	for(i = 0; i < 6; i++)
+@@ -420,7 +417,7 @@ int __init mac_nubus_sonic_ethernet_addr(struct net_device* dev,
+ 	return 0;
+ }
+ 
+-int __init macsonic_ident(struct nubus_dev* ndev)
++static int __init macsonic_ident(struct nubus_dev *ndev)
+ {
+ 	if (ndev->dr_hw == NUBUS_DRHW_ASANTE_LC &&
+ 	    ndev->dr_sw == NUBUS_DRSW_SONIC_LC)
+@@ -445,7 +442,7 @@ int __init macsonic_ident(struct nubus_dev* ndev)
+ 	return -1;
+ }
+ 
+-int __init mac_nubus_sonic_probe(struct net_device* dev)
++static int __init mac_nubus_sonic_probe(struct net_device *dev)
+ {
+ 	static int slots;
+ 	struct nubus_dev* ndev = NULL;
 
