@@ -1,35 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/3] [NET-NEXT]: Add DCB netlink interface definition
-Date: Tue, 10 Jun 2008 09:14:09 +0200
-Message-ID: <484E29C1.2010302@trash.net>
-References: <20080527141339.12851.98781.stgit@localhost.localdomain> <20080527141346.12851.2280.stgit@localhost.localdomain> <4847E75D.9080609@trash.net> <D5C1322C3E673F459512FB59E0DDC3290538B15D@orsmsx414.amr.corp.intel.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [RFC][PATCH 1/3] IPv6:Check the outgoing hop limit value
+Date: Tue, 10 Jun 2008 15:50:55 +0800
+Message-ID: <484E325F.4010102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, davem@davemloft.net, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: =?GB2312?B?WU9TSElGVUpJIEhpZGVha2kgLyC8qszZ06LD9w==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57555 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751807AbYFJHOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 03:14:12 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290538B15D@orsmsx414.amr.corp.intel.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:52490 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750859AbYFJHvu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 03:51:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Waskiewicz Jr, Peter P wrote:
->>> +struct dcbnl_genl_ops {
->>> +	u8   (*getstate)(struct net_device *);
->>> +	void (*setstate)(struct net_device *, u8);
->>> +	void (*getpermhwaddr)(struct net_device *, u8 *);
->> "getpermhwaddr" doesn't seem to belong in this interface but 
->> in rtnetlink and/or ethtool instead.
-> 
-> This was a feature in ethtool, but it was removed at some point.  I can
-> add it to rtnetlink though if people think it'll be useful to have.
+When specifing the outgoing hop limit as ancillary data for sendmsg(),
+the kernel doesn't check the integer hop limit value as specified in 
+[RFC-3542] section 6.3.
 
-I think thats a better idea than to put it in a private
-driver interface.
 
+Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
+---
+ net/ipv6/datagram.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index b9c2de8..0f0f94a 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -705,6 +705,11 @@ int datagram_send_ctl(struct net *net,
+ 			}
+ 
+ 			*hlimit = *(int *)CMSG_DATA(cmsg);
++			if (*hlimit < -1 || *hlimit > 0xff) {
++				err = -EINVAL;
++				goto exit_f;
++			}
++
+ 			break;
+ 
+ 		case IPV6_TCLASS:
+-- 
 
