@@ -1,90 +1,175 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 7/7] dccp: Initialise option area of v4/v6 request socket
-Date: Tue, 10 Jun 2008 13:53:43 +0100
-Message-ID: <1213102423-27486-8-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/7] dccp: Fix sparse warnings
+Date: Tue, 10 Jun 2008 13:53:38 +0100
+Message-ID: <1213102423-27486-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_bug_fixes_for_net-2.6>
  <1213102423-27486-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1213102423-27486-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1213102423-27486-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1213102423-27486-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1213102423-27486-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1213102423-27486-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Wei Yongjun <yjwei@cn.fujitsu.com>
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37428 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37457 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753776AbYFJMxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2008 08:53:54 -0400
-In-Reply-To: <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753670AbYFJMyN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 08:54:13 -0400
+In-Reply-To: <1213102423-27486-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
+This patch fixes the following sparse warnings:
+ * nested min(max()) expression:
+   net/dccp/ccids/ccid3.c:91:21: warning: symbol '__x' shadows an earlier one
+   net/dccp/ccids/ccid3.c:91:21: warning: symbol '__y' shadows an earlier one
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
+ * Declaration of function prototypes in .c instead of .h file, resulting in
+   "should it be static?" warnings.
 
-This fixes the following bug:
- * dccp_v4_reqsk_destructor() frees inet inet_rsk(req)->opt,
- * but dccp_v4_conn_request() may fail before initialising inet_rsk(req)->opt;
- * likewise, dccp_v6_reqsk_destructor() frees inet6_rsk(req)->pktopts,
- * but dccp_v6_conn_request() may fail before initialising the pktopts.
+ * Declared "struct dccpw" static (local to dccp_probe).
 
-The fix is in initialising the option areas in both request sockets before
-calling any other code that may fail and thus may end up calling the destructor.
+ * Disabled dccp_delayed_ack() - not fully removed due to RFC 4340, 11.3
+   ("Receivers SHOULD implement delayed acknowledgement timers ...").
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+ * Used a different local variable name to avoid
+   net/dccp/ackvec.c:293:13: warning: symbol 'state' shadows an earlier one
+   net/dccp/ackvec.c:238:33: originally declared here
+
+ * Removed unused functions `dccp_ackvector_print' and `dccp_ackvec_print'.
+
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ipv4.c |    5 +++--
- net/dccp/ipv6.c |    5 +++--
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ net/dccp/ackvec.c         |   29 ++---------------------------
+ net/dccp/ccids/ccid3.c    |    4 ++--
+ net/dccp/ccids/lib/tfrc.c |    8 --------
+ net/dccp/ccids/lib/tfrc.h |   11 +++++++++--
+ net/dccp/output.c         |    2 ++
+ net/dccp/probe.c          |    2 +-
+ 6 files changed, 16 insertions(+), 40 deletions(-)
 
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -593,6 +593,9 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (req == NULL)
- 		goto drop;
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -159,8 +159,8 @@ static void ccid3_hc_tx_update_x(struct sock *sk, ktime_t *stamp)
+ 	} else if (ktime_us_delta(now, hctx->ccid3hctx_t_ld)
+ 				- (s64)hctx->ccid3hctx_rtt >= 0) {
  
-+	ireq = inet_rsk(req);
-+	ireq->opt = NULL;
+-		hctx->ccid3hctx_x =
+-			max(min(2 * hctx->ccid3hctx_x, min_rate),
++		hctx->ccid3hctx_x = min(2 * hctx->ccid3hctx_x, min_rate);
++		hctx->ccid3hctx_x = max(hctx->ccid3hctx_x,
+ 			    scaled_div(((__u64)hctx->ccid3hctx_s) << 6,
+ 				       hctx->ccid3hctx_rtt));
+ 		hctx->ccid3hctx_t_ld = now;
+--- a/net/dccp/probe.c
++++ b/net/dccp/probe.c
+@@ -42,7 +42,7 @@ static int bufsize = 64 * 1024;
+ 
+ static const char procname[] = "dccpprobe";
+ 
+-struct {
++static struct {
+ 	struct kfifo	  *fifo;
+ 	spinlock_t	  lock;
+ 	wait_queue_head_t wait;
+--- a/net/dccp/ccids/lib/tfrc.c
++++ b/net/dccp/ccids/lib/tfrc.c
+@@ -14,14 +14,6 @@ module_param(tfrc_debug, bool, 0444);
+ MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
+ #endif
+ 
+-extern int  tfrc_tx_packet_history_init(void);
+-extern void tfrc_tx_packet_history_exit(void);
+-extern int  tfrc_rx_packet_history_init(void);
+-extern void tfrc_rx_packet_history_exit(void);
+-
+-extern int  tfrc_li_init(void);
+-extern void tfrc_li_exit(void);
+-
+ static int __init tfrc_module_init(void)
+ {
+ 	int rc = tfrc_li_init();
+--- a/net/dccp/ccids/lib/tfrc.h
++++ b/net/dccp/ccids/lib/tfrc.h
+@@ -58,7 +58,14 @@ static inline u32 tfrc_ewma(const u32 avg, const u32 newval, const u8 weight)
+ 	return avg ? (weight * avg + (10 - weight) * newval) / 10 : newval;
+ }
+ 
+-extern u32 tfrc_calc_x(u16 s, u32 R, u32 p);
+-extern u32 tfrc_calc_x_reverse_lookup(u32 fvalue);
++extern u32  tfrc_calc_x(u16 s, u32 R, u32 p);
++extern u32  tfrc_calc_x_reverse_lookup(u32 fvalue);
+ 
++extern int  tfrc_tx_packet_history_init(void);
++extern void tfrc_tx_packet_history_exit(void);
++extern int  tfrc_rx_packet_history_init(void);
++extern void tfrc_rx_packet_history_exit(void);
 +
- 	dccp_reqsk_init(req, skb);
++extern int  tfrc_li_init(void);
++extern void tfrc_li_exit(void);
+ #endif /* _TFRC_H_ */
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -508,6 +508,7 @@ void dccp_send_ack(struct sock *sk)
  
- 	dreq = dccp_rsk(req);
-@@ -602,10 +605,8 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
+ EXPORT_SYMBOL_GPL(dccp_send_ack);
  
--	ireq = inet_rsk(req);
- 	ireq->loc_addr = ip_hdr(skb)->daddr;
- 	ireq->rmt_addr = ip_hdr(skb)->saddr;
--	ireq->opt	= NULL;
++#if 0
+ /* FIXME: Is this still necessary (11.3) - currently nowhere used by DCCP. */
+ void dccp_send_delayed_ack(struct sock *sk)
+ {
+@@ -538,6 +539,7 @@ void dccp_send_delayed_ack(struct sock *sk)
+ 	icsk->icsk_ack.timeout = timeout;
+ 	sk_reset_timer(sk, &icsk->icsk_delack_timer, timeout);
+ }
++#endif
  
- 	/*
- 	 * Step 3: Process LISTEN state
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -409,6 +409,9 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (req == NULL)
- 		goto drop;
+ void dccp_send_sync(struct sock *sk, const u64 ackno,
+ 		    const enum dccp_pkt_type pkt_type)
+--- a/net/dccp/ackvec.c
++++ b/net/dccp/ackvec.c
+@@ -290,12 +290,12 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
  
-+	ireq6 = inet6_rsk(req);
-+	ireq6->pktopts = NULL;
-+
- 	dccp_reqsk_init(req, skb);
+ 		while (1) {
+ 			const u8 len = dccp_ackvec_len(av, index);
+-			const u8 state = dccp_ackvec_state(av, index);
++			const u8 av_state = dccp_ackvec_state(av, index);
+ 			/*
+ 			 * valid packets not yet in av_buf have a reserved
+ 			 * entry, with a len equal to 0.
+ 			 */
+-			if (state == DCCP_ACKVEC_STATE_NOT_RECEIVED &&
++			if (av_state == DCCP_ACKVEC_STATE_NOT_RECEIVED &&
+ 			    len == 0 && delta == 0) { /* Found our
+ 							 reserved seat! */
+ 				dccp_pr_debug("Found %llu reserved seat!\n",
+@@ -325,31 +325,6 @@ out_duplicate:
+ 	return -EILSEQ;
+ }
  
- 	dreq = dccp_rsk(req);
-@@ -418,10 +421,8 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
- 
--	ireq6 = inet6_rsk(req);
- 	ipv6_addr_copy(&ireq6->rmt_addr, &ipv6_hdr(skb)->saddr);
- 	ipv6_addr_copy(&ireq6->loc_addr, &ipv6_hdr(skb)->daddr);
--	ireq6->pktopts	= NULL;
- 
- 	if (ipv6_opt_accepted(sk, skb) ||
- 	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
+-#ifdef CONFIG_IP_DCCP_DEBUG
+-void dccp_ackvector_print(const u64 ackno, const unsigned char *vector, int len)
+-{
+-	dccp_pr_debug_cat("ACK vector len=%d, ackno=%llu |", len,
+-			 (unsigned long long)ackno);
+-
+-	while (len--) {
+-		const u8 state = (*vector & DCCP_ACKVEC_STATE_MASK) >> 6;
+-		const u8 rl = *vector & DCCP_ACKVEC_LEN_MASK;
+-
+-		dccp_pr_debug_cat("%d,%d|", state, rl);
+-		++vector;
+-	}
+-
+-	dccp_pr_debug_cat("\n");
+-}
+-
+-void dccp_ackvec_print(const struct dccp_ackvec *av)
+-{
+-	dccp_ackvector_print(av->av_buf_ackno,
+-			     av->av_buf + av->av_buf_head,
+-			     av->av_vec_len);
+-}
+-#endif
+-
+ static void dccp_ackvec_throw_record(struct dccp_ackvec *av,
+ 				     struct dccp_ackvec_record *avr)
+ {
