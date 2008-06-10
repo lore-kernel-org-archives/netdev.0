@@ -1,59 +1,54 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: net-2.6 merged into net-next-2.6
-Date: Tue, 10 Jun 2008 12:02:12 -0400
-Message-ID: <20080610160212.GA16834@tuxdriver.com>
-References: <20080610.025059.37807108.davem@davemloft.net>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: Re: Oops in nf_nat_core.c:find_appropriate_src(), kernel 2.6.25.4
+Date: Tue, 10 Jun 2008 19:07:01 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0806101906120.12641@bizon.gios.gov.pl>
+References: <484A9E75.8000601@redhat.com> <484AA276.9090407@trash.net>
+ <484AA5D5.10404@trash.net> <Pine.LNX.4.64.0806071742180.13503@bizon.gios.gov.pl>
+ <484E4343.5090606@trash.net> <Pine.LNX.4.64.0806101545460.12641@bizon.gios.gov.pl>
+ <484E88FD.3000908@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, sfr@canb.auug.org.au
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-442060285-1213117621=:12641"
+Cc: Chuck Ebbert <cebbert@redhat.com>, Netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4139 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752668AbYFJQ37 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2008 12:29:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20080610.025059.37807108.davem@davemloft.net>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:47584 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753132AbYFJRHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 13:07:50 -0400
+In-Reply-To: <484E88FD.3000908@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 10, 2008 at 02:50:59AM -0700, David Miller wrote:
-> 
-> There were a few small wireless conflicts but I think
-> I handled them correctly.
-> 
-> Please send me any fixup patches which might be necessary.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Just one, which was easy to miss:
+---187430788-442060285-1213117621=:12641
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-The following changes since commit 65b53e4cc90e59936733b3b95b9451d2ca47528d:
-  David S. Miller (1):
-        Merge branch 'master' of master.kernel.org:/.../davem/net-2.6
 
-are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git
-master
+On Tue, 10 Jun 2008, Patrick McHardy wrote:
+<CUT>
 
-John W. Linville (1):
-      rt2x00dev.c: fix-up merge damage
+>> As you can see we still check if nat->ct is NULL here. So, or the check =
+is=20
+>> now unnecessary, or it is still possible that nat->ct may become NULL. I=
+f=20
+>> the second statement is true than we may need to check ct before calling=
+=20
+>> same_src in the find_appropriate_src function.
+>
+> No, the nf_nat_cleanup_nat function can be called for a NAT extension
+> that isn't in the hash yet (and thus has nat->ct =3D=3D NULL) when the
+> nf_conntrack_alter_reply() call in nf_nat_setup_info() allocates a
+> helper extension and need to realloc the NAT extension space.
 
- drivers/net/wireless/rt2x00/rt2x00dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+OK, thank you for the explanation.
 
-diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
-index f7a4417..dc5ab90 100644
---- a/drivers/net/wireless/rt2x00/rt2x00dev.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
-@@ -507,7 +507,7 @@ void rt2x00lib_txdone(struct queue_entry *entry,
- 	rt2x00dev->link.qual.tx_success +=
- 	    test_bit(TXDONE_SUCCESS, &txdesc->flags);
- 	rt2x00dev->link.qual.tx_failed +=
--	    txdesc->retry + !!test_bit(TXDONE_FAILURE, &txdesc->flags);
-+	    test_bit(TXDONE_FAILURE, &txdesc->flags);
- 
- 	/*
- 	 * Initialize TX status
--- 
-John W. Linville
-linville@tuxdriver.com
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-442060285-1213117621=:12641--
