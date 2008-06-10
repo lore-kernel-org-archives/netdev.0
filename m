@@ -1,78 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH][RFC] TSO for VLAN devices without VLAN tag insertion
-Date: Tue, 10 Jun 2008 20:59:44 +0100
-Message-ID: <20080610195943.GO11300@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: DCB generic netlink interface
+Date: Tue, 10 Jun 2008 13:07:26 -0700 (PDT)
+Message-ID: <20080610.130726.121879453.davem@davemloft.net>
+References: <D5C1322C3E673F459512FB59E0DDC32905348FD4@orsmsx414.amr.corp.intel.com>
+	<20080605.074324.38999631.davem@davemloft.net>
+	<D5C1322C3E673F459512FB59E0DDC3290538B840@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net-drivers@solarflare.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:33996 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751309AbYFJT7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:59:50 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50461
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753201AbYFJUH1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 16:07:27 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290538B840@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SFC4000 controller can set IP header, TCP and UDP checksums in IPv4
-packets, with or without VLAN encapsulation.  However it does not do VLAN
-tag insertion.
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Tue, 10 Jun 2008 12:55:16 -0700
 
-When I try to make TSO work for VLAN devices via the new vlan_features,
-dev_queue_xmit() finds skb->ip_summed == CHECKSUM_PARTIAL &&
-skb->protocol == htons(ETH_P_8021Q) and calls skb_checksum_help(), which
-sets skb->ip_summed = CHECKSUM_NONE.
+> The 802.1Qbb, per-priority pause (flow control), cannot work in a
+> software implementation.
 
-This causes netif_needs_gso() to return true when called by
-dev_hard_start_xmit(), and GSO then does its worst.
+Of course, I know that.
 
-Below is a patch which worked for me, but I'm not sure whether it's the
-best way to fix the problem (so I'm not submitting or signing it off yet).
+> Also, the Rx filtering can't be emulated in software either.  The
+> MAC filters on VLAN priority.  I know that can be configured with
+> vconfig and set_ingress_map, but the whole point of the technology
+> is to have the Rx processing done in the hardware's packet buffers,
+> much like RSS filtering.
 
-Ben.
+This is a scare crow, please don't use arguments like that.
 
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -119,6 +119,7 @@
- #include <linux/err.h>
- #include <linux/ctype.h>
- #include <linux/if_arp.h>
-+#include <linux/if_vlan.h>
- 
- #include "net-sysfs.h"
- 
-@@ -1638,14 +1639,24 @@ int dev_queue_xmit(struct sk_buff *skb)
- 	 * checksumming for this protocol, complete checksumming here.
- 	 */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		unsigned long features = dev->features;
-+		__be16 protocol = skb->protocol;
-+
-+		if (protocol == htons(ETH_P_8021Q)) {
-+			struct vlan_ethhdr *veh =
-+				(struct vlan_ethhdr *)skb->data;
-+			features &= dev->vlan_features;
-+			protocol = veh->h_vlan_encapsulated_proto;
-+		}
-+
- 		skb_set_transport_header(skb, skb->csum_start -
- 					      skb_headroom(skb));
- 
--		if (!(dev->features & NETIF_F_GEN_CSUM) &&
--		    !((dev->features & NETIF_F_IP_CSUM) &&
--		      skb->protocol == htons(ETH_P_IP)) &&
--		    !((dev->features & NETIF_F_IPV6_CSUM) &&
--		      skb->protocol == htons(ETH_P_IPV6)))
-+		if (!(features & NETIF_F_GEN_CSUM) &&
-+		    !((features & NETIF_F_IP_CSUM) &&
-+		      protocol == htons(ETH_P_IP)) &&
-+		    !((features & NETIF_F_IPV6_CSUM) &&
-+		      protocol == htons(ETH_P_IPV6)))
- 			if (skb_checksum_help(skb))
- 				goto out_kfree_skb;
- 	}
+Saying that it can't be done at all in software, but then saying
+"well, it sort of can be done, but the point is to do it in hardware"
+side-steps the very reason I want you to implement a software variant
+of the parts that can be done in software.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+> This technology really is a hardware-based technology.
+
+This sounds like another way of saying "having a software
+implementation of even some of this facility would compromise
+the value of our hardware implementation."
+
+That's not the kind of decision making process we use when
+deciding how to implement things in the kernel.
