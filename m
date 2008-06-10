@@ -1,8 +1,8 @@
 From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] [PATCH v4 01/14] QLogic VNIC: Driver - netdev
-	implementation
-Date: Tue, 10 Jun 2008 17:02:45 -0400
-Message-ID: <20080610210244.11186.21580.stgit@dale>
+Subject: [ofa-general] [PATCH v4 03/14] QLogic VNIC: Implementation of
+	communication protocol with EVIC/VEx
+Date: Tue, 10 Jun 2008 17:03:45 -0400
+Message-ID: <20080610210345.11186.72548.stgit@dale>
 References: <20080610205633.11186.45499.stgit@dale>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -22,30 +22,29 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+From: Poornima Kamath <poornima.kamath@qlogic.com>
 
-QLogic Virtual NIC Driver. This patch implements netdev registration,
-netdev functions and state maintenance of the QLogic Virtual NIC
-corresponding to the various events associated with the QLogic Ethernet 
-Virtual I/O Controller (EVIC/VEx) connection.
+Implementation of the statemachine for the protocol used while 
+communicating with the EVIC. The patch also implements the viport
+abstraction which represents the virtual ethernet port on EVIC.
 
-Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
+Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
 ---
 
- drivers/infiniband/ulp/qlgc_vnic/vnic_main.c | 1097 ++++++++++++++++++++++++++
- drivers/infiniband/ulp/qlgc_vnic/vnic_main.h |  159 ++++
- 2 files changed, 1256 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_main.c
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_main.h
+ drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c | 1214 ++++++++++++++++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h |  175 +++
+ 2 files changed, 1389 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h
 
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_main.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_main.c
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c
 new file mode 100644
-index 0000000..665f7dc
+index 0000000..10a002b
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_main.c
-@@ -0,0 +1,1097 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.c
+@@ -0,0 +1,1214 @@
 +/*
 + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
@@ -78,1077 +77,1194 @@ index 0000000..665f7dc
 + * SOFTWARE.
 + */
 +
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/string.h>
-+#include <linux/init.h>
 +#include <linux/list.h>
++#include <linux/spinlock.h>
++#include <linux/netdevice.h>
 +#include <linux/completion.h>
++#include <linux/delay.h>
++#include <linux/net.h>
 +
 +#include "vnic_util.h"
 +#include "vnic_main.h"
-+#include "vnic_netpath.h"
 +#include "vnic_viport.h"
-+#include "vnic_ib.h"
-+#include "vnic_stats.h"
++#include "vnic_netpath.h"
++#include "vnic_control.h"
++#include "vnic_data.h"
++#include "vnic_config.h"
++#include "vnic_control_pkt.h"
 +
-+#define MODULEVERSION "1.3.0.0.4"
-+#define MODULEDETAILS	\
-+		"QLogic Corp. Virtual NIC (VNIC) driver version " MODULEVERSION
++#define VIPORT_DISCONN_TIMER	10000 	 /* 10 seconds */
 +
-+MODULE_AUTHOR("QLogic Corp.");
-+MODULE_DESCRIPTION(MODULEDETAILS);
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_SUPPORTED_DEVICE("QLogic Ethernet Virtual I/O Controller");
++#define MAX_RETRY_INTERVAL 	  20000  /* 20 seconds */
++#define RETRY_INCREMENT		  5000   /* 5 seconds  */
++#define MAX_CONNECT_RETRY_TIMEOUT 600000 /* 10 minutes */
 +
-+u32 vnic_debug;
++static DECLARE_WAIT_QUEUE_HEAD(viport_queue);
++static LIST_HEAD(viport_list);
++static DECLARE_COMPLETION(viport_thread_exit);
++static spinlock_t viport_list_lock;
 +
-+module_param(vnic_debug, uint, 0444);
-+MODULE_PARM_DESC(vnic_debug, "Enable debug tracing if > 0");
++static struct task_struct *viport_thread;
++static int viport_thread_end;
 +
-+LIST_HEAD(vnic_list);
++static void viport_timer(struct viport *viport, int timeout);
 +
-+static DECLARE_WAIT_QUEUE_HEAD(vnic_npevent_queue);
-+static LIST_HEAD(vnic_npevent_list);
-+static DECLARE_COMPLETION(vnic_npevent_thread_exit);
-+static spinlock_t vnic_npevent_list_lock;
-+static struct task_struct *vnic_npevent_thread;
-+static int vnic_npevent_thread_end;
-+
-+static const char *const vnic_npevent_str[] = {
-+    "PRIMARY CONNECTED",
-+    "PRIMARY DISCONNECTED",
-+    "PRIMARY CARRIER",
-+    "PRIMARY NO CARRIER",
-+    "PRIMARY TIMER EXPIRED",
-+    "PRIMARY SETLINK",
-+    "SECONDARY CONNECTED",
-+    "SECONDARY DISCONNECTED",
-+    "SECONDARY CARRIER",
-+    "SECONDARY NO CARRIER",
-+    "SECONDARY TIMER EXPIRED",
-+    "SECONDARY SETLINK",
-+    "FREE VNIC",
-+};
-+
-+void vnic_connected(struct vnic *vnic, struct netpath *netpath)
++struct viport *viport_allocate(struct viport_config *config)
 +{
-+	VNIC_FUNCTION("vnic_connected()\n");
-+	if (netpath->second_bias)
-+		vnic_npevent_queue_evt(netpath, VNIC_SECNP_CONNECTED);
-+	else
-+		vnic_npevent_queue_evt(netpath, VNIC_PRINP_CONNECTED);
++	struct viport *viport;
 +
-+	vnic_connected_stats(vnic);
-+}
-+
-+void vnic_disconnected(struct vnic *vnic, struct netpath *netpath)
-+{
-+	VNIC_FUNCTION("vnic_disconnected()\n");
-+	if (netpath->second_bias)
-+		vnic_npevent_queue_evt(netpath, VNIC_SECNP_DISCONNECTED);
-+	else
-+		vnic_npevent_queue_evt(netpath, VNIC_PRINP_DISCONNECTED);
-+}
-+
-+void vnic_link_up(struct vnic *vnic, struct netpath *netpath)
-+{
-+	VNIC_FUNCTION("vnic_link_up()\n");
-+	if (netpath->second_bias)
-+		vnic_npevent_queue_evt(netpath, VNIC_SECNP_LINKUP);
-+	else
-+		vnic_npevent_queue_evt(netpath, VNIC_PRINP_LINKUP);
-+}
-+
-+void vnic_link_down(struct vnic *vnic, struct netpath *netpath)
-+{
-+	VNIC_FUNCTION("vnic_link_down()\n");
-+	if (netpath->second_bias)
-+		vnic_npevent_queue_evt(netpath, VNIC_SECNP_LINKDOWN);
-+	else
-+		vnic_npevent_queue_evt(netpath, VNIC_PRINP_LINKDOWN);
-+}
-+
-+void vnic_stop_xmit(struct vnic *vnic, struct netpath *netpath)
-+{
-+	unsigned long flags;
-+
-+	VNIC_FUNCTION("vnic_stop_xmit()\n");
-+	spin_lock_irqsave(&vnic->current_path_lock, flags);
-+	if (netpath == vnic->current_path) {
-+		if (!netif_queue_stopped(vnic->netdevice)) {
-+			netif_stop_queue(vnic->netdevice);
-+			vnic->failed_over = 0;
-+		}
-+
-+		vnic_stop_xmit_stats(vnic);
-+	}
-+	spin_unlock_irqrestore(&vnic->current_path_lock, flags);
-+}
-+
-+void vnic_restart_xmit(struct vnic *vnic, struct netpath *netpath)
-+{
-+	unsigned long flags;
-+
-+	VNIC_FUNCTION("vnic_restart_xmit()\n");
-+	spin_lock_irqsave(&vnic->current_path_lock, flags);
-+	if (netpath == vnic->current_path) {
-+		if (netif_queue_stopped(vnic->netdevice))
-+			netif_wake_queue(vnic->netdevice);
-+
-+		vnic_restart_xmit_stats(vnic);
-+	}
-+	spin_unlock_irqrestore(&vnic->current_path_lock, flags);
-+}
-+
-+void vnic_recv_packet(struct vnic *vnic, struct netpath *netpath,
-+		      struct sk_buff *skb)
-+{
-+	VNIC_FUNCTION("vnic_recv_packet()\n");
-+	if ((netpath != vnic->current_path) ||
-+	    !netif_running(vnic->netdevice)) {
-+		VNIC_INFO("tossing packet\n");
-+		dev_kfree_skb(skb);
-+		return;
++	VIPORT_FUNCTION("viport_allocate()\n");
++	viport = kzalloc(sizeof *viport, GFP_KERNEL);
++	if (!viport) {
++		VIPORT_ERROR("failed allocating viport structure\n");
++		return NULL;
 +	}
 +
-+	vnic->netdevice->last_rx = jiffies;
-+	skb->dev = vnic->netdevice;
-+	skb->protocol = eth_type_trans(skb, skb->dev);
-+	if (!vnic->config->use_rx_csum)
-+		skb->ip_summed = CHECKSUM_NONE;
-+	netif_rx(skb);
-+	vnic_recv_pkt_stats(vnic);
++	viport->state = VIPORT_DISCONNECTED;
++	viport->link_state = LINK_FIRSTCONNECT;
++	viport->connect = WAIT;
++	viport->new_mtu = 1500;
++	viport->new_flags = 0;
++	viport->config = config;
++	viport->connect = DELAY;
++	viport->data.max_mtu = vnic_max_mtu;
++	spin_lock_init(&viport->lock);
++	init_waitqueue_head(&viport->stats_queue);
++	init_waitqueue_head(&viport->disconnect_queue);
++	init_waitqueue_head(&viport->reference_queue);
++	INIT_LIST_HEAD(&viport->list_ptrs);
++
++	vnic_mc_init(viport);
++
++	return viport;
 +}
 +
-+static struct net_device_stats *vnic_get_stats(struct net_device *device)
++void viport_connect(struct viport *viport, int delay)
 +{
-+	struct vnic *vnic;
-+	struct netpath *np;
-+	unsigned long flags;
++	VIPORT_FUNCTION("viport_connect()\n");
 +
-+	VNIC_FUNCTION("vnic_get_stats()\n");
-+	vnic = netdev_priv(device);
-+
-+	spin_lock_irqsave(&vnic->current_path_lock, flags);
-+	np = vnic->current_path;
-+	if (np && np->viport) {
-+		atomic_inc(&np->viport->reference_count);
-+		spin_unlock_irqrestore(&vnic->current_path_lock, flags);
-+		viport_get_stats(np->viport, &vnic->netdevice->stats);
-+		atomic_dec(&np->viport->reference_count);
-+		wake_up(&np->viport->reference_queue);
++	if (viport->connect != DELAY)
++		viport->connect = (delay) ? DELAY : NOW;
++	if (viport->link_state == LINK_FIRSTCONNECT) {
++		u32 duration;
++		duration = (net_random() & 0x1ff);
++		if (!viport->parent->is_primary_path)
++			duration += 0x1ff;
++		viport->link_state = LINK_RETRYWAIT;
++		viport_timer(viport, duration);
 +	} else
-+		spin_unlock_irqrestore(&vnic->current_path_lock, flags);
-+
-+	return &vnic->netdevice->stats;
++		viport_kick(viport);
 +}
 +
-+static int vnic_open(struct net_device *device)
++static void viport_disconnect(struct viport *viport)
 +{
-+	struct vnic *vnic;
-+
-+	VNIC_FUNCTION("vnic_open()\n");
-+	vnic = netdev_priv(device);
-+
-+	vnic_npevent_queue_evt(&vnic->primary_path, VNIC_PRINP_SETLINK);
-+	netif_start_queue(vnic->netdevice);
-+
-+	return 0;
++	VIPORT_FUNCTION("viport_disconnect()\n");
++	viport->disconnect = 1;
++	viport_failure(viport);
++	wait_event(viport->disconnect_queue, viport->disconnect == 0);
 +}
 +
-+static int vnic_stop(struct net_device *device)
++void viport_free(struct viport *viport)
 +{
-+	struct vnic *vnic;
-+	int ret = 0;
-+
-+	VNIC_FUNCTION("vnic_stop()\n");
-+	vnic = netdev_priv(device);
-+	netif_stop_queue(device);
-+	vnic_npevent_queue_evt(&vnic->primary_path, VNIC_PRINP_SETLINK);
-+
-+	return ret;
++	VIPORT_FUNCTION("viport_free()\n");
++	viport_disconnect(viport);	/* NOTE: this can sleep */
++	vnic_mc_uninit(viport);
++	kfree(viport->config);
++	kfree(viport);
 +}
 +
-+static int vnic_hard_start_xmit(struct sk_buff *skb,
-+				struct net_device *device)
++void viport_set_link(struct viport *viport, u16 flags, u16 mtu)
 +{
-+	struct vnic *vnic;
-+	struct netpath *np;
-+	cycles_t xmit_time;
-+	int	 ret = -1;
++	unsigned long localflags;
++	int i;
 +
-+	VNIC_FUNCTION("vnic_hard_start_xmit()\n");
-+	vnic = netdev_priv(device);
-+	np = vnic->current_path;
-+
-+	vnic_pre_pkt_xmit_stats(&xmit_time);
-+
-+	if (np && np->viport)
-+		ret = viport_xmit_packet(np->viport, skb);
-+
-+	if (ret) {
-+		vnic_xmit_fail_stats(vnic);
-+		dev_kfree_skb_any(skb);
-+		vnic->netdevice->stats.tx_dropped++;
-+		goto out;
++	VIPORT_FUNCTION("viport_set_link()\n");
++	if (mtu > data_max_mtu(&viport->data)) {
++		VIPORT_ERROR("configuration error."
++			     " mtu of %d unsupported by %s\n", mtu,
++			     config_viport_name(viport->config));
++		goto failure;
 +	}
 +
-+	device->trans_start = jiffies;
-+	vnic_post_pkt_xmit_stats(vnic, xmit_time);
-+out:
-+	return 0;
-+}
-+
-+static void vnic_tx_timeout(struct net_device *device)
-+{
-+	struct vnic *vnic;
-+	struct viport *viport = NULL;
-+	unsigned long flags;
-+
-+	VNIC_FUNCTION("vnic_tx_timeout()\n");
-+	vnic = netdev_priv(device);
-+	device->trans_start = jiffies;
-+
-+	spin_lock_irqsave(&vnic->current_path_lock, flags);
-+	if (vnic->current_path && vnic->current_path->viport) {
-+		if (vnic->failed_over) {
-+			if (vnic->current_path == &vnic->primary_path)
-+				viport = vnic->secondary_path.viport;
-+			else if (vnic->current_path == &vnic->secondary_path)
-+				viport = vnic->primary_path.viport;
-+		} else
-+			viport = vnic->current_path->viport;
-+
-+		spin_unlock_irqrestore(&vnic->current_path_lock, flags);
-+		if (viport)
-+			viport_failure(viport);
-+	} else
-+		spin_unlock_irqrestore(&vnic->current_path_lock, flags);
-+
-+	VNIC_ERROR("vnic_tx_timeout\n");
-+}
-+
-+static void vnic_set_multicast_list(struct net_device *device)
-+{
-+	struct vnic *vnic;
-+	unsigned long flags;
-+
-+	VNIC_FUNCTION("vnic_set_multicast_list()\n");
-+	vnic = netdev_priv(device);
-+
-+	spin_lock_irqsave(&vnic->lock, flags);
-+	if (device->mc_count == 0) {
-+		if (vnic->mc_list_len) {
-+			vnic->mc_list_len = vnic->mc_count = 0;
-+			kfree(vnic->mc_list);
-+		}
-+	} else {
-+		struct dev_mc_list *mc_list = device->mc_list;
-+		int i;
-+
-+		if (device->mc_count > vnic->mc_list_len) {
-+			if (vnic->mc_list_len)
-+				kfree(vnic->mc_list);
-+			vnic->mc_list_len = device->mc_count + 10;
-+			vnic->mc_list = kmalloc(vnic->mc_list_len *
-+						sizeof *mc_list, GFP_ATOMIC);
-+			if (!vnic->mc_list) {
-+				vnic->mc_list_len = vnic->mc_count = 0;
-+				VNIC_ERROR("failed allocating mc_list\n");
-+				goto failure;
++	spin_lock_irqsave(&viport->lock, localflags);
++	flags &= IFF_UP | IFF_ALLMULTI | IFF_PROMISC;
++	if ((viport->new_flags != flags)
++	    || (viport->new_mtu != mtu)) {
++		viport->new_flags = flags;
++		viport->new_mtu = mtu;
++		viport->updates |= NEED_LINK_CONFIG;
++		if (viport->features_supported & VNIC_FEAT_INBOUND_IB_MC) {
++			if (((viport->mtu <= MCAST_MSG_SIZE) && (mtu >  MCAST_MSG_SIZE)) ||
++			    ((viport->mtu >  MCAST_MSG_SIZE) && (mtu <= MCAST_MSG_SIZE))) {
++			/*
++			 * MTU value will enable/disable the multicast. In
++			 * either case, need to send the CMD_CONFIG_ADDRESS2 to
++			 * EVIC. Hence, setting the NEED_ADDRESS_CONFIG flag.
++			 */
++				viport->updates |= NEED_ADDRESS_CONFIG;
++				if (mtu <= MCAST_MSG_SIZE) {
++				    VIPORT_PRINT("%s: MTU changed; "
++						"old:%d new:%d (threshold:%d);"
++						" MULTICAST will be enabled.\n",
++						config_viport_name(viport->config),
++						viport->mtu, mtu,
++						(int)MCAST_MSG_SIZE);
++				} else {
++				    VIPORT_PRINT("%s: MTU changed; "
++						"old:%d new:%d (threshold:%d); "
++						"MULTICAST will be disabled.\n",
++						config_viport_name(viport->config),
++						viport->mtu, mtu,
++						(int)MCAST_MSG_SIZE);
++				}
++				/* When we resend these addresses, EVIC will
++				 * send mgid=0 back in response. So no need to
++				 * shutoff ib_multicast.
++				 */
++				for (i = MCAST_ADDR_START; i < viport->num_mac_addresses; i++) {
++					if (viport->mac_addresses[i].valid)
++						viport->mac_addresses[i].operation = VNIC_OP_SET_ENTRY;
++				}
 +			}
 +		}
-+		vnic->mc_count = device->mc_count;
-+		for (i = 0; i < device->mc_count; i++) {
-+			vnic->mc_list[i] = *mc_list;
-+			vnic->mc_list[i].next = &vnic->mc_list[i + 1];
-+			mc_list = mc_list->next;
-+		}
++		viport_kick(viport);
 +	}
-+	spin_unlock_irqrestore(&vnic->lock, flags);
 +
-+	if (vnic->primary_path.viport)
-+		viport_set_multicast(vnic->primary_path.viport,
-+				     vnic->mc_list, vnic->mc_count);
-+
-+	if (vnic->secondary_path.viport)
-+		viport_set_multicast(vnic->secondary_path.viport,
-+				     vnic->mc_list, vnic->mc_count);
-+
-+	vnic_npevent_queue_evt(&vnic->primary_path, VNIC_PRINP_SETLINK);
++	spin_unlock_irqrestore(&viport->lock, localflags);
 +	return;
 +failure:
-+	spin_unlock_irqrestore(&vnic->lock, flags);
++	viport_failure(viport);
 +}
 +
-+/**
-+ * Following set of functions queues up the events for EVIC and the
-+ * kernel thread queuing up the event might return.
-+ */
-+static int vnic_set_mac_address(struct net_device *device, void *addr)
++int viport_set_unicast(struct viport *viport, u8 *address)
 +{
-+	struct vnic	*vnic;
-+	struct sockaddr	*sockaddr = addr;
-+	u8		*address;
-+	int		ret = -1;
++	unsigned long flags;
++	int	ret = -1;
++	VIPORT_FUNCTION("viport_set_unicast()\n");
++	spin_lock_irqsave(&viport->lock, flags);
 +
-+	VNIC_FUNCTION("vnic_set_mac_address()\n");
-+	vnic = netdev_priv(device);
++	if (!viport->mac_addresses)
++		goto out;
 +
-+	if (!is_valid_ether_addr(sockaddr->sa_data))
-+		return -EADDRNOTAVAIL;
-+
-+	if (netif_running(device))
-+		return -EBUSY;
-+
-+	memcpy(device->dev_addr, sockaddr->sa_data, ETH_ALEN);
-+	address = sockaddr->sa_data;
-+
-+	if (vnic->primary_path.viport)
-+		ret = viport_set_unicast(vnic->primary_path.viport,
-+					 address);
-+
-+	if (ret)
-+		return ret;
-+
-+	if (vnic->secondary_path.viport)
-+		viport_set_unicast(vnic->secondary_path.viport, address);
-+
-+	vnic->mac_set = 1;
-+	return 0;
-+}
-+
-+static int vnic_change_mtu(struct net_device *device, int mtu)
-+{
-+	struct vnic	*vnic;
-+	int		ret = 0;
-+	int		pri_max_mtu;
-+	int		sec_max_mtu;
-+
-+	VNIC_FUNCTION("vnic_change_mtu()\n");
-+	vnic = netdev_priv(device);
-+
-+	if (vnic->primary_path.viport)
-+		pri_max_mtu = viport_max_mtu(vnic->primary_path.viport);
-+	else
-+		pri_max_mtu = MAX_PARAM_VALUE;
-+
-+	if (vnic->secondary_path.viport)
-+		sec_max_mtu = viport_max_mtu(vnic->secondary_path.viport);
-+	else
-+		sec_max_mtu = MAX_PARAM_VALUE;
-+
-+	if ((mtu < pri_max_mtu) && (mtu < sec_max_mtu)) {
-+		device->mtu = mtu;
-+		vnic_npevent_queue_evt(&vnic->primary_path,
-+				       VNIC_PRINP_SETLINK);
-+		vnic_npevent_queue_evt(&vnic->secondary_path,
-+				       VNIC_SECNP_SETLINK);
-+	} else if (pri_max_mtu < sec_max_mtu)
-+		printk(KERN_WARNING PFX "%s: Maximum "
-+					"supported MTU size is %d. "
-+					"Cannot set MTU to %d\n",
-+					vnic->config->name, pri_max_mtu, mtu);
-+	else
-+		printk(KERN_WARNING PFX "%s: Maximum "
-+					"supported MTU size is %d. "
-+					"Cannot set MTU to %d\n",
-+					vnic->config->name, sec_max_mtu, mtu);
-+
++	if (memcmp(viport->mac_addresses[UNICAST_ADDR].address,
++		   address, ETH_ALEN)) {
++		memcpy(viport->mac_addresses[UNICAST_ADDR].address,
++		       address, ETH_ALEN);
++		viport->mac_addresses[UNICAST_ADDR].operation
++		    = VNIC_OP_SET_ENTRY;
++		viport->updates |= NEED_ADDRESS_CONFIG;
++		viport_kick(viport);
++	}
++	ret = 0;
++out:
++	spin_unlock_irqrestore(&viport->lock, flags);
 +	return ret;
 +}
 +
-+static int vnic_npevent_register(struct vnic *vnic, struct netpath *netpath)
++int viport_set_multicast(struct viport *viport,
++			 struct dev_mc_list *mc_list, int mc_count)
 +{
-+	u8	*address;
-+	int	ret;
++	u32 old_update_list;
++	int i;
++	int ret = -1;
++	unsigned long flags;
 +
-+	if (!vnic->mac_set) {
-+		/* if netpath == secondary_path, then the primary path isn't
-+		 * connected.  MAC address will be set when the primary
-+		 * connects.
-+		 */
-+		netpath_get_hw_addr(netpath, vnic->netdevice->dev_addr);
-+		address = vnic->netdevice->dev_addr;
++	VIPORT_FUNCTION("viport_set_multicast()\n");
++	spin_lock_irqsave(&viport->lock, flags);
 +
-+		if (vnic->secondary_path.viport)
-+			viport_set_unicast(vnic->secondary_path.viport,
-+					   address);
++	if (!viport->mac_addresses)
++		goto out;
 +
-+		vnic->mac_set = 1;
++	old_update_list = viport->updates;
++	if (mc_count > viport->num_mac_addresses - MCAST_ADDR_START)
++		viport->updates |= NEED_LINK_CONFIG | MCAST_OVERFLOW;
++	else {
++		if (mc_count == 0) {
++			ret = 0;
++			goto out;
++		}
++		if (viport->updates & MCAST_OVERFLOW) {
++			viport->updates &= ~MCAST_OVERFLOW;
++			viport->updates |= NEED_LINK_CONFIG;
++		}
++		for (i = MCAST_ADDR_START; i < mc_count + MCAST_ADDR_START;
++						i++, mc_list = mc_list->next) {
++			if (viport->mac_addresses[i].valid &&
++				!memcmp(viport->mac_addresses[i].address,
++						mc_list->dmi_addr, ETH_ALEN))
++			continue;
++		memcpy(viport->mac_addresses[i].address,
++					 mc_list->dmi_addr, ETH_ALEN);
++		viport->mac_addresses[i].valid = 1;
++		viport->mac_addresses[i].operation = VNIC_OP_SET_ENTRY;
 +	}
-+	ret = register_netdev(vnic->netdevice);
-+	if (ret) {
-+		printk(KERN_ERR PFX "%s failed registering netdev "
-+			"error %d - calling viport_failure\n",
-+			config_viport_name(vnic->primary_path.viport->config),
-+				ret);
-+		vnic_free(vnic);
-+		printk(KERN_ERR PFX "%s DELETED : register_netdev failure\n",
-+			config_viport_name(vnic->primary_path.viport->config));
-+		return ret;
++	for (; i < viport->num_mac_addresses; i++) {
++		if (!viport->mac_addresses[i].valid)
++			continue;
++		viport->mac_addresses[i].valid = 0;
++		viport->mac_addresses[i].operation = VNIC_OP_SET_ENTRY;
++	}
++	if (mc_count)
++		viport->updates |= NEED_ADDRESS_CONFIG;
 +	}
 +
-+	vnic->state = VNIC_REGISTERED;
-+	vnic->carrier = 2; /*special value to force netif_carrier_(on|off)*/
-+	return 0;
++	if (viport->updates != old_update_list)
++		viport_kick(viport);
++	ret = 0;
++out:
++	spin_unlock_irqrestore(&viport->lock, flags);
++	return ret;
 +}
 +
-+static void vnic_npevent_dequeue_all(struct vnic *vnic)
++static inline void viport_disable_multicast(struct viport *viport)
++{
++	VIPORT_INFO("turned off IB_MULTICAST\n");
++	viport->config->control_config.ib_multicast = 0;
++	viport->config->control_config.ib_config.conn_data.features_supported &=
++				__constant_cpu_to_be32((u32)~VNIC_FEAT_INBOUND_IB_MC);
++	viport->link_state = LINK_RESET;
++}
++
++void viport_get_stats(struct viport *viport,
++		     struct net_device_stats *stats)
 +{
 +	unsigned long flags;
-+	struct vnic_npevent *npevt, *tmp;
 +
-+	spin_lock_irqsave(&vnic_npevent_list_lock, flags);
-+	if (list_empty(&vnic_npevent_list))
-+		goto out;
-+	list_for_each_entry_safe(npevt, tmp, &vnic_npevent_list,
-+				 list_ptrs) {
-+		if ((npevt->vnic == vnic)) {
-+			list_del(&npevt->list_ptrs);
-+			kfree(npevt);
-+		}
-+	}
-+out:
-+	spin_unlock_irqrestore(&vnic_npevent_list_lock, flags);
-+}
-+
-+static void update_path_and_reconnect(struct netpath *netpath,
-+				      struct vnic *vnic)
-+{
-+	struct viport_config *config = netpath->viport->config;
-+	int delay = 1;
-+
-+	if (vnic_ib_get_path(netpath, vnic))
-+		return;
-+	/*
-+	 * tell viport_connect to wait for default_no_path_timeout
-+	 * before connecting if  we are retrying the same path index
-+	 * within default_no_path_timeout.
-+	 * This prevents flooding connect requests to a path (or set
-+	 * of paths) that aren't successfully connecting for some reason.
++	VIPORT_FUNCTION("viport_get_stats()\n");
++	/* Reference count has been already incremented indicating
++	 * that viport structure is being used, which prevents its
++	 * freeing when this task sleeps
 +	 */
 +	if (time_after(jiffies,
-+		(netpath->connect_time + vnic->config->no_path_timeout))) {
-+		netpath->path_idx = config->path_idx;
-+		netpath->connect_time = jiffies;
-+		netpath->delay_reconnect = 0;
-+		delay = 0;
-+	} else if (config->path_idx != netpath->path_idx) {
-+		delay = netpath->delay_reconnect;
-+		netpath->path_idx = config->path_idx;
-+		netpath->delay_reconnect = 1;
-+	} else
-+		delay = 1;
-+	viport_connect(netpath->viport, delay);
++		(viport->last_stats_time + viport->config->stats_interval))) {
++
++		spin_lock_irqsave(&viport->lock, flags);
++		viport->updates |= NEED_STATS;
++		spin_unlock_irqrestore(&viport->lock, flags);
++		viport_kick(viport);
++		wait_event(viport->stats_queue,
++			   !(viport->updates & NEED_STATS)
++			   || (viport->disconnect == 1));
++
++		if (viport->stats.ethernet_status)
++			vnic_link_up(viport->vnic, viport->parent);
++		else
++			vnic_link_down(viport->vnic, viport->parent);
++	}
++
++	stats->rx_packets = be64_to_cpu(viport->stats.if_in_ok);
++	stats->tx_packets = be64_to_cpu(viport->stats.if_out_ok);
++	stats->rx_bytes   = be64_to_cpu(viport->stats.if_in_octets);
++	stats->tx_bytes   = be64_to_cpu(viport->stats.if_out_octets);
++	stats->rx_errors  = be64_to_cpu(viport->stats.if_in_errors);
++	stats->tx_errors  = be64_to_cpu(viport->stats.if_out_errors);
++	stats->rx_dropped = 0;	/* EIOC doesn't track */
++	stats->tx_dropped = 0;	/* EIOC doesn't track */
++	stats->multicast  = be64_to_cpu(viport->stats.if_in_nucast_pkts);
++	stats->collisions = 0;	/* EIOC doesn't track */
 +}
 +
-+static inline void vnic_set_checksum_flag(struct vnic *vnic,
-+					  struct netpath *target_path)
++int viport_xmit_packet(struct viport *viport, struct sk_buff *skb)
++{
++	int status = -1;
++	unsigned long flags;
++
++	VIPORT_FUNCTION("viport_xmit_packet()\n");
++	spin_lock_irqsave(&viport->lock, flags);
++	if (viport->state == VIPORT_CONNECTED)
++		status = data_xmit_packet(&viport->data, skb);
++	spin_unlock_irqrestore(&viport->lock, flags);
++
++	return status;
++}
++
++void viport_kick(struct viport *viport)
 +{
 +	unsigned long flags;
 +
-+	spin_lock_irqsave(&vnic->current_path_lock, flags);
-+	vnic->current_path = target_path;
-+	vnic->failed_over = 1;
-+	if (vnic->config->use_tx_csum &&
-+	    netpath_can_tx_csum(vnic->current_path))
-+		vnic->netdevice->features |= NETIF_F_IP_CSUM;
-+
-+	spin_unlock_irqrestore(&vnic->current_path_lock, flags);
++	VIPORT_FUNCTION("viport_kick()\n");
++	spin_lock_irqsave(&viport_list_lock, flags);
++	if (list_empty(&viport->list_ptrs)) {
++		list_add_tail(&viport->list_ptrs, &viport_list);
++		wake_up(&viport_queue);
++	}
++	spin_unlock_irqrestore(&viport_list_lock, flags);
 +}
 +
-+static void vnic_set_uni_multicast(struct vnic *vnic,
-+				   struct netpath *netpath)
-+{
-+	unsigned long	flags;
-+	u8		*address;
-+
-+	if (vnic->mac_set) {
-+		address = vnic->netdevice->dev_addr;
-+
-+		if (netpath->viport)
-+			viport_set_unicast(netpath->viport, address);
-+	}
-+	spin_lock_irqsave(&vnic->lock, flags);
-+
-+	if (vnic->mc_list && netpath->viport)
-+		viport_set_multicast(netpath->viport, vnic->mc_list,
-+				     vnic->mc_count);
-+
-+	spin_unlock_irqrestore(&vnic->lock, flags);
-+	if (vnic->state == VNIC_REGISTERED) {
-+		if (!netpath->viport)
-+			return;
-+		viport_set_link(netpath->viport,
-+				vnic->netdevice->flags & ~IFF_UP,
-+				vnic->netdevice->mtu);
-+	}
-+}
-+
-+static void vnic_set_netpath_timers(struct vnic *vnic,
-+				    struct netpath *netpath)
-+{
-+	switch (netpath->timer_state) {
-+	case NETPATH_TS_IDLE:
-+		netpath->timer_state = NETPATH_TS_ACTIVE;
-+		if (vnic->state == VNIC_UNINITIALIZED)
-+			netpath_timer(netpath,
-+				      vnic->config->
-+				      primary_connect_timeout);
-+		else
-+			netpath_timer(netpath,
-+				      vnic->config->
-+				      primary_reconnect_timeout);
-+			break;
-+	case NETPATH_TS_ACTIVE:
-+		/*nothing to do*/
-+		break;
-+	case NETPATH_TS_EXPIRED:
-+		if (vnic->state == VNIC_UNINITIALIZED)
-+			vnic_npevent_register(vnic, netpath);
-+
-+		break;
-+	}
-+}
-+
-+static void vnic_check_primary_path_timer(struct vnic *vnic)
-+{
-+	switch (vnic->primary_path.timer_state) {
-+	case NETPATH_TS_ACTIVE:
-+		/* nothing to do. just wait */
-+		break;
-+	case NETPATH_TS_IDLE:
-+		netpath_timer(&vnic->primary_path,
-+			      vnic->config->
-+			      primary_switch_timeout);
-+		break;
-+	case NETPATH_TS_EXPIRED:
-+		printk(KERN_INFO PFX
-+		       "%s: switching to primary path\n",
-+		       vnic->config->name);
-+
-+		vnic_set_checksum_flag(vnic, &vnic->primary_path);
-+		break;
-+	}
-+}
-+
-+static void vnic_carrier_loss(struct vnic *vnic,
-+			      struct netpath *last_path)
-+{
-+	if (vnic->primary_path.carrier) {
-+		vnic->carrier = 1;
-+		vnic_set_checksum_flag(vnic, &vnic->primary_path);
-+
-+		if (last_path && last_path != vnic->current_path)
-+			printk(KERN_INFO PFX
-+			       "%s: failing over to primary path\n",
-+			       vnic->config->name);
-+		else if (!last_path)
-+			printk(KERN_INFO PFX "%s: using primary path\n",
-+			       vnic->config->name);
-+
-+	} else if ((vnic->secondary_path.carrier) &&
-+		   (vnic->secondary_path.timer_state != NETPATH_TS_ACTIVE)) {
-+		vnic->carrier = 1;
-+		vnic_set_checksum_flag(vnic, &vnic->secondary_path);
-+
-+		if (last_path && last_path != vnic->current_path)
-+			printk(KERN_INFO PFX
-+			       "%s: failing over to secondary path\n",
-+			       vnic->config->name);
-+		else if (!last_path)
-+			printk(KERN_INFO PFX "%s: using secondary path\n",
-+			       vnic->config->name);
-+
-+	}
-+
-+}
-+
-+static void vnic_handle_path_change(struct vnic *vnic,
-+				    struct netpath **path)
-+{
-+	struct netpath *last_path = *path;
-+
-+	if (!last_path) {
-+		if (vnic->current_path == &vnic->primary_path)
-+			last_path = &vnic->secondary_path;
-+		else
-+			last_path = &vnic->primary_path;
-+
-+	}
-+
-+	if (vnic->current_path && vnic->current_path->viport)
-+		viport_set_link(vnic->current_path->viport,
-+				vnic->netdevice->flags,
-+				vnic->netdevice->mtu);
-+
-+	if (last_path->viport)
-+		viport_set_link(last_path->viport,
-+				 vnic->netdevice->flags &
-+				 ~IFF_UP, vnic->netdevice->mtu);
-+
-+	vnic_restart_xmit(vnic, vnic->current_path);
-+}
-+
-+static void vnic_report_path_change(struct vnic *vnic,
-+				    struct netpath *last_path,
-+				    int other_path_ok)
-+{
-+	if (!vnic->current_path) {
-+		if (last_path == &vnic->primary_path)
-+			printk(KERN_INFO PFX "%s: primary path lost, "
-+			       "no failover path available\n",
-+			       vnic->config->name);
-+		else
-+			printk(KERN_INFO PFX "%s: secondary path lost, "
-+			       "no failover path available\n",
-+			       vnic->config->name);
-+		return;
-+	}
-+
-+	if (last_path != vnic->current_path)
-+		return;
-+
-+	if (vnic->current_path == &vnic->secondary_path) {
-+		if (other_path_ok != vnic->primary_path.carrier) {
-+			if (other_path_ok)
-+				printk(KERN_INFO PFX "%s: primary path no"
-+				       " longer available for failover\n",
-+				       vnic->config->name);
-+			else
-+				printk(KERN_INFO PFX "%s: primary path now"
-+				       " available for failover\n",
-+				       vnic->config->name);
-+		}
-+	} else {
-+		if (other_path_ok != vnic->secondary_path.carrier) {
-+			if (other_path_ok)
-+				printk(KERN_INFO PFX "%s: secondary path no"
-+				       " longer available for failover\n",
-+				       vnic->config->name);
-+			else
-+				printk(KERN_INFO PFX "%s: secondary path now"
-+				       " available for failover\n",
-+				       vnic->config->name);
-+		}
-+	}
-+}
-+
-+static void vnic_handle_free_vnic_evt(struct vnic *vnic)
++void viport_failure(struct viport *viport)
 +{
 +	unsigned long flags;
 +
-+	if (!netif_queue_stopped(vnic->netdevice))
-+		netif_stop_queue(vnic->netdevice);
-+
-+	netpath_timer_stop(&vnic->primary_path);
-+	netpath_timer_stop(&vnic->secondary_path);
-+	spin_lock_irqsave(&vnic->current_path_lock, flags);
-+	vnic->current_path = NULL;
-+	spin_unlock_irqrestore(&vnic->current_path_lock, flags);
-+	netpath_free(&vnic->primary_path);
-+	netpath_free(&vnic->secondary_path);
-+	if (vnic->state == VNIC_REGISTERED)
-+		unregister_netdev(vnic->netdevice);
-+
-+	vnic_npevent_dequeue_all(vnic);
-+	kfree(vnic->config);
-+	if (vnic->mc_list_len) {
-+		vnic->mc_list_len = vnic->mc_count = 0;
-+		kfree(vnic->mc_list);
++	VIPORT_FUNCTION("viport_failure()\n");
++	vnic_stop_xmit(viport->vnic, viport->parent);
++	spin_lock_irqsave(&viport_list_lock, flags);
++	viport->errored = 1;
++	if (list_empty(&viport->list_ptrs)) {
++		list_add_tail(&viport->list_ptrs, &viport_list);
++		wake_up(&viport_queue);
 +	}
-+
-+	sysfs_remove_group(&vnic->dev_info.dev.kobj,
-+			   &vnic_dev_attr_group);
-+	vnic_cleanup_stats_files(vnic);
-+	device_unregister(&vnic->dev_info.dev);
-+	wait_for_completion(&vnic->dev_info.released);
-+	free_netdev(vnic->netdevice);
++	spin_unlock_irqrestore(&viport_list_lock, flags);
 +}
 +
-+static struct vnic *vnic_handle_npevent(struct vnic *vnic,
-+					 enum vnic_npevent_type npevt_type)
++static void viport_timeout(unsigned long data)
 +{
-+	struct netpath	*netpath;
-+	const char *netpath_str;
++	struct viport *viport;
 +
-+	if (npevt_type <= VNIC_PRINP_LASTTYPE)
-+		netpath_str = netpath_to_string(vnic, &vnic->primary_path);
-+	else if	(npevt_type <= VNIC_SECNP_LASTTYPE)
-+		netpath_str = netpath_to_string(vnic, &vnic->secondary_path);
-+	else
-+		netpath_str = netpath_to_string(vnic, vnic->current_path);
-+
-+	VNIC_INFO("%s: processing %s, netpath=%s, carrier=%d\n",
-+		  vnic->config->name, vnic_npevent_str[npevt_type],
-+		  netpath_str, vnic->carrier);
-+
-+	switch (npevt_type) {
-+	case VNIC_PRINP_CONNECTED:
-+		netpath = &vnic->primary_path;
-+		if (vnic->state == VNIC_UNINITIALIZED) {
-+			if (vnic_npevent_register(vnic, netpath))
-+				break;
-+		}
-+		vnic_set_uni_multicast(vnic, netpath);
-+		break;
-+	case VNIC_SECNP_CONNECTED:
-+		vnic_set_uni_multicast(vnic, &vnic->secondary_path);
-+		break;
-+	case VNIC_PRINP_TIMEREXPIRED:
-+		netpath = &vnic->primary_path;
-+		netpath->timer_state = NETPATH_TS_EXPIRED;
-+		if (!netpath->carrier)
-+			update_path_and_reconnect(netpath, vnic);
-+		break;
-+	case VNIC_SECNP_TIMEREXPIRED:
-+		netpath = &vnic->secondary_path;
-+		netpath->timer_state = NETPATH_TS_EXPIRED;
-+		if (!netpath->carrier)
-+			update_path_and_reconnect(netpath, vnic);
-+		else {
-+			if (vnic->state == VNIC_UNINITIALIZED)
-+				vnic_npevent_register(vnic, netpath);
-+		}
-+		break;
-+	case VNIC_PRINP_LINKUP:
-+		vnic->primary_path.carrier = 1;
-+		break;
-+	case VNIC_SECNP_LINKUP:
-+		netpath = &vnic->secondary_path;
-+		netpath->carrier = 1;
-+		if (!vnic->carrier)
-+			vnic_set_netpath_timers(vnic, netpath);
-+		break;
-+	case VNIC_PRINP_LINKDOWN:
-+		vnic->primary_path.carrier = 0;
-+		break;
-+	case VNIC_SECNP_LINKDOWN:
-+		if (vnic->state == VNIC_UNINITIALIZED)
-+			netpath_timer_stop(&vnic->secondary_path);
-+		vnic->secondary_path.carrier = 0;
-+		break;
-+	case VNIC_PRINP_DISCONNECTED:
-+		netpath = &vnic->primary_path;
-+		netpath_timer_stop(netpath);
-+		netpath->carrier = 0;
-+		update_path_and_reconnect(netpath, vnic);
-+		break;
-+	case VNIC_SECNP_DISCONNECTED:
-+		netpath = &vnic->secondary_path;
-+		netpath_timer_stop(netpath);
-+		netpath->carrier = 0;
-+		update_path_and_reconnect(netpath, vnic);
-+		break;
-+	case VNIC_PRINP_SETLINK:
-+		netpath = vnic->current_path;
-+		if (!netpath || !netpath->viport)
-+			break;
-+		viport_set_link(netpath->viport,
-+				vnic->netdevice->flags,
-+				vnic->netdevice->mtu);
-+		break;
-+	case VNIC_SECNP_SETLINK:
-+		netpath = &vnic->secondary_path;
-+		if (!netpath || !netpath->viport)
-+			break;
-+		viport_set_link(netpath->viport,
-+				vnic->netdevice->flags,
-+				vnic->netdevice->mtu);
-+		break;
-+	case VNIC_NP_FREEVNIC:
-+		vnic_handle_free_vnic_evt(vnic);
-+		vnic = NULL;
-+		break;
-+	}
-+	return vnic;
++	VIPORT_FUNCTION("viport_timeout()\n");
++	viport = (struct viport *)data;
++	viport->timer_active = 0;
++	viport_kick(viport);
 +}
 +
-+static int vnic_npevent_statemachine(void *context)
++static void viport_timer(struct viport *viport, int timeout)
 +{
-+	struct vnic_npevent	*vnic_link_evt;
-+	enum vnic_npevent_type	npevt_type;
-+	struct vnic		*vnic;
-+	int			last_carrier;
-+	int			other_path_ok = 0;
-+	struct netpath		*last_path;
++	VIPORT_FUNCTION("viport_timer()\n");
++	if (viport->timer_active)
++		del_timer(&viport->timer);
++	init_timer(&viport->timer);
++	viport->timer.expires = jiffies + timeout;
++	viport->timer.data = (unsigned long)viport;
++	viport->timer.function = viport_timeout;
++	viport->timer_active = 1;
++	add_timer(&viport->timer);
++}
 +
-+	while (!vnic_npevent_thread_end ||
-+	       !list_empty(&vnic_npevent_list)) {
-+		unsigned long flags;
++static void viport_timer_stop(struct viport *viport)
++{
++	VIPORT_FUNCTION("viport_timer_stop()\n");
++	if (viport->timer_active)
++		del_timer(&viport->timer);
++	viport->timer_active = 0;
++}
 +
-+		wait_event_interruptible(vnic_npevent_queue,
-+					 !list_empty(&vnic_npevent_list)
-+					 || vnic_npevent_thread_end);
-+		spin_lock_irqsave(&vnic_npevent_list_lock, flags);
-+		if (list_empty(&vnic_npevent_list)) {
-+			spin_unlock_irqrestore(&vnic_npevent_list_lock,
-+					       flags);
-+			VNIC_INFO("netpath statemachine wake"
-+				  " on empty list\n");
-+			continue;
-+		}
++static int viport_init_mac_addresses(struct viport *viport)
++{
++	struct vnic_address_op2	*temp;
++	unsigned long		flags;
++	int			i;
 +
-+		vnic_link_evt = list_first_entry(&vnic_npevent_list,
-+						 struct vnic_npevent,
-+						 list_ptrs);
-+		list_del(&vnic_link_evt->list_ptrs);
-+		spin_unlock_irqrestore(&vnic_npevent_list_lock, flags);
-+		vnic = vnic_link_evt->vnic;
-+		npevt_type = vnic_link_evt->event_type;
-+		kfree(vnic_link_evt);
-+
-+		if (vnic->current_path == &vnic->secondary_path)
-+			other_path_ok = vnic->primary_path.carrier;
-+		else if (vnic->current_path == &vnic->primary_path)
-+			other_path_ok = vnic->secondary_path.carrier;
-+
-+		vnic = vnic_handle_npevent(vnic, npevt_type);
-+
-+		if (!vnic)
-+			continue;
-+
-+		last_carrier = vnic->carrier;
-+		last_path = vnic->current_path;
-+
-+		if (!vnic->current_path ||
-+		    !vnic->current_path->carrier) {
-+			vnic->carrier = 0;
-+			vnic->current_path = NULL;
-+			vnic->netdevice->features &= ~NETIF_F_IP_CSUM;
-+		}
-+
-+		if (!vnic->carrier)
-+			vnic_carrier_loss(vnic, last_path);
-+		else if ((vnic->current_path != &vnic->primary_path) &&
-+			 (vnic->config->prefer_primary) &&
-+			 (vnic->primary_path.carrier))
-+				vnic_check_primary_path_timer(vnic);
-+
-+		if (last_path)
-+			vnic_report_path_change(vnic, last_path,
-+						other_path_ok);
-+
-+		VNIC_INFO("new netpath=%s, carrier=%d\n",
-+			  netpath_to_string(vnic, vnic->current_path),
-+			  vnic->carrier);
-+
-+		if (vnic->current_path != last_path)
-+			vnic_handle_path_change(vnic, &last_path);
-+
-+		if (vnic->carrier != last_carrier) {
-+			if (vnic->carrier) {
-+				VNIC_INFO("netif_carrier_on\n");
-+				netif_carrier_on(vnic->netdevice);
-+				vnic_carrier_loss_stats(vnic);
-+			} else {
-+				VNIC_INFO("netif_carrier_off\n");
-+				netif_carrier_off(vnic->netdevice);
-+				vnic_disconn_stats(vnic);
-+			}
-+
-+		}
++	VIPORT_FUNCTION("viport_init_mac_addresses()\n");
++	i = viport->num_mac_addresses * sizeof *temp;
++	temp = kzalloc(viport->num_mac_addresses * sizeof *temp,
++		       GFP_KERNEL);
++	if (!temp) {
++		VIPORT_ERROR("failed allocating MAC address table\n");
++		return -ENOMEM;
 +	}
-+	complete_and_exit(&vnic_npevent_thread_exit, 0);
++
++	spin_lock_irqsave(&viport->lock, flags);
++	viport->mac_addresses = temp;
++	for (i = 0; i < viport->num_mac_addresses; i++) {
++		viport->mac_addresses[i].index = cpu_to_be16(i);
++		viport->mac_addresses[i].vlan =
++				cpu_to_be16(viport->default_vlan);
++	}
++	memset(viport->mac_addresses[BROADCAST_ADDR].address,
++	       0xFF, ETH_ALEN);
++	viport->mac_addresses[BROADCAST_ADDR].valid = 1;
++	memcpy(viport->mac_addresses[UNICAST_ADDR].address,
++	       viport->hw_mac_address, ETH_ALEN);
++	viport->mac_addresses[UNICAST_ADDR].valid = 1;
++
++	spin_unlock_irqrestore(&viport->lock, flags);
++
 +	return 0;
 +}
 +
-+void vnic_npevent_queue_evt(struct netpath *netpath,
-+			    enum vnic_npevent_type evt)
++static inline void viport_match_mac_address(struct vnic *vnic,
++					    struct viport *viport)
 +{
-+	struct vnic_npevent *npevent;
-+	unsigned long flags;
-+
-+	npevent = kmalloc(sizeof *npevent, GFP_ATOMIC);
-+	if (!npevent) {
-+		VNIC_ERROR("Could not allocate memory for vnic event\n");
-+		return;
++	if (vnic && vnic->current_path &&
++	    viport == vnic->current_path->viport &&
++	    vnic->mac_set &&
++	    memcmp(vnic->netdevice->dev_addr, viport->hw_mac_address, ETH_ALEN)) {
++		VIPORT_ERROR("*** ERROR MAC address mismatch; "
++				"current = %02x:%02x:%02x:%02x:%02x:%02x "
++				"From EVIC = %02x:%02x:%02x:%02x:%02x:%02x\n",
++				vnic->netdevice->dev_addr[0],
++				vnic->netdevice->dev_addr[1],
++				vnic->netdevice->dev_addr[2],
++				vnic->netdevice->dev_addr[3],
++				vnic->netdevice->dev_addr[4],
++				vnic->netdevice->dev_addr[5],
++				viport->hw_mac_address[0],
++				viport->hw_mac_address[1],
++				viport->hw_mac_address[2],
++				viport->hw_mac_address[3],
++				viport->hw_mac_address[4],
++				viport->hw_mac_address[5]);
 +	}
-+	npevent->vnic = netpath->parent;
-+	npevent->event_type = evt;
-+	INIT_LIST_HEAD(&npevent->list_ptrs);
-+	spin_lock_irqsave(&vnic_npevent_list_lock, flags);
-+	list_add_tail(&npevent->list_ptrs, &vnic_npevent_list);
-+	spin_unlock_irqrestore(&vnic_npevent_list_lock, flags);
-+	wake_up(&vnic_npevent_queue);
 +}
 +
-+void vnic_npevent_dequeue_evt(struct netpath *netpath,
-+			      enum vnic_npevent_type evt)
++static int viport_handle_init_states(struct viport *viport)
 +{
-+	unsigned long flags;
-+	struct vnic_npevent *npevt, *tmp;
-+	struct vnic *vnic = netpath->parent;
++	enum link_state old_state;
 +
-+	spin_lock_irqsave(&vnic_npevent_list_lock, flags);
-+	if (list_empty(&vnic_npevent_list))
-+		goto out;
-+	list_for_each_entry_safe(npevt, tmp, &vnic_npevent_list,
-+				 list_ptrs) {
-+		if ((npevt->vnic == vnic) &&
-+		    (npevt->event_type == evt)) {
-+			list_del(&npevt->list_ptrs);
-+			kfree(npevt);
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_UNINITIALIZED:
++			LINK_STATE("state LINK_UNINITIALIZED\n");
++			viport->updates = 0;
++			spin_lock_irq(&viport_list_lock);
++			list_del_init(&viport->list_ptrs);
++			spin_unlock_irq(&viport_list_lock);
++			if (atomic_read(&viport->reference_count)) {
++				wake_up(&viport->stats_queue);
++				wait_event(viport->reference_queue,
++					 atomic_read(&viport->reference_count) == 0);
++			}
++			/* No more references to viport structure
++			 * so it is safe to delete it by waking disconnect
++			 * queue
++			 */
++
++			viport->disconnect = 0;
++			wake_up(&viport->disconnect_queue);
 +			break;
++		case LINK_INITIALIZE:
++			LINK_STATE("state LINK_INITIALIZE\n");
++			viport->errored = 0;
++			viport->connect = WAIT;
++			viport->last_stats_time = 0;
++			if (viport->disconnect)
++				viport->link_state = LINK_UNINITIALIZED;
++			else
++				viport->link_state = LINK_INITIALIZECONTROL;
++			break;
++		case LINK_INITIALIZECONTROL:
++			LINK_STATE("state LINK_INITIALIZECONTROL\n");
++			viport->pd = ib_alloc_pd(viport->config->ibdev);
++			if (IS_ERR(viport->pd))
++				viport->link_state = LINK_DISCONNECTED;
++			else if (control_init(&viport->control, viport,
++					    &viport->config->control_config,
++					    viport->pd)) {
++				ib_dealloc_pd(viport->pd);
++				viport->link_state = LINK_DISCONNECTED;
++
++			} else
++				viport->link_state = LINK_INITIALIZEDATA;
++			break;
++		case LINK_INITIALIZEDATA:
++			LINK_STATE("state LINK_INITIALIZEDATA\n");
++			if (data_init(&viport->data, viport,
++				      &viport->config->data_config,
++				      viport->pd))
++				viport->link_state = LINK_CLEANUPCONTROL;
++			else
++				viport->link_state = LINK_CONTROLCONNECT;
++			break;
++		default:
++			return -1;
 +		}
-+	}
-+out:
-+	spin_unlock_irqrestore(&vnic_npevent_list_lock, flags);
++	} while (viport->link_state != old_state);
++
++	return 0;
 +}
 +
-+static int vnic_npevent_start(void)
++static int viport_handle_control_states(struct viport *viport)
 +{
-+	VNIC_FUNCTION("vnic_npevent_start()\n");
++	enum link_state old_state;
++	struct vnic *vnic;
 +
-+	spin_lock_init(&vnic_npevent_list_lock);
-+	vnic_npevent_thread = kthread_run(vnic_npevent_statemachine, NULL,
-+						"qlgc_vnic_npevent_s_m");
-+	if (IS_ERR(vnic_npevent_thread)) {
-+		printk(KERN_WARNING PFX "failed to create vnic npevent"
-+		       " thread; error %d\n",
-+			(int) PTR_ERR(vnic_npevent_thread));
-+		vnic_npevent_thread = NULL;
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_CONTROLCONNECT:
++			if (vnic_ib_cm_connect(&viport->control.ib_conn))
++				viport->link_state = LINK_CLEANUPDATA;
++			else
++				viport->link_state = LINK_CONTROLCONNECTWAIT;
++			break;
++		case LINK_CONTROLCONNECTWAIT:
++			LINK_STATE("state LINK_CONTROLCONNECTWAIT\n");
++			if (control_is_connected(&viport->control))
++				viport->link_state = LINK_INITVNICREQ;
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_CONTROLDISCONNECT;
++			}
++			break;
++		case LINK_INITVNICREQ:
++			LINK_STATE("state LINK_INITVNICREQ\n");
++			if (control_init_vnic_req(&viport->control))
++				viport->link_state = LINK_RESETCONTROL;
++			else
++				viport->link_state = LINK_INITVNICRSP;
++			break;
++		case LINK_INITVNICRSP:
++			LINK_STATE("state LINK_INITVNICRSP\n");
++			control_process_async(&viport->control);
++
++			if (!control_init_vnic_rsp(&viport->control,
++						  &viport->features_supported,
++						  viport->hw_mac_address,
++						  &viport->num_mac_addresses,
++						  &viport->default_vlan)) {
++				if (viport_init_mac_addresses(viport))
++					viport->link_state =
++							LINK_RESETCONTROL;
++				else {
++					viport->link_state =
++							LINK_BEGINDATAPATH;
++					/*
++					 * Ensure that the current path's MAC
++					 * address matches the one returned by
++					 * EVIC - we've had cases of mismatch
++					 * which then caused havoc.
++					 */
++					vnic = viport->parent->parent;
++					viport_match_mac_address(vnic, viport);
++				}
++			}
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_RESETCONTROL;
++			}
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_handle_data_states(struct viport *viport)
++{
++	enum link_state old_state;
++
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_BEGINDATAPATH:
++			LINK_STATE("state LINK_BEGINDATAPATH\n");
++			viport->link_state = LINK_CONFIGDATAPATHREQ;
++			break;
++		case LINK_CONFIGDATAPATHREQ:
++			LINK_STATE("state LINK_CONFIGDATAPATHREQ\n");
++			if (control_config_data_path_req(&viport->control,
++						data_path_id(&viport->
++							     data),
++						data_host_pool_max
++						(&viport->data),
++						data_eioc_pool_max
++						(&viport->data)))
++				viport->link_state = LINK_RESETCONTROL;
++			else
++				viport->link_state = LINK_CONFIGDATAPATHRSP;
++			break;
++		case LINK_CONFIGDATAPATHRSP:
++			LINK_STATE("state LINK_CONFIGDATAPATHRSP\n");
++			control_process_async(&viport->control);
++
++			if (!control_config_data_path_rsp(&viport->control,
++							 data_host_pool
++							 (&viport->data),
++							 data_eioc_pool
++							 (&viport->data),
++							 data_host_pool_max
++							 (&viport->data),
++							 data_eioc_pool_max
++							 (&viport->data),
++							 data_host_pool_min
++							 (&viport->data),
++							 data_eioc_pool_min
++							 (&viport->data)))
++				viport->link_state = LINK_DATACONNECT;
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_RESETCONTROL;
++			}
++			break;
++		case LINK_DATACONNECT:
++			LINK_STATE("state LINK_DATACONNECT\n");
++			if (data_connect(&viport->data))
++				viport->link_state = LINK_RESETCONTROL;
++			else
++				viport->link_state = LINK_DATACONNECTWAIT;
++			break;
++		case LINK_DATACONNECTWAIT:
++			LINK_STATE("state LINK_DATACONNECTWAIT\n");
++			control_process_async(&viport->control);
++			if (data_is_connected(&viport->data))
++				viport->link_state = LINK_XCHGPOOLREQ;
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_RESET;
++			}
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_handle_xchgpool_states(struct viport *viport)
++{
++	enum link_state old_state;
++
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_XCHGPOOLREQ:
++			LINK_STATE("state LINK_XCHGPOOLREQ\n");
++			if (control_exchange_pools_req(&viport->control,
++						       data_local_pool_addr
++						       (&viport->data),
++						       data_local_pool_rkey
++						       (&viport->data)))
++				viport->link_state = LINK_RESET;
++			else
++				viport->link_state = LINK_XCHGPOOLRSP;
++			break;
++		case LINK_XCHGPOOLRSP:
++			LINK_STATE("state LINK_XCHGPOOLRSP\n");
++			control_process_async(&viport->control);
++
++			if (!control_exchange_pools_rsp(&viport->control,
++						       data_remote_pool_addr
++						       (&viport->data),
++						       data_remote_pool_rkey
++						       (&viport->data)))
++				viport->link_state = LINK_INITIALIZED;
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_RESET;
++			}
++			break;
++		case LINK_INITIALIZED:
++			LINK_STATE("state LINK_INITIALIZED\n");
++			viport->state = VIPORT_CONNECTED;
++			printk(KERN_INFO PFX
++			       "%s: connection established\n",
++			       config_viport_name(viport->config));
++			data_connected(&viport->data);
++			vnic_connected(viport->parent->parent,
++				       viport->parent);
++			if (viport->features_supported & VNIC_FEAT_INBOUND_IB_MC) {
++				printk(KERN_INFO PFX "%s: Supports Inbound IB "
++					"Multicast\n",
++					config_viport_name(viport->config));
++				if (mc_data_init(&viport->mc_data, viport,
++						&viport->config->data_config,
++						viport->pd)) {
++					viport_disable_multicast(viport);
++					break;
++				}
++			}
++			spin_lock_irq(&viport->lock);
++			viport->mtu = 1500;
++			viport->flags = 0;
++			if ((viport->mtu != viport->new_mtu) ||
++			    (viport->flags != viport->new_flags))
++				viport->updates |= NEED_LINK_CONFIG;
++			spin_unlock_irq(&viport->lock);
++			viport->link_state = LINK_IDLE;
++			viport->retry_duration = 0;
++			viport->total_retry_duration = 0;
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_handle_idle_states(struct viport *viport)
++{
++	enum link_state old_state;
++	int handle_mc_join_compl, handle_mc_join;
++
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_IDLE:
++			LINK_STATE("state LINK_IDLE\n");
++			if (viport->config->hb_interval)
++				viport_timer(viport,
++					     viport->config->hb_interval);
++			viport->link_state = LINK_IDLING;
++			break;
++		case LINK_IDLING:
++			LINK_STATE("state LINK_IDLING\n");
++			control_process_async(&viport->control);
++			if (viport->errored) {
++				viport_timer_stop(viport);
++				viport->errored = 0;
++				viport->link_state = LINK_RESET;
++				break;
++			}
++
++			spin_lock_irq(&viport->lock);
++			handle_mc_join = (viport->updates & NEED_MCAST_JOIN);
++			handle_mc_join_compl =
++				      (viport->updates & NEED_MCAST_COMPLETION);
++			/*
++			 * Turn off both flags, the handler functions will
++			 * rearm them if necessary.
++			 */
++			viport->updates &= ~(NEED_MCAST_JOIN | NEED_MCAST_COMPLETION);
++
++			if (viport->updates & NEED_LINK_CONFIG) {
++				viport_timer_stop(viport);
++				viport->link_state = LINK_CONFIGLINKREQ;
++			} else if (viport->updates & NEED_ADDRESS_CONFIG) {
++				viport_timer_stop(viport);
++				viport->link_state = LINK_CONFIGADDRSREQ;
++			} else if (viport->updates & NEED_STATS) {
++				viport_timer_stop(viport);
++				viport->link_state = LINK_REPORTSTATREQ;
++			} else if (viport->config->hb_interval) {
++				if (!viport->timer_active)
++					viport->link_state =
++						LINK_HEARTBEATREQ;
++			}
++			spin_unlock_irq(&viport->lock);
++			if (handle_mc_join) {
++				if (vnic_mc_join(viport))
++					viport_disable_multicast(viport);
++			}
++			if (handle_mc_join_compl)
++				vnic_mc_join_handle_completion(viport);
++
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_handle_config_states(struct viport *viport)
++{
++	enum link_state old_state;
++	int res;
++
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_CONFIGLINKREQ:
++			LINK_STATE("state LINK_CONFIGLINKREQ\n");
++			spin_lock_irq(&viport->lock);
++			viport->updates &= ~NEED_LINK_CONFIG;
++			viport->flags = viport->new_flags;
++			if (viport->updates & MCAST_OVERFLOW)
++				viport->flags |= IFF_ALLMULTI;
++			viport->mtu = viport->new_mtu;
++			spin_unlock_irq(&viport->lock);
++			if (control_config_link_req(&viport->control,
++						    viport->flags,
++						    viport->mtu))
++				viport->link_state = LINK_RESET;
++			else
++				viport->link_state = LINK_CONFIGLINKRSP;
++			break;
++		case LINK_CONFIGLINKRSP:
++			LINK_STATE("state LINK_CONFIGLINKRSP\n");
++			control_process_async(&viport->control);
++
++			if (!control_config_link_rsp(&viport->control,
++						    &viport->flags,
++						    &viport->mtu))
++				viport->link_state = LINK_IDLE;
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_RESET;
++			}
++			break;
++		case LINK_CONFIGADDRSREQ:
++			LINK_STATE("state LINK_CONFIGADDRSREQ\n");
++
++			spin_lock_irq(&viport->lock);
++			res = control_config_addrs_req(&viport->control,
++						       viport->mac_addresses,
++						       viport->
++						       num_mac_addresses);
++
++			if (res > 0) {
++				viport->updates &= ~NEED_ADDRESS_CONFIG;
++				viport->link_state = LINK_CONFIGADDRSRSP;
++			} else if (res == 0)
++				viport->link_state = LINK_CONFIGADDRSRSP;
++			else
++				viport->link_state = LINK_RESET;
++			spin_unlock_irq(&viport->lock);
++			break;
++		case LINK_CONFIGADDRSRSP:
++			LINK_STATE("state LINK_CONFIGADDRSRSP\n");
++			control_process_async(&viport->control);
++
++			if (!control_config_addrs_rsp(&viport->control))
++				viport->link_state = LINK_IDLE;
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_RESET;
++			}
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_handle_stat_states(struct viport *viport)
++{
++	enum link_state old_state;
++
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_REPORTSTATREQ:
++			LINK_STATE("state LINK_REPORTSTATREQ\n");
++			if (control_report_statistics_req(&viport->control))
++				viport->link_state = LINK_RESET;
++			else
++				viport->link_state = LINK_REPORTSTATRSP;
++			break;
++		case LINK_REPORTSTATRSP:
++			LINK_STATE("state LINK_REPORTSTATRSP\n");
++			control_process_async(&viport->control);
++
++			spin_lock_irq(&viport->lock);
++			if (control_report_statistics_rsp(&viport->control,
++						  &viport->stats) == 0) {
++				viport->updates &= ~NEED_STATS;
++				viport->last_stats_time = jiffies;
++				wake_up(&viport->stats_queue);
++				viport->link_state = LINK_IDLE;
++			}
++
++			spin_unlock_irq(&viport->lock);
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_RESET;
++			}
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_handle_heartbeat_states(struct viport *viport)
++{
++	enum link_state old_state;
++
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_HEARTBEATREQ:
++			LINK_STATE("state LINK_HEARTBEATREQ\n");
++			if (control_heartbeat_req(&viport->control,
++						  viport->config->hb_timeout))
++				viport->link_state = LINK_RESET;
++			else
++				viport->link_state = LINK_HEARTBEATRSP;
++			break;
++		case LINK_HEARTBEATRSP:
++			LINK_STATE("state LINK_HEARTBEATRSP\n");
++			control_process_async(&viport->control);
++
++			if (!control_heartbeat_rsp(&viport->control))
++				viport->link_state = LINK_IDLE;
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_RESET;
++			}
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_handle_reset_states(struct viport *viport)
++{
++	enum link_state old_state;
++	int handle_mc_join_compl = 0, handle_mc_join = 0;
++
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_RESET:
++			LINK_STATE("state LINK_RESET\n");
++			viport->errored = 0;
++			spin_lock_irq(&viport->lock);
++			viport->state = VIPORT_DISCONNECTED;
++			/*
++			 * Turn off both flags, the handler functions will
++			 * rearm them if necessary
++			 */
++			viport->updates &= ~(NEED_MCAST_JOIN | NEED_MCAST_COMPLETION);
++
++			spin_unlock_irq(&viport->lock);
++			vnic_link_down(viport->vnic, viport->parent);
++			printk(KERN_INFO PFX
++			       "%s: connection lost\n",
++			       config_viport_name(viport->config));
++			if (handle_mc_join) {
++				if (vnic_mc_join(viport))
++					viport_disable_multicast(viport);
++			}
++			if (handle_mc_join_compl)
++				vnic_mc_join_handle_completion(viport);
++			if (viport->features_supported & VNIC_FEAT_INBOUND_IB_MC) {
++				vnic_mc_leave(viport);
++				vnic_mc_data_cleanup(&viport->mc_data);
++			}
++
++			if (control_reset_req(&viport->control))
++				viport->link_state = LINK_DATADISCONNECT;
++			else
++				viport->link_state = LINK_RESETRSP;
++			break;
++		case LINK_RESETRSP:
++			LINK_STATE("state LINK_RESETRSP\n");
++			control_process_async(&viport->control);
++
++			if (!control_reset_rsp(&viport->control))
++				viport->link_state = LINK_DATADISCONNECT;
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_DATADISCONNECT;
++			}
++			break;
++		case LINK_RESETCONTROL:
++			LINK_STATE("state LINK_RESETCONTROL\n");
++			if (control_reset_req(&viport->control))
++				viport->link_state = LINK_CONTROLDISCONNECT;
++			else
++				viport->link_state = LINK_RESETCONTROLRSP;
++			break;
++		case LINK_RESETCONTROLRSP:
++			LINK_STATE("state LINK_RESETCONTROLRSP\n");
++			control_process_async(&viport->control);
++
++			if (!control_reset_rsp(&viport->control))
++				viport->link_state = LINK_CONTROLDISCONNECT;
++
++			if (viport->errored) {
++				viport->errored = 0;
++				viport->link_state = LINK_CONTROLDISCONNECT;
++			}
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_handle_disconn_states(struct viport *viport)
++{
++	enum link_state old_state;
++
++	do {
++		switch (old_state = viport->link_state) {
++		case LINK_DATADISCONNECT:
++			LINK_STATE("state LINK_DATADISCONNECT\n");
++			data_disconnect(&viport->data);
++			viport->link_state = LINK_CONTROLDISCONNECT;
++			break;
++		case LINK_CONTROLDISCONNECT:
++			LINK_STATE("state LINK_CONTROLDISCONNECT\n");
++			viport->link_state = LINK_CLEANUPDATA;
++			break;
++		case LINK_CLEANUPDATA:
++			LINK_STATE("state LINK_CLEANUPDATA\n");
++			data_cleanup(&viport->data);
++			viport->link_state = LINK_CLEANUPCONTROL;
++			break;
++		case LINK_CLEANUPCONTROL:
++			LINK_STATE("state LINK_CLEANUPCONTROL\n");
++			spin_lock_irq(&viport->lock);
++			kfree(viport->mac_addresses);
++			viport->mac_addresses = NULL;
++			spin_unlock_irq(&viport->lock);
++			control_cleanup(&viport->control);
++			ib_dealloc_pd(viport->pd);
++			viport->link_state = LINK_DISCONNECTED;
++			break;
++		case LINK_DISCONNECTED:
++			LINK_STATE("state LINK_DISCONNECTED\n");
++			vnic_disconnected(viport->parent->parent,
++					  viport->parent);
++			if (viport->disconnect != 0)
++				viport->link_state = LINK_UNINITIALIZED;
++			else if (viport->retry == 1) {
++				viport->retry = 0;
++			/*
++			 * Check if the initial retry interval has crossed
++			 * 20 seconds.
++			 * The retry interval is initially 5 seconds which
++			 * is incremented by 5. Once it is 20 the interval
++			 * is fixed to 20 seconds till 10 minutes,
++			 * after which retrying is stopped
++			 */
++				if (viport->retry_duration  < MAX_RETRY_INTERVAL)
++					viport->retry_duration +=
++								RETRY_INCREMENT;
++
++				viport->total_retry_duration +=
++							 viport->retry_duration;
++
++				if (viport->total_retry_duration >=
++					MAX_CONNECT_RETRY_TIMEOUT) {
++					viport->link_state = LINK_UNINITIALIZED;
++					printk("Timed out after retrying"
++					       " for retry_duration %d msecs\n"
++						, viport->total_retry_duration);
++				} else {
++					viport->connect = DELAY;
++					viport->link_state = LINK_RETRYWAIT;
++				}
++				viport_timer(viport,
++				     msecs_to_jiffies(viport->retry_duration));
++			} else {
++				u32 duration = 5000 + ((net_random()) & 0x1FF);
++				if (!viport->parent->is_primary_path)
++					duration += 0x1ff;
++				viport_timer(viport,
++					     msecs_to_jiffies(duration));
++				viport->connect = DELAY;
++				viport->link_state = LINK_RETRYWAIT;
++			}
++			break;
++		case LINK_RETRYWAIT:
++			LINK_STATE("state LINK_RETRYWAIT\n");
++			viport->stats.ethernet_status = 0;
++			viport->updates = 0;
++			wake_up(&viport->stats_queue);
++			if (viport->disconnect != 0) {
++				viport_timer_stop(viport);
++				viport->link_state = LINK_UNINITIALIZED;
++			} else if (viport->connect == DELAY) {
++				if (!viport->timer_active)
++					viport->link_state = LINK_INITIALIZE;
++			} else if (viport->connect == NOW) {
++				viport_timer_stop(viport);
++				viport->link_state = LINK_INITIALIZE;
++			}
++			break;
++		case LINK_FIRSTCONNECT:
++			viport->stats.ethernet_status = 0;
++			viport->updates = 0;
++			wake_up(&viport->stats_queue);
++			if (viport->disconnect != 0) {
++				viport_timer_stop(viport);
++				viport->link_state = LINK_UNINITIALIZED;
++			}
++
++			break;
++		default:
++			return -1;
++		}
++	} while (viport->link_state != old_state);
++
++	return 0;
++}
++
++static int viport_statemachine(void *context)
++{
++	struct viport *viport;
++	enum link_state old_link_state;
++
++	VIPORT_FUNCTION("viport_statemachine()\n");
++	while (!viport_thread_end || !list_empty(&viport_list)) {
++		wait_event_interruptible(viport_queue,
++					 !list_empty(&viport_list)
++					 || viport_thread_end);
++		spin_lock_irq(&viport_list_lock);
++		if (list_empty(&viport_list)) {
++			spin_unlock_irq(&viport_list_lock);
++			continue;
++		}
++		viport = list_first_entry(&viport_list, struct viport,
++				    list_ptrs);
++		list_del_init(&viport->list_ptrs);
++		spin_unlock_irq(&viport_list_lock);
++
++		do {
++			old_link_state = viport->link_state;
++
++			/*
++			 * Optimize for the state machine steady state
++			 * by checking for the most common states first.
++			 *
++			 */
++			if (viport_handle_idle_states(viport) == 0)
++				break;
++			if (viport_handle_heartbeat_states(viport) == 0)
++				break;
++			if (viport_handle_stat_states(viport) == 0)
++				break;
++			if (viport_handle_config_states(viport) == 0)
++				break;
++
++			if (viport_handle_init_states(viport) == 0)
++				break;
++			if (viport_handle_control_states(viport) == 0)
++				break;
++			if (viport_handle_data_states(viport) == 0)
++				break;
++			if (viport_handle_xchgpool_states(viport) == 0)
++				break;
++			if (viport_handle_reset_states(viport) == 0)
++				break;
++			if (viport_handle_disconn_states(viport) == 0)
++				break;
++		} while (viport->link_state != old_link_state);
++	}
++
++	complete_and_exit(&viport_thread_exit, 0);
++}
++
++int viport_start(void)
++{
++	VIPORT_FUNCTION("viport_start()\n");
++
++	spin_lock_init(&viport_list_lock);
++	viport_thread = kthread_run(viport_statemachine, NULL,
++					"qlgc_vnic_viport_s_m");
++	if (IS_ERR(viport_thread)) {
++		printk(KERN_WARNING PFX "Could not create viport_thread;"
++		       " error %d\n", (int) PTR_ERR(viport_thread));
++		viport_thread = NULL;
 +		return 1;
 +	}
 +
 +	return 0;
 +}
 +
-+void vnic_npevent_cleanup(void)
++void viport_cleanup(void)
 +{
-+	if (vnic_npevent_thread) {
-+		vnic_npevent_thread_end = 1;
-+		wake_up(&vnic_npevent_queue);
-+		wait_for_completion(&vnic_npevent_thread_exit);
-+		vnic_npevent_thread = NULL;
++	VIPORT_FUNCTION("viport_cleanup()\n");
++	if (viport_thread) {
++		viport_thread_end = 1;
++		wake_up(&viport_queue);
++		wait_for_completion(&viport_thread_exit);
++		viport_thread = NULL;
 +	}
 +}
-+
-+static void vnic_setup(struct net_device *device)
-+{
-+	ether_setup(device);
-+
-+	/* ether_setup is used to fill
-+	 * device parameters for ethernet devices.
-+	 * We override some of the parameters
-+	 * which are specific to VNIC.
-+	 */
-+	device->get_stats		= vnic_get_stats;
-+	device->open			= vnic_open;
-+	device->stop			= vnic_stop;
-+	device->hard_start_xmit		= vnic_hard_start_xmit;
-+	device->tx_timeout		= vnic_tx_timeout;
-+	device->set_multicast_list	= vnic_set_multicast_list;
-+	device->set_mac_address		= vnic_set_mac_address;
-+	device->change_mtu		= vnic_change_mtu;
-+	device->watchdog_timeo 		= 10 * HZ;
-+	device->features		= 0;
-+}
-+
-+struct vnic *vnic_allocate(struct vnic_config *config)
-+{
-+	struct vnic *vnic = NULL;
-+	struct net_device *netdev;
-+
-+	VNIC_FUNCTION("vnic_allocate()\n");
-+	netdev = alloc_netdev((int) sizeof(*vnic), config->name, vnic_setup);
-+	if (!netdev) {
-+		VNIC_ERROR("failed allocating vnic structure\n");
-+		return NULL;
-+	}
-+
-+	vnic = netdev_priv(netdev);
-+	vnic->netdevice = netdev;
-+	spin_lock_init(&vnic->lock);
-+	spin_lock_init(&vnic->current_path_lock);
-+	vnic_alloc_stats(vnic);
-+	vnic->state = VNIC_UNINITIALIZED;
-+	vnic->config = config;
-+
-+	netpath_init(&vnic->primary_path, vnic, 0);
-+	netpath_init(&vnic->secondary_path, vnic, 1);
-+
-+	vnic->current_path = NULL;
-+	vnic->failed_over = 0;
-+
-+	list_add_tail(&vnic->list_ptrs, &vnic_list);
-+
-+	return vnic;
-+}
-+
-+void vnic_free(struct vnic *vnic)
-+{
-+	VNIC_FUNCTION("vnic_free()\n");
-+	list_del(&vnic->list_ptrs);
-+	vnic_npevent_queue_evt(&vnic->primary_path, VNIC_NP_FREEVNIC);
-+}
-+
-+static void __exit vnic_cleanup(void)
-+{
-+	VNIC_FUNCTION("vnic_cleanup()\n");
-+
-+	VNIC_INIT("unloading %s\n", MODULEDETAILS);
-+
-+	while (!list_empty(&vnic_list)) {
-+		struct vnic *vnic =
-+		    list_first_entry(&vnic_list, struct vnic, list_ptrs);
-+		vnic_free(vnic);
-+	}
-+
-+	vnic_npevent_cleanup();
-+	viport_cleanup();
-+	vnic_ib_cleanup();
-+}
-+
-+static int __init vnic_init(void)
-+{
-+	int ret;
-+	VNIC_FUNCTION("vnic_init()\n");
-+	VNIC_INIT("Initializing %s\n", MODULEDETAILS);
-+
-+	ret = config_start();
-+	if (ret) {
-+		VNIC_ERROR("config_start failed\n");
-+		goto failure;
-+	}
-+
-+	ret = vnic_ib_init();
-+	if (ret) {
-+		VNIC_ERROR("ib_start failed\n");
-+		goto failure;
-+	}
-+
-+	ret = viport_start();
-+	if (ret) {
-+		VNIC_ERROR("viport_start failed\n");
-+		goto failure;
-+	}
-+
-+	ret = vnic_npevent_start();
-+	if (ret) {
-+		VNIC_ERROR("vnic_npevent_start failed\n");
-+		goto failure;
-+	}
-+
-+	return 0;
-+failure:
-+	vnic_cleanup();
-+	return ret;
-+}
-+
-+module_init(vnic_init);
-+module_exit(vnic_cleanup);
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_main.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_main.h
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h
 new file mode 100644
-index 0000000..568e045
+index 0000000..70cdc9f
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_main.h
-@@ -0,0 +1,159 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_viport.h
+@@ -0,0 +1,175 @@
 +/*
 + * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
@@ -1181,130 +1297,146 @@ index 0000000..568e045
 + * SOFTWARE.
 + */
 +
-+#ifndef VNIC_MAIN_H_INCLUDED
-+#define VNIC_MAIN_H_INCLUDED
++#ifndef VNIC_VIPORT_H_INCLUDED
++#define VNIC_VIPORT_H_INCLUDED
 +
-+#include <linux/timex.h>
-+#include <linux/netdevice.h>
-+#include <linux/kthread.h>
-+#include <linux/fs.h>
++#include "vnic_control.h"
++#include "vnic_data.h"
++#include "vnic_multicast.h"
 +
-+#include "vnic_config.h"
-+#include "vnic_netpath.h"
-+
-+extern u16 vnic_max_mtu;
-+extern struct list_head vnic_list;
-+extern struct attribute_group vnic_stats_attr_group;
-+extern cycles_t vnic_recv_ref;
-+
-+enum vnic_npevent_type {
-+	VNIC_PRINP_CONNECTED	= 0,
-+	VNIC_PRINP_DISCONNECTED	= 1,
-+	VNIC_PRINP_LINKUP	= 2,
-+	VNIC_PRINP_LINKDOWN	= 3,
-+	VNIC_PRINP_TIMEREXPIRED	= 4,
-+	VNIC_PRINP_SETLINK	= 5,
-+
-+	/* used to figure out PRI vs SEC types for dbg msg*/
-+	VNIC_PRINP_LASTTYPE     = VNIC_PRINP_SETLINK,
-+
-+	VNIC_SECNP_CONNECTED	= 6,
-+	VNIC_SECNP_DISCONNECTED	= 7,
-+	VNIC_SECNP_LINKUP	= 8,
-+	VNIC_SECNP_LINKDOWN	= 9,
-+	VNIC_SECNP_TIMEREXPIRED	= 10,
-+	VNIC_SECNP_SETLINK	= 11,
-+
-+	/* used to figure out PRI vs SEC types for dbg msg*/
-+	VNIC_SECNP_LASTTYPE     = VNIC_SECNP_SETLINK,
-+
-+	VNIC_NP_FREEVNIC	= 12,
-+
-+	/*
-+	 * NOTE : If any new netpath event is being added, don't forget to
-+	 * add corresponding netpath event string into vnic_main.c.
-+	 */
++enum viport_state {
++	VIPORT_DISCONNECTED	= 0,
++	VIPORT_CONNECTED	= 1
 +};
 +
-+struct vnic_npevent {
-+	struct list_head	list_ptrs;
-+	struct vnic		*vnic;
-+	enum vnic_npevent_type	event_type;
++enum link_state {
++	LINK_UNINITIALIZED	= 0,
++	LINK_INITIALIZE		= 1,
++	LINK_INITIALIZECONTROL	= 2,
++	LINK_INITIALIZEDATA	= 3,
++	LINK_CONTROLCONNECT	= 4,
++	LINK_CONTROLCONNECTWAIT	= 5,
++	LINK_INITVNICREQ	= 6,
++	LINK_INITVNICRSP	= 7,
++	LINK_BEGINDATAPATH	= 8,
++	LINK_CONFIGDATAPATHREQ	= 9,
++	LINK_CONFIGDATAPATHRSP	= 10,
++	LINK_DATACONNECT	= 11,
++	LINK_DATACONNECTWAIT	= 12,
++	LINK_XCHGPOOLREQ	= 13,
++	LINK_XCHGPOOLRSP	= 14,
++	LINK_INITIALIZED	= 15,
++	LINK_IDLE		= 16,
++	LINK_IDLING		= 17,
++	LINK_CONFIGLINKREQ	= 18,
++	LINK_CONFIGLINKRSP	= 19,
++	LINK_CONFIGADDRSREQ	= 20,
++	LINK_CONFIGADDRSRSP	= 21,
++	LINK_REPORTSTATREQ	= 22,
++	LINK_REPORTSTATRSP	= 23,
++	LINK_HEARTBEATREQ	= 24,
++	LINK_HEARTBEATRSP	= 25,
++	LINK_RESET		= 26,
++	LINK_RESETRSP		= 27,
++	LINK_RESETCONTROL	= 28,
++	LINK_RESETCONTROLRSP	= 29,
++	LINK_DATADISCONNECT	= 30,
++	LINK_CONTROLDISCONNECT	= 31,
++	LINK_CLEANUPDATA	= 32,
++	LINK_CLEANUPCONTROL	= 33,
++	LINK_DISCONNECTED	= 34,
++	LINK_RETRYWAIT		= 35,
++	LINK_FIRSTCONNECT	= 36
 +};
 +
-+void vnic_npevent_queue_evt(struct netpath *netpath,
-+			    enum vnic_npevent_type evt);
-+void vnic_npevent_dequeue_evt(struct netpath *netpath,
-+			      enum vnic_npevent_type evt);
-+
-+enum vnic_state {
-+	VNIC_UNINITIALIZED	= 0,
-+	VNIC_REGISTERED		= 1
++enum {
++	BROADCAST_ADDR		= 0,
++	UNICAST_ADDR		= 1,
++	MCAST_ADDR_START	= 2
 +};
 +
-+struct vnic_param {
-+	int			rx_csum;
-+	int			tx_csum;
-+	struct vnic_path_param	primary_path;
-+	struct vnic_path_param	secondary_path;
++#define current_mac_address	mac_addresses[UNICAST_ADDR].address
++
++enum {
++	NEED_STATS           	= 0x00000001,
++	NEED_ADDRESS_CONFIG  	= 0x00000002,
++	NEED_LINK_CONFIG     	= 0x00000004,
++	MCAST_OVERFLOW       	= 0x00000008,
++	NEED_MCAST_COMPLETION	= 0x00000010,
++	NEED_MCAST_JOIN      	= 0x00000020
 +};
 +
-+struct vnic {
++struct viport {
 +	struct list_head		list_ptrs;
-+	enum vnic_state			state;
-+	struct vnic_param		params;
-+	struct vnic_config		*config;
-+	struct netpath			*current_path;
-+	struct netpath			primary_path;
-+	struct netpath			secondary_path;
-+	int				carrier;
-+	int				failed_over;
-+	int				mac_set;
-+	struct net_device		*netdevice;
-+	struct dev_info			dev_info;
-+	struct dev_mc_list		*mc_list;
-+	int				mc_list_len;
-+	int				mc_count;
++	struct netpath			*parent;
++	struct vnic			*vnic;
++	struct viport_config		*config;
++	struct control			control;
++	struct data			data;
 +	spinlock_t			lock;
-+	spinlock_t			current_path_lock;
-+#ifdef CONFIG_INFINIBAND_QLGC_VNIC_STATS
-+	struct {
-+		cycles_t	start_time;
-+		cycles_t	conn_time;
-+		cycles_t	disconn_ref;	/* intermediate time */
-+		cycles_t	disconn_time;
-+		u32		disconn_num;
-+		cycles_t	xmit_time;
-+		u32		xmit_num;
-+		u32		xmit_fail;
-+		cycles_t	recv_time;
-+		u32		recv_num;
-+		u32		multicast_recv_num;
-+		cycles_t	xmit_ref;	/* intermediate time */
-+		cycles_t	xmit_off_time;
-+		u32		xmit_off_num;
-+		cycles_t	carrier_ref;	/* intermediate time */
-+		cycles_t	carrier_off_time;
-+		u32		carrier_off_num;
-+	} statistics;
-+	struct dev_info		stat_info;
-+#endif	/* CONFIG_INFINIBAND_QLGC_VNIC_STATS */
++	struct ib_pd			*pd;
++	enum viport_state		state;
++	enum link_state			link_state;
++	struct vnic_cmd_report_stats_rsp stats;
++	wait_queue_head_t		stats_queue;
++	unsigned long			last_stats_time;
++	u32				features_supported;
++	u8				hw_mac_address[ETH_ALEN];
++	u16				default_vlan;
++	u16				num_mac_addresses;
++	struct vnic_address_op2		*mac_addresses;
++	u32				updates;
++	u16				flags;
++	u16				new_flags;
++	u16				mtu;
++	u16				new_mtu;
++	u32				errored;
++	enum { WAIT, DELAY, NOW }	connect;
++	u32				disconnect;
++	u32 				retry;
++	wait_queue_head_t		disconnect_queue;
++	int				timer_active;
++	struct timer_list		timer;
++	u32 				retry_duration;
++	u32 				total_retry_duration;
++	atomic_t			reference_count;
++	wait_queue_head_t		reference_queue;
++	struct mc_info	mc_info;
++	struct mc_data	mc_data;
 +};
 +
-+struct vnic *vnic_allocate(struct vnic_config *config);
++int  viport_start(void);
++void viport_cleanup(void);
 +
-+void vnic_free(struct vnic *vnic);
++struct viport *viport_allocate(struct viport_config *config);
++void viport_free(struct viport *viport);
 +
-+void vnic_connected(struct vnic *vnic, struct netpath *netpath);
-+void vnic_disconnected(struct vnic *vnic, struct netpath *netpath);
++void viport_connect(struct viport *viport, int delay);
 +
-+void vnic_link_up(struct vnic *vnic, struct netpath *netpath);
-+void vnic_link_down(struct vnic *vnic, struct netpath *netpath);
++void viport_set_link(struct viport *viport, u16 flags, u16 mtu);
++void viport_get_stats(struct viport *viport,
++		      struct net_device_stats *stats);
++int  viport_xmit_packet(struct viport *viport, struct sk_buff *skb);
++void viport_kick(struct viport *viport);
 +
-+void vnic_stop_xmit(struct vnic *vnic, struct netpath *netpath);
-+void vnic_restart_xmit(struct vnic *vnic, struct netpath *netpath);
++void viport_failure(struct viport *viport);
 +
-+void vnic_recv_packet(struct vnic *vnic, struct netpath *netpath,
-+		      struct sk_buff *skb);
-+void vnic_npevent_cleanup(void);
-+#endif	/* VNIC_MAIN_H_INCLUDED */
++int viport_set_unicast(struct viport *viport, u8 *address);
++int viport_set_multicast(struct viport *viport,
++			 struct dev_mc_list *mc_list,
++			 int mc_count);
++
++#define viport_max_mtu(viport)		data_max_mtu(&(viport)->data)
++
++#define viport_get_hw_addr(viport, address)			\
++	memcpy(address, (viport)->hw_mac_address, ETH_ALEN)
++
++#define viport_features(viport) ((viport)->features_supported)
++
++#define viport_can_tx_csum(viport)				\
++	(((viport)->features_supported & 			\
++	(VNIC_FEAT_IPV4_CSUM_TX | VNIC_FEAT_TCP_CSUM_TX |	\
++	VNIC_FEAT_UDP_CSUM_TX)) == (VNIC_FEAT_IPV4_CSUM_TX |	\
++	VNIC_FEAT_TCP_CSUM_TX | VNIC_FEAT_UDP_CSUM_TX))
++
++#endif /* VNIC_VIPORT_H_INCLUDED */
