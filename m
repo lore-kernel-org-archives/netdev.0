@@ -1,51 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pppoe: Unshare skb before anything else
-Date: Tue, 10 Jun 2008 15:01:16 -0700 (PDT)
-Message-ID: <20080610.150116.49258090.davem@davemloft.net>
-References: <484BAFBB.6010108@katalix.com>
-	<20080610.140925.199998975.davem@davemloft.net>
-	<484EF5A2.4060503@katalix.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sfc fix for 2.6.27
+Date: Tue, 10 Jun 2008 18:12:57 -0400
+Message-ID: <484EFC69.5080708@pobox.com>
+References: <20080609182428.GI11300@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: jchapman@katalix.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35981
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753215AbYFJWBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 18:01:16 -0400
-In-Reply-To: <484EF5A2.4060503@katalix.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:46109 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753793AbYFJWM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 18:12:59 -0400
+In-Reply-To: <20080609182428.GI11300@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Tue, 10 Jun 2008 22:44:02 +0100
-
-> David Miller wrote:
-> > From: James Chapman <jchapman@katalix.com>
-> > Date: Sun, 08 Jun 2008 11:08:59 +0100
-> > 
-> >> Herbert Xu wrote:
-> >>> Hi Dave:
-> >>>
-> >>> I noticed that my last patch to move the unshare in pppoe missed
-> >>> the other spot which did the same thing:
-> >>>
-> >>> pppoe: Unshare skb before anything else
-> >>>
-> >>> We need to unshare the skb first as otherwise pskb_may_pull may
-> >>> write to a shared skb which could be bad.
-> >> The same problem exists in the pppol2tp driver. Patch to follow. I'm 
-> >> also fixing the copy-to-iovec issue.
-> > 
-> > I have the iovec patch, but I do not see the unshare one.
-> > Did you post it?  Please resend if you have since I
-> > don't have a copy.
+Ben Hutchings wrote:
+> Jeff,
 > 
-> I didn't send the patch. I realised when I was writing it that in L2TP's 
-> case, the unshare isn't needed because L2TP uses UDP encap sockets.
+> Please add the following patch to your changes for 2.6.27.
 > 
-> Sorry I forgot to let Herbert and netdev know.
+> Ben.
+> 
+> Ben Hutchings (1):
+>   sfc: I2C adapter initialisation fixes
+> 
+>  drivers/net/sfc/falcon.c |   12 +++---------
+>  1 files changed, 3 insertions(+), 9 deletions(-)
 
-Great, thanks for the info.
+You're getting the email subject line a bit wrong.
+
+If it says "[PATCH]", one expects the email to actually contain a patch...
+
+The normal options for including comments are:
+
+1) If it's a single patch, include meta-comments like "for 2.6.27, not 
+2.6.26" after the "---" separator.  See Documentation/SubmittingPatches 
+for more information.
+
+2) If it's multiple patches, include exposition in a separate email 
+numbered zero.  Example subject lines of three emails:
+
+	[PATCH 0/2] sfc: patchset to do cool and nifty stuff
+
+	(summarizes the patchset)
+
+	[PATCH 1/2] sfc: add support for nifty feature bamboozle
+	[PATCH 2/2] sfc: remove support for silly feature zappadoo
+
+	(individual patches)
+
+Regards,
+
+	Jeff
+
+
+
