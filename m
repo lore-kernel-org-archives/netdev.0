@@ -1,45 +1,41 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: Hold RTNL while calling dev_close() [2nd try]
-Date: Tue, 10 Jun 2008 18:16:42 -0400
-Message-ID: <484EFD4A.3030107@pobox.com>
-References: <20080506182654.GF2217@solarflare.com> <20080506183958.GI2217@solarflare.com> <20080506161720.6475e5d4@extreme> <20080506235937.GK2217@solarflare.com> <20080531155251.GM1743@solarflare.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch]  bondig - arp_interval with low value => Oops.
+Date: Tue, 10 Jun 2008 18:19:40 -0400
+Message-ID: <484EFDFC.3040206@garzik.org>
+References: <482C9E73.2040202@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	bonding-devel@lists.sourceforge.net, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Nicolas 2P <nicolas.2p.debian@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46109 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38924 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755376AbYFJWQr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2008 18:16:47 -0400
-In-Reply-To: <20080531155251.GM1743@solarflare.com>
+	id S1754732AbYFJWTt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 18:19:49 -0400
+In-Reply-To: <482C9E73.2040202@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> dev_close() must be called holding the RTNL.  Compile-tested only.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/sky2.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index f226bca..b9bdf88 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -4395,7 +4395,9 @@ static int sky2_resume(struct pci_dev *pdev)
->  			if (err) {
->  				printk(KERN_ERR PFX "%s: could not up: %d\n",
->  				       dev->name, err);
-> +				rtnl_lock();
->  				dev_close(dev);
-> +				rtnl_unlock();
->  				goto out;
->  			}
+Nicolas 2P wrote:
+> When setting arp_interval parameter to a very low value, delta_in_tic=
+ks=20
+> for next arp might become 0, causing an infinite loop.
+>=20
+> See http://bugzilla.kernel.org/show_bug.cgi?id=3D10680
+>=20
+> Same problem for miimon parameter already fixed, but fix might be=20
+> enhanced, by using msecs_to_jiffies() function.
+>=20
+> Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
 
-stephen acked this?  I don't see that in my notes...
+I don't see an ACK from Jay in my mbox?
+
+Certainly looks nicer than adding "? : 1" to each of the remaining two=20
+cases.
 
 
