@@ -1,8 +1,8 @@
 From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Subject: [ofa-general] [PATCH v4 09/14] QLogic VNIC: IB Multicast for
-	Ethernet broadcast/multicast
-Date: Tue, 10 Jun 2008 17:06:47 -0400
-Message-ID: <20080610210647.11186.25121.stgit@dale>
+Subject: [ofa-general] [PATCH v4 10/14] QLogic VNIC: Driver Statistics
+	collection
+Date: Tue, 10 Jun 2008 17:07:17 -0400
+Message-ID: <20080610210717.11186.54173.stgit@dale>
 References: <20080610205633.11186.45499.stgit@dale>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -22,31 +22,30 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Usha Srinivasan <usha.srinivasan@qlogic.com>
+From: Amar Mudrankit <amar.mudrankit@qlogic.com>
 
-Implementation of ethernet broadcasting and multicasting for QLogic
-VNIC interface by making use of underlying IB multicasting. 
+Collection of statistics about QLogic VNIC interfaces is implemented
+in this patch.
 
-Signed-off-by: Usha Srinivasan <usha.srinivasan@qlogic.com>
+Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
 Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
-Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
 ---
 
- drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.c |  319 +++++++++++++++++++++
- drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.h |   77 +++++
- 2 files changed, 396 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.c
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.h
+ drivers/infiniband/ulp/qlgc_vnic/vnic_stats.c |  234 ++++++++++++
+ drivers/infiniband/ulp/qlgc_vnic/vnic_stats.h |  497 +++++++++++++++++++++++++
+ 2 files changed, 731 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_stats.c
+ create mode 100644 drivers/infiniband/ulp/qlgc_vnic/vnic_stats.h
 
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.c
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_stats.c b/drivers/infiniband/ulp/qlgc_vnic/vnic_stats.c
 new file mode 100644
-index 0000000..f40ea20
+index 0000000..d11a8df
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.c
-@@ -0,0 +1,319 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_stats.c
+@@ -0,0 +1,234 @@
 +/*
-+ * Copyright (c) 2008 QLogic, Inc.  All rights reserved.
++ * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
 + * This software is available to you under a choice of one of two
 + * licenses.  You may choose to be licensed under the terms of the GNU
@@ -77,301 +76,216 @@ index 0000000..f40ea20
 + * SOFTWARE.
 + */
 +
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
-+#include <linux/jiffies.h>
-+#include <rdma/ib_sa.h>
-+#include "vnic_viport.h"
-+#include "vnic_main.h"
-+#include "vnic_util.h"
++#include <linux/types.h>
++#include <linux/device.h>
++#include <linux/kernel.h>
 +
-+static inline void vnic_set_multicast_state_invalid(struct viport *viport)
++#include "vnic_main.h"
++
++cycles_t vnic_recv_ref;
++
++/*
++ * TODO: Statistics reporting for control path, data path,
++ *       RDMA times, IOs etc
++ *
++ */
++static ssize_t show_lifetime(struct device *dev,
++			     struct device_attribute *dev_attr, char *buf)
 +{
-+	viport->mc_info.state = MCAST_STATE_INVALID;
-+	viport->mc_info.mc = NULL;
-+	memset(&viport->mc_info.mgid, 0, sizeof(union ib_gid));
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++	cycles_t time = get_cycles() - vnic->statistics.start_time;
++
++	return sprintf(buf, "%llu\n", (unsigned long long)time);
 +}
 +
-+int vnic_mc_init(struct viport *viport)
-+{
-+	MCAST_FUNCTION("vnic_mc_init %p\n", viport);
-+	vnic_set_multicast_state_invalid(viport);
-+	viport->mc_info.retries = 0;
-+	spin_lock_init(&viport->mc_info.lock);
++static DEVICE_ATTR(lifetime, S_IRUGO, show_lifetime, NULL);
 +
++static ssize_t show_conntime(struct device *dev,
++			     struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++
++	if (vnic->statistics.conn_time)
++		return sprintf(buf, "%llu\n",
++			   (unsigned long long)vnic->statistics.conn_time);
 +	return 0;
 +}
 +
-+void vnic_mc_uninit(struct viport *viport)
-+{
-+	unsigned long flags;
-+	MCAST_FUNCTION("vnic_mc_uninit %p\n", viport);
++static DEVICE_ATTR(connection_time, S_IRUGO, show_conntime, NULL);
 +
-+	spin_lock_irqsave(&viport->mc_info.lock, flags);
-+	if ((viport->mc_info.state != MCAST_STATE_INVALID) &&
-+	    (viport->mc_info.state != MCAST_STATE_RETRIED)) {
-+		MCAST_ERROR("%s mcast state is not INVALID or RETRIED %d\n",
-+				control_ifcfg_name(&viport->control),
-+				viport->mc_info.state);
-+	}
-+	spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+	MCAST_FUNCTION("vnic_mc_uninit done\n");
++static ssize_t show_disconnects(struct device *dev,
++				struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++	u32 num;
++
++	if (vnic->statistics.disconn_ref)
++		num = vnic->statistics.disconn_num + 1;
++	else
++		num = vnic->statistics.disconn_num;
++
++	return sprintf(buf, "%d\n", num);
 +}
 +
++static DEVICE_ATTR(disconnects, S_IRUGO, show_disconnects, NULL);
 +
-+/* This function is called when NEED_MCAST_COMPLETION is set.
-+ * It finishes off the join multicast work.
-+ */
-+int vnic_mc_join_handle_completion(struct viport *viport)
++static ssize_t show_total_disconn_time(struct device *dev,
++				       struct device_attribute *dev_attr,
++				       char *buf)
 +{
-+	unsigned int ret = 0;
++	struct dev_info *info = container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++	cycles_t time;
 +
-+	MCAST_FUNCTION("vnic_mc_join_handle_completion()\n");
-+	if (viport->mc_info.state != MCAST_STATE_JOINING) {
-+		MCAST_ERROR("%s unexpected mcast state in handle_completion: "
-+				" %d\n", control_ifcfg_name(&viport->control),
-+				viport->mc_info.state);
-+		ret = -1;
-+		goto out;
-+	}
-+	viport->mc_info.state = MCAST_STATE_ATTACHING;
-+	MCAST_INFO("%s Attaching QP %lx mgid:"
-+			VNIC_GID_FMT " mlid:%x\n",
-+			control_ifcfg_name(&viport->control), jiffies,
-+			VNIC_GID_RAW_ARG(viport->mc_info.mgid.raw),
-+					 viport->mc_info.mlid);
-+	ret = ib_attach_mcast(viport->mc_data.ib_conn.qp, &viport->mc_info.mgid,
-+			viport->mc_info.mlid);
-+	if (ret) {
-+		MCAST_ERROR("%s Attach mcast qp failed %d\n",
-+				control_ifcfg_name(&viport->control), ret);
-+		ret = -1;
-+		goto out;
-+	}
-+	viport->mc_info.state = MCAST_STATE_JOINED_ATTACHED;
-+	MCAST_INFO("%s UD QP successfully attached to mcast group\n",
-+			control_ifcfg_name(&viport->control));
++	if (vnic->statistics.disconn_ref)
++		time = vnic->statistics.disconn_time +
++		       get_cycles() - vnic->statistics.disconn_ref;
++	else
++		time = vnic->statistics.disconn_time;
 +
-+out:
-+	return ret;
++	return sprintf(buf, "%llu\n", (unsigned long long)time);
 +}
 +
-+/* NOTE: ib_sa.h says "returning a non-zero value from this callback will
-+ * result in destroying the multicast tracking structure.
-+ */
-+static int vnic_mc_join_complete(int status,
-+				struct ib_sa_multicast *multicast)
++static DEVICE_ATTR(total_disconn_time, S_IRUGO, show_total_disconn_time, NULL);
++
++static ssize_t show_carrier_losses(struct device *dev,
++				   struct device_attribute *dev_attr, char *buf)
 +{
-+	struct viport *viport = (struct viport *)multicast->context;
-+	unsigned long flags;
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++	u32 num;
 +
-+	MCAST_FUNCTION("vnic_mc_join_complete() status:%x\n", status);
-+	if (status) {
-+		spin_lock_irqsave(&viport->mc_info.lock, flags);
-+		if (status == -ENETRESET) {
-+			vnic_set_multicast_state_invalid(viport);
-+			viport->mc_info.retries = 0;
-+			spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+			MCAST_ERROR("%s got ENETRESET\n",
-+					control_ifcfg_name(&viport->control));
-+			goto out;
-+		}
-+		/* perhaps the mcgroup hasn't yet been created - retry */
-+		viport->mc_info.retries++;
-+		viport->mc_info.mc = NULL;
-+		if (viport->mc_info.retries > MAX_MCAST_JOIN_RETRIES) {
-+			viport->mc_info.state = MCAST_STATE_RETRIED;
-+			spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+			MCAST_ERROR("%s join failed 0x%x - max retries:%d "
-+					"exceeded\n",
-+					control_ifcfg_name(&viport->control),
-+					status, viport->mc_info.retries);
-+		} else {
-+			viport->mc_info.state = MCAST_STATE_INVALID;
-+			spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+			spin_lock_irqsave(&viport->lock, flags);
-+			viport->updates |= NEED_MCAST_JOIN;
-+			spin_unlock_irqrestore(&viport->lock, flags);
-+			viport_kick(viport);
-+			MCAST_ERROR("%s join failed 0x%x - retrying; "
-+					"retries:%d\n",
-+					control_ifcfg_name(&viport->control),
-+					status, viport->mc_info.retries);
-+		}
-+		goto out;
-+	}
++	if (vnic->statistics.carrier_ref)
++		num = vnic->statistics.carrier_off_num + 1;
++	else
++		num = vnic->statistics.carrier_off_num;
 +
-+	/* finish join work from main state loop for viport - in case
-+	 * the work itself cannot be done in a callback environment */
-+	spin_lock_irqsave(&viport->lock, flags);
-+	viport->mc_info.mlid = be16_to_cpu(multicast->rec.mlid);
-+	viport->updates |= NEED_MCAST_COMPLETION;
-+	spin_unlock_irqrestore(&viport->lock, flags);
-+	viport_kick(viport);
-+	MCAST_INFO("%s setting NEED_MCAST_COMPLETION %x %x\n",
-+			control_ifcfg_name(&viport->control),
-+			multicast->rec.mlid, viport->mc_info.mlid);
-+out:
-+	return status;
++	return sprintf(buf, "%d\n", num);
 +}
 +
-+void vnic_mc_join_setup(struct viport *viport, union ib_gid *mgid)
++static DEVICE_ATTR(carrier_losses, S_IRUGO, show_carrier_losses, NULL);
++
++static ssize_t show_total_carr_loss_time(struct device *dev,
++					 struct device_attribute *dev_attr,
++					 char *buf)
 +{
-+	unsigned long flags;
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++	cycles_t time;
 +
-+	MCAST_FUNCTION("in vnic_mc_join_setup\n");
-+	spin_lock_irqsave(&viport->mc_info.lock, flags);
-+	if (viport->mc_info.state != MCAST_STATE_INVALID) {
-+		if (viport->mc_info.state == MCAST_STATE_DETACHING)
-+			MCAST_ERROR("%s detach in progress\n",
-+					control_ifcfg_name(&viport->control));
-+		else if (viport->mc_info.state == MCAST_STATE_RETRIED)
-+			MCAST_ERROR("%s max join retries exceeded\n",
-+					control_ifcfg_name(&viport->control));
-+		else {
-+			/* join/attach in progress or done */
-+			/* verify that the current mgid is same as prev mgid */
-+			if (memcmp(mgid, &viport->mc_info.mgid, sizeof(union ib_gid)) != 0) {
-+				/* Separate MGID for each IOC */
-+				MCAST_ERROR("%s Multicast Group MGIDs not "
-+					"unique; mgids: " VNIC_GID_FMT
-+					 " " VNIC_GID_FMT "\n",
-+					control_ifcfg_name(&viport->control),
-+					VNIC_GID_RAW_ARG(mgid->raw),
-+					VNIC_GID_RAW_ARG(viport->mc_info.mgid.raw));
-+			} else
-+				MCAST_INFO("%s join already issued: %d\n",
-+					control_ifcfg_name(&viport->control),
-+					viport->mc_info.state);
++	if (vnic->statistics.carrier_ref)
++		time = vnic->statistics.carrier_off_time +
++		       get_cycles() - vnic->statistics.carrier_ref;
++	else
++		time = vnic->statistics.carrier_off_time;
 +
-+		}
-+		spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+		return;
-+	}
-+	viport->mc_info.mgid = *mgid;
-+	spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+	spin_lock_irqsave(&viport->lock, flags);
-+	viport->updates |= NEED_MCAST_JOIN;
-+	spin_unlock_irqrestore(&viport->lock, flags);
-+	viport_kick(viport);
-+	MCAST_INFO("%s setting NEED_MCAST_JOIN \n",
-+			control_ifcfg_name(&viport->control));
++	return sprintf(buf, "%llu\n", (unsigned long long)time);
 +}
 +
-+int vnic_mc_join(struct viport *viport)
++static DEVICE_ATTR(total_carrier_loss_time, S_IRUGO,
++			 show_total_carr_loss_time, NULL);
++
++static ssize_t show_total_recv_time(struct device *dev,
++				    struct device_attribute *dev_attr,
++				    char *buf)
 +{
-+	struct ib_sa_mcmember_rec rec;
-+	ib_sa_comp_mask comp_mask;
-+	unsigned long flags;
-+	int ret = 0;
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
 +
-+	MCAST_FUNCTION("vnic_mc_join()\n");
-+	if (!viport->mc_data.ib_conn.qp) {
-+		MCAST_ERROR("%s qp is NULL\n",
-+				control_ifcfg_name(&viport->control));
-+		ret = -1;
-+		goto out;
-+	}
-+	spin_lock_irqsave(&viport->mc_info.lock, flags);
-+	if (viport->mc_info.state != MCAST_STATE_INVALID) {
-+		spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+		MCAST_INFO("%s Multicast join already issued\n",
-+				control_ifcfg_name(&viport->control));
-+		goto out;
-+	}
-+	viport->mc_info.state = MCAST_STATE_JOINING;
-+	spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+
-+	memset(&rec, 0, sizeof(rec));
-+	rec.join_state = 2; /* bit 1 is Nonmember */
-+	rec.mgid = viport->mc_info.mgid;
-+	rec.port_gid = viport->config->path_info.path.sgid;
-+
-+	comp_mask = 	IB_SA_MCMEMBER_REC_MGID     |
-+			IB_SA_MCMEMBER_REC_PORT_GID |
-+			IB_SA_MCMEMBER_REC_JOIN_STATE;
-+
-+	MCAST_INFO("%s Joining Multicast group%lx mgid:"
-+			VNIC_GID_FMT " port_gid: " VNIC_GID_FMT "\n",
-+			control_ifcfg_name(&viport->control), jiffies,
-+			VNIC_GID_RAW_ARG(rec.mgid.raw),
-+			VNIC_GID_RAW_ARG(rec.port_gid.raw));
-+
-+	viport->mc_info.mc = ib_sa_join_multicast(&vnic_sa_client,
-+			viport->config->ibdev, viport->config->port,
-+			&rec, comp_mask, GFP_KERNEL,
-+			vnic_mc_join_complete, viport);
-+
-+	if (IS_ERR(viport->mc_info.mc)) {
-+		MCAST_ERROR("%s Multicast joining failed " VNIC_GID_FMT
-+				".\n",
-+				control_ifcfg_name(&viport->control),
-+				VNIC_GID_RAW_ARG(rec.mgid.raw));
-+		viport->mc_info.state = MCAST_STATE_INVALID;
-+		ret = -1;
-+		goto out;
-+	}
-+	MCAST_INFO("%s Multicast group join issued mgid:"
-+			VNIC_GID_FMT " port_gid: " VNIC_GID_FMT "\n",
-+			control_ifcfg_name(&viport->control),
-+			VNIC_GID_RAW_ARG(rec.mgid.raw),
-+			VNIC_GID_RAW_ARG(rec.port_gid.raw));
-+out:
-+	return ret;
++	return sprintf(buf, "%llu\n",
++		       (unsigned long long)vnic->statistics.recv_time);
 +}
 +
-+void vnic_mc_leave(struct viport *viport)
++static DEVICE_ATTR(total_recv_time, S_IRUGO, show_total_recv_time, NULL);
++
++static ssize_t show_recvs(struct device *dev,
++			  struct device_attribute *dev_attr, char *buf)
 +{
-+	unsigned long flags;
-+	unsigned int ret;
-+	struct ib_sa_multicast *mc;
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
 +
-+	MCAST_FUNCTION("vnic_mc_leave()\n");
-+
-+	spin_lock_irqsave(&viport->mc_info.lock, flags);
-+	if ((viport->mc_info.state == MCAST_STATE_INVALID) ||
-+	    (viport->mc_info.state == MCAST_STATE_RETRIED)) {
-+		spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+		return;
-+	}
-+
-+	if (viport->mc_info.state == MCAST_STATE_JOINED_ATTACHED) {
-+
-+		viport->mc_info.state = MCAST_STATE_DETACHING;
-+		spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+		ret = ib_detach_mcast(viport->mc_data.ib_conn.qp,
-+					 &viport->mc_info.mgid,
-+					viport->mc_info.mlid);
-+		if (ret) {
-+			MCAST_ERROR("%s UD QP Detach failed %d\n",
-+				control_ifcfg_name(&viport->control), ret);
-+			return;
-+		}
-+		MCAST_INFO("%s UD QP detached succesfully\n",
-+				control_ifcfg_name(&viport->control));
-+		spin_lock_irqsave(&viport->mc_info.lock, flags);
-+	}
-+	mc = viport->mc_info.mc;
-+	vnic_set_multicast_state_invalid(viport);
-+	viport->mc_info.retries = 0;
-+	spin_unlock_irqrestore(&viport->mc_info.lock, flags);
-+
-+	if (mc) {
-+		MCAST_INFO("%s Freeing up multicast structure.\n",
-+				control_ifcfg_name(&viport->control));
-+		ib_sa_free_multicast(mc);
-+	}
-+	MCAST_FUNCTION("vnic_mc_leave done\n");
-+	return;
++	return sprintf(buf, "%d\n", vnic->statistics.recv_num);
 +}
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.h
++
++static DEVICE_ATTR(recvs, S_IRUGO, show_recvs, NULL);
++
++static ssize_t show_multicast_recvs(struct device *dev,
++				    struct device_attribute *dev_attr,
++				    char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++
++	return sprintf(buf, "%d\n", vnic->statistics.multicast_recv_num);
++}
++
++static DEVICE_ATTR(multicast_recvs, S_IRUGO, show_multicast_recvs, NULL);
++
++static ssize_t show_total_xmit_time(struct device *dev,
++				    struct device_attribute *dev_attr,
++				    char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++
++	return sprintf(buf, "%llu\n",
++		       (unsigned long long)vnic->statistics.xmit_time);
++}
++
++static DEVICE_ATTR(total_xmit_time, S_IRUGO, show_total_xmit_time, NULL);
++
++static ssize_t show_xmits(struct device *dev,
++			  struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++
++	return sprintf(buf, "%d\n", vnic->statistics.xmit_num);
++}
++
++static DEVICE_ATTR(xmits, S_IRUGO, show_xmits, NULL);
++
++static ssize_t show_failed_xmits(struct device *dev,
++				 struct device_attribute *dev_attr, char *buf)
++{
++	struct dev_info *info =	container_of(dev, struct dev_info, dev);
++	struct vnic *vnic = container_of(info, struct vnic, stat_info);
++
++	return sprintf(buf, "%d\n", vnic->statistics.xmit_fail);
++}
++
++static DEVICE_ATTR(failed_xmits, S_IRUGO, show_failed_xmits, NULL);
++
++static struct attribute *vnic_stats_attrs[] = {
++	&dev_attr_lifetime.attr,
++	&dev_attr_xmits.attr,
++	&dev_attr_total_xmit_time.attr,
++	&dev_attr_failed_xmits.attr,
++	&dev_attr_recvs.attr,
++	&dev_attr_multicast_recvs.attr,
++	&dev_attr_total_recv_time.attr,
++	&dev_attr_connection_time.attr,
++	&dev_attr_disconnects.attr,
++	&dev_attr_total_disconn_time.attr,
++	&dev_attr_carrier_losses.attr,
++	&dev_attr_total_carrier_loss_time.attr,
++	NULL
++};
++
++struct attribute_group vnic_stats_attr_group = {
++	.attrs = vnic_stats_attrs,
++};
+diff --git a/drivers/infiniband/ulp/qlgc_vnic/vnic_stats.h b/drivers/infiniband/ulp/qlgc_vnic/vnic_stats.h
 new file mode 100644
-index 0000000..e049180
+index 0000000..a241b71
 --- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_multicast.h
-@@ -0,0 +1,77 @@
++++ b/drivers/infiniband/ulp/qlgc_vnic/vnic_stats.h
+@@ -0,0 +1,497 @@
 +/*
-+ * Copyright (c) 2008 QLogic, Inc.  All rights reserved.
++ * Copyright (c) 2006 QLogic, Inc.  All rights reserved.
 + *
 + * This software is available to you under a choice of one of two
 + * licenses.  You may choose to be licensed under the terms of the GNU
@@ -402,48 +316,468 @@ index 0000000..e049180
 + * SOFTWARE.
 + */
 +
-+#ifndef __VNIC_MULTICAST_H__
-+#define __VNIC_MULTTCAST_H__
++#ifndef VNIC_STATS_H_INCLUDED
++#define VNIC_STATS_H_INCLUDED
 +
-+enum {
-+	MCAST_STATE_INVALID         = 0x00, /* join not attempted or failed */
-+	MCAST_STATE_JOINING         = 0x01, /* join mcgroup in progress */
-+	MCAST_STATE_ATTACHING       = 0x02, /* join completed with success,
-+					     * attach qp to mcgroup in progress
-+					     */
-+	MCAST_STATE_JOINED_ATTACHED = 0x03, /* join completed with success */
-+	MCAST_STATE_DETACHING       = 0x04, /* detach qp in progress */
-+	MCAST_STATE_RETRIED         = 0x05, /* retried join and failed */
-+};
++#include "vnic_main.h"
++#include "vnic_ib.h"
++#include "vnic_sys.h"
 +
-+#define MAX_MCAST_JOIN_RETRIES 	       5 /* used to retry join */
++#ifdef CONFIG_INFINIBAND_QLGC_VNIC_STATS
 +
-+struct mc_info {
-+	u8  			state;
-+	spinlock_t 		lock;
-+	union ib_gid 		mgid;
-+	u16 			mlid;
-+	struct ib_sa_multicast 	*mc;
-+	u8 			retries;
-+};
++static inline void vnic_connected_stats(struct vnic *vnic)
++{
++	if (vnic->statistics.conn_time == 0) {
++		vnic->statistics.conn_time =
++		    get_cycles() - vnic->statistics.start_time;
++	}
++
++	if (vnic->statistics.disconn_ref != 0) {
++		vnic->statistics.disconn_time +=
++		    get_cycles() - vnic->statistics.disconn_ref;
++		vnic->statistics.disconn_num++;
++		vnic->statistics.disconn_ref = 0;
++	}
++
++}
++
++static inline void vnic_stop_xmit_stats(struct vnic *vnic)
++{
++	if (vnic->statistics.xmit_ref == 0)
++		vnic->statistics.xmit_ref = get_cycles();
++}
++
++static inline void vnic_restart_xmit_stats(struct vnic *vnic)
++{
++	if (vnic->statistics.xmit_ref != 0) {
++		vnic->statistics.xmit_off_time +=
++		    get_cycles() - vnic->statistics.xmit_ref;
++		vnic->statistics.xmit_off_num++;
++		vnic->statistics.xmit_ref = 0;
++	}
++}
++
++static inline void vnic_recv_pkt_stats(struct vnic *vnic)
++{
++	vnic->statistics.recv_time += get_cycles() - vnic_recv_ref;
++	vnic->statistics.recv_num++;
++}
++
++static inline void vnic_multicast_recv_pkt_stats(struct vnic *vnic)
++{
++	vnic->statistics.multicast_recv_num++;
++}
++
++static inline void vnic_pre_pkt_xmit_stats(cycles_t *time)
++{
++	*time = get_cycles();
++}
++
++static inline void vnic_post_pkt_xmit_stats(struct vnic *vnic,
++					    cycles_t time)
++{
++	vnic->statistics.xmit_time += get_cycles() - time;
++	vnic->statistics.xmit_num++;
++
++}
++
++static inline void vnic_xmit_fail_stats(struct vnic *vnic)
++{
++	vnic->statistics.xmit_fail++;
++}
++
++static inline void vnic_carrier_loss_stats(struct vnic *vnic)
++{
++	if (vnic->statistics.carrier_ref != 0) {
++		vnic->statistics.carrier_off_time +=
++			get_cycles() -  vnic->statistics.carrier_ref;
++		vnic->statistics.carrier_off_num++;
++		vnic->statistics.carrier_ref = 0;
++	}
++}
++
++static inline int vnic_setup_stats_files(struct vnic *vnic)
++{
++	init_completion(&vnic->stat_info.released);
++	vnic->stat_info.dev.class = NULL;
++	vnic->stat_info.dev.parent = &vnic->dev_info.dev;
++	vnic->stat_info.dev.release = vnic_release_dev;
++	snprintf(vnic->stat_info.dev.bus_id, BUS_ID_SIZE,
++		 "stats");
++
++	if (device_register(&vnic->stat_info.dev)) {
++		SYS_ERROR("create_vnic: error in registering"
++			  " stat class dev\n");
++		goto stats_out;
++	}
++
++	if (sysfs_create_group(&vnic->stat_info.dev.kobj,
++			       &vnic_stats_attr_group))
++		goto err_stats_file;
++
++	return 0;
++err_stats_file:
++	device_unregister(&vnic->stat_info.dev);
++	wait_for_completion(&vnic->stat_info.released);
++stats_out:
++	return -1;
++}
++
++static inline void vnic_cleanup_stats_files(struct vnic *vnic)
++{
++	sysfs_remove_group(&vnic->dev_info.dev.kobj,
++			   &vnic_stats_attr_group);
++	device_unregister(&vnic->stat_info.dev);
++	wait_for_completion(&vnic->stat_info.released);
++}
++
++static inline void vnic_disconn_stats(struct vnic *vnic)
++{
++	if (!vnic->statistics.disconn_ref)
++		vnic->statistics.disconn_ref = get_cycles();
++
++	if (vnic->statistics.carrier_ref == 0)
++		vnic->statistics.carrier_ref = get_cycles();
++}
++
++static inline void vnic_alloc_stats(struct vnic *vnic)
++{
++	vnic->statistics.start_time = get_cycles();
++}
++
++static inline void control_note_rsptime_stats(cycles_t *time)
++{
++	*time = get_cycles();
++}
++
++static inline void control_update_rsptime_stats(struct control *control,
++						cycles_t response_time)
++{
++	response_time -= control->statistics.request_time;
++	control->statistics.response_time += response_time;
++	control->statistics.response_num++;
++	if (control->statistics.response_max < response_time)
++		control->statistics.response_max = response_time;
++	if ((control->statistics.response_min == 0) ||
++	    (control->statistics.response_min > response_time))
++		control->statistics.response_min =  response_time;
++
++}
++
++static inline void control_note_reqtime_stats(struct control *control)
++{
++	control->statistics.request_time = get_cycles();
++}
++
++static inline void control_timeout_stats(struct control *control)
++{
++	control->statistics.timeout_num++;
++}
++
++static inline void data_kickreq_stats(struct data *data)
++{
++	data->statistics.kick_reqs++;
++}
++
++static inline void data_no_xmitbuf_stats(struct data *data)
++{
++	data->statistics.no_xmit_bufs++;
++}
++
++static inline void data_xmits_stats(struct data *data)
++{
++	data->statistics.xmit_num++;
++}
++
++static inline void data_recvs_stats(struct data *data)
++{
++	data->statistics.recv_num++;
++}
++
++static inline void data_note_kickrcv_time(void)
++{
++	vnic_recv_ref = get_cycles();
++}
++
++static inline void data_rcvkicks_stats(struct data *data)
++{
++	data->statistics.kick_recvs++;
++}
 +
 +
-+int vnic_mc_init(struct viport *viport);
-+void vnic_mc_uninit(struct viport *viport);
-+extern char *control_ifcfg_name(struct control *control);
++static inline void vnic_ib_conntime_stats(struct vnic_ib_conn *ib_conn)
++{
++	ib_conn->statistics.connection_time = get_cycles();
++}
 +
-+/* This function is called when a viport gets a multicast mgid from EVIC
-+   and must join the multicast group. It sets up NEED_MCAST_JOIN flag, which
-+   results in vnic_mc_join being called later. */
-+void vnic_mc_join_setup(struct viport *viport, union ib_gid *mgid);
++static inline void vnic_ib_note_comptime_stats(cycles_t *time)
++{
++	*time = get_cycles();
++}
 +
-+/* This function is called when NEED_MCAST_JOIN flag is set. */
-+int vnic_mc_join(struct viport *viport);
++static inline void vnic_ib_callback_stats(struct vnic_ib_conn *ib_conn)
++{
++	ib_conn->statistics.num_callbacks++;
++}
 +
-+/* This function is called when NEED_MCAST_COMPLETION is set.
-+   It finishes off the join multicast work. */
-+int vnic_mc_join_handle_completion(struct viport *viport);
++static inline void vnic_ib_comp_stats(struct vnic_ib_conn *ib_conn,
++				      u32 *comp_num)
++{
++	ib_conn->statistics.num_ios++;
++	*comp_num = *comp_num + 1;
 +
-+void vnic_mc_leave(struct viport *viport);
++}
 +
-+#endif /* __VNIC_MULTICAST_H__ */
++static inline void vnic_ib_io_stats(struct io *io,
++				    struct vnic_ib_conn *ib_conn,
++				    cycles_t comp_time)
++{
++	if ((io->type == RECV) || (io->type == RECV_UD))
++		io->time = comp_time;
++	else if (io->type == RDMA) {
++		ib_conn->statistics.rdma_comp_time += comp_time - io->time;
++		ib_conn->statistics.rdma_comp_ios++;
++	} else if (io->type == SEND) {
++		ib_conn->statistics.send_comp_time += comp_time - io->time;
++		ib_conn->statistics.send_comp_ios++;
++	}
++}
++
++static inline void vnic_ib_maxio_stats(struct vnic_ib_conn *ib_conn,
++				       u32 comp_num)
++{
++	if (comp_num > ib_conn->statistics.max_ios)
++		ib_conn->statistics.max_ios = comp_num;
++}
++
++static inline void vnic_ib_connected_time_stats(struct vnic_ib_conn *ib_conn)
++{
++	ib_conn->statistics.connection_time =
++			 get_cycles() - ib_conn->statistics.connection_time;
++
++}
++
++static inline void vnic_ib_pre_rcvpost_stats(struct vnic_ib_conn *ib_conn,
++					     struct io *io,
++					     cycles_t *time)
++{
++	*time = get_cycles();
++	if (io->time != 0) {
++		ib_conn->statistics.recv_comp_time += *time - io->time;
++		ib_conn->statistics.recv_comp_ios++;
++	}
++
++}
++
++static inline void vnic_ib_post_rcvpost_stats(struct vnic_ib_conn *ib_conn,
++					      cycles_t time)
++{
++	ib_conn->statistics.recv_post_time += get_cycles() - time;
++	ib_conn->statistics.recv_post_ios++;
++}
++
++static inline void vnic_ib_pre_sendpost_stats(struct io *io,
++					      cycles_t *time)
++{
++	io->time = *time = get_cycles();
++}
++
++static inline void vnic_ib_post_sendpost_stats(struct vnic_ib_conn *ib_conn,
++					       struct io *io,
++					       cycles_t time)
++{
++	time = get_cycles() - time;
++	if (io->swr.opcode == IB_WR_RDMA_WRITE) {
++		ib_conn->statistics.rdma_post_time += time;
++		ib_conn->statistics.rdma_post_ios++;
++	} else {
++		ib_conn->statistics.send_post_time += time;
++		ib_conn->statistics.send_post_ios++;
++	}
++}
++#else	/*CONFIG_INIFINIBAND_VNIC_STATS*/
++
++static inline void vnic_connected_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline void vnic_stop_xmit_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline void vnic_restart_xmit_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline void vnic_recv_pkt_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline void vnic_multicast_recv_pkt_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline void vnic_pre_pkt_xmit_stats(cycles_t *time)
++{
++	;
++}
++
++static inline void vnic_post_pkt_xmit_stats(struct vnic *vnic,
++					    cycles_t time)
++{
++	;
++}
++
++static inline void vnic_xmit_fail_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline int vnic_setup_stats_files(struct vnic *vnic)
++{
++	return 0;
++}
++
++static inline void vnic_cleanup_stats_files(struct vnic *vnic)
++{
++	;
++}
++
++static inline void vnic_carrier_loss_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline void vnic_disconn_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline void vnic_alloc_stats(struct vnic *vnic)
++{
++	;
++}
++
++static inline void control_note_rsptime_stats(cycles_t *time)
++{
++	;
++}
++
++static inline void control_update_rsptime_stats(struct control *control,
++						cycles_t response_time)
++{
++	;
++}
++
++static inline void control_note_reqtime_stats(struct control *control)
++{
++	;
++}
++
++static inline void control_timeout_stats(struct control *control)
++{
++	;
++}
++
++static inline void data_kickreq_stats(struct data *data)
++{
++	;
++}
++
++static inline void data_no_xmitbuf_stats(struct data *data)
++{
++	;
++}
++
++static inline void data_xmits_stats(struct data *data)
++{
++	;
++}
++
++static inline void data_recvs_stats(struct data *data)
++{
++	;
++}
++
++static inline void data_note_kickrcv_time(void)
++{
++	;
++}
++
++static inline void data_rcvkicks_stats(struct data *data)
++{
++	;
++}
++
++static inline void vnic_ib_conntime_stats(struct vnic_ib_conn *ib_conn)
++{
++	;
++}
++
++static inline void vnic_ib_note_comptime_stats(cycles_t *time)
++{
++	;
++}
++
++static inline void vnic_ib_callback_stats(struct vnic_ib_conn *ib_conn)
++
++{
++	;
++}
++static inline void vnic_ib_comp_stats(struct vnic_ib_conn *ib_conn,
++				      u32 *comp_num)
++{
++	;
++}
++
++static inline void vnic_ib_io_stats(struct io *io,
++				    struct vnic_ib_conn *ib_conn,
++				    cycles_t comp_time)
++{
++	;
++}
++
++static inline void vnic_ib_maxio_stats(struct vnic_ib_conn *ib_conn,
++				       u32 comp_num)
++{
++	;
++}
++
++static inline void vnic_ib_connected_time_stats(struct vnic_ib_conn *ib_conn)
++{
++	;
++}
++
++static inline void vnic_ib_pre_rcvpost_stats(struct vnic_ib_conn *ib_conn,
++					     struct io *io,
++					     cycles_t *time)
++{
++	;
++}
++
++static inline void vnic_ib_post_rcvpost_stats(struct vnic_ib_conn *ib_conn,
++					      cycles_t time)
++{
++	;
++}
++
++static inline void vnic_ib_pre_sendpost_stats(struct io *io,
++					      cycles_t *time)
++{
++	;
++}
++
++static inline void vnic_ib_post_sendpost_stats(struct vnic_ib_conn *ib_conn,
++					       struct io *io,
++					       cycles_t time)
++{
++	;
++}
++#endif	/*CONFIG_INIFINIBAND_VNIC_STATS*/
++
++#endif	/*VNIC_STATS_H_INCLUDED*/
