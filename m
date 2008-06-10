@@ -1,60 +1,95 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: blackfin drivers/net/smc91x.c build error
-Date: Tue, 10 Jun 2008 20:34:50 +0300
-Message-ID: <20080610173450.GC11685@cs181133002.pp.htv.fi>
-References: <20080606162212.GC2201@cs181133002.pp.htv.fi> <8bd0f97a0806061252n1cf5ee33i40ddf9f55588e242@mail.gmail.com> <20080610135349.GA30792@cs181133002.pp.htv.fi> <8bd0f97a0806101013w42b9028j5dfa38d654f3d05f@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: net-2.6 merged into net-next-2.6
+Date: Tue, 10 Jun 2008 13:47:13 -0400
+Message-ID: <20080610174713.GA24763@tuxdriver.com>
+References: <20080610.025059.37807108.davem@davemloft.net> <20080610160212.GA16834@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Bryan Wu <cooloney@kernel.org>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mike Frysinger <vapier.adi@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, sfr@canb.auug.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:48085 "EHLO smtp6.pp.htv.fi"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4523 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753019AbYFJRft (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2008 13:35:49 -0400
+	id S1753047AbYFJS3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 14:29:06 -0400
 Content-Disposition: inline
-In-Reply-To: <8bd0f97a0806101013w42b9028j5dfa38d654f3d05f@mail.gmail.com>
+In-Reply-To: <20080610160212.GA16834@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 10, 2008 at 01:13:52PM -0400, Mike Frysinger wrote:
-> On Tue, Jun 10, 2008 at 9:53 AM, Adrian Bunk wrote:
-> > On Fri, Jun 06, 2008 at 03:52:09PM -0400, Mike Frysinger wrote:
-> >> On Fri, Jun 6, 2008 at 12:22 PM, Adrian Bunk wrote:
-> >> > drivers/net/smc91x.c fails as follows on blackfin:
-> >> > ...
-> >> >  CC      drivers/net/smc91x.o
-> >> > ...
-> >> > /home/bunk/linux/kernel-2.6/git/linux-2.6/drivers/net/smc91x.c:1863:36: error: macro "SMC_GET_MAC_ADDR" passed 2 arguments, but takes just 1
-> >> > ...
-> >>
-> >> it's a known issue (been known for quite a long time actually).  Bryan
-> >> has brought this up in the past already.
-> >
-> > Is my suggestion of reverting commit 099c736a470c8080a166e7a089f1e48e15f9947c
-> > correct or how else should it be resolved?
+On Tue, Jun 10, 2008 at 12:02:12PM -0400, John W. Linville wrote:
+> On Tue, Jun 10, 2008 at 02:50:59AM -0700, David Miller wrote:
+> > 
+> > There were a few small wireless conflicts but I think
+> > I handled them correctly.
+> > 
+> > Please send me any fixup patches which might be necessary.
 > 
-> Bryan is taking care of it ... it may just stay broken in favor of
-> waiting for the merge from the net tree.
-> 
-> > This issue is the only remaining problem preventing that all blackfin
-> > defconfigs will compile in 2.6.26...
-> 
-> not really true.
->...
+> Just one, which was easy to miss:
 
-What other build errors do you get in Linus' tree?
+Oops, found another one...
 
-> -mike
+The following changes since commit 65b53e4cc90e59936733b3b95b9451d2ca47528d:
+  David S. Miller (1):
+        Merge branch 'master' of master.kernel.org:/.../davem/net-2.6
 
-cu
-Adrian
+are available in the git repository at:
 
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
+
+John W. Linville (2):
+      rt2x00dev.c: fix-up merge damage
+      net/mac80211/ieee80211_i.h: fix-up merge damage
+
+ drivers/net/wireless/rt2x00/rt2x00dev.c |    2 +-
+ net/mac80211/ieee80211_i.h              |   21 ---------------------
+ 2 files changed, 1 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
+index f7a4417..dc5ab90 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00dev.c
++++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
+@@ -507,7 +507,7 @@ void rt2x00lib_txdone(struct queue_entry *entry,
+ 	rt2x00dev->link.qual.tx_success +=
+ 	    test_bit(TXDONE_SUCCESS, &txdesc->flags);
+ 	rt2x00dev->link.qual.tx_failed +=
+-	    txdesc->retry + !!test_bit(TXDONE_FAILURE, &txdesc->flags);
++	    test_bit(TXDONE_FAILURE, &txdesc->flags);
+ 
+ 	/*
+ 	 * Initialize TX status
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 884be4d..b19bd16 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -853,27 +853,6 @@ u32 ieee80211_handle_ht(struct ieee80211_local *local, int enable_ht,
+ 
+ /* ieee80211_ioctl.c */
+ extern const struct iw_handler_def ieee80211_iw_handler_def;
+-
+-/* Least common multiple of the used rates (in 100 kbps). This is used to
+- * calculate rate_inv values for each rate so that only integers are needed. */
+-#define CHAN_UTIL_RATE_LCM 95040
+-/* 1 usec is 1/8 * (95040/10) = 1188 */
+-#define CHAN_UTIL_PER_USEC 1188
+-/* Amount of bits to shift the result right to scale the total utilization
+- * to values that will not wrap around 32-bit integers. */
+-#define CHAN_UTIL_SHIFT 9
+-/* Theoretical maximum of channel utilization counter in 10 ms (stat_time=1):
+- * (CHAN_UTIL_PER_USEC * 10000) >> CHAN_UTIL_SHIFT = 23203. So dividing the
+- * raw value with about 23 should give utilization in 10th of a percentage
+- * (1/1000). However, utilization is only estimated and not all intervals
+- * between frames etc. are calculated. 18 seems to give numbers that are closer
+- * to the real maximum. */
+-#define CHAN_UTIL_PER_10MS 18
+-#define CHAN_UTIL_HDR_LONG (202 * CHAN_UTIL_PER_USEC)
+-#define CHAN_UTIL_HDR_SHORT (40 * CHAN_UTIL_PER_USEC)
+-
+-
+-/* ieee80211_ioctl.c */
+ int ieee80211_set_freq(struct net_device *dev, int freq);
+ 
+ /* ieee80211_sta.c */
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+John W. Linville
+linville@tuxdriver.com
