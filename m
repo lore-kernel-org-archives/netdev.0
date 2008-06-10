@@ -1,76 +1,194 @@
-From: "Igor Podlesny" <for.poige+linux@gmail.com>
-Subject: re-formated /Re: Hi!Couldn't you take a look at kernel stack's trace? (ip_route_input+0x91a/0xcc9)/
-Date: Tue, 10 Jun 2008 22:36:05 +0800
-Message-ID: <43d009740806100736y343bad9bt3a8b365292cced49@mail.gmail.com>
-Reply-To: for.poige+linux@gmail.com
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 7/7] dccp: Initialise option area of v4/v6 request
+	socket
+Date: Tue, 10 Jun 2008 11:38:12 -0300
+Message-ID: <20080610143812.GB26686@ghostprotocols.net>
+References: <1213102423-27486-1-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-2-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-3-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-4-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-5-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-6-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-8-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org, Wei Yongjun <yjwei@cn.fujitsu.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.228]:52498 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbYFJOgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 10:36:08 -0400
-Received: by wx-out-0506.google.com with SMTP id h29so1214209wxd.4
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2008 07:36:06 -0700 (PDT)
+Received: from mx1.redhat.com ([66.187.233.31]:55916 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752984AbYFJOi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 10:38:27 -0400
 Content-Disposition: inline
+In-Reply-To: <1213102423-27486-8-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-   Hm, not too easy to read. Sorry! Re-trying with prefixes removed:
-----------X8------------------X8------------------X8------------------X8--------
-BUG: unable to handle kernel NULL pointer dereference at 00000019
- IP: [<c0313d75>] ip_route_input+0x91a/0xcc9
- *pde = 00000000
- Oops: 0002 [#1] PREEMPT SMP
- Modules linked in: snd_rtctimer rtc ip_queue xt_owner ipt_recent
-ipt_ttl ipt_addrtype ipt_REJECT iptable_filter ipt_LOG xt_limit
-xt_DSCP xt_TCPMSS iptable_mangle it87 hwmon_vid hwmon snd_usb_audio
-snd_usb_lib usbhid hid parport_pc 8250_pnp 8250 serial_core lp
-ppp_generic parport slhc forcedeth ohci_hcd ehci_hcd i2c_nforce2 fan
-button fuse via_rhine 3c59x mii tun powernow_k8 thermal processor
-8021q tuner tea5767 tda8290 tuner_xc2028 tda9887 tuner_simple mt20xx
-tea5761 saa7134 videodev v4l1_compat compat_ioctl32 v4l2_common
-videobuf_dma_sg videobuf_core ir_kbd_i2c ir_common tveeprom i2c_core
-snd_seq_oss snd_seq_midi_event snd_seq snd_emu10k1 firmware_class
-snd_util_mem snd_hwdep snd_pcm_oss snd_mixer_oss snd_via82xx
-snd_ac97_codec ac97_bus snd_pcm snd_timer snd_page_alloc
-snd_mpu401_uart snd_rawmidi snd_seq_device snd soundcore loop pcspkr
-evdev usbcore
+Em Tue, Jun 10, 2008 at 01:53:43PM +0100, Gerrit Renker escreveu:
+> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+> 
+> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+> 
+> This fixes the following bug:
+>  * dccp_v4_reqsk_destructor() frees inet inet_rsk(req)->opt,
+>  * but dccp_v4_conn_request() may fail before initialising inet_rsk(req)->opt;
+>  * likewise, dccp_v6_reqsk_destructor() frees inet6_rsk(req)->pktopts,
+>  * but dccp_v6_conn_request() may fail before initialising the pktopts.
+> 
+> The fix is in initialising the option areas in both request sockets before
+> calling any other code that may fail and thus may end up calling the destructor.
+> 
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
- Pid: 8, comm: sirq-net-rx/0 Not tainted (2.6.25.4-rt4aa-gcc43 #1)
- EIP: 0060:[<c0313d75>] EFLAGS: 00010202 CPU: 0
- EIP is at ip_route_input+0x91a/0xcc9
- EAX: 00000000 EBX: f5a69e00 ECX: f7477e14 EDX: 00000001
- ESI: 0f6ea8c0 EDI: f7477ea4 EBP: ffffff8f ESP: f7477e38
-  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068 preempt:00000001
- Process sirq-net-rx/0 (pid: 8, ti=f7476000 task=f746c690 task.ti=f7476000)
- Stack: 00000000 016ea8c0 f6e2f180 00000001 c04f1964 00000001 f5a69e00 016ea8c0
-        00000000 00000000 c04851cc f786d640 00000000 00000006 00000000 016ea8c0
-        0f6ea8c0 00000000 00000000 00000000 00000000 00000000 00000000 00000000
- Call Trace:
-  [<c024d578>] __next_cpu+0x12/0x21
-  [<c0333ee8>] arp_process+0x1fe/0x5fe
-  [<c01277f5>] wake_up_process+0xe/0x10
-  [<c0172e80>] __kmalloc+0x97/0xcb
-  [<c02f16be>] __alloc_skb+0x45/0xf2
-  [<c02f58da>] netif_receive_skb+0x2dd/0x30b
-  [<c02f5975>] process_backlog+0x6d/0xc1
-  [<c02f46a3>] net_rx_action+0x65/0x14c
-  [<c01304dd>] ksoftirqd+0x138/0x214
-  [<c01303a5>] ksoftirqd+0x0/0x214
-  [<c013c30e>] kthread+0x38/0x5d
-  [<c013c2d6>] kthread+0x0/0x5d
-  [<c0113f3f>] kernel_thread_helper+0x7/0x10
-  =======================
- Code: ff ff 8b 5c 24 18 f0 ff 4b 04 0f 94 c0 84 c0 74 07 89 d8 e8 32
-1b 02 00 83 7c 24 14 00 0f 84 98 03 00 00 8b 54 24 70 85 d2 74 12 <f0>
-ff 4a 18 0f 94 c0 84 c0 74 07 89 d0 e8 e7 92 02 00 8b 54 24
- EIP: [<c0313d75>] ip_route_input+0x91a/0xcc9 SS:ESP 0068:f7477e38
- ---[ end trace 0f990b633467f554 ]---
-----------X8------------------X8------------------X8------------------X8--------
+The problem is present in TCP too, look at cookie_v4_check and
+tcp_v4_conn_request, we may get to reqsk_free before we set ->opt if
+security_inet_conn_request() returns non zero.
 
-	Plus, it's been bin-pasted: http://pastebin.com/d209e7256
---
-End of message. Next message?
+This is one case where bugs found on DCCP lead to an audit of the
+similar code in TCP and the fix should be done on the common
+infrastructure.
+
+Please consider the following patch instead, it is compile tested only
+but should be OK.
+
+Thanks a lot,
+
+- Arnaldo
+
+commit f627bdaa7428f04b828abd70a8145cafb7ce366b
+Author: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date:   Tue Jun 10 10:37:32 2008 -0300
+
+    inet{6}_request_sock: Init ->opt and ->pktopts in the constructor
+    
+    Wei Yongjun noticed that we may call reqsk_free on request sock objects where
+    the opt fields may not be initialized, fix it by introducing inet_reqsk_alloc
+    where we initialize ->opt to NULL and set ->pktopts to NULL in
+    inet6_reqsk_alloc.
+    
+    Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+    Cc: Wei Yongjun <yjwei@cn.fujitsu.com>
+    Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 10b666b..cde056e 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -396,8 +396,10 @@ static inline struct request_sock *inet6_reqsk_alloc(struct request_sock_ops *op
+ {
+ 	struct request_sock *req = reqsk_alloc(ops);
+ 
+-	if (req != NULL)
++	if (req != NULL) {
+ 		inet_rsk(req)->inet6_rsk_offset = inet6_rsk_offset(req);
++		inet6_rsk(req)->pktopts = NULL;
++	}
+ 
+ 	return req;
+ }
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index a42cd63..9fabe5b 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -197,4 +197,14 @@ static inline int inet_iif(const struct sk_buff *skb)
+ 	return skb->rtable->rt_iif;
+ }
+ 
++static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops)
++{
++	struct request_sock *req = reqsk_alloc(ops);
++
++	if (req != NULL)
++		inet_rsk(req)->opt = NULL;
++
++	return req;
++}
++
+ #endif	/* _INET_SOCK_H */
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index c22a378..37d27bc 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -589,7 +589,7 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
+ 		goto drop;
+ 
+-	req = reqsk_alloc(&dccp_request_sock_ops);
++	req = inet_reqsk_alloc(&dccp_request_sock_ops);
+ 	if (req == NULL)
+ 		goto drop;
+ 
+@@ -605,7 +605,6 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	ireq = inet_rsk(req);
+ 	ireq->loc_addr = ip_hdr(skb)->daddr;
+ 	ireq->rmt_addr = ip_hdr(skb)->saddr;
+-	ireq->opt	= NULL;
+ 
+ 	/*
+ 	 * Step 3: Process LISTEN state
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 9b1129b..f7fe2a5 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -421,7 +421,6 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	ireq6 = inet6_rsk(req);
+ 	ipv6_addr_copy(&ireq6->rmt_addr, &ipv6_hdr(skb)->saddr);
+ 	ipv6_addr_copy(&ireq6->loc_addr, &ipv6_hdr(skb)->daddr);
+-	ireq6->pktopts	= NULL;
+ 
+ 	if (ipv6_opt_accepted(sk, skb) ||
+ 	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 73ba989..d182a2a 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -285,7 +285,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 		cookie_check_timestamp(&tcp_opt);
+ 
+ 	ret = NULL;
+-	req = reqsk_alloc(&tcp_request_sock_ops); /* for safety */
++	req = inet_reqsk_alloc(&tcp_request_sock_ops); /* for safety */
+ 	if (!req)
+ 		goto out;
+ 
+@@ -301,7 +301,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	ireq->rmt_port		= th->source;
+ 	ireq->loc_addr		= ip_hdr(skb)->daddr;
+ 	ireq->rmt_addr		= ip_hdr(skb)->saddr;
+-	ireq->opt		= NULL;
+ 	ireq->snd_wscale	= tcp_opt.snd_wscale;
+ 	ireq->rcv_wscale	= tcp_opt.rcv_wscale;
+ 	ireq->sack_ok		= tcp_opt.sack_ok;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index cd601a8..4f8485c 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1285,7 +1285,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
+ 		goto drop;
+ 
+-	req = reqsk_alloc(&tcp_request_sock_ops);
++	req = inet_reqsk_alloc(&tcp_request_sock_ops);
+ 	if (!req)
+ 		goto drop;
+ 
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 938ce4e..3ecc115 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -198,7 +198,6 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	ireq = inet_rsk(req);
+ 	ireq6 = inet6_rsk(req);
+ 	treq = tcp_rsk(req);
+-	ireq6->pktopts = NULL;
+ 
+ 	if (security_inet_conn_request(sk, skb, req)) {
+ 		reqsk_free(req);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 715965f..cb46749 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1299,7 +1299,6 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	treq = inet6_rsk(req);
+ 	ipv6_addr_copy(&treq->rmt_addr, &ipv6_hdr(skb)->saddr);
+ 	ipv6_addr_copy(&treq->loc_addr, &ipv6_hdr(skb)->daddr);
+-	treq->pktopts = NULL;
+ 	if (!want_cookie)
+ 		TCP_ECN_create_request(req, tcp_hdr(skb));
+ 
