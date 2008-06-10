@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7] dccp: Initialise option area of v4/v6 request
- socket
-Date: Tue, 10 Jun 2008 12:40:30 -0700 (PDT)
-Message-ID: <20080610.124030.151295293.davem@davemloft.net>
-References: <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1213102423-27486-8-git-send-email-gerrit@erg.abdn.ac.uk>
-	<20080610143812.GB26686@ghostprotocols.net>
+Subject: Re: ping6 ff02::1 on eth0 shows echo reply on lo
+Date: Tue, 10 Jun 2008 12:42:11 -0700 (PDT)
+Message-ID: <20080610.124211.63104092.davem@davemloft.net>
+References: <59F16AFE-888B-484E-B04A-CBFDA318ED17@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org,
-	netdev@vger.kernel.org, yjwei@cn.fujitsu.com
-To: acme@redhat.com
+Cc: netdev@vger.kernel.org
+To: chasedouglas@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59932
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59936
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754008AbYFJTkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:40:31 -0400
-In-Reply-To: <20080610143812.GB26686@ghostprotocols.net>
+	by vger.kernel.org with ESMTP id S1753246AbYFJTmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:42:11 -0400
+In-Reply-To: <59F16AFE-888B-484E-B04A-CBFDA318ED17@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Tue, 10 Jun 2008 11:38:12 -0300
+From: Chase Douglas <chasedouglas@gmail.com>
+Date: Tue, 10 Jun 2008 15:32:34 -0400
 
-> Please consider the following patch instead, it is compile tested only
-> but should be OK.
+> While doing some testing, I've found that a ping request sent only on  
+> eth0 to link-local addresses (ping6 -I eth0 ff02::1) is causing lo to  
+> generate echo replies. Is this intended behavior or a bug somewhere?
 
-I've applied this, thanks Arnaldo.
+Intended behavior.
 
-Gerrit, please be mindful of this when rebuilding your
-DCCP bug fix tree.  Thanks!
+When the kernel knows it's for the local machine, even if the address
+is attached to a physical device, it routes the packet over loopback.
