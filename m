@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] [ipv4] remove unused declaration from
- include/net/tcp.h.
-Date: Tue, 10 Jun 2008 12:38:32 -0700 (PDT)
-Message-ID: <20080610.123832.230112448.davem@davemloft.net>
-References: <eb3ff54b0806100614o26981c8ao5b1fb952f7b843fa@mail.gmail.com>
+Subject: Re: [PATCH 7/7] dccp: Initialise option area of v4/v6 request
+ socket
+Date: Tue, 10 Jun 2008 12:40:30 -0700 (PDT)
+Message-ID: <20080610.124030.151295293.davem@davemloft.net>
+References: <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1213102423-27486-8-git-send-email-gerrit@erg.abdn.ac.uk>
+	<20080610143812.GB26686@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ramirose@gmail.com
+Cc: gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org,
+	netdev@vger.kernel.org, yjwei@cn.fujitsu.com
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45592
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59932
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757298AbYFJTic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:38:32 -0400
-In-Reply-To: <eb3ff54b0806100614o26981c8ao5b1fb952f7b843fa@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1754008AbYFJTkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:40:31 -0400
+In-Reply-To: <20080610143812.GB26686@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Tue, 10 Jun 2008 16:14:24 +0300
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Tue, 10 Jun 2008 11:38:12 -0300
 
-> - The tcp_unhash() method in /include/net/tcp.h is no more needed, as the
-> unhash method in tcp_prot structure is now inet_unhash (instead of
-> tcp_unhash in the
-> past); see tcp_prot structure in net/ipv4/tcp_ipv4.c.
-> 
-> - So, this patch removes tcp_unhash() declaration from include/net/tcp.h
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> Please consider the following patch instead, it is compile tested only
+> but should be OK.
 
-Applied, thanks Rami.
+I've applied this, thanks Arnaldo.
 
-Please read:
-
-http://marc.info/?l=linux-netdev&m=121262022428660&w=2
-
-for a desciption of how I'd like commit header lines to
-be formulated.  In this patch's case it should have been
-"ipv4: remove unused..." instead of "[ipv4] remove unused..."
-
-Thanks.
+Gerrit, please be mindful of this when rebuilding your
+DCCP bug fix tree.  Thanks!
