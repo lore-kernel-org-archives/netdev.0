@@ -1,51 +1,50 @@
 From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [RFC][PATCH 2/3] IPv6:Check IPV6_MULTICAST_LOOP option value
-Date: Tue, 10 Jun 2008 15:51:19 +0800
-Message-ID: <484E3277.5030808@cn.fujitsu.com>
+Subject: [RFC][PATCH 3/3] IPv4:Check IP_MULTICAST_LOOP option value
+Date: Tue, 10 Jun 2008 15:51:47 +0800
+Message-ID: <484E3293.8000507@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: =?GB2312?B?WU9TSElGVUpJIEhpZGVha2kgLyC8qszZ06LD9w==?=
-	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53141 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:58083 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750931AbYFJHwK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2008 03:52:10 -0400
+	id S1752770AbYFJHwj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 03:52:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC3493 says, IPV6_MULTICAST_LOOP option can only be set with o or 1.
-when other valuse are set, the kernel should return an error of EINVAL.
+The IP_MULTICAST_LOOP option can only be set with o or 1. When 
+other valuse are set, the kernel should return an error of EINVAL.
 
-In addition, the option should not be uesd by SOCK_STREAM type, same as
-IPV6_MULTICAST_IF, IPV6_MULTICAST_HOPS.
+In addition, the option should not be uesd by SOCK_STREAM type,
+same as IP_MULTICAST_IF, IP_MULTICAST_TTL.
   
 But the kernel doesn't check them.
 
 Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
 ---
- net/ipv6/ipv6_sockglue.c |    4 ++++
+ net/ipv4/ip_sockglue.c |    4 ++++
  1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 26b83e5..3b45def 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -456,8 +456,12 @@ done:
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index e0514e8..82196a5 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -558,8 +558,12 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 		inet->mc_ttl = val;
  		break;
- 
- 	case IPV6_MULTICAST_LOOP:
+ 	case IP_MULTICAST_LOOP:
 +		if (sk->sk_type == SOCK_STREAM)
 +			goto e_inval;
- 		if (optlen < sizeof(int))
+ 		if (optlen<1)
  			goto e_inval;
-+		if (val > 1 || val < 0)
++		if (val < 0 || val > 1)
 +			goto e_inval;
- 		np->mc_loop = valbool;
- 		retv = 0;
+ 		inet->mc_loop = !!val;
  		break;
+ 	case IP_MULTICAST_IF:
 -- 
-
+1.5.4.4
 
