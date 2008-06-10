@@ -1,71 +1,78 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] NET: DCB generic netlink interface
-Date: Tue, 10 Jun 2008 12:55:16 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290538B840@orsmsx414.amr.corp.intel.com>
-References: <20080527141339.12851.98781.stgit@localhost.localdomain><20080604.114456.32717312.davem@davemloft.net><D5C1322C3E673F459512FB59E0DDC32905348FD4@orsmsx414.amr.corp.intel.com> <20080605.074324.38999631.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH][RFC] TSO for VLAN devices without VLAN tag insertion
+Date: Tue, 10 Jun 2008 20:59:44 +0100
+Message-ID: <20080610195943.GO11300@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-net-drivers@solarflare.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32216 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752917AbYFJTzN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:55:13 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080605.074324.38999631.davem@davemloft.net>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:33996 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751309AbYFJT7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:59:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-> Date: Wed, 4 Jun 2008 23:23:00 -0700
-> 
-> > I'm not sure I follow this.  DCB is a scheduling policy, but that 
-> > scheduling policy is in the hardware.  The configuration interface, 
-> > which is what this is, happens out of band of any 
-> scheduling policies 
-> > in the kernel.  It's very analogous to the wireless configuration 
-> > layer for
-> > mac80211 that uses generic netlink.
-> 
-> And I'm saying we should have a equivalent software scheduler 
-> in the kernel that can implement this if the hardware 
-> offloaded version isn't present.
+The SFC4000 controller can set IP header, TCP and UDP checksums in IPv4
+packets, with or without VLAN encapsulation.  However it does not do VLAN
+tag insertion.
 
-I really don't think this is something that would work in software.  I
-agree that having a bandwidth grouping like 802.1Qaz would be somewhat
-useful, but that's the only piece of DCB that would work in software.
-And you can achieve the same behavior using sch_prio with cbq or htb on
-the nodes, minus the full link aggregation.
+When I try to make TSO work for VLAN devices via the new vlan_features,
+dev_queue_xmit() finds skb->ip_summed == CHECKSUM_PARTIAL &&
+skb->protocol == htons(ETH_P_8021Q) and calls skb_checksum_help(), which
+sets skb->ip_summed = CHECKSUM_NONE.
 
-The 802.1Qbb, per-priority pause (flow control), cannot work in a
-software implementation.  This is a new flow control frame processed by
-the MAC for each priority on the link.  Also, the Rx filtering can't be
-emulated in software either.  The MAC filters on VLAN priority.  I know
-that can be configured with vconfig and set_ingress_map, but the whole
-point of the technology is to have the Rx processing done in the
-hardware's packet buffers, much like RSS filtering.
+This causes netif_needs_gso() to return true when called by
+dev_hard_start_xmit(), and GSO then does its worst.
 
-This technology really is a hardware-based technology.  The piece that
-we could effectively implement in software is the Tx priority grouping.
-But that's a small piece of the whole technology.  All we're trying to
-do is provide the method of configuring the hardware for this
-technology, which is closely coupled with the FCoE work going on in the
-SCSI world.  I don't think anyone would benefit trying to emulate it in
-software, since everything we can implement in the software can already
-be achieved using existing facilities.
+Below is a patch which worked for me, but I'm not sure whether it's the
+best way to fix the problem (so I'm not submitting or signing it off yet).
 
-> It overlaps existing functionality to a certain extent, and 
-> there is no real reason for that overlap to exist.  The 
-> question is which (the existing facilities or the new one) 
-> subsumes which.
+Ben.
 
-The existing facilities for traffic shaping and bandwidth aggregation do
-overlap if you loaded those qdiscs with a DCB device.  But I don't think
-the existing qdiscs should be removed or modified; the two technologies
-are too different, in my opinion, to be combined in software.
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -119,6 +119,7 @@
+ #include <linux/err.h>
+ #include <linux/ctype.h>
+ #include <linux/if_arp.h>
++#include <linux/if_vlan.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -1638,14 +1639,24 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 	 * checksumming for this protocol, complete checksumming here.
+ 	 */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		unsigned long features = dev->features;
++		__be16 protocol = skb->protocol;
++
++		if (protocol == htons(ETH_P_8021Q)) {
++			struct vlan_ethhdr *veh =
++				(struct vlan_ethhdr *)skb->data;
++			features &= dev->vlan_features;
++			protocol = veh->h_vlan_encapsulated_proto;
++		}
++
+ 		skb_set_transport_header(skb, skb->csum_start -
+ 					      skb_headroom(skb));
+ 
+-		if (!(dev->features & NETIF_F_GEN_CSUM) &&
+-		    !((dev->features & NETIF_F_IP_CSUM) &&
+-		      skb->protocol == htons(ETH_P_IP)) &&
+-		    !((dev->features & NETIF_F_IPV6_CSUM) &&
+-		      skb->protocol == htons(ETH_P_IPV6)))
++		if (!(features & NETIF_F_GEN_CSUM) &&
++		    !((features & NETIF_F_IP_CSUM) &&
++		      protocol == htons(ETH_P_IP)) &&
++		    !((features & NETIF_F_IPV6_CSUM) &&
++		      protocol == htons(ETH_P_IPV6)))
+ 			if (skb_checksum_help(skb))
+ 				goto out_kfree_skb;
+ 	}
 
-Thanks Dave,
--PJ Waskiewicz
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
