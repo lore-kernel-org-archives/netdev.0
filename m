@@ -1,78 +1,60 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 04/13] 8390: Split 8390 support into a pausing and a non
- pausing driver core
-Date: Mon, 9 Jun 2008 17:19:45 -0700
-Message-ID: <20080609171945.d2360114.akpm@linux-foundation.org>
-References: <200806092333.m59NXnTe014676@imap1.linux-foundation.org>
-	<20080610001329.GA16197@devserv.devel.redhat.com>
+From: "Grant Likely" <grant.likely@secretlab.ca>
+Subject: Re: [patch 06/13] fec_mpc52xx: MPC52xx_MESSAGES_DEFAULT: 2nd NETIF_MSG_IFDOWN => IFUP
+Date: Mon, 9 Jun 2008 18:55:09 -0600
+Message-ID: <fa686aa40806091755q3b2700b1w79f6e2d1c28fc08e@mail.gmail.com>
+References: <200806092333.m59NXpvs014683@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk,
-	alan@redhat.com, randy.dunlap@oracle.com
-To: Alan Cox <alan@redhat.com>
+Cc: jeff@garzik.org, netdev@vger.kernel.org, roel.kluin@gmail.com,
+	tnt@246tnt.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:40607 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752392AbYFJAUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 20:20:24 -0400
-In-Reply-To: <20080610001329.GA16197@devserv.devel.redhat.com>
+Received: from an-out-0708.google.com ([209.85.132.240]:26648 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752461AbYFJAzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2008 20:55:10 -0400
+Received: by an-out-0708.google.com with SMTP id d40so557700and.103
+        for <netdev@vger.kernel.org>; Mon, 09 Jun 2008 17:55:09 -0700 (PDT)
+In-Reply-To: <200806092333.m59NXpvs014683@imap1.linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 9 Jun 2008 20:13:29 -0400
-Alan Cox <alan@redhat.com> wrote:
+On Mon, Jun 9, 2008 at 5:33 PM,  <akpm@linux-foundation.org> wrote:
+> From: Roel Kluin <roel.kluin@gmail.com>
+>
+> Duplicate NETIF_MSG_IFDOWN, 2nd should be NETIF_MSG_IFUP
+>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> Acked-by: Sylvain Munaut <tnt@246tNt.com>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
 
-> To be clearer on this
-> 
-> > +obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
-> 
-> That line is wrong. Perhaps Andrew could post the original split patches
-> instead ?
+Acked-by: Grant Likely <grant.likely@secretlab.ca>
 
-iirc this is your original, plus Randy's fix:
-
-From: Randy Dunlap <randy.dunlap@oracle.com>
-
-ne2 (MCA) needs both 8390.o and 8390p.o functions:
-
-drivers/built-in.o: In function `ne_close':
-ne2.c:(.text+0x30544): undefined reference to `eip_close'
-drivers/built-in.o: In function `ne_open':
-ne2.c:(.text+0x30554): undefined reference to `eip_open'
-drivers/built-in.o: In function `ne2_probe':
-(.init.text+0x1bce): undefined reference to `__alloc_eip_netdev'
-drivers/built-in.o: In function `ne2_probe':
-(.init.text+0x1dd9): undefined reference to `eip_interrupt'
-make[1]: *** [.tmp_vmlinux1] Error 1
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/net/Makefile |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN drivers/net/Makefile~8390-split-8390-support-into-a-pausing-and-a-non-pausing-driver-core-fix drivers/net/Makefile
---- a/drivers/net/Makefile~8390-split-8390-support-into-a-pausing-and-a-non-pausing-driver-core-fix
-+++ a/drivers/net/Makefile
-@@ -107,7 +107,7 @@ obj-$(CONFIG_68360_ENET) += 68360enet.o
- obj-$(CONFIG_WD80x3) += wd.o 8390.o
- obj-$(CONFIG_EL2) += 3c503.o 8390p.o
- obj-$(CONFIG_NE2000) += ne.o 8390p.o
--obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o
-+obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
- obj-$(CONFIG_HPLAN) += hp.o 8390p.o
- obj-$(CONFIG_HPLAN_PLUS) += hp-plus.o 8390p.o
- obj-$(CONFIG_ULTRA) += smc-ultra.o 8390.o
-_
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+>
+>  drivers/net/fec_mpc52xx.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff -puN drivers/net/fec_mpc52xx.c~fec_mpc52xx-mpc52xx_messages_default-2nd-netif_msg_ifdown-=-ifup drivers/net/fec_mpc52xx.c
+> --- a/drivers/net/fec_mpc52xx.c~fec_mpc52xx-mpc52xx_messages_default-2nd-netif_msg_ifdown-=-ifup
+> +++ a/drivers/net/fec_mpc52xx.c
+> @@ -78,7 +78,7 @@ module_param_array_named(mac, mpc52xx_fe
+>  MODULE_PARM_DESC(mac, "six hex digits, ie. 0x1,0x2,0xc0,0x01,0xba,0xbe");
+>
+>  #define MPC52xx_MESSAGES_DEFAULT ( NETIF_MSG_DRV | NETIF_MSG_PROBE | \
+> -               NETIF_MSG_LINK | NETIF_MSG_IFDOWN | NETIF_MSG_IFDOWN )
+> +               NETIF_MSG_LINK | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP)
+>  static int debug = -1; /* the above default */
+>  module_param(debug, int, 0);
+>  MODULE_PARM_DESC(debug, "debugging messages level");
+> _
+>
 
 
-> > diff -puN drivers/net/ne2.c~8390-split-8390-support-into-a-pausing-and-a-non-pausing-driver-core drivers/net/ne2.c
-> > --- a/drivers/net/ne2.c~8390-split-8390-support-into-a-pausing-and-a-non-pausing-driver-core
-> > +++ a/drivers/net/ne2.c
-> 
-> And this has a single missed ei to eip conversion.
 
-Where?  Will that fix the build error?
+-- 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
