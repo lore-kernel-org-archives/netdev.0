@@ -1,71 +1,63 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [patch 04/13] 8390: Split 8390 support into a pausing and a non
- pausing driver core
-Date: Tue, 10 Jun 2008 11:20:13 +0100
-Message-ID: <20080610112013.219fedda@core>
-References: <200806092333.m59NXnTe014676@imap1.linux-foundation.org>
-	<20080610001329.GA16197@devserv.devel.redhat.com>
-	<20080609171945.d2360114.akpm@linux-foundation.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
+	available to userspace
+Date: Tue, 10 Jun 2008 12:49:08 +0100
+Message-ID: <20080610114908.GA25798@gerrit.erg.abdn.ac.uk>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806011948.39770.tomasz@grobelny.oswiecenia.net> <20080604150942.GA4980@gerrit.erg.abdn.ac.uk> <200806081421.25688.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@redhat.com>, jeff@garzik.org,
-	netdev@vger.kernel.org, randy.dunlap@oracle.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:42847 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756318AbYFJKio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 06:38:44 -0400
-In-Reply-To: <20080609171945.d2360114.akpm@linux-foundation.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:34271 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752490AbYFJLte (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 07:49:34 -0400
+Content-Disposition: inline
+In-Reply-To: <200806081421.25688.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 9 Jun 2008 17:19:45 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+| > But since it is about dynamic runtime configuration, how about using sysfs
+| > or configfs instead? This is a brainstorming question, I think that sysfs
+| > is generally preferred. I don't know how well configfs has taken off, it is
+| > similar, but needs to be added in the configuration (under Pseudeo
+| > Filesystems, CONFIG_CONFIGFS_FS=y|m) http://lwn.net/Articles/148973/
+| > and Documentation/filesystems/configs. But this could be done later as
+| > well.
+| >
+| procfs has some fine example of being used for this kind of information, 
+| namely /proc/cpuinfo and /proc/meminfo
 
-> On Mon, 9 Jun 2008 20:13:29 -0400
-> Alan Cox <alan@redhat.com> wrote:
-> 
-> > To be clearer on this
-> > 
-> > > +obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
-> > 
-> > That line is wrong. Perhaps Andrew could post the original split patches
-> > instead ?
-> 
-> iirc this is your original, plus Randy's fix:
+| sysfs: from sysfs-rules.txt: "(...) the sysfs interface cannot provide a 
+| stable interface (...)"
+Yes that is a key point and I think we are talking about the same point here.
 
-This corrects Randy's fix. The ne2.c code you have is actually correct
-just the Makefile wrong. Not sure where the original NAK/diff went but they
-aren't in the lkml archive either so they obviously got eaten somewhere my
-end.
+I had mentioned sysfs/procfs as alternatives not because they are the best
+possible match, but since it shows that similar problems (and likely solutions)
+exist also in other areas.
 
-8390: fix problems in the original split patch
+But there are also areas where the rate of change is relatively low or
+even absent: Documentation/ABI/README for instance mentions 4 different
+levels of stability (stable/testing/obsolete/removed), the most entries
+are under `testing'.
 
-From: Alan Cox <alan@redhat.com>
+| configfs is for configuring kernel from userspace. Which is quite opposite to  
+| what we want.
+| 
+Ok I think I understand now where you are heading - but then we can go a much
+simpler route: why not implement a sysctl (which is also mirrored in /proc/sys)
+that contains all available/implemented qpolicies as a space-separated
+string, such as
 
-The split patch didn't fully convert the ne2 driver so it failed to link. At
-some point this was fixed but the Makefile also got changed to incorrectly
-link with both 8390 and 8390p. Only 8390p is needed so remove 8390.o references
+	cat /proc/sys/net/ipv4/tcp_available_congestion_control ?
 
-Signed-off-by: Alan Cox <alan@redhat.com>
----
+And I think that it is unnecessarily complex to add the available parameters
+belonging to each qpolicy as well.
 
- drivers/net/Makefile |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+If we agree on using unique strings to identify qpolicies then we can
+keep the runtime discovery much simpler. I think a manpage would be more
+helpful here, since the runtime discovery of parameters is not
+immediately obvious.
 
-
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 41b239a..388cab8 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -107,7 +107,7 @@ obj-$(CONFIG_68360_ENET) += 68360enet.o
- obj-$(CONFIG_WD80x3) += wd.o 8390.o
- obj-$(CONFIG_EL2) += 3c503.o 8390p.o
- obj-$(CONFIG_NE2000) += ne.o 8390p.o
--obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
-+obj-$(CONFIG_NE2_MCA) += ne2.o 8390p.o
- obj-$(CONFIG_HPLAN) += hp.o 8390p.o
- obj-$(CONFIG_HPLAN_PLUS) += hp-plus.o 8390p.o
- obj-$(CONFIG_ULTRA) += smc-ultra.o 8390.o
+- Gerrit
