@@ -1,69 +1,76 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops in nf_nat_core.c:find_appropriate_src(), kernel 2.6.25.4
-Date: Tue, 10 Jun 2008 16:00:29 +0200
-Message-ID: <484E88FD.3000908@trash.net>
-References: <484A9E75.8000601@redhat.com> <484AA276.9090407@trash.net> <484AA5D5.10404@trash.net> <Pine.LNX.4.64.0806071742180.13503@bizon.gios.gov.pl> <484E4343.5090606@trash.net> <Pine.LNX.4.64.0806101545460.12641@bizon.gios.gov.pl>
+From: "Igor Podlesny" <for.poige+linux@gmail.com>
+Subject: re-formated /Re: Hi!Couldn't you take a look at kernel stack's trace? (ip_route_input+0x91a/0xcc9)/
+Date: Tue, 10 Jun 2008 22:36:05 +0800
+Message-ID: <43d009740806100736y343bad9bt3a8b365292cced49@mail.gmail.com>
+Reply-To: for.poige+linux@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Chuck Ebbert <cebbert@redhat.com>, Netdev <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Krzysztof Oledzki <ole@ans.pl>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41175 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753887AbYFJOAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 10:00:31 -0400
-In-Reply-To: <Pine.LNX.4.64.0806101545460.12641@bizon.gios.gov.pl>
+Received: from wx-out-0506.google.com ([66.249.82.228]:52498 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbYFJOgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 10:36:08 -0400
+Received: by wx-out-0506.google.com with SMTP id h29so1214209wxd.4
+        for <netdev@vger.kernel.org>; Tue, 10 Jun 2008 07:36:06 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Oledzki wrote:
-> On Tue, 10 Jun 2008, Patrick McHardy wrote:
-> 
->> We found the reason for that crash and I've queued these two
->> patches. Please let me know whether they also fix the problem
->> from the redhat bugzilla.
-> 
-> There is a one thing that still bugs me. This patch removes setting the 
-> nat->ct pointer to NULL:
-> 
-> --- a/net/ipv4/netfilter/nf_nat_core.c
-> +++ b/net/ipv4/netfilter/nf_nat_core.c
-> @@ -556,7 +556,6 @@ static void nf_nat_cleanup_conntrack(struct nf_conn 
-> *ct)
-> 
->         spin_lock_bh(&nf_nat_lock);
->         hlist_del_rcu(&nat->bysource);
-> -       nat->ct = NULL;
->         spin_unlock_bh(&nf_nat_lock);
->  }
-> 
-> After this patch the whole function looks like this:
-> 
-> /* Noone using conntrack by the time this called. */
-> static void nf_nat_cleanup_conntrack(struct nf_conn *ct)
-> {
->         struct nf_conn_nat *nat = nf_ct_ext_find(ct, NF_CT_EXT_NAT);
-> 
->         if (nat == NULL || nat->ct == NULL)
->                 return;
-> 
->         NF_CT_ASSERT(nat->ct->status & IPS_NAT_DONE_MASK);
-> 
->         spin_lock_bh(&nf_nat_lock);
->         hlist_del_rcu(&nat->bysource);
->         spin_unlock_bh(&nf_nat_lock);
-> }
-> 
-> As you can see we still check if nat->ct is NULL here. So, or the check 
-> is now unnecessary, or it is still possible that nat->ct may become 
-> NULL. If the second statement is true than we may need to check ct 
-> before calling same_src in the find_appropriate_src function.
+   Hm, not too easy to read. Sorry! Re-trying with prefixes removed:
+----------X8------------------X8------------------X8------------------X8--------
+BUG: unable to handle kernel NULL pointer dereference at 00000019
+ IP: [<c0313d75>] ip_route_input+0x91a/0xcc9
+ *pde = 00000000
+ Oops: 0002 [#1] PREEMPT SMP
+ Modules linked in: snd_rtctimer rtc ip_queue xt_owner ipt_recent
+ipt_ttl ipt_addrtype ipt_REJECT iptable_filter ipt_LOG xt_limit
+xt_DSCP xt_TCPMSS iptable_mangle it87 hwmon_vid hwmon snd_usb_audio
+snd_usb_lib usbhid hid parport_pc 8250_pnp 8250 serial_core lp
+ppp_generic parport slhc forcedeth ohci_hcd ehci_hcd i2c_nforce2 fan
+button fuse via_rhine 3c59x mii tun powernow_k8 thermal processor
+8021q tuner tea5767 tda8290 tuner_xc2028 tda9887 tuner_simple mt20xx
+tea5761 saa7134 videodev v4l1_compat compat_ioctl32 v4l2_common
+videobuf_dma_sg videobuf_core ir_kbd_i2c ir_common tveeprom i2c_core
+snd_seq_oss snd_seq_midi_event snd_seq snd_emu10k1 firmware_class
+snd_util_mem snd_hwdep snd_pcm_oss snd_mixer_oss snd_via82xx
+snd_ac97_codec ac97_bus snd_pcm snd_timer snd_page_alloc
+snd_mpu401_uart snd_rawmidi snd_seq_device snd soundcore loop pcspkr
+evdev usbcore
 
-No, the nf_nat_cleanup_nat function can be called for a NAT extension
-that isn't in the hash yet (and thus has nat->ct == NULL) when the
-nf_conntrack_alter_reply() call in nf_nat_setup_info() allocates a
-helper extension and need to realloc the NAT extension space.
+ Pid: 8, comm: sirq-net-rx/0 Not tainted (2.6.25.4-rt4aa-gcc43 #1)
+ EIP: 0060:[<c0313d75>] EFLAGS: 00010202 CPU: 0
+ EIP is at ip_route_input+0x91a/0xcc9
+ EAX: 00000000 EBX: f5a69e00 ECX: f7477e14 EDX: 00000001
+ ESI: 0f6ea8c0 EDI: f7477ea4 EBP: ffffff8f ESP: f7477e38
+  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068 preempt:00000001
+ Process sirq-net-rx/0 (pid: 8, ti=f7476000 task=f746c690 task.ti=f7476000)
+ Stack: 00000000 016ea8c0 f6e2f180 00000001 c04f1964 00000001 f5a69e00 016ea8c0
+        00000000 00000000 c04851cc f786d640 00000000 00000006 00000000 016ea8c0
+        0f6ea8c0 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+ Call Trace:
+  [<c024d578>] __next_cpu+0x12/0x21
+  [<c0333ee8>] arp_process+0x1fe/0x5fe
+  [<c01277f5>] wake_up_process+0xe/0x10
+  [<c0172e80>] __kmalloc+0x97/0xcb
+  [<c02f16be>] __alloc_skb+0x45/0xf2
+  [<c02f58da>] netif_receive_skb+0x2dd/0x30b
+  [<c02f5975>] process_backlog+0x6d/0xc1
+  [<c02f46a3>] net_rx_action+0x65/0x14c
+  [<c01304dd>] ksoftirqd+0x138/0x214
+  [<c01303a5>] ksoftirqd+0x0/0x214
+  [<c013c30e>] kthread+0x38/0x5d
+  [<c013c2d6>] kthread+0x0/0x5d
+  [<c0113f3f>] kernel_thread_helper+0x7/0x10
+  =======================
+ Code: ff ff 8b 5c 24 18 f0 ff 4b 04 0f 94 c0 84 c0 74 07 89 d8 e8 32
+1b 02 00 83 7c 24 14 00 0f 84 98 03 00 00 8b 54 24 70 85 d2 74 12 <f0>
+ff 4a 18 0f 94 c0 84 c0 74 07 89 d0 e8 e7 92 02 00 8b 54 24
+ EIP: [<c0313d75>] ip_route_input+0x91a/0xcc9 SS:ESP 0068:f7477e38
+ ---[ end trace 0f990b633467f554 ]---
+----------X8------------------X8------------------X8------------------X8--------
 
+	Plus, it's been bin-pasted: http://pastebin.com/d209e7256
+--
+End of message. Next message?
