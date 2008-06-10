@@ -1,56 +1,57 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/7] dccp ccid-3: Bug-Fix - Zero RTT is possible
-Date: Tue, 10 Jun 2008 13:53:37 +0100
-Message-ID: <1213102423-27486-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/7] dccp ccid-2: Bug-Fix - Ack Vectors need to be ignored on request sockets
+Date: Tue, 10 Jun 2008 13:53:39 +0100
+Message-ID: <1213102423-27486-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_bug_fixes_for_net-2.6>
  <1213102423-27486-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1213102423-27486-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1213102423-27486-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37419 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753793AbYFJMx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2008 08:53:57 -0400
-In-Reply-To: <1213102423-27486-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753994AbYFJMyF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 08:54:05 -0400
+In-Reply-To: <1213102423-27486-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 825de27d9e40b3117b29a79d412b7a4b78c5d815 fixed the CCID-3 window counter
-computation for RTTs < 4 microseconds (as happens on loopback).
+This fixes an oversight from an earlier patch, ensuring that Ack Vectors
+are not processed on request sockets.
 
-Since it uses the term "1/RTT", it needs to be protected against divide-by-zero,
-done in established state using dccp_sample_rtt().
+The issue is that Ack Vectors must not be parsed on request sockets, since
+the Ack Vector feature depends on the selection of the (TX) CCID. During the
+initial handshake the CCIDs are undefined, and so RFC 4340, 10.3 applies:
 
-But there was an oversight, as a zero RTT can happen on sender initialisation
-when there is no RTT sample from the Request/Response exchange.
+ "Using CCID-specific options and feature options during a negotiation
+  for the corresponding CCID feature is NOT RECOMMENDED [...]"
 
-The fix is to use the fallback-RTT from RFC 4340, 3.4.
-
-This is also better than just fixing update_win_count() since it allows other
-parts of the code to always assume that a (fallback) RTT value is available.
+Worse, it is not even possible: when the server receives the Request from the
+client, the CCID and Ack vector features are undefined; when the Ack finalising
+the 3-way hanshake arrives, the request socket has not been cloned yet into a
+full socket. (This order is necessary, since otherwise the newly created socket
+would have to be destroyed whenever an option error occurred - a malicious
+hacker could simply send garbage options and exploit this.)
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+ net/dccp/options.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -329,8 +329,14 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
- 			hctx->ccid3hctx_x    = rfc3390_initial_rate(sk);
- 			hctx->ccid3hctx_t_ld = now;
- 		} else {
--			/* Sender does not have RTT sample: X_pps = 1 pkt/sec */
--			hctx->ccid3hctx_x = hctx->ccid3hctx_s;
-+			/*
-+			 * Sender does not have RTT sample:
-+			 * - set fallback RTT (RFC 4340, 3.4) since a RTT value
-+			 *   is needed in several parts (e.g.  window counter);
-+			 * - set sending rate X_pps = 1pps as per RFC 3448, 4.2.
-+			 */
-+			hctx->ccid3hctx_rtt = DCCP_FALLBACK_RTT;
-+			hctx->ccid3hctx_x   = hctx->ccid3hctx_s;
- 			hctx->ccid3hctx_x <<= 6;
- 		}
- 		ccid3_update_send_interval(hctx);
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -107,9 +107,11 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 		 *
+ 		 * CCID-specific options are ignored during connection setup, as
+ 		 * negotiation may still be in progress (see RFC 4340, 10.3).
++		 * The same applies to Ack Vectors, as these depend on the CCID.
+ 		 *
+ 		 */
+-		if (dreq != NULL && opt >= 128)
++		if (dreq != NULL && (opt >= 128 ||
++		    opt == DCCPO_ACK_VECTOR_0 || opt == DCCPO_ACK_VECTOR_1))
+ 			goto ignore_option;
+ 
+ 		switch (opt) {
