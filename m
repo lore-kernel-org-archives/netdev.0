@@ -1,54 +1,50 @@
-From: Krzysztof Oledzki <ole@ans.pl>
-Subject: Re: Oops in nf_nat_core.c:find_appropriate_src(), kernel 2.6.25.4
-Date: Tue, 10 Jun 2008 19:07:01 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0806101906120.12641@bizon.gios.gov.pl>
-References: <484A9E75.8000601@redhat.com> <484AA276.9090407@trash.net>
- <484AA5D5.10404@trash.net> <Pine.LNX.4.64.0806071742180.13503@bizon.gios.gov.pl>
- <484E4343.5090606@trash.net> <Pine.LNX.4.64.0806101545460.12641@bizon.gios.gov.pl>
- <484E88FD.3000908@trash.net>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: blackfin drivers/net/smc91x.c build error
+Date: Tue, 10 Jun 2008 13:13:52 -0400
+Message-ID: <8bd0f97a0806101013w42b9028j5dfa38d654f3d05f@mail.gmail.com>
+References: <20080606162212.GC2201@cs181133002.pp.htv.fi>
+	 <8bd0f97a0806061252n1cf5ee33i40ddf9f55588e242@mail.gmail.com>
+	 <20080610135349.GA30792@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-442060285-1213117621=:12641"
-Cc: Chuck Ebbert <cebbert@redhat.com>, Netdev <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Bryan Wu" <cooloney@kernel.org>, "Jeff Garzik" <jeff@garzik.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Adrian Bunk" <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:47584 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753132AbYFJRHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 13:07:50 -0400
-In-Reply-To: <484E88FD.3000908@trash.net>
+Received: from rv-out-0506.google.com ([209.85.198.235]:53828 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751082AbYFJRNy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 13:13:54 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so992702rvb.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jun 2008 10:13:52 -0700 (PDT)
+In-Reply-To: <20080610135349.GA30792@cs181133002.pp.htv.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----187430788-442060285-1213117621=:12641
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-
-
-
-On Tue, 10 Jun 2008, Patrick McHardy wrote:
-<CUT>
-
->> As you can see we still check if nat->ct is NULL here. So, or the check =
-is=20
->> now unnecessary, or it is still possible that nat->ct may become NULL. I=
-f=20
->> the second statement is true than we may need to check ct before calling=
-=20
->> same_src in the find_appropriate_src function.
+On Tue, Jun 10, 2008 at 9:53 AM, Adrian Bunk wrote:
+> On Fri, Jun 06, 2008 at 03:52:09PM -0400, Mike Frysinger wrote:
+>> On Fri, Jun 6, 2008 at 12:22 PM, Adrian Bunk wrote:
+>> > drivers/net/smc91x.c fails as follows on blackfin:
+>> > ...
+>> >  CC      drivers/net/smc91x.o
+>> > ...
+>> > /home/bunk/linux/kernel-2.6/git/linux-2.6/drivers/net/smc91x.c:1863:36: error: macro "SMC_GET_MAC_ADDR" passed 2 arguments, but takes just 1
+>> > ...
+>>
+>> it's a known issue (been known for quite a long time actually).  Bryan
+>> has brought this up in the past already.
 >
-> No, the nf_nat_cleanup_nat function can be called for a NAT extension
-> that isn't in the hash yet (and thus has nat->ct =3D=3D NULL) when the
-> nf_conntrack_alter_reply() call in nf_nat_setup_info() allocates a
-> helper extension and need to realloc the NAT extension space.
+> Is my suggestion of reverting commit 099c736a470c8080a166e7a089f1e48e15f9947c
+> correct or how else should it be resolved?
 
-OK, thank you for the explanation.
+Bryan is taking care of it ... it may just stay broken in favor of
+waiting for the merge from the net tree.
 
-Best regards,
+> This issue is the only remaining problem preventing that all blackfin
+> defconfigs will compile in 2.6.26...
 
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-442060285-1213117621=:12641--
+not really true.  but otherwise, failures dont go unnoticed as we have
+automated nightly builds for all the relevant trees.
+-mike
