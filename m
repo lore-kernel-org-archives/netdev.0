@@ -1,194 +1,68 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 7/7] dccp: Initialise option area of v4/v6 request
-	socket
-Date: Tue, 10 Jun 2008 11:38:12 -0300
-Message-ID: <20080610143812.GB26686@ghostprotocols.net>
-References: <1213102423-27486-1-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-2-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-3-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-4-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-5-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-6-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk> <1213102423-27486-8-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] driver core: Suppress sysfs warnings for
+ device_rename().
+Date: Tue, 10 Jun 2008 08:30:14 -0700
+Message-ID: <20080610083014.66052504@extreme>
+References: <20080515095246.3b6a0d1d@gondolin.boeblingen.de.ibm.com>
+	<20080515.010139.219194657.davem@davemloft.net>
+	<20080515113131.2cea2bce@gondolin.boeblingen.de.ibm.com>
+	<20080515.030054.247673168.davem@davemloft.net>
+	<20080515120619.6c867bfb@gondolin.boeblingen.de.ibm.com>
+	<20080520125913.777ed67d@gondolin.boeblingen.de.ibm.com>
+	<20080520225244.GG15912@kroah.com>
+	<20080521100556.3352c5b7@gondolin.boeblingen.de.ibm.com>
+	<20080610110908.46b2ade4@gondolin.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org, Wei Yongjun <yjwei@cn.fujitsu.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Greg KH <greg@kroah.com>,
+	David Miller <davem@davemloft.net>, fubar@us.ibm.com,
+	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55916 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([216.93.170.194]:54451 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752984AbYFJOi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2008 10:38:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1213102423-27486-8-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753098AbYFJPaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 11:30:17 -0400
+In-Reply-To: <20080610110908.46b2ade4@gondolin.boeblingen.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Jun 10, 2008 at 01:53:43PM +0100, Gerrit Renker escreveu:
-> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+On Tue, 10 Jun 2008 11:09:08 +0200
+Cornelia Huck <cornelia.huck@de.ibm.com> wrote:
+
+> On Wed, 21 May 2008 10:05:56 +0200,
+> Cornelia Huck <cornelia.huck@de.ibm.com> wrote:
 > 
-> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+> Just digging through my backlog: Is there any further interest in this
+> patch?
 > 
-> This fixes the following bug:
->  * dccp_v4_reqsk_destructor() frees inet inet_rsk(req)->opt,
->  * but dccp_v4_conn_request() may fail before initialising inet_rsk(req)->opt;
->  * likewise, dccp_v6_reqsk_destructor() frees inet6_rsk(req)->pktopts,
->  * but dccp_v6_conn_request() may fail before initialising the pktopts.
-> 
-> The fix is in initialising the option areas in both request sockets before
-> calling any other code that may fail and thus may end up calling the destructor.
-> 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> > On Tue, 20 May 2008 15:52:44 -0700,
+> > Greg KH <greg@kroah.com> wrote:
+> > 
+> > > On Tue, May 20, 2008 at 12:59:13PM +0200, Cornelia Huck wrote:
+> > > > OK, here is an actually-compiled patch with proper description and
+> > > > s-o-b. Comments?
+> > > 
+> > > Looks good to me, feel free to add an:
+> > > 	Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
+> > > 
+> > > to it.
+> > > 
+> > > David, are you going to take this through your tree?
+> > 
+> > Here it is again, respun against today's git:
+> > 
+> > 
+> > driver core: Suppress sysfs warnings for device_rename().
+> > 
+> > Renaming network devices to an already existing name is not
+> > something we want sysfs to print a scary warning for, since the
+> > callers can deal with this correctly. So let's introduce
+> > sysfs_create_link_nowarn() which gets rid of the common warning.
+> > 
+> > Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
+> > Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+> > 
 
-The problem is present in TCP too, look at cookie_v4_check and
-tcp_v4_conn_request, we may get to reqsk_free before we set ->opt if
-security_inet_conn_request() returns non zero.
-
-This is one case where bugs found on DCCP lead to an audit of the
-similar code in TCP and the fix should be done on the common
-infrastructure.
-
-Please consider the following patch instead, it is compile tested only
-but should be OK.
-
-Thanks a lot,
-
-- Arnaldo
-
-commit f627bdaa7428f04b828abd70a8145cafb7ce366b
-Author: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date:   Tue Jun 10 10:37:32 2008 -0300
-
-    inet{6}_request_sock: Init ->opt and ->pktopts in the constructor
-    
-    Wei Yongjun noticed that we may call reqsk_free on request sock objects where
-    the opt fields may not be initialized, fix it by introducing inet_reqsk_alloc
-    where we initialize ->opt to NULL and set ->pktopts to NULL in
-    inet6_reqsk_alloc.
-    
-    Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-    Cc: Wei Yongjun <yjwei@cn.fujitsu.com>
-    Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 10b666b..cde056e 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -396,8 +396,10 @@ static inline struct request_sock *inet6_reqsk_alloc(struct request_sock_ops *op
- {
- 	struct request_sock *req = reqsk_alloc(ops);
- 
--	if (req != NULL)
-+	if (req != NULL) {
- 		inet_rsk(req)->inet6_rsk_offset = inet6_rsk_offset(req);
-+		inet6_rsk(req)->pktopts = NULL;
-+	}
- 
- 	return req;
- }
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index a42cd63..9fabe5b 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -197,4 +197,14 @@ static inline int inet_iif(const struct sk_buff *skb)
- 	return skb->rtable->rt_iif;
- }
- 
-+static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops)
-+{
-+	struct request_sock *req = reqsk_alloc(ops);
-+
-+	if (req != NULL)
-+		inet_rsk(req)->opt = NULL;
-+
-+	return req;
-+}
-+
- #endif	/* _INET_SOCK_H */
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index c22a378..37d27bc 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -589,7 +589,7 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
- 		goto drop;
- 
--	req = reqsk_alloc(&dccp_request_sock_ops);
-+	req = inet_reqsk_alloc(&dccp_request_sock_ops);
- 	if (req == NULL)
- 		goto drop;
- 
-@@ -605,7 +605,6 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	ireq = inet_rsk(req);
- 	ireq->loc_addr = ip_hdr(skb)->daddr;
- 	ireq->rmt_addr = ip_hdr(skb)->saddr;
--	ireq->opt	= NULL;
- 
- 	/*
- 	 * Step 3: Process LISTEN state
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 9b1129b..f7fe2a5 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -421,7 +421,6 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	ireq6 = inet6_rsk(req);
- 	ipv6_addr_copy(&ireq6->rmt_addr, &ipv6_hdr(skb)->saddr);
- 	ipv6_addr_copy(&ireq6->loc_addr, &ipv6_hdr(skb)->daddr);
--	ireq6->pktopts	= NULL;
- 
- 	if (ipv6_opt_accepted(sk, skb) ||
- 	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 73ba989..d182a2a 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -285,7 +285,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 		cookie_check_timestamp(&tcp_opt);
- 
- 	ret = NULL;
--	req = reqsk_alloc(&tcp_request_sock_ops); /* for safety */
-+	req = inet_reqsk_alloc(&tcp_request_sock_ops); /* for safety */
- 	if (!req)
- 		goto out;
- 
-@@ -301,7 +301,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	ireq->rmt_port		= th->source;
- 	ireq->loc_addr		= ip_hdr(skb)->daddr;
- 	ireq->rmt_addr		= ip_hdr(skb)->saddr;
--	ireq->opt		= NULL;
- 	ireq->snd_wscale	= tcp_opt.snd_wscale;
- 	ireq->rcv_wscale	= tcp_opt.rcv_wscale;
- 	ireq->sack_ok		= tcp_opt.sack_ok;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index cd601a8..4f8485c 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1285,7 +1285,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
- 		goto drop;
- 
--	req = reqsk_alloc(&tcp_request_sock_ops);
-+	req = inet_reqsk_alloc(&tcp_request_sock_ops);
- 	if (!req)
- 		goto drop;
- 
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 938ce4e..3ecc115 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -198,7 +198,6 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	ireq = inet_rsk(req);
- 	ireq6 = inet6_rsk(req);
- 	treq = tcp_rsk(req);
--	ireq6->pktopts = NULL;
- 
- 	if (security_inet_conn_request(sk, skb, req)) {
- 		reqsk_free(req);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 715965f..cb46749 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1299,7 +1299,6 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	treq = inet6_rsk(req);
- 	ipv6_addr_copy(&treq->rmt_addr, &ipv6_hdr(skb)->saddr);
- 	ipv6_addr_copy(&treq->loc_addr, &ipv6_hdr(skb)->daddr);
--	treq->pktopts = NULL;
- 	if (!want_cookie)
- 		TCP_ECN_create_request(req, tcp_hdr(skb));
- 
+I you want to put the warnings back this is a reasonable way.
