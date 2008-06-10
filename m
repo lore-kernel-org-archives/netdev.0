@@ -1,29 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4 addr: Send netlink notification for address label
- changes
-Date: Tue, 10 Jun 2008 15:40:59 -0700 (PDT)
-Message-ID: <20080610.154059.101208534.davem@davemloft.net>
-References: <20080605000203.GK20815@postel.suug.ch>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sky2: Hold RTNL while calling dev_close() [2nd try]
+Date: Tue, 10 Jun 2008 18:40:55 -0400
+Message-ID: <484F02F7.50905@pobox.com>
+References: <20080506182654.GF2217@solarflare.com> <20080506183958.GI2217@solarflare.com> <20080506161720.6475e5d4@extreme> <20080506235937.GK2217@solarflare.com> <20080531155251.GM1743@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55013
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753462AbYFJWlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 18:41:03 -0400
-In-Reply-To: <20080605000203.GK20815@postel.suug.ch>
+Received: from srv5.dvmed.net ([207.36.208.214]:40408 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754050AbYFJWlG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 18:41:06 -0400
+In-Reply-To: <20080531155251.GM1743@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 5 Jun 2008 02:02:03 +0200
-
-> Makes people happy who try to keep a list of addresses up to date
-> by listening to notifications.
+Ben Hutchings wrote:
+> dev_close() must be called holding the RTNL.  Compile-tested only.
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+>  drivers/net/sky2.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index f226bca..b9bdf88 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -4395,7 +4395,9 @@ static int sky2_resume(struct pci_dev *pdev)
+>  			if (err) {
+>  				printk(KERN_ERR PFX "%s: could not up: %d\n",
+>  				       dev->name, err);
+> +				rtnl_lock();
+>  				dev_close(dev);
+> +				rtnl_unlock();
+>  				goto out;
 
-Applied to net-next-2.6, thanks!
+applied
+
+
