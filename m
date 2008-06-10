@@ -1,49 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] L2TP: Fix potential memory corruption in
- pppol2tp_recvmsg()
-Date: Tue, 10 Jun 2008 12:36:12 -0700 (PDT)
-Message-ID: <20080610.123612.162337098.davem@davemloft.net>
-References: <200806101234.m5ACYOI4004732@quickie.katalix.com>
+Subject: Re: [PATCH net-2.6] [ipv4] remove unused declaration from
+ include/net/tcp.h.
+Date: Tue, 10 Jun 2008 12:38:32 -0700 (PDT)
+Message-ID: <20080610.123832.230112448.davem@davemloft.net>
+References: <eb3ff54b0806100614o26981c8ao5b1fb952f7b843fa@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilja@netric.org
-To: jchapman@katalix.com
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45588
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45592
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753409AbYFJTgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:36:12 -0400
-In-Reply-To: <200806101234.m5ACYOI4004732@quickie.katalix.com>
+	by vger.kernel.org with ESMTP id S1757298AbYFJTic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:38:32 -0400
+In-Reply-To: <eb3ff54b0806100614o26981c8ao5b1fb952f7b843fa@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Tue, 10 Jun 2008 13:34:24 +0100
+From: "Rami Rosen" <ramirose@gmail.com>
+Date: Tue, 10 Jun 2008 16:14:24 +0300
 
-> This patch fixes a potential memory corruption in
-> pppol2tp_recvmsg(). If skb->len is bigger than the caller's buffer
-> length, memcpy_toiovec() will go into unintialized data on the kernel
-> heap, interpret it as an iovec and start modifying memory.
+> - The tcp_unhash() method in /include/net/tcp.h is no more needed, as the
+> unhash method in tcp_prot structure is now inet_unhash (instead of
+> tcp_unhash in the
+> past); see tcp_prot structure in net/ipv4/tcp_ipv4.c.
 > 
-> The fix is to change the memcpy_toiovec() call to
-> skb_copy_datagram_iovec() so that paged packets (rare for PPPOL2TP)
-> are handled properly. Also check that the caller's buffer is big
-> enough for the data and set the MSG_TRUNC flag if it is not so.
+> - So, this patch removes tcp_unhash() declaration from include/net/tcp.h
 > 
-> Reported-by: Ilja <ilja@netric.org>
-> Signed-off-by: James Chapman <jchapman@katalix.com>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Applied, thanks.
+Applied, thanks Rami.
 
-Please see:
+Please read:
 
 http://marc.info/?l=linux-netdev&m=121262022428660&w=2
 
-for a description of how I would like folks to format their
-commit header lines for networking changes nowadays.  I fixed
-it up by hand for you this time.
+for a desciption of how I'd like commit header lines to
+be formulated.  In this patch's case it should have been
+"ipv4: remove unused..." instead of "[ipv4] remove unused..."
 
-> A candidate for -stable?
-
-Yes, and I've queued it up for such.
+Thanks.
