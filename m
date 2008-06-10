@@ -1,77 +1,76 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [patch] bondig - arp_interval with low value => Oops.
-Date: Tue, 10 Jun 2008 15:30:06 -0700
-Message-ID: <8135.1213137006@death>
-References: <482C9E73.2040202@free.fr> <484EFDFC.3040206@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+ v2.6.26-rc3+
+Date: Tue, 10 Jun 2008 15:32:52 -0700 (PDT)
+Message-ID: <20080610.153252.252676827.davem@davemloft.net>
+References: <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
+	<20080603.150344.145518113.davem@davemloft.net>
+	<Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas 2P <nicolas.2p.debian@free.fr>,
-	David Miller <davem@davemloft.net>,
-	bonding-devel@lists.sourceforge.net, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-reply-to: <484EFDFC.3040206@garzik.org>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mingo@elte.hu, mcmanus@ducksong.com, peterz@infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org, rjw@sisk.pl,
+	akpm@linux-foundation.org, johnpol@2ka.mipt.ru
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49682
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753272AbYFJWc4 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 18:32:56 -0400
+In-Reply-To: <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik <jeff@garzik.org> wrote:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 4 Jun 2008 02:22:16 +0300 (EEST)
 
->Nicolas 2P wrote:
->> When setting arp_interval parameter to a very low value, delta_in_ti=
-cks
->> for next arp might become 0, causing an infinite loop.
->>
->> See http://bugzilla.kernel.org/show_bug.cgi?id=3D10680
->>
->> Same problem for miimon parameter already fixed, but fix might be
->> enhanced, by using msecs_to_jiffies() function.
->>
->> Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
->
->I don't see an ACK from Jay in my mbox?
->
->Certainly looks nicer than adding "? : 1" to each of the remaining two
->cases.
+> [PATCH] tcp DEFER_ACCEPT: fix racy access to listen_sk
+>=20
+> It seems that replacement of DA code also moved parts outside
+> of appropriate locking. The Ingo's problem seems to come from
+> the fact that two flows could now race in
+> (inet_csk_)reqsk_queue_add corrupting the queue. ...This can
+> leave dangling socks around which won't resolve themselves
+> without stimuli from outside (e.g., external RST would help
+> I think).
+>=20
+> Then some details I'm not too sure of:
+> I guess we want to put listen_sk->sk_state checking under the
+> lock as well. I've not evaluated if ->sk_data_ready too
+> requires locking but assumed it does.
+>=20
+> I'm by no means familiar with all locking variants, requirements,
+> etc.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-	This was accepted a couple of weeks ago; I had to fix a bug in
-the patch, so I'd guess you didn't connect them:
+I took a close look at this, it seems this patch adds
+an ABBA deadlock.  But I might be wrong.
 
-commit 5ce0da8f0386b62345312ec8fed31303732f4220
-Author: Jay Vosburgh <fubar@us.ibm.com>
-Date:   Sat May 17 21:10:07 2008 -0700
+Normally the locking order is:
 
-    bonding: Use msecs_to_jiffies, eliminate panic
-   =20
-        Convert bonding to use msecs_to_jiffies instead of doing the
-    math.  For the ARP monitor, there was an underflow problem that cou=
-ld
-    result in an infinite loop.  The miimon already had that worked aro=
-und,
-    but this is cleaner.
-   =20
-        Originally by Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.=
-fr>
-    Jay Vosburgh corrected a math error in the original; Nicolas' origi=
-nal
-    commit message is:
-   =20
-    When setting arp_interval parameter to a very low value, delta_in_t=
-icks
-    for next arp might become 0, causing an infinite loop.
-   =20
-    See http://bugzilla.kernel.org/show_bug.cgi?id=3D10680
-   =20
-    Same problem for miimon parameter already fixed, but fix might be
-    enhanced, by using msecs_to_jiffies() function.
-   =20
-    Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
-    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+	listen_sk --> some_child_sk
 
+And this can be seen by the code paths that flow down
+to tcp_child_process() in net/ipv4/tcp_minisocks.c (via
+tcp_v4_do_rcv() for example).
 
-	-J
+However here in this patch we will lock in the:
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+	child_sk --> listen_sk
+
+order.
+
+Unless... these defer accepted sockets live outside of the
+normal socket collection found by tcp_v{4,6}_hnd_req().  If
+that is the case, that ought to make this locking order OK
+but I fear that lockdep will likely complain because it has
+no way to see this distinction.
+
+If we cannot find a simple and easy way to deal with this locking
+problem, I am reverting the defer-accept changes entirely.  It's not
+the end of the world if this feature has to be deferred to 2.6.27
+and this bug has been known for several weeks already.
+
