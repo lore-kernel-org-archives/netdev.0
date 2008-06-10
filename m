@@ -1,70 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH: fix bridged 802.3ad bonding
-Date: Tue, 10 Jun 2008 15:42:36 -0700 (PDT)
-Message-ID: <20080610.154236.189971046.davem@davemloft.net>
-References: <20080604082425.GA3272@midget.suse.cz>
-	<20080604090633.2a12cecc@extreme>
-	<20080605101319.GA3756@midget.suse.cz>
+Subject: Re: [PATCH] Fix routing tables with id > 255 for legacy software
+Date: Tue, 10 Jun 2008 15:45:12 -0700 (PDT)
+Message-ID: <20080610.154512.217403438.davem@davemloft.net>
+References: <Pine.LNX.4.64.0806032036070.3438@bizon.gios.gov.pl>
+	<4845A963.2050208@trash.net>
+	<4845D26C.1030005@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, fubar@us.ibm.com,
-	netdev@vger.kernel.org
-To: jbohac@suse.cz
+Cc: olel@ans.pl, jarkao2@gmail.com, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55018
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36861
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754437AbYFJWmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 18:42:40 -0400
-In-Reply-To: <20080605101319.GA3756@midget.suse.cz>
+	by vger.kernel.org with ESMTP id S1752102AbYFJWpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 18:45:17 -0400
+In-Reply-To: <4845D26C.1030005@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Bohac <jbohac@suse.cz>
-Date: Thu, 5 Jun 2008 12:13:20 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 04 Jun 2008 01:23:24 +0200
 
-> On Wed, Jun 04, 2008 at 09:06:33AM -0700, Stephen Hemminger wrote:
-> > On Wed, 4 Jun 2008 10:24:25 +0200
-> > Jiri Bohac <jbohac@suse.cz> wrote:
+> Patrick McHardy wrote:
+> > Krzysztof Oledzki wrote:
+> >>
+> >>> I'm neither opposed (as long as we don't add CONFIG options for
+> >>> this) nor in favour - people using fixed applications won't notice,
+> >>> and for other people it substitutes undesired behaviour by more
+> >>> predictable undesirable behaviour,
+> >>
+> >> Exactly,
+> >>
+> >>> which is at least no loss :)
+> >>
+> >> OK, so I assume it is a very weak ack-by? ;)
 > > 
-> > > On Tue, Jun 03, 2008 at 09:55:19PM -0700, Stephen Hemminger wrote:
-> > > >
-> > > > --- a/net/bridge/br_input.c	2008-06-03 21:44:54.000000000 -0700
-> > > > +++ b/net/bridge/br_input.c	2008-06-03 21:52:20.000000000 -0700
-> > > > @@ -135,15 +135,12 @@ struct sk_buff *br_handle_frame(struct n
-> > > >  		/* Pause frames shouldn't be passed up by driver anyway */
-> > > >  		if (skb->protocol == htons(ETH_P_PAUSE))
-> > > >  			goto drop;
-> > > > -
-> > > > -		/* Process STP BPDU's through normal netif_receive_skb() path */
-> > > > -		if (p->br->stp_enabled != BR_NO_STP) {
-> > > > -			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-> > > > -				    NULL, br_handle_local_finish))
-> > > > -				return NULL;
-> > > > -			else
-> > > > -				return skb;
-> > > > -		}
-> > > > +
-> > > > +		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-> > > > +			    NULL, br_handle_local_finish))
-> > > > +			return NULL;	/* frame consumed by filter */
-> > > > +		else
-> > > > +			return skb;	/* continue processing */
-> > > >  	}
-> > > >  
-> > > >  	switch (p->state) {
-> > > 
-> > > where did the "if (p->br->stp_enabled != BR_NO_STP)" condition
-> > > go? Is it not needed? I thought it was there to prevent the STP
-> > > BPDUs from being handled when STP is turned off.
-> > > 
-> > 
-> > That is already done in br_stp_rcv so the check here was not
-> > needed.
+> > Its a Not-NACKed-by: Patrick McHardy <kaber@trash.net> :)
 > 
-> Ah, I see. So can we get one of the patches in? I still think
-> that running the LACP frames through the bridging NF hooks does
-> not make sense, but it's your call.
+> 
+> I'll upgrade that to a full ACK - the predictability allows
+> to use the new features in combination with legacy apps and
+> avoid any trouble if done carefully. There is some small risk
+> of new breakage, but things probably won't work as expected
+> anyway.
 
-Stephen, if prefer your approach, please repost your patch with full
-commit message and proper signoffs, thanks!
+Patch applied with a typo fix in the changelog, it mentioned
+that the new value was 253 when actually it is 252 :-)
+
+Thanks!
