@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6 merged into net-next-2.6
-Date: Tue, 10 Jun 2008 12:24:57 -0700 (PDT)
-Message-ID: <20080610.122457.103823964.davem@davemloft.net>
-References: <20080610.025059.37807108.davem@davemloft.net>
-	<20080610160212.GA16834@tuxdriver.com>
-	<20080610174713.GA24763@tuxdriver.com>
+Subject: Re: [Patch 0/7] [dccp]: DCCP bug-fixes for net-2.6
+Date: Tue, 10 Jun 2008 12:29:36 -0700 (PDT)
+Message-ID: <20080610.122936.149181809.davem@davemloft.net>
+References: <dccp_bug_fixes_for_net-2.6>
+	<1213102423-27486-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, sfr@canb.auug.org.au
-To: linville@tuxdriver.com
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40132
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34095
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753246AbYFJTY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:24:57 -0400
-In-Reply-To: <20080610174713.GA24763@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1751129AbYFJT3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 15:29:36 -0400
+In-Reply-To: <1213102423-27486-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 10 Jun 2008 13:47:13 -0400
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Tue, 10 Jun 2008 13:53:36 +0100
 
-> The following changes since commit 65b53e4cc90e59936733b3b95b9451d2ca47528d:
->   David S. Miller (1):
->         Merge branch 'master' of master.kernel.org:/.../davem/net-2.6
+> please consider pulling from
 > 
-> are available in the git repository at:
+> 	git://eden-feed.erg.abdn.ac.uk/net-2.6 
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
-> 
-> John W. Linville (2):
->       rt2x00dev.c: fix-up merge damage
->       net/mac80211/ieee80211_i.h: fix-up merge damage
+> This set has bug-fixes only, non-bug fixes will follow at a later stage.
 
-Pulled and pushed back out to net-next-2.6
+When specifying a URL for me to pull from, you have to
+specify which branch I should pull from even if it is
+plainly just "master".
+
+GIT requires this specification when pulling, and you
+can eliminate all doubt by letting me know which branch
+to pull from explicitly.
+
+In any event, I'm not pulling this because I saw some
+things that I want you to cleanup first.
