@@ -1,44 +1,70 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: Hold RTNL while calling dev_close() [2nd try]
-Date: Tue, 10 Jun 2008 18:40:55 -0400
-Message-ID: <484F02F7.50905@pobox.com>
-References: <20080506182654.GF2217@solarflare.com> <20080506183958.GI2217@solarflare.com> <20080506161720.6475e5d4@extreme> <20080506235937.GK2217@solarflare.com> <20080531155251.GM1743@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: PATCH: fix bridged 802.3ad bonding
+Date: Tue, 10 Jun 2008 15:42:36 -0700 (PDT)
+Message-ID: <20080610.154236.189971046.davem@davemloft.net>
+References: <20080604082425.GA3272@midget.suse.cz>
+	<20080604090633.2a12cecc@extreme>
+	<20080605101319.GA3756@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: shemminger@linux-foundation.org, fubar@us.ibm.com,
+	netdev@vger.kernel.org
+To: jbohac@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40408 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754050AbYFJWlG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2008 18:41:06 -0400
-In-Reply-To: <20080531155251.GM1743@solarflare.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55018
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754437AbYFJWmk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 18:42:40 -0400
+In-Reply-To: <20080605101319.GA3756@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> dev_close() must be called holding the RTNL.  Compile-tested only.
+From: Jiri Bohac <jbohac@suse.cz>
+Date: Thu, 5 Jun 2008 12:13:20 +0200
+
+> On Wed, Jun 04, 2008 at 09:06:33AM -0700, Stephen Hemminger wrote:
+> > On Wed, 4 Jun 2008 10:24:25 +0200
+> > Jiri Bohac <jbohac@suse.cz> wrote:
+> > 
+> > > On Tue, Jun 03, 2008 at 09:55:19PM -0700, Stephen Hemminger wrote:
+> > > >
+> > > > --- a/net/bridge/br_input.c	2008-06-03 21:44:54.000000000 -0700
+> > > > +++ b/net/bridge/br_input.c	2008-06-03 21:52:20.000000000 -0700
+> > > > @@ -135,15 +135,12 @@ struct sk_buff *br_handle_frame(struct n
+> > > >  		/* Pause frames shouldn't be passed up by driver anyway */
+> > > >  		if (skb->protocol == htons(ETH_P_PAUSE))
+> > > >  			goto drop;
+> > > > -
+> > > > -		/* Process STP BPDU's through normal netif_receive_skb() path */
+> > > > -		if (p->br->stp_enabled != BR_NO_STP) {
+> > > > -			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> > > > -				    NULL, br_handle_local_finish))
+> > > > -				return NULL;
+> > > > -			else
+> > > > -				return skb;
+> > > > -		}
+> > > > +
+> > > > +		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> > > > +			    NULL, br_handle_local_finish))
+> > > > +			return NULL;	/* frame consumed by filter */
+> > > > +		else
+> > > > +			return skb;	/* continue processing */
+> > > >  	}
+> > > >  
+> > > >  	switch (p->state) {
+> > > 
+> > > where did the "if (p->br->stp_enabled != BR_NO_STP)" condition
+> > > go? Is it not needed? I thought it was there to prevent the STP
+> > > BPDUs from being handled when STP is turned off.
+> > > 
+> > 
+> > That is already done in br_stp_rcv so the check here was not
+> > needed.
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/sky2.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index f226bca..b9bdf88 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -4395,7 +4395,9 @@ static int sky2_resume(struct pci_dev *pdev)
->  			if (err) {
->  				printk(KERN_ERR PFX "%s: could not up: %d\n",
->  				       dev->name, err);
-> +				rtnl_lock();
->  				dev_close(dev);
-> +				rtnl_unlock();
->  				goto out;
+> Ah, I see. So can we get one of the patches in? I still think
+> that running the LACP frames through the bridging NF hooks does
+> not make sense, but it's your call.
 
-applied
-
-
+Stephen, if prefer your approach, please repost your patch with full
+commit message and proper signoffs, thanks!
