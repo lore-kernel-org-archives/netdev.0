@@ -1,47 +1,32 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC][PATCH 3/3] IPv4:Check IP_MULTICAST_LOOP option value
-Date: Tue, 10 Jun 2008 17:42:02 +0900 (JST)
-Message-ID: <20080610.174202.32087382.yoshfuji@linux-ipv6.org>
-References: <484E3293.8000507@cn.fujitsu.com>
-	<20080610.171527.86317043.yoshfuji@linux-ipv6.org>
-	<484E3C0A.1000808@cn.fujitsu.com>
+From: Alan Cox <alan@redhat.com>
+Subject: Re: [patch 04/13] 8390: Split 8390 support into a pausing and a non pausing driver core
+Date: Tue, 10 Jun 2008 04:55:31 -0400
+Message-ID: <20080610085531.GA12300@devserv.devel.redhat.com>
+References: <200806092333.m59NXnTe014676@imap1.linux-foundation.org> <20080610005247.6230fec1@core> <20080609171532.32eb5a95.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: shanwei@cn.fujitsu.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, jeff@garzik.org,
+	netdev@vger.kernel.org, alan@redhat.com, randy.dunlap@oracle.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:59259 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752696AbYFJIlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 04:41:19 -0400
-In-Reply-To: <484E3C0A.1000808@cn.fujitsu.com>
+Received: from mx1.redhat.com ([66.187.233.31]:48596 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750953AbYFJIz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2008 04:55:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20080609171532.32eb5a95.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <484E3C0A.1000808@cn.fujitsu.com> (at Tue, 10 Jun 2008 16:32:10 +0800), Shan Wei <shanwei@cn.fujitsu.com> says:
+On Mon, Jun 09, 2008 at 05:15:32PM -0700, Andrew Morton wrote:
+> This patch sat in my tree for weeks causing build errors, then Randy
+> sent a fix and after that it didn't cause any build errors any more.
+> 
+> I do not know what typo you are referring to.
 
-> YOSHIFUJI Hideaki / 吉藤英明 写道:
-> > In article <484E3293.8000507@cn.fujitsu.com> (at Tue, 10 Jun 2008 15:51:47 +0800), Shan Wei <shanwei@cn.fujitsu.com> says:
-> > 
-> >> The IP_MULTICAST_LOOP option can only be set with o or 1. When 
-> >> other valuse are set, the kernel should return an error of EINVAL.
-> >>
-> >> In addition, the option should not be uesd by SOCK_STREAM type,
-> >> same as IP_MULTICAST_IF, IP_MULTICAST_TTL.
-> >>   
-> >> But the kernel doesn't check them.
-> > 
-> > Is there any standard reference about this?
-> > 
-> I have not found it.
-> But, the IP_MULTICAST_LOOP option is same as IPV6_MULTICAST_LOOP.
+When it was proposed I NAKked it and sent an alternate patch. When you
+merged it I did the same. I hadn't realised that you never got those.
 
-I disagree.
-We follow what traditional BSDs do, and they do not check if the
-value is 0 or 1 for IP_MULTICAST_LOOP.
-On the other hand, they do for IPV6_MULTICAST_LOOP.
+Anyway the diff you've sent needs fixing before it can be merged so NAK
 
---yoshfuji
+
