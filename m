@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 6/7] dccp: Bug in initial acknowledgment number assignment
-Date: Tue, 10 Jun 2008 13:53:42 +0100
-Message-ID: <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 7/7] dccp: Initialise option area of v4/v6 request socket
+Date: Tue, 10 Jun 2008 13:53:43 +0100
+Message-ID: <1213102423-27486-8-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_bug_fixes_for_net-2.6>
  <1213102423-27486-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1213102423-27486-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -9,49 +9,82 @@ References: <dccp_bug_fixes_for_net-2.6>
  <1213102423-27486-4-git-send-email-gerrit@erg.abdn.ac.uk>
  <1213102423-27486-5-git-send-email-gerrit@erg.abdn.ac.uk>
  <1213102423-27486-6-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+	Wei Yongjun <yjwei@cn.fujitsu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37419 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37428 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753740AbYFJMxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753776AbYFJMxy (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 10 Jun 2008 08:53:54 -0400
-In-Reply-To: <1213102423-27486-6-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <1213102423-27486-7-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Step 8.5 in RFC 4340 says for the newly cloned socket
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-           Initialize S.GAR := S.ISS,
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-but what in fact the code (minisocks.c) does is
+This fixes the following bug:
+ * dccp_v4_reqsk_destructor() frees inet inet_rsk(req)->opt,
+ * but dccp_v4_conn_request() may fail before initialising inet_rsk(req)->opt;
+ * likewise, dccp_v6_reqsk_destructor() frees inet6_rsk(req)->pktopts,
+ * but dccp_v6_conn_request() may fail before initialising the pktopts.
 
-           Initialize S.GAR := S.ISR,
+The fix is in initialising the option areas in both request sockets before
+calling any other code that may fail and thus may end up calling the destructor.
 
-which is wrong (typo?) -- fixed by the patch.
-
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/minisocks.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ net/dccp/ipv4.c |    5 +++--
+ net/dccp/ipv6.c |    5 +++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
 
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -165,12 +165,12 @@ out_free:
- 		/* See dccp_v4_conn_request */
- 		newdmsk->dccpms_sequence_window = req->rcv_wnd;
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -593,6 +593,9 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (req == NULL)
+ 		goto drop;
  
--		newdp->dccps_gar = newdp->dccps_isr = dreq->dreq_isr;
--		dccp_update_gsr(newsk, dreq->dreq_isr);
--
--		newdp->dccps_iss = dreq->dreq_iss;
-+		newdp->dccps_gar = newdp->dccps_iss = dreq->dreq_iss;
- 		dccp_update_gss(newsk, dreq->dreq_iss);
- 
-+		newdp->dccps_isr = dreq->dreq_isr;
-+		dccp_update_gsr(newsk, dreq->dreq_isr);
++	ireq = inet_rsk(req);
++	ireq->opt = NULL;
 +
- 		/*
- 		 * SWL and AWL are initially adjusted so that they are not less than
- 		 * the initial Sequence Numbers received and sent, respectively:
+ 	dccp_reqsk_init(req, skb);
+ 
+ 	dreq = dccp_rsk(req);
+@@ -602,10 +605,8 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (security_inet_conn_request(sk, skb, req))
+ 		goto drop_and_free;
+ 
+-	ireq = inet_rsk(req);
+ 	ireq->loc_addr = ip_hdr(skb)->daddr;
+ 	ireq->rmt_addr = ip_hdr(skb)->saddr;
+-	ireq->opt	= NULL;
+ 
+ 	/*
+ 	 * Step 3: Process LISTEN state
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -409,6 +409,9 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (req == NULL)
+ 		goto drop;
+ 
++	ireq6 = inet6_rsk(req);
++	ireq6->pktopts = NULL;
++
+ 	dccp_reqsk_init(req, skb);
+ 
+ 	dreq = dccp_rsk(req);
+@@ -418,10 +421,8 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (security_inet_conn_request(sk, skb, req))
+ 		goto drop_and_free;
+ 
+-	ireq6 = inet6_rsk(req);
+ 	ipv6_addr_copy(&ireq6->rmt_addr, &ipv6_hdr(skb)->saddr);
+ 	ipv6_addr_copy(&ireq6->loc_addr, &ipv6_hdr(skb)->daddr);
+-	ireq6->pktopts	= NULL;
+ 
+ 	if (ipv6_opt_accepted(sk, skb) ||
+ 	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
