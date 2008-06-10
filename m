@@ -1,80 +1,58 @@
 From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Subject: [PATCH v4 12/14] QLogic VNIC: Driver Kconfig and Makefile.
-Date: Tue, 10 Jun 2008 17:08:18 -0400
-Message-ID: <20080610210818.11186.51465.stgit@dale>
+Subject: [ofa-general] [PATCH v4 13/14] QLogic VNIC: Modifications to IB
+	Kconfig and Makefile
+Date: Tue, 10 Jun 2008 17:08:48 -0400
+Message-ID: <20080610210848.11186.47989.stgit@dale>
 References: <20080610205633.11186.45499.stgit@dale>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: poornima.kamath@qlogic.com, amar.mudrankit@qlogic.com
-To: rdreier@cisco.com, general@lists.openfabrics.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.186.4.11] ([198.186.4.11]:19260 "EHLO
-	dale.dev.silverstorm.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754144AbYFJVEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 17:04:44 -0400
+Cc: amar.mudrankit@qlogic.com, poornima.kamath@qlogic.com
+To: rdreier@cisco.com, general@lists.openfabrics.org, netdev@vger.kernel.org
+Return-path: <general-bounces@lists.openfabrics.org>
 In-Reply-To: <20080610205633.11186.45499.stgit@dale>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
 From: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 
-Kconfig and Makefile for the QLogic VNIC driver.
+This patch modifies the toplevel Infiniband Kconfig and Makefile
+to include QLogic VNIC as new ULP.
 
 Signed-off-by: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
 Signed-off-by: Poornima Kamath <poornima.kamath@qlogic.com>
 Signed-off-by: Amar Mudrankit <amar.mudrankit@qlogic.com>
 ---
 
- drivers/infiniband/ulp/qlgc_vnic/Kconfig  |   19 +++++++++++++++++++
- drivers/infiniband/ulp/qlgc_vnic/Makefile |   13 +++++++++++++
- 2 files changed, 32 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/Kconfig
- create mode 100644 drivers/infiniband/ulp/qlgc_vnic/Makefile
+ drivers/infiniband/Kconfig  |    2 ++
+ drivers/infiniband/Makefile |    1 +
+ 2 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/Kconfig b/drivers/infiniband/ulp/qlgc_vnic/Kconfig
-new file mode 100644
-index 0000000..7b4030e
---- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/Kconfig
-@@ -0,0 +1,19 @@
-+config INFINIBAND_QLGC_VNIC
-+	tristate "QLogic VNIC - Support for QLogic Ethernet Virtual I/O Controller"
-+	depends on INFINIBAND && NETDEVICES && INET
-+	---help---
-+	  Support for the QLogic Ethernet Virtual I/O Controller
-+	  (EVIC). In conjunction with the EVIC, this provides virtual
-+	  ethernet interfaces and transports ethernet packets over
-+	  InfiniBand so that you can communicate with Ethernet networks
-+	  using your IB device.
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index a5dc78a..0775df5 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -53,4 +53,6 @@ source "drivers/infiniband/ulp/srp/Kconfig"
+ 
+ source "drivers/infiniband/ulp/iser/Kconfig"
+ 
++source "drivers/infiniband/ulp/qlgc_vnic/Kconfig"
 +
-+config INFINIBAND_QLGC_VNIC_STATS
-+	bool "QLogic VNIC Statistics"
-+	depends on INFINIBAND_QLGC_VNIC
-+	default n
-+	---help---
-+	  This option compiles statistics collecting code into the
-+	  data path of the QLogic VNIC driver to help in profiling and fine
-+	  tuning. This adds some overhead in the interest of gathering
-+	  data.
-diff --git a/drivers/infiniband/ulp/qlgc_vnic/Makefile b/drivers/infiniband/ulp/qlgc_vnic/Makefile
-new file mode 100644
-index 0000000..509dd67
---- /dev/null
-+++ b/drivers/infiniband/ulp/qlgc_vnic/Makefile
-@@ -0,0 +1,13 @@
-+obj-$(CONFIG_INFINIBAND_QLGC_VNIC)		+= qlgc_vnic.o
-+
-+qlgc_vnic-y					:= vnic_main.o \
-+						   vnic_ib.o \
-+						   vnic_viport.o \
-+						   vnic_control.o \
-+						   vnic_data.o \
-+						   vnic_netpath.o \
-+						   vnic_config.o \
-+						   vnic_sys.o \
-+						   vnic_multicast.o
-+
-+qlgc_vnic-$(CONFIG_INFINIBAND_QLGC_VNIC_STATS)	+= vnic_stats.o
-
+ endif # INFINIBAND
+diff --git a/drivers/infiniband/Makefile b/drivers/infiniband/Makefile
+index ed35e44..845271e 100644
+--- a/drivers/infiniband/Makefile
++++ b/drivers/infiniband/Makefile
+@@ -9,3 +9,4 @@ obj-$(CONFIG_INFINIBAND_NES)		+= hw/nes/
+ obj-$(CONFIG_INFINIBAND_IPOIB)		+= ulp/ipoib/
+ obj-$(CONFIG_INFINIBAND_SRP)		+= ulp/srp/
+ obj-$(CONFIG_INFINIBAND_ISER)		+= ulp/iser/
++obj-$(CONFIG_INFINIBAND_QLGC_VNIC)	+= ulp/qlgc_vnic/
