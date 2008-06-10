@@ -1,58 +1,55 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] ixgbe: fix typo
-Date: Tue, 10 Jun 2008 18:22:21 -0400
-Message-ID: <484EFE9D.9020807@garzik.org>
-References: <20080609225658.1219.89600.stgit@localhost.localdomain>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: Hold RTNL while calling dev_close() [2nd try]
+Date: Tue, 10 Jun 2008 15:25:01 -0700
+Message-ID: <20080610152501.5c45ce02@extreme>
+References: <20080506182654.GF2217@solarflare.com>
+	<20080506183958.GI2217@solarflare.com>
+	<20080506161720.6475e5d4@extreme>
+	<20080506235937.GK2217@solarflare.com>
+	<20080531155251.GM1743@solarflare.com>
+	<484EFD4A.3030107@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080609225658.1219.89600.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55756 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760086AbYFJWZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 18:25:38 -0400
+In-Reply-To: <484EFD4A.3030107@pobox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> Define names were accidently transposed.
+On Tue, 10 Jun 2008 18:16:42 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
+
+> Ben Hutchings wrote:
+> > dev_close() must be called holding the RTNL.  Compile-tested only.
+> > 
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> > ---
+> >  drivers/net/sky2.c |    2 ++
+> >  1 files changed, 2 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> > index f226bca..b9bdf88 100644
+> > --- a/drivers/net/sky2.c
+> > +++ b/drivers/net/sky2.c
+> > @@ -4395,7 +4395,9 @@ static int sky2_resume(struct pci_dev *pdev)
+> >  			if (err) {
+> >  				printk(KERN_ERR PFX "%s: could not up: %d\n",
+> >  				       dev->name, err);
+> > +				rtnl_lock();
+> >  				dev_close(dev);
+> > +				rtnl_unlock();
+> >  				goto out;
+> >  			}
 > 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
+> stephen acked this?  I don't see that in my notes...
 > 
->  drivers/net/ixgbe/ixgbe_82598.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-> index 6321b05..2f38e84 100644
-> --- a/drivers/net/ixgbe/ixgbe_82598.c
-> +++ b/drivers/net/ixgbe/ixgbe_82598.c
-> @@ -58,8 +58,8 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw);
->  
->  static s32 ixgbe_get_invariants_82598(struct ixgbe_hw *hw)
->  {
-> -	hw->mac.num_rx_queues = IXGBE_82598_MAX_TX_QUEUES;
-> -	hw->mac.num_tx_queues = IXGBE_82598_MAX_RX_QUEUES;
-> +	hw->mac.num_rx_queues = IXGBE_82598_MAX_RX_QUEUES;
-> +	hw->mac.num_tx_queues = IXGBE_82598_MAX_TX_QUEUES;
->  	hw->mac.num_rx_addrs = IXGBE_82598_RAR_ENTRIES;
->  
->  	/* PHY ops are filled in by default properly for Fiber only */
 > 
 
-applied for 2.6.26
-
-
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+yes. this should go in
