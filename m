@@ -1,24 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: net-2.6 merged into net-next-2.6
-Date: Tue, 10 Jun 2008 02:50:59 -0700 (PDT)
-Message-ID: <20080610.025059.37807108.davem@davemloft.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [patch 04/13] 8390: Split 8390 support into a pausing and a non
+ pausing driver core
+Date: Tue, 10 Jun 2008 11:20:13 +0100
+Message-ID: <20080610112013.219fedda@core>
+References: <200806092333.m59NXnTe014676@imap1.linux-foundation.org>
+	<20080610001329.GA16197@devserv.devel.redhat.com>
+	<20080609171945.d2360114.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, jgarzik@pobox.com, sfr@canb.auug.org.au
-To: netdev@vger.kernel.org
+Cc: Alan Cox <alan@redhat.com>, jeff@garzik.org,
+	netdev@vger.kernel.org, randy.dunlap@oracle.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33360
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751359AbYFJJu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 05:50:59 -0400
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:42847 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756318AbYFJKio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2008 06:38:44 -0400
+In-Reply-To: <20080609171945.d2360114.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 9 Jun 2008 17:19:45 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-There were a few small wireless conflicts but I think
-I handled them correctly.
+> On Mon, 9 Jun 2008 20:13:29 -0400
+> Alan Cox <alan@redhat.com> wrote:
+> 
+> > To be clearer on this
+> > 
+> > > +obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
+> > 
+> > That line is wrong. Perhaps Andrew could post the original split patches
+> > instead ?
+> 
+> iirc this is your original, plus Randy's fix:
 
-Please send me any fixup patches which might be necessary.
+This corrects Randy's fix. The ne2.c code you have is actually correct
+just the Makefile wrong. Not sure where the original NAK/diff went but they
+aren't in the lkml archive either so they obviously got eaten somewhere my
+end.
 
-Thanks!
+8390: fix problems in the original split patch
+
+From: Alan Cox <alan@redhat.com>
+
+The split patch didn't fully convert the ne2 driver so it failed to link. At
+some point this was fixed but the Makefile also got changed to incorrectly
+link with both 8390 and 8390p. Only 8390p is needed so remove 8390.o references
+
+Signed-off-by: Alan Cox <alan@redhat.com>
+---
+
+ drivers/net/Makefile |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 41b239a..388cab8 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -107,7 +107,7 @@ obj-$(CONFIG_68360_ENET) += 68360enet.o
+ obj-$(CONFIG_WD80x3) += wd.o 8390.o
+ obj-$(CONFIG_EL2) += 3c503.o 8390p.o
+ obj-$(CONFIG_NE2000) += ne.o 8390p.o
+-obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
++obj-$(CONFIG_NE2_MCA) += ne2.o 8390p.o
+ obj-$(CONFIG_HPLAN) += hp.o 8390p.o
+ obj-$(CONFIG_HPLAN_PLUS) += hp-plus.o 8390p.o
+ obj-$(CONFIG_ULTRA) += smc-ultra.o 8390.o
