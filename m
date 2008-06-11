@@ -1,108 +1,42 @@
-From: "Rafael Almeida" <almeidaraf@gmail.com>
-Subject: Re: [PATCH] Fixed NetEm's reorder option
-Date: Wed, 11 Jun 2008 17:05:10 -0300
-Message-ID: <6de6b1650806111305m51bf2eccocbe0d0c7afee266d@mail.gmail.com>
-References: <48479f6a.e203be0a.73e1.fffff59b@mx.google.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
+Date: Wed, 11 Jun 2008 22:14:30 +0200
+Message-ID: <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
+References: <1213204329-10973-1-git-send-email-juliusv@google.com>
+	 <48500A0D.5020304@trash.net>
+	 <f4845fc0806111123r108348d3s6906bf2b7145bdea@mail.gmail.com>
+	 <48501C81.6010800@trash.net>
+	 <f4845fc0806111205j36c912d3vf1b632a3d0777a1c@mail.gmail.com>
+	 <4850233E.7090501@trash.net>
+	 <f4845fc0806111229l6666161fu9d3bc5e432668485@mail.gmail.com>
+	 <48502826.9060502@trash.net>
+	 <f4845fc0806111253l4f1fea4fyef05cdc41ca45911@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:4811 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbYFKUFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 16:05:11 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so2625364waf.23
-        for <netdev@vger.kernel.org>; Wed, 11 Jun 2008 13:05:11 -0700 (PDT)
-In-Reply-To: <48479f6a.e203be0a.73e1.fffff59b@mx.google.com>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	"Vince Busam" <vbusam@google.com>
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <f4845fc0806111253l4f1fea4fyef05cdc41ca45911@mail.gmail.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I noticed no one said anything about my patch below, did I do
-something terrible wrong? Should I just be more patient?
+On Wed, Jun 11, 2008 at 9:53 PM, Julius Volz <juliusv@google.com> wrote:
+> Adding members at the end sounds interesting! The current structs have
+> the v4 address members in the middle of the struct, so you couldn't
+> use a union of v4 and v6 anymore, but since it's only in the userspace
+> interface, that shouldn't matter much. If this allows us to keep the
+> interface backwards compatible in an easy way, that would be great.
 
-On Thu, Jun 5, 2008 at 1:34 AM, Rafael C. de Almeida
-<almeidaraf@gmail.com> wrote:
-> The reorder option wasn't working correctly. It would only kick in if
-> the gap option was set. In that case it would only lower the
-> probability of reordering packets because of how the if conditional
-> was stated.
->
-> This patch separetes the algorithm for reordering with gap from the
-> rest, rendering the code more readable and correct.
->
-> Signed-off-by: Rafael C. de Almeida <rafaelc@dcc.ufmg.br>
-> ---
->  net/sched/sch_netem.c |   45 ++++++++++++++++++++++++++++++++-------------
->  1 files changed, 32 insertions(+), 13 deletions(-)
->
-> diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-> index c9c649b..477ee09 100644
-> --- a/net/sched/sch_netem.c
-> +++ b/net/sched/sch_netem.c
-> @@ -206,27 +206,46 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->        }
->
->        cb = (struct netem_skb_cb *)skb->cb;
-> -       if (q->gap == 0                 /* not doing reordering */
-> -           || q->counter < q->gap      /* inside last reordering gap */
-> -           || q->reorder < get_crandom(&q->reorder_cor)) {
-> +       if (q->gap) {
-> +               /* The comparison of reorder is here to keep compatibility with
-> +                * the old behaviour when one had reorder and gap set, maybe it
-> +                * could be removed.
-> +                */
-> +               if (q->counter < q->gap
-> +                   || q->reorder < get_crandom(&q->reorder_cor)) {
-> +                       psched_time_t now;
-> +                       psched_tdiff_t delay;
-> +
-> +                       delay = tabledist(q->latency, q->jitter,
-> +                                         &q->delay_cor, q->delay_dist);
-> +
-> +                       now = psched_get_time();
-> +                       cb->time_to_send = now + delay;
-> +                       ++q->counter;
-> +                       ret = q->qdisc->enqueue(skb, q->qdisc);
-> +               } else {
-> +                       /*
-> +                        * Do re-ordering by putting one out of N packets at the front
-> +                        * of the queue.
-> +                        */
-> +                       cb->time_to_send = psched_get_time();
-> +                       q->counter = 0;
-> +                       ret = q->qdisc->ops->requeue(skb, q->qdisc);
-> +               }
-> +       } else {
->                psched_time_t now;
->                psched_tdiff_t delay;
->
-> -               delay = tabledist(q->latency, q->jitter,
-> -                                 &q->delay_cor, q->delay_dist);
-> +               if (!q->reorder || q->reorder < get_crandom(&q->reorder_cor))
-> +                       delay = tabledist(q->latency, q->jitter,
-> +                                         &q->delay_cor, q->delay_dist);
-> +               else
-> +                       delay = 0;
->
->                now = psched_get_time();
->                cb->time_to_send = now + delay;
->                ++q->counter;
->                ret = q->qdisc->enqueue(skb, q->qdisc);
-> -       } else {
-> -               /*
-> -                * Do re-ordering by putting one out of N packets at the front
-> -                * of the queue.
-> -                */
-> -               cb->time_to_send = psched_get_time();
-> -               q->counter = 0;
-> -               ret = q->qdisc->ops->requeue(skb, q->qdisc);
->        }
->
->        if (likely(ret == NET_XMIT_SUCCESS)) {
-> --
-> 1.5.5.GIT
->
->
+Ah, but the set/get-sockopt calls also pass a size argument, which is
+the size of the passed structs. If the kernel and userspace struct
+sizes don't match, it is treated as an error. Is this in case
+different compilers pad the structs differently, even if the IPVS
+version stays the same?
+
+Julius
+
+-- 
+Google Switzerland GmbH
