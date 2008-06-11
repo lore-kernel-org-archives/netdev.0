@@ -1,53 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: unlock iptables in netns
-Date: Wed, 11 Jun 2008 08:53:23 +0200
-Message-ID: <484F7663.1080408@trash.net>
-References: <200806102127.21093.adobriyan@parallels.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.25rc7 lockdep trace
+Date: Wed, 11 Jun 2008 07:08:47 +0000
+Message-ID: <20080611070847.GA4171@ff.dom.local>
+References: <20080610.224023.116817726.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@openvz.org, den@openvz.org, xemul@openvz.org,
-	adobriyan@gmail.com
-To: Alexey Dobriyan <adobriyan@parallels.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <200806102127.21093.adobriyan@parallels.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, davej@codemonkey.org.uk,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.152]:5165 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752386AbYFKHEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 03:04:41 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so2028834fgg.17
+        for <netdev@vger.kernel.org>; Wed, 11 Jun 2008 00:04:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080610.224023.116817726.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan wrote:
-> Hi,
+On 11-06-2008 07:40, David Miller wrote:
+...
+> Ok, I did an audit of all the drivers under drivers/net that invoke
+> flush_scheduled_work().  Here is my audit analysis and the patch I
+> came up with.  The only deadlock'y case I couldn't fix right now is
+> the cassini driver, see below for details and the patch:
 > 
-> Den basically banned iptables in netns via this patch
-> 
-> --- a/net/netfilter/core.c
-> +++ b/net/netfilter/core.c
-> ...
-> , however, at least some of netfilter pieces are ready for usage in netns
-> and it would be nice to unlock them before release.
-> 
-> If I'm deciphering chengelog correctly it's all about code which does
-> nf_register_hook{,s} but not netns-ready itself:
-> 
-> 	br_netfilter.c
-> 	iptable_mangle (via ip_route_me_harder)
-> 	conntracking (both IPv4 and IPv6)
-> 	NAT
-> 	arptable_filter
-> 	selinux
-> 	decnet
-> 	ebtable_filter
-> 	ebtable_nat
-> 	ipt_CLUSTERIP
-> 
-> Patch above can be applied and we can mark above list as "depends !NET_NS"
-> and move on.
-> 
-> Comments? Den, was there something else you're afraid of?
+> 8139too: Calls flush_scheduled_work() in device remove method, OK.
 
+I have some doubt here: this rtl8139_thred() work function seems to
+rearm if netif_running(). Is it guaranteed a dev is down while
+running this flush_scheduled_work()?
 
-That might result in some bad surprises for people how have already
-turned on NET_NS. I'd prefer a way that doesn't potentially disable
-half the netfilter options in existing configs.
-
-
+Regards,
+Jarek P.
