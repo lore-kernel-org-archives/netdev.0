@@ -1,31 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] irda: remove CVS keywords
-Date: Tue, 10 Jun 2008 22:48:18 -0700 (PDT)
-Message-ID: <20080610.224818.94769506.davem@davemloft.net>
-References: <20080519220221.GC17716@cs181133002.pp.htv.fi>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: bunk@kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net/core/sock.c remove extra wakeup
+Date: Wed, 11 Jun 2008 16:46:12 +1000
+Message-ID: <E1K6K60-00061s-00@gondolin.me.apana.org.au>
+References: <483F990C0200005A00038001@sinclair.provo.novell.com>
+Cc: davem@davemloft.net, PMullaney@novell.com, netdev@vger.kernel.org
+To: GHaskins@novell.com (Gregory Haskins)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42971
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755374AbYFKFsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 01:48:18 -0400
-In-Reply-To: <20080519220221.GC17716@cs181133002.pp.htv.fi>
+Received: from rhun.apana.org.au ([64.62.148.172]:46829 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752121AbYFKGqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 02:46:20 -0400
+In-Reply-To: <483F990C0200005A00038001@sinclair.provo.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Adrian Bunk <bunk@kernel.org>
-Date: Tue, 20 May 2008 01:02:21 +0300
-
-> This patch removes CVS keyword that weren't updated for a long time.
+Gregory Haskins <GHaskins@novell.com> wrote:
 > 
-> One of them was printed as part of a printk, which also doesn't make 
-> much sense for a 5 year old and no longer updated keyword.
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> So basically it was waiting for a packet to arrive, and the net-rx softirq would first trigger a NOSPACE wakeup (of which was a noop by the udp-rx code) followed by an rx-wakeup.  So the netperf thread woke twice for one packet.  Fixing this boosted performance by a large margin (don't recall exact figures off the top of my head....somewhere around 20%)
 
-Also applied to net-next-2.6, thanks.
+Please wrap your lines.
+
+Anyway, you've lost me with this scenario.  The patch is stopping
+wake-ups on the write path yet you're talking about the read path.
+So my question is why are you getting the extra wake-up on that
+write path when you receive a packet?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
