@@ -1,28 +1,48 @@
-From: Vince Busam <vbusam@google.com>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Wed, 11 Jun 2008 15:26:06 -0700
-Message-ID: <485050FE.6030209@google.com>
-References: <1213204329-10973-1-git-send-email-juliusv@google.com>	 <48500A0D.5020304@trash.net>	 <f4845fc0806111123r108348d3s6906bf2b7145bdea@mail.gmail.com>	 <48501C81.6010800@trash.net>	 <f4845fc0806111205j36c912d3vf1b632a3d0777a1c@mail.gmail.com>	 <4850233E.7090501@trash.net>	 <f4845fc0806111229l6666161fu9d3bc5e432668485@mail.gmail.com>	 <48502826.9060502@trash.net>	 <f4845fc0806111253l4f1fea4fyef05cdc41ca45911@mail.gmail.com> <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com> <48503BBD.6000307@google.com> <485043E6.5030105@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
+Date: Wed, 11 Jun 2008 16:52:55 -0700 (PDT)
+Message-ID: <20080611.165255.242691774.davem@davemloft.net>
+References: <200806111658.41182.vgusev@openvz.org>
+	<20080611135718.GA26914@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Julius Volz <juliusv@google.com>,
-	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <485043E6.5030105@candelatech.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: vgusev@openvz.org, mcmanus@ducksong.com, xemul@openvz.org,
+	netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi, mingo@elte.hu,
+	linux-kernel@vger.kernel.org
+To: kuznet@ms2.inr.ac.ru
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759354AbYFKXxU@vger.kernel.org>
+In-Reply-To: <20080611135718.GA26914@ms2.inr.ac.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> You can have the kernel ignore any data it doesn't understand (ie, if 
-> struct is 24 bytes,
-> but the kernel expects 20 bytes, just ignore the last 4).  This way it 
-> should
-> work with newer binaries.
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Wed, 11 Jun 2008 17:57:18 +0400
 
-Currently, the IPVS code specifically checks that length, so all kernels 
-up to now won't play well with any changes to the structs.
+> Major issue is that tcp_defer_accept_check() manipulates with not locked
+> listening socket. And from all that I know it is impossible to take
+> the lock in this context.
+> 
+> Also I see no accounting for those sockets. With this patch any server, which
+> set deferred accept, can be flooded with sockets until memory exhausts.
+> I did not test and would be glad to be mistaken.
+> 
+> 
+> Issue with locking can be solved by adding a separate spinlock for
+> manipulations with accept_queue. Apparently, accounting and killing
+> sockets, which become stale after closing listening socket and
+> are going to be alive for up to 65535 seconds, also goes under this lock.
+> 
+> Frankly, cost looks too high for this feature.
+> 
+> Hiding from accept() sockets with only out-of-order data only
+> is the only thing which is impossible with old approach. Is this really
+> so valuable? My opinion: no, this is nothing but a new loophole
+> to consume memory without control.
 
-Vince
+Yes, we discussed the locking issue over past few days.  See
+the thread: "stuck localhost TCP connections, v2.6.26-rc3+"
+
+More and more, the arguments are mounting to completely revert the
+established code path changes, and frankly that is likely what I am
+going to do by the end of today.
