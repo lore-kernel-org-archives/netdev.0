@@ -1,43 +1,49 @@
-From: "Bryan Wu" <cooloney@kernel.org>
-Subject: Re: blackfin drivers/net/smc91x.c build error
-Date: Wed, 11 Jun 2008 11:55:01 +0800
-Message-ID: <386072610806102055i5c119e74hfedf37cb6a7e57fb@mail.gmail.com>
-References: <20080606162212.GC2201@cs181133002.pp.htv.fi>
-	 <8bd0f97a0806061252n1cf5ee33i40ddf9f55588e242@mail.gmail.com>
-	 <20080610135349.GA30792@cs181133002.pp.htv.fi>
-	 <8bd0f97a0806101013w42b9028j5dfa38d654f3d05f@mail.gmail.com>
-	 <20080610173450.GC11685@cs181133002.pp.htv.fi>
-	 <386072610806102037u39ec18e6ye26ef184d6a9516e@mail.gmail.com>
-	 <alpine.LFD.1.10.0806102046450.3101@woody.linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Adrian Bunk" <bunk@kernel.org>,
-	"Mike Frysinger" <vapier.adi@gmail.com>,
-	"Jeff Garzik" <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Linus Torvalds" <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758864AbYFKDzb@vger.kernel.org>
-In-Reply-To: <alpine.LFD.1.10.0806102046450.3101@woody.linux-foundation.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Bryan Wu <cooloney@kernel.org>
+Subject: [PATCH 1/1] smc91x: fix build error from the SMC_GET_MAC_ADDR API change
+Date: Wed, 11 Jun 2008 12:08:39 +0800
+Message-ID: <1213157319-27857-1-git-send-email-cooloney@kernel.org>
+Cc: linux-kernel@vger.kernel.org, bunk@kernel.org,
+	vapier.adi@gmail.com, netdev@vger.kernel.org,
+	Bryan Wu <cooloney@kernel.org>, Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:55066 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719AbYFKEIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 00:08:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 11, 2008 at 11:47 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
->
-> On Wed, 11 Jun 2008, Bryan Wu wrote:
->>
->> Linus, could you please revert it?
->> 099c736a470c8080a166e7a089f1e48e15f9947c
->> Or I send a patch out to revert it?
->
-> I'd like to see a patch, since by now I'm confused by this all whether
-> it's a straight revert or if there's a fix.
->
->                        Linus
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Bryan Wu <cooloney@kernel.org>
+---
+ drivers/net/smc91x.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-No problem, I will send a patch soon.
-
--Bryan
+diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+index 69e97a1..8606818 100644
+--- a/drivers/net/smc91x.h
++++ b/drivers/net/smc91x.h
+@@ -93,14 +93,14 @@
+ #define SMC_insw(a, r, p, l) 	insw ((unsigned long *)((a) + (r)), p, l)
+ # endif
+ /* check if the mac in reg is valid */
+-#define SMC_GET_MAC_ADDR(addr)					\
++#define SMC_GET_MAC_ADDR(lp, addr)				\
+ 	do {							\
+ 		unsigned int __v;				\
+-		__v = SMC_inw(ioaddr, ADDR0_REG);		\
++		__v = SMC_inw(ioaddr, ADDR0_REG(lp));		\
+ 		addr[0] = __v; addr[1] = __v >> 8;		\
+-		__v = SMC_inw(ioaddr, ADDR1_REG);		\
++		__v = SMC_inw(ioaddr, ADDR1_REG(lp));		\
+ 		addr[2] = __v; addr[3] = __v >> 8;		\
+-		__v = SMC_inw(ioaddr, ADDR2_REG);		\
++		__v = SMC_inw(ioaddr, ADDR2_REG(lp));		\
+ 		addr[4] = __v; addr[5] = __v >> 8;		\
+ 		if (*(u32 *)(&addr[0]) == 0xFFFFFFFF) {		\
+ 			random_ether_addr(addr);		\
+-- 
+1.5.5
