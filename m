@@ -1,86 +1,73 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [patch 04/13] 8390: Split 8390 support into a pausing and a non
- pausing driver core
-Date: Wed, 11 Jun 2008 11:25:01 -0700
-Message-ID: <20080611112501.152da143.randy.dunlap@oracle.com>
-References: <200806092333.m59NXnTe014676@imap1.linux-foundation.org>
-	<20080610001329.GA16197@devserv.devel.redhat.com>
-	<20080609171945.d2360114.akpm@linux-foundation.org>
-	<20080610112013.219fedda@core>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] NET: DCB generic netlink interface
+Date: Wed, 11 Jun 2008 11:28:52 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329053C9888@orsmsx414.amr.corp.intel.com>
+References: <20080605.074324.38999631.davem@davemloft.net> <D5C1322C3E673F459512FB59E0DDC3290538B840@orsmsx414.amr.corp.intel.com> <20080611175156.GR20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@redhat.com>, jeff@garzik.org,
-	netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>, <jeff@garzik.org>,
+	<netdev@vger.kernel.org>
+To: "Thomas Graf" <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:59899 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751162AbYFKSZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 14:25:57 -0400
-In-Reply-To: <20080610112013.219fedda@core>
+Received: from mga01.intel.com ([192.55.52.88]:12380 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751279AbYFKS2z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 14:28:55 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080611175156.GR20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 Jun 2008 11:20:13 +0100 Alan Cox wrote:
+> Everything is possible in software as long as the hardware doesn't
+hide
+> the congestion information. It would be very useful to pass congestion
+> Information received by 802.1Qau frames to the kernel for use when
+> selecting the nexthop or for the routing daemon to make decisions on.
+> So far we could only react to link states, now we could actually react
+to
+> link congestion on the routing layer.
 
-> On Mon, 9 Jun 2008 17:19:45 -0700
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > On Mon, 9 Jun 2008 20:13:29 -0400
-> > Alan Cox <alan@redhat.com> wrote:
-> > 
-> > > To be clearer on this
-> > > 
-> > > > +obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
-> > > 
-> > > That line is wrong. Perhaps Andrew could post the original split patches
-> > > instead ?
-> > 
-> > iirc this is your original, plus Randy's fix:
-> 
-> This corrects Randy's fix. The ne2.c code you have is actually correct
-> just the Makefile wrong. Not sure where the original NAK/diff went but they
-> aren't in the lkml archive either so they obviously got eaten somewhere my
-> end.
-> 
-> 8390: fix problems in the original split patch
-> 
-> From: Alan Cox <alan@redhat.com>
-> 
-> The split patch didn't fully convert the ne2 driver so it failed to link. At
-> some point this was fixed but the Makefile also got changed to incorrectly
-> link with both 8390 and 8390p. Only 8390p is needed so remove 8390.o references
-> 
-> Signed-off-by: Alan Cox <alan@redhat.com>
-> ---
-> 
->  drivers/net/Makefile |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> 
-> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-> index 41b239a..388cab8 100644
-> --- a/drivers/net/Makefile
-> +++ b/drivers/net/Makefile
-> @@ -107,7 +107,7 @@ obj-$(CONFIG_68360_ENET) += 68360enet.o
->  obj-$(CONFIG_WD80x3) += wd.o 8390.o
->  obj-$(CONFIG_EL2) += 3c503.o 8390p.o
->  obj-$(CONFIG_NE2000) += ne.o 8390p.o
-> -obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
-> +obj-$(CONFIG_NE2_MCA) += ne2.o 8390p.o
->  obj-$(CONFIG_HPLAN) += hp.o 8390p.o
->  obj-$(CONFIG_HPLAN_PLUS) += hp-plus.o 8390p.o
->  obj-$(CONFIG_ULTRA) += smc-ultra.o 8390.o
+Congestion notification in 802.1Qau is certainly something we need to
+support somewhere in the stack.  I was actually talking with one of our
+hardware architects while I was in Israel last week about that exact
+gap, since the BCN/QCN rate limiting will eventually drop packets if we
+don't have a way of telling the upper layers to "slow down."  The
+notification mechanism is also needed for 802.1Qbb, since the whole
+point of the priority flow control is to provide a no-drop mechanism for
+things like FCoE.  But if the upper layers (e.g. FCoE stack) don't know
+to pause when the network is too congested, frames will be dropped,
+which is bad.
 
+802.1Qau is still being defined in IEEE unfortunately, and we and others
+have no hardware that supports it to test the congestion notification
+tag processing.  But it is something on our radar that needs to be
+addressed.
 
-Replacing my patch with this one yields:
+> There is no doubt that doing the prioritization in hardware is much
+> preferred but we should try and integrate it with other tc techniques.
+> F.e. it would be great if we could control DCB via skb->tc_index if 
+> that is possible. It would allow to define DCB traffic classes with
+the
+> rich features of existing classifiers. I've seen there is a mapping
+> functionality although I haven't found any documentation on how to use
+> it exactly.
 
-drivers/built-in.o: In function `ne_block_output':
-/local/linsrc/linux-2.6.26-rc5-mm2/drivers/net/ne2.c:751: undefined reference to `NS8390_init'
-drivers/built-in.o: In function `ne2_probe1':
-/local/linsrc/linux-2.6.26-rc5-mm2/drivers/net/ne2.c:502: undefined reference to `NS8390_init'
-make[1]: *** [.tmp_vmlinux1] Error 1
+The prioritization is only one piece.  The bandwidth aggregation,
+different modes of defining group strict vs. link strict priorities
+within a bandwidth group, etc., are all hardware modes.  These modes
+need to be in sync with the link partner (switch, back to back NIC), and
+are kept in sync with the DCBX protocol via LLDP.
 
-for ne2 driver built into kernel image.
+> Another area of interest is sending congestion frames on our own. We
+> could finally implement real ingress software shaping and turn every
+> linux system into a DCB capable node.
+
+Once 802.1Qau is defined, and IEEE decides to use BCN or QCN, I think
+this is a great direction to go in.  Right now the congestion
+notification stuff is too up in the air to latch onto unfortunately.
+
+Thanks for the comments Thomas,
+
+-PJ Waskiewicz
