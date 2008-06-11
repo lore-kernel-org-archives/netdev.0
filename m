@@ -1,63 +1,33 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Wed, 11 Jun 2008 17:57:18 +0400
-Message-ID: <20080611135718.GA26914@ms2.inr.ac.ru>
-References: <200806111658.41182.vgusev@openvz.org>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: [RFC v2 PATCH 1/3] net/core: add NETDEV_BONDING_FAILOVER event
+Date: Wed, 11 Jun 2008 17:59:39 +0300 (IDT)
+Message-ID: <Pine.LNX.4.64.0806111757240.17705@zuben.voltaire.com>
+References: <Pine.LNX.4.64.0806021342120.31515@zuben.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McManus <mcmanus@ducksong.com>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
-To: Vitaliy Gusev <vgusev@openvz.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:59274 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752518AbYFKOkj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2008 10:40:39 -0400
-Content-Disposition: inline
-In-Reply-To: <200806111658.41182.vgusev@openvz.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:58017 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750953AbYFKO7h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2008 10:59:37 -0400
+In-Reply-To: <Pine.LNX.4.64.0806021342120.31515@zuben.voltaire.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Mon, 2 Jun 2008, Or Gerlitz wrote:
+> Add NETDEV_BONDING_FAILOVER event to be used in a successive patch
+> by bonding to announce fail-over for the active-backup mode through the
+> netdev events notifier chain mechanism. Such an event can be of use for the
+> RDMA CM (communication manager) to let native RDMA ULPs (eg NFS-RDMA, iSER)
+> always be aligned with the IP stack, in the sense that they use the same
+> ports/links as the stack does. More usages can be done to allow monitoring
+> tools based on netlink events being aware to bonding fail-over.
 
-> While testing network namespace with 2.6.26 OpenVZ kernel port I found
-> some problem with the patch commit ec3c0982a2dd1e671bad8e9d26c28dcba0039d87 
-> ("[TCP]: TCP_DEFER_ACCEPT updates - process as established")
-...
-> I asked Alexey Kuznetsov about this problem and he answered he didn't know 
-> what to do yet.
+Hi Jay,
 
+Is there any update on these patches? I'd like to get them into 2.6.27 and I have a
+patch set to the RDMA stack which depends on this, so I'd to know where things are...
 
-I still do not.
-
-The first idea was to add to tcp_done() check for
-tcp_sk(sk)->defer_tcp_accept.request, which would mean that
-even if socket is not SOCK_DEAD it still must be destroyed.
-Ugly, but should work.
-
-
-But when trying to do this I found that the patch has other flaws.
-
-Major issue is that tcp_defer_accept_check() manipulates with not locked
-listening socket. And from all that I know it is impossible to take
-the lock in this context.
-
-Also I see no accounting for those sockets. With this patch any server, which
-set deferred accept, can be flooded with sockets until memory exhausts.
-I did not test and would be glad to be mistaken.
-
-
-Issue with locking can be solved by adding a separate spinlock for
-manipulations with accept_queue. Apparently, accounting and killing
-sockets, which become stale after closing listening socket and
-are going to be alive for up to 65535 seconds, also goes under this lock.
-
-Frankly, cost looks too high for this feature.
-
-Hiding from accept() sockets with only out-of-order data only
-is the only thing which is impossible with old approach. Is this really
-so valuable? My opinion: no, this is nothing but a new loophole
-to consume memory without control.
-
-Alexey
+Or.
