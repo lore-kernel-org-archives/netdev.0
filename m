@@ -1,74 +1,38 @@
-From: Vitaliy Gusev <vgusev@openvz.org>
-Subject: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Wed, 11 Jun 2008 16:58:40 +0400
-Message-ID: <200806111658.41182.vgusev@openvz.org>
+From: Patrick McManus <mcmanus@ducksong.com>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections,
+	v2.6.26-rc3+
+Date: Wed, 11 Jun 2008 09:10:07 -0400
+Message-ID: <1213189807.6442.33.camel@tng>
+References: <Pine.LNX.4.64.0806040052270.3474@wrl-59.cs.helsinki.fi>
+	 <20080603.150344.145518113.davem@davemloft.net>
+	 <Pine.LNX.4.64.0806040208350.7315@wrl-59.cs.helsinki.fi>
+	 <20080610.153252.252676827.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McManus <mcmanus@ducksong.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org
+Cc: ilpo.jarvinen@helsinki.fi, mingo@elte.hu, peterz@infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org, rjw@sisk.pl,
+	akpm@linux-foundation.org, johnpol@2ka.mipt.ru, vgusev@openvz.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:12516 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752725AbYFKMze (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2008 08:55:34 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754868AbYFKNKY@vger.kernel.org>
+In-Reply-To: <20080610.153252.252676827.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+On Tue, 2008-06-10 at 15:32 -0700, David Miller wrote:
 
-While testing network namespace with 2.6.26 OpenVZ kernel port I found
-some problem with the patch commit ec3c0982a2dd1e671bad8e9d26c28dcba0039d87 
-("[TCP]: TCP_DEFER_ACCEPT updates - process as established")
+> If we cannot find a simple and easy way to deal with this locking
+> problem, I am reverting the defer-accept changes entirely.  It's not
+> the end of the world if this feature has to be deferred to 2.6.27
 
+based on this, plus the comments from vitaliy it is clear that moving
+the DA socket to established is pretty tricky. I agree I should address
+these things in the >= 27 time frame.
 
->--- a/net/ipv4/tcp_timer.c
->+++ b/net/ipv4/tcp_timer.c
->@@ -481,6 +481,11 @@ static void tcp_keepalive_timer (unsigned long data)
-> 		goto death;
-> 	}
-> 
->+	if (tp->defer_tcp_accept.request && sk->sk_state == TCP_ESTABLISHED) {
->+		tcp_send_active_reset(sk, GFP_ATOMIC);
->+		goto death;
+imho we don't need to revert the first two patches:
+e4c78840284f3f51b1896cf3936d60a6033c4d2c and
+539fae89bebd16ebeafd57a87169bc56eb530d76 .. they have nothing to do with
+rearranging states or the locking and they do fix the more notable DA
+behavior issues.
 
-Here socket sk is not attached to listening socket's request queue. tcp_done() 
-will not call inet_csk_destroy_sock() (and tcp_v4_destroy_sock() which should 
-release this sk) as socket is not DEAD. Therefore socket sk will be lost for 
-freeing.
-
->+	}
->+
-> 	if (!sock_flag(sk, SOCK_KEEPOPEN) || sk->sk_state == TCP_CLOSE)
-> 		goto out;
->
->diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
->index 0ba6e91..167a0f5 100644
->--- a/net/ipv4/tcp_ipv4.c
->+++ b/net/ipv4/tcp_ipv4.c
->@@ -1920,6 +1920,14 @@ int tcp_v4_destroy_sock(struct sock *sk)
-> 		sk->sk_sndmsg_page = NULL;
-> 	}
-> 
->+	if (tp->defer_tcp_accept.request) {
->+		reqsk_free(tp->defer_tcp_accept.request);
->+		sock_put(tp->defer_tcp_accept.listen_sk);
->+		sock_put(sk);
->+		tp->defer_tcp_accept.listen_sk = NULL;
->+		tp->defer_tcp_accept.request = NULL;
->+	}
->+
-> 	atomic_dec(&tcp_sockets_allocated);
-> 
-> 	return 0;
-
-I asked Alexey Kuznetsov about this problem and he answered he didn't know 
-what to do yet.
-
--- 
-Thank,
-Vitaliy Gusev
+-Patrick
