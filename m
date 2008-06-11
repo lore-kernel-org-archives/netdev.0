@@ -1,286 +1,236 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.25rc7 lockdep trace
-Date: Thu, 12 Jun 2008 00:01:53 -0700 (PDT)
-Message-ID: <20080612.000153.30878828.davem@davemloft.net>
-References: <20080610.224023.116817726.davem@davemloft.net>
-	<20080612061334.GA4005@ff.dom.local>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: Oops in nf_nat_core.c:find_appropriate_src(), kernel 2.6.25.4
+Date: Wed, 11 Jun 2008 08:45:20 -0700
+Message-ID: <20080611154520.GA9384@linux.vnet.ibm.com>
+References: <484A9E75.8000601@redhat.com> <484AA276.9090407@trash.net> <484AA5D5.10404@trash.net> <Pine.LNX.4.64.0806071742180.13503@bizon.gios.gov.pl> <484E4343.5090606@trash.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, davej@codemonkey.org.uk,
-	netdev@vger.kernel.org
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60554
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752919AbYFLHBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 03:01:53 -0400
-In-Reply-To: <20080612061334.GA4005@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chuck Ebbert <cebbert@redhat.com>, Krzysztof Oledzki <ole@ans.pl>,
+	Netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <484E4343.5090606@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Thu, 12 Jun 2008 06:13:34 +0000
+On Tue, Jun 10, 2008 at 11:02:59AM +0200, Patrick McHardy wrote:
+> Krzysztof Oledzki wrote:
+> >On Sat, 7 Jun 2008, Patrick McHardy wrote:
+> >
+> >>Patrick McHardy wrote:
+> >>>Chuck Ebbert wrote:
+> >>>>Reported at https://bugzilla.redhat.com/show_bug.cgi?id=449315
+> >>>>
+> >>>>In find_appropriate_src():
+> >>>>
+> >>>>        hlist_for_each_entry_rcu(nat, n, &bysource[h], bysource) {
+> >>>>                ct = nat->ct;
+> >>>>                if (same_src(ct, tuple)) {
+> >>>>
+> >>>>Dereference of ct in same_src() causes the oops. This only seems to
+> >>>>happen on heavily loaded firewall machines. Kernel 2.6.24.7 works.
+> >>>>
+> >>>>The reporter identifies commit 4d354c5782dc352cec187845d17eedc2c2bfcf67
+> >>>>("[NETFILTER]: nf_nat: use RCU for bysource hash") as a possible cause
+> >>>>of the problem.
+> >>>
+> >>>We have a similar looking report, but that one also affects 2.6.24:
+> >>>
+> >>>http://bugzilla.kernel.org/show_bug.cgi?id=10875
+> 
+> 
+> We found the reason for that crash and I've queued these two
+> patches. Please let me know whether they also fix the problem
+> from the redhat bugzilla.
+> 
 
-> It seems after this change bp->in_reset_task could be removed totally
-> from the code.
- ...
-> ... likewise lp->work_pending,
- ...
-> ... likewise lp->work_pending.
- ...
-> local->info_queue probably needs some #ifndef like in hostap_info_init()
-> or could be skipped here at all (waiting for remove).
+> netfilter: nf_conntrack: fix ctnetlink related crash in nf_nat_setup_info()
+> 
+> When creation of a new conntrack entry in ctnetlink fails after having
+> set up the NAT mappings, the conntrack has an extension area allocated
+> that is not getting properly destroyed when freeing the conntrack again.
+> This means the NAT extension is still in the bysource hash, causing a
+> crash when walking over the hash chain the next time:
+> 
+> BUG: unable to handle kernel paging request at 00120fbd
+> IP: [<c03d394b>] nf_nat_setup_info+0x221/0x58a
+> *pde = 00000000
+> Oops: 0000 [#1] PREEMPT SMP
+> 
+> Pid: 2795, comm: conntrackd Not tainted (2.6.26-rc5 #1)
+> EIP: 0060:[<c03d394b>] EFLAGS: 00010206 CPU: 1
+> EIP is at nf_nat_setup_info+0x221/0x58a
+> EAX: 00120fbd EBX: 00120fbd ECX: 00000001 EDX: 00000000
+> ESI: 0000019e EDI: e853bbb4 EBP: e853bbc8 ESP: e853bb78
+>  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+> Process conntrackd (pid: 2795, ti=e853a000 task=f7de10f0 task.ti=e853a000)
+> Stack: 00000000 e853bc2c e85672ec 00000008 c0561084 63c1db4a 00000000 00000000
+>        00000000 0002e109 61d2b1c3 00000000 00000000 00000000 01114e22 61d2b1c3
+>        00000000 00000000 f7444674 e853bc04 00000008 c038e728 0000000a f7444674
+> Call Trace:
+>  [<c038e728>] nla_parse+0x5c/0xb0
+>  [<c0397c1b>] ctnetlink_change_status+0x190/0x1c6
+>  [<c0397eec>] ctnetlink_new_conntrack+0x189/0x61f
+>  [<c0119aee>] update_curr+0x3d/0x52
+>  [<c03902d1>] nfnetlink_rcv_msg+0xc1/0xd8
+>  [<c0390228>] nfnetlink_rcv_msg+0x18/0xd8
+>  [<c0390210>] nfnetlink_rcv_msg+0x0/0xd8
+>  [<c038d2ce>] netlink_rcv_skb+0x2d/0x71
+>  [<c0390205>] nfnetlink_rcv+0x19/0x24
+>  [<c038d0f5>] netlink_unicast+0x1b3/0x216
+>  ...
+> 
+> Move invocation of the extension destructors to nf_conntrack_free()
+> to fix this problem.
+> 
+> Fixes http://bugzilla.kernel.org/show_bug.cgi?id=10875
+> 
+> Reported-and-Tested-by: Krzysztof Piotr Oledzki <ole@ans.pl>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> ---
+> commit 8a3d245effe6e699e587133a3f8ea700bd47842d
+> tree 38676f126c592455747598b6d56bccf9550d0214
+> parent 21fa91adce646ad0449e898a64edaa828ca131e7
+> author Patrick McHardy <kaber@trash.net> Tue, 10 Jun 2008 10:56:29 +0200
+> committer Patrick McHardy <kaber@trash.net> Tue, 10 Jun 2008 10:56:29 +0200
+> 
+>  net/netfilter/nf_conntrack_core.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index c4b1799..662c1cc 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -196,8 +196,6 @@ destroy_conntrack(struct nf_conntrack *nfct)
+>  	if (l4proto && l4proto->destroy)
+>  		l4proto->destroy(ct);
+> 
+> -	nf_ct_ext_destroy(ct);
+> -
+>  	rcu_read_unlock();
+> 
+>  	spin_lock_bh(&nf_conntrack_lock);
+> @@ -520,6 +518,7 @@ static void nf_conntrack_free_rcu(struct rcu_head *head)
+> 
+>  void nf_conntrack_free(struct nf_conn *ct)
+>  {
+> +	nf_ct_ext_destroy(ct);
+>  	call_rcu(&ct->rcu, nf_conntrack_free_rcu);
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_free);
 
-Thanks for the feedback, here's a new patch with your
-suggestions added.
+> netfilter: nf_nat: fix RCU races
+> 
+> Fix three ct_extend/NAT extension related races:
+> 
+> - When cleaning up the extension area and removing it from the bysource hash,
+>   the nat->ct pointer must not be set to NULL since it may still be used in
+>   a RCU read side
+> 
+> - When replacing a NAT extension area in the bysource hash, the nat->ct
+>   pointer must be assigned before performing the replacement
+> 
+> - When reallocating extension storage in ct_extend, the old memory must
+>   not be freed immediately since it may still be used by a RCU read side
+> 
+> Possibly fixes https://bugzilla.redhat.com/show_bug.cgi?id=449315
+> and/or http://bugzilla.kernel.org/show_bug.cgi?id=10875
 
-net: Eliminate flush_scheduled_work() calls while RTNL is held.
+One question and one nit below.
 
-If the RTNL is held when we invoke flush_scheduled_work() we could
-deadlock.  One such case is linkwatch, it is a workqueue which tries
-to grab the RTNL semaphore.
+							Thanx, Paul
 
-The most common case are net driver ->stop() methods.  The
-simplest conversion is to instead use cancel_{delayed_}work_sync()
-explicitly on the various workqueues the driver uses.
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> ---
+> commit f4efed322f3d3a30df1bb5fc33403e84aca66d8e
+> tree 72d463aa289ab27850f40c76b68a24e91af7a6b0
+> parent 8a3d245effe6e699e587133a3f8ea700bd47842d
+> author Patrick McHardy <kaber@trash.net> Tue, 10 Jun 2008 11:00:35 +0200
+> committer Patrick McHardy <kaber@trash.net> Tue, 10 Jun 2008 11:00:35 +0200
+> 
+>  include/net/netfilter/nf_conntrack_extend.h |    1 +
+>  net/ipv4/netfilter/nf_nat_core.c            |    3 +--
+>  net/netfilter/nf_conntrack_extend.c         |    9 ++++++++-
+>  3 files changed, 10 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+> index f736e84..f80c0ed 100644
+> --- a/include/net/netfilter/nf_conntrack_extend.h
+> +++ b/include/net/netfilter/nf_conntrack_extend.h
+> @@ -15,6 +15,7 @@ enum nf_ct_ext_id
+> 
+>  /* Extensions: optional stuff which isn't permanently in struct. */
+>  struct nf_ct_ext {
+> +	struct rcu_head rcu;
+>  	u8 offset[NF_CT_EXT_NUM];
+>  	u8 len;
+>  	char data[0];
+> diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+> index 0457859..d2a887f 100644
+> --- a/net/ipv4/netfilter/nf_nat_core.c
+> +++ b/net/ipv4/netfilter/nf_nat_core.c
+> @@ -556,7 +556,6 @@ static void nf_nat_cleanup_conntrack(struct nf_conn *ct)
+> 
+>  	spin_lock_bh(&nf_nat_lock);
+>  	hlist_del_rcu(&nat->bysource);
+> -	nat->ct = NULL;
+>  	spin_unlock_bh(&nf_nat_lock);
+>  }
+> 
+> @@ -570,8 +569,8 @@ static void nf_nat_move_storage(void *new, void *old)
+>  		return;
+> 
+>  	spin_lock_bh(&nf_nat_lock);
+> -	hlist_replace_rcu(&old_nat->bysource, &new_nat->bysource);
+>  	new_nat->ct = ct;
+> +	hlist_replace_rcu(&old_nat->bysource, &new_nat->bysource);
 
-This is an OK transformation because these workqueues are doing things
-like resetting the chip, restarting link negotiation, and so forth.
-And if we're bringing down the device, we're about to turn the chip
-off and reset it anways.  So if we cancel a pending work event, that's
-fine here.
+The intent is to ensure that new_nat->ct is initialized before any
+readers can find new_nat, right?  If so, OK.
 
-Some drivers were working around this deadlock by using a msleep()
-polling loop of some sort, and those cases are converted to instead
-use cancel_{delayed_}work_sync() as well.
+>  	spin_unlock_bh(&nf_nat_lock);
+>  }
+> 
+> diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+> index bcc19fa..8a3f8b3 100644
+> --- a/net/netfilter/nf_conntrack_extend.c
+> +++ b/net/netfilter/nf_conntrack_extend.c
+> @@ -59,12 +59,19 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
+>  	if (!*ext)
+>  		return NULL;
+> 
+> +	INIT_RCU_HEAD(&(*ext)->rcu);
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Nit: the above is unnecessary.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 4b46e68..367b6d4 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -5724,14 +5724,12 @@ bnx2_reset_task(struct work_struct *work)
- 	if (!netif_running(bp->dev))
- 		return;
- 
--	bp->in_reset_task = 1;
- 	bnx2_netif_stop(bp);
- 
- 	bnx2_init_nic(bp);
- 
- 	atomic_set(&bp->intr_sem, 1);
- 	bnx2_netif_start(bp);
--	bp->in_reset_task = 0;
- }
- 
- static void
-@@ -5907,12 +5905,7 @@ bnx2_close(struct net_device *dev)
- 	struct bnx2 *bp = netdev_priv(dev);
- 	u32 reset_code;
- 
--	/* Calling flush_scheduled_work() may deadlock because
--	 * linkwatch_event() may be on the workqueue and it will try to get
--	 * the rtnl_lock which we are holding.
--	 */
--	while (bp->in_reset_task)
--		msleep(1);
-+	cancel_work_sync(&bp->reset_task);
- 
- 	bnx2_disable_int_sync(bp);
- 	bnx2_napi_disable(bp);
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 1eaf5bb..2377cc1 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -6656,7 +6656,6 @@ struct bnx2 {
- 	int			current_interval;
- 	struct			timer_list timer;
- 	struct work_struct	reset_task;
--	int			in_reset_task;
- 
- 	/* Used to synchronize phy accesses. */
- 	spinlock_t		phy_lock;
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index faae01d..075fd54 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -2605,7 +2605,8 @@ static int ehea_stop(struct net_device *dev)
- 	if (netif_msg_ifdown(port))
- 		ehea_info("disabling port %s", dev->name);
- 
--	flush_scheduled_work();
-+	cancel_work_sync(&port->reset_task);
-+
- 	mutex_lock(&port->port_lock);
- 	netif_stop_queue(dev);
- 	port_napi_disable(port);
-diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-index dde9c7e..00bc7fb 100644
---- a/drivers/net/hamradio/baycom_epp.c
-+++ b/drivers/net/hamradio/baycom_epp.c
-@@ -959,7 +959,7 @@ static int epp_close(struct net_device *dev)
- 	unsigned char tmp[1];
- 
- 	bc->work_running = 0;
--	flush_scheduled_work();
-+	cancel_delayed_work_sync(&bc->run_work);
- 	bc->stat = EPP_DCDBIT;
- 	tmp[0] = 0;
- 	pp->ops->epp_write_addr(pp, tmp, 1, 0);
-diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-index 4e28002..e2ee91a 100644
---- a/drivers/net/smc911x.c
-+++ b/drivers/net/smc911x.c
-@@ -136,7 +136,6 @@ struct smc911x_local {
- 
- 	/* work queue */
- 	struct work_struct phy_configure;
--	int work_pending;
- 
- 	int tx_throttle;
- 	spinlock_t lock;
-@@ -960,11 +959,11 @@ static void smc911x_phy_configure(struct work_struct *work)
- 	 * We should not be called if phy_type is zero.
- 	 */
- 	if (lp->phy_type == 0)
--		 goto smc911x_phy_configure_exit_nolock;
-+		return;
- 
- 	if (smc911x_phy_reset(dev, phyaddr)) {
- 		printk("%s: PHY reset timed out\n", dev->name);
--		goto smc911x_phy_configure_exit_nolock;
-+		return;
- 	}
- 	spin_lock_irqsave(&lp->lock, flags);
- 
-@@ -1033,8 +1032,6 @@ static void smc911x_phy_configure(struct work_struct *work)
- 
- smc911x_phy_configure_exit:
- 	spin_unlock_irqrestore(&lp->lock, flags);
--smc911x_phy_configure_exit_nolock:
--	lp->work_pending = 0;
- }
- 
- /*
-@@ -1356,11 +1353,8 @@ static void smc911x_timeout(struct net_device *dev)
- 	 * smc911x_phy_configure() calls msleep() which calls schedule_timeout()
- 	 * which calls schedule().	 Hence we use a work queue.
- 	 */
--	if (lp->phy_type != 0) {
--		if (schedule_work(&lp->phy_configure)) {
--			lp->work_pending = 1;
--		}
--	}
-+	if (lp->phy_type != 0)
-+		schedule_work(&lp->phy_configure);
- 
- 	/* We can accept TX packets again */
- 	dev->trans_start = jiffies;
-@@ -1531,16 +1525,8 @@ static int smc911x_close(struct net_device *dev)
- 	if (lp->phy_type != 0) {
- 		/* We need to ensure that no calls to
- 		 * smc911x_phy_configure are pending.
--
--		 * flush_scheduled_work() cannot be called because we
--		 * are running with the netlink semaphore held (from
--		 * devinet_ioctl()) and the pending work queue
--		 * contains linkwatch_event() (scheduled by
--		 * netif_carrier_off() above). linkwatch_event() also
--		 * wants the netlink semaphore.
- 		 */
--		while (lp->work_pending)
--			schedule();
-+		cancel_work_sync(&lp->phy_configure);
- 		smc911x_phy_powerdown(dev, lp->mii.phy_id);
- 	}
- 
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index a188e33..f2051b2 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -1016,15 +1016,8 @@ static void smc_phy_powerdown(struct net_device *dev)
- 
- 	/* We need to ensure that no calls to smc_phy_configure are
- 	   pending.
--
--	   flush_scheduled_work() cannot be called because we are
--	   running with the netlink semaphore held (from
--	   devinet_ioctl()) and the pending work queue contains
--	   linkwatch_event() (scheduled by netif_carrier_off()
--	   above). linkwatch_event() also wants the netlink semaphore.
- 	*/
--	while(lp->work_pending)
--		yield();
-+	cancel_work_sync(&lp->phy_configure);
- 
- 	bmcr = smc_phy_read(dev, phy, MII_BMCR);
- 	smc_phy_write(dev, phy, MII_BMCR, bmcr | BMCR_PDOWN);
-@@ -1161,7 +1154,6 @@ static void smc_phy_configure(struct work_struct *work)
- smc_phy_configure_exit:
- 	SMC_SELECT_BANK(lp, 2);
- 	spin_unlock_irq(&lp->lock);
--	lp->work_pending = 0;
- }
- 
- /*
-@@ -1389,11 +1381,8 @@ static void smc_timeout(struct net_device *dev)
- 	 * smc_phy_configure() calls msleep() which calls schedule_timeout()
- 	 * which calls schedule().  Hence we use a work queue.
- 	 */
--	if (lp->phy_type != 0) {
--		if (schedule_work(&lp->phy_configure)) {
--			lp->work_pending = 1;
--		}
--	}
-+	if (lp->phy_type != 0)
-+		schedule_work(&lp->phy_configure);
- 
- 	/* We can accept TX packets again */
- 	dev->trans_start = jiffies;
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-index 55670b5..af8d2c4 100644
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -731,7 +731,7 @@ static void tulip_down (struct net_device *dev)
- 	void __iomem *ioaddr = tp->base_addr;
- 	unsigned long flags;
- 
--	flush_scheduled_work();
-+	cancel_work_sync(&tp->media_work);
- 
- #ifdef CONFIG_TULIP_NAPI
- 	napi_disable(&tp->napi);
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index 0dcfc03..7c66b05 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -706,7 +706,7 @@ static void kaweth_kill_urbs(struct kaweth_device *kaweth)
- 	usb_kill_urb(kaweth->rx_urb);
- 	usb_kill_urb(kaweth->tx_urb);
- 
--	flush_scheduled_work();
-+	cancel_delayed_work_sync(&kaweth->lowmem_work);
- 
- 	/* a scheduled work may have resubmitted,
- 	   we hit them again */
-diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
-index 20d387f..f7aec93 100644
---- a/drivers/net/wireless/hostap/hostap_main.c
-+++ b/drivers/net/wireless/hostap/hostap_main.c
-@@ -682,7 +682,13 @@ static int prism2_close(struct net_device *dev)
- 		netif_device_detach(dev);
- 	}
- 
--	flush_scheduled_work();
-+	cancel_work_sync(&local->reset_queue);
-+	cancel_work_sync(&local->set_multicast_list_queue);
-+	cancel_work_sync(&local->set_tim_queue);
-+#ifndef PRISM2_NO_STATION_MODES
-+	cancel_work_sync(&local->info_queue);
-+#endif
-+	cancel_work_sync(&local->comms_qual_update);
- 
- 	module_put(local->hw_module);
- 
+>  	(*ext)->offset[id] = off;
+>  	(*ext)->len = len;
+> 
+>  	return (void *)(*ext) + off;
+>  }
+> 
+> +static void __nf_ct_ext_free_rcu(struct rcu_head *head)
+> +{
+> +	struct nf_ct_ext *ext = container_of(head, struct nf_ct_ext, rcu);
+> +	kfree(ext);
+> +}
+> +
+>  void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+>  {
+>  	struct nf_ct_ext *new;
+> @@ -106,7 +113,7 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+>  					(void *)ct->ext + ct->ext->offset[i]);
+>  			rcu_read_unlock();
+>  		}
+> -		kfree(ct->ext);
+> +		call_rcu(&ct->ext->rcu, __nf_ct_ext_free_rcu);
+>  		ct->ext = new;
+>  	}
+> 
+
