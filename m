@@ -1,33 +1,31 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [RFC v2 PATCH 1/3] net/core: add NETDEV_BONDING_FAILOVER event
-Date: Wed, 11 Jun 2008 17:59:39 +0300 (IDT)
-Message-ID: <Pine.LNX.4.64.0806111757240.17705@zuben.voltaire.com>
-References: <Pine.LNX.4.64.0806021342120.31515@zuben.voltaire.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [fixed] [patch] Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
+Date: Wed, 11 Jun 2008 19:06:55 +0400
+Message-ID: <20080611150655.GA17562@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, mcmanus@ducksong.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:58017 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750953AbYFKO7h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2008 10:59:37 -0400
-In-Reply-To: <Pine.LNX.4.64.0806021342120.31515@zuben.voltaire.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:60520 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1760196AbYFKPHC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2008 11:07:02 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2 Jun 2008, Or Gerlitz wrote:
-> Add NETDEV_BONDING_FAILOVER event to be used in a successive patch
-> by bonding to announce fail-over for the active-backup mode through the
-> netdev events notifier chain mechanism. Such an event can be of use for the
-> RDMA CM (communication manager) to let native RDMA ULPs (eg NFS-RDMA, iSER)
-> always be aligned with the IP stack, in the sense that they use the same
-> ports/links as the stack does. More usages can be done to allow monitoring
-> tools based on netlink events being aware to bonding fail-over.
+Hello!
 
-Hi Jay,
+> On Tue, 2008-06-10 at 15:32 -0700, David Miller wrote:
+> 
+> I took a close look at this, it seems this patch adds
+> an ABBA deadlock.  But I might be wrong.
 
-Is there any update on these patches? I'd like to get them into 2.6.27 and I have a
-patch set to the RDMA stack which depends on this, so I'd to know where things are...
+Yes, this is not a real deadlock. But also it is not even a lock.
+bh_lock_sock on listening socket is not enough to lock it.
 
-Or.
+Seems, the solution would be forcing bh_lock_sock() to protect accept_queue,
+which is a mess. Or adding a separate spinlock, like it was done with
+syn_wait_lock. Also not good.
+
+Alexey
