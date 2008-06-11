@@ -1,32 +1,57 @@
-From: Vince Busam <vbusam@google.com>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Wed, 11 Jun 2008 13:55:25 -0700
-Message-ID: <48503BBD.6000307@google.com>
-References: <1213204329-10973-1-git-send-email-juliusv@google.com>	 <48500A0D.5020304@trash.net>	 <f4845fc0806111123r108348d3s6906bf2b7145bdea@mail.gmail.com>	 <48501C81.6010800@trash.net>	 <f4845fc0806111205j36c912d3vf1b632a3d0777a1c@mail.gmail.com>	 <4850233E.7090501@trash.net>	 <f4845fc0806111229l6666161fu9d3bc5e432668485@mail.gmail.com>	 <48502826.9060502@trash.net>	 <f4845fc0806111253l4f1fea4fyef05cdc41ca45911@mail.gmail.com> <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] NET: DCB generic netlink interface
+Date: Wed, 11 Jun 2008 23:26:27 +0200
+Message-ID: <20080611212627.GS20815@postel.suug.ch>
+References: <20080605.074324.38999631.davem@davemloft.net> <D5C1322C3E673F459512FB59E0DDC3290538B840@orsmsx414.amr.corp.intel.com> <20080611175156.GR20815@postel.suug.ch> <D5C1322C3E673F459512FB59E0DDC329053C9888@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
 	netdev@vger.kernel.org
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:43865 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752078AbYFKV0J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2008 17:26:09 -0400
+Content-Disposition: inline
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329053C9888@orsmsx414.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> Ah, but the set/get-sockopt calls also pass a size argument, which is
-> the size of the passed structs. If the kernel and userspace struct
-> sizes don't match, it is treated as an error. Is this in case
-> different compilers pad the structs differently, even if the IPVS
-> version stays the same?
+* Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> 2008-06-11 11:28
+> Congestion notification in 802.1Qau is certainly something we need to
+> support somewhere in the stack.  I was actually talking with one of our
+> hardware architects while I was in Israel last week about that exact
+> gap, since the BCN/QCN rate limiting will eventually drop packets if we
+> don't have a way of telling the upper layers to "slow down."
 
-So we could disable the size checks of the passed structs, or key on it to 
-determine if the older ABI was used, keeping a list of the structs that 
-had different sizes around, but that sounds like a gross hack which would 
-get worse if any other fields are added.  It would also mean new userspace 
-binaries with the new fields wouldn't work with older kernels, is that a 
-problem?  Is this better than the alternatives of breaking the ABI, or 
-duplicating code into a separate ABI?
+That's already possible by calling netif_stop_queue() respectively
+netif_stop_subqueue(). Much more important for the upper layers to
+know is when a congestion is about to happen so it can be avoided
+with routing decisions.
 
-Vince
+> The prioritization is only one piece.  The bandwidth aggregation,
+> different modes of defining group strict vs. link strict priorities
+> within a bandwidth group, etc., are all hardware modes.  These modes
+> need to be in sync with the link partner (switch, back to back NIC), and
+> are kept in sync with the DCBX protocol via LLDP.
+
+Again, this piece of hardware basically implements a classful qdisc
+like htb or cbq except that it's limited to a flat tree. Yet, the
+capabilities of the hardware may not be sufficient, therefore it must
+be possible to combine hardware shaping with software qdiscs. It is
+therefore crucial to find common grounds to exchange traffic class
+information. Is your piece of hardware strictly limited to map VLANs
+to traffic classes or would it be possible to attach traffic class
+information to the packet in some way? (skb->tc_index) Could you
+elaborate on how classification works, especially the configurable
+mapping?
+
+The most difficult part for me, an probably others as well, is that there
+are no public documents available yet which would describe the direction
+of where this is going, how complete the current implementation actually
+is. We're pretty much looking at a black box which doesn't work very well
+with the existing architecture and requires a completely separate
+configuration interface. If we merge a configuration interface for DCB
+now it will be pretty much written in stone, yet we have no idea what
+other vendors may need.
