@@ -1,342 +1,314 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 1/2] [UPDATED] ixgbe: add LRO support
-Date: Wed, 11 Jun 2008 15:20:21 -0700
-Message-ID: <20080611152021.1f6515cb.randy.dunlap@oracle.com>
-References: <20080611221110.10978.82097.stgit@localhost.localdomain>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: Re: [PATCH] irda: driver for Freescale FIRI controller
+Date: Thu, 12 Jun 2008 00:25:25 +0200
+Message-ID: <20080611222524.GA6710@sortiz.org>
+References: <20080604154510.GA31162@polina.dev.rtsoft.ru>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzick.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	e1000-dev@lists.sourceforge.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Zhang Wei <Wei.Zhang@freescale.com>,
+	Timur Tabi <timur@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:37703 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbYFKWUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 18:20:37 -0400
-In-Reply-To: <20080611221110.10978.82097.stgit@localhost.localdomain>
+Received: from smtp23.orange.fr ([80.12.242.97]:63145 "EHLO smtp23.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751331AbYFKWX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2008 18:23:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20080604154510.GA31162@polina.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Jun 2008 15:14:17 -0700 Jeff Kirsher wrote:
+Hi Anton,
 
+On Wed, Jun 04, 2008 at 07:45:10PM +0400, Anton Vorontsov wrote:
+> From: Zhang Wei <wei.zhang@freescale.com>
 > 
-> Support for in-kernel LRO with the ability to enable/disable via ethtool
-> based on comments from Ben Hutchings.
+> The driver supports SIR, MIR, FIR modes and maximum 4000000bps rate.
 > 
-> Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Signed-off-by: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> ---
-> 
->  drivers/net/ixgbe/ixgbe.h         |    9 +++
->  drivers/net/ixgbe/ixgbe_ethtool.c |   11 ++++
->  drivers/net/ixgbe/ixgbe_main.c    |  111 ++++++++++++++++++++++++++++++-------
->  3 files changed, 110 insertions(+), 21 deletions(-)
-
-Is there also a patch to drivers/net/Kconfig that makes IXGBE depend on INET?
-You can't just assume that the lro_* functions are always there....
+> Signed-off-by: Zhang Wei <wei.zhang@freescale.com>
+> [AV: few small fixes, plus had made platform ops passing via node->data
+>      to avoid #ifdef stuff in the fsl_soc (think DIU). ]
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Some comments below:
 
 
-> diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-> index d981134..956914a 100644
-> --- a/drivers/net/ixgbe/ixgbe.h
-> +++ b/drivers/net/ixgbe/ixgbe.h
-> @@ -32,6 +32,7 @@
->  #include <linux/types.h>
->  #include <linux/pci.h>
->  #include <linux/netdevice.h>
-> +#include <linux/inet_lro.h>
+> diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
+> index ce816ba..da24f57 100644
+> --- a/drivers/net/irda/Kconfig
+> +++ b/drivers/net/irda/Kconfig
+> @@ -341,5 +341,10 @@ config MCS_FIR
+>  	  To compile it as a module, choose M here: the module will be called
+>  	  mcs7780.
 >  
->  #include "ixgbe_type.h"
->  #include "ixgbe_common.h"
-> @@ -100,6 +101,9 @@
->  #define IXGBE_TX_FLAGS_VLAN_MASK	0xffff0000
->  #define IXGBE_TX_FLAGS_VLAN_SHIFT	16
->  
-> +#define IXGBE_MAX_LRO_DESCRIPTORS       8
-> +#define IXGBE_MAX_LRO_AGGREGATE         32
+> +config FSL_FIR
+> +	tristate "Freescale Irda driver"
+I guess you could be a little more descriptive here. At least specify which
+chipsets this driver support, and that it is a FIR one.
+
+
+> --- /dev/null
+> +++ b/drivers/net/irda/fsl_ir.c
+> @@ -0,0 +1,792 @@
+> +/*
+> + * Copyright (C) 2007 Freescale Semiconductor, Inc. All rights reserved.
+> + *
+> + * Author: Zhang Wei, wei.zhang@freescale.com, Oct. 2007
+> + *
+> + * Description:
+> + * The IrDA driver for Freescale PowerPC MPC8610 processor. The driver
+> + * support SIR and FIR mode. The maximum speed is 4Mbps.
+> + *
+> + * Changelog:
+> + * Oct 2007 Zhang Wei <wei.zhang@freescale.com>
+> + * - Initial version.
+> + *
+> + * This file is part of the Linux kernel
+> + *
+> + * This is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + */
 > +
->  /* wrapper around a pointer to a socket buffer,
->   * so a DMA handle can be stored along with the buffer */
->  struct ixgbe_tx_buffer {
-> @@ -150,6 +154,8 @@ struct ixgbe_ring {
->  	/* cpu for tx queue */
->  	int cpu;
->  #endif
-> +	struct net_lro_mgr lro_mgr;
-> +	bool lro_used;
->  	struct ixgbe_queue_stats stats;
->  	u8 v_idx; /* maps directly to the index for this ring in the hardware
->  		   * vector array, can also be used for finding the bit in EICR
-> @@ -287,6 +293,9 @@ struct ixgbe_adapter {
->  
->  	unsigned long state;
->  	u64 tx_busy;
-> +	u64 lro_aggregated;
-> +	u64 lro_flushed;
-> +	u64 lro_no_desc;
->  };
->  
->  enum ixbge_state_t {
-> diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-> index 4e46377..12990b1 100644
-> --- a/drivers/net/ixgbe/ixgbe_ethtool.c
-> +++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-> @@ -90,6 +90,8 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
->  	{"rx_header_split", IXGBE_STAT(rx_hdr_split)},
->  	{"alloc_rx_page_failed", IXGBE_STAT(alloc_rx_page_failed)},
->  	{"alloc_rx_buff_failed", IXGBE_STAT(alloc_rx_buff_failed)},
-> +	{"lro_aggregated", IXGBE_STAT(lro_aggregated)},
-> +	{"lro_flushed", IXGBE_STAT(lro_flushed)},
->  };
->  
->  #define IXGBE_QUEUE_STATS_LEN \
-> @@ -787,6 +789,7 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
->  	int stat_count = sizeof(struct ixgbe_queue_stats) / sizeof(u64);
->  	int j, k;
->  	int i;
-> +	u64 aggregated = 0, flushed = 0, no_desc = 0;
->  
->  	ixgbe_update_stats(adapter);
->  	for (i = 0; i < IXGBE_GLOBAL_STATS_LEN; i++) {
-> @@ -801,11 +804,17 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
->  		i += k;
->  	}
->  	for (j = 0; j < adapter->num_rx_queues; j++) {
-> +		aggregated += adapter->rx_ring[j].lro_mgr.stats.aggregated;
-> +		flushed += adapter->rx_ring[j].lro_mgr.stats.flushed;
-> +		no_desc += adapter->rx_ring[j].lro_mgr.stats.no_desc;
->  		queue_stat = (u64 *)&adapter->rx_ring[j].stats;
->  		for (k = 0; k < stat_count; k++)
->  			data[i + k] = queue_stat[k];
->  		i += k;
->  	}
-> +	adapter->lro_aggregated = aggregated;
-> +	adapter->lro_flushed = flushed;
-> +	adapter->lro_no_desc = no_desc;
->  }
->  
->  static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
-> @@ -973,6 +982,8 @@ static struct ethtool_ops ixgbe_ethtool_ops = {
->  	.get_ethtool_stats      = ixgbe_get_ethtool_stats,
->  	.get_coalesce           = ixgbe_get_coalesce,
->  	.set_coalesce           = ixgbe_set_coalesce,
-> +	.get_flags              = ethtool_op_get_flags,
-> +	.set_flags              = ethtool_op_set_flags,
->  };
->  
->  void ixgbe_set_ethtool_ops(struct net_device *netdev)
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-> index 7b85922..04c6482 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -389,24 +389,39 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
->   * ixgbe_receive_skb - Send a completed packet up the stack
->   * @adapter: board private structure
->   * @skb: packet to send up
-> - * @is_vlan: packet has a VLAN tag
-> - * @tag: VLAN tag from descriptor
-> + * @status: hardware indication of status of receive
-> + * @rx_ring: rx descriptor ring (for a specific queue) to setup
-> + * @rx_desc: rx descriptor
->   **/
->  static void ixgbe_receive_skb(struct ixgbe_adapter *adapter,
-> -			      struct sk_buff *skb, bool is_vlan,
-> -			      u16 tag)
-> +			      struct sk_buff *skb, u8 status,
-> +			      struct ixgbe_ring *ring,
-> +                              union ixgbe_adv_rx_desc *rx_desc)
->  {
-> -	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
-> -		if (adapter->vlgrp && is_vlan)
-> -			vlan_hwaccel_receive_skb(skb, adapter->vlgrp, tag);
-> -		else
-> -			netif_receive_skb(skb);
-> -	} else {
-> +	bool is_vlan = (status & IXGBE_RXD_STAT_VP);
-> +	u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
->  
-> +	if (adapter->netdev->features & NETIF_F_LRO &&
-> +	    skb->ip_summed == CHECKSUM_UNNECESSARY) {
->  		if (adapter->vlgrp && is_vlan)
-> -			vlan_hwaccel_rx(skb, adapter->vlgrp, tag);
-> +			lro_vlan_hwaccel_receive_skb(&ring->lro_mgr, skb,
-> +			                             adapter->vlgrp, tag,
-> +			                             rx_desc);
->  		else
-> -			netif_rx(skb);
-> +			lro_receive_skb(&ring->lro_mgr, skb, rx_desc);
-> +		ring->lro_used = true;
-> +	} else {
-> +		if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
-> +			if (adapter->vlgrp && is_vlan)
-> +				vlan_nw_accel_receive_skb(skb, adapter->vlgrp, tag);
-> +			else
-> +				netif_receive_skb(skb);
-> +		} else {
-> +			if (adapter->vlgrp && is_vlan)
-> +				vlan_hwaccel_rx(skb, adapter->vlgrp, tag);
-> +			else
-> +				netif_rx(skb);
-> +		}
->  	}
->  }
->  
-> @@ -546,8 +561,8 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
->  	struct sk_buff *skb;
->  	unsigned int i;
->  	u32 upper_len, len, staterr;
-> -	u16 hdr_info, vlan_tag;
-> -	bool is_vlan, cleaned = false;
-> +	u16 hdr_info;
-> +	bool cleaned = false;
->  	int cleaned_count = 0;
->  	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
->  
-> @@ -556,8 +571,6 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
->  	rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
->  	staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
->  	rx_buffer_info = &rx_ring->rx_buffer_info[i];
-> -	is_vlan = (staterr & IXGBE_RXD_STAT_VP);
-> -	vlan_tag = le16_to_cpu(rx_desc->wb.upper.vlan);
->  
->  	while (staterr & IXGBE_RXD_STAT_DD) {
->  		if (*work_done >= work_to_do)
-> @@ -635,7 +648,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
->  		total_rx_packets++;
->  
->  		skb->protocol = eth_type_trans(skb, netdev);
-> -		ixgbe_receive_skb(adapter, skb, is_vlan, vlan_tag);
-> +		ixgbe_receive_skb(adapter, skb, staterr, rx_ring, rx_desc);
->  		netdev->last_rx = jiffies;
->  
->  next_desc:
-> @@ -652,8 +665,11 @@ next_desc:
->  		rx_buffer_info = next_buffer;
->  
->  		staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
-> -		is_vlan = (staterr & IXGBE_RXD_STAT_VP);
-> -		vlan_tag = le16_to_cpu(rx_desc->wb.upper.vlan);
-> +	}
+> +#include <linux/kernel.h>
+> +#include <linux/interrupt.h>
+> +#include <linux/delay.h>
+> +#include <linux/of_platform.h>
+> +#include <linux/fsl_ir.h>
 > +
-> +	if (rx_ring->lro_used) {
-> +		lro_flush_all(&rx_ring->lro_mgr);
-> +		rx_ring->lro_used = false;
->  	}
->  
->  	rx_ring->next_to_clean = i;
-> @@ -1382,6 +1398,33 @@ static void ixgbe_configure_tx(struct ixgbe_adapter *adapter)
->  
->  #define IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT			2
->  /**
-> + * ixgbe_get_skb_hdr - helper function for LRO header processing
-> + * @skb: pointer to sk_buff to be added to LRO packet
-> + * @iphdr: pointer to tcp header structure
-> + * @tcph: pointer to tcp header structure
-> + * @hdr_flags: pointer to header flags
-> + * @priv: private data
-> + **/
-> +static int ixgbe_get_skb_hdr(struct sk_buff *skb, void **iphdr, void **tcph,
-> +                             u64 *hdr_flags, void *priv)
+> +#include <net/irda/irda.h>
+> +#include <net/irda/wrapper.h>
+> +#include <net/irda/irda_device.h>
+> +#include <net/irda/irlap_frame.h>
+> +#include <net/irda/irlap.h>
+> +
+> +#include <sysdev/fsl_soc.h>
+> +
+> +#define is_sir_speed(speed) ((speed <= 115200) ? 1 : 0)
+> +#define is_sir(ir) (is_sir_speed(ir->speed))
+> +
+> +static void init_iobuf(iobuff_t *io, void *buff, int size)
 > +{
-> +	union ixgbe_adv_rx_desc *rx_desc = priv;
-> +
-> +	/* Verify that this is a valid IPv4 TCP packet */
-> +	if (!(rx_desc->wb.lower.lo_dword.pkt_info &
-> +	    (IXGBE_RXDADV_PKTTYPE_IPV4 | IXGBE_RXDADV_PKTTYPE_TCP)))
-> +		return -1;
-> +
-> +	/* Set network headers */
-> +	skb_reset_network_header(skb);
-> +	skb_set_transport_header(skb, ip_hdrlen(skb));
-> +	*iphdr = ip_hdr(skb);
-> +	*tcph = tcp_hdr(skb);
-> +	*hdr_flags = LRO_IPV4 | LRO_TCP;
-> +	return 0;
+> +	io->head = buff;
+> +	io->truesize = size;
+> +	io->in_frame = FALSE;
+> +	io->state = OUTSIDE_FRAME;
+> +	io->data = io->head;
+> +	io->skb = NULL;
 > +}
 > +
-> +/**
->   * ixgbe_configure_rx - Configure 8254x Receive Unit after Reset
->   * @adapter: board private structure
->   *
-> @@ -1470,6 +1513,17 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
->  		adapter->rx_ring[i].tail = IXGBE_RDT(i);
->  	}
->  
-> +	/* Intitial LRO Settings */
-> +	adapter->rx_ring[i].lro_mgr.max_aggr = IXGBE_MAX_LRO_AGGREGATE;
-> +	adapter->rx_ring[i].lro_mgr.max_desc = IXGBE_MAX_LRO_DESCRIPTORS;
-> +	adapter->rx_ring[i].lro_mgr.get_skb_header = ixgbe_get_skb_hdr;
-> +	adapter->rx_ring[i].lro_mgr.features = LRO_F_EXTRACT_VLAN_ID;
-> +	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
-> +		adapter->rx_ring[i].lro_mgr.features |= LRO_F_NAPI;
-> +	adapter->rx_ring[i].lro_mgr.dev = adapter->netdev;
-> +	adapter->rx_ring[i].lro_mgr.ip_summed = CHECKSUM_UNNECESSARY;
-> +	adapter->rx_ring[i].lro_mgr.ip_summed_aggr = CHECKSUM_UNNECESSARY;
+> +static void ir_switch_mode(struct fsl_ir *ir, u32 speed)
+> +{
 > +
->  	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
->  		/* Fill out redirection table */
->  		for (i = 0, j = 0; i < 128; i++, j++) {
-> @@ -2489,12 +2543,18 @@ int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
->  	struct pci_dev *pdev = adapter->pdev;
->  	int size;
->  
-> +	size = sizeof(struct net_lro_desc) * IXGBE_MAX_LRO_DESCRIPTORS;
-> +	rxdr->lro_mgr.lro_arr = vmalloc(size);
-> +	if (!rxdr->lro_mgr.lro_arr)
-> +		return -ENOMEM;
-> +	memset(rxdr->lro_mgr.lro_arr, 0, size);
-> +
->  	size = sizeof(struct ixgbe_rx_buffer) * rxdr->count;
->  	rxdr->rx_buffer_info = vmalloc(size);
->  	if (!rxdr->rx_buffer_info) {
->  		DPRINTK(PROBE, ERR,
->  			"vmalloc allocation failed for the rx desc ring\n");
-> -		return -ENOMEM;
-> +		goto alloc_failed;
->  	}
->  	memset(rxdr->rx_buffer_info, 0, size);
->  
-> @@ -2508,13 +2568,18 @@ int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
->  		DPRINTK(PROBE, ERR,
->  			"Memory allocation failed for the rx desc ring\n");
->  		vfree(rxdr->rx_buffer_info);
-> -		return -ENOMEM;
-> +		goto alloc_failed;
->  	}
->  
->  	rxdr->next_to_clean = 0;
->  	rxdr->next_to_use = 0;
->  
->  	return 0;
-> +
-> +alloc_failed:
-> +	vfree(rxdr->lro_mgr.lro_arr);
-> +	rxdr->lro_mgr.lro_arr = NULL;
-> +	return -ENOMEM;
->  }
->  
->  /**
-> @@ -2565,6 +2630,9 @@ static void ixgbe_free_rx_resources(struct ixgbe_adapter *adapter,
->  {
->  	struct pci_dev *pdev = adapter->pdev;
->  
-> +	vfree(rx_ring->lro_mgr.lro_arr);
-> +	rx_ring->lro_mgr.lro_arr = NULL;
-> +
->  	ixgbe_clean_rx_ring(adapter, rx_ring);
->  
->  	vfree(rx_ring->rx_buffer_info);
-> @@ -3517,6 +3585,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
->  			   NETIF_F_HW_VLAN_RX |
->  			   NETIF_F_HW_VLAN_FILTER;
->  
-> +	netdev->features |= NETIF_F_LRO;
->  	netdev->features |= NETIF_F_TSO;
->  
->  	netdev->features |= NETIF_F_TSO6;
+> +	if (ir->speed && (ir->speed < 115200))	/* Switch from SIR to FIR */
+Dont you want <= 115200 here ?
 
----
-~Randy
+> +		/* Disable SIRI */
+> +		clrbits32(&ir->reg_base->scr1, FSL_IR_SCR1_IREN |
+> +						FSL_IR_SCR1_SIRIEN);
+> +	else {					/* Switch from FIR to SIR */
+> +		/* Disable FIRI */
+> +		out_be32(&ir->reg_base->firitcr, 0);
+> +		out_be32(&ir->reg_base->firircr, 0);
+> +	}
+> +
+> +	/* Switch the IrDA mode on board */
+> +	if (ir->plat_op && ir->plat_op->set_ir_mode)
+> +		ir->plat_op->set_ir_mode(ir, speed);
+> +}
+> +
+> +static int ir_crc_len(struct fsl_ir *ir)
+> +{
+> +	int crc_len;
+> +
+> +	switch (ir->speed) {
+> +	case 576000:
+> +	case 1152000:
+> +		crc_len = 2;	/* CRC16, 16 bits */
+> +		break;
+> +	case 4000000:
+> +		crc_len = 4;	/* CRC32, 32 bits */
+> +		break;
+> +	default:
+> +		crc_len = 0;
+> +		break;
+> +	}
+> +	return crc_len;
+> +}
+> +
+> +static void fir_rx(struct fsl_ir *ir, int len)
+> +{
+> +	struct net_device *ndev = dev_get_drvdata(ir->dev);
+> +	struct sk_buff *skb;
+> +	int i;
+> +
+> +	if (len <= ir_crc_len(ir))
+> +		return;
+> +
+> +	do_gettimeofday(&ir->stamp);
+> +	/* Now, for new packet arriving */
+> +	skb = alloc_skb(len + 1, GFP_ATOMIC);
+Please use dev_alloc_skb here.
+
+> +	if (!skb) {
+> +		ir->stats.rx_dropped++;
+> +		return;
+> +	}
+> +	skb_reserve(skb, 1);
+A comment here describing why you need a 1 byte header would be nice.
+
+
+> +
+> +	for (i = 0; i < len; i++)
+> +		skb->data[i] = in_8((u8 *)&ir->reg_base->rfifo);
+> +
+> +	len -= ir_crc_len(ir);
+> +	skb_put(skb, len);
+> +
+> +	ir->stats.rx_packets++;
+> +	ir->stats.rx_bytes += len;
+> +
+> +	skb->dev = ndev;
+> +	skb_reset_mac_header(skb);
+> +	skb->protocol = htons(ETH_P_IRDA);
+> +	netif_rx(skb);
+> +}
+On a general note, this RX routine could be part of a bottom half.
+You're calling this from the IRQ handler, and this may not be a good idea.
+
+
+> +
+> +static void fir_tx(struct fsl_ir *ir)
+> +{
+> +	int free_bytes;
+> +	struct sk_buff *skb = ir->tx_buff.skb;
+> +	size_t len;
+> +
+> +	if (!skb)
+> +		return;
+> +
+> +	spin_lock(&ir->tx_lock);
+> +	do {
+> +		free_bytes = 128 -
+> +			((in_be32(&ir->reg_base->firitsr) >> 8) & 0xff);
+> +		for (len = min(free_bytes, ir->tx_buff.len); len > 0;
+> +			len--, ir->tx_buff.len--)
+> +			out_8((u8 *)&ir->reg_base->tfifo,
+> +				skb->data[skb->len - ir->tx_buff.len]);
+> +	} while (ir->tx_buff.len > 0);
+> +	spin_unlock(&ir->tx_lock);
+Here I would make use the _irqsave() versions as your skb could be NULLed
+from there. I know it's really unlikely, but still...
+You should also probably take this lock in the set_speed() routine. This
+is another place where tx_buff could be accessed concurrently.
+
+> +static int fsl_ir_set_speed(struct net_device *ndev, u32 speed)
+> +{
+> +	u32 sbir;
+> +	u32 sbmr;
+> +	struct fsl_ir *ir = netdev_priv(ndev);
+> +	struct irlap_cb *self;
+> +
+> +	if (is_sir_speed(ir->speed) != is_sir_speed(speed))
+> +		ir_switch_mode(ir, speed);
+> +
+> +	ir->speed = speed;
+> +	if (is_sir_speed(speed)) {
+> +		/* SIR */
+> +		sbir = 89;
+If you can document this one as well, it would be nice.
+
+
+> +static irqreturn_t fsl_ir_sir_irq(struct net_device *ndev)
+> +{
+> +	struct fsl_ir *ir = netdev_priv(ndev);
+> +	u32 ssr1, ssr2;
+> +	ssr1 = in_be32(&ir->reg_base->ssr1);
+> +	ssr2 = in_be32(&ir->reg_base->ssr2);
+> +
+> +	/* Tx is ready */
+> +	if ((ssr1 & FSL_IR_SSR1_TRDY) && ir->tx_buff.len) {
+> +		clrbits32(&ir->reg_base->scr1, FSL_IR_SCR1_TRDYEN);
+> +		tasklet_schedule(&ir->tx_tasklet);
+> +	}
+> +
+> +	/* Last Tx transfer is finished */
+> +	if (ssr2 & FSL_IR_SSR2_TXDC && !ir->tx_buff.len) {
+> +		if (ir->new_speed) {
+> +			fsl_ir_set_speed(ndev, ir->new_speed);
+> +			ir->new_speed = 0;
+> +		}
+> +		clrbits32(&ir->reg_base->scr4, FSL_IR_SCR4_TCEN);
+> +
+> +		ir->stats.tx_packets++;
+> +		ir->stats.tx_bytes += ir->tx_buff.data
+> +						- ir->tx_buff.head;
+> +
+> +		netif_wake_queue(ndev);
+> +	}
+> +
+> +	/* Rx is ready */
+> +	if (ssr1 & FSL_IR_SSR1_RRDY) {
+> +		int i;
+> +		int rxchars = in_be32(&ir->reg_base->sfcr) & 0x3f;
+> +
+> +		for (i = 0; i < rxchars; i++)
+> +			async_unwrap_char(ndev, &ir->stats, &ir->rx_buff,
+> +								sir_get(ir));
+> +		ndev->last_rx = jiffies;
+> +	}
+Here and in the FIR case, this could be done asynchronously, from a BH.
+
+
+> +static void fsl_ir_tx_do_tasklet(unsigned long data)
+> +{
+> +	struct fsl_ir *ir = (struct fsl_ir *)data;
+> +
+> +	if (is_sir(ir)) {
+A detail, but this test will always be true.
+
+> diff --git a/include/linux/fsl_ir.h b/include/linux/fsl_ir.h
+> new file mode 100644
+> index 0000000..2ee623a
+> --- /dev/null
+> +++ b/include/linux/fsl_ir.h
+> +struct fsl_ir {
+> +	struct fsl_ir_reg __iomem	*reg_base;
+> +	struct resource			res;
+> +	struct device			*dev;
+> +	int				irq;
+> +	struct fsl_ir_op		*plat_op;
+> +
+> +	struct irlap_cb			*irlap;
+> +	struct qos_info			qos;
+> +	struct net_device_stats		stats;
+> +
+> +	int				speed;
+> +	int				new_speed;
+> +	u32				clock_in;
+> +	int				div;
+> +
+> +	u8				txb[FSL_SIR_TXBUFF_SIZE];
+> +	u8				rxb[FSL_SIR_RXBUFF_SIZE];
+> +	iobuff_t			tx_buff;
+> +	iobuff_t			rx_buff;
+> +
+> +	spinlock_t			tx_lock;  /* Lock for Tx */
+> +	spinlock_t			rx_lock;  /* Lock for Rx */
+This is not used, you could remove it.
+
+
+> +
+> +	struct tasklet_struct		tx_tasklet;
+> +	struct delayed_work		rx_work;
+This one is not used either, but it would be nice to use it :-)
+
+Thanks a lot for your work.
+
+Cheers,
+Samuel.
+
+
