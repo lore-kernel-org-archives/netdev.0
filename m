@@ -1,73 +1,44 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] NET: DCB generic netlink interface
-Date: Wed, 11 Jun 2008 11:28:52 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329053C9888@orsmsx414.amr.corp.intel.com>
-References: <20080605.074324.38999631.davem@davemloft.net> <D5C1322C3E673F459512FB59E0DDC3290538B840@orsmsx414.amr.corp.intel.com> <20080611175156.GR20815@postel.suug.ch>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
+Date: Wed, 11 Jun 2008 20:42:09 +0200
+Message-ID: <48501C81.6010800@trash.net>
+References: <1213204329-10973-1-git-send-email-juliusv@google.com>	 <48500A0D.5020304@trash.net> <f4845fc0806111123r108348d3s6906bf2b7145bdea@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <jeff@garzik.org>,
-	<netdev@vger.kernel.org>
-To: "Thomas Graf" <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12380 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751279AbYFKS2z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 14:28:55 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080611175156.GR20815@postel.suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <f4845fc0806111123r108348d3s6906bf2b7145bdea@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Everything is possible in software as long as the hardware doesn't
-hide
-> the congestion information. It would be very useful to pass congestion
-> Information received by 802.1Qau frames to the kernel for use when
-> selecting the nexthop or for the routing daemon to make decisions on.
-> So far we could only react to link states, now we could actually react
-to
-> link congestion on the routing layer.
+Julius Volz wrote:
+> On Wed, Jun 11, 2008 at 7:23 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> I briefly looked over the patches I didn't comment on.
+>> I think there's too much duplication everywhere, a lot of
+>> them look like they could avoid almost all duplication by
+>> handling differences at a higher layer or simply sharing
+>> the code (like hashing).
+> 
+> Yes, the duplication is high unfortunately. I must admit that I didn't
+> feel secure enough to restructure all the existing code without
+> breaking it, so I copied lots of functions and modified them for IPv6.
+> My main goal was to keep all the old v4 stuff working first and then
+> remove the duplication later (or hope for smarter people).
+> 
+> So I obviously don't expect this to be ready for inclusion, but I will
+> have a lot of time to work on it (I'm doing it as an intern project)
+> and learn as long as I get good feedback like yours on what to
+> improve.
 
-Congestion notification in 802.1Qau is certainly something we need to
-support somewhere in the stack.  I was actually talking with one of our
-hardware architects while I was in Israel last week about that exact
-gap, since the BCN/QCN rate limiting will eventually drop packets if we
-don't have a way of telling the upper layers to "slow down."  The
-notification mechanism is also needed for 802.1Qbb, since the whole
-point of the priority flow control is to provide a no-drop mechanism for
-things like FCoE.  But if the upper layers (e.g. FCoE stack) don't know
-to pause when the network is too congested, frames will be dropped,
-which is bad.
+Great.
 
-802.1Qau is still being defined in IEEE unfortunately, and we and others
-have no hardware that supports it to test the congestion notification
-tag processing.  But it is something on our radar that needs to be
-addressed.
+> Another question I was unsure about: is the breaking of the
+> userspace-to-kernel interface even acceptable at all? I think the code
+> would get ugly (and have even more duplication) if you wanted to keep
+> the backwards compatibility. And you have to compile ipvsadm for your
+> kernel version anyways.
 
-> There is no doubt that doing the prioritization in hardware is much
-> preferred but we should try and integrate it with other tc techniques.
-> F.e. it would be great if we could control DCB via skb->tc_index if 
-> that is possible. It would allow to define DCB traffic classes with
-the
-> rich features of existing classifiers. I've seen there is a mapping
-> functionality although I haven't found any documentation on how to use
-> it exactly.
-
-The prioritization is only one piece.  The bandwidth aggregation,
-different modes of defining group strict vs. link strict priorities
-within a bandwidth group, etc., are all hardware modes.  These modes
-need to be in sync with the link partner (switch, back to back NIC), and
-are kept in sync with the DCBX protocol via LLDP.
-
-> Another area of interest is sending congestion frames on our own. We
-> could finally implement real ingress software shaping and turn every
-> linux system into a DCB capable node.
-
-Once 802.1Qau is defined, and IEEE decides to use BCN or QCN, I think
-this is a great direction to go in.  Right now the congestion
-notification stuff is too up in the air to latch onto unfortunately.
-
-Thanks for the comments Thomas,
-
--PJ Waskiewicz
+Usually its not acceptable. Why do you have compile ipvsadm
+for specific kernel versions?
