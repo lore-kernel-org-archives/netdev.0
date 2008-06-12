@@ -1,39 +1,22 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6 patch] drivers/net/macsonic.c: make functions static
-Date: Wed, 11 Jun 2008 22:50:58 -0400
-Message-ID: <48508F12.6020706@pobox.com>
-References: <20080609222347.GR1987@cs181133002.pp.htv.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver fixes
+Date: Wed, 11 Jun 2008 20:33:47 -0700 (PDT)
+Message-ID: <20080611.203347.200896161.davem@davemloft.net>
+References: <20080612023019.GA25798@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40496 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753311AbYFLCvA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2008 22:51:00 -0400
-In-Reply-To: <20080609222347.GR1987@cs181133002.pp.htv.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754946AbYFLDeB@vger.kernel.org>
+In-Reply-To: <20080612023019.GA25798@havoc.gtf.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> This patch makes the following needlessly global functions static:
-> - macsonic_init()
-> - mac_onboard_sonic_ethernet_addr()
-> - mac_onboard_sonic_probe()
-> - mac_nubus_sonic_ethernet_addr()
-> - macsonic_ident()
-> - mac_nubus_sonic_probe()
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> 
-> ---
-> 
->  drivers/net/macsonic.c |   19 ++++++++-----------
->  1 file changed, 8 insertions(+), 11 deletions(-)
+From: Jeff Garzik <jeff@garzik.org>
+Date: Wed, 11 Jun 2008 22:30:19 -0400
 
-applied five of these
+> Please pull from 'davem-fixes' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
 
-
-
+Pulled and pushed back out to net-2.6, thanks Jeff!
