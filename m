@@ -1,56 +1,78 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Thu, 12 Jun 2008 21:33:27 +0200
-Message-ID: <f4845fc0806121233i54099a18k9104eb34359b923f@mail.gmail.com>
-References: <48501C81.6010800@trash.net>
-	 <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
-	 <48503BBD.6000307@google.com> <485043E6.5030105@candelatech.com>
-	 <485050FE.6030209@google.com> <20080612014548.GE22358@verge.net.au>
-	 <f4845fc0806120631g511c7dbag365a8483134943fd@mail.gmail.com>
-	 <485126BD.7030109@trash.net>
-	 <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>
-	 <485144DF.3030102@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: re-formated /Re: Hi!Couldn't you take a look at kernel stack's
+   trace? (ip_route_input+0x91a/0xcc9)/
+Date: Thu, 12 Jun 2008 21:36:45 +0200
+Message-ID: <48517ACD.4020209@gmail.com>
+References: <43d009740806100736y343bad9bt3a8b365292cced49@mail.gmail.com>	 <4851116A.6040805@trash.net> <43d009740806120524g78d066d2x95640fc8e01be625@mail.gmail.com> <485115EE.1040204@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Simon Horman" <horms@verge.net.au>,
-	"Vince Busam" <vbusam@google.com>,
-	"Ben Greear" <greearb@candelatech.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <485144DF.3030102@trash.net>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: for.poige+linux@gmail.com, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.173]:55020 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753952AbYFLThe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 15:37:34 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so414426ugf.16
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2008 12:37:33 -0700 (PDT)
+In-Reply-To: <485115EE.1040204@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 12, 2008, Patrick McHardy <kaber@trash.net> wrote:
-> Julius Volz wrote:
->> Ah, that's what I thought... Are there any simple kernel examples with
->> userspace counterparts to look at? I know iproute2 uses netlink, but
->> it seems like a rather complicated example.
->
-> For nfnetlink: net/netfilter/nf_conntrack_netlink.c and
-> libnfnetlink_conntrack from git.netfilter.org.
+Patrick McHardy wrote, On 06/12/2008 02:26 PM:
 
-Thanks!
+> Igor Podlesny wrote:
+>> 2008/6/12 Patrick McHardy <kaber@trash.net>:
+>>>> Igor Podlesny wrote:
+>>>>>>  Pid: 8, comm: sirq-net-rx/0 Not tainted (2.6.25.4-rt4aa-gcc43 #1)
+>>                                             ^^^^^^^^^^^^^^^^^^^^^^^^^
+>>
+>> 	(2.6.25.4-rt4aa-gcc43)
+>> 	
+>> 	-RT is real-time: http://rt.wiki.kernel.org/index.php/Main_Page
 
->> Genetlink seems especially nice, although I couldn't find a general
->> explanation of it other than in git history.
->
-> I don't have an example for genetlink, but I guess you should
-> find some in libnl. In this case I guess both would be fine
-> since ipvs is only loosely tied to the rest of netfilter.
+Hi,
 
-Ok, my first impression is that genetlink is aimed at being simple to
-use (and has a nice howto).
+Maybe I got something wrong but it seems to be this place:
 
-So we'll work on a genetlink interface and some of the other v6 patch
-issues and then post again in a while. Thanks for the feedback!
+static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+                               u8 tos, struct net_device *dev)
+...
+        if (!IN_DEV_FORWARD(in_dev))
+                goto e_hostunreach;
+        if (res.type != RTN_UNICAST)
+                goto martian_destination;
 
-Horms: ping if you're interested or have some good ideas for this.
+        err = ip_mkroute_input(skb, &res, &fl, in_dev, daddr, saddr, tos);
+done:
+        in_dev_put(in_dev);
+        if (free_res)
+                fib_res_put(&res);	<------------
+out:    return err;
+=====
+static inline void fib_res_put(struct fib_result *res)
+{
+        if (res->fi)
+                fib_info_put(res->fi);	<------------
+#ifdef CONFIG_IP_MULTIPLE_TABLES
+        if (res->r)
+                fib_rule_put(res->r);
+#endif
+}
+=====
+static inline void fib_info_put(struct fib_info *fi)
+{
+        if (atomic_dec_and_test(&fi->fib_clntref))	<---------
+                free_fib_info(fi);
+}
 
-Julius
+Looks like EDX: 00000001 is fi, and fi + 0x18 is for fib_clntref,
+but I didn't track it further.
 
--- 
-Google Switzerland GmbH
+Igor, probably for this list it's more interesting if it's reproducible
+with unpatched kernels, and if you tried other than 2.6.25 versions
+for this?
+
+Thanks,
+Jarek P.
