@@ -1,7 +1,7 @@
 From: Administrator <TrendMicro.SRV15-T7EqbCCyjiD3fQ9qLvQP4Q@public.gmane.org>
 Subject: [MailServer Notification]Attachment Blocking Notification
-Date: Thu, 12 Jun 2008 12:17:06 -0700
-Message-ID: <42593931BE64457F9BD025C76F1AE235@iworx.ca>
+Date: Thu, 12 Jun 2008 12:20:06 -0700
+Message-ID: <6B56768992284E7099D6BB3F7507317A@iworx.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -14,7 +14,7 @@ Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 The attachment "signature.asc" has been blocked,
-and action "Quarantine message part" has been taken on 6/12/2008 12:16:40 
+and action "Quarantine message part" has been taken on 6/12/2008 12:19:10 
 PM.
 Message details:
 Server: I-WORX-SRV-14
