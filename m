@@ -1,40 +1,80 @@
-From: "Pekka Enberg" <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
-Subject: Re: [PATCH] ssb: Fix coherent DMA mask for PCI devices
-Date: Fri, 13 Jun 2008 00:44:13 +0300
-Message-ID: <84144f020806121444i43d381ehdee1774c135d8841@mail.gmail.com>
-References: <200806121533.14435.mb@bu3sch.de>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: Fix for recently introduced rawv6 bug.
+Date: Thu, 12 Jun 2008 14:49:33 -0700 (PDT)
+Message-ID: <20080612.144933.184241072.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Kirill A. Shutemov" <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>,
-	"Glauber Costa" <gcosta-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200806121533.14435.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	viro@zeniv.linux.org.uk
+To: den@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59518
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751846AbYFLVtd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 17:49:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 12, 2008 at 4:33 PM, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
-> This fixes setting the coherent DMA mask for PCI devices.
->
-> Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
->
-> ---
->
-> John, please queue this bugfix for 2.6.26
->
-> The whole SSB DMA API should be rewritten, as it makes too many bad
-> assumptions about the other subsytems. I will do that soon.
-> But let's apply this patch for now, as it fixes this particular bug.
 
-Hmm. Does the patch have anything to do with this bug report?
+Al Viro noticed that we have two assignments to
+rawv6_prot.destroy, fix below with more details in
+the commit message.
 
-http://bugzilla.kernel.org/show_bug.cgi?id=10819
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll commit this to net-2.6 and push to Linus.
+
+Thanks Al!
+
+ipv6: Fix duplicate initialization of rawv6_prot.destroy
+
+In changeset 22dd485022f3d0b162ceb5e67d85de7c3806aa20
+("raw: Raw socket leak.") code was added so that we
+flush pending frames on raw sockets to avoid leaks.
+
+The ipv4 part was fine, but the ipv6 part was not
+done correctly.  Unlike the ipv4 side, the ipv6 code
+already has a .destroy method for rawv6_prot.
+
+So now there were two assignments to this member, and
+what the compiler does is use the last one, effectively
+making the ipv6 parts of that changeset a NOP.
+
+Fix this by removing the:
+
+	.destroy	   = inet6_destroy_sock,
+
+line, and adding an inet6_destroy_sock() call to the
+end of raw6_destroy().
+
+Noticed by Al Viro.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/raw.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 8fee9a1..3aee123 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1169,7 +1169,8 @@ static int raw6_destroy(struct sock *sk)
+ 	lock_sock(sk);
+ 	ip6_flush_pending_frames(sk);
+ 	release_sock(sk);
+-	return 0;
++
++	return inet6_destroy_sock(sk);
+ }
+ 
+ static int rawv6_init_sk(struct sock *sk)
+@@ -1200,7 +1201,6 @@ struct proto rawv6_prot = {
+ 	.disconnect	   = udp_disconnect,
+ 	.ioctl		   = rawv6_ioctl,
+ 	.init		   = rawv6_init_sk,
+-	.destroy	   = inet6_destroy_sock,
+ 	.setsockopt	   = rawv6_setsockopt,
+ 	.getsockopt	   = rawv6_getsockopt,
+ 	.sendmsg	   = rawv6_sendmsg,
+-- 
+1.5.5.1.308.g1fbb5
+
