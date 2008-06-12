@@ -1,61 +1,37 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH] atl1: relax eeprom mac address error check
-Date: Wed, 11 Jun 2008 20:52:44 -0500
-Message-ID: <20080611205244.3b8fd8ac@osprey.hogchain.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 02/26] IPVS: Change IPVS data structures to support IPv6
+ addresses.
+Date: Wed, 11 Jun 2008 21:54:48 -0400
+Message-ID: <485081E8.80102@hp.com>
+References: <1213204329-10973-1-git-send-email-juliusv@google.com> <1213204329-10973-3-git-send-email-juliusv@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: advantis@gmx.net, csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost05.isp.att.net ([207.115.11.55]:36889 "EHLO
-	fmailhost05.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750696AbYFLBwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2008 21:52:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	horms@verge.net.au, davem@davemloft.net, vbusam@google.com
+To: "Julius R. Volz" <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1213204329-10973-3-git-send-email-juliusv@google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Radu Cristescu <advantis@gmx.net>
+Julius R. Volz wrote:
+> +union ip_vs_addr_user {
+> +	__be32			v4;
+> +	struct in6_addr		v6;
+> +};
+> +
+> +#ifdef CONFIG_IP_VS_IPV6
+> +#define ip_vs_addr		ip_vs_addr_user
+> +#define ip_vs_copy_addr(a, b)	do { (a) = (b); } while (0)
+> +#else
+> +union ip_vs_addr {
+> +	__be32			v4;
+> +};
+> +#define ip_vs_copy_addr(a, b)	do { (a).v4 = (b).v4; } while (0)
+> +#endif
 
-The atl1 driver tries to determine the MAC address thusly:
+You need to use ipv6_addr_copy() with IPv6 addresses.  Some of your 
+other patches have this same problem, I found some of them...
 
-	- If an EEPROM exists, read the MAC address from EEPROM and
-	  validate it.
-	- If an EEPROM doesn't exist, try to read a MAC address from
-	  SPI flash.
-	- If that fails, try to read a MAC address directly from the
-	  MAC Station Address register.
-	- If that fails, assign a random MAC address provided by the
-	  kernel.
-
-We now have a report of a system fitted with an EEPROM containing all
-zeros where we expect the MAC address to be, and we currently handle
-this as an error condition.  Turns out, on this system the BIOS writes
-a valid MAC address to the NIC's MAC Station Address register, but we
-never try to read it because we return an error when we find the all-
-zeros address in EEPROM.
-
-This patch relaxes the error check and continues looking for a MAC
-address even if it finds an illegal one in EEPROM.
-
-Signed-off-by: Radu Cristescu <advantis@gmx.net>
-Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
----
- drivers/net/atlx/atl1.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 99e0b4c..3c798ae 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -471,7 +471,6 @@ static int atl1_get_permanent_address(struct atl1_hw *hw)
- 			memcpy(hw->perm_mac_addr, eth_addr, ETH_ALEN);
- 			return 0;
- 		}
--		return 1;
- 	}
- 
- 	/* see if SPI FLAGS exist ? */
--- 
-1.5.5.1
+-Brian
