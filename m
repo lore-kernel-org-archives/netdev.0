@@ -1,109 +1,49 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH]bnx2x: Updating the Maintainer
-Date: Thu, 12 Jun 2008 18:02:53 +0300
-Message-ID: <1213282973.5995.4.camel@lb-tlvb-eliezer>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] SCTP: enable cookie-echo retransmission transport switch
+Date: Thu, 12 Jun 2008 11:07:16 -0400
+Message-ID: <48513BA4.9030403@hp.com>
+References: <4850A7F2.6090906@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eliezer Tamir" <eliezert@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: netdev <netdev@vger.kernel.org>, jeff@garzik.org,
-	davem@davemloft.net
+Cc: David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3129 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752071AbYFLPDE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jun 2008 11:03:04 -0400
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:11862 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085AbYFLPHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 11:07:20 -0400
+In-Reply-To: <4850A7F2.6090906@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Gui Jianfeng wrote:
+> Vlad,
+> This patch enables cookie-echo retransmission transport switch
+> feature. If COOKIE-ECHO retransmission happens, it will be sent 
+> to the address other than the one last sent to.
+> 
 
-I would like to thank Eliezer Tamir for writing and maintaining the
-driver for the past two years. I will take over maintaining the bnx2x
-driver from now on.
+NAK.
 
-Thanks,
-Eilon
+You can't blindly choose a different transport since they could
+be unconfirmed and can't really be used until we confirm them
+with HBs.  So, you can only do this when the user issued an
+sctp_connectx() and we have multiple confirmed transports.
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
----
- MAINTAINERS              |    4 ++--
- drivers/net/bnx2x.c      |    5 +++--
- drivers/net/bnx2x.h      |    3 ++-
- drivers/net/bnx2x_init.h |    3 ++-
- 4 files changed, 9 insertions(+), 6 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 46fa179..7c8e561 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -995,8 +995,8 @@ L:	netdev@vger.kernel.org
- S:	Supported
- 
- BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
--P:	Eliezer Tamir
--M:	eliezert@broadcom.com
-+P:	Eilon Greenstein
-+M:	eilong@broadcom.com
- L:	netdev@vger.kernel.org
- S:	Supported
- 
-diff --git a/drivers/net/bnx2x.c b/drivers/net/bnx2x.c
-index 7bdb5af..70cba64 100644
---- a/drivers/net/bnx2x.c
-+++ b/drivers/net/bnx2x.c
-@@ -6,7 +6,8 @@
-  * it under the terms of the GNU General Public License as published by
-  * the Free Software Foundation.
-  *
-- * Written by: Eliezer Tamir <eliezert@broadcom.com>
-+ * Maintained by: Eilon Greenstein <eilong@broadcom.com>
-+ * Written by: Eliezer Tamir
-  * Based on code from Michael Chan's bnx2 driver
-  * UDP CSUM errata workaround by Arik Gendelman
-  * Slowpath rework by Vladislav Zolotarov
-@@ -74,7 +75,7 @@ static char version[] __devinitdata =
- 	"Broadcom NetXtreme II 5771X 10Gigabit Ethernet Driver "
- 	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
- 
--MODULE_AUTHOR("Eliezer Tamir <eliezert@broadcom.com>");
-+MODULE_AUTHOR("Eliezer Tamir");
- MODULE_DESCRIPTION("Broadcom NetXtreme II BCM57710 Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_MODULE_VERSION);
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 4f0c0d3..8e68d06 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -6,7 +6,8 @@
-  * it under the terms of the GNU General Public License as published by
-  * the Free Software Foundation.
-  *
-- * Written by: Eliezer Tamir <eliezert@broadcom.com>
-+ * Maintained by: Eilon Greenstein <eilong@broadcom.com>
-+ * Written by: Eliezer Tamir
-  * Based on code from Michael Chan's bnx2 driver
-  */
- 
-diff --git a/drivers/net/bnx2x_init.h b/drivers/net/bnx2x_init.h
-index dcaecc5..370686e 100644
---- a/drivers/net/bnx2x_init.h
-+++ b/drivers/net/bnx2x_init.h
-@@ -6,7 +6,8 @@
-  * it under the terms of the GNU General Public License as published by
-  * the Free Software Foundation.
-  *
-- * Written by: Eliezer Tamir <eliezert@broadcom.com>
-+ * Maintained by: Eilon Greenstein <eilong@broadcom.com>
-+ * Written by: Eliezer Tamir
-  */
- 
- #ifndef BNX2X_INIT_H
--- 
-1.5.3.2
+In this case only confirmed transports are allowed, otherwise
+there is a possibility of hijacking associations.
 
 
+Also, looking at this, the same problem exists in current
+code for selection INIT transports.
 
+We don't correctly treat peers passed to connectx() as confirmed
+and don't select the correct transport.
+
+Once you fix that above, you can just re-use the function and
+re-use init_last_sent_to.
+
+-vlad
 
