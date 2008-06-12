@@ -1,127 +1,37 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Re: [PATCH 0/2] HTB scheduler HTB_HYSTERESIS modifications
-Date: Thu, 12 Jun 2008 12:01:15 +0200
-Message-ID: <1213264875.29292.17.camel@localhost.localdomain>
-References: <1212501803.13164.27.camel@localhost.localdomain>
-	 <48469323.8000506@cdi.cz> <1212589713.13164.75.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NET: DCB generic netlink interface
+Date: Thu, 12 Jun 2008 12:17:50 +0200
+Message-ID: <4850F7CE.1040402@trash.net>
+References: <20080605.074324.38999631.davem@davemloft.net> <D5C1322C3E673F459512FB59E0DDC3290538B840@orsmsx414.amr.corp.intel.com> <20080611175156.GR20815@postel.suug.ch> <48501083.2040006@trash.net> <20080611212844.GT20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-ccudQNEb0T0UeMCf0efk"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Martin Devera <devik@cdi.cz>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	David Miller <davem@davemloft.net>, jeff@garzik.org,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:50863 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752546AbYFLKBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 06:01:17 -0400
-In-Reply-To: <1212589713.13164.75.camel@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:35525 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754313AbYFLKRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 06:17:54 -0400
+In-Reply-To: <20080611212844.GT20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Thomas Graf wrote:
+> * Patrick McHardy <kaber@trash.net> 2008-06-11 19:50
+>> Thomas Graf wrote:
+>>> Another area of interest is sending congestion frames on our own. We
+>>> could finally implement real ingress software shaping and turn every
+>>> linux system into a DCB capable node.
+>> There was a qdisc submission for a scheduler called "pace" (IIRC)
+>> that did this. It needed some cleanups before merging, but nothing
+>> grave.
+> 
+> Do you know if it used congestion notifcation on link level? I can't
+> seem to find the posting.
 
---=-ccudQNEb0T0UeMCf0efk
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+They're using PAUSE frames. The latest submission I could find is:
 
-
-On Wed, 2008-06-04 at 16:28 +0200, Jesper Dangaard Brouer wrote:
-> Okay, lets wait until I get this kernel into our real-life production
-> system.  Then I can report on the real-life impact on CPU performance.
-
-I have now tested/deployed the patches on two production servers.
-
- Conclusion is: It should be safe to apply these patches.
-
-See full report here:
-http://people.netfilter.org/hawk/patches/htb_nohyst/production_test_results.html
-
-We saw an increased number of interrupts on the test system, when
-enabling/disabling htb_hysteresis.
-
- This didn't show up on the production system.
-
-I believe that the increased intr (on test system) is an artifact of the
-TCP download got less bursty and more smooth.
-
-I could not measure any increased CPU usage when enabling/disabling
-htb_hysteresis.
-
-
-P.S. As a side note: 
- Network performance on 2.6.24.4 seems very good! Surprisingly the CPU
-usage decreased significanly (see images in full report), when upgrading
-to kernel 2.6.25.4 (from 2.6.15). I have not Oprofiled, but from
-previous experiences, I believe that its primarily caused by Patrick
-McHardys RCU patches to netfilter conntrack, Thanks Patrick!!! :-)
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---=-ccudQNEb0T0UeMCf0efk
-Content-Disposition: attachment; filename=production_test_results.txt
-Content-Transfer-Encoding: base64
-Content-Type: text/plain; name=production_test_results.txt; charset=us-ascii
-
-DQogIEV2YWx1YXRpb24gb2YgdGhlIEhUQiBoeXN0ZXJlc2lzIHBhdGNoZXMgb24gYSByZWFsLWxp
-ZmUgcHJvZHVjdGlvbiBzeXN0ZW0uDQoNCiAgIEZvciBjb250ZXh0IHNlZSBbMV1uZXRkZXYgZW1h
-aWwgZGlzY3Vzc2lvbiwgdGl0bGVkOiAiSFRCIHNjaGVkdWxlcg0KICAgSFRCX0hZU1RFUkVTSVMg
-bW9kaWZpY2F0aW9ucyIuDQogICBbMl1bUEFUQ0ggMS8yXSBIVEIgc2NoZWR1bGVyLCBjaGFuZ2Ug
-ZGVmYXVsdCBoeXN0ZXJlc2lzIG1vZGUgdG8gb2ZmLg0KICAgWzNdW1BBVENIIDIvMl0gQ2hhbmdl
-IEhUQl9IWVNURVJFU0lTIHRvIGEgcnVudGltZSBwYXJhbWV0ZXINCiAgIGh0Yl9oeXN0ZXJlc2lz
-Lg0KDQogICBXZSBzYXcgYW4gaW5jcmVhc2VkIG51bWJlciBvZiBpbnRlcnJ1cHRzIG9uIHRoZSB0
-ZXN0IHN5c3RlbSwgd2hlbg0KICAgZW5hYmxpbmcvZGlzYWJsaW5nIGh0Yl9oeXN0ZXJlc2lzLg0K
-ICAgVGhpcyBkaWRuJ3Qgc2hvdyB1cCBvbiB0aGUgcHJvZHVjdGlvbiBzeXN0ZW0uDQojIEVuYWJs
-ZToNCmVjaG8gMSA+IC9zeXMvbW9kdWxlL3NjaF9odGIvcGFyYW1ldGVycy9odGJfaHlzdGVyZXNp
-cw0KDQojIERpc2FibGU6DQplY2hvIDAgPiAvc3lzL21vZHVsZS9zY2hfaHRiL3BhcmFtZXRlcnMv
-aHRiX2h5c3RlcmVzaXMNCg0KICAgSSBiZWxpZXZlIHRoYXQgdGhlIGluY3JlYXNlZCBpbnRyIChv
-biB0ZXN0IHN5c3RlbSkgaXMgYW4gYXJ0aWZhY3Qgb2YNCiAgIHRoZSBUQ1AgZG93bmxvYWQgZ290
-IGxlc3MgYnVyc3R5IGFuZCBtb3JlIHNtb290aC4NCg0KICBLZXJuZWwgb24gUHJvZHVjdGlvbiBo
-b3N0DQoNCiAgIEEgbmV3IGtlcm5lbCAyLjYuMjUuNCB3aXRoIG15IEhUQiBoeXN0ZXJlc2lzIHBh
-dGNoZXMsIGFuZCBkZWZhdWx0DQogICBodGJfaHlzdGVyZXNpcyBvZmYsIHdlcmUgYm9vdGVkICh0
-dWVzZGFnIDEwLzYtMjAwOCkgb24gdGhlIHByb2R1Y3Rpb24NCiAgIGhvc3QgKGludGVybmFsIG5h
-bWUgQkNVMjQpLiBQcmV2aW91cyBrZXJuZWwgMi42LjE1LiBUaGUgcHJvZHVjdGlvbg0KICAgaG9z
-dCBpcyBwb3dlciBmdWxsIG1hY2hpbmUsIGEgSFAgREwzODAgZHVhbCBYZW9uICgzR2h6LCAyTWIg
-Q2FjaGUsDQogICBodCkuDQoNCiAgSW50ZXJydXB0cw0KDQogICBUaGVyZSBpcyBubyByZWFsIGNo
-YW5nZSBpbiB0aGUgaW50ZXJydXB0IGxvYWQsIHNlZSBpbnRlcnJ1cHRzIGltYWdlOg0KICAgW2Jj
-dTI0X2ludGVycnVwdHNfd2Vlay5wbmddDQoNCiAgIFRoZSBtYWNoaW5lIGhhcyBhIHNpbXBsZSBI
-VEIgc2V0dXAgb24gZXRoMCBhbmQgZXRoMSBlYWNoIHdpdGggNjEwIEhUQg0KICAgY2xhc3MgbGVh
-ZnMgdW5kZXIgdGhlIHJvb3Qgbm9kZS4NCiAgIEl0IGFsc28gaGFzIHF1aXRlIGEgbG90IG9mIGlw
-dGFibGVzIHJ1bGVzICgxMTQwNSBydWxlcyBhbmQgMzAxNQ0KICAgY2hhaW5zKS4NCg0KICAgV2hl
-biBjaGFuZ2luZyBodGJfaHlzdGVyZXNpcyBydW50aW1lLCB0aGVyZSB3aGVyZSBub3QgbWVhc3Vy
-YWJsZQ0KICAgY2hhbmdlcyBpbiBpbnRlcnJ1cHRzLiANCg0KICBDUFUgdXNhZ2UNCg0KICAgU3Vy
-cHJpc2luZ2x5IHRoZSBDUFUgdXNhZ2UgZGVjcmVhc2VkIHNpZ25pZmljYW5seSwgd2hlbiB1cGdy
-YWRpbmcgdG8NCiAgIGtlcm5lbCAyLjYuMjUuNCAoZnJvbSBrZXJuZWwgMi42LjE1KS4NCiAgIEkg
-aGF2ZSBub3QgT3Byb2ZpbGVkLCBidXQgZnJvbSBwcmV2aW91cyBleHBlcmllbmNlcywgSSBiZWxp
-ZXZlIHRoYXQNCiAgIGl0cyBwcmltYXJpbHkgY2F1c2VkIGJ5IFBhdHJpY2sgTWNIYXJkeXMgUkNV
-IHBhdGNoZXMgdG8gbmV0ZmlsdGVyDQogICBjb25udHJhY2ssIFRoYW5rcyEhISA6LSkuDQogICBb
-YmN1MjRfY3B1bG9hZF93ZWVrLnBuZ10NCg0KICAgT25seSBsb29raW5nIGF0IHRoZSBzeXN0ZW0g
-YW5kIHNvZnRpcnEgbG9hZDoNCiAgIFtiY3UyNF9zb2Z0aXJxX3dlZWsucG5nXQ0KDQogICBXaGVu
-IGNoYW5naW5nIGh0Yl9oeXN0ZXJlc2lzIHJ1bnRpbWUsIHRoZXJlIHdoZXJlIG5vdCBtZWFzdXJh
-YmxlDQogICBjaGFuZ2VzIGluIENVUCB1c2FnZS4gDQoNCiAgVHJhZmZpYyBMb2FkDQoNCiAgIFRo
-ZSB0cmFmZmljIGFuZCBwYWNrZXRzL3NlYyBsb2FkIGRpZG4ndCBjaGFuZ2VkIHNpZ25pZmljYW50
-bHkgb3ZlciB0aGUNCiAgIHBlcmlvZC4NCiAgIFtiY3UyNF90cmFmZmljX3dlZWsucG5nXQ0KICAg
-W2JjdTI0X3BhY2tldHNfd2Vlay5wbmddDQoNCiAgQXV0aG9yIG9mIHRoaXMgZG9jdW1lbnQNCg0K
-ICAgWzRdaHR0cDovL3Blb3BsZS5uZXRmaWx0ZXIub3JnL2hhd2svcGF0Y2hlcy9odGJfbm9oeXN0
-L3Byb2R1Y3Rpb25fdGVzdA0KICAgX3Jlc3VsdHMuaHRtbA0KDQogICBOYW1lOiBKZXNwZXIgRGFu
-Z2FhcmQgQnJvdWVyDQogICBFbWFpbDogaGF3ayAoYXQpIGRpa3UgKGRvdCkgZGsNCiAgIEF1dGhv
-ciBvZiBbNV1odHRwOi8vYWRzbC1vcHRpbWl6ZXIuZGsNCiAgIExpbmtlZEluOiBbNl1odHRwOi8v
-d3d3LmxpbmtlZGluLmNvbS9pbi9icm91ZXINCg0KUmVmZXJlbmNlcw0KDQogICAxLiBodHRwOi8v
-dGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5saW51eC5uZXR3b3JrLzk1NTkyDQogICAyLiBodHRwOi8v
-cGVvcGxlLm5ldGZpbHRlci5vcmcvaGF3ay9wYXRjaGVzL2h0Yl9ub2h5c3QvMDAwMS1IVEItc2No
-ZWR1bGVyLWNoYW5nZS1kZWZhdWx0LWh5c3RlcmVzaXMtbW9kZS10by1vZmYucGF0Y2gNCiAgIDMu
-IGh0dHA6Ly9wZW9wbGUubmV0ZmlsdGVyLm9yZy9oYXdrL3BhdGNoZXMvaHRiX25vaHlzdC8wMDAy
-LUNoYW5nZS1IVEJfSFlTVEVSRVNJUy10by1hLXJ1bnRpbWUtcGFyYW1ldGVyLWh0Yl9oeXMucGF0
-Y2gNCiAgIDQuIGh0dHA6Ly9wZW9wbGUubmV0ZmlsdGVyLm9yZy9oYXdrL3BhdGNoZXMvaHRiX25v
-aHlzdC9wcm9kdWN0aW9uX3Rlc3RfcmVzdWx0cy5odG1sDQogICA1LiBodHRwOi8vd3d3LmFkc2wt
-b3B0aW1pemVyLmRrLw0KICAgNi4gaHR0cDovL3d3dy5saW5rZWRpbi5jb20vaW4vYnJvdWVyDQo=
-
-
---=-ccudQNEb0T0UeMCf0efk--
+http://marc.info/?t=119625135300006&r=1&w=2
