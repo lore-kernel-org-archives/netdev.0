@@ -1,107 +1,74 @@
-From: "John Stoffel" <john@stoffel.org>
-Subject: 2.6.26-rc5: CFI: Found no ck804xrom @ffc00000 device at
-   location zero
-Date: Thu, 12 Jun 2008 14:34:36 -0400
-Message-ID: <18513.27708.452410.527696@stoffel.org>
-References: <20080612182308.GA1091@ldl.fc.hp.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RFC] Do not activate promiscuous mode on wlan interfaces for
+	bridging.
+Date: Thu, 12 Jun 2008 20:44:10 +0200
+Message-ID: <1213296250.3730.33.camel@johannes.berg>
+References: <1213232760.6645.24.camel@localhost>
+	 (sfid-20080612_030607_332834_1EFDE126)  <1213255570.3871.8.camel@johannes.berg>
+	 <1213294793.6615.16.camel@localhost>
+	 (sfid-20080612_202000_504292_98E93460)  <1213294852.3730.31.camel@johannes.berg>
+	 <1213295643.6615.20.camel@localhost> (sfid-20080612_203408_119945_EA437275)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: i2c@lm-sensors.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Mycroft.westnet.com ([216.187.52.7]:54068 "EHLO
-	Mycroft.westnet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754087AbYFLSiy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 14:38:54 -0400
-In-Reply-To: <20080612182308.GA1091@ldl.fc.hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-rKWwzpBvGHd/yxjrX7Cw"
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	j@w1.fi, bridge-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Luis Carlos Cobo <luisca-W/OLz77bvjtBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1213295643.6615.20.camel@localhost> (sfid-20080612_203408_119945_EA437275)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-Hi,
+--=-rKWwzpBvGHd/yxjrX7Cw
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I'm running a AMD X2 box with 4gb of RAM, Ubuntu 8.04 x86_64.  I just
-rebooted the system and I notice the following repeated messages
-(errors? warnings?) in my dmesg output.  I think this is from my
-nForce ethernet chips, but I'm not sure.
+On Thu, 2008-06-12 at 11:34 -0700, Luis Carlos Cobo wrote:
+> On Thu, 2008-06-12 at 20:20 +0200, Johannes Berg wrote:
+> > Is this a mac80211 driver? When are you activating promisc?
+>=20
+> Yes, libertastf (adaptation of the libertas driver to use a thin
+> firmware and mac80211), you can check it out at=20
+>=20
+> git://dev.laptop.org/users/javier/libertastf.git
+>=20
+> Still want to polish it a bit before submitting.
+>=20
+> Promiscuous mode is being activated when attaching the interface to a
+> bridge, in the lines included in the patch on the first mail in the
+> thread.
 
-[   13.268005] ck804xrom ck804xrom_init_one(): Unable to register resource 0x00000000ff000000-0x00000000ffffffff - kernel bug?
-[   13.336752] i2c-adapter i2c-0: nForce2 SMBus adapter at 0x1c00
-[   13.336786] i2c-adapter i2c-1: nForce2 SMBus adapter at 0x1c40
-[   13.376771] CFI: Found no ck804xrom @ffc00000 device at location zero
-[   13.398810] JEDEC: Found no ck804xrom @ffc00000 device at location zero
-[   13.398822] CFI: Found no ck804xrom @ffc00000 device at location zero
-[   13.398883] JEDEC: Found no ck804xrom @ffc00000 device at location zero
-[   13.398889] CFI: Found no ck804xrom @ffc00000 device at location zero
-[   13.398928] JEDEC: Found no ck804xrom @ffc00000 device at location zero
-[   13.398934] CFI: Found no ck804xrom @ffc10000 device at location zero
-[   13.398971] JEDEC: Found no ck804xrom @ffc10000 device at location zero
-[   13.398980] CFI: Found no ck804xrom @ffc10000 device at location zero
-[   13.399042] JEDEC: Found no ck804xrom @ffc10000 device at location zero
-[   13.399048] CFI: Found no ck804xrom @ffc10000 device at location zero
-[   13.399579] JEDEC: Found no ck804xrom @ffc10000 device at location zero
-[   13.399579] CFI: Found no ck804xrom @ffc20000 device at location zero
-[   13.399582] JEDEC: Found no ck804xrom @ffc20000 device at location zero
-[   13.399591] CFI: Found no ck804xrom @ffc20000 device at location zero
-[   13.399652] JEDEC: Found no ck804xrom @ffc20000 device at location zero
-[   13.399658] CFI: Found no ck804xrom @ffc20000 device at location zero
-[   13.399696] JEDEC: Found no ck804xrom @ffc20000 device at location zero
-[   13.399702] CFI: Found no ck804xrom @ffc30000 device at location zero
-[   13.399739] JEDEC: Found no ck804xrom @ffc30000 device at location zero
-[   13.399748] CFI: Found no ck804xrom @ffc30000 device at location zero
-[   13.399809] JEDEC: Found no ck804xrom @ffc30000 device at location zero
-[   13.399815] CFI: Found no ck804xrom @ffc30000 device at location zero
-[   13.399853] JEDEC: Found no ck804xrom @ffc30000 device at location zero
-[   13.399859] CFI: Found no ck804xrom @ffc40000 device at location zero
-[   13.399896] JEDEC: Found no ck804xrom @ffc40000 device at location zero
-[   13.399905] CFI: Found no ck804xrom @ffc40000 device at location zero
-[   13.400587] JEDEC: Found no ck804xrom @ffc40000 device at location zero
-[   13.400593] CFI: Found no ck804xrom @ffc40000 device at location zero
-[   13.400631] JEDEC: Found no ck804xrom @ffc40000 device at location zero
-[   13.400637] CFI: Found no ck804xrom @ffc50000 device at location zero
-[   13.400674] JEDEC: Found no ck804xrom @ffc50000 device at location zero
-[   13.400683] CFI: Found no ck804xrom @ffc50000 device at location zero
-[   13.400744] JEDEC: Found no ck804xrom @ffc50000 device at location zero
-[   13.400750] CFI: Found no ck804xrom @ffc50000 device at location zero
-[   13.400788] JEDEC: Found no ck804xrom @ffc50000 device at location zero
-[   13.400795] CFI: Found no ck804xrom @ffc60000 device at location zero
-[   13.400831] JEDEC: Found no ck804xrom @ffc60000 device at location zero
-[   13.400840] CFI: Found no ck804xrom @ffc60000 device at location zero
-[   13.400902] JEDEC: Found no ck804xrom @ffc60000 device at location zero
-[   13.400908] CFI: Found no ck804xrom @ffc60000 device at location zero
-[   13.401577] JEDEC: Found no ck804xrom @ffc60000 device at location zero
-[   13.401577] CFI: Found no ck804xrom @ffc70000 device at location zero
-.
-.
-.
-.
-.
-.
-[   13.420781] JEDEC: Found no ck804xrom @fff60000 device at location zero
-[   13.420789] CFI: Found no ck804xrom @fff60000 device at location zero
-[   13.420851] JEDEC: Found no ck804xrom @fff60000 device at location zero
-[   13.420857] CFI: Found no ck804xrom @fff60000 device at location zero
-[   13.420895] JEDEC: Found no ck804xrom @fff60000 device at location zero
-[   13.420901] CFI: Found no ck804xrom @fff70000 device at location zero
-[   13.421576] JEDEC: Found no ck804xrom @fff70000 device at location zero
-[   13.421576] CFI: Found no ck804xrom @fff70000 device at location zero
-[   13.421626] JEDEC: Found no ck804xrom @fff70000 device at location zero
-[   13.421632] CFI: Found no ck804xrom @fff70000 device at location zero
-[   13.421670] JEDEC: Found no ck804xrom @fff70000 device at location zero
-[   13.421698] CFI: Found no ck804xrom @fff80000 device at location zero
-[   13.421881] JEDEC: Found no ck804xrom @fff80000 device at location zero
-[   13.421908] CFI: Found no ck804xrom @fff80000 device at location zero
-[   13.422716] JEDEC: Found no ck804xrom @fff80000 device at location zero
-[   13.422728] CFI: Found no ck804xrom @fff80000 device at location zero
-[   13.422752] Found: PMC Pm49FL004
-[   13.422775] ck804xrom @fff80000: Found 1 x8 devices at 0x0 in 8-bit bank
-[   13.486876] number of JEDEC chips: 1
-[   13.486897] cfi_cmdset_0002: Disabling erase-suspend-program due to code brokenness.
+But in response to what mac80211 command are you sending the promisc
+mode to the hw?
 
+johannes
 
+--=-rKWwzpBvGHd/yxjrX7Cw
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-These messages seem really damn noisy, esp since it does find a JEDEC chip eventually.  I'll try and see about bisecting this later on if I get a chance.
+iQIcBAABAgAGBQJIUW53AAoJEKVg1VMiehFYOPoP/ix6ZwYtBUAnb6gZv1oXoZS+
+UuSBhWUjaVWM/1TBt5KOtLcmGdMGFt4RM4kWeZlBKIep9fWFfc6Odw/wipS6v7pU
+lovcVYkI4sZpc1YHqBFCiPZaSBR5FFrmug1CdNjghopxb3aKZJIbBhRjnZ2om/0C
+LaqulsRdgkCZ6Rxu5JCfJ3SFhLcNaOsWy8wHLAIgLIKTi6h/xfQsxIoEzJAFT6s4
+5n+qPxqDfGj40RIJ7WB13hYAOWKWaSNBsNsd1qMjf6+BnkbJQoB4B8lUgV+X7EAY
+l+OemYjVjHBtfdp68zMI5KC+k4bIGAqqib/HEdYGdjCjneQTPBwP66JQemBX/Z8o
+26kN8gg88rWMagOqPESD13ZtZ9517RGmvx4+w47n6TLHzhHdwj40Ujk+LTVa/v36
+5ia6S9qNrHbfyMVxP04y8WzXWcVgnLTvdY2tWAxp8c25soeMNb5/CLAFl3pd1iCH
+rCEMdY7zch/zfWqfxvZQVKMk+v8DlnwHzbHTbQVYVhOI1YImHj79LdIQogsrgMUB
+eZi8vYfrwITROizIXFzf/TOBQA4huSQcd0clk938DfjAhhjBt0FmITdo+Q3YCFci
+xUHdTJuRw0ZSHU2sDMvDG9sIcGN42Vzs864QJ21t4wB6OUyciLmLmfiHSnRL35e0
+jZu5N1hwgnw35GuhQcU7
+=yMx2
+-----END PGP SIGNATURE-----
 
-John
+--=-rKWwzpBvGHd/yxjrX7Cw--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
