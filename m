@@ -1,53 +1,45 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] ixbge: allow vlan devices to use TSO and TCP CSUM
- offload
-Date: Wed, 11 Jun 2008 22:50:39 -0400
-Message-ID: <48508EFF.1090802@garzik.org>
-References: <20080605105954.28781.95876.stgit@localhost.localdomain> <20080605110335.28781.49248.stgit@localhost.localdomain>
+Subject: Re: Pull request for mv643xx_eth 'for-2.6.27' branch
+Date: Wed, 11 Jun 2008 22:50:51 -0400
+Message-ID: <48508F0B.1040201@garzik.org>
+References: <20080606113747.GA7778@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: dale@farnsworth.org, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45492 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40483 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753822AbYFLCum (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2008 22:50:42 -0400
-In-Reply-To: <20080605110335.28781.49248.stgit@localhost.localdomain>
+	id S1755483AbYFLCuz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2008 22:50:55 -0400
+In-Reply-To: <20080606113747.GA7778@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> Using the new interface for propagating device feature flags into VLAN
-> devices, turn on TSO and CSUM offload on VLAN devices.
+Lennert Buytenhek wrote:
+> Jeff,
 > 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
+> Please pull the following mv643xx_eth patches for 2.6.27.  (They
+> were all ACKed by Dale, and I've agreed to take over mv643xx_eth
+> maintainership from him.)
 > 
->  drivers/net/ixgbe/ixgbe_main.c |    7 ++++++-
->  1 files changed, 6 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-> index 7b85922..0d37c90 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -3518,8 +3518,13 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
->  			   NETIF_F_HW_VLAN_FILTER;
->  
->  	netdev->features |= NETIF_F_TSO;
-> -
->  	netdev->features |= NETIF_F_TSO6;
-> +
-> +	netdev->vlan_features |= NETIF_F_TSO;
-> +	netdev->vlan_features |= NETIF_F_TSO6;
-> +	netdev->vlan_features |= NETIF_F_HW_CSUM;
-> +	netdev->vlan_features |= NETIF_F_SG;
-> +
->  	if (pci_using_dac)
+> thanks,
+> Lennert
+> 
+> 
+> 
+> The following changes since commit 39b945a37bac2b692773a470890c8ba301485b15:
+>   Linus Torvalds (1):
+>         Merge master.kernel.org:/home/rmk/linux-2.6-arm
+> 
+> are available in the git repository at:
+> 
+>   git://git.marvell.com/mv643xx_eth.git for-2.6.27
 
-applied 1-3
+this pulls in a metric boatload of stuff into net-next, so I cannot pull
+it :(
 
 
 
