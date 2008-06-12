@@ -1,41 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs
-	Documentation
-Date: Thu, 12 Jun 2008 16:22:24 -0400
-Message-ID: <48518580.7010206@garzik.org>
-References: <20080610205633.11186.45499.stgit@dale>	
-	<20080610210918.11186.64253.stgit@dale>
-	<484F751F.7030407@trash.net>	
-	<c8028d330806120813q6363c3cemb4aa03ceff6547d1@mail.gmail.com>	
-	<48513E4E.4040601@trash.net>
-	<71d336490806120829o7cac67bes384c305e03b0d746@mail.gmail.com>
+From: Igor M Podlesny <for.poige+linux@gmail.com>
+Subject: > this message has strange "Subject"...
+Date: Fri, 13 Jun 2008 04:23:27 +0800
+Message-ID: <485185BF.60906@gmail.com>
+References: <43d009740806100736y343bad9bt3a8b365292cced49@mail.gmail.com> <4851116A.6040805@trash.net> <43d009740806120524g78d066d2x95640fc8e01be625@mail.gmail.com> <485115EE.1040204@trash.net> <48517ACD.4020209@gmail.com> <48517D1C.7010308@gmail.com> <20080612201548.GA2472@ami.dom.local>
+Reply-To: for.poige+linux@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, netdev@vger.kernel.org,
-	rdreier@cisco.com, general@lists.openfabrics.org,
-	Patrick McHardy <kaber@trash.net>, poornima.kamath@qlogic.com
-To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <71d336490806120829o7cac67bes384c305e03b0d746@mail.gmail.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.169]:62375 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753457AbYFLUXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 16:23:34 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so423567ugf.16
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2008 13:23:31 -0700 (PDT)
+In-Reply-To: <20080612201548.GA2472@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ramachandra K wrote:
-> If you are referring to IP address configuration etc, users can configure
-> the interfaces by setting up ifcfg files and the interfaces are automatically
-> configured when they are registered.
+On 2008-06-13 04:15, Jarek Poplawski wrote:
+	[...]
+> BTW, is it your mailer or some memory problems: this message has strange
+> "Subject"...
 
+	Neither of above. It's just my habbit to keep Subjects related to current state of
+mail, not original one.
 
-That makes a lot of assumptions about the Linux distribution and 
-userspace setup, assumptions that may not be true for all Linux.
-
-	Jeff
+-- 
