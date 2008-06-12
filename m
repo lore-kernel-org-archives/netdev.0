@@ -1,35 +1,29 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.25rc7 lockdep trace
-Date: Thu, 12 Jun 2008 07:47:57 +0000
-Message-ID: <20080612074756.GC4005@ff.dom.local>
-References: <20080610.224023.116817726.davem@davemloft.net> <20080612061334.GA4005@ff.dom.local> <20080612.000153.30878828.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] net-next-2.6 updates: key, ipv6 and tcp.
+Date: Thu, 12 Jun 2008 01:21:21 -0700 (PDT)
+Message-ID: <20080612.012121.232385059.davem@davemloft.net>
+References: <20080612.105154.76614473.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes@sipsolutions.net, davej@codemonkey.org.uk,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:47335 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752614AbYFLHoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 03:44:00 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so2150554ywe.1
-        for <netdev@vger.kernel.org>; Thu, 12 Jun 2008 00:43:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080612.000153.30878828.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59758
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752121AbYFLIVW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 04:21:22 -0400
+In-Reply-To: <20080612.105154.76614473.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 12, 2008 at 12:01:53AM -0700, David Miller wrote:
-...
-> net: Eliminate flush_scheduled_work() calls while RTNL is held.
-> 
-...
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 12 Jun 2008 10:51:54 +0900 (JST)
 
-Very nice!
+> Please consider pulling following changes since commit
+> 573bf470e693f73a6ac437b17a64a10902ba54bf
+>     ipv4 addr: Send netlink notification for address label changes
+> at
+> 	git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-next.git net-next-2.6-misc-20080612a
 
-BTW, I guess this cassini fix with direct calling the work function
-(and maybe moving flush_ after unregister_netdev() in 8139too, like
-in a few other places) could be re-considered here as well.
-
-Jarek P.
+Pulled and pushed back out to net-next-2.6, thanks!
