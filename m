@@ -1,7 +1,7 @@
 From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATCH 3/12] benet: net_object i/f functions, Makefile
-Date: Thu, 12 Jun 2008 03:40:07 -0700
-Message-ID: <20080612104007.d68b14bd@mailhost.serverengines.com>
+Subject: [PATCH 4/12] benet: beclib (h/w access lib) header files
+Date: Thu, 12 Jun 2008 03:40:42 -0700
+Message-ID: <20080612104042.89fa1f08@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
@@ -9,55 +9,29 @@ Content-Transfer-Encoding: 8BIT
 Cc: netdev@vger.kernel.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:8902 "EHLO
+Received: from mail142.messagelabs.com ([216.82.249.99]:16086 "EHLO
 	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756169AbYFLKkL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 06:40:11 -0400
+	with ESMTP id S1756250AbYFLKkr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 06:40:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
 ---
- drivers/net/benet/Makefile |   22 +
- drivers/net/benet/bni.c    | 1177 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 1199 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/benet/Makefile
- create mode 100644 drivers/net/benet/bni.c
+ drivers/message/beclib/beclib_common.h      |  667 ++++++++++++++++
+ drivers/message/beclib/beclib_ll_bmap_nic.h | 1111 +++++++++++++++++++++++++++
+ drivers/message/beclib/beclib_ll_enum_nic.h |   48 ++
+ 3 files changed, 1826 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/message/beclib/beclib_common.h
+ create mode 100644 drivers/message/beclib/beclib_ll_bmap_nic.h
+ create mode 100644 drivers/message/beclib/beclib_ll_enum_nic.h
 
-diff --git a/drivers/net/benet/Makefile b/drivers/net/benet/Makefile
+diff --git a/drivers/message/beclib/beclib_common.h b/drivers/message/beclib/beclib_common.h
 new file mode 100644
-index 0000000..0fe3297
+index 0000000..ed1a838
 --- /dev/null
-+++ b/drivers/net/benet/Makefile
-@@ -0,0 +1,22 @@
-+#
-+# Makefile to build the network driver for ServerEngine's BladeEngine.
-+#
-+BECLIBPATH = $(src)/../../message/beclib
-+
-+EXTRA_CFLAGS = -Wno-unknown-pragmas -DFUNCTION_NIC -I$(BECLIBPATH) \
-+	-I$(BECLIBPATH)/fw -I$(BECLIBPATH)/fw/amap -I$(BECLIBPATH)/fw/bmap 
-+
-+obj-$(CONFIG_BENET) 	:= benet.o
-+
-+benet-objs	:=  be_init.o be_int.o be_netif.o be_ethtool.o bni.o \
-+	../../message/beclib/funcobj_ll.o  \
-+	../../message/beclib/chipobj_ll.o \
-+	../../message/beclib/cq_ll.o \
-+	../../message/beclib/eq_ll.o \
-+	../../message/beclib/main_ll.o \
-+	../../message/beclib/mpu_ll.o \
-+	../../message/beclib/ethrx_ll.o \
-+	../../message/beclib/ethtx_ll.o \
-+	../../message/beclib/rxf_ll.o
-+
-+clean-files := ../../message/beclib/*.o
-diff --git a/drivers/net/benet/bni.c b/drivers/net/benet/bni.c
-new file mode 100644
-index 0000000..ce72845
---- /dev/null
-+++ b/drivers/net/benet/bni.c
-@@ -0,0 +1,1177 @@
++++ b/drivers/message/beclib/beclib_common.h
+@@ -0,0 +1,667 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -74,1167 +48,1828 @@ index 0000000..ce72845
 + * 209 N. Fair Oaks Ave
 + * Sunnyvale, CA 94085
 + */
-+#include "bni.h"
++#ifndef __beclib_common_h__
++#define __beclib_common_h__
 +
++#include <linux/io.h>
++#include <linux/list.h>
++#include <linux/spinlock.h>
++
++/*-----  Platform specific defines for Linux -------*/
++
++#define TRUE	(1)
++#define FALSE	(0)
++
++#if !defined(SG_PACK)
++#define SG_PACK __attribute__ ((packed))
++#endif
 +/*
-+   This function initializes the data structures in BNI / BECLIB for network
-+   operation.  The OSM driver must call this function before making any other
-+   BNI call.
-+
-+   If this functions succeeds, the caller must call bni_cleanup() as part
-+   of driver cleanup procedure.
-+
-+   chipobj      -  Address of the space allocated by OSM for chip object
-+			(struct be_chip_object).  The space for this is
-+			allocated by OSM, but this object is maintained
-+			by BECLIB and is opaque to OSM.
++ *---------   Assert related --------
++ * a way to force  compilation error
 + */
-+BESTATUS bni_init(struct be_chip_object *chipobj)
-+{
-+	int r;
-+	r = be_initialize_library();
-+	if (r != BE_SUCCESS)
-+		goto error;
-+	r = be_chip_object_create(chipobj);
-+	if (r != BE_SUCCESS)
-+		goto error;
-+error:
-+	return r;
++
++#define SA_C_ASSERT(_expression_)       {				\
++	struct __COMPILE_TIME_ASSERT__ {				\
++		u8 __COMPILE_TIME_ASSERT__[(_expression_)?1: -1];	\
++	};								\
 +}
 +
-+/*
-+   This function initializes the data structures in BNI / BECLIB for network
-+   operation.  The OSM driver must call this function before making any other
-+   BNI call.
++#define SA_COMPILETIME_NAMED_TYPEDEF_ASSERT(_name_, _expression_)	\
++	struct _name_##_COMPILE_TIME_ASSERT_ {				\
++		u8 _name##_COMPILE_TIME_ASSERT_[(_expression_)?1: -1];	\
++	};
 +
-+    chipobj        -  Pointer to the chip object passed as argument
-+			to bni_init().
-+ */
-+void bni_cleanup(struct be_chip_object *chipobj)
++
++#define SA_GLOBAL_C_ASSERT          SA_COMPILETIME_NAMED_TYPEDEF_ASSERT
++
++#define SA_ASSERT	ASSERT
++#ifdef SA_DEBUG
++
++#define ASSERT(c)       if (!(c)) \
++				BUG();
++
++#define SA_DBG_CSTR(_str_)        (_str_)
++
++#else
++
++#define ASSERT(c)
++#define SA_DBG_CSTR(_str_)        ""
++
++#endif
++
++/*---------   Trace log related --------*/
++
++/* debug levels */
++enum SA_DEBUG_LEVELS {
++	DL_ALWAYS = 0,		/* cannot be masked */
++
++	DL_ERR = 0x1,		/* errors that should never happen */
++	DL_WARN = 0x2,		/* something is questionable.
++				   recoverable errors */
++	DL_NOTE = 0x4,		/* infrequent, important debug info */
++	DL_INFO = 0x8,		/* debug information */
++
++	DL_VERBOSE = 0x10,	/* detailed information, such as
++				   buffer traces */
++	DL_ENTRY = 0x20,	/* function entry */
++	DL_EXIT = 0x40,		/* function exit */
++	DL_RSVD1 = 0x80,
++
++	SA_DL_MIN_VALUE = 0x1,	/* this is the min value used */
++	SA_DL_MAX_VALUE = 0x80	/* this is the higheset value used */
++} ;
++
++/* Bit mask describing events of interest to be traced */
++extern unsigned int trace_level;
++
++#define SA_TRACE(lm, fmt, args...)  {				\
++		if (trace_level & lm) {				\
++			printk(KERN_NOTICE "BE: %s:%d \n" fmt,	\
++			__FILE__ , __LINE__ , ## args);		\
++		}						\
++	}
++
++#define TRACE			SA_TRACE
++
++static inline unsigned int sa_trace_set_level(unsigned int l)
 +{
-+	be_chip_object_destroy(chipobj);
++	unsigned int old_level = trace_level;
++	trace_level = l;
++	return old_level;
 +}
 +
-+/*
-+    This function initializes the bni_net_object for subsequent
-+    network operations. As part of the initialization, this function
-+    registers this device with beclib and creates the
-+    required set of queues (rings) that are needed to interact
-+    with BaldeEngine as a network NIC device and registers them
-+    with BladeEngine.
++#define sa_trace_get_level() 	trace_level
++#define sa_trace_set_debug_level_string(lm, s)	/* nothing */
 +
-+    Before calling this function, the OSM driver  must have allocated
-+    space for the NetObject structure, initialized the structure,
-+    allocated DMAable memory for all the network queues that form
-+    part of the NetObject and populated the start address (virtual)
-+    and number of entries allocated for each queue in the NetObject structure.
-+
-+    The OSM driver must also have allocated memory to hold the
-+    mailbox structure (MCC_MAILBOX) and post the physical address,
-+    virtual addresses and the size of the mailbox memory in the
-+    NetObj.mb_sgl.  This structure is used by BECLIB for
-+    initial communication with the embedded MCC processor. BECLIB
-+    uses the mailbox until MCC rings are created for  more  efficient
-+    communication with the MCC processor.
-+
-+    If the OSM driver wants to create multiple network interface for more
-+    than one protection domain, it can call bni_create_netobj()
-+    multiple times  once for each protection domain.  A Maximum of
-+    32 protection domains are supported.
-+
-+    pnob - Pointer to the NetObject structure
-+    pbars         -  Pointer to the BAR address structure containing
-+			the addresses assigned OS to various BARS of the
-+			network PCI function of BladeEngine.
-+
-+    nbars         -  Number of BARs in the BAR structure.
-+
-+    sa_devp        -  Address of the space allocated for SA_DEVICE structure.
-+			This structure is initialized by the BECLIB and is
-+			opaque to the OSM drivers.
-+
-+    chipobj      -  Address of the space allocated by OSM for chip object
-+			(struct be_chip_object).  The space for this is
-+			allocated by OSM, but this object is maintained
-+			by BECLIB and is opaque to OSM.
-+*/
-+BESTATUS
-+bni_create_netobj(struct bni_net_object *pnob,
-+		struct sa_dev_bar_locations *pbars, u32 nbars,
-+		struct sa_dev *sa_devp, struct be_chip_object *chipobj)
++/*----- power of 2  functions -----*/
++static inline u32 sa_required_bits(u32 x)
 +{
-+	BESTATUS status = 0;
-+	bool  eventable = FALSE, tx_no_delay = FALSE, rx_no_delay = FALSE;
-+	struct be_eq_object *eq_objectp = NULL;
-+	struct be_function_object *pfob = &pnob->fn_obj;
-+	struct sa_sgl sgl;
-+	SA_STATUS r;
-+	u32 tempSz;
-+	u32 tx_cmpl_wm = CEV_WMARK_96;	/* 0xffffffff to disable */
-+	u32 rx_cmpl_wm = CEV_WMARK_160;	/* 0xffffffff to disable */
-+	u32 eq_delay = 0; /* delay in 8usec units. 0xffffffff to disable */
-+
-+	memset(&sgl, 0, sizeof(struct sa_sgl));
-+	r = sa_dev_create(pbars, nbars, (void *)0, sa_devp);
-+	if (r != SA_SUCCESS)
-+		return r;
-+
-+	status = be_function_object_create(sa_devp, BE_FUNCTION_TYPE_NETWORK,
-+					&pnob->mb_sgl, pfob, chipobj);
-+	if (status != BE_SUCCESS)
-+		return status;
-+	pnob->fn_obj_created = TRUE;
-+
-+	if (tx_cmpl_wm == 0xffffffff)
-+		tx_no_delay = TRUE;
-+	if (rx_cmpl_wm == 0xffffffff)
-+		rx_no_delay = TRUE;
-+	/*
-+	 * now create the necessary rings
-+	 * Event Queue first.
-+	 */
-+	if (pnob->event_q_len) {
-+		sa_sgl_create_contiguous(pnob->event_q, pnob->event_q_bus,
-+			pnob->event_q_size, &sgl);
-+
-+		status = be_eq_create(pfob, &sgl, 4, pnob->event_q_len,
-+				(u32) -1,	/* CEV_WMARK_* or -1 */
-+				eq_delay,	/* in 8us units, or -1 */
-+				&pnob->event_q_obj);
-+		if (status != BE_SUCCESS)
-+			goto error_ret;
-+		pnob->event_q_id = be_eq_get_id(&pnob->event_q_obj);
-+		pnob->event_q_created = 1;
-+		eventable = TRUE;
-+		eq_objectp = &pnob->event_q_obj;
-+	}
-+	/*
-+	 * Now Eth Tx Compl. queue.
-+	 */
-+	if (pnob->txcq_len) {
-+		sa_sgl_create_contiguous(pnob->tx_cq, pnob->tx_cq_bus,
-+			pnob->tx_cq_size, &sgl);
-+		status = be_cq_create(pfob, &sgl,
-+			pnob->txcq_len * sizeof(struct ETH_TX_COMPL_AMAP),
-+			FALSE,	/* solicted events,  */
-+			tx_no_delay,	/* nodelay  */
-+			tx_cmpl_wm,	/* Watermark encodings */
-+			eq_objectp, &pnob->tx_cq_obj);
-+		if (status != BE_SUCCESS)
-+			goto error_ret;
-+
-+		pnob->tx_cq_id = be_cq_get_id(&pnob->tx_cq_obj);
-+		pnob->tx_cq_created = 1;
-+	}
-+	/*
-+	 * Eth Tx queue
-+	 */
-+	if (pnob->tx_q_len) {
-+		struct be_eth_sq_parameters ex_params = { 0 };
-+		u32 type;
-+
-+		if (pnob->tx_q_port) {
-+			/* TXQ to be bound to a specific port */
-+			type = BE_ETH_TX_RING_TYPE_BOUND;
-+			ex_params.port = pnob->tx_q_port - 1;
-+		} else
-+			type = BE_ETH_TX_RING_TYPE_STANDARD;
-+
-+		sa_sgl_create_contiguous(pnob->tx_q, pnob->tx_q_bus,
-+				pnob->tx_q_size, &sgl);
-+		status = be_eth_sq_create_ex(pfob, &sgl,
-+				pnob->tx_q_len * sizeof(struct ETH_WRB_AMAP),
-+				type, 2, &pnob->tx_cq_obj,
-+				&ex_params, &pnob->tx_q_obj);
-+
-+		if (status != BE_SUCCESS)
-+			goto error_ret;
-+
-+		pnob->tx_q_id = be_eth_sq_get_id(&pnob->tx_q_obj);
-+		pnob->tx_q_created = 1;
-+	}
-+	/*
-+	 * Now Eth Rx compl. queue.  Always needed.
-+	 */
-+	sa_sgl_create_contiguous(pnob->rx_cq, pnob->rx_cq_bus,
-+			pnob->rx_cq_size, &sgl);
-+	status = be_cq_create(pfob, &sgl,
-+			pnob->rx_cq_len * sizeof(struct ETH_RX_COMPL_AMAP),
-+			FALSE,	/* solicted events,  */
-+			rx_no_delay,	/* nodelay  */
-+			rx_cmpl_wm,	/* Watermark encodings */
-+			eq_objectp, &pnob->rx_cq_obj);
-+	if (status != BE_SUCCESS)
-+		goto error_ret;
-+
-+	pnob->rx_cq_id = be_cq_get_id(&pnob->rx_cq_obj);
-+	pnob->rx_cq_created = 1;
-+
-+	status = be_eth_rq_set_frag_size(pfob,
-+			pnob->rx_buf_size,	/* desired frag size in bytes */
-+			(u32 *) &tempSz);	/* actual frag size set */
-+	if (status != BE_SUCCESS) {
-+		be_eth_rq_get_frag_size(pfob, (u32 *) &pnob->rx_buf_size);
-+		if ((pnob->rx_buf_size != 2048)
-+		    && (pnob->rx_buf_size != 4096)
-+		    && (pnob->rx_buf_size != 8192))
-+			goto error_ret;
-+	} else {
-+		/*be_eth_rq_get_frag_size (pfob, (u32*)&pnob->rx_buf_size); */
-+		if (pnob->rx_buf_size != tempSz)
-+			pnob->rx_buf_size = tempSz;
-+	}
-+	/*
-+	 * Eth RX queue. be_eth_rq_create() always assumes 2 pages size
-+	 */
-+	sa_sgl_create_contiguous(pnob->rx_q, pnob->rx_q_bus, pnob->rx_q_size,
-+				&sgl);
-+	status = be_eth_rq_create(pfob, &sgl, &pnob->rx_cq_obj,
-+			     &pnob->rx_cq_obj, &pnob->rx_q_obj);
-+
-+	if (status != BE_SUCCESS)
-+		goto error_ret;
-+
-+	pnob->rx_q_id = be_eth_rq_get_id(&pnob->rx_q_obj);
-+	pnob->rx_q_created = 1;
-+
-+	return BE_SUCCESS;	/* All required queues created. */
-+
-+error_ret:
-+	/*
-+	 *  Some queue creation failed.  Clean up any we successfully created.
-+	 */
-+	bni_destroy_netobj(pnob, sa_devp);
-+	return status;
-+}
-+
-+/*
-+   This function changes the EQ delay - the interval that BladeEngine
-+   should wait after an event entry is made in an EQ before the host
-+   is interrupted.
-+
-+    pnob - Pointer to the NetObject structure
-+    delay   - The delay in microseconds.  Must be between 0 and 240 and
-+		must be a multiple of 8.
-+*/
-+BESTATUS bni_change_eqd(struct bni_net_object *pnob, u32 delay)
-+{
-+	BESTATUS status = 0;
-+	struct be_eq_object *eq_objectp = NULL;
-+	struct be_function_object *pfob = &pnob->fn_obj;
-+
-+	eq_objectp = &pnob->event_q_obj;
-+	/*
-+	 * Caller must ensure Delay <= 240 and is a multiple of 8.
-+	 */
-+	status = be_eq_modify_delay(pfob, 1, &eq_objectp, &delay,
-+				    NULL, NULL, NULL);
-+	return status;
-+}
-+/*
-+    This function creates the MCC request and completion ring required
-+    for communicating with the ARM processor.  The caller must have
-+    allocated required amount of memory for the MCC ring and MCC
-+    completion ring and posted the virtual address and number of
-+    entries in the corresponding members (mcc_q and mcc_cq) in the
-+    NetObject struture.
-+
-+    When this call is completed, all further communication with
-+    ARM will switch from mailbox to this ring.
-+
-+    pnob	- Pointer to the NetObject structure. This NetObject should
-+		  have been created using a previous call to bni_create_netobj()
-+*/
-+BESTATUS bni_create_mcc_rings(struct bni_net_object *pnob)
-+{
-+	BESTATUS status = 0;
-+	struct sa_sgl sgl;
-+	struct be_function_object *pfob = &pnob->fn_obj;
-+
-+	memset(&sgl, 0, sizeof(struct sa_sgl));
-+	/*
-+	 * Create the MCC completion ring.
-+	 */
-+	if (pnob->mcc_cq_len) {
-+		(void)sa_sgl_create_contiguous(pnob->mcc_cq, pnob->mcc_cq_bus,
-+			pnob->mcc_cq_size, &sgl);
-+
-+		status = be_cq_create(pfob, &sgl,
-+			pnob->mcc_cq_len * sizeof(struct MCC_CQ_ENTRY_AMAP),
-+			FALSE,	/* solicted events,  */
-+			TRUE,	/* nodelay  */
-+			0,	/* 0 Watermark since Nodelay is true */
-+			&pnob->event_q_obj,
-+			&pnob->mcc_cq_obj);
-+
-+		if (status != BE_SUCCESS)
-+			return status;
-+
-+		pnob->mcc_cq_id = be_cq_get_id(&pnob->mcc_cq_obj);
-+		pnob->mcc_cq_created = 1;
-+	}
-+	if (pnob->mcc_q_len) {
-+		sa_sgl_create_contiguous(pnob->mcc_q, pnob->mcc_q_bus,
-+			pnob->mcc_q_size, &sgl);
-+
-+		status = be_mcc_ring_create(pfob, &sgl,
-+				pnob->mcc_q_len * sizeof(struct MCC_WRB_AMAP),
-+				pnob->mcc_wrb_ctxt, pnob->mcc_wrb_ctxtLen,
-+				&pnob->mcc_cq_obj, &pnob->mcc_q_obj);
-+
-+		if (status != BE_SUCCESS)
-+			return status;
-+
-+		/* be_mcc_get_id() is not exposed to drivers since we
-+		 * do not need post any commands directly.  BECLib
-+		 * does it for us.
-+		 */
-+		pnob->mcc_q_created = 1;
-+	}
-+	return BE_SUCCESS;
-+}
-+
-+/*
-+    This function destroys a NetObject created using a previous call to
-+    BeCreateNetObject().  All the queues associated with the NetObject are
-+    de-registered from BladeEngine.  The actual memory allocated for the
-+    queues as well as the space allocated for the NetObject must be freed
-+    by the OSM driver after this call returns.
-+
-+    pnob - Pointer to the NetObject structure
-+
-+*/
-+void bni_destroy_netobj(struct bni_net_object *pnob, struct sa_dev *sa_devp)
-+{
-+
-+	BESTATUS status;
-+
-+	/* free the queues */
-+
-+	if (pnob->tx_q_created) {
-+		status = be_eth_sq_destroy(&pnob->tx_q_obj);
-+		pnob->tx_q_created = 0;
-+	}
-+
-+	if (pnob->rx_q_created) {
-+		status = be_eth_rq_destroy(&pnob->rx_q_obj);
-+		if (status != 0) {
-+			status = be_eth_rq_destroy_options(&pnob->rx_q_obj, 0,
-+						      NULL, NULL);
-+			BUG_ON(status);
-+		}
-+		pnob->rx_q_created = 0;
-+	}
-+
-+	bni_process_rx_flush_cmpl(pnob);
-+
-+	if (pnob->tx_cq_created) {
-+		status = be_cq_destroy(&pnob->tx_cq_obj);
-+		pnob->tx_cq_created = 0;
-+	}
-+
-+	if (pnob->rx_cq_created) {
-+		status = be_cq_destroy(&pnob->rx_cq_obj);
-+		pnob->rx_cq_created = 0;
-+	}
-+
-+	if (pnob->mcc_q_created) {
-+		status = be_mcc_ring_destroy(&pnob->mcc_q_obj);
-+		pnob->mcc_q_created = 0;
-+	}
-+	if (pnob->mcc_cq_created) {
-+		status = be_cq_destroy(&pnob->mcc_cq_obj);
-+		pnob->mcc_cq_created = 0;
-+	}
-+
-+	if (pnob->event_q_created) {
-+		status = be_eq_destroy(&pnob->event_q_obj);
-+		pnob->event_q_created = 0;
-+	}
-+	be_function_cleanup(&pnob->fn_obj);
-+
-+	/* Cleanup the SA device object. */
-+	sa_dev_destroy(sa_devp);
-+}
-+
-+/*
-+    This function processes the Flush Completions that are issued by the
-+    ARM F/W, when a Recv Ring is destroyed.  A flush completion is
-+    identified when a Rx COmpl descriptor has the tcpcksum and udpcksum
-+    set and the pktsize is 32.  These completions are received on the
-+    Rx Completion Queue.
-+
-+    pnob - Pointer to the NetObject structure
-+
-+    Returns number of flush completions processed.
-+
-+*/
-+u32 bni_process_rx_flush_cmpl(struct bni_net_object *pnob)
-+{
-+	struct ETH_RX_COMPL_AMAP *rxcp;
-+	unsigned int i = 0;
-+	while ((rxcp = bni_get_rx_cmpl(pnob)) != NULL) {
-+		bni_notify_cmpl(pnob, 1, pnob->rx_cq_id, 1);
-+		i++;
-+	}
-+	return i;
-+}
-+
-+/*
-+    This Function fills in required number of WRBs in the ether send ring
-+    for transmitting the given ether frame.  The entire ether frame can be
-+    in one or more scattered locations. The physical address of the
-+    fragments and the count of the bytes in each fragment are indicated
-+    by a fragment list pointer.  Pointer to an opaque context is also
-+    passed to this function. This context is stored in the array
-+    NetObj.tx_ctxt[] at the same index as that of the
-+    last WRB entry used for this request.  OSM driver can retrieve
-+    this context from this array at the wrb_index indicated by the
-+    completion status entry for this transmit and use it to identify
-+    the request and do appropriate processing when the transmit is completed.
-+
-+    pnob       - Pointer to the NetObject structure
-+
-+    txb_list   - Pointer to the fragment list describing the ether
-+		frame fragments to be transmitted
-+
-+    flags         - A 32 bit flag indicating a required transmit option.
-+
-+    vlant       - VLAN tag to be inserted (if ETHVLAN set in flags)
-+
-+    mss           - Mss to be used if LSO is enabled.
-+
-+    ctxtp      - An OSM context handle that the OSM can use to
-+		identify a completion with a send request.
-+
-+    nfrags      - Number of fragments in the txb_list (1 to 15)
-+*/
-+BESTATUS
-+bni_tx_pkt(struct bni_net_object *pnob,
-+	   struct bni_tx_frag_list *txb_list,
-+	   u32 flags, u32 vlant, u32 mss, void *ctxtp, u32 nfrags)
-+{
-+	struct ETH_WRB_AMAP *first_wrb, *curr_wrb;
-+	int txq_hd;
-+	u32 fi, total_frags;
-+
-+	if (((pnob->tx_q_len - 2) - atomic_read(&pnob->tx_q_used)) > nfrags) {
-+		if (nfrags & 1)
-+			total_frags = nfrags + 1;
-+		else
-+			total_frags = nfrags;
-+	} else
-+		return BE_NOT_OK;
-+
-+	atomic_add(total_frags, &pnob->tx_q_used);
-+
-+	/* Store number of WRBS for this pkt in 1st WRb of this pkt */
-+	*(u32 *) (&(pnob->tx_ctxt[pnob->tx_q_hd])) = total_frags;
-+
-+	/*
-+	 * fill in the first WRB depending on the options passed to us,
-+	 */
-+	txq_hd = pnob->tx_q_hd;
-+	curr_wrb = &pnob->tx_q[txq_hd];
-+	first_wrb = curr_wrb;
-+
-+	*((u32 *) curr_wrb + 2) = 0x00000000;
-+	*((u32 *) curr_wrb + 3) = 0x00000000;
-+
-+	AMAP_SET_BITS_PTR(ETH_WRB, crc, curr_wrb, 1);
-+
-+	if (flags & LSO) {
-+		AMAP_SET_BITS_PTR(ETH_WRB, lso, curr_wrb, 1);
-+		AMAP_SET_BITS_PTR(ETH_WRB, lso_mss, curr_wrb, mss);
-+	} else {
-+		if (flags & TCPCS)
-+			AMAP_SET_BITS_PTR(ETH_WRB, tcpcs, curr_wrb, 1);
-+
-+		if (flags & IPCS)
-+			AMAP_SET_BITS_PTR(ETH_WRB, ipcs, curr_wrb, 1);
-+
-+		if (flags & UDPCS)
-+			AMAP_SET_BITS_PTR(ETH_WRB, udpcs, curr_wrb, 1);
-+	}
-+
-+	/* Transmit the packet in forwarding path for loopback packet */
-+	if (flags & FORWARD)
-+		AMAP_SET_BITS_PTR(ETH_WRB, forward, curr_wrb, 1);
-+
-+	AMAP_SET_BITS_PTR(ETH_WRB, vlan_tag, curr_wrb, vlant);
-+	if (flags & ETHVLAN)
-+		AMAP_SET_BITS_PTR(ETH_WRB, vlan, curr_wrb, 1);
-+
-+	if (flags & ETHEVENT)
-+		AMAP_SET_BITS_PTR(ETH_WRB, event, curr_wrb, 1);
-+
-+	AMAP_SET_BITS_PTR(ETH_WRB, last, curr_wrb, 0);
-+	AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_hi, curr_wrb, txb_list[0].txb_pa_hi);
-+	AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_lo, curr_wrb, txb_list[0].txb_pa_lo);
-+	AMAP_SET_BITS_PTR(ETH_WRB, frag_len, curr_wrb, txb_list[0].txb_len);
-+	/*
-+	 * Fill in rest of the WRBs.  Only the fragment address and count
-+	 * are different from the first WRB. So just copy other words from
-+	 * the first WRB.
-+	 *
-+	 */
-+	for (fi = 1; fi < nfrags; fi++) {
-+		bni_adv_txq_hd(pnob);
-+		txq_hd = pnob->tx_q_hd;
-+		curr_wrb = &pnob->tx_q[txq_hd];
-+
-+		*((u32 *) curr_wrb + 2) = *((u32 *) first_wrb + 2);
-+		*((u32 *) curr_wrb + 3) = *((u32 *) first_wrb + 3);
-+		AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_hi, curr_wrb,
-+				txb_list[fi].txb_pa_hi);
-+		AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_lo, curr_wrb,
-+				txb_list[fi].txb_pa_lo);
-+		AMAP_SET_BITS_PTR(ETH_WRB, frag_len, curr_wrb,
-+				txb_list[fi].txb_len);
-+	}
-+	/*
-+	 * BladeEngine does not like odd number of WRBs. make it even
-+	 * with a dummy entry
-+	 */
-+	if (nfrags & 1) {
-+		bni_adv_txq_hd(pnob);
-+		txq_hd = pnob->tx_q_hd;
-+		curr_wrb = &pnob->tx_q[txq_hd];
-+
-+		*((u32 *) curr_wrb + 2) = *((u32 *) first_wrb + 2);
-+		*((u32 *) curr_wrb + 3) = *((u32 *) first_wrb + 3);
-+		AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_hi, curr_wrb, 0);
-+		AMAP_SET_BITS_PTR(ETH_WRB, frag_pa_lo, curr_wrb, 0);
-+		AMAP_SET_BITS_PTR(ETH_WRB, frag_len, curr_wrb, 0);
-+	}
-+	/*
-+	 * Fix up the last fragment
-+	 */
-+	if (flags & ETHCOMPLETE)
-+		AMAP_SET_BITS_PTR(ETH_WRB, complete, curr_wrb, 1);
-+
-+	AMAP_SET_BITS_PTR(ETH_WRB, last, curr_wrb, 1);
-+
-+	/*
-+	 * pnob->tx_q_hd-1 represents the last wrb index of
-+	 * this packet. That will be the wrb index that we will get
-+	 * in Tx completion
-+	 */
-+	pnob->tx_ctxt[pnob->tx_q_hd] = ctxtp;
-+	bni_adv_txq_hd(pnob);
-+
-+	return BE_SUCCESS;
-+}
-+
-+/*
-+   This function writes the number of posted WRBs into the doorbell
-+   to kick off the actual transmit of the ether frames whose
-+   addresses are filled in the ether send ring by the function
-+   bni_tx_pkt().
-+
-+    pnob   - Pointer to the NetObject structure
-+
-+    nposted - Number of WRBs filled in.
-+
-+*/
-+void bni_start_tx(struct bni_net_object *pnob, u32 nposted)
-+{
-+#define CSR_ETH_MAX_SQPOSTS 255
-+	struct SQ_DB_AMAP sqdb;
-+
-+	sqdb.dw[0] = 0;
-+
-+	AMAP_SET_BITS_PTR(SQ_DB, cid, &sqdb, pnob->tx_q_id);
-+	while (nposted) {
-+		if (nposted > CSR_ETH_MAX_SQPOSTS) {
-+			AMAP_SET_BITS_PTR(SQ_DB, numPosted, &sqdb,
-+							CSR_ETH_MAX_SQPOSTS);
-+			nposted -= CSR_ETH_MAX_SQPOSTS;
++	u32 hi = 31, lo = 0;
++	u32 guess = 16;
++
++	if (x == 0)
++		return 0;
++	if (x & 0x80000000)
++		return 32;
++
++	/* Binary search */
++	while (hi > lo) {
++		if ((x >> guess) > 0) {
++			/* x is more than i bits in length */
++			lo = guess;
++			guess = (hi + guess + 1) >> 1;
 +		} else {
-+			AMAP_SET_BITS_PTR(SQ_DB, numPosted, &sqdb, nposted);
-+			nposted = 0;
++			hi = guess - 1;
++			guess = (lo + guess) >> 1;
 +		}
-+		PD_WRITE(NET_FH(pnob), etx_sq_db, sqdb);
 +	}
 +
-+	return;
++	return hi + 1;
 +}
 +
 +/*
-+    This function posts  receive buffers to the ether receive queue.
-+    The caller must allocate  the buffers, populate the addresses in
-+    list of bni_recv_buffer structures and pass the address of this
-+    list. The number of the receive buffers in the list should not be
-+    more than 255.  If the list has more than 255 receive buffers or
-+    the RX ring has less free slots than the number of buffers in
-+    the list, the function will post whatever buffers it can in the
-+    available free slots in the RX ring and remove these entries from
-+    the list.  The caller is responsible for freeing the remaining
-+    buffers in the list.
-+
-+    The OSM driver must have filled in the context handle for each
-+    bni_recv_buffer entry in the member context1. This function stores
-+    the handle in the array NetObj.rx_ctxt at the index
-+    corresponding to the entry in the recieve buffer queue where the
-+    buffer was posted. OSM driver can retrieve this context information
-+    using the fragndx field in the RX completion descriptor and use it
-+    for the receive completion processing.
-+
-+    pnob      - Pointer to the NetObject structure
-+
-+    rxbl      - A List of bni_recv_buffer structures that hold the
-+		free recv buffer address.
-+
-+    Returns number of buffers that were posted to this queue
-+
-+*/
-+u32 bni_post_rx_buffs(struct bni_net_object *pnob, struct list_head *rxbl)
++ * Returns the log base 2 for a number, always rounding down.
++ * sa_log2 example input->output
++ * 0->4294967295, 1->0, 2->1, 3->1, 4->2, 5->2, 6->2, 7->2, 8->3, 9->3
++ */
++static inline u32 sa_log2(u32 x)
 +{
-+	u32 nposted = 0;
-+	struct ETH_RX_D_AMAP *rxd = NULL;
-+	struct bni_recv_buffer *rxbp;
-+	void **rx_ctxp;
-+	struct RQ_DB_AMAP rqdb;
-+
-+	rx_ctxp = pnob->rx_ctxt;
-+
-+	while (!list_empty(rxbl) &&
-+	       (rx_ctxp[pnob->rx_q_hd] == NULL) && nposted < 255) {
-+
-+		rxbp = list_first_entry(rxbl, struct bni_recv_buffer, rxb_list);
-+		list_del(&rxbp->rxb_list);
-+		rxd = pnob->rx_q + pnob->rx_q_hd;
-+		AMAP_SET_BITS_PTR(ETH_RX_D, fragpa_lo, rxd, rxbp->rxb_pa_lo);
-+		AMAP_SET_BITS_PTR(ETH_RX_D, fragpa_hi, rxd, rxbp->rxb_pa_hi);
-+
-+		rx_ctxp[pnob->rx_q_hd] = rxbp->rxb_ctxt;
-+		bni_adv_rxq_hd(pnob);
-+		nposted++;
-+	}
-+
-+	if (nposted) {
-+		/* Now press the door bell to notify BladeEngine. */
-+		rqdb.dw[0] = 0;
-+		AMAP_SET_BITS_PTR(RQ_DB, numPosted, &rqdb, nposted);
-+		AMAP_SET_BITS_PTR(RQ_DB, rq, &rqdb, pnob->rx_q_id);
-+		PD_WRITE(NET_FH(pnob), erx_rq_db, rqdb);
-+	}
-+	atomic_add(nposted, &pnob->rx_q_posted);
-+	return nposted;
++	return sa_required_bits(x) - 1;
 +}
 +
 +/*
-+    This function checks the Eth send completion queue and returns
-+    the address of the TX completion entry at the tail of the completion
-+    queue.  If no valid completion is present, this function returns NULL.
-+
-+    pnob      - Pointer to the NetObject structure
-+
-+    If a valid entry is found, it returns the pointer to ETH_TX_COMPL_AMAP
-+    If no valid entry is found, NULL is returned
-+
-+*/
-+struct ETH_TX_COMPL_AMAP *bni_get_tx_cmpl(struct bni_net_object *pnob)
++ * "greater than power of 2"
++ * Returns the next higher power of 2 -- even if input is a power of 2.
++ * input->output
++ * 0->1, 1->2, 2->4, 3->4, 4->8, 5->8, 6->8, 7->8, 8->16, 9->16
++ */
++static inline u32 sa_gt_power2(u32 x)
 +{
-+	struct ETH_TX_COMPL_AMAP *txcp = &pnob->tx_cq[pnob->tx_cq_tl];
-+	u32 valid;
++	x = sa_required_bits(x);
 +
-+	valid  = AMAP_GET_BITS_PTR(ETH_TX_COMPL, valid, txcp);
-+	if (valid == 0)
-+		return NULL;
++	if (x >= 32)
++		/* error -- cannot represent this number in 32 bits */
++		return (u32) 0xFFFFFFFF;
 +
-+	AMAP_SET_BITS_PTR(ETH_TX_COMPL, valid, txcp, 0);
-+	bni_adv_txcq_tl(pnob);
-+	return txcp;
-+
++	return (1 << x);
 +}
 +
 +/*
-+    This function checks the Eth receive completion queue and returns
-+    the address of the RX completion entry at the tail of the completion
-+    queue.  If no valid completion is present, this function returns NULL.
++ * Status code datatype
++ */
++typedef int SA_STATUS, *PSA_STATUS;
 +
-+    pnob      - Pointer to the NetObject structure
++/* Error codes */
++#define SA_SUCCESS             (0x00000000L)
 +
-+    If a valid entry is found, it returns the pointer to ETH_RX_COMPL
-+    If no valid entry is found, NULL is returned
++/*-------- Basic defines -------*/
 +
-+*/
-+struct ETH_RX_COMPL_AMAP *bni_get_rx_cmpl(struct bni_net_object *pnob)
++/*
++ * Returns number of pages spanned by the size of data
++ * starting at the given address.
++ */
++#define SA_PAGES_SPANNED(_address, _size) \
++   ((u32)(((SA_PTR_TO_INT(_address) & (PAGE_SIZE - 1)) + \
++		(_size) + (PAGE_SIZE - 1)) >> PAGE_SHIFT))
++/*
++ * Appropriate casts to avoid compiler warnings about casting between
++ * integers and pointers.
++ */
++#define SA_PTR_TO_INT(_p_) ((size_t)(_p_))
++#define SA_PTR_TO_U32(_p_) ((u32)SA_PTR_TO_INT(_p_))
++#define SA_PTR_TO_U64(_p_) ((u64)SA_PTR_TO_INT(_p_))
++
++#define SA_PTR_TO_INT(_p_) ((size_t)(_p_))
++#define SA_U64_TO_PTR(_u_) ((void *)(size_t)(_u_))
++#define SA_U32_TO_PTR(_u_) ((void *)(size_t)(_u_))
++#define SA_PAGE_OFFSET(_addr_) (SA_PTR_TO_INT(_addr_) & (PAGE_SIZE-1))
++
++/* Conversion from 64 bit values to hi and lo 32-bit values. */
++static inline u32 sa_hi(u64 quad)
 +{
-+	struct ETH_RX_COMPL_AMAP *rxcp = &pnob->rx_cq[pnob->rx_cq_tl];
-+	u32 valid, ct;
-+
-+	valid  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, valid, rxcp);
-+	if (valid == 0)
-+		return NULL;
-+
-+	ct  = AMAP_GET_BITS_PTR(ETH_RX_COMPL, ct, rxcp);
-+	if (ct != 0) {
-+		/* Invalid chute #. treat as error */
-+		AMAP_SET_BITS_PTR(ETH_RX_COMPL, err, rxcp, 1);
-+	}
-+
-+	bni_adv_rxcq_tl(pnob);
-+	AMAP_SET_BITS_PTR(ETH_RX_COMPL, valid, rxcp, 0);
-+	return rxcp;
++	return (u32) (quad >> 32);
 +}
-+
-+/*
-+    This function notifies BladeEngine of the number of completion
-+    entries processed from the specified completion queue by writing
-+    the number of popped entries to the door bell.
-+
-+    pnob	- Pointer to the NetObject structure
-+
-+    n		- Number of completion entries processed
-+
-+    cq_id	- Queue ID of the completion queue for which notification
-+			is being done.
-+
-+    re_arm	- 1  - rearm the completion ring to generate an event.
-+		- 0  - dont rearm the completion ring to generate an event
-+
-+*/
-+void bni_notify_cmpl(struct bni_net_object *pnob, int n, int cq_id, int re_arm)
++static inline u32 sa_lo(u64 quad)
 +{
-+
-+	struct CQ_DB_AMAP cqdb;
-+
-+	cqdb.dw[0] = 0;
-+	AMAP_SET_BITS_PTR(CQ_DB, qid, &cqdb, cq_id);
-+	AMAP_SET_BITS_PTR(CQ_DB, rearm, &cqdb, re_arm);
-+	AMAP_SET_BITS_PTR(CQ_DB, num_popped, &cqdb, n);
-+
-+	PD_WRITE(NET_FH(pnob), cq_db, cqdb);
++	return (u32) (quad);
 +}
 +
-+/*
-+   This function enables the interrupt corresponding to the Event
-+   queue ID for the given NetObject
-+
-+    pnob      - Pointer to the NetObject structure
-+*/
-+void bni_enable_eq_intr(struct bni_net_object *pnob)
++static inline u64 sa_make_u64(u32 hi, u32 lo)
 +{
-+	struct CQ_DB_AMAP cqdb;
-+
-+	cqdb.dw[0] = 0;		/* clear entire doorbell */
-+
-+	AMAP_SET_BITS_PTR(CQ_DB, event, &cqdb, 1);
-+	AMAP_SET_BITS_PTR(CQ_DB, rearm, &cqdb, 1);
-+	AMAP_SET_BITS_PTR(CQ_DB, num_popped, &cqdb, 0);
-+	AMAP_SET_BITS_PTR(CQ_DB, qid, &cqdb, pnob->event_q_id);
-+
-+	PD_WRITE(NET_FH(pnob), cq_db, cqdb);
++	return (((u64) hi) << 32) | lo;
 +}
 +
-+/*
-+   This function disables the interrupt corresponding to the Event
-+   queue ID for the given NetObject
-+
-+    pnob      - Pointer to the NetObject structure
-+*/
-+void bni_disable_eq_intr(struct bni_net_object *pnob)
++static inline u32 sa_pvoid_hi(void *p)
 +{
-+	struct CQ_DB_AMAP cqdb;
++	return sa_hi(SA_PTR_TO_U64(p));
++}
 +
-+	cqdb.dw[0] = 0;		/* clear entire doorbell */
++static inline u32 sa_pvoid_lo(void *p)
++{
++	return sa_lo(SA_PTR_TO_U64(p));
++}
 +
-+	AMAP_SET_BITS_PTR(CQ_DB, event, &cqdb, 1);
-+	AMAP_SET_BITS_PTR(CQ_DB, rearm, &cqdb, 0);
-+	AMAP_SET_BITS_PTR(CQ_DB, num_popped, &cqdb, 0);
-+	AMAP_SET_BITS_PTR(CQ_DB, qid, &cqdb, pnob->event_q_id);
++static inline void *sa_make_pvoid(u32 hi, u32 lo)
++{
++	return SA_U64_TO_PTR(sa_make_u64(hi, lo));
++}
 +
-+	PD_WRITE(NET_FH(pnob), cq_db, cqdb);
++/* Returns byte offset of field within given struct type. */
++#define SA_FIELD_OFFSET(_type_, _field_)              \
++	(SA_PTR_TO_U32((u8 *)&(((struct _type_ *)0)->_field_)))
++
++/* Returns byte size of given field with a structure. */
++#define SA_SIZEOF_FIELD(_type_, _field_)  \
++	sizeof(((struct _type_ *)0)->_field_)
++
++/* Returns the number of items in the field array. */
++#define SA_NUMBER_OF_FIELD(_type_, _field_)				\
++	(SA_SIZEOF_FIELD(_type_, _field_) / 				\
++			sizeof((((struct _type_ *)0)->_field_[0])))
++
++/* Returns x/y plus 1 if there is a remainder. */
++static inline u32 sa_ceiling(u32 x, u32 y)
++{
++	ASSERT(y > 0);
++	return (x + y - 1) / y;
 +}
 +
 +/*
-+    This function enables the interrupt from the  network function
-+    of the BladeEngine. Use the function bni_disable_eq_intr()
-+    to enable the interrupt from the event queue of only one specific
-+    NetObject
++ * circular subtract.
++ * Returns a - b assuming a circular number system, where a and b are
++ * in range (0, maxValue-1). If a==b, zero is returned so the
++ * highest value possible with this subtraction is maxValue-1.
++ */
++static inline u32 sa_subc(u32 a, u32 b, u32 max)
++{
++	ASSERT(a <= max && b <= max);
++	ASSERT(max > 0);
++	return (a >= b ? (a - b) : (max - b + a));
++}
 +
-+    pnob      - Pointer to the NetObject structure
-+*/
-+void bni_enable_intr(struct bni_net_object *pnob)
++static inline u32 sa_addc(u32 a, u32 b, u32 max)
++{
++	ASSERT(a < max);
++	ASSERT(max > 0);
++	return ((max - a > b) ? (a + b) : (b + a - max));
++}
++
++/*------- SGL related ------*/
++
++/* descriptor for a physically contiguous  memory region */
++struct sa_sgl {
++	u32 length;
++	void *va;
++	u64 pa;
++} ;
++
++static inline u32 sa_sgl_get_byte_count(struct sa_sgl *sgl)
++{
++	return sgl->length;
++}
++
++static inline u32 sa_sgl_get_page_count(struct sa_sgl *sgl)
++{
++	return SA_PAGES_SPANNED(sgl->va, sgl->length);
++}
++
++static inline void *sa_sgl_get_base_va(struct sa_sgl *sgl)
++{
++	return sgl->va;
++}
++
++static inline u32 sa_sgl_get_offset(struct sa_sgl *sgl)
++{
++	return SA_PAGE_OFFSET(sgl->va);
++}
++
++/*
++ * Creates a SGL for a physically contiguous chunk of memory.
++ * The sgl struct must be previously allocated.
++ */
++static inline SA_STATUS
++sa_sgl_create_contiguous(void *va, u64 pa, u32 length, struct sa_sgl *sgl)
 +{
 +
-+	struct PCICFG_HOST_TIMER_INT_CTRL_CSR_AMAP ctrl;
-+	u32 host_intr;
-+
-+	ctrl.dw[0] = PCICFG1_READ(NET_FH(pnob), host_timer_int_ctrl);
-+
-+	host_intr = AMAP_GET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR,
-+							hostintr, ctrl.dw);
-+	if (!host_intr) {
-+		AMAP_SET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR,
-+						hostintr, ctrl.dw, 1);
-+		PCICFG1_WRITE_CONST(NET_FH(pnob), host_timer_int_ctrl,
-+								ctrl.dw[0]);
-+	}
++	sgl->va = va;
++	sgl->pa = pa;
++	sgl->length = length;
++	return SA_SUCCESS;
 +}
 +
 +/*
-+   This function disables the interrupt from the network function of
-+   the BladeEngine.  Use the function bni_disable_eq_intr() to
-+   disable the interrupt from the event queue of only one specific NetObject
++ *------- ring manipulation related ------
++ * This structure stores information about a ring shared between hardware
++ * and software.  Each ring is allocated by the driver in the uncached
++ * extension and mapped into BladeEngine's unified table.  BEKLIB manages
++ * creation and destruction of the rings in hardware.  It returns the
++ * corresponding HANDLE to the ring.
++ */
++struct sa_ring {
++	u32 pages;		/* queue size in pages */
++	u32 id;			/* queue id assigned by beklib */
++	u32 num;		/* number of elements in queue */
++	u32 cidx;		/* consumer index */
++	u32 pidx;		/* producer index -- not used by most rings */
++	u32 itemSize;		/* size in bytes of one object */
 +
-+    pnob      - Pointer to the NetObject structure
++	void *va;		/* The virtual address of the ring.
++				   This should be last to allow 32 & 64
++				   bit debugger extensions to work. */
 +
-+*/
-+void bni_disable_intr(struct bni_net_object *pnob)
++} ;
++
++static
++inline void sa_ring_create(struct sa_ring *ring,
++			       u32 num, u32 itemSize, void *va)
 +{
-+
-+	struct PCICFG_HOST_TIMER_INT_CTRL_CSR_AMAP ctrl;
-+	u32 host_intr;
-+
-+	ctrl.dw[0] = PCICFG1_READ(NET_FH(pnob), host_timer_int_ctrl);
-+	host_intr = AMAP_GET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR,
-+							hostintr, ctrl.dw);
-+	if (host_intr) {
-+		AMAP_SET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR, hostintr,
-+						ctrl.dw, 0);
-+		PCICFG1_WRITE_CONST(NET_FH(pnob), host_timer_int_ctrl,
-+						ctrl.dw[0]);
-+	}
++	ASSERT(ring);
++	memset(ring, 0, sizeof(struct sa_ring));
++	ring->num = num;
++	ring->pages = sa_ceiling(num * itemSize, PAGE_SIZE);
++	ring->itemSize = itemSize;
++	ring->va = va;
 +}
 +
-+/*
-+   This function reads the ISR and returns the value read.  ISR is
-+   a clear-on-read register
-+
-+    pnob      - Pointer to the NetObject structure
-+
-+    Returns the 32 bit value in the ISR
-+*/
-+u32 bni_get_isr(struct bni_net_object *pnob)
++static inline void sa_ring_set_id(struct sa_ring *ring, u32 id)
 +{
-+	return CSR_READ(NET_FH(pnob), cev.isr1);
++	ASSERT(ring);
++	ring->id = id;
 +}
 +
-+/*
-+    This function checks the event queue for a valid event. If a valid
-+    entry is found, it returns pointer to the entry.  The client is
-+    responsible for tracking the number of event queue items popped
-+    out of this queue for subsequently ringing the event queue doorbell.
-+
-+    pnob      - Pointer to the NetObject structure
-+
-+    Pointer to next valid event queue entry if one is found.
-+    NULL if no valid entry is found.
-+*/
-+struct EQ_ENTRY_AMAP *bni_get_event(struct bni_net_object *pnob)
++static inline u32 sa_ring_num(struct sa_ring *ring)
 +{
-+	struct EQ_ENTRY_AMAP *eqp = &(pnob->event_q[pnob->event_q_tl]);
-+	u32 valid;
-+
-+	valid  = AMAP_GET_BITS_PTR(EQ_ENTRY, Valid, eqp);
-+	if (!valid)
-+		return NULL;
-+	/*
-+	 * We got a valid event. Now increment the EQ index to next event.
-+	 */
-+	bni_adv_eq_tl(pnob);
-+	return eqp;
++	ASSERT(ring);
++	return ring->num;
 +}
 +
-+/*
-+    This function notifies BladeEngine of how many events were processed
-+    from the event queue by ringing the corresponding door bell and
-+    optionally re-arms the event queue.
-+
-+    pnob	- Pointer to the NetObject structure
-+    n		- number of events processed
-+    re_arm	- 1 - re-arm the EQ, 0 - do not re-arm the EQ
-+
-+*/
-+void bni_notify_event(struct bni_net_object *pnob, int n, int re_arm)
++static inline void *sa_ring_va(struct sa_ring *ring)
 +{
-+	struct CQ_DB_AMAP eqdb;
++	ASSERT(ring);
++	return ring->va;
++}
 +
-+	eqdb.dw[0] = 0;
-+
-+	AMAP_SET_BITS_PTR(CQ_DB, qid, &eqdb, pnob->event_q_id);
-+	AMAP_SET_BITS_PTR(CQ_DB, rearm, &eqdb, re_arm);
-+	AMAP_SET_BITS_PTR(CQ_DB, event, &eqdb, 1);
-+	AMAP_SET_BITS_PTR(CQ_DB, num_popped, &eqdb, n);
-+	/*
-+	 * Under some situations we see an interrupt and no valid
-+	 * EQ entry.  To keep going, we need to ring the DB even if
-+	 * numPOsted is 0.
-+	 */
-+	PD_WRITE(NET_FH(pnob), cq_db, eqdb);
-+
-+	return;
++static inline void sa_ring_clear(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	ring->pidx = ring->cidx = 0;
 +}
 +
 +/*
-+   This function gets the current link status.
++ * -----------------------------------------------------------------------
++ * Interface for 2 index rings. i.e. consumer/producer rings
++ * --------------------------------------------------------------------------
++ */
 +
-+   pnob           - Pointer to the NetObject structure
++/* Returns TRUE if ring is empty */
++static inline bool sa_ring_is_empty(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	return (ring->pidx == ring->cidx);
++}
 +
-+   lsp       - Pointer to the stucture LINK_STATUS where the Link
-+			status is to be returned.
++/* Define the power2 version equivalent */
++#define sa_ring_power2_is_empty sa_ring_is_empty
 +
-+   cbf        - Pointer to a function that will be called on completion.
-+			If NULL, the call will block waiting for completion.
++/* Returns number items pending on ring. */
++static inline u32 sa_ring_num_pending(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	if (ring->num == 0)
++		return 0;
++	return sa_subc(ring->pidx, ring->cidx, ring->num);
++}
 +
-+   cbc         - Opaque context argument that will be passed to the
-+			completion call back function
-+*/
++/* Returns number items free on ring. */
++static inline u32 sa_ring_num_empty(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	return ring->num - 1 - sa_ring_num_pending(ring);
++}
++
++/* Returns TRUE if ring is full */
++static inline bool sa_ring_is_full(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	return sa_ring_num_pending(ring) == (ring->num - 1);
++}
++
++/* Consume 1 item */
++static inline void sa_ring_consume(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	ASSERT(!sa_ring_is_empty(ring));
++	ring->cidx = sa_addc(ring->cidx, 1, ring->num);
++}
++
++/* Produce 1 item */
++static inline void sa_ring_produce(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	ASSERT(!sa_ring_is_full(ring));
++	ring->pidx = sa_addc(ring->pidx, 1, ring->num);
++}
++
++/* Consume count items */
++static inline void sa_ring_consume_multiple(struct sa_ring *ring, u32 count)
++{
++	ASSERT(ring);
++	ASSERT(sa_ring_num_pending(ring) >= count);
++	ring->cidx = sa_addc(ring->cidx, count, ring->num);
++}
++
++static inline void *sa_ring_item(struct sa_ring *ring, u32 index)
++{
++	ASSERT(ring);
++	ASSERT(index < ring->num);
++	ASSERT(ring->itemSize > 0);
++	return (u8 *) ring->va + index * ring->itemSize;
++}
++
++#define sa_ring_power2_item sa_ring_item
++
++/* Ptr to produce item */
++static inline void *sa_ring_producer_ptr(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	ASSERT(!sa_ring_is_full(ring));
++	return sa_ring_item(ring, ring->pidx);
++}
++
++#define sa_ring_power2_producer_ptr sa_ring_producer_ptr
++
++/*
++ * Returns a pointer to the current location in the ring.
++ * This is used for rings with 1 index.
++ */
++static inline void *sa_ring_current(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	ASSERT(ring->pidx == 0);	/* not used */
++
++	return sa_ring_item(ring, ring->cidx);
++}
++
++/* Ptr to consume item */
++static inline void *sa_ring_consumer_ptr(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	ASSERT(!sa_ring_is_empty(ring));
++	return sa_ring_item(ring, ring->cidx);
++}
++
++#define sa_ring_power2_current sa_ring_current
++
++/*
++ * Increment index for rings with only 1 index.
++ * This is used for rings with 1 index.
++ */
++static inline void *sa_ring_next(struct sa_ring *ring)
++{
++	ASSERT(ring);
++	ASSERT(ring->num > 0);
++	ASSERT(ring->pidx == 0);	/* not used */
++
++	ring->cidx = sa_addc(ring->cidx, 1, ring->num);
++	return sa_ring_current(ring);
++}
++
++/*-----------  amap bit filed get / set macros and functions -----*/
++/*
++ * Structures defined in the map header files (under fw/amap/) with names
++ * in the format BE_<name>_AMAP are pseudo structures with members
++ * of type BE_BIT. These structures are templates that are used in
++ * conjuntion with the structures with names in the format
++ * <name>_AMAP to calculate the bit masks and bit offsets to get or set
++ * bit fields in structures. The structures <name>_AMAP are arrays
++ * of 32 bits words and have the correct size.  The following macros
++ * provide convenient ways to get and set the various members
++ * in the structures without using strucctures with bit fields.
++ * Always use the macros AMAP_GET_BITS_PTR and AMAP_SET_BITS_PTR
++ * macros to extract and set various members.
++ */
++/* Each bit is 1 byte in array maps. */
++typedef u8 AMAP_BIT, BE_BIT;
++
++/*
++ * Returns the a bit mask for the register that is NOT shifted into location.
++ * That means return values always look like: 0x1, 0xFF, 0x7FF, etc...
++ */
++static inline u32 amap_mask(u32 bit_size)
++{
++    return (bit_size == 32 ? 0xFFFFFFFF : (1 << bit_size) - 1);
++}
++
++#define AMAP_BIT_MASK_UNION(_struct_, _register_)       \
++	amap_mask(AMAP_BIT_SIZE_UNION(_struct_, _register_))  \
++
++#define AMAP_BIT_MASK(_struct_, _register_)       \
++	amap_mask(AMAP_BIT_SIZE(_struct_, _register_))  \
++
++/*
++ * non-optimized set bits function. First clears the bits and then assigns them.
++ * This does not require knowledge of the particular DWORD you are setting.
++ * e.g. AMAP_SET_BITS_PTR (struct, field1, &contextMemory, 123);
++ */
++static inline void
++amap_set(void *ptr, u32 dw_offset, u32 mask, u32 offset, u32 value)
++{
++	u32 *dw = (u32 *)ptr;
++	*(dw + dw_offset) &= ~(mask << offset);
++	*(dw + dw_offset) |= (mask & value) << offset;
++}
++
++#define AMAP_SET_BITS_PTR_UNION(_struct_, _register_, _structPtr_, _value_)  \
++	amap_set(_structPtr_, AMAP_WORD_OFFSET_UNION(_struct_, _register_), \
++		AMAP_BIT_MASK_UNION(_struct_, _register_),		\
++		AMAP_BIT_OFFSET_UNION(_struct_, _register_), _value_)	\
++
++#define AMAP_SET_BITS_PTR(_struct_, _register_, _structPtr_, _value_)	\
++	amap_set(_structPtr_, AMAP_WORD_OFFSET(_struct_, _register_),	\
++		AMAP_BIT_MASK(_struct_, _register_),			\
++		AMAP_BIT_OFFSET(_struct_, _register_), _value_)		\
++
++/*
++ * Non-optimized routine that gets the bits without knowing the correct DWORD.
++ * e.g. fieldValue = AMAP_GET_BITS_PTR (struct, field1, &contextMemory);
++ */
++static inline u32
++amap_get(void *ptr, u32 dw_offset, u32 mask, u32 offset)
++{
++	u32 *dw = (u32 *)ptr;
++	return mask & (*(dw + dw_offset) >> offset);
++}
++#define AMAP_GET_BITS_PTR(_struct_, _register_, _structPtr_)		\
++	amap_get(_structPtr_, AMAP_WORD_OFFSET(_struct_, _register_),	\
++		AMAP_BIT_MASK(_struct_, _register_),			\
++			AMAP_BIT_OFFSET(_struct_, _register_))		\
++
++/* Returns 0-31 representing bit offset within a DWORD of a bitfield */
++#define AMAP_BIT_OFFSET_UNION(_struct_, _register_)                  \
++    (((size_t)&(((union BE_ ## _struct_ ## _AMAP*)0)->_register_))%32)
++
++/* Returns 0-31 representing bit offset within a DWORD of a bitfield. */
++#define AMAP_BIT_OFFSET(_struct_, _register_)                  \
++    (((size_t)&(((struct BE_ ## _struct_ ## _AMAP*)0)->_register_))%32)
++
++/* Returns 0-n representing byte offset of bitfield with the structure */
++#define AMAP_BYTE_OFFSET_UNION(_struct_, _register_)                  \
++    (((size_t)&(((union BE_ ## _struct_ ## _AMAP *)0)->_register_))/8)
++
++/* Returns 0-n representing byte offset of bitfield with the structure. */
++#define AMAP_BYTE_OFFSET(_struct_, _register_)                  \
++	(((size_t)&(((struct BE_ ## _struct_ ## _AMAP *)0)->_register_))/8)
++
++/* Returns 0-n representing DWORD offset of bitfield within the structure. */
++#define AMAP_WORD_OFFSET_UNION(_struct_, _register_)  \
++		(AMAP_BYTE_OFFSET_UNION(_struct_, _register_)/4)
++
++/* Returns 0-n representing DWORD offset of bitfield within the structure. */
++#define AMAP_WORD_OFFSET(_struct_, _register_)  \
++		  (AMAP_BYTE_OFFSET(_struct_, _register_)/4)
++
++/*
++ * Gets a pointer to a field within a structure
++ * The field must be byte aligned.
++ */
++#define AMAP_GET_PTR(_struct_, _register_, _structPtr_)                     \
++    (void *) ((u8 *)(_structPtr_) + AMAP_BYTE_OFFSET(_struct_, _register_))
++
++/* Returns size of bitfield in bits. */
++#define AMAP_BIT_SIZE_UNION(_struct_, _register_) \
++		sizeof(((union BE_ ## _struct_ ## _AMAP*)0)->_register_)
++
++/* Returns size of bitfield in bits. */
++#define AMAP_BIT_SIZE(_struct_, _register_) \
++		sizeof(((struct BE_ ## _struct_ ## _AMAP*)0)->_register_)
++
++/* Returns size of bitfield in bytes. */
++#define AMAP_BYTE_SIZE(_struct_) (sizeof(struct BE_ ## _struct_ ## _AMAP)/8)
++
++/* Returns size of bitfield in DWORDS. */
++#define AMAP_WORD_SIZE(_struct_) (AMAP_BYTE_SIZE(_struct_)/4)
++
++static
++inline u64 sa_bit_range64(u64 value, u32 bit_offset, u32 num_bits)
++{
++	ASSERT(bit_offset <= sizeof(value) * 8);
++	ASSERT(num_bits <= sizeof(value) * 8);
++	return (value >> bit_offset) & ((1ULL << num_bits) - 1);
++}
++
++static inline u64 sa_upper_bits64(u64 value, u32 num_bits)
++{
++	ASSERT(num_bits <= sizeof(value) * 8);
++	return sa_bit_range64(value, sizeof(value) * 8 - num_bits, num_bits);
++}
++
++
++#if !defined(BE_CONFIG)
++#define BE_CONFIG 0
++#define CONFIG0
++#endif
++
++/*Id ranges and RID conversions based on config */
++#include "be_gen_id_ranges.h"
++
++/* Srcgen includes */
++
++#include "regmap.h"		/* srcgen array map output */
++#include "be_common_bmap.h"	/* srcgen array map output */
++#include "fwcmd_top.h"		/* srcgen array map output */
++
++#include "fwcmd_top_bmap.h"	/* srcgen bitmap output */
++
++#include "bestatus.h"
++
++/* Debug trace categories. */
++enum BE_DEBUG_LEVELS {
++	DL_HW = 0x00000100,
++	DL_FWCMD = 0x00000200,
++
++	BE_DL_MIN_VALUE = 0x100,	/* this is the min value used */
++	BE_DL_MAX_VALUE = 0x800	/* this is the higheset value used */
++} ;
++
++SA_GLOBAL_C_ASSERT(beclib_debug_level_range,
++		   ((u32) BE_DL_MIN_VALUE > (u32) SA_DL_MAX_VALUE));
++
++#include "beregister.h"	/* Macros for register access using srcgen structs */
++#include "beclib_stats.h"
++
++/*  BECLIB status data type maps to the SA_STATUS */
++typedef SA_STATUS BESTATUS ;
++
++/* Forward declarations. */
++struct be_function_object;
++struct be_eq_object;
++struct be_cq_object;
++
++/* Callback types.  Deprecate most of these. */
++typedef void (*MCC_WRB_CQE_CALLBACK) (void *context,
++				BESTATUS status,
++				struct MCC_WRB_AMAP *optional_wrb);
++typedef void (*MCC_ASYNC_EVENT_CALLBACK) (void *context,
++				u32 event_code,
++				void *event);
++
++typedef BESTATUS(*EQ_CALLBACK) (struct be_function_object *,
++				struct be_eq_object *, void *context);
++typedef BESTATUS(*CQ_CALLBACK) (struct be_function_object *,
++				struct be_cq_object *, void *context);
++
++#endif /* __beclib_common_h__ */
+diff --git a/drivers/message/beclib/beclib_ll_bmap_nic.h b/drivers/message/beclib/beclib_ll_bmap_nic.h
+new file mode 100644
+index 0000000..357f02e
+--- /dev/null
++++ b/drivers/message/beclib/beclib_ll_bmap_nic.h
+@@ -0,0 +1,1111 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __beclib_ll_bmap_h__
++#define __beclib_ll_bmap_h__
++
++#ifndef SG_C_ASSERT
++#define SG_C_ASSERT(_name_, _condition_)
++#endif
++
++/*
++ *-----------------------------------------------------
++ * Function: be_initialize_library
++ *   Call to initialize the static library. This initializes the debug traces.
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *-----------------------------------------------------
++ */
++BESTATUS be_initialize_library(void);
++
++/*
++ *---------------------------------------------------
++ * Function: be_function_and_chip_create
++ *   Create both function and chip object with one call.
++ *   The lower level API will rarely *   use more than one function object.
++ * sa_dev          - Previously created device.
++ * function_type   -
++ * mailbox_sgl     - SGL with length equal to sizeof(MCC_MAILBOX). This must be
++ *                   physically contiguous. The starting address must be
++ *                   aligned to 16 byte boundary.
++ * emulation_sgl   - SGL with length equal to one page . Must be physically
++ *                   contiguous. Starting address must be 16 byte aligned.
++ * pfob - On input, a pointer to an allocated function object. On
++ *                   output, it is initialized. This is an opaque object.
++ *                   Do not access the members.
++ * chip            - On input this is a pointer to an allocated chip object.
++ * 		     On output, it is initialized. This is an opaque object.
++ * 		     Do not access the members.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------
++ */
 +BESTATUS
-+bni_get_link_sts(struct bni_net_object *pnob, struct BE_LINK_STATUS *lsp,
-+		 MCC_WRB_CQE_CALLBACK cbf, void *cbc)
-+{
-+	BESTATUS r;
-+
-+	r = be_rxf_link_status(NET_FH(pnob), lsp, cbf, cbc, NULL);
-+
-+	return r;
-+}
++be_function_and_chip_create(struct sa_dev *sa_dev,
++	    u32 function_type, struct sa_sgl *mailbox_sgl,
++	    struct sa_sgl *emulation_sgl, struct be_function_object *pfob,
++	    struct be_chip_object *chip);
 +
 +/*
-+   This function gets the specified MAC address from BladeEngine's MAC address
-+   table.
-+
-+   pnob           - Pointer to the NetObject structure
-+
-+   port              - 0 for first port, 1 for second port.
-+
-+   instance          - 0 for the first MAC address of the port, 1 for
-+			the second instance of the AMC address for the port.
-+
-+   pd                - The protection domain number (used only for
-+			virtual machine)
-+
-+   mac_addr           - Address the array where to return the MAC address.
-+
-+   cbf        - Pointer to a function that will be called on completion.
-+			If NULL, the call will block waiting for completion.
-+
-+   cbc         - Opaque context argument that will be passed to the
-+			completion call back function.
-+*/
-+
++ *---------------------------------------------------
++ * Function: be_function_object_create
++ *   Create function object .
++ * sa_dev          - Previously created device.
++ * function_type   -
++ * mailbox_sgl     - SGL with length equal to sizeof(MCC_MAILBOX).
++ * 		     This must be physically contiguous. The starting
++ * 		     address must be aligned to 16 byte boundary.
++ * pfob - On input this is a pointer to an allocated function
++ * 		     object. On output, it is initialized. This is an
++ * 		     opaque object. Do not access the members.
++ * chip            - On input this is a pointer to an allocated chip object.
++ * 		     On output, it is initialized. This is an opaque object.
++ * 		     Do not access the members.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *----------------------------------------------------
++ */
 +BESTATUS
-+bni_get_uc_mac_adrr(struct bni_net_object *pnob, u8 port, u8 instance, u8 pd,
-+		u8 *mac_addr, MCC_WRB_CQE_CALLBACK cbf, void *cbc)
-+{
-+	BESTATUS status;
-+
-+	if (pd) {
-+		/* this call is for setting the VM MAC address */
-+		port = 0;
-+		instance = 0;
-+	}
-+
-+	status = be_rxf_mac_address_read_write(NET_FH(pnob), port, instance,
-+			FALSE, FALSE, FALSE, mac_addr, cbf, cbc);
-+
-+	return status;
-+}
++be_function_object_create(struct sa_dev *sa_dev,
++	  u32 function_type, struct sa_sgl *mailbox_sgl,
++	  struct be_function_object *pfob, struct be_chip_object *chip);
 +
 +/*
-+   This function sets the specified MAC address from BladeEngine's MAC address
-+   table.
++ *-----------------------------------------------
++ * Function: be_chip_object_create
++ *   Create chip object .
++ * chip          - On input this is a pointer to an allocated chip object.
++ * 		   On output, it is initialized. This is an opaque object.
++ * 		   Do not access the members.
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_chip_object_create(struct be_chip_object *chip);
 +
-+   pnob           - Pointer to the NetObject structure
-+
-+   port           - 0 for first port, 1 for second port.
-+
-+   instance       - 0 for the first MAC address of the port, 1 for
-+			the second instance of the AMC address for the port.
-+
-+   pd             - The protection domain number (used only for
-+			virtual machie)
-+
-+   mac_addr       - Address the array where the
-+			MAC address to be set is stored.
-+
-+   cbf        - Pointer to a function that will be called on completion.
-+			If NULL, the call will block waiting for completion.
-+
-+   cbc         - Opaque context argument that will be passed to the
-+			completion call back function.
-+*/
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_and_chip_destroy
++ *   This destroys the function and chip object created by the
++ *   be_function_and_chip_create function. It assumes that all
++ *   sub-objects created for this function have already been
++ *   destroyed -- it asserts if this is not true. This function is called by
++ *   be_function_cleanup -- Use be_function_cleanup to automatically cleanup all
++ *   sub-objects.
++ * pfob - Previously created function object.
++ * chip            - Previously created chip object.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
 +BESTATUS
-+bni_set_uc_mac_adr(struct bni_net_object *pnob, u8 port, u8 instance, u8 pd,
-+		u8  *mac_addr, MCC_WRB_CQE_CALLBACK cbf, void *cbc)
-+{
-+	BESTATUS status;
-+
-+	if (pd) {
-+		/* this call is for setting the VM MAC address */
-+		port = 0;
-+		instance = 0;
-+	}
-+
-+	status = be_rxf_mac_address_read_write(NET_FH(pnob), port, instance,
-+			FALSE, TRUE, FALSE, mac_addr, cbf, cbc);
-+
-+	return status;
-+}
++be_function_and_chip_destroy(struct be_function_object *pfob,
++			     struct be_chip_object *chip);
 +
 +/*
-+    This function adds the given multicast MAC addresses into BE's
-+    multicast filter table.   The maximum number of multicast addresses
-+    that can be added  using this call is 32.  More than 32 addresses
-+    can be added through multiple calls.
-+
-+    pnob     - Pointer to the NetObject structure
-+
-+    nmac      - number of MAC sddresses to be added - maximum is 32
-+
-+    promiscuous - Whether to enable multicast promiscuous mode or not.
-+		  If 1,  multicast promiscuous mode is enabled and the
-+		  parameters NumMac  and mac_addr are ignored.
-+		  If this is not enabled, the multicast addresses in
-+		  the array mac_addr will programmed
-+
-+    mac_addr     - Pointer to an address an array of mac address
-+
-+    cbf  - Pointer to a function that will be called on completion.
-+		If NULL, the call will block waiting for completion.
-+
-+    cbc   - Opaque context argument that will be passed to the
-+		completion call back function.
-+*/
++ *---------------------------------------------------------------
++ * Function: be_function_object_destroy
++ *   This destroys the function object created by the
++ *   be_function_object_create function.  It assumes that all
++ *   sub-objects created for this function have already been destroyed
++ *   -- it asserts if this is not true. This function is called by
++ *   be_function_cleanup --
++ *   Use be_function_cleanup to automatically cleanup all sub-objects.
++ * pfob - Previously created function object.
++ * chip            - Previously created chip object.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
 +BESTATUS
-+bni_set_mc_filter(struct bni_net_object *pnob, u32 nmac, bool  promiscuous,
-+		u8 *mac_addr, MCC_WRB_CQE_CALLBACK cbf, void *cbc)
-+{
-+	BESTATUS status;
-+
-+	status = be_rxf_multicast_config(NET_FH(pnob), promiscuous,
-+			nmac, mac_addr, cbf, cbc, NULL);
-+	return status;
-+}
++be_function_object_destroy(struct be_function_object *pfob,
++			   struct be_chip_object *chip);
 +
 +/*
-+    This function sets BE's network port into promiscuous mode.
-+
-+    pnob      - Pointer to the NetObject structure
-+
-+*/
-+void bni_set_promisc(struct bni_net_object *pnob)
-+{
-+	/* Set promiscuous mode on both ports. */
-+	be_rxf_promiscuous(NET_FH(pnob), 1, 1, NULL, NULL, NULL);
-+}
-+
-+/*
-+    This function takes BE's network port out of promiscuous mode.
-+
-+    pnob      - Pointer to the NetObject structure
-+
-+*/
-+void bni_reset_promisc(struct bni_net_object *pnob)
-+{
-+	/* Reset promiscuous mode on both ports. */
-+	be_rxf_promiscuous(NET_FH(pnob), 0, 0, NULL, NULL, NULL);
-+}
++ *---------------------------------------------------------------
++ * Function: be_chip_object_destroy
++ *   This destroys the chip object created by the
++ *   be_chip_object_create function. It assumes that all sub-objects
++ *   created for this chip have already been destroyed -- it
++ *   asserts if this is not true. This function is called by
++ *   be_function_cleanup -- Use be_function_cleanup to automatically
++ *   cleanup all sub-objects.
++ * chip          - Previously created chip object.
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_chip_object_destroy(struct be_chip_object *chip);
 +
 +/*
-+    This function configures the VLAN Id table of BladeEngine.  If the table
-+    has any VLAN, Vlan filtering is turned on.  If there no VLANN Ids  in the
-+    table, VLAN filtering is turned off. BladeEngine supports a maximum of
-+    32 VLans.
++ *---------------------------------------------------------------
++ * Function: be_function_cleanup
++ *   This function destroys all objects that reference the function
++ *   object including the all queues  (mcc, etx, erx, iscsi/wrbq/defq, eq)  -
++ *   iscsi ooo buffers  - software jell buffers (during emulation)  -
++ *   template header buffers (if host based)  - WDMA
++ *   zero buffer (during emulation)  - vlan tags  - multicast addresses  - rss
++ *   configuration  - wake on lan entries (ACPI)  - chip object  -
++ *   pfob  All objects are destroyed with synchronous FWCMDs
++ *   that poll for their completions. This
++ *   function is optional, all objects can be explicitly cleaned up.
++ * pfob - Previously created function object
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_function_cleanup(struct be_function_object *pfob);
 +
-+    pnob      - Pointer to the NetObject structure
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_get_function_number
++ *   Returns the PCI function number.
++ * pfob        - Previously created function object
++ * return function_number -
++ *---------------------------------------------------------------
++ */
++u32 be_function_get_function_number(struct be_function_object *pfob);
 +
-+    vlanp       - pointer to an array containing the VLAN IDs to be
-+		configured.
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_get_function_type
++ *   Returns the function type.
++ * return function_type -
++ *---------------------------------------------------------------
++ */
++u32 be_function_get_function_type(struct be_function_object *pfob);
 +
-+    nv     - Number of Vlan IDs in the array.
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_is_iscsi
++ *   Returns TRUE for the ISCSI function.
++ * return is_iscsi -
++ *---------------------------------------------------------------
++ */
++static inline bool be_function_is_iscsi(struct be_function_object *pfob);
 +
-+   cbf    - Pointer to a function that will be called on completion.
-+		If NULL, the call will block waiting for completion.
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_is_networking
++ *   Returns TRUE for the networking function.
++ * return is_networking -
++ *---------------------------------------------------------------
++ */
++static inline bool be_function_is_networking(struct be_function_object *pfob);
 +
-+   cbc     - Opaque context argument that will be passed to the
-+		completion call back function
-+
-+   promiscuous   - Enable vlan Promiscuous mode or not. TRUE=Enable.
-+
-+*/
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_get_fw_version
++ *   Retrieves the firmware version on the adpater. If the callback
++ *   is NULL this call executes synchronously. If the callback is
++ *   not NULL, the returned status will be BE_PENDING if the
++ *   command was issued successfully.
++ * pfob    -
++ * fw_version         - Pointer to response buffer if callback is NULL.
++ * callback           - Callback function invoked when the FWCMD completes.
++ * callback_context   - Passed to the callback function.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
 +BESTATUS
-+bni_config_vlan(struct bni_net_object *pnob, u16 *vlanp, u32 nv,
-+		MCC_WRB_CQE_CALLBACK cbf, void *cbc, bool  promiscuous)
-+{
-+	BESTATUS status;
-+
-+	status = be_rxf_vlan_config(NET_FH(pnob), promiscuous, nv, vlanp,
-+				    cbf, cbc, NULL);
-+
-+	return status;
-+}
++be_function_get_fw_version(struct be_function_object *pfob,
++	struct FWCMD_COMMON_GET_FW_VERSION_RESPONSE_PAYLOAD *fw_version,
++	MCC_WRB_CQE_CALLBACK callback, void *callback_context);
 +
 +/*
-+    This function gets the ethernet port statistics from the ASIC
-+
-+    pnob       - Pointer to the NetObject structure
-+
-+    va       - Virtual address of structure FWCMD_ETH_GET_STATISTICS
-+
-+    pa       - Physical address of structure FWCMD_ETH_GET_STATISTICS
-+
-+    cbf    - Pointer to a function that will be
-+		called on completion. If NULL, the call will block
-+		    waiting for completion.
-+
-+    cbc     - Opaque context argument that will be passed to
-+		the completion call back function
-+
-+*/
++ *---------------------------------------------------------------
++ * Function: be_eq_modify_delay
++ *   Changes the EQ delay for a group of EQs.
++ * pfob    -
++ * num_eq             - The number of EQs in the eq_array to adjust.
++ * 			This also is the number of delay values in the
++ * 			eq_delay_array.
++ * eq_array           - Array of struct be_eq_object pointers to adjust.
++ * eq_delay_array     - Array of "num_eq" timer delays in units of
++ * 			microseconds. The be_eq_query_delay_range fwcmd
++ * 			returns the resolution and range of legal EQ delays.
++ * callback           -
++ * callback_context   -
++ * queue_context      - Optional. Pointer to a previously allocated struct.
++ * 			If the MCC WRB ring is full, this structure is
++ * 			used to queue the operation. It will be posted to
++ * 			the MCC ring when space becomes available. All
++ *                      queued commands will be posted to the ring
++ *                      in the order they are received. It is always
++ *                      valid to pass a pointer to a generic
++ *                      be_generic_queue_context. However, the
++ *                      specific context structs
++ *                      are generally smaller than the generic struct.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
 +BESTATUS
-+bni_get_stats(struct bni_net_object *pnob,
-+	      struct FWCMD_ETH_GET_STATISTICS *va,
-+	      u64 pa, MCC_WRB_CQE_CALLBACK cbf, void *cbc)
-+{
-+	BESTATUS s;
-+
-+	s = be_rxf_query_eth_statistics(NET_FH(pnob), va, pa, cbf, cbc, NULL);
-+
-+	return s;
-+
-+}
++be_eq_modify_delay(struct be_function_object *pfob,
++		   u32 num_eq, struct be_eq_object **eq_array,
++		   u32 *eq_delay_array, MCC_WRB_CQE_CALLBACK callback,
++		   void *callback_context,
++		   struct be_eq_modify_delay_queue_context *queue_context);
 +
 +/*
-+    Wrapper function to Set Pause frame control
-+
-+    pfob     - Pointer to the function object to read from.
-+    txfc_enable	- Boolean variable - 0 if TX flow control is to be
-+		disabled, 1 if  TX flow control is to be disabled.
-+
-+    rxfc_enable	- Boolean variable - 0 if RX flow control is to be
-+		disabled, 1 if  XX flow control is to be disabled
-+*/
++ *---------------------------------------------------------------
++ * Function: be_eq_query_delay_range
++ *   Queries the resolution and range allowed for EQ delay. This is
++ *   a constant set by the firmware, so it may be queried one time
++ *   at system boot. It is the same for all EQs.  This is a synchronous FWCMD.
++ * pfob     -
++ * eq_delay_resolution - Resolution of EQ delay in microseconds.
++ * eq_delay_max        - Max value of EQ delay in microseconds.
++ * return status       - BE_SUCCESS (0) on success. Negative error code
++ * 			on failure.
++ *---------------------------------------------------------------
++ */
 +BESTATUS
-+bni_set_flow_ctll(struct be_function_object *pfob, bool txfc_enable,
-+		  bool rxfc_enable)
-+{
-+	return be_eth_set_flow_control(pfob, txfc_enable, rxfc_enable);
-+}
++be_eq_query_delay_range(struct be_function_object *pfob,
++			u32 *eq_delay_resolution, u32 *eq_delay_max);
 +
 +/*
-+    Wrapper function to Get Pause frame control
-+
-+    pfob     - Pointer to the function object to read from.
-+
-+    txfc_enable	- Pointer to a Boolean variable where the TX flow
-+			control setting will be returned.  0 if the flow
-+			control is disabled, 1 if  flow control is disabled.
-+    rxfc_enable	- Pointer to a Boolean variable where the RX flow
-+			control setting will be returned.  0 if the flow
-+			control is disabled, 1 if  flow control is disabled
-+
-+*/
++ *---------------------------------------------------------------
++ * Function: be_eq_create
++ *   Creates an eq_object. This is a synchronous FWCMD.
++ * pfob -
++ * sgl             - No virtual address required.
++ * eqe_size        - EQ entry size in bytes. Either 4 or 16.
++ * num_entries     - Power of 2, fom 256 to 4k.
++ * watermark       - Eventable CQs only. CEV_WMARK_* or ~0UL for no watermark.
++ * timer_delay     - Interrupt timer delay. ~0UL disables timer. Otherwise,
++ * 			it is eq_delay_resolution units up to eq_delay_max
++ * 			decimal. The resolution and max are queried from
++ * 			be_eq_query_delay_range. e.g. If an 16 us delay
++ * 			is required, timer_delay should be
++ * 			8us/eq_delay_resolution.
++ * eq_object       - Created EQ object.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
 +BESTATUS
-+bni_get_flow_ctl(struct be_function_object *pfob, bool *txfc_enable,
-+					bool *rxfc_enable)
-+{
-+	return be_eth_get_flow_control(pfob, txfc_enable, rxfc_enable);
-+}
++be_eq_create(struct be_function_object *pfob,
++	     struct sa_sgl *sgl, u32 eqe_size, u32 num_entries,
++	     u32 watermark, u32 timer_delay, struct be_eq_object *eq_object);
++
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eq_destroy
++ *   Destroys an eq_object. This function is called as part of
++ *   be_function_cleanup.
++ * eq            -
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_eq_destroy(struct be_eq_object *eq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eq_get_id
++ *   Return the allocated ID that must be used to ring the doorbell for the EQ.
++ *---------------------------------------------------------------
++ */
++u32 be_eq_get_id(struct be_eq_object *eq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_cq_create
++ *   Creates a CQ. This uses a synchronous FWCMD.
++ * pfob     -
++ * sgl                 - No virtual address required, except for MCC CQ.
++ * length              - Length is bytes of queue. Number of entries is
++ * 			power of 2, from 256 to 1k.  solicited_eventable -
++ * 			If TRUE, only CQEs with solicited event bit cause
++ * 			eqe write.
++ * no_delay            - If eventable, TRUE means force interrupt
++ * 			immediately (ignore watermark & timer).
++ * wm_thresh           - If eventable, watermark encodings CEV_WMARK_* or
++ * 			~0UL for no watermark.
++ * eq_object           - Optional, if set this is an eventable CQ.
++ * cq_object           - Created CQ object.
++ * return status       - BE_SUCCESS (0) on success.
++ * 			Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_cq_create(struct be_function_object *pfob,
++	struct sa_sgl *sgl, u32 length,
++	bool solicited_eventable, bool no_delay,
++	u32 wm_thresh, struct be_eq_object *eq_object,
++	struct be_cq_object *cq_object);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_cq_destroy
++ *   Destroys a CQ. All clients that reference this CQ must
++ *   be destroyed first. This function is called as part of
++ *   be_function_cleanup.
++ * cq            -
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_cq_destroy(struct be_cq_object *cq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_cq_get_id
++ *   Returns the allocated CQ id used for ringing the doorbell.
++ * return id -
++ *---------------------------------------------------------------
++ */
++u32 be_cq_get_id(struct be_cq_object *cq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_mcc_ring_create
++ *   This creates a MCC ring and switches from mailbox mode to ring mode.
++ *   The number of outstanding MCC commands is the minimum of the
++ *   number of entries in the ring and the number of context structures
++ *   (i.e. num_context_entries). BECLIB uses the context entries to
++ *   track outstanding MCC WRBs since they may complete out-of-order. You may
++ *   provide zero context entries, which will limit BECLIB to one
++ *   MCC WRB at a time.
++ * sgl                 - A virtual address is required.
++ * length              - length in bytes
++ * context_array       - Array of context structs. Each outstanding MCC WRB
++ * 			 requires a context entry. BECLIB has 1 by
++ * 			 default. The context array allows you to post
++ * 			 more -- this must be non-pageable memory, but it is
++ *                       not used for DMA. Most likely the number of
++ *                       context structs will match the size of the
++ *                       MCC ring. Since commands complete out-of-order,
++ *                       this lets beclib fully utilize the ring. However,
++ *                       the size may be either lower or higher than
++ *                       the ring size.  num_context_entries - number of
++ *                       context structs
++ * cq                  - Associated completion queue created with an SGL
++ * 			 with a mapped virtual address
++ * mcc                 - On input this is a pointer to an allocated
++ * 			 MCC_OBJECT On ouput this is a created MCC object.
++ * 			 This is an opaque object. Do not reference any
++ * 			 members.
++ * return status       - BE_SUCCESS (0) on success.
++ * 			 Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_mcc_ring_create(struct be_function_object *pfob,
++		   struct sa_sgl *sgl, u32 length,
++		   struct be_mcc_wrb_context *context_array,
++		   u32 num_context_entries,
++		   struct be_cq_object *cq, struct be_mcc_object *mcc);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_mcc_ring_destroy
++ *   Cleans up MCC ring and switches to mailbox mode. This function is
++ *   called as part of be_function_cleanup.
++ * mcc_object    -
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_mcc_ring_destroy(struct be_mcc_object *mcc_object);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_mcc_process_cq
++ *   Processes mcc completions. This should be called from
++ *   the interrupt or DPC to process the MCC cq, when a corresponding
++ *   event queue entry is received. It can also be called to
++ *   poll the CQ from a timer routine for non-eventable completions.
++ *   Keep in mind, only one thread can be inside beclib at any
++ *   given time. That means this function must be
++ *   serialized with the posting of MCC WRBs.
++ * mcc_object    -
++ * rearm         - rearm should be TRUE only if called due to EQE
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_mcc_process_cq(struct be_mcc_object *mcc_object, bool rearm);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_mcc_add_async_event_callback
++ * mcc_object       -
++ * callback         - Function callback invoked when an asynchronous event
++ * 			is received on the MCC cq. It follows the prototype:
++ *  typedef void (*MCC_ASYNC_EVENT_CALLBACK) (void *context,
++ *  				u32 event_code, void *event);
++ *
++ *  			The context parameter is a copy of the
++ *  			callback_context pointer provided to this function.
++ *  			The event_code is the code from the common
++ *  			portion of the event entry. The event
++ *  			parameter is a pointer to the 16 byte async
++ *  			event message.
++ * callback_context - Passed to the callback function.
++ * return status    - BE_SUCCESS (0) on success. Negative error code on
++ * 			failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_mcc_add_async_event_callback(struct be_mcc_object *mcc_object,
++		MCC_ASYNC_EVENT_CALLBACK callback, void *callback_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_pci_soft_reset
++ *   This function is called to issue a BladeEngine soft reset. Callers
++ *   should acquire the soft reset semaphore before calling this function.
++ *   Additionaly, callers should ensure they cannot be pre-empted while
++ *   the routine executes. Upon completion of this routine, callers
++ *   should release the reset semaphore. This routine implicitly waits
++ *   for BladeEngine POST to complete.
++ * pfob -
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_pci_soft_reset(struct be_function_object *pfob);
++
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_drive_POST
++ *   This function is called to drive BladeEngine POST. The
++ *   caller should ensure they cannot be pre-empted while this routine
++ *   executes.
++ * pfob -
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_drive_POST(struct be_function_object *pfob);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_sq_create
++ *   Creates an ethernet send ring.
++ * pfob -
++ * sgl             - no virtual address required
++ * length_in_bytes -
++ * type            - The type of ring to create.
++ * ulp             - The requested ULP number for the ring. This
++ * 			should be zero based, i.e. 0,1,2. This must be valid
++ * 			NIC ULP based on the firmware config.  All
++ * 			doorbells for this ring must be sent to this ULP. The
++ * 			first network ring allocated for each ULP are
++ * 			igher performance than subsequent rings.
++ * cq_object       - cq object for completions
++ * eth_sq          -
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_sq_create(struct be_function_object *pfob,
++		struct sa_sgl *sgl, u32 length_in_bytes,
++		u32 type, u32 ulp, struct be_cq_object *cq_object,
++		struct be_ethsq_object *eth_sq);
++
++/*
++ * This is a set of optional parameters for be_eth_sq_create_ex. Certain
++ * ring types require additional parameters provided in this struct.
++ */
++struct be_eth_sq_parameters {
++	u32 port;
++	u32 rsvd0[2];
++} ;
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_sq_create_ex
++ *   Creates an ethernet send ring - extended version with additional parameters
++ * pfob -
++ * sgl             - no virtual address required
++ * length_in_bytes -
++ * type            - The type of ring to create.
++ * ulp             - The requested ULP number for the ring. This
++ * 			should be zero based, i.e. 0,1,2. This must be
++ * 			valid NIC ULP based on the firmware config.
++ * 			All doorbells for this ring must be sent to
++ * 			this ULP. The first network ring allocated for
++ * 			each ULP are higher performance than subsequent rings.
++ * cq_object       - cq object for completions
++ * ex_parameters   - Additional parameters (that may increase in future
++ * 			revisions). These parameters are only used for
++ * 			certain ring types -- see BE_ETH_SQ_PARAMETER
++ * 			for details.
++ * eth_sq          -
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_sq_create_ex(struct be_function_object *pfob,
++		    struct sa_sgl *sgl, u32 length_in_bytes,
++		    u32 type, u32 ulp, struct be_cq_object *cq_object,
++		    struct be_eth_sq_parameters *ex_parameters,
++		    struct be_ethsq_object *eth_sq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_sq_destroy
++ *   Destroys an ethernet send ring. The driver must wait for
++ *   all send completions before destroying the ring. This function
++ *   is called as part of be_function_cleanup.
++ * eth_sq        -
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_eth_sq_destroy(struct be_ethsq_object *eth_sq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_sq_get_id
++ *   Query the allocated id for the send ring. This ID is used
++ *   to ring the doorbell.
++ *---------------------------------------------------------------
++ */
++u32 be_eth_sq_get_id(struct be_ethsq_object *eth_sq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_set_flow_control
++ *   This function sets the flow control characteristics of BladeEngine.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_set_flow_control(struct be_function_object *pfob,
++			bool txfc_enable, bool rxfc_enable);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_get_flow_control
++ *   This function gets the flow control characteristics of BladeEngine.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_get_flow_control(struct be_function_object *pfob,
++			bool *txfc_enable, bool *rxfc_enable);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_set_qos
++ *   This function sets the ethernet transmit Quality of Service (QoS)
++ *   characteristics of BladeEngine for the domain. All ethernet transmit
++ *   rings of the domain will evenly share the bandwidth. The exeception
++ *   to sharing is the host primary (super) ethernet transmit
++ *   ring as well as the host ethernet forwarding ring for missed offload
++ *   data.
++ * max_bps         - the maximum bits per second in units of
++ * 			10 Mbps (valid 0-100)
++ * max_pps         - the maximum packets per second in units
++ * 			of 1 Kpps (0 indicates no limit)
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_set_qos(struct be_function_object *pfob, u32 max_bps, u32 max_pps);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_get_qos
++ *   This function retrieves the ethernet transmit Quality of Service (QoS)
++ *   characteristics for the domain.
++ * pfob -
++ * max_bps         - the maximum bits per second in units of 10
++ * 			Mbps (valid 0-100)
++ * max_pps         - the maximum packets per second in units of
++ * 			1 Kpps (0 indicates no limit)
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_get_qos(struct be_function_object *pfob, u32 *max_bps, u32 *max_pps);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_set_frame_size
++ *   This function sets the ethernet maximum frame size. The
++ *   previous values are returned.
++ * pfob -
++ * tx_frame_size   - maximum transmit frame size in bytes
++ * rx_frame_size   - maximum receive frame size in bytes
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_set_frame_size(struct be_function_object *pfob,
++		      u32 *tx_frame_size, u32 *rx_frame_size);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_rq_create
++ *   Creates an ethernet receive ring for posting rx buffers. Each
++ *   buffer posted to the ring should be the size indicated from
++ *   calling the be_eth_rq_get_frag_size function.
++ *   Only the host protection domain can receive broadcast/multicast
++ *   frames. It can choose to receive the CQ entries for these
++ *   frames on a separate completion queue, or it can
++ *   use the same CQ. This is determines by the bcmc_cq_object parameter.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_rq_create(struct be_function_object *pfob,
++		 struct sa_sgl *sgl, struct be_cq_object *cq_object,
++		 struct be_cq_object *bcmc_cq_object,
++		 struct be_ethrq_object *eth_rq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_rq_destroy
++ *   Destroys an ethernet receive ring. This function is called as part of
++ *   be_function_cleanup.
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS be_eth_rq_destroy(struct be_ethrq_object *eth_rq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_rq_destroy_options
++ *   Destroys an ethernet receive ring with finer granularity
++ *   options than the standard be_eth_rq_destroy() API function.
++ * eth_rq           -
++ * flush            - Set to 1 to flush the ring, set to 0 to
++ * 			bypass the flush and force invalidation.
++ * callback         - Callback function on completion
++ * callback_context - Callback context
++ * return status    - BE_SUCCESS (0) on success. Negative error
++ * 			code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_rq_destroy_options(struct be_ethrq_object *eth_rq, bool flush,
++		MCC_WRB_CQE_CALLBACK callback, void *callback_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_rq_destroy_async
++ *   Same as be_eth_rq_destroy, but this version allows an async callback.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_rq_destroy_async(struct be_ethrq_object *eth_rq,
++		MCC_WRB_CQE_CALLBACK callback, void *callback_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_rq_get_id
++ *   Queries the allocated ID for the ethernet receive ring.
++ *   This should be used for ringing the doorbell to post buffers.
++ *---------------------------------------------------------------
++ */
++u32 be_eth_rq_get_id(struct be_ethrq_object *EthRq);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_rq_set_frag_size
++ *   Changes the global ethernet receive fragment size. This
++ *   is very expensive and should rarely be done.  This function may
++ *   require a reboot for the fragsize to take affect. If the function
++ *   succeeds, and the returned actual_frag_size_bytes does not match
++ *   new_frag_size_bytes, then the driver must continue to use
++ *   the actual_frag_size_bytes until the next reboot.
++ * pfob        -
++ * new_frag_size_bytes    - New frag size to set. This must be a
++ * 				power of 2, from 128 to 16k.
++ * actual_frag_size_bytes - The current actual frag size. If the function
++ * 				succeeds, and this differs from the
++ * 				new_frag_size_bytes, then the new frag
++ * 				size will be applied after a reboot.
++ * 				The driver must use this size.
++ * return status          - BE_SUCCESS (0) on success. Negative error
++ * 				code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_rq_set_frag_size(struct be_function_object *pfob,
++		u32 new_frag_size_bytes, u32 *actual_frag_size_bytes);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_eth_rq_get_frag_size
++ *   Queries the global ethernet receive fragment size. All drivers
++ *   should query the frag size and use the specified size.
++ *   Alternatively, they should use the maximum fragment size.
++ * pfob -
++ * frag_size_bytes - The current actual frag size. If the function
++ * 			succeeds, and this differs from the
++ * 			new_frag_size_bytes, then the new frag size will be
++ * 			applied after a reboot. The driver must use this size.
++ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_eth_rq_get_frag_size(struct be_function_object *pfob, u32 *frag_size_bytes);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_prepare_embedded_fwcmd
++ *   Use the BE_PREPARE_EMBEDDED_FWCMD macro, instead of calling this
++ *   function directly.
++ *---------------------------------------------------------------
++ */
++void *
++be_function_prepare_embedded_fwcmd(struct be_function_object *pfob,
++		   struct MCC_WRB_AMAP *wrb,
++		   u32 payload_length, u32 request_length,
++		   u32 response_length, u32 opcode, u32 subsystem);
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_prepare_nonembedded_fwcmd
++ *   Use the BE_PREPARE_NONEMBEDDED_FWCMD macro, instead of
++ *   calling this function directly.
++ *---------------------------------------------------------------
++ */
++void *
++be_function_prepare_nonembedded_fwcmd(struct be_function_object *pfob,
++	struct MCC_WRB_AMAP *wrb, void *fwcmd_header_va, u64 fwcmd_header_pa,
++	u32 payload_length, u32 request_length, u32 response_length,
++	u32 opcode, u32 subsystem);
++
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_peek_mcc_wrb
++ *   Returns a pointer to the next WRB to post, either the mailbox
++ *   buffer or the next WRB in the ring. When using this function,
++ *   the caller must ensure that no other thread
++ *   will post an MCC wrb until after this WRB is posted.
++ * return wrb      - Pointer to the next WRB to post, NULL on failure.
++ *---------------------------------------------------------------
++ */
++struct MCC_WRB_AMAP *
++be_function_peek_mcc_wrb(struct be_function_object *pfob);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_post_mcc_wrb
++ *   Posts a WRB to either mailbox or mcc ring. The wrb pointer
++ *   may be the pointer returned by the be_function_peek_mcc_wrb function.
++ *   It not, the wrb is copied into the ring/mailbox. The callback may
++ *   be NULL, in which case the function will not return until the
++ *   WRB completes. It will poll the mailbox status or MCC CQ in that case.
++ *   Other outstanding MCC WRBs may be completed in this context
++ *   if the callback is NULL.  This function (nor any other synchronous
++ *   FWCMD function) may be called from an MCC_WRB_CQE_CALLBACK context.
++ *   Only asynchronous FWCMD may be posted during the completion of
++ *   another FWCMD. Otherwise, the software will deadlock.
++ *
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_function_post_mcc_wrb(struct be_function_object *funcobj,
++		 struct MCC_WRB_AMAP *wrb, MCC_WRB_CQE_CALLBACK callback,
++		 void *callback_context, void *optional_fwcmd_va);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_rxf_mac_address_read_write
++ *   Reads or writes the MAC address.
++ * pfob    -
++ * port1              - Specifies port 0 or 1
++ * mac1               - Specifies addres 0 or 1 (BE has 2 per port)
++ * mgmt               - Specifies the management port. If TRUE, the
++ * 			port1 and mac1
++ *                      parameters are ignored.
++ * write              - If TRUE, the MAC address is set.
++ * permanent          - If TRUE, the MAC read is the permanent address
++ * mac_address        - Address to set, or address returned.
++ * callback           - optional
++ * callback_context   - optional
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_rxf_mac_address_read_write(struct be_function_object *pfob,
++	      bool port1, bool mac1, bool mgmt,
++	      bool write, bool permanent, u8 *mac_address,
++	      MCC_WRB_CQE_CALLBACK callback,
++	      void *callback_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_rxf_multicast_config
++ *   Writes all multicast addresses for this protection domain.
++ *   This function is called as part of be_function_cleanup to
++ *   remove all multicast filters.
++ * pfob    -
++ * promiscuous        - TRUE, enables promiscuous mode where all multicast
++ * 			packets are passed up. Allows supporting >32
++ * 			multicast addresses.
++ * num                - number of mac addresses in the table. Max=32.
++ * mac_table          -
++ * callback           - optional
++ * callback_context   - optional
++ * queue_context      - Optional. Pointer to a previously allocated
++ * 			struct. If the MCC WRB ring is full, this
++ * 			structure is used to queue the operation. It
++ *                      will be posted to the MCC ring when space
++ *                      becomes available. All queued commands will be
++ *                      posted to the ring in the order they are
++ *                      received. It is always valid to pass a pointer
++ *                      to a generic be_generic_queue_context. However, the
++ *                      specific context structs are generally smaller
++ *                      than the generic struct.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_rxf_multicast_config(struct be_function_object *pfob,
++			bool promiscuous, u32 num, u8 *mac_table,
++			MCC_WRB_CQE_CALLBACK callback,
++			void *callback_context,
++			struct be_multicast_queue_context *queue_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_rxf_vlan_config
++ *   Writes all vlan tags for this protection domain. This function
++ *   is called as part of be_function_cleanup to remove all vlan filters.
++ * pfob    -
++ * promiscuous        - TRUE, enables promiscuous mode where all
++ * 			vlan packets are passed up the stack. Allows
++ * 			supporting >32 vlan tags.
++ * num                - Number of vlan tags in the array.
++ * vlan_tag_array     -
++ * callback           - optional
++ * callback_context   - optional
++ * queue_context      - Optional. Pointer to a previously allocated struct.
++ * 			If the MCC WRB ring is full, this structure is used
++ * 			to queue the operation. It will be posted to the
++ * 			MCC ring when space becomes available. All
++ *                      queued commands will be posted to the ring in
++ *                      the order they are received. It is always valid
++ *                      to pass a pointer to a generic
++ *                      be_generic_queue_context. However, the specific
++ *                      context structs are generally smaller than
++ *                      the generic struct.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_rxf_vlan_config(struct be_function_object *pfob,
++	   bool promiscuous, u32 num, u16 *vlan_tag_array,
++	   MCC_WRB_CQE_CALLBACK callback, void *callback_context,
++	   struct be_vlan_queue_context *queue_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_rxf_wake_on_lan_config
++ *   Configures wake-on-lan for the controller. Wake-on-lan is only
++ *   supported for the host system virtual machine - wake-on-lan is not
++ *   supported per protection domain. To enable magic packet
++ *   reception, use null pointer arguments for pattern & pattern mask,
++ *   set magic_packet_enable to true, and set the port enables
++ *   to true. To disable magic packet reception, use null pointer
++ *   arguments for pattern & pattern mask, set magic_packet_enable to true,
++ *   and set the port enables to false. To remove a pattern, set both
++ *   enable_port0 and enable_port1 to FALSE, and provide the index
++ *   you previously used to enable the pattern. This function is
++ *   not called as part of be_function_cleanup to remove all wake-on-lan
++ *   patterns, since be_function_cleanup could be called when the
++ *   system wants to wake up on a magic or interesting packet.
++ * pfob     -
++ * enable_port0        - If TRUE, enable this pattern for port0.
++ * enable_port1        - If TRUE, enable this pattern for port1.
++ * magic_packet_enable - If TRUE, enable magic packet for the enabled ports.
++ * index               - index 0-3 for the packet to program
++ * pattern             - 128 byte magic pattern
++ * pattern_mask        - 128 bit mask indicating which bytes in the
++ * 			pattern should be matched.
++ * callback            - optional
++ * callback_context    - optional
++ * queue_context       - Optional. Pointer to a previously allocated struct.
++ * 			 If the MCC WRB ring is full, this structure is
++ * 			 used to queue the operation. It will be posted
++ * 			 to the MCC ring when space becomes available.
++ * 			 All queued commands will be posted to the
++ * 			 ring in the order they are received. It is
++ * 			 always valid to pass a pointer to a generic
++ * 			 be_generic_queue_context. However, the specific
++ * 			 context structs are generally smaller than
++ * 			 the generic struct.
++ * return pend_status  - BE_SUCCESS (0) on success. BE_PENDING
++ * 			 (postive value) if the FWCMD completion
++ * 			 is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_rxf_wake_on_lan_config(struct be_function_object *pfob,
++			bool enable_port0, bool enable_port1,
++			bool magic_packet_enable, u32 index,
++			void *pattern, void *pattern_mask,
++			MCC_WRB_CQE_CALLBACK callback,
++			void *callback_context,
++			struct be_wake_on_lan_queue_context *queue_context);
++/*
++ *---------------------------------------------------------------
++ * Function: be_rxf_link_status
++ *   Queries the link status.
++ * pfob    -
++ * link_status        - returned status
++ * callback           - optional
++ * callback_context   - optional
++ * queue_context      - Optional. Pointer to a previously allocated struct.
++ * 			If the MCC WRB ring is full, this structure is
++ * 			used to queue the operation. It will be posted
++ * 			to the MCC ring when space becomes available. All
++ *                      queued commands will be posted to the ring in
++ *                      the order they are received. It is always valid
++ *                      to pass a pointer to a generic
++ *                      be_generic_queue_context. However, the specific
++ *                      context structs are generally smaller than
++ *                      the generic struct.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_rxf_link_status(struct be_function_object *pfob,
++		   struct BE_LINK_STATUS *link_status,
++		   MCC_WRB_CQE_CALLBACK callback,
++		   void *callback_context,
++		   struct be_link_status_queue_context *queue_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_rxf_query_eth_statistics
++ *   Queries the ethernet statistics. The resulting statistics are
++ *   stored in the fwcmd response buffer.
++ * pfob    -
++ * va_for_fwcmd       - Virtual address of the FWCMD buffer. This buffer must be
++ *                      physically contiguous.
++ * pa_for_fwcmd       - Physical address of the FWCMD buffer. This buffer must
++ * 			be physically contiguous.
++ * callback           - optional
++ * callback_context   - optional
++ * queue_context      - Optional. Pointer to a previously allocated
++ * 			struct. If the MCC WRB ring is full, this
++ * 			structure is used to queue the operation.
++ * 			It will be posted to the MCC ring when space
++ * 			becomes available. All queued commands will be posted
++ * 			to the ring in the order they are received.
++ * 			It is always valid to pass a pointer to a
++ * 			generic be_generic_queue_context. However, the
++ * 			specific context structs are generally smaller than
++ * 			the generic struct.
++ * return pend_status - BE_SUCCESS (0) on success. BE_PENDING (postive value)
++ * 			if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_rxf_query_eth_statistics(struct be_function_object *pfob,
++		struct FWCMD_ETH_GET_STATISTICS *va_for_fwcmd,
++		u64 pa_for_fwcmd, MCC_WRB_CQE_CALLBACK callback,
++		void *callback_context,
++		struct be_nonembedded_queue_context *queue_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_rxf_promiscuous
++ *   Enables or disables promiscuous mode for each MAC port.
++ * pfob    -
++ * enable_port0       - Enable/Disable promiscuous mode on port 0.
++ * enable_port1       - Enable/Disable promiscuous mode on port 1.
++ * callback           - optional
++ * callback_context   - optional
++ * queue_context      - Optional. Pointer to a previously allocated
++ * 			struct. If the MCC WRB ring is full, this
++ * 			structure is used to queue the operation.
++ * 			It will be posted to the MCC ring when space
++ * 			becomes available. All queued commands will be
++ * 			posted to the ring in the order they are
++ * 			received. It is always valid to pass a
++ * 			pointer to a generic be_generic_queue_context.
++ * 			However, the specific context structs are
++ * 			generally smaller than the generic struct.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_rxf_promiscuous(struct be_function_object *pfob,
++		   bool enable_port0, bool enable_port1,
++		   MCC_WRB_CQE_CALLBACK callback, void *callback_context,
++		   struct be_promiscuous_queue_context *queue_context);
++
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_rxf_filter_config
++ *   Configures BladeEngine ethernet receive filter settings.
++ * pfob    -
++ * settings           - Pointer to the requested filter settings.
++ * 			The response from BladeEngine will be placed back
++ * 			in this structure.
++ * callback           - optional
++ * callback_context   - optional
++ * queue_context      - Optional. Pointer to a previously allocated struct.
++ * 			If the MCC WRB ring is full, this structure is
++ * 			used to queue the operation. It will be posted to
++ * 			the MCC ring when space becomes available. All
++ * 			queued commands will be posted to the ring in
++ * 			the order they are received. It is always valid
++ * 			to pass a pointer to a generic
++ * 			be_generic_queue_context. However, the
++ * 			specific context structs are generally
++ * 			smaller than the generic struct.
++ * return pend_status - BE_SUCCESS (0) on success. BE_PENDING (postive value)
++ * 			if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------
++ */
++BESTATUS
++be_rxf_filter_config(struct be_function_object *pfob,
++		     struct NTWK_RX_FILTER_SETTINGS *settings,
++		     MCC_WRB_CQE_CALLBACK callback,
++		     void *callback_context,
++		     struct be_rxf_filter_queue_context *queue_context);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_enable_interrupts
++ *   Enables interrupts for the given PCI function.
++ *---------------------------------------------------------------
++ */
++void be_function_enable_interrupts(struct be_function_object *pfob);
++
++/*
++ *---------------------------------------------------------------
++ * Function: be_function_disable_interrupts
++ *   Disables interrupts for the given PCI function.
++ *---------------------------------------------------------------
++ */
++void
++be_function_disable_interrupts(struct be_function_object *pfob);
++
++#endif /* __beclib_ll_bmap_h__ */
+diff --git a/drivers/message/beclib/beclib_ll_enum_nic.h b/drivers/message/beclib/beclib_ll_enum_nic.h
+new file mode 100644
+index 0000000..532e062
+--- /dev/null
++++ b/drivers/message/beclib/beclib_ll_enum_nic.h
+@@ -0,0 +1,48 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __beclib_ll_enum_h__
++#define __beclib_ll_enum_h__
++
++/* --- BE_FUNCTION_ENUM --- */
++#define BE_FUNCTION_TYPE_ISCSI          (0)
++#define BE_FUNCTION_TYPE_NETWORK        (1)
++#define BE_FUNCTION_TYPE_ARM            (2)
++
++enum BE_FUNCTION_ENUM {
++	ENUM_BE_FUNCTION_TYPE_ISCSI = 0x0UL,
++	ENUM_BE_FUNCTION_TYPE_NETWORK = 0x1UL,
++	ENUM_BE_FUNCTION_TYPE_ARM = 0x2UL
++} ;
++
++/* --- BE_ETH_TX_RING_TYPE_ENUM --- */
++#define BE_ETH_TX_RING_TYPE_FORWARDING  (1) 	/* Ether ring for forwarding */
++#define BE_ETH_TX_RING_TYPE_STANDARD    (2)	/* Ether ring for sending */
++						/* network packets. */
++#define BE_ETH_TX_RING_TYPE_BOUND       (3)	/* Ethernet ring for sending */
++						/* network packets, bound */
++						/* to a physical port. */
++
++enum BE_ETH_TX_RING_TYPE_ENUM {
++	ENUM_BE_ETH_TX_RING_TYPE_FORWARDING = 0x1UL,
++	ENUM_BE_ETH_TX_RING_TYPE_STANDARD = 0x2UL,
++	ENUM_BE_ETH_TX_RING_TYPE_BOUND = 0x3UL
++} ;
++
++#endif /* __beclib_ll_enum_h__ */
 -- 
 1.5.5
 
