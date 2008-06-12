@@ -1,57 +1,52 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] ssb: Partial revert of 4ac5846 to fix coherent DMA mask setting
-Date: Thu, 12 Jun 2008 14:52:24 +0200
-Message-ID: <200806121452.24592.mb@bu3sch.de>
-References: <1213274522-7059-1-git-send-email-kirill@shutemov.name>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
+Date: Thu, 12 Jun 2008 15:31:56 +0200
+Message-ID: <f4845fc0806120631g511c7dbag365a8483134943fd@mail.gmail.com>
+References: <48501C81.6010800@trash.net> <4850233E.7090501@trash.net>
+	 <f4845fc0806111229l6666161fu9d3bc5e432668485@mail.gmail.com>
+	 <48502826.9060502@trash.net>
+	 <f4845fc0806111253l4f1fea4fyef05cdc41ca45911@mail.gmail.com>
+	 <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
+	 <48503BBD.6000307@google.com> <485043E6.5030105@candelatech.com>
+	 <485050FE.6030209@google.com> <20080612014548.GE22358@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Glauber Costa <gcosta@redhat.com>
-To: "Kirill A. Shutemov" <kirill@shutemov.name>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:37674 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755731AbYFLMws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 08:52:48 -0400
-In-Reply-To: <1213274522-7059-1-git-send-email-kirill@shutemov.name>
+Cc: "Vince Busam" <vbusam@google.com>,
+	"Ben Greear" <greearb@candelatech.com>,
+	"Patrick McHardy" <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080612014548.GE22358@verge.net.au>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 12 June 2008 14:42:02 Kirill A. Shutemov wrote:
-> dma_set_mask() doesn't set coherent_dma_mask, this can cause
-> strange error like "powering down PHY" in b44(bz #10473).
-> 
-> At x86_64 this error had been hidden until aa99b16.
+On Thu, Jun 12, 2008, Simon Horman <horms@verge.net.au> wrote:
+> Eventially the changes settled down, and for the past few years they
+> have been very infrequent.  But the problem that the interface isn't
+> really extendable and that when changes are made kernel and ipvsadm
+> versions need to be incremented together remains. For instance, the
+> Debian package of ipvsadm actually shipps three different ipvsadm
+> binaries, and a wrapper works out which one to use based on the kernel
+> version.
 
-This patch is wrong. I will send the right patch soon.
+Ugh.
 
+> I wonder if now would be a good time to bite the bullet and design
+> a new interface that is extendable.
 
-> Signed-off-by: Kirill A. Shutemov <kirill@shutemov.name>
-> ---
->  drivers/ssb/main.c |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-> index 7cf8851..b7fbbc4 100644
-> --- a/drivers/ssb/main.c
-> +++ b/drivers/ssb/main.c
-> @@ -1170,8 +1170,9 @@ int ssb_dma_set_mask(struct ssb_device *ssb_dev, u64 mask)
->  	struct device *dma_dev = ssb_dev->dma_dev;
->  
->  #ifdef CONFIG_SSB_PCIHOST
-> -	if (ssb_dev->bus->bustype == SSB_BUSTYPE_PCI)
-> -		return dma_set_mask(dma_dev, mask);
-> +	if (ssb_dev->bus->bustype == SSB_BUSTYPE_PCI &&
-> +	    !dma_supported(dma_dev, mask))
-> +		return -EIO;
->  #endif
->  	dma_dev->coherent_dma_mask = mask;
->  	dma_dev->dma_mask = &dma_dev->coherent_dma_mask;
+If we really have to break it once for IPv6 anyways, it seems like a
+good opportunity. Depends on how invasive the changes would need to
+be, of course...
 
+You probably already have some ideas on what a better interface would
+look like? Especially, how to design it for future backwards
+compatibility? And would it still use sockopts or rather one of the
+other communication mechanisms?
 
+Julius
 
 -- 
-Greetings Michael.
+Google Switzerland GmbH
