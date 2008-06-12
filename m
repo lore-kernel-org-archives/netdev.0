@@ -1,49 +1,51 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] SCTP: enable cookie-echo retransmission transport switch
-Date: Thu, 12 Jun 2008 11:07:16 -0400
-Message-ID: <48513BA4.9030403@hp.com>
-References: <4850A7F2.6090906@cn.fujitsu.com>
+From: "Amar Mudrankit" <amar.mudrankit@qlogic.com>
+Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs
+	Documentation
+Date: Thu, 12 Jun 2008 20:43:40 +0530
+Message-ID: <c8028d330806120813q6363c3cemb4aa03ceff6547d1@mail.gmail.com>
+References: <20080610205633.11186.45499.stgit@dale>
+	<20080610210918.11186.64253.stgit@dale> <484F751F.7030407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:11862 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752085AbYFLPHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 11:07:20 -0400
-In-Reply-To: <4850A7F2.6090906@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
+	poornima.kamath@qlogic.com
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <484F751F.7030407@trash.net>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Gui Jianfeng wrote:
-> Vlad,
-> This patch enables cookie-echo retransmission transport switch
-> feature. If COOKIE-ECHO retransmission happens, it will be sent 
-> to the address other than the one last sent to.
-> 
+>
+>> +/sys/class/infiniband_qlgc_vnic/interfaces/<VNIC-interface-name>/
+>> +
+>> +       vnic_state      (0444)  State of the VNIC interface.
+>
+> This I don't understand - you seem to be registering and
+> unregistering the net_device based some state machine,
+> in some cases even triggered by timers.
+>
+> Whats the idea behind this?
+>
 
-NAK.
-
-You can't blindly choose a different transport since they could
-be unconfirmed and can't really be used until we confirm them
-with HBs.  So, you can only do this when the user issued an
-sctp_connectx() and we have multiple confirmed transports.
-
-In this case only confirmed transports are allowed, otherwise
-there is a possibility of hijacking associations.
-
-
-Also, looking at this, the same problem exists in current
-code for selection INIT transports.
-
-We don't correctly treat peers passed to connectx() as confirmed
-and don't select the correct transport.
-
-Once you fix that above, you can just re-use the function and
-re-use init_last_sent_to.
-
--vlad
-
+For a given VNIC interface, unless the VNIC host driver establishes a
+connection with EVIC
+and completes the control and data path communication sequence with
+the EVIC, the
+VNIC network device is not registered on the host.  Establishing a
+connection with EVIC
+and going through the control and data path communication involves
+multiple packet
+exchange on the IB side with the EVIC and can take some time.  The
+netpath statemachine is, hence, meant to PERIODICALLY check if
+connection is fully established with EVIC or not.
+Once connection is established, it takes care to register the VNIC netdevice.
