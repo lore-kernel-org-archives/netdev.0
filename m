@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]bnx2x: Updating the Maintainer
-Date: Thu, 12 Jun 2008 14:31:04 -0700 (PDT)
-Message-ID: <20080612.143104.146294136.davem@davemloft.net>
-References: <1213282973.5995.4.camel@lb-tlvb-eliezer>
+From: "Pekka Enberg" <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
+Subject: Re: [PATCH] ssb: Fix coherent DMA mask for PCI devices
+Date: Fri, 13 Jun 2008 00:44:13 +0300
+Message-ID: <84144f020806121444i43d381ehdee1774c135d8841@mail.gmail.com>
+References: <200806121533.14435.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, eliezert@broadcom.com,
-	mchan@broadcom.com
-To: eilong@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42539
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751721AbYFLVk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 17:40:27 -0400
-In-Reply-To: <1213282973.5995.4.camel@lb-tlvb-eliezer>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Kirill A. Shutemov" <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>,
+	"Glauber Costa" <gcosta-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200806121533.14435.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Thu, 12 Jun 2008 18:02:53 +0300
+On Thu, Jun 12, 2008 at 4:33 PM, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
+> This fixes setting the coherent DMA mask for PCI devices.
+>
+> Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+>
+> ---
+>
+> John, please queue this bugfix for 2.6.26
+>
+> The whole SSB DMA API should be rewritten, as it makes too many bad
+> assumptions about the other subsytems. I will do that soon.
+> But let's apply this patch for now, as it fixes this particular bug.
 
-> I would like to thank Eliezer Tamir for writing and maintaining the
-> driver for the past two years. I will take over maintaining the bnx2x
-> driver from now on.
-> 
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
+Hmm. Does the patch have anything to do with this bug report?
 
-Patch applied, thanks everyone, and indeed thanks to Eliezer
-for so much hard work on this driver.
+http://bugzilla.kernel.org/show_bug.cgi?id=10819
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
