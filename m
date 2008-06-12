@@ -1,70 +1,50 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] ssb: Fix coherent DMA mask for PCI devices
-Date: Thu, 12 Jun 2008 15:33:13 +0200
-Message-ID: <200806121533.14435.mb@bu3sch.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
+Date: Thu, 12 Jun 2008 15:38:05 +0200
+Message-ID: <485126BD.7030109@trash.net>
+References: <48501C81.6010800@trash.net> <4850233E.7090501@trash.net>	 <f4845fc0806111229l6666161fu9d3bc5e432668485@mail.gmail.com>	 <48502826.9060502@trash.net>	 <f4845fc0806111253l4f1fea4fyef05cdc41ca45911@mail.gmail.com>	 <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>	 <48503BBD.6000307@google.com> <485043E6.5030105@candelatech.com>	 <485050FE.6030209@google.com> <20080612014548.GE22358@verge.net.au> <f4845fc0806120631g511c7dbag365a8483134943fd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"Kirill A. Shutemov" <kirill@shutemov.name>,
-	Glauber Costa <gcosta@redhat.com>
-To: John Linville <linville@tuxdriver.com>
+Cc: Simon Horman <horms@verge.net.au>, Vince Busam <vbusam@google.com>,
+	Ben Greear <greearb@candelatech.com>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:46197 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757769AbYFLNgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 09:36:22 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:40147 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752261AbYFLNiL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2008 09:38:11 -0400
+In-Reply-To: <f4845fc0806120631g511c7dbag365a8483134943fd@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes setting the coherent DMA mask for PCI devices.
+Julius Volz wrote:
+> On Thu, Jun 12, 2008, Simon Horman <horms@verge.net.au> wrote:
+>> Eventially the changes settled down, and for the past few years they
+>> have been very infrequent.  But the problem that the interface isn't
+>> really extendable and that when changes are made kernel and ipvsadm
+>> versions need to be incremented together remains. For instance, the
+>> Debian package of ipvsadm actually shipps three different ipvsadm
+>> binaries, and a wrapper works out which one to use based on the kernel
+>> version.
+> 
+> Ugh.
+> 
+>> I wonder if now would be a good time to bite the bullet and design
+>> a new interface that is extendable.
+> 
+> If we really have to break it once for IPv6 anyways, it seems like a
+> good opportunity. Depends on how invasive the changes would need to
+> be, of course...
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+You don't need to break the old interface, just add an additional
+one.
 
----
+> You probably already have some ideas on what a better interface would
+> look like? Especially, how to design it for future backwards
+> compatibility? And would it still use sockopts or rather one of the
+> other communication mechanisms?
 
-John, please queue this bugfix for 2.6.26
+I'd suggest genetlink or nfnetlink.
 
-The whole SSB DMA API should be rewritten, as it makes too many bad
-assumptions about the other subsytems. I will do that soon.
-But let's apply this patch for now, as it fixes this particular bug.
-
-
-Index: wireless-testing/drivers/ssb/main.c
-===================================================================
---- wireless-testing.orig/drivers/ssb/main.c	2008-05-17 18:44:32.000000000 +0200
-+++ wireless-testing/drivers/ssb/main.c	2008-06-12 15:24:04.000000000 +0200
-@@ -1165,21 +1165,27 @@ u32 ssb_dma_translation(struct ssb_devic
- }
- EXPORT_SYMBOL(ssb_dma_translation);
- 
- int ssb_dma_set_mask(struct ssb_device *ssb_dev, u64 mask)
- {
- 	struct device *dma_dev = ssb_dev->dma_dev;
-+	int err = 0;
- 
- #ifdef CONFIG_SSB_PCIHOST
--	if (ssb_dev->bus->bustype == SSB_BUSTYPE_PCI)
--		return dma_set_mask(dma_dev, mask);
-+	if (ssb_dev->bus->bustype == SSB_BUSTYPE_PCI) {
-+		err = pci_set_dma_mask(ssb_dev->bus->host_pci, mask);
-+		if (err)
-+			return err;
-+		err = pci_set_consistent_dma_mask(ssb_dev->bus->host_pci, mask);
-+		return err;
-+	}
- #endif
- 	dma_dev->coherent_dma_mask = mask;
- 	dma_dev->dma_mask = &dma_dev->coherent_dma_mask;
- 
--	return 0;
-+	return err;
- }
- EXPORT_SYMBOL(ssb_dma_set_mask);
- 
- int ssb_bus_may_powerdown(struct ssb_bus *bus)
- {
- 	struct ssb_chipcommon *cc;
