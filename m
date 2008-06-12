@@ -1,38 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/1] /drivers/net/r6040.c: bad use of round_jiffies()
- ???
-Date: Wed, 11 Jun 2008 22:50:48 -0400
-Message-ID: <48508F08.7040009@garzik.org>
-References: <20080515212624.D56371C00093@mwinf2723.orange.fr>
+Subject: Re: [patch 05/13] ipg: fix receivemode IPG_RM_RECEIVEMULTICAST{,HASH}
+ in ipg_nic_set_multicast_list()
+Date: Wed, 11 Jun 2008 22:50:43 -0400
+Message-ID: <48508F03.4070506@garzik.org>
+References: <200806092333.m59NXoog014679@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux <linux-kernel@vger.kernel.org>,
-	florian.fainelli@telecomint.eu, netdev@vger.kernel.org
-To: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+Cc: netdev@vger.kernel.org, roel.kluin@gmail.com, romieu@fr.zoreil.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45526 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45509 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755481AbYFLCuw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2008 22:50:52 -0400
-In-Reply-To: <20080515212624.D56371C00093@mwinf2723.orange.fr>
+	id S1755480AbYFLCur (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2008 22:50:47 -0400
+In-Reply-To: <200806092333.m59NXoog014679@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christophe Jaillet wrote:
-> From: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+akpm@linux-foundation.org wrote:
+> From: Roel Kluin <roel.kluin@gmail.com>
 > 
-> Hi, here is a patch against linux/drivers/net/r6040.c.
+> The branches are dead code.  even when dev->flag IFF_MULTICAST (defined
+> 0x1000) is set, dev->flags & IFF_MULTICAST & [boolean] always evaluates to
+> 0.
 > 
-> Compared to other places in the kernel, I think that this driver misuses
-> the function round_jiffies.
-> 
-> 
-> Note: this patch is based on 'linux-2.6.25.tar.bz2'
-> 
-> Signed-off-by: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> Cc: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-applied
+applied 5-6
 
 
 
