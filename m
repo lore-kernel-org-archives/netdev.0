@@ -1,67 +1,44 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Fri, 13 Jun 2008 13:09:13 +0200
-Message-ID: <20080613110913.GB9867@elte.hu>
-References: <20080611.165255.242691774.davem@davemloft.net> <20080612.163212.148965080.davem@davemloft.net> <20080613063037.GA16943@elte.hu> <20080613.023208.78649628.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, vgusev@openvz.org, mcmanus@ducksong.com,
-	xemul@openvz.org, netdev@vger.kernel.org,
-	ilpo.jarvinen@helsinki.fi, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760230AbYFMLJu@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080613.023208.78649628.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: maximilian attems <max-U9r9yeDMy7A@public.gmane.org>
+Subject: [PATCH] hci_usb: Blacklist Bluetooth Dell Wireless 370 for SCO MTU
+Date: Fri, 13 Jun 2008 13:47:19 +0200
+Message-ID: <1213357639-1602-1-git-send-email-max@stro.at>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mario Limonciello <Mario_Limonciello-8PEkshWhKlo@public.gmane.org>,
+	Mario Limonciello <Mario_Limonciello-DYMqY+WieiM@public.gmane.org>,
+	Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	maximilian attems <max-U9r9yeDMy7A@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Mario Limonciello <Mario_Limonciello-8PEkshWhKlo@public.gmane.org>
 
-* David Miller <davem@davemloft.net> wrote:
+Add Dell Wireless 370 device to blacklist to enable SCO MTU workaround.
 
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Fri, 13 Jun 2008 08:30:37 +0200
-> 
-> > the 3 reverts have been extensively tested in -tip via:
-> > 
-> >  # tip/out-of-tree: 9e5b6ca: tcp: revert DEFER_ACCEPT modifications
-> > 
-> > and the distcc problems are fixed. (The locking fix alone did not fix it 
-> > conclusively in my testing, possibly due to the follow-on observations 
-> > outlined in your description.)
-> > 
-> > Tested-by: Ingo Molnar <mingo@elte.hu>
-> 
-> I didn't revert all three changes, just the final part of that 3 part 
-> series.
-> 
-> Please test the patch I actually applied.
+fixes report
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/209715
 
-i just updated all my testsystems to revert the change i tested so far, 
-and updated it to yours. The delta between the two is the 3 lines patch 
-below.
+Signed-off-by: Mario Limonciello <Mario_Limonciello-DYMqY+WieiM@public.gmane.org>
+Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Signed-off-by: maximilian attems <max-U9r9yeDMy7A@public.gmane.org>
+---
+ drivers/bluetooth/hci_usb.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-A few testsystems already booted into your patch, so if i dont report a 
-hung TCP connection in the next 6 hours consider it:
-
-Tested-by: Ingo Molnar <mingo@elte.hu>
-
-	Ingo
-
---------------->
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index ec83448..045e799 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -466,9 +466,9 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
- 		reqp=&lopt->syn_table[i];
- 		while ((req = *reqp) != NULL) {
- 			if (time_after_eq(now, req->expires)) {
--				if ((req->retrans < thresh ||
--				     (inet_rsk(req)->acked && req->retrans < max_retries))
--				    && !req->rsk_ops->rtx_syn_ack(parent, req)) {
-+				if ((req->retrans < (inet_rsk(req)->acked ? max_retries : thresh)) &&
-+				    (inet_rsk(req)->acked ||
-+				     !req->rsk_ops->rtx_syn_ack(parent, req))) {
- 					unsigned long timeo;
+diff --git a/drivers/bluetooth/hci_usb.c b/drivers/bluetooth/hci_usb.c
+index d73e513..e9eef9a 100644
+--- a/drivers/bluetooth/hci_usb.c
++++ b/drivers/bluetooth/hci_usb.c
+@@ -134,6 +134,8 @@ static struct usb_device_id blacklist_ids[] = {
  
- 					if (req->retrans++ == 0)
+ 	/* Dell laptop with Broadcom chip */
+ 	{ USB_DEVICE(0x413c, 0x8126), .driver_info = HCI_RESET | HCI_WRONG_SCO_MTU },
++	/* Dell Wireless 370 */
++	{ USB_DEVICE(0x413c, 0x8156), .driver_info = HCI_RESET | HCI_WRONG_SCO_MTU },
+ 
+ 	/* Microsoft Wireless Transceiver for Bluetooth 2.0 */
+ 	{ USB_DEVICE(0x045e, 0x009c), .driver_info = HCI_RESET },
+-- 
+1.5.5.3
