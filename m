@@ -1,20 +1,25 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2/2] sctp: Correclty set changeover_active for SFR-CACC
-Date: Fri, 13 Jun 2008 09:49:09 -0400
-Message-ID: <1213364949-9997-3-git-send-email-vladislav.yasevich@hp.com>
-References: <1213364949-9997-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: linux-sctp@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net,
+Subject: [PATCH 2/2 v2] sctp: Correclty set changeover_active for SFR-CACC
+Date: Fri, 13 Jun 2008 09:58:51 -0400
+Message-ID: <1213365531-10049-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: lksctp-developers@lists.sourceforge.net,
+	linux-sctp@vger.kernel.org,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:45462 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755558AbYFMNtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 09:49:14 -0400
-In-Reply-To: <1213364949-9997-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:22680 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756013AbYFMN6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 09:58:53 -0400
+In-Reply-To: 1213364949-9997-3-git-send-email-vladislav.yasevich@hp.com>
+References: 1213364949-9997-3-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Not sure why the spacing got garbled in this patch, but here it
+again and looking much better.
+
+--
 
 Right now, any time we set a primary transport we set
 the changeover_active flag.  As a result, we invoke SFR-CACC
@@ -42,7 +47,7 @@ index 5326348..39f92c0 100644
 +	/* it's a changeover only if we already have a primary path
 +	 * that we are changing
 +	 */
-+       	if (asoc->peer.primary_path != NULL &&
++	if (asoc->peer.primary_path != NULL &&
 +	    asoc->peer.primary_path != transport)
 +		changeover = 1 ;
 +
