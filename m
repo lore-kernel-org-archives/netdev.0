@@ -1,74 +1,53 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2/2 v2] sctp: Correclty set changeover_active for SFR-CACC
-Date: Fri, 13 Jun 2008 09:58:51 -0400
-Message-ID: <1213365531-10049-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: lksctp-developers@lists.sourceforge.net,
-	linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: netdev@vger.kernel.org
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: [PATCH 1/3] virtio: fix virtio_net xmit of freed skb bug
+Date: Fri, 13 Jun 2008 15:14:00 +0100
+Message-ID: <1213366440.9507.0.camel@muff>
+References: <200805261742.43215.rusty@rustcorp.com.au>
+	 <1211886386.3637.48.camel@muff>  <200805291634.18224.rusty@rustcorp.com.au>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:22680 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756013AbYFMN6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 09:58:53 -0400
-In-Reply-To: 1213364949-9997-3-git-send-email-vladislav.yasevich@hp.com>
-References: 1213364949-9997-3-git-send-email-vladislav.yasevich@hp.com>
+Received: from mx1.redhat.com ([66.187.233.31]:52928 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753901AbYFMOPF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jun 2008 10:15:05 -0400
+In-Reply-To: <200805291634.18224.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not sure why the spacing got garbled in this patch, but here it
-again and looking much better.
+On Thu, 2008-05-29 at 16:34 +1000, Rusty Russell wrote:
+> On Tuesday 27 May 2008 21:06:26 Mark McLoughlin wrote:
+> > On Mon, 2008-05-26 at 17:42 +1000, Rusty Russell wrote:
+> > > If we fail to transmit a packet, we assume the queue is full and put
+> > > the skb into last_xmit_skb.  However, if more space frees up before we
+> > > xmit it, we loop, and the result can be transmitting the same skb twice.
+> > >
+> > > Fix is simple: set skb to NULL if we've used it in some way, and check
+> > > before sending.
+> 
+> Great! It's a corner case, but it's no more complicated to do it your way.
+> 
+> Minor mod, I find it clearer to have the vi->last_xmit_skb = NULL; under
+> the branch:
+> 
+> Subject: [PATCH] virtio_net: Delay dropping tx skbs
+> Date: Tue, 27 May 2008 12:06:26 +0100
+> From: Mark McLoughlin <markmc@redhat.com>
+> 
+> Currently we drop the skb in start_xmit() if we have a
+> queued buffer and fail to transmit it.
+> 
+> However, if we delay dropping it until we've stopped the
+> queue and enabled the tx notification callback, then there
+> is a chance space might become available for it.
 
---
+Hmm, we lost this one somewhere along the way ...
 
-Right now, any time we set a primary transport we set
-the changeover_active flag.  As a result, we invoke SFR-CACC
-even when there has been no changeover events.
-
-Only set changeover_active, when there is a true changeover
-event, i.e. we had a primary path and we are changing to
-another transport.
-
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/associola.c |   13 +++++++++++--
- 1 files changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 5326348..39f92c0 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -474,6 +474,15 @@ static void sctp_association_destroy(struct sctp_association *asoc)
- void sctp_assoc_set_primary(struct sctp_association *asoc,
- 			    struct sctp_transport *transport)
- {
-+	int changeover = 0;
-+
-+	/* it's a changeover only if we already have a primary path
-+	 * that we are changing
-+	 */
-+	if (asoc->peer.primary_path != NULL &&
-+	    asoc->peer.primary_path != transport)
-+		changeover = 1 ;
-+
- 	asoc->peer.primary_path = transport;
- 
- 	/* Set a default msg_name for events. */
-@@ -499,12 +508,12 @@ void sctp_assoc_set_primary(struct sctp_association *asoc,
- 	 * double switch to the same destination address.
- 	 */
- 	if (transport->cacc.changeover_active)
--		transport->cacc.cycling_changeover = 1;
-+		transport->cacc.cycling_changeover = changeover;
- 
- 	/* 2) The sender MUST set CHANGEOVER_ACTIVE to indicate that
- 	 * a changeover has occurred.
- 	 */
--	transport->cacc.changeover_active = 1;
-+	transport->cacc.changeover_active = changeover;
- 
- 	/* 3) The sender MUST store the next TSN to be sent in
- 	 * next_tsn_at_change.
--- 
-1.5.3.5
+Cheers,
+Mark.
 
