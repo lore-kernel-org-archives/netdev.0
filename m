@@ -1,52 +1,66 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RESEND #3/patch 2.6.26-rc6] net/enc28j60: low power mode
-Date: Fri, 13 Jun 2008 05:40:56 -0400
-Message-ID: <485240A8.5070802@garzik.org>
-References: <200806122138.06674.david-b@pacbell.net>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [Bug 10903] New: ssh connections hang with 2.6.26-rc5 (fwd)
+Date: Fri, 13 Jun 2008 12:54:49 +0300
+Message-ID: <20080613095449.GA17460@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Claudio Lanconelli <lanconelli.claudio@eptar.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset=utf-8
+Cc: bugme-daemon@bugzilla.kernel.org, didier@raboud.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40395 "EHLO mail.dvmed.net"
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:47502 "EHLO smtp4.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753431AbYFMJlC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jun 2008 05:41:02 -0400
-In-Reply-To: <200806122138.06674.david-b@pacbell.net>
+	id S1753721AbYFMJ4A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jun 2008 05:56:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Brownell wrote:
-> Keep enc28j60 chips in low-power mode when they're not in use.
-> At typically 120 mA, these chips run hot even when idle; this
-> low power mode cuts that power usage by a factor of around 100.
-> 
-> This version provides a generic routine to poll a register until
-> its masked value equals some value ... e.g. bit set or cleared.
-> It's basically what the previous wait_phy_ready() did, but this
-> version is generalized to support the handshaking needed to
-> enter and exit low power mode.
-> 
-> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
-> Signed-off-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
-> ---
-> Previously sent:  18-May, 19-February; there were several
-> previous iterations too ...
-> 
->  drivers/net/enc28j60.c |   82 ++++++++++++++++++++++++++++++++++---------------
->  1 file changed, 58 insertions(+), 24 deletions(-)
+A 2.6.26-rc networking regression?
 
-I've put these two into my queue, so they are definitely in process now.
-
-For netdev patches it helps to CC me, since not every patch sent solely 
-to netdev@ is a to-be-applied patch, and might be missed -- or quite 
-often, assumed to be a patch that warrants discussion.
-
-	Jeff
+Please reply via email.
 
 
+----- Forwarded message from bugme-daemon@bugzilla.kernel.org -----
 
+Date: Fri, 13 Jun 2008 02:39:17 -0700 (PDT)
+From: bugme-daemon@bugzilla.kernel.org
+To: bunk@kernel.org
+Subject: [Bug 10903] New: ssh connections hang with 2.6.26-rc5
+
+http://bugzilla.kernel.org/show_bug.cgi?id=10903
+
+           Summary: ssh connections hang with 2.6.26-rc5
+           Product: Networking
+           Version: 2.5
+     KernelVersion: 2.6.26-rc5
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+        AssignedTo: acme@ghostprotocols.net
+        ReportedBy: didier@raboud.com
+
+
+Latest working kernel version: 2.6.25-2
+Earliest failing kernel version: 2.6.26-rc5
+Distribution: Debian (Lenny + Sid)
+Hardware Environment: amd64 (Dell Latitude D630)
+Software Environment: KDE
+Problem Description:
+
+With kernel version 2.6.26-rc5, the ssh connections to remote servers randomly
+hang (no error message). No amelioration despite the activation of
+"ServerAliveInterval" on both sides.
+
+Steps to reproduce:
+
+Connect to a remote ssh server and do some stuff. After some time, the
+connection will hang.
+
+Please ask for details.
+
+
+------- You are receiving this mail because: -------
