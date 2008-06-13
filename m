@@ -1,62 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10903] New: ssh connections hang with
- 2.6.26-rc5
-Date: Fri, 13 Jun 2008 02:58:04 -0700
-Message-ID: <20080613025804.4913de04.akpm@linux-foundation.org>
-References: <bug-10903-10286@http.bugzilla.kernel.org/>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Net: reorder udp_iter_state to remove padding on 64bit
+ builds
+Date: Fri, 13 Jun 2008 03:03:26 -0700 (PDT)
+Message-ID: <20080613.030326.60083578.davem@davemloft.net>
+References: <1212662019.3039.14.camel@castor.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, didier@raboud.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: richard@rsk.demon.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:34335 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753866AbYFMJ6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 05:58:39 -0400
-In-Reply-To: <bug-10903-10286@http.bugzilla.kernel.org/>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41680
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755876AbYFMKD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 06:03:26 -0400
+In-Reply-To: <1212662019.3039.14.camel@castor.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Richard Kennedy <richard@rsk.demon.co.uk>
+Date: Thu, 05 Jun 2008 11:33:39 +0100
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+> reorder udp_iter_state to remove padding on 64bit builds
+> 
+> shrinks from 24 to 16 bytes, moving to a smaller slab when CONFIG_NET_NS
+> is undefined & seq_net_private = {}
+> 
+> Signed-off-by: Richard Kennedy <richard@rsk.demon.co.uk>
 
-On Fri, 13 Jun 2008 02:39:17 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=10903
-> 
->            Summary: ssh connections hang with 2.6.26-rc5
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.26-rc5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: didier@raboud.com
-> 
-> 
-> Latest working kernel version: 2.6.25-2
-> Earliest failing kernel version: 2.6.26-rc5
-> Distribution: Debian (Lenny + Sid)
-> Hardware Environment: amd64 (Dell Latitude D630)
-> Software Environment: KDE
-> Problem Description:
-> 
-> With kernel version 2.6.26-rc5, the ssh connections to remote servers randomly
-> hang (no error message). No amelioration despite the activation of
-> "ServerAliveInterval" on both sides.
-> 
-> Steps to reproduce:
-> 
-> Connect to a remote ssh server and do some stuff. After some time, the
-> connection will hang.
-> 
-> Please ask for details.
-> 
-
+Applied, th anks Richard.
