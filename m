@@ -1,75 +1,66 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Fri, 13 Jun 2008 23:10:33 +0200
-Message-ID: <20080613211033.GA9379@elte.hu>
-References: <20080611.165255.242691774.davem@davemloft.net> <20080612.163212.148965080.davem@davemloft.net> <20080613063037.GA16943@elte.hu> <20080613.023208.78649628.davem@davemloft.net> <20080613110913.GB9867@elte.hu> <20080613114746.GA27811@elte.hu>
+From: "Amar Mudrankit" <amar.mudrankit@qlogic.com>
+Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs Documentation
+Date: Sat, 14 Jun 2008 03:17:08 +0530
+Message-ID: <c8028d330806131447t2b24be93sa0e07bfa792c8f7f@mail.gmail.com>
+References: <20080610205633.11186.45499.stgit@dale>
+	 <20080610210918.11186.64253.stgit@dale> <484F751F.7030407@trash.net>
+	 <71d336490806120850x3b5e6172jf4d75850771d6349@mail.gmail.com>
+	 <485148DA.2060508@trash.net>
+	 <c8028d330806121409x27a4d596k571ce87934e89371@mail.gmail.com>
+	 <48529027.1090309@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, vgusev@openvz.org, mcmanus@ducksong.com,
-	xemul@openvz.org, netdev@vger.kernel.org,
-	ilpo.jarvinen@helsinki.fi, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rdreier@cisco.com,
+	general@lists.openfabrics.org, poornima.kamath@qlogic.com
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:53281 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753344AbYFMVKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jun 2008 17:10:55 -0400
+Received: from rv-out-0506.google.com ([209.85.198.225]:36906 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754065AbYFMVrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 17:47:08 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2743191rvb.1
+        for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 14:47:08 -0700 (PDT)
+In-Reply-To: <48529027.1090309@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20080613114746.GA27811@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>
+> If you have questions, feel free to ask.
+>
+I was trying to guess the use case for the vlan which has implemented
+rtnl_link api :
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+For sending parameters to driver:
+# ip link set <vlan-iface-name> up multicast ...... type vlan id
+<vlan-id> reorder_hdr on
 
-> > far, and updated it to yours. The delta between the two is the 3 lines 
-> > patch below.
-> > 
-> > A few testsystems already booted into your patch, so if i dont report 
-> > a hung TCP connection in the next 6 hours consider it:
-> > 
-> > Tested-by: Ingo Molnar <mingo@elte.hu>
-> 
-> this threw the warning below - never saw that before in thousands of 
-> bootups and this was the only networking change that happened. config 
-> and bootlog attached. Might be unlucky coincidence.
+ingress-qos-map <...> egress-qos-map <...>
 
-hm, threw a second warning after 6 more hours of testing:
+In such case, I think the link_util's private parse_opt function will
+be invoked to parse link's private configurable parameters.  These
+parameters along with the standard set of parameters (name, multicast,
+promisc etc) are then sent to driver through rtnl_talk function .
 
-[  362.170209] WARNING: at net/sched/sch_generic.c:222 dev_watchdog+0xde/0xf0()
+Similarly, for reading values from driver:
 
-that appears to be more than just coincidence. I've applied the patch 
-below - which brings me back to the well-tested revert from Ilpo.
+# ip addr show dev <vlan-iface-name>
 
-This is the only change i've done for the overnight -tip testruns, so if 
-the warning from sch_generic.c goes away it's this change that has an 
-impact on that warning.
+does it require "type" field similar to "ip link set"?
 
-	Ingo
+Is this understanding correct?
 
---------------------->
-commit 3019ae9652fe44c099669e5dba116acad583cfcb
-Author: Ingo Molnar <mingo@elte.hu>
-Date:   Fri Jun 13 23:09:28 2008 +0200
+How does a link type corresponding to VLAN driver gets added into
+linkutil_list, so that ip will correctly call functions specific to
+VLAN driver?
 
-    tcp: revert again
-    
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+>
+> You can dump driver private statistics in the ->fill_xstats function.
+>
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 045e799..ec83448 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -466,9 +466,9 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
- 		reqp=&lopt->syn_table[i];
- 		while ((req = *reqp) != NULL) {
- 			if (time_after_eq(now, req->expires)) {
--				if ((req->retrans < (inet_rsk(req)->acked ? max_retries : thresh)) &&
--				    (inet_rsk(req)->acked ||
--				     !req->rsk_ops->rtx_syn_ack(parent, req))) {
-+				if ((req->retrans < thresh ||
-+				     (inet_rsk(req)->acked && req->retrans < max_retries))
-+				    && !req->rsk_ops->rtx_syn_ack(parent, req)) {
- 					unsigned long timeo;
- 
- 					if (req->retrans++ == 0)
+I was looking at latest release of iproute2, in which I could not
+locate fill_xstats. Can you help me to locate this?
+
+Thanks and Regards,
+Amar
