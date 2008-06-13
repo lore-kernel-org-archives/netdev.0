@@ -1,195 +1,57 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: [RESEND #3/patch 2.6.26-rc6] net/enc28j60: low power mode
-Date: Thu, 12 Jun 2008 21:38:06 -0700
-Message-ID: <200806122138.06674.david-b@pacbell.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 16/19] ibmveth: Automatically enable larger rx buffer
+ pools for larger mtu
+Date: Fri, 13 Jun 2008 15:18:34 +1000
+Message-ID: <20080613151834.8dbcaa14.sfr@canb.auug.org.au>
+References: <20080612215312.GF30916@linux.vnet.ibm.com>
+	<20080612222249.GX30916@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Claudio Lanconelli <lanconelli.claudio@eptar.com>,
-	lkml <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__13_Jun_2008_15_18_34_+1000_A_i89JqwjiWM73Rm"
+Cc: paulus@samba.org, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	David Darrington <ddarring@linux.vnet.ibm.com>,
+	Brian King <brking@linux.vnet.ibm.com>
+To: Robert Jennings <rcj@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp122.sbc.mail.sp1.yahoo.com ([69.147.64.95]:38975 "HELO
-	smtp122.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751732AbYFMEjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 00:39:42 -0400
-Content-Disposition: inline
+Received: from chilli.pcug.org.au ([203.10.76.44]:42994 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752790AbYFMFSk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jun 2008 01:18:40 -0400
+In-Reply-To: <20080612222249.GX30916@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Keep enc28j60 chips in low-power mode when they're not in use.
-At typically 120 mA, these chips run hot even when idle; this
-low power mode cuts that power usage by a factor of around 100.
+--Signature=_Fri__13_Jun_2008_15_18_34_+1000_A_i89JqwjiWM73Rm
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-This version provides a generic routine to poll a register until
-its masked value equals some value ... e.g. bit set or cleared.
-It's basically what the previous wait_phy_ready() did, but this
-version is generalized to support the handshaking needed to
-enter and exit low power mode.
+Hi Robert,
 
-Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
-Signed-off-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
----
-Previously sent:  18-May, 19-February; there were several
-previous iterations too ...
+On Thu, 12 Jun 2008 17:22:49 -0500 Robert Jennings <rcj@linux.vnet.ibm.com>=
+ wrote:
+>
+> +	/* Deactivate all the buffer pools so that the next loop can activate
+> +	   only the buffer pools necessary to hold the new MTU */
+> +	for(i =3D 0; i<IbmVethNumBufferPools; i++)
 
- drivers/net/enc28j60.c |   82 ++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 58 insertions(+), 24 deletions(-)
+Please uses spaces after "for" and around binary operators.
 
---- g26.orig/drivers/net/enc28j60.c	2008-02-22 19:48:14.000000000 -0800
-+++ g26/drivers/net/enc28j60.c	2008-02-22 19:48:21.000000000 -0800
-@@ -400,26 +400,31 @@ enc28j60_packet_write(struct enc28j60_ne
- 	mutex_unlock(&priv->lock);
- }
- 
--/*
-- * Wait until the PHY operation is complete.
-- */
--static int wait_phy_ready(struct enc28j60_net *priv)
-+static unsigned long msec20_to_jiffies;
-+
-+static int poll_ready(struct enc28j60_net *priv, u8 reg, u8 mask, u8 val)
- {
--	unsigned long timeout = jiffies + 20 * HZ / 1000;
--	int ret = 1;
-+	unsigned long timeout = jiffies + msec20_to_jiffies;
- 
- 	/* 20 msec timeout read */
--	while (nolock_regb_read(priv, MISTAT) & MISTAT_BUSY) {
-+	while ((nolock_regb_read(priv, reg) & mask) != val) {
- 		if (time_after(jiffies, timeout)) {
- 			if (netif_msg_drv(priv))
--				printk(KERN_DEBUG DRV_NAME
--					": PHY ready timeout!\n");
--			ret = 0;
--			break;
-+				dev_dbg(&priv->spi->dev,
-+					"reg %02x ready timeout!\n", reg);
-+			return -ETIMEDOUT;
- 		}
- 		cpu_relax();
- 	}
--	return ret;
-+	return 0;
-+}
-+
-+/*
-+ * Wait until the PHY operation is complete.
-+ */
-+static int wait_phy_ready(struct enc28j60_net *priv)
-+{
-+	return poll_ready(priv, MISTAT, MISTAT_BUSY, 0) ? 0 : 1;
- }
- 
- /*
-@@ -594,6 +599,32 @@ static void nolock_txfifo_init(struct en
- 	nolock_regw_write(priv, ETXNDL, end);
- }
- 
-+/*
-+ * Low power mode shrinks power consumption about 100x, so we'd like
-+ * the chip to be in that mode whenever it's inactive.  (However, we
-+ * can't stay in lowpower mode during suspend with WOL active.)
-+ */
-+static void enc28j60_lowpower(struct enc28j60_net *priv, bool is_low)
-+{
-+	if (netif_msg_drv(priv))
-+		dev_dbg(&priv->spi->dev, "%s power...\n",
-+				is_low ? "low" : "high");
-+
-+	mutex_lock(&priv->lock);
-+	if (is_low) {
-+		nolock_reg_bfclr(priv, ECON1, ECON1_RXEN);
-+		poll_ready(priv, ESTAT, ESTAT_RXBUSY, 0);
-+		poll_ready(priv, ECON1, ECON1_TXRTS, 0);
-+		/* ECON2_VRPS was set during initialization */
-+		nolock_reg_bfset(priv, ECON2, ECON2_PWRSV);
-+	} else {
-+		nolock_reg_bfclr(priv, ECON2, ECON2_PWRSV);
-+		poll_ready(priv, ESTAT, ESTAT_CLKRDY, ESTAT_CLKRDY);
-+		/* caller sets ECON1_RXEN */
-+	}
-+	mutex_unlock(&priv->lock);
-+}
-+
- static int enc28j60_hw_init(struct enc28j60_net *priv)
- {
- 	u8 reg;
-@@ -612,8 +643,8 @@ static int enc28j60_hw_init(struct enc28
- 	priv->tx_retry_count = 0;
- 	priv->max_pk_counter = 0;
- 	priv->rxfilter = RXFILTER_NORMAL;
--	/* enable address auto increment */
--	nolock_regb_write(priv, ECON2, ECON2_AUTOINC);
-+	/* enable address auto increment and voltage regulator powersave */
-+	nolock_regb_write(priv, ECON2, ECON2_AUTOINC | ECON2_VRPS);
- 
- 	nolock_rxfifo_init(priv, RXSTART_INIT, RXEND_INIT);
- 	nolock_txfifo_init(priv, TXSTART_INIT, TXEND_INIT);
-@@ -690,7 +721,7 @@ static int enc28j60_hw_init(struct enc28
- 
- static void enc28j60_hw_enable(struct enc28j60_net *priv)
- {
--	/* enable interrutps */
-+	/* enable interrupts */
- 	if (netif_msg_hw(priv))
- 		printk(KERN_DEBUG DRV_NAME ": %s() enabling interrupts.\n",
- 			__FUNCTION__);
-@@ -726,15 +757,12 @@ enc28j60_setlink(struct net_device *ndev
- 	int ret = 0;
- 
- 	if (!priv->hw_enable) {
--		if (autoneg == AUTONEG_DISABLE && speed == SPEED_10) {
-+		/* link is in low power mode now; duplex setting
-+		 * will take effect on next enc28j60_hw_init().
-+		 */
-+		if (autoneg == AUTONEG_DISABLE && speed == SPEED_10)
- 			priv->full_duplex = (duplex == DUPLEX_FULL);
--			if (!enc28j60_hw_init(priv)) {
--				if (netif_msg_drv(priv))
--					dev_err(&ndev->dev,
--						"hw_reset() failed\n");
--				ret = -EINVAL;
--			}
--		} else {
-+		else {
- 			if (netif_msg_link(priv))
- 				dev_warn(&ndev->dev,
- 					"unsupported link setting\n");
-@@ -1307,7 +1335,8 @@ static int enc28j60_net_open(struct net_
- 		}
- 		return -EADDRNOTAVAIL;
- 	}
--	/* Reset the hardware here */
-+	/* Reset the hardware here (and take it out of low power mode) */
-+	enc28j60_lowpower(priv, false);
- 	enc28j60_hw_disable(priv);
- 	if (!enc28j60_hw_init(priv)) {
- 		if (netif_msg_ifup(priv))
-@@ -1337,6 +1366,7 @@ static int enc28j60_net_close(struct net
- 		printk(KERN_DEBUG DRV_NAME ": %s() enter\n", __FUNCTION__);
- 
- 	enc28j60_hw_disable(priv);
-+	enc28j60_lowpower(priv, true);
- 	netif_stop_queue(dev);
- 
- 	return 0;
-@@ -1537,6 +1567,8 @@ static int __devinit enc28j60_probe(stru
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 	SET_ETHTOOL_OPS(dev, &enc28j60_ethtool_ops);
- 
-+	enc28j60_lowpower(priv, true);
-+
- 	ret = register_netdev(dev);
- 	if (ret) {
- 		if (netif_msg_probe(priv))
-@@ -1581,6 +1613,8 @@ static struct spi_driver enc28j60_driver
- 
- static int __init enc28j60_init(void)
- {
-+	msec20_to_jiffies = msecs_to_jiffies(20);
-+
- 	return spi_register_driver(&enc28j60_driver);
- }
- 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__13_Jun_2008_15_18_34_+1000_A_i89JqwjiWM73Rm
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkhSAyoACgkQTgG2atn1QN+IFACeLp6arVU4HXSJZe9bgGn13EWD
+j6cAnAnzXuR2RJet2xbzhTuj7kJebEWj
+=nN5n
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__13_Jun_2008_15_18_34_+1000_A_i89JqwjiWM73Rm--
