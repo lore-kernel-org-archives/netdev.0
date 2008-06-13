@@ -1,59 +1,51 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 10/19] [repost] powerpc: move get_longbusy_msecs out of
- ehca/ehea
-Date: Fri, 13 Jun 2008 15:55:41 -0400
-Message-ID: <4852D0BD.7010403@pobox.com>
-References: <20080612221848.GR30916@linux.vnet.ibm.com> <4852BB43.9080305@linux.vnet.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/3] virtio: fix virtio_net xmit of freed skb bug
+Date: Fri, 13 Jun 2008 15:57:02 -0400
+Message-ID: <4852D10E.40001@garzik.org>
+References: <200805261742.43215.rusty@rustcorp.com.au>	 <1211886386.3637.48.camel@muff>  <200805291634.18224.rusty@rustcorp.com.au> <1213366440.9507.0.camel@muff>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Jennings <rcj@linux.vnet.ibm.com>, paulus@samba.org,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	Santiago Leon <santil@us.ibm.com>,
-	Nathan Fontenot <nfont@austin.ibm.com>,
-	David Darrington <ddarring@linux.vnet.ibm.com>
-To: Brian King <brking@linux.vnet.ibm.com>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52843 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52855 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752258AbYFMT4G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jun 2008 15:56:06 -0400
-In-Reply-To: <4852BB43.9080305@linux.vnet.ibm.com>
+	id S1752645AbYFMT5L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jun 2008 15:57:11 -0400
+In-Reply-To: <1213366440.9507.0.camel@muff>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian King wrote:
-> Jeff,
+Mark McLoughlin wrote:
+> On Thu, 2008-05-29 at 16:34 +1000, Rusty Russell wrote:
+>> On Tuesday 27 May 2008 21:06:26 Mark McLoughlin wrote:
+>>> On Mon, 2008-05-26 at 17:42 +1000, Rusty Russell wrote:
+>>>> If we fail to transmit a packet, we assume the queue is full and put
+>>>> the skb into last_xmit_skb.  However, if more space frees up before we
+>>>> xmit it, we loop, and the result can be transmitting the same skb twice.
+>>>>
+>>>> Fix is simple: set skb to NULL if we've used it in some way, and check
+>>>> before sending.
+>> Great! It's a corner case, but it's no more complicated to do it your way.
+>>
+>> Minor mod, I find it clearer to have the vi->last_xmit_skb = NULL; under
+>> the branch:
+>>
+>> Subject: [PATCH] virtio_net: Delay dropping tx skbs
+>> Date: Tue, 27 May 2008 12:06:26 +0100
+>> From: Mark McLoughlin <markmc@redhat.com>
+>>
+>> Currently we drop the skb in start_xmit() if we have a
+>> queued buffer and fail to transmit it.
+>>
+>> However, if we delay dropping it until we've stopped the
+>> queue and enabled the tx notification callback, then there
+>> is a chance space might become available for it.
 > 
-> Regarding the patches Rob just posted here, we'd like to just take them
-> through the powerpc tree with your sign off since they are part of a
-> Power platform feature we are enabling.
-> 
-> Thanks,
-> 
-> Brian
-> 
-> Robert Jennings wrote:
->> From: Robert Jennings <rcj@linux.vnet.ibm.com>
->>
->> In support of Cooperative Memory Overcommitment (CMO) this moves
->> get_longbusy_msecs() out of the ehca and ehea drivers and into the 
->> architecture's hvcall header as plpar_get_longbusy_msecs.  Some firmware
->> calls made in pSeries platform iommu code will need to share this
->> functionality.
->>
->> Signed-off-by: Robert Jennings <rcj@linux.vnet.ibm.com>
->>
->> ---
->>
->> I missed copying netdev on this patch the first time.
->>
->>  drivers/infiniband/hw/ehca/hcp_if.c |   24 ++----------------------
->>  drivers/net/ehea/ehea_phyp.c        |    4 ++--
->>  drivers/net/ehea/ehea_phyp.h        |   20 --------------------
->>  include/asm-powerpc/hvcall.h        |   27 +++++++++++++++++++++++++++
->>  4 files changed, 31 insertions(+), 44 deletions(-)
+> Hmm, we lost this one somewhere along the way ...
 
-ACK the quoted patch
+can someone resend?
 
 
