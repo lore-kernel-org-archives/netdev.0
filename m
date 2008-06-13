@@ -1,50 +1,40 @@
-From: "Eliezer Tamir" <eliezer.tamir@gmail.com>
-Subject: Re: [PATCH]bnx2x: Updating the Maintainer
-Date: Fri, 13 Jun 2008 11:58:08 +0300
-Message-ID: <a15869500806130158k15e18cfdida63169b8e8856d5@mail.gmail.com>
-References: <1213282973.5995.4.camel@lb-tlvb-eliezer>
-	 <20080612.143104.146294136.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
+Date: Fri, 13 Jun 2008 02:32:08 -0700 (PDT)
+Message-ID: <20080613.023208.78649628.davem@davemloft.net>
+References: <20080611.165255.242691774.davem@davemloft.net>
+	<20080612.163212.148965080.davem@davemloft.net>
+	<20080613063037.GA16943@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, netdev@vger.kernel.org, jeff@garzik.org,
-	eliezert@broadcom.com, mchan@broadcom.com
-To: "David Miller" <davem@davemloft.net>
+Cc: kuznet@ms2.inr.ac.ru, vgusev@openvz.org, mcmanus@ducksong.com,
+	xemul@openvz.org, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi, linux-kernel@vger.kernel.org
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.228]:43477 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754909AbYFMI6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 04:58:09 -0400
-Received: by wx-out-0506.google.com with SMTP id h29so1483228wxd.4
-        for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 01:58:08 -0700 (PDT)
-In-Reply-To: <20080612.143104.146294136.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55531
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755520AbYFMJcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 05:32:08 -0400
+In-Reply-To: <20080613063037.GA16943@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 13, 2008 at 12:31 AM, David Miller <davem@davemloft.net> wrote:
-> From: "Eilon Greenstein" <eilong@broadcom.com>
-> Date: Thu, 12 Jun 2008 18:02:53 +0300
->
->> I would like to thank Eliezer Tamir for writing and maintaining the
->> driver for the past two years. I will take over maintaining the bnx2x
->> driver from now on.
->>
->> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
->> Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
->
-> Patch applied, thanks everyone, and indeed thanks to Eliezer
-> for so much hard work on this driver.
+From: Ingo Molnar <mingo@elte.hu>
+Date: Fri, 13 Jun 2008 08:30:37 +0200
 
-I would like to thank all of the people that have helped with the driver.
+> the 3 reverts have been extensively tested in -tip via:
+> 
+>  # tip/out-of-tree: 9e5b6ca: tcp: revert DEFER_ACCEPT modifications
+> 
+> and the distcc problems are fixed. (The locking fix alone did not fix it 
+> conclusively in my testing, possibly due to the follow-on observations 
+> outlined in your description.)
+> 
+> Tested-by: Ingo Molnar <mingo@elte.hu>
 
-The Everest Linux team: Eilon Greenstein, Vladislav Zolotarov and
-Yitchak Gertner.
-The Microcode guys: Arik Gendelman. Ofir Hermesh and Yoav Galon.
+I didn't revert all three changes, just the final part of that
+3 part series.
 
-It has been a great pleasure working with all of you.
-
-Special thanks to Michael Chan for all of his help (and all the code I
-copied from his driver)
-
-Eliezer
+Please test the patch I actually applied.
