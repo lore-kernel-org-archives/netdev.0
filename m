@@ -1,408 +1,54 @@
 From: Robert Stonehouse <rstonehouse@solarflare.com>
-Subject: [RFC][PATCH 2/2] Making use of VNICs in the sfc driver
-Date: Fri, 13 Jun 2008 21:13:12 +0100
-Message-ID: <4852D4D8.8020000@solarflare.com>
+Subject: [RFC][PATCH 1/2] Making use of VNICs in the sfc driver
+Date: Fri, 13 Jun 2008 21:12:52 +0100
+Message-ID: <4852D4C4.4010004@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com
-To: netdev@vger.kernel.org
+To: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from 216-237-3-220.orange.nextweb.net ([216.237.3.220]:41644 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753683AbYFMU1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 16:27:52 -0400
+	with ESMTP id S1752608AbYFMU1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 16:27:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 ---
- drivers/net/sfc/Kconfig         |    8 +
- drivers/net/sfc/Makefile        |    3 +
- drivers/net/sfc/driverlink.c    |    4 +-
- drivers/net/sfc/efx.c           |    1 +
- drivers/net/sfc/falcon.c        |  181 ++++++++++--
- drivers/net/sfc/falcon_hwdefs.h |   21 ++
- drivers/net/sfc/mtd.c           |  592 +++++++++++++++++++++++++++++++++++++++
- drivers/net/sfc/net_driver.h    |    9 +
- drivers/net/sfc/spi.h           |   98 +++++++
- 9 files changed, 887 insertions(+), 30 deletions(-)
- create mode 100644 drivers/net/sfc/mtd.c
+ drivers/net/sfc/Makefile         |    4 +-
+ drivers/net/sfc/driverlink.c     |  525 ++++++++++++++++++++++++++++++++
+ drivers/net/sfc/driverlink.h     |   76 +++++
+ drivers/net/sfc/driverlink_api.h |  614 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/sfc/efx.c            |   47 +++-
+ drivers/net/sfc/falcon.c         |   88 ++++++-
+ drivers/net/sfc/net_driver.h     |   15 +
+ 7 files changed, 1365 insertions(+), 4 deletions(-)
+ create mode 100644 drivers/net/sfc/driverlink.c
+ create mode 100644 drivers/net/sfc/driverlink.h
+ create mode 100644 drivers/net/sfc/driverlink_api.h
 
-diff --git a/drivers/net/sfc/Kconfig b/drivers/net/sfc/Kconfig
-index 3be13b5..0603ead 100644
---- a/drivers/net/sfc/Kconfig
-+++ b/drivers/net/sfc/Kconfig
-@@ -12,3 +12,11 @@ config SFC
-
- 	  To compile this driver as a module, choose M here.  The module
- 	  will be called sfc.
-+
-+config SFC_MTD
-+	depends on SFC && MTD && MTD_PARTITIONS
-+	tristate "Solarflare Solarstorm SFC4000 flash/EEPROM support"
-+	help
-+	  This module exposes the on-board flash and/or EEPROM memory as
-+	  MTD devices (e.g. /dev/mtd1).  This makes it possible to upload a
-+	  new boot ROM to the NIC.
 diff --git a/drivers/net/sfc/Makefile b/drivers/net/sfc/Makefile
-index aa3bff7..738649a 100644
+index c8f5704..aa3bff7 100644
 --- a/drivers/net/sfc/Makefile
 +++ b/drivers/net/sfc/Makefile
-@@ -3,3 +3,6 @@ sfc-y			+= efx.o falcon.o tx.o rx.o falcon_xmac.o \
- 			   mdio_10g.o tenxpress.o boards.o sfe4001.o \
- 			   driverlink.o
+@@ -1,5 +1,5 @@
+ sfc-y			+= efx.o falcon.o tx.o rx.o falcon_xmac.o \
+ 			   selftest.o ethtool.o xfp_phy.o \
+-			   mdio_10g.o tenxpress.o boards.o sfe4001.o
+-
++			   mdio_10g.o tenxpress.o boards.o sfe4001.o \
++			   driverlink.o
  obj-$(CONFIG_SFC)	+= sfc.o
-+
-+sfc_mtd-y		+= mtd.o
-+obj-$(CONFIG_SFC_MTD)	+= sfc_mtd.o
 diff --git a/drivers/net/sfc/driverlink.c b/drivers/net/sfc/driverlink.c
-index 93f29d5..6c33aeb 100644
---- a/drivers/net/sfc/driverlink.c
-+++ b/drivers/net/sfc/driverlink.c
-@@ -80,7 +80,7 @@ static void efx_dl_try_add_device(struct efx_nic *efx,
- {
- 	struct efx_dl_handle *efx_handle;
- 	struct efx_dl_device *efx_dev;
--	int rc;
-+	int rc = -ENODEV;
-
- 	/* Allocate and initialise new efx_dl_device structure */
- 	efx_handle = kzalloc(sizeof(*efx_handle), GFP_KERNEL);
-@@ -107,7 +107,7 @@ static void efx_dl_try_add_device(struct efx_nic *efx,
- 	return;
-
-  fail:
--	EFX_INFO(efx, "%s driverlink client skipped\n", driver->name);
-+	EFX_INFO(efx, "%s driverlink client skipped rc=%d\n", driver->name, rc);
-
- 	kfree(efx_handle);
- }
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 0e153cb..f3f62ea 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1871,6 +1871,7 @@ static int efx_init_struct(struct efx_nic *efx, struct
-efx_nic_type *type,
- 	memset(efx, 0, sizeof(*efx));
- 	spin_lock_init(&efx->biu_lock);
- 	spin_lock_init(&efx->phy_lock);
-+	mutex_init(&efx->spi_lock);
- 	INIT_WORK(&efx->reset_work, efx_reset_work);
- 	INIT_DELAYED_WORK(&efx->monitor_work, efx_monitor);
- 	efx->pci_dev = pci_dev;
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 959e06a..23287e2 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -1688,7 +1688,6 @@ void falcon_fini_interrupt(struct efx_nic *efx)
-  *
-  **************************************************************************
-  */
--
- #define FALCON_SPI_MAX_LEN sizeof(efx_oword_t)
-
- /* Wait for SPI command completion */
-@@ -1712,44 +1711,116 @@ static int falcon_spi_wait(struct efx_nic *efx)
- }
-
- static int
--falcon_spi_read(struct efx_nic *efx, int device_id, unsigned int command,
--		unsigned int address, unsigned int addr_len,
--		void *data, unsigned int len)
-+falcon_spi_read(const struct efx_spi_device *spi, struct efx_nic *efx,
-+		unsigned int command, int address, void *data, unsigned int len)
- {
-+	int addressed = (address >= 0);
- 	efx_oword_t reg;
- 	int rc;
-
--	BUG_ON(len > FALCON_SPI_MAX_LEN);
-+	/* Input validation */
-+	if (len > FALCON_SPI_MAX_LEN)
-+		return -EINVAL;
-+
-+	/* Acquire SPI lock */
-+	mutex_lock(&efx->spi_lock);
-
- 	/* Check SPI not currently being accessed */
- 	rc = falcon_spi_wait(efx);
--	if (rc)
--		return rc;
-+	if (rc) {
-+		goto out;
-+	}
-
--	/* Program address register */
--	EFX_POPULATE_OWORD_1(reg, EE_SPI_HADR_ADR, address);
--	falcon_write(efx, &reg, EE_SPI_HADR_REG_KER);
-+	/* Program address register, if we have an address */
-+	if (addressed) {
-+		EFX_POPULATE_OWORD_1(reg, EE_SPI_HADR_ADR, address);
-+		falcon_write(efx, &reg, EE_SPI_HADR_REG_KER);
-+	}
-
- 	/* Issue read command */
- 	EFX_POPULATE_OWORD_7(reg,
- 			     EE_SPI_HCMD_CMD_EN, 1,
--			     EE_SPI_HCMD_SF_SEL, device_id,
-+			     EE_SPI_HCMD_SF_SEL, spi->device_id,
- 			     EE_SPI_HCMD_DABCNT, len,
- 			     EE_SPI_HCMD_READ, EE_SPI_READ,
- 			     EE_SPI_HCMD_DUBCNT, 0,
--			     EE_SPI_HCMD_ADBCNT, addr_len,
-+			     EE_SPI_HCMD_ADBCNT,
-+			     (addressed ? spi->addr_len : 0),
- 			     EE_SPI_HCMD_ENC, command);
- 	falcon_write(efx, &reg, EE_SPI_HCMD_REG_KER);
-
- 	/* Wait for read to complete */
- 	rc = falcon_spi_wait(efx);
- 	if (rc)
--		return rc;
-+		goto out;
-
- 	/* Read data */
- 	falcon_read(efx, &reg, EE_SPI_HDATA_REG_KER);
- 	memcpy(data, &reg, len);
--	return 0;
-+
-+ out:
-+	/* Release SPI lock */
-+	mutex_unlock(&efx->spi_lock);
-+
-+	return rc;
-+}
-+
-+static int
-+falcon_spi_write(const struct efx_spi_device *spi, struct efx_nic *efx,
-+		 unsigned int command, int address, const void *data,
-+		 unsigned int len)
-+{
-+	int addressed = (address >= 0);
-+	efx_oword_t reg;
-+	int rc;
-+
-+	/* Input validation */
-+	if (len > (addressed ? efx_spi_write_limit(spi, address)
-+		   : FALCON_SPI_MAX_LEN))
-+		return -EINVAL;
-+
-+	/* Acquire SPI lock */
-+	mutex_lock(&efx->spi_lock);
-+
-+	/* Check SPI not currently being accessed */
-+	rc = falcon_spi_wait(efx);
-+	if (rc)
-+		goto out;
-+
-+	/* Program address register, if we have an address */
-+	if (addressed) {
-+		EFX_POPULATE_OWORD_1(reg, EE_SPI_HADR_ADR, address);
-+		falcon_write(efx, &reg, EE_SPI_HADR_REG_KER);
-+	}
-+
-+	/* Program data register, if we have data */
-+	if (data) {
-+		memcpy(&reg, data, len);
-+		falcon_write(efx, &reg, EE_SPI_HDATA_REG_KER);
-+	}
-+
-+	/* Issue write command */
-+	EFX_POPULATE_OWORD_7(reg,
-+			     EE_SPI_HCMD_CMD_EN, 1,
-+			     EE_SPI_HCMD_SF_SEL, spi->device_id,
-+			     EE_SPI_HCMD_DABCNT, len,
-+			     EE_SPI_HCMD_READ, EE_SPI_WRITE,
-+			     EE_SPI_HCMD_DUBCNT, 0,
-+			     EE_SPI_HCMD_ADBCNT,
-+			     (addressed ? spi->addr_len : 0),
-+			     EE_SPI_HCMD_ENC, command);
-+	falcon_write(efx, &reg, EE_SPI_HCMD_REG_KER);
-+
-+	/* Wait for write to complete */
-+	rc = falcon_spi_wait(efx);
-+	if (rc)
-+		goto out;
-+
-+ out:
-+	/* Release SPI lock */
-+	mutex_unlock(&efx->spi_lock);
-+
-+	return rc;
- }
-
- /**************************************************************************
-@@ -2325,40 +2396,86 @@ static int falcon_reset_sram(struct efx_nic *efx)
- 	return -ETIMEDOUT;
- }
-
-+static void falcon_spi_device_init(struct efx_spi_device **spi_device_ret,
-+				   unsigned int device_id, u32 device_type)
-+{
-+	struct efx_spi_device *spi_device;
-+
-+	if (device_type != 0) {
-+		spi_device = kmalloc(sizeof(*spi_device), GFP_KERNEL);
-+		if (!spi_device)
-+			return;
-+		spi_device->device_id = device_id;
-+		spi_device->size =
-+			1 << SPI_DEV_TYPE_FIELD(device_type, SPI_DEV_TYPE_SIZE);
-+		spi_device->addr_len =
-+			SPI_DEV_TYPE_FIELD(device_type, SPI_DEV_TYPE_ADDR_LEN);
-+		spi_device->munge_address = (spi_device->size == 1 << 9 &&
-+					     spi_device->addr_len == 1);
-+		spi_device->erase_command =
-+			SPI_DEV_TYPE_FIELD(device_type, SPI_DEV_TYPE_ERASE_CMD);
-+		spi_device->erase_size =
-+			1 << SPI_DEV_TYPE_FIELD(device_type,
-+						SPI_DEV_TYPE_ERASE_SIZE);
-+		spi_device->block_size =
-+			1 << SPI_DEV_TYPE_FIELD(device_type,
-+						SPI_DEV_TYPE_BLOCK_SIZE);
-+		spi_device->read = falcon_spi_read;
-+		spi_device->write = falcon_spi_write;
-+	} else {
-+		spi_device = NULL;
-+	}
-+
-+	kfree(*spi_device_ret);
-+	*spi_device_ret = spi_device;
-+}
-+
- /* Extract non-volatile configuration */
- static int falcon_probe_nvconfig(struct efx_nic *efx)
- {
- 	struct falcon_nvconfig *nvconfig;
-+	struct efx_spi_device *spi;
- 	efx_oword_t nic_stat;
--	int device_id;
--	unsigned addr_len;
- 	size_t offset, len;
- 	int magic_num, struct_ver, board_rev;
--	int rc;
-+	int rc = 0;
-+
-+	nvconfig = kmalloc(sizeof(*nvconfig), GFP_KERNEL);
-+	if (!nvconfig)
-+	  return -ENOMEM;
-
- 	/* Find the boot device. */
- 	falcon_read(efx, &nic_stat, NIC_STAT_REG);
- 	if (EFX_OWORD_FIELD(nic_stat, SF_PRST)) {
--		device_id = EE_SPI_FLASH;
--		addr_len = 3;
-+	  u32 devtype =					/* Atmel AT25F1024 */
-+	    (17 << SPI_DEV_TYPE_SIZE_LBN)		/* 128KB */
-+	    | (3 << SPI_DEV_TYPE_ADDR_LEN_LBN)		/* 24 bit */
-+	    | (0x52 << SPI_DEV_TYPE_ERASE_CMD_LBN)
-+	    | (15 << SPI_DEV_TYPE_ERASE_SIZE_LBN)	/* 32KB */
-+	    | (8 << SPI_DEV_TYPE_BLOCK_SIZE_LBN);	/* 256B */
-+	  falcon_spi_device_init(&efx->spi_flash, EE_SPI_FLASH, devtype);
- 	} else if (EFX_OWORD_FIELD(nic_stat, EE_PRST)) {
--		device_id = EE_SPI_EEPROM;
--		addr_len = 2;
-+	  u32 devtype =					/* Atmel AT25040 */
-+	    (9 << SPI_DEV_TYPE_SIZE_LBN)		/* 512 B */
-+	    | (2 << SPI_DEV_TYPE_ADDR_LEN_LBN)		/* 9-bit address */
-+	    | (3 << SPI_DEV_TYPE_BLOCK_SIZE_LBN);	/* 8 B write block */
-+	  falcon_spi_device_init(&efx->spi_eeprom, EE_SPI_EEPROM, devtype);
- 	} else {
- 		return -ENODEV;
- 	}
-
--	nvconfig = kmalloc(sizeof(*nvconfig), GFP_KERNEL);
--
-+	spi = efx->spi_flash ? efx->spi_flash : efx->spi_eeprom;
- 	/* Read the whole configuration structure into memory. */
--	for (offset = 0; offset < sizeof(*nvconfig); offset += len) {
-+	for (offset = 0; offset < sizeof(*nvconfig) && !rc; offset += len) {
- 		len = min(sizeof(*nvconfig) - offset,
- 			  (size_t) FALCON_SPI_MAX_LEN);
--		rc = falcon_spi_read(efx, device_id, SPI_READ,
--				     NVCONFIG_BASE + offset, addr_len,
-+		rc = falcon_spi_read(spi, efx, SPI_READ, NVCONFIG_BASE + offset,
- 				     (char *)nvconfig + offset, len);
--		if (rc)
-+		if (rc) {
-+			EFX_ERR(efx, "Reading of %s failed rc=%d\n",
-+				efx->spi_flash ? "flash" : "eeprom", rc);
- 			goto out;
-+		}
- 	}
-
- 	/* Read the MAC addresses */
-@@ -2376,12 +2493,20 @@ static int falcon_probe_nvconfig(struct efx_nic *efx)
- 		board_rev = 0;
- 	} else {
- 		struct falcon_nvconfig_board_v2 *v2 = &nvconfig->board_v2;
-+		struct falcon_nvconfig_board_v3 *v3 = &nvconfig->board_v3;
-
- 		efx->phy_type = v2->port0_phy_type;
- 		efx->mii.phy_id = v2->port0_phy_addr;
- 		board_rev = le16_to_cpu(v2->board_revision);
-+		if (struct_ver >= 3) {
-+		  __le32 fl = v3->spi_device_type[EE_SPI_FLASH];
-+		  __le32 ee = v3->spi_device_type[EE_SPI_EEPROM];
-+		  falcon_spi_device_init(&efx->spi_flash, EE_SPI_FLASH,
-+					 le32_to_cpu(fl));
-+		  falcon_spi_device_init(&efx->spi_eeprom, EE_SPI_EEPROM,
-+					 le32_to_cpu(ee));
-+		}
- 	}
--
- 	EFX_LOG(efx, "PHY is %d phy_id %d\n", efx->phy_type, efx->mii.phy_id);
-
- 	efx_set_board_info(efx, board_rev);
-diff --git a/drivers/net/sfc/falcon_hwdefs.h b/drivers/net/sfc/falcon_hwdefs.h
-index 6d00311..d20bc65 100644
---- a/drivers/net/sfc/falcon_hwdefs.h
-+++ b/drivers/net/sfc/falcon_hwdefs.h
-@@ -1127,6 +1127,25 @@ struct falcon_nvconfig_board_v2 {
- 	__le16 board_revision;
- } __packed;
-
-+/* Board configuration v3 extra information */
-+struct falcon_nvconfig_board_v3 {
-+	__le32 spi_device_type[2];
-+} __packed;
-+
-+/* Bit numbers for spi_device_type */
-+#define SPI_DEV_TYPE_SIZE_LBN 0
-+#define SPI_DEV_TYPE_SIZE_WIDTH 5
-+#define SPI_DEV_TYPE_ADDR_LEN_LBN 6
-+#define SPI_DEV_TYPE_ADDR_LEN_WIDTH 2
-+#define SPI_DEV_TYPE_ERASE_CMD_LBN 8
-+#define SPI_DEV_TYPE_ERASE_CMD_WIDTH 8
-+#define SPI_DEV_TYPE_ERASE_SIZE_LBN 16
-+#define SPI_DEV_TYPE_ERASE_SIZE_WIDTH 5
-+#define SPI_DEV_TYPE_BLOCK_SIZE_LBN 24
-+#define SPI_DEV_TYPE_BLOCK_SIZE_WIDTH 5
-+#define SPI_DEV_TYPE_FIELD(type, field) \
-+	(((type) >> EFX_LOW_BIT(field)) & EFX_MASK32(field))
-+
- #define NVCONFIG_BASE 0x300
- #define NVCONFIG_BOARD_MAGIC_NUM 0xFA1C
- struct falcon_nvconfig {
-@@ -1144,6 +1163,8 @@ struct falcon_nvconfig {
- 	__le16 board_struct_ver;
- 	__le16 board_checksum;
- 	struct falcon_nvconfig_board_v2 board_v2;
-+	efx_oword_t ee_base_page_reg;			/* 0x3B0 */
-+	struct falcon_nvconfig_board_v3 board_v3;	/* 0x3C0 */
- } __packed;
-
- #endif /* EFX_FALCON_HWDEFS_H */
-diff --git a/drivers/net/sfc/mtd.c b/drivers/net/sfc/mtd.c
 new file mode 100644
-index 0000000..a043754
+index 0000000..93f29d5
 --- /dev/null
-+++ b/drivers/net/sfc/mtd.c
-@@ -0,0 +1,592 @@
++++ b/drivers/net/sfc/driverlink.c
+@@ -0,0 +1,525 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
-+ * Copyright 2005-2006 Fen Systems Ltd.
-+ * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2005      Fen Systems Ltd.
++ * Copyright 2005-2008 Solarflare Communications Inc.
 + *
 + * This program is free software; you can redistribute it and/or modify it
 + * under the terms of the GNU General Public License version 2 as published
@@ -410,721 +56,1561 @@ index 0000000..a043754
 + */
 +
 +#include <linux/module.h>
-+#include <linux/mtd/mtd.h>
-+#include <linux/mtd/partitions.h>
-+#include <linux/delay.h>
-+
-+#define EFX_DRIVER_NAME "sfc_mtd"
++#include <linux/list.h>
++#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
++#include "net_driver.h"
++#include "efx.h"
 +#include "driverlink_api.h"
 +#include "driverlink.h"
-+#include "net_driver.h"
-+#include "spi.h"
 +
-+/*
-+ * Flash and EEPROM (MTD) device driver
-+ *
-+ * This file provides a separate kernel module (sfc_mtd) which
-+ * exposes the flash and EEPROM devices present on Solarflare NICs as
-+ * MTD devices, enabling you to reflash the boot ROM code (or use the
-+ * remaining space on the flash as a jffs2 filesystem, should you want
-+ * to do so).
++/* Driverlink semaphore
++ * This semaphore must be held for any operation that modifies any of
++ * the driverlink lists.
 + */
++static DEFINE_MUTEX(efx_driverlink_lock);
 +
-+#define EFX_MTD_VERIFY_BUF_LEN 16
-+#define EFX_MAX_PARTITIONS 2
-+#define EFX_FLASH_BOOTROM_OFFSET 0x8000U
++/* List of all registered drivers */
++static LIST_HEAD(efx_driver_list);
 +
-+/* Write enable for EEPROM/flash configuration area
-+ *
-+ * Normally, writes to parts of non-volatile storage which contain
-+ * critical configuration are disabled to prevent accidents.  This
-+ * parameter allows enabling of such writes.
-+ */
-+static unsigned int efx_allow_nvconfig_writes;
++/* List of all registered Efx ports */
++static LIST_HEAD(efx_port_list);
 +
-+struct efx_mtd {
-+	struct mtd_info mtd;
-+	struct mtd_partition part[EFX_MAX_PARTITIONS];
-+	char part_name[EFX_MAX_PARTITIONS][32];
-+	char name[32];
-+	struct efx_dl_device *efx_dev;
++/* Driver link handle used internally to track devices */
++struct efx_dl_handle {
++	/* The efx_dl_device consumers see */
++	struct efx_dl_device efx_dev;
++	/* The efx_nic providers provide */
 +	struct efx_nic *efx;
-+	/* This must be held when using *spi; it guards against races
-+	 * with device reset and between sequences of dependent
-+	 * commands. */
-+	struct semaphore access_lock;
-+	struct efx_spi_device *spi;
++	/* Per-device list */
++	struct list_head port_node;
++	/* Per-driver list */
++	struct list_head driver_node;
 +};
 +
-+/* SPI utilities */
-+
-+static int efx_spi_fast_wait(struct efx_mtd *efx_mtd)
++/* Get the handle for an efx_dl_device */
++static struct efx_dl_handle *efx_dl_handle(struct efx_dl_device *efx_dev)
 +{
-+	struct efx_spi_device *spi = efx_mtd->spi;
-+	u8 status;
-+	int i, rc;
-+
-+	/* Wait up to 1000us for flash/EEPROM to finish a fast operation. */
-+	for (i = 0; i < 50; i++) {
-+		udelay(20);
-+
-+		rc = spi->read(spi, efx_mtd->efx, SPI_RDSR, -1,
-+			       &status, sizeof(status));
-+		if (rc)
-+			return rc;
-+		if (!(status & SPI_STATUS_NRDY))
-+			return 0;
-+	}
-+	EFX_ERR(efx_mtd->efx, "timed out waiting for %s last status=0x%02x\n",
-+		efx_mtd->name, status);
-+	return -ETIMEDOUT;
++	return container_of(efx_dev, struct efx_dl_handle, efx_dev);
 +}
 +
-+static int efx_spi_slow_wait(struct efx_mtd *efx_mtd, int uninterruptible)
++/* Remove an Efx device
++ * You must hold the efx_driverlink_lock before calling this
++ * function.
++ */
++static void efx_dl_del_device(struct efx_dl_device *efx_dev)
 +{
-+	struct efx_spi_device *spi = efx_mtd->spi;
-+	u8 status;
-+	int rc, i;
++	struct efx_dl_handle *efx_handle = efx_dl_handle(efx_dev);
 +
-+	/* Wait up to 4s for flash/EEPROM to finish a slow operation. */
-+	for (i = 0; i < 40; i++) {
-+		__set_current_state(uninterruptible ?
-+				    TASK_UNINTERRUPTIBLE : TASK_INTERRUPTIBLE);
-+		schedule_timeout(HZ / 10);
-+		rc = spi->read(spi, efx_mtd->efx, SPI_RDSR, -1,
-+			       &status, sizeof(status));
-+		if (rc)
-+			return rc;
-+		if (!(status & SPI_STATUS_NRDY))
-+			return 0;
-+		if (signal_pending(current))
-+			return -EINTR;
-+	}
-+	EFX_ERR(efx_mtd->efx, "timed out waiting for %s\n", efx_mtd->name);
-+	return -ETIMEDOUT;
++	EFX_INFO(efx_handle->efx, "%s driverlink client unregistering\n",
++		 efx_dev->driver->name);
++
++	/* Call driver's remove() routine */
++	if (efx_dev->driver->remove)
++		efx_dev->driver->remove(efx_dev);
++
++	/* Remove handle from per-driver and per-NIC lists */
++	list_del(&efx_handle->driver_node);
++	list_del(&efx_handle->port_node);
++
++	/* Free efx_handle structure */
++	kfree(efx_handle);
++}
++
++/* Try to add an Efx device
++ * Attempt to probe the given device with the driver, creating a
++ * new efx_dl_device. If the probe routine fails, because the driver
++ * doesn't support this port, then the efx_dl_device is destroyed,
++ */
++static void efx_dl_try_add_device(struct efx_nic *efx,
++				  struct efx_dl_driver *driver)
++{
++	struct efx_dl_handle *efx_handle;
++	struct efx_dl_device *efx_dev;
++	int rc;
++
++	/* Allocate and initialise new efx_dl_device structure */
++	efx_handle = kzalloc(sizeof(*efx_handle), GFP_KERNEL);
++	if (!efx_handle)
++		goto fail;
++	efx_dev = &efx_handle->efx_dev;
++	efx_handle->efx = efx;
++	efx_dev->driver = driver;
++	efx_dev->pci_dev = efx->pci_dev;
++	INIT_LIST_HEAD(&efx_handle->port_node);
++	INIT_LIST_HEAD(&efx_handle->driver_node);
++
++	/* Attempt driver probe */
++	rc = driver->probe(efx_dev, efx->net_dev,
++			   efx->dl_info, efx->silicon_rev);
++	if (rc)
++		goto fail;
++
++	/* Add device to per-driver and per-NIC lists */
++	list_add_tail(&efx_handle->driver_node, &driver->device_list);
++	list_add_tail(&efx_handle->port_node, &efx->dl_device_list);
++
++	EFX_INFO(efx, "%s driverlink client registered\n", driver->name);
++	return;
++
++ fail:
++	EFX_INFO(efx, "%s driverlink client skipped\n", driver->name);
++
++	kfree(efx_handle);
++}
++
++/**
++ * efx_dl_unregister_driver - unregister an Efx device driver
++ * @driver:		Efx driverlink driver
++ *
++ * Unregisters an Efx driver.  The driver's remove() method will be
++ * called for all Efx devices currently claimed by the driver.
++ */
++void efx_dl_unregister_driver(struct efx_dl_driver *driver)
++{
++	struct efx_dl_handle *efx_handle, *efx_handle_n;
++
++	printk(KERN_INFO "Efx driverlink unregistering %s driver\n",
++		 driver->name);
++
++	/* Acquire lock.  We can't return failure */
++	mutex_lock(&efx_driverlink_lock);
++
++	list_for_each_entry_safe(efx_handle, efx_handle_n,
++				 &driver->device_list, driver_node)
++		efx_dl_del_device(&efx_handle->efx_dev);
++
++	list_del(&driver->node);
++
++	mutex_unlock(&efx_driverlink_lock);
++}
++EXPORT_SYMBOL(efx_dl_unregister_driver);
++
++/**
++ * efx_dl_register_driver - register an Efx device driver
++ * @driver:		Efx driverlink driver
++ *
++ * Registers a new Efx driver.  The driver's probe() method will be
++ * called for all Efx NICs currently registered.
++ *
++ * Return a negative error code or 0 on success.
++ */
++int efx_dl_register_driver(struct efx_dl_driver *driver)
++{
++	struct efx_nic *efx;
++	int rc;
++
++	printk(KERN_INFO "Efx driverlink registering %s driver\n",
++		 driver->name);
++
++	/* Initialise driver list structures */
++	INIT_LIST_HEAD(&driver->node);
++	INIT_LIST_HEAD(&driver->device_list);
++
++	/* Acquire lock */
++	rc = mutex_lock_interruptible(&efx_driverlink_lock);
++	if (rc)
++		return rc;
++
++	/* Add driver to driver list */
++	list_add_tail(&driver->node, &efx_driver_list);
++
++	/* Feed all existing devices to driver */
++	list_for_each_entry(efx, &efx_port_list, dl_node)
++		efx_dl_try_add_device(efx, driver);
++
++	/* Release locks */
++	mutex_unlock(&efx_driverlink_lock);
++
++	return 0;
++}
++EXPORT_SYMBOL(efx_dl_register_driver);
++
++void efx_dl_unregister_nic(struct efx_nic *efx)
++{
++	struct efx_dl_handle *efx_handle, *efx_handle_n;
++
++	if (!efx)
++		return;
++
++	/* Acquire lock.  We can't return failure, so have to use
++	 * down() instead of down_interruptible()
++	 */
++	mutex_lock(&efx_driverlink_lock);
++
++	/* Remove all devices related to this NIC */
++	list_for_each_entry_safe_reverse(efx_handle, efx_handle_n,
++					 &efx->dl_device_list,
++					 port_node)
++		efx_dl_del_device(&efx_handle->efx_dev);
++
++	/* Remove port from port list */
++	list_del(&efx->dl_node);
++
++	/* Release lock */
++	mutex_unlock(&efx_driverlink_lock);
++}
++
++int efx_dl_register_nic(struct efx_nic *efx)
++{
++	struct efx_dl_driver *driver;
++	int rc;
++
++	/* Acquire lock */
++	rc = mutex_lock_interruptible(&efx_driverlink_lock);
++	if (rc)
++		return rc;
++
++	/* Add port to port list */
++	list_add_tail(&efx->dl_node, &efx_port_list);
++
++	/* Feed port to all existing drivers */
++	list_for_each_entry(driver, &efx_driver_list, node)
++		efx_dl_try_add_device(efx, driver);
++
++	/* Release lock */
++	mutex_unlock(&efx_driverlink_lock);
++
++	return 0;
++}
++
++/*
++ * Dummy callback implementations.
++ *
++ * To avoid a branch point on the fast-path, the callbacks are always
++ * implemented - they are never NULL.
++ */
++#if defined(EFX_USE_KCOMPAT) && defined(EFX_USE_FASTCALL)
++static enum efx_veto fastcall
++#else
++static enum efx_veto
++#endif
++efx_dummy_tx_packet_callback(struct efx_dl_device *efx_dev, struct sk_buff *skb)
++{
++	/* Never veto the packet */
++	return EFX_ALLOW_PACKET;
++}
++
++#if defined(EFX_USE_KCOMPAT) && defined(EFX_USE_FASTCALL)
++static enum efx_veto fastcall
++#else
++static enum efx_veto
++#endif
++efx_dummy_rx_packet_callback(struct efx_dl_device *efx_dev,
++			     const char *pkt_buf, int len)
++{
++	/* Never veto the packet */
++	return EFX_ALLOW_PACKET;
++}
++
++static void
++efx_dummy_link_change_callback(struct efx_dl_device *efx_dev, int link_up)
++{
 +}
 +
 +static int
-+efx_spi_write_enable(struct efx_mtd *efx_mtd)
++efx_dummy_request_mtu_callback(struct efx_dl_device *efx_dev, int new_mtu)
 +{
-+	struct efx_spi_device *spi = efx_mtd->spi;
-+
-+	return spi->write(spi, efx_mtd->efx, SPI_WREN, -1, NULL, 0);
-+}
-+
-+static int efx_spi_unlock(struct efx_mtd *efx_mtd)
-+{
-+	struct efx_spi_device *spi = efx_mtd->spi;
-+	const u8 unlock_mask = (SPI_STATUS_BP2 | SPI_STATUS_BP1 |
-+				     SPI_STATUS_BP0);
-+	u8 status;
-+	int rc;
-+
-+	rc = spi->read(spi, efx_mtd->efx, SPI_RDSR, -1, &status,
-+		       sizeof(status));
-+	if (rc)
-+		return rc;
-+
-+	if (!(status & unlock_mask))
-+		return 0; /* already unlocked */
-+
-+	rc = efx_spi_write_enable(efx_mtd);
-+	if (rc)
-+		return rc;
-+	rc = spi->write(spi, efx_mtd->efx, SPI_SST_EWSR, -1, NULL, 0);
-+	if (rc)
-+		return rc;
-+
-+	status &= ~unlock_mask;
-+	rc = spi->write(spi, efx_mtd->efx, SPI_WRSR, -1, &status,
-+			sizeof(status));
-+	if (rc)
-+		return rc;
-+	rc = efx_spi_fast_wait(efx_mtd);
-+	if (rc)
-+		return rc;
-+
++	/* Always allow */
 +	return 0;
 +}
 +
-+/* Dummy device used in case of a failed reset */
-+
-+static int efx_spi_dummy_read(const struct efx_spi_device *spi,
-+			      struct efx_nic *efx, unsigned int command,
-+			      int address, void *data, unsigned int len)
++static void
++efx_dummy_mtu_changed_callback(struct efx_dl_device *efx_dev, int mtu)
 +{
-+	return -EIO;
++	return;
 +}
 +
-+static int efx_spi_dummy_write(const struct efx_spi_device *spi,
-+			       struct efx_nic *efx, unsigned int command,
-+			       int address, const void *data, unsigned int len)
++static void efx_dummy_event_callback(struct efx_dl_device *efx_dev, void *event)
 +{
-+	return -EIO;
++	return;
 +}
 +
-+static struct efx_spi_device efx_spi_dummy_device = {
-+	.block_size	= 1,
-+	.erase_command	= 0xff,
-+	.read		= efx_spi_dummy_read,
-+	.write		= efx_spi_dummy_write,
++struct efx_dl_callbacks efx_default_callbacks = {
++	.tx_packet	= efx_dummy_tx_packet_callback,
++	.rx_packet	= efx_dummy_rx_packet_callback,
++	.link_change	= efx_dummy_link_change_callback,
++	.request_mtu	= efx_dummy_request_mtu_callback,
++	.mtu_changed	= efx_dummy_mtu_changed_callback,
++	.event		= efx_dummy_event_callback,
 +};
 +
-+/* MTD interface */
++#define EFX_DL_UNREGISTER_CALLBACK(_port, _dev, _member)		\
++	do {								\
++		BUG_ON((_port)->dl_cb_dev._member != (_dev));		\
++		(_port)->dl_cb._member =				\
++			efx_default_callbacks._member;			\
++		(_port)->dl_cb_dev._member = NULL;			\
++	} while (0)
 +
-+static int efx_mtd_read(struct mtd_info *mtd, loff_t start, size_t len,
-+			size_t *retlen, u8 *buffer)
-+{
-+	struct efx_mtd *efx_mtd = mtd->priv;
-+	struct efx_spi_device *spi;
-+	unsigned int command;
-+	unsigned int block_len;
-+	unsigned int pos = 0;
-+	int rc;
 +
-+	rc = down_interruptible(&efx_mtd->access_lock);
-+	if (rc)
-+		goto out;
-+	spi = efx_mtd->spi;
-+
-+	while (pos < len) {
-+		block_len = min((unsigned int)len - pos,
-+				efx_spi_read_limit(spi, start + pos));
-+		command = efx_spi_munge_command(spi, SPI_READ, start + pos);
-+		rc = spi->read(spi, efx_mtd->efx, command, start + pos,
-+			       buffer + pos, block_len);
-+		if (rc)
-+			break;
-+		pos += block_len;
-+
-+		/* Avoid locking up the system */
-+		cond_resched();
-+		if (signal_pending(current)) {
-+			rc = -EINTR;
-+			break;
-+		}
++#define EFX_DL_REGISTER_CALLBACK(_port, _dev, _from, _member)		\
++	if ((_from)->_member) {						\
++		BUG_ON((_port)->dl_cb_dev._member != NULL);		\
++		(_port)->dl_cb._member = (_from)->_member;		\
++		(_port)->dl_cb_dev._member = _dev;			\
 +	}
 +
-+	up(&efx_mtd->access_lock);
-+out:
-+	*retlen = pos;
-+	return rc;
-+}
-+
-+/* Check that device contents match buffer.  If repeat is true, buffer
-+ * contains a pattern of length EFX_MTD_VERIFY_BUF_LEN which the
-+ * device contents should match repeatedly.
++/**
++ * efx_dl_unregister_callbacks - unregister callbacks for an Efx NIC
++ * @efx_dev:		Efx driverlink device
++ * @callbacks:		Callback list
++ *
++ * This removes a set of callbacks registered with
++ * efx_dl_register_callbacks().  It should be called as part of the
++ * client's remove() method.
++ *
++ * The net driver will ensure that all callback functions have
++ * returned to the net driver before efx_dl_unregister_callbacks()
++ * returns.  Note that the device itself may still be running when the
++ * client's remove() method is called.  The client must therefore
++ * unhook its callbacks using efx_dl_unregister_callbacks() and only
++ * then ensure that any delayed tasks triggered by callback methods
++ * (e.g. scheduled tasklets) have completed.
 + */
-+static int efx_mtd_verify(struct mtd_info *mtd, loff_t start,
-+			  size_t len, const u8 *buffer, int repeat)
++void efx_dl_unregister_callbacks(struct efx_dl_device *efx_dev,
++				 struct efx_dl_callbacks *callbacks)
 +{
-+	u8 verify_buffer[EFX_MTD_VERIFY_BUF_LEN];
-+	unsigned int block_len;
-+	size_t read_len;
-+	unsigned int pos = 0;
++	struct efx_dl_handle *efx_handle = efx_dl_handle(efx_dev);
++	struct efx_nic *efx = efx_handle->efx;
++
++	/* Suspend net driver operations */
++	efx_suspend(efx);
++
++	EFX_INFO(efx, "removing callback hooks into %s driver\n",
++		 efx_dev->driver->name);
++
++	if (callbacks->tx_packet)
++		EFX_DL_UNREGISTER_CALLBACK(efx, efx_dev, tx_packet);
++
++	if (callbacks->rx_packet)
++		EFX_DL_UNREGISTER_CALLBACK(efx, efx_dev, rx_packet);
++
++	if (callbacks->link_change)
++		EFX_DL_UNREGISTER_CALLBACK(efx, efx_dev, link_change);
++
++	if (callbacks->request_mtu)
++		EFX_DL_UNREGISTER_CALLBACK(efx, efx_dev, request_mtu);
++
++	if (callbacks->mtu_changed)
++		EFX_DL_UNREGISTER_CALLBACK(efx, efx_dev, mtu_changed);
++
++	if (callbacks->event)
++		EFX_DL_UNREGISTER_CALLBACK(efx, efx_dev, event);
++
++	/* Resume net driver operations */
++	efx_resume(efx);
++}
++EXPORT_SYMBOL(efx_dl_unregister_callbacks);
++
++/**
++ * efx_dl_register_callbacks - register callbacks for an Efx NIC
++ * @efx_dev:		Efx driverlink device
++ * @callbacks:		Callback list
++ *
++ * This registers a set of callback functions with the net driver.
++ * These functions will be called at various key points to allow
++ * external code to monitor and/or modify the behaviour of the network
++ * driver.  Any of the callback function pointers may be %NULL if a
++ * callback is not required.  The intended user of this mechanism is
++ * the SFC char driver.
++ *
++ * This client should call efx_dl_register_callbacks() during its
++ * probe() method.  The client must ensure that it also calls
++ * efx_dl_unregister_callbacks() as part of its remove() method.
++ *
++ * Only one function may be registered for each callback per NIC.
++ * If a requested callback is already registered for this NIC, this
++ * function will return -%EBUSY.
++ *
++ * The device may already be running, so the client must be prepared
++ * for callbacks to be triggered immediately after calling
++ * efx_dl_register_callbacks().
++ *
++ * Return a negative error code or 0 on success.
++ */
++int efx_dl_register_callbacks(struct efx_dl_device *efx_dev,
++			      struct efx_dl_callbacks *callbacks)
++{
++	struct efx_dl_handle *efx_handle = efx_dl_handle(efx_dev);
++	struct efx_nic *efx = efx_handle->efx;
 +	int rc = 0;
 +
-+	while (pos < len) {
-+		block_len = min(len - pos, sizeof(verify_buffer));
-+		rc = efx_mtd_read(mtd, start + pos, block_len, &read_len,
-+				  verify_buffer);
-+		if (rc)
-+			return rc;
-+		if (memcmp(repeat ? buffer : buffer + pos, verify_buffer,
-+			   block_len))
-+			return -EIO;
-+		pos += block_len;
-+	}
++	/* Suspend net driver operations */
++	efx_suspend(efx);
 +
-+	return 0;
-+}
-+
-+static int efx_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
-+{
-+	struct efx_mtd *efx_mtd = mtd->priv;
-+	struct efx_spi_device *spi;
-+	u8 empty[EFX_MTD_VERIFY_BUF_LEN];
-+	int rc;
-+
-+	if (erase->len != mtd->erasesize) {
-+		rc = -EINVAL;
++	/* Check that the requested callbacks are not already hooked. */
++	if ((callbacks->tx_packet && efx->dl_cb_dev.tx_packet) ||
++	    (callbacks->rx_packet && efx->dl_cb_dev.rx_packet) ||
++	    (callbacks->link_change && efx->dl_cb_dev.link_change) ||
++	    (callbacks->request_mtu && efx->dl_cb_dev.request_mtu) ||
++	    (callbacks->mtu_changed && efx->dl_cb_dev.mtu_changed) ||
++	    (callbacks->event && efx->dl_cb_dev.event)) {
++		rc = -EBUSY;
 +		goto out;
 +	}
 +
-+	rc = down_interruptible(&efx_mtd->access_lock);
-+	if (rc)
-+		goto out;
-+	spi = efx_mtd->spi;
-+	if (spi->erase_command == 0) {
-+		rc = -EOPNOTSUPP;
-+		goto out_up;
-+	}
++	EFX_INFO(efx, "adding callback hooks to %s driver\n",
++		 efx_dev->driver->name);
 +
-+	rc = efx_spi_unlock(efx_mtd);
-+	if (rc)
-+		goto out_up;
-+	rc = efx_spi_write_enable(efx_mtd);
-+	if (rc)
-+		goto out_up;
-+	rc = spi->write(spi, efx_mtd->efx, spi->erase_command, erase->addr,
-+			NULL, 0);
-+	if (rc)
-+		goto out_up;
-+	rc = efx_spi_slow_wait(efx_mtd, 0);
-+
-+out_up:
-+	up(&efx_mtd->access_lock);
-+	if (rc)
-+		goto out;
-+
-+	memset(empty, 0xff, sizeof(empty));
-+	rc = efx_mtd_verify(mtd, erase->addr, erase->len, empty, 1);
-+
-+out:
-+	if (rc == 0) {
-+		erase->state = MTD_ERASE_DONE;
-+	} else {
-+		erase->state = MTD_ERASE_FAILED;
-+#if !defined(EFX_USE_KCOMPAT) || defined(EFX_USE_MTD_ERASE_FAIL_ADDR)
-+		erase->fail_addr = 0xffffffff;
-+#endif
-+	}
-+	mtd_erase_callback(erase);
-+	return rc;
-+}
-+
-+static int efx_mtd_write(struct mtd_info *mtd, loff_t start,
-+			 size_t len, size_t *retlen, const u8 *buffer)
-+{
-+	struct efx_mtd *efx_mtd = mtd->priv;
-+	struct efx_spi_device *spi;
-+	unsigned int command;
-+	unsigned int block_len;
-+	unsigned int pos = 0;
-+	int rc;
-+
-+	rc = down_interruptible(&efx_mtd->access_lock);
-+	if (rc)
-+		goto out;
-+	spi = efx_mtd->spi;
-+
-+	rc = efx_spi_unlock(efx_mtd);
-+	if (rc)
-+		goto out_up;
-+
-+	while (pos < len) {
-+		rc = efx_spi_write_enable(efx_mtd);
-+		if (rc)
-+			break;
-+
-+		block_len = min((unsigned int)len - pos,
-+				efx_spi_write_limit(spi, start + pos));
-+		command = efx_spi_munge_command(spi, SPI_WRITE, start + pos);
-+		rc = spi->write(spi, efx_mtd->efx, command, start + pos,
-+				buffer + pos, block_len);
-+		if (rc)
-+			break;
-+		pos += block_len;
-+
-+		rc = efx_spi_fast_wait(efx_mtd);
-+		if (rc)
-+			break;
-+
-+		/* Avoid locking up the system */
-+		cond_resched();
-+		if (signal_pending(current)) {
-+			rc = -EINTR;
-+			break;
-+		}
-+	}
-+
-+out_up:
-+	up(&efx_mtd->access_lock);
-+	if (rc == 0)
-+		rc = efx_mtd_verify(mtd, start, len, buffer, 0);
-+out:
-+	*retlen = pos;
-+	return rc;
-+}
-+
-+static void efx_mtd_sync(struct mtd_info *mtd)
-+{
-+	struct efx_mtd *efx_mtd = mtd->priv;
-+	int rc;
-+
-+	down(&efx_mtd->access_lock);
-+	rc = efx_spi_slow_wait(efx_mtd, 1);
-+	if (rc)
-+		EFX_ERR(efx_mtd->efx, "%s sync failed (%d)\n",
-+			efx_mtd->name, rc);
-+	up(&efx_mtd->access_lock);
-+}
-+
-+/* Driverlink interface */
-+
-+static void efx_mtd_reset_suspend(struct efx_dl_device *efx_dev)
-+{
-+	struct efx_mtd *efx_mtd = efx_dev->priv;
-+
-+	if (!efx_mtd)
-+		return;
-+
-+	/* Acquire lock to ensure that any in-progress operations have
-+	 * completed, and no new ones can start.
++	/* Hook in callbacks.  For maximum speed, we never check to
++	 * see whether these are NULL before calling; therefore we
++	 * must ensure that they are never NULL.  If the set we're
++	 * being asked to hook in is sparse, we leave the default
++	 * values in place for the empty hooks.
 +	 */
-+	down(&efx_mtd->access_lock);
-+}
++	EFX_DL_REGISTER_CALLBACK(efx, efx_dev, callbacks, tx_packet);
++	EFX_DL_REGISTER_CALLBACK(efx, efx_dev, callbacks, rx_packet);
++	EFX_DL_REGISTER_CALLBACK(efx, efx_dev, callbacks, link_change);
++	EFX_DL_REGISTER_CALLBACK(efx, efx_dev, callbacks, request_mtu);
++	EFX_DL_REGISTER_CALLBACK(efx, efx_dev, callbacks, mtu_changed);
++	EFX_DL_REGISTER_CALLBACK(efx, efx_dev, callbacks, event);
 +
-+static void efx_mtd_reset_resume(struct efx_dl_device *efx_dev, int ok)
-+{
-+	struct efx_mtd *efx_mtd = efx_dev->priv;
++ out:
++	/* Resume net driver operations */
++	efx_resume(efx);
 +
-+	if (!efx_mtd)
-+		return;
-+
-+	/* If device reset failed already, or SPI device doesn't
-+	 * become ready, disable device.
-+	 */
-+	if (!ok || efx_spi_slow_wait(efx_mtd, 1) != 0) {
-+		efx_mtd->spi = &efx_spi_dummy_device;
-+		EFX_ERR(efx_mtd->efx, "%s disabled after failed reset\n",
-+			efx_mtd->name);
-+	}
-+
-+	up(&efx_mtd->access_lock);
-+}
-+
-+static void efx_mtd_remove(struct efx_dl_device *efx_dev)
-+{
-+	struct efx_mtd *efx_mtd = efx_dev->priv;
-+
-+	del_mtd_partitions(&efx_mtd->mtd);
-+	kfree(efx_mtd);
-+	efx_dev->priv = NULL;
-+}
-+
-+static __devinit int efx_mtd_register(struct efx_mtd *efx_mtd,
-+				      struct efx_dl_device *efx_dev,
-+				      struct efx_nic *efx,
-+				      struct efx_spi_device *spi,
-+				      const char *type_name,
-+				      const char **part_type_name,
-+				      unsigned int num_parts)
-+{
-+	int i;
-+
-+	efx_dev->priv = efx_mtd;
-+
-+	efx_mtd->efx_dev = efx_dev;
-+	efx_mtd->efx = efx;
-+	efx_mtd->spi = spi;
-+	sema_init(&efx_mtd->access_lock, 1);
-+
-+	efx_mtd->mtd.size = spi->size;
-+	efx_mtd->mtd.erasesize = spi->erase_size;
-+#if !defined(EFX_USE_KCOMPAT) || defined(EFX_USE_MTD_WRITESIZE)
-+	efx_mtd->mtd.writesize = 1;
-+#endif
-+	if (snprintf(efx_mtd->name, sizeof(efx_mtd->name),
-+		     "%s %s", efx->name, type_name) >=
-+	    sizeof(efx_mtd->name))
-+		return -ENAMETOOLONG;
-+
-+	efx_mtd->mtd.priv = efx_mtd;
-+	efx_mtd->mtd.name = efx_mtd->name;
-+	efx_mtd->mtd.erase = efx_mtd_erase;
-+	efx_mtd->mtd.read = efx_mtd_read;
-+	efx_mtd->mtd.write = efx_mtd_write;
-+	efx_mtd->mtd.sync = efx_mtd_sync;
-+
-+	for (i = 0; i < num_parts; i++) {
-+		efx_mtd->part[i].name = efx_mtd->part_name[i];
-+		if (snprintf(efx_mtd->part_name[i],
-+			     sizeof(efx_mtd->part_name[i]),
-+			     "%s %s", efx->name, part_type_name[i]) >=
-+		    sizeof(efx_mtd->part_name[i]))
-+			return -ENAMETOOLONG;
-+
-+		if (efx_allow_nvconfig_writes)
-+			efx_mtd->part[i].mask_flags &= ~MTD_WRITEABLE;
-+	}
-+
-+	return add_mtd_partitions(&efx_mtd->mtd, efx_mtd->part, num_parts);
-+}
-+
-+static int __devinit
-+efx_flash_probe(struct efx_dl_device *efx_dev,
-+		const struct net_device *net_dev,
-+		const struct efx_dl_device_info *dev_info,
-+		const char *silicon_rev)
-+{
-+	struct efx_nic *efx = efx_dl_get_nic(efx_dev);
-+	struct efx_mtd *efx_mtd;
-+	const char *part_type_name[2];
-+	unsigned int num_parts;
-+	int rc;
-+
-+	if (!efx->spi_flash)
-+		return -ENODEV;
-+
-+	efx_mtd = kzalloc(sizeof(*efx_mtd), GFP_KERNEL);
-+	if (!efx_mtd)
-+		return -ENOMEM;
-+
-+	efx_mtd->mtd.type = MTD_NORFLASH;
-+	efx_mtd->mtd.flags = MTD_CAP_NORFLASH;
-+
-+	part_type_name[0] = "sfc_flash_config";
-+	efx_mtd->part[0].offset = 0;
-+	efx_mtd->part[0].size = min(efx->spi_flash->size,
-+				    EFX_FLASH_BOOTROM_OFFSET);
-+	efx_mtd->part[0].mask_flags = MTD_WRITEABLE;
-+
-+	if (efx->spi_flash->size <= EFX_FLASH_BOOTROM_OFFSET) {
-+		num_parts = 1;
-+	} else {
-+		part_type_name[1] = "sfc_flash_bootrom";
-+		efx_mtd->part[1].offset = EFX_FLASH_BOOTROM_OFFSET;
-+		efx_mtd->part[1].size = (efx->spi_flash->size
-+					 - EFX_FLASH_BOOTROM_OFFSET);
-+		num_parts = 2;
-+	}
-+
-+	rc = efx_mtd_register(efx_mtd, efx_dev, efx, efx->spi_flash,
-+			      "sfc_flash", part_type_name, num_parts);
-+	if (rc)
-+		kfree(efx_mtd);
 +	return rc;
 +}
++EXPORT_SYMBOL(efx_dl_register_callbacks);
 +
-+static struct efx_dl_driver efx_flash_driver = {
-+	.name		= "sfc_flash",
-+	.probe		= efx_flash_probe,
-+	.remove		= efx_mtd_remove,
-+	.reset_suspend	= efx_mtd_reset_suspend,
-+	.reset_resume	= efx_mtd_reset_resume,
++/**
++ * efx_dl_schedule_reset - schedule an Efx NIC reset
++ * @efx_dev:		Efx driverlink device
++ *
++ * This schedules a hardware reset for a short time in the future.  It
++ * can be called from any context, and so can be used when
++ * efx_dl_reset() cannot be called.
++ */
++void efx_dl_schedule_reset(struct efx_dl_device *efx_dev)
++{
++	struct efx_dl_handle *efx_handle = efx_dl_handle(efx_dev);
++	struct efx_nic *efx = efx_handle->efx;
++
++	efx_schedule_reset(efx, RESET_TYPE_ALL);
++}
++EXPORT_SYMBOL(efx_dl_schedule_reset);
++
++/*
++ * Lock the driverlink layer before a reset
++ * To avoid deadlock, efx_driverlink_lock needs to be acquired before
++ * efx->suspend_lock.
++ */
++void efx_dl_reset_lock(void)
++{
++	/* Acquire lock */
++	mutex_lock(&efx_driverlink_lock);
++}
++
++/*
++ * Unlock the driverlink layer after a reset
++ * This call must be matched against efx_dl_reset_lock.
++ */
++void efx_dl_reset_unlock(void)
++{
++	/* Acquire lock */
++	mutex_unlock(&efx_driverlink_lock);
++}
++
++/*
++ * Suspend ready for reset
++ * This calls the reset_suspend method of all drivers registered to
++ * the specified NIC.  It must only be called between
++ * efx_dl_reset_lock and efx_dl_reset_unlock.
++ */
++void efx_dl_reset_suspend(struct efx_nic *efx)
++{
++	struct efx_dl_handle *efx_handle;
++	struct efx_dl_device *efx_dev;
++
++	BUG_ON(!mutex_is_locked(&efx_driverlink_lock));
++
++	/* Call suspend method of each driver in turn */
++	list_for_each_entry_reverse(efx_handle,
++				    &efx->dl_device_list,
++				    port_node) {
++		efx_dev = &efx_handle->efx_dev;
++		if (efx_dev->driver->reset_suspend)
++			efx_dev->driver->reset_suspend(efx_dev);
++	}
++}
++
++/*
++ * Resume after a reset
++ * This calls the reset_resume method of all drivers registered to the
++ * specified NIC.  It must only be called between efx_dl_reset_lock
++ * and efx_dl_reset_unlock.
++ */
++void efx_dl_reset_resume(struct efx_nic *efx, int ok)
++{
++	struct efx_dl_handle *efx_handle;
++	struct efx_dl_device *efx_dev;
++
++	BUG_ON(!mutex_is_locked(&efx_driverlink_lock));
++
++	/* Call resume method of each driver in turn */
++	list_for_each_entry(efx_handle, &efx->dl_device_list,
++			    port_node) {
++		efx_dev = &efx_handle->efx_dev;
++		if (efx_dev->driver->reset_resume)
++			efx_dev->driver->reset_resume(efx_dev, ok);
++	}
++}
++
++/**
++ * efx_dl_get_nic - obtain the Efx NIC for the given driverlink device
++ * @efx_dev:		Efx driverlink device
++ *
++ * Get a pointer to the &struct efx_nic corresponding to
++ * @efx_dev.  This can be used by driverlink clients built along with
++ * the sfc driver, which may have intimate knowledge of its internals.
++ */
++struct efx_nic *efx_dl_get_nic(struct efx_dl_device *efx_dev)
++{
++	return efx_dl_handle(efx_dev)->efx;
++}
++EXPORT_SYMBOL(efx_dl_get_nic);
+diff --git a/drivers/net/sfc/driverlink.h b/drivers/net/sfc/driverlink.h
+new file mode 100644
+index 0000000..889acf5
+--- /dev/null
++++ b/drivers/net/sfc/driverlink.h
+@@ -0,0 +1,76 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2005      Fen Systems Ltd.
++ * Copyright 2006-2008 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EFX_DRIVERLINK_H
++#define EFX_DRIVERLINK_H
++
++/* Forward declarations */
++struct efx_dl_device;
++struct efx_nic;
++
++/*
++ * Efx driverlink
++ *
++ * This header file defines the portions of the Efx driverlink
++ * interface that are used only within the sfc module.  It also
++ * declares efx_dl_get_nic(), which may be used by sfc_mtd
++ * and any other module built along with sfc.
++ */
++
++
++/* Efx callback devices
++ *
++ * A list of the devices that own each callback. The partner to
++ * struct efx_dl_callbacks
++ */
++struct efx_dl_cb_devices {
++	/* Device owning the tx_packet callback */
++	struct efx_dl_device *tx_packet;
++	/* Device owning the rx_packet callback */
++	struct efx_dl_device *rx_packet;
++	/* Device owning the link_change callback. */
++	struct efx_dl_device *link_change;
++	/* Device owning the request_mtu callback. */
++	struct efx_dl_device *request_mtu;
++	/* Device owning the mtu_changed callback. */
++	struct efx_dl_device *mtu_changed;
++	/* Device owning the event callback. */
++	struct efx_dl_device *event;
 +};
 +
-+static int __devinit
-+efx_eeprom_probe(struct efx_dl_device *efx_dev,
-+		 const struct net_device *net_dev,
-+		 const struct efx_dl_device_info *dev_info,
-+		 const char *silicon_rev)
-+{
-+	struct efx_nic *efx = efx_dl_get_nic(efx_dev);
-+	struct efx_mtd *efx_mtd;
-+	const char *type_name;
-+	const char *part_type_name[1];
-+	int rc;
++/* No-op callbacks used for initialisation */
++extern struct efx_dl_callbacks efx_default_callbacks;
 +
-+	if (!efx->spi_eeprom)
-+		return -ENODEV;
++/* Macro used to invoke callbacks */
++#define EFX_DL_CALLBACK(_port, _name, ...)				\
++	(_port)->dl_cb._name((_port)->dl_cb_dev._name, __VA_ARGS__)
 +
-+	efx_mtd = kzalloc(sizeof(*efx_mtd), GFP_KERNEL);
-+	if (!efx_mtd)
-+		return -ENOMEM;
++/* Register an Efx NIC */
++extern int efx_dl_register_nic(struct efx_nic *efx);
 +
-+	efx_mtd->mtd.type = MTD_RAM;
-+	efx_mtd->mtd.flags = MTD_CAP_RAM;
++/* Unregister an Efx NIC */
++extern void efx_dl_unregister_nic(struct efx_nic *efx);
 +
-+	efx_mtd->part[0].offset = 0;
-+	efx_mtd->part[0].size = efx->spi_eeprom->size;
-+	efx_mtd->part[0].mask_flags = MTD_WRITEABLE;
++/* Lock the driverlink layer prior to a reset */
++extern void efx_dl_reset_lock(void);
 +
-+	if (efx->spi_eeprom->size <= 0x200) {
-+		type_name = "sfc_small_eeprom";
-+		part_type_name[0] = "sfc_small_config";
-+	} else {
-+		type_name = "sfc_large_eeprom";
-+		part_type_name[0] = "sfc_large_config";
-+	}
++/* Unlock the driverlink layer following a reset */
++extern void efx_dl_reset_unlock(void);
 +
-+	rc = efx_mtd_register(efx_mtd, efx_dev, efx, efx->spi_eeprom,
-+			      type_name, part_type_name, 1);
-+	if (rc)
-+		kfree(efx_mtd);
-+	return rc;
-+}
++/* Suspend all drivers prior to a hardware reset */
++extern void efx_dl_reset_suspend(struct efx_nic *efx);
 +
-+static struct efx_dl_driver efx_eeprom_driver = {
-+	.name		= "sfc_eeprom",
-+	.probe		= efx_eeprom_probe,
-+	.remove		= efx_mtd_remove,
-+	.reset_suspend	= efx_mtd_reset_suspend,
-+	.reset_resume	= efx_mtd_reset_resume,
-+};
++/* Resume all drivers after a hardware reset */
++extern void efx_dl_reset_resume(struct efx_nic *efx, int ok);
 +
-+/* Kernel module interface */
++/* Obtain the Efx NIC for the given driverlink device. */
++extern struct efx_nic *efx_dl_get_nic(struct efx_dl_device *efx_dev);
 +
++#endif /* EFX_DRIVERLINK_H */
+diff --git a/drivers/net/sfc/driverlink_api.h b/drivers/net/sfc/driverlink_api.h
+new file mode 100644
+index 0000000..1dc6050
+--- /dev/null
++++ b/drivers/net/sfc/driverlink_api.h
+@@ -0,0 +1,614 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2005-2006 Fen Systems Ltd.
++ * Copyright 2005-2008 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EFX_DRIVERLINK_API_H
++#define EFX_DRIVERLINK_API_H
++
++#include <linux/list.h> /* for struct list_head */
++#if defined(EFX_USE_KCOMPAT) && !defined(EFX_USE_FASTCALL)
++	#include <linux/version.h>
++	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
++		#define EFX_USE_FASTCALL yes
++		#include <linux/linkage.h>
++	#endif
++#endif
++
++/**
++ * DOC: Efx driverlink API
++ *
++ * This file must be included by any driver that wishes to attach to
++ * devices claimed by the Solarflare NIC driver (sfc). It allows separate
++ * kernel modules to expose other functionality offered by the NIC, with
++ * the sfc driver remaining in overall control.
++ *
++ * Overview:
++ *
++ * Driverlink clients define a &struct efx_dl_driver, and register
++ * this structure with the driverlink layer using
++ * efx_dl_register_driver(), which is exported by the sfc driver.
++ *
++ * The probe() routine of each driverlink client driver is called by
++ * the driverlink layer for each physical port in the system, after
++ * the sfc driver has performed start-of-day hardware initialisation
++ * and self-test. If ports are added or removed via pci hotplug then
++ * the &struct efx_dl_driver probe() or remove() routines are called
++ * as appropriate.
++ *
++ * If the port doesn't provide the necessary hardware resources for a
++ * client, then that client can return failure from its probe()
++ * routine. Information provided to the client driver at probe time
++ * includes
++ *
++ * Each probe() routine is given a unique &struct efx_dl_device per
++ * port, which means it can safely use the @priv member to store any
++ * useful state it needs. The probe routine also has the opportunity
++ * to provide a &struct efx_dl_callbacks via
++ * efx_dl_register_callbacks(), which allows the client to intercept
++ * the sfc driver's operations at strategic points.
++ *
++ * Occasionally, the underlying Efx device may need to be reset to
++ * recover from an error condition.  The client's reset_suspend() and
++ * reset_resume() methods [if provided] will be called to enable the
++ * client to suspend operations and preserve any state before the
++ * reset.  The client can itself request a reset using efx_dl_reset()
++ * or efx_dl_schedule_reset(), should it detect an error condition
++ * necessitating a reset.
++ *
++ * Example:
++ *
++ * The MTD driver (mtd.c) uses the driverlink layer.
++ */
 +#ifdef EFX_NOT_UPSTREAM
-+module_param(efx_allow_nvconfig_writes, uint, 0644);
-+MODULE_PARM_DESC(efx_allow_nvconfig_writes,
-+		 "Allow writes to non-volatile configuration");
-+#endif /* EFX_NOT_UPSTREAM */
++/**
++ * DOC: Out-of-tree use of Efx driverlink API
++ *
++ * The file demo.c illustrates most aspects of using the
++ * driverlink API, and is well worth reading.
++ *
++ * By design, this file does *not* drag in any of the private header
++ * files used by the sfc driver.  In particular, this means that
++ * &struct efx_nic is not defined by including this header.  Include
++ * net_driver.h if you need access to the internals of &struct efx_nic.
++ * DO NOT use sfc driver internals in any driver that must work as an
++ * out-of-tree driver together with an in-tree (kernel.org or
++ * distribution) version of the sfc driver.  Changes in net_driver.h
++ * will NOT be reflected in %EFX_DRIVERLINK_API_VERSION, but the
++ * standard symbol versioning mechanism works between modules that are
++ * both built in-tree or both built in the v5 tree.
++ */
++#endif
 +
-+static int __init efx_mtd_init_module(void)
++/* Forward declarations */
++struct pci_dev;
++struct net_device;
++struct sk_buff;
++struct efx_dl_device;
++struct efx_dl_device_info;
++
++/*
++ * This is used to guard against the registration of driverlink
++ * clients using an incorrect version of the API.
++ */
++#define EFX_DRIVERLINK_API_VERSION 1
++
++
++/**
++ * struct efx_dl_driver - An Efx driverlink device driver
++ *
++ * This is the analogue of a struct pci_driver for a normal PCI
++ * driver.  Driverlink clients should register themselves using
++ * efx_dl_register_driver() at module initialisation, and deregister
++ * themselves using efx_dl_unregister_driver() at module exit.
++ *
++ * All calls to members of efx_dl_driver are serialised by a single
++ * semaphore, so you are allowed to sleep in these functions. Take care
++ * to not call driverlink methods from within these callbacks, otherwise
++ * a deadlock is possible.
++ *
++ * @name: Name of the driver
++ * @probe: Called when device added
++ * @remove: Called when device removed
++ * @reset_suspend: Called before device is reset
++ * @reset_resume: Called after device is reset
++ */
++struct efx_dl_driver {
++	const char *name;
++
++	/*
++	 * probe - Handle device addition.
++	 * @efx_dev:		Efx driverlink device
++	 * @net_dev:		The net_dev relevant to this port
++	 * @dev_info:		A linked list of device information.
++	 * @silicon_rev:	Silicon revision name.
++	 *
++	 * This will be called after driverlink client registration for
++	 * every port on the system, and for every port that appears
++	 * thereafter via hotplug.
++	 *
++	 * The client may use either @efx_dev->pci_dev, the dev_info linked
++	 * list of available driver information, or the silicon revision
++	 * name to determine if they can support this port. If they can,
++	 * they should return 0 to indicate the probe was successful. Any
++	 * other return code indicates that the probe failed, and the
++	 * @efx_dl_dev will be invalidated.
++	 *
++	 * The client should perform whatever initialisation it
++	 * requires, and store a pointer to its private data in
++	 * @efx_dl_dev->priv (which is not shared between clients).
++	 * It may also wish to hook in a callbacks table using
++	 * efx_dl_register_callbacks().
++	 *
++	 * Return a negative error code or 0 on success.
++	 */
++	int (*probe) (struct efx_dl_device *efx_dl_dev,
++		      const struct net_device *net_dev,
++		      const struct efx_dl_device_info *dev_info,
++		      const char *silicon_rev);
++
++	/*
++	 * remove - Handle device removal.
++	 * @efx_dev:		Efx driverlink device
++	 *
++	 * This will be called at driver exit (or hotplug removal) for
++	 * each registered driverlink client.
++	 *
++	 * The client must ensure that it has finished all operations
++	 * using this device before returning from this method.  If it
++	 * has hooked in a callbacks table using
++	 * efx_dl_register_callbacks(), it must unhook it using
++	 * efx_dl_unregister_callbacks(), and then ensure that all
++	 * callback-triggered operations (e.g. scheduled tasklets)
++	 * have completed before returning.  (It does not need to
++	 * explicitly wait for callback methods to finish executing,
++	 * since efx_dl_unregister_callbacks() will sleep until all
++	 * callbacks have returned anyway.)
++	 *
++	 * Note that the device itself may not have been removed; it
++	 * may be simply that the client is being unloaded
++	 * via efx_dl_unregister_driver(). In this case other clients
++	 * (and the sfc driver itself) will still be using the device,
++	 * so the client cannot assume that the device itself is quiescent.
++	 * In particular, callbacks may continue to be triggered at any
++	 * point until efx_dl_unregister_callbacks() is called.
++	 */
++	void (*remove) (struct efx_dl_device *efx_dev);
++
++	/*
++	 * reset_suspend - Suspend ready for reset.
++	 * @efx_dev:		Efx driverlink device
++	 *
++	 * This method will be called immediately before a hardware
++	 * reset (which may or may not have been initiated by the
++	 * driverlink client).  This client must save any state that it
++	 * will need to restore after the reset, and suspend all
++	 * operations that might access the hardware.  It must not
++	 * return until the client can guarantee to have stopped
++	 * touching the hardware.
++	 *
++	 * It is guaranteed that callbacks will be inactive by the
++	 * time this method is called; the driverlink layer will
++	 * already have prevented new callbacks being made and waited
++	 * for all callbacks functions to return before calling
++	 * reset_suspend().  However, any delayed work scheduled by
++	 * the callback functions (e.g. tasklets) may not yet have
++	 * completed.
++	 *
++	 * This method is allowed to sleep, so waiting on tasklets,
++	 * work queues etc. is permitted.  There will always be a
++	 * corresponding call to the reset_resume() method, so it is
++	 * safe to e.g. down a semaphore within reset_suspend() and up
++	 * it within reset_resume().  (However, you obviously cannot
++	 * do the same with a spinlock).
++	 *
++	 * Note that the reset operation may be being carried out in
++	 * the context of scheduled work, so you cannot use
++	 * flush_scheduled_work() to ensure that any work you may have
++	 * scheduled has completed.
++	 *
++	 * During hardware reset, there is a chance of receiving
++	 * spurious interrupts, so the client's ISR (if any) should be
++	 * unhooked or otherwise disabled.
++	 */
++	void (*reset_suspend) (struct efx_dl_device *efx_dev);
++
++	/*
++	 * reset_resume - Restore after a reset.
++	 * @efx_dev:		Efx driverlink device
++	 * @ok:			Reset success indicator
++	 *
++	 * This method will be called after a hardware reset.  There
++	 * will always have been a corresponding call to the
++	 * reset_suspend() method beforehand.
++	 *
++	 * If @ok is non-zero, the client should restore the state
++	 * that it saved during the call to reset_suspend() and resume
++	 * normal operations.
++	 *
++	 * If @ok is zero, the reset operation has failed and the
++	 * hardware is currently in an unusable state.  In this case,
++	 * the client should release any locks taken out by
++	 * reset_suspend(), but should not take any other action; in
++	 * particular, it must not access the hardware, nor resume
++	 * normal operations.  The hardware is effectively dead at
++	 * this point, and our sole aim is to avoid deadlocking or
++	 * crashing the host.
++	 *
++	 * The driverlink layer will still be locked when
++	 * reset_resume() is called, so the client may not call
++	 * driverlink functions.  In particular, if the reset failed,
++	 * the client must not call efx_dl_unregister_callbacks() at
++	 * this point; it should wait until remove() is called.
++	 */
++	void (*reset_resume) (struct efx_dl_device *efx_dev, int ok);
++
++/* private: */
++	struct list_head node;
++	struct list_head device_list;
++};
++
++/**
++ * DOC: Efx driverlink device information
++ *
++ * Each &struct efx_dl_device makes certain hardware resources visible
++ * to driverlink clients, and they describe which resources are
++ * available by passing a linked list of &struct efx_dl_device_info
++ * into the probe() routine.
++ *
++ * The driverlink client's probe function can iterate through the linked list,
++ * and provided that it understands the resources that are exported, it can
++ * choose to make use of them through an external interface.
++ */
++
++/**
++ * enum efx_dl_device_info_type - Device information identifier.
++ *
++ * Each distinct hardware resource API will have a member in this
++ * enumeration.
++ *
++ * @EFX_DL_FALCON_RESOURCES: Information type is &struct efx_dl_falcon_resources
++ */
++enum efx_dl_device_info_type {
++	/** Falcon resources available for export */
++	EFX_DL_FALCON_RESOURCES = 0,
++};
++
++/**
++ * struct efx_dl_device_info - device information structure
++ * @next: Link to next structure, if any
++ * @type: Type code for this structure
++ *
++ * This structure is embedded in other structures provided by the
++ * driverlink device provider, and implements a linked list of
++ * resources pertinent to a driverlink client.
++ *
++ * Example: &struct efx_dl_falcon_resources
++ */
++struct efx_dl_device_info {
++	struct efx_dl_device_info *next;
++	enum efx_dl_device_info_type type;
++};
++
++/**
++ * enum efx_dl_falcon_resource_flags - Falcon resource information flags.
++ *
++ * Flags that describe hardware variations for the described Falcon based port.
++ *
++ * @EFX_DL_FALCON_DUAL_FUNC: Port is dual-function.
++ *	Certain silicon revisions have two pci functions, and require
++ *	certain hardware resources to be accessed via the secondary
++ *	function. See the discussion of @pci_dev in &struct efx_dl_device
++ *	below.
++ * @EFX_DL_FALCON_USE_MSI: Port is initialised to use MSI/MSI-X interrupts.
++ *	Falcon supports traditional legacy interrupts and MSI/MSI-X
++ *	interrupts. Since the sfc driver supports either, as a run
++ *	time configuration, driverlink drivers need to be aware of which
++ *	one to use for their interrupting resources.
++ */
++enum efx_dl_falcon_resource_flags {
++	EFX_DL_FALCON_DUAL_FUNC = 0x1,
++	EFX_DL_FALCON_USE_MSI = 0x2,
++};
++
++/**
++ * struct efx_dl_falcon_resources - Falcon resource information.
++ *
++ * This structure describes Falcon hardware resources available for
++ * use by a driverlink driver.
++ *
++ * @hdr: Resource linked list header
++ * @biu_lock: Register access lock.
++ *	Some Falcon revisions require register access for configuration
++ *	registers to be serialised between ports and PCI functions.
++ *	The sfc driver will provide the appropriate lock semantics for
++ *	the underlying hardware.
++ * @buffer_table_min: First available buffer table entry
++ * @buffer_table_lim: Last available buffer table entry + 1
++ * @evq_timer_min: First available event queue with timer
++ * @evq_timer_lim: Last available event queue with timer + 1
++ * @evq_int_min: First available event queue with interrupt
++ * @evq_int_lim: Last available event queue with interrupt + 1
++ * @rxq_min: First available RX queue
++ * @rxq_lim: Last available RX queue + 1
++ * @txq_min: First available TX queue
++ * @txq_lim: Last available TX queue + 1
++ * @flags: Hardware variation flags
++ */
++struct efx_dl_falcon_resources {
++	struct efx_dl_device_info hdr;
++	spinlock_t *biu_lock;
++	unsigned buffer_table_min, buffer_table_lim;
++	unsigned evq_timer_min, evq_timer_lim;
++	unsigned evq_int_min, evq_int_lim;
++	unsigned rxq_min, rxq_lim;
++	unsigned txq_min, txq_lim;
++	enum efx_dl_falcon_resource_flags flags;
++};
++
++/**
++ * struct efx_dl_device - An Efx driverlink device.
++ *
++ * @pci_dev: Underlying PCI device.
++ *	This is the PCI device used by the sfc driver.  It will
++ *	already have been enabled for bus-mastering DMA etc.
++ * @priv: Driver private data
++ *	Driverlink clients can use this to store a pointer to their
++ *	internal per-device data structure. Each (driver, device)
++ *	tuple has a separate &struct efx_dl_device, so clients can use
++ *	this @priv field independently.
++ * @driver: Efx driverlink driver for this device
++ */
++struct efx_dl_device {
++	struct pci_dev *pci_dev;
++	void *priv;
++	struct efx_dl_driver *driver;
++};
++
++/**
++ * enum efx_veto - Packet veto request flag.
++ *
++ * This is the return type for the rx_packet() and tx_packet() methods
++ * in &struct efx_dl_callbacks.
++ *
++ * @EFX_ALLOW_PACKET: Packet may be transmitted/received
++ * @EFX_VETO_PACKET: Packet must not be transmitted/received
++ */
++enum efx_veto {
++	EFX_ALLOW_PACKET = 0,
++	EFX_VETO_PACKET = 1,
++};
++
++/**
++ * struct efx_dl_callbacks - Efx callbacks
++ *
++ * These methods can be hooked in to the sfc driver via
++ * efx_dl_register_callbacks().  They allow clients to intercept and/or
++ * modify the behaviour of the sfc driver at predetermined points.
++ *
++ * For efficiency, only one client can hook each callback.
++ *
++ * Since these callbacks are called on packet transmit and reception
++ * paths, clients should avoid acquiring locks or allocating memory.
++ *
++ * @tx_packet: Called when packet is about to be transmitted
++ * @rx_packet: Called when packet is received
++ * @link_change: Called when link status has changed
++ * @request_mtu: Called to request MTU change
++ * @mtu_changed: Called when MTU has been changed
++ * @event: Called when NIC event is not handled by the sfc driver
++ */
++struct efx_dl_callbacks {
++	/*
++	 * tx_packet - Packet about to be transmitted.
++	 * @efx_dev:		Efx driverlink device
++	 * @skb:		Socket buffer containing the packet to be sent
++	 *
++	 * This method is called for every packet about to be
++	 * transmitted.  It allows the client to snoop on traffic sent
++	 * via the kernel queues.
++	 *
++	 * The method may return %EFX_VETO_PACKET in order to prevent
++	 * the sfc driver from transmitting the packet.  The net
++	 * driver will then discard the packet.  If the client wishes
++	 * to retain a reference to the packet data after returning
++	 * %EFX_VETO_PACKET, it must obtain its own copy of the
++	 * packet (e.g. by calling skb_get(), or by copying out the
++	 * packet data to an external buffer).
++	 *
++	 * This method must return quickly, since it will have a
++	 * direct performance impact upon the sfc driver.  It will be
++	 * called with interrupts disabled (and may be called in
++	 * interrupt context), so may not sleep. Since the sfc driver
++	 * may have multiple TX queues, running in parallel, please avoid
++	 * the need for locking if it all possible.
++	 */
++#if defined(EFX_USE_KCOMPAT) && defined(EFX_USE_FASTCALL)
++	enum efx_veto fastcall (*tx_packet) (struct efx_dl_device *efx_dev,
++					     struct sk_buff *skb);
++#else
++	enum efx_veto (*tx_packet) (struct efx_dl_device *efx_dev,
++				    struct sk_buff *skb);
++#endif
++
++	/*
++	 * rx_packet - Packet received.
++	 * @efx_dev:		Efx driverlink device
++	 * @pkt_hdr:		Pointer to received packet
++	 * @pkt_len:		Length of received packet
++	 *
++	 * This method is called for every received packet.  It allows
++	 * the client to snoop on traffic received by the kernel
++	 * queues.
++	 *
++	 * The method may return %EFX_VETO_PACKET in order to prevent
++	 * the sfc driver from passing the packet to the kernel.  The net
++	 * driver will then discard the packet.
++	 *
++	 * This method must return quickly, since it will have a
++	 * direct performance impact upon the sfc driver.  It is
++	 * called in tasklet context, so may not sleep.  Note that
++	 * there are per-channel tasklets in the sfc driver, so
++	 * rx_packet() may be called simultaneously on different CPUs
++	 * and must lock appropriately.  The design of the sfc driver
++	 * allows for lockless operation between receive channels, so
++	 * please avoid the need for locking if at all possible.
++	 */
++#if defined(EFX_USE_KCOMPAT) && defined(EFX_USE_FASTCALL)
++	enum efx_veto fastcall (*rx_packet) (struct efx_dl_device *efx_dev,
++					     const char *pkt_hdr, int pkt_len);
++#else
++	enum efx_veto (*rx_packet) (struct efx_dl_device *efx_dev,
++				    const char *pkt_hdr, int pkt_len);
++#endif
++
++	/*
++	 * link_change - Link status change.
++	 * @efx_dev:		Efx driverlink device
++	 * @link_up:		Link up indicator
++	 *
++	 * This method is called to inform the driverlink client
++	 * whenever the PHY link status changes.  By the time this
++	 * function is called, the MAC has already been reconfigured
++	 * with the new autonegotiation settings from the PHY.
++	 *
++	 * This method is called from tasklet context and may not
++	 * sleep.
++	 */
++	void (*link_change) (struct efx_dl_device *efx_dev, int link_up);
++
++	/*
++	 * request_mtu: Request MTU change.
++	 * @efx_dev:		Efx driverlink device
++	 * @new_mtu:		Requested new MTU
++	 *
++	 * This method is called whenever the user requests an MTU
++	 * change on an interface.  The client may return an error, in
++	 * which case the MTU change request will be denied.  If the
++	 * client returns success, the MAC will be reconfigured with a
++	 * new maxmimum frame length equal to
++	 * EFX_MAX_FRAME_LEN(new_mtu).  The client will be notified
++	 * via the mtu_changed() method once the MAC has been
++	 * reconfigured.
++	 *
++	 * The current MTU for the port can be obtained via
++	 * efx_dl_get_netdev(efx_dl_device)->mtu.
++	 *
++	 * The sfc driver guarantees that no other callback functions
++	 * are in progress when this method is called.  This function
++	 * is called in process context and may sleep.
++	 *
++	 * Return a negative error code or 0 on success.
++	 */
++	int (*request_mtu) (struct efx_dl_device *efx_dev, int new_mtu);
++
++	/*
++	 * mtu_changed - MTU has been changed.
++	 * @efx_dev:		Efx driverlink device
++	 * @mtu:		The new MTU
++	 *
++	 * This method is called once the MAC has been reconfigured
++	 * with a new MTU.  There will have been a preceding call to
++	 * request_mtu().
++	 *
++	 * The sfc driver guarantees that no other callback functions
++	 * are in progress when this method is called.  This function
++	 * is called in process context and may sleep.
++	 */
++	void (*mtu_changed) (struct efx_dl_device *efx_dev, int mtu);
++
++	/*
++	 * event - Event callback.
++	 * @efx_dev:		Efx driverlink device
++	 * @p_event:		Pointer to event
++	 *
++	 * This method is called for each event that is not handled by the
++	 * sfc driver.
++	 */
++	void (*event) (struct efx_dl_device *efx_dev, void *p_event);
++};
++
++/* Include API version number in symbol used for efx_dl_register_driver */
++#define efx_dl_stringify_1(x, y) x ## y
++#define efx_dl_stringify_2(x, y) efx_dl_stringify_1(x, y)
++#define efx_dl_register_driver					\
++	efx_dl_stringify_2(efx_dl_register_driver_api_ver_,	\
++			   EFX_DRIVERLINK_API_VERSION)
++
++extern int efx_dl_register_driver(struct efx_dl_driver *driver);
++
++extern void efx_dl_unregister_driver(struct efx_dl_driver *driver);
++
++extern int efx_dl_register_callbacks(struct efx_dl_device *efx_dev,
++				     struct efx_dl_callbacks *callbacks);
++
++extern void efx_dl_unregister_callbacks(struct efx_dl_device *efx_dev,
++					struct efx_dl_callbacks *callbacks);
++
++extern void efx_dl_schedule_reset(struct efx_dl_device *efx_dev);
++
++/**
++ * efx_dl_for_each_device_info_matching - iterate an efx_dl_device_info list
++ * @_dev_info: Pointer to first &struct efx_dl_device_info
++ * @_type: Type code to look for
++ * @_info_type: Structure type corresponding to type code
++ * @_field: Name of &struct efx_dl_device_info field in the type
++ * @_p: Iterator variable
++ *
++ * Example:
++ *
++ * static int driver_dl_probe(... const struct efx_dl_device_info *dev_info ...)
++ * {
++ *        struct efx_dl_falcon_resources *res;
++ *
++ *        efx_dl_for_each_device_info_matching(dev_info,EFX_DL_FALCON_RESOURCES,
++ *                                             struct efx_dl_falcon_resources,
++ *                                             hdr, res) {
++ *                if (res->flags & EFX_DL_FALCON_DUAL_FUNC) {
++ *                          .....
++ *                }
++ *        }
++ * }
++ */
++#define efx_dl_for_each_device_info_matching(_dev_info, _type,		\
++					     _info_type, _field, _p)	\
++	for ((_p) = container_of((_dev_info), _info_type, _field);	\
++	     (_p) != NULL;						\
++	     (_p) = container_of((_p)->_field.next, _info_type, _field))\
++		if ((_p)->_field.type != _type)				\
++			continue;					\
++		else
++
++/**
++ * efx_dl_search_device_info - search an efx_dl_device_info list
++ * @_dev_info: Pointer to first &struct efx_dl_device_info
++ * @_type: Type code to look for
++ * @_info_type: Structure type corresponding to type code
++ * @_field: Name of &struct efx_dl_device_info member in this type
++ * @_p: Result variable
++ *
++ * Example:
++ *
++ * static int driver_dl_probe(... const struct efx_dl_device_info *dev_info ...)
++ * {
++ *        struct efx_dl_falcon_resources *res;
++ *
++ *        efx_dl_search_device_info(dev_info, EFX_DL_FALCON_RESOURCES,
++ *                                  struct efx_dl_falcon_resources, hdr, res);
++ *        if (res != NULL) {
++ *                 ....
++ *        }
++ * }
++ */
++#define efx_dl_search_device_info(_dev_info, _type, _info_type,		\
++				  _field, _p)				\
++	efx_dl_for_each_device_info_matching((_dev_info), (_type),	\
++					     _info_type, _field, (_p))	\
++		break;
++
++#endif /* EFX_DRIVERLINK_API_H */
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 74265d8..0e153cb 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -544,6 +544,9 @@ static void efx_link_status_changed(struct efx_nic *efx)
+ 			netif_carrier_off(efx->net_dev);
+ 	}
+
++	/* Inform driverlink client */
++	EFX_DL_CALLBACK(efx, link_change, efx->link_up);
++
+ 	/* Status message for kernel log */
+ 	if (efx->link_up) {
+ 		struct mii_if_info *gmii = &efx->mii;
+@@ -1410,6 +1413,8 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+
+ 	efx_stop_all(efx);
+
++	/* Ask driverlink client if we can change MTU */
++	rc = EFX_DL_CALLBACK(efx, request_mtu, new_mtu);
+ 	EFX_LOG(efx, "changing MTU to %d\n", new_mtu);
+
+ 	efx_fini_channels(efx);
+@@ -1418,6 +1423,9 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+ 	if (rc)
+ 		goto fail;
+
++	/* Notify driverlink client of new MTU */
++	EFX_DL_CALLBACK(efx, mtu_changed, new_mtu);
++
+ 	efx_start_all(efx);
+ 	return rc;
+
+@@ -1570,6 +1578,23 @@ static void efx_unregister_netdev(struct efx_nic *efx)
+  * Device reset and suspend
+  *
+  **************************************************************************/
++/* Serialise access to the driverlink callbacks, by quiescing event processing
++ * (without flushing the descriptor queues), and acquiring the rtnl_lock */
++void efx_suspend(struct efx_nic *efx)
 +{
-+	int rc;
++	EFX_LOG(efx, "suspending operations\n");
 +
-+	rc = efx_dl_register_driver(&efx_flash_driver);
++	rtnl_lock();
++	efx_stop_all(efx);
++}
++
++void efx_resume(struct efx_nic *efx)
++{
++	EFX_LOG(efx, "resuming operations\n");
++
++	efx_start_all(efx);
++	rtnl_unlock();
++}
+
+ /* The final hardware and software finalisation before reset. */
+ static int efx_reset_down(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+@@ -1632,6 +1657,10 @@ static int efx_reset(struct efx_nic *efx)
+ 	enum reset_type method = efx->reset_pending;
+ 	int rc;
+
++	/* Notify driverlink clients of imminent reset. */
++	efx_dl_reset_lock();
++	efx_dl_reset_suspend(efx);
++
+ 	/* Serialise with kernel interfaces */
+ 	rtnl_lock();
+
+@@ -1701,8 +1730,9 @@ static int efx_reset(struct efx_nic *efx)
+
+  unlock_rtnl:
+ 	rtnl_unlock();
++	efx_dl_reset_resume(efx, 1);
++	efx_dl_reset_unlock();
+ 	return 0;
+-
+  fail5:
+  fail4:
+  fail3:
+@@ -1715,6 +1745,8 @@ static int efx_reset(struct efx_nic *efx)
+ 	rtnl_unlock();
+ 	efx_unregister_netdev(efx);
+ 	efx_fini_port(efx);
++	efx_dl_reset_resume(efx, 0);
++	efx_dl_reset_unlock();
+ 	return rc;
+ }
+
+@@ -1854,6 +1886,9 @@ static int efx_init_struct(struct efx_nic *efx, struct
+efx_nic_type *type,
+ 	mutex_init(&efx->mac_lock);
+ 	efx->phy_op = &efx_dummy_phy_operations;
+ 	efx->mii.dev = net_dev;
++	INIT_LIST_HEAD(&efx->dl_node);
++	INIT_LIST_HEAD(&efx->dl_device_list);
++	efx->dl_cb = efx_default_callbacks;
+ 	INIT_WORK(&efx->reconfigure_work, efx_reconfigure_work);
+ 	atomic_set(&efx->netif_stop_count, 1);
+
+@@ -1960,6 +1995,9 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+ 	if (!efx)
+ 		return;
+
++	/* Unregister driver from driverlink layer */
++	efx_dl_unregister_nic(efx);
++
+ 	/* Mark the NIC as fini, then stop the interface */
+ 	rtnl_lock();
+ 	efx->state = STATE_FINI;
+@@ -2126,8 +2164,15 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+
+ 	EFX_LOG(efx, "initialisation successful\n");
+
++	/* Register with driverlink layer */
++	rc = efx_dl_register_nic(efx);
 +	if (rc)
-+		return rc;
-+	rc = efx_dl_register_driver(&efx_eeprom_driver);
-+	if (rc) {
-+		efx_dl_unregister_driver(&efx_flash_driver);
-+		return rc;
++		goto fail6;
++
+ 	return 0;
+
++ fail6:
++	efx_unregister_netdev(efx);
+  fail5:
+ 	efx_pci_remove_main(efx);
+  fail4:
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 630406e..959e06a 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -36,14 +36,23 @@
+
+ /**
+  * struct falcon_nic_data - Falcon NIC state
++ * @tx_dc_entries: Number of entries in each TX queue descriptor cache
++ * @rx_dc_entries: Number of entries in each RX queue descriptor cache
++ * @tx_dc_base: Base address in SRAM of TX queue descriptor caches
++ * @rx_dc_base: Base address in SRAM of RX queue descriptor caches
+  * @next_buffer_table: First available buffer table id
+  * @pci_dev2: The secondary PCI device if present
+  * @i2c_data: Operations and state for I2C bit-bashing algorithm
+  */
+ struct falcon_nic_data {
++	unsigned tx_dc_entries;
++	unsigned rx_dc_entries;
++	unsigned tx_dc_base;
++	unsigned rx_dc_base;
+ 	unsigned next_buffer_table;
+ 	struct pci_dev *pci_dev2;
+ 	struct i2c_algo_bit_data i2c_data;
++	struct efx_dl_falcon_resources resources;
+ };
+
+ /**************************************************************************
+@@ -1120,10 +1129,12 @@ static void falcon_handle_driver_event(struct efx_channel
+*channel,
+ 	case TX_DESCQ_FLS_DONE_EV_DECODE:
+ 		EFX_TRACE(efx, "channel %d TXQ %d flushed\n",
+ 			  channel->channel, ev_sub_data);
++		EFX_DL_CALLBACK(efx, event, event);
+ 		break;
+ 	case RX_DESCQ_FLS_DONE_EV_DECODE:
+ 		EFX_TRACE(efx, "channel %d RXQ %d flushed\n",
+ 			  channel->channel, ev_sub_data);
++		EFX_DL_CALLBACK(efx, event, event);
+ 		break;
+ 	case EVQ_INIT_DONE_EV_DECODE:
+ 		EFX_LOG(efx, "channel %d EVQ %d initialised\n",
+@@ -1132,14 +1143,17 @@ static void falcon_handle_driver_event(struct efx_channel
+*channel,
+ 	case SRM_UPD_DONE_EV_DECODE:
+ 		EFX_TRACE(efx, "channel %d SRAM update done\n",
+ 			  channel->channel);
++		EFX_DL_CALLBACK(efx, event, event);
+ 		break;
+ 	case WAKE_UP_EV_DECODE:
+ 		EFX_TRACE(efx, "channel %d RXQ %d wakeup event\n",
+ 			  channel->channel, ev_sub_data);
++		EFX_DL_CALLBACK(efx, event, event);
+ 		break;
+ 	case TIMER_EV_DECODE:
+ 		EFX_TRACE(efx, "channel %d RX queue %d timer expired\n",
+ 			  channel->channel, ev_sub_data);
++		EFX_DL_CALLBACK(efx, event, event);
+ 		break;
+ 	case RX_RECOVERY_EV_DECODE:
+ 		EFX_ERR(efx, "channel %d seen DRIVER RX_RESET event. "
+@@ -1164,6 +1178,7 @@ static void falcon_handle_driver_event(struct efx_channel *channel,
+ 		EFX_TRACE(efx, "channel %d unknown driver event code %d "
+ 			  "data %04x\n", channel->channel, ev_sub_code,
+ 			  ev_sub_data);
++		EFX_DL_CALLBACK(efx, event, event);
+ 		break;
+ 	}
+ }
+@@ -2376,6 +2391,70 @@ static int falcon_probe_nvconfig(struct efx_nic *efx)
+ 	return rc;
+ }
+
++/* Looks at available SRAM resources and silicon revision, and works out
++ * how many queues we can support, and where things like descriptor caches
++ * should live. */
++static int falcon_dimension_resources(struct efx_nic *efx)
++{
++	unsigned buffer_entry_bytes, internal_dcs_entries;
++	struct falcon_nic_data *nic_data = efx->nic_data;
++	struct efx_dl_falcon_resources *res = &nic_data->resources;
++
++	/* Fill out the driverlink resource list */
++	res->hdr.type = EFX_DL_FALCON_RESOURCES;
++	res->biu_lock = &efx->biu_lock;
++	efx->dl_info = &res->hdr;
++	nic_data->tx_dc_entries = 16;
++
++	/* Set the RX descriptor cache size.  Values 16, 32 and 64 are
++	 * supported (8 won't work).  Bigger is better, especially on B
++	 * silicon.
++	 */
++	nic_data->rx_dc_entries = 64;
++
++	/* NB. The minimum values get increased as this driver initialises
++	 * its resources, so this should prevent any overlap.
++	 */
++	switch (falcon_rev(efx)) {
++	case FALCON_REV_A1:
++		res->rxq_min = 16;
++		res->txq_min = 16;
++		res->evq_int_min = 4;
++		res->evq_int_lim = 5;
++		res->evq_timer_min = 5;
++		res->evq_timer_lim = 4096;
++		internal_dcs_entries = 8192;
++		break;
++	case FALCON_REV_B0:
++	default:
++		res->rxq_min = 0;
++		res->txq_min = 0;
++		res->evq_int_min = 0;
++		res->evq_int_lim = 64;
++		res->evq_timer_min = 64;
++		res->evq_timer_lim = 4096;
++		internal_dcs_entries = 4096;
++		break;
 +	}
++
++	buffer_entry_bytes = 8;
++
++	res->rxq_lim = internal_dcs_entries / nic_data->rx_dc_entries;
++	res->txq_lim = internal_dcs_entries / nic_data->tx_dc_entries;
++	/* Internal SRAM only for now */
++	res->buffer_table_lim = 8192;
++	nic_data->tx_dc_base = 0x130000;
++	nic_data->rx_dc_base = 0x100000;
++
++	if (FALCON_IS_DUAL_FUNC(efx))
++		res->flags |= EFX_DL_FALCON_DUAL_FUNC;
++
++	if (EFX_INT_MODE_USE_MSI(efx))
++		res->flags |= EFX_DL_FALCON_USE_MSI;
 +
 +	return 0;
 +}
 +
-+static void __exit efx_mtd_exit_module(void)
-+{
-+	efx_dl_unregister_driver(&efx_eeprom_driver);
-+	efx_dl_unregister_driver(&efx_flash_driver);
-+}
+ /* Probe the NIC variant (revision, ASIC vs FPGA, function count, port
+  * count, port speed).  Set workaround and feature flags accordingly.
+  */
+@@ -2477,6 +2556,10 @@ int falcon_probe_nic(struct efx_nic *efx)
+ 	if (rc)
+ 		goto fail5;
+
++	rc = falcon_dimension_resources(efx);
++	if (rc)
++		goto fail6;
 +
-+module_init(efx_mtd_init_module);
-+module_exit(efx_mtd_exit_module);
-+
-+MODULE_AUTHOR("Michael Brown <mbrown@fensystems.co.uk> and "
-+	      "Solarflare Communications");
-+MODULE_DESCRIPTION("SFC MTD driver");
-+MODULE_LICENSE("GPL");
+ 	/* Initialise I2C adapter */
+  	efx->i2c_adap.owner = THIS_MODULE;
+  	efx->i2c_adap.class = I2C_CLASS_HWMON;
+@@ -2487,10 +2570,12 @@ int falcon_probe_nic(struct efx_nic *efx)
+ 	strcpy(efx->i2c_adap.name, "SFC4000 GPIO");
+ 	rc = i2c_bit_add_bus(&efx->i2c_adap);
+ 	if (rc)
+-		goto fail5;
++		goto fail6;
+
+ 	return 0;
+
++ fail6:
++	efx->dl_info = NULL;
+  fail5:
+ 	falcon_free_buffer(efx, &efx->irq_status);
+  fail4:
+@@ -2681,6 +2766,7 @@ void falcon_remove_nic(struct efx_nic *efx)
+ 	/* Tear down the private nic state */
+ 	kfree(efx->nic_data);
+ 	efx->nic_data = NULL;
++	efx->dl_info = NULL;
+ }
+
+ void falcon_update_nic_stats(struct efx_nic *efx)
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 2a84468..9a32fea 100644
+index d803b86..2a84468 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -640,6 +640,11 @@ union efx_multicast_hash {
-  *	This register is written with the SMP processor ID whenever an
-  *	interrupt is handled.  It is used by falcon_test_interrupt()
-  *	to verify that an interrupt has occurred.
-+ * @spi_flash: SPI flash device
-+ *	This field will be %NULL if no flash device is present.
-+ * @spi_eeprom: SPI EEPROM device
-+ *	This field will be %NULL if no EEPROM device is present.
-+ * @spi_lock: SPI bus lock
-  * @n_rx_nodesc_drop_cnt: RX no descriptor drop count
-  * @nic_data: Hardware dependant state
-  * @mac_lock: MAC access lock. Protects @port_enabled, efx_monitor() and
-@@ -716,6 +721,10 @@ struct efx_nic {
- 	struct efx_buffer irq_status;
- 	volatile signed int last_irq_cpu;
+@@ -30,6 +30,8 @@
 
-+	struct efx_spi_device *spi_flash;
-+	struct efx_spi_device *spi_eeprom;
-+	struct mutex spi_lock;
-+
- 	unsigned n_rx_nodesc_drop_cnt;
+ #include "enum.h"
+ #include "bitfield.h"
++#include "driverlink_api.h"
++#include "driverlink.h"
 
- 	struct falcon_nic_data *nic_data;
-diff --git a/drivers/net/sfc/spi.h b/drivers/net/sfc/spi.h
-index 34412f3..bd9bde7 100644
---- a/drivers/net/sfc/spi.h
-+++ b/drivers/net/sfc/spi.h
-@@ -68,4 +68,102 @@
- /* Device busy flag */
- #define SPI_STATUS_NRDY 0x01
+ #define EFX_MAX_LRO_DESCRIPTORS 8
+ #define EFX_MAX_LRO_AGGR MAX_SKB_FRAGS
+@@ -674,6 +676,12 @@ union efx_multicast_hash {
+  * @loopback_mode: Loopback status
+  * @loopback_modes: Supported loopback mode bitmask
+  * @loopback_selftest: Offline self-test private state
++ * @silicon_rev: Silicon revision description for driverlink
++ * @dl_info: Linked list of hardware parameters exposed through driverlink
++ * @dl_node: Driverlink port list
++ * @dl_device_list: Driverlink device list
++ * @dl_cb: Driverlink callbacks table
++ * @dl_cb_dev: Driverlink callback owner devices
+  *
+  * The @priv field of the corresponding &struct net_device points to
+  * this.
+@@ -749,6 +757,13 @@ struct efx_nic {
+ 	unsigned int loopback_modes;
 
-+/**************************************************************************
-+ *
-+ * Efx SPI devices
-+ *
-+ **************************************************************************
-+ */
+ 	void *loopback_selftest;
 +
-+/**
-+ * struct efx_spi_device - an Efx SPI (Serial Peripheral Interface) device
-+ * @device_id:		Controller's id for the device
-+ * @size:		Size (in bytes)
-+ * @addr_len:		Number of address bytes in read/write commands
-+ * @munge_address:	Flag whether addresses should be munged.
-+ *	Some devices with 9-bit addresses (e.g. AT25040A EEPROM)
-+ *	use bit 3 of the command byte as address bit A8, rather
-+ *	than having a two-byte address.  If this flag is set, then
-+ *	commands should be munged in this way.
-+ * @erase_command:	Erase command (or 0 if sector erase not needed).
-+ * @erase_size:		Erase sector size (in bytes)
-+ *	Erase commands affect sectors with this size and alignment.
-+ *	This must be a power of two.
-+ * @block_size:		Write block size (in bytes).
-+ *	Write commands are limited to blocks with this size and alignment.
-+ * @read:		Read function for the device
-+ * @write:		Write function for the device
-+ */
-+struct efx_spi_device {
-+	int device_id;
-+	unsigned int size;
-+	unsigned int addr_len;
-+	unsigned int munge_address:1;
-+	u8 erase_command;
-+	unsigned int erase_size;
-+	unsigned int block_size;
-+	int (*read) (const struct efx_spi_device *spi,
-+		     struct efx_nic *efx, unsigned int command,
-+		     int address, void *data, unsigned int len);
-+	int (*write) (const struct efx_spi_device *spi,
-+		      struct efx_nic *efx, unsigned int command,
-+		      int address, const void *data, unsigned int len);
-+};
-+
-+/* Maximum length for SPI read or write through Falcon */
-+#define FALCON_SPI_MAX_LEN sizeof(efx_oword_t)
-+
-+/**
-+ * efx_spi_write_limit - calculate maximum permitted length for write
-+ * @spi:		SPI device description
-+ * @start:		Starting address
-+ *
-+ * Return the maximum length for a write starting at the given address
-+ * in the device.
-+ *
-+ * SPI writes must not cross block boundaries.  Devices tend
-+ * to wrap addresses at block boundaries; e.g. trying to write 5 bytes
-+ * starting at offset 14 with a block size of 16 might write
-+ * {14,15,0,1,2} rather than {14,15,16,17,18}.
-+ */
-+static inline unsigned int
-+efx_spi_write_limit(const struct efx_spi_device *spi, unsigned int start)
-+{
-+	return min(FALCON_SPI_MAX_LEN,
-+		   (spi->block_size - (start & (spi->block_size - 1))));
-+}
-+
-+/**
-+ * efx_spi_read_limit - calculate maximum permitted length for read
-+ * @spi:		SPI device description
-+ * @start:		Starting address
-+ *
-+ * Return the maximum length for a read starting at the given address
-+ * in the device.
-+ */
-+static inline unsigned int
-+efx_spi_read_limit(const struct efx_spi_device *spi __attribute__ ((unused)),
-+		   unsigned int start __attribute__ ((unused)))
-+{
-+	return FALCON_SPI_MAX_LEN;
-+}
-+
-+/**
-+ * efx_spi_munge_command - adjust command as necessary for given address
-+ * @spi:		SPI device description
-+ * @command:		Normal SPI command
-+ * @address:		Address for command
-+ *
-+ * Some devices with 9-bit addresses (e.g. AT25040A EEPROM) use bit 3
-+ * of the command byte as address bit A8, rather than having a
-+ * two-byte address.  This function calculates the appropriate command
-+ * byte for the device, taking this munging into account.
-+ */
-+static inline u8 efx_spi_munge_command(const struct efx_spi_device *spi,
-+					    const u8 command,
-+					    const unsigned int address)
-+{
-+	return (command | (((address >> 8) & spi->munge_address) << 3));
-+}
-+
- #endif /* EFX_SPI_H */
++	const char *silicon_rev;
++	struct efx_dl_device_info *dl_info;
++	struct list_head dl_node;
++	struct list_head dl_device_list;
++	struct efx_dl_callbacks dl_cb;
++	struct efx_dl_cb_devices dl_cb_dev;
+ };
+
+ static inline int efx_dev_registered(struct efx_nic *efx)
 -- 
 1.5.3.7
+
 
