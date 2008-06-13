@@ -1,40 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Fri, 13 Jun 2008 02:32:08 -0700 (PDT)
-Message-ID: <20080613.023208.78649628.davem@davemloft.net>
-References: <20080611.165255.242691774.davem@davemloft.net>
-	<20080612.163212.148965080.davem@davemloft.net>
-	<20080613063037.GA16943@elte.hu>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RESEND #3/patch 2.6.26-rc6] net/enc28j60: low power mode
+Date: Fri, 13 Jun 2008 05:40:56 -0400
+Message-ID: <485240A8.5070802@garzik.org>
+References: <200806122138.06674.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, vgusev@openvz.org, mcmanus@ducksong.com,
-	xemul@openvz.org, netdev@vger.kernel.org,
-	ilpo.jarvinen@helsinki.fi, linux-kernel@vger.kernel.org
-To: mingo@elte.hu
+Cc: netdev@vger.kernel.org,
+	Claudio Lanconelli <lanconelli.claudio@eptar.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55531
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755520AbYFMJcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 05:32:08 -0400
-In-Reply-To: <20080613063037.GA16943@elte.hu>
+Received: from srv5.dvmed.net ([207.36.208.214]:40395 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753431AbYFMJlC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jun 2008 05:41:02 -0400
+In-Reply-To: <200806122138.06674.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 13 Jun 2008 08:30:37 +0200
-
-> the 3 reverts have been extensively tested in -tip via:
+David Brownell wrote:
+> Keep enc28j60 chips in low-power mode when they're not in use.
+> At typically 120 mA, these chips run hot even when idle; this
+> low power mode cuts that power usage by a factor of around 100.
 > 
->  # tip/out-of-tree: 9e5b6ca: tcp: revert DEFER_ACCEPT modifications
+> This version provides a generic routine to poll a register until
+> its masked value equals some value ... e.g. bit set or cleared.
+> It's basically what the previous wait_phy_ready() did, but this
+> version is generalized to support the handshaking needed to
+> enter and exit low power mode.
 > 
-> and the distcc problems are fixed. (The locking fix alone did not fix it 
-> conclusively in my testing, possibly due to the follow-on observations 
-> outlined in your description.)
+> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+> Signed-off-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+> ---
+> Previously sent:  18-May, 19-February; there were several
+> previous iterations too ...
 > 
-> Tested-by: Ingo Molnar <mingo@elte.hu>
+>  drivers/net/enc28j60.c |   82 ++++++++++++++++++++++++++++++++++---------------
+>  1 file changed, 58 insertions(+), 24 deletions(-)
 
-I didn't revert all three changes, just the final part of that
-3 part series.
+I've put these two into my queue, so they are definitely in process now.
 
-Please test the patch I actually applied.
+For netdev patches it helps to CC me, since not every patch sent solely 
+to netdev@ is a to-be-applied patch, and might be missed -- or quite 
+often, assumed to be a patch that warrants discussion.
+
+	Jeff
+
+
+
