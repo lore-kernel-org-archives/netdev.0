@@ -1,60 +1,59 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] [UPDATED] ixgbe: add LRO support
-Date: Fri, 13 Jun 2008 11:45:55 -0700
-Message-ID: <20080613114555.4955f666.randy.dunlap@oracle.com>
-References: <20080613183716.9641.33945.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 10/19] [repost] powerpc: move get_longbusy_msecs out of
+ ehca/ehea
+Date: Fri, 13 Jun 2008 15:55:41 -0400
+Message-ID: <4852D0BD.7010403@pobox.com>
+References: <20080612221848.GR30916@linux.vnet.ibm.com> <4852BB43.9080305@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Robert Jennings <rcj@linux.vnet.ibm.com>, paulus@samba.org,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	Santiago Leon <santil@us.ibm.com>,
+	Nathan Fontenot <nfont@austin.ibm.com>,
+	David Darrington <ddarring@linux.vnet.ibm.com>
+To: Brian King <brking@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:61235 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752214AbYFMSqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 14:46:45 -0400
-In-Reply-To: <20080613183716.9641.33945.stgit@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:52843 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752258AbYFMT4G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jun 2008 15:56:06 -0400
+In-Reply-To: <4852BB43.9080305@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Jun 2008 11:40:16 -0700 Jeff Kirsher wrote:
+Brian King wrote:
+> Jeff,
+> 
+> Regarding the patches Rob just posted here, we'd like to just take them
+> through the powerpc tree with your sign off since they are part of a
+> Power platform feature we are enabling.
+> 
+> Thanks,
+> 
+> Brian
+> 
+> Robert Jennings wrote:
+>> From: Robert Jennings <rcj@linux.vnet.ibm.com>
+>>
+>> In support of Cooperative Memory Overcommitment (CMO) this moves
+>> get_longbusy_msecs() out of the ehca and ehea drivers and into the 
+>> architecture's hvcall header as plpar_get_longbusy_msecs.  Some firmware
+>> calls made in pSeries platform iommu code will need to share this
+>> functionality.
+>>
+>> Signed-off-by: Robert Jennings <rcj@linux.vnet.ibm.com>
+>>
+>> ---
+>>
+>> I missed copying netdev on this patch the first time.
+>>
+>>  drivers/infiniband/hw/ehca/hcp_if.c |   24 ++----------------------
+>>  drivers/net/ehea/ehea_phyp.c        |    4 ++--
+>>  drivers/net/ehea/ehea_phyp.h        |   20 --------------------
+>>  include/asm-powerpc/hvcall.h        |   27 +++++++++++++++++++++++++++
+>>  4 files changed, 31 insertions(+), 44 deletions(-)
 
-> From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-> 
-> Support for in-kernel LRO with the ability to enable/disable via ethtool
-> based on comments from Ben Hutchings and Randy Dunlap.
-> 
-> Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Signed-off-by: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> ---
-> 
->  drivers/net/Kconfig               |    3 +
->  drivers/net/ixgbe/ixgbe.h         |    9 +++
->  drivers/net/ixgbe/ixgbe_ethtool.c |   11 ++++
->  drivers/net/ixgbe/ixgbe_main.c    |  111 ++++++++++++++++++++++++++++++-------
->  4 files changed, 112 insertions(+), 22 deletions(-)
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index f4182cf..8b53255 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2436,7 +2436,8 @@ config EHEA
->  
->  config IXGBE
->  	tristate "Intel(R) 10GbE PCI Express adapters support"
-> -	depends on PCI
-> +	depends on PCI && INET
-> +	select INET_LRO
->  	---help---
->  	  This driver supports Intel(R) 10GbE PCI Express family of
->  	  adapters.  For more information on how to identify your adapter, go
+ACK the quoted patch
 
-Yes, thanks.
 
----
-~Randy
-'"Daemon' is an old piece of jargon from the UNIX operating system,
-where it referred to a piece of low-level utility software, a
-fundamental part of the operating system."
