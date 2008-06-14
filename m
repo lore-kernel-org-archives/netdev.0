@@ -1,25 +1,40 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH][ATM] iphase: doesn't call phy->start due to a bogus #ifndef
-Date: Sat, 14 Jun 2008 17:24:05 -0400
-Message-ID: <200806142124.m5ELO5m2004271@cmf.nrl.navy.mil>
-References: <4848117C.5040801@dti2.net>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@vger.kernel.org
-To: jorge@dti2.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: page allocation failure
+Date: Sat, 14 Jun 2008 22:36:02 +0100
+Message-ID: <20080614213600.GF11300@solarflare.com>
+References: <20080614022451.M72462@visp.net.lb> <20080614065845.GB32585@2ka.mipt.ru> <20080614205958.M55299@visp.net.lb>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:45613 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756735AbYFNVYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 17:24:18 -0400
-In-reply-to: <4848117C.5040801@dti2.net>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:41388 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754734AbYFNVik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 17:38:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20080614205958.M55299@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message <4848117C.5040801@dti2.net>,"Jorge Boncompte [DTI2]" writes:
->	This causes the suni driver to oops if you try to use sonetdiag to
->get the statistics. Also add the corresponding phy->stop call to fix another
->oops if you try to remove the module.
->
->Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+Denys Fedoryshchenko wrote:
+> There is no jumbo frames in this particular setup.
+> Probably it is getting out of memory (rtorrent using almost all for fs caching
+> maybe).
+[...]
 
-looks good.  i will submit to davem with the next batch of atm patches.
+The "order: 3" means an allocation of 8 pages (32 KB) at once, which
+should not be needed for receiving standard Ethernet frames.  Looking
+at the bnx2 code I can't see any case in which it would allocate an
+skb much larger than the MTU.
+
+Network drivers usually try to refill the hardware RX ring immediately
+after handling RX completions, at which point they are running in atomic
+(non-blocking) context and large contiguous memory allocations are
+relatively likely to fail even if the system has plenty of memory.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
