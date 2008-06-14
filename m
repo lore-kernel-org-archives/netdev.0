@@ -1,38 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [resend] drivers/net: remove network drivers' last few
- uses of IRQF_SAMPLE_RANDOM
-Date: Sat, 14 Jun 2008 05:43:10 -0400
-Message-ID: <485392AE.7020501@garzik.org>
-References: <Pine.LNX.4.62.0806132238340.728@ikari.dreamhost.com>
+Subject: Re: [2/3] POHMELFS: Documentation.
+Date: Sat, 14 Jun 2008 05:49:04 -0400
+Message-ID: <48539410.30804@garzik.org>
+References: <20080613163700.GA25860@2ka.mipt.ru> <20080613164110.GB26166@2ka.mipt.ru> <20080614021547.GC32232@shareable.org> <20080614065616.GA32585@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Peterson <cpeterso@cpeterso.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38184 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755886AbYFNJnO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jun 2008 05:43:14 -0400
-In-Reply-To: <Pine.LNX.4.62.0806132238340.728@ikari.dreamhost.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jamie Lokier <jamie@shareable.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20080614065616.GA32585@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Chris Peterson wrote:
-> Remove network drivers' last few uses of theoretically-exploitable network
-> entropy. Only 12 net drivers are affected. Headless boxes should use a
-> more secure source of entropy, such as userspace daemons like rngd, 
-> clrngd, audio_entropyd, and/or video_entroyd.
-> 
-> 
-> Signed-off-by: Chris Peterson <cpeterso@cpeterso.com>
+Evgeniy Polyakov wrote:
+> Oplocks and leases are essentially lock on given file, which allows one
+> client to operate on it. POHMELFS does not have locks now, and they will
+> be created depending on how distributed server will require them. In the
+> simplesst case it can just lock file for writing and do not allow its
+> updates from other clients. Lock aciquite can be done at write_begin
+> time. Without lock and writeback cache in your case writeback for file Y
+> can happen before writeback for file X, but if client does not only
+> write, but also sync after its write, then yes, client will see later
+> updates after more earlier. POHMELFS does not broadcast its interest in
+> the file content until real writing happens, i.e. at writeback time.
+> Although I can add a mode, when the same will be done during
+> write_begin() time. In that case your example will work without sync.
 
-For what it's worth...  I'm keeping this patch in my 'hold' queue, 
-mainly to see if anyone really puts up some major objections, or fuss.
 
-I'm leaning towards applying it for 2.6.27...
+For /locking/, life is easy, you don't have to worry about disallowing 
+client updates, because locking is advisory.  However, there are some 
+guarantees you need for locking WRT write commit, and of course leases 
+are a totally different animal where you do block client updates.
 
 	Jeff
-
 
 
