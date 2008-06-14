@@ -1,58 +1,74 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/3] virtio: fix virtio_net xmit of freed skb bug
-Date: Sat, 14 Jun 2008 17:39:33 +1000
-Message-ID: <200806141739.34341.rusty@rustcorp.com.au>
-References: <200805261742.43215.rusty@rustcorp.com.au> <200805291634.18224.rusty@rustcorp.com.au> <1213366440.9507.0.camel@muff>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs
+	Documentation
+Date: Sat, 14 Jun 2008 10:08:08 +0200
+Message-ID: <48537C68.1010207@trash.net>
+References: <20080610205633.11186.45499.stgit@dale>	
+	<20080610210918.11186.64253.stgit@dale>
+	<484F751F.7030407@trash.net>	
+	<71d336490806120850x3b5e6172jf4d75850771d6349@mail.gmail.com>	
+	<485148DA.2060508@trash.net>	
+	<c8028d330806121409x27a4d596k571ce87934e89371@mail.gmail.com>	
+	<48529027.1090309@trash.net>
+	<c8028d330806131447t2b24be93sa0e07bfa792c8f7f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Mark McLoughlin <markmc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43310 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750910AbYFNHjs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jun 2008 03:39:48 -0400
-In-Reply-To: <1213366440.9507.0.camel@muff>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
+	poornima.kamath@qlogic.com
+To: Amar Mudrankit <amar.mudrankit@qlogic.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <c8028d330806131447t2b24be93sa0e07bfa792c8f7f@mail.gmail.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 14 June 2008 00:14:00 Mark McLoughlin wrote:
-> On Thu, 2008-05-29 at 16:34 +1000, Rusty Russell wrote:
-> > On Tuesday 27 May 2008 21:06:26 Mark McLoughlin wrote:
-> > > On Mon, 2008-05-26 at 17:42 +1000, Rusty Russell wrote:
-> > > > If we fail to transmit a packet, we assume the queue is full and put
-> > > > the skb into last_xmit_skb.  However, if more space frees up before
-> > > > we xmit it, we loop, and the result can be transmitting the same skb
-> > > > twice.
-> > > >
-> > > > Fix is simple: set skb to NULL if we've used it in some way, and
-> > > > check before sending.
-> >
-> > Great! It's a corner case, but it's no more complicated to do it your
-> > way.
-> >
-> > Minor mod, I find it clearer to have the vi->last_xmit_skb = NULL; under
-> > the branch:
-> >
-> > Subject: [PATCH] virtio_net: Delay dropping tx skbs
-> > Date: Tue, 27 May 2008 12:06:26 +0100
-> > From: Mark McLoughlin <markmc@redhat.com>
-> >
-> > Currently we drop the skb in start_xmit() if we have a
-> > queued buffer and fail to transmit it.
-> >
-> > However, if we delay dropping it until we've stopped the
-> > queue and enabled the tx notification callback, then there
-> > is a chance space might become available for it.
->
-> Hmm, we lost this one somewhere along the way ...
+Amar Mudrankit wrote:
+>> If you have questions, feel free to ask.
+>>
+> I was trying to guess the use case for the vlan which has implemented
+> rtnl_link api :
+> 
+> For sending parameters to driver:
+> # ip link set <vlan-iface-name> up multicast ...... type vlan id
+> <vlan-id> reorder_hdr on
+> 
+> ingress-qos-map <...> egress-qos-map <...>
+> 
+> In such case, I think the link_util's private parse_opt function will
+> be invoked to parse link's private configurable parameters.  These
+> parameters along with the standard set of parameters (name, multicast,
+> promisc etc) are then sent to driver through rtnl_talk function .
+> 
+> Similarly, for reading values from driver:
+> 
+> # ip addr show dev <vlan-iface-name>
+> 
+> does it require "type" field similar to "ip link set"?
 
-Good catch.  Looks like it got folded, but pre-folded version got merged.  
-Sorry, I've restored it to my series.
+No. Thats only required for parsing device specific parameters.
 
-Thanks,
-Rusty.
+> Is this understanding correct?
+
+Yes.
+
+> How does a link type corresponding to VLAN driver gets added into
+> linkutil_list, so that ip will correctly call functions specific to
+> VLAN driver?
+
+iproute dlopens itself and looks for the struct "<type>_link_util".
+
+>> You can dump driver private statistics in the ->fill_xstats function.
+>>
+> 
+> I was looking at latest release of iproute2, in which I could not
+> locate fill_xstats. Can you help me to locate this?
+
+->fill_xstats is in the kernel, in iproute its ->print_xstats.
