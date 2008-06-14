@@ -1,45 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Sat, 14 Jun 2008 00:14:28 -0700 (PDT)
-Message-ID: <20080614.001428.26649070.davem@davemloft.net>
-References: <20080612.211959.52937006.davem@davemloft.net>
-	<20080614060320.GA18454@elte.hu>
-	<20080614062758.GA23803@elte.hu>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 1/3] virtio: fix virtio_net xmit of freed skb bug
+Date: Sat, 14 Jun 2008 17:39:33 +1000
+Message-ID: <200806141739.34341.rusty@rustcorp.com.au>
+References: <200805261742.43215.rusty@rustcorp.com.au> <200805291634.18224.rusty@rustcorp.com.au> <1213366440.9507.0.camel@muff>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, rjw@sisk.pl
-To: mingo@elte.hu
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47496
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752075AbYFNHO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 03:14:28 -0400
-In-Reply-To: <20080614062758.GA23803@elte.hu>
+Received: from ozlabs.org ([203.10.76.45]:43310 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750910AbYFNHjs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jun 2008 03:39:48 -0400
+In-Reply-To: <1213366440.9507.0.camel@muff>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Sat, 14 Jun 2008 08:27:58 +0200
+On Saturday 14 June 2008 00:14:00 Mark McLoughlin wrote:
+> On Thu, 2008-05-29 at 16:34 +1000, Rusty Russell wrote:
+> > On Tuesday 27 May 2008 21:06:26 Mark McLoughlin wrote:
+> > > On Mon, 2008-05-26 at 17:42 +1000, Rusty Russell wrote:
+> > > > If we fail to transmit a packet, we assume the queue is full and put
+> > > > the skb into last_xmit_skb.  However, if more space frees up before
+> > > > we xmit it, we loop, and the result can be transmitting the same skb
+> > > > twice.
+> > > >
+> > > > Fix is simple: set skb to NULL if we've used it in some way, and
+> > > > check before sending.
+> >
+> > Great! It's a corner case, but it's no more complicated to do it your
+> > way.
+> >
+> > Minor mod, I find it clearer to have the vi->last_xmit_skb = NULL; under
+> > the branch:
+> >
+> > Subject: [PATCH] virtio_net: Delay dropping tx skbs
+> > Date: Tue, 27 May 2008 12:06:26 +0100
+> > From: Mark McLoughlin <markmc@redhat.com>
+> >
+> > Currently we drop the skb in start_xmit() if we have a
+> > queued buffer and fail to transmit it.
+> >
+> > However, if we delay dropping it until we've stopped the
+> > queue and enabled the tx notification callback, then there
+> > is a chance space might become available for it.
+>
+> Hmm, we lost this one somewhere along the way ...
 
-> just to clarify the bug pattern: the box was still accessible after the 
-> warning. So this is a far less serious problem and i'd suggest we open 
-> up a separate regression entry for it and consider the hung-TCP problem 
-> closed. (i havent seen the hang in the last week, with either version of 
-> the tcp-accept reverts)
+Good catch.  Looks like it got folded, but pre-folded version got merged.  
+Sorry, I've restored it to my series.
 
-It is a warning that just means the transmitted on the network device
-stalled for an unusually long period of time.  Is your subnet flooded
-when these warnings occur?  Is the remove side system wedged or at a
-very high load when the message triggers?
-
-All of these would be useful points of information to determine if
-this might be normal or not.
-
-In theory, if the remove port the device is connected to gets
-extremely congested, emits a pause frame to your machine, but never
-releases that pause, this (new) warning could trigger.
-
-This warning was added by Arjan in 2.6.25 FYI in order to diagnose the
-not-normal cases better.
+Thanks,
+Rusty.
