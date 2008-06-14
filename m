@@ -1,39 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net: Fix test for VLAN TX checksum offload capability
-Date: Sat, 14 Jun 2008 10:09:08 +0200
-Message-ID: <48537CA4.7040005@trash.net>
-References: <20080613223815.GD11300@solarflare.com> <20080613154307.4a6f721f@extreme> <20080613231139.GE11300@solarflare.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [GIT]: Networking
+Date: Sat, 14 Jun 2008 10:16:56 +0200
+Message-ID: <20080614081656.GA27820@elte.hu>
+References: <20080612.211959.52937006.davem@davemloft.net> <20080614060320.GA18454@elte.hu> <20080614062758.GA23803@elte.hu> <20080614.001428.26649070.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, rjw@sisk.pl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64172 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753418AbYFNIJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 04:09:12 -0400
-In-Reply-To: <20080613231139.GE11300@solarflare.com>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:50426 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754120AbYFNIRM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jun 2008 04:17:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20080614.001428.26649070.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> Stephen Hemminger wrote:
->> On Fri, 13 Jun 2008 23:38:16 +0100
->> Ben Hutchings <bhutchings@solarflare.com> wrote:
->>
->>> Selected device feature bits can be propagated to VLAN devices, so we
->>> can make use of TX checksum offload and TSO on VLAN-tagged packets.
->>> However, if the physical device does not do VLAN tag insertion or
->>> generic checksum offload then the test for TX checksum offload in
->>> dev_queue_xmit() will see a protocol of htons(ETH_P_8021Q) and yield
->>> false.
->> Are you sure that some hardware isn't broken and can do vlan tag
->> insertion or checksumming but not both?
-> 
-> The second test uses dev->features & dev->vlan_features, so this should
-> be handled correctly, unless I'm missing some subtlety.
 
-It looks fine to me.
+* David Miller <davem@davemloft.net> wrote:
+
+> > just to clarify the bug pattern: the box was still accessible after 
+> > the warning. So this is a far less serious problem and i'd suggest 
+> > we open up a separate regression entry for it and consider the 
+> > hung-TCP problem closed. (i havent seen the hang in the last week, 
+> > with either version of the tcp-accept reverts)
+> 
+> It is a warning that just means the transmitted on the network device 
+> stalled for an unusually long period of time.  Is your subnet flooded 
+> when these warnings occur?  Is the remove side system wedged or at a 
+> very high load when the message triggers?
+
+yes, both the network and the testbox is at relatively high load, it's a 
+distcc kernel build over the network. Thousands of such iterations were 
+done successfully without this warning ever triggering - it triggered 
+for the first time in about 10,000 bootups the moment i applied your 
+version of the reverts. When i applied the small diff the warning did 
+not come back.
+
+> All of these would be useful points of information to determine if 
+> this might be normal or not.
+> 
+> In theory, if the remove port the device is connected to gets 
+> extremely congested, emits a pause frame to your machine, but never 
+> releases that pause, this (new) warning could trigger.
+> 
+> This warning was added by Arjan in 2.6.25 FYI in order to diagnose the 
+> not-normal cases better.
+
+ok, should we then remove that warning, if it's spurious? kerneloops.org 
+has picked up a few other instances of this warning as well:
+
+  http://www.kerneloops.org/searchfile.php?search=net%2Fsched%2Fsch_generic.c&btnG=Filename+Search
+
+	Ingo
