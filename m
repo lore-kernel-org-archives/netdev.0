@@ -1,40 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: page allocation failure
-Date: Sat, 14 Jun 2008 22:36:02 +0100
-Message-ID: <20080614213600.GF11300@solarflare.com>
-References: <20080614022451.M72462@visp.net.lb> <20080614065845.GB32585@2ka.mipt.ru> <20080614205958.M55299@visp.net.lb>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
+	MTU change
+Date: Sat, 14 Jun 2008 23:23:41 +0200
+Message-ID: <20080614212341.GA12976@electric-eye.fr.zoreil.com>
+References: <20080531184615.350bac00@infradead.org> <20080603134019.df2f51d4.akpm@linux-foundation.org> <20080603215155.GA9712@electric-eye.fr.zoreil.com> <20080604215909.GA17446@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Arjan van de Ven <arjan@infradead.org>, alan@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?unknown-8bit?B?U8OpZ3VpZXIgUsOpZ2lz?= <rseguier@e-teleport.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:41388 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754734AbYFNVik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 17:38:40 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:57345 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755032AbYFNVxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 17:53:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20080614205958.M55299@visp.net.lb>
+In-Reply-To: <20080604215909.GA17446@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko wrote:
-> There is no jumbo frames in this particular setup.
-> Probably it is getting out of memory (rtorrent using almost all for fs caching
-> maybe).
-[...]
+=46rancois Romieu <romieu@fr.zoreil.com> :
+[...context available from http://lkml.org/lkml/2008/5/31/251 ...]
 
-The "order: 3" means an allocation of 8 pages (32 KB) at once, which
-should not be needed for receiving standard Ethernet frames.  Looking
-at the bnx2 code I can't see any case in which it would allocate an
-skb much larger than the MTU.
+R=C3=A9gis, I need your help.
 
-Network drivers usually try to refill the hardware RX ring immediately
-after handling RX completions, at which point they are running in atomic
-(non-blocking) context and large contiguous memory allocations are
-relatively likely to fail even if the system has plenty of memory.
+Can you give the patchkit below a try and check if the change of mtu
+works correctly ?
 
-Ben.
+http://userweb.kernel.org/~romieu/via-velocity/2.6.26-rc6/
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+or:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git vel=
+ocity
+
+--=20
+Ueimor
