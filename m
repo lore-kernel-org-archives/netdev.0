@@ -1,38 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/2] 8139too: clean up spaces and TABs
-Date: Sat, 14 Jun 2008 23:39:51 +0200
-Message-ID: <20080614213951.GA9261@electric-eye.fr.zoreil.com>
-References: <4853BB62.1060109@freemail.hu> <48541165.7050304@freemail.hu> <485421C1.8010102@s5r6.in-berlin.de> <200806142321.37180.linux@rainbow-software.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT]: Networking
+Date: Sat, 14 Jun 2008 16:24:30 -0700 (PDT)
+Message-ID: <20080614.162430.193006643.davem@davemloft.net>
+References: <20080614.001428.26649070.davem@davemloft.net>
+	<20080614081656.GA27820@elte.hu>
+	<20080614023916.431a868d@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	=?unknown-8bit?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	Trivial Patch Monkey <trivial@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rjw@sisk.pl
+To: arjan@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56854 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755205AbYFNWkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 18:40:05 -0400
-Content-Disposition: inline
-In-Reply-To: <200806142321.37180.linux@rainbow-software.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37455
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755092AbYFNXYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 19:24:30 -0400
+In-Reply-To: <20080614023916.431a868d@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ondrej Zary <linux@rainbow-software.org> :
-[...]
-> A more useful thing would be to merge 8139too and 8139cp drivers together so 
-> user can just put RTL8139 card in the box and it will work. The current state 
-> is completely broken - two drivers for two versions of the chip which have 
-> the same PCI IDs.
+From: Arjan van de Ven <arjan@infradead.org>
+Date: Sat, 14 Jun 2008 02:39:16 -0700
 
-I am curious to know which distro is not able to handle these drivers
-for the user.
+> the interesting thing is that there is a clear bias on which drivers
+> are tripping this (r8169 is top when I counted yesterday, with sis900
+> second and then a long tail of nothing) that I think the WARN_ON() is
+> useful in addition to the always-there printk. Eg it does help in seeing
+> which driver is most likely to trigger this.
+> (Andrew also thought this would trigger a *LOT*, so far it's only a
+> rather modest amount, but it's waiting for Fedora or others to ship a
+> kernel with this in to be sure)
 
-The drivers have little in common and the 8139cp driver hints loudly
-when it does not recognize the device. 
+I agree that it's useful and should stay.
 
--- 
-Ueimor
+One thing I noticed is that you can't tell which driver is
+to blame just from the warning and backtrace.  Somehow getting
+a driver name in that warning message would be useful and help
+diagnose problems as well as make it easier for you to compute
+those statistics.
