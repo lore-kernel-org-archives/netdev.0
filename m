@@ -1,112 +1,52 @@
-From: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>
-Subject: Re: [PATCH 2/2] 8139too: different style cleanups
-Date: Sat, 14 Jun 2008 20:44:03 +0200
-Message-ID: <48541173.7040905@freemail.hu>
-References: <4853BB7B.4030905@freemail.hu>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs
+	Documentation
+Date: Sat, 14 Jun 2008 13:03:58 -0600
+Message-ID: <20080614190358.GU22807@obsidianresearch.com>
+References: <20080610205633.11186.45499.stgit@dale>
+	<20080610210918.11186.64253.stgit@dale>
+	<484F751F.7030407@trash.net>
+	<c8028d330806120813q6363c3cemb4aa03ceff6547d1@mail.gmail.com>
+	<48513E4E.4040601@trash.net>
+	<f8ca0a150806141103r56f0530br6b5e78943ac1c92d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Trivial Patch Monkey <trivial@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01d.mail.t-online.hu ([84.2.42.6]:58247 "EHLO
-	mail01d.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001AbYFNSoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 14:44:18 -0400
-In-Reply-To: <4853BB7B.4030905@freemail.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, netdev@vger.kernel.org,
+	rdreier@cisco.com, general@lists.openfabrics.org,
+	Patrick McHardy <kaber@trash.net>, poornima.kamath@qlogic.com
+To: Roland Dreier <roland.list@gmail.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <f8ca0a150806141103r56f0530br6b5e78943ac1c92d@mail.gmail.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
+On Sat, Jun 14, 2008 at 11:03:08AM -0700, Roland Dreier wrote:
+> > We have linkstate/operstate for this. How is a user supposed
+> > to configure the network device when it appears at a more or
+> > less random time from his perspective?
+ 
+> Well, keep in mind that this driver is for an ethernet virtual NIC
+> that is actually
+> remote across another network (an InfiniBand fabric) -- so these devices
+> can actually appear or disappear at random times by their nature.  It's a
+> similar issue to, say, a USB ethernet adapter presents -- there's no sane way
+> to have operstate set for a device that hasn't been attached yet.
 
-Clean up the following errors and warnings reported by checkpatch.pl:
- - Use #include <linux/io.h> instead of <asm/io.h>
- - Use #include <linux/uaccess.h> instead of <asm/uaccess.h>
- - __func__ should be used instead of gcc specific __FUNCTION__
- - Macros with complex values should be enclosed in parenthesis
- - do not add new typedefs
- - trailing statements should be on next line
- - braces {} are not necessary for single statement blocks
- - plain inline is preferred over __inline__
+I think that is only a fair analogy if the VNIC used some kind of
+hot-plug auto discovery procedure like USB does. As soon as you
+require the administrator to run a command to bind a device to a VNIC
+GID you are much more like a tunnel device and the ethernet device
+should exist from the moment the administator creates it up until the
+administator destroys it. The state of the connection to the VNIC
+should be reflected in some way other than device presence.
 
-Signed-off-by: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
----
---- b/drivers/net/8139too.c	2008-06-14 20:32:45.000000000 +0200
-+++ c/drivers/net/8139too.c	2008-06-14 20:38:24.000000000 +0200
-@@ -107,8 +107,8 @@
- #include <linux/mii.h>
- #include <linux/completion.h>
- #include <linux/crc32.h>
--#include <asm/io.h>
--#include <asm/uaccess.h>
-+#include <linux/io.h>
-+#include <linux/uaccess.h>
- #include <asm/irq.h>
-
- #define RTL8139_DRIVER_NAME   DRV_NAME " Fast Ethernet driver " DRV_VE=
-RSION
-@@ -135,7 +135,7 @@
- #if RTL8139_DEBUG
- /* note: prints function name for you */
- #  define DPRINTK(fmt, args...) \
--	printk(KERN_DEBUG "%s: " fmt, __FUNCTION__ , ## args)
-+	printk(KERN_DEBUG "%s: " fmt, __func__ , ## args)
- #else
- #  define DPRINTK(fmt, args...)
- #endif
-@@ -146,7 +146,7 @@
- #  define assert(expr) \
- 	if (unlikely(!(expr))) {					\
- 		printk(KERN_ERR "Assertion failed! %s,%s,%s,line=3D%d\n",	\
--		       #expr, __FILE__, __FUNCTION__, __LINE__);	\
-+		       #expr, __FILE__, __func__, __LINE__);	\
- 	}
- #endif
-
-@@ -222,9 +222,9 @@ enum {
- #define RTL8139B_IO_SIZE 256
-
- #define RTL8129_CAPS	HAS_MII_XCVR
--#define RTL8139_CAPS	HAS_CHIP_XCVR|HAS_LNK_CHNG
-+#define RTL8139_CAPS	(HAS_CHIP_XCVR|HAS_LNK_CHNG)
-
--typedef enum {
-+enum {
- 	RTL8139 =3D 0,
- 	RTL8129,
- } board_t;
-@@ -1035,7 +1035,8 @@ static int __devinit rtl8139_init_one(st
- 	/* dev is fully set up and ready to use now */
- 	DPRINTK("about to register device named %s (%p)...\n", dev->name, dev=
-);
- 	i =3D register_netdev(dev);
--	if (i) goto err_out;
-+	if (i)
-+		goto err_out;
-
- 	pci_set_drvdata(pdev, dev);
-
-@@ -1380,9 +1381,9 @@ static void rtl_check_media(struct net_d
- {
- 	struct rtl8139_private *tp =3D netdev_priv(dev);
-
--	if (tp->phys[0] >=3D 0) {
-+	if (tp->phys[0] >=3D 0)
- 		mii_check_media(&tp->mii, netif_msg_link(tp), init_media);
--	}
-+
- }
-
- /* Start the hardware at open or resume. */
-@@ -1923,7 +1924,7 @@ static void rtl8139_rx_err(u32 rx_status
- }
-
- #if RX_BUF_IDX =3D=3D 3
--static __inline__ void wrap_copy(struct sk_buff *skb, const unsigned c=
-har *ring,
-+static inline void wrap_copy(struct sk_buff *skb, const unsigned char =
-*ring,
- 				 u32 offset, unsigned int size)
- {
- 	u32 left =3D RX_BUF_LEN - offset;
+Jason
