@@ -1,69 +1,61 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: CARP: Common Address Redundancy Protocol for Linux kernel release.
-Date: Sat, 14 Jun 2008 18:04:32 +0400
-Message-ID: <20080614140432.GA9692@2ka.mipt.ru>
+Subject: Userspace network stack release.
+Date: Sat, 14 Jun 2008 18:08:12 +0400
+Message-ID: <20080614140812.GB9692@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37987 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:50277 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754236AbYFNOEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jun 2008 10:04:20 -0400
-Received: from 2ka.mipt.ru (localhost [127.0.0.1])
-	by 2ka.mipt.ru (8.14.1/8.14.1) with ESMTP id m5EE4WRV019470
-	for <netdev@vger.kernel.org>; Sat, 14 Jun 2008 18:04:32 +0400
-Received: (from johnpol@localhost)
-	by 2ka.mipt.ru (8.14.1/8.12.1/Submit) id m5EE4WRf019469
-	for netdev@vger.kernel.org; Sat, 14 Jun 2008 18:04:32 +0400
+	id S1751765AbYFNOIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jun 2008 10:08:13 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi.
 
-This is not a new project, and it has number of pros and cons to be in
-kernel, so I post a note about it here in case people are interested to
-create high-avaliable systems with multiple machines.
+This new release of the userspace only brings a bug fix found by
+Salvatore Del Popolo (delpopolo_dit.unitn.it) in TCP implementation,
+when system checked sending window and determined, that packet was not
+allowed to be sent and nevertheless tried to do so in some cases.
 
-CARP is an improved version of the Virtual Router Redundancy Protocol
-(VRRP) standard. The latest protocol to help provide high availability
-and network redundancy, it was developed because router giant Cisco
-Systems believes that its Hot Standby Router Protocol (HSRP) patent
-covers some of the same technical areas as VRRP.
+Userspace network stack is a very fast (if working on top of
+netchannels, also supported packet socket) and very small network stack
+(TCP/UDP/IP/ethernet) implemeneted entirely in userspace. Because of it
+lives near the very the end of the peer (i.e. very close or even
+embedded into application), it allows much faster processing of some
+workloads, namely small packet sending and receiving, where it
+outperforms vanilla Linux TCP/IP stack upto 3 times in performance and 4
+times CPU usage (sending and receiving vary).
 
-CARP is cryptographically secure, since it uses hmac to protect its
-content. It also does not have replay message attack vector which exists
-in OpenBSD implementation (its practical application is questionable
-though).
+Sending:
+128 bytes writing:
+  * netchannels: 27-28 MB/sec, 20-30 % CPU usage
+  * sockets: 7-8 MB/sec, 80-90 % CPU usage
+4096 bytes writing:
+  * netchannels: 27-28 MB/sec, 20-30 % CPU usage
+  * sockets: 30-31 MB/sec, 30-40 % CPU usage
 
-Main advantage over hearbeat-like approaches is ability to scale to
-whatever you need number of nodes without needs for persitent connection
-(wired, serial or whatever else) between them, the same media as for
-data transfer is used (iirc heartbeat 2 does not have it problem?).
-Advantage over userspace CARP solution (and heartbeat too) is ability to
-control network device on behalf of which data is broadcasted (like
-create persistent MAC address between nodes). Aliasing is not a solution
-in multiple cases.
+Receiving:
+128 bytes reading:
+  * netchannels: 70-71 MB/sec, 80-90 % CPU usage
+  * sockets: 24-25 MB/sec, 80-90 % CPU usage
+ 4096 bytes reading:
+  * netchannels: 73-74 MB/sec, 80-90 % CPU usage
+  * sockets: 79-80 MB/sec, 80-90 % CPU usage
 
-CARP configuation is pretty trivial:
-$ tar -zxf carp_latest.tar.gz
-$ cd carp
-$ make
+That's rather old numbers though.
+It is not about problems in the Linux stack, but overhead of syscalls,
+which are in turn results of too separate data sending and reply
+processing in the existing model.
 
-# insmod ip_carp.ko
-# modprobe cn
-# insmod carp_conn.ko
-# ifconfig carp0 up
-# carp_conn_daemon -m master.sh -b backup.sh
+Userspace network stack homepage:
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=unetstack
 
-And the same on all other machines.
-Each script as you got from its name is executed when node becomes
-master or backup one, you can put there firewall rule changes, traffic
-shaping setup, network daemon start/stop scripts and whatever you like.
-
-CARP homepage:
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=carp
+Netchannels homepage:
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=netchannel
 
 -- 
 	Evgeniy Polyakov
