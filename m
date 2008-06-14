@@ -1,38 +1,56 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [2/3] POHMELFS: Documentation.
-Date: Sat, 14 Jun 2008 05:49:04 -0400
-Message-ID: <48539410.30804@garzik.org>
-References: <20080613163700.GA25860@2ka.mipt.ru> <20080613164110.GB26166@2ka.mipt.ru> <20080614021547.GC32232@shareable.org> <20080614065616.GA32585@2ka.mipt.ru>
+Subject: Re: [0/3] POHMELFS high performance network filesystem. First steps
+ in parallel processing.
+Date: Sat, 14 Jun 2008 05:52:38 -0400
+Message-ID: <485394E6.9080809@garzik.org>
+References: <20080613163700.GA25860@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jamie Lokier <jamie@shareable.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20080614065616.GA32585@2ka.mipt.ru>
+In-Reply-To: <20080613163700.GA25860@2ka.mipt.ru>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Evgeniy Polyakov wrote:
-> Oplocks and leases are essentially lock on given file, which allows one
-> client to operate on it. POHMELFS does not have locks now, and they will
-> be created depending on how distributed server will require them. In the
-> simplesst case it can just lock file for writing and do not allow its
-> updates from other clients. Lock aciquite can be done at write_begin
-> time. Without lock and writeback cache in your case writeback for file Y
-> can happen before writeback for file X, but if client does not only
-> write, but also sync after its write, then yes, client will see later
-> updates after more earlier. POHMELFS does not broadcast its interest in
-> the file content until real writing happens, i.e. at writeback time.
-> Although I can add a mode, when the same will be done during
-> write_begin() time. In that case your example will work without sync.
+> Hi.
+> 
+> I'm pleased to announce POHMEL high performance network parallel
+> distributed filesystem.
+> POHMELFS stands for Parallel Optimized Host Message Exchange Layered File System.
+> 
+> Development status can be tracked in filesystem section [1].
+> 
+> This is a high performance network filesystem with local coherent cache of data
+> and metadata. Its main goal is distributed parallel processing of data.
+> 
+> This release brings following features:
+>  * Read requests (data read, directory listing, lookup requests) balancing
+>  	between multiple servers.
+>  * Write requests are sent to multiple servers and completed only
+>  	when all of them sent an ack.
+>  * Ability to add and/or remove servers from working set at run-time from
+> 	 userspace (via netlink, so the same command can be processed from
+> 	 real network though, but since server does not support it yet,
+> 	 I dropped network part).
+>  * Documentation (overall view and protocol commands)!
+>  * Rename command (oops, forgot it in previous releases :)
+>  * Several new mount options to control client behaviour instead of
+> 	hardcoded numbers.
+>  * Bug fixes.
 
+Neat :)  Thanks for protocol documentation, too.  Do you plan to add 
+write-pages in addition to write-page?  Also, write-page does not appear 
+to be documented.
 
-For /locking/, life is easy, you don't have to worry about disallowing 
-client updates, because locking is advisory.  However, there are some 
-guarantees you need for locking WRT write commit, and of course leases 
-are a totally different animal where you do block client updates.
+Is race-across-directories race-free?  That is a sticky area, see 
+Documentation/filesystems/directory-locking in particular.
+
+With the exception of encryption, do you think the POHMELFS client is 
+mostly complete, at this point?
 
 	Jeff
 
