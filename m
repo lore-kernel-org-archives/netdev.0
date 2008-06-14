@@ -1,83 +1,46 @@
-From: "Laurent Chavey" <chavey@google.com>
-Subject: [PATCH] bonding: Added Net Poll Support
-Date: Fri, 13 Jun 2008 18:08:40 -0700
-Message-ID: <97949e3e0806131808k345d62f6idd9c1d3916a93e16@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ubar@us.ibm.com, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: davem@davemloft.net
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH net-next-2.6 0/5] bonding: Fixes and updates
+Date: Fri, 13 Jun 2008 18:11:59 -0700
+Message-ID: <12134059242107-git-send-email-fubar@us.ibm.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>, David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:58604 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754990AbYFNBIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 21:08:48 -0400
-Received: from zps36.corp.google.com (zps36.corp.google.com [172.25.146.36])
-	by smtp-out.google.com with ESMTP id m5E18g53006781
-	for <netdev@vger.kernel.org>; Sat, 14 Jun 2008 02:08:43 +0100
-Received: from wf-out-1314.google.com (wff28.prod.google.com [10.142.6.28])
-	by zps36.corp.google.com with ESMTP id m5E18fps024377
-	for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 18:08:42 -0700
-Received: by wf-out-1314.google.com with SMTP id 28so4388548wff.16
-        for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 18:08:41 -0700 (PDT)
-Content-Disposition: inline
+Received: from e33.co.us.ibm.com ([32.97.110.151]:46118 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756273AbYFNBML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 21:12:11 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m5E1C5eZ007590
+	for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 21:12:05 -0400
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m5E1C5dK178946
+	for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 19:12:05 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m5E1C5rW030196
+	for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 19:12:05 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding poll_controller support to bonding driver. Need by netdump.
+	Five patches for bonding; these apply to net-next-2.6.
 
-Signed-off-by: Laurent Chavey <chavey@google.com>
+	Patches 1 - 3 comprise support for NETDEV_BONDING_FAILOVER
+notifiers; the first patch adds the define, the second cleans up part of
+bonding in preparation for the notifier call, and the third adds the
+notifier call itself.
 
---- linux-2.6.25.org/drivers/net/bonding/bond_main.c    2008-04-16
-19:49:44.000000000 -0700
-+++ linux-2.6.25/drivers/net/bonding/bond_main.c        2008-06-13
-18:00:08.000000000 -0700
-@@ -5030,4 +5030,3 @@
-  *  tab-width: 8
-  * End:
-  */
--
-[chavey@chavey]%diff -Naur
-linux-2.6.25.org/drivers/net/bonding/bond_main.c
-linux-2.6.25/drivers/net/bonding/bond_main.c
---- linux-2.6.25.org/drivers/net/bonding/bond_main.c    2008-04-16
-19:49:44.000000000 -0700
-+++ linux-2.6.25/drivers/net/bonding/bond_main.c        2008-06-13
-18:03:48.000000000 -0700
-@@ -3659,6 +3659,26 @@
+	Patch 4 cleans up and improves previously added support for
+specifying the number of gratuitous ARPs to be issued at failover time for
+the active-backup mode.
 
- /*-------------------------- Device entry points ----------------------------*/
+	Patch 5 permits specifying max_bonds as zero (creating no bond0
+device).  Also provides an API from net/core to create and destroy files
+in net_class so that /sys/class/net/bonding_masters will be created.  This
+was previously done by backtracking from the first bonding device's sysfs
+information (dev->dev.class).
 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void bond_poll_controller(struct net_device *dev)
-+{
-+       struct bonding *bond = netdev_priv(dev);
-+       struct slave *curr = NULL;
-+       int i = 0;
-+
-+       read_lock(&bond->lock);
-+       bond_for_each_slave(bond, curr, i) {
-+               if ( IS_UP(curr->dev) ) {
-+                       if (curr->dev->poll_controller) {
-+                               curr->dev->poll_controller(curr->dev);
-+                       }
-+                       break;
-+               }
-+       }
-+       read_unlock(&bond->lock);
-+}
-+#endif
-+
- static int bond_open(struct net_device *bond_dev)
- {
-        struct bonding *bond = bond_dev->priv;
-@@ -4435,6 +4455,9 @@
-        bond_dev->change_mtu = bond_change_mtu;
-        bond_dev->set_mac_address = bond_set_mac_address;
-        bond_dev->validate_addr = NULL;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+       bond_dev->poll_controller = bond_poll_controller;
-+#endif
+	Please apply.
 
-        bond_set_mode_ops(bond, bond->params.mode);
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
