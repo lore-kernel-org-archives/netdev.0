@@ -1,43 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: Fix test for VLAN TX checksum offload capability
-Date: Sat, 14 Jun 2008 00:11:41 +0100
-Message-ID: <20080613231139.GE11300@solarflare.com>
-References: <20080613223815.GD11300@solarflare.com> <20080613154307.4a6f721f@extreme>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 04/47] ssb: Fix context assertion in
+	ssb_pcicore_dev_irqvecs_enable
+Date: Fri, 13 Jun 2008 17:10:23 -0700
+Message-ID: <20080614001023.GD24698@suse.de>
+References: <20080613234753.235721454@mini.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	Domenico Andreoli <cavokz@gmail.com>, Willy Tarreau <w@1wt.eu>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	Michael Buesch <mb@bu3sch.de>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Chris Wright <chrisw@sous-sol.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:40057 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755041AbYFMXLs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 19:11:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20080613154307.4a6f721f@extreme>
+Received: from ns2.suse.de ([195.135.220.15]:51612 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758975AbYFNAM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jun 2008 20:12:28 -0400
+Content-Disposition: inline; filename="ssb-fix-context-assertion-in-ssb_pcicore_dev_irqvecs_enable.patch"
+In-Reply-To: <20080614000840.GA24659@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Fri, 13 Jun 2008 23:38:16 +0100
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
-> 
-> > Selected device feature bits can be propagated to VLAN devices, so we
-> > can make use of TX checksum offload and TSO on VLAN-tagged packets.
-> > However, if the physical device does not do VLAN tag insertion or
-> > generic checksum offload then the test for TX checksum offload in
-> > dev_queue_xmit() will see a protocol of htons(ETH_P_8021Q) and yield
-> > false.
-> 
-> Are you sure that some hardware isn't broken and can do vlan tag
-> insertion or checksumming but not both?
+-stable review patch.  If anyone has any objections, please let us know.
 
-The second test uses dev->features & dev->vlan_features, so this should
-be handled correctly, unless I'm missing some subtlety.
+------------------
+From: Michael Buesch <mb@bu3sch.de>
 
-Ben.
+upstream commit: a3bafeedfff2ac5fa0a316bea4570e27900b6fcc
+
+This fixes a context assertion in ssb that makes b44 print
+out warnings on resume.
+
+This fixes the following kernel oops:
+http://www.kerneloops.org/oops.php?number=12732
+http://www.kerneloops.org/oops.php?number=11410
+
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+
+---
+ drivers/ssb/driver_pcicore.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/drivers/ssb/driver_pcicore.c
++++ b/drivers/ssb/driver_pcicore.c
+@@ -519,12 +519,12 @@ int ssb_pcicore_dev_irqvecs_enable(struc
+ 	int err = 0;
+ 	u32 tmp;
+ 
+-	might_sleep();
+-
+ 	if (!pdev)
+ 		goto out;
+ 	bus = pdev->bus;
+ 
++	might_sleep_if(pdev->id.coreid != SSB_DEV_PCI);
++
+ 	/* Enable interrupts for this device. */
+ 	if (bus->host_pci &&
+ 	    ((pdev->id.revision >= 6) || (pdev->id.coreid == SSB_DEV_PCIE))) {
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
