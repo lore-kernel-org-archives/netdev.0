@@ -1,61 +1,73 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Userspace network stack release.
-Date: Sat, 14 Jun 2008 18:08:12 +0400
-Message-ID: <20080614140812.GB9692@2ka.mipt.ru>
+From: Petr Baudis <pasky@suse.cz>
+Subject: NULL pointer dereference in fib6_del()
+Date: Sat, 14 Jun 2008 16:24:48 +0200
+Message-ID: <20080614142448.GK18781@machine.or.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:50277 "EHLO 2ka.mipt.ru"
+Received: from w241.dkm.cz ([62.24.88.241]:45081 "EHLO machine.or.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751765AbYFNOIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jun 2008 10:08:13 -0400
+	id S1754816AbYFNOcK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jun 2008 10:32:10 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+  Hello,
 
-This new release of the userspace only brings a bug fix found by
-Salvatore Del Popolo (delpopolo_dit.unitn.it) in TCP implementation,
-when system checked sending window and determined, that packet was not
-allowed to be sent and nevertheless tried to do so in some cases.
+  I have just hit an IPv6 bug in 2.6.25.4 on the server running
+git.or.cz and repo.or.cz (it also serves as an XS26 router, so it has
+huge number of tunnel interfaces and full IPv6 BGP feed in its routing
+table); I probably triggered it by sending packets to a tentative
+address:
 
-Userspace network stack is a very fast (if working on top of
-netchannels, also supported packet socket) and very small network stack
-(TCP/UDP/IP/ethernet) implemeneted entirely in userspace. Because of it
-lives near the very the end of the peer (i.e. very close or even
-embedded into application), it allows much faster processing of some
-workloads, namely small packet sending and receiving, where it
-outperforms vanilla Linux TCP/IP stack upto 3 times in performance and 4
-times CPU usage (sending and receiving vary).
+3: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen
+100
+    link/ether 00:30:48:30:bc:d0 brd ff:ff:ff:ff:ff:ff
+    inet 62.24.64.27/24 brd 62.24.64.255 scope global eth0
+    inet6 2a01:b0:0:2::/64 scope global tentative  <--
+       valid_lft forever preferred_lft forever
+    inet6 fe80::230:48ff:fe30:bcd0/64 scope link
+       valid_lft forever preferred_lft forever
 
-Sending:
-128 bytes writing:
-  * netchannels: 27-28 MB/sec, 20-30 % CPU usage
-  * sockets: 7-8 MB/sec, 80-90 % CPU usage
-4096 bytes writing:
-  * netchannels: 27-28 MB/sec, 20-30 % CPU usage
-  * sockets: 30-31 MB/sec, 30-40 % CPU usage
+  The old repo.or.cz server re-appeared on the ethernet segment some
+time ago and reclaimed 2a01:b0:0:2:: for itself (configuration error).
+Pinging new server on the address triggered few shrieks of
 
-Receiving:
-128 bytes reading:
-  * netchannels: 70-71 MB/sec, 80-90 % CPU usage
-  * sockets: 24-25 MB/sec, 80-90 % CPU usage
- 4096 bytes reading:
-  * netchannels: 73-74 MB/sec, 80-90 % CPU usage
-  * sockets: 79-80 MB/sec, 80-90 % CPU usage
+	Jun 14 15:39:42 rover eth0: duplicate address detected!
 
-That's rather old numbers though.
-It is not about problems in the Linux stack, but overhead of syscalls,
-which are in turn results of too separate data sending and reply
-processing in the existing model.
+but then a kaboom of
 
-Userspace network stack homepage:
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=unetstack
+	Jun 14 15:41:23 rover NULL pointer dereference
+	Jun 14 15:41:23 rover at 0000000000000028
+	Jun 14 15:41:23 rover IP:
+	Jun 14 15:41:23 rover [<ffffffff80400d95>] fib6_del+0x108/0x23d
+	Jun 14 15:41:23 rover PGD 439b5067
+	Jun 14 15:41:23 rover PUD 189a9067
+	Jun 14 15:41:23 rover PMD 0
+	Jun 14 15:41:23 rover Oops: 0000 [1]
+	Jun 14 15:41:23 rover SMP
+	Jun 14 15:41:23 rover CPU 0
 
-Netchannels homepage:
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=netchannel
+followed by a quick collapse. Unfortunately, there seem to be three
+oopses interleaved in parallel in my syslog, so the backtrace is hard to
+make out with certainty, but it is probably:
+
+	Jun 14 15:41:23 rover [<ffffffff80400f0c>] ? fib6_clean_node+0x42/0x9b
+	Jun 14 15:41:23 rover [<ffffffff803baf94>] ? ip_queue_xmit+0x2c2/0x315
+	Jun 14 15:41:23 rover [<ffffffff8040042c>] ? fib6_walk_continue+0x98/0x140
+	Jun 14 15:41:23 rover [<ffffffff80400525>] ? fib6_walk+0x51/0x8d
+	Jun 14 15:41:23 rover [<ffffffff80400589>] ? fib6_clean_tree+0x28/0x2d
+	Jun 14 15:41:23 rover [<ffffffff803c0004>] ? tcp_cleanup_rbuf+0x77/0xe8
+	Jun 14 15:41:23 rover [<ffffffff80400eca>] ? fib6_clean_node+0x0/0x9b
+	Jun 14 15:41:23 rover [<ffffffff803c66b7>] ? tcp_ack+0x17b1/0x1970
+
+  Has anyone seen anything like this before? Any tips on where the
+problem could lie?
+
+  Thanks,
 
 -- 
-	Evgeniy Polyakov
+				Petr "Pasky" Baudis
+The last good thing written in C++ was the Pachelbel Canon. -- J. Olson
