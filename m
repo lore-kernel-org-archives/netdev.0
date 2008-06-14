@@ -1,191 +1,98 @@
-From: Chris Peterson <cpeterso@cpeterso.com>
-Subject: [PATCH] [resend] drivers/net: remove network drivers' last few uses
- of IRQF_SAMPLE_RANDOM
-Date: Fri, 13 Jun 2008 22:48:58 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0806132238340.728@ikari.dreamhost.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [GIT]: Networking
+Date: Sat, 14 Jun 2008 08:03:20 +0200
+Message-ID: <20080614060320.GA18454@elte.hu>
+References: <20080612.211959.52937006.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:64658 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991AbYFNFtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 01:49:20 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so3554400waf.23
-        for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 22:49:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753724AbYFNGD5@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080612.211959.52937006.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Remove network drivers' last few uses of theoretically-exploitable network
-entropy. Only 12 net drivers are affected. Headless boxes should use a
-more secure source of entropy, such as userspace daemons like rngd, 
-clrngd, audio_entropyd, and/or video_entroyd.
+* David Miller <davem@davemloft.net> wrote:
 
+> 1) Revert one of the deferred-accept TCP changes as it
+>    has tons of bugs with no imminent cures and the feature
+>    itself can wait to 2.6.27 if at all.
+> 
+>    This clears up an entry on the regression list.
 
-Signed-off-by: Chris Peterson <cpeterso@cpeterso.com>
----
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/3c523.c linux-2.6.26-rc6/drivers/net/3c523.c
---- linux-2.6.26-rc6.orig/drivers/net/3c523.c	2008-05-18 10:03:23.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/3c523.c	2008-06-13 22:14:54.000000000 -0700
-@@ -289,8 +289,7 @@
+FYI, that regression is not fully fixed yet - your revert differs from 
+the one i tested (from Ilpo) by the delta patch below. Without the extra 
+change below i got this net/sched/sch_generic.c warning, twice:
+
+[  173.354049] NETDEV WATCHDOG: eth0: transmit timed out
+[  173.354148] ------------[ cut here ]------------
+[  173.354221] WARNING: at net/sched/sch_generic.c:222 dev_watchdog+0x9a/0xec()
+[  173.354298] Modules linked in:
+[  173.354421] Pid: 13452, comm: cc1 Tainted: G        W 2.6.26-rc6-00273-g81ae43a-dirty #2573
+[  173.354516]  [<c01250ca>] warn_on_slowpath+0x46/0x76
+[  173.354641]  [<c011d428>] ? try_to_wake_up+0x1d6/0x1e0
+[  173.354815]  [<c01411e9>] ? trace_hardirqs_off+0xb/0xd
+[  173.357370]  [<c011d43d>] ? default_wake_function+0xb/0xd
+[  173.357370]  [<c014112a>] ? trace_hardirqs_off_caller+0x15/0xc9
+[  173.357370]  [<c01411e9>] ? trace_hardirqs_off+0xb/0xd
+[  173.357370]  [<c0142c83>] ? trace_hardirqs_on+0xb/0xd
+[  173.357370]  [<c0142b33>] ? trace_hardirqs_on_caller+0x16/0x15b
+[  173.357370]  [<c0142c83>] ? trace_hardirqs_on+0xb/0xd
+[  173.357370]  [<c06bb3c9>] ? _spin_unlock_irqrestore+0x5b/0x71
+[  173.357370]  [<c0133d46>] ? __queue_work+0x2d/0x32
+[  173.357370]  [<c0134023>] ? queue_work+0x50/0x72
+[  173.357483]  [<c0134059>] ? schedule_work+0x14/0x16
+[  173.357654]  [<c05c59b8>] dev_watchdog+0x9a/0xec
+[  173.357783]  [<c012d456>] run_timer_softirq+0x13d/0x19d
+[  173.357905]  [<c05c591e>] ? dev_watchdog+0x0/0xec
+[  173.358073]  [<c05c591e>] ? dev_watchdog+0x0/0xec
+[  173.360804]  [<c0129ad7>] __do_softirq+0xb2/0x15c
+[  173.360804]  [<c0129a25>] ? __do_softirq+0x0/0x15c
+[  173.360804]  [<c0105526>] do_softirq+0x84/0xe9
+[  173.360804]  [<c0129996>] irq_exit+0x4b/0x88
+[  173.360804]  [<c010ec7a>] smp_apic_timer_interrupt+0x73/0x81
+[  173.360804]  [<c0103ddd>] apic_timer_interrupt+0x2d/0x34
+[  173.360804]  =======================
+[  173.360804] ---[ end trace a7919e7f17c0a725 ]---
+
+full report can be found at:
+
+   http://lkml.org/lkml/2008/6/13/224
+
+once i added the patch below this new warning went away. I'm wondering 
+what this difference is about and why your revert differs from Ilpo's. 
+It might as well be the right thing to do and the warning just shows 
+something latent.
+
+	Ingo
+
+--------------->
+commit 3019ae9652fe44c099669e5dba116acad583cfcb
+Author: Ingo Molnar <mingo@elte.hu>
+Date:   Fri Jun 13 23:09:28 2008 +0200
+
+    tcp: revert the TCP-accept changes as per Ilpo's patch
+    
+    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 045e799..ec83448 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -466,9 +466,9 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
+ 		reqp=&lopt->syn_table[i];
+ 		while ((req = *reqp) != NULL) {
+ 			if (time_after_eq(now, req->expires)) {
+-				if ((req->retrans < (inet_rsk(req)->acked ? max_retries : thresh)) &&
+-				    (inet_rsk(req)->acked ||
+-				     !req->rsk_ops->rtx_syn_ack(parent, req))) {
++				if ((req->retrans < thresh ||
++				     (inet_rsk(req)->acked && req->retrans < max_retries))
++				    && !req->rsk_ops->rtx_syn_ack(parent, req)) {
+ 					unsigned long timeo;
  
- 	elmc_id_attn586();	/* disable interrupts */
- 
--	ret = request_irq(dev->irq, &elmc_interrupt, IRQF_SHARED | IRQF_SAMPLE_RANDOM,
--			  dev->name, dev);
-+	ret = request_irq(dev->irq, &elmc_interrupt, IRQF_SHARED, dev->name, dev);
- 	if (ret) {
- 		printk(KERN_ERR "%s: couldn't get irq %d\n", dev->name, dev->irq);
- 		elmc_id_reset586();
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/3c527.c linux-2.6.26-rc6/drivers/net/3c527.c
---- linux-2.6.26-rc6.orig/drivers/net/3c527.c	2008-06-12 23:51:32.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/3c527.c	2008-06-13 22:14:54.000000000 -0700
-@@ -434,7 +434,7 @@
- 	 *	Grab the IRQ
- 	 */
- 
--	err = request_irq(dev->irq, &mc32_interrupt, IRQF_SHARED | IRQF_SAMPLE_RANDOM, DRV_NAME, dev);
-+	err = request_irq(dev->irq, &mc32_interrupt, IRQF_SHARED, DRV_NAME, dev);
- 	if (err) {
- 		release_region(dev->base_addr, MC32_IO_EXTENT);
- 		printk(KERN_ERR "%s: unable to get IRQ %d.\n", DRV_NAME, dev->irq);
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/atlx/atl1.c linux-2.6.26-rc6/drivers/net/atlx/atl1.c
---- linux-2.6.26-rc6.orig/drivers/net/atlx/atl1.c	2008-06-12 23:51:33.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/atlx/atl1.c	2008-06-13 22:14:54.000000000 -0700
-@@ -2595,7 +2595,7 @@
- {
- 	struct net_device *netdev = adapter->netdev;
- 	int err;
--	int irq_flags = IRQF_SAMPLE_RANDOM;
-+	int irq_flags = 0;
- 
- 	/* hardware has been reset, we need to reload some things */
- 	atlx_set_multi(netdev);
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/cris/eth_v10.c linux-2.6.26-rc6/drivers/net/cris/eth_v10.c
---- linux-2.6.26-rc6.orig/drivers/net/cris/eth_v10.c	2008-05-18 10:03:34.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/cris/eth_v10.c	2008-06-13 22:14:54.000000000 -0700
-@@ -490,7 +490,7 @@
- 	/* allocate the irq corresponding to the receiving DMA */
- 
- 	if (request_irq(NETWORK_DMA_RX_IRQ_NBR, e100rxtx_interrupt,
--			IRQF_SAMPLE_RANDOM, cardname, (void *)dev)) {
-+			0, cardname, (void *)dev)) {
- 		goto grace_exit0;
- 	}
- 
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/ibmlana.c linux-2.6.26-rc6/drivers/net/ibmlana.c
---- linux-2.6.26-rc6.orig/drivers/net/ibmlana.c	2008-05-18 10:03:41.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/ibmlana.c	2008-06-13 22:14:54.000000000 -0700
-@@ -783,7 +783,7 @@
- 
- 	/* register resources - only necessary for IRQ */
- 
--	result = request_irq(priv->realirq, irq_handler, IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
-+	result = request_irq(priv->realirq, irq_handler, IRQF_SHARED, dev->name, dev);
- 	if (result != 0) {
- 		printk(KERN_ERR "%s: failed to register irq %d\n", dev->name, dev->irq);
- 		return result;
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/macb.c linux-2.6.26-rc6/drivers/net/macb.c
---- linux-2.6.26-rc6.orig/drivers/net/macb.c	2008-06-12 23:51:45.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/macb.c	2008-06-13 22:14:54.000000000 -0700
-@@ -1151,8 +1151,7 @@
- 	}
- 
- 	dev->irq = platform_get_irq(pdev, 0);
--	err = request_irq(dev->irq, macb_interrupt, IRQF_SAMPLE_RANDOM,
--			  dev->name, dev);
-+	err = request_irq(dev->irq, macb_interrupt, 0, dev->name, dev);
- 	if (err) {
- 		printk(KERN_ERR
- 		       "%s: Unable to request IRQ %d (error %d)\n",
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/mv643xx_eth.c linux-2.6.26-rc6/drivers/net/mv643xx_eth.c
---- linux-2.6.26-rc6.orig/drivers/net/mv643xx_eth.c	2008-06-12 23:51:46.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/mv643xx_eth.c	2008-06-13 22:14:54.000000000 -0700
-@@ -1329,7 +1329,7 @@
- 	rdl(mp, INTERRUPT_CAUSE_EXTEND_REG(port_num));
- 
- 	err = request_irq(dev->irq, mv643xx_eth_int_handler,
--			IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
-+			IRQF_SHARED, dev->name, dev);
- 	if (err) {
- 		printk(KERN_ERR "%s: Can not assign IRQ\n", dev->name);
- 		return -EAGAIN;
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/netxen/netxen_nic_main.c linux-2.6.26-rc6/drivers/net/netxen/netxen_nic_main.c
---- linux-2.6.26-rc6.orig/drivers/net/netxen/netxen_nic_main.c	2008-06-12 23:51:46.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/netxen/netxen_nic_main.c	2008-06-13 22:14:54.000000000 -0700
-@@ -838,7 +838,7 @@
- 	int err = 0;
- 	int ctx, ring;
- 	irq_handler_t handler;
--	unsigned long flags = IRQF_SAMPLE_RANDOM;
-+	unsigned long flags = 0;
- 
- 	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC) {
- 		err = netxen_init_firmware(adapter);
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/niu.c linux-2.6.26-rc6/drivers/net/niu.c
---- linux-2.6.26-rc6.orig/drivers/net/niu.c	2008-06-12 23:51:47.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/niu.c	2008-06-13 22:14:54.000000000 -0700
-@@ -5599,8 +5599,7 @@
- 		struct niu_ldg *lp = &np->ldg[i];
- 
- 		err = request_irq(lp->irq, niu_interrupt,
--				  IRQF_SHARED | IRQF_SAMPLE_RANDOM,
--				  np->dev->name, lp);
-+				  IRQF_SHARED, np->dev->name, lp);
- 		if (err)
- 			goto out_free_irqs;
- 
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/qla3xxx.c linux-2.6.26-rc6/drivers/net/qla3xxx.c
---- linux-2.6.26-rc6.orig/drivers/net/qla3xxx.c	2008-06-12 23:51:49.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/qla3xxx.c	2008-06-13 22:14:54.000000000 -0700
-@@ -3618,7 +3618,7 @@
- {
- 	struct net_device *ndev = qdev->ndev;
- 	int err;
--	unsigned long irq_flags = IRQF_SAMPLE_RANDOM | IRQF_SHARED;
-+	unsigned long irq_flags = IRQF_SHARED;
- 	unsigned long hw_flags;
- 
- 	if (ql_alloc_mem_resources(qdev)) {
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/tg3.c linux-2.6.26-rc6/drivers/net/tg3.c
---- linux-2.6.26-rc6.orig/drivers/net/tg3.c	2008-06-12 23:51:57.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/tg3.c	2008-06-13 22:14:54.000000000 -0700
-@@ -7510,12 +7510,12 @@
- 		fn = tg3_msi;
- 		if (tp->tg3_flags2 & TG3_FLG2_1SHOT_MSI)
- 			fn = tg3_msi_1shot;
--		flags = IRQF_SAMPLE_RANDOM;
-+		flags = 0;
- 	} else {
- 		fn = tg3_interrupt;
- 		if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
- 			fn = tg3_interrupt_tagged;
--		flags = IRQF_SHARED | IRQF_SAMPLE_RANDOM;
-+		flags = IRQF_SHARED;
- 	}
- 	return (request_irq(tp->pdev->irq, fn, flags, dev->name, dev));
- }
-@@ -7533,7 +7533,7 @@
- 	free_irq(tp->pdev->irq, dev);
- 
- 	err = request_irq(tp->pdev->irq, tg3_test_isr,
--			  IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
-+			  IRQF_SHARED, dev->name, dev);
- 	if (err)
- 		return err;
- 
-diff -Naur linux-2.6.26-rc6.orig/drivers/net/xen-netfront.c linux-2.6.26-rc6/drivers/net/xen-netfront.c
---- linux-2.6.26-rc6.orig/drivers/net/xen-netfront.c	2008-06-12 23:52:17.000000000 -0700
-+++ linux-2.6.26-rc6/drivers/net/xen-netfront.c	2008-06-13 22:14:54.000000000 -0700
-@@ -1361,8 +1361,7 @@
- 		goto fail;
- 
- 	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
--					IRQF_SAMPLE_RANDOM, netdev->name,
--					netdev);
-+					0, netdev->name, netdev);
- 	if (err < 0)
- 		goto fail;
- 	netdev->irq = err;
+ 					if (req->retrans++ == 0)
