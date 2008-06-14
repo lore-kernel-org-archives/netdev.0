@@ -1,75 +1,83 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 04/47] ssb: Fix context assertion in
-	ssb_pcicore_dev_irqvecs_enable
-Date: Fri, 13 Jun 2008 17:10:23 -0700
-Message-ID: <20080614001023.GD24698@suse.de>
-References: <20080613234753.235721454@mini.kroah.org>
+From: "Laurent Chavey" <chavey@google.com>
+Subject: [PATCH] bonding: Added Net Poll Support
+Date: Fri, 13 Jun 2008 18:08:40 -0700
+Message-ID: <97949e3e0806131808k345d62f6idd9c1d3916a93e16@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>, Willy Tarreau <w@1wt.eu>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Michael Buesch <mb@bu3sch.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Chris Wright <chrisw@sous-sol.org>
-To: linux-kernel@vger.kernel.org, stable@kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ubar@us.ibm.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:51612 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758975AbYFNAM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jun 2008 20:12:28 -0400
-Content-Disposition: inline; filename="ssb-fix-context-assertion-in-ssb_pcicore_dev_irqvecs_enable.patch"
-In-Reply-To: <20080614000840.GA24659@suse.de>
+Received: from smtp-out.google.com ([216.239.33.17]:58604 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754990AbYFNBIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2008 21:08:48 -0400
+Received: from zps36.corp.google.com (zps36.corp.google.com [172.25.146.36])
+	by smtp-out.google.com with ESMTP id m5E18g53006781
+	for <netdev@vger.kernel.org>; Sat, 14 Jun 2008 02:08:43 +0100
+Received: from wf-out-1314.google.com (wff28.prod.google.com [10.142.6.28])
+	by zps36.corp.google.com with ESMTP id m5E18fps024377
+	for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 18:08:42 -0700
+Received: by wf-out-1314.google.com with SMTP id 28so4388548wff.16
+        for <netdev@vger.kernel.org>; Fri, 13 Jun 2008 18:08:41 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--stable review patch.  If anyone has any objections, please let us know.
+Adding poll_controller support to bonding driver. Need by netdump.
 
-------------------
-From: Michael Buesch <mb@bu3sch.de>
+Signed-off-by: Laurent Chavey <chavey@google.com>
 
-upstream commit: a3bafeedfff2ac5fa0a316bea4570e27900b6fcc
-
-This fixes a context assertion in ssb that makes b44 print
-out warnings on resume.
-
-This fixes the following kernel oops:
-http://www.kerneloops.org/oops.php?number=12732
-http://www.kerneloops.org/oops.php?number=11410
-
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
-Signed-off-by: Chris Wright <chrisw@sous-sol.org>
-
----
- drivers/ssb/driver_pcicore.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- a/drivers/ssb/driver_pcicore.c
-+++ b/drivers/ssb/driver_pcicore.c
-@@ -519,12 +519,12 @@ int ssb_pcicore_dev_irqvecs_enable(struc
- 	int err = 0;
- 	u32 tmp;
- 
--	might_sleep();
+--- linux-2.6.25.org/drivers/net/bonding/bond_main.c    2008-04-16
+19:49:44.000000000 -0700
++++ linux-2.6.25/drivers/net/bonding/bond_main.c        2008-06-13
+18:00:08.000000000 -0700
+@@ -5030,4 +5030,3 @@
+  *  tab-width: 8
+  * End:
+  */
 -
- 	if (!pdev)
- 		goto out;
- 	bus = pdev->bus;
- 
-+	might_sleep_if(pdev->id.coreid != SSB_DEV_PCI);
-+
- 	/* Enable interrupts for this device. */
- 	if (bus->host_pci &&
- 	    ((pdev->id.revision >= 6) || (pdev->id.coreid == SSB_DEV_PCIE))) {
+[chavey@chavey]%diff -Naur
+linux-2.6.25.org/drivers/net/bonding/bond_main.c
+linux-2.6.25/drivers/net/bonding/bond_main.c
+--- linux-2.6.25.org/drivers/net/bonding/bond_main.c    2008-04-16
+19:49:44.000000000 -0700
++++ linux-2.6.25/drivers/net/bonding/bond_main.c        2008-06-13
+18:03:48.000000000 -0700
+@@ -3659,6 +3659,26 @@
 
--- 
+ /*-------------------------- Device entry points ----------------------------*/
+
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void bond_poll_controller(struct net_device *dev)
++{
++       struct bonding *bond = netdev_priv(dev);
++       struct slave *curr = NULL;
++       int i = 0;
++
++       read_lock(&bond->lock);
++       bond_for_each_slave(bond, curr, i) {
++               if ( IS_UP(curr->dev) ) {
++                       if (curr->dev->poll_controller) {
++                               curr->dev->poll_controller(curr->dev);
++                       }
++                       break;
++               }
++       }
++       read_unlock(&bond->lock);
++}
++#endif
++
+ static int bond_open(struct net_device *bond_dev)
+ {
+        struct bonding *bond = bond_dev->priv;
+@@ -4435,6 +4455,9 @@
+        bond_dev->change_mtu = bond_change_mtu;
+        bond_dev->set_mac_address = bond_set_mac_address;
+        bond_dev->validate_addr = NULL;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++       bond_dev->poll_controller = bond_poll_controller;
++#endif
+
+        bond_set_mode_ops(bond, bond->params.mode);
