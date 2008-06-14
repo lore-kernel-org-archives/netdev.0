@@ -1,52 +1,41 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs
-	Documentation
-Date: Sat, 14 Jun 2008 13:03:58 -0600
-Message-ID: <20080614190358.GU22807@obsidianresearch.com>
-References: <20080610205633.11186.45499.stgit@dale>
-	<20080610210918.11186.64253.stgit@dale>
-	<484F751F.7030407@trash.net>
-	<c8028d330806120813q6363c3cemb4aa03ceff6547d1@mail.gmail.com>
-	<48513E4E.4040601@trash.net>
-	<f8ca0a150806141103r56f0530br6b5e78943ac1c92d@mail.gmail.com>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: [2/3] POHMELFS: Documentation.
+Date: Sat, 14 Jun 2008 14:45:36 -0400
+Message-ID: <1213469136.7149.36.camel@localhost>
+References: <20080613163700.GA25860@2ka.mipt.ru>
+	 <20080613164110.GB26166@2ka.mipt.ru> <20080614021547.GC32232@shareable.org>
+	 <20080614065616.GA32585@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, netdev@vger.kernel.org,
-	rdreier@cisco.com, general@lists.openfabrics.org,
-	Patrick McHardy <kaber@trash.net>, poornima.kamath@qlogic.com
-To: Roland Dreier <roland.list@gmail.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <f8ca0a150806141103r56f0530br6b5e78943ac1c92d@mail.gmail.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jamie Lokier <jamie@shareable.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20080614065616.GA32585@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 14, 2008 at 11:03:08AM -0700, Roland Dreier wrote:
-> > We have linkstate/operstate for this. How is a user supposed
-> > to configure the network device when it appears at a more or
-> > less random time from his perspective?
- 
-> Well, keep in mind that this driver is for an ethernet virtual NIC
-> that is actually
-> remote across another network (an InfiniBand fabric) -- so these devices
-> can actually appear or disappear at random times by their nature.  It's a
-> similar issue to, say, a USB ethernet adapter presents -- there's no sane way
-> to have operstate set for a device that hasn't been attached yet.
+On Sat, 2008-06-14 at 10:56 +0400, Evgeniy Polyakov wrote:
+> > That sounds great, but what do you mean by 'novel'?  Don't other
+> > modern network filesystems use asynchronous requests and replies in
+> > some form?  It seems like the obvious thing.
+> 
+> Maybe it was a bit naive though :)
+> But I checked lots of implementation, all of them use send()/recv()
+> approach. NFSv4 uses a bit different, but it is a cryptic, and at least
+> from its names it is not clear:
+> like nfs_pagein_multi() -> nfs_pageio_complete() -> add_stats. Presumably
+> we add stats when we have data handy...
 
-I think that is only a fair analogy if the VNIC used some kind of
-hot-plug auto discovery procedure like USB does. As soon as you
-require the administrator to run a command to bind a device to a VNIC
-GID you are much more like a tunnel device and the ethernet device
-should exist from the moment the administator creates it up until the
-administator destroys it. The state of the connection to the VNIC
-should be reflected in some way other than device presence.
+You're confusing write gathering with asynchronous I/O...
 
-Jason
+NFS attempts to send multiple contiguous pages in one I/O request, and
+so it has a mechanism for collecting them and dispatching the I/O as
+soon as we have enough pages for an RPC call.
+
+The actual RPC call is then handled by the sunrpc layer and is done
+fully asynchronously using non-blocking I/O.
+
+  Trond
+
