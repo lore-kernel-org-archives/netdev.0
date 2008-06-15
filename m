@@ -1,61 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 rx descriptors
-Date: Mon, 16 Jun 2008 00:04:10 +0200
-Message-ID: <20080615220410.GA10522@electric-eye.fr.zoreil.com>
-References: <20080615211030.M80450@visp.net.lb>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: [patch 5/9] DM9000: Use NSR to determine link-status on internal PHY
+Date: Mon, 16 Jun 2008 00:26:58 +0100
+Message-ID: <20080615232815.549463824@fluff.org.uk>
+References: <20080615232653.642837440@fluff.org.uk>
+Cc: Jeff Garzik <jeff@garzik.org>, Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46865 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751436AbYFOWd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 18:33:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20080615211030.M80450@visp.net.lb>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:54115 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756462AbYFOX2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 19:28:16 -0400
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-linkstatus1.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko <denys@visp.net.lb> :
-[...]
-> Why in Linux source:
-> 
-> #define NUM_TX_DESC     64      /* Number of Tx descriptor registers */
-> #define NUM_RX_DESC     256     /* Number of Rx descriptor registers */
+The DM9000_NSR register contains a copy of the internal PHY's
+link status which we can use to determine if the link is up
+or down. This eliminates the more costly (and sleeping) PHY
+read when using the DM9000's own PHY.
 
-One do not necessarily gain much from a huge Rx / Tx ring. You can
-increase NUM_RX_DESC though.
+Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-> Is it possible to do them changeable over ethtool -g ?
-
-Yes.
-
-> Maybe NetBSD developers signed NDA and have access to datasheets?
-
-A NDA is not needed. You can get in touch with Edward Hsu
-<edward_hsu@realtek.com.tw> if you have some questions.
-
-It can help for the moderately documented irq mitigation register.
-
-> Also i seen in one patch from Realtek , something similar to
-> -#define RX_DMA_BURST    6       /* Maximum PCI burst, '6' is 1024 */
-> +#define RX_DMA_BURST    7       /* Maximum PCI burst, '6' is 1024 */
-> 
-> Why it is reverted or not applied?
-
-I do not always apply Realtek's changes blindly. This one could make a
-difference though.
-
-> In sources from Realtek website it is 
-> #define RX_DMA_BURST	7	/* Maximum PCI burst, '7' is unlimited */
-> #define TX_DMA_BURST	7	/* Maximum PCI burst, '7' is unlimited */
-> 
-> I will try to change burst settings on my router, and waiting comments about 
-
-Apparently 1) you are experiencing Rx fifo overflows 2) your mean packet
-stands at 300 bytees. I'd try to lower RX_FIFO_THRESH first then lower
-TX_DMA_BURST.
+Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
+===================================================================
+--- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-15 23:31:41.000000000 +0100
++++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-15 23:38:55.000000000 +0100
+@@ -473,7 +473,14 @@ static int dm9000_nway_reset(struct net_
+ static u32 dm9000_get_link(struct net_device *dev)
+ {
+ 	board_info_t *dm = to_dm9000_board(dev);
+-	return mii_link_ok(&dm->mii);
++	u32 ret;
++
++	if (dm->flags & DM9000_PLATF_EXT_PHY)
++		ret = mii_link_ok(&dm->mii);
++	else
++		ret = dm9000_read_locked(dm, DM9000_NSR) & NSR_LINKST ? 1 : 0;
++
++	return ret;
+ }
+ 
+ #define DM_EEPROM_MAGIC		(0x444D394B)
 
 -- 
-Ueimor
+Ben (ben@fluff.org, http://www.fluff.org/)
+
+  'a smiley only costs 4 bytes'
