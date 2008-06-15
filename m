@@ -1,69 +1,112 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: DM9000: Remove blackfin as special case.
-Date: Mon, 16 Jun 2008 00:36:48 +0100
-Message-ID: <20080615233648.597885961@fluff.org.uk>
-Cc: cooloney@kernel.org, Ben Dooks <ben-linux@fluff.org>
-To: netdev@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: NAPI, rx_no_buffer_count, e1000, r8169 and other actors
+Date: Mon, 16 Jun 2008 00:46:22 +0100
+Message-ID: <20080615234620.GC2835@solarflare.com>
+References: <20080615200013.M67401@visp.net.lb>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:54278 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752196AbYFOXgv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 19:36:51 -0400
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-remove-blackfin-hackery.patch
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:42979 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751969AbYFOXqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 19:46:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20080615200013.M67401@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first part of remove the DEFAULT_TRIGGER should
-be relatively easy to fixup in whatever blackfin archs
-still use this.
+Denys Fedoryshchenko wrote:
+> Hi
+> 
+> Since i am using PC routers for my network, and i reach significant numbers
+> (for me significant) i start noticing minor problems. So all this talk about
+> networking performance in my case.
+> 
+> For example.
+> Sun server, AMD based (two CPU -  AMD Opteron(tm) Processor 248).
+> e1000 connected over PCI-X ([    4.919249] e1000: 0000:01:01.0: e1000_probe:
+> (PCI-X:100MHz:64-bit) 00:14:4f:20:89:f4)
+> 
+> All traffic processed over eth0, 5 VLAN, 1 second average around 110-200Mbps
 
-The otherbits, I would recommend the relevant blackfin
-IO headers should deal with defining the six functions to
-the relevant blackfin implementation.
+Currently TX checksum offload does not work for VLAN devices, which may
+be a serious performance hit if there is a lot of traffic routed between
+VLANs.  This should change in 2.6.27 for some drivers, which I think will
+include e1000.
 
-I would have sent this directly to the blackfin list, but
-it is marked as subscribers only.
+> of traffic. Host running also conntrack (max 1000000 entries, when packetloss
+> happen - around 256k entries). Around 1300 routes (FIB_TRIE) running. What is
+> worrying me, that ok, i win time by increasing rx descriptors from 256 to
+> 4096, but how much time i win? if it "cracks" on 100 Mbps RX, it means by
+> interpolating descriptors increase from 256 to 4096 (4 times), i cannot
+> process more than 400Mbps RX?
 
-CC: Bryan Wu <cooloney@kernel.org>
-Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+Increasing the RX descriptor ring size should give the driver and stack
+more time to catch up after handling some packets that take unusually
+long.  It may also allow you to increase interrupt moderation, which
+will reduce the per-packet cost.
 
-Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
-===================================================================
---- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-16 00:31:57.000000000 +0100
-+++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-16 00:32:17.000000000 +0100
-@@ -47,18 +47,6 @@
- #define CARDNAME	"dm9000"
- #define DRV_VERSION	"1.31"
+> The CPU is not so busy after all... maybe there is a way to change some
+> parameter to force NAPI poll interface more often?
+
+NAPI polling is not time-based, except indirectly though interrupt
+moderation.
+
+> I tried nice, changing realtime priority to FIFO, changing kernel to
+> preemptible... no luck, except increasing descriptors.
+> 
+> Router-Dora ~ # mpstat -P ALL 1
+> Linux 2.6.26-rc6-git2-build-0029 (Router-Dora)  06/15/08
+> 
+> 22:51:02     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
+> %idle    intr/s
+> 22:51:03     all    1.00    0.00    0.00    0.00    2.50   29.00    0.00  
+> 67.50  12927.00
+> 22:51:03       0    2.00    0.00    0.00    0.00    4.00   59.00    0.00  
+> 35.00  11935.00
+> 22:51:03       1    0.00    0.00    0.00    0.00    0.00    0.00    0.00 
+> 100.00    993.00
+> 22:51:03       2    0.00    0.00    0.00    0.00    0.00    0.00    0.00   
+> 0.00      0.00
  
--#ifdef CONFIG_BLACKFIN
--#define readsb	insb
--#define readsw	insw
--#define readsl	insl
--#define writesb	outsb
--#define writesw	outsw
--#define writesl	outsl
--#define DEFAULT_TRIGGER IRQF_TRIGGER_HIGH
--#else
--#define DEFAULT_TRIGGER (0)
--#endif
--
- /*
-  * Transmit timeout, default 5 seconds.
-  */
-@@ -1012,10 +1000,8 @@ dm9000_open(struct net_device *dev)
- 	/* If there is no IRQ type specified, default to something that
- 	 * may work, and tell the user that this is a problem */
- 
--	if (irqflags == IRQF_TRIGGER_NONE) {
-+	if (irqflags == IRQF_TRIGGER_NONE)
- 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
--		irqflags = DEFAULT_TRIGGER;
--	}
- 	
- 	irqflags |= IRQF_SHARED;
- 
+You might do better with a NIC that supports MSI-X.  This allows the use of
+two RX queues with their own IRQs, each handled by a different processor.
+As it is, one CPU is completely idle.  However, I don't know how well the
+other work of routing scales to multiple processors.
+
+[...]
+> I have another host running, Core 2 Duo, e1000e+3 x e100, also conntrack, same
+> kernel configuration and similar amount of traffic, higher load (ifb + plenty
+> of shapers running) - almost no errors on default settings.
+> Linux 2.6.26-rc6-git2-build-0029 (Kup)  06/16/08
+> 
+> 07:00:27     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
+> %idle    intr/s
+> 07:00:28     all    0.00    0.00    0.50    0.00    4.00   31.50    0.00  
+> 64.00  32835.00
+> 07:00:29     all    0.00    0.00    0.50    0.00    2.50   29.00    0.00  
+> 68.00  33164.36
+> 
+> Third host r8169 (PCI! This is important, seems i am running out of PCI
+> capacity),
+
+Gigabit Ethernet on plain old PCI is not ideal.  If each card has a
+separate route to the south bridge then you might be able to get a fair
+fraction of a gigabit between them though.
+
+> 400Mbit/s rx+tx summary load, e1000e interface also - around
+> 200Mbps load. What is worrying me - interrupts rate, it seems generated by
+> realtek card... is there any way to drop it down? 
+[...]
+
+ethtool -C lets you change interrupt moderation.  I don't know anything
+about this driver or NIC's capabilities but it does seem to be in the
+cheapest GbE cards so I wouldn't expect outstanding performance.
+
+Ben.
 
 -- 
-Ben (ben@fluff.org, http://www.fluff.org/)
-
-  'a smiley only costs 4 bytes'
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
