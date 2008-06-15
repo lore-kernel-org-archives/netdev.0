@@ -1,151 +1,146 @@
-From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Subject: [PATCH] Re: forcedeth: lockdep warning on ethtool -s
-Date: Sun, 15 Jun 2008 21:44:15 +0200
-Message-ID: <20080615194415.GB2824@yamamaya.is-a-geek.org>
-References: <20080601083700.GA3036@yamamaya.is-a-geek.org> <20080605221842.a444ec9d.akpm@linux-foundation.org>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: NAPI, rx_no_buffer_count, e1000, r8169 and other actors
+Date: Sun, 15 Jun 2008 23:24:43 +0300
+Message-ID: <20080615200013.M67401@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yumi.tdiedrich.de ([85.10.210.183]:33177 "EHLO mx.tdiedrich.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751080AbYFOTov (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Jun 2008 15:44:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20080605221842.a444ec9d.akpm@linux-foundation.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:50573 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969AbYFOUZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 16:25:02 -0400
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 791DDBC395
+	for <netdev@vger.kernel.org>; Sun, 15 Jun 2008 23:24:43 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> On Sun, 1 Jun 2008 10:37:01 +0200 Tobias Diedrich <ranma+kernel@tdied=
-rich.de> wrote:
->=20
-> > Hi,
-> >=20
-> > After enabling CONFIG_LOCKDEP and CONFIG_PROVE_LOCKING I get the
-> > following warning when ethtool -s is first called on one of the
-> > forcedeth ports:
-> >=20
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> > [ INFO: inconsistent lock state ]
-> > 2.6.26-rc4 #28
-> > ---------------------------------
-> > inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
-> > ethtool/1985 [HC0[0]:SC0[1]:HE1:SE0] takes:
-> >  (&np->lock){++..}, at: [<ffffffffa000c5fd>] nv_set_settings+0xc8/0=
-x3de [forcedeth]
-> > {in-hardirq-W} state was registered at:
-> >   [<ffffffffffffffff>] 0xffffffffffffffff
-> > irq event stamp: 3606
-> > hardirqs last  enabled at (3605): [<ffffffff8068106f>] _spin_unlock=
-_irqrestore+0x3f/0x68
-> > hardirqs last disabled at (3604): [<ffffffff80680d38>] _spin_lock_i=
-rqsave+0x13/0x46
-> > softirqs last  enabled at (3534): [<ffffffff80246ba5>] __do_softirq=
-+0xbc/0xc5
-> > softirqs last disabled at (3606): [<ffffffff80680b33>] _spin_lock_b=
-h+0x11/0x41
-> >=20
-> > other info that might help us debug this:
-> > 2 locks held by ethtool/1985:
-> >  #0:  (rtnl_mutex){--..}, at: [<ffffffff80596072>] rtnl_lock+0x12/0=
-x14
-> >  #1:  (_xmit_ETHER){-+..}, at: [<ffffffffa000c5e8>] nv_set_settings=
-+0xb3/0x3de [forcedeth]
-> >=20
-> > stack backtrace:
-> > Pid: 1985, comm: ethtool Not tainted 2.6.26-rc4 #28
-> >=20
-> > Call Trace:
-> >  [<ffffffff8025f190>] print_usage_bug+0x162/0x173
-> >  [<ffffffff8025fa8b>] mark_lock+0x231/0x41f
-> >  [<ffffffff802607cf>] __lock_acquire+0x4e7/0xcac
-> >  [<ffffffff8025fe64>] ? trace_hardirqs_on+0xf1/0x115
-> >  [<ffffffff80272c3a>] ? disable_irq_nosync+0x6f/0x7b
-> >  [<ffffffff80261375>] lock_acquire+0x55/0x6e
-> >  [<ffffffffa000c5fd>] ? :forcedeth:nv_set_settings+0xc8/0x3de
-> >  [<ffffffff80680b15>] _spin_lock+0x2f/0x3c
-> >  [<ffffffffa000c5fd>] :forcedeth:nv_set_settings+0xc8/0x3de
-> >  [<ffffffff8058f8bb>] dev_ethtool+0x186/0xea3
-> >  [<ffffffff8067f446>] ? mutex_lock_nested+0x243/0x275
-> >  [<ffffffff8025df2b>] ? debug_mutex_free_waiter+0x46/0x4a
-> >  [<ffffffff8067f469>] ? mutex_lock_nested+0x266/0x275
-> >  [<ffffffff8058e1ce>] dev_ioctl+0x4eb/0x600
-> >  [<ffffffff8068106f>] ? _spin_unlock_irqrestore+0x3f/0x68
-> >  [<ffffffff80580f91>] sock_ioctl+0x1f5/0x202
-> >  [<ffffffff802a322e>] vfs_ioctl+0x2a/0x77
-> >  [<ffffffff802a34d6>] do_vfs_ioctl+0x25b/0x270
-> >  [<ffffffff806807b6>] ? trace_hardirqs_on_thunk+0x35/0x3a
-> >  [<ffffffff802a352d>] sys_ioctl+0x42/0x65
-> >  [<ffffffff8021fffb>] system_call_after_swapgs+0x7b/0x80
-> >=20
-> >=20
-> > I think this is caused by the following snippet in nv_set_settings:
-> >=20
-> > 	netif_carrier_off(dev);
-> > 	if (netif_running(dev)) {
-> > 		nv_disable_irq(dev);
-> > 		netif_tx_lock_bh(dev);
-> > 		spin_lock(&np->lock);
-> > 		/* stop engines */
-> > 		nv_stop_rxtx(dev);
-> > 		spin_unlock(&np->lock);
-> > 		netif_tx_unlock_bh(dev);
-> > 	}
-> >=20
-> >=20
-> > Because of nv_disable_irq this is probably not really a problem
-> > though (I guess) and replacing the spin_lock with spin_lock_irqsave
-> > could keep interrupts disabled for a longer period of time because
-> > of delays in nv_stop_rx and nv_stop_tx.
->=20
-> Could you please try that and if it works, send the patch?
+Hi
 
-Here you go, with this patch applied I get no warning:
+Since i am using PC routers for my network, and i reach significant numbers
+(for me significant) i start noticing minor problems. So all this talk about
+networking performance in my case.
 
-Signed-Off-By: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+For example.
+Sun server, AMD based (two CPU -  AMD Opteron(tm) Processor 248).
+e1000 connected over PCI-X ([    4.919249] e1000: 0000:01:01.0: e1000_probe:
+(PCI-X:100MHz:64-bit) 00:14:4f:20:89:f4)
 
-Index: linux-2.6.26-rc4.forcedwol/drivers/net/forcedeth.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-2.6.26-rc4.forcedwol.orig/drivers/net/forcedeth.c	2008-06-15 =
-20:45:32.000000000 +0200
-+++ linux-2.6.26-rc4.forcedwol/drivers/net/forcedeth.c	2008-06-15 20:55=
-:27.000000000 +0200
-@@ -4198,12 +4198,23 @@
-=20
- 	netif_carrier_off(dev);
- 	if (netif_running(dev)) {
-+		unsigned long flags;
-+
- 		nv_disable_irq(dev);
- 		netif_tx_lock_bh(dev);
--		spin_lock(&np->lock);
-+		/* with plain spinlock lockdep complains */
-+		spin_lock_irqsave(&np->lock, flags);
- 		/* stop engines */
-+		/* FIXME:
-+		 * this can take some time, and interrupts are disabled
-+		 * due to spin_lock_irqsave, but let's hope no daemon
-+		 * is going to change the settings very often...
-+		 * Worst case:
-+		 * NV_RXSTOP_DELAY1MAX + NV_TXSTOP_DELAY1MAX=20
-+		 * + some minor delays, which is up to a second approximately
-+		 */
- 		nv_stop_rxtx(dev);
--		spin_unlock(&np->lock);
-+		spin_unlock_irqrestore(&np->lock, flags);
- 		netif_tx_unlock_bh(dev);
- 	}
+All traffic processed over eth0, 5 VLAN, 1 second average around 110-200Mbps
+of traffic. Host running also conntrack (max 1000000 entries, when packetloss
+happen - around 256k entries). Around 1300 routes (FIB_TRIE) running. What is
+worrying me, that ok, i win time by increasing rx descriptors from 256 to
+4096, but how much time i win? if it "cracks" on 100 Mbps RX, it means by
+interpolating descriptors increase from 256 to 4096 (4 times), i cannot
+process more than 400Mbps RX?
+The CPU is not so busy after all... maybe there is a way to change some
+parameter to force NAPI poll interface more often?
+I tried nice, changing realtime priority to FIFO, changing kernel to
+preemptible... no luck, except increasing descriptors.
 
---=20
-Tobias						PGP: http://9ac7e0bc.uguu.de
-=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
-=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
-=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
-=E3=81=99=E3=80=82
+Router-Dora ~ # mpstat -P ALL 1
+Linux 2.6.26-rc6-git2-build-0029 (Router-Dora)  06/15/08
+
+22:51:02     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
+%idle    intr/s
+22:51:03     all    1.00    0.00    0.00    0.00    2.50   29.00    0.00  
+67.50  12927.00
+22:51:03       0    2.00    0.00    0.00    0.00    4.00   59.00    0.00  
+35.00  11935.00
+22:51:03       1    0.00    0.00    0.00    0.00    0.00    0.00    0.00 
+100.00    993.00
+22:51:03       2    0.00    0.00    0.00    0.00    0.00    0.00    0.00   
+0.00      0.00
+
+  PID  PPID USER     STAT   VSZ %MEM %CPU COMMAND
+ 1544     1 root     S     5824  0.2  0.0 /usr/sbin/snmpd -c /config/snmpd.conf
+ 1530     1 squid    S     2880  0.1  0.0 /usr/sbin/ripd -d
+ 1524     1 squid    S     2740  0.1  0.0 /usr/sbin/zebra -d
+    1     0 root     S     2384  0.1  0.0 /bin/sh /init
+ 1576  1115 root     S     2384  0.1  0.0 /sbin/getty 38400 tty1
+ 1577  1115 root     S     2384  0.1  0.0 /sbin/getty 38400 tty2
+ 1581  1115 root     S     2384  0.1  0.0 /sbin/getty 38400 tty3
+
+
+
+I have another host running, Core 2 Duo, e1000e+3 x e100, also conntrack, same
+kernel configuration and similar amount of traffic, higher load (ifb + plenty
+of shapers running) - almost no errors on default settings.
+Linux 2.6.26-rc6-git2-build-0029 (Kup)  06/16/08
+
+07:00:27     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
+%idle    intr/s
+07:00:28     all    0.00    0.00    0.50    0.00    4.00   31.50    0.00  
+64.00  32835.00
+07:00:29     all    0.00    0.00    0.50    0.00    2.50   29.00    0.00  
+68.00  33164.36
+
+Third host r8169 (PCI! This is important, seems i am running out of PCI
+capacity), 400Mbit/s rx+tx summary load, e1000e interface also - around
+200Mbps load. What is worrying me - interrupts rate, it seems generated by
+realtek card... is there any way to drop it down? 
+Also some packetloss, around 0.0005% (i prefer to have clear zero :-)) ). No
+nat, no shapers, same kernel configuration.
+
+17:36:51     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
+%idle    intr/s
+17:36:52     all    0.50    0.00    0.50    0.00    1.49   32.34    0.00  
+65.17  88993.07
+17:36:53     all    0.00    0.00    0.50    0.00    0.50   32.00    0.00  
+67.00  88655.00
+17:36:54     all    0.00    0.00    0.50    0.00    1.49   31.84    0.00  
+66.17  89484.00
+
+
+
+
+MegaRouter-KARAM ~ # cat /proc/interrupts ;sleep 10;cat /proc/interrupts
+           CPU0       CPU1
+  0:  806263699          0   IO-APIC-edge      timer
+  1:          2          0   IO-APIC-edge      i8042
+  9:          0          0   IO-APIC-fasteoi   acpi
+ 12:          5          0   IO-APIC-edge      i8042
+ 16:          0          0   IO-APIC-fasteoi   uhci_hcd:usb3
+ 18:          0          0   IO-APIC-fasteoi   ehci_hcd:usb1, uhci_hcd:usb7
+ 19:          0          0   IO-APIC-fasteoi   uhci_hcd:usb6
+ 21: 1191830952          0   IO-APIC-fasteoi   uhci_hcd:usb4, eth0
+ 23:       1245          0   IO-APIC-fasteoi   ehci_hcd:usb2, uhci_hcd:usb5
+217:          3 1584682152   PCI-MSI-edge      eth1
+NMI:  806263639  806263443   Non-maskable interrupts
+LOC:          0  806263442   Local timer interrupts
+RES:      99130      71199   Rescheduling interrupts
+CAL:      62651       3871   function call interrupts
+TLB:        239        187   TLB shootdowns
+TRM:          0          0   Thermal event interrupts
+SPU:          0          0   Spurious interrupts
+ERR:          0
+MIS:          0
+           CPU0       CPU1
+  0:  806273702          0   IO-APIC-edge      timer
+  1:          2          0   IO-APIC-edge      i8042
+  9:          0          0   IO-APIC-fasteoi   acpi
+ 12:          5          0   IO-APIC-edge      i8042
+ 16:          0          0   IO-APIC-fasteoi   uhci_hcd:usb3
+ 18:          0          0   IO-APIC-fasteoi   ehci_hcd:usb1, uhci_hcd:usb7
+ 19:          0          0   IO-APIC-fasteoi   uhci_hcd:usb6
+ 21: 1192549139          0   IO-APIC-fasteoi   uhci_hcd:usb4, eth0
+ 23:       1245          0   IO-APIC-fasteoi   ehci_hcd:usb2, uhci_hcd:usb5
+217:          3 1584840861   PCI-MSI-edge      eth1
+NMI:  806273642  806273446   Non-maskable interrupts
+LOC:          0  806273445   Local timer interrupts
+RES:      99130      71199   Rescheduling interrupts
+CAL:      62653       3871   function call interrupts
+TLB:        239        187   TLB shootdowns
+TRM:          0          0   Thermal event interrupts
+SPU:          0          0   Spurious interrupts
+ERR:          0
+MIS:          0
+
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
