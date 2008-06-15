@@ -1,77 +1,191 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [patch 6/9] DM9000: Allow the use of the NSR register to get link status.
-Date: Mon, 16 Jun 2008 00:26:59 +0100
-Message-ID: <20080615232815.765902209@fluff.org.uk>
+Subject: [patch 2/9] DM9000: Add support for DM9000A and DM9000B chips
+Date: Mon, 16 Jun 2008 00:26:55 +0100
+Message-ID: <20080615232814.937125263@fluff.org.uk>
 References: <20080615232653.642837440@fluff.org.uk>
 Cc: Jeff Garzik <jeff@garzik.org>, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:54117 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:54111 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756514AbYFOX2R (ORCPT
+	with ESMTP id S1756508AbYFOX2R (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 19:28:17 -0400
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-linkstatus2.patch
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-support-dm9000ab.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DM9000's internal PHY reports a copy of the link status
-in the NSR register of the chip. Reading the status when
-polling for link status is faster as it eliminates the need
-to sleep, but does not print as much information.
-
-Add an platform flag to force this behaviour, and a Kconfig
-option to allow it to be forced to the faster method always.
+Add support for both the DM9000A and DM9000B versions of
+the DM9000 networking chip. This includes adding support
+for the Link-Change IRQ which is used instead of polling
+the PHY every 2 seconds.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Index: linux-2.6.26-rc6-quilt1/drivers/net/Kconfig
-===================================================================
---- linux-2.6.26-rc6-quilt1.orig/drivers/net/Kconfig	2008-06-15 23:43:43.000000000 +0100
-+++ linux-2.6.26-rc6-quilt1/drivers/net/Kconfig	2008-06-15 23:45:20.000000000 +0100
-@@ -926,6 +926,15 @@ config DM9000
- 	  To compile this driver as a module, choose M here.  The module
- 	  will be called dm9000.
- 
-+config DM9000_FORCE_SIMPLE_PHY_POLL
-+	bool "Force simple NSR based PHY polling"
-+	depends on DM9000
-+	---help---
-+	  This configuration forces the DM9000 to use the NSR's LinkStatus
-+	  bit to determine if the link is up or down instead of the more
-+	  costly MII PHY reads. Note, this will not work if the chip is
-+	  operating with an external PHY.
-+
- config ENC28J60
- 	tristate "ENC28J60 support"
- 	depends on EXPERIMENTAL && SPI && NET_ETHERNET
 Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
 ===================================================================
---- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-15 23:41:24.000000000 +0100
-+++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-15 23:43:18.000000000 +0100
-@@ -558,7 +558,11 @@ dm9000_poll_work(struct work_struct *w)
- 	struct delayed_work *dw = container_of(w, struct delayed_work, work);
- 	board_info_t *db = container_of(dw, board_info_t, phy_poll);
+--- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-15 22:52:15.000000000 +0100
++++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-15 22:52:19.000000000 +0100
+@@ -85,6 +85,16 @@ MODULE_PARM_DESC(watchdog, "transmit tim
+  * these two devices.
+  */
  
--	mii_check_media(&db->mii, netif_msg_link(db), 0);
-+	if (db->flags & DM9000_PLATF_SIMPLE_PHY &&
-+	    !(db->flags & DM9000_PLATF_EXT_PHY)) {
-+		
-+	} else
-+		mii_check_media(&db->mii, netif_msg_link(db), 0);
- 	
- 	if (netif_running(db->ndev))
- 		dm9000_schedule_poll(db);
-Index: linux-2.6.26-rc6-quilt1/include/linux/dm9000.h
++/* The driver supports the original DM9000E, and now the two newer
++ * devices, DM9000A and DM9000B.
++ */
++
++enum dm9000_type {
++	TYPE_DM9000E,	/* original DM9000 */
++	TYPE_DM9000A,
++	TYPE_DM9000B
++};
++
+ /* Structure/enum declaration ------------------------------- */
+ typedef struct board_info {
+ 
+@@ -98,9 +108,11 @@ typedef struct board_info {
+ 	u16 dbug_cnt;
+ 	u8 io_mode;		/* 0:word, 2:byte */
+ 	u8 phy_addr;
++	u8 imr_all;
+ 	unsigned int flags;
+ 	unsigned int in_suspend :1;
+ 
++	enum dm9000_type type;
+ 	int debug_level;
+ 
+ 	void (*inblk)(void __iomem *port, void *data, int length);
+@@ -302,7 +314,8 @@ static void dm9000_set_io(struct board_i
+ 
+ static void dm9000_schedule_poll(board_info_t *db)
+ {
+-	schedule_delayed_work(&db->phy_poll, HZ * 2);
++	if (db->type == TYPE_DM9000E)
++		schedule_delayed_work(&db->phy_poll, HZ * 2);
+ }
+ 
+ /* Our watchdog timed out. Called by the networking layer */
+@@ -516,6 +529,17 @@ dm9000_release_board(struct platform_dev
+ 	}
+ }
+ 
++static unsigned char dm9000_type_to_char(enum dm9000_type type)
++{
++	switch (type) {
++	case TYPE_DM9000E: return 'e';
++	case TYPE_DM9000A: return 'a';
++	case TYPE_DM9000B: return 'b';
++	}
++
++	return '?';
++}
++
+ #define res_size(_r) (((_r)->end - (_r)->start) + 1)
+ 
+ /*
+@@ -665,6 +689,23 @@ dm9000_probe(struct platform_device *pde
+ 		goto out;
+ 	}
+ 
++	/* Identify what type of DM9000 we are working on */
++
++	id_val = ior(db, DM9000_CHIPR);
++	dev_dbg(db->dev, "dm9000 revision 0x%02x\n", id_val);
++
++	switch (id_val) {
++	case CHIPR_DM9000A:
++		db->type = TYPE_DM9000A;
++		break;
++	case CHIPR_DM9000B:
++		db->type = TYPE_DM9000B;
++		break;
++	default:
++		dev_dbg(db->dev, "ID %02x => defaulting to DM9000E\n", id_val);
++		db->type = TYPE_DM9000E;
++	}
++
+ 	/* from this point we assume that we have found a DM9000 */
+ 
+ 	/* driver system function */
+@@ -715,8 +756,9 @@ dm9000_probe(struct platform_device *pde
+ 
+ 	if (ret == 0) {
+ 		DECLARE_MAC_BUF(mac);
+-		printk("%s: dm9000 at %p,%p IRQ %d MAC: %s (%s)\n",
+-		       ndev->name,  db->io_addr, db->io_data, ndev->irq,
++		printk("%s: dm9000%c at %p,%p IRQ %d MAC: %s (%s)\n",
++		       ndev->name, dm9000_type_to_char(db->type),
++		       db->io_addr, db->io_data, ndev->irq,
+ 		       print_mac(mac, ndev->dev_addr), mac_src);
+ 	}
+ 	return 0;
+@@ -778,6 +820,7 @@ static void
+ dm9000_init_dm9000(struct net_device *dev)
+ {
+ 	board_info_t *db = (board_info_t *) dev->priv;
++	unsigned int imr;
+ 
+ 	dm9000_dbg(db, 1, "entering %s\n", __func__);
+ 
+@@ -804,8 +847,14 @@ dm9000_init_dm9000(struct net_device *de
+ 	/* Set address filter table */
+ 	dm9000_hash_table(dev);
+ 
++	imr = IMR_PAR | IMR_PTM | IMR_PRM;
++	if (db->type != TYPE_DM9000E)
++		imr |= IMR_LNKCHNG;
++
++	db->imr_all = imr;
++
+ 	/* Enable TX/RX interrupt mask */
+-	iow(db, DM9000_IMR, IMR_PAR | IMR_PTM | IMR_PRM);
++	iow(db, DM9000_IMR, imr);
+ 
+ 	/* Init Driver variable */
+ 	db->tx_pkt_cnt = 0;
+@@ -962,8 +1011,15 @@ dm9000_interrupt(int irq, void *dev_id)
+ 	if (int_status & ISR_PTS)
+ 		dm9000_tx_done(dev, db);
+ 
++	if (db->type != TYPE_DM9000E) {
++		if (int_status & ISR_LNKCHNG) {
++			/* fire a link-change request */
++			schedule_delayed_work(&db->phy_poll, 1);
++		}
++	}
++
+ 	/* Re-enable interrupt mask */
+-	iow(db, DM9000_IMR, IMR_PAR | IMR_PTM | IMR_PRM);
++	iow(db, DM9000_IMR, db->imr_all);
+ 
+ 	/* Restore previous register address */
+ 	writeb(reg_save, db->io_addr);
+Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.h
 ===================================================================
---- linux-2.6.26-rc6-quilt1.orig/include/linux/dm9000.h	2008-06-15 23:42:01.000000000 +0100
-+++ linux-2.6.26-rc6-quilt1/include/linux/dm9000.h	2008-06-15 23:42:47.000000000 +0100
-@@ -21,6 +21,7 @@
- #define DM9000_PLATF_32BITONLY	(0x0004)
- #define DM9000_PLATF_EXT_PHY	(0x0008)
- #define DM9000_PLATF_NO_EEPROM	(0x0010)
-+#define DM9000_PLATF_SIMPLE_PHY (0x0020)  /* Use NSR to find LinkStatus */
+--- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.h	2008-06-15 22:50:45.000000000 +0100
++++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.h	2008-06-15 22:52:19.000000000 +0100
+@@ -45,6 +45,9 @@
+ #define DM9000_CHIPR           0x2C
+ #define DM9000_SMCR            0x2F
  
- /* platfrom data for platfrom device structure's platfrom_data field */
++#define CHIPR_DM9000A	       0x19
++#define CHIPR_DM9000B	       0x1B
++
+ #define DM9000_MRCMDX          0xF0
+ #define DM9000_MRCMD           0xF2
+ #define DM9000_MRRL            0xF4
+@@ -131,5 +134,13 @@
+ #define DM9000_PKT_RDY		0x01	/* Packet ready to receive */
+ #define DM9000_PKT_MAX		1536	/* Received packet max size */
+ 
++/* DM9000A / DM9000B definitions */
++
++#define IMR_LNKCHNG		(1<<5)
++#define IMR_UNDERRUN		(1<<4)
++
++#define ISR_LNKCHNG		(1<<5)
++#define ISR_UNDERRUN		(1<<4)
++
+ #endif /* _DM9000X_H_ */
  
 
 -- 
