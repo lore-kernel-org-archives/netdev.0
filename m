@@ -1,45 +1,27 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH 2/2] 8139too: different style cleanups
-Date: Sat, 14 Jun 2008 23:50:37 -0700
-Message-ID: <1213512637.11544.36.camel@brick>
-References: <4853BB7B.4030905@freemail.hu> <48541173.7040905@freemail.hu>
-	 <4854B604.6080900@davidnewall.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-06-13
+Date: Sun, 15 Jun 2008 00:24:40 -0700 (PDT)
+Message-ID: <20080615.002440.152017793.davem@davemloft.net>
+References: <20080613205729.GA23676@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?N=E9meth_M=E1rton?= <nm127@freemail.hu>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	Trivial Patch Monkey <trivial@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Newall <davidn@davidnewall.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:30729 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752505AbYFOGuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 02:50:35 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so3885291waf.23
-        for <netdev@vger.kernel.org>; Sat, 14 Jun 2008 23:50:35 -0700 (PDT)
-In-Reply-To: <4854B604.6080900@davidnewall.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080613205729.GA23676-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2008-06-15 at 15:56 +0930, David Newall wrote:
-> N=C3=A9meth M=C3=A1rton wrote:
-> >  #  define DPRINTK(fmt, args...) \
-> > -	printk(KERN_DEBUG "%s: " fmt, __FUNCTION__ , ## args)
-> > +	printk(KERN_DEBUG "%s: " fmt, __func__ , ## args)
-> >  =20
->=20
-> Why change __FUNCTION__ to __func__?  I don't even know where __func_=
-_
-> come from?  Assuming that it isn't totally broken, and I'll believe t=
-hat
-> it isn't, then would it be compiler-specific?   __FUNCTION__ is stand=
-ard
-> and that's more than enough reason to prefer that form to any
-> non-standard variation.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 13 Jun 2008 16:57:29 -0400
 
-__FUNCTION__ is gcc-specific, __func__ is C99.
+> Another round of fixes intended for 2.6.26.  Please let me know if there
+> are problems!
 
-Harvey
-
+Pulled and pushed out to net-2.6, thanks John!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
