@@ -1,39 +1,76 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/2] Disable forwarding of LRO skbs
-Date: Sun, 15 Jun 2008 13:38:19 +1000
-Message-ID: <20080615033819.GA25133@gondor.apana.org.au>
-References: <20080430214845.GC14219@solarflare.com> <E1JrWFU-0001ue-00@gondolin.me.apana.org.au> <20080501110225.GG14219@solarflare.com> <20080501140625.GA9055@gondor.apana.org.au> <20080615005133.GA2835@solarflare.com> <20080615014657.GB2835@solarflare.com>
+From: Sage Weil <sage@newdream.net>
+Subject: Re: [2/3] POHMELFS: Documentation.
+Date: Sat, 14 Jun 2008 21:27:55 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0806142102550.3341@cobra.newdream.net>
+References: <20080613163700.GA25860@2ka.mipt.ru> <20080613164110.GB26166@2ka.mipt.ru>
+ <20080614021547.GC32232@shareable.org> <20080614065616.GA32585@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kmansley@solarflare.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35911 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755605AbYFODi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2008 23:38:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20080615014657.GB2835@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jamie Lokier <jamie@shareable.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20080614065616.GA32585@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 15, 2008 at 02:46:58AM +0100, Ben Hutchings wrote:
->
-> > Can we distinguish them by testing skb->ip_summed == CHECKSUM_PARTIAL?
-> > That is a requirement for using hardware segmentation offload (see
-> > netif_needs_gso()) but an skb resulting from LRO should have ip_summed
-> > set to either CHECKSUM_UNNECESSARY or CHECKSUM_NONE.
+Hi Evgeniy,
+
+On Sat, 14 Jun 2008, Evgeniy Polyakov wrote:
+> > That sounds great, but what do you mean by 'novel'?  Don't other
+> > modern network filesystems use asynchronous requests and replies in
+> > some form?  It seems like the obvious thing.
 > 
-> Actually, it seems like there's a cleaner test: gso_size != 0 &&
-> gso_type == 0 (if we really want GSO then the latter must be set).
-> I'll have to try that out.
+> Maybe it was a bit naive though :)
+> But I checked lots of implementation, all of them use send()/recv()
+> approach. NFSv4 uses a bit different, but it is a cryptic, and at least
+> from its names it is not clear:
+> like nfs_pagein_multi() -> nfs_pageio_complete() -> add_stats. Presumably
+> we add stats when we have data handy...
+> CIFS/SMB use synchronous approach.
 
-Yeah either way should work.
+By synchronous/asynchronous, are you talking about whether writepages() 
+blocks until the write is acked by the server?  (Really, any FS that does 
+writeback is writing asynchronously...)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> >From those projects, which are not in kernel, like CRFS and CEPH, the
+> former uses async receiving thread, while the latter is synchronous,
+> but can select different servers for reading, more like NFSv4.1 leases.
+
+Well... Ceph writes synchronously (i.e. waits for ack in write()) only 
+when write-sharing on a single file between multiple clients, when it is 
+needed to preserve proper write ordering semantics.  The rest of the time, 
+it generates nice big writes via writepages().  The main performance issue 
+is with small files... the fact that writepages() waits for an ack and is 
+usually called from only a handful of threads limits overall throughput.  
+If the writeback path was asynchronous as well that would definitely help 
+(provided writeback is still appropriately throttled).  Is that what 
+you're doing in POHMELFS?
+
+> > > * Transactions support. Full failover for all operations.
+> > >   Resending transactions to different servers on timeout or error.
+> > 
+> > By transactions, do you mean an atomic set of writes/changes?
+> > Or do you trace read dependencies too?
+> 
+> It covers all operations, including reading, directory listing, lookups,
+> attribite changes and so on. Its main goal is to allow transaparent
+> failover, so it has to be done for reading too.
+
+Your meaning of "transaction" confused me as well.  It sounds like you 
+just mean that the read/write operation is retried (asynchronously), and 
+may be redirected at another server if need be.  And that writes can be 
+directed at multiple servers, waiting for an ack from both.  Is that 
+right?
+
+I my view the writeback metadata cache is definitely the most exciting 
+part about this project.  Is there a document that describes where the 
+design ended up?  I seem to remember a string of posts describing your 
+experiements with client-side inode number assignment and how that is 
+reconciled with the server.  Keeping things consistent between clients is 
+definitely the tricky part, although I suspect that even something with 
+very coarse granularity (e.g., directory/subtree-based locking/leasing) 
+will capture most of the performance benefits for most workloads.
+
+Cheers-
+sage
