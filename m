@@ -1,58 +1,37 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [patch 8/9] DM9000: Re-unit menuconfig entries for DM9000 driver
-Date: Mon, 16 Jun 2008 00:27:01 +0100
-Message-ID: <20080615232816.208448585@fluff.org.uk>
+Subject: [patch 7/9] DM9000: Add missing msleep() in EEPROM wait code.
+Date: Mon, 16 Jun 2008 00:27:00 +0100
+Message-ID: <20080615232815.979179968@fluff.org.uk>
 References: <20080615232653.642837440@fluff.org.uk>
 Cc: Jeff Garzik <jeff@garzik.org>, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:54121 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:54119 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756603AbYFOX2R (ORCPT
+	with ESMTP id S1756558AbYFOX2R (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 19:28:17 -0400
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-menuconfig.patch
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-eeprom-delay.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ENC28J60 driver ended up adding itself inbetween the
-two DM9000 Kconfig entries, so re-unite the two together.
+The msleep() call in the code that checks for the
+EEPROM controller's busy status was missing.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Index: linux-2.6.26-rc6-quilt1/drivers/net/Kconfig
+Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
 ===================================================================
---- linux-2.6.26-rc6-quilt1.orig/drivers/net/Kconfig	2008-06-16 00:12:47.000000000 +0100
-+++ linux-2.6.26-rc6-quilt1/drivers/net/Kconfig	2008-06-16 00:13:05.000000000 +0100
-@@ -926,6 +926,14 @@ config DM9000
- 	  To compile this driver as a module, choose M here.  The module
- 	  will be called dm9000.
+--- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-16 00:07:15.000000000 +0100
++++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-16 00:07:44.000000000 +0100
+@@ -343,6 +343,8 @@ static int dm9000_wait_eeprom(board_info
+ 		if ((status & EPCR_ERRE) == 0)
+ 			break;
  
-+config DM9000_DEBUGLEVEL
-+	int "DM9000 maximum debug level"
-+	depends on DM9000
-+	default 4
-+	help
-+	  The maximum level of debugging code compiled into the DM9000
-+	  driver.
++		msleep(1);
 +
- config DM9000_FORCE_SIMPLE_PHY_POLL
- 	bool "Force simple NSR based PHY polling"
- 	depends on DM9000
-@@ -952,14 +960,6 @@ config ENC28J60_WRITEVERIFY
- 	  Enable the verify after the buffer write useful for debugging purpose.
- 	  If unsure, say N.
- 
--config DM9000_DEBUGLEVEL
--	int "DM9000 maximum debug level"
--	depends on DM9000
--	default 4
--	help
--	  The maximum level of debugging code compiled into the DM9000
--	  driver.
--
- config SMC911X
- 	tristate "SMSC LAN911[5678] support"
- 	select CRC32
+ 		if (timeout-- < 0) {
+ 			dev_dbg(db->dev, "timeout waiting EEPROM\n");
+ 			break;
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
