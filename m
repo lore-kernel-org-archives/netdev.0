@@ -1,83 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] firmware: convert e100 driver to
-	request_firmware()
-Date: Sun, 15 Jun 2008 19:30:31 -0400
-Message-ID: <4855A617.90006@garzik.org>
-References: <1213522966.26255.433.camel@pmac.infradead.org>	
-	<48555677.7040209@garzik.org>	
-	<3f9a31f40806151134n1b5e4de7m2ccd9c8a9e98cdb4@mail.gmail.com>	
-	<485562F8.2000400@garzik.org>
-	<1213567775.26255.534.camel@pmac.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	Jaswinder Singh <jaswinderlinux@gmail.com>
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1213567775.26255.534.camel@pmac.infradead.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: DM9000: Remove blackfin as special case.
+Date: Mon, 16 Jun 2008 00:36:48 +0100
+Message-ID: <20080615233648.597885961@fluff.org.uk>
+Cc: cooloney@kernel.org, Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:54278 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752196AbYFOXgv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 19:36:51 -0400
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-remove-blackfin-hackery.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Woodhouse wrote:
-> On Sun, 2008-06-15 at 14:44 -0400, Jeff Garzik wrote:
->> Each driver is _intimately_ tied to its firmware, so it only increases
->> headaches by separating two pieces of a single, cohesive whole.
-> 
-> On reflection, that argument _does_ make me inclined to modify my
-> approach.
-> 
-> The _only_ thing that lets us justify the inclusion of this firmware
-> blob in the kernel in the first place is the rather tenuous claim that
-> it is "mere aggregation on a volume of a storage or distribution medium"
-> -- as if it's just some kind of coincidence that these two pieces of
-> work happen to be shipped together.
-> 
-> If they really are "intimately tied pieces of a single, cohesive whole",
-> as you say, then the claim that it's "mere aggregation on a volume of a
-> storage or distribution medium" loses whatever small amount of
-> credibility it had in the first place, and we have no option but to
-> remove the offending part immediately.
-> 
-> Revised patch follows....
-> 
->  drivers/net/Kconfig |    1 
->  drivers/net/e100.c  |  281 +++++++++++++++-------------------------------------
->  2 files changed, 86 insertions(+), 196 deletions(-)
+The first part of remove the DEFAULT_TRIGGER should
+be relatively easy to fixup in whatever blackfin archs
+still use this.
 
-So, in response you separate them further?  No thanks.
+The otherbits, I would recommend the relevant blackfin
+IO headers should deal with defining the six functions to
+the relevant blackfin implementation.
 
-Put the data in drivers/net/e100.firmware.  It makes no sense to have 
-two parallel driver hierarchies, one for C source and one for firmwares.
+I would have sent this directly to the blackfin list, but
+it is marked as subscribers only.
 
-And IMO I would think the best first step for all such drivers would be 
-to add request_firmware() support _without_ touching the embedded 
-firmware.  You are trying to stuff too much change into a single patch.
+CC: Bryan Wu <cooloney@kernel.org>
+Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Such a step gets most of your driver modifications into the kernel with 
-the least headache and controversy, while adding the quite-useful 
-ability to have a driver load an external firmware instead of the 
-embedded one.
+Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
+===================================================================
+--- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-16 00:31:57.000000000 +0100
++++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-16 00:32:17.000000000 +0100
+@@ -47,18 +47,6 @@
+ #define CARDNAME	"dm9000"
+ #define DRV_VERSION	"1.31"
+ 
+-#ifdef CONFIG_BLACKFIN
+-#define readsb	insb
+-#define readsw	insw
+-#define readsl	insl
+-#define writesb	outsb
+-#define writesw	outsw
+-#define writesl	outsl
+-#define DEFAULT_TRIGGER IRQF_TRIGGER_HIGH
+-#else
+-#define DEFAULT_TRIGGER (0)
+-#endif
+-
+ /*
+  * Transmit timeout, default 5 seconds.
+  */
+@@ -1012,10 +1000,8 @@ dm9000_open(struct net_device *dev)
+ 	/* If there is no IRQ type specified, default to something that
+ 	 * may work, and tell the user that this is a problem */
+ 
+-	if (irqflags == IRQF_TRIGGER_NONE) {
++	if (irqflags == IRQF_TRIGGER_NONE)
+ 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
+-		irqflags = DEFAULT_TRIGGER;
+-	}
+ 	
+ 	irqflags |= IRQF_SHARED;
+ 
 
-request_firmware() infrastructure addition is clearly a separate and 
-distinct change from moving/removing an embedded firmware.
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
 
-	Jeff
-
-
-
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+  'a smiley only costs 4 bytes'
