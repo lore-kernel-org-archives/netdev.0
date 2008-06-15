@@ -1,83 +1,61 @@
-From: Sage Weil <sage@newdream.net>
-Subject: Re: [2/3] POHMELFS: Documentation.
-Date: Sun, 15 Jun 2008 09:41:44 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0806150918460.3341@cobra.newdream.net>
-References: <20080613163700.GA25860@2ka.mipt.ru> <20080613164110.GB26166@2ka.mipt.ru>
- <20080614021547.GC32232@shareable.org> <20080614065616.GA32585@2ka.mipt.ru>
- <Pine.LNX.4.64.0806142102550.3341@cobra.newdream.net> <20080615055722.GA2643@2ka.mipt.ru>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] firmware: convert e100 driver to
+	request_firmware()
+Date: Sun, 15 Jun 2008 13:50:47 -0400
+Message-ID: <48555677.7040209@garzik.org>
+References: <1213522966.26255.433.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jamie Lokier <jamie@shareable.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cobra.newdream.net ([66.33.216.30]:56943 "EHLO
-	cobra.newdream.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758396AbYFOQlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 12:41:45 -0400
-In-Reply-To: <20080615055722.GA2643@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Jaswinder Singh <jaswinderlinux@gmail.com>
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1213522966.26255.433.camel@pmac.infradead.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sun, 15 Jun 2008, Evgeniy Polyakov wrote:
-> Yes, not only writepage, but any request - if it sends sequest and then
-> receives reply (i.e. doing send/recv sequence without ability to do
-> something else in between or allow other users to do sends or receives
-> into the same socket), then it is synchronous. If it only sends, and
-> someone else receives, it is possible to send multiple requests from
-> different users who do reads or writes or lookups or whatever and
-> asynchronously in different thread receive replies not in particular
-> order, so this approach I call asynchronous.
-
-Oh, so you just mean that the caller doesn't, say, hold a mutex for the 
-socket for the duration of the send _and_ recv?  I'm kind of shocked that 
-anyone does that, although I suppose in some cases the protocol 
-effectively demands it.
-
-> Yes, POHMELFS does writing that way.
-
-Nice.  I will definitely be taking a look at that.
-
-> Not exactly. Transaction in a nutshell is a wrapper on top of command
-> (or multiple commands if needed like in writing), which contains all
-> information needed to perform appropriate action. When user calls read()
-> or 'ls' or write() or whatever, POHMELFS creates transaction for that
-> operation and tries to perform it (if operation is not cached, in that
-> case nothing actually happens). When transaction is submitted, it
-> becomes part of the failover state machine which will check if data has
-> to be read from different server or written to new one or dropped.
-> original caller may not even know from which server its data will be
-> received. If request sending failed in the middle, the whole transaction
-> will be redirected to new one. It is also possible to redo transaction
-> against different server, if server sent us error (like I'm busy), but
-> this functionality was dropped in previous release iirc, this can be
-> resurrected though. Having generic transaction tree callers do not
-> bother about how to store theirs requests, how to wait for results and
-> how to complete them - transactions do it for them. It is not rocket
-> science, but extrmely effective and simple way to help rule out
-> asynchronous machinery.
-
-Got it.  Tracking pending requests in some generic way is definitely key 
-to making failure handling sane with multiple servers.
-
-> That was somewhat old approach, currently inode numbers and things like
-> open-by-inode or NFS style open-by-cookie are not used. I tried to
-> describe caching bits in docuementation I ent, although its a bit rough
-> and likely incomplete :) Feel free to ask if there are some white areas
-> there.
-
-So what happens if the user creates a new file, and then does a stat() to 
-expose i_ino.  Does that value change later?  It's not just 
-open-by-inode/cookie that make ino important.  
-
-It looks like the client/server protocol is primarily path-based. What 
-happens if you do something like
-
-hosta$ cd foo
-hosta$ touch foo.txt
-hostb$ mv foo bar
-hosta$ rm foo.txt
-
-Will hosta realize it really needs to do "unlink /bar/foo.txt"?
-
-sage
+RGF2aWQgV29vZGhvdXNlIHdyb3RlOgo+IEZyb206IEphc3dpbmRlciBTaW5naCA8amFzd2luZGVy
+bGludXhAZ21haWwuY29tPgo+IAo+IFRoYW5rcyB0byBEYXZpZCBXb29kaG91c2UgZm9yIGhlbHAu
+Cj4gCj4gU2lnbmVkLW9mZi1ieTogSmFzd2luZGVyIFNpbmdoIDxqYXN3aW5kZXJsaW51eEBnbWFp
+bC5jb20+Cj4gU2lnbmVkLW9mZi1ieTogRGF2aWQgV29vZGhvdXNlIDxkd213MkBpbmZyYWRlYWQu
+b3JnPgo+IC0tLQo+IFdlIGhhdmUgYXNzdW1lZCB0aGF0IGluIHRoZSBuby3CtWNvZGUgY2FzZSwg
+dGhlcmUncyBubyBhY3R1YWwgX3JlYXNvbl8KPiBmb3IgdGhlIGNiX25vcCBjb21tYW5kIHdoaWNo
+IGUxMDBfc2V0dXBfdWNvZGUoKSB3YXMgc2VuZGluZzsgaXQncyBqdXN0Cj4gdGhhdCB0aGVyZSB3
+YXMgbm8gd2F5IGZvciBpdCB0byBzaW1wbHkgcmVmcmFpbiBmcm9tIHNlbmRpbmcgYSBjb21tYW5k
+LAo+IHNpbmNlIGl0IHJldHVybnMgdm9pZC4KPiAKPiBBYnVzaW5nIHRoZSBza2IgcGFyYW1ldGVy
+IGZvciBlMTAwX2V4ZWNfY2IoKSBpc24ndCBtYXNzaXZlbHkgcHJldHR5LCBidXQKPiBpdCBzaG91
+bGQgd29yay4gV2UgY291bGQgYWx3YXlzIGFkZCBhIHN0cnVjdCBmaXJtd2FyZSAqIGludG8gJ3N0
+cnVjdAo+IG5pYycgaWYgcGVvcGxlIHJlYWxseSBvYmplY3QuCj4gCj4gQW5kIGZpbmFsbHksIHdl
+J3ZlIGFzc3VtZWQgdGhhdCBhYm9ydGluZyBpcyB0aGUgY29ycmVjdCB0aGluZyB0byBkbyB3aGVu
+Cj4gdGhlIMK1Y29kZSBjYW4ndCBiZSBsb2FkZWQuIFNob3VsZCB3ZSBpbnN0ZWFkIGp1c3QgY29t
+cGxhaW4gYW5kIG1vdmUgb24/IAo+IAo+ICBkcml2ZXJzL25ldC9LY29uZmlnICAgICAgICAgICAg
+ICAgIHwgICAgOCArCj4gIGRyaXZlcnMvbmV0L2UxMDAuYyAgICAgICAgICAgICAgICAgfCAgMjgz
+ICsrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+ICBmaXJtd2FyZS9NYWtlZmls
+ZSAgICAgICAgICAgICAgICAgIHwgICAgMiArCj4gIGZpcm13YXJlL1dIRU5DRSAgICAgICAgICAg
+ICAgICAgICAgfCAgIDEyICsrCj4gIGZpcm13YXJlL2UxMDAvZDEwMW1fdWNvZGUuYmluLmloZXgg
+fCAgIDM4ICsrKysrCj4gIGZpcm13YXJlL2UxMDAvZDEwMXNfdWNvZGUuYmluLmloZXggfCAgIDM4
+ICsrKysrCj4gIGZpcm13YXJlL2UxMDAvZDEwMmVfdWNvZGUuYmluLmloZXggfCAgIDM4ICsrKysr
+Cj4gIDcgZmlsZXMgY2hhbmdlZCwgMjIyIGluc2VydGlvbnMoKyksIDE5NyBkZWxldGlvbnMoLSkK
+PiAgY3JlYXRlIG1vZGUgMTAwNjQ0IGZpcm13YXJlL2UxMDAvZDEwMW1fdWNvZGUuYmluLmloZXgK
+PiAgY3JlYXRlIG1vZGUgMTAwNjQ0IGZpcm13YXJlL2UxMDAvZDEwMXNfdWNvZGUuYmluLmloZXgK
+PiAgY3JlYXRlIG1vZGUgMTAwNjQ0IGZpcm13YXJlL2UxMDAvZDEwMmVfdWNvZGUuYmluLmloZXgK
+Ck5BSyAtIGZpcm13YXJlIHNob3VsZCBub3QgYmUgc3RvcmVkIGluIGEgc2VwYXJhdGUgZGlyZWN0
+b3J5IGZyb20gdGhlIApkcml2ZXIgdG8gd2hpY2ggaXQgaXMgaW50aW1hdGVseSB0aWVkLgoKCgot
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tCkNoZWNrIG91dCB0aGUgbmV3IFNvdXJjZUZvcmdlLm5ldCBNYXJrZXRw
+bGFjZS4KSXQncyB0aGUgYmVzdCBwbGFjZSB0byBidXkgb3Igc2VsbCBzZXJ2aWNlcyBmb3IKanVz
+dCBhYm91dCBhbnl0aGluZyBPcGVuIFNvdXJjZS4KaHR0cDovL3NvdXJjZWZvcmdlLm5ldC9zZXJ2
+aWNlcy9idXkvaW5kZXgucGhwCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3Vy
+Y2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8v
+ZTEwMDAtZGV2ZWwK
