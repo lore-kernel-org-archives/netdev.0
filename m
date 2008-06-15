@@ -1,52 +1,21 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: dm9000: Remove the 2 resources probe scheme.
-Date: Sun, 15 Jun 2008 22:49:04 +0100
-Message-ID: <20080615214904.GR31817@trinity.fluff.org>
-References: <200806131458.58410.laurentp@cse-semaphore.com> <386072610806130729k77d1801lb615ffafb3d0117f@mail.gmail.com>
+From: tapoch@raprivet.ru
+Subject: =?windows-1251?B?xujr/Lgg4iDx7vfo?=
+Date: Mon, 16 Jun 2008 01:46:58 +0400
+Message-ID: <000501c8cf31-5694d890-37984bca@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Laurent Pinchart <laurentp@cse-semaphore.com>,
-	netdev@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>
-To: Bryan Wu <cooloney@kernel.org>
+Content-Type: text/plain; charset=windows-1251
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: nesterov@ms.panasonic.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from trinity.fluff.org ([89.145.97.151]:59613 "EHLO
-	trinity.fluff.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752505AbYFOVtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 17:49:12 -0400
-Content-Disposition: inline
-In-Reply-To: <386072610806130729k77d1801lb615ffafb3d0117f@mail.gmail.com>
+Received: from smtp1.maxis.net.my ([202.75.130.122]:2996 "EHLO
+	sbsmtpd01.maxisnet.my" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752948AbYFOVwR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 17:52:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 13, 2008 at 10:29:45PM +0800, Bryan Wu wrote:
-> On Fri, Jun 13, 2008 at 8:58 PM, Laurent Pinchart
-> <laurentp@cse-semaphore.com> wrote:
-> > The dm9000 driver accepts either 2 or 3 resources to describe the platform
-> > devices. The 2 resources case abuses the ioresource mechanism by passing
-> > ioremap()ed memory through the platform device resources. This patch removes
-> > that case and converts boards that were using it to the 3 resources scheme.
-> >
-> > Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-> > ---
-> >  arch/blackfin/mach-bf527/boards/ezkit.c         |    7 ++-
-> >  arch/blackfin/mach-bf533/boards/H8606.c         |    7 ++-
-> >  arch/blackfin/mach-bf537/boards/generic_board.c |    7 ++-
-> >  arch/blackfin/mach-bf537/boards/stamp.c         |    7 ++-
-> 
-> IMO, this patch can be split into two parts, one for Blackfin and the
-> other for dm9000 driver.
-
-I think I agree with that, although I would also like to make sure the
-blackfin part of this is tested. I am also trying to get rid of the
-defines for blackfin specific compile, as they shouldn't be in the
-driver!
-
-I've queued the dm9000 specific bits into my own little dm9000 tree
-for the next kernel release.
-
--- 
-Ben
-
-Q:      What's a light-year?
-A:      One-third less calories than a regular year.
+=CF=F0=E5=E4=EB=E0=E3=E0=E5=F2=F1=FF =EA =EF=F0=EE=E4=E0=E6=E5 =EA=E2=E0=
+=F0=F2=E8=F0=E0 =E2 =D1=EE=F7=E8
+=CF=EE=E4=F0=EE=E1=ED=EE=F1=F2=E8 =F1=EC. =ED=E0 =F1=E0=E9=F2=E5 http:/=
+/2-ec.net/rek1.html
 
