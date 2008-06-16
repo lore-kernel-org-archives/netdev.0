@@ -1,53 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/3] netdevice: order of synchronization of IFF_PROMISC
- and IFF_ALLMULTI
-Date: Mon, 16 Jun 2008 11:27:27 +0200
-Message-ID: <485631FF.7040509@trash.net>
-References: <48562F9A.5030509@cn.fujitsu.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-next 0/8] netns: optimize tcp and udp hashtables wrt net
+ namespaces
+Date: Mon, 16 Jun 2008 13:35:32 +0400
+Message-ID: <485633E4.10900@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58001 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759366AbYFPJ1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 05:27:43 -0400
-In-Reply-To: <48562F9A.5030509@cn.fujitsu.com>
+Received: from sacred.ru ([62.205.161.221]:35571 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751977AbYFPJh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 05:37:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-> IFF_PROMISC should be set before IFF_ALLMULTI.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-> ---
->  net/8021q/vlan_dev.c |   25 +++++++++++++++++++------
->  1 files changed, 19 insertions(+), 6 deletions(-)
-> 
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index 5d055c2..14742e3 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -547,10 +547,14 @@ static int vlan_dev_open(struct net_device *dev)
->  	}
->  	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
->  
-> -	if (dev->flags & IFF_ALLMULTI)
-> -		dev_set_allmulti(real_dev, 1);
-> +	/* NOTE: order of synchronization of IFF_PROMISC and IFF_ALLMULTI
-> +	   is important. Some (broken) drivers set IFF_PROMISC, when
-> +	   IFF_ALLMULTI is requested not asking us and not reporting.
-> +	 */
->  	if (dev->flags & IFF_PROMISC)
->  		dev_set_promiscuity(real_dev, 1);
-> +	if (dev->flags & IFF_ALLMULTI)
-> +		dev_set_allmulti(real_dev, 1);
+Currently hash functions to store udp sockets, bind buckets,
+listening and established tcp sockets take only ports and/or
+addresses into account.
 
+The result is nasty. Consider processes in different namespaces
+communicate to each other or the outer world with same ports 
+or addresses (e.g. dns server run in each namespace, apache server
+listening a 80 port in each ns or communications via lo). All 
+these sockets will all be linked in a single hash chain, thus 
+producing too long chains.
 
-What exactly is the problem here? The VLAN code is obviously not
-one of the broken drivers, so why should it care what other drivers
-do?
+To avoid this situation the proposal is to add some "salt" to
+hash functions taking the namespace into account.
+
+I made this "salt" disappear for CONFIG_NET_NS=n case.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
