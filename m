@@ -1,20 +1,18 @@
 From: "Denys Fedoryshchenko" <denys@visp.net.lb>
 Subject: Re: packetloss, on e1000e worse than r8169?
-Date: Tue, 17 Jun 2008 00:41:35 +0300
-Message-ID: <20080616214135.M36931@visp.net.lb>
+Date: Tue, 17 Jun 2008 00:41:27 +0300
+Message-ID: <20080616214127.M90273@visp.net.lb>
 References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com> <20080616202210.M84100@visp.net.lb> <4856CEDC.6010706@intel.com> <20080616204411.M52834@visp.net.lb> <4856D1D6.7040207@intel.com> <20080616211213.M76390@visp.net.lb> <4856DB1D.80503@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=koi8-r
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:47367 "EHLO
+Received: from usermail.globalproof.net ([194.146.153.18]:49536 "EHLO
 	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755844AbYFPVly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 17:41:54 -0400
-Received: from visp.net.lb (localhost [127.0.0.1])
-	by usermail.globalproof.net (Postfix) with ESMTP id 650AEBC1B2
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 00:41:35 +0300 (EEST)
+	with ESMTP id S1754513AbYFPVlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 17:41:49 -0400
 In-Reply-To: <4856DB1D.80503@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
