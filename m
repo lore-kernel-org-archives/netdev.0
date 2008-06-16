@@ -1,60 +1,68 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: packetloss, on e1000e worse than r8169?
-Date: Tue, 17 Jun 2008 00:13:45 +0300
-Message-ID: <20080616211213.M76390@visp.net.lb>
-References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com> <20080616202210.M84100@visp.net.lb> <4856CEDC.6010706@intel.com> <20080616204411.M52834@visp.net.lb> <4856D1D6.7040207@intel.com>
+From: =?ISO-8859-1?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
+Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
+ MTU change
+Date: Mon, 16 Jun 2008 23:17:25 +0200
+Message-ID: <4856D865.9030708@e-teleport.net>
+References: <20080531184615.350bac00@infradead.org> <20080603134019.df2f51d4.akpm@linux-foundation.org> <20080603215155.GA9712@electric-eye.fr.zoreil.com> <20080604215909.GA17446@electric-eye.fr.zoreil.com> <20080614212341.GA12976@electric-eye.fr.zoreil.com> <4856A124.1030701@e-teleport.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:49408 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752880AbYFPVOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 17:14:05 -0400
-In-Reply-To: <4856D1D6.7040207@intel.com>
+Received: from webmail.e-teleport.net ([213.190.83.68]:44173 "EHLO
+	mail.imsnet.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755971AbYFPVRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 17:17:25 -0400
+In-Reply-To: <4856A124.1030701@e-teleport.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Are you sure nf_conntrack or ip route cache is not killing you ?
+S=E9guier R=E9gis a =E9crit :
+> Francois Romieu a =E9crit :
+>> Francois Romieu <romieu@fr.zoreil.com> :
+>> [...context available from http://lkml.org/lkml/2008/5/31/251 ...]
+>>
+>> R=E9gis, I need your help.
+>>
+>> Can you give the patchkit below a try and check if the change of mtu
+>> works correctly ?
+>>
+>> http://userweb.kernel.org/~romieu/via-velocity/2.6.26-rc6/
+>>
+>> or:
+>>
+>> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git=20
+>> velocity
+>>
+>>  =20
+> With the patchkit, the driver doesn't work anymore.
+> I think there is an error in TX, paquets don't arrive to other equipm=
+ent.
+> RX seem to work fine, I could see ingoming paquets.
 >
->Filling 512 or 1024 RX ring on Gigabit link can be very fast, especially 
->if ip route cache is full.
->
->rtstat -c10 -i1
+With this modifications of your patchkit (the 0001), TX works again.
 
-conntrack disabled, it is just enabled for second on load and then unloaded.
+--- via-velocity.c      2008-06-17 00:43:03.000000000 +0200
++++ drivers/net/via-velocity.c  2008-06-17 00:43:56.000000000 +0200
+@@ -2048,9 +2048,12 @@ static int velocity_xmit(struct sk_buff
+        int pktlen =3D skb->len;
+        __le16 len =3D cpu_to_le16(pktlen);
 
-MegaRouter-KARAM ~ # rtstat -c10 -i1
-rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
- entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti|
-out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|out_hlis|
-        |        |     tot|      mc|     ute|        |  an_dst|  an_src|     
-  |    _tot|     _mc|        |      ed|    miss| verflow| _search|t_search|
-   63448|229209146|22225578|   13754|      12|    2822|       0|     104|  
-54647|   27606|     570|21782075|21776859|      74|       0|215222374|   61294|
-   66085|  141462|    5268|       8|       0|       4|       0|       0|     
- 4|       2|       0|    5274|    5274|       0|       0|  254424|      10|
-   59947|  132660|   20570|       4|       0|       4|       0|       0|     
- 8|      14|       0|   20584|   20584|       0|       0|  185738|      24|
-   56995|  132416|   16918|      12|       0|       2|       0|       0|     
- 6|       4|       0|   16932|   16932|       0|       0|   68378|       8|
-   56422|  137058|   12336|       8|       0|       0|       0|       0|     
- 8|       2|       0|   12344|   12344|       0|       0|   84022|       4|
-   56819|  140526|    9896|      10|       0|       0|       0|       0|     
- 6|       0|       0|    9898|    9896|       0|       0|   99138|       4|
-   57580|  136936|    8370|      10|       0|       2|       0|       0|     
- 8|       6|       2|    8378|    8378|       0|       0|  110834|      22|
-   51583|  120138|   26828|      20|       0|       0|       0|       0|     
- 4|       8|       0|   26848|   26848|       0|       0|   99292|      24|
-   49354|  128076|   21606|      14|       0|       2|       0|       0|     
- 0|      10|       0|   21626|   21626|       0|       0|   60546|      12|
+-       if (skb_padto(skb, ETH_ZLEN))
+-               goto out;
+-
++       if (pktlen < ETH_ZLEN)
++       {
++               if (skb_padto(skb, ETH_ZLEN))
++                       goto out;
++               len =3D cpu_to_le16(ETH_ZLEN);
++       }
+ #ifdef VELOCITY_ZERO_COPY_SUPPORT
+        if (skb_shinfo(skb)->nr_frags > 6 && __skb_linearize(skb)) {
+                kfree_skb(skb);
 
-
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+Now, I'll try for mtu change
+--=20
+R=E9gis
