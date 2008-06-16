@@ -1,133 +1,117 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: NAPI, rx_no_buffer_count, e1000, r8169 and other actors
-Date: Sun, 15 Jun 2008 19:59:18 -0700
-Message-ID: <20080615195918.210fe19f@extreme>
-References: <20080615200013.M67401@visp.net.lb>
-	<20080615234620.GC2835@solarflare.com>
+From: Sage Weil <sage@newdream.net>
+Subject: Re: [2/3] POHMELFS: Documentation.
+Date: Sun, 15 Jun 2008 20:17:46 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0806151406330.3341@cobra.newdream.net>
+References: <20080613163700.GA25860@2ka.mipt.ru> <20080613164110.GB26166@2ka.mipt.ru>
+ <20080614021547.GC32232@shareable.org> <20080614065616.GA32585@2ka.mipt.ru>
+ <Pine.LNX.4.64.0806142102550.3341@cobra.newdream.net> <20080615055722.GA2643@2ka.mipt.ru>
+ <Pine.LNX.4.64.0806150918460.3341@cobra.newdream.net> <20080615175039.GA21838@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:35279 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750851AbYFPC7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Jun 2008 22:59:20 -0400
-In-Reply-To: <20080615234620.GC2835@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jamie Lokier <jamie@shareable.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20080615175039.GA21838@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Jun 2008 00:46:22 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Sun, 15 Jun 2008, Evgeniy Polyakov wrote:
+> On Sun, Jun 15, 2008 at 09:41:44AM -0700, Sage Weil (sage@newdream.net) wrote:
+> > Oh, so you just mean that the caller doesn't, say, hold a mutex for the 
+> > socket for the duration of the send _and_ recv?  I'm kind of shocked that 
+> > anyone does that, although I suppose in some cases the protocol 
+> > effectively demands it.
+> 
+> First, socket has own internal lock, which protects against simultaneous
+> access to its structures, but POHMELFS has own mutex, which guards
+> network operations for given network state, so if server disconnected,
+> socket can be released and zeroed if needed, so that subsequent access
+> could detect it and made appropriate decision like try to reconnect.
 
-> Denys Fedoryshchenko wrote:
-> > Hi
+Right...
+
+> I really do not understand your surprise :)
+
+Well, I must still be misunderstanding you :(.  It sounded like you were 
+saying other network filesystems take the socket exclusively for the 
+duration of an entire operation (i.e., only a single RPC call oustanding 
+with the server at a time).  And I'm pretty sure that isn't the case...
+
+Which means I'm still confused as to how POHMELFS's transactions are 
+fundamentally different here from, say, NFS's use of RPC.  In both cases, 
+multiple requests can be in flight, and the server is free to reply to 
+requests in any order.  And in the case of a timeout, RPC requests are 
+resent (to the same server.. let's ignore failover for the moment).  Am I 
+missing something?  Or giving NFS too much credit here?
+
+
+> > So what happens if the user creates a new file, and then does a stat() to 
+> > expose i_ino.  Does that value change later?  It's not just 
+> > open-by-inode/cookie that make ino important.  
+> 
+> Local inode number is returned. Inode number does not change during
+> lifetime of the inode, so while it is alive always the same number will
+> be returned.
+
+I see.  And if the inode drops out of the client cache, and is later 
+reopened, the st_ino seen by an application may change?  st_ino isn't used 
+for much, but I wonder if that would impact a large cp or rsync's ability 
+to preserve hard links.
+
+
+> > It looks like the client/server protocol is primarily path-based. What 
+> > happens if you do something like
 > > 
-> > Since i am using PC routers for my network, and i reach significant numbers
-> > (for me significant) i start noticing minor problems. So all this talk about
-> > networking performance in my case.
+> > hosta$ cd foo
+> > hosta$ touch foo.txt
+> > hostb$ mv foo bar
+> > hosta$ rm foo.txt
 > > 
-> > For example.
-> > Sun server, AMD based (two CPU -  AMD Opteron(tm) Processor 248).
-> > e1000 connected over PCI-X ([    4.919249] e1000: 0000:01:01.0: e1000_probe:
-> > (PCI-X:100MHz:64-bit) 00:14:4f:20:89:f4)
-> > 
-> > All traffic processed over eth0, 5 VLAN, 1 second average around 110-200Mbps
+> > Will hosta realize it really needs to do "unlink /bar/foo.txt"?
 > 
-> Currently TX checksum offload does not work for VLAN devices, which may
-> be a serious performance hit if there is a lot of traffic routed between
-> VLANs.  This should change in 2.6.27 for some drivers, which I think will
-> include e1000.
-> 
-> > of traffic. Host running also conntrack (max 1000000 entries, when packetloss
-> > happen - around 256k entries). Around 1300 routes (FIB_TRIE) running. What is
-> > worrying me, that ok, i win time by increasing rx descriptors from 256 to
-> > 4096, but how much time i win? if it "cracks" on 100 Mbps RX, it means by
-> > interpolating descriptors increase from 256 to 4096 (4 times), i cannot
-> > process more than 400Mbps RX?
+> No, since it got a reference to object in local cache. But it will fail
+> to do something interesting with it, since it does not really exist on
+> server anymore.
+> When 'hosta' will reread higher directory (it will when needed, since
+> server will  send it cache coherency message, but thanks to your example,
+> rename really does not send it, only remove :), so I will update server),
+> it will detect that directory changed its name and later will use it.
+> After reread system actually can not know if directory was renamed or it
+> is completely new one with the same files.
+>
+> You pointed to very interesting behaviour of the path based approach,
+> which bothers me quite for a while:
+> since cache coherency messages have own round-trip time, there is always
+> a window when one client does not know that another one updated object
+> or removed it and created new one with the same name.
 
-You are CPU limited because of the overhead of firewalling. When this happens
-packets get backlogged.
+Not if the server waits for the cache invalidation to be acked before 
+applying the update.  That is, treat the client's cached copy as a lease 
+or read lock.  I believe this is how NFSv4 delegations behave, and it's 
+how Ceph metadata leases (dentries, inode contents) and file access 
+capabilities (which control sync vs async file access) behave.  I'm not 
+all that familiar with samba, but my guess is that its leases are broken 
+synchronously as well.
 
-> Increasing the RX descriptor ring size should give the driver and stack
-> more time to catch up after handling some packets that take unusually
-> long.  It may also allow you to increase interrupt moderation, which
-> will reduce the per-packet cost.
+> It is trivially possible to extend path cache with storing remote ids,
+> so that attempt to access old object would not harm new one with the
+> same name, but I want to think about it some more.
 
-No if the receive side is CPU limited, you just end up eating more memory.
-A bigger queue may actually make performance worse (less cache hits).
+That's half of it... ideally, though, the client would have a reference to 
+the real object as well, so that the original foo.txt would be removed.  
+I.e. not only avoid doing the wrong thing, but also do the right thing.
 
-> > The CPU is not so busy after all... maybe there is a way to change some
-> > parameter to force NAPI poll interface more often?
-> 
-> NAPI polling is not time-based, except indirectly though interrupt
-> moderation.
+I have yet to come up with a satisfying solution there.  Doing a d_drop on 
+dentry lease revocation gets me most of the way there (Ceph's path 
+generation could stop when it hits an unhashed dentry and make the request 
+path relative to an inode), but the problem I'm coming up against is that 
+there is no explicit communication of the CWD between the VFS and fs 
+(well, that I know of), so the client doesn't know when it needs a real 
+reference to the directory (and I'm not especially keen on taking 
+references for _all_ cached directory inodes).  And I'm not really sure 
+how .. is supposed to behave in that context.
 
-How are you measuring CPU? You need to do something like measure the available
-cycles left for applications. Don't believe top or other measures that may
-not reflect I/O overhead and bus usage. 
+Anyway...
 
-> > I tried nice, changing realtime priority to FIFO, changing kernel to
-> > preemptible... no luck, except increasing descriptors.
-> > 
-> > Router-Dora ~ # mpstat -P ALL 1
-> > Linux 2.6.26-rc6-git2-build-0029 (Router-Dora)  06/15/08
-> > 
-> > 22:51:02     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
-> > %idle    intr/s
-> > 22:51:03     all    1.00    0.00    0.00    0.00    2.50   29.00    0.00  
-> > 67.50  12927.00
-> > 22:51:03       0    2.00    0.00    0.00    0.00    4.00   59.00    0.00  
-> > 35.00  11935.00
-> > 22:51:03       1    0.00    0.00    0.00    0.00    0.00    0.00    0.00 
-> > 100.00    993.00
-> > 22:51:03       2    0.00    0.00    0.00    0.00    0.00    0.00    0.00   
-> > 0.00      0.00
->  
-> You might do better with a NIC that supports MSI-X.  This allows the use of
-> two RX queues with their own IRQs, each handled by a different processor.
-> As it is, one CPU is completely idle.  However, I don't know how well the
-> other work of routing scales to multiple processors.
-
-
-Routing and firewalling should scale well. The deadlock is probably going
-to be some hot lock like the transmit lock.
-
-> [...]
-> > I have another host running, Core 2 Duo, e1000e+3 x e100, also conntrack, same
-> > kernel configuration and similar amount of traffic, higher load (ifb + plenty
-> > of shapers running) - almost no errors on default settings.
-> > Linux 2.6.26-rc6-git2-build-0029 (Kup)  06/16/08
-> > 
-> > 07:00:27     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
-> > %idle    intr/s
-> > 07:00:28     all    0.00    0.00    0.50    0.00    4.00   31.50    0.00  
-> > 64.00  32835.00
-> > 07:00:29     all    0.00    0.00    0.50    0.00    2.50   29.00    0.00  
-> > 68.00  33164.36
-> > 
-> > Third host r8169 (PCI! This is important, seems i am running out of PCI
-> > capacity),
-> 
-> Gigabit Ethernet on plain old PCI is not ideal.  If each card has a
-> separate route to the south bridge then you might be able to get a fair
-> fraction of a gigabit between them though.
-> 
-> > 400Mbit/s rx+tx summary load, e1000e interface also - around
-> > 200Mbps load. What is worrying me - interrupts rate, it seems generated by
-> > realtek card... is there any way to drop it down? 
-> [...]
-> 
-> ethtool -C lets you change interrupt moderation.  I don't know anything
-> about this driver or NIC's capabilities but it does seem to be in the
-> cheapest GbE cards so I wouldn't expect outstanding performance.
-> 
-> Ben.
-> 
-
-The bigger issues is available memory bandwidth. Different processors
-and busses have different overheads. PCI is much worse than PCI-express,
-and CPU's with integrated memory controllers do much better than CPU's
-with separate memory controller (like Core 2).
-
+sage
