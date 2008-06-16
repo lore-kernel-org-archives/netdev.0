@@ -1,24 +1,24 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Auke Kok <auke@linux.intel.com>
 Subject: Re: packetloss, on e1000e worse than r8169?
-Date: Mon, 16 Jun 2008 21:48:55 +0200
-Message-ID: <4856C3A7.9070703@cosmosbay.com>
+Date: Mon, 16 Jun 2008 13:15:41 -0700
+Message-ID: <4856C9ED.3070505@linux.intel.com>
 References: <20080616193501.M64730@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux.nics@intel.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	e1000-list <e1000-devel@lists.sourceforge.net>
 To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.111]:15677 "EHLO smtp2e.orange.fr"
+Received: from mga09.intel.com ([134.134.136.24]:55217 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752532AbYFPTtW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 15:49:22 -0400
+	id S1752054AbYFPUR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 16:17:27 -0400
 In-Reply-To: <20080616193501.M64730@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko a e'crit :
+Denys Fedoryshchenko wrote:
 > Hi again
 > 
 > I moved from PCI Realtek 8169 to onboard PCI-Express e1000e, and situation
@@ -62,120 +62,9 @@ Denys Fedoryshchenko a e'crit :
 > 89.95  19543.00
 > 
 > (system almost idle)
-> 
-> MegaRouter-KARAM /sys # ethtool -S eth1
-> NIC statistics:
->      rx_packets: 109977509
->      tx_packets: 109887692
->      rx_bytes: 57656749138
->      tx_bytes: 57536071746
->      rx_broadcast: 6497
->      tx_broadcast: 92
->      rx_multicast: 48995
->      tx_multicast: 1960
->      rx_errors: 0
->      tx_errors: 0
->      tx_dropped: 0
->      multicast: 48995
->      collisions: 0
->      rx_length_errors: 0
->      rx_over_errors: 0
->      rx_crc_errors: 0
->      rx_frame_errors: 0
->      rx_no_buffer_count: 1796
->      rx_missed_errors: 2182679
->      tx_aborted_errors: 0
->      tx_carrier_errors: 0
->      tx_fifo_errors: 0
->      tx_heartbeat_errors: 0
->      tx_window_errors: 0
->      tx_abort_late_coll: 0
->      tx_deferred_ok: 55617
->      tx_single_coll_ok: 0
->      tx_multi_coll_ok: 0
->      tx_timeout_count: 0
->      tx_restart_queue: 1626
->      rx_long_length_errors: 0
->      rx_short_length_errors: 0
->      rx_align_errors: 0
->      tx_tcp_seg_good: 0
->      tx_tcp_seg_failed: 0
->      rx_flow_control_xon: 55461
->      rx_flow_control_xoff: 57329
->      tx_flow_control_xon: 39114
->      tx_flow_control_xoff: 48341
->      rx_long_byte_count: 57656749138
->      rx_csum_offload_good: 104097306
->      rx_csum_offload_errors: 2209
->      rx_header_split: 0
->      alloc_rx_buff_failed: 0
->      tx_smbus: 22
->      rx_smbus: 2201
->      dropped_smbus: 0
->      rx_dma_failed: 0
->      tx_dma_failed: 0
-> MegaRouter-KARAM /sys # ethtool -S eth1
-> NIC statistics:
->      rx_packets: 110154571
->      tx_packets: 110064459
->      rx_bytes: 57753358981
->      tx_bytes: 57632419451
->      rx_broadcast: 6501
->      tx_broadcast: 92
->      rx_multicast: 49155
->      tx_multicast: 1960
->      rx_errors: 0
->      tx_errors: 0
->      tx_dropped: 0
->      multicast: 49155
->      collisions: 0
->      rx_length_errors: 0
->      rx_over_errors: 0
->      rx_crc_errors: 0
->      rx_frame_errors: 0
->      rx_no_buffer_count: 1796
->      rx_missed_errors: 2187703
->      tx_aborted_errors: 0
->      tx_carrier_errors: 0
->      tx_fifo_errors: 0
->      tx_heartbeat_errors: 0
->      tx_window_errors: 0
->      tx_abort_late_coll: 0
->      tx_deferred_ok: 55772
->      tx_single_coll_ok: 0
->      tx_multi_coll_ok: 0
->      tx_timeout_count: 0
->      tx_restart_queue: 1628
->      rx_long_length_errors: 0
->      rx_short_length_errors: 0
->      rx_align_errors: 0
->      tx_tcp_seg_good: 0
->      tx_tcp_seg_failed: 0
->      rx_flow_control_xon: 55615
->      rx_flow_control_xoff: 57488
->      tx_flow_control_xon: 39209
->      tx_flow_control_xoff: 48448
->      rx_long_byte_count: 57753358981
->      rx_csum_offload_good: 104264656
->      rx_csum_offload_errors: 2210
->      rx_header_split: 0
->      alloc_rx_buff_failed: 0
->      tx_smbus: 23
->      rx_smbus: 2207
->      dropped_smbus: 0
->      rx_dma_failed: 0
->      tx_dma_failed: 0
-> 
-> 
-> 
 
-What RX & TX rings look like on e1000e ?
+but has 20000 interrupts per second! that's hardly idle by any account :)
 
-ethtool -g eth1
-
-Also, please post "cat /proc/interrupts"
-
-
-
-
+what options did use to load e1000e? can you show the relevant dmesg parts? post
+contents of /proc/interrupts?
 
