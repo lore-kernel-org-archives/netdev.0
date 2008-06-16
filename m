@@ -1,65 +1,84 @@
-From: Jesper Krogh <jesper@krogh.cc>
-Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
-Date: Mon, 16 Jun 2008 20:21:48 +0200
-Message-ID: <4856AF3C.9010904@krogh.cc>
-References: <483CB301.40007@sun.com> <20080528.223415.193732490.davem@davemloft.net> <483F46E5.9030707@sun.com> <20080530.000009.02995266.davem@davemloft.net> <4856AC5E.1010206@sun.com>
+From: Josip Rodin <joy@entuzijast.net>
+Subject: Re: bnx2_poll panicking kernel
+Date: Mon, 16 Jun 2008 21:13:54 +0200
+Message-ID: <20080616191354.GA11760@orion.carnet.hr>
+References: <20080616140454.GD5350@solarflare.com> <1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, yhlu.kernel@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Matheos Worku <Matheos.Worku@Sun.COM>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	mirrors@debian.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:60048 "EHLO
-	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754611AbYFPSVt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2008 14:21:49 -0400
-In-Reply-To: <4856AC5E.1010206@sun.com>
+Received: from orion.CARNet.hr ([161.53.160.90]:60375 "EHLO orion.carnet.hr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752778AbYFPTOC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 15:14:02 -0400
+Content-Disposition: inline
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Matheos Worku wrote:
-> David Miller wrote:
-> 
->> From: Matheos Worku <Matheos.Worku@Sun.COM>
->> Date: Thu, 29 May 2008 17:14:29 -0700
->>
->>  
->>
->>> Actually what I am suggesting was a workaround for the lack of "TX 
->>> Ring Empty" interrupt by not relying on the TX interrupt at all.
->>>   
->>
->> Ahh I see.
->>
->> Some of the things I talked about in my presentation here in
->> Berlin at LinuxTAG yesterday can help mitigate the effects.
->> Most of it revolves around batching, and allowing the driver
->> to manage the backlog of packets directly when the TX queue
->> fills up.
->>
->> In such a case we could batch the TX queue refill, know how many more
->> TX packets we will queue up to the chip right now, and therefore know
->> that we can safely set periodic MARK bits and only need to force set
->> the MARK bit at the very end.
->>
->>  
->>
->>> As for the TX hang, I will try to reproduce the problem and look at
->>> the registers for the clue.
->>>   
-> Have been trying but not able to reproduce the timeout. I am using NFS 
-> V3 with TCP. Are you using UDP by any chance?
+On Mon, Jun 16, 2008 at 08:52:13AM -0700, Michael Chan wrote:
+> Josip, please provide more information such as driver version from
+> ethtool -i, lspci, which version did you first see the problem, and
+> whether the latest in 2.6.25 has the same problem.  Thanks.
 
-I wouldn't say it is easy either.. I have never got it before getting a
-few TB over the "wire". I've got proto=tcp in /proc/mounts for the
-mountpoints, so I'd assume that I use TCP.
+The version with the problem is 2.6.22.18. The machine is fairly new
+(HP DL360 G5), it only ever ran the .22 kernel. It was running this kernel
+just fine for 112 days prior to the first incident on 2008-06-03, and since
+then, the crash happened a total of 17 times. Our big rsync runs happen
+twice a day, so it's a pretty bad record.
 
-There is an Extreme Networks switch in the other end, I havent got
-hardware to actually test that with a different card, so I cannot rule
-the switch out either. .. but it would be strange.
+I can't verify that the crash was caused by the same thing every time
+because I don't have console logs, but the symptoms are always the same - a
+few minutes into the rsync run, it goes down, logging nothing in syslog.
 
+I'll be rebooting into 2.6.25.6 shortly, and then I'll have information
+relevant to that in about a day or two.
 
-Jesper
+% sudo ethtool -i eth0
+driver: bnx2
+version: 1.5.11
+firmware-version: 1.9.6
+bus-info: 0000:03:00.0
+% lspci
+00:00.0 Host bridge: Intel Corporation 5000P Chipset Memory Controller Hub (rev b1)
+00:02.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x4 Port 2 (rev b1)
+00:03.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x4 Port 3 (rev b1)
+00:04.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x8 Port 4-5 (rev b1)
+00:05.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x4 Port 5 (rev b1)
+00:06.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x4 Port 6 (rev b1)
+00:07.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x4 Port 7 (rev b1)
+00:10.0 Host bridge: Intel Corporation 5000 Series Chipset Error Reporting Registers (rev b1)
+00:10.1 Host bridge: Intel Corporation 5000 Series Chipset Error Reporting Registers (rev b1)
+00:10.2 Host bridge: Intel Corporation 5000 Series Chipset Error Reporting Registers (rev b1)
+00:11.0 Host bridge: Intel Corporation 5000 Series Chipset Reserved Registers (rev b1)
+00:13.0 Host bridge: Intel Corporation 5000 Series Chipset Reserved Registers (rev b1)
+00:15.0 Host bridge: Intel Corporation 5000 Series Chipset FBD Registers (rev b1)
+00:16.0 Host bridge: Intel Corporation 5000 Series Chipset FBD Registers (rev b1)
+00:1d.0 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset UHCI USB Controller #1 (rev 09)
+00:1d.1 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset UHCI USB Controller #2 (rev 09)
+00:1d.2 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset UHCI USB Controller #3 (rev 09)
+00:1d.3 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset UHCI USB Controller #4 (rev 09)
+00:1d.7 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset EHCI USB2 Controller (rev 09)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev d9)
+00:1f.0 ISA bridge: Intel Corporation 631xESB/632xESB/3100 Chipset LPC Interface Controller (rev 09)
+00:1f.1 IDE interface: Intel Corporation 631xESB/632xESB IDE Controller (rev 09)
+01:03.0 VGA compatible controller: ATI Technologies Inc ES1000 (rev 02)
+01:04.0 System peripheral: Compaq Computer Corporation Integrated Lights Out Controller (rev 03)
+01:04.2 System peripheral: Compaq Computer Corporation Integrated Lights Out  Processor (rev 03)
+01:04.4 USB Controller: Hewlett-Packard Company Unknown device 3300
+01:04.6 Serial bus controller [0c07]: Hewlett-Packard Company Unknown device 3302
+02:00.0 PCI bridge: Broadcom EPB PCI-Express to PCI-X Bridge (rev c3)
+03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+04:00.0 PCI bridge: Broadcom EPB PCI-Express to PCI-X Bridge (rev c3)
+05:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+06:00.0 RAID bus controller: Hewlett-Packard Company Hewlett-Packard Smart Array Controller (rev 01)
+09:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Upstream Port (rev 01)
+09:00.3 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express to PCI-X Bridge (rev 01)
+0a:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Downstream Port E1 (rev 01)
+0a:01.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Downstream Port E2 (rev 01)
+0a:02.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Downstream Port E3 (rev 01)
+
 -- 
-Jesper
+     2. That which causes joy or happiness.
