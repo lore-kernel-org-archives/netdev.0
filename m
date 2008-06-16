@@ -1,57 +1,43 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2_poll panicking kernel
-Date: Mon, 16 Jun 2008 08:52:13 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com>
-References: <20080616140454.GD5350@solarflare.com>
+From: jes@trained-monkey.org (Jes Sorensen)
+Subject: Re: [PATCH] firmware: convert acenic driver to request_firmware()
+Date: Mon, 16 Jun 2008 12:25:10 -0400
+Message-ID: <18518.37862.812419.353804@jaguar.mkp.net>
+References: <1213608300.26255.665.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, mirrors@debian.org
-To: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"Josip Rodin" <joy@entuzijast.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jaswinder@infradead.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1743 "EHLO mms1.broadcom.com"
+Received: from jaguar.mkp.net ([192.139.46.146]:55232 "EHLO jaguar.mkp.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752348AbYFPPwi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 11:52:38 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080616140454.GD5350@solarflare.com>
+	id S1753776AbYFPQZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 12:25:11 -0400
+In-Reply-To: <1213608300.26255.665.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
+>>>>> "David" == David Woodhouse <dwmw2@infradead.org> writes:
 
-> Josip Rodin wrote:
-> > Hi,
-> > 
-> > Has anyone seen the below bug before? I'm already upgrading 
-> in hope that it
-> > might be already fixed in a newer kernel, but anyway.
-> > 
-> > It started happening a few days ago, on a load of a few 
-> tens of MB/s (Debian
-> > rsync mirroring). It doesn't happen on every mirror pulse, 
-> so it's not
-> > exactly reproducible...
-> 
-> That might be a result of the bug fixed by this commit, which would be
-> triggered by heavy traffic:
-> 
-> commit 6f535763165331bb91277d7519b507fed22034e5
-> Author: David S. Miller <davem@sunset.davemloft.net>
-> Date:   Thu Oct 11 18:08:29 2007 -0700
-> 
->     [NET]: Fix NAPI completion handling in some drivers.
-> 
+David> Again with help from Jaswinder Singh.  Omitting the large part of
+David> the patch which actually moves the firmware around, since you'll
+David> need to pull from the git tree to get the preceding patches if
+David> you want to test it anyway.
 
-This commit fixed a bug that existed for a very short time after
-the patch to make the NAPI struct independent of the netdevice was
-committed.
+David> We store the firmware in little-endian form now, and thus use
+David> __raw_writel() to write it to the device, to avoid byteswapping
+David> by writel(). I've revamped that loop in ace_copy() a little bit
+David> so it could probably do with being tested.
 
-So I think it is unlikely that Josip's panic is caused by this.
+Mmmmm,
 
-Josip, please provide more information such as driver version from
-ethtool -i, lspci, which version did you first see the problem, and
-whether the latest in 2.6.25 has the same problem.  Thanks.
+I am not particular bothered as to whether or not to put the firmware to
+userspace or not, however has this patch been tested on big endian
+systems? Given that the card is big endian, how is this going to affect
+big endian systems?
 
+Honestly, I think it's a bad idea to start messing with the byte order
+of the data for something that happens once at boot time.
+
+Cheers,
+Jes
