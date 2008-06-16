@@ -1,42 +1,58 @@
-From: "Bryan Wu" <cooloney@kernel.org>
-Subject: Re: DM9000: Remove blackfin as special case.
-Date: Mon, 16 Jun 2008 11:28:54 +0800
-Message-ID: <386072610806152028j12f72dcbq30917415b7fca0a0@mail.gmail.com>
-References: <20080615233648.597885961@fluff.org.uk>
+From: "Gregory Haskins" <ghaskins@novell.com>
+Subject: Re: [PATCH] net/core/sock.c remove extra wakeup
+Date: Sun, 15 Jun 2008 21:48:12 -0600
+Message-ID: <4855AA3C.BA47.005A.0@novell.com>
+References: <483F990C0200005A00038001@sinclair.provo.novell.com>
+ <E1K6K60-00061s-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Ben Dooks" <ben-linux@fluff.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, "Patrick Mullaney" <PMullaney@novell.com>,
+	<netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.29]:8769 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750855AbYFPD24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 23:28:56 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so3007520ywe.1
-        for <netdev@vger.kernel.org>; Sun, 15 Jun 2008 20:28:55 -0700 (PDT)
-In-Reply-To: <20080615233648.597885961@fluff.org.uk>
+Received: from sinclair.provo.novell.com ([137.65.248.137]:10230 "EHLO
+	sinclair.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752170AbYFPDsD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2008 23:48:03 -0400
+In-Reply-To: <E1K6K60-00061s-00@gondolin.me.apana.org.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 16, 2008 at 7:36 AM, Ben Dooks <ben-linux@fluff.org> wrote:
->
+>>> On Wed, Jun 11, 2008 at  2:46 AM, in message
+<E1K6K60-00061s-00@gondolin.me.apana.org.au>, Herbert Xu
+<herbert@gondor.apana.org.au> wrote: 
+> Gregory Haskins <GHaskins@novell.com> wrote:
+>> 
+>> So basically it was waiting for a packet to arrive, and the net-rx softirq 
+> would first trigger a NOSPACE wakeup (of which was a noop by the udp-rx code) 
+> followed by an rx-wakeup.  So the netperf thread woke twice for one packet.  
+> Fixing this boosted performance by a large margin (don't recall exact figures 
+> off the top of my head....somewhere around 20%)
+> 
+> Please wrap your lines.
 
-> The first part of remove the DEFAULT_TRIGGER should
-> be relatively easy to fixup in whatever blackfin archs
-> still use this.
+Apologies.  I don't think I have control over it in my corporate mailer environment :( but if I can figure out a way to do it I will make this change.  You are not the first to complain ;)
 
-I think, we can pass this irqflag from the platform resource.
+> 
+> Anyway, you've lost me with this scenario.  The patch is stopping
+> wake-ups on the write path yet you're talking about the read path.
+> So my question is why are you getting the extra wake-up on that
+> write path when you receive a packet?
 
-> The otherbits, I would recommend the relevant blackfin
-> IO headers should deal with defining the six functions to
-> the relevant blackfin implementation.
->
-> I would have sent this directly to the blackfin list, but
-> it is marked as subscribers only.
+Heh..you tell me :)
 
-Would you please send me your patch directly?
+I don't recall the specifics off the top of my head, but IIRC it had to do with the fact that we were running a tx/rx netperf test and the way tx-completions are handled in the stack w.r.t. the softirqs.
 
-Thanks a lot
--Bryan
+The tx-completions code is executing inside the softirq-net-rx context and is freeing up the transmitted skbs.  The problem is that it is blindly signaling the wait-queue that there was now SPACE (even though no-one cared about that event at the moment...the only waiter was waiting on an rx event).
+
+So one way to look at it is the problem is that the single wait-queue serves both rx-wakeup, and tx-nospace events.  Rather than open the can of worms of splitting the wait-queues into finer granularity,  Pat chose to at least make the overloaded use of the single wait-queue more intelligent to know if anyone cared about the NOSPACE event or not.
+
+>From my perspective, I don't care how the issue is specifically solved...I would ultimately just like to see this wasted wake-up "go away" one way or the other.  ;)  It significantly degrades performance (at least in this synthetic test) and as far as I can tell there is no reason to structure the code this way.  If we are mistaken in that assessment, please let me know.
+
+If we can offer any more details (such as the specific codepath that triggers the NOSPACE wakeup, for instance) we would be happy to oblige.  Long story short this is easily repeatable.
+
+Regards,
+-Greg
+
