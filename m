@@ -1,150 +1,58 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] firmware: convert acenic driver to request_firmware()
-Date: Mon, 16 Jun 2008 18:11:24 -0400
-Message-ID: <4856E50C.5050908@garzik.org>
-References: <1213608300.26255.665.camel@pmac.infradead.org>	 <4856CE43.4020706@garzik.org> <1213652749.26255.842.camel@pmac.infradead.org>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: packetloss, on e1000e worse than r8169?
+Date: Tue, 17 Jun 2008 01:08:41 +0300
+Message-ID: <20080616220841.M50112@visp.net.lb>
+References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com> <20080616202210.M84100@visp.net.lb> <4856CEDC.6010706@intel.com> <20080616204411.M52834@visp.net.lb> <4856D1D6.7040207@intel.com> <20080616211213.M76390@visp.net.lb> <4856DB1D.80503@cosmosbay.com> <20080616213419.M212@visp.net.lb> <4856DE1F.4090001@cosmosbay.com> <4856DEA7.9060506@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jes Sorensen <jes@trained-monkey.org>, netdev@vger.kernel.org,
-	jaswinder@infradead.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46130 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752380AbYFPWLa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2008 18:11:30 -0400
-In-Reply-To: <1213652749.26255.842.camel@pmac.infradead.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:37494 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756521AbYFPWMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 18:12:50 -0400
+In-Reply-To: <4856DEA7.9060506@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Woodhouse wrote:
-> On Mon, 2008-06-16 at 16:34 -0400, Jeff Garzik wrote:
->> Mostly ok...
->>
->> 1) firmware separation should be a separate patch from 
->> request_firmware() support addition
+On Mon, 16 Jun 2008 23:44:07 +0200, Eric Dumazet wrote
 > 
-> It's kind of hard to do that. Taking this patch as an example -- we've
-> had to make minor changes to the firmware loading w.r.t. endianness,
-> etc.
-> 
-> If we really wanted to do it in two steps of '1. add request_firmware()'
-> followed by '2. remove old static firmware', then the whole process
-> would just be a lot more cumbersome than we need.
-> 
-> In this case, the first patch would probably add a completely new
-> version of ace_load_firmware() and ace_copy(), while the second patch
-> would remove the old versions of each function. To make sense of and
-> review that lot, you'd actually want to run 'combinediff' on them anyway
-> so you end up with what I've posted here. Only then is it really obvious
-> what's happening.
-> 
-> I do understand the desire to keep patches simple and do things in
-> stages -- but in this case (and the other request_firmware() patches
-> I've done), it seems like separating those two steps would actually be
-> counter-productive.
-> 
-> AFAICT it doesn't make it any easier to test the new code path, either.
-> It's still only really testable after you've applied both patches,
-> surely?
+> ALso please try to lower the copybreak value of e1000e driver
+> (module parameter copybreak=20 for example)
+Already tried, but over sysfs
 
-An intermediate request_firmware() step is something that can go into an 
-upstream kernel _immediately_, without even needing firmware/ install 
-infrastructure.
+MegaRouter-KARAM ~ # echo 20 > /sys/module/e1000e/parameters/copybreak
 
-That, in turn, enables the ability to test a driver with externally 
-loaded firmwares, while still being able to fall back to a known 
-working, guaranteed present built-in firmware.
+Doesn't change anything. I am preparing profiling now.
 
-IOW, the first step for each driver should be:
+I dont think it is CPU load issue. I have motherboard DP35DP working on
+similar workload(less routes, but conntrack + ifb + htb without hysteresis)
+perfectly, but it doesn't have Intel AMT, maybe that's the key.
 
-+	request_firmware()
-+	if (success)
-+		use externally-loaded firmware
-+	else
-		use built-in firmware
+Why CPU load not the issue? I don't think mpstat is lying. 98-99% CPU is idle.
+But i will try oprofile, maybe it can help and will show something.
+I will try also PREEMPT kernel now, maybe it is some locking issue, and
+preemption can help with that. Because "bursty" and clearly periodic character
+of errors means or counters updated each 1-2 seconds or it is something
+happening each 1-2 seconds. I am not sure oprofile can catch that.
 
-and that's it.  Nothing else [in the first patch].
+MegaRouter-KARAM ~ # mpstat 1
+Linux 2.6.26-rc6-git2-build-0029 (MegaRouter-KARAM)     06/17/08
 
-Thus you minimize change -- both source code upheaval as well as 
-operational behavior upheaval -- while adding the capability for people 
-to immediately begin testing external firmware loading... in parallel 
-with further firmware/ development you yourself are doing.
-
-While I'm on the subject, I think the most user-friendly, 
-developer-friendly, and time-friendly ordering is
-
-0) prepare kernel-firmware package with extracted firmwares from kernel 
-tree, and have it available in rawhide, cooker, opensuse-devel, etc.
-
-1) what I said above: request_firmware() for every driver
-
-At this point, users have udev-loadable firmware in hand and a driver 
-capable of loading said firmware, and can immediately start operating in 
-the desired environment.
-
-2) start peeling built-in firmwares out of the C source
+00:54:23     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
+%idle    intr/s
+00:54:24     all    0.51    0.00    0.00    0.00    0.00    1.02    0.00  
+98.48  18902.00
+00:54:25     all    0.00    0.00    0.00    0.00    0.00    0.51    0.00  
+99.49  18735.00
+00:54:26     all    0.00    0.00    0.00    0.00    0.00    0.48    0.00  
+99.52  19057.00
 
 
-
-What I think you don't get is that moving the firmware out of the driver 
-is the _easy_ part that comes _last_.
-
-The core problem with request_firmware() loading external firmwares is 
-usability:  the user damn well needs to have their firmware available, 
-otherwise their hardware doesn't work.
-
-That means the pressure is on you to have all the elements in place with 
-all the major distros _before_ you do the easy part.
-
-Otherwise the user experience is going to suck, the last thing we all 
-want...
-
-
-
-
-> 
->> 2) [minor] firmware Kconfig entries should default to 'Y' during 
->> transition, though it's ok to remove those after transition is over
-> 
-> I don't think it's good to have a 'default y' on options for which the
-> help text says "Say 'N' and let udev load it as $DEITY intended".
-> 
-> As a compromise, perhaps we could do a 'CONFIG_INCLUDE_ALL_FIRMWARE' and
-> make them all default to whatever that option is set to? I'm really
-> unconvinced of the need for that, though -- running 'make
-> firmware_install' is all that's necessary, and is the preferred option. 
-
-I'm mainly thinking of user and developer experience here.
-
-I just want to make it damn near impossible to accidentally create a 
-non-working configuration, after your patches are applied.
-
-This isn't like other driver Kconfig options, where the driver will 
-continue to work even if you auto-set everything to 'N'.  If the user 
-doesn't have multiple pieces of the puzzle _already in place_, it is all 
-too easy to create a non-working driver.
-
-The truth of the matter is, the user really does want to set that 
-Kconfig option, during the initial time period after your patches are 
-applied.
-
-Once things settled down and infrastructure is in place, the 'default y' 
-could go away.
-
-
->> 3) there are enough changes to warrant a requirement of a "driver still 
->> works" test before going in, IMO
-> 
-> Most definitely. As I said, I've been very careful to ensure that the
-> converted firmware is correct, in conjunction with the driver changes
-> (like the endianness considerations in this case). But that is no
-> substitute for testing.
-
-Cool :)
-
-	Jeff
-
-
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
