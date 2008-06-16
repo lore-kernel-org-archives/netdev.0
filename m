@@ -1,117 +1,61 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-next 2/8] UDP: provide a struct net pointer for __udp[46]_lib_mcast_deliver
-Date: Mon, 16 Jun 2008 13:40:07 +0400
-Message-ID: <485634F7.5090600@openvz.org>
-References: <485633E4.10900@openvz.org>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 3/3] netdevice: order of synchronization of IFF_PROMISC
+ and IFF_ALLMULTI
+Date: Mon, 16 Jun 2008 17:39:29 +0800
+Message-ID: <485634D1.2010603@cn.fujitsu.com>
+References: <48562F9A.5030509@cn.fujitsu.com> <485631FF.7040509@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39052 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755352AbYFPJme (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2008 05:42:34 -0400
-In-Reply-To: <485633E4.10900@openvz.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:50527 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752766AbYFPJnP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 05:43:15 -0400
+In-Reply-To: <485631FF.7040509@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-They both calculate the hash chain, but currently do not have
-a struct net pointer, so pass one there via additional argument,
-all the more so their callers already have such.
+Patrick McHardy said the following on 2008-6-16 17:27:
+> Wang Chen wrote:
+>> IFF_PROMISC should be set before IFF_ALLMULTI.
+>>
+>> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+>> ---
+>>  net/8021q/vlan_dev.c |   25 +++++++++++++++++++------
+>>  1 files changed, 19 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+>> index 5d055c2..14742e3 100644
+>> --- a/net/8021q/vlan_dev.c
+>> +++ b/net/8021q/vlan_dev.c
+>> @@ -547,10 +547,14 @@ static int vlan_dev_open(struct net_device *dev)
+>>      }
+>>      memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
+>>  
+>> -    if (dev->flags & IFF_ALLMULTI)
+>> -        dev_set_allmulti(real_dev, 1);
+>> +    /* NOTE: order of synchronization of IFF_PROMISC and IFF_ALLMULTI
+>> +       is important. Some (broken) drivers set IFF_PROMISC, when
+>> +       IFF_ALLMULTI is requested not asking us and not reporting.
+>> +     */
+>>      if (dev->flags & IFF_PROMISC)
+>>          dev_set_promiscuity(real_dev, 1);
+>> +    if (dev->flags & IFF_ALLMULTI)
+>> +        dev_set_allmulti(real_dev, 1);
+> 
+> 
+> What exactly is the problem here? The VLAN code is obviously not
+> one of the broken drivers, so why should it care what other drivers
+> do?
+> 
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+I think the problem is that allmulti is not valid if promis is not on.
 
----
- net/ipv4/udp.c |    9 ++++++---
- net/ipv6/udp.c |   12 ++++++++----
- 2 files changed, 14 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 34818c2..86755e0 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1061,7 +1061,7 @@ drop:
-  *	Note: called only from the BH handler context,
-  *	so we don't need to lock the hashes.
-  */
--static int __udp4_lib_mcast_deliver(struct sk_buff *skb,
-+static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 				    struct udphdr  *uh,
- 				    __be32 saddr, __be32 daddr,
- 				    struct hlist_head udptable[])
-@@ -1158,6 +1158,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
- 	struct rtable *rt = (struct rtable*)skb->dst;
- 	__be32 saddr = ip_hdr(skb)->saddr;
- 	__be32 daddr = ip_hdr(skb)->daddr;
-+	struct net *net;
- 
- 	/*
- 	 *  Validate the packet.
-@@ -1179,10 +1180,12 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
- 	if (udp4_csum_init(skb, uh, proto))
- 		goto csum_error;
- 
-+	net = dev_net(skb->dev);
- 	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
--		return __udp4_lib_mcast_deliver(skb, uh, saddr, daddr, udptable);
-+		return __udp4_lib_mcast_deliver(net, skb, uh,
-+				saddr, daddr, udptable);
- 
--	sk = __udp4_lib_lookup(dev_net(skb->dev), saddr, uh->source, daddr,
-+	sk = __udp4_lib_lookup(net, saddr, uh->source, daddr,
- 			uh->dest, inet_iif(skb), udptable);
- 
- 	if (sk != NULL) {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 61d3c99..e25fe4b 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -355,8 +355,9 @@ static struct sock *udp_v6_mcast_next(struct sock *sk,
-  * Note: called only from the BH handler context,
-  * so we don't need to lock the hashes.
-  */
--static int __udp6_lib_mcast_deliver(struct sk_buff *skb, struct in6_addr *saddr,
--			   struct in6_addr *daddr, struct hlist_head udptable[])
-+static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
-+		struct in6_addr *saddr, struct in6_addr *daddr,
-+		struct hlist_head udptable[])
- {
- 	struct sock *sk, *sk2;
- 	const struct udphdr *uh = udp_hdr(skb);
-@@ -437,6 +438,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
- 	struct net_device *dev = skb->dev;
- 	struct in6_addr *saddr, *daddr;
- 	u32 ulen = 0;
-+	struct net *net;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
- 		goto short_packet;
-@@ -471,11 +473,13 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
- 	if (udp6_csum_init(skb, uh, proto))
- 		goto discard;
- 
-+	net = dev_net(skb->dev);
- 	/*
- 	 *	Multicast receive code
- 	 */
- 	if (ipv6_addr_is_multicast(daddr))
--		return __udp6_lib_mcast_deliver(skb, saddr, daddr, udptable);
-+		return __udp6_lib_mcast_deliver(net, skb,
-+				saddr, daddr, udptable);
- 
- 	/* Unicast */
- 
-@@ -483,7 +487,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
- 	 * check socket cache ... must talk to Alan about his plans
- 	 * for sock caches... i'll skip this for now.
- 	 */
--	sk = __udp6_lib_lookup(dev_net(skb->dev), saddr, uh->source,
-+	sk = __udp6_lib_lookup(net, saddr, uh->source,
- 			       daddr, uh->dest, inet6_iif(skb), udptable);
- 
- 	if (sk == NULL) {
--- 
-1.5.3.4
+And about the comment, I copy it from dev_change_flags() and think
+it seems suit for here.
+Did I misunderstand this comment?
 
