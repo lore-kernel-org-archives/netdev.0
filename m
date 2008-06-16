@@ -1,34 +1,45 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH net-2.6 7/7] atm: [he] send idle cells instead of unassigned when in SDH mode
-Date: Mon, 16 Jun 2008 13:28:00 -0400
-Message-ID: <200806161728.m5GHS0G8003402@cmf.nrl.navy.mil>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: =?ISO-8859-1?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
+Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
+ MTU change
+Date: Mon, 16 Jun 2008 19:21:40 +0200
+Message-ID: <4856A124.1030701@e-teleport.net>
+References: <20080531184615.350bac00@infradead.org> <20080603134019.df2f51d4.akpm@linux-foundation.org> <20080603215155.GA9712@electric-eye.fr.zoreil.com> <20080604215909.GA17446@electric-eye.fr.zoreil.com> <20080614212341.GA12976@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:45525 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754513AbYFPR2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 13:28:08 -0400
+Received: from webmail.e-teleport.net ([213.190.83.68]:42913 "EHLO
+	mail.imsnet.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751439AbYFPRz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 13:55:59 -0400
+In-Reply-To: <20080614212341.GA12976@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit ecb4818bb519d7b428a74f1c4d6ef7f0f8086f52
-Author: Chas Williams <chas@relax.cmf.nrl.navy.mil>
-Date:   Sat Jun 14 17:41:32 2008 -0400
+=46rancois Romieu a =E9crit :
+> Francois Romieu <romieu@fr.zoreil.com> :
+> [...context available from http://lkml.org/lkml/2008/5/31/251 ...]
+>
+> R=E9gis, I need your help.
+>
+> Can you give the patchkit below a try and check if the change of mtu
+> works correctly ?
+>
+> http://userweb.kernel.org/~romieu/via-velocity/2.6.26-rc6/
+>
+> or:
+>
+> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git v=
+elocity
+>
+>  =20
+With the patchkit, the driver doesn't work anymore.
+I think there is an error in TX, paquets don't arrive to other equipmen=
+t.
+RX seem to work fine, I could see ingoming paquets.
 
-    atm: [he] send idle cells instead of unassigned when in SDH mode
-    
-    Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index cd58cd3..8cd71b0 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -1496,6 +1496,7 @@ he_start(struct atm_dev *dev)
- 		val = he_phy_get(he_dev->atm_dev, SUNI_TPOP_APM);
- 		val = (val & ~SUNI_TPOP_APM_S) | (SUNI_TPOP_S_SDH << SUNI_TPOP_APM_S_SHIFT);
- 		he_phy_put(he_dev->atm_dev, val, SUNI_TPOP_APM);
-+		he_phy_put(he_dev->atm_dev, SUNI_TACP_IUCHP_CLP, SUNI_TACP_IUCHP);
- 	}
- 
- 	/* 5.1.12 enable transmit and receive */
+--=20
+R=E9gis
