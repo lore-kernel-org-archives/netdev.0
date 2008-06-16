@@ -1,83 +1,98 @@
-From: =?ISO-8859-1?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
-Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
- MTU change
-Date: Mon, 16 Jun 2008 23:25:54 +0200
-Message-ID: <4856DA62.7080803@e-teleport.net>
-References: <20080531184615.350bac00@infradead.org> <20080603134019.df2f51d4.akpm@linux-foundation.org> <20080603215155.GA9712@electric-eye.fr.zoreil.com> <20080604215909.GA17446@electric-eye.fr.zoreil.com> <20080614212341.GA12976@electric-eye.fr.zoreil.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: packetloss, on e1000e worse than r8169?
+Date: Mon, 16 Jun 2008 23:29:01 +0200
+Message-ID: <4856DB1D.80503@cosmosbay.com>
+References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com> <20080616202210.M84100@visp.net.lb> <4856CEDC.6010706@intel.com> <20080616204411.M52834@visp.net.lb> <4856D1D6.7040207@intel.com> <20080616211213.M76390@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
+Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Arjan van de Ven <arjan@infradead.org>, alan@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.e-teleport.net ([213.190.83.68]:44180 "EHLO
-	mail.imsnet.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754081AbYFPVZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2008 17:25:55 -0400
-In-Reply-To: <20080614212341.GA12976@electric-eye.fr.zoreil.com>
+Received: from smtp2f.orange.fr ([80.12.242.152]:49451 "EHLO smtp2f.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754470AbYFPV3J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 17:29:09 -0400
+In-Reply-To: <20080616211213.M76390@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rancois Romieu a =E9crit :
-> Francois Romieu <romieu@fr.zoreil.com> :
-> [...context available from http://lkml.org/lkml/2008/5/31/251 ...]
->
-> R=E9gis, I need your help.
->
-> Can you give the patchkit below a try and check if the change of mtu
-> works correctly ?
->
-> http://userweb.kernel.org/~romieu/via-velocity/2.6.26-rc6/
->
-> or:
->
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git v=
-elocity
->
->  =20
-The mtu change doesn't work :
+Denys Fedoryshchenko a =C3=A9crit :
+>> Are you sure nf_conntrack or ip route cache is not killing you ?
+>>
+>> Filling 512 or 1024 RX ring on Gigabit link can be very fast, especi=
+ally=20
+>> if ip route cache is full.
+>>
+>> rtstat -c10 -i1
+>=20
+> conntrack disabled, it is just enabled for second on load and then un=
+loaded.
 
-Jun 16 23:22:34 apollo kernel: ------------[ cut here ]------------
-Jun 16 23:22:34 apollo kernel: WARNING: at arch/x86/kernel/pci-dma.c:48=
-2=20
-dma_free_coherent+0x3a/0x9c()
-Jun 16 23:22:34 apollo kernel: Pid: 1527, comm: ip Tainted: G        W=20
-2.6.26-rc6EPIA_SN_VB7001 #3
-Jun 16 23:22:34 apollo kernel:  [<c0115fe5>] warn_on_slowpath+0x3b/0x5f
-Jun 16 23:22:34 apollo kernel:  [<c0133940>]=20
-get_page_from_freelist+0x24a/0x36f
-Jun 16 23:22:34 apollo kernel:  [<c012d86b>] handle_IRQ_event+0x1a/0x3f
-Jun 16 23:22:34 apollo kernel:  [<c0241193>] velocity_free_rd_ring+0xa5=
-/0xb6
-Jun 16 23:22:34 apollo kernel:  [<c0144752>] kfree+0x6a/0x72
-Jun 16 23:22:34 apollo kernel:  [<c0241193>] velocity_free_rd_ring+0xa5=
-/0xb6
-Jun 16 23:22:34 apollo kernel:  [<c0105816>] dma_free_coherent+0x3a/0x9=
-c
-Jun 16 23:22:34 apollo kernel:  [<c02411eb>]=20
-velocity_free_dma_rings+0x47/0x4d
-Jun 16 23:22:34 apollo kernel:  [<c024225b>] velocity_change_mtu+0xf6/0=
-x157
-Jun 16 23:22:34 apollo kernel:  [<c02856c4>] dev_set_mtu+0x2a/0x4f
-Jun 16 23:22:34 apollo kernel:  [<c0286642>] dev_ioctl+0x4ab/0x530
-Jun 16 23:22:34 apollo kernel:  [<c012e4cb>] handle_fasteoi_irq+0x74/0x=
-77
-Jun 16 23:22:34 apollo kernel:  [<c010479b>] do_IRQ+0x50/0x60
-Jun 16 23:22:34 apollo kernel:  [<c027d785>] sock_ioctl+0x0/0x177
-Jun 16 23:22:34 apollo kernel:  [<c01032eb>] common_interrupt+0x23/0x28
-Jun 16 23:22:34 apollo kernel:  [<c027d785>] sock_ioctl+0x0/0x177
-Jun 16 23:22:34 apollo kernel:  [<c0150b4a>] vfs_ioctl+0x16/0x48
-Jun 16 23:22:34 apollo kernel:  [<c0150d5a>] do_vfs_ioctl+0x1de/0x1f1
-Jun 16 23:22:34 apollo kernel:  [<c0150dae>] sys_ioctl+0x41/0x5b
-Jun 16 23:22:34 apollo kernel:  [<c010291d>] sysenter_past_esp+0x6a/0x9=
-1
-Jun 16 23:22:34 apollo kernel:  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-Jun 16 23:22:34 apollo kernel: ---[ end trace 17457a054a24b83c ]---
+ok :)
+
+>=20
+> MegaRouter-KARAM ~ # rtstat -c10 -i1
+> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
+he|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_ca=
+che|rt_cache|
+>  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_mar=
+ti|
+> out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlis=
+t|out_hlis|
+>         |        |     tot|      mc|     ute|        |  an_dst|  an_s=
+rc|    =20
+>   |    _tot|     _mc|        |      ed|    miss| verflow| _search|t_s=
+earch|
+>    63448|229209146|22225578|   13754|      12|    2822|       0|     =
+104| =20
+> 54647|   27606|     570|21782075|21776859|      74|       0|215222374=
+|   61294|
+>    66085|  141462|    5268|       8|       0|       4|       0|      =
+ 0|    =20
+>  4|       2|       0|    5274|    5274|       0|       0|  254424|   =
+   10|
+>    59947|  132660|   20570|       4|       0|       4|       0|      =
+ 0|    =20
+>  8|      14|       0|   20584|   20584|       0|       0|  185738|   =
+   24|
+>    56995|  132416|   16918|      12|       0|       2|       0|      =
+ 0|    =20
+>  6|       4|       0|   16932|   16932|       0|       0|   68378|   =
+    8|
+>    56422|  137058|   12336|       8|       0|       0|       0|      =
+ 0|    =20
+>  8|       2|       0|   12344|   12344|       0|       0|   84022|   =
+    4|
+>    56819|  140526|    9896|      10|       0|       0|       0|      =
+ 0|    =20
+>  6|       0|       0|    9898|    9896|       0|       0|   99138|   =
+    4|
+>    57580|  136936|    8370|      10|       0|       2|       0|      =
+ 0|    =20
+>  8|       6|       2|    8378|    8378|       0|       0|  110834|   =
+   22|
+>    51583|  120138|   26828|      20|       0|       0|       0|      =
+ 0|    =20
+>  4|       8|       0|   26848|   26848|       0|       0|   99292|   =
+   24|
+>    49354|  128076|   21606|      14|       0|       2|       0|      =
+ 0|    =20
+>  0|      10|       0|   21626|   21626|       0|       0|   60546|   =
+   12|
+>=20
+>=20
+>=20
+
+Hum... typical IP route cache congestion ?
+
+echo 1 >/proc/sys/net/ipv4/route/gc_interval
+echo 2 >/proc/sys/net/ipv4/route/gc_elasticity
+
+You might want to boot with rhash_entries=3D131071 to play with IP rout=
+e cache size, but I am not sure your workload can fit.
 
 
---=20
-R=E9gis
+
+
