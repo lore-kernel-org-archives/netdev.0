@@ -1,82 +1,111 @@
-From: Josip Rodin <joy@entuzijast.net>
-Subject: bnx2_poll panicking kernel
-Date: Mon, 16 Jun 2008 14:57:35 +0200
-Message-ID: <20080616125735.GA5967@orion.carnet.hr>
+From: Miquel van Smoorenburg <miquels@cistron.nl>
+Subject: tcp_mem calculation wrong on x86_32 ?
+Date: Mon, 16 Jun 2008 15:42:30 +0200
+Message-ID: <20080616134227.GA16546@xs4all.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mirrors@debian.org
+Cc: miquels@cistron.nl
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orion.CARNet.hr ([161.53.160.90]:40951 "EHLO orion.carnet.hr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756143AbYFPNiK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2008 09:38:10 -0400
+Received: from smtp-vbr12.xs4all.nl ([194.109.24.32]:3952 "EHLO
+	smtp-vbr12.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753301AbYFPNvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 09:51:05 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+I started upgrading a bunch of machines in my nntp server farm
+to a recent kernel- 2.6.25.x. They were running 2.6.11.12 on
+32 bit, and I upgraded them to 2.6.25.x on 64 bit.
 
-Has anyone seen the below bug before? I'm already upgrading in hope that it
-might be already fixed in a newer kernel, but anyway.
+All went fine until I found out a few machines didn't have a 64 bit
+capable processor, so I had to keep them on a 32 bit kernel (argh!).
+These are machines with dual xeons 3 Ghz and 8 GB of RAM.
 
-It started happening a few days ago, on a load of a few tens of MB/s (Debian
-rsync mirroring). It doesn't happen on every mirror pulse, so it's not
-exactly reproducible...
+On the 32 bit machines I keep getting the error below, and a flood
+of these on a 9600 baud serial console essentially kills the machine:
 
-I'm not sure what the perl process could be. I have one script running
-as part of the RRD-graphing setup, it connects to apache's server-status
-page every minute.
+diablo invoked oom-killer: gfp_mask=0xd0, order=0, oomkilladj=0
+Pid: 4459, comm: diablo Not tainted 2.6.25.7-rc1 #1
+ [<c0249660>] oom_kill_process+0x120/0x210
+ [<c0227ff8>] __capable+0x8/0x20
+ [<c0249898>] badness+0x128/0x1c0
+ [<c0249b1c>] out_of_memory+0x17c/0x1c0
+ [<c024bdf4>] __alloc_pages+0x254/0x350
+ [<c03b75ad>] tcp_sendmsg+0x5cd/0xb50
+ [<c0381672>] sock_aio_write+0xe2/0x100
+ [<c02681e7>] do_sync_write+0xc7/0x110
+ [<c0232f20>] autoremove_wake_function+0x0/0x50
+ [<c0268af3>] vfs_write+0x133/0x140
+ [<c0269131>] sys_write+0x41/0x70
+ [<c0202e5e>] syscall_call+0x7/0xb
 
-It certainly doesn't sound like something that should affect the network
-driver or the kernel task scheduler...
+After some investigation, I found out that the values of
+/proc/sys/net/ipv4/tcp_mem are quite different between
+these two versions:
 
-Unable to handle kernel NULL pointer dereference at 0000000000000
-0bc RIP: 
- [<ffffffff88042eee>] :bnx2:bnx2_poll+0xfe/0xd10
-PGD 194c69067 PUD 19844c067 PMD 0 
-Oops: 0000 [1] SMP 
-CPU 4 
-Modules linked in: ipmi_devintf ipmi_si ipmi_msghandler nfs lockd nfs_acl sunrpc
- thermal fan button processor ac battery cls_u32 sch_sfq sch_htb ip6t_REJECT ip6
-t_LOG ip6table_filter ip6_tables ipt_REJECT xt_tcpudp iptable_filter ip_tables x
-_tables ipv6 dm_snapshot dm_mirror dm_mod usbhid ehci_hcd bnx2 zlib_inflate uhci
-_hcd crc32 usbcore shpchp
-Pid: 5854, comm: perl Not tainted 2.6.22.18 #3
-IP: 0010:[<ffffffff88042eee>]  [<ffffffff88042eee>] :bnx2:bnx2_poll+0xfe/0xd10
-RSP: 0018:ffff81022fe57e38  EFLAGS: 00010282
-RAX: 00000000000096c7 RBX: ffff81022d6209e0 RCX: 00000000000096c6
-RDX: 0000000000000080 RSI: 000000000000009e RDI: ffff81007f1dc7d8
-RBP: 0000000096c6969e R08: ffff810198cef900 R09: 0000000000000003
-R10: 00000000dfdac3ce R11: 0000000000000003 R12: 000000000000009c
-R13: 0000000000000001 R14: 0000000000000000 R15: ffff81022fcd6780
-FS:  00002b444ada1ae0(0000) GS:ffff81022fe25c40(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 00000000000000bc CR3: 00000002155c0000 CR4: 00000000000006e0
-Process perl (pid: 5854, threadinfo ffff81020fe74000, task ffff81011b864e80)
-Stack:  000000020e524810 ffff81022f348070 ffff81022d63f000 ffff81022fe57f4c
- ffff81022fcd6000 0000000400000040 ffff810200000001 ffffffff805968d9
- 0000005600000004 00000000a576e010 ffffc20000012000 ffff81022d102000
-Call Trace:
- <IRQ>  [<ffffffff802291f0>] run_rebalance_domains+0x170/0x460
- [<ffffffff8022802e>] task_running_tick+0x11e/0x320
- [<ffffffff803dcff0>] net_rx_action+0xc0/0x210
- [<ffffffff802373ec>] run_timer_softirq+0x3c/0x1d0
- [<ffffffff80233e09>] __do_softirq+0x69/0xe0
- [<ffffffff8020abbc>] call_softirq+0x1c/0x30
- <EOI>  [<ffffffff8020c975>] do_softirq+0x35/0x90
- [<ffffffff80233c5a>] local_bh_enable+0x5a/0xa0
- [<ffffffff80296e67>] seq_read+0x267/0x2e0
- [<ffffffff8027a5e5>] vfs_read+0xc5/0x160
- [<ffffffff8027aac3>] sys_read+0x53/0x90
- [<ffffffff80209a2e>] system_call+0x7e/0x83
+2.6.11.12:
+$ cat tcp_mem 
+98304	131072	196608
+
+2.6.25:
+# cat tcp_mem 
+804672	1072896	1609344
+
+Somwehere between 2.6.11.12 and 2.6.25, the calculation method of
+the tcp_mem array was changed. Now 1609344 pages is 6.5 GB,
+and AFAIK the tcp stack doesn't use high memory, and that
+6.5 GB will never fit into low memory.
+
+I am not quite sure what the correct solution is here, I think
+something like the patch below.
+
+Alternatively we could use the existing calculation but limit 'limit'
+to 3/4 of (totalram_pages - totalhigh_pages) if (totalhigh_pages > 0) ?
 
 
-Code: 41 8b 86 bc 00 00 00 49 03 86 c0 00 00 00 66 83 78 06 00 0f 
-RIP  [<ffffffff88042eee>] :bnx2:bnx2_poll+0xfe/0xd10
- RSP <ffff81022fe57e38>
-CR2: 00000000000000bc
-Kernel panic - not syncing: Aiee, killing interrupt handler!
+linux-2.6.26-tcp_mem-lowmem.patch
 
--- 
-     2. That which causes joy or happiness.
+[PATCH] tcp.c: calculate tcp_mem based on low memory instead of all memory
+
+The tcp_mem array which contains limits on the total amount of
+memory used by TCP sockets is calculated based on nr_all_pages.
+On a 32 bits x86 system, we should base this on the number of
+lowmem pages.
+
+Signed-off-by: Miquel van Smoorenburg <miquels@cistron.nl>
+
+--- linux-2.6.26-rc6.orig/net/ipv4/tcp.c	2008-06-12 23:22:24.000000000 +0200
++++ linux-2.6.26-rc6/net/ipv4/tcp.c	2008-06-16 15:04:16.000000000 +0200
+@@ -260,6 +260,8 @@
+ #include <linux/socket.h>
+ #include <linux/random.h>
+ #include <linux/bootmem.h>
++#include <linux/highmem.h>
++#include <linux/swap.h>
+ #include <linux/cache.h>
+ #include <linux/err.h>
+ #include <linux/crypto.h>
+@@ -2616,7 +2618,7 @@
+ void __init tcp_init(void)
+ {
+ 	struct sk_buff *skb = NULL;
+-	unsigned long limit;
++	unsigned long nr_pages, limit;
+ 	int order, i, max_share;
+ 
+ 	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
+@@ -2685,8 +2687,9 @@
+ 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
+ 	 * memory, with a floor of 128 pages.
+ 	 */
+-	limit = min(nr_all_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+-	limit = (limit * (nr_all_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
++	nr_pages = totalram_pages - totalhigh_pages;
++	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
++	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+ 	limit = max(limit, 128UL);
+ 	sysctl_tcp_mem[0] = limit / 4 * 3;
+ 	sysctl_tcp_mem[1] = limit;
+
