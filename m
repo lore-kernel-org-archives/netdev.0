@@ -1,39 +1,49 @@
-From: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>
-Subject: [PATCH] 8139too: add missing brackets
-Date: Mon, 16 Jun 2008 07:09:56 +0200
-Message-ID: <4855F5A4.4020109@freemail.hu>
-References: <4853BB7B.4030905@freemail.hu> <48541173.7040905@freemail.hu> <4854B604.6080900@davidnewall.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	Trivial Patch Monkey <trivial@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Newall <davidn@davidnewall.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752778AbYFPFKT@vger.kernel.org>
-In-Reply-To: <4854B604.6080900@davidnewall.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH 1/4] netxen: fix portnum for hp mezz cards
+Date: Sun, 15 Jun 2008 22:59:43 -0700
+Message-ID: <1213595986-1929-2-git-send-email-dhananjay@netxen.com>
+Cc: jeff@garzik.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [64.209.101.202] ([64.209.101.202]:32887 "EHLO unm84.unminc.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752132AbYFPGir (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 02:38:47 -0400
+In-Reply-To: <>
+References: <>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
+This fixes a the issue where logical port number is set incorrectly
+for HP blade mezz cards.
 
-Clean up the following error reported by checkpatch.pl:
- - Macros with complex values should be enclosed in parenthesis
-
-The macro RTL8139_CAPS currently only used as a whole expression
-to initialize board_info[] so this change won't change the resulting co=
-de.
-
-Signed-off-by: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
---- a/drivers/net/8139too.c	2008-06-14 00:20:47.000000000 +0200
-+++ b/drivers/net/8139too.c	2008-06-16 07:03:20.000000000 +0200
-@@ -219,7 +219,7 @@ enum {
- #define RTL8139B_IO_SIZE 256
+ drivers/net/netxen/netxen_nic_main.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
- #define RTL8129_CAPS	HAS_MII_XCVR
--#define RTL8139_CAPS	HAS_CHIP_XCVR|HAS_LNK_CHNG
-+#define RTL8139_CAPS	(HAS_CHIP_XCVR|HAS_LNK_CHNG)
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 7144c25..5a2fd21 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -530,9 +530,15 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	netxen_initialize_adapter_sw(adapter);	/* initialize the buffers in adapter */
+ 
+ 	/* Mezz cards have PCI function 0,2,3 enabled */
+-	if ((adapter->ahw.boardcfg.board_type == NETXEN_BRDTYPE_P2_SB31_10G_IMEZ)
+-		&& (pci_func_id >= 2))
++	switch (adapter->ahw.boardcfg.board_type) {
++	case NETXEN_BRDTYPE_P2_SB31_10G_IMEZ:
++	case NETXEN_BRDTYPE_P2_SB31_10G_HMEZ:
++		if (pci_func_id >= 2)
+ 			adapter->portnum = pci_func_id - 2;
++		break;
++	default:
++		break;
++	}
+ 
+ #ifdef CONFIG_IA64
+ 	if(adapter->portnum == 0) {
+-- 
+1.5.4.3
 
- typedef enum {
- 	RTL8139 =3D 0,
