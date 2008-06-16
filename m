@@ -1,98 +1,78 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: packetloss, on e1000e worse than r8169?
-Date: Mon, 16 Jun 2008 23:29:01 +0200
-Message-ID: <4856DB1D.80503@cosmosbay.com>
-References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com> <20080616202210.M84100@visp.net.lb> <4856CEDC.6010706@intel.com> <20080616204411.M52834@visp.net.lb> <4856D1D6.7040207@intel.com> <20080616211213.M76390@visp.net.lb>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: netlink circular locking dependency
+Date: Mon, 16 Jun 2008 23:34:18 +0200
+Message-ID: <20080616213417.GA14988@ami.dom.local>
+References: <1213446954.17870.154.camel@violet.holtmann.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	Thomas Graf <tgraf@suug.ch>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2f.orange.fr ([80.12.242.152]:49451 "EHLO smtp2f.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754470AbYFPV3J convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 17:29:09 -0400
-In-Reply-To: <20080616211213.M76390@visp.net.lb>
+Received: from ug-out-1314.google.com ([66.249.92.171]:21578 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755852AbYFPVcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 17:32:47 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so471377ugf.16
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2008 14:32:43 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1213446954.17870.154.camel@violet.holtmann.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko a =C3=A9crit :
->> Are you sure nf_conntrack or ip route cache is not killing you ?
->>
->> Filling 512 or 1024 RX ring on Gigabit link can be very fast, especi=
-ally=20
->> if ip route cache is full.
->>
->> rtstat -c10 -i1
->=20
-> conntrack disabled, it is just enabled for second on load and then un=
-loaded.
+Marcel Holtmann wrote, On 06/14/2008 02:35 PM:
+...
+> =======================================================
+> [ INFO: possible circular locking dependency detected ]
+> 2.6.26-rc2 #5
+> -------------------------------------------------------
+> hcid/4136 is trying to acquire lock:
+>  (genl_mutex){--..}, at: [<c0000000002ace4c>] .ctrl_dumpfamily+0x74/0x174
+> 
+> but task is already holding lock:
+>  (nlk->cb_mutex){--..}, at: [<c0000000002a766c>] .netlink_dump+0x58/0x27c
+> 
+> which lock already depends on the new lock.
+...
 
-ok :)
+Hi,
 
->=20
-> MegaRouter-KARAM ~ # rtstat -c10 -i1
-> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
-he|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_ca=
-che|rt_cache|
->  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_mar=
-ti|
-> out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlis=
-t|out_hlis|
->         |        |     tot|      mc|     ute|        |  an_dst|  an_s=
-rc|    =20
->   |    _tot|     _mc|        |      ed|    miss| verflow| _search|t_s=
-earch|
->    63448|229209146|22225578|   13754|      12|    2822|       0|     =
-104| =20
-> 54647|   27606|     570|21782075|21776859|      74|       0|215222374=
-|   61294|
->    66085|  141462|    5268|       8|       0|       4|       0|      =
- 0|    =20
->  4|       2|       0|    5274|    5274|       0|       0|  254424|   =
-   10|
->    59947|  132660|   20570|       4|       0|       4|       0|      =
- 0|    =20
->  8|      14|       0|   20584|   20584|       0|       0|  185738|   =
-   24|
->    56995|  132416|   16918|      12|       0|       2|       0|      =
- 0|    =20
->  6|       4|       0|   16932|   16932|       0|       0|   68378|   =
-    8|
->    56422|  137058|   12336|       8|       0|       0|       0|      =
- 0|    =20
->  8|       2|       0|   12344|   12344|       0|       0|   84022|   =
-    4|
->    56819|  140526|    9896|      10|       0|       0|       0|      =
- 0|    =20
->  6|       0|       0|    9898|    9896|       0|       0|   99138|   =
-    4|
->    57580|  136936|    8370|      10|       0|       2|       0|      =
- 0|    =20
->  8|       6|       2|    8378|    8378|       0|       0|  110834|   =
-   22|
->    51583|  120138|   26828|      20|       0|       0|       0|      =
- 0|    =20
->  4|       8|       0|   26848|   26848|       0|       0|   99292|   =
-   24|
->    49354|  128076|   21606|      14|       0|       2|       0|      =
- 0|    =20
->  0|      10|       0|   21626|   21626|       0|       0|   60546|   =
-   12|
->=20
->=20
->=20
+IMHO it looks like a real lockup threat. Probably it needs something
+better, but for now here is my simplistic patch proposal for testing.
 
-Hum... typical IP route cache congestion ?
+Thanks,
+Jarek P.
 
-echo 1 >/proc/sys/net/ipv4/route/gc_interval
-echo 2 >/proc/sys/net/ipv4/route/gc_elasticity
+---
 
-You might want to boot with rhash_entries=3D131071 to play with IP rout=
-e cache size, but I am not sure your workload can fit.
+ net/netlink/genetlink.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-
-
-
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f5aa23c..bf939ba 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -32,6 +32,11 @@ static inline void genl_unlock(void)
+ 	mutex_unlock(&genl_mutex);
+ }
+ 
++static inline int genl_trylock(void)
++{
++	return mutex_trylock(&genl_mutex);
++}
++
+ #define GENL_FAM_TAB_SIZE	16
+ #define GENL_FAM_TAB_MASK	(GENL_FAM_TAB_SIZE - 1)
+ 
+@@ -603,8 +608,9 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int chains_to_skip = cb->args[0];
+ 	int fams_to_skip = cb->args[1];
+ 
+-	if (chains_to_skip != 0)
+-		genl_lock();
++	/* genl_lock vs. cb_mutex inversion threatens here */
++	if (chains_to_skip != 0 && !genl_trylock())
++		return skb->len;
+ 
+ 	for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
+ 		if (i < chains_to_skip)
