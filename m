@@ -1,131 +1,88 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netlink circular locking dependency
-Date: Mon, 16 Jun 2008 23:48:01 +0200
-Message-ID: <4856DF91.30606@trash.net>
-References: <20080616213417.GA14988@ami.dom.local>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: packetloss, on e1000e worse than r8169?
+Date: Tue, 17 Jun 2008 01:08:00 +0300
+Message-ID: <20080616220004.M32074@visp.net.lb>
+References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com> <20080616202210.M84100@visp.net.lb> <4856CEDC.6010706@intel.com> <20080616204411.M52834@visp.net.lb> <4856D1D6.7040207@intel.com> <20080616211213.M76390@visp.net.lb> <4856DB1D.80503@cosmosbay.com> <20080616213419.M212@visp.net.lb> <4856DE1F.4090001@cosmosbay.com> <4856DEA7.9060506@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040304090905080605090909"
-Cc: Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, Thomas Graf <tgraf@suug.ch>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44184 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756453AbYFPWEB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 18:04:01 -0400
-In-Reply-To: <20080616213417.GA14988@ami.dom.local>
+Received: from usermail.globalproof.net ([194.146.153.18]:41497 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755401AbYFPWIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 18:08:20 -0400
+In-Reply-To: <4856DEA7.9060506@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040304090905080605090909
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, 16 Jun 2008 23:44:07 +0200, Eric Dumazet wrote
 
-Jarek Poplawski wrote:
-> Marcel Holtmann wrote, On 06/14/2008 02:35 PM:
-> ...
->   
->> =======================================================
->> [ INFO: possible circular locking dependency detected ]
->> 2.6.26-rc2 #5
->> -------------------------------------------------------
->> hcid/4136 is trying to acquire lock:
->>  (genl_mutex){--..}, at: [<c0000000002ace4c>] .ctrl_dumpfamily+0x74/0x174
->>
->> but task is already holding lock:
->>  (nlk->cb_mutex){--..}, at: [<c0000000002a766c>] .netlink_dump+0x58/0x27c
->>
->> which lock already depends on the new lock.
->>     
-> ...
->
-> Hi,
->
-> IMHO it looks like a real lockup threat. Probably it needs something
-> better, but for now here is my simplistic patch proposal for testing.
->   
-So we have:
+opreport -l /mnt/flash/vmlinux |more
+Here is oprofile
+CPU: Core 2, speed 2397.64 MHz (estimated)
+Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit
+mask of 0x00 (Unhalted core cycles) count 100000
+samples  %        symbol name
+25409    15.0068  mwait_idle
+14330     8.4634  ip_route_input
+7827      4.6227  irq_entries_start
+6488      3.8319  dev_queue_xmit
+5497      3.2466  __qdisc_run
+5033      2.9725  __slab_free
+3569      2.1079  native_read_tsc
+3560      2.1026  ip_rcv
+3520      2.0789  __alloc_skb
+3435      2.0287  __kmalloc_track_caller
+3381      1.9968  kmem_cache_alloc
+3340      1.9726  ip_forward
+3289      1.9425  kfree
 
-genl_rcv()            : take genl_mutex
-genl_rcv_msg()        : call netlink_dump_start() while holding genl_mutex
-netlink_dump_start(),
-netlink_dump()        : take nlk->cb_mutex
-ctrl_dumpfamily()     : try to detect this case and not take genl_mutex a
-                        second time
+MegaRouter-KARAM /lib # opreport
+CPU: Core 2, speed 2397.64 MHz (estimated)
+Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit
+mask of 0x00 (Unhalted core cycles) count 100000
+CPU_CLK_UNHALT...|
+  samples|      %|
+------------------
+   612990 64.5673 vmlinux
+   276274 29.1004 e1000e
+    31470  3.3148 ip_tables
+     9676  1.0192 libzebra.so.0.0.0
+     3763  0.3964 oprofiled
 
-netlink_rcv()         : call netlink_dump
-netlink_dump          : take nlk->cb_mutex
-ctrl_dumpfamily()     : take genl_mutex
+MegaRouter-KARAM ~ # opreport image:/e1000e -l
+CPU: Core 2, speed 2397.64 MHz (estimated)
+Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit
+mask of 0x00 (Unhalted core cycles) count 100000
+warning: could not check that the binary file /e1000e has not been modified
+since the profile was taken. Results may be inaccurate.
+samples  %        symbol name
+144449   25.7521  e1000_irq_enable
+97006    17.2941  e1000_intr_msi
+95009    16.9380  e1000_clean_rx_irq
+87833    15.6587  e1000_xmit_frame
+53723     9.5776  e1000_clean_tx_irq
+26546     4.7326  e1000_clean
+19968     3.5599  e1000_alloc_rx_buffers
+11941     2.1288  e1000_receive_skb
+6578      1.1727  e1000_update_itr
+5864      1.0454  e1000_desc_unused
+4847      0.8641  e1000_maybe_stop_tx
+3537      0.6306  e1000_put_txbuf
+3490      0.6222  e1000_rx_checksum
+107       0.0191  e1000e_update_stats
+9         0.0016  e1000_acquire_swflag_ich8lan
+7         0.0012  e1000_release_swflag_ich8lan
+5        8.9e-04  e1000e_read_phy_reg_mdic
+1        1.8e-04  e1000_get_settings
+1        1.8e-04  e1000_ioctl
 
-which is a real bug.
-
-It seems the best fix is to use genl_mutex for the netlink cb_mutex,
-drop genl_mutex before calling netlink_dump_start and don't take it
-in ctrl_dumpfamily, relying completely on af_netlink.c for dump
-locking. Unfortunately this creates a race since the ops passed to
-netlink_dump_start are also protect by the mutex, so this patch
-is just for testing whether it fixes the warning.
-
-On second though - that race seems to be present already since
-the ops can be unregistered and the module unloaded while a dump
-is in progress.
 
 
---------------040304090905080605090909
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index f5aa23c..3e1191c 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -444,8 +444,11 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		if (ops->dumpit == NULL)
- 			return -EOPNOTSUPP;
- 
--		return netlink_dump_start(genl_sock, skb, nlh,
--					  ops->dumpit, ops->done);
-+		genl_unlock();
-+		err = netlink_dump_start(genl_sock, skb, nlh,
-+					 ops->dumpit, ops->done);
-+		genl_lock();
-+		return err;
- 	}
- 
- 	if (ops->doit == NULL)
-@@ -603,9 +606,6 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
- 	int chains_to_skip = cb->args[0];
- 	int fams_to_skip = cb->args[1];
- 
--	if (chains_to_skip != 0)
--		genl_lock();
--
- 	for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
- 		if (i < chains_to_skip)
- 			continue;
-@@ -623,9 +623,6 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
- 	}
- 
- errout:
--	if (chains_to_skip != 0)
--		genl_unlock();
--
- 	cb->args[0] = i;
- 	cb->args[1] = n;
- 
-@@ -770,7 +767,7 @@ static int __init genl_init(void)
- 
- 	/* we'll bump the group number right afterwards */
- 	genl_sock = netlink_kernel_create(&init_net, NETLINK_GENERIC, 0,
--					  genl_rcv, NULL, THIS_MODULE);
-+					  genl_rcv, &genl_mutex, THIS_MODULE);
- 	if (genl_sock == NULL)
- 		panic("GENL: Cannot initialize generic netlink\n");
- 
-
---------------040304090905080605090909--
