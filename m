@@ -1,308 +1,131 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH] firmware: convert acenic driver to request_firmware()
-Date: Mon, 16 Jun 2008 10:25:00 +0100
-Message-ID: <1213608300.26255.665.camel@pmac.infradead.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-next 1/8] UDP: introduce a udp_hashfn function
+Date: Mon, 16 Jun 2008 13:38:07 +0400
+Message-ID: <4856347F.20908@openvz.org>
+References: <485633E4.10900@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jaswinder@infradead.org
-To: Jes Sorensen <jes@trained-monkey.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:45980 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752809AbYFPJjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 05:39:11 -0400
+Received: from sacred.ru ([62.205.161.221]:39019 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753068AbYFPJkc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 05:40:32 -0400
+In-Reply-To: <485633E4.10900@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Again with help from Jaswinder Singh.
+Currently the chain to store a UDP socket is calculated with
+simple (x & (UDP_HTABLE_SIZE - 1)). But taking net into account
+would make this calculation a bit more complex, so moving it into
+a function would help.
 
-Omitting the large part of the patch which actually moves the firmware
-around, since you'll need to pull from the git tree to get the preceding
-patches if you want to test it anyway.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-We store the firmware in little-endian form now, and thus use
-__raw_writel() to write it to the device, to avoid byteswapping by
-writel(). I've revamped that loop in ace_copy() a little bit so it could
-probably do with being tested.
+---
+ include/linux/udp.h |    5 +++++
+ net/ipv4/udp.c      |   12 ++++++------
+ net/ipv6/udp.c      |    4 ++--
+ 3 files changed, 13 insertions(+), 8 deletions(-)
 
-I've dropped the information about SBSS and BSS sections of the firmware
--- we were clearing the whole of the device's memory in advance anyway,
-so clearing the BSS sections for a _second_ time seems pointless. And
-since the text,rodata,data sections were (almost) contiguous, we now
-just load those as a single blob rather than keeping them separate.
-
-Although it probably isn't necessary, we do preserve the ability to
-change the load and start addresses from 0x4000, by putting them into a
-header at the beginning of the firmware blob, along with the version
-number.
-
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index d040b7b..c555606 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1921,6 +1921,7 @@ if NETDEV_1000
- config ACENIC
- 	tristate "Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit support"
- 	depends on PCI
-+	select FW_LOADER
- 	---help---
- 	  Say Y here if you have an Alteon AceNIC, 3Com 3C985(B), NetGear
- 	  GA620, SGI Gigabit or Farallon PN9000-SX PCI Gigabit Ethernet
-@@ -1945,6 +1946,23 @@ config ACENIC_OMIT_TIGON_I
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index 581ca2c..9c94312 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -46,6 +46,11 @@ static inline struct udphdr *udp_hdr(const struct sk_buff *skb)
  
- 	  The safe and default value for this is N.
+ #define UDP_HTABLE_SIZE		128
  
-+config ACENIC_TG1_FIRMWARE
-+	bool "Include firmware for old Tigon I based AceNICs"
-+	depends on ACENIC && !ACENIC_OMIT_TIGON_I
-+	---help---
-+	  This includes firmware for the original Alteon AceNIC and 3Com 3C985
-+	  (non B version) in the kernel image.
-+	  Say 'N' and let it get loaded from userspace on demand 
++static inline int udp_hashfn(const unsigned num)
++{
++	return num & (UDP_HTABLE_SIZE - 1);
++}
 +
-+config ACENIC_TG2_FIRMWARE
-+	bool "Include firmware for Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit"
-+	depends on ACENIC
-+	---help---
-+	  This includes firmware for later Alteon AceNIC, 3Com 3C985B,
-+	  NetGear GA620, SGI Gigabit or Farallon PN9000-SX PCI Gigabit
-+	  Ethernet adapter.
-+	  Say 'N' and let it get loaded from userspace on demand 
-+
- config DL2K
- 	tristate "DL2000/TC902x-based Gigabit Ethernet support"
- 	depends on PCI
-diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
-index 6c19265..1e42734 100644
---- a/drivers/net/acenic.c
-+++ b/drivers/net/acenic.c
-@@ -67,6 +67,7 @@
- #include <linux/mm.h>
- #include <linux/highmem.h>
- #include <linux/sockios.h>
-+#include <linux/firmware.h>
+ struct udp_sock {
+ 	/* inet_sock has to be the first member */
+ 	struct inet_sock inet;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 56fcda3..34818c2 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -136,7 +136,7 @@ static inline int __udp_lib_lport_inuse(struct net *net, __u16 num,
+ 	struct sock *sk;
+ 	struct hlist_node *node;
  
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- #include <linux/if_vlan.h>
-@@ -187,8 +188,6 @@ MODULE_DEVICE_TABLE(pci, acenic_pci_tbl);
- #define MAX_RODATA_LEN	8*1024
- #define MAX_DATA_LEN	2*1024
+-	sk_for_each(sk, node, &udptable[num & (UDP_HTABLE_SIZE - 1)])
++	sk_for_each(sk, node, &udptable[udp_hashfn(num)])
+ 		if (net_eq(sock_net(sk), net) && sk->sk_hash == num)
+ 			return 1;
+ 	return 0;
+@@ -176,7 +176,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 		for (i = 0; i < UDP_HTABLE_SIZE; i++) {
+ 			int size = 0;
  
--#include "acenic_firmware.h"
--
- #ifndef tigon2FwReleaseLocal
- #define tigon2FwReleaseLocal 0
- #endif
-@@ -418,6 +417,8 @@ static int dis_pci_mem_inval[ACE_MAX_MOD_PARMS] = {1, 1, 1, 1, 1, 1, 1, 1};
- MODULE_AUTHOR("Jes Sorensen <jes@trained-monkey.org>");
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("AceNIC/3C985/GA620 Gigabit Ethernet driver");
-+MODULE_FIRMWARE("acenic_tg1.bin");
-+MODULE_FIRMWARE("acenic_tg2.bin");
+-			head = &udptable[rover & (UDP_HTABLE_SIZE - 1)];
++			head = &udptable[udp_hashfn(rover)];
+ 			if (hlist_empty(head))
+ 				goto gotit;
  
- module_param_array_named(link, link_state, int, NULL, 0);
- module_param_array(trace, int, NULL, 0);
-@@ -939,8 +940,8 @@ static int __devinit ace_init(struct net_device *dev)
- 	case 4:
- 	case 5:
- 		printk(KERN_INFO "  Tigon I  (Rev. %i), Firmware: %i.%i.%i, ",
--		       tig_ver, tigonFwReleaseMajor, tigonFwReleaseMinor,
--		       tigonFwReleaseFix);
-+		       tig_ver, ap->firmware_major, ap->firmware_minor,
-+		       ap->firmware_fix);
- 		writel(0, &regs->LocalCtrl);
- 		ap->version = 1;
- 		ap->tx_ring_entries = TIGON_I_TX_RING_ENTRIES;
-@@ -948,8 +949,8 @@ static int __devinit ace_init(struct net_device *dev)
- #endif
- 	case 6:
- 		printk(KERN_INFO "  Tigon II (Rev. %i), Firmware: %i.%i.%i, ",
--		       tig_ver, tigon2FwReleaseMajor, tigon2FwReleaseMinor,
--		       tigon2FwReleaseFix);
-+		       tig_ver, ap->firmware_major, ap->firmware_minor,
-+		       ap->firmware_fix);
- 		writel(readl(&regs->CpuBCtrl) | CPU_HALT, &regs->CpuBCtrl);
- 		readl(&regs->CpuBCtrl);		/* PCI write posting */
- 		/*
-@@ -1201,7 +1202,9 @@ static int __devinit ace_init(struct net_device *dev)
- 	memset(ap->info, 0, sizeof(struct ace_info));
- 	memset(ap->skb, 0, sizeof(struct ace_skb));
+@@ -213,7 +213,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+ gotit:
+ 		snum = rover;
+ 	} else {
+-		head = &udptable[snum & (UDP_HTABLE_SIZE - 1)];
++		head = &udptable[udp_hashfn(snum)];
  
--	ace_load_firmware(dev);
-+	if (ace_load_firmware(dev))
-+		goto init_error;
-+
- 	ap->fw_running = 0;
- 
- 	tmp_ptr = ap->info_dma;
-@@ -1437,10 +1440,7 @@ static int __devinit ace_init(struct net_device *dev)
- 	if (ap->version >= 2)
- 		writel(tmp, &regs->TuneFastLink);
- 
--	if (ACE_IS_TIGON_I(ap))
--		writel(tigonFwStartAddr, &regs->Pc);
--	if (ap->version == 2)
--		writel(tigon2FwStartAddr, &regs->Pc);
-+	writel(ap->firmware_start, &regs->Pc);
- 
- 	writel(0, &regs->Mb0Lo);
- 
-@@ -2763,8 +2763,8 @@ static void ace_get_drvinfo(struct net_device *dev,
- 
- 	strlcpy(info->driver, "acenic", sizeof(info->driver));
- 	snprintf(info->version, sizeof(info->version), "%i.%i.%i",
--		tigonFwReleaseMajor, tigonFwReleaseMinor,
--		tigonFwReleaseFix);
-+		 ap->firmware_major, ap->firmware_minor,
-+		 ap->firmware_fix);
- 
- 	if (ap->pdev)
- 		strlcpy(info->bus_info, pci_name(ap->pdev),
-@@ -2871,11 +2871,10 @@ static struct net_device_stats *ace_get_stats(struct net_device *dev)
- }
- 
-
--static void __devinit ace_copy(struct ace_regs __iomem *regs, void *src,
--			    u32 dest, int size)
-+static void __devinit ace_copy(struct ace_regs __iomem *regs, const __le32 *src,
-+			       u32 dest, int size)
- {
- 	void __iomem *tdest;
--	u32 *wsrc;
- 	short tsize, i;
- 
- 	if (size <= 0)
-@@ -2887,20 +2886,15 @@ static void __devinit ace_copy(struct ace_regs __iomem *regs, void *src,
- 		tdest = (void __iomem *) &regs->Window +
- 			(dest & (ACE_WINDOW_SIZE - 1));
- 		writel(dest & ~(ACE_WINDOW_SIZE - 1), &regs->WinBase);
--		/*
--		 * This requires byte swapping on big endian, however
--		 * writel does that for us
--		 */
--		wsrc = src;
- 		for (i = 0; i < (tsize / 4); i++) {
--			writel(wsrc[i], tdest + i*4);
-+			/* Firmware is stored as little-endian */
-+			__raw_writel(*src, tdest);
-+			src++;
-+			tdest += 4;
-+			dest += 4;
-+			size -= 4;
- 		}
--		dest += tsize;
--		src += tsize;
--		size -= tsize;
+ 		sk_for_each(sk2, node, head)
+ 			if (sk2->sk_hash == snum                             &&
+@@ -229,7 +229,7 @@ gotit:
+ 	inet_sk(sk)->num = snum;
+ 	sk->sk_hash = snum;
+ 	if (sk_unhashed(sk)) {
+-		head = &udptable[snum & (UDP_HTABLE_SIZE - 1)];
++		head = &udptable[udp_hashfn(snum)];
+ 		sk_add_node(sk, head);
+ 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
  	}
--
--	return;
- }
+@@ -266,7 +266,7 @@ static struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 	int badness = -1;
  
-
-@@ -2939,8 +2933,13 @@ static void __devinit ace_clear(struct ace_regs __iomem *regs, u32 dest, int siz
-  */
- static int __devinit ace_load_firmware(struct net_device *dev)
- {
-+	const struct firmware *fw;
-+	const char *fw_name = "acenic_tg2.bin";
- 	struct ace_private *ap = netdev_priv(dev);
- 	struct ace_regs __iomem *regs = ap->regs;
-+	const __le32 *fw_data;
-+	u32 load_addr;
-+	int ret;
+ 	read_lock(&udp_hash_lock);
+-	sk_for_each(sk, node, &udptable[hnum & (UDP_HTABLE_SIZE - 1)]) {
++	sk_for_each(sk, node, &udptable[udp_hashfn(hnum)]) {
+ 		struct inet_sock *inet = inet_sk(sk);
  
- 	if (!(readl(&regs->CpuCtrl) & CPU_HALTED)) {
- 		printk(KERN_ERR "%s: trying to download firmware while the "
-@@ -2948,28 +2947,52 @@ static int __devinit ace_load_firmware(struct net_device *dev)
- 		return -EFAULT;
- 	}
+ 		if (net_eq(sock_net(sk), net) && sk->sk_hash == hnum &&
+@@ -1070,7 +1070,7 @@ static int __udp4_lib_mcast_deliver(struct sk_buff *skb,
+ 	int dif;
  
-+	if (ACE_IS_TIGON_I(ap))
-+		fw_name = "acenic_tg1.bin";
-+
-+	ret = request_firmware(&fw, fw_name, &ap->pdev->dev);
-+	if (ret) {
-+		printk(KERN_ERR "%s: Failed to load firmware \"%s\"\n",
-+		       ap->name, fw_name);
-+		return ret;
-+	}
-+
-+	fw_data = (void *)fw->data;
-+
-+	/* Firmware blob starts with version numbers, followed by
-+	   load and start address. Remainder is the blob to be loaded
-+	   contiguously from load address. We don't bother to represent
-+	   the BSS/SBSS sections any more, since we were clearing the
-+	   whole thing anyway. */
-+	ap->firmware_major = fw->data[0];
-+	ap->firmware_minor = fw->data[1];
-+	ap->firmware_fix = fw->data[2];
-+
-+	ap->firmware_start = le32_to_cpu(fw_data[1]);
-+	if (ap->firmware_start < 0x4000 || ap->firmware_start >= 0x80000) {
-+		printk(KERN_ERR "%s: bogus load address %08x in \"%s\"\n",
-+		       ap->name, ap->firmware_start, fw_name);
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	load_addr = le32_to_cpu(fw_data[2]);
-+	if (load_addr < 0x4000 || load_addr >= 0x80000) {
-+		printk(KERN_ERR "%s: bogus load address %08x in \"%s\"\n",
-+		       ap->name, load_addr, fw_name);
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
- 	/*
--	 * Do not try to clear more than 512KB or we end up seeing
--	 * funny things on NICs with only 512KB SRAM
-+	 * Do not try to clear more than 512KiB or we end up seeing
-+	 * funny things on NICs with only 512KiB SRAM
- 	 */
- 	ace_clear(regs, 0x2000, 0x80000-0x2000);
--	if (ACE_IS_TIGON_I(ap)) {
--		ace_copy(regs, tigonFwText, tigonFwTextAddr, tigonFwTextLen);
--		ace_copy(regs, tigonFwData, tigonFwDataAddr, tigonFwDataLen);
--		ace_copy(regs, tigonFwRodata, tigonFwRodataAddr,
--			 tigonFwRodataLen);
--		ace_clear(regs, tigonFwBssAddr, tigonFwBssLen);
--		ace_clear(regs, tigonFwSbssAddr, tigonFwSbssLen);
--	}else if (ap->version == 2) {
--		ace_clear(regs, tigon2FwBssAddr, tigon2FwBssLen);
--		ace_clear(regs, tigon2FwSbssAddr, tigon2FwSbssLen);
--		ace_copy(regs, tigon2FwText, tigon2FwTextAddr,tigon2FwTextLen);
--		ace_copy(regs, tigon2FwRodata, tigon2FwRodataAddr,
--			 tigon2FwRodataLen);
--		ace_copy(regs, tigon2FwData, tigon2FwDataAddr,tigon2FwDataLen);
--	}
--
--	return 0;
-+	ace_copy(regs, &fw_data[3], load_addr, fw->size-12);
-+ out:
-+	release_firmware(fw);
-+	return ret;
- }
+ 	read_lock(&udp_hash_lock);
+-	sk = sk_head(&udptable[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)]);
++	sk = sk_head(&udptable[udp_hashfn(ntohs(uh->dest))]);
+ 	dif = skb->dev->ifindex;
+ 	sk = udp_v4_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
+ 	if (sk) {
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index dd30962..61d3c99 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -67,7 +67,7 @@ static struct sock *__udp6_lib_lookup(struct net *net,
+ 	int badness = -1;
  
-
-diff --git a/drivers/net/acenic.h b/drivers/net/acenic.h
-index 60ed183..cf7e80e 100644
---- a/drivers/net/acenic.h
-+++ b/drivers/net/acenic.h
-@@ -695,6 +695,10 @@ struct ace_private
- #endif
- 	struct net_device_stats stats;
- 	int			pci_using_dac;
-+	u8			firmware_major;
-+	u8			firmware_minor;
-+	u8			firmware_fix;
-+	u32			firmware_start;
- };
+ 	read_lock(&udp_hash_lock);
+-	sk_for_each(sk, node, &udptable[hnum & (UDP_HTABLE_SIZE - 1)]) {
++	sk_for_each(sk, node, &udptable[udp_hashfn(hnum)]) {
+ 		struct inet_sock *inet = inet_sk(sk);
  
-
-
+ 		if (net_eq(sock_net(sk), net) && sk->sk_hash == hnum &&
+@@ -363,7 +363,7 @@ static int __udp6_lib_mcast_deliver(struct sk_buff *skb, struct in6_addr *saddr,
+ 	int dif;
+ 
+ 	read_lock(&udp_hash_lock);
+-	sk = sk_head(&udptable[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)]);
++	sk = sk_head(&udptable[udp_hashfn(ntohs(uh->dest))]);
+ 	dif = inet6_iif(skb);
+ 	sk = udp_v6_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
+ 	if (!sk) {
 -- 
-dwmw2
+1.5.3.4
 
