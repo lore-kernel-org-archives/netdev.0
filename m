@@ -1,62 +1,166 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: Re: [PATCH net-2.6 2/2] ipv6: minor cleanup in net/ipv6/tcp_ipv6.c
-Date: Mon, 16 Jun 2008 12:51:35 +0300
-Message-ID: <eb3ff54b0806160251w75b1818dh521f2c8cd8ca0c79@mail.gmail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-next 8/8] Netns: introduce the net_hash_mix "salt" for
+ hashes
+Date: Mon, 16 Jun 2008 13:51:55 +0400
+Message-ID: <485637BB.4050102@openvz.org>
+References: <485633E4.10900@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_38138_328045.1213609895244"
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "=?BIG5?B?WU9TSElGVUpJIEhpZGVha2kgLyCmTsPDrV6p+g==?="
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.168]:44723 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756967AbYFPJvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 05:51:35 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so5141366wfd.4
-        for <netdev@vger.kernel.org>; Mon, 16 Jun 2008 02:51:35 -0700 (PDT)
+Received: from sacred.ru ([62.205.161.221]:41156 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757946AbYFPJyU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 05:54:20 -0400
+In-Reply-To: <485633E4.10900@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_38138_328045.1213609895244
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+There are many possible ways to add this "salt", thus I made this
+patch to be the last in the series to change it if required.
 
-Hi,
-Fixing signed-off by line also in this second patch,
-Rami
+Currently I propose to use the struct net pointer itself as this 
+salt, but since this pointer is most often cache-line aligned, shift 
+this right to eliminate the bits, that are most often zeroed.
 
-On Mon, Jun 16, 2008 at 12:41 PM, YOSHIFUJI Hideaki / 吉藤英明
-<yoshfuji@linux-ipv6.org> wrote:
-> In article <eb3ff54b0806160207r473055c3y329b6ec66b902572@mail.gmail.com> (at Mon, 16 Jun 2008 12:07:31 +0300), "Rami Rosen" <ramirose@gmail.com> says:
->
->> Signed-off-by: Rami Rosen <ramirose@gmail.com>
->
-> Would you please fix signed-off-by line in the patches?
->
-> --yoshfuji
->
+After this, simply add this mix to prepared hashfn-s.
 
-------=_Part_38138_328045.1213609895244
-Content-Type: text/plain; name=patch2.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fhivwsgv0
-Content-Disposition: attachment; filename=patch2.txt
+For CONFIG_NET_NS=n case this salt is 0 and no changes in hashfn
+appear.
 
-ZGlmZiAtLWdpdCBhL25ldC9pcHY2L3RjcF9pcHY2LmMgYi9uZXQvaXB2Ni90Y3BfaXB2Ni5jCmlu
-ZGV4IGNiNDY3NDkuLjBhNDM3ZTAgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3RjcF9pcHY2LmMKKysr
-IGIvbmV0L2lwdjYvdGNwX2lwdjYuYwpAQCAtNzIsOCArNzIsNiBAQAogCiBzdGF0aWMgdm9pZAl0
-Y3BfdjZfc2VuZF9yZXNldChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpOwog
-c3RhdGljIHZvaWQJdGNwX3Y2X3JlcXNrX3NlbmRfYWNrKHN0cnVjdCBza19idWZmICpza2IsIHN0
-cnVjdCByZXF1ZXN0X3NvY2sgKnJlcSk7Ci1zdGF0aWMgdm9pZAl0Y3BfdjZfc2VuZF9jaGVjayhz
-dHJ1Y3Qgc29jayAqc2ssIGludCBsZW4sCi0JCQkJICBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKIAog
-c3RhdGljIGludAl0Y3BfdjZfZG9fcmN2KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYg
-KnNrYik7CiAKQEAgLTExMDEsOSArMTA5OSw2IEBAIHN0YXRpYyB2b2lkIHRjcF92Nl9zZW5kX2Fj
-ayhzdHJ1Y3QgdGNwX3RpbWV3YWl0X3NvY2sgKnR3LAogI2lmZGVmIENPTkZJR19UQ1BfTUQ1U0lH
-CiAJc3RydWN0IHRjcF9tZDVzaWdfa2V5ICprZXk7CiAJc3RydWN0IHRjcF9tZDVzaWdfa2V5IHR3
-X2tleTsKLSNlbmRpZgotCi0jaWZkZWYgQ09ORklHX1RDUF9NRDVTSUcKIAlpZiAoIXR3ICYmIHNr
-Yi0+c2spIHsKIAkJa2V5ID0gdGNwX3Y2X21kNV9kb19sb29rdXAoc2tiLT5zaywgJmlwdjZfaGRy
-KHNrYiktPmRhZGRyKTsKIAl9IGVsc2UgaWYgKHR3ICYmIHR3LT50d19tZDVfa2V5bGVuKSB7Cgo=
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-------=_Part_38138_328045.1213609895244--
+---
+ include/linux/udp.h            |    3 ++-
+ include/net/inet6_hashtables.h |    3 ++-
+ include/net/inet_hashtables.h  |    5 +++--
+ include/net/inet_sock.h        |    3 ++-
+ include/net/netns/hash.h       |   21 +++++++++++++++++++++
+ 5 files changed, 30 insertions(+), 5 deletions(-)
+ create mode 100644 include/net/netns/hash.h
+
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index 3deccac..0cf5c4c 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -38,6 +38,7 @@ struct udphdr {
+ #ifdef __KERNEL__
+ #include <net/inet_sock.h>
+ #include <linux/skbuff.h>
++#include <net/netns/hash.h>
+ 
+ static inline struct udphdr *udp_hdr(const struct sk_buff *skb)
+ {
+@@ -48,7 +49,7 @@ static inline struct udphdr *udp_hdr(const struct sk_buff *skb)
+ 
+ static inline int udp_hashfn(struct net *net, const unsigned num)
+ {
+-	return num & (UDP_HTABLE_SIZE - 1);
++	return (num + net_hash_mix(net)) & (UDP_HTABLE_SIZE - 1);
+ }
+ 
+ struct udp_sock {
+diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
+index 72f13a9..e48989f 100644
+--- a/include/net/inet6_hashtables.h
++++ b/include/net/inet6_hashtables.h
+@@ -24,6 +24,7 @@
+ #include <net/inet_sock.h>
+ 
+ #include <net/ipv6.h>
++#include <net/netns/hash.h>
+ 
+ struct inet_hashinfo;
+ 
+@@ -36,7 +37,7 @@ static inline unsigned int inet6_ehashfn(struct net *net,
+ 
+ 	return jhash_3words((__force u32)laddr->s6_addr32[3],
+ 			    (__force u32)faddr->s6_addr32[3],
+-			    ports, inet_ehash_secret);
++			    ports, inet_ehash_secret + net_hash_mix(net));
+ }
+ 
+ static inline int inet6_sk_ehashfn(const struct sock *sk)
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index 26336cd..bb619d8 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -29,6 +29,7 @@
+ #include <net/inet_sock.h>
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
++#include <net/netns/hash.h>
+ 
+ #include <asm/atomic.h>
+ #include <asm/byteorder.h>
+@@ -204,7 +205,7 @@ extern void inet_bind_bucket_destroy(struct kmem_cache *cachep,
+ static inline int inet_bhashfn(struct net *net,
+ 		const __u16 lport, const int bhash_size)
+ {
+-	return lport & (bhash_size - 1);
++	return (lport + net_hash_mix(net)) & (bhash_size - 1);
+ }
+ 
+ extern void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
+@@ -213,7 +214,7 @@ extern void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
+ /* These can have wildcards, don't try too hard. */
+ static inline int inet_lhashfn(struct net *net, const unsigned short num)
+ {
+-	return num & (INET_LHTABLE_SIZE - 1);
++	return (num + net_hash_mix(net)) & (INET_LHTABLE_SIZE - 1);
+ }
+ 
+ static inline int inet_sk_listen_hashfn(const struct sock *sk)
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index ab8e19d..508fb95 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -25,6 +25,7 @@
+ #include <net/sock.h>
+ #include <net/request_sock.h>
+ #include <net/route.h>
++#include <net/netns/hash.h>
+ 
+ /** struct ip_options - IP Options
+  *
+@@ -178,7 +179,7 @@ static inline unsigned int inet_ehashfn(struct net *net,
+ 	return jhash_3words((__force __u32) laddr,
+ 			    (__force __u32) faddr,
+ 			    ((__u32) lport) << 16 | (__force __u32)fport,
+-			    inet_ehash_secret);
++			    inet_ehash_secret + net_hash_mix(net));
+ }
+ 
+ static inline int inet_sk_ehashfn(const struct sock *sk)
+diff --git a/include/net/netns/hash.h b/include/net/netns/hash.h
+new file mode 100644
+index 0000000..548d78f
+--- /dev/null
++++ b/include/net/netns/hash.h
+@@ -0,0 +1,21 @@
++#ifndef __NET_NS_HASH_H__
++#define __NET_NS_HASH_H__
++
++#include <asm/cache.h>
++
++struct net;
++
++static inline unsigned net_hash_mix(struct net *net)
++{
++#ifdef CONFIG_NET_NS
++	/*
++	 * shift this right to eliminate bits, that are
++	 * always zeroed
++	 */
++
++	return (unsigned)(((unsigned long)net) >> L1_CACHE_SHIFT);
++#else
++	return 0;
++#endif
++}
++#endif
+-- 
+1.5.3.4
+
