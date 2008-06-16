@@ -1,21 +1,67 @@
 From: "Denys Fedoryshchenko" <denys@visp.net.lb>
 Subject: Re: packetloss, on e1000e worse than r8169?
-Date: Mon, 16 Jun 2008 23:20:27 +0300
-Message-ID: <20080616201836.M85480@visp.net.lb>
+Date: Mon, 16 Jun 2008 23:23:25 +0300
+Message-ID: <20080616202210.M84100@visp.net.lb>
 References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=koi8-r
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux.nics@intel.com
 To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:60742 "EHLO
+Received: from usermail.globalproof.net ([194.146.153.18]:50110 "EHLO
 	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753138AbYFPUUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 16:20:46 -0400
+	with ESMTP id S1753685AbYFPUXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 16:23:44 -0400
 In-Reply-To: <4856C3A7.9070703@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Also if important
+MegaRouter-KARAM ~ # dmesg|grep eth1
+[    3.955620] eth1: (PCI Express:2.5GB/s:Width x1) 00:19:d1:71:5f:33
+[    3.955622] eth1: Intel(R) PRO/1000 Network Connection
+[    3.955642] eth1: MAC: 4, PHY: 6, PBA No: ffffff-0ff
+[    5.358191] netconsole: interface eth1
+[    6.432345] eth1: Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+
+MegaRouter-KARAM ~ # ethtool eth1
+Settings for eth1:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: pumbag
+        Wake-on: g
+        Current message level: 0x00000001 (1)
+        Link detected: yes
+
+
+MegaRouter-KARAM ~ # ethtool -c eth1
+Coalesce parameters for eth1:
+Adaptive RX: off  TX: off
+stats-block-usecs: 0
+sample-interval: 0
+pkt-rate-low: 0
+pkt-rate-high: 0
+
+rx-usecs: 3
+
+I tried to change Intel's "magic" rx-usecs to 0,1,3,10000,100000, it doesn't
+help at all. Attempt to change offloading parameters (disabling) doesn't make
+sense too.
+
 
 On Mon, 16 Jun 2008 21:48:55 +0200, Eric Dumazet wrote
 > Denys Fedoryshchenko a e'crit :
@@ -176,68 +222,10 @@ routes):
 > 
 > Also, please post "cat /proc/interrupts"
 > 
-MegaRouter-KARAM ~ # ethtool -g eth1
-Ring parameters for eth1:
-Pre-set maximums:
-RX:             4096
-RX Mini:        0
-RX Jumbo:       0
-TX:             4096
-Current hardware settings:
-RX:             256
-RX Mini:        0
-RX Jumbo:       0
-TX:             256
-
-After i tried to set ethtool -G eth1 4096 system becomes extremely slow, what
-is very strange for me. I had to soft-reboot it (over kexec).
-
-MegaRouter-KARAM ~ # cat /proc/interrupts;sleep 10;cat /proc/interrupts
-           CPU0       CPU1
-  0:      86148          0   IO-APIC-edge      timer
-  1:          2          0   IO-APIC-edge      i8042
-  9:          0          0   IO-APIC-fasteoi   acpi
- 12:          5          0   IO-APIC-edge      i8042
- 16:          0          0   IO-APIC-fasteoi   uhci_hcd:usb3
- 18:          0          0   IO-APIC-fasteoi   ehci_hcd:usb1, uhci_hcd:usb7
- 19:          0          0   IO-APIC-fasteoi   uhci_hcd:usb6
- 21:          0          0   IO-APIC-fasteoi   uhci_hcd:usb4
- 23:        968          0   IO-APIC-fasteoi   ehci_hcd:usb2, uhci_hcd:usb5
-217:          3    1460438   PCI-MSI-edge      eth1
-NMI:      86087      85892   Non-maskable interrupts
-LOC:          0      85892   Local timer interrupts
-RES:         44         81   Rescheduling interrupts
-CAL:         88         56   function call interrupts
-TLB:         91         78   TLB shootdowns
-TRM:          0          0   Thermal event interrupts
-SPU:          0          0   Spurious interrupts
-ERR:          0
-MIS:          0
-           CPU0       CPU1
-  0:      96150          0   IO-APIC-edge      timer
-  1:          2          0   IO-APIC-edge      i8042
-  9:          0          0   IO-APIC-fasteoi   acpi
- 12:          5          0   IO-APIC-edge      i8042
- 16:          0          0   IO-APIC-fasteoi   uhci_hcd:usb3
- 18:          0          0   IO-APIC-fasteoi   ehci_hcd:usb1, uhci_hcd:usb7
- 19:          0          0   IO-APIC-fasteoi   uhci_hcd:usb6
- 21:          0          0   IO-APIC-fasteoi   uhci_hcd:usb4
- 23:        968          0   IO-APIC-fasteoi   ehci_hcd:usb2, uhci_hcd:usb5
-217:          3    1646537   PCI-MSI-edge      eth1
-NMI:      96088      95893   Non-maskable interrupts
-LOC:          0      95893   Local timer interrupts
-RES:         44         81   Rescheduling interrupts
-CAL:         89         56   function call interrupts
-TLB:         91         78   TLB shootdowns
-TRM:          0          0   Thermal event interrupts
-SPU:          0          0   Spurious interrupts
-ERR:          0
-MIS:          0
-
-
-About NMI interrupts - nmi_watchdog=1, if i disable it, it doesn't change
-anything.
-
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
 --
