@@ -1,172 +1,50 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: packetloss, on e1000e worse than r8169?
-Date: Mon, 16 Jun 2008 22:37:36 +0300
-Message-ID: <20080616193501.M64730@visp.net.lb>
+From: "Amar Mudrankit" <amar.mudrankit@qlogic.com>
+Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs Documentation
+Date: Tue, 17 Jun 2008 01:14:59 +0530
+Message-ID: <c8028d330806161244j5a7f46e8y898deea69751d4f6@mail.gmail.com>
+References: <20080610205633.11186.45499.stgit@dale>
+	 <20080610210918.11186.64253.stgit@dale> <484F751F.7030407@trash.net>
+	 <71d336490806120850x3b5e6172jf4d75850771d6349@mail.gmail.com>
+	 <485148DA.2060508@trash.net>
+	 <c8028d330806121409x27a4d596k571ce87934e89371@mail.gmail.com>
+	 <48529027.1090309@trash.net>
+	 <c8028d330806131447t2b24be93sa0e07bfa792c8f7f@mail.gmail.com>
+	 <48537C68.1010207@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: linux.nics@intel.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rdreier@cisco.com,
+	general@lists.openfabrics.org, poornima.kamath@qlogic.com
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:58202 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752684AbYFPTh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 15:37:56 -0400
+Received: from rv-out-0506.google.com ([209.85.198.238]:60049 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751236AbYFPTpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 15:45:03 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so3788997rvb.1
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2008 12:45:01 -0700 (PDT)
+In-Reply-To: <48537C68.1010207@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi again
+>> I was looking at latest release of iproute2, in which I could not
+>> locate fill_xstats. Can you help me to locate this?
+>
+> ->fill_xstats is in the kernel, in iproute its ->print_xstats.
 
-I moved from PCI Realtek 8169 to onboard PCI-Express e1000e, and situation
-become worse. Strange? Yes.
+I was looking at kernel code net/8021q/vlan_netlink.c on which I have
+following queries:
 
-Here is info
-Load and error rate: 
+a.  Is it a correct file in kernel I m referring to?
+b.  vlan_fill_info is a function to send parameters back to user
+level. What is the role of skb as an argument to function? Is some
+network operation expected?
+c.  How exactly the kernel API ops->get_size comes into play? I guess
+user prog should first get the size of parameters that will be
+returned by driver before calling ops->fill_info.
+d.  Can somebody briefly introduce struct nlattr? It looks like all
+parameters flow through this structure.
 
-MegaRouter-KARAM /sys # ifconfig eth1;sleep 10;ifconfig eth1
-eth1      Link encap:Ethernet  HWaddr 00:19:D1:71:5F:33
-          inet addr:192.168.20.10  Bcast:0.0.0.0  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:91991642 errors:0 dropped:1803444 overruns:0 frame:0
-          TX packets:91914611 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:316112765 (301.4 MiB)  TX bytes:138303107 (131.8 MiB)
-          Memory:90300000-90320000
-
-eth1      Link encap:Ethernet  HWaddr 00:19:D1:71:5F:33
-          inet addr:192.168.20.10  Bcast:0.0.0.0  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:92812514 errors:0 dropped:1815490 overruns:0 frame:0
-          TX packets:92734865 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:739941322 (705.6 MiB)  TX bytes:560547138 (534.5 MiB)
-          Memory:90300000-90320000
-
-System load (there is no NAT, no shapers, just routing, around 600-700 routes):
-MegaRouter-KARAM /sys # mpstat 1
-Linux 2.6.26-rc6-git2-build-0029 (MegaRouter-KARAM)     06/16/08
-
-22:36:36     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal  
-%idle    intr/s
-22:36:37     all    0.00    0.00    0.00    0.00    0.00    1.49    0.00  
-98.51  19764.00
-22:36:38     all    0.00    0.00    0.50    0.00    0.00    0.50    0.00  
-99.01  19888.00
-22:36:39     all    0.00    0.00    0.00    0.00    0.00    0.50    0.00  
-99.50  19642.00
-22:36:40     all    0.00    0.00    0.00    0.00    1.01    9.05    0.00  
-89.95  19543.00
-
-(system almost idle)
-
-MegaRouter-KARAM /sys # ethtool -S eth1
-NIC statistics:
-     rx_packets: 109977509
-     tx_packets: 109887692
-     rx_bytes: 57656749138
-     tx_bytes: 57536071746
-     rx_broadcast: 6497
-     tx_broadcast: 92
-     rx_multicast: 48995
-     tx_multicast: 1960
-     rx_errors: 0
-     tx_errors: 0
-     tx_dropped: 0
-     multicast: 48995
-     collisions: 0
-     rx_length_errors: 0
-     rx_over_errors: 0
-     rx_crc_errors: 0
-     rx_frame_errors: 0
-     rx_no_buffer_count: 1796
-     rx_missed_errors: 2182679
-     tx_aborted_errors: 0
-     tx_carrier_errors: 0
-     tx_fifo_errors: 0
-     tx_heartbeat_errors: 0
-     tx_window_errors: 0
-     tx_abort_late_coll: 0
-     tx_deferred_ok: 55617
-     tx_single_coll_ok: 0
-     tx_multi_coll_ok: 0
-     tx_timeout_count: 0
-     tx_restart_queue: 1626
-     rx_long_length_errors: 0
-     rx_short_length_errors: 0
-     rx_align_errors: 0
-     tx_tcp_seg_good: 0
-     tx_tcp_seg_failed: 0
-     rx_flow_control_xon: 55461
-     rx_flow_control_xoff: 57329
-     tx_flow_control_xon: 39114
-     tx_flow_control_xoff: 48341
-     rx_long_byte_count: 57656749138
-     rx_csum_offload_good: 104097306
-     rx_csum_offload_errors: 2209
-     rx_header_split: 0
-     alloc_rx_buff_failed: 0
-     tx_smbus: 22
-     rx_smbus: 2201
-     dropped_smbus: 0
-     rx_dma_failed: 0
-     tx_dma_failed: 0
-MegaRouter-KARAM /sys # ethtool -S eth1
-NIC statistics:
-     rx_packets: 110154571
-     tx_packets: 110064459
-     rx_bytes: 57753358981
-     tx_bytes: 57632419451
-     rx_broadcast: 6501
-     tx_broadcast: 92
-     rx_multicast: 49155
-     tx_multicast: 1960
-     rx_errors: 0
-     tx_errors: 0
-     tx_dropped: 0
-     multicast: 49155
-     collisions: 0
-     rx_length_errors: 0
-     rx_over_errors: 0
-     rx_crc_errors: 0
-     rx_frame_errors: 0
-     rx_no_buffer_count: 1796
-     rx_missed_errors: 2187703
-     tx_aborted_errors: 0
-     tx_carrier_errors: 0
-     tx_fifo_errors: 0
-     tx_heartbeat_errors: 0
-     tx_window_errors: 0
-     tx_abort_late_coll: 0
-     tx_deferred_ok: 55772
-     tx_single_coll_ok: 0
-     tx_multi_coll_ok: 0
-     tx_timeout_count: 0
-     tx_restart_queue: 1628
-     rx_long_length_errors: 0
-     rx_short_length_errors: 0
-     rx_align_errors: 0
-     tx_tcp_seg_good: 0
-     tx_tcp_seg_failed: 0
-     rx_flow_control_xon: 55615
-     rx_flow_control_xoff: 57488
-     tx_flow_control_xon: 39209
-     tx_flow_control_xoff: 48448
-     rx_long_byte_count: 57753358981
-     rx_csum_offload_good: 104264656
-     rx_csum_offload_errors: 2210
-     rx_header_split: 0
-     alloc_rx_buff_failed: 0
-     tx_smbus: 23
-     rx_smbus: 2207
-     dropped_smbus: 0
-     rx_dma_failed: 0
-     tx_dma_failed: 0
-
-
-
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+Thanks and Regards,
+Amar S Mudrankit
