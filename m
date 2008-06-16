@@ -1,62 +1,59 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/2] 8139too: clean up spaces and TABs
-Date: Mon, 16 Jun 2008 09:31:42 -0700
-Message-ID: <20080616093142.078f5528@extreme>
-References: <4853BB62.1060109@freemail.hu>
-	<4853C8AD.9020407@s5r6.in-berlin.de>
-	<48541165.7050304@freemail.hu>
-	<485421C1.8010102@s5r6.in-berlin.de>
-	<4854C9BF.8040900@freemail.hu>
-	<485681BA.4060808@s5r6.in-berlin.de>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 2/2] fs_enet: MDIO on GPIO support
+Date: Mon, 16 Jun 2008 11:34:00 -0500
+Message-ID: <20080616163400.GA13996@loki.buserror.net>
+References: <200805261152.37636.laurentp@cse-semaphore.com>
+	<200805261153.46131.laurentp@cse-semaphore.com>
+	<200806161057.03158.laurentp@cse-semaphore.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>,
-	David Newall <davidn@davidnewall.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	Trivial Patch Monkey <trivial@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:39400 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756705AbYFPQbs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 12:31:48 -0400
-In-Reply-To: <485681BA.4060808@s5r6.in-berlin.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, jgarzik@pobox.com, vbordug@ru.mvista.com,
+	netdev@vger.kernel.org
+To: Laurent Pinchart <laurentp@cse-semaphore.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <200806161057.03158.laurentp@cse-semaphore.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Jun 2008 17:07:38 +0200
-Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
+On Mon, Jun 16, 2008 at 10:57:02AM +0200, Laurent Pinchart wrote:
+> On Monday 26 May 2008 11:53, Laurent Pinchart wrote:
+> > Port the fs_enet driver to support the MDIO on GPIO driver for PHY access
+> > in addition to the mii-bitbang driver.
+> 
+> Now that 1/2 has been applied by Jeff, could this one make it to 
+> powerpc-next ?
 
-> N=C3=A9meth M=C3=A1rton wrote:
-> > I have chosen the checkpatch.pl's output to compare the
-> > whether the old and the new code are better or not. Maybe that was =
-a mistake.
->=20
-> Well, running checkpatch on source files (rather than patches) and
-> fixing the files up according to checkpatch's output and own good
-> judgement has two uses:
->   - bring new unmerged code into shape before submission,
->   - bring older mainline code into the canonical form as a basis
->     for further work.  You certainly saw how lots and lots of such
->     checkpatch-assisted cleanups went into arch/x86.  That's because
->     they were found useful for the work on unifying the two x86
->     architecture subtrees.
-> So, a coding style rework has its use even on legacy code if people h=
-ave
-> plans with the code.  But keep in mind that (a) the whitespace rules
-> aren't hard and universally agreed upon rules, (b) coding style has a
-> number of other aspects of arguably greater importance than whitespac=
-e
-> style, like proper modularization, good choices of names, use of comm=
-on
-> idioms and APIs instead of own inventions, and so on.
+This patch should probably go through Jeff as well...
 
-There is no point in doing this kind of checkpatch cleanup on its own.
-It is worth doing more serious style work and rewriting of older driver=
-s,
-in the areas where other work needs to be done. Please work on drivers
-that are ugly old vendor code, and/or you can find someone with the har=
-dware
-to test it.
+Acked-by: Scott Wood <scottwood@freescale.com>
+
+> > -	data = of_get_property(phynode, "reg", &len);
+> > -	if (!data || len != 4)
+> > -		goto out_put_mdio;
+> > +	bus_id = of_get_gpio(mdionode, 0);
+> > +	if (bus_id < 0) {
+> > +		struct resource res;
+> > +		ret = of_address_to_resource(mdionode, 0, &res);
+> > +		if (ret)
+> > +			goto out_put_mdio;
+> > +		bus_id = res.start;
+> > +	}
+> >  
+> > -	snprintf(fpi->bus_id, 16, "%x:%02x", res.start, *data);
+> > +	snprintf(fpi->bus_id, 16, "%x:%02x", bus_id, *data);
+
+It'd be nice if this sort of thing could be moved to phylib, so the latter
+could simply be passed a device node (in addition to current mechanisms for
+the benefit of unfortunate device-tree-less architectures).
+
+-Scott
