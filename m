@@ -1,60 +1,308 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: RFC: [PATCH 2/3] netdevice: Fix promiscuity and allmulti overflow
-Date: Mon, 16 Jun 2008 11:38:36 +0200
-Message-ID: <4856349C.70201@trash.net>
-References: <48562F45.3040302@cn.fujitsu.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH] firmware: convert acenic driver to request_firmware()
+Date: Mon, 16 Jun 2008 10:25:00 +0100
+Message-ID: <1213608300.26255.665.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, jaswinder@infradead.org
+To: Jes Sorensen <jes@trained-monkey.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58263 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752202AbYFPJim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 05:38:42 -0400
-In-Reply-To: <48562F45.3040302@cn.fujitsu.com>
+Received: from casper.infradead.org ([85.118.1.10]:45980 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752809AbYFPJjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 05:39:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 5829630..a3c692d 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2753,10 +2753,20 @@ static void __dev_set_promiscuity(struct net_device *dev, int inc)
->  
->  	ASSERT_RTNL();
->  
-> +	dev->flags |= IFF_PROMISC;
->  	if ((dev->promiscuity += inc) == 0)
-> -		dev->flags &= ~IFF_PROMISC;
-> -	else
-> -		dev->flags |= IFF_PROMISC;
-> +		/*
-> +		 * Avoid overflow.
-> +		 * If inc causes overflow, ignore it and warn user.
-> +		 */
-> +		if (inc < 0)
-> +			dev->flags &= ~IFF_PROMISC;
-> +		else {
-> +			dev->promiscuity -= inc;
-> +			printk(KERN_ERR "%s: promiscuity touches roof, "
-> +				"set promiscuity failed, promiscuity feature "
-> +				"of device will be broken.\n");
-> +		}
+Again with help from Jaswinder Singh.
 
-Additional parens around the inner block would make this more
-readable.
+Omitting the large part of the patch which actually moves the firmware
+around, since you'll need to pull from the git tree to get the preceding
+patches if you want to test it anyway.
 
-I question the need for this though, userspace can only trigger
-an increase/decrease by one no matter how often it enables
-the ALLMULTI/PROMISC flags, and I doubt any codepath in the
-kernel would lead to an overflow.
+We store the firmware in little-endian form now, and thus use
+__raw_writel() to write it to the device, to avoid byteswapping by
+writel(). I've revamped that loop in ace_copy() a little bit so it could
+probably do with being tested.
 
-If this can really happen it would be better to leave the
-counter untouched and return an error, we already have too
-many device operations that might fail more or less silently.
+I've dropped the information about SBSS and BSS sections of the firmware
+-- we were clearing the whole of the device's memory in advance anyway,
+so clearing the BSS sections for a _second_ time seems pointless. And
+since the text,rodata,data sections were (almost) contiguous, we now
+just load those as a single blob rather than keeping them separate.
 
+Although it probably isn't necessary, we do preserve the ability to
+change the load and start addresses from 0x4000, by putting them into a
+header at the beginning of the firmware blob, along with the version
+number.
+
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index d040b7b..c555606 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1921,6 +1921,7 @@ if NETDEV_1000
+ config ACENIC
+ 	tristate "Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit support"
+ 	depends on PCI
++	select FW_LOADER
+ 	---help---
+ 	  Say Y here if you have an Alteon AceNIC, 3Com 3C985(B), NetGear
+ 	  GA620, SGI Gigabit or Farallon PN9000-SX PCI Gigabit Ethernet
+@@ -1945,6 +1946,23 @@ config ACENIC_OMIT_TIGON_I
+ 
+ 	  The safe and default value for this is N.
+ 
++config ACENIC_TG1_FIRMWARE
++	bool "Include firmware for old Tigon I based AceNICs"
++	depends on ACENIC && !ACENIC_OMIT_TIGON_I
++	---help---
++	  This includes firmware for the original Alteon AceNIC and 3Com 3C985
++	  (non B version) in the kernel image.
++	  Say 'N' and let it get loaded from userspace on demand 
++
++config ACENIC_TG2_FIRMWARE
++	bool "Include firmware for Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit"
++	depends on ACENIC
++	---help---
++	  This includes firmware for later Alteon AceNIC, 3Com 3C985B,
++	  NetGear GA620, SGI Gigabit or Farallon PN9000-SX PCI Gigabit
++	  Ethernet adapter.
++	  Say 'N' and let it get loaded from userspace on demand 
++
+ config DL2K
+ 	tristate "DL2000/TC902x-based Gigabit Ethernet support"
+ 	depends on PCI
+diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
+index 6c19265..1e42734 100644
+--- a/drivers/net/acenic.c
++++ b/drivers/net/acenic.c
+@@ -67,6 +67,7 @@
+ #include <linux/mm.h>
+ #include <linux/highmem.h>
+ #include <linux/sockios.h>
++#include <linux/firmware.h>
+ 
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ #include <linux/if_vlan.h>
+@@ -187,8 +188,6 @@ MODULE_DEVICE_TABLE(pci, acenic_pci_tbl);
+ #define MAX_RODATA_LEN	8*1024
+ #define MAX_DATA_LEN	2*1024
+ 
+-#include "acenic_firmware.h"
+-
+ #ifndef tigon2FwReleaseLocal
+ #define tigon2FwReleaseLocal 0
+ #endif
+@@ -418,6 +417,8 @@ static int dis_pci_mem_inval[ACE_MAX_MOD_PARMS] = {1, 1, 1, 1, 1, 1, 1, 1};
+ MODULE_AUTHOR("Jes Sorensen <jes@trained-monkey.org>");
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("AceNIC/3C985/GA620 Gigabit Ethernet driver");
++MODULE_FIRMWARE("acenic_tg1.bin");
++MODULE_FIRMWARE("acenic_tg2.bin");
+ 
+ module_param_array_named(link, link_state, int, NULL, 0);
+ module_param_array(trace, int, NULL, 0);
+@@ -939,8 +940,8 @@ static int __devinit ace_init(struct net_device *dev)
+ 	case 4:
+ 	case 5:
+ 		printk(KERN_INFO "  Tigon I  (Rev. %i), Firmware: %i.%i.%i, ",
+-		       tig_ver, tigonFwReleaseMajor, tigonFwReleaseMinor,
+-		       tigonFwReleaseFix);
++		       tig_ver, ap->firmware_major, ap->firmware_minor,
++		       ap->firmware_fix);
+ 		writel(0, &regs->LocalCtrl);
+ 		ap->version = 1;
+ 		ap->tx_ring_entries = TIGON_I_TX_RING_ENTRIES;
+@@ -948,8 +949,8 @@ static int __devinit ace_init(struct net_device *dev)
+ #endif
+ 	case 6:
+ 		printk(KERN_INFO "  Tigon II (Rev. %i), Firmware: %i.%i.%i, ",
+-		       tig_ver, tigon2FwReleaseMajor, tigon2FwReleaseMinor,
+-		       tigon2FwReleaseFix);
++		       tig_ver, ap->firmware_major, ap->firmware_minor,
++		       ap->firmware_fix);
+ 		writel(readl(&regs->CpuBCtrl) | CPU_HALT, &regs->CpuBCtrl);
+ 		readl(&regs->CpuBCtrl);		/* PCI write posting */
+ 		/*
+@@ -1201,7 +1202,9 @@ static int __devinit ace_init(struct net_device *dev)
+ 	memset(ap->info, 0, sizeof(struct ace_info));
+ 	memset(ap->skb, 0, sizeof(struct ace_skb));
+ 
+-	ace_load_firmware(dev);
++	if (ace_load_firmware(dev))
++		goto init_error;
++
+ 	ap->fw_running = 0;
+ 
+ 	tmp_ptr = ap->info_dma;
+@@ -1437,10 +1440,7 @@ static int __devinit ace_init(struct net_device *dev)
+ 	if (ap->version >= 2)
+ 		writel(tmp, &regs->TuneFastLink);
+ 
+-	if (ACE_IS_TIGON_I(ap))
+-		writel(tigonFwStartAddr, &regs->Pc);
+-	if (ap->version == 2)
+-		writel(tigon2FwStartAddr, &regs->Pc);
++	writel(ap->firmware_start, &regs->Pc);
+ 
+ 	writel(0, &regs->Mb0Lo);
+ 
+@@ -2763,8 +2763,8 @@ static void ace_get_drvinfo(struct net_device *dev,
+ 
+ 	strlcpy(info->driver, "acenic", sizeof(info->driver));
+ 	snprintf(info->version, sizeof(info->version), "%i.%i.%i",
+-		tigonFwReleaseMajor, tigonFwReleaseMinor,
+-		tigonFwReleaseFix);
++		 ap->firmware_major, ap->firmware_minor,
++		 ap->firmware_fix);
+ 
+ 	if (ap->pdev)
+ 		strlcpy(info->bus_info, pci_name(ap->pdev),
+@@ -2871,11 +2871,10 @@ static struct net_device_stats *ace_get_stats(struct net_device *dev)
+ }
+ 
+
+-static void __devinit ace_copy(struct ace_regs __iomem *regs, void *src,
+-			    u32 dest, int size)
++static void __devinit ace_copy(struct ace_regs __iomem *regs, const __le32 *src,
++			       u32 dest, int size)
+ {
+ 	void __iomem *tdest;
+-	u32 *wsrc;
+ 	short tsize, i;
+ 
+ 	if (size <= 0)
+@@ -2887,20 +2886,15 @@ static void __devinit ace_copy(struct ace_regs __iomem *regs, void *src,
+ 		tdest = (void __iomem *) &regs->Window +
+ 			(dest & (ACE_WINDOW_SIZE - 1));
+ 		writel(dest & ~(ACE_WINDOW_SIZE - 1), &regs->WinBase);
+-		/*
+-		 * This requires byte swapping on big endian, however
+-		 * writel does that for us
+-		 */
+-		wsrc = src;
+ 		for (i = 0; i < (tsize / 4); i++) {
+-			writel(wsrc[i], tdest + i*4);
++			/* Firmware is stored as little-endian */
++			__raw_writel(*src, tdest);
++			src++;
++			tdest += 4;
++			dest += 4;
++			size -= 4;
+ 		}
+-		dest += tsize;
+-		src += tsize;
+-		size -= tsize;
+ 	}
+-
+-	return;
+ }
+ 
+
+@@ -2939,8 +2933,13 @@ static void __devinit ace_clear(struct ace_regs __iomem *regs, u32 dest, int siz
+  */
+ static int __devinit ace_load_firmware(struct net_device *dev)
+ {
++	const struct firmware *fw;
++	const char *fw_name = "acenic_tg2.bin";
+ 	struct ace_private *ap = netdev_priv(dev);
+ 	struct ace_regs __iomem *regs = ap->regs;
++	const __le32 *fw_data;
++	u32 load_addr;
++	int ret;
+ 
+ 	if (!(readl(&regs->CpuCtrl) & CPU_HALTED)) {
+ 		printk(KERN_ERR "%s: trying to download firmware while the "
+@@ -2948,28 +2947,52 @@ static int __devinit ace_load_firmware(struct net_device *dev)
+ 		return -EFAULT;
+ 	}
+ 
++	if (ACE_IS_TIGON_I(ap))
++		fw_name = "acenic_tg1.bin";
++
++	ret = request_firmware(&fw, fw_name, &ap->pdev->dev);
++	if (ret) {
++		printk(KERN_ERR "%s: Failed to load firmware \"%s\"\n",
++		       ap->name, fw_name);
++		return ret;
++	}
++
++	fw_data = (void *)fw->data;
++
++	/* Firmware blob starts with version numbers, followed by
++	   load and start address. Remainder is the blob to be loaded
++	   contiguously from load address. We don't bother to represent
++	   the BSS/SBSS sections any more, since we were clearing the
++	   whole thing anyway. */
++	ap->firmware_major = fw->data[0];
++	ap->firmware_minor = fw->data[1];
++	ap->firmware_fix = fw->data[2];
++
++	ap->firmware_start = le32_to_cpu(fw_data[1]);
++	if (ap->firmware_start < 0x4000 || ap->firmware_start >= 0x80000) {
++		printk(KERN_ERR "%s: bogus load address %08x in \"%s\"\n",
++		       ap->name, ap->firmware_start, fw_name);
++		ret = -EINVAL;
++		goto out;
++	}
++
++	load_addr = le32_to_cpu(fw_data[2]);
++	if (load_addr < 0x4000 || load_addr >= 0x80000) {
++		printk(KERN_ERR "%s: bogus load address %08x in \"%s\"\n",
++		       ap->name, load_addr, fw_name);
++		ret = -EINVAL;
++		goto out;
++	}
++
+ 	/*
+-	 * Do not try to clear more than 512KB or we end up seeing
+-	 * funny things on NICs with only 512KB SRAM
++	 * Do not try to clear more than 512KiB or we end up seeing
++	 * funny things on NICs with only 512KiB SRAM
+ 	 */
+ 	ace_clear(regs, 0x2000, 0x80000-0x2000);
+-	if (ACE_IS_TIGON_I(ap)) {
+-		ace_copy(regs, tigonFwText, tigonFwTextAddr, tigonFwTextLen);
+-		ace_copy(regs, tigonFwData, tigonFwDataAddr, tigonFwDataLen);
+-		ace_copy(regs, tigonFwRodata, tigonFwRodataAddr,
+-			 tigonFwRodataLen);
+-		ace_clear(regs, tigonFwBssAddr, tigonFwBssLen);
+-		ace_clear(regs, tigonFwSbssAddr, tigonFwSbssLen);
+-	}else if (ap->version == 2) {
+-		ace_clear(regs, tigon2FwBssAddr, tigon2FwBssLen);
+-		ace_clear(regs, tigon2FwSbssAddr, tigon2FwSbssLen);
+-		ace_copy(regs, tigon2FwText, tigon2FwTextAddr,tigon2FwTextLen);
+-		ace_copy(regs, tigon2FwRodata, tigon2FwRodataAddr,
+-			 tigon2FwRodataLen);
+-		ace_copy(regs, tigon2FwData, tigon2FwDataAddr,tigon2FwDataLen);
+-	}
+-
+-	return 0;
++	ace_copy(regs, &fw_data[3], load_addr, fw->size-12);
++ out:
++	release_firmware(fw);
++	return ret;
+ }
+ 
+
+diff --git a/drivers/net/acenic.h b/drivers/net/acenic.h
+index 60ed183..cf7e80e 100644
+--- a/drivers/net/acenic.h
++++ b/drivers/net/acenic.h
+@@ -695,6 +695,10 @@ struct ace_private
+ #endif
+ 	struct net_device_stats stats;
+ 	int			pci_using_dac;
++	u8			firmware_major;
++	u8			firmware_minor;
++	u8			firmware_fix;
++	u32			firmware_start;
+ };
+ 
+
+
+-- 
+dwmw2
 
