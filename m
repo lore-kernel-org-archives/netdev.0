@@ -1,46 +1,53 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/12]: Proper compat WEXT support.
-Date: Mon, 16 Jun 2008 02:21:04 -0700 (PDT)
-Message-ID: <20080616.022104.217167562.davem@davemloft.net>
-References: <20080604184955.B033.40F06B3A@sm.sony.co.jp>
-	<20080612.225332.193703791.davem@davemloft.net>
-	<20080616174509.B048.40F06B3A@sm.sony.co.jp>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/3] netdevice: order of synchronization of IFF_PROMISC
+ and IFF_ALLMULTI
+Date: Mon, 16 Jun 2008 11:27:27 +0200
+Message-ID: <485631FF.7040509@trash.net>
+References: <48562F9A.5030509@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080616174509.B048.40F06B3A-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:58001 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759366AbYFPJ1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 05:27:43 -0400
+In-Reply-To: <48562F9A.5030509@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-Date: Mon, 16 Jun 2008 18:15:12 +0900
-
-> With this new patch #12, it worked OK for me.   I tested on my PS3 with:
+Wang Chen wrote:
+> IFF_PROMISC should be set before IFF_ALLMULTI.
 > 
->   - wireless_tools version 28 and 29.  Both 64 and 32-bit compiled
->     iwlist and iwconfig
->   - wpa_supplicant 0.6.x, 64 and 32-bit compiled
->   - gelic and zd1211 driver
->   
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> ---
+>  net/8021q/vlan_dev.c |   25 +++++++++++++++++++------
+>  1 files changed, 19 insertions(+), 6 deletions(-)
 > 
-> checkpatch.pl complained some error/warnings on the patches #7, #9 and
-> #12.  It seemed that most of them were inherited from the original code,
-> some seemed like newly created ones, like 80-characters over warnings in
-> net/mac80211/mlme.c.  We might want to fix them?
-> 
-> Anyway the code works fine.  Again, thank you!
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index 5d055c2..14742e3 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -547,10 +547,14 @@ static int vlan_dev_open(struct net_device *dev)
+>  	}
+>  	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
+>  
+> -	if (dev->flags & IFF_ALLMULTI)
+> -		dev_set_allmulti(real_dev, 1);
+> +	/* NOTE: order of synchronization of IFF_PROMISC and IFF_ALLMULTI
+> +	   is important. Some (broken) drivers set IFF_PROMISC, when
+> +	   IFF_ALLMULTI is requested not asking us and not reporting.
+> +	 */
+>  	if (dev->flags & IFF_PROMISC)
+>  		dev_set_promiscuity(real_dev, 1);
+> +	if (dev->flags & IFF_ALLMULTI)
+> +		dev_set_allmulti(real_dev, 1);
 
-Thank you very much for testing.
 
-I will respin my tree and look into the checkpatch warnings
-so that I may make a final submission to John Linville.
+What exactly is the problem here? The VLAN code is obviously not
+one of the broken drivers, so why should it care what other drivers
+do?
 
-Arigato gozaimasu!!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
