@@ -1,88 +1,74 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [regression?] e1000e breaks IPMI
-Date: Mon, 16 Jun 2008 15:30:24 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52056AC3B7@orsmsx418.amr.corp.intel.com>
-References: <20080616211636.GA5179@develbox.linuxbox.cz>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
+Date: Tue, 17 Jun 2008 01:19:14 +0200
+Message-ID: <f4845fc0806161619i4dc81dcao933d95aa6e09b45e@mail.gmail.com>
+References: <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
+	 <485126BD.7030109@trash.net>
+	 <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>
+	 <485144DF.3030102@trash.net>
+	 <f4845fc0806121233i54099a18k9104eb34359b923f@mail.gmail.com>
+	 <20080613062621.GA10474@verge.net.au>
+	 <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com>
+	 <48528EED.7090307@trash.net>
+	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>
+	 <485652EA.2020004@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: nikola.ciprich@linuxbox.cz, e1000-devel@lists.sourceforge.net,
-	"Brandeburg,  Jesse" <jesse.brandeburg@intel.com>,
+Cc: "Simon Horman" <horms@verge.net.au>,
+	"Vince Busam" <vbusam@google.com>,
+	"Ben Greear" <greearb@candelatech.com>, lvs-devel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: "Nikola Ciprich" <extmaillist@linuxbox.cz>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-In-Reply-To: <20080616211636.GA5179@develbox.linuxbox.cz>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:62063 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754323AbYFPXTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 19:19:17 -0400
+Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
+	by smtp-out.google.com with ESMTP id m5GNJFx6011823
+	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 00:19:15 +0100
+Received: from wf-out-1314.google.com (wfc28.prod.google.com [10.142.3.28])
+	by zps75.corp.google.com with ESMTP id m5GNIZ28016667
+	for <netdev@vger.kernel.org>; Mon, 16 Jun 2008 16:19:14 -0700
+Received: by wf-out-1314.google.com with SMTP id 28so7155388wfc.11
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2008 16:19:14 -0700 (PDT)
+In-Reply-To: <485652EA.2020004@trash.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nikola Ciprich wrote:
-> Hi,
-> it seems that e1000e breaks IPMI support on at least some
-> motherboards (ie SuperMicro PDSMi-LN4 with AOC-IPMI20-E+ module, and
-> also others).  
-> When e1000e module is loaded, IPMI module stops to respond. The
-> problem is, that it was working before, so I tried examining further
-> and bisect showed that following commit caused it to stop working:  
+On Mon, Jun 16, 2008 at 1:47 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> Option c) looks reasonable to me and also seems easy to handle in
+>> general. Is this the way to go? Or do we want the interface to look
+>> completely different this time?
+>
+> b) or c) both look fine.
 
-thank you for bisecting.
-also, I added netdev so the network developers are aware of this thread.
- 
-> commit 5918bd88effd0233a048983570ec5803f5f753dc
-> Author: Auke Kok <auke-jan.h.kok@intel.com>
-> Date:   Tue Feb 12 15:20:24 2008 -0800
-> 
->     e1000e: Fix CRC stripping in hardware context bug
-> 
->     CRC stripping was only correctly enabled for packet split recieves
->     which is used when receiving jumbo frames. Correctly enable SECRC
->     also for normal buffer packet receives.
+A couple of other Netlink questions came up while reading some code:
 
-At one point I fixed a similar bug in e1000 on 82546 hardware that was
-connected to a BMC.  In that case the packets were being discarded by a
-BMC that is apparently unable to understand that the hardware is
-stripping the CRC at reception (and then the BMC looks for the CRC and
-drops the packet because there isn't one)
+1) There are many examples of the following two cases in the kernel:
 
-Basically this works fine for Intel BMC's that know about the (AFAIK -
-I'm not a BMC expert) special fields in the SMBUS header that indicate
-whether the packet was CRCd correctly.  Does the BMC have an option to
-turn off CRC checking?  The BMC is the real problem here, probably.
- 
-> I can confirm that reverting the patch makes IPMI work again. So it
-> either is a regression, or maybe just trigger for some other bug
-> (seems more likely to me). Pity I haven't noticed it sooner, we've
-> been using older e1000[e] drivers up to now.   
-> 
-> Any suggestions on where the problem could be?
+nla_nest_start(skb, SOME_ATTR_TYPE | NLA_F_NESTED);
+nla_nest_start(skb, SOME_ATTR_TYPE);
 
-I'm pretty sure that if you disable hardware stripping then it will
-start working.  The short term solution is change the code to disable
-setting the SECRC bit, like you did when you reverted the patch.
+Why don't all cases have NLA_F_NESTED? Then again, this bit is never
+ever read out again (at least not in the kernel), so I guess people
+are just using their implicit knowledge that a specific attribute type
+is always nested and never check the bit?
 
-There is a possible complex patch that completely implements software
-stripping of CRCs, because there are a lot of issues with doing
-pskb_trim, etc in receive.  It would be modeled on the same kind of
-thing we did for e1000.  
+Btw., couldn't we change nla_nest_start() to always add NLA_F_NESTED
+to the type?
 
-I hate working around this broken BMC (again) when others are known to
-work just fine, and CRC stripping in hardware really simplifies our
-receive path.
+2) To send an array of attributes of the same type, you just add them
+serially? I was just confused at first that nla_parse() will save only
+one attribute of each type (the last one) in the destination array, so
+when dealing with arrays, it doesn't help. So I just iterate over the
+array with nla_for_each_attr() and parse each element manually, right?
 
-Netdev, any advice?
+Thanks for your time!
 
+Julius
 
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+-- 
+Google Switzerland GmbH
