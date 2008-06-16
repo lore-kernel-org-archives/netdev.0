@@ -1,38 +1,38 @@
-From: "Dotan Barak" <dotanba@gmail.com>
-Subject: Re: How can i know if I/OAT is supported?
-Date: Mon, 16 Jun 2008 15:14:45 +0300
-Message-ID: <2f3bf9a60806160514y4b6259c9reb21c1df427dcf19@mail.gmail.com>
-References: <2f3bf9a60806160351l3611d9f7jef90d51e257b059d@mail.gmail.com>
-	 <Pine.LNX.4.64.0806161214540.2344@bizon.gios.gov.pl>
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: Re: [patch 6/9] DM9000: Allow the use of the NSR register to get
+	link status.
+Date: Mon, 16 Jun 2008 13:51:20 +0100
+Message-ID: <20080616125120.GA26276@fluff.org.uk>
+References: <20080615232653.642837440@fluff.org.uk> <20080615232815.765902209@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Krzysztof Oledzki" <olel@ans.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:2180 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753180AbYFPMPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 08:15:13 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so4320495waf.23
-        for <netdev@vger.kernel.org>; Mon, 16 Jun 2008 05:15:13 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0806161214540.2344@bizon.gios.gov.pl>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:64737 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752739AbYFPMvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 08:51:22 -0400
 Content-Disposition: inline
+In-Reply-To: <20080615232815.765902209@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for the fast response.
+On Mon, Jun 16, 2008 at 12:26:59AM +0100, Ben Dooks wrote:
+> The DM9000's internal PHY reports a copy of the link status
+> in the NSR register of the chip. Reading the status when
+> polling for link status is faster as it eliminates the need
+> to sleep, but does not print as much information.
+> 
+> Add an platform flag to force this behaviour, and a Kconfig
+> option to allow it to be forced to the faster method always.
+> 
+> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
->> I'm trying to use the I/OAT technology but i don't know if the the
->> sent data used this technology.
->> Are there are any counters which indicates how many data was sent using
->> I/OAT?
->
-> for f in /sys/class/dma/*; do echo "$f: bytes=`cat $f/bytes_transferred`
-> count=`cat $f/memcpy_count`" ; done
+Argh, this didn't get refreshed before emailing the quilt, will
+fix and re-send with the blackfin updates
 
-I have the folder /sys/class/dma/, but this folder is empty.
-What does it mean?
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
 
-thanks
-Dotan
+  'a smiley only costs 4 bytes'
