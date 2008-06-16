@@ -1,60 +1,38 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Mon, 16 Jun 2008 14:13:05 +0200
-Message-ID: <f4845fc0806160513q4196eac3q78dd044082bea138@mail.gmail.com>
-References: <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
-	 <485126BD.7030109@trash.net>
-	 <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>
-	 <485144DF.3030102@trash.net>
-	 <f4845fc0806121233i54099a18k9104eb34359b923f@mail.gmail.com>
-	 <20080613062621.GA10474@verge.net.au>
-	 <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com>
-	 <48528EED.7090307@trash.net>
-	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>
-	 <485652EA.2020004@trash.net>
+From: "Dotan Barak" <dotanba@gmail.com>
+Subject: Re: How can i know if I/OAT is supported?
+Date: Mon, 16 Jun 2008 15:14:45 +0300
+Message-ID: <2f3bf9a60806160514y4b6259c9reb21c1df427dcf19@mail.gmail.com>
+References: <2f3bf9a60806160351l3611d9f7jef90d51e257b059d@mail.gmail.com>
+	 <Pine.LNX.4.64.0806161214540.2344@bizon.gios.gov.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Simon Horman" <horms@verge.net.au>,
-	"Vince Busam" <vbusam@google.com>,
-	"Ben Greear" <greearb@candelatech.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <485652EA.2020004@trash.net>
+Cc: netdev@vger.kernel.org
+To: "Krzysztof Oledzki" <olel@ans.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.179]:2180 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753180AbYFPMPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 08:15:13 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so4320495waf.23
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2008 05:15:13 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0806161214540.2344@bizon.gios.gov.pl>
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 16, 2008 at 1:47 PM, Patrick McHardy <kaber@trash.net> wrote:
->> Option c) looks reasonable to me and also seems easy to handle in
->> general. Is this the way to go? Or do we want the interface to look
->> completely different this time?
+Thanks for the fast response.
+
+>> I'm trying to use the I/OAT technology but i don't know if the the
+>> sent data used this technology.
+>> Are there are any counters which indicates how many data was sent using
+>> I/OAT?
 >
-> b) or c) both look fine.
+> for f in /sys/class/dma/*; do echo "$f: bytes=`cat $f/bytes_transferred`
+> count=`cat $f/memcpy_count`" ; done
 
-Good, thanks.
+I have the folder /sys/class/dma/, but this folder is empty.
+What does it mean?
 
-> You could save a few operations (ADD/EDIT
-> can be combined) by making use of nlmsg_flags though:
->
-> The semantics of the flags is:
->
-> - NLM_F_CREATE|NLM_F_EXCL: create if non-existant
-> - NLM_F_REPLACE: change existing
-> - NLM_F_CREATE|NLM_F_REPLACE: create if non-existing, replace otherwise
-> - NLM_F_EXCL: test existance
-
-Thanks for explaining this! Sounds good!
-
-> NLM_F_APPEND can be used as modifier for NLM_F_CREATE to
-> specify that the new entry should be added to the end instead
-> of the beginning.
-
-Interesting. This should not be needed in IPVS though, as entry order
-doesn't matter much there.
-
-Julius
-
--- 
-Google Switzerland GmbH
+thanks
+Dotan
