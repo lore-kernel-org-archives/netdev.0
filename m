@@ -1,70 +1,93 @@
 From: "Denys Fedoryshchenko" <denys@visp.net.lb>
 Subject: Re: packetloss, on e1000e worse than r8169?
-Date: Mon, 16 Jun 2008 23:23:25 +0300
-Message-ID: <20080616202210.M84100@visp.net.lb>
-References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com>
+Date: Mon, 16 Jun 2008 23:29:02 +0300
+Message-ID: <20080616202743.M97685@visp.net.lb>
+References: <20080616193501.M64730@visp.net.lb> <4856C9ED.3070505@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=koi8-r
-Cc: netdev@vger.kernel.org, linux.nics@intel.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: netdev@vger.kernel.org,
+	e1000-list <e1000-devel@lists.sourceforge.net>
+To: Auke Kok <auke@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:50110 "EHLO
+Received: from usermail.globalproof.net ([194.146.153.18]:37310 "EHLO
 	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753685AbYFPUXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 16:23:44 -0400
-In-Reply-To: <4856C3A7.9070703@cosmosbay.com>
+	with ESMTP id S1753595AbYFPU3V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 16:29:21 -0400
+In-Reply-To: <4856C9ED.3070505@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also if important
-MegaRouter-KARAM ~ # dmesg|grep eth1
-[    3.955620] eth1: (PCI Express:2.5GB/s:Width x1) 00:19:d1:71:5f:33
-[    3.955622] eth1: Intel(R) PRO/1000 Network Connection
-[    3.955642] eth1: MAC: 4, PHY: 6, PBA No: ffffff-0ff
-[    5.358191] netconsole: interface eth1
-[    6.432345] eth1: Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+I did in previous message.
+Here is more information about hardware.
 
-MegaRouter-KARAM ~ # ethtool eth1
-Settings for eth1:
-        Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Advertised auto-negotiation: Yes
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: Twisted Pair
-        PHYAD: 1
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: pumbag
-        Wake-on: g
-        Current message level: 0x00000001 (1)
-        Link detected: yes
+Base Board Information
+        Manufacturer: Intel Corporation
+        Product Name: DQ965GF
+        Version: AAD41676-402
+        Serial Number: BQGF712003M6
 
 
-MegaRouter-KARAM ~ # ethtool -c eth1
-Coalesce parameters for eth1:
-Adaptive RX: off  TX: off
-stats-block-usecs: 0
-sample-interval: 0
-pkt-rate-low: 0
-pkt-rate-high: 0
 
-rx-usecs: 3
+MegaRouter-KARAM ~ # lspci -t
+-[0000:00]-+-00.0
+           +-01.0-[0000:01]--
+           +-02.0
+           +-03.0
+           +-03.2
+           +-03.3
+           +-19.0
+           +-1a.0
+           +-1a.1
+           +-1a.7
+           +-1b.0
+           +-1c.0-[0000:02]--
+           +-1c.1-[0000:03]----00.0
+           +-1c.2-[0000:04]--
+           +-1c.3-[0000:05]--
+           +-1c.4-[0000:06]--
+           +-1d.0
+           +-1d.1
+           +-1d.2
+           +-1d.7
+           +-1e.0-[0000:07]----00.0
+           +-1f.0
+           +-1f.2
+           \-1f.3
+MegaRouter-KARAM ~ # lspci -t -v
+-[0000:00]-+-00.0  Intel Corporation 82Q963/Q965 Memory Controller Hub
+           +-01.0-[0000:01]--
+           +-02.0  Intel Corporation 82Q963/Q965 Integrated Graphics Controller
+           +-03.0  Intel Corporation 82Q963/Q965 HECI Controller
+           +-03.2  Intel Corporation 82Q963/Q965 PT IDER Controller
+           +-03.3  Intel Corporation 82Q963/Q965 KT Controller
+           +-19.0  Intel Corporation 82566DM Gigabit Network Connection
+           +-1a.0  Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #4
+           +-1a.1  Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #5
+           +-1a.7  Intel Corporation 82801H (ICH8 Family) USB2 EHCI Controller #2
+           +-1b.0  Intel Corporation 82801H (ICH8 Family) HD Audio Controller
+           +-1c.0-[0000:02]--
+           +-1c.1-[0000:03]----00.0  Marvell Technology Group Ltd. 88SE6101
+single-port PATA133 interface
+           +-1c.2-[0000:04]--
+           +-1c.3-[0000:05]--
+           +-1c.4-[0000:06]--
+           +-1d.0  Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #1
+           +-1d.1  Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #2
+           +-1d.2  Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #3
+           +-1d.7  Intel Corporation 82801H (ICH8 Family) USB2 EHCI Controller #1
+           +-1e.0-[0000:07]----00.0  Linksys Gigabit Network Adapter
+           +-1f.0  Intel Corporation 82801HO (ICH8DO) LPC Interface Controller
+           +-1f.2  Intel Corporation 82801HR/HO/HH (ICH8R/DO/DH) 6 port SATA
+AHCI Controller
+           \-1f.3  Intel Corporation 82801H (ICH8 Family) SMBus Controller
 
-I tried to change Intel's "magic" rx-usecs to 0,1,3,10000,100000, it doesn't
-help at all. Attempt to change offloading parameters (disabling) doesn't make
-sense too.
 
 
-On Mon, 16 Jun 2008 21:48:55 +0200, Eric Dumazet wrote
-> Denys Fedoryshchenko a e'crit :
+
+
+On Mon, 16 Jun 2008 13:15:41 -0700, Auke Kok wrote
+> Denys Fedoryshchenko wrote:
 > > Hi again
 > > 
 > > I moved from PCI Realtek 8169 to onboard PCI-Express e1000e, and situation
@@ -109,118 +132,12 @@ routes):
 > > 89.95  19543.00
 > > 
 > > (system almost idle)
-> > 
-> > MegaRouter-KARAM /sys # ethtool -S eth1
-> > NIC statistics:
-> >      rx_packets: 109977509
-> >      tx_packets: 109887692
-> >      rx_bytes: 57656749138
-> >      tx_bytes: 57536071746
-> >      rx_broadcast: 6497
-> >      tx_broadcast: 92
-> >      rx_multicast: 48995
-> >      tx_multicast: 1960
-> >      rx_errors: 0
-> >      tx_errors: 0
-> >      tx_dropped: 0
-> >      multicast: 48995
-> >      collisions: 0
-> >      rx_length_errors: 0
-> >      rx_over_errors: 0
-> >      rx_crc_errors: 0
-> >      rx_frame_errors: 0
-> >      rx_no_buffer_count: 1796
-> >      rx_missed_errors: 2182679
-> >      tx_aborted_errors: 0
-> >      tx_carrier_errors: 0
-> >      tx_fifo_errors: 0
-> >      tx_heartbeat_errors: 0
-> >      tx_window_errors: 0
-> >      tx_abort_late_coll: 0
-> >      tx_deferred_ok: 55617
-> >      tx_single_coll_ok: 0
-> >      tx_multi_coll_ok: 0
-> >      tx_timeout_count: 0
-> >      tx_restart_queue: 1626
-> >      rx_long_length_errors: 0
-> >      rx_short_length_errors: 0
-> >      rx_align_errors: 0
-> >      tx_tcp_seg_good: 0
-> >      tx_tcp_seg_failed: 0
-> >      rx_flow_control_xon: 55461
-> >      rx_flow_control_xoff: 57329
-> >      tx_flow_control_xon: 39114
-> >      tx_flow_control_xoff: 48341
-> >      rx_long_byte_count: 57656749138
-> >      rx_csum_offload_good: 104097306
-> >      rx_csum_offload_errors: 2209
-> >      rx_header_split: 0
-> >      alloc_rx_buff_failed: 0
-> >      tx_smbus: 22
-> >      rx_smbus: 2201
-> >      dropped_smbus: 0
-> >      rx_dma_failed: 0
-> >      tx_dma_failed: 0
-> > MegaRouter-KARAM /sys # ethtool -S eth1
-> > NIC statistics:
-> >      rx_packets: 110154571
-> >      tx_packets: 110064459
-> >      rx_bytes: 57753358981
-> >      tx_bytes: 57632419451
-> >      rx_broadcast: 6501
-> >      tx_broadcast: 92
-> >      rx_multicast: 49155
-> >      tx_multicast: 1960
-> >      rx_errors: 0
-> >      tx_errors: 0
-> >      tx_dropped: 0
-> >      multicast: 49155
-> >      collisions: 0
-> >      rx_length_errors: 0
-> >      rx_over_errors: 0
-> >      rx_crc_errors: 0
-> >      rx_frame_errors: 0
-> >      rx_no_buffer_count: 1796
-> >      rx_missed_errors: 2187703
-> >      tx_aborted_errors: 0
-> >      tx_carrier_errors: 0
-> >      tx_fifo_errors: 0
-> >      tx_heartbeat_errors: 0
-> >      tx_window_errors: 0
-> >      tx_abort_late_coll: 0
-> >      tx_deferred_ok: 55772
-> >      tx_single_coll_ok: 0
-> >      tx_multi_coll_ok: 0
-> >      tx_timeout_count: 0
-> >      tx_restart_queue: 1628
-> >      rx_long_length_errors: 0
-> >      rx_short_length_errors: 0
-> >      rx_align_errors: 0
-> >      tx_tcp_seg_good: 0
-> >      tx_tcp_seg_failed: 0
-> >      rx_flow_control_xon: 55615
-> >      rx_flow_control_xoff: 57488
-> >      tx_flow_control_xon: 39209
-> >      tx_flow_control_xoff: 48448
-> >      rx_long_byte_count: 57753358981
-> >      rx_csum_offload_good: 104264656
-> >      rx_csum_offload_errors: 2210
-> >      rx_header_split: 0
-> >      alloc_rx_buff_failed: 0
-> >      tx_smbus: 23
-> >      rx_smbus: 2207
-> >      dropped_smbus: 0
-> >      rx_dma_failed: 0
-> >      tx_dma_failed: 0
-> > 
-> > 
-> >
 > 
-> What RX & TX rings look like on e1000e ?
+> but has 20000 interrupts per second! that's hardly idle by any 
+> account :)
 > 
-> ethtool -g eth1
-> 
-> Also, please post "cat /proc/interrupts"
+> what options did use to load e1000e? can you show the relevant dmesg 
+> parts? post contents of /proc/interrupts?
 > 
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
