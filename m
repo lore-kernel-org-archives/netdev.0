@@ -1,88 +1,88 @@
-From: Josip Rodin <joy@entuzijast.net>
-Subject: Re: bnx2_poll panicking kernel
-Date: Mon, 16 Jun 2008 23:38:21 +0200
-Message-ID: <20080616213821.GA8844@orion.carnet.hr>
-References: <20080616140454.GD5350@solarflare.com> <1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com> <20080616191354.GA11760@orion.carnet.hr>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: packetloss, on e1000e worse than r8169?
+Date: Tue, 17 Jun 2008 00:41:35 +0300
+Message-ID: <20080616214135.M36931@visp.net.lb>
+References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com> <20080616202210.M84100@visp.net.lb> <4856CEDC.6010706@intel.com> <20080616204411.M52834@visp.net.lb> <4856D1D6.7040207@intel.com> <20080616211213.M76390@visp.net.lb> <4856DB1D.80503@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	mirrors@debian.org
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orion.CARNet.hr ([161.53.160.90]:34736 "EHLO orion.carnet.hr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751146AbYFPViZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2008 17:38:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20080616191354.GA11760@orion.carnet.hr>
+Received: from usermail.globalproof.net ([194.146.153.18]:47367 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755844AbYFPVly (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 17:41:54 -0400
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 650AEBC1B2
+	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 00:41:35 +0300 (EEST)
+In-Reply-To: <4856DB1D.80503@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 16, 2008 at 09:13:54PM +0200, joy wrote:
-> On Mon, Jun 16, 2008 at 08:52:13AM -0700, Michael Chan wrote:
-> > Josip, please provide more information such as driver version from
-> > ethtool -i, lspci, which version did you first see the problem, and
-> > whether the latest in 2.6.25 has the same problem.  Thanks.
+On Mon, 16 Jun 2008 23:29:01 +0200, Eric Dumazet wrote
+> >> Are you sure nf_conntrack or ip route cache is not killing you ?
+> >>
+> >> Filling 512 or 1024 RX ring on Gigabit link can be very fast, especially 
+> >> if ip route cache is full.
+> >>
+> >> rtstat -c10 -i1
+> > 
+> > conntrack disabled, it is just enabled for second on load and then unloaded.
 > 
-> The version with the problem is 2.6.22.18. The machine is fairly new
-> (HP DL360 G5), it only ever ran the .22 kernel. It was running this kernel
-> just fine for 112 days prior to the first incident on 2008-06-03, and since
-> then, the crash happened a total of 17 times. Our big rsync runs happen
-> twice a day, so it's a pretty bad record.
+> ok :)
 > 
-> I can't verify that the crash was caused by the same thing every time
-> because I don't have console logs, but the symptoms are always the same - a
-> few minutes into the rsync run, it goes down, logging nothing in syslog.
+> > 
+> > MegaRouter-KARAM ~ # rtstat -c10 -i1
+> >
+rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
+> >  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti|
+> >
+out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|out_hlis|
+> >         |        |     tot|      mc|     ute|        |  an_dst|  an_src|     
+> >   |    _tot|     _mc|        |      ed|    miss| verflow| _search|t_search|
+> >    63448|229209146|22225578|   13754|      12|    2822|       0|     104|  
+> > 54647|   27606|     570|21782075|21776859|      74|       0|215222374|  
+61294|
+> >    66085|  141462|    5268|       8|       0|       4|       0|       0|     
+> >  4|       2|       0|    5274|    5274|       0|       0|  254424|      10|
+> >    59947|  132660|   20570|       4|       0|       4|       0|       0|     
+> >  8|      14|       0|   20584|   20584|       0|       0|  185738|      24|
+> >    56995|  132416|   16918|      12|       0|       2|       0|       0|     
+> >  6|       4|       0|   16932|   16932|       0|       0|   68378|       8|
+> >    56422|  137058|   12336|       8|       0|       0|       0|       0|     
+> >  8|       2|       0|   12344|   12344|       0|       0|   84022|       4|
+> >    56819|  140526|    9896|      10|       0|       0|       0|       0|     
+> >  6|       0|       0|    9898|    9896|       0|       0|   99138|       4|
+> >    57580|  136936|    8370|      10|       0|       2|       0|       0|     
+> >  8|       6|       2|    8378|    8378|       0|       0|  110834|      22|
+> >    51583|  120138|   26828|      20|       0|       0|       0|       0|     
+> >  4|       8|       0|   26848|   26848|       0|       0|   99292|      24|
+> >    49354|  128076|   21606|      14|       0|       2|       0|       0|     
+> >  0|      10|       0|   21626|   21626|       0|       0|   60546|      12|
+> > 
+> > 
+> >
 > 
-> I'll be rebooting into 2.6.25.6 shortly, and then I'll have information
-> relevant to that in about a day or two.
+> Hum... typical IP route cache congestion ?
+> 
+> echo 1 >/proc/sys/net/ipv4/route/gc_interval
+> echo 2 >/proc/sys/net/ipv4/route/gc_elasticity
+Doesn't help, nothing changed.
 
-Crap, it just crashed again, with 2.6.25.6.
-
-BUG: unable to handle kernel NULL pointer dereference at 00000000000000b8
-IP: [<ffffffff88084c9a>] :bnx2:bnx2_tx_int+0x6a/0x330
-PGD 22e8c2067 PUD 1bfa48067 PMD 0 
-Oops: 0000 [1] SMP 
-CPU 2 
-Modules linked in: ipmi_devintf nfs lockd nfs_acl sunrpc fan ac battery cls_u32 sch_sfq sch_htb ip6t_REJECT ip6t_LOG ip6table_filter ip6_tables ipt_REJECT xt_tcpudp iptable_filter ip_tables x_tables ipv6 dm_snapshot dm_mirror dm_mod usbhid bnx2 zlib_inflate container ehci_hcd ipmi_si crc32 thermal uhci_hcd ipmi_msghandler button usbcore processor shpchp
-Pid: 0, comm: swapper Not tainted 2.6.25.6 #1
-RIP: 0010:[<ffffffff88084c9a>]  [<ffffffff88084c9a>] :bnx2:bnx2_tx_int+0x6a/0x330
-RSP: 0018:ffff81022f8cfd00  EFLAGS: 00010286
-RAX: 00000000000005ba RBX: ffff81022f9faaf0 RCX: 00000000000000af
-RDX: 00000000000005ba RSI: ffff8100865f85bf RDI: ffff8100cf974198
-RBP: 0000000005a505af R08: ffff8100867e2100 R09: ffff8101bf8019a8
-R10: 0000000000000000 R11: ffffffff80419a50 R12: 00000000000000ae
-R13: 0000000000000001 R14: 0000000000000000 R15: ffff81022f92a700
-FS:  0000000000000000(0000) GS:ffff81022f875940(0000) knlGS:0000000000000000
-CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
-CR2: 00000000000000b8 CR3: 00000001756e1000 CR4: 00000000000006e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process swapper (pid: 0, threadinfo ffff81022f8ca000, task ffff81022f8837d0)
-Stack:  ffff81022e97f000 000000002eb51600 ffff81022f92a800 05baffff880d9767
- 0000000100000004 ffff81022f92a800 0000000000000040 0000000000000000
- ffff810001016ac0 ffff81022f92a700 000000000000012c ffffffff88085422
-Call Trace:
- <IRQ>  [<ffffffff88085422>] ? :bnx2:bnx2_poll+0xd2/0x12d0
- [<ffffffff8022d7e4>] ? run_rebalance_domains+0x194/0x4c0
- [<ffffffff803edaa8>] ? net_rx_action+0xf8/0x200
- [<ffffffff8023a5b9>] ? __do_softirq+0x69/0xe0
- [<ffffffff8020c4ac>] ? call_softirq+0x1c/0x30
- [<ffffffff8020e995>] ? do_softirq+0x35/0x70
- [<ffffffff8020ec10>] ? do_IRQ+0x80/0x100
- [<ffffffff8020a410>] ? mwait_idle+0x0/0x50
- [<ffffffff8020b831>] ? ret_from_intr+0x0/0xa
- <EOI>  [<ffffffff80419a50>] ? tcp_poll+0x0/0x180
- [<ffffffff8020a451>] ? mwait_idle+0x41/0x50
- [<ffffffff8020a378>] ? cpu_idle+0x48/0x90
+> 
+> You might want to boot with rhash_entries=131071 to play with IP 
+> route cache size, but I am not sure your workload can fit.
+I will try it, but thats kind of difficult, i cannot reboot anymore near 30
+minutes.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
-Code: 24 1e 8b 69 68 c7 44 24 20 00 00 00 00 66 39 ea 0f 84 6c 01 00 00 40 0f b6 cd 0f b7 d9 48 c1 e3 04 49 03 9f e0 02 00 00 4c 8b 33 <41> 8b 86 b8 00 00 00 49 03 86 c0 00 00 00 66 83 78 06 00 0f 85 
-RIP  [<ffffffff88084c9a>] :bnx2:bnx2_tx_int+0x6a/0x330
- RSP <ffff81022f8cfd00>
-CR2: 00000000000000b8
----[ end trace 7fde2b18cd9ffdbf ]---
-Kernel panic - not syncing: Aiee, killing interrupt handler!
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
--- 
-     2. That which causes joy or happiness.
