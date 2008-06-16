@@ -1,88 +1,150 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: packetloss, on e1000e worse than r8169?
-Date: Tue, 17 Jun 2008 01:08:00 +0300
-Message-ID: <20080616220004.M32074@visp.net.lb>
-References: <20080616193501.M64730@visp.net.lb> <4856C3A7.9070703@cosmosbay.com> <20080616202210.M84100@visp.net.lb> <4856CEDC.6010706@intel.com> <20080616204411.M52834@visp.net.lb> <4856D1D6.7040207@intel.com> <20080616211213.M76390@visp.net.lb> <4856DB1D.80503@cosmosbay.com> <20080616213419.M212@visp.net.lb> <4856DE1F.4090001@cosmosbay.com> <4856DEA7.9060506@cosmosbay.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] firmware: convert acenic driver to request_firmware()
+Date: Mon, 16 Jun 2008 18:11:24 -0400
+Message-ID: <4856E50C.5050908@garzik.org>
+References: <1213608300.26255.665.camel@pmac.infradead.org>	 <4856CE43.4020706@garzik.org> <1213652749.26255.842.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jes Sorensen <jes@trained-monkey.org>, netdev@vger.kernel.org,
+	jaswinder@infradead.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:41497 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755401AbYFPWIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 18:08:20 -0400
-In-Reply-To: <4856DEA7.9060506@cosmosbay.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:46130 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752380AbYFPWLa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 18:11:30 -0400
+In-Reply-To: <1213652749.26255.842.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Jun 2008 23:44:07 +0200, Eric Dumazet wrote
+David Woodhouse wrote:
+> On Mon, 2008-06-16 at 16:34 -0400, Jeff Garzik wrote:
+>> Mostly ok...
+>>
+>> 1) firmware separation should be a separate patch from 
+>> request_firmware() support addition
+> 
+> It's kind of hard to do that. Taking this patch as an example -- we've
+> had to make minor changes to the firmware loading w.r.t. endianness,
+> etc.
+> 
+> If we really wanted to do it in two steps of '1. add request_firmware()'
+> followed by '2. remove old static firmware', then the whole process
+> would just be a lot more cumbersome than we need.
+> 
+> In this case, the first patch would probably add a completely new
+> version of ace_load_firmware() and ace_copy(), while the second patch
+> would remove the old versions of each function. To make sense of and
+> review that lot, you'd actually want to run 'combinediff' on them anyway
+> so you end up with what I've posted here. Only then is it really obvious
+> what's happening.
+> 
+> I do understand the desire to keep patches simple and do things in
+> stages -- but in this case (and the other request_firmware() patches
+> I've done), it seems like separating those two steps would actually be
+> counter-productive.
+> 
+> AFAICT it doesn't make it any easier to test the new code path, either.
+> It's still only really testable after you've applied both patches,
+> surely?
 
-opreport -l /mnt/flash/vmlinux |more
-Here is oprofile
-CPU: Core 2, speed 2397.64 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit
-mask of 0x00 (Unhalted core cycles) count 100000
-samples  %        symbol name
-25409    15.0068  mwait_idle
-14330     8.4634  ip_route_input
-7827      4.6227  irq_entries_start
-6488      3.8319  dev_queue_xmit
-5497      3.2466  __qdisc_run
-5033      2.9725  __slab_free
-3569      2.1079  native_read_tsc
-3560      2.1026  ip_rcv
-3520      2.0789  __alloc_skb
-3435      2.0287  __kmalloc_track_caller
-3381      1.9968  kmem_cache_alloc
-3340      1.9726  ip_forward
-3289      1.9425  kfree
+An intermediate request_firmware() step is something that can go into an 
+upstream kernel _immediately_, without even needing firmware/ install 
+infrastructure.
 
-MegaRouter-KARAM /lib # opreport
-CPU: Core 2, speed 2397.64 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit
-mask of 0x00 (Unhalted core cycles) count 100000
-CPU_CLK_UNHALT...|
-  samples|      %|
-------------------
-   612990 64.5673 vmlinux
-   276274 29.1004 e1000e
-    31470  3.3148 ip_tables
-     9676  1.0192 libzebra.so.0.0.0
-     3763  0.3964 oprofiled
+That, in turn, enables the ability to test a driver with externally 
+loaded firmwares, while still being able to fall back to a known 
+working, guaranteed present built-in firmware.
 
-MegaRouter-KARAM ~ # opreport image:/e1000e -l
-CPU: Core 2, speed 2397.64 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a unit
-mask of 0x00 (Unhalted core cycles) count 100000
-warning: could not check that the binary file /e1000e has not been modified
-since the profile was taken. Results may be inaccurate.
-samples  %        symbol name
-144449   25.7521  e1000_irq_enable
-97006    17.2941  e1000_intr_msi
-95009    16.9380  e1000_clean_rx_irq
-87833    15.6587  e1000_xmit_frame
-53723     9.5776  e1000_clean_tx_irq
-26546     4.7326  e1000_clean
-19968     3.5599  e1000_alloc_rx_buffers
-11941     2.1288  e1000_receive_skb
-6578      1.1727  e1000_update_itr
-5864      1.0454  e1000_desc_unused
-4847      0.8641  e1000_maybe_stop_tx
-3537      0.6306  e1000_put_txbuf
-3490      0.6222  e1000_rx_checksum
-107       0.0191  e1000e_update_stats
-9         0.0016  e1000_acquire_swflag_ich8lan
-7         0.0012  e1000_release_swflag_ich8lan
-5        8.9e-04  e1000e_read_phy_reg_mdic
-1        1.8e-04  e1000_get_settings
-1        1.8e-04  e1000_ioctl
+IOW, the first step for each driver should be:
+
++	request_firmware()
++	if (success)
++		use externally-loaded firmware
++	else
+		use built-in firmware
+
+and that's it.  Nothing else [in the first patch].
+
+Thus you minimize change -- both source code upheaval as well as 
+operational behavior upheaval -- while adding the capability for people 
+to immediately begin testing external firmware loading... in parallel 
+with further firmware/ development you yourself are doing.
+
+While I'm on the subject, I think the most user-friendly, 
+developer-friendly, and time-friendly ordering is
+
+0) prepare kernel-firmware package with extracted firmwares from kernel 
+tree, and have it available in rawhide, cooker, opensuse-devel, etc.
+
+1) what I said above: request_firmware() for every driver
+
+At this point, users have udev-loadable firmware in hand and a driver 
+capable of loading said firmware, and can immediately start operating in 
+the desired environment.
+
+2) start peeling built-in firmwares out of the C source
 
 
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+What I think you don't get is that moving the firmware out of the driver 
+is the _easy_ part that comes _last_.
+
+The core problem with request_firmware() loading external firmwares is 
+usability:  the user damn well needs to have their firmware available, 
+otherwise their hardware doesn't work.
+
+That means the pressure is on you to have all the elements in place with 
+all the major distros _before_ you do the easy part.
+
+Otherwise the user experience is going to suck, the last thing we all 
+want...
+
+
+
+
+> 
+>> 2) [minor] firmware Kconfig entries should default to 'Y' during 
+>> transition, though it's ok to remove those after transition is over
+> 
+> I don't think it's good to have a 'default y' on options for which the
+> help text says "Say 'N' and let udev load it as $DEITY intended".
+> 
+> As a compromise, perhaps we could do a 'CONFIG_INCLUDE_ALL_FIRMWARE' and
+> make them all default to whatever that option is set to? I'm really
+> unconvinced of the need for that, though -- running 'make
+> firmware_install' is all that's necessary, and is the preferred option. 
+
+I'm mainly thinking of user and developer experience here.
+
+I just want to make it damn near impossible to accidentally create a 
+non-working configuration, after your patches are applied.
+
+This isn't like other driver Kconfig options, where the driver will 
+continue to work even if you auto-set everything to 'N'.  If the user 
+doesn't have multiple pieces of the puzzle _already in place_, it is all 
+too easy to create a non-working driver.
+
+The truth of the matter is, the user really does want to set that 
+Kconfig option, during the initial time period after your patches are 
+applied.
+
+Once things settled down and infrastructure is in place, the 'default y' 
+could go away.
+
+
+>> 3) there are enough changes to warrant a requirement of a "driver still 
+>> works" test before going in, IMO
+> 
+> Most definitely. As I said, I've been very careful to ensure that the
+> converted firmware is correct, in conjunction with the driver changes
+> (like the endianness considerations in this case). But that is no
+> substitute for testing.
+
+Cool :)
+
+	Jeff
+
+
 
