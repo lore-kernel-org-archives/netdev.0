@@ -1,36 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/13]bnx2x: add BCM57711 and new features
-Date: Mon, 16 Jun 2008 15:13:37 -0700 (PDT)
-Message-ID: <20080616.151337.52131027.davem@davemloft.net>
-References: <1212333109.6967.118.camel@ubuntu804desktop.localdomain>
-	<1213627884.5817.2.camel@lb-tlvb-eliezer>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH,RFC] skb->network_header and __vlan_put_tag()
+Date: Tue, 17 Jun 2008 00:15:25 +0200
+Message-ID: <20080616221525.GG27971@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, mchan@broadcom.com
-To: eilong@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+To: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34417
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754299AbYFPWNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 18:13:36 -0400
-In-Reply-To: <1213627884.5817.2.camel@lb-tlvb-eliezer>
+Received: from xi.wantstofly.org ([83.160.184.112]:49379 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757042AbYFPWQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 18:16:13 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Mon, 16 Jun 2008 17:51:24 +0300
+__vlan_put_tag() is not only substracting 4 from the skb's
+->mac_header pointer (which kind of makes sense[*]), but it is
+substracting 4 from the ->network_header pointer as well.
 
-> 
-> On Sun, 2008-06-01 at 08:11 -0700, Eilon Greenstein wrote:
-> > This update adds support for two new chips...
-> 
-> I apologize but since I'm under heavy pressure to publish a patch that
-> supports the 57711 I need some reassurance that this patch is still in
-> the queue.
+Conceptually, sure, VLAN is another layer of encapsulation between
+ethernet and IP, but doesn't it make more sense to just consider the
+VLAN tag part of the MAC header?  What good does it do to point
+->network_header to the _middle_ of the VLAN tag when a VLAN tag is
+inserted?
 
-I don't have these in my queue and therefore these patches aren't
-applied.
+I'm adding VLAN support to mv643xx_eth (which does not support HW
+insertion of a VLAN tag, but it does support HW checksumming when
+a VLAN tag is present, you just have to tell the HW how many bytes
+there are between the start of the packet and the IP header), and
+I'm ending up with code like this:
 
-They probably got lost during my 3 weeks of travelling, please
-resend.
+	if (skb->protocol == htons(ETH_P_8021Q))
+		ip_header = ip_hdr(skb) + 4;
+	else
+		ip_header = ip_hdr(skb);
+
+whereas it'd be nicer if you could just have the same code for the
+VLAN and non-VLAN case:
+
+	ip_header = ip_hdr(skb);
+
+
+[*] But skb->mac_header seems to be mostly NULL when this function
+    is called, causing it to end up being 0xfffffffc by the time the
+    packet is given to the device's ->hard_start_xmit().
+
+
+Index: linux-2.6.26-rc5/include/linux/if_vlan.h
+===================================================================
+--- linux-2.6.26-rc5.orig/include/linux/if_vlan.h
++++ linux-2.6.26-rc5/include/linux/if_vlan.h
+@@ -280,7 +280,6 @@ static inline struct sk_buff *__vlan_put
+ 
+ 	skb->protocol = htons(ETH_P_8021Q);
+ 	skb->mac_header -= VLAN_HLEN;
+-	skb->network_header -= VLAN_HLEN;
+ 
+ 	return skb;
+ }
