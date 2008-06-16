@@ -1,259 +1,423 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 2/4] netxen: remove global physical_port array
-Date: Sun, 15 Jun 2008 22:59:44 -0700
-Message-ID: <1213595986-1929-3-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH 3/4] netxen: cleanup debug messages
+Date: Sun, 15 Jun 2008 22:59:45 -0700
+Message-ID: <1213595986-1929-4-git-send-email-dhananjay@netxen.com>
 Cc: jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:32889 "EHLO unm84.unminc.com"
+Received: from [64.209.101.202] ([64.209.101.202]:32890 "EHLO unm84.unminc.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752132AbYFPGis (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2008 02:38:48 -0400
+	id S1752418AbYFPGit (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2008 02:38:49 -0400
 In-Reply-To: <>
 References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Store physical port number in netxen_adapter structure.
+o Remove unnecessary debug prints and functions.
+o Explicitly specify pci class (0x020000) to avoid enabling
+  management function.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h         |    2 +-
- drivers/net/netxen/netxen_nic_ethtool.c |    6 +++---
- drivers/net/netxen/netxen_nic_hw.c      |    8 ++++----
- drivers/net/netxen/netxen_nic_isr.c     |    4 ++--
- drivers/net/netxen/netxen_nic_main.c    |    4 +---
- drivers/net/netxen/netxen_nic_niu.c     |   22 +++++++++++-----------
- 6 files changed, 22 insertions(+), 24 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |   16 -----
+ drivers/net/netxen/netxen_nic_hw.c   |  104 ++++++++++++++-------------------
+ drivers/net/netxen/netxen_nic_init.c |   22 +-------
+ drivers/net/netxen/netxen_nic_main.c |   60 ++++++++-----------
+ 4 files changed, 70 insertions(+), 132 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 8cb29f5..ec2ed89 100644
+index ec2ed89..da4c4fb 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -863,6 +863,7 @@ struct netxen_adapter {
- 	unsigned char mac_addr[ETH_ALEN];
- 	int mtu;
- 	int portnum;
-+	u8 physical_port;
+@@ -776,7 +776,6 @@ struct netxen_hardware_context {
  
- 	struct work_struct watchdog_task;
- 	struct timer_list watchdog_timer;
-@@ -1169,5 +1170,4 @@ extern int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr,
+ 	u8 revision_id;
+ 	u16 board_type;
+-	u16 max_ports;
+ 	struct netxen_board_info boardcfg;
+ 	u32 xg_linkup;
+ 	u32 qg_linksup;
+@@ -1035,7 +1034,6 @@ int netxen_rom_se(struct netxen_adapter *adapter, int addr);
  
- extern struct ethtool_ops netxen_nic_ethtool_ops;
+ /* Functions from netxen_nic_isr.c */
+ void netxen_initialize_adapter_sw(struct netxen_adapter *adapter);
+-void netxen_initialize_adapter_hw(struct netxen_adapter *adapter);
+ void *netxen_alloc(struct pci_dev *pdev, size_t sz, dma_addr_t * ptr,
+ 		   struct pci_dev **used_dev);
+ void netxen_initialize_adapter_ops(struct netxen_adapter *adapter);
+@@ -1078,20 +1076,6 @@ static const struct netxen_brdinfo netxen_boards[] = {
  
--extern int physical_port[];	/* physical port # from virtual port.*/
- #endif				/* __NETXEN_NIC_H_ */
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 6e98d83..723487b 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -369,7 +369,7 @@ netxen_nic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
- 		for (i = 3; niu_registers[mode].reg[i - 3] != -1; i++) {
- 			/* GB: port specific registers */
- 			if (mode == 0 && i >= 19)
--				window = physical_port[adapter->portnum] *
-+				window = adapter->physical_port *
- 					NETXEN_NIC_PORT_WINDOW;
+ #define NUM_SUPPORTED_BOARDS ARRAY_SIZE(netxen_boards)
  
- 			NETXEN_NIC_LOCKED_READ_REG(niu_registers[mode].
-@@ -527,7 +527,7 @@ netxen_nic_get_pauseparam(struct net_device *dev,
+-static inline void get_brd_port_by_type(u32 type, int *ports)
+-{
+-	int i, found = 0;
+-	for (i = 0; i < NUM_SUPPORTED_BOARDS; ++i) {
+-		if (netxen_boards[i].brdtype == type) {
+-			*ports = netxen_boards[i].ports;
+-			found = 1;
+-			break;
+-		}
+-	}
+-	if (!found)
+-		*ports = 0;
+-}
+-
+ static inline void get_brd_name_by_type(u32 type, char *name)
  {
- 	struct netxen_adapter *adapter = netdev_priv(dev);
- 	__u32 val;
--	int port = physical_port[adapter->portnum];
-+	int port = adapter->physical_port;
- 
- 	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
- 		if ((port < 0) || (port > NETXEN_NIU_MAX_GBE_PORTS))
-@@ -573,7 +573,7 @@ netxen_nic_set_pauseparam(struct net_device *dev,
- {
- 	struct netxen_adapter *adapter = netdev_priv(dev);
- 	__u32 val;
--	int port = physical_port[adapter->portnum];
-+	int port = adapter->physical_port;
- 	/* read mode */
- 	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
- 		if ((port < 0) || (port > NETXEN_NIU_MAX_GBE_PORTS))
+ 	int i, found = 0;
 diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index af73564..30316a8 100644
+index 30316a8..c43d06b 100644
 --- a/drivers/net/netxen/netxen_nic_hw.c
 +++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -1032,15 +1032,15 @@ int netxen_nic_get_board_info(struct netxen_adapter *adapter)
- int netxen_nic_set_mtu_gb(struct netxen_adapter *adapter, int new_mtu)
+@@ -396,11 +396,8 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
+ 	}
+ 	adapter->intr_scheme = readl(
+ 		NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_CAPABILITIES_FW));
+-	printk(KERN_NOTICE "%s: FW capabilities:0x%x\n", netxen_nic_driver_name,
+-			adapter->intr_scheme);
+ 	adapter->msi_mode = readl(
+ 		NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_MSI_MODE_FW));
+-	DPRINTK(INFO, "Receive Peg ready too. starting stuff\n");
+ 
+ 	addr = netxen_alloc(adapter->ahw.pdev,
+ 			    sizeof(struct netxen_ring_ctx) +
+@@ -408,8 +405,6 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
+ 			    (dma_addr_t *) & adapter->ctx_desc_phys_addr,
+ 			    &adapter->ctx_desc_pdev);
+ 
+-	printk(KERN_INFO "ctx_desc_phys_addr: 0x%llx\n",
+-	       (unsigned long long) adapter->ctx_desc_phys_addr);
+ 	if (addr == NULL) {
+ 		DPRINTK(ERR, "bad return from pci_alloc_consistent\n");
+ 		err = -ENOMEM;
+@@ -429,8 +424,6 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
+ 			    adapter->max_tx_desc_count,
+ 			    (dma_addr_t *) & hw->cmd_desc_phys_addr,
+ 			    &adapter->ahw.cmd_desc_pdev);
+-	printk(KERN_INFO "cmd_desc_phys_addr: 0x%llx\n",
+-	       (unsigned long long) hw->cmd_desc_phys_addr);
+ 
+ 	if (addr == NULL) {
+ 		DPRINTK(ERR, "bad return from pci_alloc_consistent\n");
+@@ -1127,7 +1120,6 @@ void netxen_nic_set_link_parameters(struct netxen_adapter *adapter)
+ 
+ void netxen_nic_flash_print(struct netxen_adapter *adapter)
  {
- 	netxen_nic_write_w0(adapter,
--			NETXEN_NIU_GB_MAX_FRAME_SIZE(
--				physical_port[adapter->portnum]), new_mtu);
-+		NETXEN_NIU_GB_MAX_FRAME_SIZE(adapter->physical_port),
-+		new_mtu);
- 	return 0;
+-	int valid = 1;
+ 	u32 fw_major = 0;
+ 	u32 fw_minor = 0;
+ 	u32 fw_build = 0;
+@@ -1137,70 +1129,62 @@ void netxen_nic_flash_print(struct netxen_adapter *adapter)
+ 	__le32 *ptr32;
+ 
+ 	struct netxen_board_info *board_info = &(adapter->ahw.boardcfg);
+-	if (board_info->magic != NETXEN_BDINFO_MAGIC) {
+-		printk
+-		    ("NetXen Unknown board config, Read 0x%x expected as 0x%x\n",
+-		     board_info->magic, NETXEN_BDINFO_MAGIC);
+-		valid = 0;
+-	}
+-	if (board_info->header_version != NETXEN_BDINFO_VERSION) {
+-		printk("NetXen Unknown board config version."
+-		       " Read %x, expected %x\n",
+-		       board_info->header_version, NETXEN_BDINFO_VERSION);
+-		valid = 0;
+-	}
+-	if (valid) {
+-		ptr32 = (u32 *)&serial_num;
+-		addr = NETXEN_USER_START +
+-		       offsetof(struct netxen_new_user_info, serial_num);
+-		for (i = 0; i < 8; i++) {
+-			if (netxen_rom_fast_read(adapter, addr, ptr32) == -1) {
+-				printk("%s: ERROR reading %s board userarea.\n",
+-				       netxen_nic_driver_name,
+-				       netxen_nic_driver_name);
+-				return;
+-			}
+-			ptr32++;
+-			addr += sizeof(u32);
++
++	adapter->driver_mismatch = 0;
++
++	ptr32 = (u32 *)&serial_num;
++	addr = NETXEN_USER_START +
++	       offsetof(struct netxen_new_user_info, serial_num);
++	for (i = 0; i < 8; i++) {
++		if (netxen_rom_fast_read(adapter, addr, ptr32) == -1) {
++			printk("%s: ERROR reading %s board userarea.\n",
++			       netxen_nic_driver_name,
++			       netxen_nic_driver_name);
++			adapter->driver_mismatch = 1;
++			return;
+ 		}
++		ptr32++;
++		addr += sizeof(u32);
++	}
++
++	fw_major = readl(NETXEN_CRB_NORMALIZE(adapter,
++					      NETXEN_FW_VERSION_MAJOR));
++	fw_minor = readl(NETXEN_CRB_NORMALIZE(adapter,
++					      NETXEN_FW_VERSION_MINOR));
++	fw_build =
++	    readl(NETXEN_CRB_NORMALIZE(adapter, NETXEN_FW_VERSION_SUB));
+ 
++	if (adapter->portnum == 0) {
+ 		get_brd_name_by_type(board_info->board_type, brd_name);
+ 
+ 		printk("NetXen %s Board S/N %s  Chip id 0x%x\n",
+-		       brd_name, serial_num, board_info->chip_id);
+-
+-		printk("NetXen %s Board #%d, Chip id 0x%x\n",
+-		       board_info->board_type == 0x0b ? "XGB" : "GBE",
+-		       board_info->board_num, board_info->chip_id);
+-		fw_major = readl(NETXEN_CRB_NORMALIZE(adapter,
+-						      NETXEN_FW_VERSION_MAJOR));
+-		fw_minor = readl(NETXEN_CRB_NORMALIZE(adapter,
+-						      NETXEN_FW_VERSION_MINOR));
+-		fw_build =
+-		    readl(NETXEN_CRB_NORMALIZE(adapter, NETXEN_FW_VERSION_SUB));
+-
+-		printk("NetXen Firmware version %d.%d.%d\n", fw_major, fw_minor,
+-		       fw_build);
++				brd_name, serial_num, board_info->chip_id);
++		printk("NetXen Firmware version %d.%d.%d\n", fw_major,
++				fw_minor, fw_build);
+ 	}
++
+ 	if (fw_major != _NETXEN_NIC_LINUX_MAJOR) {
+-		printk(KERN_ERR "The mismatch in driver version and firmware "
+-		       "version major number\n"
+-		       "Driver version major number = %d \t"
+-		       "Firmware version major number = %d \n",
+-		       _NETXEN_NIC_LINUX_MAJOR, fw_major);
+ 		adapter->driver_mismatch = 1;
+ 	}
+ 	if (fw_minor != _NETXEN_NIC_LINUX_MINOR &&
+ 			fw_minor != (_NETXEN_NIC_LINUX_MINOR + 1)) {
+-		printk(KERN_ERR "The mismatch in driver version and firmware "
+-		       "version minor number\n"
+-		       "Driver version minor number = %d \t"
+-		       "Firmware version minor number = %d \n",
+-		       _NETXEN_NIC_LINUX_MINOR, fw_minor);
+ 		adapter->driver_mismatch = 1;
+ 	}
+-	if (adapter->driver_mismatch)
+-		printk(KERN_INFO "Use the driver with version no %d.%d.xxx\n",
+-		       fw_major, fw_minor);
++	if (adapter->driver_mismatch) {
++		printk(KERN_ERR "%s: driver and firmware version mismatch\n",
++				adapter->netdev->name);
++		return;
++	}
++
++	switch (adapter->ahw.board_type) {
++	case NETXEN_NIC_GBE:
++		dev_info(&adapter->pdev->dev, "%s: GbE port initialized\n",
++				adapter->netdev->name);
++		break;
++	case NETXEN_NIC_XGBE:
++		dev_info(&adapter->pdev->dev, "%s: XGbE port initialized\n",
++				adapter->netdev->name);
++		break;
++	}
  }
  
- int netxen_nic_set_mtu_xgb(struct netxen_adapter *adapter, int new_mtu)
- {
- 	new_mtu += NETXEN_NIU_HDRSIZE + NETXEN_NIU_TLRSIZE;
--	if (physical_port[adapter->portnum] == 0)
-+	if (adapter->physical_port == 0)
- 		netxen_nic_write_w0(adapter, NETXEN_NIU_XGE_MAX_FRAME_SIZE,
- 				new_mtu);
- 	else
-@@ -1051,7 +1051,7 @@ int netxen_nic_set_mtu_xgb(struct netxen_adapter *adapter, int new_mtu)
- 
- void netxen_nic_init_niu_gb(struct netxen_adapter *adapter)
- {
--	netxen_niu_gbe_init_port(adapter, physical_port[adapter->portnum]);
-+	netxen_niu_gbe_init_port(adapter, adapter->physical_port);
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 45fa33e..f6aeccf 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -203,21 +203,6 @@ void netxen_initialize_adapter_sw(struct netxen_adapter *adapter)
+ 	}
  }
  
- void
-diff --git a/drivers/net/netxen/netxen_nic_isr.c b/drivers/net/netxen/netxen_nic_isr.c
-index f487615..96cec41 100644
---- a/drivers/net/netxen/netxen_nic_isr.c
-+++ b/drivers/net/netxen/netxen_nic_isr.c
-@@ -145,7 +145,7 @@ static void netxen_nic_isr_other(struct netxen_adapter *adapter)
+-void netxen_initialize_adapter_hw(struct netxen_adapter *adapter)
+-{
+-	int ports = 0;
+-	struct netxen_board_info *board_info = &(adapter->ahw.boardcfg);
+-
+-	if (netxen_nic_get_board_info(adapter) != 0)
+-		printk("%s: Error getting board config info.\n",
+-		       netxen_nic_driver_name);
+-	get_brd_port_by_type(board_info->board_type, &ports);
+-	if (ports == 0)
+-		printk(KERN_ERR "%s: Unknown board type\n",
+-		       netxen_nic_driver_name);
+-	adapter->ahw.max_ports = ports;
+-}
+-
+ void netxen_initialize_adapter_ops(struct netxen_adapter *adapter)
+ {
+ 	switch (adapter->ahw.board_type) {
+@@ -765,18 +750,13 @@ int netxen_flash_unlock(struct netxen_adapter *adapter)
  
- 	/* verify the offset */
- 	val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_XG_STATE));
--	val = val >> physical_port[adapter->portnum];
-+	val = val >> adapter->physical_port;
- 	if (val == adapter->ahw.qg_linksup)
- 		return;
+ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ {
+-	int addr, val, status;
++	int addr, val;
+ 	int n, i;
+ 	int init_delay = 0;
+ 	struct crb_addr_pair *buf;
+ 	u32 off;
  
-@@ -199,7 +199,7 @@ void netxen_nic_xgbe_handle_phy_intr(struct netxen_adapter *adapter)
+ 	/* resetall */
+-	status = netxen_nic_get_board_info(adapter);
+-	if (status)
+-		printk("%s: netxen_pinit_from_rom: Error getting board info\n",
+-		       netxen_nic_driver_name);
+-
+ 	netxen_crb_writelit_adapter(adapter, NETXEN_ROMUSB_GLB_SW_RESET,
+ 				    NETXEN_ROMBUS_RESET);
  
- 	/* WINDOW = 1 */
- 	val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_XG_STATE));
--	val >>= (physical_port[adapter->portnum] * 8);
-+	val >>= (adapter->physical_port * 8);
- 	val &= 0xff;
- 
- 	if (adapter->ahw.xg_linkup == 1 && val != XG_LINK_UP) {
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 5a2fd21..f903de0 100644
+index f903de0..755f4ab 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -70,8 +70,6 @@ static void netxen_nic_poll_controller(struct net_device *netdev);
- static irqreturn_t netxen_intr(int irq, void *data);
- static irqreturn_t netxen_msi_intr(int irq, void *data);
+@@ -72,13 +72,13 @@ static irqreturn_t netxen_msi_intr(int irq, void *data);
  
--int physical_port[] = {0, 1, 2, 3};
--
  /*  PCI Device ID Table  */
  static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
- 	{PCI_DEVICE(0x4040, 0x0001)},
-@@ -647,7 +645,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+-	{PCI_DEVICE(0x4040, 0x0001)},
+-	{PCI_DEVICE(0x4040, 0x0002)},
+-	{PCI_DEVICE(0x4040, 0x0003)},
+-	{PCI_DEVICE(0x4040, 0x0004)},
+-	{PCI_DEVICE(0x4040, 0x0005)},
+-	{PCI_DEVICE(0x4040, 0x0024)},
+-	{PCI_DEVICE(0x4040, 0x0025)},
++	{PCI_DEVICE(0x4040, 0x0001), PCI_DEVICE_CLASS(0x020000, ~0)},
++	{PCI_DEVICE(0x4040, 0x0002), PCI_DEVICE_CLASS(0x020000, ~0)},
++	{PCI_DEVICE(0x4040, 0x0003), PCI_DEVICE_CLASS(0x020000, ~0)},
++	{PCI_DEVICE(0x4040, 0x0004), PCI_DEVICE_CLASS(0x020000, ~0)},
++	{PCI_DEVICE(0x4040, 0x0005), PCI_DEVICE_CLASS(0x020000, ~0)},
++	{PCI_DEVICE(0x4040, 0x0024), PCI_DEVICE_CLASS(0x020000, ~0)},
++	{PCI_DEVICE(0x4040, 0x0025), PCI_DEVICE_CLASS(0x020000, ~0)},
+ 	{0,}
+ };
+ 
+@@ -286,10 +286,11 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int pci_func_id = PCI_FUNC(pdev->devfn);
+ 	DECLARE_MAC_BUF(mac);
+ 
+-	printk(KERN_INFO "%s \n", netxen_nic_driver_string);
++	if (pci_func_id == 0)
++		printk(KERN_INFO "%s \n", netxen_nic_driver_string);
+ 
+ 	if (pdev->class != 0x020000) {
+-		printk(KERN_ERR"NetXen function %d, class %x will not "
++		printk(KERN_DEBUG "NetXen function %d, class %x will not "
+ 				"be enabled.\n",pci_func_id, pdev->class);
+ 		return -ENODEV;
+ 	}
+@@ -448,8 +449,12 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  	 */
+ 	adapter->curr_window = 255;
+ 
+-	/* initialize the adapter */
+-	netxen_initialize_adapter_hw(adapter);
++	if (netxen_nic_get_board_info(adapter) != 0) {
++		printk("%s: Error getting board config info.\n",
++		       netxen_nic_driver_name);
++		err = -EIO;
++		goto err_out_iounmap;
++	}
+ 
+ 	/*
+ 	 *  Adapter in our case is quad port so initialize it before
+@@ -621,7 +626,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 		/* clear the register for future unloads/loads */
+ 		writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
+-		printk(KERN_INFO "State: 0x%0x\n",
++		printk(KERN_DEBUG "State: 0x%0x\n",
+ 			readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
+ 
+ 		/*
+@@ -643,6 +648,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/*
+ 	 * See if the firmware gave us a virtual-physical port mapping.
+ 	 */
++	adapter->physical_port = adapter->portnum;
  	i = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_V2P(adapter->portnum)));
  	if (i != 0x55555555)
--		physical_port[adapter->portnum] = i;
-+		adapter->physical_port = i;
+ 		adapter->physical_port = i;
+@@ -658,22 +664,9 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_free_dev;
+ 	}
  
- 	netif_carrier_off(netdev);
- 	netif_stop_queue(netdev);
-diff --git a/drivers/net/netxen/netxen_nic_niu.c b/drivers/net/netxen/netxen_nic_niu.c
-index 1c852a7..a3bc7cc 100644
---- a/drivers/net/netxen/netxen_nic_niu.c
-+++ b/drivers/net/netxen/netxen_nic_niu.c
-@@ -94,7 +94,7 @@ int netxen_niu_gbe_phy_read(struct netxen_adapter *adapter, long reg,
- 	long timeout = 0;
- 	long result = 0;
- 	long restore = 0;
--	long phy = physical_port[adapter->portnum];
-+	long phy = adapter->physical_port;
- 	__u32 address;
- 	__u32 command;
- 	__u32 status;
-@@ -190,7 +190,7 @@ int netxen_niu_gbe_phy_write(struct netxen_adapter *adapter, long reg,
- 	long timeout = 0;
- 	long result = 0;
- 	long restore = 0;
--	long phy = physical_port[adapter->portnum];
-+	long phy = adapter->physical_port;
- 	__u32 address;
- 	__u32 command;
- 	__u32 status;
-@@ -456,7 +456,7 @@ int netxen_niu_gbe_init_port(struct netxen_adapter *adapter, int port)
++	netxen_nic_flash_print(adapter);
+ 	pci_set_drvdata(pdev, adapter);
  
- int netxen_niu_xg_init_port(struct netxen_adapter *adapter, int port)
- {
--	u32 portnum = physical_port[adapter->portnum];
-+	u32 portnum = adapter->physical_port;
+-	switch (adapter->ahw.board_type) {
+-		case NETXEN_NIC_GBE:
+-			printk(KERN_INFO "%s: QUAD GbE board initialized\n",
+-			       netxen_nic_driver_name);
+-			break;
+-
+-		case NETXEN_NIC_XGBE:
+-			printk(KERN_INFO "%s: XGbE board initialized\n",
+-					netxen_nic_driver_name);
+-			break;
+-	}
+-
+-	adapter->driver_mismatch = 0;
+-
+ 	return 0;
  
- 	netxen_crb_writelit_adapter(adapter,
- 		NETXEN_NIU_XGE_CONFIG_1+(0x10000*portnum), 0x1447);
-@@ -573,7 +573,7 @@ static int netxen_niu_macaddr_get(struct netxen_adapter *adapter,
- {
- 	u32 stationhigh;
- 	u32 stationlow;
--	int phy = physical_port[adapter->portnum];
-+	int phy = adapter->physical_port;
- 	u8 val[8];
+ err_out_free_dev:
+@@ -781,9 +774,6 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
  
- 	if (addr == NULL)
-@@ -604,7 +604,7 @@ int netxen_niu_macaddr_set(struct netxen_adapter *adapter,
- {
- 	u8 temp[4];
- 	u32 val;
--	int phy = physical_port[adapter->portnum];
-+	int phy = adapter->physical_port;
- 	unsigned char mac_addr[6];
- 	int i;
- 	DECLARE_MAC_BUF(mac);
-@@ -724,7 +724,7 @@ int netxen_niu_enable_gbe_port(struct netxen_adapter *adapter,
- int netxen_niu_disable_gbe_port(struct netxen_adapter *adapter)
- {
- 	__u32 mac_cfg0;
--	u32 port = physical_port[adapter->portnum];
-+	u32 port = adapter->physical_port;
+ 			/* clear the register for future unloads/loads */
+ 			writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
+-			printk(KERN_INFO "State: 0x%0x\n",
+-				readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
+-
+ 			/* leave the hw in the same state as reboot */
+ 			writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+ 			netxen_pinit_from_rom(adapter, 0);
+@@ -794,7 +784,7 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
  
- 	if (port > NETXEN_NIU_MAX_GBE_PORTS)
- 		return -EINVAL;
-@@ -740,7 +740,7 @@ int netxen_niu_disable_gbe_port(struct netxen_adapter *adapter)
- int netxen_niu_disable_xg_port(struct netxen_adapter *adapter)
- {
- 	__u32 mac_cfg;
--	u32 port = physical_port[adapter->portnum];
-+	u32 port = adapter->physical_port;
+ 		/* clear the register for future unloads/loads */
+ 		writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
+-		printk(KERN_INFO "State: 0x%0x\n",
++		printk(KERN_DEBUG "State: 0x%0x\n",
+ 			readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
  
- 	if (port > NETXEN_NIU_MAX_XG_PORTS)
- 		return -EINVAL;
-@@ -757,7 +757,7 @@ int netxen_niu_set_promiscuous_mode(struct netxen_adapter *adapter,
- 				    netxen_niu_prom_mode_t mode)
- {
- 	__u32 reg;
--	u32 port = physical_port[adapter->portnum];
-+	u32 port = adapter->physical_port;
+ 		i = 100;
+@@ -844,13 +834,15 @@ static int netxen_nic_open(struct net_device *netdev)
+ 	irq_handler_t handler;
+ 	unsigned long flags = IRQF_SAMPLE_RANDOM;
  
- 	if (port > NETXEN_NIU_MAX_GBE_PORTS)
- 		return -EINVAL;
-@@ -814,7 +814,7 @@ int netxen_niu_set_promiscuous_mode(struct netxen_adapter *adapter,
- int netxen_niu_xg_macaddr_set(struct netxen_adapter *adapter,
- 			      netxen_ethernet_macaddr_t addr)
- {
--	int phy = physical_port[adapter->portnum];
-+	int phy = adapter->physical_port;
- 	u8 temp[4];
- 	u32 val;
++	if (adapter->driver_mismatch)
++		return -EIO;
++
+ 	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC) {
+ 		err = netxen_init_firmware(adapter);
+ 		if (err != 0) {
+ 			printk(KERN_ERR "Failed to init firmware\n");
+ 			return -EIO;
+ 		}
+-		netxen_nic_flash_print(adapter);
  
-@@ -867,7 +867,7 @@ int netxen_niu_xg_macaddr_set(struct netxen_adapter *adapter,
- int netxen_niu_xg_macaddr_get(struct netxen_adapter *adapter,
- 			      netxen_ethernet_macaddr_t * addr)
- {
--	int phy = physical_port[adapter->portnum];
-+	int phy = adapter->physical_port;
- 	u32 stationhigh;
- 	u32 stationlow;
- 	u8 val[8];
-@@ -896,7 +896,7 @@ int netxen_niu_xg_set_promiscuous_mode(struct netxen_adapter *adapter,
- 				       netxen_niu_prom_mode_t mode)
- {
- 	__u32 reg;
--	u32 port = physical_port[adapter->portnum];
-+	u32 port = adapter->physical_port;
+ 		/* setup all the resources for the Phantom... */
+ 		/* this include the descriptors for rcv, tx, and status */
+@@ -899,14 +891,12 @@ static int netxen_nic_open(struct net_device *netdev)
+ 	if (adapter->set_mtu)
+ 		adapter->set_mtu(adapter, netdev->mtu);
  
- 	if (port > NETXEN_NIU_MAX_XG_PORTS)
- 		return -EINVAL;
+-	if (!adapter->driver_mismatch)
+-		mod_timer(&adapter->watchdog_timer, jiffies);
++	mod_timer(&adapter->watchdog_timer, jiffies);
+ 
+ 	napi_enable(&adapter->napi);
+ 	netxen_nic_enable_int(adapter);
+ 
+-	if (!adapter->driver_mismatch)
+-		netif_start_queue(netdev);
++	netif_start_queue(netdev);
+ 
+ 	return 0;
+ }
 -- 
 1.5.4.3
 
