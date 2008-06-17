@@ -1,43 +1,73 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH net-next 01/15]bnx2x: Rename bnx2x.c to bnx2x_main.c
-Date: Tue, 17 Jun 2008 17:46:53 +0300
-Message-ID: <1213714013.5817.171.camel@lb-tlvb-eliezer>
+Subject: [PATCH net-next 00/15]bnx2x: add BCM57711 and new features
+Date: Tue, 17 Jun 2008 17:46:49 +0300
+Message-ID: <1213714009.5817.170.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Chan" <mchan@broadcom.com>
+Cc: "Michael Chan" <mchan@broadcom.com>,
+	"Yitchak Gertner" <gertner@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>,
+	"Wendy Xiong" <wendyx@us.ibm.com>,
+	"Yaniv Rosner" <yanivr@broadcom.com>
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1209 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1205 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756785AbYFQOrI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757549AbYFQOrI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 17 Jun 2008 10:47:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is the rename of bnx2x.c to bnx2x_main.c. It is too big to be
-sent as a regular patch but it boils down to a simple patch to the 
-Makefile (below) and this git command:
-git mv drivers/net/bnx2x.c drivers/net/bnx2x_main.c
+Hi,
 
-The Makefile:
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index c96fe20..f4dbb0e 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -67,6 +67,7 @@ obj-$(CONFIG_FEALNX) += fealnx.o
- obj-$(CONFIG_TIGON3) += tg3.o
- obj-$(CONFIG_BNX2) += bnx2.o
- obj-$(CONFIG_BNX2X) += bnx2x.o
-+bnx2x-objs := bnx2x_main.o
- spidernet-y += spider_net.o spider_net_ethtool.o
- obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
- obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+              ---------------
+This is another re-send of this patch with the following changes:
+- Making sure all parts of this patch are smaller than 400000 
+  characters. This means that the first patch (git mv bnx2x.c 
+  bnx2x_main.c) is showing only the Makefile changes and the git mv 
+  command. The second change was to break the microcode into 4 smaller
+  patches
+- Adapting the code to the new version of checkpatch.pl
+              ---------------
 
+This update adds support for two new chips: BCM57711 and its variant the
+BCM57711E, adds new link management code, new statistics code, enhanced
+self-tests, IPv6 TSO and least but not last TPA, our hardware based LRO.
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Wendy Xiong from IBM contributed the PCIE EEH handling code.
 
+Patches:
+01: Rename bnx2x.c to bnx2x_main.c - preparing to breakout the link code
+    to a new file. This patch is a simple git mv bnx2x.c bnx2x_main.c
+and
+    the necessary Makefile change. Unfortunately, this patch is too big 
+    for the mailing list so it contains only the Makefile diff and the 
+    git mv command
+02: Adding bnx2x_link - this part of the patch is just adding the new
+    files (bnx2x_link.[ch]) without using them (to make the patch 
+    smaller)
+03. New link code - Major cleanup, using a separate file for link 
+    related operations, smoother support of external PHY handling with 
+    the device
+04: New init infrastructure - support the new initialization for
+    multi-chip environment, without the microcode
+05: Remove old microcode - as part of the microcode replacement
+06: New microcode part 1 - 1st part of the new microcode (BLOB)
+07: New microcode part 2 - 2nd part of the new microcode (BLOB)
+08: New microcode part 3 - 3rd part of the new microcode (BLOB)
+09: Add support for BCM57711 HW, re-factoring struct bnx2x to allow this
+10: New statistics code, fixes race between stats and close, add 
+    BCM57711
+11: Add TPA, Broadcom's HW LRO
+12: Re-factor Tx code, add GSO_6 support
+13. Enhanced self test
+14: Add PCIE EEH support
+15: Update version
+
+Enjoy,
+Eilon
 
 
 
