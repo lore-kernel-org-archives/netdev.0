@@ -1,55 +1,92 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
-Date: Tue, 17 Jun 2008 22:49:04 +0200
-Message-ID: <48582340.7010409@trash.net>
-References: <99863D2ED484D449811D97A4C44C9CBD7C50F7@EPEXCH2.qlogic.org><c8028d330806171018j7f129ddft3bee056e4be9b954@mail.gmail.com><485803D3.5020505@trash.net> <20080617121441.4b87ba84@extreme> <C07C40DB2364324799506DE8FF12F8D859E90D@EPEXCH1.qlogic.org> <99863D2ED484D449811D97A4C44C9CBD7C5169@EPEXCH2.qlogic.org>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: packetloss, on e1000e worse than r8169?
+Date: Wed, 18 Jun 2008 00:04:49 +0300
+Message-ID: <200806180004.49272.denys@visp.net.lb>
+References: <20080616193501.M64730@visp.net.lb> <20080616220841.M50112@visp.net.lb> <36D9DB17C6DE9E40B059440DB8D95F52056AC4C2@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com,
-	"Amar Mudrankit (Contractor - )" <amar.mudrankit@qlogic.com>,
-	netdev@vger.kernel.org, rdreier@cisco.com,
-	"Kuchimanchi, Ramachandra \(Contractor - \)"
-	<ramachandra.kuchimanchi@qlogic.com>,
-	"Poornima Kamath (Contractor - )" <poornima.kamath@qlogic.com>
-To: John Russo <john.russo@qlogic.com>
+Cc: "Eric Dumazet" <dada1@cosmosbay.com>, netdev@vger.kernel.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42358 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755838AbYFQVFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 17:05:09 -0400
-In-Reply-To: <99863D2ED484D449811D97A4C44C9CBD7C5169@EPEXCH2.qlogic.org>
+Received: from relay2.globalproof.net ([194.146.153.25]:40529 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755511AbYFQVEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 17:04:40 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52056AC4C2@orsmsx418.amr.corp.intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Russo wrote:
->>> As Patrick said, there is also a sense of doing the right thing. The 
->>> developers would rather not repeat past mistakes, so are naturally 
->>> hesitant on API's.
->>>       
->
-> I completely understand the sense of doing the right thing. That is why
-> we put in the effort to migrate our code to sysfs in the first place.
-> We had a different solution but agreed to change it to meet the
-> guidelines of other contributors to the InfiniBand (OFED) stack.  What I
-> can't understand is the ease of which some people say "let's just change
-> to this great new design even if it means a large rewrite of existing
-> code which may increase the likelihood of injecting errors".  I
-> apologize if I come off as being agitated but it is very frustrating to
-> spend time and effort attempting to conform to a groups requests only to
-> have it changed at the end. 
->   
+After trying everything, it looks like that problem in PBS size, and as result PBA (rx fifo) size.
 
-Frankly, you didn't even try to fix the most obvious mistakes in your
-interface, like duplication of existing interfaces (csum settings)
-and very unusual behaviour (state machine triggered device registation)
-before you started complaining (and both of these are *really* easy to
-do).
+On ICH8 it is small, only 16K PBS (0x10), and RX/TX set each 8k, even i can set 0xd/0x3 it doesn't help (i didn't measure if it make less packetloss).
+As i understand, i need to set only RX, TX calculated automatically.
+Both motherboards i tried had ICH8.
 
-That you were asked to migrate to sysfs is unfortunate. The fact is
-though that your driver is a virtual ethernet device, not an infiniband
-device, so it should use the proper APIs for this kind of device. Work
-has been going on for years to provide a uniform interface to the network
-and your interface is a move in the opposite direction.
+All other servers which i mention, and which have enough big load have:
+1)Sun - PBA 48K (82546EB)
+2)DP35DP - PBA 16K (ICH9)
 
+Also ICH8 missing some features, that ICH9 supports, such as FLAG_HAS_ERT, but it looks ERT useful only for Jumbo frames. 
+And sure ICH8 doesn't support Jumbo frames, maybe because of limited PBS.
 
+Is PBS size hardware limitation of ICH8?
+Is it possible i am right in my conclusions?
+Probably such details in network adapters will be useful for Vyatta guys, to choose proper network adapter for their systems :-)
+
+On Tuesday 17 June 2008 02:24, Brandeburg, Jesse wrote:
+> Denys Fedoryshchenko wrote:
+> > On Mon, 16 Jun 2008 23:44:07 +0200, Eric Dumazet wrote
+> >> 
+> >> ALso please try to lower the copybreak value of e1000e driver
+> >> (module parameter copybreak=20 for example) Already tried, but over
+> >> sysfs 
+> > 
+> > MegaRouter-KARAM ~ # echo 20 > /sys/module/e1000e/parameters/copybreak
+> > 
+> > Doesn't change anything. I am preparing profiling now.
+> > 
+> > I dont think it is CPU load issue. I have motherboard DP35DP working
+> > on similar workload(less routes, but conntrack + ifb + htb without
+> > hysteresis) perfectly, but it doesn't have Intel AMT, maybe that's
+> > the key. 
+> > 
+> > Why CPU load not the issue? I don't think mpstat is lying. 98-99% CPU
+> > is idle. But i will try oprofile, maybe it can help and will show
+> > something. 
+> > I will try also PREEMPT kernel now, maybe it is some locking issue,
+> > and preemption can help with that. Because "bursty" and clearly
+> > periodic character of errors means or counters updated each 1-2
+> > seconds or it is something happening each 1-2 seconds. I am not sure
+> > oprofile can catch that. 
+> 
+> error stats update only every two seconds from e1000e watchdog timer.
+> 
+> Please try using ethtool -C ethX rx-usecs 10 (100,000 interrupts per
+> second possible)
+> 
+> The realtek may not have the same kind of interrupt moderation as the
+> e1000e part.  Also, you mentioned elsewhere in this thread that PCIe
+> should have plenty of bandwith but the reality is that x1 PCIe has a lot
+> of latency so as you try to push a lot of small packets they may not be
+> processed fast enough.
+> 
+> Try turning off Flow Control using ethtool -A ethX rx off tx off autoneg
+> off
+> 
+> rx_missed_errors is because you're running out of RX FIFO in the
+> adapter, and we can try to change some code to increase the RX fifo to a
+> larger value, if you're using default 1500 MTU, you only need 4K TX
+> fifo, so can have a little more RX fifo than what you have by default
+> (it's the PBA register we need to change the lower 16 bits to 0x1c)
+> 
+> Jesse
+> 
+
+-- 
+------
+Technical Manager
+Virtual ISP S.A.L.
+Lebanon
