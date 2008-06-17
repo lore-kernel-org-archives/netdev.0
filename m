@@ -1,28 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 7/7] atm: [he] send idle cells instead of
- unassigned when in SDH mode
-Date: Mon, 16 Jun 2008 17:21:42 -0700 (PDT)
-Message-ID: <20080616.172142.84550823.davem@davemloft.net>
-References: <200806161728.m5GHS0G8003402@cmf.nrl.navy.mil>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: [PATCH 0/2] HTB scheduler HTB_HYSTERESIS modifications
+Date: Tue, 17 Jun 2008 04:00:19 +0300
+Message-ID: <20080617005938.M55099@visp.net.lb>
+References: <1212589713.13164.75.camel@localhost.localdomain> <1213264875.29292.17.camel@localhost.localdomain> <48538CC8.9020706@cdi.cz> <20080616.164032.197767785.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: chas@cmf.nrl.navy.mil
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: jdb@comx.dk, netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>, devik@cdi.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35647
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753388AbYFQAVl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 20:21:41 -0400
-In-Reply-To: <200806161728.m5GHS0G8003402@cmf.nrl.navy.mil>
+Received: from usermail.globalproof.net ([194.146.153.18]:54275 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752202AbYFQBAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2008 21:00:25 -0400
+In-Reply-To: <20080616.164032.197767785.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Date: Mon, 16 Jun 2008 13:28:00 -0400
+On Mon, 16 Jun 2008 16:40:32 -0700 (PDT), David Miller wrote
+> From: Martin Devera <devik@cdi.cz>
+> Date: Sat, 14 Jun 2008 11:18:00 +0200
+> 
+> > > I have now tested/deployed the patches on two production servers.
+> > > 
+> > >  Conclusion is: It should be safe to apply these patches.
+> > > 
+> > > See full report here:
+> > >
+http://people.netfilter.org/hawk/patches/htb_nohyst/production_test_results.html
+> > > 
+> > > We saw an increased number of interrupts on the test system, when
+> > > enabling/disabling htb_hysteresis.
+> > > 
+> > >  This didn't show up on the production system.
+> > > 
+> > > I believe that the increased intr (on test system) is an artifact of the
+> > > TCP download got less bursty and more smooth.
+> > 
+> > Which reminds me again, maybe after some time with hysteresis=off we 
+> > could remove it altogether...
+> > 
+> > Sorry for the delay, I got some flu or what. On my smaller dualcore 
+> > system there is also no noticeable (performance) impact.
+> > 
+> > I ACK Jesper's patches, thanks for the work and real-world testing!
+> 
+> I've applied Jesper's work to net-2.6, as it is primarily a bug
+> fix of sorts and safe because a backwards compatible knob is
+> provided just in case it does cause problems for people.
+> 
+> Thanks everyone!
 
->     atm: [he] send idle cells instead of unassigned when in SDH mode
->     
->     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+I test this patch too, works fine on loaded system. No significant load
+increase, works perfect.
 
-Also applied, thanks Chas.
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
