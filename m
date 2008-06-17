@@ -1,37 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Add/Delete IPv6 addresses and netlink
-Date: Tue, 17 Jun 2008 14:18:21 +0200
-Message-ID: <20080617121821.GC20815@postel.suug.ch>
-References: <48571470.7010307@candelatech.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH,RFC] skb->network_header and __vlan_put_tag()
+Date: Tue, 17 Jun 2008 14:19:38 +0200
+Message-ID: <4857ABDA.6050407@trash.net>
+References: <20080616221525.GG27971@xi.wantstofly.org> <m3prqgpe1e.fsf@ursa.amorsen.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>
+To: Benny Amorsen <benny+usenet@amorsen.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:60488 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753856AbYFQMSB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 08:18:01 -0400
-Content-Disposition: inline
-In-Reply-To: <48571470.7010307@candelatech.com>
+Received: from stinky.trash.net ([213.144.137.162]:62456 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755352AbYFQMTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 08:19:43 -0400
+In-Reply-To: <m3prqgpe1e.fsf@ursa.amorsen.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Ben Greear <greearb@candelatech.com> 2008-06-16 18:33
-> I am not sure whether I am just confused about how all of this is 
-> supposed to work or not, but the
-> following commands will leave the global address in tentative state:
-> 
-> ip link set eth1 down; ip -6 addr flush dev eth1;
-> ip -6 addr add 2000::9:2/112 scope global dev eth1
-> ip link set eth1 up
-> # Wait 10+ seconds
-> ip -6 addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
->    inet6 2000::9:2/112 scope global tentative
->       valid_lft forever preferred_lft forever
->    inet6 fe80::203:2dff:fe0c:d022/64 scope link
->       valid_lft forever preferred_lft forever
+[Don't trim CC lists please]
 
-Do you see a "ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready"
-message in the console when you up the device?
+Benny Amorsen wrote:
+> Lennert Buytenhek <buytenh@wantstofly.org> writes:
+> 
+>> I'm adding VLAN support to mv643xx_eth (which does not support HW
+>> insertion of a VLAN tag, but it does support HW checksumming when
+>> a VLAN tag is present, you just have to tell the HW how many bytes
+>> there are between the start of the packet and the IP header), and
+>> I'm ending up with code like this:
+>>
+>> 	if (skb->protocol == htons(ETH_P_8021Q))
+>> 		ip_header = ip_hdr(skb) + 4;
+>> 	else
+>> 		ip_header = ip_hdr(skb);
+> 
+> How well does this work when doing QinQ or QinQinQ?
+
+Currently probably doesn't work, so the patch makes even more
+sense.
