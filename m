@@ -1,93 +1,70 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/5] sky2: chip version printout
-Date: Tue, 17 Jun 2008 09:04:25 -0700
-Message-ID: <20080617160503.450104179@vyatta.com>
-References: <20080617160423.205070938@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([69.59.150.140]:50962 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752880AbYFQQH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 12:07:58 -0400
-Content-Disposition: inline; filename=sky2-chip-name.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] bridge: fix IPV6=n build
+Date: Tue, 17 Jun 2008 09:42:14 -0700
+Message-ID: <20080617094214.c8cc2ce2.randy.dunlap@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, davem@davemloft.net
+To: netdev <netdev@vger.kernel.org>, shemminger@linux-foundation.org
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change how chip version is printed so that if an unknown version is detected
-nothing breaks.
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Fix bridge netfilter code so that it uses CONFIG_IPV6 as needed:
 
---- a/drivers/net/sky2.c	2008-06-16 09:38:34.000000000 -0700
-+++ b/drivers/net/sky2.c	2008-06-16 09:47:41.000000000 -0700
-@@ -147,17 +147,6 @@ static const unsigned txqaddr[] = { Q_XA
- static const unsigned rxqaddr[] = { Q_R1, Q_R2 };
- static const u32 portirq_msk[] = { Y2_IS_PORT_1, Y2_IS_PORT_2 };
- 
--/* This driver supports yukon2 chipset only */
--static const char *yukon2_name[] = {
--	"XL",		/* 0xb3 */
--	"EC Ultra", 	/* 0xb4 */
--	"Extreme",	/* 0xb5 */
--	"EC",		/* 0xb6 */
--	"FE",		/* 0xb7 */
--	"FE+",		/* 0xb8 */
--	"Supreme",	/* 0xb9 */
--};
--
- static void sky2_set_multicast(struct net_device *dev);
- 
- /* Access to PHY via serial interconnect */
-@@ -4266,12 +4255,33 @@ static int __devinit pci_wake_enabled(st
- 	return value & PCI_PM_CTRL_PME_ENABLE;
- }
- 
-+/* This driver supports yukon2 chipset only */
-+static const char *sky2_name(u8 chipid, char *buf, int sz)
-+{
-+	const char *name[] = {
-+		"XL",		/* 0xb3 */
-+		"EC Ultra", 	/* 0xb4 */
-+		"Extreme",	/* 0xb5 */
-+		"EC",		/* 0xb6 */
-+		"FE",		/* 0xb7 */
-+		"FE+",		/* 0xb8 */
-+		"Supreme",	/* 0xb9 */
-+	};
-+
-+	if (chipid >= CHIP_ID_YUKON_XL && chipid < CHIP_ID_YUKON_SUPR)
-+		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
-+	else
-+		snprintf(buf, sz, "(chip %#x)", chipid);
-+	return buf;
-+}
-+
- static int __devinit sky2_probe(struct pci_dev *pdev,
- 				const struct pci_device_id *ent)
- {
- 	struct net_device *dev;
- 	struct sky2_hw *hw;
- 	int err, using_dac = 0, wol_default;
-+	char buf1[16];
- 
- 	err = pci_enable_device(pdev);
- 	if (err) {
-@@ -4342,10 +4352,10 @@ static int __devinit sky2_probe(struct p
- 	if (err)
- 		goto err_out_iounmap;
- 
--	dev_info(&pdev->dev, "v%s addr 0x%llx irq %d Yukon-%s (0x%x) rev %d\n",
--	       DRV_VERSION, (unsigned long long)pci_resource_start(pdev, 0),
--	       pdev->irq, yukon2_name[hw->chip_id - CHIP_ID_YUKON_XL],
--	       hw->chip_id, hw->chip_rev);
-+	dev_info(&pdev->dev, "v%s addr 0x%llx irq %d Yukon-2 %s rev %d\n",
-+		 DRV_VERSION, (unsigned long long)pci_resource_start(pdev, 0),
-+		 pdev->irq, sky2_name(hw->chip_id, buf1, sizeof(buf1)),
-+		 hw->chip_rev);
- 
- 	sky2_reset(hw);
- 
+net/built-in.o: In function `ebt_filter_ip6':
+ebt_ip6.c:(.text+0x87c37): undefined reference to `ipv6_skip_exthdr'
+net/built-in.o: In function `ebt_log_packet':
+ebt_log.c:(.text+0x88dee): undefined reference to `ipv6_skip_exthdr'
+make[1]: *** [.tmp_vmlinux1] Error 1
 
--- 
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ net/bridge/netfilter/Kconfig   |    2 +-
+ net/bridge/netfilter/Makefile  |    2 +-
+ net/bridge/netfilter/ebt_log.c |    2 ++
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
+--- linux-next-20080617.orig/net/bridge/netfilter/Kconfig
++++ linux-next-20080617/net/bridge/netfilter/Kconfig
+@@ -85,7 +85,7 @@ config BRIDGE_EBT_IP
+ 
+ config BRIDGE_EBT_IP6
+ 	tristate "ebt: IP6 filter support"
+-	depends on BRIDGE_NF_EBTABLES
++	depends on BRIDGE_NF_EBTABLES && IPV6
+ 	help
+ 	  This option adds the IP6 match, which allows basic IPV6 header field
+ 	  filtering.
+--- linux-next-20080617.orig/net/bridge/netfilter/Makefile
++++ linux-next-20080617/net/bridge/netfilter/Makefile
+@@ -14,7 +14,7 @@ obj-$(CONFIG_BRIDGE_EBT_802_3) += ebt_80
+ obj-$(CONFIG_BRIDGE_EBT_AMONG) += ebt_among.o
+ obj-$(CONFIG_BRIDGE_EBT_ARP) += ebt_arp.o
+ obj-$(CONFIG_BRIDGE_EBT_IP) += ebt_ip.o
+-obj-$(CONFIG_BRIDGE_EBT_IP) += ebt_ip6.o
++obj-$(CONFIG_BRIDGE_EBT_IP6) += ebt_ip6.o
+ obj-$(CONFIG_BRIDGE_EBT_LIMIT) += ebt_limit.o
+ obj-$(CONFIG_BRIDGE_EBT_MARK) += ebt_mark_m.o
+ obj-$(CONFIG_BRIDGE_EBT_PKTTYPE) += ebt_pkttype.o
+--- linux-next-20080617.orig/net/bridge/netfilter/ebt_log.c
++++ linux-next-20080617/net/bridge/netfilter/ebt_log.c
+@@ -123,6 +123,7 @@ ebt_log_packet(unsigned int pf, unsigned
+ 		goto out;
+ 	}
+ 
++#if defined(CONFIG_BRIDGE_EBT_IP6) || defined(CONFIG_BRIDGE_EBT_IP6_MODULE)
+ 	if ((bitmask & EBT_LOG_IP6) && eth_hdr(skb)->h_proto ==
+ 	   htons(ETH_P_IPV6)) {
+ 		const struct ipv6hdr *ih;
+@@ -146,6 +147,7 @@ ebt_log_packet(unsigned int pf, unsigned
+ 		print_ports(skb, nexthdr, offset_ph);
+ 		goto out;
+ 	}
++#endif
+ 
+ 	if ((bitmask & EBT_LOG_ARP) &&
+ 	    ((eth_hdr(skb)->h_proto == htons(ETH_P_ARP)) ||
