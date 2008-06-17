@@ -1,39 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops in nf_nat_core.c:find_appropriate_src(), kernel 2.6.25.4
-Date: Tue, 17 Jun 2008 15:44:16 +0200
-Message-ID: <4857BFB0.5080502@trash.net>
-References: <484A9E75.8000601@redhat.com> <484AA276.9090407@trash.net> <484AA5D5.10404@trash.net> <Pine.LNX.4.64.0806071742180.13503@bizon.gios.gov.pl> <484E4343.5090606@trash.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: fix error path in sctp_proc_init
+Date: Tue, 17 Jun 2008 09:46:13 -0400
+Message-ID: <4857C025.8010701@hp.com>
+References: <4857AE19.9050708@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Oledzki <ole@ans.pl>, Netdev <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Chuck Ebbert <cebbert@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <484E4343.5090606@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:3378 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754686AbYFQNrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 09:47:03 -0400
+In-Reply-To: <4857AE19.9050708@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
->> On Sat, 7 Jun 2008, Patrick McHardy wrote:
->>
->>>> Chuck Ebbert wrote:
->>>>> Reported at https://bugzilla.redhat.com/show_bug.cgi?id=449315
->>>>>
->>>> We have a similar looking report, but that one also affects 2.6.24:
->>>>
->>>> http://bugzilla.kernel.org/show_bug.cgi?id=10875
+Pavel Emelyanov wrote:
+> After the sctp_remaddr_proc_init failed, the proper rollback is
+> not the sctp_remaddr_proc_exit, but the sctp_assocs_proc_exit.
 > 
-> We found the reason for that crash and I've queued these two
-> patches. Please let me know whether they also fix the problem
-> from the redhat bugzilla.
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
+Ack for net-next-2.6.
 
-Since there doesn't seem to be any progress, I'm going to send
-this upstream now so we can get some testing before 2.6.26 is
-released.
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-I'm going to hold off sending it to -stable though until there
-is confirmation that it actually fixes this problem.
+-vlad
+
+> 
+> ---
+> 
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index 23aaffb..98c6a88 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -119,7 +119,7 @@ static __init int sctp_proc_init(void)
+>  	return 0;
+>  
+>  out_remaddr_proc_init:
+> -	sctp_remaddr_proc_exit();
+> +	sctp_assocs_proc_exit();
+>  out_assocs_proc_init:
+>  	sctp_eps_proc_exit();
+>  out_eps_proc_init:
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
