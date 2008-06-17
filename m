@@ -1,168 +1,66 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Wed, 18 Jun 2008 00:47:32 +0200
-Message-ID: <f4845fc0806171547v88ff4d3gc56e9c43a4176a14@mail.gmail.com>
-References: <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>
-	 <20080613062621.GA10474@verge.net.au>
-	 <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com>
-	 <48528EED.7090307@trash.net>
-	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>
-	 <485652EA.2020004@trash.net>
-	 <f4845fc0806161619i4dc81dcao933d95aa6e09b45e@mail.gmail.com>
-	 <4857A58E.6080304@trash.net> <20080617171840.GB4064@google.com>
-	 <485819A8.1090004@trash.net>
+From: Travis Stratman <tstratman@emacinc.com>
+Subject: Re: data received but not detected
+Date: Tue, 17 Jun 2008 17:58:26 -0500
+Message-ID: <1213743506.5771.220.camel@localhost.localdomain>
+References: <1213740538.5771.192.camel@localhost.localdomain>
+	 <48583B37.5070708@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Simon Horman" <horms@verge.net.au>,
-	"Vince Busam" <vbusam@google.com>,
-	"Ben Greear" <greearb@candelatech.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:35752 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758672AbYFQWrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 18:47:37 -0400
-Received: from zps36.corp.google.com (zps36.corp.google.com [172.25.146.36])
-	by smtp-out.google.com with ESMTP id m5HMlXsl010914
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 23:47:34 +0100
-Received: from yw-out-2324.google.com (ywj3.prod.google.com [10.192.10.3])
-	by zps36.corp.google.com with ESMTP id m5HMlWL9005680
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 15:47:32 -0700
-Received: by yw-out-2324.google.com with SMTP id 3so3319815ywj.73
-        for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 15:47:32 -0700 (PDT)
-In-Reply-To: <485819A8.1090004@trash.net>
-Content-Disposition: inline
+Received: from mail.emacinc.com ([63.245.244.68]:41646 "EHLO mail.emacinc.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760175AbYFQW7u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 18:59:50 -0400
+In-Reply-To: <48583B37.5070708@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 17, 2008 at 10:08 PM, Patrick McHardy <kaber@trash.net> wrote:
-> Julius Volz wrote:
->>
->> Ok, so this is my draft version of the IPVS Generic Netlink interface
->> definition. I'm posting this to see if anyone notices general problems
->> with it right away.
->
-> I'm not familiar with the ipvs interface itself, so I'll
-> stick to netlink related comments.
+On Tue, 2008-06-17 at 15:31 -0700, Ben Greear wrote:
+> Travis Stratman wrote:
+> > I am working on an application that uses a fairly simple UDP protocol to
+> > send data between two embedded devices. I'm noticing an issue with an
+> > initial test that was written where datagrams are received but not seen
+> > by the recvfrom() call until more data arrives after it. As of right now
+> > the test case does not implement any type of lost packet protection or
+> > other flow control, which is what makes the issue so noticeable.
+> 
+> UDP packets can be lost anywhere..including in the receive buffer
+> after it has been received by the NIC.
+> 
+> You probably just need to write your code smarter to use non-blocking
+> IO and deal with packet loss.
 
-Thanks, I very much appreciate the great feedback!
+Thanks Ben.
 
-> I personally don't find NLA_FLAG very useful since for
-> flags use usually want the flag and a mask, otherwise
-> you can't unset it without the convention that userspace
-> always includes it, even for change requests when it
-> doesn't want to change it. And that is unusual for netlink
-> and also needlessly complicated and racy in userspace since
-> you'd have to query the current value before sending a change
-> request.
+I understand that there is no guarantee of anything with UDP, but it
+seems to me that if there is a packet in the buffer (it shows up after
+another packet comes in behind it) the system should know about it,
+right?
 
-Makes sense, yes!
+The code will eventually deal with packet loss / retransmission (it is
+actually a customer's application, not my own). Development was only
+stopped at this point because this behavior was discovered. However, if
+the final application behaves in the same way that things are going now,
+the application would need to timeout on read, request retransmission,
+receive the original packet (that was just stuck in the buffer
+somewhere) and the retransmitted packet and decide which to toss every
+couple of seconds. This is a whole lot more retransmissions than I would
+expect to see on a cross-over cable, especially from receiving and
+processing only two small packets at one pass.
 
-> So these are lists I assume. I don't think we have any examples
-> of lists of nested attributes in the mainline kernel, but in
-> some similar (unsubmitted) code of mine I used (names adjusted):
->
-> IPVS_SERVICE_LIST               - NLA_NESTED
-> IPCS_DEST_LIST                  - NLA_NESTED
-> IPVS_DAEMON_LIST                - NLA_NESTED
+If this is what's required I will relay that to the customer or
+implement some type of workaround to force a poll or flush. However, if
+there is possibly a bug or race condition that is not getting handled
+properly it would be better to try and find it.
 
-Nicer naming! I will adopt that.
+Thanks,
+Travis
 
-> and
->
-> IPVS_LIST_ELEM                  - NLA_NESTED
->
-> for list elements of every kind. Since you can only put one
-> kind of element in the lists anyway (I think), different
-> types don't allow any increased flexibility and the LIST
-> naming is more clear in my opinion.
+> 
+> Thanks,
+> Ben
+> 
 
-However, since these container attributes (for daemons, services and
-dests) also appear as single elements outside of lists, it might be
-better to reuse the same names inside the list?
-
->> IPVS_SVC_ATTR_AF                - NLA_U32
->> IPVS_SVC_ATTR_PROTOCOL          - NLA_U32
->> IPVS_SVC_ATTR_ADDR              - union nf_inet_addr
->
-> This should probably use NLA_BINARY, which allows addresses
-> of any kind.
-
-Yes, the Netlink attribute type should really be NLA_BINARY. I just
-used the union as an informal way of saying what I really intended to
-store in there, though if some third address family came along, it
-could be something completely different.
-
->> IPVS_SVC_ATTR_PORT              - NLA_U16
->> IPVS_SVC_ATTR_FWMARK            - NLA_U32
->> IPVS_SVC_ATTR_SCHED_NAME        - NLA_STRING
->
-> NLA_NUL_STRING (at least for validation purposes)?
-
-Ah, looking closer at the validation code, that makes sense.
-
->> IPVS_SVC_ATTR_FLAGS             - NLA_U32
->
-> As I mentioned above, you usually want a MASK in combination
-> with flags to allow to unset them. This is best done using
-> a structure.
-
-Hm, I'm not sure if I understand exactly what this struct is supposed
-to look like. Could you give an example?
-
->> IPVS_SVC_ATTR_TIMEOUT           - NLA_U32
->> IPVS_SVC_ATTR_NETMASK           - NLA_U32
->
-> Shouldn't this also be able to carry IPv6 masks?
-
-We only need the prefix length for IPv6, for which we reused the
-netmask field. This (only slightly) changes the semantics of the field
-between address families. Acceptable or better have a separate field
-for the prefix length?
-
->> IPVS_SVC_ATTR_NUM_DESTS         - NLA_U32
->
-> Is this number related to the IPVS_ENTRY_ATTR_DESTS list?
-> If so, it shouldn't be contained as seperate attribute,
-> that just allows for potential inconsistency.
-
-Yes, but this count is only returned from commands that do not at the
-same time return the list of destinations, so there is no
-inconsistency within a message. However, I'm pretty sure the count was
-only used in the old interface to allocate enough memory for the
-destination list, so it can probably be deleted anyways.
-
->> IPVS_SVC_ATTR_STATS             - NLA_NESTED
->>
->> IPVS_DEST_ATTR_AF               - NLA_U32
->
-> Doesn't the family have to be equal for service and dest?
-> If so, having it specified only once avoids potential
-> inconsistencies.
-
-Yes, this field can likely go away too. I was thinking about the fact
-that the family of the non-VIP interface of the destination could
-theoretically differ, but no support for that is currently planned.
-
->> ========================== include/net/ip_vs.h ==========================
->
-> Please put this under include/linux, this doesn't belong
-> here as its a public header.
->
-
-He, that's the thing about IPVS. The current ipvsadm already directly
-includes this header from /usr/src/linux/include/net/ip_vs.h to
-compile.
-
-So we will have to keep the old header in the wrong location for old
-ipvsadm sources and create a new one only for the genetlink interface
-under include/linux.
-
-Thank you for spotting all this!
-
-Julius
-
--- 
-Google Switzerland GmbH
