@@ -1,302 +1,541 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH net-next-2.6 2/6] atm: [suni] add support for setting loopback and framing modes
-Date: Tue, 17 Jun 2008 09:16:15 -0400
-Message-ID: <200806171316.m5HDGFpt005872@cmf.nrl.navy.mil>
+Subject: [PATCH net-next-2.6 5/6] atm: [he] remove #ifdef clutter
+Date: Tue, 17 Jun 2008 09:16:38 -0400
+Message-ID: <200806171316.m5HDGcUo005908@cmf.nrl.navy.mil>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:53838 "EHLO
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:53847 "EHLO
 	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756747AbYFQNQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 09:16:20 -0400
+	with ESMTP id S1757128AbYFQNQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 09:16:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 77203e01be64419bcdfa7f70ea70d39eecb2eb3b
+commit 69681e6f82cfb3386a06dc3f8101daf936b12f22
 Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
-Date:   Sat Jun 14 17:31:20 2008 -0400
+Date:   Sat Jun 14 17:38:39 2008 -0400
 
-    atm: [suni] add support for setting loopback and framing modes
+    atm: [he] remove #ifdef clutter
     
     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-diff --git a/drivers/atm/suni.c b/drivers/atm/suni.c
-index 6097f68..7872977 100644
---- a/drivers/atm/suni.c
-+++ b/drivers/atm/suni.c
-@@ -1,8 +1,14 @@
--/* drivers/atm/suni.c - PMC PM5346 SUNI (PHY) driver */
-+/*
-+ * drivers/atm/suni.c - S/UNI PHY driver
-+ *
-+ * Supports the following:
-+ * 	PMC PM5346 S/UNI LITE
-+ * 	PMC PM5350 S/UNI 155 ULTRA
-+ * 	PMC PM5355 S/UNI 622
-+ */
-  
- /* Written 1995-2000 by Werner Almesberger, EPFL LRC/ICA */
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 320320e..88034d9 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -75,14 +75,8 @@
+ #include <linux/atm.h>
+ #include <linux/sonet.h>
  
--
- #include <linux/module.h>
- #include <linux/jiffies.h>
- #include <linux/kernel.h>
-@@ -146,25 +152,105 @@ static int get_diag(struct atm_dev *dev,void __user *arg)
- static int set_loopback(struct atm_dev *dev,int mode)
+-#define USE_TASKLET
+ #undef USE_SCATTERGATHER
+ #undef USE_CHECKSUM_HW			/* still confused about this */
+-#define USE_RBPS
+-#undef USE_RBPS_POOL			/* if memory is tight try this */
+-#undef USE_RBPL_POOL			/* if memory is tight try this */
+-#define USE_TPD_POOL
+-/* #undef CONFIG_ATM_HE_USE_SUNI */
+ /* #undef HE_DEBUG */
+ 
+ #include "he.h"
+@@ -388,9 +382,7 @@ he_init_one(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
+ 	he_dev->atm_dev->dev_data = he_dev;
+ 	atm_dev->dev_data = he_dev;
+ 	he_dev->number = atm_dev->number;
+-#ifdef USE_TASKLET
+ 	tasklet_init(&he_dev->tasklet, he_tasklet, (unsigned long) he_dev);
+-#endif
+ 	spin_lock_init(&he_dev->global_lock);
+ 
+ 	if (he_start(atm_dev)) {
+@@ -787,23 +779,13 @@ he_init_group(struct he_dev *he_dev, int group)
  {
- 	unsigned char control;
-+	int reg, dle, lle;
-+
-+	if (PRIV(dev)->type == SUNI_MRI_TYPE_PM5355) {
-+		reg = SUNI_MCM;
-+		dle = SUNI_MCM_DLE;
-+		lle = SUNI_MCM_LLE;
-+	} else {
-+		reg = SUNI_MCT;
-+		dle = SUNI_MCT_DLE;
-+		lle = SUNI_MCT_LLE;
-+	}
+ 	int i;
  
--	control = GET(MCT) & ~(SUNI_MCT_DLE | SUNI_MCT_LLE);
-+	control = dev->ops->phy_get(dev, reg) & ~(dle | lle);
- 	switch (mode) {
- 		case ATM_LM_NONE:
- 			break;
- 		case ATM_LM_LOC_PHY:
--			control |= SUNI_MCT_DLE;
-+			control |= dle;
- 			break;
- 		case ATM_LM_RMT_PHY:
--			control |= SUNI_MCT_LLE;
-+			control |= lle;
- 			break;
- 		default:
- 			return -EINVAL;
+-#ifdef USE_RBPS
+ 	/* small buffer pool */
+-#ifdef USE_RBPS_POOL
+ 	he_dev->rbps_pool = pci_pool_create("rbps", he_dev->pci_dev,
+ 			CONFIG_RBPS_BUFSIZE, 8, 0);
+ 	if (he_dev->rbps_pool == NULL) {
+ 		hprintk("unable to create rbps pages\n");
+ 		return -ENOMEM;
  	}
--	PUT(control,MCT);
-+	 dev->ops->phy_put(dev, control, reg);
- 	PRIV(dev)->loop_mode = mode;
- 	return 0;
- }
+-#else /* !USE_RBPS_POOL */
+-	he_dev->rbps_pages = pci_alloc_consistent(he_dev->pci_dev,
+-		CONFIG_RBPS_SIZE * CONFIG_RBPS_BUFSIZE, &he_dev->rbps_pages_phys);
+-	if (he_dev->rbps_pages == NULL) {
+-		hprintk("unable to create rbps page pool\n");
+-		return -ENOMEM;
+-	}
+-#endif /* USE_RBPS_POOL */
  
-+/*
-+ * SONET vs. SDH Configuration
-+ *
-+ * Z0INS (register 0x06): 0 for SONET, 1 for SDH
-+ * ENSS (register 0x3D): 0 for SONET, 1 for SDH
-+ * LEN16 (register 0x28): 0 for SONET, 1 for SDH (n/a for S/UNI 155 QUAD)
-+ * LEN16 (register 0x50): 0 for SONET, 1 for SDH (n/a for S/UNI 155 QUAD)
-+ * S[1:0] (register 0x46): 00 for SONET, 10 for SDH
-+ */
-+
-+static int set_sonet(struct atm_dev *dev)
-+{
-+	if (PRIV(dev)->type == SUNI_MRI_TYPE_PM5355) {
-+		PUT(GET(RPOP_RC) & ~SUNI_RPOP_RC_ENSS, RPOP_RC);
-+		PUT(GET(SSTB_CTRL) & ~SUNI_SSTB_CTRL_LEN16, SSTB_CTRL);
-+		PUT(GET(SPTB_CTRL) & ~SUNI_SPTB_CTRL_LEN16, SPTB_CTRL);
-+	}
-+
-+	REG_CHANGE(SUNI_TPOP_APM_S, SUNI_TPOP_APM_S_SHIFT,
-+		   SUNI_TPOP_S_SONET, TPOP_APM);
-+
-+	return 0;
-+}
-+
-+static int set_sdh(struct atm_dev *dev)
-+{
-+	if (PRIV(dev)->type == SUNI_MRI_TYPE_PM5355) {
-+		PUT(GET(RPOP_RC) | SUNI_RPOP_RC_ENSS, RPOP_RC);
-+		PUT(GET(SSTB_CTRL) | SUNI_SSTB_CTRL_LEN16, SSTB_CTRL);
-+		PUT(GET(SPTB_CTRL) | SUNI_SPTB_CTRL_LEN16, SPTB_CTRL);
-+	}
-+
-+	REG_CHANGE(SUNI_TPOP_APM_S, SUNI_TPOP_APM_S_SHIFT,
-+		   SUNI_TPOP_S_SDH, TPOP_APM);
-+
-+	return 0;
-+}
-+
-+
-+static int get_framing(struct atm_dev *dev, void __user *arg)
-+{
-+	int framing;
-+	unsigned char s;
-+
-+
-+	s = (GET(TPOP_APM) & SUNI_TPOP_APM_S) >> SUNI_TPOP_APM_S_SHIFT;
-+	if (s == SUNI_TPOP_S_SONET)
-+		framing = SONET_FRAME_SONET;
-+	else
-+		framing = SONET_FRAME_SDH;
-+
-+	return put_user(framing, (int __user *) arg) ? -EFAULT : 0;
-+}
-+
-+static int set_framing(struct atm_dev *dev, void __user *arg)
-+{
-+	int mode;
-+
-+	if (get_user(mode, (int __user *) arg))
-+		return -EFAULT;
-+
-+	if (mode == SONET_FRAME_SONET)
-+		return set_sonet(dev);
-+	else if (mode == SONET_FRAME_SDH)
-+		return set_sdh(dev);
-+
-+	return -EINVAL;
-+}
-+
+ 	he_dev->rbps_base = pci_alloc_consistent(he_dev->pci_dev,
+ 		CONFIG_RBPS_SIZE * sizeof(struct he_rbp), &he_dev->rbps_phys);
+@@ -818,14 +800,9 @@ he_init_group(struct he_dev *he_dev, int group)
+ 		dma_addr_t dma_handle;
+ 		void *cpuaddr;
  
- static int suni_ioctl(struct atm_dev *dev,unsigned int cmd,void __user *arg)
- {
-@@ -179,14 +265,16 @@ static int suni_ioctl(struct atm_dev *dev,unsigned int cmd,void __user *arg)
- 		case SONET_GETDIAG:
- 			return get_diag(dev,arg);
- 		case SONET_SETFRAMING:
--			if ((int)(unsigned long)arg != SONET_FRAME_SONET) return -EINVAL;
--			return 0;
-+			if (!capable(CAP_NET_ADMIN))
-+				return -EPERM;
-+			return set_framing(dev, arg);
- 		case SONET_GETFRAMING:
--			return put_user(SONET_FRAME_SONET,(int __user *)arg) ?
--			    -EFAULT : 0;
-+			return get_framing(dev, arg);
- 		case SONET_GETFRSENSE:
- 			return -EINVAL;
- 		case ATM_SETLOOP:
-+			if (!capable(CAP_NET_ADMIN))
-+				return -EPERM;
- 			return set_loopback(dev,(int)(unsigned long)arg);
- 		case ATM_GETLOOP:
- 			return put_user(PRIV(dev)->loop_mode,(int __user *)arg) ?
-@@ -220,10 +308,6 @@ static int suni_start(struct atm_dev *dev)
- 	unsigned long flags;
- 	int first;
+-#ifdef USE_RBPS_POOL 
+ 		cpuaddr = pci_pool_alloc(he_dev->rbps_pool, GFP_KERNEL|GFP_DMA, &dma_handle);
+ 		if (cpuaddr == NULL)
+ 			return -ENOMEM;
+-#else
+-		cpuaddr = he_dev->rbps_pages + (i * CONFIG_RBPS_BUFSIZE);
+-		dma_handle = he_dev->rbps_pages_phys + (i * CONFIG_RBPS_BUFSIZE);
+-#endif
  
--	if (!(dev->phy_data = kmalloc(sizeof(struct suni_priv),GFP_KERNEL)))
+ 		he_dev->rbps_virt[i].virt = cpuaddr;
+ 		he_dev->rbps_base[i].status = RBP_LOANED | RBP_SMALLBUF | (i << RBP_INDEX_OFF);
+@@ -844,30 +821,14 @@ he_init_group(struct he_dev *he_dev, int group)
+ 			RBP_QSIZE(CONFIG_RBPS_SIZE - 1) |
+ 			RBP_INT_ENB,
+ 						G0_RBPS_QI + (group * 32));
+-#else /* !USE_RBPS */
+-	he_writel(he_dev, 0x0, G0_RBPS_S + (group * 32));
+-	he_writel(he_dev, 0x0, G0_RBPS_T + (group * 32));
+-	he_writel(he_dev, 0x0, G0_RBPS_QI + (group * 32));
+-	he_writel(he_dev, RBP_THRESH(0x1) | RBP_QSIZE(0x0),
+-						G0_RBPS_BS + (group * 32));
+-#endif /* USE_RBPS */
+ 
+ 	/* large buffer pool */
+-#ifdef USE_RBPL_POOL
+ 	he_dev->rbpl_pool = pci_pool_create("rbpl", he_dev->pci_dev,
+ 			CONFIG_RBPL_BUFSIZE, 8, 0);
+ 	if (he_dev->rbpl_pool == NULL) {
+ 		hprintk("unable to create rbpl pool\n");
+ 		return -ENOMEM;
+ 	}
+-#else /* !USE_RBPL_POOL */
+-	he_dev->rbpl_pages = (void *) pci_alloc_consistent(he_dev->pci_dev,
+-		CONFIG_RBPL_SIZE * CONFIG_RBPL_BUFSIZE, &he_dev->rbpl_pages_phys);
+-	if (he_dev->rbpl_pages == NULL) {
+-		hprintk("unable to create rbpl pages\n");
+-		return -ENOMEM;
+-	}
+-#endif /* USE_RBPL_POOL */
+ 
+ 	he_dev->rbpl_base = pci_alloc_consistent(he_dev->pci_dev,
+ 		CONFIG_RBPL_SIZE * sizeof(struct he_rbp), &he_dev->rbpl_phys);
+@@ -882,14 +843,9 @@ he_init_group(struct he_dev *he_dev, int group)
+ 		dma_addr_t dma_handle;
+ 		void *cpuaddr;
+ 
+-#ifdef USE_RBPL_POOL
+ 		cpuaddr = pci_pool_alloc(he_dev->rbpl_pool, GFP_KERNEL|GFP_DMA, &dma_handle);
+ 		if (cpuaddr == NULL)
+ 			return -ENOMEM;
+-#else
+-		cpuaddr = he_dev->rbpl_pages + (i * CONFIG_RBPL_BUFSIZE);
+-		dma_handle = he_dev->rbpl_pages_phys + (i * CONFIG_RBPL_BUFSIZE);
+-#endif
+ 
+ 		he_dev->rbpl_virt[i].virt = cpuaddr;
+ 		he_dev->rbpl_base[i].status = RBP_LOANED | (i << RBP_INDEX_OFF);
+@@ -1475,7 +1431,6 @@ he_start(struct atm_dev *dev)
+ 
+ 	he_init_tpdrq(he_dev);
+ 
+-#ifdef USE_TPD_POOL
+ 	he_dev->tpd_pool = pci_pool_create("tpd", he_dev->pci_dev,
+ 		sizeof(struct he_tpd), TPD_ALIGNMENT, 0);
+ 	if (he_dev->tpd_pool == NULL) {
+@@ -1484,20 +1439,6 @@ he_start(struct atm_dev *dev)
+ 	}
+ 
+ 	INIT_LIST_HEAD(&he_dev->outstanding_tpds);
+-#else
+-	he_dev->tpd_base = (void *) pci_alloc_consistent(he_dev->pci_dev,
+-			CONFIG_NUMTPDS * sizeof(struct he_tpd), &he_dev->tpd_base_phys);
+-	if (!he_dev->tpd_base)
 -		return -ENOMEM;
 -
--	PRIV(dev)->dev = dev;
- 	spin_lock_irqsave(&sunis_lock,flags);
- 	first = !sunis;
- 	PRIV(dev)->next = sunis;
-@@ -284,16 +368,21 @@ int suni_init(struct atm_dev *dev)
- {
- 	unsigned char mri;
+-	for (i = 0; i < CONFIG_NUMTPDS; ++i) {
+-		he_dev->tpd_base[i].status = (i << TPD_ADDR_SHIFT);
+-		he_dev->tpd_base[i].inuse = 0;
+-	}
+-		
+-	he_dev->tpd_head = he_dev->tpd_base;
+-	he_dev->tpd_end = &he_dev->tpd_base[CONFIG_NUMTPDS - 1];
+-#endif
  
-+	if (!(dev->phy_data = kmalloc(sizeof(struct suni_priv),GFP_KERNEL)))
-+		return -ENOMEM;
-+	PRIV(dev)->dev = dev;
-+
- 	mri = GET(MRI); /* reset SUNI */
-+	PRIV(dev)->type = (mri & SUNI_MRI_TYPE) >> SUNI_MRI_TYPE_SHIFT;
- 	PUT(mri | SUNI_MRI_RESET,MRI);
- 	PUT(mri,MRI);
- 	PUT((GET(MT) & SUNI_MT_DS27_53),MT); /* disable all tests */
--	REG_CHANGE(SUNI_TPOP_APM_S,SUNI_TPOP_APM_S_SHIFT,SUNI_TPOP_S_SONET,
--	    TPOP_APM); /* use SONET */
-+        set_sonet(dev);
- 	REG_CHANGE(SUNI_TACP_IUCHP_CLP,0,SUNI_TACP_IUCHP_CLP,
- 	    TACP_IUCHP); /* idle cells */
- 	PUT(SUNI_IDLE_PATTERN,TACP_IUCPOP);
- 	dev->phy = &suni_ops;
-+
- 	return 0;
+ 	if (he_init_group(he_dev, 0) != 0)
+ 		return -ENOMEM;
+@@ -1605,9 +1546,7 @@ he_stop(struct he_dev *he_dev)
+ 		gen_cntl_0 &= ~(INT_PROC_ENBL | INIT_ENB);
+ 		pci_write_config_dword(pci_dev, GEN_CNTL_0, gen_cntl_0);
+ 
+-#ifdef USE_TASKLET
+ 		tasklet_disable(&he_dev->tasklet);
+-#endif
+ 
+ 		/* disable recv and transmit */
+ 
+@@ -1637,7 +1576,6 @@ he_stop(struct he_dev *he_dev)
+ 						he_dev->hsp, he_dev->hsp_phys);
+ 
+ 	if (he_dev->rbpl_base) {
+-#ifdef USE_RBPL_POOL
+ 		int i;
+ 
+ 		for (i = 0; i < CONFIG_RBPL_SIZE; ++i) {
+@@ -1646,22 +1584,14 @@ he_stop(struct he_dev *he_dev)
+ 
+ 			pci_pool_free(he_dev->rbpl_pool, cpuaddr, dma_handle);
+ 		}
+-#else
+-		pci_free_consistent(he_dev->pci_dev, CONFIG_RBPL_SIZE
+-			* CONFIG_RBPL_BUFSIZE, he_dev->rbpl_pages, he_dev->rbpl_pages_phys);
+-#endif
+ 		pci_free_consistent(he_dev->pci_dev, CONFIG_RBPL_SIZE
+ 			* sizeof(struct he_rbp), he_dev->rbpl_base, he_dev->rbpl_phys);
+ 	}
+ 
+-#ifdef USE_RBPL_POOL
+ 	if (he_dev->rbpl_pool)
+ 		pci_pool_destroy(he_dev->rbpl_pool);
+-#endif
+ 
+-#ifdef USE_RBPS
+ 	if (he_dev->rbps_base) {
+-#ifdef USE_RBPS_POOL
+ 		int i;
+ 
+ 		for (i = 0; i < CONFIG_RBPS_SIZE; ++i) {
+@@ -1670,20 +1600,12 @@ he_stop(struct he_dev *he_dev)
+ 
+ 			pci_pool_free(he_dev->rbps_pool, cpuaddr, dma_handle);
+ 		}
+-#else
+-		pci_free_consistent(he_dev->pci_dev, CONFIG_RBPS_SIZE
+-			* CONFIG_RBPS_BUFSIZE, he_dev->rbps_pages, he_dev->rbps_pages_phys);
+-#endif
+ 		pci_free_consistent(he_dev->pci_dev, CONFIG_RBPS_SIZE
+ 			* sizeof(struct he_rbp), he_dev->rbps_base, he_dev->rbps_phys);
+ 	}
+ 
+-#ifdef USE_RBPS_POOL
+ 	if (he_dev->rbps_pool)
+ 		pci_pool_destroy(he_dev->rbps_pool);
+-#endif
+-
+-#endif /* USE_RBPS */
+ 
+ 	if (he_dev->rbrq_base)
+ 		pci_free_consistent(he_dev->pci_dev, CONFIG_RBRQ_SIZE * sizeof(struct he_rbrq),
+@@ -1697,14 +1619,8 @@ he_stop(struct he_dev *he_dev)
+ 		pci_free_consistent(he_dev->pci_dev, CONFIG_TBRQ_SIZE * sizeof(struct he_tbrq),
+ 							he_dev->tpdrq_base, he_dev->tpdrq_phys);
+ 
+-#ifdef USE_TPD_POOL
+ 	if (he_dev->tpd_pool)
+ 		pci_pool_destroy(he_dev->tpd_pool);
+-#else
+-	if (he_dev->tpd_base)
+-		pci_free_consistent(he_dev->pci_dev, CONFIG_NUMTPDS * sizeof(struct he_tpd),
+-							he_dev->tpd_base, he_dev->tpd_base_phys);
+-#endif
+ 
+ 	if (he_dev->pci_dev) {
+ 		pci_read_config_word(he_dev->pci_dev, PCI_COMMAND, &command);
+@@ -1719,7 +1635,6 @@ he_stop(struct he_dev *he_dev)
+ static struct he_tpd *
+ __alloc_tpd(struct he_dev *he_dev)
+ {
+-#ifdef USE_TPD_POOL
+ 	struct he_tpd *tpd;
+ 	dma_addr_t dma_handle; 
+ 
+@@ -1734,27 +1649,6 @@ __alloc_tpd(struct he_dev *he_dev)
+ 	tpd->iovec[2].addr = 0; tpd->iovec[2].len = 0;
+ 
+ 	return tpd;
+-#else
+-	int i;
+-
+-	for (i = 0; i < CONFIG_NUMTPDS; ++i) {
+-		++he_dev->tpd_head;
+-		if (he_dev->tpd_head > he_dev->tpd_end) {
+-			he_dev->tpd_head = he_dev->tpd_base;
+-		}
+-
+-		if (!he_dev->tpd_head->inuse) {
+-			he_dev->tpd_head->inuse = 1;
+-			he_dev->tpd_head->status &= TPD_MASK;
+-			he_dev->tpd_head->iovec[0].addr = 0; he_dev->tpd_head->iovec[0].len = 0;
+-			he_dev->tpd_head->iovec[1].addr = 0; he_dev->tpd_head->iovec[1].len = 0;
+-			he_dev->tpd_head->iovec[2].addr = 0; he_dev->tpd_head->iovec[2].len = 0;
+-			return he_dev->tpd_head;
+-		}
+-	}
+-	hprintk("out of tpds -- increase CONFIG_NUMTPDS (%d)\n", CONFIG_NUMTPDS);
+-	return NULL;
+-#endif
  }
  
-diff --git a/drivers/atm/suni.h b/drivers/atm/suni.h
-index efa79bf..7e3e656 100644
---- a/drivers/atm/suni.h
-+++ b/drivers/atm/suni.h
-@@ -1,7 +1,8 @@
--/* drivers/atm/suni.h - PMC PM5346 SUNI (PHY) declarations */
-+/*
-+ * drivers/atm/suni.h - S/UNI PHY driver
-+ */
-  
- /* Written 1995-2000 by Werner Almesberger, EPFL LRC/ICA */
-- 
+ #define AAL5_LEN(buf,len) 						\
+@@ -1803,11 +1697,9 @@ he_service_rbrq(struct he_dev *he_dev, int group)
+ 			RBRQ_CON_CLOSED(he_dev->rbrq_head) ? " CON_CLOSED" : "",
+ 			RBRQ_HBUF_ERR(he_dev->rbrq_head) ? " HBUF_ERR" : "");
  
- #ifndef DRIVER_ATM_SUNI_H
- #define DRIVER_ATM_SUNI_H
-@@ -39,7 +40,8 @@
- #define SUNI_RLOP_LFM		0x1F	/* RLOP Line FEBE MSB */
- #define SUNI_TLOP_CTRL		0x20	/* TLOP Control */
- #define SUNI_TLOP_DIAG		0x21	/* TLOP Diagnostic */
--			     /* 0x22-0x2F reserved */
-+			     /* 0x22-0x27 reserved */
-+#define SUNI_SSTB_CTRL		0x28
- #define SUNI_RPOP_SC		0x30	/* RPOP Status/Control */
- #define SUNI_RPOP_IS		0x31	/* RPOP Interrupt Status */
- 			     /* 0x32 reserved */
-@@ -52,6 +54,7 @@
- #define SUNI_RPOP_PFM		0x3B	/* RPOP Path FEBE MSB */
- 			     /* 0x3C reserved */
- #define SUNI_RPOP_PBC		0x3D	/* RPOP Path BIP-8 Configuration */
-+#define SUNI_RPOP_RC		0x3D	/* RPOP Ring Control (PM5355) */
- 			     /* 0x3E-0x3F reserved */
- #define SUNI_TPOP_CD		0x40	/* TPOP Control/Diagnostic */
- #define SUNI_TPOP_PC		0x41	/* TPOP Pointer Control */
-@@ -82,7 +85,8 @@
- #define SUNI_TACP_TCC		0x65	/* TACP Transmit Cell Counter */
- #define SUNI_TACP_TCCM		0x66	/* TACP Transmit Cell Counter MSB */
- #define SUNI_TACP_CFG		0x67	/* TACP Configuration */
--			     /* 0x68-0x7F reserved */
-+#define SUNI_SPTB_CTRL		0x68	/* SPTB Control */
-+			     /* 0x69-0x7F reserved */
- #define	SUNI_MT			0x80	/* Master Test */
- 			     /* 0x81-0xFF reserved */
+-#ifdef USE_RBPS
+ 		if (RBRQ_ADDR(he_dev->rbrq_head) & RBP_SMALLBUF)
+ 			rbp = &he_dev->rbps_base[RBP_INDEX(RBRQ_ADDR(he_dev->rbrq_head))];
+ 		else
+-#endif
+ 			rbp = &he_dev->rbpl_base[RBP_INDEX(RBRQ_ADDR(he_dev->rbrq_head))];
+ 		
+ 		buf_len = RBRQ_BUFLEN(he_dev->rbrq_head) * 4;
+@@ -1886,12 +1778,10 @@ he_service_rbrq(struct he_dev *he_dev, int group)
  
-@@ -94,9 +98,18 @@
- #define SUNI_MRI_ID_SHIFT 	0
- #define SUNI_MRI_TYPE		0x70	/* R, SUNI type (lite is 011) */
- #define SUNI_MRI_TYPE_SHIFT 	4
-+#define SUNI_MRI_TYPE_PM5346	0x3	/* S/UNI 155 LITE */
-+#define SUNI_MRI_TYPE_PM5347	0x4	/* S/UNI 155 PLUS */
-+#define SUNI_MRI_TYPE_PM5350	0x7	/* S/UNI 155 ULTRA */
-+#define SUNI_MRI_TYPE_PM5355	0x1	/* S/UNI 622 */
- #define SUNI_MRI_RESET		0x80	/* RW, reset & power down chip
- 					   0: normal operation
- 					   1: reset & low power */
-+
-+/* MCM is reg 0x4 */
-+#define SUNI_MCM_LLE		0x20	/* line loopback (PM5355) */
-+#define SUNI_MCM_DLE		0x10	/* diagnostic loopback (PM5355) */
-+
- /* MCT is reg 5 */
- #define SUNI_MCT_LOOPT		0x01	/* RW, timing source, 0: from
- 					   TRCLK+/- */
-@@ -144,6 +157,12 @@
- /* TLOP_DIAG is reg 0x21 */
- #define SUNI_TLOP_DIAG_DBIP	0x01	/* insert line BIP err (continuously) */
+ 		for (iov = he_vcc->iov_head;
+ 				iov < he_vcc->iov_tail; ++iov) {
+-#ifdef USE_RBPS
+ 			if (iov->iov_base & RBP_SMALLBUF)
+ 				memcpy(skb_put(skb, iov->iov_len),
+ 					he_dev->rbps_virt[RBP_INDEX(iov->iov_base)].virt, iov->iov_len);
+ 			else
+-#endif
+ 				memcpy(skb_put(skb, iov->iov_len),
+ 					he_dev->rbpl_virt[RBP_INDEX(iov->iov_base)].virt, iov->iov_len);
+ 		}
+@@ -1936,11 +1826,9 @@ return_host_buffers:
  
-+/* SSTB_CTRL is reg 0x28 */
-+#define SUNI_SSTB_CTRL_LEN16	0x01	/* path trace message length bit */
-+
-+/* RPOP_RC is reg 0x3D (PM5355) */
-+#define SUNI_RPOP_RC_ENSS	0x40	/* enable size bit */
-+
- /* TPOP_DIAG is reg 0x40 */
- #define SUNI_TPOP_DIAG_PAIS	0x01	/* insert STS path alarm ind (cont) */
- #define SUNI_TPOP_DIAG_DB3	0x02	/* insert path BIP err (continuously) */
-@@ -191,6 +210,9 @@
- 					   pattern */
- #define SUNI_TACP_IUCHP_GFC_SHIFT 4
+ 		for (iov = he_vcc->iov_head;
+ 				iov < he_vcc->iov_tail; ++iov) {
+-#ifdef USE_RBPS
+ 			if (iov->iov_base & RBP_SMALLBUF)
+ 				rbp = &he_dev->rbps_base[RBP_INDEX(iov->iov_base)];
+ 			else
+-#endif
+ 				rbp = &he_dev->rbpl_base[RBP_INDEX(iov->iov_base)];
  
-+/* SPTB_CTRL is reg 0x68 */
-+#define SUNI_SPTB_CTRL_LEN16	0x01	/* path trace message length */
-+
- /* MT is reg 0x80 */
- #define SUNI_MT_HIZIO		0x01	/* RW, all but data bus & MP interface
- 					   tri-state */
-@@ -208,6 +230,7 @@
- struct suni_priv {
- 	struct k_sonet_stats sonet_stats;	/* link diagnostics */
- 	int loop_mode;				/* loopback mode */
-+	int type;				/* phy type */
- 	struct atm_dev *dev;			/* device back-pointer */
- 	struct suni_priv *next;			/* next SUNI */
+ 			rbp->status &= ~RBP_LOANED;
+@@ -1976,9 +1864,7 @@ he_service_tbrq(struct he_dev *he_dev, int group)
+ 					he_dev->hsp->group[group].tbrq_tail);
+ 	struct he_tpd *tpd;
+ 	int slot, updated = 0;
+-#ifdef USE_TPD_POOL
+ 	struct he_tpd *__tpd;
+-#endif
+ 
+ 	/* 2.1.6 transmit buffer return queue */
+ 
+@@ -1990,7 +1876,6 @@ he_service_tbrq(struct he_dev *he_dev, int group)
+ 			TBRQ_TPD(he_dev->tbrq_head), 
+ 			TBRQ_EOS(he_dev->tbrq_head) ? " EOS" : "",
+ 			TBRQ_MULTIPLE(he_dev->tbrq_head) ? " MULTIPLE" : "");
+-#ifdef USE_TPD_POOL
+ 		tpd = NULL;
+ 		list_for_each_entry(__tpd, &he_dev->outstanding_tpds, entry) {
+ 			if (TPD_ADDR(__tpd->status) == TBRQ_TPD(he_dev->tbrq_head)) {
+@@ -2005,9 +1890,6 @@ he_service_tbrq(struct he_dev *he_dev, int group)
+ 						TBRQ_TPD(he_dev->tbrq_head));
+ 			goto next_tbrq_entry;
+ 		}
+-#else
+-		tpd = &he_dev->tpd_base[ TPD_INDEX(TBRQ_TPD(he_dev->tbrq_head)) ];
+-#endif
+ 
+ 		if (TBRQ_EOS(he_dev->tbrq_head)) {
+ 			HPRINTK("wake_up(tx_waitq) cid 0x%x\n",
+@@ -2037,12 +1919,8 @@ he_service_tbrq(struct he_dev *he_dev, int group)
+ 		}
+ 
+ next_tbrq_entry:
+-#ifdef USE_TPD_POOL
+ 		if (tpd)
+ 			pci_pool_free(he_dev->tpd_pool, tpd, TPD_ADDR(tpd->status));
+-#else
+-		tpd->inuse = 0;
+-#endif
+ 		he_dev->tbrq_head = (struct he_tbrq *)
+ 				((unsigned long) he_dev->tbrq_base |
+ 					TBRQ_MASK(++he_dev->tbrq_head));
+@@ -2085,7 +1963,6 @@ he_service_rbpl(struct he_dev *he_dev, int group)
+ 		he_writel(he_dev, RBPL_MASK(he_dev->rbpl_tail), G0_RBPL_T);
+ }
+ 
+-#ifdef USE_RBPS
+ static void
+ he_service_rbps(struct he_dev *he_dev, int group)
+ {
+@@ -2112,7 +1989,6 @@ he_service_rbps(struct he_dev *he_dev, int group)
+ 	if (moved)
+ 		he_writel(he_dev, RBPS_MASK(he_dev->rbps_tail), G0_RBPS_T);
+ }
+-#endif /* USE_RBPS */
+ 
+ static void
+ he_tasklet(unsigned long data)
+@@ -2123,9 +1999,7 @@ he_tasklet(unsigned long data)
+ 	int updated = 0;
+ 
+ 	HPRINTK("tasklet (0x%lx)\n", data);
+-#ifdef USE_TASKLET
+ 	spin_lock_irqsave(&he_dev->global_lock, flags);
+-#endif
+ 
+ 	while (he_dev->irq_head != he_dev->irq_tail) {
+ 		++updated;
+@@ -2140,9 +2014,7 @@ he_tasklet(unsigned long data)
+ 			case ITYPE_RBRQ_TIMER:
+ 				if (he_service_rbrq(he_dev, group)) {
+ 					he_service_rbpl(he_dev, group);
+-#ifdef USE_RBPS
+ 					he_service_rbps(he_dev, group);
+-#endif /* USE_RBPS */
+ 				}
+ 				break;
+ 			case ITYPE_TBRQ_THRESH:
+@@ -2155,9 +2027,7 @@ he_tasklet(unsigned long data)
+ 				he_service_rbpl(he_dev, group);
+ 				break;
+ 			case ITYPE_RBPS_THRESH:
+-#ifdef USE_RBPS
+ 				he_service_rbps(he_dev, group);
+-#endif /* USE_RBPS */
+ 				break;
+ 			case ITYPE_PHY:
+ 				HPRINTK("phy interrupt\n");
+@@ -2185,9 +2055,7 @@ he_tasklet(unsigned long data)
+ 
+ 				he_service_rbrq(he_dev, 0);
+ 				he_service_rbpl(he_dev, 0);
+-#ifdef USE_RBPS
+ 				he_service_rbps(he_dev, 0);
+-#endif /* USE_RBPS */
+ 				he_service_tbrq(he_dev, 0);
+ 				break;
+ 			default:
+@@ -2209,9 +2077,7 @@ he_tasklet(unsigned long data)
+ 			IRQ_TAIL(he_dev->irq_tail), IRQ0_HEAD);
+ 		(void) he_readl(he_dev, INT_FIFO); /* 8.1.2 controller errata; flush posted writes */
+ 	}
+-#ifdef USE_TASKLET
+ 	spin_unlock_irqrestore(&he_dev->global_lock, flags);
+-#endif
+ }
+ 
+ static irqreturn_t
+@@ -2243,11 +2109,7 @@ he_irq_handler(int irq, void *dev_id)
+ 
+ 	if (he_dev->irq_head != he_dev->irq_tail) {
+ 		handled = 1;
+-#ifdef USE_TASKLET
+ 		tasklet_schedule(&he_dev->tasklet);
+-#else
+-		he_tasklet((unsigned long) he_dev);
+-#endif
+ 		he_writel(he_dev, INT_CLEAR_A, INT_FIFO);	/* clear interrupt */
+ 		(void) he_readl(he_dev, INT_FIFO);		/* flush posted writes */
+ 	}
+@@ -2304,23 +2166,14 @@ __enqueue_tpd(struct he_dev *he_dev, struct he_tpd *tpd, unsigned cid)
+ 					dev_kfree_skb_any(tpd->skb);
+ 				atomic_inc(&tpd->vcc->stats->tx_err);
+ 			}
+-#ifdef USE_TPD_POOL
+ 			pci_pool_free(he_dev->tpd_pool, tpd, TPD_ADDR(tpd->status));
+-#else
+-			tpd->inuse = 0;
+-#endif
+ 			return;
+ 		}
+ 	}
+ 
+ 	/* 2.1.5 transmit packet descriptor ready queue */
+-#ifdef USE_TPD_POOL
+ 	list_add_tail(&tpd->entry, &he_dev->outstanding_tpds);
+ 	he_dev->tpdrq_tail->tpd = TPD_ADDR(tpd->status);
+-#else
+-	he_dev->tpdrq_tail->tpd = he_dev->tpd_base_phys +
+-				(TPD_INDEX(tpd->status) * sizeof(struct he_tpd));
+-#endif
+ 	he_dev->tpdrq_tail->cid = cid;
+ 	wmb();
+ 
+@@ -2510,13 +2363,8 @@ he_open(struct atm_vcc *vcc)
+ 			goto open_failed;
+ 		}
+ 
+-#ifdef USE_RBPS
+ 		rsr1 = RSR1_GROUP(0);
+ 		rsr4 = RSR4_GROUP(0);
+-#else /* !USE_RBPS */
+-		rsr1 = RSR1_GROUP(0)|RSR1_RBPL_ONLY;
+-		rsr4 = RSR4_GROUP(0)|RSR4_RBPL_ONLY;
+-#endif /* USE_RBPS */
+ 		rsr0 = vcc->qos.rxtp.traffic_class == ATM_UBR ? 
+ 				(RSR0_EPD_ENABLE|RSR0_PPD_ENABLE) : 0;
+ 
+diff --git a/drivers/atm/he.h b/drivers/atm/he.h
+index a54d64f..07d40e7 100644
+--- a/drivers/atm/he.h
++++ b/drivers/atm/he.h
+@@ -51,8 +51,6 @@
+ #define CONFIG_IRQ_SIZE		128
+ #define CONFIG_IRQ_THRESH	(CONFIG_IRQ_SIZE/2)
+ 
+-#define CONFIG_NUMTPDS		256
+-
+ #define CONFIG_TPDRQ_SIZE	512
+ #define TPDRQ_MASK(x)		(((unsigned long)(x))&((CONFIG_TPDRQ_SIZE<<3)-1))
+ 
+@@ -140,12 +138,7 @@ struct he_tpd {
+ 	struct sk_buff *skb;
+ 	struct atm_vcc *vcc;
+ 
+-#ifdef USE_TPD_POOL
+ 	struct list_head entry;
+-#else
+-	u32 inuse;
+-	char padding[32 - sizeof(u32) - (2*sizeof(void*))];
+-#endif
  };
+ 
+ #define TPD_ALIGNMENT	64
+@@ -291,16 +284,9 @@ struct he_dev {
+ 	volatile unsigned *irq_tailoffset;
+ 	int irq_peak;
+ 
+-#ifdef USE_TASKLET
+ 	struct tasklet_struct tasklet;
+-#endif
+-#ifdef USE_TPD_POOL
+ 	struct pci_pool *tpd_pool;
+ 	struct list_head outstanding_tpds;
+-#else
+-	struct he_tpd *tpd_head, *tpd_base, *tpd_end;
+-	dma_addr_t tpd_base_phys;
+-#endif
+ 
+ 	dma_addr_t tpdrq_phys;
+ 	struct he_tpdrq *tpdrq_base, *tpdrq_tail, *tpdrq_head;
+@@ -311,25 +297,13 @@ struct he_dev {
+ 	struct he_rbrq *rbrq_base, *rbrq_head;
+ 	int rbrq_peak;
+ 
+-#ifdef USE_RBPL_POOL
+ 	struct pci_pool *rbpl_pool;
+-#else
+-	void *rbpl_pages;
+-	dma_addr_t rbpl_pages_phys;
+-#endif
+ 	dma_addr_t rbpl_phys;
+ 	struct he_rbp *rbpl_base, *rbpl_tail;
+ 	struct he_virt *rbpl_virt;
+ 	int rbpl_peak;
+ 
+-#ifdef USE_RBPS
+-#ifdef USE_RBPS_POOL
+ 	struct pci_pool *rbps_pool;
+-#else
+-	void *rbps_pages;
+-	dma_addr_t rbps_pages_phys;
+-#endif
+-#endif
+ 	dma_addr_t rbps_phys;
+ 	struct he_rbp *rbps_base, *rbps_tail;
+ 	struct he_virt *rbps_virt;
