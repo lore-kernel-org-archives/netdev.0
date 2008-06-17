@@ -1,121 +1,109 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Tue, 17 Jun 2008 22:08:08 +0200
-Message-ID: <485819A8.1090004@trash.net>
-References: <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com> <485144DF.3030102@trash.net> <f4845fc0806121233i54099a18k9104eb34359b923f@mail.gmail.com> <20080613062621.GA10474@verge.net.au> <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com> <48528EED.7090307@trash.net> <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com> <485652EA.2020004@trash.net> <f4845fc0806161619i4dc81dcao933d95aa6e09b45e@mail.gmail.com> <4857A58E.6080304@trash.net> <20080617171840.GB4064@google.com>
+From: "John Russo" <john.russo@qlogic.com>
+Subject: RE: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
+Date: Tue, 17 Jun 2008 15:12:49 -0500
+Message-ID: <99863D2ED484D449811D97A4C44C9CBD7C5169@EPEXCH2.qlogic.org>
+References: <99863D2ED484D449811D97A4C44C9CBD7C50F7@EPEXCH2.qlogic.org><c8028d330806171018j7f129ddft3bee056e4be9b954@mail.gmail.com><485803D3.5020505@trash.net> <20080617121441.4b87ba84@extreme> <C07C40DB2364324799506DE8FF12F8D859E90D@EPEXCH1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, Vince Busam <vbusam@google.com>,
-	Ben Greear <greearb@candelatech.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080617171840.GB4064@google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Amar Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>,
+	<netdev@vger.kernel.org>, <rdreier@cisco.com>,
+	"Kuchimanchi, Ramachandra \(Contractor - \)"
+	<ramachandra.kuchimanchi@qlogic.com>,
+	"Poornima Kamath \(Contractor - \)" <poornima.kamath@qlogic.com>
+To: <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eppat.qlogic.com ([198.186.5.11]:54454 "EHLO EPEXCH2.qlogic.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753138AbYFQU2D convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 16:28:03 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <C07C40DB2364324799506DE8FF12F8D859E90D@EPEXCH1.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> Ok, so this is my draft version of the IPVS Generic Netlink interface
-> definition. I'm posting this to see if anyone notices general problems
-> with it right away.
+Stephen,
 
-I'm not familiar with the ipvs interface itself, so I'll
-stick to netlink related comments.
+>> Understand that this is a community process and it isn't going to
+follow 
+>> a corporate model. There is no external pressures like schedules and
+>> users.
 
-> Arrays of the same attribute type are always put into a nested container
-> so that it is easy to add new attributes which are parallel to the array
-> later on.
+With all due respect...
+In my mind, that is just not realistic.  Work done in this community has
+very strong corporate repercussions and these issues can't simply be
+ignored. I am not saying that the community should ever alter their
+ideals for any company, just that some people/groups/companies will be
+reluctant to even try to contribute if they feel that guidelines like
+this can be changed this way and make their efforts wasted.
 
-That makes sense.
+>> As Patrick said, there is also a sense of doing the right thing. The 
+>> developers would rather not repeat past mistakes, so are naturally 
+>> hesitant on API's.
 
-> Perhaps integer flag fields should also be split up into
-> NLA_FLAG attributes, haven't done that yet.
+I completely understand the sense of doing the right thing. That is why
+we put in the effort to migrate our code to sysfs in the first place.
+We had a different solution but agreed to change it to meet the
+guidelines of other contributors to the InfiniBand (OFED) stack.  What I
+can't understand is the ease of which some people say "let's just change
+to this great new design even if it means a large rewrite of existing
+code which may increase the likelihood of injecting errors".  I
+apologize if I come off as being agitated but it is very frustrating to
+spend time and effort attempting to conform to a groups requests only to
+have it changed at the end. 
 
-I personally don't find NLA_FLAG very useful since for
-flags use usually want the flag and a mask, otherwise
-you can't unset it without the convention that userspace
-always includes it, even for change requests when it
-doesn't want to change it. And that is unusual for netlink
-and also needlessly complicated and racy in userspace since
-you'd have to query the current value before sending a change
-request.
+>> Adding a device that follows existing API's is always much easier.
+What 
+>> you are seeing is in part an internal discomfort with the plethora of
 
-> First is a text listing attribute types and how they occur and nest in
-> all of the commands and their replies. After that are the corresponding
-> source excerpts (no patch material yet).
+>> API's and the binary baggage of ioctl's, sysfs, etc.
+
+Again, I completely understand the level of discomfort.  We are trying
+to work to the same 'rules' that other members of our community have
+used.
+
+>> If you could give a general outline of what the interface you want
+would >> do, perhaps the community could provide some sample code that
+do what you 
+>> want.
+>> Netlink interfaces are less common, and there are fewer examples.
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+Sent: Wed 6/18/2008 12:44 AM
+To: Patrick McHardy
+Cc: Amar Mudrankit (Contractor - ); netdev@vger.kernel.org;
+rdreier@cisco.com; Kuchimanchi, Ramachandra (Contractor - ); Poornima
+Kamath (Contractor - )
+Subject: Re: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
+ 
+On Tue, 17 Jun 2008 20:34:59 +0200
+Patrick McHardy <kaber@trash.net> wrote:
+
+> Amar Mudrankit wrote:
+> > It looks as if my original email was "scrubbed" before it made the
+> > mailing list so I am resending it...
+> > 
+> > QLogic has been attempting to submit our virtual NIC (vNIC) driver
+to
+> > the Linux kernel for several months.  We have made changes to the
+code
+> > based on the feedback we have received over four rounds of
+> > submissions. Among the feedback we received during this process was
+a
+> > request to alter our code to use a single value per file for
+> > configuration of our driver through sysfs interface.  After spending
+> > much time and effort to complete this change to our design we
+> > re-submitted the driver only to receive a response suggesting that
+we
+> > change once again from this interface to a different API interface
+> > called rtnl_link.  Needless to say I am very frustrated with this
+> > process. This new API interface would require substantial changes to
+> > our code.
 > 
-> Julius
-> 
-> 
-> ======================================
-> |    IPVS NETLINK ATTRIBUTE TYPES    |
-> |          (grouped as enums)        |
-> ======================================
-> 
-> IPVS_ENTRY_ATTR_SERVICE		- NLA_NESTED
-> IPVS_ENTRY_ATTR_SERVICES	- NLA_NESTED
-> IPVS_ENTRY_ATTR_DEST		- NLA_NESTED
-> IPVS_ENTRY_ATTR_DESTS		- NLA_NESTED
-> IPVS_ENTRY_ATTR_DAEMON		- NLA_NESTED
-> IPVS_ENTRY_ATTR_DAEMONS		- NLA_NESTED
+> Thats one of the reasons why it should be done before merging it.
+> The other one being that an API can't be removed easily once its
+> in the kernel.
 
-So these are lists I assume. I don't think we have any examples
-of lists of nested attributes in the mainline kernel, but in
-some similar (unsubmitted) code of mine I used (names adjusted):
 
-IPVS_SERVICE_LIST		- NLA_NESTED
-IPCS_DEST_LIST			- NLA_NESTED
-IPVS_DAEMON_LIST		- NLA_NESTED
-
-and
-
-IPVS_LIST_ELEM			- NLA_NESTED
-
-for list elements of every kind. Since you can only put one
-kind of element in the lists anyway (I think), different
-types don't allow any increased flexibility and the LIST
-naming is more clear in my opinion.
-
-> IPVS_SVC_ATTR_AF		- NLA_U32
-> IPVS_SVC_ATTR_PROTOCOL		- NLA_U32
-> IPVS_SVC_ATTR_ADDR		- union nf_inet_addr
-
-This should probably use NLA_BINARY, which allows addresses
-of any kind.
-
-> IPVS_SVC_ATTR_PORT		- NLA_U16
-> IPVS_SVC_ATTR_FWMARK		- NLA_U32
-> IPVS_SVC_ATTR_SCHED_NAME	- NLA_STRING
-
-NLA_NUL_STRING (at least for validation purposes)?
-
-> IPVS_SVC_ATTR_FLAGS		- NLA_U32
-
-As I mentioned above, you usually want a MASK in combination
-with flags to allow to unset them. This is best done using
-a structure.
-
-> IPVS_SVC_ATTR_TIMEOUT		- NLA_U32
-> IPVS_SVC_ATTR_NETMASK		- NLA_U32
-
-Shouldn't this also be able to carry IPv6 masks?
-
-> IPVS_SVC_ATTR_NUM_DESTS		- NLA_U32
-
-Is this number related to the IPVS_ENTRY_ATTR_DESTS list?
-If so, it shouldn't be contained as seperate attribute,
-that just allows for potential inconsistency.
-
-> IPVS_SVC_ATTR_STATS		- NLA_NESTED
-> 
-> IPVS_DEST_ATTR_AF		- NLA_U32
-
-Doesn't the family have to be equal for service and dest?
-If so, having it specified only once avoids potential
-inconsistencies.
-
-> ========================== include/net/ip_vs.h ==========================
-
-Please put this under include/linux, this doesn't belong
-here as its a public header.
