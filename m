@@ -1,74 +1,39 @@
-From: "Kevin D. Kissell" <kevink@mips.com>
-Subject: Re: Patch to add M3Pnet Driver
-Date: Tue, 17 Jun 2008 15:40:43 +0200
-Message-ID: <4857BEDB.8080603@mips.com>
-References: <4835F799.6070302@mips.com> <20080523023623.GA17651@linux-mips.org> <4836F40C.804@mips.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Oops in nf_nat_core.c:find_appropriate_src(), kernel 2.6.25.4
+Date: Tue, 17 Jun 2008 15:44:16 +0200
+Message-ID: <4857BFB0.5080502@trash.net>
+References: <484A9E75.8000601@redhat.com> <484AA276.9090407@trash.net> <484AA5D5.10404@trash.net> <Pine.LNX.4.64.0806071742180.13503@bizon.gios.gov.pl> <484E4343.5090606@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.mips.com ([63.167.95.198]:59419 "EHLO dns0.mips.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757434AbYFQNkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 09:40:09 -0400
-In-Reply-To: <4836F40C.804@mips.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Krzysztof Oledzki <ole@ans.pl>, Netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <484E4343.5090606@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jeff,
-
-Ralf and I never heard back from you on this one.  Have you had
-a chance to think about it yet?
-
-          Regards,
-
-          Kevin K.
-
-Kevin D. Kissell wrote:
-> Guysm
->
-> Yet another network driver is probably not what the world needs most,
-> but I had to write one for MIPS Linux this month that was a little
-> different from any of the others.  It's a driver that impersonates
-> an ethernet interface whilst actually passing packets in memory between
-> different processors running different OS images in a shared memory
-> environment, something that actually happens in embedded systems.
-> I call it M3P (pronounced "mep"), for MIPS Memory Message Passing,
-> but if I didn't think it could be adapted to non-MIPS based and indeed
-> heterogeneous systems, I wouldn't trouble you with it.  I note that
-> the "mipsnet" driver, which is limited in its function to running
-> on a MIPS simulator, made it in, so I figured I'd at least ask if
-> it's something that could be absorbed into the network driver mass,
-> the better for other folks to improve on it - there are a lot of
-> enhancements I'd like to make, some of which are described in the
-> comments, but it's not clear that I'll have time to make them any
-> time soon.  A familiar refrain, I suppose.  Anyway, the patch is
-> attached.  See also Ralf's ack below.
->
->             Regards,
->
->             Kevin K.
->
-> Ralf Baechle wrote:
->> On Fri, May 23, 2008 at 12:45:45AM +0200, Kevin D. Kissell wrote:
->>> From: "Kevin D. Kissell" <kevink@mips.com>
->>> Date: Fri, 23 May 2008 00:45:45 +0200
->>> To: Linux MIPS Org <linux-mips@linux-mips.org>
->>> Subject: Patch to add M3Pnet Driver
->>> Content-Type: multipart/mixed;
->>>     boundary="------------050707080700070300010401"
->>>
->>> As per previous messages, here's 2 of 2
+Patrick McHardy wrote:
+>> On Sat, 7 Jun 2008, Patrick McHardy wrote:
 >>
->> This is largely a network driver patch with minor arch bits thrown in so
->> this one will have to go via jeff@garzik.org and netdev@vger.kernel.org.
->> The MIPS bits are looking good though so feel free to add my
->>
->> Acked-by: Ralf Baechle <ralf@linux-mips.org>
->>
->> line for them.
->>
->>   Ralf
->
+>>>> Chuck Ebbert wrote:
+>>>>> Reported at https://bugzilla.redhat.com/show_bug.cgi?id=449315
+>>>>>
+>>>> We have a similar looking report, but that one also affects 2.6.24:
+>>>>
+>>>> http://bugzilla.kernel.org/show_bug.cgi?id=10875
+> 
+> We found the reason for that crash and I've queued these two
+> patches. Please let me know whether they also fix the problem
+> from the redhat bugzilla.
+
+
+Since there doesn't seem to be any progress, I'm going to send
+this upstream now so we can get some testing before 2.6.26 is
+released.
+
+I'm going to hold off sending it to -stable though until there
+is confirmation that it actually fixes this problem.
+
