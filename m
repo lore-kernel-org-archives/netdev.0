@@ -1,65 +1,63 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: PATCH: fix bridged 802.3ad bonding
-Date: Tue, 17 Jun 2008 17:33:30 +0200
-Message-ID: <20080617153329.GA9429@midget.suse.cz>
-References: <20080604082425.GA3272@midget.suse.cz> <20080604090633.2a12cecc@extreme> <20080605101319.GA3756@midget.suse.cz> <20080610.154236.189971046.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Add/Delete IPv6 addresses and netlink
+Date: Tue, 17 Jun 2008 08:47:33 -0700
+Message-ID: <4857DC95.8000709@candelatech.com>
+References: <48571470.7010307@candelatech.com> <20080617121821.GC20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jbohac@suse.cz,
-	shemminger@linux-foundation.org, fubar@us.ibm.com,
-	netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:43434 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758443AbYFQPdb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 11:33:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20080610.154236.189971046.davem@davemloft.net>
+Received: from mail.candelatech.com ([66.165.47.212]:52006 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751819AbYFQPrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 11:47:40 -0400
+In-Reply-To: <20080617121821.GC20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 10, 2008 at 03:42:36PM -0700, David Miller wrote:
-> From: Jiri Bohac <jbohac@suse.cz> Date: Thu, 5 Jun 2008 12:13:20 +0200
-> > Ah, I see. So can we get one of the patches in? I still think
-> > that running the LACP frames through the bridging NF hooks does
-> > not make sense, but it's your call.
-> 
-> Stephen, if prefer your approach, please repost your patch with full
-> commit message and proper signoffs, thanks!
+Thomas Graf wrote:
+> * Ben Greear <greearb@candelatech.com> 2008-06-16 18:33
+>   
+>> I am not sure whether I am just confused about how all of this is 
+>> supposed to work or not, but the
+>> following commands will leave the global address in tentative state:
+>>
+>> ip link set eth1 down; ip -6 addr flush dev eth1;
+>> ip -6 addr add 2000::9:2/112 scope global dev eth1
+>> ip link set eth1 up
+>> # Wait 10+ seconds
+>> ip -6 addr show dev eth1
+>> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+>>    inet6 2000::9:2/112 scope global tentative
+>>       valid_lft forever preferred_lft forever
+>>    inet6 fe80::203:2dff:fe0c:d022/64 scope link
+>>       valid_lft forever preferred_lft forever
+>>     
+>
+> Do you see a "ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready"
+> message in the console when you up the device?
+>   
 
-Stephen, I haven't seen a definitive answer from you - can you
-please either ack my patch (underneath) or repost yours?
+No, I do not see this message.   I do see a driver message in the kernel:
 
-Thanks!
+Jun 17 08:43:04 localhost kernel: eth1: link up, 100Mbps, full-duplex, 
+lpa 0x41E1
 
+I'm using the 8139too driver.  I notice that it shows full link
+speed (100-FD) when the NIC is admin down.   Maybe that is causing it to not
+go through an expected state change?
 
-Fix bridged 802.3ad bonding
+I'll work on doing this same test with a vanilla kernel but on this 
+hardware just in case I've
+screwed something up somewhere...
 
-When a bonding master is added to a bridge, the bridging hook
-will take over the LACP frames. The bonding ETH_P_SLOW ptype
-handler will not get these, because the skb->dev is changed by
-the bridging code. This breaks bonding in the 802.3ad mode.
-
-ETH_P_SLOW frames should not be touched by the bridge.
-
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -136,6 +136,10 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
- 		if (skb->protocol == htons(ETH_P_PAUSE))
- 			goto drop;
- 
-+		/* Don't touch SLOW frames (LACP, etc.) */
-+		if (skb->protocol == htons(ETH_P_SLOW))
-+			return skb;
-+
- 		/* Process STP BPDU's through normal netif_receive_skb() path */
- 		if (p->br->stp_enabled != BR_NO_STP) {
- 			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+Thanks,
+Ben
 
 -- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
 
