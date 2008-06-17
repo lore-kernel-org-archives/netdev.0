@@ -1,50 +1,42 @@
-From: Kristof Provost <Kristof@sigsegv.be>
-Subject: Re: Gentle Guide to the Network Stack
-Date: Tue, 17 Jun 2008 19:49:28 +0000
-Message-ID: <20080617194927.GD24424@nereid>
-References: <200806171105.23069.okir@lst.de>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] [Rev2] MPC5121 FEC support
+Date: Tue, 17 Jun 2008 21:57:39 +0200
+Message-ID: <20080617195739.GB13147@uranus.ravnborg.org>
+References: <1213729717-26688-1-git-send-email-jrigby@freescale.com> <48581188.90102@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; x-action=pgp-signed
-Cc: netdev@vger.kernel.org
-To: Olaf Kirch <okir@lst.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Rigby <jrigby@freescale.com>, linuxppc-dev@ozlabs.org,
+	jeff@garzik.org, netdev@vger.kernel.org
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhineheart.priorweb.be ([213.193.229.215]:40192 "HELO
-	rhineheart.priorweb.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751798AbYFQTrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 15:47:47 -0400
+Received: from pasmtpa.tele.dk ([80.160.77.114]:48082 "EHLO pasmtpA.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751745AbYFQT4y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 15:56:54 -0400
 Content-Disposition: inline
-In-Reply-To: <200806171105.23069.okir@lst.de>
+In-Reply-To: <48581188.90102@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-On 2008-06-17 11:05:22 (+0200), Olaf Kirch <okir@lst.de> wrote:
-> I started putting together a paper on the Linux network stack,
-> focusing on how things fit together, and help relative beginners
-> understand the machinery, rather than giving a full-blown highly
-> detailed cross reference (which would be outdated more quickly
-> than you can re-run latex anyway :-)
-> I intend to release it under the GPL or GNU FDL or similar license -
-> I haven't fully made up my mind yet on what works best.
+On Tue, Jun 17, 2008 at 02:33:28PM -0500, Scott Wood wrote:
+> John Rigby wrote:
+> > config FS_ENET
+> >        tristate "Freescale Ethernet Driver"
+> >-       depends on CPM1 || CPM2
+> >+       depends on CPM1 || CPM2 || FS_ENET_MPC5121_FEC
+> >        select MII
+> >        select PHYLIB
+> > 
+> >+config FS_ENET_MPC5121_FEC
+> >+	bool "Freescale MPC512x FEC driver"
+> >+	depends on PPC_MPC512x
+> >+	select FS_ENET
+> >+	select PPC_CPM_NEW_BINDING
+> >+	default y
 > 
-> You can find the first couple of pages at
-> http://oss.oracle.com/~okir/network/paper.pdf
-> 
-> I'd be very interested in general feedback on the approach taken,
-> the level of detail and such. In case I missed the fact that
-> someone else is currently doing the same, please let me know, too.
-> 
-Speaking as a relative beginner this is quite interesting and I'd like
-to read more.
+> No default y.
+I by the way do not see the need for the prompt of FS_ENET.
+Do you ever want to change it if one of the dependencies
+are selected?
 
-Kristof
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFIWBVHUEZ9DhGwDugRAsccAJ9RvPWRagIRdxSv/eUeW1WedtARWACeP3gN
-CnjlfnuhXH0dJJWgDuMKNw4=
-=+Uj7
------END PGP SIGNATURE-----
+	Sam
