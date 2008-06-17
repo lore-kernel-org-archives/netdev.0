@@ -1,66 +1,97 @@
-From: "Patrick Mullaney" <pmullaney@novell.com>
-Subject: Re: Killing sk->sk_callback_lock
-Date: Tue, 17 Jun 2008 16:15:46 -0600
-Message-ID: <4857FF69.456F.00C7.0@novell.com>
-References: <4856C12F020000C700039679@lucius.provo.novell.com>
- <20080616.185328.85842051.davem@davemloft.net>
- <4857862A.456F.00C7.0@novell.com>
- <20080617.144041.38758483.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: data received but not detected
+Date: Tue, 17 Jun 2008 15:27:33 -0700
+Message-ID: <20080617152733.7f469f2e@extreme>
+References: <1213740538.5771.192.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <herbert@gondor.apana.org.au>,
-	"Gregory Haskins" <GHaskins.WAL-1.WALTHAM@novell.com>,
-	<chuck.lever@oracle.com>, <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Travis Stratman <tstratman@emacinc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lucius.provo.novell.com ([137.65.248.127]:10121 "EHLO
-	lucius.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756114AbYFQWPv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 18:15:51 -0400
-In-Reply-To: <20080617.144041.38758483.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:60647 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757787AbYFQW1z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 18:27:55 -0400
+In-Reply-To: <1213740538.5771.192.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 17 Jun 2008 17:08:58 -0500
+Travis Stratman <tstratman@emacinc.com> wrote:
 
-
->>> On Tue, Jun 17, 2008 at  5:40 PM, in message
-<20080617.144041.38758483.davem@davemloft.net>, David Miller
-<davem@davemloft.net> wrote: 
-> From: "Patrick Mullaney" <pmullaney@novell.com>
-> Date: Tue, 17 Jun 2008 07:38:29 -0600
+> Hello,
 > 
->> >>> On Mon, Jun 16, 2008 at  9:53 PM, in message
->> <20080616.185328.85842051.davem@davemloft.net>, David Miller
->> <davem@davemloft.net> wrote: 
->> > Once the task is woken up the first time, future calls to
->> > these callback functions should do nothing other than take
->> > the sk_callback_lock and test some state.
->> > 
->> > Since the task is awake already, wakeups should be bypassed
->> > or at worst be a nop.
->> 
->> The task can go directly back into a wait. This will effectively yield 2
->> wake ups per udp request-response.
+> (I sent this earlier today but it doesn't look like it made it, I
+> apologize if it gets through multiple times)
 > 
-> I made the mistake of assuming that a high performance threaded
-> networking application would use non-blocking operations and
-> select/poll/epoll, which is clearly not the case here.
+> I am working on an application that uses a fairly simple UDP protocol to
+> send data between two embedded devices. I'm noticing an issue with an
+> initial test that was written where datagrams are received but not seen
+> by the recvfrom() call until more data arrives after it. As of right now
+> the test case does not implement any type of lost packet protection or
+> other flow control, which is what makes the issue so noticeable.
 > 
-This is the standard netperf udp request response benchmark - it measures
-back to back send/recv and is not necessarily high performance (async).
-
-> It's blocking in a recv() and this is woken up by a write space
-> extraneous wakeup.
+> The target for this code is a board using the Atmel AT91SAM9260 ARM
+> processor. I have tested with 2.6.20 and 2.6.25 on this board.
 > 
-> It does need to be fixed and I'll look at the most recent patch
-> submission and also try to imagine some other ideas.  Herbert
-> mentioned creating a seperate wait queue for write space wakeups.
+> The test consists of a two applications with the following pseudo code
+> (msg_size = 127, 9003/9005 are the UDP ports used):
+> 
+> "client app"
+> while(1) {
+>     sendto(9003, &msg_size, 4bytes);
+>     sendto(9003, buffer, msg_size);
+>     recvfrom(9005, &msg_size, 4bytes);
+>     recvfrom(9005, buffer, msg_size);
+> }
+> 
+> "server app"
+> while(1) {
+>     recvfrom(9003, &msg_size, 4bytes);
+>     recvfrom(9003, buffer, msg_size);
+>     sendto(9005, &msg_size, 4bytes);
+>     sendto(9005, buffer, msg_size);
+> }
+> 
+> As long as the server is started first and no packets are lost or out of
+> order, the client and server should continue indefinitely. When run
+> between two boards on a local gigabit switch, the application will run
+> smoothly most of the time, but I periodically see delays of 30 seconds
+> or more where one of the applications is waiting for the second datagram
+> to arrive before sending the next packet. Wireshark shows that the data
+> was sent very shortly after the first datagram, and no packets are ever
+> lost, ifconfig reports no collisions, overruns, or errors.
+> 
+> When I run the application between two identical devices on a cross-over
+> cable, data is transferred for a few seconds after which everything
+> freezes until I send a ping between the two boards in the background.
+> This forces the communication to start up again for a few seconds before
+> they hang up again. If I insert a delay between the sendto() calls with
+> usleep(1) (CONFIG_HZ is 100 so this could be up to 10ms) everything
+> seems to work. Using a busy loop I was able to determine that
+> approximately 500 us delay is required to "fix" the issue but even then
+> I saw one hang up in several hours of testing.
+> 
+> At first I thought that this was the "rotting packet" case that the NAPI
+> references where an IRQ is missed on Rx, so I rewrote the poll function
+> in the macb driver to try to fix this but I didn't see any noticeable
+> differences. If I enable debugging in the MACB driver it slows things
+> down enough to make everything work.
+> 
+> Next, I tested on a Cirrus ep93xx based board (with 2.6.20) and a 133
+> MHz x86 board (with 2.6.14.7) and noticed the same issue when run
+> between the target and my PC. When run between my 2.6.23 2GHz PC and
+> another similar PC, the issue does not show up (these both use Intel
+> NICs). I also tested on the local loopback and things worked as
+> expected.
+> 
+> I would very much appreciate any suggestions that anyone could give to
+> point me in the right direction.
+> 
+> Thanks in advance,
+> 
+> Travis
 
-Yeah, I think I mentioned that approach in my first email about this. It
-seemed like it would require adding to the socket struct so I decided to
-try to do it without touching that. I am not positive but changing the odd
-behavior of the SOCK_NOSPACE flag(mentioned in previous email) seems like
-it may be in order regardless of the approach to the extra wake up.
-
+I am unfamiliar with interrupts on the ARM. Are IRQ's level or edge triggered?
+NAPI won't work if interrupts are edge-triggered.
