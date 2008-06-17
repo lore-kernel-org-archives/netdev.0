@@ -1,8 +1,7 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 11/12]: wext: Create IW_REQUEST_FLAG_COMPAT and set it as
- needed.
-Date: Tue, 17 Jun 2008 00:54:47 -0700 (PDT)
-Message-ID: <20080617.005447.162222608.davem@davemloft.net>
+Subject: [PATCH 10/12]: wext: Remove compat handling from fs/compat_ioctl.c
+Date: Tue, 17 Jun 2008 00:54:38 -0700 (PDT)
+Message-ID: <20080617.005438.218071086.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,267 +13,154 @@ Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-wext: Create IW_REQUEST_FLAG_COMPAT and set it as needed.
+wext: Remove compat handling from fs/compat_ioctl.c
 
-Now low-level WEXT ioctl handlers can do compat handling
-when necessary.
+No longer used.
 
 Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- include/net/iw_handler.h |    2 +-
- net/wireless/wext.c      |   73 +++++++++++++++++++++-------------------------
- 2 files changed, 34 insertions(+), 41 deletions(-)
+ fs/compat_ioctl.c |  107 +----------------------------------------------------
+ 1 files changed, 1 insertions(+), 106 deletions(-)
 
-diff --git a/include/net/iw_handler.h b/include/net/iw_handler.h
-index 369d50e..c99a8ee 100644
---- a/include/net/iw_handler.h
-+++ b/include/net/iw_handler.h
-@@ -256,7 +256,7 @@
- #define EIWCOMMIT	EINPROGRESS
+diff --git a/fs/compat_ioctl.c b/fs/compat_ioctl.c
+index 8ab850b..05ec7ee 100644
+--- a/fs/compat_ioctl.c
++++ b/fs/compat_ioctl.c
+@@ -58,7 +58,6 @@
+ #include <linux/syscalls.h>
+ #include <linux/i2c.h>
+ #include <linux/i2c-dev.h>
+-#include <linux/wireless.h>
+ #include <linux/atalk.h>
+ #include <linux/loop.h>
  
- /* Flags available in struct iw_request_info */
--#define IW_REQUEST_FLAG_NONE	0x0000	/* No flag so far */
-+#define IW_REQUEST_FLAG_COMPAT	0x0001	/* Compat ioctl call */
- 
- /* Type of headers we know about (basically union iwreq_data) */
- #define IW_HEADER_TYPE_NULL	0	/* Not available */
-diff --git a/net/wireless/wext.c b/net/wireless/wext.c
-index 1a4636a..273a843 100644
---- a/net/wireless/wext.c
-+++ b/net/wireless/wext.c
-@@ -834,10 +834,10 @@ out:
- static int ioctl_standard_call(struct net_device *	dev,
- 			       struct iwreq		*iwr,
- 			       unsigned int		cmd,
-+			       struct iw_request_info	*info,
- 			       iw_handler		handler)
- {
- 	const struct iw_ioctl_description *	descr;
--	struct iw_request_info			info;
- 	int					ret = -EINVAL;
- 
- 	/* Get the description of the IOCTL */
-@@ -845,15 +845,11 @@ static int ioctl_standard_call(struct net_device *	dev,
- 		return -EOPNOTSUPP;
- 	descr = &(standard_ioctl[cmd - SIOCIWFIRST]);
- 
--	/* Prepare the call */
--	info.cmd = cmd;
--	info.flags = 0;
--
- 	/* Check if we have a pointer to user space data or not */
- 	if (descr->header_type != IW_HEADER_TYPE_POINT) {
- 
- 		/* No extra arguments. Trivial to handle */
--		ret = handler(dev, &info, &(iwr->u), NULL);
-+		ret = handler(dev, info, &(iwr->u), NULL);
- 
- 		/* Generate an event to notify listeners of the change */
- 		if ((descr->flags & IW_DESCR_FLAG_EVENT) &&
-@@ -861,7 +857,7 @@ static int ioctl_standard_call(struct net_device *	dev,
- 			wireless_send_event(dev, cmd, &(iwr->u), NULL);
- 	} else {
- 		ret = ioctl_standard_iw_point(&iwr->u.data, cmd, descr,
--					      handler, dev, &info);
-+					      handler, dev, info);
- 	}
- 
- 	/* Call commit handler if needed and defined */
-@@ -984,25 +980,21 @@ out:
+@@ -1757,58 +1756,6 @@ static int do_i2c_smbus_ioctl(unsigned int fd, unsigned int cmd, unsigned long a
+ 	return sys_ioctl(fd, cmd, (unsigned long)tdata);
  }
  
- static int ioctl_private_call(struct net_device *dev, struct iwreq *iwr,
--			      unsigned int cmd, iw_handler handler)
-+			      unsigned int cmd, struct iw_request_info *info,
-+			      iw_handler handler)
- {
- 	int extra_size = 0, ret = -EINVAL;
- 	const struct iw_priv_args *descr;
--	struct iw_request_info info;
- 
- 	extra_size = get_priv_descr_and_size(dev, cmd, &descr);
- 
--	/* Prepare the call */
--	info.cmd = cmd;
--	info.flags = 0;
+-static int do_wireless_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
+-{
+-	struct iwreq __user *iwr;
+-	struct iwreq __user *iwr_u;
+-	struct iw_point __user *iwp;
+-	struct compat_iw_point __user *iwp_u;
+-	compat_caddr_t pointer_u;
+-	void __user *pointer;
+-	__u16 length, flags;
+-	int ret;
 -
- 	/* Check if we have a pointer to user space data or not. */
- 	if (extra_size == 0) {
- 		/* No extra arguments. Trivial to handle */
--		ret = handler(dev, &info, &(iwr->u), (char *) &(iwr->u));
-+		ret = handler(dev, info, &(iwr->u), (char *) &(iwr->u));
- 	} else {
- 		ret = ioctl_private_iw_point(&iwr->u.data, cmd, descr,
--					     handler, dev, &info, extra_size);
-+					     handler, dev, info, extra_size);
- 	}
- 
- 	/* Call commit handler if needed and defined */
-@@ -1014,7 +1006,8 @@ static int ioctl_private_call(struct net_device *dev, struct iwreq *iwr,
- 
- /* ---------------------------------------------------------------- */
- typedef int (*wext_ioctl_func)(struct net_device *, struct iwreq *,
--			       unsigned int, iw_handler);
-+			       unsigned int, struct iw_request_info *,
-+			       iw_handler);
- 
- /*
-  * Main IOCTl dispatcher.
-@@ -1022,6 +1015,7 @@ typedef int (*wext_ioctl_func)(struct net_device *, struct iwreq *,
-  */
- static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
- 				  unsigned int cmd,
-+				  struct iw_request_info *info,
- 				  wext_ioctl_func standard,
- 				  wext_ioctl_func private)
- {
-@@ -1040,11 +1034,11 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
- 	 * Note that 'cmd' is already filtered in dev_ioctl() with
- 	 * (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST) */
- 	if (cmd == SIOCGIWSTATS)
--		return standard(dev, iwr, cmd,
-+		return standard(dev, iwr, cmd, info,
- 				&iw_handler_get_iwstats);
- 
- 	if (cmd == SIOCGIWPRIV && dev->wireless_handlers)
--		return standard(dev, iwr, cmd,
-+		return standard(dev, iwr, cmd, info,
- 				&iw_handler_get_private);
- 
- 	/* Basic check */
-@@ -1056,9 +1050,9 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
- 	if (handler) {
- 		/* Standard and private are not the same */
- 		if (cmd < SIOCIWFIRSTPRIV)
--			return standard(dev, iwr, cmd, handler);
-+			return standard(dev, iwr, cmd, info, handler);
- 		else
--			return private(dev, iwr, cmd, handler);
-+			return private(dev, iwr, cmd, info, handler);
- 	}
- 	/* Old driver API : call driver ioctl handler */
- 	if (dev->do_ioctl)
-@@ -1080,7 +1074,7 @@ static int wext_permission_check(unsigned int cmd)
- 
- /* entry point from dev ioctl */
- static int wext_ioctl_dispatch(struct net *net, struct ifreq *ifr,
--			       unsigned int cmd,
-+			       unsigned int cmd, struct iw_request_info *info,
- 			       wext_ioctl_func standard,
- 			       wext_ioctl_func private)
- {
-@@ -1091,7 +1085,7 @@ static int wext_ioctl_dispatch(struct net *net, struct ifreq *ifr,
- 
- 	dev_load(net, ifr->ifr_name);
- 	rtnl_lock();
--	ret = wireless_process_ioctl(net, ifr, cmd, standard, private);
-+	ret = wireless_process_ioctl(net, ifr, cmd, info, standard, private);
- 	rtnl_unlock();
- 
- 	return ret;
-@@ -1100,10 +1094,12 @@ static int wext_ioctl_dispatch(struct net *net, struct ifreq *ifr,
- int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
- 		      void __user *arg)
- {
--	int ret = wext_ioctl_dispatch(net, ifr, cmd,
--				      ioctl_standard_call,
--				      ioctl_private_call);
-+	struct iw_request_info info = { .cmd = cmd, .flags = 0 };
-+	int ret;
- 
-+	ret = wext_ioctl_dispatch(net, ifr, cmd, &info,
-+				  ioctl_standard_call,
-+				  ioctl_private_call);
- 	if (ret >= 0 &&
- 	    IW_IS_GET(cmd) &&
- 	    copy_to_user(arg, ifr, sizeof(struct iwreq)))
-@@ -1116,28 +1112,25 @@ int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
- static int compat_standard_call(struct net_device	*dev,
- 				struct iwreq		*iwr,
- 				unsigned int		cmd,
-+				struct iw_request_info	*info,
- 				iw_handler		handler)
- {
- 	const struct iw_ioctl_description *descr;
- 	struct compat_iw_point *iwp_compat;
--	struct iw_request_info info;
- 	struct iw_point iwp;
- 	int err;
- 
- 	descr = standard_ioctl + (cmd - SIOCIWFIRST);
- 
- 	if (descr->header_type != IW_HEADER_TYPE_POINT)
--		return ioctl_standard_call(dev, iwr, cmd, handler);
-+		return ioctl_standard_call(dev, iwr, cmd, info, handler);
- 
- 	iwp_compat = (struct compat_iw_point *) &iwr->u.data;
- 	iwp.pointer = compat_ptr(iwp_compat->pointer);
- 	iwp.length = iwp_compat->length;
- 	iwp.flags = iwp_compat->flags;
- 
--	info.cmd = cmd;
--	info.flags = 0;
+-	iwr_u = compat_ptr(arg);
+-	iwp_u = (struct compat_iw_point __user *) &iwr_u->u.data;
+-	iwr = compat_alloc_user_space(sizeof(*iwr));
+-	if (iwr == NULL)
+-		return -ENOMEM;
 -
--	err = ioctl_standard_iw_point(&iwp, cmd, descr, handler, dev, &info);
-+	err = ioctl_standard_iw_point(&iwp, cmd, descr, handler, dev, info);
- 
- 	iwp_compat->pointer = ptr_to_compat(iwp.pointer);
- 	iwp_compat->length = iwp.length;
-@@ -1147,22 +1140,18 @@ static int compat_standard_call(struct net_device	*dev,
- }
- 
- static int compat_private_call(struct net_device *dev, struct iwreq *iwr,
--			       unsigned int cmd, iw_handler handler)
-+			       unsigned int cmd, struct iw_request_info *info,
-+			       iw_handler handler)
- {
- 	const struct iw_priv_args *descr;
--	struct iw_request_info info;
- 	int ret, extra_size;
- 
- 	extra_size = get_priv_descr_and_size(dev, cmd, &descr);
- 
--	/* Prepare the call */
--	info.cmd = cmd;
--	info.flags = 0;
+-	iwp = &iwr->u.data;
 -
- 	/* Check if we have a pointer to user space data or not. */
- 	if (extra_size == 0) {
- 		/* No extra arguments. Trivial to handle */
--		ret = handler(dev, &info, &(iwr->u), (char *) &(iwr->u));
-+		ret = handler(dev, info, &(iwr->u), (char *) &(iwr->u));
- 	} else {
- 		struct compat_iw_point *iwp_compat;
- 		struct iw_point iwp;
-@@ -1173,7 +1162,7 @@ static int compat_private_call(struct net_device *dev, struct iwreq *iwr,
- 		iwp.flags = iwp_compat->flags;
- 
- 		ret = ioctl_private_iw_point(&iwp, cmd, descr,
--					     handler, dev, &info, extra_size);
-+					     handler, dev, info, extra_size);
- 
- 		iwp_compat->pointer = ptr_to_compat(iwp.pointer);
- 		iwp_compat->length = iwp.length;
-@@ -1191,6 +1180,7 @@ int compat_wext_handle_ioctl(struct net *net, unsigned int cmd,
- 			     unsigned long arg)
- {
- 	void __user *argp = (void __user *)arg;
-+	struct iw_request_info info;
- 	struct iwreq iwr;
- 	char *colon;
- 	int ret;
-@@ -1203,7 +1193,10 @@ int compat_wext_handle_ioctl(struct net *net, unsigned int cmd,
- 	if (colon)
- 		*colon = 0;
- 
--	ret = wext_ioctl_dispatch(net, (struct ifreq *) &iwr, cmd,
-+	info.cmd = cmd;
-+	info.flags = IW_REQUEST_FLAG_COMPAT;
-+
-+	ret = wext_ioctl_dispatch(net, (struct ifreq *) &iwr, cmd, &info,
- 				  compat_standard_call,
- 				  compat_private_call);
- 
+-	if (!access_ok(VERIFY_WRITE, iwr, sizeof(*iwr)))
+-		return -EFAULT;
+-
+-	if (__copy_in_user(&iwr->ifr_ifrn.ifrn_name[0],
+-			   &iwr_u->ifr_ifrn.ifrn_name[0],
+-			   sizeof(iwr->ifr_ifrn.ifrn_name)))
+-		return -EFAULT;
+-
+-	if (__get_user(pointer_u, &iwp_u->pointer) ||
+-	    __get_user(length, &iwp_u->length) ||
+-	    __get_user(flags, &iwp_u->flags))
+-		return -EFAULT;
+-
+-	if (__put_user(compat_ptr(pointer_u), &iwp->pointer) ||
+-	    __put_user(length, &iwp->length) ||
+-	    __put_user(flags, &iwp->flags))
+-		return -EFAULT;
+-
+-	ret = sys_ioctl(fd, cmd, (unsigned long) iwr);
+-
+-	if (__get_user(pointer, &iwp->pointer) ||
+-	    __get_user(length, &iwp->length) ||
+-	    __get_user(flags, &iwp->flags))
+-		return -EFAULT;
+-
+-	if (__put_user(ptr_to_compat(pointer), &iwp_u->pointer) ||
+-	    __put_user(length, &iwp_u->length) ||
+-	    __put_user(flags, &iwp_u->flags))
+-		return -EFAULT;
+-
+-	return ret;
+-}
+-
+ /* Since old style bridge ioctl's endup using SIOCDEVPRIVATE
+  * for some operations; this forces use of the newer bridge-utils that
+  * use compatiable ioctls
+@@ -2489,36 +2436,6 @@ COMPATIBLE_IOCTL(I2C_TENBIT)
+ COMPATIBLE_IOCTL(I2C_PEC)
+ COMPATIBLE_IOCTL(I2C_RETRIES)
+ COMPATIBLE_IOCTL(I2C_TIMEOUT)
+-/* wireless */
+-COMPATIBLE_IOCTL(SIOCSIWCOMMIT)
+-COMPATIBLE_IOCTL(SIOCGIWNAME)
+-COMPATIBLE_IOCTL(SIOCSIWNWID)
+-COMPATIBLE_IOCTL(SIOCGIWNWID)
+-COMPATIBLE_IOCTL(SIOCSIWFREQ)
+-COMPATIBLE_IOCTL(SIOCGIWFREQ)
+-COMPATIBLE_IOCTL(SIOCSIWMODE)
+-COMPATIBLE_IOCTL(SIOCGIWMODE)
+-COMPATIBLE_IOCTL(SIOCSIWSENS)
+-COMPATIBLE_IOCTL(SIOCGIWSENS)
+-COMPATIBLE_IOCTL(SIOCSIWRANGE)
+-COMPATIBLE_IOCTL(SIOCSIWPRIV)
+-COMPATIBLE_IOCTL(SIOCSIWSTATS)
+-COMPATIBLE_IOCTL(SIOCSIWAP)
+-COMPATIBLE_IOCTL(SIOCGIWAP)
+-COMPATIBLE_IOCTL(SIOCSIWRATE)
+-COMPATIBLE_IOCTL(SIOCGIWRATE)
+-COMPATIBLE_IOCTL(SIOCSIWRTS)
+-COMPATIBLE_IOCTL(SIOCGIWRTS)
+-COMPATIBLE_IOCTL(SIOCSIWFRAG)
+-COMPATIBLE_IOCTL(SIOCGIWFRAG)
+-COMPATIBLE_IOCTL(SIOCSIWTXPOW)
+-COMPATIBLE_IOCTL(SIOCGIWTXPOW)
+-COMPATIBLE_IOCTL(SIOCSIWRETRY)
+-COMPATIBLE_IOCTL(SIOCGIWRETRY)
+-COMPATIBLE_IOCTL(SIOCSIWPOWER)
+-COMPATIBLE_IOCTL(SIOCGIWPOWER)
+-COMPATIBLE_IOCTL(SIOCSIWAUTH)
+-COMPATIBLE_IOCTL(SIOCGIWAUTH)
+ /* hiddev */
+ COMPATIBLE_IOCTL(HIDIOCGVERSION)
+ COMPATIBLE_IOCTL(HIDIOCAPPLICATION)
+@@ -2749,29 +2666,7 @@ COMPATIBLE_IOCTL(USBDEVFS_IOCTL32)
+ HANDLE_IOCTL(I2C_FUNCS, w_long)
+ HANDLE_IOCTL(I2C_RDWR, do_i2c_rdwr_ioctl)
+ HANDLE_IOCTL(I2C_SMBUS, do_i2c_smbus_ioctl)
+-/* wireless */
+-HANDLE_IOCTL(SIOCGIWRANGE, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWPRIV, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWSTATS, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWSPY, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWSPY, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWTHRSPY, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWTHRSPY, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWMLME, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWAPLIST, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWSCAN, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWSCAN, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWESSID, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWESSID, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWNICKN, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWNICKN, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWENCODE, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWENCODE, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWGENIE, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWGENIE, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWENCODEEXT, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCGIWENCODEEXT, do_wireless_ioctl)
+-HANDLE_IOCTL(SIOCSIWPMKSA, do_wireless_ioctl)
++/* bridge */
+ HANDLE_IOCTL(SIOCSIFBR, old_bridge_ioctl)
+ HANDLE_IOCTL(SIOCGIFBR, old_bridge_ioctl)
+ /* Not implemented in the native kernel */
 -- 
 1.5.5.1.308.g1fbb5
 
