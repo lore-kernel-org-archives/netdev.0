@@ -1,50 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: Fix open-coded sock_orphan() in x25.
-Date: Tue, 17 Jun 2008 03:06:46 -0700 (PDT)
-Message-ID: <20080617.030646.266233676.davem@davemloft.net>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [PATCH,RFC] skb->network_header and __vlan_put_tag()
+Date: Tue, 17 Jun 2008 12:10:53 +0200
+Message-ID: <m3prqgpe1e.fsf@ursa.amorsen.dk>
+References: <20080616221525.GG27971@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-x25@vger.kernel.org, netdev@vger.kernel.org,
-	ralf@linux-mips.org, linux-hams@vger.kernel.org
-To: eis@baty.hanse.de
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54171
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751622AbYFQKGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 06:06:45 -0400
+Received: from main.gmane.org ([80.91.229.2]:34522 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752989AbYFQKLD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 06:11:03 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1K8Y9V-0002Wx-Vf
+	for netdev@vger.kernel.org; Tue, 17 Jun 2008 10:11:01 +0000
+Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 10:11:01 +0000
+Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 10:11:01 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Lennert Buytenhek <buytenh@wantstofly.org> writes:
 
-This is similar to the AF_ECONET patch I just posted.
+> I'm adding VLAN support to mv643xx_eth (which does not support HW
+> insertion of a VLAN tag, but it does support HW checksumming when
+> a VLAN tag is present, you just have to tell the HW how many bytes
+> there are between the start of the packet and the IP header), and
+> I'm ending up with code like this:
+>
+> 	if (skb->protocol == htons(ETH_P_8021Q))
+> 		ip_header = ip_hdr(skb) + 4;
+> 	else
+> 		ip_header = ip_hdr(skb);
 
-Applied and pushed to net-next-2.6
+How well does this work when doing QinQ or QinQinQ?
 
-x25: Use sock_orphan() instead of open-coded (and buggy) variant.
 
-It doesn't grab the sk_callback_lock, it doesn't NULL out
-the sk->sk_sleep waitqueue pointer, etc.
+/Benny
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/x25/af_x25.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index bcb091f..7b1c6ef 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -612,8 +612,7 @@ static int x25_release(struct socket *sock)
- 			break;
- 	}
- 
--	sock->sk	= NULL;
--	sk->sk_socket	= NULL;	/* Not used, but we should do this */
-+	sock_orphan(sk);
- out:
- 	return 0;
- }
--- 
-1.5.5.1.308.g1fbb5
 
