@@ -1,101 +1,93 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 4/5] sky2: 88E8057 chip support
-Date: Tue, 17 Jun 2008 09:04:27 -0700
-Message-ID: <20080617160503.599384948@vyatta.com>
+Subject: [PATCH 2/5] sky2: chip version printout
+Date: Tue, 17 Jun 2008 09:04:25 -0700
+Message-ID: <20080617160503.450104179@vyatta.com>
 References: <20080617160423.205070938@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([69.59.150.140]:45988 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([69.59.150.140]:50962 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752093AbYFQQIp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 12:08:45 -0400
-Content-Disposition: inline; filename=sky2-ul2-chip.patch
+	id S1752880AbYFQQH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 12:07:58 -0400
+Content-Disposition: inline; filename=sky2-chip-name.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for Yukon 2 Ultra 2 chip set (88E8057) based on code in latest
-version of vendor driver (sk98lin 10.60.2.3).  Untested on real hardware.
+Change how chip version is printed so that if an unknown version is detected
+nothing breaks.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/drivers/net/sky2.c	2008-06-17 09:03:55.000000000 -0700
-+++ b/drivers/net/sky2.c	2008-06-17 09:03:56.000000000 -0700
-@@ -136,6 +136,7 @@ static DEFINE_PCI_DEVICE_TABLE(sky2_id_t
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436C) }, /* 88E8072 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436D) }, /* 88E8055 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4370) }, /* 88E8075 */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4380) }, /* 88E8057 */
- 	{ 0 }
- };
+--- a/drivers/net/sky2.c	2008-06-16 09:38:34.000000000 -0700
++++ b/drivers/net/sky2.c	2008-06-16 09:47:41.000000000 -0700
+@@ -147,17 +147,6 @@ static const unsigned txqaddr[] = { Q_XA
+ static const unsigned rxqaddr[] = { Q_R1, Q_R2 };
+ static const u32 portirq_msk[] = { Y2_IS_PORT_1, Y2_IS_PORT_2 };
  
-@@ -647,7 +648,7 @@ static void sky2_phy_init(struct sky2_hw
- 		ledover |= PHY_M_LED_MO_RX(MO_LED_OFF);
- 	}
+-/* This driver supports yukon2 chipset only */
+-static const char *yukon2_name[] = {
+-	"XL",		/* 0xb3 */
+-	"EC Ultra", 	/* 0xb4 */
+-	"Extreme",	/* 0xb5 */
+-	"EC",		/* 0xb6 */
+-	"FE",		/* 0xb7 */
+-	"FE+",		/* 0xb8 */
+-	"Supreme",	/* 0xb9 */
+-};
+-
+ static void sky2_set_multicast(struct net_device *dev);
  
--	if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
-+	if (hw->chip_id == CHIP_ID_YUKON_EC_U || hw->chip_id == CHIP_ID_YUKON_UL_2) {
- 		/* apply fixes in PHY AFE */
- 		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 255);
+ /* Access to PHY via serial interconnect */
+@@ -4266,12 +4255,33 @@ static int __devinit pci_wake_enabled(st
+ 	return value & PCI_PM_CTRL_PME_ENABLE;
+ }
  
-@@ -655,9 +656,11 @@ static void sky2_phy_init(struct sky2_hw
- 		gm_phy_write(hw, port, 0x18, 0xaa99);
- 		gm_phy_write(hw, port, 0x17, 0x2011);
- 
--		/* fix for IEEE A/B Symmetry failure in 1000BASE-T */
--		gm_phy_write(hw, port, 0x18, 0xa204);
--		gm_phy_write(hw, port, 0x17, 0x2002);
-+		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
-+			/* fix for IEEE A/B Symmetry failure in 1000BASE-T */
-+			gm_phy_write(hw, port, 0x18, 0xa204);
-+			gm_phy_write(hw, port, 0x17, 0x2002);
-+		}
- 
- 		/* set page register to 0 */
- 		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
-@@ -2807,6 +2810,7 @@ static u32 sky2_mhz(const struct sky2_hw
- 	case CHIP_ID_YUKON_EC_U:
- 	case CHIP_ID_YUKON_EX:
- 	case CHIP_ID_YUKON_SUPR:
-+	case CHIP_ID_YUKON_UL_2:
- 		return 125;
- 
- 	case CHIP_ID_YUKON_FE:
-@@ -2899,6 +2903,11 @@ static int __devinit sky2_init(struct sk
- 			| SKY2_HW_ADV_POWER_CTL;
- 		break;
- 
-+	case CHIP_ID_YUKON_UL_2:
-+		hw->flags = SKY2_HW_GIGABIT
-+			| SKY2_HW_ADV_POWER_CTL;
-+		break;
++/* This driver supports yukon2 chipset only */
++static const char *sky2_name(u8 chipid, char *buf, int sz)
++{
++	const char *name[] = {
++		"XL",		/* 0xb3 */
++		"EC Ultra", 	/* 0xb4 */
++		"Extreme",	/* 0xb5 */
++		"EC",		/* 0xb6 */
++		"FE",		/* 0xb7 */
++		"FE+",		/* 0xb8 */
++		"Supreme",	/* 0xb9 */
++	};
 +
- 	default:
- 		dev_err(&hw->pdev->dev, "unsupported chip type 0x%x\n",
- 			hw->chip_id);
-@@ -4265,9 +4274,10 @@ static const char *sky2_name(u8 chipid, 
- 		"FE",		/* 0xb7 */
- 		"FE+",		/* 0xb8 */
- 		"Supreme",	/* 0xb9 */
-+		"UL 2",		/* 0xba */
- 	};
++	if (chipid >= CHIP_ID_YUKON_XL && chipid < CHIP_ID_YUKON_SUPR)
++		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
++	else
++		snprintf(buf, sz, "(chip %#x)", chipid);
++	return buf;
++}
++
+ static int __devinit sky2_probe(struct pci_dev *pdev,
+ 				const struct pci_device_id *ent)
+ {
+ 	struct net_device *dev;
+ 	struct sky2_hw *hw;
+ 	int err, using_dac = 0, wol_default;
++	char buf1[16];
  
--	if (chipid >= CHIP_ID_YUKON_XL && chipid < CHIP_ID_YUKON_SUPR)
-+	if (chipid >= CHIP_ID_YUKON_XL && chipid < CHIP_ID_YUKON_UL_2)
- 		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
- 	else
- 		snprintf(buf, sz, "(chip %#x)", chipid);
---- a/drivers/net/sky2.h	2008-06-17 08:32:26.000000000 -0700
-+++ b/drivers/net/sky2.h	2008-06-17 09:03:56.000000000 -0700
-@@ -441,6 +441,7 @@ enum {
-  	CHIP_ID_YUKON_FE   = 0xb7, /* YUKON-2 FE */
-  	CHIP_ID_YUKON_FE_P = 0xb8, /* YUKON-2 FE+ */
- 	CHIP_ID_YUKON_SUPR = 0xb9, /* YUKON-2 Supreme */
-+	CHIP_ID_YUKON_UL_2 = 0xba, /* YUKON-2 Ultra 2 */
- };
- enum yukon_ec_rev {
- 	CHIP_REV_YU_EC_A1    = 0,  /* Chip Rev. for Yukon-EC A1/A0 */
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+@@ -4342,10 +4352,10 @@ static int __devinit sky2_probe(struct p
+ 	if (err)
+ 		goto err_out_iounmap;
+ 
+-	dev_info(&pdev->dev, "v%s addr 0x%llx irq %d Yukon-%s (0x%x) rev %d\n",
+-	       DRV_VERSION, (unsigned long long)pci_resource_start(pdev, 0),
+-	       pdev->irq, yukon2_name[hw->chip_id - CHIP_ID_YUKON_XL],
+-	       hw->chip_id, hw->chip_rev);
++	dev_info(&pdev->dev, "v%s addr 0x%llx irq %d Yukon-2 %s rev %d\n",
++		 DRV_VERSION, (unsigned long long)pci_resource_start(pdev, 0),
++		 pdev->irq, sky2_name(hw->chip_id, buf1, sizeof(buf1)),
++		 hw->chip_rev);
+ 
+ 	sky2_reset(hw);
+ 
 
 -- 
 
