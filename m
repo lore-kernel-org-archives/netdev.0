@@ -1,35 +1,41 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: packetloss, on e1000e worse than r8169?
-Date: Tue, 17 Jun 2008 20:22:20 +0300
-Message-ID: <200806172022.20720.denys@visp.net.lb>
-References: <20080616193501.M64730@visp.net.lb> <36D9DB17C6DE9E40B059440DB8D95F52056AC4C2@orsmsx418.amr.corp.intel.com> <200806170946.17351.denys@visp.net.lb>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
+Date: Tue, 17 Jun 2008 20:34:59 +0200
+Message-ID: <485803D3.5020505@trash.net>
+References: <99863D2ED484D449811D97A4C44C9CBD7C50F7@EPEXCH2.qlogic.org> <c8028d330806171018j7f129ddft3bee056e4be9b954@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com,
+	Ramachandra K <ramachandra.kuchimanchi@qlogic.com>,
+	poornima.kamath@qlogic.com
+To: Amar Mudrankit <amar.mudrankit@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:36812 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754785AbYFQRWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 13:22:15 -0400
-Received: from localhost (unknown [195.69.208.251])
-	by relay2.globalproof.net (Postfix) with ESMTP id B577B13042A
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 20:22:13 +0300 (EEST)
-In-Reply-To: <200806170946.17351.denys@visp.net.lb>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:39121 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759389AbYFQSfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 14:35:04 -0400
+In-Reply-To: <c8028d330806171018j7f129ddft3bee056e4be9b954@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-More info. Now it is peak time, and flow control disabled. Before it was 1% packetloss on small packets and 5-6% on large, now it is 0.3% on small, 1-2% on large.
-The flow-control required on this particular setup (probably linksys switches is too much crappy, no idea), and without it i experience "small" packetloss"
-But seems on this motherboard, by some reasons flow-control not working, maybe it is related to PBA.
+Amar Mudrankit wrote:
+> It looks as if my original email was "scrubbed" before it made the
+> mailing list so I am resending it...
+> 
+> QLogic has been attempting to submit our virtual NIC (vNIC) driver to
+> the Linux kernel for several months.  We have made changes to the code
+> based on the feedback we have received over four rounds of
+> submissions. Among the feedback we received during this process was a
+> request to alter our code to use a single value per file for
+> configuration of our driver through sysfs interface.  After spending
+> much time and effort to complete this change to our design we
+> re-submitted the driver only to receive a response suggesting that we
+> change once again from this interface to a different API interface
+> called rtnl_link.  Needless to say I am very frustrated with this
+> process. This new API interface would require substantial changes to
+> our code.
 
-I will try to play with PBA now, but not sure i can do that.
-
-
--- 
-------
-Technical Manager
-Virtual ISP S.A.L.
-Lebanon
+Thats one of the reasons why it should be done before merging it.
+The other one being that an API can't be removed easily once its
+in the kernel.
