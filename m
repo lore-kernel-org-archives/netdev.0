@@ -1,53 +1,43 @@
-From: Trent Piepho <tpiepho@freescale.com>
-Subject: Re: [PATCH] [Rev2] MPC5121 FEC support
-Date: Tue, 17 Jun 2008 16:52:25 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0806171648300.7584@t2.domain.actdsltmp>
-References: <1213729717-26688-1-git-send-email-jrigby@freescale.com>
- <48581188.90102@freescale.com> <20080617195739.GB13147@uranus.ravnborg.org>
- <485818AA.8090701@freescale.com> <20080617210055.GA13468@uranus.ravnborg.org>
- <485828B0.4010101@freescale.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
+Date: Tue, 17 Jun 2008 19:59:08 -0400
+Message-ID: <48584FCC.4060800@garzik.org>
+References: <99863D2ED484D449811D97A4C44C9CBD7C50F7@EPEXCH2.qlogic.org><c8028d330806171018j7f129ddft3bee056e4be9b954@mail.gmail.com><485803D3.5020505@trash.net> <20080617121441.4b87ba84@extreme> <C07C40DB2364324799506DE8FF12F8D859E90D@EPEXCH1.qlogic.org> <99863D2ED484D449811D97A4C44C9CBD7C5169@EPEXCH2.qlogic.org> <48582340.7010409@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Sam Ravnborg <sam@ravnborg.org>, John Rigby <jrigby@freescale.com>,
-	linuxppc-dev@ozlabs.org, jeff@garzik.org, netdev@vger.kernel.org
-To: Scott Wood <scottwood@freescale.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Russo <john.russo@qlogic.com>, shemminger@vyatta.com,
+	"Amar Mudrankit (Contractor - )" <amar.mudrankit@qlogic.com>,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	"Kuchimanchi, Ramachandra \(Contractor - \)"
+	<ramachandra.kuchimanchi@qlogic.com>,
+	"Poornima Kamath (Contractor - )" <poornima.kamath@qlogic.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:61793 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758380AbYFQXxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 19:53:07 -0400
-In-Reply-To: <485828B0.4010101@freescale.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:33790 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755127AbYFQX7O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 19:59:14 -0400
+In-Reply-To: <48582340.7010409@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Jun 2008, Scott Wood wrote:
-> Sam Ravnborg wrote:
->>  In general when you select a symbol that has dependencies you are almost
->>  always on the wrong track.
->
-> more specific options should make sure that they never select it when the 
-> dependencies aren't met.
+Patrick McHardy wrote:
+> Frankly, you didn't even try to fix the most obvious mistakes in your
+> interface, like duplication of existing interfaces (csum settings)
+> and very unusual behaviour (state machine triggered device registation)
+> before you started complaining (and both of these are *really* easy to
+> do).
+> 
+> That you were asked to migrate to sysfs is unfortunate. The fact is
+> though that your driver is a virtual ethernet device, not an infiniband
+> device, so it should use the proper APIs for this kind of device. Work
+> has been going on for years to provide a uniform interface to the network
+> and your interface is a move in the opposite direction.
 
-Sure, in theory that would work, but in practice this ends up being a constant
-source of broken builds.
+That's pretty much my feeling.
 
->>  Use a dependency here with a sane default - then people can set it to 'n'
->>  if they really do not want this driver.
->>
->>  Spreading selects too much is just causing you pain in the long run.
->
-> I'm not sure I understand what you're looking for, but I don't see anything 
-> wrong with something like this (apart from missing help text):
->
-> config FS_ENET
-> 	 bool
-> 	 select MII
-> 	 select PHYLIB
->
-> config FS_ENET_HAS_SCC
-> 	 bool "Freescale CPM SCC Ethernet"
-> 	 depends on CPM1 || CPM2
-> 	 select FS_ENET
+	Jeff
 
-What prevents me from turning on FS_ENET_HAS_SCC without MII or PHYLIB?  Why
-is FS_ENET_HAS_SCC a bool, and not tristate?
+
+
