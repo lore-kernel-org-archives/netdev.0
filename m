@@ -1,44 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 11/15]bnx2x: Add TPA, Broadcoms HW LRO
-Date: Tue, 17 Jun 2008 16:17:06 +0100
-Message-ID: <20080617151704.GK5350@solarflare.com>
-References: <1213714166.5817.181.camel@lb-tlvb-eliezer> <20080617150539.GJ5350@solarflare.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: PATCH: fix bridged 802.3ad bonding
+Date: Tue, 17 Jun 2008 17:33:30 +0200
+Message-ID: <20080617153329.GA9429@midget.suse.cz>
+References: <20080604082425.GA3272@midget.suse.cz> <20080604090633.2a12cecc@extreme> <20080605101319.GA3756@midget.suse.cz> <20080610.154236.189971046.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>
-To: Eilon Greenstein <eilong@broadcom.com>
+Cc: David Miller <davem@davemloft.net>, jbohac@suse.cz,
+	shemminger@linux-foundation.org, fubar@us.ibm.com,
+	netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.mbr-roch.zen.net.uk ([212.23.3.142]:43891 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755739AbYFQPRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 11:17:11 -0400
+Received: from styx.suse.cz ([82.119.242.94]:43434 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758443AbYFQPdb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 11:33:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20080617150539.GJ5350@solarflare.com>
+In-Reply-To: <20080610.154236.189971046.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> Eilon Greenstein wrote:
-> > The TPA stands for Transparent Packet Aggregation. When enabled, the FW
-> > aggregate in-order TCP packets according to the 4-tuple match and sends
-> > 1 big packet to the driver. This packet is stored on an SGL in which
-> > each SGE is 1 page. The FW also implements a timeout algorithm and it
-> > honors all TCP flag, including the push flag as a trigger to halt
-> > aggregation.
-> [...]
+On Tue, Jun 10, 2008 at 03:42:36PM -0700, David Miller wrote:
+> From: Jiri Bohac <jbohac@suse.cz> Date: Thu, 5 Jun 2008 12:13:20 +0200
+> > Ah, I see. So can we get one of the patches in? I still think
+> > that running the LACP frames through the bridging NF hooks does
+> > not make sense, but it's your call.
 > 
-> LRO is not compatible with forwarding and will currently trigger a BUG() or
-> WARN() if used on packets that are then forwarded.
+> Stephen, if prefer your approach, please repost your patch with full
+> commit message and proper signoffs, thanks!
 
-Actually, since this implementation doesn't set gso_size in LRO'd skbs, it
-will confuse TCP in interesting ways instead.  You need to set gso_size to
-the largest segment size seen in the packets that were aggregated.
+Stephen, I haven't seen a definitive answer from you - can you
+please either ack my patch (underneath) or repost yours?
 
-Ben.
+Thanks!
+
+
+Fix bridged 802.3ad bonding
+
+When a bonding master is added to a bridge, the bridging hook
+will take over the LACP frames. The bonding ETH_P_SLOW ptype
+handler will not get these, because the skb->dev is changed by
+the bridging code. This breaks bonding in the 802.3ad mode.
+
+ETH_P_SLOW frames should not be touched by the bridge.
+
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -136,6 +136,10 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
+ 		if (skb->protocol == htons(ETH_P_PAUSE))
+ 			goto drop;
+ 
++		/* Don't touch SLOW frames (LACP, etc.) */
++		if (skb->protocol == htons(ETH_P_SLOW))
++			return skb;
++
+ 		/* Process STP BPDU's through normal netif_receive_skb() path */
+ 		if (p->br->stp_enabled != BR_NO_STP) {
+ 			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
