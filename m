@@ -1,77 +1,99 @@
-From: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-Subject: RE: How can i know if I/OAT is supported?
-Date: Tue, 17 Jun 2008 09:05:41 +0100
-Message-ID: <7F38996F7185A24AB9071ED4950AD8C101B3CD2F@swsmsx413.ger.corp.intel.com>
-References: <Pine.LNX.4.64.0806161754130.2344@bizon.gios.gov.pl>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: Kill decent's use of SOCK_SLEEP_{PRE,POST}
+Date: Tue, 17 Jun 2008 01:07:52 -0700 (PDT)
+Message-ID: <20080617.010752.267137214.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <dotanba@gmail.com>, <olel@ans.pl>, <netdev@vger.kernel.org>
-To: "Krzysztof Oledzki" <ole@ans.pl>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: christine.caulfield@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:13446 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752440AbYFQIFu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 04:05:50 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <Pine.LNX.4.64.0806161754130.2344@bizon.gios.gov.pl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46862
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753175AbYFQIHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 04:07:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Oledzki wrote:
-> On Mon, 16 Jun 2008, Sosnowski, Maciej wrote:
->=20
->> Hi Dotan,
->>=20
->>>>> I'm trying to use the I/OAT technology but i don't know if the th=
-e
->>>>> sent data used this technology.
->>>>> Are there are any counters which indicates how many data was sent=
- using
->>>>> I/OAT?
->>>>=20
->>>> for f in /sys/class/dma/*; do echo "$f: bytes=3D`cat $f/bytes_tran=
-sferred`
->>>> count=3D`cat $f/memcpy_count`" ; done
->>>=20
->>> I have the folder /sys/class/dma/, but this folder is empty.
->>> What does it mean?
->>=20
->> It means that you do not have ioatdma module loaded. Simply try: mod=
-probe
->> ioatdma. If driver installs correctly, you should see statistics in
->> /sys/class/dma/
->=20
-> Are you sure? From my experience it looks like the driver is loaded y=
-et it
-> was not able to find a supported device or initialize it.
->=20
-> Best regards,
->=20
->  				Krzysztof Ol=EAdzki
 
-Yes, that's why I have written "if driver installs correctly"=20
-(sorry, I should have put it "initializes correctly").
-Anyway, to make it clear, empty /sys/class/dma/ means that=20
-either ioatdma is not loaded at all or its initialization failed.
+This macro has only one user, and it's been on the chopping
+block for a long time.
 
-Regards,
-Maciej
----------------------------------------------------------------------
-Intel Technology Poland sp. z o.o.
-z siedziba w Gdansku
-ul. Slowackiego 173
-80-298 Gdansk
+This expansion actually fixes bugs, in that decnet now respects
+the socket timeout properly.
 
-Sad Rejonowy Gdansk Polnoc w Gdansku,=20
-VII Wydzial Gospodarczy Krajowego Rejestru Sadowego,=20
-numer KRS 101882
+Applied and pushed to net-next-2.6
 
-NIP 957-07-52-316
-Kapital zakladowy 200.000 zl
+decnet: Remove SOCK_SLEEP_{PRE,POST} usage.
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+Just expand the wait sequence.  And as a nice side-effect
+the timeout is respected now.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/decnet/af_decnet.c |   30 +++++++++++++++---------------
+ 1 files changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index fc2efe8..931bdf9 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -1719,6 +1719,8 @@ static int dn_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	 * See if there is data ready to read, sleep if there isn't
+ 	 */
+ 	for(;;) {
++		DEFINE_WAIT(wait);
++
+ 		if (sk->sk_err)
+ 			goto out;
+ 
+@@ -1748,14 +1750,11 @@ static int dn_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			goto out;
+ 		}
+ 
+-		set_bit(SOCK_ASYNC_WAITDATA, &sock->flags);
+-		SOCK_SLEEP_PRE(sk)
+-
+-		if (!dn_data_ready(sk, queue, flags, target))
+-			schedule();
+-
+-		SOCK_SLEEP_POST(sk)
+-		clear_bit(SOCK_ASYNC_WAITDATA, &sock->flags);
++		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
++		sk_wait_event(sk, &timeo, dn_data_ready(sk, queue, flags, target));
++		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
++		finish_wait(sk->sk_sleep, &wait);
+ 	}
+ 
+ 	for(skb = queue->next; skb != (struct sk_buff *)queue; skb = nskb) {
+@@ -2002,18 +2001,19 @@ static int dn_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		 * size.
+ 		 */
+ 		if (dn_queue_too_long(scp, queue, flags)) {
++			DEFINE_WAIT(wait);
++
+ 			if (flags & MSG_DONTWAIT) {
+ 				err = -EWOULDBLOCK;
+ 				goto out;
+ 			}
+ 
+-			SOCK_SLEEP_PRE(sk)
+-
+-			if (dn_queue_too_long(scp, queue, flags))
+-				schedule();
+-
+-			SOCK_SLEEP_POST(sk)
+-
++			prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
++			set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
++			sk_wait_event(sk, &timeo,
++				      !dn_queue_too_long(scp, queue, flags));
++			clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
++			finish_wait(sk->sk_sleep, &wait);
+ 			continue;
+ 		}
+ 
+-- 
+1.5.5.1.308.g1fbb5
 
