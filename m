@@ -1,60 +1,36 @@
-From: Bernard Pidoux <bernard.pidoux@upmc.fr>
-Subject: Re: [PATCH]: Kill spurious sk->sk_socket NULL assignments in netrom.
-Date: Tue, 17 Jun 2008 15:58:59 +0200
-Message-ID: <4857C323.5040402@upmc.fr>
-References: <20080617.032409.216520881.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: sk->sk_socket
+Date: Tue, 17 Jun 2008 11:14:39 -0300
+Message-ID: <20080617141439.GB6970@ghostprotocols.net>
+References: <20080617.032511.240272543.davem@davemloft.net> <20080617123254.GB25011@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
-	linux-hams@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20080617.032409.216520881.davem@davemloft.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:35877 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757715AbYFQOPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 10:15:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20080617123254.GB25011@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
+Em Tue, Jun 17, 2008 at 04:32:55PM +0400, Evgeniy Polyakov escreveu:
+> On Tue, Jun 17, 2008 at 03:25:11AM -0700, David Miller (davem@davemloft.net) wrote:
+> > For the curious, here are the only assignments to sk->sk_socket
+> > remaining in the net-next-2.6 tree right now:
+> > 
+> > include/net/sock.h:	sk->sk_socket = NULL;
+> > include/net/sock.h:	sk->sk_socket = parent;
 
-All patches applied and running.
-Thanks.
+Isn't this sock_graft and sock_orphan already? :)
 
-Bernard, f6bvp
+> > net/core/sock.c:		newsk->sk_socket = NULL;
+> > net/core/sock.c:	sk->sk_socket		=	sock;
 
+I see, perhaps we can have __sock_orphan() in sk_clone() and
+__sock_graft() in sock_init_data() 8)
 
-David Miller wrote:
-> Both of these assignments are spurious, so we can delete them.
-> 
-> Applied and pushed out to net-next-2.6
-> 
-> netrom: Kill spurious NULL'ing of sk->sk_socket.
-> 
-> In nr_release(), one code path calls sock_orphan() which
-> will NULL out sk->sk_socket already.
-> 
-> In the other case, handling states other than NR_STATE_{0,1,2,3},
-> seems to not be possible other than due to bugs.  Even for an
-> uninitialized nr->state value, that would be zero or NR_STATE_0.
-> It might be wise to stick a WARN_ON() here.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/netrom/af_netrom.c |    2 --
->  1 files changed, 0 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
-> index 5877962..74884f4 100644
-> --- a/net/netrom/af_netrom.c
-> +++ b/net/netrom/af_netrom.c
-> @@ -536,11 +536,9 @@ static int nr_release(struct socket *sock)
->  		sk->sk_state_change(sk);
->  		sock_orphan(sk);
->  		sock_set_flag(sk, SOCK_DESTROY);
-> -		sk->sk_socket   = NULL;
->  		break;
->  
->  	default:
-> -		sk->sk_socket = NULL;
->  		break;
->  	}
->  
+- Arnaldo
