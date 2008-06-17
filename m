@@ -1,143 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: netlink circular locking dependency
-Date: Tue, 17 Jun 2008 08:49:36 +0000
-Message-ID: <20080617084936.GA4202@ff.dom.local>
-References: <20080616213417.GA14988@ami.dom.local> <4856DF91.30606@trash.net>
+From: Olaf Kirch <okir@lst.de>
+Subject: Gentle Guide to the Network Stack
+Date: Tue, 17 Jun 2008 11:05:22 +0200
+Message-ID: <200806171105.23069.okir@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, Thomas Graf <tgraf@suug.ch>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.250]:59555 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754078AbYFQIpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 04:45:23 -0400
-Received: by an-out-0708.google.com with SMTP id d40so1287228and.103
-        for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 01:45:22 -0700 (PDT)
+Received: from verein.lst.de ([213.95.11.210]:51645 "EHLO verein.lst.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752659AbYFQJFa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 05:05:30 -0400
+Received: from brummo (p4FD8D493.dip.t-dialin.net [79.216.212.147])
+	(authenticated bits=0)
+	by verein.lst.de (8.12.3/8.12.3/Debian-7.1) with ESMTP id m5H95LNW013548
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 11:05:22 +0200
 Content-Disposition: inline
-In-Reply-To: <4856DF91.30606@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 16, 2008 at 11:48:01PM +0200, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
->> Marcel Holtmann wrote, On 06/14/2008 02:35 PM:
->> ...
->>   
->>> =======================================================
->>> [ INFO: possible circular locking dependency detected ]
->>> 2.6.26-rc2 #5
->>> -------------------------------------------------------
->>> hcid/4136 is trying to acquire lock:
->>>  (genl_mutex){--..}, at: [<c0000000002ace4c>] .ctrl_dumpfamily+0x74/0x174
->>>
->>> but task is already holding lock:
->>>  (nlk->cb_mutex){--..}, at: [<c0000000002a766c>] .netlink_dump+0x58/0x27c
->>>
->>> which lock already depends on the new lock.
->>>     
->> ...
->>
->> Hi,
->>
->> IMHO it looks like a real lockup threat. Probably it needs something
->> better, but for now here is my simplistic patch proposal for testing.
->>   
-> So we have:
->
-> genl_rcv()            : take genl_mutex
-> genl_rcv_msg()        : call netlink_dump_start() while holding genl_mutex
-> netlink_dump_start(),
-> netlink_dump()        : take nlk->cb_mutex
-> ctrl_dumpfamily()     : try to detect this case and not take genl_mutex a
->                        second time
->
-> netlink_rcv()         : call netlink_dump
-> netlink_dump          : take nlk->cb_mutex
-> ctrl_dumpfamily()     : take genl_mutex
->
-> which is a real bug.
+Hi all,
 
-Right. Probably there is also another variant:
+I started putting together a paper on the Linux network stack,
+focusing on how things fit together, and help relative beginners
+understand the machinery, rather than giving a full-blown highly
+detailed cross reference (which would be outdated more quickly
+than you can re-run latex anyway :-)
+I intend to release it under the GPL or GNU FDL or similar license -
+I haven't fully made up my mind yet on what works best.
 
-#1
-genl_rcv()            : take genl_mutex
-genl_rcv_msg()        : call netlink_dump_start() while holding genl_mutex
-netlink_dump_start()  : mutex_unlock nlk->cb_mutex
+You can find the first couple of pages at
+http://oss.oracle.com/~okir/network/paper.pdf
 
-#2
-netlink_rcv()         : call netlink_dump
-netlink_dump          : take nlk->cb_mutex
-ctrl_dumpfamily()     : 1st run without genl_mutex
+I'd be very interested in general feedback on the approach taken,
+the level of detail and such. In case I missed the fact that
+someone else is currently doing the same, please let me know, too.
 
-#1
-netlink_dump()        : take nlk->cb_mutex
-ctrl_dumpfamily()     : > 1st run: take genl_mutex 2nd time?!
-
->
-> It seems the best fix is to use genl_mutex for the netlink cb_mutex,
-> drop genl_mutex before calling netlink_dump_start and don't take it
-> in ctrl_dumpfamily, relying completely on af_netlink.c for dump
-> locking. Unfortunately this creates a race since the ops passed to
-> netlink_dump_start are also protect by the mutex, so this patch
-> is just for testing whether it fixes the warning.
->
-> On second though - that race seems to be present already since
-> the ops can be unregistered and the module unloaded while a dump
-> is in progress.
-
-Yes, very interesting. I guess there will be some followup...
-
-Regards,
-Jarek P.
-
-
-> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-> index f5aa23c..3e1191c 100644
-> --- a/net/netlink/genetlink.c
-> +++ b/net/netlink/genetlink.c
-> @@ -444,8 +444,11 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
->  		if (ops->dumpit == NULL)
->  			return -EOPNOTSUPP;
->  
-> -		return netlink_dump_start(genl_sock, skb, nlh,
-> -					  ops->dumpit, ops->done);
-> +		genl_unlock();
-> +		err = netlink_dump_start(genl_sock, skb, nlh,
-> +					 ops->dumpit, ops->done);
-> +		genl_lock();
-> +		return err;
->  	}
->  
->  	if (ops->doit == NULL)
-> @@ -603,9 +606,6 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
->  	int chains_to_skip = cb->args[0];
->  	int fams_to_skip = cb->args[1];
->  
-> -	if (chains_to_skip != 0)
-> -		genl_lock();
-> -
->  	for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
->  		if (i < chains_to_skip)
->  			continue;
-> @@ -623,9 +623,6 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
->  	}
->  
->  errout:
-> -	if (chains_to_skip != 0)
-> -		genl_unlock();
-> -
->  	cb->args[0] = i;
->  	cb->args[1] = n;
->  
-> @@ -770,7 +767,7 @@ static int __init genl_init(void)
->  
->  	/* we'll bump the group number right afterwards */
->  	genl_sock = netlink_kernel_create(&init_net, NETLINK_GENERIC, 0,
-> -					  genl_rcv, NULL, THIS_MODULE);
-> +					  genl_rcv, &genl_mutex, THIS_MODULE);
->  	if (genl_sock == NULL)
->  		panic("GENL: Cannot initialize generic netlink\n");
->  
-
+Cheers,
+Olaf
+-- 
+Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
+okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
