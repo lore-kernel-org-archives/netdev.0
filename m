@@ -1,52 +1,60 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] firmware: convert acenic driver to request_firmware()
-Date: Tue, 17 Jun 2008 17:52:45 +0100
-Message-ID: <1213721565.26255.1097.camel@pmac.infradead.org>
-References: <1213608300.26255.665.camel@pmac.infradead.org>
-	 <18518.37862.812419.353804@jaguar.mkp.net>
-	 <1213636990.26255.822.camel@pmac.infradead.org>
-	 <18519.60265.235564.200017@jaguar.mkp.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jaswinder@infradead.org
-To: Jes Sorensen <jes@trained-monkey.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/3] bridge: make bridge address settings sticky
+Date: Tue, 17 Jun 2008 09:52:13 -0700
+Message-ID: <20080617165223.184830407@vyatta.com>
+References: <20080617165211.615620784@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:36794 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754030AbYFQQwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 12:52:49 -0400
-In-Reply-To: <18519.60265.235564.200017@jaguar.mkp.net>
+Received: from suva.vyatta.com ([69.59.150.140]:56911 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754279AbYFQQwz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 12:52:55 -0400
+Content-Disposition: inline; filename=br-sticky-mac.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-06-17 at 12:50 -0400, Jes Sorensen wrote:
-> >>>>> "David" == David Woodhouse <dwmw2@infradead.org> writes:
-> 
-> David> On Mon, 2008-06-16 at 12:25 -0400, Jes Sorensen wrote:
-> David> We don't have hardware, so haven't been able to test it on either
-> David> little-endian or big-endian machines, but we took care to ensure
-> David> that it should work on both.
-> 
-> Hmmm, I have the cards, but no BE boxes to plug them into - stop by and
-> I'll give you one :-)
+Normally, the bridge just chooses the smallest mac address as the
+bridge id and mac address of bridge device. But if the administrator
+has explictly set the interface address then don't change it.
 
-Should have suggested that last week when I was unemployed :)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> David> Since the CPU on the device is big-endian, I would be amenable to
-> David> an argument that we should store the firmware in its native
-> David> big-endian form, and load it with writel(be32_to_cpu()) instead.
-> 
-> David> It doesn't matter much either way, really.
-> 
-> I'm not really biased, the card isn't in production anymore and there's
-> fewer and fewer of them out there. As long as it works it's fine with
-> me, but I guess I have a slight preference for staying as close to the
-> original format as possible.
 
-OK, we'll switch to BE, to be closer to the original form of the
-firmware.
+--- a/net/bridge/br_device.c	2008-06-17 09:18:02.000000000 -0700
++++ b/net/bridge/br_device.c	2008-06-17 09:18:16.000000000 -0700
+@@ -95,6 +95,7 @@ static int br_set_mac_address(struct net
+ 	spin_lock_bh(&br->lock);
+ 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+ 	br_stp_change_bridge_id(br, addr->sa_data);
++	br->flags |= BR_SET_MAC_ADDR;
+ 	spin_unlock_bh(&br->lock);
+ 
+ 	return 0;
+--- a/net/bridge/br_private.h	2008-06-17 09:14:42.000000000 -0700
++++ b/net/bridge/br_private.h	2008-06-17 09:21:10.000000000 -0700
+@@ -95,6 +95,8 @@ struct net_bridge
+ 	struct hlist_head		hash[BR_HASH_SIZE];
+ 	struct list_head		age_list;
+ 	unsigned long			feature_mask;
++	unsigned long			flags;
++#define BR_SET_MAC_ADDR		0x00000001
+ 
+ 	/* STP */
+ 	bridge_id			designated_root;
+--- a/net/bridge/br_stp_if.c	2008-06-17 09:20:06.000000000 -0700
++++ b/net/bridge/br_stp_if.c	2008-06-17 09:21:00.000000000 -0700
+@@ -216,6 +216,10 @@ void br_stp_recalculate_bridge_id(struct
+ 	const unsigned char *addr = br_mac_zero;
+ 	struct net_bridge_port *p;
+ 
++	/* user has chosen a value so keep it */
++	if (br->flags & BR_SET_MAC_ADDR)
++		return;
++
+ 	list_for_each_entry(p, &br->port_list, list) {
+ 		if (addr == br_mac_zero ||
+ 		    memcmp(p->dev->dev_addr, addr, ETH_ALEN) < 0)
 
 -- 
-dwmw2
 
