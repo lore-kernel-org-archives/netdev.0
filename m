@@ -1,57 +1,65 @@
-From: Josip Rodin <joy@entuzijast.net>
-Subject: Re: bnx2_poll panicking kernel
-Date: Wed, 18 Jun 2008 00:37:08 +0200
-Message-ID: <20080617223708.GA30292@orion.carnet.hr>
-References: <20080616140454.GD5350@solarflare.com> <1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com> <20080616191354.GA11760@orion.carnet.hr> <20080616213821.GA8844@orion.carnet.hr> <20080616214829.GA9334@orion.carnet.hr> <1213659908.18055.26.camel@dell>
+From: Travis Stratman <tstratman@emacinc.com>
+Subject: Re: data received but not detected
+Date: Tue, 17 Jun 2008 17:40:43 -0500
+Message-ID: <1213742443.5771.202.camel@localhost.localdomain>
+References: <1213740538.5771.192.camel@localhost.localdomain>
+	 <20080617152733.7f469f2e@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>, mirrors@debian.org
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orion.CARNet.hr ([161.53.160.90]:39529 "EHLO orion.carnet.hr"
+Received: from mail.emacinc.com ([63.245.244.68]:39996 "EHLO mail.emacinc.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758391AbYFQWhM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 18:37:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1213659908.18055.26.camel@dell>
+	id S1755955AbYFQWmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 18:42:13 -0400
+In-Reply-To: <20080617152733.7f469f2e@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 16, 2008 at 04:45:08PM -0700, Michael Chan wrote:
-> On Mon, 2008-06-16 at 23:48 +0200, Josip Rodin wrote:
-> > > Crap, it just crashed again, with 2.6.25.6.
-> 
-> Looking at the panic dmesg, I believe it was crashing because skb was
-> NULL in bnx2_tx_int().
-> 
+On Tue, 2008-06-17 at 15:27 -0700, Stephen Hemminger wrote:
+> On Tue, 17 Jun 2008 17:08:58 -0500
+> Travis Stratman <tstratman@emacinc.com> wrote:
 > > 
-> > I should mention that I might have a clue - around the time the crashes
-> > started, I started using HTB with the following configuration:
+> > I am working on an application that uses a fairly simple UDP protocol to
+> > send data between two embedded devices. I'm noticing an issue with an
+> > initial test that was written where datagrams are received but not seen
+> > by the recvfrom() call until more data arrives after it.
+> > 
+> > The target for this code is a board using the Atmel AT91SAM9260 ARM
+> > processor. I have tested with 2.6.20 and 2.6.25 on this board.
+> > 
+> > 
+> > When I run the application between two identical devices on a cross-over
+> > cable, data is transferred for a few seconds after which everything
+> > freezes until I send a ping between the two boards in the background.
+> > This forces the communication to start up again for a few seconds before
+> > they hang up again.
+> > 
+> > At first I thought that this was the "rotting packet" case that the NAPI
+> > references where an IRQ is missed on Rx, so I rewrote the poll function
+> > in the macb driver to try to fix this but I didn't see any noticeable
+> > differences.
+> > 
+> > I would very much appreciate any suggestions that anyone could give to
+> > point me in the right direction.
+> > 
+> > Thanks in advance,
+> > 
+> > Travis
 > 
-> This rings a bell.  A similar crash was reported by a user using HTB on
-> a tg3 device.  After some analysis, my suspicion was that the shinfo
-> (skb)->nr_frags on the TX packet was corrupted before the SKB was freed
-> by the driver.  In both the tg3 and bnx2 drivers, we rely on the
-> nr_frags to locate the TX packet boundaries on the ring to free the
-> packets.
-> 
-> Please try this debug patch below.  If the theory is correct, the patch
-> should avoid the crash and will print something to the dmesg log every
-> time a crash is avoided.  Please run it again with the HTB rules and
-> send me the dmesg log containing:
-> 
-> bnx2: skb->nr_frags ...
-> 
-> Here's the debug patch below.  It saves the nr_frags from the SKB and
-> uses it to locate the packet boundaries instead.  It will also compare
-> the saved value with the one in SKB and print a warning when they don't
-> match.  Please apply to 2.6.25.6.
+> I am unfamiliar with interrupts on the ARM. Are IRQ's level or edge triggered?
+> NAPI won't work if interrupts are edge-triggered.
 
-After applying this patch, two rsync runs went through without any problem,
-yay.
+Interrupts in this case are set to be level triggered. It has an
+interrupt controller that allows them to be configured several ways. The
+EMAC driver for the at91sam9260 is in drivers/net/macb.[ch]. Also note
+that the 133 MHz x86 that I tested on was an STPC Elite (it also
+displayed the same behavior).
 
-Yet, there were no alerts from the new printk in the patch...?
+Thanks,
 
--- 
-     2. That which causes joy or happiness.
+Travis
+
+
