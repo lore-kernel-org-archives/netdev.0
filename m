@@ -1,38 +1,88 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: netlink circular locking dependency
-Date: Tue, 17 Jun 2008 15:08:25 +0200
-Message-ID: <20080617130825.GD20815@postel.suug.ch>
-References: <20080616213417.GA14988@ami.dom.local> <4856DF91.30606@trash.net> <1213667154.21932.47.camel@violet.holtmann.net> <4857B30B.8020809@trash.net> <20080617130910.GA4632@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH net-next-2.6 1/6] atm: [iphase] move struct suni_priv to suni.h
+Date: Tue, 17 Jun 2008 09:16:01 -0400
+Message-ID: <200806171316.m5HDG1Qf005858@cmf.nrl.navy.mil>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:33372 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755727AbYFQNIG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 09:08:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20080617130910.GA4632@ff.dom.local>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:53835 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756415AbYFQNQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 09:16:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Jarek Poplawski <jarkao2@gmail.com> 2008-06-17 13:09
-> On Tue, Jun 17, 2008 at 02:50:19PM +0200, Patrick McHardy wrote:
-> ...
-> > Thanks for testing. Unfortunately the module unload races look
-> > more complicated to fix and I'm busy with other things, so it
-> > would great if someone else could fix this.
-> 
-> Patrick, I wonder if simply adding an additional mutex e.g.
-> genl_lock_table() around all the rest (after your patch) genl_locks
-> could be enough until some major rework. This should prevent any
-> new races and there are no lockups, I guess?
+commit ebdfa622e6dc476634184cc3543fa05d3204ef57
+Author: Jorge Boncompte [DTI2] <jorge@dti2.net>
+Date:   Sat Jun 14 17:17:07 2008 -0400
 
-It would be wise to redo the locking alltogether while we're fixing
-this. Decouple message serialization from register/unregister
-operations would be a nice thing f.e.
+    atm: [iphase] move struct suni_priv to suni.h
+    
+    Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+    Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-I'll have a look if none beats me to it.
+diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
+index 800c09e..1925915 100644
+--- a/drivers/atm/iphase.c
++++ b/drivers/atm/iphase.c
+@@ -65,12 +65,7 @@
+ #include "iphase.h"		  
+ #include "suni.h"		  
+ #define swap(x) (((x & 0xff) << 8) | ((x & 0xff00) >> 8))  
+-struct suni_priv {
+-        struct k_sonet_stats sonet_stats; /* link diagnostics */
+-        unsigned char loop_mode;        /* loopback mode */
+-        struct atm_dev *dev;            /* device back-pointer */
+-        struct suni_priv *next;         /* next SUNI */
+-}; 
++
+ #define PRIV(dev) ((struct suni_priv *) dev->phy_data)
+ 
+ static unsigned char ia_phy_get(struct atm_dev *dev, unsigned long addr);
+diff --git a/drivers/atm/suni.c b/drivers/atm/suni.c
+index b1d063c..6097f68 100644
+--- a/drivers/atm/suni.c
++++ b/drivers/atm/suni.c
+@@ -29,15 +29,6 @@
+ #define DPRINTK(format,args...)
+ #endif
+ 
+-
+-struct suni_priv {
+-	struct k_sonet_stats sonet_stats; /* link diagnostics */
+-	int loop_mode;			/* loopback mode */
+-	struct atm_dev *dev;		/* device back-pointer */
+-	struct suni_priv *next;		/* next SUNI */
+-};
+-
+-
+ #define PRIV(dev) ((struct suni_priv *) dev->phy_data)
+ 
+ #define PUT(val,reg) dev->ops->phy_put(dev,val,SUNI_##reg)
+diff --git a/drivers/atm/suni.h b/drivers/atm/suni.h
+index d14c835..efa79bf 100644
+--- a/drivers/atm/suni.h
++++ b/drivers/atm/suni.h
+@@ -8,7 +8,7 @@
+ 
+ #include <linux/atmdev.h>
+ #include <linux/atmioc.h>
+-
++#include <linux/sonet.h>
+ 
+ /* SUNI registers */
+ 
+@@ -205,6 +205,13 @@
+ 
+ 
+ #ifdef __KERNEL__
++struct suni_priv {
++	struct k_sonet_stats sonet_stats;	/* link diagnostics */
++	int loop_mode;				/* loopback mode */
++	struct atm_dev *dev;			/* device back-pointer */
++	struct suni_priv *next;			/* next SUNI */
++};
++
+ int suni_init(struct atm_dev *dev);
+ #endif
+ 
