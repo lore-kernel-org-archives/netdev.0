@@ -1,22 +1,25 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH net-next 12/13]bnx2x: Update version
-Date: Tue, 17 Jun 2008 11:34:04 +0300
-Message-ID: <1213691644.5817.71.camel@lb-tlvb-eliezer>
+Subject: [PATCH net-next 12/12]bnx2x: Update version
+Date: Tue, 17 Jun 2008 11:38:30 +0300
+Message-ID: <1213691910.5817.74.camel@lb-tlvb-eliezer>
+References: <1213691644.5817.71.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Chan" <mchan@broadcom.com>
-To: netdev <netdev@vger.kernel.org>
+Cc: "Michael Chan" <mchan@broadcom.com>,
+	"Jeff Garzik" <jeff@garzik.org>
+To: netdev <netdev@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2732 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2927 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754051AbYFQIeV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 04:34:21 -0400
-Received: from mail-irva-8.broadcom.com (mail-irva-8 [10.11.18.52]) by
- mail-irva-10.broadcom.com (Postfix) with ESMTP id 6D9C52B0 for
- <netdev@vger.kernel.org>; Tue, 17 Jun 2008 01:34:06 -0700 (PDT)
+	id S1753957AbYFQIik (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 04:38:40 -0400
+In-Reply-To: <1213691644.5817.71.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Re sending after fixing the subject to 12/12 instead of 12/13:
 
 Updating to version 1.45.3
 
