@@ -1,65 +1,35 @@
-From: Travis Stratman <tstratman@emacinc.com>
-Subject: Re: data received but not detected
-Date: Tue, 17 Jun 2008 17:40:43 -0500
-Message-ID: <1213742443.5771.202.camel@localhost.localdomain>
-References: <1213740538.5771.192.camel@localhost.localdomain>
-	 <20080617152733.7f469f2e@extreme>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2_poll panicking kernel
+Date: Tue, 17 Jun 2008 15:47:22 -0700
+Message-ID: <1213742842.5199.8.camel@dell>
+References: <20080616140454.GD5350@solarflare.com>
+ <1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com>
+ <20080616191354.GA11760@orion.carnet.hr>
+ <20080616213821.GA8844@orion.carnet.hr>
+ <20080616214829.GA9334@orion.carnet.hr>
+ <1213659908.18055.26.camel@dell>
+ <20080617223708.GA30292@orion.carnet.hr>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>, mirrors@debian.org
+To: "Josip Rodin" <joy@entuzijast.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.emacinc.com ([63.245.244.68]:39996 "EHLO mail.emacinc.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4426 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755955AbYFQWmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 18:42:13 -0400
-In-Reply-To: <20080617152733.7f469f2e@extreme>
+	id S1758299AbYFQWqA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 18:46:00 -0400
+In-Reply-To: <20080617223708.GA30292@orion.carnet.hr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-06-17 at 15:27 -0700, Stephen Hemminger wrote:
-> On Tue, 17 Jun 2008 17:08:58 -0500
-> Travis Stratman <tstratman@emacinc.com> wrote:
-> > 
-> > I am working on an application that uses a fairly simple UDP protocol to
-> > send data between two embedded devices. I'm noticing an issue with an
-> > initial test that was written where datagrams are received but not seen
-> > by the recvfrom() call until more data arrives after it.
-> > 
-> > The target for this code is a board using the Atmel AT91SAM9260 ARM
-> > processor. I have tested with 2.6.20 and 2.6.25 on this board.
-> > 
-> > 
-> > When I run the application between two identical devices on a cross-over
-> > cable, data is transferred for a few seconds after which everything
-> > freezes until I send a ping between the two boards in the background.
-> > This forces the communication to start up again for a few seconds before
-> > they hang up again.
-> > 
-> > At first I thought that this was the "rotting packet" case that the NAPI
-> > references where an IRQ is missed on Rx, so I rewrote the poll function
-> > in the macb driver to try to fix this but I didn't see any noticeable
-> > differences.
-> > 
-> > I would very much appreciate any suggestions that anyone could give to
-> > point me in the right direction.
-> > 
-> > Thanks in advance,
-> > 
-> > Travis
+On Wed, 2008-06-18 at 00:37 +0200, Josip Rodin wrote:
+> After applying this patch, two rsync runs went through without any problem,
+> yay.
 > 
-> I am unfamiliar with interrupts on the ARM. Are IRQ's level or edge triggered?
-> NAPI won't work if interrupts are edge-triggered.
+> Yet, there were no alerts from the new printk in the patch...?
 
-Interrupts in this case are set to be level triggered. It has an
-interrupt controller that allows them to be configured several ways. The
-EMAC driver for the at91sam9260 is in drivers/net/macb.[ch]. Also note
-that the 133 MHz x86 that I tested on was an STPC Elite (it also
-displayed the same behavior).
-
-Thanks,
-
-Travis
-
+Please keep monitoring the printks during future rsyncs with those HTB
+rules.  May be we're just lucky and not hitting the problem this time.
 
