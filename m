@@ -1,72 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: Consolidate x25 socket grafting.
-Date: Tue, 17 Jun 2008 02:46:27 -0700 (PDT)
-Message-ID: <20080617.024627.30166722.davem@davemloft.net>
+Subject: all this business about ->sk_sleep
+Date: Tue, 17 Jun 2008 02:54:46 -0700 (PDT)
+Message-ID: <20080617.025446.180013373.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-x25@vger.kernel.org, netdev@vger.kernel.org,
-	ralf@linux-mips.org, linux-hams@vger.kernel.org
-To: eis@baty.hanse.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37221
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55342
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752423AbYFQJq1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 05:46:27 -0400
+	by vger.kernel.org with ESMTP id S1754608AbYFQJyq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 05:54:46 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id B89FDC8C18D
+	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 02:54:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This is the x25 variant of the previous 3 radio protocol
-patches I just posted to netdev and linux-hams.
+So you're probably wondering why I tidied up all of those code paths
+setting sk_sleep inappropriately or not using sock_graft().
 
-Applied and pushed out to net-next-2.6
+If you grep the net-next-2.6 tree now there are only 6 assignments to
+sk->sk_sleep:
 
-x25: Use sock_graft() and remove bogus sk_socket and sk_sleep init.
+include/net/sock.h:	sk->sk_sleep  = NULL;
+include/net/sock.h:	sk->sk_sleep = &parent->wait;
+net/core/sock.c:		newsk->sk_sleep	 = NULL;
+net/core/sock.c:		sk->sk_sleep	=	&sock->wait;
+net/core/sock.c:		sk->sk_sleep	=	NULL;
+net/unix/af_unix.c:	newsk->sk_sleep		= &newu->peer_wait;
 
-This is the x25 variant of changeset
-9375cb8a1232d2a15fe34bec4d3474872e02faec
-("ax25: Use sock_graft() and remove bogus sk_socket and sk_sleep init.")
+The only thing that uses something other than &sk->sk_socket->wait
+for sk->sk_sleep is AF_UNIX.  So that's a useful discovery and
+we may be able to get rid of sk->sk_sleep somehow.  I'll try to
+launch a full investiation into how and why AF_UNIX uses a special
+wait queue.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/x25/af_x25.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
-
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 6ba67c5..bcb091f 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -555,13 +555,11 @@ static struct sock *x25_make_new(struct sock *osk)
- 	x25 = x25_sk(sk);
- 
- 	sk->sk_type        = osk->sk_type;
--	sk->sk_socket      = osk->sk_socket;
- 	sk->sk_priority    = osk->sk_priority;
- 	sk->sk_protocol    = osk->sk_protocol;
- 	sk->sk_rcvbuf      = osk->sk_rcvbuf;
- 	sk->sk_sndbuf      = osk->sk_sndbuf;
- 	sk->sk_state       = TCP_ESTABLISHED;
--	sk->sk_sleep       = osk->sk_sleep;
- 	sk->sk_backlog_rcv = osk->sk_backlog_rcv;
- 	sock_copy_flags(sk, osk);
- 
-@@ -808,14 +806,12 @@ static int x25_accept(struct socket *sock, struct socket *newsock, int flags)
- 	if (!skb->sk)
- 		goto out2;
- 	newsk		 = skb->sk;
--	newsk->sk_socket = newsock;
--	newsk->sk_sleep  = &newsock->wait;
-+	sock_graft(newsk, newsock);
- 
- 	/* Now attach up the new socket */
- 	skb->sk = NULL;
- 	kfree_skb(skb);
- 	sk->sk_ack_backlog--;
--	newsock->sk    = newsk;
- 	newsock->state = SS_CONNECTED;
- 	rc = 0;
- out2:
--- 
-1.5.5.1.308.g1fbb5
-
+But the original impetus for this consolidation is that I might
+move struct socket freeing over to RCU in order to facilitate the
+removal of sk->sk_callback_lock.  And if so it's tidier if there
+are only a handful of rcu_assign_pointer() calls to add.
