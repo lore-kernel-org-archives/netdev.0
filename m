@@ -1,53 +1,40 @@
-From: "Dotan Barak" <dotanba@gmail.com>
-Subject: Re: How can i know if I/OAT is supported?
-Date: Tue, 17 Jun 2008 09:40:53 +0300
-Message-ID: <2f3bf9a60806162340g2368ca13ocb51f44f2d75245c@mail.gmail.com>
-References: <2f3bf9a60806160351l3611d9f7jef90d51e257b059d@mail.gmail.com>
-	 <Pine.LNX.4.64.0806161214540.2344@bizon.gios.gov.pl>
-	 <2f3bf9a60806160514y4b6259c9reb21c1df427dcf19@mail.gmail.com>
-	 <Pine.LNX.4.64.0806161758240.2344@bizon.gios.gov.pl>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: packetloss, on e1000e worse than r8169?
+Date: Tue, 17 Jun 2008 09:46:17 +0300
+Message-ID: <200806170946.17351.denys@visp.net.lb>
+References: <20080616193501.M64730@visp.net.lb> <20080616220841.M50112@visp.net.lb> <36D9DB17C6DE9E40B059440DB8D95F52056AC4C2@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: "Krzysztof Oledzki" <olel@ans.pl>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric Dumazet" <dada1@cosmosbay.com>, netdev@vger.kernel.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.183]:7106 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751914AbYFQGky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 02:40:54 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so4603732waf.23
-        for <netdev@vger.kernel.org>; Mon, 16 Jun 2008 23:40:54 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0806161758240.2344@bizon.gios.gov.pl>
+Received: from relay2.globalproof.net ([194.146.153.25]:52727 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751942AbYFQGqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 02:46:18 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52056AC4C2@orsmsx418.amr.corp.intel.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSBub3RpY2VkIHRoZSBmb2xsb3dpbmcgbWVzc2FnZSBpbiB0aGUgL3Zhci9sb2cvbWVzc2FnZXMg
-d2hlbiBsb2FkaW5nCnRoaXMgbW9kdWxlOgpKdW4gMTYgMTg6MDA6MzQgc2xhYjAwMSBrZXJuZWw6
-IGtvYmplY3RfYWRkIGZhaWxlZCBmb3IgaW9hdGRtYSB3aXRoCi1FRVhJU1QsIGRvbid0IHRyeSB0
-byByZWdpc3RlciB0aGluZ3Mgd2l0aCB0aGUgc2FtZSBuYW1lIGluIHRoZSBzYW1lCmRpcmVjdG9y
-eQpKdW4gMTYgMTg6MDA6MzQgc2xhYjAwMSBrZXJuZWw6Ckp1biAxNiAxODowMDozNCBzbGFiMDAx
-IGtlcm5lbDogQ2FsbCBUcmFjZToKSnVuIDE2IDE4OjAwOjM0IHNsYWIwMDEga2VybmVsOiAgWzxm
-ZmZmZmZmZjgwMTQyMTVjPl0ga29iamVjdF9hZGQrMHgxNmUvMHgxOTkKSnVuIDE2IDE4OjAwOjM0
-IHNsYWIwMDEga2VybmVsOiAgWzxmZmZmZmZmZjgwMTQyMjlmPl0ga29iamVjdF9yZWdpc3Rlcisw
-eDIwLzB4M2EKSnVuIDE2IDE4OjAwOjM0IHNsYWIwMDEga2VybmVsOiAgWzxmZmZmZmZmZjgwMWFi
-ZWYwPl0gYnVzX2FkZF9kcml2ZXIrMHg1ZC8weDEzMApKdW4gMTYgMTg6MDA6MzQgc2xhYjAwMSBr
-ZXJuZWw6Cls8ZmZmZmZmZmY4MDE0ZDMwZD5dX19wY2lfcmVnaXN0ZXJfZHJpdmVyKzB4NTcvMHg3
-ZQpKdW4gMTYgMTg6MDA6MzQgc2xhYjAwMSBrZXJuZWw6Cls8ZmZmZmZmZmY4MDBhMzllZT5dc3lz
-X2luaXRfbW9kdWxlKzB4MTZhNi8weDE4NTcKSnVuIDE2IDE4OjAwOjM0IHNsYWIwMDEga2VybmVs
-OiAgWzxmZmZmZmZmZjgwMDVjMjhkPl0gdHJhY2VzeXMrMHhkNS8weGUwCkp1biAxNiAxODowMDoz
-NCBzbGFiMDAxIGtlcm5lbDoKCkkgZ3Vlc3MgdGhhdCBzb21ldGhpbmcgaXMgd3JvbmcgKHRoZSBt
-b2R1bGUgaXMgYWxyZWFkIGxvYWRlZCBvciB3YXMKY29tcGlsZWQgYXMgcGFydCBvZiB0aGUga2Vy
-bmVsKQoKVGhhbmtzCkRvdGFuCgoyMDA4LzYvMTYgS3J6eXN6dG9mIE9sZWR6a2kgPG9sZWxAYW5z
-LnBsPjoKPgo+Cj4gT24gTW9uLCAxNiBKdW4gMjAwOCwgRG90YW4gQmFyYWsgd3JvdGU6Cj4KPj4g
-VGhhbmtzIGZvciB0aGUgZmFzdCByZXNwb25zZS4KPj4KPj4+PiBJJ20gdHJ5aW5nIHRvIHVzZSB0
-aGUgSS9PQVQgdGVjaG5vbG9neSBidXQgaSBkb24ndCBrbm93IGlmIHRoZSB0aGUKPj4+PiBzZW50
-IGRhdGEgdXNlZCB0aGlzIHRlY2hub2xvZ3kuCj4+Pj4gQXJlIHRoZXJlIGFyZSBhbnkgY291bnRl
-cnMgd2hpY2ggaW5kaWNhdGVzIGhvdyBtYW55IGRhdGEgd2FzIHNlbnQgdXNpbmcKPj4+PiBJL09B
-VD8KPj4+Cj4+PiBmb3IgZiBpbiAvc3lzL2NsYXNzL2RtYS8qOyBkbyBlY2hvICIkZjogYnl0ZXM9
-YGNhdCAkZi9ieXRlc190cmFuc2ZlcnJlZGAKPj4+IGNvdW50PWBjYXQgJGYvbWVtY3B5X2NvdW50
-YCIgOyBkb25lCj4+Cj4+IEkgaGF2ZSB0aGUgZm9sZGVyIC9zeXMvY2xhc3MvZG1hLywgYnV0IHRo
-aXMgZm9sZGVyIGlzIGVtcHR5Lgo+PiBXaGF0IGRvZXMgaXQgbWVhbj8KPgo+IGRtZXNnIHxncmVw
-IC1pIGlvYXRkbWEKPgo+ID8KPgo+IEJlc3QgcmVnYXJkcywKPgo+ICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICBLcnp5c3p0b2YgT2zqZHpraQo=
+On Tuesday 17 June 2008 02:24, Brandeburg, Jesse wrote:
+First, i catch when tx_deferred_ok increasing, rx_missed_errors also increasing.  For example deffered +1 , missed_errors +10.
+A bit strange.
+
+
+> Try turning off Flow Control using ethtool -A ethX rx off tx off autoneg
+> off
+Well, seems it is a keypoint on new motherboard, but i have to see at peak time still (about 10-14 hours to go).
+
+So the question is, or flow control is broken here, or it is unknown when i must use flow-control and when - not.
+
+Once i had packetloss on e1000 gigabit link, without it. 
+Now it is packetloss - when i start to use it.
+
+-- 
+------
+Technical Manager
+Virtual ISP S.A.L.
+Lebanon
