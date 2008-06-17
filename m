@@ -1,49 +1,45 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH net-next 15/15]bnx2x: Update version
-Date: Tue, 17 Jun 2008 17:58:37 +0300
-Message-ID: <1213714717.5817.187.camel@lb-tlvb-eliezer>
-References: <1213714193.5817.185.camel@lb-tlvb-eliezer>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 11/15]bnx2x: Add TPA, Broadcoms HW LRO
+Date: Tue, 17 Jun 2008 16:05:40 +0100
+Message-ID: <20080617150539.GJ5350@solarflare.com>
+References: <1213714166.5817.181.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Chan" <mchan@broadcom.com>
-To: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Vladislav Zolotarov <vladz@broadcom.com>
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2208 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751443AbYFQO6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 10:58:49 -0400
-In-Reply-To: <1213714193.5817.185.camel@lb-tlvb-eliezer>
+Received: from smarthost01.mail.mbr-roch.zen.net.uk ([212.23.3.140]:58633 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755862AbYFQPFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 11:05:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1213714166.5817.181.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Re-sending with the right subject: 15/15
-Updating to version 1.45.3
+Eilon Greenstein wrote:
+> The TPA stands for Transparent Packet Aggregation. When enabled, the FW
+> aggregate in-order TCP packets according to the 4-tuple match and sends
+> 1 big packet to the driver. This packet is stored on an SGL in which
+> each SGE is 1 page. The FW also implements a timeout algorithm and it
+> honors all TCP flag, including the push flag as a trigger to halt
+> aggregation.
+[...]
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+LRO is not compatible with forwarding and will currently trigger a BUG() or
+WARN() if used on packets that are then forwarded.  I am about to post a
+fix for that which will automatically disable LRO as necessary, but it
+depends on drivers behaving properly.
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 911669f..079e9c7 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -66,8 +66,8 @@
- #include "bnx2x.h"
- #include "bnx2x_init.h"
- 
--#define DRV_MODULE_VERSION      "1.42.4"
--#define DRV_MODULE_RELDATE      "2008/4/9"
-+#define DRV_MODULE_VERSION      "1.45.3"
-+#define DRV_MODULE_RELDATE      "2008/6/1"
- #define BNX2X_BC_VER		0x040200
- 
- /* Time in jiffies before concluding the transmitter is hung. */
+TPA needs to be controllable per-device through the ethtool set_flags()
+operation and should be visible in the device feature flags as NETIF_F_LRO
+(and through get_flags()).
+
+Ben.
+
 -- 
-1.5.3.2
-
-
-
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
