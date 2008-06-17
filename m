@@ -1,54 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Tue, 17 Jun 2008 13:52:46 +0200
-Message-ID: <4857A58E.6080304@trash.net>
-References: <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>	 <485126BD.7030109@trash.net>	 <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>	 <485144DF.3030102@trash.net>	 <f4845fc0806121233i54099a18k9104eb34359b923f@mail.gmail.com>	 <20080613062621.GA10474@verge.net.au>	 <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com>	 <48528EED.7090307@trash.net>	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>	 <485652EA.2020004@trash.net> <f4845fc0806161619i4dc81dcao933d95aa6e09b45e@mail.gmail.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] Kill unused macros...
+Date: Tue, 17 Jun 2008 08:10:23 -0400
+Message-ID: <4857A9AF.3040707@hp.com>
+References: <20080617.004324.162289618.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, Vince Busam <vbusam@google.com>,
-	Ben Greear <greearb@candelatech.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0806161619i4dc81dcao933d95aa6e09b45e@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:40969 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755469AbYFQMLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 08:11:13 -0400
+In-Reply-To: <20080617.004324.162289618.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> On Mon, Jun 16, 2008 at 1:47 PM, Patrick McHardy <kaber@trash.net> wrote:
->>> Option c) looks reasonable to me and also seems easy to handle in
->>> general. Is this the way to go? Or do we want the interface to look
->>> completely different this time?
->> b) or c) both look fine.
+David Miller wrote:
+> I noticed this while working on something unrelated in the
+> net-next-2.6 tree, applied and pushed to kernel.org
 > 
-> A couple of other Netlink questions came up while reading some code:
+> sctp: Kill SCTP_SOCK_SLEEP_{PRE,POST}, unused.
 > 
-> 1) There are many examples of the following two cases in the kernel:
-> 
-> nla_nest_start(skb, SOME_ATTR_TYPE | NLA_F_NESTED);
-> nla_nest_start(skb, SOME_ATTR_TYPE);
-> 
-> Why don't all cases have NLA_F_NESTED? Then again, this bit is never
-> ever read out again (at least not in the kernel), so I guess people
-> are just using their implicit knowledge that a specific attribute type
-> is always nested and never check the bit?
->
-> Btw., couldn't we change nla_nest_start() to always add NLA_F_NESTED
-> to the type?
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-The NLA_F_NESTED bit originated in nfnetlink, but was moved
-to netlink so the new netlink parsing helpers could also be
-used for nfnetlink. It can't be added to existing attributes
-since userspace needs to mask it out again to get the real
-attribute value and the non-nfnetlink userspace code doesn't
-expect it.
+OK, thanks.  It looks like there were supposed to be part
+of some debug output that didn't get fully removed first
+time around.
 
-> 2) To send an array of attributes of the same type, you just add them
-> serially? I was just confused at first that nla_parse() will save only
-> one attribute of each type (the last one) in the destination array, so
-> when dealing with arrays, it doesn't help. So I just iterate over the
-> array with nla_for_each_attr() and parse each element manually, right?
+-vlad
 
-Exactly, net/8021q/vlan_netlink.c has two examples of this (the
-QoS mapping attributes).
+> ---
+>  include/net/sctp/sctp.h |    2 --
+>  1 files changed, 0 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 5672d48..17b932b 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -220,8 +220,6 @@ extern struct kmem_cache *sctp_bucket_cachep __read_mostly;
+>  #define sctp_release_sock(sk)    release_sock(sk)
+>  #define sctp_bh_lock_sock(sk)    bh_lock_sock(sk)
+>  #define sctp_bh_unlock_sock(sk)  bh_unlock_sock(sk)
+> -#define SCTP_SOCK_SLEEP_PRE(sk)  SOCK_SLEEP_PRE(sk)
+> -#define SCTP_SOCK_SLEEP_POST(sk) SOCK_SLEEP_POST(sk)
+>  
+>  /* SCTP SNMP MIB stats handlers */
+>  DECLARE_SNMP_STAT(struct sctp_mib, sctp_statistics);
+> 
+
