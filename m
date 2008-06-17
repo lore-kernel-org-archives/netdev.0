@@ -1,62 +1,35 @@
-From: "Dotan Barak" <dotanba@gmail.com>
-Subject: Re: How can i know if I/OAT is supported?
-Date: Tue, 17 Jun 2008 14:20:54 +0300
-Message-ID: <2f3bf9a60806170420w728be675i2bb84775aed708cf@mail.gmail.com>
-References: <2f3bf9a60806170113r219b49ffjfcfa9fd68008cf8f@mail.gmail.com>
-	 <7F38996F7185A24AB9071ED4950AD8C101B3CE45@swsmsx413.ger.corp.intel.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: all this business about ->sk_sleep
+Date: Tue, 17 Jun 2008 15:35:11 +0400
+Message-ID: <20080617113509.GA8982@2ka.mipt.ru>
+References: <20080617.025446.180013373.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: base64
-Cc: "Krzysztof Oledzki" <ole@ans.pl>, olel@ans.pl,
-	netdev@vger.kernel.org
-To: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:58191 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752837AbYFQLUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 07:20:54 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so4154343rvb.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 04:20:54 -0700 (PDT)
-In-Reply-To: <7F38996F7185A24AB9071ED4950AD8C101B3CE45@swsmsx413.ger.corp.intel.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:46630 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751386AbYFQLfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 07:35:09 -0400
 Content-Disposition: inline
+In-Reply-To: <20080617.025446.180013373.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MjAwOC82LzE3IFNvc25vd3NraSwgTWFjaWVqIDxtYWNpZWouc29zbm93c2tpQGludGVsLmNvbT46
-Cj4gRG90YW4gQmFyYWsgd3JvdGU6Cj4+IDIwMDgvNi8xNyBTb3Nub3dza2ksIE1hY2llaiA8bWFj
-aWVqLnNvc25vd3NraUBpbnRlbC5jb20+Ogo+Pj4gS3J6eXN6dG9mIE9sZWR6a2kgd3JvdGU6Cj4+
-Pj4gT24gTW9uLCAxNiBKdW4gMjAwOCwgU29zbm93c2tpLCBNYWNpZWogd3JvdGU6Cj4+Pj4KPj4+
-Pj4gSGkgRG90YW4sCj4+Pj4+Cj4+Pj4+Pj4+IEknbSB0cnlpbmcgdG8gdXNlIHRoZSBJL09BVCB0
-ZWNobm9sb2d5IGJ1dCBpIGRvbid0IGtub3cgaWYgdGhlIHRoZQo+Pj4+Pj4+PiBzZW50IGRhdGEg
-dXNlZCB0aGlzIHRlY2hub2xvZ3kuCj4+Pj4+Pj4+IEFyZSB0aGVyZSBhcmUgYW55IGNvdW50ZXJz
-IHdoaWNoIGluZGljYXRlcyBob3cgbWFueSBkYXRhIHdhcyBzZW50IHVzaW5nCj4+Pj4+Pj4+IEkv
-T0FUPwo+Pj4+Pj4+Cj4+Pj4+Pj4gZm9yIGYgaW4gL3N5cy9jbGFzcy9kbWEvKjsgZG8gZWNobyAi
-JGY6IGJ5dGVzPWBjYXQgJGYvYnl0ZXNfdHJhbnNmZXJyZWRgCj4+Pj4+Pj4gY291bnQ9YGNhdCAk
-Zi9tZW1jcHlfY291bnRgIiA7IGRvbmUKPj4+Pj4+Cj4+Pj4+PiBJIGhhdmUgdGhlIGZvbGRlciAv
-c3lzL2NsYXNzL2RtYS8sIGJ1dCB0aGlzIGZvbGRlciBpcyBlbXB0eS4KPj4+Pj4+IFdoYXQgZG9l
-cyBpdCBtZWFuPwo+Pj4+Pgo+Pj4+PiBJdCBtZWFucyB0aGF0IHlvdSBkbyBub3QgaGF2ZSBpb2F0
-ZG1hIG1vZHVsZSBsb2FkZWQuIFNpbXBseSB0cnk6IG1vZHByb2JlCj4+Pj4+IGlvYXRkbWEuIElm
-IGRyaXZlciBpbnN0YWxscyBjb3JyZWN0bHksIHlvdSBzaG91bGQgc2VlIHN0YXRpc3RpY3MgaW4K
-Pj4+Pj4gL3N5cy9jbGFzcy9kbWEvCj4+Pj4KPj4+PiBBcmUgeW91IHN1cmU/IEZyb20gbXkgZXhw
-ZXJpZW5jZSBpdCBsb29rcyBsaWtlIHRoZSBkcml2ZXIgaXMgbG9hZGVkIHlldCBpdAo+Pj4+IHdh
-cyBub3QgYWJsZSB0byBmaW5kIGEgc3VwcG9ydGVkIGRldmljZSBvciBpbml0aWFsaXplIGl0Lgo+
-Pj4+Cj4+Pj4gQmVzdCByZWdhcmRzLAo+Pj4+Cj4+Pj4gICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgS3J6eXN6dG9mIE9s6mR6a2kKPj4+Cj4+PiBZZXMsIHRoYXQncyB3aHkgSSBoYXZlIHdy
-aXR0ZW4gImlmIGRyaXZlciBpbnN0YWxscyBjb3JyZWN0bHkiCj4+PiAoc29ycnksIEkgc2hvdWxk
-IGhhdmUgcHV0IGl0ICJpbml0aWFsaXplcyBjb3JyZWN0bHkiKS4KPj4+IEFueXdheSwgdG8gbWFr
-ZSBpdCBjbGVhciwgZW1wdHkgL3N5cy9jbGFzcy9kbWEvIG1lYW5zIHRoYXQKPj4+IGVpdGhlciBp
-b2F0ZG1hIGlzIG5vdCBsb2FkZWQgYXQgYWxsIG9yIGl0cyBpbml0aWFsaXphdGlvbiBmYWlsZWQu
-Cj4+Pgo+Pj4gUmVnYXJkcywKPj4+IE1hY2llago+Pgo+PiBPLmsuLCBzbyBub3cgSS9PQVQgaXMg
-bm90IGNvbXBpbGVkIGFzIHBhcnQgb2YgdGhlIGtlcm5lbCBhbmQgaSdtCj4+IGxvYWRpbmcgdGhl
-IHVwZGF0ZWQgZHJpdmVyIGJ1dCBzdGlsbAo+PiBpIGRvbid0IHNlZSBhbnkgZmlsZSBpbiB0aGlz
-IGZvbGRlci4uLgo+PiAodGhlIG1vZHVsZSBpcyBsb2FkZWQpCj4+Cj4+IEhvdyBjYW4gaSBrbm93
-IGlmIG15IGNoaXBzZXQvQklPUy9DUFUgc3VwcG9ydCBJL09BVD8KPj4KPj4gdGhhbmtzCj4+IERv
-dGFuCj4KPiBZb3Ugc2hvdWxkIGNoZWNrIHlvdXIgUENJIGRldmljZXMgYW5kIHNlZSBpZiB5b3Ug
-Y2FuIGZpbmQgRE1BIEVuZ2luZSB0aGVyZS4KPiBPbmUgb2YgZm9sbG93aW5nIHZlbmRvcjpkZXZp
-Y2Ugc2hvdWxkIGJlIHRoZXJlICgibHNwY2kgLW4iKQo+IGlmIHlvdXIgY2hpcHNldCBzdXBwb3J0
-cyBJL09BVDogODA4NjoxYTM4LCA4MDg2OjM2MGIsIDgwODY6NjVmZiwgODA4Njo0MDJmLgo+Cj4g
-QXBhcnQgZnJvbSB0aGF0LCBpZiB0aGUgZHJpdmVyIGZpbmRzIEkvT0FUIGRldmljZSwKPiB5b3Ug
-c2hvdWxkIHNlZSAiSW50ZWwoUikgSS9PQVQgRE1BIEVuZ2luZSBmb3VuZCIga2VybmVsIG1lc3Nh
-Z2UuCj4KPiBSZWdhcmRzLAo+IE1hY2llagoKSXQgc2VlbXMgdGhhdCBteSBzZXJ2ZXIgZG9lc24n
-dCBzdXBwb3J0IEkvT0FUCjooCgp0aGlzIGV4cGxhaW4gbWFueSB0aGluZ3MuLi4uCgp0aGFua3Mg
-YWxsb3QgZm9yIHlvdXIgaGVscApEb3Rhbgo=
+Hi.
+
+On Tue, Jun 17, 2008 at 02:54:46AM -0700, David Miller (davem@davemloft.net) wrote:
+> net/unix/af_unix.c:	newsk->sk_sleep		= &newu->peer_wait;
+> 
+> The only thing that uses something other than &sk->sk_socket->wait
+> for sk->sk_sleep is AF_UNIX.  So that's a useful discovery and
+> we may be able to get rid of sk->sk_sleep somehow.  I'll try to
+> launch a full investiation into how and why AF_UNIX uses a special
+> wait queue.
+
+Its 'pipe way', which allows to wake reader when performing write
+on writer and vice versa.
+
+-- 
+	Evgeniy Polyakov
