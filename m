@@ -1,41 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] Kill unused macros...
-Date: Tue, 17 Jun 2008 00:43:24 -0700 (PDT)
-Message-ID: <20080617.004324.162289618.davem@davemloft.net>
+Subject: [PATCH 0/12]: Proper compat WEXT support.
+Date: Tue, 17 Jun 2008 00:52:55 -0700 (PDT)
+Message-ID: <20080617.005255.135158143.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Cc: mokuno@sm.sony.co.jp, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46989
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56451
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753962AbYFQHnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 03:43:24 -0400
+	by vger.kernel.org with ESMTP id S1752440AbYFQHwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 03:52:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-I noticed this while working on something unrelated in the
-net-next-2.6 tree, applied and pushed to kernel.org
+This is what I consider the final submission of this patch set, it's
+ready to go.  I also made sure all the patches are checkpatch clean.
 
-sctp: Kill SCTP_SOCK_SLEEP_{PRE,POST}, unused.
+I've actually tested these exact patches on sparc64 with a RNDIS based
+USB wireless device from Linksys.  I was able to perform iwconfig
+commands, check iwlist, bring up the interface and use it properly.
+All with 32-bit tools.  I've also done an allmodconfig sanity build
+check on sparc64.  Masakazu-san has tested these patches extensively
+on PS3 systems, using the gelic and zd1211 drivers.  In particular he
+tested wpa_supplicant use.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/sctp/sctp.h |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+The patch set starts by cleaning up the code so that we can avoid
+having multiple copies of the WEXT main dispatch routines, one for
+compat and one for the non-compat case.
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 5672d48..17b932b 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -220,8 +220,6 @@ extern struct kmem_cache *sctp_bucket_cachep __read_mostly;
- #define sctp_release_sock(sk)    release_sock(sk)
- #define sctp_bh_lock_sock(sk)    bh_lock_sock(sk)
- #define sctp_bh_unlock_sock(sk)  bh_unlock_sock(sk)
--#define SCTP_SOCK_SLEEP_PRE(sk)  SOCK_SLEEP_PRE(sk)
--#define SCTP_SOCK_SLEEP_POST(sk) SOCK_SLEEP_POST(sk)
- 
- /* SCTP SNMP MIB stats handlers */
- DECLARE_SNMP_STAT(struct sctp_mib, sctp_statistics);
+Next, basic compat level handling of the WEXT ioctl is added, and the
+equivalent code in the compat_ioctl.c file is removed.
+
+Finally, compat IWE stream munging is added for the wireless layer.
+When we get a compat WEXT ioctl request, we set a bit in the request
+info blob, and the stream building helpers tip off this to format the
+stream entries properly.
+
+These patches are against net-next-2.6 and are also available as
+a GIT tree at:
+
+	master.kernel.org:/pub/scm/linux/kernel/git/davem/wireless-2.6.git
+
+John, please pull or apply as you deem appropriate.
