@@ -1,111 +1,52 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 3/3] bridge: use statistics in net_device
-Date: Tue, 17 Jun 2008 09:52:14 -0700
-Message-ID: <20080617165223.258482526@vyatta.com>
-References: <20080617165211.615620784@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH] firmware: convert acenic driver to request_firmware()
+Date: Tue, 17 Jun 2008 17:52:45 +0100
+Message-ID: <1213721565.26255.1097.camel@pmac.infradead.org>
+References: <1213608300.26255.665.camel@pmac.infradead.org>
+	 <18518.37862.812419.353804@jaguar.mkp.net>
+	 <1213636990.26255.822.camel@pmac.infradead.org>
+	 <18519.60265.235564.200017@jaguar.mkp.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jaswinder@infradead.org
+To: Jes Sorensen <jes@trained-monkey.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([69.59.150.140]:56910 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754330AbYFQQwz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 12:52:55 -0400
-Content-Disposition: inline; filename=br-stats.patch
+Received: from bombadil.infradead.org ([18.85.46.34]:36794 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754030AbYFQQwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 12:52:49 -0400
+In-Reply-To: <18519.60265.235564.200017@jaguar.mkp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move statistics to net_device structure. Also, update last_rx on bridge
-device (even though only bonding seems to use it).
+On Tue, 2008-06-17 at 12:50 -0400, Jes Sorensen wrote:
+> >>>>> "David" == David Woodhouse <dwmw2@infradead.org> writes:
+> 
+> David> On Mon, 2008-06-16 at 12:25 -0400, Jes Sorensen wrote:
+> David> We don't have hardware, so haven't been able to test it on either
+> David> little-endian or big-endian machines, but we took care to ensure
+> David> that it should work on both.
+> 
+> Hmmm, I have the cards, but no BE boxes to plug them into - stop by and
+> I'll give you one :-)
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Should have suggested that last week when I was unemployed :)
 
+> David> Since the CPU on the device is big-endian, I would be amenable to
+> David> an argument that we should store the firmware in its native
+> David> big-endian form, and load it with writel(be32_to_cpu()) instead.
+> 
+> David> It doesn't matter much either way, really.
+> 
+> I'm not really biased, the card isn't in production anymore and there's
+> fewer and fewer of them out there. As long as it works it's fine with
+> me, but I guess I have a slight preference for staying as close to the
+> original format as possible.
 
---- a/net/bridge/br_device.c	2008-06-17 09:31:24.000000000 -0700
-+++ b/net/bridge/br_device.c	2008-06-17 09:34:01.000000000 -0700
-@@ -21,12 +21,6 @@
- #include <asm/uaccess.h>
- #include "br_private.h"
- 
--static struct net_device_stats *br_dev_get_stats(struct net_device *dev)
--{
--	struct net_bridge *br = netdev_priv(dev);
--	return &br->statistics;
--}
--
- /* net device transmit always called with no BH (preempt_disabled) */
- int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-@@ -34,8 +28,8 @@ int br_dev_xmit(struct sk_buff *skb, str
- 	const unsigned char *dest = skb->data;
- 	struct net_bridge_fdb_entry *dst;
- 
--	br->statistics.tx_packets++;
--	br->statistics.tx_bytes += skb->len;
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
- 
- 	skb_reset_mac_header(skb);
- 	skb_pull(skb, ETH_HLEN);
-@@ -162,7 +156,6 @@ void br_dev_setup(struct net_device *dev
- 	ether_setup(dev);
- 
- 	dev->do_ioctl = br_dev_ioctl;
--	dev->get_stats = br_dev_get_stats;
- 	dev->hard_start_xmit = br_dev_xmit;
- 	dev->open = br_dev_open;
- 	dev->set_multicast_list = br_dev_set_multicast_list;
---- a/net/bridge/br_forward.c	2008-06-17 09:32:32.000000000 -0700
-+++ b/net/bridge/br_forward.c	2008-06-17 09:34:37.000000000 -0700
-@@ -115,7 +115,7 @@ static void br_flood(struct net_bridge *
- 				struct sk_buff *skb2;
- 
- 				if ((skb2 = skb_clone(skb, GFP_ATOMIC)) == NULL) {
--					br->statistics.tx_dropped++;
-+					br->dev->stats.tx_dropped++;
- 					kfree_skb(skb);
- 					return;
- 				}
---- a/net/bridge/br_input.c	2008-06-17 09:32:52.000000000 -0700
-+++ b/net/bridge/br_input.c	2008-06-17 09:35:49.000000000 -0700
-@@ -24,13 +24,15 @@ const u8 br_group_address[ETH_ALEN] = { 
- 
- static void br_pass_frame_up(struct net_bridge *br, struct sk_buff *skb)
- {
-+	struct net_device *brdev = br->dev;
- 	struct net_device *indev;
- 
--	br->statistics.rx_packets++;
--	br->statistics.rx_bytes += skb->len;
-+	brdev->stats.rx_packets++;
-+	brdev->stats.rx_bytes += skb->len;
-+	brdev->last_rx = jiffies;
- 
- 	indev = skb->dev;
--	skb->dev = br->dev;
-+	skb->dev = brdev;
- 
- 	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, indev, NULL,
- 		netif_receive_skb);
-@@ -64,7 +66,7 @@ int br_handle_frame_finish(struct sk_buf
- 	dst = NULL;
- 
- 	if (is_multicast_ether_addr(dest)) {
--		br->statistics.multicast++;
-+		br->dev->stats.multicast++;
- 		skb2 = skb;
- 	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
- 		skb2 = skb;
---- a/net/bridge/br_private.h	2008-06-17 09:21:43.000000000 -0700
-+++ b/net/bridge/br_private.h	2008-06-17 09:21:58.000000000 -0700
-@@ -90,7 +90,7 @@ struct net_bridge
- 	spinlock_t			lock;
- 	struct list_head		port_list;
- 	struct net_device		*dev;
--	struct net_device_stats		statistics;
-+
- 	spinlock_t			hash_lock;
- 	struct hlist_head		hash[BR_HASH_SIZE];
- 	struct list_head		age_list;
+OK, we'll switch to BE, to be closer to the original form of the
+firmware.
 
 -- 
+dwmw2
 
