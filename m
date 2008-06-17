@@ -1,39 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH,RFC] skb->network_header and __vlan_put_tag()
-Date: Tue, 17 Jun 2008 14:19:38 +0200
-Message-ID: <4857ABDA.6050407@trash.net>
-References: <20080616221525.GG27971@xi.wantstofly.org> <m3prqgpe1e.fsf@ursa.amorsen.dk>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] sctp: fix error path in sctp_proc_init
+Date: Tue, 17 Jun 2008 16:29:13 +0400
+Message-ID: <4857AE19.9050708@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>
-To: Benny Amorsen <benny+usenet@amorsen.dk>
+Cc: linux-sctp@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62456 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755352AbYFQMTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 08:19:43 -0400
-In-Reply-To: <m3prqgpe1e.fsf@ursa.amorsen.dk>
+Received: from sacred.ru ([62.205.161.221]:60813 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756189AbYFQMbt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 08:31:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Don't trim CC lists please]
+After the sctp_remaddr_proc_init failed, the proper rollback is
+not the sctp_remaddr_proc_exit, but the sctp_assocs_proc_exit.
 
-Benny Amorsen wrote:
-> Lennert Buytenhek <buytenh@wantstofly.org> writes:
-> 
->> I'm adding VLAN support to mv643xx_eth (which does not support HW
->> insertion of a VLAN tag, but it does support HW checksumming when
->> a VLAN tag is present, you just have to tell the HW how many bytes
->> there are between the start of the packet and the IP header), and
->> I'm ending up with code like this:
->>
->> 	if (skb->protocol == htons(ETH_P_8021Q))
->> 		ip_header = ip_hdr(skb) + 4;
->> 	else
->> 		ip_header = ip_hdr(skb);
-> 
-> How well does this work when doing QinQ or QinQinQ?
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Currently probably doesn't work, so the patch makes even more
-sense.
+---
+
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 23aaffb..98c6a88 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -119,7 +119,7 @@ static __init int sctp_proc_init(void)
+ 	return 0;
+ 
+ out_remaddr_proc_init:
+-	sctp_remaddr_proc_exit();
++	sctp_assocs_proc_exit();
+ out_assocs_proc_init:
+ 	sctp_eps_proc_exit();
+ out_eps_proc_init:
