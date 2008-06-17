@@ -1,109 +1,99 @@
-From: "John Russo" <john.russo@qlogic.com>
-Subject: RE: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
-Date: Tue, 17 Jun 2008 15:12:49 -0500
-Message-ID: <99863D2ED484D449811D97A4C44C9CBD7C5169@EPEXCH2.qlogic.org>
-References: <99863D2ED484D449811D97A4C44C9CBD7C50F7@EPEXCH2.qlogic.org><c8028d330806171018j7f129ddft3bee056e4be9b954@mail.gmail.com><485803D3.5020505@trash.net> <20080617121441.4b87ba84@extreme> <C07C40DB2364324799506DE8FF12F8D859E90D@EPEXCH1.qlogic.org>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies available to userspace
+Date: Tue, 17 Jun 2008 22:28:05 +0200
+Message-ID: <200806172228.06801.tomasz@grobelny.oswiecenia.net>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806150158.28488.tomasz@grobelny.oswiecenia.net> <20080617111638.GA14409@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Amar Mudrankit \(Contractor - \)" <amar.mudrankit@qlogic.com>,
-	<netdev@vger.kernel.org>, <rdreier@cisco.com>,
-	"Kuchimanchi, Ramachandra \(Contractor - \)"
-	<ramachandra.kuchimanchi@qlogic.com>,
-	"Poornima Kamath \(Contractor - \)" <poornima.kamath@qlogic.com>
-To: <shemminger@vyatta.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eppat.qlogic.com ([198.186.5.11]:54454 "EHLO EPEXCH2.qlogic.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753138AbYFQU2D convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 16:28:03 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <C07C40DB2364324799506DE8FF12F8D859E90D@EPEXCH1.qlogic.org>
+Received: from oswiecenia.net ([83.13.108.58]:1190 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754848AbYFQU2Z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 16:28:25 -0400
+In-Reply-To: <20080617111638.GA14409@gerrit.erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen,
+Dnia Tuesday 17 of June 2008, Gerrit Renker napisa=B3:
+> | In other words the basic question is: do we want to add new paramet=
+ers to
+> | existing qpolicies (then we need parameter discovery) or we don't w=
+ant
+> | new parameters (then we don't need information about parameters ava=
+ilable
+> | at runtime).
+> |
+> | Having defined the alternatives it's time to decide which is better=
+=2E I,
+> | of course, claim that mine (which is adding new parameters to exist=
+ing
+> | qpolicies). That's simply because I think that providing both
+> | DCCP_SCM_TIMEOUT and DCCP_SCM_PRIORITY parameters may be useful. An=
+d I
+> | don't see an obvoius way of achieving that goal with "new policy fo=
+r new
+> | parameter" approach.
+>
+> I agree that providing both parameters may be useful, but don't see t=
+his
+> as a place of contradiction.
+>
+> In the kernel I think it is best to make it type-safe, i.e. no new
+> parameters to already-defined policies. But I can't see how this woul=
+d
+> restrict the use.
+> (...)
+>
+So we would need new policy for each new parameter, right? I somehow do=
+n't=20
+like it but it should work. You are right that this way runtime paramet=
+er=20
+discovery is not necessary. BTW, we will have a bit of a problem with n=
+aming=20
+qpolicies ;-)
 
->> Understand that this is a community process and it isn't going to
-follow 
->> a corporate model. There is no external pressures like schedules and
->> users.
+> | > With a manpage I mean to document
+> |
+> | Is there any "man dccp"?
+>
+> Not yet. If you or someone else can find time to contribute towards a=
+ DCCP
+> manpage, that would be just great. The best available information so =
+far is
+> on the OSDL pages for DCCP and Documentation/networking/dccp.txt.
+>
+But it's not in kernel sources? Then probably a new page would not be a=
+ccepted=20
+as it would describe an experimental API. The above mentioned dccp.txt =
+is=20
+probably the best place for now.
 
-With all due respect...
-In my mind, that is just not realistic.  Work done in this community has
-very strong corporate repercussions and these issues can't simply be
-ignored. I am not saying that the community should ever alter their
-ideals for any company, just that some people/groups/companies will be
-reluctant to even try to contribute if they feel that guidelines like
-this can be changed this way and make their efforts wasted.
+> I think there is a special maintainer for the kernel manpages, who co=
+uld
+> be emailed with a basic manpage. But ther ere is a similar problem - =
+if the
+> API changes frequently, then this requires to update the manpage
+> accordingly.
+>
+I guess these would mostly be API additions, without any incompatible c=
+hanges.
 
->> As Patrick said, there is also a sense of doing the right thing. The 
->> developers would rather not repeat past mistakes, so are naturally 
->> hesitant on API's.
+> As alternatives to documentation, there are for example providing
+>  *running source code,
+I will for sure be working on some apps to demonstrate how the new inte=
+rface=20
+can be used. But first I need to create a simple server/client transmit=
+ting=20
+G.726 encoded voice over UDP/RTP (any hints on that?)...
 
-I completely understand the sense of doing the right thing. That is why
-we put in the effort to migrate our code to sysfs in the first place.
-We had a different solution but agreed to change it to meet the
-guidelines of other contributors to the InfiniBand (OFED) stack.  What I
-can't understand is the ease of which some people say "let's just change
-to this great new design even if it means a large rewrite of existing
-code which may increase the likelihood of injecting errors".  I
-apologize if I come off as being agitated but it is very frustrating to
-spend time and effort attempting to conform to a groups requests only to
-have it changed at the end. 
-
->> Adding a device that follows existing API's is always much easier.
-What 
->> you are seeing is in part an internal discomfort with the plethora of
-
->> API's and the binary baggage of ioctl's, sysfs, etc.
-
-Again, I completely understand the level of discomfort.  We are trying
-to work to the same 'rules' that other members of our community have
-used.
-
->> If you could give a general outline of what the interface you want
-would >> do, perhaps the community could provide some sample code that
-do what you 
->> want.
->> Netlink interfaces are less common, and there are fewer examples.
-
------Original Message-----
-From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-Sent: Wed 6/18/2008 12:44 AM
-To: Patrick McHardy
-Cc: Amar Mudrankit (Contractor - ); netdev@vger.kernel.org;
-rdreier@cisco.com; Kuchimanchi, Ramachandra (Contractor - ); Poornima
-Kamath (Contractor - )
-Subject: Re: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
- 
-On Tue, 17 Jun 2008 20:34:59 +0200
-Patrick McHardy <kaber@trash.net> wrote:
-
-> Amar Mudrankit wrote:
-> > It looks as if my original email was "scrubbed" before it made the
-> > mailing list so I am resending it...
-> > 
-> > QLogic has been attempting to submit our virtual NIC (vNIC) driver
-to
-> > the Linux kernel for several months.  We have made changes to the
-code
-> > based on the feedback we have received over four rounds of
-> > submissions. Among the feedback we received during this process was
-a
-> > request to alter our code to use a single value per file for
-> > configuration of our driver through sysfs interface.  After spending
-> > much time and effort to complete this change to our design we
-> > re-submitted the driver only to receive a response suggesting that
-we
-> > change once again from this interface to a different API interface
-> > called rtnl_link.  Needless to say I am very frustrated with this
-> > process. This new API interface would require substantial changes to
-> > our code.
-> 
-> Thats one of the reasons why it should be done before merging it.
-> The other one being that an API can't be removed easily once its
-> in the kernel.
-
-
+>  * web pages or
+Is there any official, publicly editable DCCP wiki? I'd rather not crea=
+te yet=20
+another page...
+--=20
+Regards,
+Tomasz Grobelny
