@@ -1,70 +1,44 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] bridge: fix IPV6=n build
-Date: Tue, 17 Jun 2008 09:42:14 -0700
-Message-ID: <20080617094214.c8cc2ce2.randy.dunlap@oracle.com>
+From: jes@trained-monkey.org (Jes Sorensen)
+Subject: Re: [PATCH] firmware: convert acenic driver to request_firmware()
+Date: Tue, 17 Jun 2008 12:50:49 -0400
+Message-ID: <18519.60265.235564.200017@jaguar.mkp.net>
+References: <1213608300.26255.665.camel@pmac.infradead.org>
+	<18518.37862.812419.353804@jaguar.mkp.net>
+	<1213636990.26255.822.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, davem@davemloft.net
-To: netdev <netdev@vger.kernel.org>, shemminger@linux-foundation.org
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jaswinder@infradead.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from jaguar.mkp.net ([192.139.46.146]:36137 "EHLO jaguar.mkp.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753340AbYFQQut (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 12:50:49 -0400
+In-Reply-To: <1213636990.26255.822.camel@pmac.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+>>>>> "David" == David Woodhouse <dwmw2@infradead.org> writes:
 
-Fix bridge netfilter code so that it uses CONFIG_IPV6 as needed:
+David> On Mon, 2008-06-16 at 12:25 -0400, Jes Sorensen wrote:
+David> We don't have hardware, so haven't been able to test it on either
+David> little-endian or big-endian machines, but we took care to ensure
+David> that it should work on both.
 
-net/built-in.o: In function `ebt_filter_ip6':
-ebt_ip6.c:(.text+0x87c37): undefined reference to `ipv6_skip_exthdr'
-net/built-in.o: In function `ebt_log_packet':
-ebt_log.c:(.text+0x88dee): undefined reference to `ipv6_skip_exthdr'
-make[1]: *** [.tmp_vmlinux1] Error 1
+Hmmm, I have the cards, but no BE boxes to plug them into - stop by and
+I'll give you one :-)
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- net/bridge/netfilter/Kconfig   |    2 +-
- net/bridge/netfilter/Makefile  |    2 +-
- net/bridge/netfilter/ebt_log.c |    2 ++
- 3 files changed, 4 insertions(+), 2 deletions(-)
+David> Since the CPU on the device is big-endian, I would be amenable to
+David> an argument that we should store the firmware in its native
+David> big-endian form, and load it with writel(be32_to_cpu()) instead.
 
---- linux-next-20080617.orig/net/bridge/netfilter/Kconfig
-+++ linux-next-20080617/net/bridge/netfilter/Kconfig
-@@ -85,7 +85,7 @@ config BRIDGE_EBT_IP
- 
- config BRIDGE_EBT_IP6
- 	tristate "ebt: IP6 filter support"
--	depends on BRIDGE_NF_EBTABLES
-+	depends on BRIDGE_NF_EBTABLES && IPV6
- 	help
- 	  This option adds the IP6 match, which allows basic IPV6 header field
- 	  filtering.
---- linux-next-20080617.orig/net/bridge/netfilter/Makefile
-+++ linux-next-20080617/net/bridge/netfilter/Makefile
-@@ -14,7 +14,7 @@ obj-$(CONFIG_BRIDGE_EBT_802_3) += ebt_80
- obj-$(CONFIG_BRIDGE_EBT_AMONG) += ebt_among.o
- obj-$(CONFIG_BRIDGE_EBT_ARP) += ebt_arp.o
- obj-$(CONFIG_BRIDGE_EBT_IP) += ebt_ip.o
--obj-$(CONFIG_BRIDGE_EBT_IP) += ebt_ip6.o
-+obj-$(CONFIG_BRIDGE_EBT_IP6) += ebt_ip6.o
- obj-$(CONFIG_BRIDGE_EBT_LIMIT) += ebt_limit.o
- obj-$(CONFIG_BRIDGE_EBT_MARK) += ebt_mark_m.o
- obj-$(CONFIG_BRIDGE_EBT_PKTTYPE) += ebt_pkttype.o
---- linux-next-20080617.orig/net/bridge/netfilter/ebt_log.c
-+++ linux-next-20080617/net/bridge/netfilter/ebt_log.c
-@@ -123,6 +123,7 @@ ebt_log_packet(unsigned int pf, unsigned
- 		goto out;
- 	}
- 
-+#if defined(CONFIG_BRIDGE_EBT_IP6) || defined(CONFIG_BRIDGE_EBT_IP6_MODULE)
- 	if ((bitmask & EBT_LOG_IP6) && eth_hdr(skb)->h_proto ==
- 	   htons(ETH_P_IPV6)) {
- 		const struct ipv6hdr *ih;
-@@ -146,6 +147,7 @@ ebt_log_packet(unsigned int pf, unsigned
- 		print_ports(skb, nexthdr, offset_ph);
- 		goto out;
- 	}
-+#endif
- 
- 	if ((bitmask & EBT_LOG_ARP) &&
- 	    ((eth_hdr(skb)->h_proto == htons(ETH_P_ARP)) ||
+David> It doesn't matter much either way, really.
+
+I'm not really biased, the card isn't in production anymore and there's
+fewer and fewer of them out there. As long as it works it's fine with
+me, but I guess I have a slight preference for staying as close to the
+original format as possible.
+
+Cheers,
+Jes
