@@ -1,35 +1,168 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2_poll panicking kernel
-Date: Tue, 17 Jun 2008 15:47:22 -0700
-Message-ID: <1213742842.5199.8.camel@dell>
-References: <20080616140454.GD5350@solarflare.com>
- <1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com>
- <20080616191354.GA11760@orion.carnet.hr>
- <20080616213821.GA8844@orion.carnet.hr>
- <20080616214829.GA9334@orion.carnet.hr>
- <1213659908.18055.26.camel@dell>
- <20080617223708.GA30292@orion.carnet.hr>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
+Date: Wed, 18 Jun 2008 00:47:32 +0200
+Message-ID: <f4845fc0806171547v88ff4d3gc56e9c43a4176a14@mail.gmail.com>
+References: <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>
+	 <20080613062621.GA10474@verge.net.au>
+	 <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com>
+	 <48528EED.7090307@trash.net>
+	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>
+	 <485652EA.2020004@trash.net>
+	 <f4845fc0806161619i4dc81dcao933d95aa6e09b45e@mail.gmail.com>
+	 <4857A58E.6080304@trash.net> <20080617171840.GB4064@google.com>
+	 <485819A8.1090004@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>, mirrors@debian.org
-To: "Josip Rodin" <joy@entuzijast.net>
+Cc: "Simon Horman" <horms@verge.net.au>,
+	"Vince Busam" <vbusam@google.com>,
+	"Ben Greear" <greearb@candelatech.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4426 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758299AbYFQWqA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 18:46:00 -0400
-In-Reply-To: <20080617223708.GA30292@orion.carnet.hr>
+Received: from smtp-out.google.com ([216.239.33.17]:35752 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758672AbYFQWrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 18:47:37 -0400
+Received: from zps36.corp.google.com (zps36.corp.google.com [172.25.146.36])
+	by smtp-out.google.com with ESMTP id m5HMlXsl010914
+	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 23:47:34 +0100
+Received: from yw-out-2324.google.com (ywj3.prod.google.com [10.192.10.3])
+	by zps36.corp.google.com with ESMTP id m5HMlWL9005680
+	for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 15:47:32 -0700
+Received: by yw-out-2324.google.com with SMTP id 3so3319815ywj.73
+        for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 15:47:32 -0700 (PDT)
+In-Reply-To: <485819A8.1090004@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-06-18 at 00:37 +0200, Josip Rodin wrote:
-> After applying this patch, two rsync runs went through without any problem,
-> yay.
-> 
-> Yet, there were no alerts from the new printk in the patch...?
+On Tue, Jun 17, 2008 at 10:08 PM, Patrick McHardy <kaber@trash.net> wrote:
+> Julius Volz wrote:
+>>
+>> Ok, so this is my draft version of the IPVS Generic Netlink interface
+>> definition. I'm posting this to see if anyone notices general problems
+>> with it right away.
+>
+> I'm not familiar with the ipvs interface itself, so I'll
+> stick to netlink related comments.
 
-Please keep monitoring the printks during future rsyncs with those HTB
-rules.  May be we're just lucky and not hitting the problem this time.
+Thanks, I very much appreciate the great feedback!
 
+> I personally don't find NLA_FLAG very useful since for
+> flags use usually want the flag and a mask, otherwise
+> you can't unset it without the convention that userspace
+> always includes it, even for change requests when it
+> doesn't want to change it. And that is unusual for netlink
+> and also needlessly complicated and racy in userspace since
+> you'd have to query the current value before sending a change
+> request.
+
+Makes sense, yes!
+
+> So these are lists I assume. I don't think we have any examples
+> of lists of nested attributes in the mainline kernel, but in
+> some similar (unsubmitted) code of mine I used (names adjusted):
+>
+> IPVS_SERVICE_LIST               - NLA_NESTED
+> IPCS_DEST_LIST                  - NLA_NESTED
+> IPVS_DAEMON_LIST                - NLA_NESTED
+
+Nicer naming! I will adopt that.
+
+> and
+>
+> IPVS_LIST_ELEM                  - NLA_NESTED
+>
+> for list elements of every kind. Since you can only put one
+> kind of element in the lists anyway (I think), different
+> types don't allow any increased flexibility and the LIST
+> naming is more clear in my opinion.
+
+However, since these container attributes (for daemons, services and
+dests) also appear as single elements outside of lists, it might be
+better to reuse the same names inside the list?
+
+>> IPVS_SVC_ATTR_AF                - NLA_U32
+>> IPVS_SVC_ATTR_PROTOCOL          - NLA_U32
+>> IPVS_SVC_ATTR_ADDR              - union nf_inet_addr
+>
+> This should probably use NLA_BINARY, which allows addresses
+> of any kind.
+
+Yes, the Netlink attribute type should really be NLA_BINARY. I just
+used the union as an informal way of saying what I really intended to
+store in there, though if some third address family came along, it
+could be something completely different.
+
+>> IPVS_SVC_ATTR_PORT              - NLA_U16
+>> IPVS_SVC_ATTR_FWMARK            - NLA_U32
+>> IPVS_SVC_ATTR_SCHED_NAME        - NLA_STRING
+>
+> NLA_NUL_STRING (at least for validation purposes)?
+
+Ah, looking closer at the validation code, that makes sense.
+
+>> IPVS_SVC_ATTR_FLAGS             - NLA_U32
+>
+> As I mentioned above, you usually want a MASK in combination
+> with flags to allow to unset them. This is best done using
+> a structure.
+
+Hm, I'm not sure if I understand exactly what this struct is supposed
+to look like. Could you give an example?
+
+>> IPVS_SVC_ATTR_TIMEOUT           - NLA_U32
+>> IPVS_SVC_ATTR_NETMASK           - NLA_U32
+>
+> Shouldn't this also be able to carry IPv6 masks?
+
+We only need the prefix length for IPv6, for which we reused the
+netmask field. This (only slightly) changes the semantics of the field
+between address families. Acceptable or better have a separate field
+for the prefix length?
+
+>> IPVS_SVC_ATTR_NUM_DESTS         - NLA_U32
+>
+> Is this number related to the IPVS_ENTRY_ATTR_DESTS list?
+> If so, it shouldn't be contained as seperate attribute,
+> that just allows for potential inconsistency.
+
+Yes, but this count is only returned from commands that do not at the
+same time return the list of destinations, so there is no
+inconsistency within a message. However, I'm pretty sure the count was
+only used in the old interface to allocate enough memory for the
+destination list, so it can probably be deleted anyways.
+
+>> IPVS_SVC_ATTR_STATS             - NLA_NESTED
+>>
+>> IPVS_DEST_ATTR_AF               - NLA_U32
+>
+> Doesn't the family have to be equal for service and dest?
+> If so, having it specified only once avoids potential
+> inconsistencies.
+
+Yes, this field can likely go away too. I was thinking about the fact
+that the family of the non-VIP interface of the destination could
+theoretically differ, but no support for that is currently planned.
+
+>> ========================== include/net/ip_vs.h ==========================
+>
+> Please put this under include/linux, this doesn't belong
+> here as its a public header.
+>
+
+He, that's the thing about IPVS. The current ipvsadm already directly
+includes this header from /usr/src/linux/include/net/ip_vs.h to
+compile.
+
+So we will have to keep the old header in the wrong location for old
+ipvsadm sources and create a new one only for the genetlink interface
+under include/linux.
+
+Thank you for spotting all this!
+
+Julius
+
+-- 
+Google Switzerland GmbH
