@@ -1,89 +1,68 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
- available to userspace
-Date: Tue, 17 Jun 2008 13:47:12 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0806171344370.25191@shark.he.net>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net>
- <200806150158.28488.tomasz@grobelny.oswiecenia.net>
- <20080617111638.GA14409@gerrit.erg.abdn.ac.uk> <200806172228.06801.tomasz@grobelny.oswiecenia.net>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] [Rev2] MPC5121 FEC support
+Date: Tue, 17 Jun 2008 23:00:55 +0200
+Message-ID: <20080617210055.GA13468@uranus.ravnborg.org>
+References: <1213729717-26688-1-git-send-email-jrigby@freescale.com> <48581188.90102@freescale.com> <20080617195739.GB13147@uranus.ravnborg.org> <485818AA.8090701@freescale.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, acme@redhat.com,
-	mtk.manpages@gmail.com, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Rigby <jrigby@freescale.com>, linuxppc-dev@ozlabs.org,
+	jeff@garzik.org, netdev@vger.kernel.org
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:43796 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754260AbYFQUrP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 16:47:15 -0400
-Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 17 Jun 2008 13:47:12 -0700
-In-Reply-To: <200806172228.06801.tomasz@grobelny.oswiecenia.net>
+Received: from pasmtpb.tele.dk ([80.160.77.98]:55786 "EHLO pasmtpB.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758529AbYFQVAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 17:00:12 -0400
+Content-Disposition: inline
+In-Reply-To: <485818AA.8090701@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Jun 2008, Tomasz Grobelny wrote:
-
-> Dnia Tuesday 17 of June 2008, Gerrit Renker napisa?:
-> > | In other words the basic question is: do we want to add new parameters to
-> > | existing qpolicies (then we need parameter discovery) or we don't want
-> > | new parameters (then we don't need information about parameters available
-> > | at runtime).
-> > |
-> > | Having defined the alternatives it's time to decide which is better. I,
-> > | of course, claim that mine (which is adding new parameters to existing
-> > | qpolicies). That's simply because I think that providing both
-> > | DCCP_SCM_TIMEOUT and DCCP_SCM_PRIORITY parameters may be useful. And I
-> > | don't see an obvoius way of achieving that goal with "new policy for new
-> > | parameter" approach.
-> >
-> > I agree that providing both parameters may be useful, but don't see this
-> > as a place of contradiction.
-> >
-> > In the kernel I think it is best to make it type-safe, i.e. no new
-> > parameters to already-defined policies. But I can't see how this would
-> > restrict the use.
-> > (...)
-> >
-> So we would need new policy for each new parameter, right? I somehow don't 
-> like it but it should work. You are right that this way runtime parameter 
-> discovery is not necessary. BTW, we will have a bit of a problem with naming 
-> qpolicies ;-)
+On Tue, Jun 17, 2008 at 03:03:54PM -0500, Scott Wood wrote:
+> Sam Ravnborg wrote:
+> >On Tue, Jun 17, 2008 at 02:33:28PM -0500, Scott Wood wrote:
+> >>John Rigby wrote:
+> >>>config FS_ENET
+> >>>       tristate "Freescale Ethernet Driver"
+> >>>-       depends on CPM1 || CPM2
+> >>>+       depends on CPM1 || CPM2 || FS_ENET_MPC5121_FEC
+> >>>       select MII
+> >>>       select PHYLIB
+> >>>
+> >>>+config FS_ENET_MPC5121_FEC
+> >>>+	bool "Freescale MPC512x FEC driver"
+> >>>+	depends on PPC_MPC512x
+> >>>+	select FS_ENET
+> >>>+	select PPC_CPM_NEW_BINDING
+> >>>+	default y
+> >>No default y.
+> >I by the way do not see the need for the prompt of FS_ENET.
 > 
-> > | > With a manpage I mean to document
-> > |
-> > | Is there any "man dccp"?
-> >
-> > Not yet. If you or someone else can find time to contribute towards a DCCP
-> > manpage, that would be just great. The best available information so far is
-> > on the OSDL pages for DCCP and Documentation/networking/dccp.txt.
-> >
-> But it's not in kernel sources? Then probably a new page would not be accepted 
-> as it would describe an experimental API. The above mentioned dccp.txt is 
-> probably the best place for now.
+> Agreed, especially since it's overly broad (there is Freescale ethernet 
+> hardware that this driver doesn't support).  We'd need to change depends 
+> into selects in the more specific entries.
 > 
-> > I think there is a special maintainer for the kernel manpages, who could
-> > be emailed with a basic manpage. But ther ere is a similar problem - if the
-> > API changes frequently, then this requires to update the manpage
-> > accordingly.
-
-Michael's contact info is at http://kernel.org/doc/man-pages/ .
-
-> I guess these would mostly be API additions, without any incompatible changes.
+> >Do you ever want to change it if one of the dependencies
+> >are selected?
 > 
-> > As alternatives to documentation, there are for example providing
-> >  *running source code,
-> I will for sure be working on some apps to demonstrate how the new interface 
-> can be used. But first I need to create a simple server/client transmitting 
-> G.726 encoded voice over UDP/RTP (any hints on that?)...
-> 
-> >  * web pages or
-> Is there any official, publicly editable DCCP wiki? I'd rather not create yet 
-> another page...
+> Do you mean if CPM1 or CPM2 is selected?  Yes, it's quite possible that 
+> the user has no need for the CPM ethernet and would rather reclaim the 
+> memory (especially on CPM1, which has boards as small as 8MiB).
 
-The Linux Foundation wiki is probably as close to official as it gets.
+I took a closer look now.
+And I can see that FS_ENET is indeed a driver and CPM1, CPM2,  FS_ENET_MPC5121_FEC
+are all booleans that say that it may make sense to use this driver.
 
-  http://www.linuxfoundation.org/en/Net:Main_Page
+But I was misguided by:
+>+config FS_ENET_MPC5121_FEC
+>+  select FS_ENET
+This is not good.
 
--- 
-~Randy
+In general when you select a symbol that has dependencies you are almost
+always on the wrong track.
+Use a dependency here with a sane default - then people can 
+set it to 'n' if they really do not want this driver.
+
+Spreading selects too much is just causing you pain in the long run.
+
+	Sam
