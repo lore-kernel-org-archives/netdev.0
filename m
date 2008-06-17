@@ -1,65 +1,68 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH 3/12] benet: net_object i/f functions, Makefile
-Date: Tue, 17 Jun 2008 21:26:10 +0200
-Message-ID: <20080617192610.GB12961@uranus.ravnborg.org>
-References: <20080612104007.d68b14bd@mailhost.serverengines.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH] [Rev2] MPC5121 FEC support
+Date: Tue, 17 Jun 2008 14:31:31 -0500
+Message-ID: <48581113.4060101@freescale.com>
+References: <1213729717-26688-1-git-send-email-jrigby@freescale.com> <20080617192237.GA12961@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Subbu Seetharaman <subbus@serverengines.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Rigby <jrigby@freescale.com>, linuxppc-dev@ozlabs.org,
+	jeff@garzik.org, netdev@vger.kernel.org
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpb.tele.dk ([80.160.77.98]:40898 "EHLO pasmtpB.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757013AbYFQTZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 15:25:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20080612104007.d68b14bd@mailhost.serverengines.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:34199 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757183AbYFQTbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 15:31:43 -0400
+In-Reply-To: <20080617192237.GA12961@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 12, 2008 at 03:40:07AM -0700, Subbu Seetharaman wrote:
-> Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
-> ---
->  drivers/net/benet/Makefile |   22 +
->  drivers/net/benet/bni.c    | 1177 ++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 1199 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/benet/Makefile
->  create mode 100644 drivers/net/benet/bni.c
+Sam Ravnborg wrote:
+>> +	data = of_get_property(ofdev->node, "fsl,align-tx-packets", &len);
+>> +	if (data && len == 4)
+>> +		fpi->align_tx_packets = *data;
+>> +
+> Where did "4" come from. USe a define with a desriptive name.
+
+It's sizeof(u32), i.e. one device tree cell.  This is fairly normal.
+
+>>  	fpi->rx_ring = 32;
+>>  	fpi->tx_ring = 32;
+> Same for "32"
+>>  	fpi->rx_copybreak = 240;
+> Same for "240".
+
+They're arbitrary tuning parameters.  How is a #define any more 
+descriptive than the field name?
+
+Besides, that's pre-existing, and has nothing to do with this patch.
+
+>> --- a/drivers/net/fs_enet/fs_enet.h
+>> +++ b/drivers/net/fs_enet/fs_enet.h
+>> @@ -10,12 +10,17 @@
+>>  
+>>  #include <linux/fs_enet_pd.h>
+>>  #include <asm/fs_pd.h>
+>> +#ifdef CONFIG_FS_ENET_MPC5121_FEC
+>> +#include "fec_mpc5121.h"
+>> +#endif
 > 
-> diff --git a/drivers/net/benet/Makefile b/drivers/net/benet/Makefile
-> new file mode 100644
-> index 0000000..0fe3297
-> --- /dev/null
-> +++ b/drivers/net/benet/Makefile
-> @@ -0,0 +1,22 @@
-> +#
-> +# Makefile to build the network driver for ServerEngine's BladeEngine.
-> +#
-> +BECLIBPATH = $(src)/../../message/beclib
-> +
-> +EXTRA_CFLAGS = -Wno-unknown-pragmas -DFUNCTION_NIC -I$(BECLIBPATH) \
-> +	-I$(BECLIBPATH)/fw -I$(BECLIBPATH)/fw/amap -I$(BECLIBPATH)/fw/bmap 
-> +
-> +obj-$(CONFIG_BENET) 	:= benet.o
-> +
-> +benet-objs	:=  be_init.o be_int.o be_netif.o be_ethtool.o bni.o \
-> +	../../message/beclib/funcobj_ll.o  \
-> +	../../message/beclib/chipobj_ll.o \
-> +	../../message/beclib/cq_ll.o \
-> +	../../message/beclib/eq_ll.o \
-> +	../../message/beclib/main_ll.o \
-> +	../../message/beclib/mpu_ll.o \
-> +	../../message/beclib/ethrx_ll.o \
-> +	../../message/beclib/ethtx_ll.o \
-> +	../../message/beclib/rxf_ll.o
+> Which is this include ifdeffed - looks like some wrong concept.
 
+This has already been discussed.  There are two similar but different 
+ethernet controllers that are being targeted, and the chips they are a 
+part of (8xx and 512x) are already mutually exclusive with respect to 
+multiplatform kernels due to core differences.
 
-I would have expected the message support to be implmented as a separate
-module with a nice interface used by benet.
-This would also kill the above misuse of kbuild.
+> The amount of ifdef introduced looks bad..
 
-No matter what you do then please use:
-benet-y := be_init.o be_int.o be_netif.o be_ethtool.o ...
-as replacement for benet-objs := ....
+Yes, it's bad -- but it's a matter of which is the lesser evil, a few 
+ifdefs or large amounts of mostly duplicated code.
 
-	Sam
+> And try to run the patch through scripts/checkpatch.pl
+> And try to split it up a bit.
+
+Other than the fec_t thing, I don't see any needed splitting...
+
+-Scott
