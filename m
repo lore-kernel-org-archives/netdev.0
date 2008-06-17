@@ -1,44 +1,16 @@
-From: jes@trained-monkey.org (Jes Sorensen)
-Subject: Re: [PATCH] firmware: convert acenic driver to request_firmware()
-Date: Tue, 17 Jun 2008 12:50:49 -0400
-Message-ID: <18519.60265.235564.200017@jaguar.mkp.net>
-References: <1213608300.26255.665.camel@pmac.infradead.org>
-	<18518.37862.812419.353804@jaguar.mkp.net>
-	<1213636990.26255.822.camel@pmac.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jaswinder@infradead.org
-To: David Woodhouse <dwmw2@infradead.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 0/3] Bridge patches for 2.6.27
+Date: Tue, 17 Jun 2008 09:52:11 -0700
+Message-ID: <20080617165211.615620784@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jaguar.mkp.net ([192.139.46.146]:36137 "EHLO jaguar.mkp.net"
+Received: from suva.vyatta.com ([69.59.150.140]:56912 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753340AbYFQQut (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 12:50:49 -0400
-In-Reply-To: <1213636990.26255.822.camel@pmac.infradead.org>
+	id S1754343AbYFQQwz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 12:52:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "David" == David Woodhouse <dwmw2@infradead.org> writes:
+-- 
 
-David> On Mon, 2008-06-16 at 12:25 -0400, Jes Sorensen wrote:
-David> We don't have hardware, so haven't been able to test it on either
-David> little-endian or big-endian machines, but we took care to ensure
-David> that it should work on both.
-
-Hmmm, I have the cards, but no BE boxes to plug them into - stop by and
-I'll give you one :-)
-
-David> Since the CPU on the device is big-endian, I would be amenable to
-David> an argument that we should store the firmware in its native
-David> big-endian form, and load it with writel(be32_to_cpu()) instead.
-
-David> It doesn't matter much either way, really.
-
-I'm not really biased, the card isn't in production anymore and there's
-fewer and fewer of them out there. As long as it works it's fine with
-me, but I guess I have a slight preference for staying as close to the
-original format as possible.
-
-Cheers,
-Jes
