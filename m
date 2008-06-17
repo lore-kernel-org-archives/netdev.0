@@ -1,541 +1,353 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH net-next-2.6 5/6] atm: [he] remove #ifdef clutter
-Date: Tue, 17 Jun 2008 09:16:38 -0400
-Message-ID: <200806171316.m5HDGcUo005908@cmf.nrl.navy.mil>
+Subject: [PATCH net-next-2.6 3/6] atm: use const where reasonable
+Date: Tue, 17 Jun 2008 09:16:22 -0400
+Message-ID: <200806171316.m5HDGMQp005884@cmf.nrl.navy.mil>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:53847 "EHLO
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:53841 "EHLO
 	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757128AbYFQNQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 09:16:43 -0400
+	with ESMTP id S1756893AbYFQNQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 09:16:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 69681e6f82cfb3386a06dc3f8101daf936b12f22
-Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
-Date:   Sat Jun 14 17:38:39 2008 -0400
+commit 086c29e3c2f5f39708822295677f272e7061facb
+Author: Mitchell Blank Jr <mitch@sfgoth.com>
+Date:   Sat Jun 14 17:35:55 2008 -0400
 
-    atm: [he] remove #ifdef clutter
+    atm: use const where reasonable
     
+    From: Mitchell Blank Jr <mitch@sfgoth.com>
     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index 320320e..88034d9 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -75,14 +75,8 @@
- #include <linux/atm.h>
- #include <linux/sonet.h>
+diff --git a/net/atm/addr.c b/net/atm/addr.c
+index 6afa77d..82e85ab 100644
+--- a/net/atm/addr.c
++++ b/net/atm/addr.c
+@@ -9,7 +9,7 @@
+ #include "signaling.h"
+ #include "addr.h"
  
--#define USE_TASKLET
- #undef USE_SCATTERGATHER
- #undef USE_CHECKSUM_HW			/* still confused about this */
--#define USE_RBPS
--#undef USE_RBPS_POOL			/* if memory is tight try this */
--#undef USE_RBPL_POOL			/* if memory is tight try this */
--#define USE_TPD_POOL
--/* #undef CONFIG_ATM_HE_USE_SUNI */
- /* #undef HE_DEBUG */
- 
- #include "he.h"
-@@ -388,9 +382,7 @@ he_init_one(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
- 	he_dev->atm_dev->dev_data = he_dev;
- 	atm_dev->dev_data = he_dev;
- 	he_dev->number = atm_dev->number;
--#ifdef USE_TASKLET
- 	tasklet_init(&he_dev->tasklet, he_tasklet, (unsigned long) he_dev);
--#endif
- 	spin_lock_init(&he_dev->global_lock);
- 
- 	if (he_start(atm_dev)) {
-@@ -787,23 +779,13 @@ he_init_group(struct he_dev *he_dev, int group)
+-static int check_addr(struct sockaddr_atmsvc *addr)
++static int check_addr(const struct sockaddr_atmsvc *addr)
  {
  	int i;
  
--#ifdef USE_RBPS
- 	/* small buffer pool */
--#ifdef USE_RBPS_POOL
- 	he_dev->rbps_pool = pci_pool_create("rbps", he_dev->pci_dev,
- 			CONFIG_RBPS_BUFSIZE, 8, 0);
- 	if (he_dev->rbps_pool == NULL) {
- 		hprintk("unable to create rbps pages\n");
- 		return -ENOMEM;
- 	}
--#else /* !USE_RBPS_POOL */
--	he_dev->rbps_pages = pci_alloc_consistent(he_dev->pci_dev,
--		CONFIG_RBPS_SIZE * CONFIG_RBPS_BUFSIZE, &he_dev->rbps_pages_phys);
--	if (he_dev->rbps_pages == NULL) {
--		hprintk("unable to create rbps page pool\n");
--		return -ENOMEM;
--	}
--#endif /* USE_RBPS_POOL */
+@@ -23,7 +23,7 @@ static int check_addr(struct sockaddr_atmsvc *addr)
+ 	return -EINVAL;
+ }
  
- 	he_dev->rbps_base = pci_alloc_consistent(he_dev->pci_dev,
- 		CONFIG_RBPS_SIZE * sizeof(struct he_rbp), &he_dev->rbps_phys);
-@@ -818,14 +800,9 @@ he_init_group(struct he_dev *he_dev, int group)
- 		dma_addr_t dma_handle;
- 		void *cpuaddr;
- 
--#ifdef USE_RBPS_POOL 
- 		cpuaddr = pci_pool_alloc(he_dev->rbps_pool, GFP_KERNEL|GFP_DMA, &dma_handle);
- 		if (cpuaddr == NULL)
- 			return -ENOMEM;
--#else
--		cpuaddr = he_dev->rbps_pages + (i * CONFIG_RBPS_BUFSIZE);
--		dma_handle = he_dev->rbps_pages_phys + (i * CONFIG_RBPS_BUFSIZE);
--#endif
- 
- 		he_dev->rbps_virt[i].virt = cpuaddr;
- 		he_dev->rbps_base[i].status = RBP_LOANED | RBP_SMALLBUF | (i << RBP_INDEX_OFF);
-@@ -844,30 +821,14 @@ he_init_group(struct he_dev *he_dev, int group)
- 			RBP_QSIZE(CONFIG_RBPS_SIZE - 1) |
- 			RBP_INT_ENB,
- 						G0_RBPS_QI + (group * 32));
--#else /* !USE_RBPS */
--	he_writel(he_dev, 0x0, G0_RBPS_S + (group * 32));
--	he_writel(he_dev, 0x0, G0_RBPS_T + (group * 32));
--	he_writel(he_dev, 0x0, G0_RBPS_QI + (group * 32));
--	he_writel(he_dev, RBP_THRESH(0x1) | RBP_QSIZE(0x0),
--						G0_RBPS_BS + (group * 32));
--#endif /* USE_RBPS */
- 
- 	/* large buffer pool */
--#ifdef USE_RBPL_POOL
- 	he_dev->rbpl_pool = pci_pool_create("rbpl", he_dev->pci_dev,
- 			CONFIG_RBPL_BUFSIZE, 8, 0);
- 	if (he_dev->rbpl_pool == NULL) {
- 		hprintk("unable to create rbpl pool\n");
- 		return -ENOMEM;
- 	}
--#else /* !USE_RBPL_POOL */
--	he_dev->rbpl_pages = (void *) pci_alloc_consistent(he_dev->pci_dev,
--		CONFIG_RBPL_SIZE * CONFIG_RBPL_BUFSIZE, &he_dev->rbpl_pages_phys);
--	if (he_dev->rbpl_pages == NULL) {
--		hprintk("unable to create rbpl pages\n");
--		return -ENOMEM;
--	}
--#endif /* USE_RBPL_POOL */
- 
- 	he_dev->rbpl_base = pci_alloc_consistent(he_dev->pci_dev,
- 		CONFIG_RBPL_SIZE * sizeof(struct he_rbp), &he_dev->rbpl_phys);
-@@ -882,14 +843,9 @@ he_init_group(struct he_dev *he_dev, int group)
- 		dma_addr_t dma_handle;
- 		void *cpuaddr;
- 
--#ifdef USE_RBPL_POOL
- 		cpuaddr = pci_pool_alloc(he_dev->rbpl_pool, GFP_KERNEL|GFP_DMA, &dma_handle);
- 		if (cpuaddr == NULL)
- 			return -ENOMEM;
--#else
--		cpuaddr = he_dev->rbpl_pages + (i * CONFIG_RBPL_BUFSIZE);
--		dma_handle = he_dev->rbpl_pages_phys + (i * CONFIG_RBPL_BUFSIZE);
--#endif
- 
- 		he_dev->rbpl_virt[i].virt = cpuaddr;
- 		he_dev->rbpl_base[i].status = RBP_LOANED | (i << RBP_INDEX_OFF);
-@@ -1475,7 +1431,6 @@ he_start(struct atm_dev *dev)
- 
- 	he_init_tpdrq(he_dev);
- 
--#ifdef USE_TPD_POOL
- 	he_dev->tpd_pool = pci_pool_create("tpd", he_dev->pci_dev,
- 		sizeof(struct he_tpd), TPD_ALIGNMENT, 0);
- 	if (he_dev->tpd_pool == NULL) {
-@@ -1484,20 +1439,6 @@ he_start(struct atm_dev *dev)
- 	}
- 
- 	INIT_LIST_HEAD(&he_dev->outstanding_tpds);
--#else
--	he_dev->tpd_base = (void *) pci_alloc_consistent(he_dev->pci_dev,
--			CONFIG_NUMTPDS * sizeof(struct he_tpd), &he_dev->tpd_base_phys);
--	if (!he_dev->tpd_base)
--		return -ENOMEM;
--
--	for (i = 0; i < CONFIG_NUMTPDS; ++i) {
--		he_dev->tpd_base[i].status = (i << TPD_ADDR_SHIFT);
--		he_dev->tpd_base[i].inuse = 0;
--	}
--		
--	he_dev->tpd_head = he_dev->tpd_base;
--	he_dev->tpd_end = &he_dev->tpd_base[CONFIG_NUMTPDS - 1];
--#endif
- 
- 	if (he_init_group(he_dev, 0) != 0)
- 		return -ENOMEM;
-@@ -1605,9 +1546,7 @@ he_stop(struct he_dev *he_dev)
- 		gen_cntl_0 &= ~(INT_PROC_ENBL | INIT_ENB);
- 		pci_write_config_dword(pci_dev, GEN_CNTL_0, gen_cntl_0);
- 
--#ifdef USE_TASKLET
- 		tasklet_disable(&he_dev->tasklet);
--#endif
- 
- 		/* disable recv and transmit */
- 
-@@ -1637,7 +1576,6 @@ he_stop(struct he_dev *he_dev)
- 						he_dev->hsp, he_dev->hsp_phys);
- 
- 	if (he_dev->rbpl_base) {
--#ifdef USE_RBPL_POOL
- 		int i;
- 
- 		for (i = 0; i < CONFIG_RBPL_SIZE; ++i) {
-@@ -1646,22 +1584,14 @@ he_stop(struct he_dev *he_dev)
- 
- 			pci_pool_free(he_dev->rbpl_pool, cpuaddr, dma_handle);
- 		}
--#else
--		pci_free_consistent(he_dev->pci_dev, CONFIG_RBPL_SIZE
--			* CONFIG_RBPL_BUFSIZE, he_dev->rbpl_pages, he_dev->rbpl_pages_phys);
--#endif
- 		pci_free_consistent(he_dev->pci_dev, CONFIG_RBPL_SIZE
- 			* sizeof(struct he_rbp), he_dev->rbpl_base, he_dev->rbpl_phys);
- 	}
- 
--#ifdef USE_RBPL_POOL
- 	if (he_dev->rbpl_pool)
- 		pci_pool_destroy(he_dev->rbpl_pool);
--#endif
- 
--#ifdef USE_RBPS
- 	if (he_dev->rbps_base) {
--#ifdef USE_RBPS_POOL
- 		int i;
- 
- 		for (i = 0; i < CONFIG_RBPS_SIZE; ++i) {
-@@ -1670,20 +1600,12 @@ he_stop(struct he_dev *he_dev)
- 
- 			pci_pool_free(he_dev->rbps_pool, cpuaddr, dma_handle);
- 		}
--#else
--		pci_free_consistent(he_dev->pci_dev, CONFIG_RBPS_SIZE
--			* CONFIG_RBPS_BUFSIZE, he_dev->rbps_pages, he_dev->rbps_pages_phys);
--#endif
- 		pci_free_consistent(he_dev->pci_dev, CONFIG_RBPS_SIZE
- 			* sizeof(struct he_rbp), he_dev->rbps_base, he_dev->rbps_phys);
- 	}
- 
--#ifdef USE_RBPS_POOL
- 	if (he_dev->rbps_pool)
- 		pci_pool_destroy(he_dev->rbps_pool);
--#endif
--
--#endif /* USE_RBPS */
- 
- 	if (he_dev->rbrq_base)
- 		pci_free_consistent(he_dev->pci_dev, CONFIG_RBRQ_SIZE * sizeof(struct he_rbrq),
-@@ -1697,14 +1619,8 @@ he_stop(struct he_dev *he_dev)
- 		pci_free_consistent(he_dev->pci_dev, CONFIG_TBRQ_SIZE * sizeof(struct he_tbrq),
- 							he_dev->tpdrq_base, he_dev->tpdrq_phys);
- 
--#ifdef USE_TPD_POOL
- 	if (he_dev->tpd_pool)
- 		pci_pool_destroy(he_dev->tpd_pool);
--#else
--	if (he_dev->tpd_base)
--		pci_free_consistent(he_dev->pci_dev, CONFIG_NUMTPDS * sizeof(struct he_tpd),
--							he_dev->tpd_base, he_dev->tpd_base_phys);
--#endif
- 
- 	if (he_dev->pci_dev) {
- 		pci_read_config_word(he_dev->pci_dev, PCI_COMMAND, &command);
-@@ -1719,7 +1635,6 @@ he_stop(struct he_dev *he_dev)
- static struct he_tpd *
- __alloc_tpd(struct he_dev *he_dev)
+-static int identical(struct sockaddr_atmsvc *a, struct sockaddr_atmsvc *b)
++static int identical(const struct sockaddr_atmsvc *a, const struct sockaddr_atmsvc *b)
  {
--#ifdef USE_TPD_POOL
- 	struct he_tpd *tpd;
- 	dma_addr_t dma_handle; 
- 
-@@ -1734,27 +1649,6 @@ __alloc_tpd(struct he_dev *he_dev)
- 	tpd->iovec[2].addr = 0; tpd->iovec[2].len = 0;
- 
- 	return tpd;
--#else
--	int i;
--
--	for (i = 0; i < CONFIG_NUMTPDS; ++i) {
--		++he_dev->tpd_head;
--		if (he_dev->tpd_head > he_dev->tpd_end) {
--			he_dev->tpd_head = he_dev->tpd_base;
--		}
--
--		if (!he_dev->tpd_head->inuse) {
--			he_dev->tpd_head->inuse = 1;
--			he_dev->tpd_head->status &= TPD_MASK;
--			he_dev->tpd_head->iovec[0].addr = 0; he_dev->tpd_head->iovec[0].len = 0;
--			he_dev->tpd_head->iovec[1].addr = 0; he_dev->tpd_head->iovec[1].len = 0;
--			he_dev->tpd_head->iovec[2].addr = 0; he_dev->tpd_head->iovec[2].len = 0;
--			return he_dev->tpd_head;
--		}
--	}
--	hprintk("out of tpds -- increase CONFIG_NUMTPDS (%d)\n", CONFIG_NUMTPDS);
--	return NULL;
--#endif
+ 	if (*a->sas_addr.prv)
+ 		if (memcmp(a->sas_addr.prv, b->sas_addr.prv, ATM_ESA_LEN))
+@@ -35,7 +35,7 @@ static int identical(struct sockaddr_atmsvc *a, struct sockaddr_atmsvc *b)
+ 	return !strcmp(a->sas_addr.pub, b->sas_addr.pub);
  }
  
- #define AAL5_LEN(buf,len) 						\
-@@ -1803,11 +1697,9 @@ he_service_rbrq(struct he_dev *he_dev, int group)
- 			RBRQ_CON_CLOSED(he_dev->rbrq_head) ? " CON_CLOSED" : "",
- 			RBRQ_HBUF_ERR(he_dev->rbrq_head) ? " HBUF_ERR" : "");
- 
--#ifdef USE_RBPS
- 		if (RBRQ_ADDR(he_dev->rbrq_head) & RBP_SMALLBUF)
- 			rbp = &he_dev->rbps_base[RBP_INDEX(RBRQ_ADDR(he_dev->rbrq_head))];
- 		else
--#endif
- 			rbp = &he_dev->rbpl_base[RBP_INDEX(RBRQ_ADDR(he_dev->rbrq_head))];
- 		
- 		buf_len = RBRQ_BUFLEN(he_dev->rbrq_head) * 4;
-@@ -1886,12 +1778,10 @@ he_service_rbrq(struct he_dev *he_dev, int group)
- 
- 		for (iov = he_vcc->iov_head;
- 				iov < he_vcc->iov_tail; ++iov) {
--#ifdef USE_RBPS
- 			if (iov->iov_base & RBP_SMALLBUF)
- 				memcpy(skb_put(skb, iov->iov_len),
- 					he_dev->rbps_virt[RBP_INDEX(iov->iov_base)].virt, iov->iov_len);
- 			else
--#endif
- 				memcpy(skb_put(skb, iov->iov_len),
- 					he_dev->rbpl_virt[RBP_INDEX(iov->iov_base)].virt, iov->iov_len);
- 		}
-@@ -1936,11 +1826,9 @@ return_host_buffers:
- 
- 		for (iov = he_vcc->iov_head;
- 				iov < he_vcc->iov_tail; ++iov) {
--#ifdef USE_RBPS
- 			if (iov->iov_base & RBP_SMALLBUF)
- 				rbp = &he_dev->rbps_base[RBP_INDEX(iov->iov_base)];
- 			else
--#endif
- 				rbp = &he_dev->rbpl_base[RBP_INDEX(iov->iov_base)];
- 
- 			rbp->status &= ~RBP_LOANED;
-@@ -1976,9 +1864,7 @@ he_service_tbrq(struct he_dev *he_dev, int group)
- 					he_dev->hsp->group[group].tbrq_tail);
- 	struct he_tpd *tpd;
- 	int slot, updated = 0;
--#ifdef USE_TPD_POOL
- 	struct he_tpd *__tpd;
--#endif
- 
- 	/* 2.1.6 transmit buffer return queue */
- 
-@@ -1990,7 +1876,6 @@ he_service_tbrq(struct he_dev *he_dev, int group)
- 			TBRQ_TPD(he_dev->tbrq_head), 
- 			TBRQ_EOS(he_dev->tbrq_head) ? " EOS" : "",
- 			TBRQ_MULTIPLE(he_dev->tbrq_head) ? " MULTIPLE" : "");
--#ifdef USE_TPD_POOL
- 		tpd = NULL;
- 		list_for_each_entry(__tpd, &he_dev->outstanding_tpds, entry) {
- 			if (TPD_ADDR(__tpd->status) == TBRQ_TPD(he_dev->tbrq_head)) {
-@@ -2005,9 +1890,6 @@ he_service_tbrq(struct he_dev *he_dev, int group)
- 						TBRQ_TPD(he_dev->tbrq_head));
- 			goto next_tbrq_entry;
- 		}
--#else
--		tpd = &he_dev->tpd_base[ TPD_INDEX(TBRQ_TPD(he_dev->tbrq_head)) ];
--#endif
- 
- 		if (TBRQ_EOS(he_dev->tbrq_head)) {
- 			HPRINTK("wake_up(tx_waitq) cid 0x%x\n",
-@@ -2037,12 +1919,8 @@ he_service_tbrq(struct he_dev *he_dev, int group)
- 		}
- 
- next_tbrq_entry:
--#ifdef USE_TPD_POOL
- 		if (tpd)
- 			pci_pool_free(he_dev->tpd_pool, tpd, TPD_ADDR(tpd->status));
--#else
--		tpd->inuse = 0;
--#endif
- 		he_dev->tbrq_head = (struct he_tbrq *)
- 				((unsigned long) he_dev->tbrq_base |
- 					TBRQ_MASK(++he_dev->tbrq_head));
-@@ -2085,7 +1963,6 @@ he_service_rbpl(struct he_dev *he_dev, int group)
- 		he_writel(he_dev, RBPL_MASK(he_dev->rbpl_tail), G0_RBPL_T);
- }
- 
--#ifdef USE_RBPS
- static void
- he_service_rbps(struct he_dev *he_dev, int group)
+-static void notify_sigd(struct atm_dev *dev)
++static void notify_sigd(const struct atm_dev *dev)
  {
-@@ -2112,7 +1989,6 @@ he_service_rbps(struct he_dev *he_dev, int group)
- 	if (moved)
- 		he_writel(he_dev, RBPS_MASK(he_dev->rbps_tail), G0_RBPS_T);
- }
--#endif /* USE_RBPS */
+ 	struct sockaddr_atmpvc pvc;
  
- static void
- he_tasklet(unsigned long data)
-@@ -2123,9 +1999,7 @@ he_tasklet(unsigned long data)
- 	int updated = 0;
- 
- 	HPRINTK("tasklet (0x%lx)\n", data);
--#ifdef USE_TASKLET
- 	spin_lock_irqsave(&he_dev->global_lock, flags);
--#endif
- 
- 	while (he_dev->irq_head != he_dev->irq_tail) {
- 		++updated;
-@@ -2140,9 +2014,7 @@ he_tasklet(unsigned long data)
- 			case ITYPE_RBRQ_TIMER:
- 				if (he_service_rbrq(he_dev, group)) {
- 					he_service_rbpl(he_dev, group);
--#ifdef USE_RBPS
- 					he_service_rbps(he_dev, group);
--#endif /* USE_RBPS */
- 				}
- 				break;
- 			case ITYPE_TBRQ_THRESH:
-@@ -2155,9 +2027,7 @@ he_tasklet(unsigned long data)
- 				he_service_rbpl(he_dev, group);
- 				break;
- 			case ITYPE_RBPS_THRESH:
--#ifdef USE_RBPS
- 				he_service_rbps(he_dev, group);
--#endif /* USE_RBPS */
- 				break;
- 			case ITYPE_PHY:
- 				HPRINTK("phy interrupt\n");
-@@ -2185,9 +2055,7 @@ he_tasklet(unsigned long data)
- 
- 				he_service_rbrq(he_dev, 0);
- 				he_service_rbpl(he_dev, 0);
--#ifdef USE_RBPS
- 				he_service_rbps(he_dev, 0);
--#endif /* USE_RBPS */
- 				he_service_tbrq(he_dev, 0);
- 				break;
- 			default:
-@@ -2209,9 +2077,7 @@ he_tasklet(unsigned long data)
- 			IRQ_TAIL(he_dev->irq_tail), IRQ0_HEAD);
- 		(void) he_readl(he_dev, INT_FIFO); /* 8.1.2 controller errata; flush posted writes */
- 	}
--#ifdef USE_TASKLET
- 	spin_unlock_irqrestore(&he_dev->global_lock, flags);
--#endif
+@@ -63,7 +63,7 @@ void atm_reset_addr(struct atm_dev *dev, enum atm_addr_type_t atype)
+ 		notify_sigd(dev);
  }
  
- static irqreturn_t
-@@ -2243,11 +2109,7 @@ he_irq_handler(int irq, void *dev_id)
+-int atm_add_addr(struct atm_dev *dev, struct sockaddr_atmsvc *addr,
++int atm_add_addr(struct atm_dev *dev, const struct sockaddr_atmsvc *addr,
+ 		 enum atm_addr_type_t atype)
+ {
+ 	unsigned long flags;
+@@ -98,7 +98,7 @@ int atm_add_addr(struct atm_dev *dev, struct sockaddr_atmsvc *addr,
+ 	return 0;
+ }
  
- 	if (he_dev->irq_head != he_dev->irq_tail) {
- 		handled = 1;
--#ifdef USE_TASKLET
- 		tasklet_schedule(&he_dev->tasklet);
--#else
--		he_tasklet((unsigned long) he_dev);
--#endif
- 		he_writel(he_dev, INT_CLEAR_A, INT_FIFO);	/* clear interrupt */
- 		(void) he_readl(he_dev, INT_FIFO);		/* flush posted writes */
- 	}
-@@ -2304,23 +2166,14 @@ __enqueue_tpd(struct he_dev *he_dev, struct he_tpd *tpd, unsigned cid)
- 					dev_kfree_skb_any(tpd->skb);
- 				atomic_inc(&tpd->vcc->stats->tx_err);
- 			}
--#ifdef USE_TPD_POOL
- 			pci_pool_free(he_dev->tpd_pool, tpd, TPD_ADDR(tpd->status));
--#else
--			tpd->inuse = 0;
--#endif
- 			return;
- 		}
- 	}
+-int atm_del_addr(struct atm_dev *dev, struct sockaddr_atmsvc *addr,
++int atm_del_addr(struct atm_dev *dev, const struct sockaddr_atmsvc *addr,
+ 		 enum atm_addr_type_t atype)
+ {
+ 	unsigned long flags;
+diff --git a/net/atm/addr.h b/net/atm/addr.h
+index f39433a..6837e9e 100644
+--- a/net/atm/addr.h
++++ b/net/atm/addr.h
+@@ -10,9 +10,9 @@
+ #include <linux/atmdev.h>
  
- 	/* 2.1.5 transmit packet descriptor ready queue */
--#ifdef USE_TPD_POOL
- 	list_add_tail(&tpd->entry, &he_dev->outstanding_tpds);
- 	he_dev->tpdrq_tail->tpd = TPD_ADDR(tpd->status);
--#else
--	he_dev->tpdrq_tail->tpd = he_dev->tpd_base_phys +
--				(TPD_INDEX(tpd->status) * sizeof(struct he_tpd));
--#endif
- 	he_dev->tpdrq_tail->cid = cid;
- 	wmb();
+ void atm_reset_addr(struct atm_dev *dev, enum atm_addr_type_t type);
+-int atm_add_addr(struct atm_dev *dev, struct sockaddr_atmsvc *addr,
++int atm_add_addr(struct atm_dev *dev, const struct sockaddr_atmsvc *addr,
+ 		 enum atm_addr_type_t type);
+-int atm_del_addr(struct atm_dev *dev, struct sockaddr_atmsvc *addr,
++int atm_del_addr(struct atm_dev *dev, const struct sockaddr_atmsvc *addr,
+ 		 enum atm_addr_type_t type);
+ int atm_get_addr(struct atm_dev *dev, struct sockaddr_atmsvc __user *buf,
+ 		 size_t size, enum atm_addr_type_t type);
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 05fafdc..8d9a6f1 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -52,12 +52,12 @@ static void skb_debug(const struct sk_buff *skb)
+ #define ETHERTYPE_IPV6	0x86, 0xdd
+ #define PAD_BRIDGED	0x00, 0x00
  
-@@ -2510,13 +2363,8 @@ he_open(struct atm_vcc *vcc)
- 			goto open_failed;
- 		}
+-static unsigned char ethertype_ipv4[] = { ETHERTYPE_IPV4 };
+-static unsigned char ethertype_ipv6[] = { ETHERTYPE_IPV6 };
+-static unsigned char llc_oui_pid_pad[] =
++static const unsigned char ethertype_ipv4[] = { ETHERTYPE_IPV4 };
++static const unsigned char ethertype_ipv6[] = { ETHERTYPE_IPV6 };
++static const unsigned char llc_oui_pid_pad[] =
+ 			{ LLC, SNAP_BRIDGED, PID_ETHERNET, PAD_BRIDGED };
+-static unsigned char llc_oui_ipv4[] = { LLC, SNAP_ROUTED, ETHERTYPE_IPV4 };
+-static unsigned char llc_oui_ipv6[] = { LLC, SNAP_ROUTED, ETHERTYPE_IPV6 };
++static const unsigned char llc_oui_ipv4[] = { LLC, SNAP_ROUTED, ETHERTYPE_IPV4 };
++static const unsigned char llc_oui_ipv6[] = { LLC, SNAP_ROUTED, ETHERTYPE_IPV6 };
  
--#ifdef USE_RBPS
- 		rsr1 = RSR1_GROUP(0);
- 		rsr4 = RSR4_GROUP(0);
--#else /* !USE_RBPS */
--		rsr1 = RSR1_GROUP(0)|RSR1_RBPL_ONLY;
--		rsr4 = RSR4_GROUP(0)|RSR4_RBPL_ONLY;
--#endif /* USE_RBPS */
- 		rsr0 = vcc->qos.rxtp.traffic_class == ATM_UBR ? 
- 				(RSR0_EPD_ENABLE|RSR0_PPD_ENABLE) : 0;
+ enum br2684_encaps {
+ 	e_vc = BR2684_ENCAPS_VC,
+@@ -217,8 +217,8 @@ static int br2684_xmit_vcc(struct sk_buff *skb, struct br2684_dev *brdev,
+ 	return 1;
+ }
  
-diff --git a/drivers/atm/he.h b/drivers/atm/he.h
-index a54d64f..07d40e7 100644
---- a/drivers/atm/he.h
-+++ b/drivers/atm/he.h
-@@ -51,8 +51,6 @@
- #define CONFIG_IRQ_SIZE		128
- #define CONFIG_IRQ_THRESH	(CONFIG_IRQ_SIZE/2)
+-static inline struct br2684_vcc *pick_outgoing_vcc(struct sk_buff *skb,
+-						   struct br2684_dev *brdev)
++static inline struct br2684_vcc *pick_outgoing_vcc(const struct sk_buff *skb,
++						   const struct br2684_dev *brdev)
+ {
+ 	return list_empty(&brdev->brvccs) ? NULL : list_entry_brvcc(brdev->brvccs.next);	/* 1 vcc/dev right now */
+ }
+diff --git a/net/atm/common.c b/net/atm/common.c
+index 843cae4..78fbbf2 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -261,7 +261,7 @@ static int adjust_tp(struct atm_trafprm *tp,unsigned char aal)
+ }
  
--#define CONFIG_NUMTPDS		256
--
- #define CONFIG_TPDRQ_SIZE	512
- #define TPDRQ_MASK(x)		(((unsigned long)(x))&((CONFIG_TPDRQ_SIZE<<3)-1))
  
-@@ -140,12 +138,7 @@ struct he_tpd {
+-static int check_ci(struct atm_vcc *vcc, short vpi, int vci)
++static int check_ci(const struct atm_vcc *vcc, short vpi, int vci)
+ {
+ 	struct hlist_head *head = &vcc_hash[vci &
+ 					(VCC_HTABLE_SIZE - 1)];
+@@ -289,7 +289,7 @@ static int check_ci(struct atm_vcc *vcc, short vpi, int vci)
+ }
+ 
+ 
+-static int find_ci(struct atm_vcc *vcc, short *vpi, int *vci)
++static int find_ci(const struct atm_vcc *vcc, short *vpi, int *vci)
+ {
+ 	static short p;        /* poor man's per-device cache */
+ 	static int c;
+@@ -637,7 +637,7 @@ static int atm_change_qos(struct atm_vcc *vcc,struct atm_qos *qos)
+ }
+ 
+ 
+-static int check_tp(struct atm_trafprm *tp)
++static int check_tp(const struct atm_trafprm *tp)
+ {
+ 	/* @@@ Should be merged with adjust_tp */
+ 	if (!tp->traffic_class || tp->traffic_class == ATM_ANYCLASS) return 0;
+@@ -654,7 +654,7 @@ static int check_tp(struct atm_trafprm *tp)
+ }
+ 
+ 
+-static int check_qos(struct atm_qos *qos)
++static int check_qos(const struct atm_qos *qos)
+ {
+ 	int error;
+ 
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index bb506c0..d169002 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -65,36 +65,36 @@ static int lec_close(struct net_device *dev);
+ static struct net_device_stats *lec_get_stats(struct net_device *dev);
+ static void lec_init(struct net_device *dev);
+ static struct lec_arp_table *lec_arp_find(struct lec_priv *priv,
+-					  unsigned char *mac_addr);
++					  const unsigned char *mac_addr);
+ static int lec_arp_remove(struct lec_priv *priv,
+ 			  struct lec_arp_table *to_remove);
+ /* LANE2 functions */
+-static void lane2_associate_ind(struct net_device *dev, u8 *mac_address,
+-				u8 *tlvs, u32 sizeoftlvs);
+-static int lane2_resolve(struct net_device *dev, u8 *dst_mac, int force,
++static void lane2_associate_ind(struct net_device *dev, const u8 *mac_address,
++				const u8 *tlvs, u32 sizeoftlvs);
++static int lane2_resolve(struct net_device *dev, const u8 *dst_mac, int force,
+ 			 u8 **tlvs, u32 *sizeoftlvs);
+-static int lane2_associate_req(struct net_device *dev, u8 *lan_dst,
+-			       u8 *tlvs, u32 sizeoftlvs);
++static int lane2_associate_req(struct net_device *dev, const u8 *lan_dst,
++			       const u8 *tlvs, u32 sizeoftlvs);
+ 
+-static int lec_addr_delete(struct lec_priv *priv, unsigned char *atm_addr,
++static int lec_addr_delete(struct lec_priv *priv, const unsigned char *atm_addr,
+ 			   unsigned long permanent);
+ static void lec_arp_check_empties(struct lec_priv *priv,
+ 				  struct atm_vcc *vcc, struct sk_buff *skb);
+ static void lec_arp_destroy(struct lec_priv *priv);
+ static void lec_arp_init(struct lec_priv *priv);
+ static struct atm_vcc *lec_arp_resolve(struct lec_priv *priv,
+-				       unsigned char *mac_to_find,
++				       const unsigned char *mac_to_find,
+ 				       int is_rdesc,
+ 				       struct lec_arp_table **ret_entry);
+-static void lec_arp_update(struct lec_priv *priv, unsigned char *mac_addr,
+-			   unsigned char *atm_addr, unsigned long remoteflag,
++static void lec_arp_update(struct lec_priv *priv, const unsigned char *mac_addr,
++			   const unsigned char *atm_addr, unsigned long remoteflag,
+ 			   unsigned int targetless_le_arp);
+ static void lec_flush_complete(struct lec_priv *priv, unsigned long tran_id);
+ static int lec_mcast_make(struct lec_priv *priv, struct atm_vcc *vcc);
+ static void lec_set_flush_tran_id(struct lec_priv *priv,
+-				  unsigned char *atm_addr,
++				  const unsigned char *atm_addr,
+ 				  unsigned long tran_id);
+-static void lec_vcc_added(struct lec_priv *priv, struct atmlec_ioc *ioc_data,
++static void lec_vcc_added(struct lec_priv *priv, const struct atmlec_ioc *ioc_data,
+ 			  struct atm_vcc *vcc,
+ 			  void (*old_push) (struct atm_vcc *vcc,
+ 					    struct sk_buff *skb));
+@@ -634,7 +634,7 @@ static struct atm_dev lecatm_dev = {
+  */
+ static int
+ send_to_lecd(struct lec_priv *priv, atmlec_msg_type type,
+-	     unsigned char *mac_addr, unsigned char *atm_addr,
++	     const unsigned char *mac_addr, const unsigned char *atm_addr,
+ 	     struct sk_buff *data)
+ {
+ 	struct sock *sk;
+@@ -705,10 +705,9 @@ static void lec_init(struct net_device *dev)
+ 	dev->set_multicast_list = lec_set_multicast_list;
+ 	dev->do_ioctl = NULL;
+ 	printk("%s: Initialized!\n", dev->name);
+-	return;
+ }
+ 
+-static unsigned char lec_ctrl_magic[] = {
++static const unsigned char lec_ctrl_magic[] = {
+ 	0xff,
+ 	0x00,
+ 	0x01,
+@@ -1275,7 +1274,7 @@ module_exit(lane_module_cleanup);
+  * lec will be used.
+  * If dst_mac == NULL, targetless LE_ARP will be sent
+  */
+-static int lane2_resolve(struct net_device *dev, u8 *dst_mac, int force,
++static int lane2_resolve(struct net_device *dev, const u8 *dst_mac, int force,
+ 			 u8 **tlvs, u32 *sizeoftlvs)
+ {
+ 	unsigned long flags;
+@@ -1321,8 +1320,8 @@ static int lane2_resolve(struct net_device *dev, u8 *dst_mac, int force,
+  * Returns 1 for success, 0 for failure (out of memory)
+  *
+  */
+-static int lane2_associate_req(struct net_device *dev, u8 *lan_dst,
+-			       u8 *tlvs, u32 sizeoftlvs)
++static int lane2_associate_req(struct net_device *dev, const u8 *lan_dst,
++			       const u8 *tlvs, u32 sizeoftlvs)
+ {
+ 	int retval;
  	struct sk_buff *skb;
- 	struct atm_vcc *vcc;
+@@ -1357,8 +1356,8 @@ static int lane2_associate_req(struct net_device *dev, u8 *lan_dst,
+  * LANE2: 3.1.5, LE_ASSOCIATE.indication
+  *
+  */
+-static void lane2_associate_ind(struct net_device *dev, u8 *mac_addr,
+-				u8 *tlvs, u32 sizeoftlvs)
++static void lane2_associate_ind(struct net_device *dev, const u8 *mac_addr,
++				const u8 *tlvs, u32 sizeoftlvs)
+ {
+ #if 0
+ 	int i = 0;
+@@ -1743,7 +1742,7 @@ static void lec_arp_destroy(struct lec_priv *priv)
+  * Find entry by mac_address
+  */
+ static struct lec_arp_table *lec_arp_find(struct lec_priv *priv,
+-					  unsigned char *mac_addr)
++					  const unsigned char *mac_addr)
+ {
+ 	struct hlist_node *node;
+ 	struct hlist_head *head;
+@@ -1763,7 +1762,7 @@ static struct lec_arp_table *lec_arp_find(struct lec_priv *priv,
+ }
  
--#ifdef USE_TPD_POOL
- 	struct list_head entry;
--#else
--	u32 inuse;
--	char padding[32 - sizeof(u32) - (2*sizeof(void*))];
--#endif
+ static struct lec_arp_table *make_entry(struct lec_priv *priv,
+-					unsigned char *mac_addr)
++					const unsigned char *mac_addr)
+ {
+ 	struct lec_arp_table *to_return;
+ 
+@@ -1920,7 +1919,7 @@ restart:
+  *
+  */
+ static struct atm_vcc *lec_arp_resolve(struct lec_priv *priv,
+-				       unsigned char *mac_to_find, int is_rdesc,
++				       const unsigned char *mac_to_find, int is_rdesc,
+ 				       struct lec_arp_table **ret_entry)
+ {
+ 	unsigned long flags;
+@@ -2016,7 +2015,7 @@ out:
+ }
+ 
+ static int
+-lec_addr_delete(struct lec_priv *priv, unsigned char *atm_addr,
++lec_addr_delete(struct lec_priv *priv, const unsigned char *atm_addr,
+ 		unsigned long permanent)
+ {
+ 	unsigned long flags;
+@@ -2046,8 +2045,8 @@ lec_addr_delete(struct lec_priv *priv, unsigned char *atm_addr,
+  * Notifies:  Response to arp_request (atm_addr != NULL)
+  */
+ static void
+-lec_arp_update(struct lec_priv *priv, unsigned char *mac_addr,
+-	       unsigned char *atm_addr, unsigned long remoteflag,
++lec_arp_update(struct lec_priv *priv, const unsigned char *mac_addr,
++	       const unsigned char *atm_addr, unsigned long remoteflag,
+ 	       unsigned int targetless_le_arp)
+ {
+ 	unsigned long flags;
+@@ -2147,7 +2146,7 @@ out:
+  * Notifies: Vcc setup ready
+  */
+ static void
+-lec_vcc_added(struct lec_priv *priv, struct atmlec_ioc *ioc_data,
++lec_vcc_added(struct lec_priv *priv, const struct atmlec_ioc *ioc_data,
+ 	      struct atm_vcc *vcc,
+ 	      void (*old_push) (struct atm_vcc *vcc, struct sk_buff *skb))
+ {
+@@ -2335,7 +2334,7 @@ restart:
+ 
+ static void
+ lec_set_flush_tran_id(struct lec_priv *priv,
+-		      unsigned char *atm_addr, unsigned long tran_id)
++		      const unsigned char *atm_addr, unsigned long tran_id)
+ {
+ 	unsigned long flags;
+ 	struct hlist_node *node;
+diff --git a/net/atm/lec.h b/net/atm/lec.h
+index b41cda7..0d37668 100644
+--- a/net/atm/lec.h
++++ b/net/atm/lec.h
+@@ -42,12 +42,12 @@ struct lecdatahdr_8025 {
+  *
+  */
+ struct lane2_ops {
+-	int (*resolve) (struct net_device *dev, u8 *dst_mac, int force,
++	int (*resolve) (struct net_device *dev, const u8 *dst_mac, int force,
+ 			u8 **tlvs, u32 *sizeoftlvs);
+-	int (*associate_req) (struct net_device *dev, u8 *lan_dst,
+-			      u8 *tlvs, u32 sizeoftlvs);
+-	void (*associate_indicator) (struct net_device *dev, u8 *mac_addr,
+-				     u8 *tlvs, u32 sizeoftlvs);
++	int (*associate_req) (struct net_device *dev, const u8 *lan_dst,
++			      const u8 *tlvs, u32 sizeoftlvs);
++	void (*associate_indicator) (struct net_device *dev, const u8 *mac_addr,
++				     const u8 *tlvs, u32 sizeoftlvs);
  };
  
- #define TPD_ALIGNMENT	64
-@@ -291,16 +284,9 @@ struct he_dev {
- 	volatile unsigned *irq_tailoffset;
- 	int irq_peak;
- 
--#ifdef USE_TASKLET
- 	struct tasklet_struct tasklet;
--#endif
--#ifdef USE_TPD_POOL
- 	struct pci_pool *tpd_pool;
- 	struct list_head outstanding_tpds;
--#else
--	struct he_tpd *tpd_head, *tpd_base, *tpd_end;
--	dma_addr_t tpd_base_phys;
--#endif
- 
- 	dma_addr_t tpdrq_phys;
- 	struct he_tpdrq *tpdrq_base, *tpdrq_tail, *tpdrq_head;
-@@ -311,25 +297,13 @@ struct he_dev {
- 	struct he_rbrq *rbrq_base, *rbrq_head;
- 	int rbrq_peak;
- 
--#ifdef USE_RBPL_POOL
- 	struct pci_pool *rbpl_pool;
--#else
--	void *rbpl_pages;
--	dma_addr_t rbpl_pages_phys;
--#endif
- 	dma_addr_t rbpl_phys;
- 	struct he_rbp *rbpl_base, *rbpl_tail;
- 	struct he_virt *rbpl_virt;
- 	int rbpl_peak;
- 
--#ifdef USE_RBPS
--#ifdef USE_RBPS_POOL
- 	struct pci_pool *rbps_pool;
--#else
--	void *rbps_pages;
--	dma_addr_t rbps_pages_phys;
--#endif
--#endif
- 	dma_addr_t rbps_phys;
- 	struct he_rbp *rbps_base, *rbps_tail;
- 	struct he_virt *rbps_virt;
+ /*
