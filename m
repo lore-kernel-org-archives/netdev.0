@@ -1,3486 +1,2817 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH net-next 04/12]bnx2x: New init infrastructure
-Date: Tue, 17 Jun 2008 11:32:52 +0300
-Message-ID: <1213691572.5817.63.camel@lb-tlvb-eliezer>
+Subject: [PATCH net-next 07/12]bnx2x: New statistics code
+Date: Tue, 17 Jun 2008 11:33:24 +0300
+Message-ID: <1213691604.5817.66.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "Michael Chan" <mchan@broadcom.com>,
-	"Jeff Garzik" <jeff@garzik.org>
+	"Yitchak Gertner" <gertner@broadcom.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2321 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2841 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756670AbYFQIdN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 04:33:13 -0400
+	id S1754458AbYFQIdi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 04:33:38 -0400
+Received: from mail-irva-8.broadcom.com (mail-irva-8 [10.11.18.52]) by
+ mail-irva-10.broadcom.com (Postfix) with ESMTP id 4C2C52B0 for
+ <netdev@vger.kernel.org>; Tue, 17 Jun 2008 01:33:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new initialization code supports the 57711 HW. It also supports the
-emulation and FPGA for the 57711 and 57710 initializations values (very
-small amount of code which is very helpful in the lab - less than 30
-lines).
-The initialization is done via DMAE after the DMAE block is ready -
-before it is ready, some of the initialization is done via PCI
-configuration transactions (referred to as indirect write).
-A mutex to protect the DMAE from being overlapped was added.
-There are few new registers which needs to be initialized by SW - the
-full comment for those registers is added to the register file.
-A place holder for the 57711 (referred to as E1H) microcode was added-
-the microcode itself is too big, it is in the next patch.
+To avoid race conditions with link up/down and driver up/down - the
+statistics handling was re-written in a form of state machine.
+Also supporting statistics for 57711
 
-
+Signed-off-by: Yitchak Gertner <gertner@broadcom.com>
 Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
 Signed-off-by: Eilong Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x.h             |   97 ++-
- drivers/net/bnx2x_hsi.h         |   27 +-
- drivers/net/bnx2x_init.h        |  333 ++++++-
- drivers/net/bnx2x_init_values.h | 2149 +++++++++++++++++++++++++++++----------
- drivers/net/bnx2x_main.c        |  166 ++--
- 5 files changed, 2117 insertions(+), 655 deletions(-)
- mode change 100644 => 100755 drivers/net/bnx2x.h
- mode change 100644 => 100755 drivers/net/bnx2x_init_values.h
+ drivers/net/bnx2x.h      |  489 +++++++-----------
+ drivers/net/bnx2x_hsi.h  |  374 +++++++++++++-
+ drivers/net/bnx2x_main.c | 1340 +++++++++++++++++++++++++++++-----------------
+ 3 files changed, 1399 insertions(+), 804 deletions(-)
 
 diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-old mode 100644
-new mode 100755
-index 7411025..fabffd5
+index e35ac0a..56331be 100755
 --- a/drivers/net/bnx2x.h
 +++ b/drivers/net/bnx2x.h
-@@ -556,25 +556,37 @@ struct bnx2x {
+@@ -125,243 +125,6 @@
+ #define is_multi(bp)		(bp->num_queues > 1)
  
- 	u32     		shmem_base;
  
--	u32     		chip_id;
-+	u32			chip_id;
- /* chip num:16-31, rev:12-15, metal:4-11, bond_id:0-3 */
--#define CHIP_ID(bp)     		(((bp)->chip_id) & 0xfffffff0)
+-struct regp {
+-	u32 lo;
+-	u32 hi;
+-};
 -
--#define CHIP_NUM(bp)    		(((bp)->chip_id) & 0xffff0000)
+-struct bmac_stats {
+-	struct regp tx_gtpkt;
+-	struct regp tx_gtxpf;
+-	struct regp tx_gtfcs;
+-	struct regp tx_gtmca;
+-	struct regp tx_gtgca;
+-	struct regp tx_gtfrg;
+-	struct regp tx_gtovr;
+-	struct regp tx_gt64;
+-	struct regp tx_gt127;
+-	struct regp tx_gt255;   /* 10 */
+-	struct regp tx_gt511;
+-	struct regp tx_gt1023;
+-	struct regp tx_gt1518;
+-	struct regp tx_gt2047;
+-	struct regp tx_gt4095;
+-	struct regp tx_gt9216;
+-	struct regp tx_gt16383;
+-	struct regp tx_gtmax;
+-	struct regp tx_gtufl;
+-	struct regp tx_gterr;   /* 20 */
+-	struct regp tx_gtbyt;
 -
--#define CHIP_REV(bp)    		(((bp)->chip_id) & 0x0000f000)
--#define CHIP_REV_Ax     		0x00000000
--#define CHIP_REV_Bx     		0x00001000
--#define CHIP_REV_Cx     		0x00002000
--#define CHIP_REV_EMUL   		0x0000e000
--#define CHIP_REV_FPGA   		0x0000f000
--#define CHIP_REV_IS_SLOW(bp)    	((CHIP_REV(bp) == CHIP_REV_EMUL) || \
--					 (CHIP_REV(bp) == CHIP_REV_FPGA))
--#define CHIP_REV_IS_EMUL(bp)		(CHIP_REV(bp) == CHIP_REV_EMUL)
--#define CHIP_REV_IS_FPGA(bp)		(CHIP_REV(bp) == CHIP_REV_FPGA)
+-	struct regp rx_gr64;
+-	struct regp rx_gr127;
+-	struct regp rx_gr255;
+-	struct regp rx_gr511;
+-	struct regp rx_gr1023;
+-	struct regp rx_gr1518;
+-	struct regp rx_gr2047;
+-	struct regp rx_gr4095;
+-	struct regp rx_gr9216;  /* 30 */
+-	struct regp rx_gr16383;
+-	struct regp rx_grmax;
+-	struct regp rx_grpkt;
+-	struct regp rx_grfcs;
+-	struct regp rx_grmca;
+-	struct regp rx_grbca;
+-	struct regp rx_grxcf;
+-	struct regp rx_grxpf;
+-	struct regp rx_grxuo;
+-	struct regp rx_grjbr;   /* 40 */
+-	struct regp rx_grovr;
+-	struct regp rx_grflr;
+-	struct regp rx_grmeg;
+-	struct regp rx_grmeb;
+-	struct regp rx_grbyt;
+-	struct regp rx_grund;
+-	struct regp rx_grfrg;
+-	struct regp rx_grerb;
+-	struct regp rx_grfre;
+-	struct regp rx_gripj;   /* 50 */
+-};
 -
--#define CHIP_METAL(bp)  		(((bp)->chip_id) & 0x00000ff0)
--#define CHIP_BOND_ID(bp)		(((bp)->chip_id) & 0x0000000f)
-+#define CHIP_ID(bp)			(bp->chip_id & 0xfffffff0)
-+
-+#define CHIP_NUM(bp)			(bp->chip_id >> 16)
-+#define CHIP_NUM_57710			0x164e
-+#define CHIP_NUM_57711			0x164f
-+#define CHIP_NUM_57711E			0x1650
-+#define CHIP_IS_E1(bp)			(CHIP_NUM(bp) == CHIP_NUM_57710)
-+#define CHIP_IS_57711(bp)		(CHIP_NUM(bp) == CHIP_NUM_57711)
-+#define CHIP_IS_57711E(bp)		(CHIP_NUM(bp) == CHIP_NUM_57711E)
-+#define CHIP_IS_E1H(bp)			(CHIP_IS_57711(bp) || \
-+					 CHIP_IS_57711E(bp))
-+#define IS_E1H_OFFSET			CHIP_IS_E1H(bp)
-+
-+#define CHIP_REV(bp)			(bp->chip_id & 0x0000f000)
-+#define CHIP_REV_Ax			0x00000000
-+/* assume maximum 5 revisions */
-+#define CHIP_REV_IS_SLOW(bp)		(CHIP_REV(bp) > 0x00005000)
-+/* Emul versions are A=>0xe, B=>0xc, C=>0xa, D=>8, E=>6 */
-+#define CHIP_REV_IS_EMUL(bp)		((CHIP_REV_IS_SLOW(bp)) && \
-+					 !(CHIP_REV(bp) & 0x00001000))
-+/* FPGA versions are A=>0xf, B=>0xd, C=>0xb, D=>9, E=>7 */
-+#define CHIP_REV_IS_FPGA(bp)		((CHIP_REV_IS_SLOW(bp)) && \
-+					 (CHIP_REV(bp) & 0x00001000))
-+
-+#define CHIP_TIME(bp)			((CHIP_REV_IS_EMUL(bp)) ? 2000 : \
-+					((CHIP_REV_IS_FPGA(bp)) ? 200 : 1))
-+
-+#define CHIP_METAL(bp)			(bp->chip_id & 0x00000ff0)
-+#define CHIP_BOND_ID(bp)		(bp->chip_id & 0x0000000f)
+-struct emac_stats {
+-	u32 rx_ifhcinoctets     		   ;
+-	u32 rx_ifhcinbadoctets  		   ;
+-	u32 rx_etherstatsfragments      	   ;
+-	u32 rx_ifhcinucastpkts  		   ;
+-	u32 rx_ifhcinmulticastpkts      	   ;
+-	u32 rx_ifhcinbroadcastpkts      	   ;
+-	u32 rx_dot3statsfcserrors       	   ;
+-	u32 rx_dot3statsalignmenterrors 	   ;
+-	u32 rx_dot3statscarriersenseerrors         ;
+-	u32 rx_xonpauseframesreceived   	   ;    /* 10 */
+-	u32 rx_xoffpauseframesreceived  	   ;
+-	u32 rx_maccontrolframesreceived 	   ;
+-	u32 rx_xoffstateentered 		   ;
+-	u32 rx_dot3statsframestoolong   	   ;
+-	u32 rx_etherstatsjabbers		   ;
+-	u32 rx_etherstatsundersizepkts  	   ;
+-	u32 rx_etherstatspkts64octets   	   ;
+-	u32 rx_etherstatspkts65octetsto127octets   ;
+-	u32 rx_etherstatspkts128octetsto255octets  ;
+-	u32 rx_etherstatspkts256octetsto511octets  ;    /* 20 */
+-	u32 rx_etherstatspkts512octetsto1023octets ;
+-	u32 rx_etherstatspkts1024octetsto1522octets;
+-	u32 rx_etherstatspktsover1522octets        ;
+-
+-	u32 rx_falsecarriererrors       	   ;
+-
+-	u32 tx_ifhcoutoctets    		   ;
+-	u32 tx_ifhcoutbadoctets 		   ;
+-	u32 tx_etherstatscollisions     	   ;
+-	u32 tx_outxonsent       		   ;
+-	u32 tx_outxoffsent      		   ;
+-	u32 tx_flowcontroldone  		   ;    /* 30 */
+-	u32 tx_dot3statssinglecollisionframes      ;
+-	u32 tx_dot3statsmultiplecollisionframes    ;
+-	u32 tx_dot3statsdeferredtransmissions      ;
+-	u32 tx_dot3statsexcessivecollisions        ;
+-	u32 tx_dot3statslatecollisions  	   ;
+-	u32 tx_ifhcoutucastpkts 		   ;
+-	u32 tx_ifhcoutmulticastpkts     	   ;
+-	u32 tx_ifhcoutbroadcastpkts     	   ;
+-	u32 tx_etherstatspkts64octets   	   ;
+-	u32 tx_etherstatspkts65octetsto127octets   ;    /* 40 */
+-	u32 tx_etherstatspkts128octetsto255octets  ;
+-	u32 tx_etherstatspkts256octetsto511octets  ;
+-	u32 tx_etherstatspkts512octetsto1023octets ;
+-	u32 tx_etherstatspkts1024octetsto1522octet ;
+-	u32 tx_etherstatspktsover1522octets        ;
+-	u32 tx_dot3statsinternalmactransmiterrors  ;    /* 46 */
+-};
+-
+-union mac_stats {
+-	struct emac_stats emac;
+-	struct bmac_stats bmac;
+-};
+-
+-struct nig_stats {
+-	u32 brb_discard;
+-	u32 brb_packet;
+-	u32 brb_truncate;
+-	u32 flow_ctrl_discard;
+-	u32 flow_ctrl_octets;
+-	u32 flow_ctrl_packet;
+-	u32 mng_discard;
+-	u32 mng_octet_inp;
+-	u32 mng_octet_out;
+-	u32 mng_packet_inp;
+-	u32 mng_packet_out;
+-	u32 pbf_octets;
+-	u32 pbf_packet;
+-	u32 safc_inp;
+-	u32 done;
+-	u32 pad;
+-};
+-
+-struct bnx2x_eth_stats {
+-	u32 pad;	/* to make long counters u64 aligned */
+-	u32 mac_stx_start;
+-	u32 total_bytes_received_hi;
+-	u32 total_bytes_received_lo;
+-	u32 total_bytes_transmitted_hi;
+-	u32 total_bytes_transmitted_lo;
+-	u32 total_unicast_packets_received_hi;
+-	u32 total_unicast_packets_received_lo;
+-	u32 total_multicast_packets_received_hi;
+-	u32 total_multicast_packets_received_lo;
+-	u32 total_broadcast_packets_received_hi;
+-	u32 total_broadcast_packets_received_lo;
+-	u32 total_unicast_packets_transmitted_hi;
+-	u32 total_unicast_packets_transmitted_lo;
+-	u32 total_multicast_packets_transmitted_hi;
+-	u32 total_multicast_packets_transmitted_lo;
+-	u32 total_broadcast_packets_transmitted_hi;
+-	u32 total_broadcast_packets_transmitted_lo;
+-	u32 crc_receive_errors;
+-	u32 alignment_errors;
+-	u32 false_carrier_detections;
+-	u32 runt_packets_received;
+-	u32 jabber_packets_received;
+-	u32 pause_xon_frames_received;
+-	u32 pause_xoff_frames_received;
+-	u32 pause_xon_frames_transmitted;
+-	u32 pause_xoff_frames_transmitted;
+-	u32 single_collision_transmit_frames;
+-	u32 multiple_collision_transmit_frames;
+-	u32 late_collision_frames;
+-	u32 excessive_collision_frames;
+-	u32 control_frames_received;
+-	u32 frames_received_64_bytes;
+-	u32 frames_received_65_127_bytes;
+-	u32 frames_received_128_255_bytes;
+-	u32 frames_received_256_511_bytes;
+-	u32 frames_received_512_1023_bytes;
+-	u32 frames_received_1024_1522_bytes;
+-	u32 frames_received_1523_9022_bytes;
+-	u32 frames_transmitted_64_bytes;
+-	u32 frames_transmitted_65_127_bytes;
+-	u32 frames_transmitted_128_255_bytes;
+-	u32 frames_transmitted_256_511_bytes;
+-	u32 frames_transmitted_512_1023_bytes;
+-	u32 frames_transmitted_1024_1522_bytes;
+-	u32 frames_transmitted_1523_9022_bytes;
+-	u32 valid_bytes_received_hi;
+-	u32 valid_bytes_received_lo;
+-	u32 error_runt_packets_received;
+-	u32 error_jabber_packets_received;
+-	u32 mac_stx_end;
+-
+-	u32 pad2;
+-	u32 stat_IfHCInBadOctets_hi;
+-	u32 stat_IfHCInBadOctets_lo;
+-	u32 stat_IfHCOutBadOctets_hi;
+-	u32 stat_IfHCOutBadOctets_lo;
+-	u32 stat_Dot3statsFramesTooLong;
+-	u32 stat_Dot3statsInternalMacTransmitErrors;
+-	u32 stat_Dot3StatsCarrierSenseErrors;
+-	u32 stat_Dot3StatsDeferredTransmissions;
+-	u32 stat_FlowControlDone;
+-	u32 stat_XoffStateEntered;
+-
+-	u32 x_total_sent_bytes_hi;
+-	u32 x_total_sent_bytes_lo;
+-	u32 x_total_sent_pkts;
+-
+-	u32 t_rcv_unicast_bytes_hi;
+-	u32 t_rcv_unicast_bytes_lo;
+-	u32 t_rcv_broadcast_bytes_hi;
+-	u32 t_rcv_broadcast_bytes_lo;
+-	u32 t_rcv_multicast_bytes_hi;
+-	u32 t_rcv_multicast_bytes_lo;
+-	u32 t_total_rcv_pkt;
+-
+-	u32 checksum_discard;
+-	u32 packets_too_big_discard;
+-	u32 no_buff_discard;
+-	u32 ttl0_discard;
+-	u32 mac_discard;
+-	u32 mac_filter_discard;
+-	u32 xxoverflow_discard;
+-	u32 brb_truncate_discard;
+-
+-	u32 brb_discard;
+-	u32 brb_packet;
+-	u32 brb_truncate;
+-	u32 flow_ctrl_discard;
+-	u32 flow_ctrl_octets;
+-	u32 flow_ctrl_packet;
+-	u32 mng_discard;
+-	u32 mng_octet_inp;
+-	u32 mng_octet_out;
+-	u32 mng_packet_inp;
+-	u32 mng_packet_out;
+-	u32 pbf_octets;
+-	u32 pbf_packet;
+-	u32 safc_inp;
+-	u32 driver_xoff;
+-	u32 number_of_bugs_found_in_stats_spec; /* just kidding */
+-};
  
- 	u16     		fw_seq;
- 	u16     		fw_drv_pulse_wr_seq;
-@@ -677,6 +689,13 @@ struct bnx2x {
- 	struct dmae_command     dmae;
- 	int     		executer_idx;
+ #define bnx2x_sp_check(bp, var) ((bp->slowpath) ? (&bp->slowpath->var) : NULL)
+ struct sw_rx_bd {
+@@ -440,6 +203,10 @@ struct bnx2x_fastpath {
+ /* This is needed for determening of last_max */
+ #define SUB_S16(a, b)			(s16)((s16)(a) - (s16)(b))
  
-+	int			dmae_ready;
-+	/* used to synchronize dmae accesses */
-+	struct mutex		dmae_mutex;
-+	struct dmae_command	init_dmae;
++#define BD_UNMAP_ADDR(bd)		HILO_U64(le32_to_cpu((bd)->addr_hi), \
++						 le32_to_cpu((bd)->addr_lo))
++#define BD_UNMAP_LEN(bd)		(le16_to_cpu((bd)->nbytes))
 +
+ /* stuff added to make the code fit 80Col */
+ 
+ #define CQE_TYPE(cqe_fp_flags)	((cqe_fp_flags) & ETH_FAST_PATH_RX_CQE_TYPE)
+@@ -449,6 +216,9 @@ struct bnx2x_fastpath {
+ 				 ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG)
+ 
+ 
++#define FP_USB_FUNC_OFF			(2 + 2*HC_USTORM_SB_NUM_INDICES)
++#define FP_CSB_FUNC_OFF			(2 + 2*HC_CSTORM_SB_NUM_INDICES)
 +
+ #define U_SB_ETH_RX_CQ_INDEX		HC_INDEX_U_ETH_RX_CQ_CONS
+ #define U_SB_ETH_RX_BD_INDEX		HC_INDEX_U_ETH_RX_BD_CONS
+ #define C_SB_ETH_TX_CQ_INDEX		HC_INDEX_C_ETH_TX_CQ_CONS
+@@ -526,6 +296,23 @@ struct bnx2x_common {
+ 
+ /* port */
+ 
++struct nig_stats {
++	u32 brb_discard;
++	u32 brb_packet;
++	u32 brb_truncate;
++	u32 flow_ctrl_discard;
++	u32 flow_ctrl_octets;
++	u32 flow_ctrl_packet;
++	u32 mng_discard;
++	u32 mng_octet_inp;
++	u32 mng_octet_out;
++	u32 mng_packet_inp;
++	u32 mng_packet_out;
++	u32 pbf_octets;
++	u32 pbf_packet;
++	u32 safc_inp;
++};
 +
- 	u32     		old_brb_discard;
- 	struct bmac_stats       old_bmac;
+ struct bnx2x_port {
+ 	u32			pmf;
+ 
+@@ -551,7 +338,136 @@ struct bnx2x_port {
+ 
+ /* end of port */
+ 
+-#define MAC_STX_NA      		0xffffffff
++
++enum bnx2x_stats_event {
++	STATS_EVENT_PMF = 0,
++	STATS_EVENT_LINK_UP,
++	STATS_EVENT_UPDATE,
++	STATS_EVENT_STOP,
++	STATS_EVENT_MAX
++};
++
++enum bnx2x_stats_state {
++	STATS_STATE_DISABLED = 0,
++	STATS_STATE_ENABLED,
++	STATS_STATE_MAX
++};
++
++struct bnx2x_eth_stats {
++	u32 total_bytes_received_hi;
++	u32 total_bytes_received_lo;
++	u32 total_bytes_transmitted_hi;
++	u32 total_bytes_transmitted_lo;
++	u32 total_unicast_packets_received_hi;
++	u32 total_unicast_packets_received_lo;
++	u32 total_multicast_packets_received_hi;
++	u32 total_multicast_packets_received_lo;
++	u32 total_broadcast_packets_received_hi;
++	u32 total_broadcast_packets_received_lo;
++	u32 total_unicast_packets_transmitted_hi;
++	u32 total_unicast_packets_transmitted_lo;
++	u32 total_multicast_packets_transmitted_hi;
++	u32 total_multicast_packets_transmitted_lo;
++	u32 total_broadcast_packets_transmitted_hi;
++	u32 total_broadcast_packets_transmitted_lo;
++	u32 valid_bytes_received_hi;
++	u32 valid_bytes_received_lo;
++
++	u32 rx_stat_ifhcinbadoctets_hi;
++	u32 rx_stat_ifhcinbadoctets_lo;
++	u32 tx_stat_ifhcoutbadoctets_hi;
++	u32 tx_stat_ifhcoutbadoctets_lo;
++	u32 rx_stat_dot3statsfcserrors_hi;
++	u32 rx_stat_dot3statsfcserrors_lo;
++	u32 rx_stat_dot3statsalignmenterrors_hi;
++	u32 rx_stat_dot3statsalignmenterrors_lo;
++	u32 rx_stat_dot3statscarriersenseerrors_hi;
++	u32 rx_stat_dot3statscarriersenseerrors_lo;
++	u32 rx_stat_falsecarriererrors_hi;
++	u32 rx_stat_falsecarriererrors_lo;
++	u32 rx_stat_etherstatsundersizepkts_hi;
++	u32 rx_stat_etherstatsundersizepkts_lo;
++	u32 rx_stat_dot3statsframestoolong_hi;
++	u32 rx_stat_dot3statsframestoolong_lo;
++	u32 rx_stat_etherstatsfragments_hi;
++	u32 rx_stat_etherstatsfragments_lo;
++	u32 rx_stat_etherstatsjabbers_hi;
++	u32 rx_stat_etherstatsjabbers_lo;
++	u32 rx_stat_maccontrolframesreceived_hi;
++	u32 rx_stat_maccontrolframesreceived_lo;
++	u32 rx_stat_bmac_xpf_hi;
++	u32 rx_stat_bmac_xpf_lo;
++	u32 rx_stat_bmac_xcf_hi;
++	u32 rx_stat_bmac_xcf_lo;
++	u32 rx_stat_xoffstateentered_hi;
++	u32 rx_stat_xoffstateentered_lo;
++	u32 rx_stat_xonpauseframesreceived_hi;
++	u32 rx_stat_xonpauseframesreceived_lo;
++	u32 rx_stat_xoffpauseframesreceived_hi;
++	u32 rx_stat_xoffpauseframesreceived_lo;
++	u32 tx_stat_outxonsent_hi;
++	u32 tx_stat_outxonsent_lo;
++	u32 tx_stat_outxoffsent_hi;
++	u32 tx_stat_outxoffsent_lo;
++	u32 tx_stat_flowcontroldone_hi;
++	u32 tx_stat_flowcontroldone_lo;
++	u32 tx_stat_etherstatscollisions_hi;
++	u32 tx_stat_etherstatscollisions_lo;
++	u32 tx_stat_dot3statssinglecollisionframes_hi;
++	u32 tx_stat_dot3statssinglecollisionframes_lo;
++	u32 tx_stat_dot3statsmultiplecollisionframes_hi;
++	u32 tx_stat_dot3statsmultiplecollisionframes_lo;
++	u32 tx_stat_dot3statsdeferredtransmissions_hi;
++	u32 tx_stat_dot3statsdeferredtransmissions_lo;
++	u32 tx_stat_dot3statsexcessivecollisions_hi;
++	u32 tx_stat_dot3statsexcessivecollisions_lo;
++	u32 tx_stat_dot3statslatecollisions_hi;
++	u32 tx_stat_dot3statslatecollisions_lo;
++	u32 tx_stat_etherstatspkts64octets_hi;
++	u32 tx_stat_etherstatspkts64octets_lo;
++	u32 tx_stat_etherstatspkts65octetsto127octets_hi;
++	u32 tx_stat_etherstatspkts65octetsto127octets_lo;
++	u32 tx_stat_etherstatspkts128octetsto255octets_hi;
++	u32 tx_stat_etherstatspkts128octetsto255octets_lo;
++	u32 tx_stat_etherstatspkts256octetsto511octets_hi;
++	u32 tx_stat_etherstatspkts256octetsto511octets_lo;
++	u32 tx_stat_etherstatspkts512octetsto1023octets_hi;
++	u32 tx_stat_etherstatspkts512octetsto1023octets_lo;
++	u32 tx_stat_etherstatspkts1024octetsto1522octets_hi;
++	u32 tx_stat_etherstatspkts1024octetsto1522octets_lo;
++	u32 tx_stat_etherstatspktsover1522octets_hi;
++	u32 tx_stat_etherstatspktsover1522octets_lo;
++	u32 tx_stat_bmac_2047_hi;
++	u32 tx_stat_bmac_2047_lo;
++	u32 tx_stat_bmac_4095_hi;
++	u32 tx_stat_bmac_4095_lo;
++	u32 tx_stat_bmac_9216_hi;
++	u32 tx_stat_bmac_9216_lo;
++	u32 tx_stat_bmac_16383_hi;
++	u32 tx_stat_bmac_16383_lo;
++	u32 tx_stat_dot3statsinternalmactransmiterrors_hi;
++	u32 tx_stat_dot3statsinternalmactransmiterrors_lo;
++	u32 tx_stat_bmac_ufl_hi;
++	u32 tx_stat_bmac_ufl_lo;
++
++	u32 brb_drop_hi;
++	u32 brb_drop_lo;
++
++	u32 jabber_packets_received;
++
++	u32 etherstatspktsover1522octets_hi;
++	u32 etherstatspktsover1522octets_lo;
++
++	u32 no_buff_discard;
++
++	u32 mac_filter_discard;
++	u32 xxoverflow_discard;
++	u32 brb_truncate_discard;
++	u32 mac_discard;
++
++	u32 driver_xoff;
++};
++
+ 
+ #ifdef BNX2X_MULTI
+ #define MAX_CONTEXT			16
+@@ -576,12 +492,13 @@ struct bnx2x_slowpath {
+ 	/* used by dmae command executer */
+ 	struct dmae_command		dmae[MAX_DMAE_C];
+ 
+-	union mac_stats 		mac_stats;
+-	struct nig_stats		nig;
+-	struct bnx2x_eth_stats  	eth_stats;
++	u32				stats_comp;
++	union mac_stats			mac_stats;
++	struct nig_stats		nig_stats;
++	struct host_port_stats		port_stats;
++	struct host_func_stats		func_stats;
+ 
+ 	u32				wb_comp;
+-#define BNX2X_WB_COMP_VAL       	0xe0d0d0ae
+ 	u32				wb_data[4];
+ };
+ 
+@@ -650,10 +567,10 @@ struct bnx2x {
+ 	/* used to synchronize spq accesses */
+ 	spinlock_t		spq_lock;
+ 
+-	/* Flag for marking that there is either
+-	 * STAT_QUERY or CFC DELETE ramrod pending
+-	 */
+-	u8      		stat_pending;
++	/* Flags for marking that there is a STAT_QUERY or
++	   SET_MAC ramrod pending */
++	u8			stats_pending;
++	u8			set_mac_pending;
+ 
+ 	/* End of fileds used in the performance code paths */
+ 
+@@ -759,61 +676,30 @@ struct bnx2x {
+ 	dma_addr_t      	qm_mapping;
+ #endif
+ 
+-	char    		*name;
+-
+-	/* used to synchronize stats collecting */
+-	int     		stats_state;
+-#define STATS_STATE_DISABLE     	0
+-#define STATS_STATE_ENABLE      	1
+-#define STATS_STATE_STOP		2 /* stop stats on next iteration */
+-
+-	/* used by dmae command loader */
+-	struct dmae_command     dmae;
+-	int     		executer_idx;
+-
+ 	int			dmae_ready;
+ 	/* used to synchronize dmae accesses */
+ 	struct mutex		dmae_mutex;
+ 	struct dmae_command	init_dmae;
+ 
++	/* used to synchronize stats collecting */
++	int			stats_state;
++	/* used by dmae command loader */
++	struct dmae_command	stats_dmae;
++	int			executer_idx;
+ 
+-
+-	u32     		old_brb_discard;
+-	struct bmac_stats       old_bmac;
++	u16			stats_counter;
  	struct tstorm_per_client_stats old_tclient;
-@@ -773,12 +792,6 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
+-	struct z_stream_s       *strm;
+-	void    		*gunzip_buf;
+-	dma_addr_t      	gunzip_mapping;
+-	int     		gunzip_outlen;
+-#define FW_BUF_SIZE     		0x8000
+-
+-};
++	struct xstorm_per_client_stats old_xclient;
++	struct bnx2x_eth_stats	eth_stats;
+ 
++	struct z_stream_s	*strm;
++	void			*gunzip_buf;
++	dma_addr_t		gunzip_mapping;
++	int			gunzip_outlen;
++#define FW_BUF_SIZE			0x40000
+ 
+-/* DMAE command defines */
+-#define DMAE_CMD_SRC_PCI		0
+-#define DMAE_CMD_SRC_GRC		DMAE_COMMAND_SRC
+-
+-#define DMAE_CMD_DST_PCI		(1 << DMAE_COMMAND_DST_SHIFT)
+-#define DMAE_CMD_DST_GRC		(2 << DMAE_COMMAND_DST_SHIFT)
+-
+-#define DMAE_CMD_C_DST_PCI      	0
+-#define DMAE_CMD_C_DST_GRC      	(1 << DMAE_COMMAND_C_DST_SHIFT)
+-
+-#define DMAE_CMD_C_ENABLE       	DMAE_COMMAND_C_TYPE_ENABLE
+-
+-#define DMAE_CMD_ENDIANITY_NO_SWAP      (0 << DMAE_COMMAND_ENDIANITY_SHIFT)
+-#define DMAE_CMD_ENDIANITY_B_SWAP       (1 << DMAE_COMMAND_ENDIANITY_SHIFT)
+-#define DMAE_CMD_ENDIANITY_DW_SWAP      (2 << DMAE_COMMAND_ENDIANITY_SHIFT)
+-#define DMAE_CMD_ENDIANITY_B_DW_SWAP    (3 << DMAE_COMMAND_ENDIANITY_SHIFT)
+-
+-#define DMAE_CMD_PORT_0 		0
+-#define DMAE_CMD_PORT_1 		DMAE_COMMAND_PORT
+-
+-#define DMAE_CMD_SRC_RESET      	DMAE_COMMAND_SRC_RESET
+-#define DMAE_CMD_DST_RESET      	DMAE_COMMAND_DST_RESET
++};
+ 
+-#define DMAE_LEN32_MAX  		0x400
+ 
+ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32);
+ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
+@@ -866,11 +752,6 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
+ #define CQE_CMD(x)      		(le32_to_cpu(x) >> \
+ 					COMMON_RAMROD_ETH_RX_CQE_CMD_ID_SHIFT)
+ 
+-#define BD_UNMAP_ADDR(bd)       	HILO_U64(le32_to_cpu((bd)->addr_hi), \
+-						 le32_to_cpu((bd)->addr_lo))
+-#define BD_UNMAP_LEN(bd)		(le16_to_cpu((bd)->nbytes))
+-
+-
  #define STROM_ASSERT_ARRAY_SIZE 	50
  
  
--#define MDIO_INDIRECT_REG_ADDR  	0x1f
--#define MDIO_SET_REG_BANK(bp, reg_bank) \
--		bnx2x_mdio22_write(bp, MDIO_INDIRECT_REG_ADDR, reg_bank)
--
--#define MDIO_ACCESS_TIMEOUT     	1000
--
+@@ -886,10 +767,6 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
+ #define MAX_SPQ_PENDING 		8
  
- /* must be used on a CID before placing it on a HW ring */
- #define HW_CID(bp, x)   		(x | (bp->port << 23))
-@@ -817,6 +830,42 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- 		       DPM_TRIGER_TYPE); \
- 	} while (0)
  
-+/* DMAE command defines */
-+#define DMAE_CMD_SRC_PCI		0
-+#define DMAE_CMD_SRC_GRC		DMAE_COMMAND_SRC
+-#define BNX2X_NUM_STATS			34
+-#define BNX2X_NUM_TESTS			1
+-
+-
+ #define DPM_TRIGER_TYPE 		0x40
+ #define DOORBELL(bp, cid, val) \
+ 	do { \
+@@ -922,6 +799,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define UNLOAD_NORMAL			0
+ #define UNLOAD_CLOSE			1
+ 
 +
-+#define DMAE_CMD_DST_PCI		(1 << DMAE_COMMAND_DST_SHIFT)
-+#define DMAE_CMD_DST_GRC		(2 << DMAE_COMMAND_DST_SHIFT)
+ /* DMAE command defines */
+ #define DMAE_CMD_SRC_PCI		0
+ #define DMAE_CMD_SRC_GRC		DMAE_COMMAND_SRC
+@@ -964,7 +842,16 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define PCICFG_LINK_SPEED		0xf0000
+ #define PCICFG_LINK_SPEED_SHIFT		16
+ 
+-#define BMAC_CONTROL_RX_ENABLE		2
 +
-+#define DMAE_CMD_C_DST_PCI		0
-+#define DMAE_CMD_C_DST_GRC		(1 << DMAE_COMMAND_C_DST_SHIFT)
++#define BNX2X_NUM_STATS			41
++#define BNX2X_NUM_TESTS			8
 +
-+#define DMAE_CMD_C_ENABLE		DMAE_COMMAND_C_TYPE_ENABLE
-+
-+#define DMAE_CMD_ENDIANITY_NO_SWAP	(0 << DMAE_COMMAND_ENDIANITY_SHIFT)
-+#define DMAE_CMD_ENDIANITY_B_SWAP	(1 << DMAE_COMMAND_ENDIANITY_SHIFT)
-+#define DMAE_CMD_ENDIANITY_DW_SWAP	(2 << DMAE_COMMAND_ENDIANITY_SHIFT)
-+#define DMAE_CMD_ENDIANITY_B_DW_SWAP	(3 << DMAE_COMMAND_ENDIANITY_SHIFT)
-+
-+#define DMAE_CMD_PORT_0			0
-+#define DMAE_CMD_PORT_1			DMAE_COMMAND_PORT
-+
-+#define DMAE_CMD_SRC_RESET		DMAE_COMMAND_SRC_RESET
-+#define DMAE_CMD_DST_RESET		DMAE_COMMAND_DST_RESET
-+#define DMAE_CMD_E1HVN_SHIFT		DMAE_COMMAND_E1HVN_SHIFT
-+
-+#define DMAE_LEN32_RD_MAX		0x80
-+#define DMAE_LEN32_WR_MAX		0x400
-+
-+#define DMAE_COMP_VAL			0xe0d0d0ae
-+
-+#define MAX_DMAE_C_PER_PORT		8
-+#define INIT_DMAE_C(bp)			(BP_PORT(bp)*MAX_DMAE_C_PER_PORT + \
-+					 BP_E1HVN(bp))
-+#define PMF_DMAE_C(bp)			(BP_PORT(bp)*MAX_DMAE_C_PER_PORT + \
-+					 E1HVN_MAX)
-+
-+
- /* PCIE link and speed */
- #define PCICFG_LINK_WIDTH		0x1f00000
- #define PCICFG_LINK_WIDTH_SHIFT		20
++#define BNX2X_MAC_LOOPBACK		0
++#define BNX2X_PHY_LOOPBACK		1
++#define BNX2X_MAC_LOOPBACK_FAILED	1
++#define BNX2X_PHY_LOOPBACK_FAILED	2
++#define BNX2X_LOOPBACK_FAILED		(BNX2X_MAC_LOOPBACK_FAILED | \
++					 BNX2X_PHY_LOOPBACK_FAILED)
+ 
+ #define pbd_tcp_flags(skb)  	(ntohl(tcp_flag_word(tcp_hdr(skb)))>>16 & 0xff)
+ 
 diff --git a/drivers/net/bnx2x_hsi.h b/drivers/net/bnx2x_hsi.h
-index b21075c..96208ac 100644
+index b5f486c..9f195e0 100644
 --- a/drivers/net/bnx2x_hsi.h
 +++ b/drivers/net/bnx2x_hsi.h
-@@ -522,8 +522,21 @@ struct dev_info {						     /* size */
- 
- #define FUNC_0				0
- #define FUNC_1				1
-+#define FUNC_2				2
-+#define FUNC_3				3
-+#define FUNC_4				4
-+#define FUNC_5				5
-+#define FUNC_6				6
-+#define FUNC_7				7
- #define E1_FUNC_MAX			2
--#define FUNC_MAX			E1_FUNC_MAX
-+#define E1H_FUNC_MAX			8
-+
-+#define VN_0				0
-+#define VN_1				1
-+#define VN_2				2
-+#define VN_3				3
-+#define E1VN_MAX			1
-+#define E1HVN_MAX			4
- 
- 
- /* This value (in milliseconds) determines the frequency of the driver
-@@ -747,7 +760,11 @@ struct shmem_region {			       /*   SharedMem Offset (size) */
- 	struct mgmtfw_state	mgmtfw_state;	       /* 0x4ac     (0x1b8) */
- 
- 	struct drv_port_mb	port_mb[PORT_MAX];     /* 0x664 (16*2=0x20) */
--	struct drv_func_mb	func_mb[FUNC_MAX];     /* 0x684 (44*2=0x58) */
-+#if defined(b710)
-+	struct drv_func_mb	func_mb[E1_FUNC_MAX];  /* 0x684 (44*2=0x58) */
-+#else
-+	struct drv_func_mb	func_mb[E1H_FUNC_MAX];
-+#endif
- 
+@@ -880,6 +880,337 @@ struct shmem_region {			       /*   SharedMem Offset (size) */
  };						       /* 0x6dc */
  
-@@ -901,8 +918,10 @@ struct dmae_command {
- #define DMAE_COMMAND_SRC_RESET_SHIFT 13
- #define DMAE_COMMAND_DST_RESET (0x1<<14)
- #define DMAE_COMMAND_DST_RESET_SHIFT 14
--#define DMAE_COMMAND_RESERVED0 (0x1FFFF<<15)
--#define DMAE_COMMAND_RESERVED0_SHIFT 15
-+#define DMAE_COMMAND_E1HVN (0x3<<15)
-+#define DMAE_COMMAND_E1HVN_SHIFT 15
-+#define DMAE_COMMAND_RESERVED0 (0x7FFF<<17)
-+#define DMAE_COMMAND_RESERVED0_SHIFT 17
- 	u32 src_addr_lo;
- 	u32 src_addr_hi;
- 	u32 dst_addr_lo;
-diff --git a/drivers/net/bnx2x_init.h b/drivers/net/bnx2x_init.h
-index 2771386..a01fd8a 100644
---- a/drivers/net/bnx2x_init.h
-+++ b/drivers/net/bnx2x_init.h
-@@ -21,7 +21,8 @@
- #define INIT_ASIC			0x4
- #define INIT_HARDWARE			0x7
  
--#define STORM_INTMEM_SIZE		(0x5800 / 4)
-+#define STORM_INTMEM_SIZE_E1		(0x5800 / 4)
-+#define STORM_INTMEM_SIZE_E1H		(0x10000 / 4)
- #define TSTORM_INTMEM_ADDR		0x1a0000
- #define CSTORM_INTMEM_ADDR		0x220000
- #define XSTORM_INTMEM_ADDR		0x2a0000
-@@ -29,7 +30,7 @@
++struct emac_stats {
++    u32     rx_stat_ifhcinoctets;
++    u32     rx_stat_ifhcinbadoctets;
++    u32     rx_stat_etherstatsfragments;
++    u32     rx_stat_ifhcinucastpkts;
++    u32     rx_stat_ifhcinmulticastpkts;
++    u32     rx_stat_ifhcinbroadcastpkts;
++    u32     rx_stat_dot3statsfcserrors;
++    u32     rx_stat_dot3statsalignmenterrors;
++    u32     rx_stat_dot3statscarriersenseerrors;
++    u32     rx_stat_xonpauseframesreceived;
++    u32     rx_stat_xoffpauseframesreceived;
++    u32     rx_stat_maccontrolframesreceived;
++    u32     rx_stat_xoffstateentered;
++    u32     rx_stat_dot3statsframestoolong;
++    u32     rx_stat_etherstatsjabbers;
++    u32     rx_stat_etherstatsundersizepkts;
++    u32     rx_stat_etherstatspkts64octets;
++    u32     rx_stat_etherstatspkts65octetsto127octets;
++    u32     rx_stat_etherstatspkts128octetsto255octets;
++    u32     rx_stat_etherstatspkts256octetsto511octets;
++    u32     rx_stat_etherstatspkts512octetsto1023octets;
++    u32     rx_stat_etherstatspkts1024octetsto1522octets;
++    u32     rx_stat_etherstatspktsover1522octets;
++
++    u32     rx_stat_falsecarriererrors;
++
++    u32     tx_stat_ifhcoutoctets;
++    u32     tx_stat_ifhcoutbadoctets;
++    u32     tx_stat_etherstatscollisions;
++    u32     tx_stat_outxonsent;
++    u32     tx_stat_outxoffsent;
++    u32     tx_stat_flowcontroldone;
++    u32     tx_stat_dot3statssinglecollisionframes;
++    u32     tx_stat_dot3statsmultiplecollisionframes;
++    u32     tx_stat_dot3statsdeferredtransmissions;
++    u32     tx_stat_dot3statsexcessivecollisions;
++    u32     tx_stat_dot3statslatecollisions;
++    u32     tx_stat_ifhcoutucastpkts;
++    u32     tx_stat_ifhcoutmulticastpkts;
++    u32     tx_stat_ifhcoutbroadcastpkts;
++    u32     tx_stat_etherstatspkts64octets;
++    u32     tx_stat_etherstatspkts65octetsto127octets;
++    u32     tx_stat_etherstatspkts128octetsto255octets;
++    u32     tx_stat_etherstatspkts256octetsto511octets;
++    u32     tx_stat_etherstatspkts512octetsto1023octets;
++    u32     tx_stat_etherstatspkts1024octetsto1522octets;
++    u32     tx_stat_etherstatspktsover1522octets;
++    u32     tx_stat_dot3statsinternalmactransmiterrors;
++};
++
++
++struct bmac_stats {
++    u32     tx_stat_gtpkt_lo;
++    u32     tx_stat_gtpkt_hi;
++    u32     tx_stat_gtxpf_lo;
++    u32     tx_stat_gtxpf_hi;
++    u32     tx_stat_gtfcs_lo;
++    u32     tx_stat_gtfcs_hi;
++    u32     tx_stat_gtmca_lo;
++    u32     tx_stat_gtmca_hi;
++    u32     tx_stat_gtbca_lo;
++    u32     tx_stat_gtbca_hi;
++    u32     tx_stat_gtfrg_lo;
++    u32     tx_stat_gtfrg_hi;
++    u32     tx_stat_gtovr_lo;
++    u32     tx_stat_gtovr_hi;
++    u32     tx_stat_gt64_lo;
++    u32     tx_stat_gt64_hi;
++    u32     tx_stat_gt127_lo;
++    u32     tx_stat_gt127_hi;
++    u32     tx_stat_gt255_lo;
++    u32     tx_stat_gt255_hi;
++    u32     tx_stat_gt511_lo;
++    u32     tx_stat_gt511_hi;
++    u32     tx_stat_gt1023_lo;
++    u32     tx_stat_gt1023_hi;
++    u32     tx_stat_gt1518_lo;
++    u32     tx_stat_gt1518_hi;
++    u32     tx_stat_gt2047_lo;
++    u32     tx_stat_gt2047_hi;
++    u32     tx_stat_gt4095_lo;
++    u32     tx_stat_gt4095_hi;
++    u32     tx_stat_gt9216_lo;
++    u32     tx_stat_gt9216_hi;
++    u32     tx_stat_gt16383_lo;
++    u32     tx_stat_gt16383_hi;
++    u32     tx_stat_gtmax_lo;
++    u32     tx_stat_gtmax_hi;
++    u32     tx_stat_gtufl_lo;
++    u32     tx_stat_gtufl_hi;
++    u32     tx_stat_gterr_lo;
++    u32     tx_stat_gterr_hi;
++    u32     tx_stat_gtbyt_lo;
++    u32     tx_stat_gtbyt_hi;
++
++    u32     rx_stat_gr64_lo;
++    u32     rx_stat_gr64_hi;
++    u32     rx_stat_gr127_lo;
++    u32     rx_stat_gr127_hi;
++    u32     rx_stat_gr255_lo;
++    u32     rx_stat_gr255_hi;
++    u32     rx_stat_gr511_lo;
++    u32     rx_stat_gr511_hi;
++    u32     rx_stat_gr1023_lo;
++    u32     rx_stat_gr1023_hi;
++    u32     rx_stat_gr1518_lo;
++    u32     rx_stat_gr1518_hi;
++    u32     rx_stat_gr2047_lo;
++    u32     rx_stat_gr2047_hi;
++    u32     rx_stat_gr4095_lo;
++    u32     rx_stat_gr4095_hi;
++    u32     rx_stat_gr9216_lo;
++    u32     rx_stat_gr9216_hi;
++    u32     rx_stat_gr16383_lo;
++    u32     rx_stat_gr16383_hi;
++    u32     rx_stat_grmax_lo;
++    u32     rx_stat_grmax_hi;
++    u32     rx_stat_grpkt_lo;
++    u32     rx_stat_grpkt_hi;
++    u32     rx_stat_grfcs_lo;
++    u32     rx_stat_grfcs_hi;
++    u32     rx_stat_grmca_lo;
++    u32     rx_stat_grmca_hi;
++    u32     rx_stat_grbca_lo;
++    u32     rx_stat_grbca_hi;
++    u32     rx_stat_grxcf_lo;
++    u32     rx_stat_grxcf_hi;
++    u32     rx_stat_grxpf_lo;
++    u32     rx_stat_grxpf_hi;
++    u32     rx_stat_grxuo_lo;
++    u32     rx_stat_grxuo_hi;
++    u32     rx_stat_grjbr_lo;
++    u32     rx_stat_grjbr_hi;
++    u32     rx_stat_grovr_lo;
++    u32     rx_stat_grovr_hi;
++    u32     rx_stat_grflr_lo;
++    u32     rx_stat_grflr_hi;
++    u32     rx_stat_grmeg_lo;
++    u32     rx_stat_grmeg_hi;
++    u32     rx_stat_grmeb_lo;
++    u32     rx_stat_grmeb_hi;
++    u32     rx_stat_grbyt_lo;
++    u32     rx_stat_grbyt_hi;
++    u32     rx_stat_grund_lo;
++    u32     rx_stat_grund_hi;
++    u32     rx_stat_grfrg_lo;
++    u32     rx_stat_grfrg_hi;
++    u32     rx_stat_grerb_lo;
++    u32     rx_stat_grerb_hi;
++    u32     rx_stat_grfre_lo;
++    u32     rx_stat_grfre_hi;
++    u32     rx_stat_gripj_lo;
++    u32     rx_stat_gripj_hi;
++};
++
++
++union mac_stats {
++    struct emac_stats	emac_stats;
++    struct bmac_stats	bmac_stats;
++};
++
++
++struct mac_stx {
++    /* in_bad_octets */
++    u32     rx_stat_ifhcinbadoctets_hi;
++    u32     rx_stat_ifhcinbadoctets_lo;
++
++    /* out_bad_octets */
++    u32     tx_stat_ifhcoutbadoctets_hi;
++    u32     tx_stat_ifhcoutbadoctets_lo;
++
++    /* crc_receive_errors */
++    u32     rx_stat_dot3statsfcserrors_hi;
++    u32     rx_stat_dot3statsfcserrors_lo;
++    /* alignment_errors */
++    u32     rx_stat_dot3statsalignmenterrors_hi;
++    u32     rx_stat_dot3statsalignmenterrors_lo;
++    /* carrier_sense_errors */
++    u32     rx_stat_dot3statscarriersenseerrors_hi;
++    u32     rx_stat_dot3statscarriersenseerrors_lo;
++    /* false_carrier_detections */
++    u32     rx_stat_falsecarriererrors_hi;
++    u32     rx_stat_falsecarriererrors_lo;
++
++    /* runt_packets_received */
++    u32     rx_stat_etherstatsundersizepkts_hi;
++    u32     rx_stat_etherstatsundersizepkts_lo;
++    /* jabber_packets_received */
++    u32     rx_stat_dot3statsframestoolong_hi;
++    u32     rx_stat_dot3statsframestoolong_lo;
++
++    /* error_runt_packets_received */
++    u32     rx_stat_etherstatsfragments_hi;
++    u32     rx_stat_etherstatsfragments_lo;
++    /* error_jabber_packets_received */
++    u32     rx_stat_etherstatsjabbers_hi;
++    u32     rx_stat_etherstatsjabbers_lo;
++
++    /* control_frames_received */
++    u32     rx_stat_maccontrolframesreceived_hi;
++    u32     rx_stat_maccontrolframesreceived_lo;
++    u32     rx_stat_bmac_xpf_hi;
++    u32     rx_stat_bmac_xpf_lo;
++    u32     rx_stat_bmac_xcf_hi;
++    u32     rx_stat_bmac_xcf_lo;
++
++    /* xoff_state_entered */
++    u32     rx_stat_xoffstateentered_hi;
++    u32     rx_stat_xoffstateentered_lo;
++    /* pause_xon_frames_received */
++    u32     rx_stat_xonpauseframesreceived_hi;
++    u32     rx_stat_xonpauseframesreceived_lo;
++    /* pause_xoff_frames_received */
++    u32     rx_stat_xoffpauseframesreceived_hi;
++    u32     rx_stat_xoffpauseframesreceived_lo;
++    /* pause_xon_frames_transmitted */
++    u32     tx_stat_outxonsent_hi;
++    u32     tx_stat_outxonsent_lo;
++    /* pause_xoff_frames_transmitted */
++    u32     tx_stat_outxoffsent_hi;
++    u32     tx_stat_outxoffsent_lo;
++    /* flow_control_done */
++    u32     tx_stat_flowcontroldone_hi;
++    u32     tx_stat_flowcontroldone_lo;
++
++    /* ether_stats_collisions */
++    u32     tx_stat_etherstatscollisions_hi;
++    u32     tx_stat_etherstatscollisions_lo;
++    /* single_collision_transmit_frames */
++    u32     tx_stat_dot3statssinglecollisionframes_hi;
++    u32     tx_stat_dot3statssinglecollisionframes_lo;
++    /* multiple_collision_transmit_frames */
++    u32     tx_stat_dot3statsmultiplecollisionframes_hi;
++    u32     tx_stat_dot3statsmultiplecollisionframes_lo;
++    /* deferred_transmissions */
++    u32     tx_stat_dot3statsdeferredtransmissions_hi;
++    u32     tx_stat_dot3statsdeferredtransmissions_lo;
++    /* excessive_collision_frames */
++    u32     tx_stat_dot3statsexcessivecollisions_hi;
++    u32     tx_stat_dot3statsexcessivecollisions_lo;
++    /* late_collision_frames */
++    u32     tx_stat_dot3statslatecollisions_hi;
++    u32     tx_stat_dot3statslatecollisions_lo;
++
++    /* frames_transmitted_64_bytes */
++    u32     tx_stat_etherstatspkts64octets_hi;
++    u32     tx_stat_etherstatspkts64octets_lo;
++    /* frames_transmitted_65_127_bytes */
++    u32     tx_stat_etherstatspkts65octetsto127octets_hi;
++    u32     tx_stat_etherstatspkts65octetsto127octets_lo;
++    /* frames_transmitted_128_255_bytes */
++    u32     tx_stat_etherstatspkts128octetsto255octets_hi;
++    u32     tx_stat_etherstatspkts128octetsto255octets_lo;
++    /* frames_transmitted_256_511_bytes */
++    u32     tx_stat_etherstatspkts256octetsto511octets_hi;
++    u32     tx_stat_etherstatspkts256octetsto511octets_lo;
++    /* frames_transmitted_512_1023_bytes */
++    u32     tx_stat_etherstatspkts512octetsto1023octets_hi;
++    u32     tx_stat_etherstatspkts512octetsto1023octets_lo;
++    /* frames_transmitted_1024_1522_bytes */
++    u32     tx_stat_etherstatspkts1024octetsto1522octets_hi;
++    u32     tx_stat_etherstatspkts1024octetsto1522octets_lo;
++    /* frames_transmitted_1523_9022_bytes */
++    u32     tx_stat_etherstatspktsover1522octets_hi;
++    u32     tx_stat_etherstatspktsover1522octets_lo;
++    u32     tx_stat_bmac_2047_hi;
++    u32     tx_stat_bmac_2047_lo;
++    u32     tx_stat_bmac_4095_hi;
++    u32     tx_stat_bmac_4095_lo;
++    u32     tx_stat_bmac_9216_hi;
++    u32     tx_stat_bmac_9216_lo;
++    u32     tx_stat_bmac_16383_hi;
++    u32     tx_stat_bmac_16383_lo;
++
++    /* internal_mac_transmit_errors */
++    u32     tx_stat_dot3statsinternalmactransmiterrors_hi;
++    u32     tx_stat_dot3statsinternalmactransmiterrors_lo;
++
++    /* if_out_discards */
++    u32     tx_stat_bmac_ufl_hi;
++    u32     tx_stat_bmac_ufl_lo;
++};
++
++
++#define MAC_STX_IDX_MAX 		    2
++
++struct host_port_stats {
++    u32 	   host_port_stats_start;
++
++    struct mac_stx mac_stx[MAC_STX_IDX_MAX];
++
++    u32 	   brb_drop_hi;
++    u32 	   brb_drop_lo;
++
++    u32 	   host_port_stats_end;
++};
++
++
++struct host_func_stats {
++    u32     host_func_stats_start;
++
++    u32     total_bytes_received_hi;
++    u32     total_bytes_received_lo;
++
++    u32     total_bytes_transmitted_hi;
++    u32     total_bytes_transmitted_lo;
++
++    u32     total_unicast_packets_received_hi;
++    u32     total_unicast_packets_received_lo;
++
++    u32     total_multicast_packets_received_hi;
++    u32     total_multicast_packets_received_lo;
++
++    u32     total_broadcast_packets_received_hi;
++    u32     total_broadcast_packets_received_lo;
++
++    u32     total_unicast_packets_transmitted_hi;
++    u32     total_unicast_packets_transmitted_lo;
++
++    u32     total_multicast_packets_transmitted_hi;
++    u32     total_multicast_packets_transmitted_lo;
++
++    u32     total_broadcast_packets_transmitted_hi;
++    u32     total_broadcast_packets_transmitted_lo;
++
++    u32     valid_bytes_received_hi;
++    u32     valid_bytes_received_lo;
++
++    u32     host_func_stats_end;
++};
  
  
- /* Init operation types and structures */
--
-+/* Common for both E1 and E1H */
- #define OP_RD			0x1 /* read single register */
- #define OP_WR			0x2 /* write single register */
- #define OP_IW			0x3 /* write single register using mailbox */
-@@ -37,7 +38,37 @@
- #define OP_SI			0x5 /* copy a string using mailbox */
- #define OP_ZR			0x6 /* clear memory */
- #define OP_ZP			0x7 /* unzip then copy with DMAE */
--#define OP_WB			0x8 /* copy a string using DMAE */
-+#define OP_WR_64		0x8 /* write 64 bit pattern */
-+#define OP_WB			0x9 /* copy a string using DMAE */
-+
-+/* Operation specific for E1 */
-+#define OP_RD_E1		0xa /* read single register */
-+#define OP_WR_E1		0xb /* write single register */
-+#define OP_IW_E1		0xc /* write single register using mailbox */
-+#define OP_SW_E1		0xd /* copy a string to the device */
-+#define OP_SI_E1		0xe /* copy a string using mailbox */
-+#define OP_ZR_E1		0xf /* clear memory */
-+#define OP_ZP_E1		0x10 /* unzip then copy with DMAE */
-+#define OP_WR_64_E1		0x11 /* write 64 bit pattern on E1 */
-+#define OP_WB_E1		0x12 /* copy a string using DMAE */
-+
-+/* Operation specific for E1H */
-+#define OP_RD_E1H		0x13 /* read single register */
-+#define OP_WR_E1H		0x14 /* write single register */
-+#define OP_IW_E1H		0x15 /* write single register using mailbox */
-+#define OP_SW_E1H		0x16 /* copy a string to the device */
-+#define OP_SI_E1H		0x17 /* copy a string using mailbox */
-+#define OP_ZR_E1H		0x18 /* clear memory */
-+#define OP_ZP_E1H		0x19 /* unzip then copy with DMAE */
-+#define OP_WR_64_E1H		0x1a /* write 64 bit pattern on E1H */
-+#define OP_WB_E1H		0x1b /* copy a string using DMAE */
-+
-+/* FPGA and EMUL specific operations */
-+#define OP_WR_EMUL_E1H		0x1c /* write single register on E1H Emul */
-+#define OP_WR_EMUL		0x1d /* write single register on Emulation */
-+#define OP_WR_FPGA		0x1e /* write single register on FPGA */
-+#define OP_WR_ASIC		0x1f /* write single register on ASIC */
-+
+ #define BCM_5710_FW_MAJOR_VERSION			4
+@@ -2369,9 +2700,9 @@ struct cmng_struct_per_port {
  
- struct raw_op {
- 	u32 op		:8;
-@@ -116,11 +147,106 @@ static void bnx2x_init_ind_wr(struct bnx2x *bp, u32 addr, const u32 *data,
- 	}
- }
  
-+static void bnx2x_write_big_buf(struct bnx2x *bp, u32 addr, u32 len)
-+{
-+#ifdef USE_DMAE
-+	int offset = 0;
-+
-+	if (bp->dmae_ready) {
-+		while (len > DMAE_LEN32_WR_MAX) {
-+			bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
-+					 addr + offset, DMAE_LEN32_WR_MAX);
-+			offset += DMAE_LEN32_WR_MAX * 4;
-+			len -= DMAE_LEN32_WR_MAX;
-+		}
-+		bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
-+				 addr + offset, len);
-+	} else
-+		bnx2x_init_str_wr(bp, addr, bp->gunzip_buf, len);
-+#else
-+	bnx2x_init_str_wr(bp, addr, bp->gunzip_buf, len);
-+#endif
-+}
-+
-+static void bnx2x_init_fill(struct bnx2x *bp, u32 addr, int fill, u32 len)
-+{
-+	if ((len * 4) > FW_BUF_SIZE) {
-+		BNX2X_ERR("LARGE DMAE OPERATION ! addr 0x%x  len 0x%x\n",
-+			  addr, len*4);
-+		return;
-+	}
-+	memset(bp->gunzip_buf, fill, len * 4);
-+
-+	bnx2x_write_big_buf(bp, addr, len);
-+}
-+
-+static void bnx2x_init_wr_64(struct bnx2x *bp, u32 addr, const u32 *data,
-+			     u32 len64)
-+{
-+	u32 len = len64*2;
-+	u64 data64 = 0;
-+	int i;
-+
-+	/* length is in 64 bit chunks */
-+	if ((len * 4) > FW_BUF_SIZE) {
-+		BNX2X_ERR("LARGE DMAE OPERATION ! addr 0x%x  len 0x%x\n",
-+			  addr, len*4);
-+		return;
-+	}
-+
-+	/* 64 bit value is in a blob: first low DWORD, then high DWORD */
-+	data64 = HILO_U64((*(data + 1)), (*data));
-+	for (i = 0; i < len64; i++) {
-+		u64 *pdata = ((u64 *)(bp->gunzip_buf)) + i;
-+
-+		*pdata = data64;
-+	}
-+
-+	bnx2x_write_big_buf(bp, addr, len);
-+}
-+
-+static const u32 *bnx2x_sel_blob(u32 addr, const u32 *data, int is_e1)
-+{
-+	switch (addr) {
-+	case TSEM_REG_INT_TABLE:
-+		data = is_e1 ? tsem_int_table_data_e1 :
-+			       tsem_int_table_data_e1h;
-+		break;
-+	case CSEM_REG_INT_TABLE:
-+		data = is_e1 ? csem_int_table_data_e1 :
-+			       csem_int_table_data_e1h;
-+		break;
-+	case USEM_REG_INT_TABLE:
-+		data = is_e1 ? usem_int_table_data_e1 :
-+			       usem_int_table_data_e1h;
-+		break;
-+	case XSEM_REG_INT_TABLE:
-+		data = is_e1 ? xsem_int_table_data_e1 :
-+			       xsem_int_table_data_e1h;
-+		break;
-+	case TSEM_REG_PRAM:
-+		data = is_e1 ? tsem_pram_data_e1 : tsem_pram_data_e1h;
-+		break;
-+	case CSEM_REG_PRAM:
-+		data = is_e1 ? csem_pram_data_e1 : csem_pram_data_e1h;
-+		break;
-+	case USEM_REG_PRAM:
-+		data = is_e1 ? usem_pram_data_e1 : usem_pram_data_e1h;
-+		break;
-+	case XSEM_REG_PRAM:
-+		data = is_e1 ? xsem_pram_data_e1 : xsem_pram_data_e1h;
-+		break;
-+	}
-+	return data;
-+}
-+
- static void bnx2x_init_wr_wb(struct bnx2x *bp, u32 addr, const u32 *data,
--			     u32 len, int gunzip)
-+			     u32 len, int gunzip, int is_e1)
- {
- 	int offset = 0;
- 
-+	data = bnx2x_sel_blob(addr, data, is_e1);
-+
- 	if (gunzip) {
- 		int rc;
- #ifdef __BIG_ENDIAN
-@@ -135,64 +261,59 @@ static void bnx2x_init_wr_wb(struct bnx2x *bp, u32 addr, const u32 *data,
- #endif
- 		rc = bnx2x_gunzip(bp, (u8 *)data, len);
- 		if (rc) {
--			DP(NETIF_MSG_HW, "gunzip failed ! rc %d\n", rc);
-+			BNX2X_ERR("gunzip failed ! rc %d\n", rc);
- 			return;
- 		}
- 		len = bp->gunzip_outlen;
- #ifdef __BIG_ENDIAN
- 		kfree(temp);
- 		for (i = 0; i < len; i++)
--			 ((u32 *)bp->gunzip_buf)[i] =
-+			((u32 *)bp->gunzip_buf)[i] =
- 					swab32(((u32 *)bp->gunzip_buf)[i]);
- #endif
- 	} else {
- 		if ((len * 4) > FW_BUF_SIZE) {
--			BNX2X_ERR("LARGE DMAE OPERATION ! len 0x%x\n", len*4);
-+			BNX2X_ERR("LARGE DMAE OPERATION ! "
-+				  "addr 0x%x  len 0x%x\n", addr, len*4);
- 			return;
- 		}
- 		memcpy(bp->gunzip_buf, data, len * 4);
- 	}
- 
--	while (len > DMAE_LEN32_MAX) {
--		bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
--				 addr + offset, DMAE_LEN32_MAX);
--		offset += DMAE_LEN32_MAX * 4;
--		len -= DMAE_LEN32_MAX;
--	}
--	bnx2x_write_dmae(bp, bp->gunzip_mapping + offset, addr + offset, len);
--}
--
--#define INIT_MEM_WB(reg, data, reg_off, len) \
--	bnx2x_init_wr_wb(bp, reg + reg_off*4, data, len, 0)
--
--#define INIT_GUNZIP_DMAE(reg, data, reg_off, len) \
--	bnx2x_init_wr_wb(bp, reg + reg_off*4, data, len, 1)
--
--static void bnx2x_init_fill(struct bnx2x *bp, u32 addr, int fill, u32 len)
--{
--	int offset = 0;
--
--	if ((len * 4) > FW_BUF_SIZE) {
--		BNX2X_ERR("LARGE DMAE OPERATION ! len 0x%x\n", len * 4);
--		return;
--	}
--	memset(bp->gunzip_buf, fill, len * 4);
--
--	while (len > DMAE_LEN32_MAX) {
-+	if (bp->dmae_ready) {
-+		while (len > DMAE_LEN32_WR_MAX) {
-+			bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
-+					 addr + offset, DMAE_LEN32_WR_MAX);
-+			offset += DMAE_LEN32_WR_MAX * 4;
-+			len -= DMAE_LEN32_WR_MAX;
-+		}
- 		bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
--				 addr + offset, DMAE_LEN32_MAX);
--		offset += DMAE_LEN32_MAX * 4;
--		len -= DMAE_LEN32_MAX;
--	}
--	bnx2x_write_dmae(bp, bp->gunzip_mapping + offset, addr + offset, len);
-+				 addr + offset, len);
-+	} else
-+		bnx2x_init_ind_wr(bp, addr, bp->gunzip_buf, len);
- }
- 
- static void bnx2x_init_block(struct bnx2x *bp, u32 op_start, u32 op_end)
- {
--	int i;
-+	int is_e1       = CHIP_IS_E1(bp);
-+	int is_e1h      = CHIP_IS_E1H(bp);
-+	int is_emul_e1h = (CHIP_REV_IS_EMUL(bp) && is_e1h);
-+	int hw_wr, i;
- 	union init_op *op;
- 	u32 op_type, addr, len;
--	const u32 *data;
-+	const u32 *data, *data_base;
-+
-+	if (CHIP_REV_IS_FPGA(bp))
-+		hw_wr = OP_WR_FPGA;
-+	else if (CHIP_REV_IS_EMUL(bp))
-+		hw_wr = OP_WR_EMUL;
-+	else
-+		hw_wr = OP_WR_ASIC;
-+
-+	if (is_e1)
-+		data_base = init_data_e1;
-+	else /* CHIP_IS_E1H(bp) */
-+		data_base = init_data_e1h;
- 
- 	for (i = op_start; i < op_end; i++) {
- 
-@@ -201,7 +322,30 @@ static void bnx2x_init_block(struct bnx2x *bp, u32 op_start, u32 op_end)
- 		op_type = op->str_wr.op;
- 		addr = op->str_wr.offset;
- 		len = op->str_wr.data_len;
--		data = init_data + op->str_wr.data_off;
-+		data = data_base + op->str_wr.data_off;
-+
-+		/* carefull! it must be in order */
-+		if (unlikely(op_type > OP_WB)) {
-+
-+			/* If E1 only */
-+			if (op_type <= OP_WB_E1) {
-+				if (is_e1)
-+					op_type -= (OP_RD_E1 - OP_RD);
-+
-+			/* If E1H only */
-+			} else if (op_type <= OP_WB_E1H) {
-+				if (is_e1h)
-+					op_type -= (OP_RD_E1H - OP_RD);
-+			}
-+
-+			/* HW/EMUL specific */
-+			if (op_type == hw_wr)
-+				op_type = OP_WR;
-+
-+			/* EMUL on E1H is special */
-+			if ((op_type == OP_WR_EMUL_E1H) && is_emul_e1h)
-+				op_type = OP_WR;
-+		}
- 
- 		switch (op_type) {
- 		case OP_RD:
-@@ -214,7 +358,7 @@ static void bnx2x_init_block(struct bnx2x *bp, u32 op_start, u32 op_end)
- 			bnx2x_init_str_wr(bp, addr, data, len);
- 			break;
- 		case OP_WB:
--			bnx2x_init_wr_wb(bp, addr, data, len, 0);
-+			bnx2x_init_wr_wb(bp, addr, data, len, 0, is_e1);
- 			break;
- 		case OP_SI:
- 			bnx2x_init_ind_wr(bp, addr, data, len);
-@@ -223,10 +367,20 @@ static void bnx2x_init_block(struct bnx2x *bp, u32 op_start, u32 op_end)
- 			bnx2x_init_fill(bp, addr, 0, op->zero.len);
- 			break;
- 		case OP_ZP:
--			bnx2x_init_wr_wb(bp, addr, data, len, 1);
-+			bnx2x_init_wr_wb(bp, addr, data, len, 1, is_e1);
-+			break;
-+		case OP_WR_64:
-+			bnx2x_init_wr_64(bp, addr, data, len);
- 			break;
- 		default:
--			BNX2X_ERR("BAD init operation!\n");
-+			/* happens whenever an op is of a diff HW */
-+#if 0
-+			DP(NETIF_MSG_HW, "skipping init operation  "
-+			   "index %d[%d:%d]: type %d  addr 0x%x  "
-+			   "len %d(0x%x)\n",
-+			   i, op_start, op_end, op_type, addr, len, len);
-+#endif
-+			break;
- 		}
- 	}
- }
-@@ -237,7 +391,7 @@ static void bnx2x_init_block(struct bnx2x *bp, u32 op_start, u32 op_end)
- ****************************************************************************/
  /*
-  * This code configures the PCI read/write arbiter
-- * which implements a wighted round robin
-+ * which implements a weighted round robin
-  * between the virtual queues in the chip.
-  *
-  * The values were derived for each PCI max payload and max request size.
-@@ -307,7 +461,7 @@ static const struct arb_line write_arb_data[NUM_WR_Q][MAX_WR_ORD + 1] = {
- 	{{8 , 64 , 25}, {16 , 64 , 41}, {32 , 64 , 81} }
+- * Common statistics collected by the Xstorm (per port)
++ * Protocol-common statistics collected by the Xstorm (per client)
+  */
+-struct xstorm_common_stats {
++struct xstorm_per_client_stats {
+ 	struct regpair total_sent_bytes;
+ 	u32 total_sent_pkts;
+ 	u32 unicast_pkts_sent;
+@@ -2380,9 +2711,31 @@ struct xstorm_common_stats {
+ 	u32 multicast_pkts_sent;
+ 	u32 broadcast_pkts_sent;
+ 	struct regpair broadcast_bytes_sent;
+-	struct regpair done;
++	u16 stats_counter;
++	u16 reserved0;
++	u32 reserved1;
++};
++
++
++/*
++ * Common statistics collected by the Xstorm (per port)
++ */
++struct xstorm_common_stats {
++ struct xstorm_per_client_stats client_statistics[MAX_X_STAT_COUNTER_ID];
++};
++
++
++/*
++ * Protocol-common statistics collected by the Tstorm (per port)
++ */
++struct tstorm_per_port_stats {
++	u32 mac_filter_discard;
++	u32 xxoverflow_discard;
++	u32 brb_truncate_discard;
++	u32 mac_discard;
  };
  
--/* register adresses for read queues */
-+/* register addresses for read queues */
- static const struct arb_line read_arb_addr[NUM_RD_Q-1] = {
- 	{PXP2_REG_RQ_BW_RD_L0, PXP2_REG_RQ_BW_RD_ADD0,
- 		PXP2_REG_RQ_BW_RD_UBOUND0},
-@@ -367,7 +521,7 @@ static const struct arb_line read_arb_addr[NUM_RD_Q-1] = {
- 		PXP2_REG_PSWRQ_BW_UB28}
++
+ /*
+  * Protocol-common statistics collected by the Tstorm (per client)
+  */
+@@ -2400,20 +2753,17 @@ struct tstorm_per_client_stats {
+ 	u32 rcv_multicast_pkts;
+ 	u32 no_buff_discard;
+ 	u32 ttl0_discard;
+-	u32 mac_discard;
+-	u32 reserved;
++	u16 stats_counter;
++	u16 reserved0;
++	u32 reserved1;
  };
  
--/* register adresses for wrtie queues */
-+/* register addresses for write queues */
- static const struct arb_line write_arb_addr[NUM_WR_Q-1] = {
- 	{PXP2_REG_PSWRQ_BW_L1, PXP2_REG_PSWRQ_BW_ADD1,
- 		PXP2_REG_PSWRQ_BW_UB1},
-@@ -416,6 +570,10 @@ static void bnx2x_init_pxp(struct bnx2x *bp)
- 		   w_order, MAX_WR_ORD);
- 		w_order = MAX_WR_ORD;
- 	}
-+	if (CHIP_REV_IS_FPGA(bp)) {
-+		DP(NETIF_MSG_HW, "write order adjusted to 1 for FPGA\n");
-+		w_order = 0;
-+	}
- 	DP(NETIF_MSG_HW, "read order %d  write order %d\n", r_order, w_order);
- 
- 	for (i = 0; i < NUM_RD_Q-1; i++) {
-@@ -473,7 +631,20 @@ static void bnx2x_init_pxp(struct bnx2x *bp)
- 		REG_WR(bp, PXP2_REG_RQ_PDR_LIMIT, 0xe00);
- 
- 	REG_WR(bp, PXP2_REG_WR_USDMDP_TH, (0x18 << w_order));
--	REG_WR(bp, PXP2_REG_WR_DMAE_TH, (128 << w_order)/16);
-+
-+	if (CHIP_IS_E1H(bp)) {
-+		REG_WR(bp, PXP2_REG_WR_HC_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_USDM_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_CSDM_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_TSDM_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_XSDM_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_QM_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_TM_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_SRC_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_DBG_MPS, w_order+1);
-+		REG_WR(bp, PXP2_REG_WR_DMAE_MPS, 2); /* DMAE is special */
-+		REG_WR(bp, PXP2_REG_WR_CDU_MPS, w_order+1);
-+	}
- }
- 
- 
-@@ -556,6 +727,72 @@ static u8 calc_crc8(u32 data, u8 crc)
- 	return crc_res;
- }
- 
-+/* regiesers addresses are not in order
-+   so these arrays help simplify the code */
-+static const int cm_start[E1H_FUNC_MAX][9] = {
-+	{MISC_FUNC0_START, TCM_FUNC0_START, UCM_FUNC0_START, CCM_FUNC0_START,
-+	 XCM_FUNC0_START, TSEM_FUNC0_START, USEM_FUNC0_START, CSEM_FUNC0_START,
-+	 XSEM_FUNC0_START},
-+	{MISC_FUNC1_START, TCM_FUNC1_START, UCM_FUNC1_START, CCM_FUNC1_START,
-+	 XCM_FUNC1_START, TSEM_FUNC1_START, USEM_FUNC1_START, CSEM_FUNC1_START,
-+	 XSEM_FUNC1_START},
-+	{MISC_FUNC2_START, TCM_FUNC2_START, UCM_FUNC2_START, CCM_FUNC2_START,
-+	 XCM_FUNC2_START, TSEM_FUNC2_START, USEM_FUNC2_START, CSEM_FUNC2_START,
-+	 XSEM_FUNC2_START},
-+	{MISC_FUNC3_START, TCM_FUNC3_START, UCM_FUNC3_START, CCM_FUNC3_START,
-+	 XCM_FUNC3_START, TSEM_FUNC3_START, USEM_FUNC3_START, CSEM_FUNC3_START,
-+	 XSEM_FUNC3_START},
-+	{MISC_FUNC4_START, TCM_FUNC4_START, UCM_FUNC4_START, CCM_FUNC4_START,
-+	 XCM_FUNC4_START, TSEM_FUNC4_START, USEM_FUNC4_START, CSEM_FUNC4_START,
-+	 XSEM_FUNC4_START},
-+	{MISC_FUNC5_START, TCM_FUNC5_START, UCM_FUNC5_START, CCM_FUNC5_START,
-+	 XCM_FUNC5_START, TSEM_FUNC5_START, USEM_FUNC5_START, CSEM_FUNC5_START,
-+	 XSEM_FUNC5_START},
-+	{MISC_FUNC6_START, TCM_FUNC6_START, UCM_FUNC6_START, CCM_FUNC6_START,
-+	 XCM_FUNC6_START, TSEM_FUNC6_START, USEM_FUNC6_START, CSEM_FUNC6_START,
-+	 XSEM_FUNC6_START},
-+	{MISC_FUNC7_START, TCM_FUNC7_START, UCM_FUNC7_START, CCM_FUNC7_START,
-+	 XCM_FUNC7_START, TSEM_FUNC7_START, USEM_FUNC7_START, CSEM_FUNC7_START,
-+	 XSEM_FUNC7_START}
-+};
-+
-+static const int cm_end[E1H_FUNC_MAX][9] = {
-+	{MISC_FUNC0_END, TCM_FUNC0_END, UCM_FUNC0_END, CCM_FUNC0_END,
-+	 XCM_FUNC0_END, TSEM_FUNC0_END, USEM_FUNC0_END, CSEM_FUNC0_END,
-+	 XSEM_FUNC0_END},
-+	{MISC_FUNC1_END, TCM_FUNC1_END, UCM_FUNC1_END, CCM_FUNC1_END,
-+	 XCM_FUNC1_END, TSEM_FUNC1_END, USEM_FUNC1_END, CSEM_FUNC1_END,
-+	 XSEM_FUNC1_END},
-+	{MISC_FUNC2_END, TCM_FUNC2_END, UCM_FUNC2_END, CCM_FUNC2_END,
-+	 XCM_FUNC2_END, TSEM_FUNC2_END, USEM_FUNC2_END, CSEM_FUNC2_END,
-+	 XSEM_FUNC2_END},
-+	{MISC_FUNC3_END, TCM_FUNC3_END, UCM_FUNC3_END, CCM_FUNC3_END,
-+	 XCM_FUNC3_END, TSEM_FUNC3_END, USEM_FUNC3_END, CSEM_FUNC3_END,
-+	 XSEM_FUNC3_END},
-+	{MISC_FUNC4_END, TCM_FUNC4_END, UCM_FUNC4_END, CCM_FUNC4_END,
-+	 XCM_FUNC4_END, TSEM_FUNC4_END, USEM_FUNC4_END, CSEM_FUNC4_END,
-+	 XSEM_FUNC4_END},
-+	{MISC_FUNC5_END, TCM_FUNC5_END, UCM_FUNC5_END, CCM_FUNC5_END,
-+	 XCM_FUNC5_END, TSEM_FUNC5_END, USEM_FUNC5_END, CSEM_FUNC5_END,
-+	 XSEM_FUNC5_END},
-+	{MISC_FUNC6_END, TCM_FUNC6_END, UCM_FUNC6_END, CCM_FUNC6_END,
-+	 XCM_FUNC6_END, TSEM_FUNC6_END, USEM_FUNC6_END, CSEM_FUNC6_END,
-+	 XSEM_FUNC6_END},
-+	{MISC_FUNC7_END, TCM_FUNC7_END, UCM_FUNC7_END, CCM_FUNC7_END,
-+	 XCM_FUNC7_END, TSEM_FUNC7_END, USEM_FUNC7_END, CSEM_FUNC7_END,
-+	 XSEM_FUNC7_END},
-+};
-+
-+static const int hc_limits[E1H_FUNC_MAX][2] = {
-+	{HC_FUNC0_START, HC_FUNC0_END},
-+	{HC_FUNC1_START, HC_FUNC1_END},
-+	{HC_FUNC2_START, HC_FUNC2_END},
-+	{HC_FUNC3_START, HC_FUNC3_END},
-+	{HC_FUNC4_START, HC_FUNC4_END},
-+	{HC_FUNC5_START, HC_FUNC5_END},
-+	{HC_FUNC6_START, HC_FUNC6_END},
-+	{HC_FUNC7_START, HC_FUNC7_END}
-+};
- 
- #endif /* BNX2X_INIT_H */
- 
-diff --git a/drivers/net/bnx2x_init_values.h b/drivers/net/bnx2x_init_values.h
-old mode 100644
-new mode 100755
-index bef0a9b..41adbec
---- a/drivers/net/bnx2x_init_values.h
-+++ b/drivers/net/bnx2x_init_values.h
-@@ -57,6 +57,7 @@ static const struct raw_op init_ops[] = {
- 	{OP_RD, PRS_REG_NUM_OF_CFC_FLUSH_MESSAGES, 0x0},
- 	{OP_RD, PRS_REG_NUM_OF_TRANSPARENT_FLUSH_MESSAGES, 0x0},
- 	{OP_RD, PRS_REG_NUM_OF_DEAD_CYCLES, 0x0},
-+	{OP_WR_E1H, PRS_REG_FCOE_TYPE, 0x8906},
- 	{OP_WR, PRS_REG_FLUSH_REGIONS_TYPE_0, 0xff},
- 	{OP_WR, PRS_REG_FLUSH_REGIONS_TYPE_1, 0xff},
- 	{OP_WR, PRS_REG_FLUSH_REGIONS_TYPE_2, 0xff},
-@@ -74,23 +75,27 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, PRS_REG_PACKET_REGIONS_TYPE_5, 0x3f},
- 	{OP_WR, PRS_REG_PACKET_REGIONS_TYPE_6, 0x3f},
- 	{OP_WR, PRS_REG_PACKET_REGIONS_TYPE_7, 0x3f},
--#define PRS_COMMON_END          46
--#define PRS_PORT0_START         46
--	{OP_WR, PRS_REG_CID_PORT_0, 0x0},
--#define PRS_PORT0_END           47
--#define PRS_PORT1_START         47
--	{OP_WR, PRS_REG_CID_PORT_1, 0x800000},
--#define PRS_PORT1_END           48
-+#define PRS_COMMON_END          47
-+#define SRCH_COMMON_START       47
-+	{OP_WR_E1H, SRC_REG_E1HMF_ENABLE, 0x1},
-+#define SRCH_COMMON_END         48
- #define TSDM_COMMON_START       48
--	{OP_WR, TSDM_REG_CFC_RSP_START_ADDR, 0x411},
--	{OP_WR, TSDM_REG_CMP_COUNTER_START_ADDR, 0x400},
--	{OP_WR, TSDM_REG_Q_COUNTER_START_ADDR, 0x404},
--	{OP_WR, TSDM_REG_PCK_END_MSG_START_ADDR, 0x419},
-+	{OP_WR_E1, TSDM_REG_CFC_RSP_START_ADDR, 0x411},
-+	{OP_WR_E1H, TSDM_REG_CFC_RSP_START_ADDR, 0x211},
-+	{OP_WR_E1, TSDM_REG_CMP_COUNTER_START_ADDR, 0x400},
-+	{OP_WR_E1H, TSDM_REG_CMP_COUNTER_START_ADDR, 0x200},
-+	{OP_WR_E1, TSDM_REG_Q_COUNTER_START_ADDR, 0x404},
-+	{OP_WR_E1H, TSDM_REG_Q_COUNTER_START_ADDR, 0x204},
-+	{OP_WR_E1, TSDM_REG_PCK_END_MSG_START_ADDR, 0x419},
-+	{OP_WR_E1H, TSDM_REG_PCK_END_MSG_START_ADDR, 0x219},
- 	{OP_WR, TSDM_REG_CMP_COUNTER_MAX0, 0xffff},
- 	{OP_WR, TSDM_REG_CMP_COUNTER_MAX1, 0xffff},
- 	{OP_WR, TSDM_REG_CMP_COUNTER_MAX2, 0xffff},
- 	{OP_WR, TSDM_REG_CMP_COUNTER_MAX3, 0xffff},
--	{OP_ZR, TSDM_REG_AGG_INT_EVENT_0, 0x80},
-+	{OP_ZR, TSDM_REG_AGG_INT_EVENT_0, 0x2},
-+	{OP_WR, TSDM_REG_AGG_INT_EVENT_2, 0x34},
-+	{OP_WR, TSDM_REG_AGG_INT_EVENT_3, 0x35},
-+	{OP_ZR, TSDM_REG_AGG_INT_EVENT_4, 0x7c},
- 	{OP_WR, TSDM_REG_ENABLE_IN1, 0x7ffffff},
- 	{OP_WR, TSDM_REG_ENABLE_IN2, 0x3f},
- 	{OP_WR, TSDM_REG_ENABLE_OUT1, 0x7ffffff},
-@@ -109,9 +114,12 @@ static const struct raw_op init_ops[] = {
- 	{OP_RD, TSDM_REG_NUM_OF_PKT_END_MSG, 0x0},
- 	{OP_RD, TSDM_REG_NUM_OF_PXP_ASYNC_REQ, 0x0},
- 	{OP_RD, TSDM_REG_NUM_OF_ACK_AFTER_PLACE, 0x0},
--	{OP_WR, TSDM_REG_TIMER_TICK, 0x3e8},
--#define TSDM_COMMON_END         76
--#define TCM_COMMON_START        76
-+	{OP_WR_E1, TSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1},
-+	{OP_WR_ASIC, TSDM_REG_TIMER_TICK, 0x3e8},
-+	{OP_WR_EMUL, TSDM_REG_TIMER_TICK, 0x1},
-+	{OP_WR_FPGA, TSDM_REG_TIMER_TICK, 0xa},
-+#define TSDM_COMMON_END         86
-+#define TCM_COMMON_START        86
- 	{OP_WR, TCM_REG_XX_MAX_LL_SZ, 0x20},
- 	{OP_WR, TCM_REG_XX_OVFL_EVNT_ID, 0x32},
- 	{OP_WR, TCM_REG_TQM_TCM_HDR_P, 0x2150020},
-@@ -143,9 +151,14 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, TCM_REG_N_SM_CTX_LD_3, 0x8},
- 	{OP_ZR, TCM_REG_N_SM_CTX_LD_4, 0x4},
- 	{OP_WR, TCM_REG_TCM_REG0_SZ, 0x6},
--	{OP_WR, TCM_REG_PHYS_QNUM0_0, 0xd},
--	{OP_WR, TCM_REG_PHYS_QNUM0_1, 0x2d},
--	{OP_ZR, TCM_REG_PHYS_QNUM1_0, 0x6},
-+	{OP_WR_E1, TCM_REG_PHYS_QNUM0_0, 0xd},
-+	{OP_WR_E1, TCM_REG_PHYS_QNUM0_1, 0x2d},
-+	{OP_WR_E1, TCM_REG_PHYS_QNUM1_0, 0x7},
-+	{OP_WR_E1, TCM_REG_PHYS_QNUM1_1, 0x27},
-+	{OP_WR_E1, TCM_REG_PHYS_QNUM2_0, 0x7},
-+	{OP_WR_E1, TCM_REG_PHYS_QNUM2_1, 0x27},
-+	{OP_WR_E1, TCM_REG_PHYS_QNUM3_0, 0x7},
-+	{OP_WR_E1, TCM_REG_PHYS_QNUM3_1, 0x27},
- 	{OP_WR, TCM_REG_TCM_STORM0_IFEN, 0x1},
- 	{OP_WR, TCM_REG_TCM_STORM1_IFEN, 0x1},
- 	{OP_WR, TCM_REG_TCM_TQM_IFEN, 0x1},
-@@ -162,23 +175,75 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, TCM_REG_CDU_SM_WR_IFEN, 0x1},
- 	{OP_WR, TCM_REG_CDU_SM_RD_IFEN, 0x1},
- 	{OP_WR, TCM_REG_TCM_CFC_IFEN, 0x1},
--#define TCM_COMMON_END          126
--#define BRB1_COMMON_START       126
-+#define TCM_COMMON_END          141
-+#define TCM_FUNC0_START         141
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM0_0, 0xd},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM1_0, 0x7},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM2_0, 0x7},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM3_0, 0x7},
-+#define TCM_FUNC0_END           145
-+#define TCM_FUNC1_START         145
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM0_1, 0x2d},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM1_1, 0x27},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM2_1, 0x27},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM3_1, 0x27},
-+#define TCM_FUNC1_END           149
-+#define TCM_FUNC2_START         149
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM0_0, 0x1d},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM1_0, 0x17},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM2_0, 0x17},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM3_0, 0x17},
-+#define TCM_FUNC2_END           153
-+#define TCM_FUNC3_START         153
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM0_1, 0x3d},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM1_1, 0x37},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM2_1, 0x37},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM3_1, 0x37},
-+#define TCM_FUNC3_END           157
-+#define TCM_FUNC4_START         157
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM0_0, 0x4d},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM1_0, 0x47},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM2_0, 0x47},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM3_0, 0x47},
-+#define TCM_FUNC4_END           161
-+#define TCM_FUNC5_START         161
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM0_1, 0x6d},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM1_1, 0x67},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM2_1, 0x67},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM3_1, 0x67},
-+#define TCM_FUNC5_END           165
-+#define TCM_FUNC6_START         165
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM0_0, 0x5d},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM1_0, 0x57},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM2_0, 0x57},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM3_0, 0x57},
-+#define TCM_FUNC6_END           169
-+#define TCM_FUNC7_START         169
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM0_1, 0x7d},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM1_1, 0x77},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM2_1, 0x77},
-+	{OP_WR_E1H, TCM_REG_PHYS_QNUM3_1, 0x77},
-+#define TCM_FUNC7_END           173
-+#define BRB1_COMMON_START       173
- 	{OP_SW, BRB1_REG_LL_RAM, 0x2000020},
- 	{OP_WR, BRB1_REG_SOFT_RESET, 0x1},
--	{OP_RD, BRB1_REG_NUM_OF_PAUSE_CYCLES_0, 0x0},
--	{OP_RD, BRB1_REG_NUM_OF_PAUSE_CYCLES_1, 0x0},
--	{OP_RD, BRB1_REG_NUM_OF_PAUSE_CYCLES_2, 0x0},
--	{OP_RD, BRB1_REG_NUM_OF_PAUSE_CYCLES_3, 0x0},
--	{OP_RD, BRB1_REG_NUM_OF_FULL_CYCLES_0, 0x0},
--	{OP_RD, BRB1_REG_NUM_OF_FULL_CYCLES_1, 0x0},
--	{OP_RD, BRB1_REG_NUM_OF_FULL_CYCLES_2, 0x0},
--	{OP_RD, BRB1_REG_NUM_OF_FULL_CYCLES_3, 0x0},
- 	{OP_RD, BRB1_REG_NUM_OF_FULL_CYCLES_4, 0x0},
- 	{OP_SW, BRB1_REG_FREE_LIST_PRS_CRDT, 0x30220},
- 	{OP_WR, BRB1_REG_SOFT_RESET, 0x0},
--#define BRB1_COMMON_END         139
--#define TSEM_COMMON_START       139
-+#define BRB1_COMMON_END         178
-+#define BRB1_PORT0_START        178
-+	{OP_WR_E1, BRB1_REG_PAUSE_LOW_THRESHOLD_0, 0xb8},
-+	{OP_WR_E1, BRB1_REG_PAUSE_HIGH_THRESHOLD_0, 0x114},
-+	{OP_RD, BRB1_REG_NUM_OF_PAUSE_CYCLES_0, 0x0},
-+	{OP_RD, BRB1_REG_NUM_OF_FULL_CYCLES_0, 0x0},
-+#define BRB1_PORT0_END          182
-+#define BRB1_PORT1_START        182
-+	{OP_WR_E1, BRB1_REG_PAUSE_LOW_THRESHOLD_1, 0xb8},
-+	{OP_WR_E1, BRB1_REG_PAUSE_HIGH_THRESHOLD_1, 0x114},
-+	{OP_RD, BRB1_REG_NUM_OF_PAUSE_CYCLES_1, 0x0},
-+	{OP_RD, BRB1_REG_NUM_OF_FULL_CYCLES_1, 0x0},
-+#define BRB1_PORT1_END          186
-+#define TSEM_COMMON_START       186
- 	{OP_RD, TSEM_REG_MSG_NUM_FIC0, 0x0},
- 	{OP_RD, TSEM_REG_MSG_NUM_FIC1, 0x0},
- 	{OP_RD, TSEM_REG_MSG_NUM_FOC0, 0x0},
-@@ -222,106 +287,243 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, TSEM_REG_FAST_MEMORY + 0x18040, 0x18},
- 	{OP_WR, TSEM_REG_FAST_MEMORY + 0x18080, 0xc},
- 	{OP_WR, TSEM_REG_FAST_MEMORY + 0x180c0, 0x20},
--	{OP_WR, TSEM_REG_FAST_MEMORY + 0x18300, 0x7a120},
-+	{OP_WR_ASIC, TSEM_REG_FAST_MEMORY + 0x18300, 0x7a120},
-+	{OP_WR_EMUL, TSEM_REG_FAST_MEMORY + 0x18300, 0x138},
-+	{OP_WR_FPGA, TSEM_REG_FAST_MEMORY + 0x18300, 0x1388},
- 	{OP_WR, TSEM_REG_FAST_MEMORY + 0x183c0, 0x1f4},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x2000, 0x1b3},
--	{OP_SW, TSEM_REG_FAST_MEMORY + 0x2000 + 0x6cc, 0x10223},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1020, 0xc8},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1000, 0x2},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x800, 0x2},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x808, 0x2},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x810, 0x4},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1fa0, 0x4},
--	{OP_SW, TSEM_REG_FAST_MEMORY + 0x4cf0, 0x80224},
--	{OP_ZP, TSEM_REG_INT_TABLE, 0x8c022c},
--	{OP_ZP, TSEM_REG_PRAM, 0x3395024f},
--	{OP_ZP, TSEM_REG_PRAM + 0x8000, 0x2c760f35},
--	{OP_ZP, TSEM_REG_PRAM + 0x10000, 0x5e1a53},
--	{OP_ZP, TSEM_REG_PRAM + 0x18000, 0x5e1a6b},
--	{OP_ZP, TSEM_REG_PRAM + 0x20000, 0x5e1a83},
--	{OP_ZP, TSEM_REG_PRAM + 0x28000, 0x5e1a9b},
--	{OP_ZP, TSEM_REG_PRAM + 0x30000, 0x5e1ab3},
--	{OP_ZP, TSEM_REG_PRAM + 0x38000, 0x5e1acb},
--#define TSEM_COMMON_END         202
--#define TSEM_PORT0_START        202
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x4000, 0x16c},
--	{OP_SW, TSEM_REG_FAST_MEMORY + 0x4000 + 0x5b0, 0x21ae3},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1370, 0xa},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x13c0, 0x6},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1418, 0xc},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1478, 0x12},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1508, 0x90},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x800, 0x2},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x820, 0x10},
--	{OP_SW, TSEM_REG_FAST_MEMORY + 0x820 + 0x40, 0x21ae5},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x2908, 0xa},
--#define TSEM_PORT0_END          213
--#define TSEM_PORT1_START        213
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x45b8, 0x16c},
--	{OP_SW, TSEM_REG_FAST_MEMORY + 0x45b8 + 0x5b0, 0x21ae7},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1398, 0xa},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x13d8, 0x6},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1448, 0xc},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x14c0, 0x12},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x1748, 0x90},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x808, 0x2},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x868, 0x10},
--	{OP_SW, TSEM_REG_FAST_MEMORY + 0x868 + 0x40, 0x21ae9},
--	{OP_ZR, TSEM_REG_FAST_MEMORY + 0x2930, 0xa},
--#define TSEM_PORT1_END          224
--#define MISC_COMMON_START       224
--	{OP_WR, MISC_REG_GRC_TIMEOUT_EN, 0x1},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x2000, 0xb2},
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x11480, 0x1},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x23c8, 0xc1},
-+	{OP_WR_EMUL_E1H, TSEM_REG_FAST_MEMORY + 0x11480, 0x0},
-+	{OP_SW_E1, TSEM_REG_FAST_MEMORY + 0x23c8 + 0x304, 0x10223},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x1000, 0x2b3},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1020, 0xc8},
-+	{OP_SW_E1H, TSEM_REG_FAST_MEMORY + 0x1000 + 0xacc, 0x10223},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1000, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0xa020, 0xc8},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1c18, 0x4},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0xa000, 0x2},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x800, 0x2},
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x1ad0, 0x0},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x808, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3b28, 0x6},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x810, 0x4},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5000, 0x2},
-+	{OP_SW_E1, TSEM_REG_FAST_MEMORY + 0x1fb0, 0x40224},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5008, 0x4},
-+	{OP_SW_E1, TSEM_REG_FAST_MEMORY + 0x4cb0, 0x80228},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5018, 0x4},
-+	{OP_ZP_E1, TSEM_REG_INT_TABLE, 0x940000},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5028, 0x4},
-+	{OP_WR_64_E1, TSEM_REG_INT_TABLE + 0x360, 0x140230},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5038, 0x4},
-+	{OP_ZP_E1, TSEM_REG_PRAM, 0x6ab70000},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5048, 0x4},
-+	{OP_WR_64_E1, TSEM_REG_PRAM + 0x117f0, 0x5d020232},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5058, 0x4},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5068, 0x4},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5078, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x4000, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x4008, 0x2},
-+	{OP_SW_E1H, TSEM_REG_FAST_MEMORY + 0x6140, 0x200224},
-+	{OP_ZP_E1H, TSEM_REG_INT_TABLE, 0x960000},
-+	{OP_WR_64_E1H, TSEM_REG_INT_TABLE + 0x360, 0x140244},
-+	{OP_ZP_E1H, TSEM_REG_PRAM, 0x6d080000},
-+	{OP_WR_64_E1H, TSEM_REG_PRAM + 0x11c70, 0x5c720246},
-+#define TSEM_COMMON_END         272
-+#define TSEM_PORT0_START        272
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x22c8, 0x20},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x2000, 0x16c},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x4000, 0xfc},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0xb000, 0x28},
-+	{OP_WR_E1, TSEM_REG_FAST_MEMORY + 0x4b60, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0xb140, 0xc},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1400, 0xa},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x32c0, 0x12},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1450, 0x6},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3350, 0xfa},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1500, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x8108, 0x2},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1570, 0x12},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x9c0, 0xbe},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x800, 0x2},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x820, 0xe},
-+	{OP_SW_E1, TSEM_REG_FAST_MEMORY + 0x1fb0, 0x20234},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x2908, 0x2},
-+#define TSEM_PORT0_END          290
-+#define TSEM_PORT1_START        290
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x2348, 0x20},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x25b0, 0x16c},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x43f0, 0xfc},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0xb0a0, 0x28},
-+	{OP_WR_E1, TSEM_REG_FAST_MEMORY + 0x4b64, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0xb170, 0xc},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1428, 0xa},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3308, 0x12},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1468, 0x6},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3738, 0xfa},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x1538, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x8110, 0x2},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x15b8, 0x12},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0xcb8, 0xbe},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x808, 0x2},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x858, 0xe},
-+	{OP_SW_E1, TSEM_REG_FAST_MEMORY + 0x1fb8, 0x20236},
-+	{OP_ZR_E1, TSEM_REG_FAST_MEMORY + 0x2910, 0x2},
-+#define TSEM_PORT1_END          308
-+#define TSEM_FUNC0_START        308
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x2b60, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3000, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x31c0, 0x8},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5000, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5080, 0x12},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x4000, 0x2},
-+#define TSEM_FUNC0_END          314
-+#define TSEM_FUNC1_START        314
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x2b64, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3038, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x31e0, 0x8},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5010, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x50c8, 0x12},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x4008, 0x2},
-+#define TSEM_FUNC1_END          320
-+#define TSEM_FUNC2_START        320
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x2b68, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3070, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3200, 0x8},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5020, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5110, 0x12},
-+	{OP_SW_E1H, TSEM_REG_FAST_MEMORY + 0x4010, 0x20248},
-+#define TSEM_FUNC2_END          326
-+#define TSEM_FUNC3_START        326
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x2b6c, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x30a8, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3220, 0x8},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5030, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5158, 0x12},
-+	{OP_SW_E1H, TSEM_REG_FAST_MEMORY + 0x4018, 0x2024a},
-+#define TSEM_FUNC3_END          332
-+#define TSEM_FUNC4_START        332
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x2b70, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x30e0, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3240, 0x8},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5040, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x51a0, 0x12},
-+	{OP_SW_E1H, TSEM_REG_FAST_MEMORY + 0x4020, 0x2024c},
-+#define TSEM_FUNC4_END          338
-+#define TSEM_FUNC5_START        338
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x2b74, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3118, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3260, 0x8},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5050, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x51e8, 0x12},
-+	{OP_SW_E1H, TSEM_REG_FAST_MEMORY + 0x4028, 0x2024e},
-+#define TSEM_FUNC5_END          344
-+#define TSEM_FUNC6_START        344
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x2b78, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3150, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3280, 0x8},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5060, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5230, 0x12},
-+	{OP_SW_E1H, TSEM_REG_FAST_MEMORY + 0x4030, 0x20250},
-+#define TSEM_FUNC6_END          350
-+#define TSEM_FUNC7_START        350
-+	{OP_WR_E1H, TSEM_REG_FAST_MEMORY + 0x2b7c, 0x0},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x3188, 0xe},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x32a0, 0x8},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5070, 0x2},
-+	{OP_ZR_E1H, TSEM_REG_FAST_MEMORY + 0x5278, 0x12},
-+	{OP_SW_E1H, TSEM_REG_FAST_MEMORY + 0x4038, 0x20252},
-+#define TSEM_FUNC7_END          356
-+#define MISC_COMMON_START       356
-+	{OP_WR_E1, MISC_REG_GRC_TIMEOUT_EN, 0x1},
- 	{OP_WR, MISC_REG_PLL_STORM_CTRL_1, 0x71d2911},
- 	{OP_WR, MISC_REG_PLL_STORM_CTRL_2, 0x0},
- 	{OP_WR, MISC_REG_PLL_STORM_CTRL_3, 0x9c0424},
- 	{OP_WR, MISC_REG_PLL_STORM_CTRL_4, 0x0},
- 	{OP_WR, MISC_REG_LCPLL_CTRL_1, 0x209},
--#define MISC_COMMON_END         230
--#define NIG_COMMON_START        230
-+	{OP_WR_E1, MISC_REG_SPIO, 0xff000000},
-+#define MISC_COMMON_END         363
-+#define MISC_FUNC0_START        363
-+	{OP_WR_E1H, MISC_REG_NIG_WOL_P0, 0x0},
-+#define MISC_FUNC0_END          364
-+#define MISC_FUNC1_START        364
-+	{OP_WR_E1H, MISC_REG_NIG_WOL_P1, 0x0},
-+#define MISC_FUNC1_END          365
-+#define MISC_FUNC2_START        365
-+	{OP_WR_E1H, MISC_REG_NIG_WOL_P0, 0x0},
-+#define MISC_FUNC2_END          366
-+#define MISC_FUNC3_START        366
-+	{OP_WR_E1H, MISC_REG_NIG_WOL_P1, 0x0},
-+#define MISC_FUNC3_END          367
-+#define MISC_FUNC4_START        367
-+	{OP_WR_E1H, MISC_REG_NIG_WOL_P0, 0x0},
-+#define MISC_FUNC4_END          368
-+#define MISC_FUNC5_START        368
-+	{OP_WR_E1H, MISC_REG_NIG_WOL_P1, 0x0},
-+#define MISC_FUNC5_END          369
-+#define MISC_FUNC6_START        369
-+	{OP_WR_E1H, MISC_REG_NIG_WOL_P0, 0x0},
-+#define MISC_FUNC6_END          370
-+#define MISC_FUNC7_START        370
-+	{OP_WR_E1H, MISC_REG_NIG_WOL_P1, 0x0},
-+#define MISC_FUNC7_END          371
-+#define NIG_COMMON_START        371
- 	{OP_WR, NIG_REG_PBF_LB_IN_EN, 0x1},
- 	{OP_WR, NIG_REG_PRS_REQ_IN_EN, 0x1},
- 	{OP_WR, NIG_REG_EGRESS_DEBUG_IN_EN, 0x1},
- 	{OP_WR, NIG_REG_BRB_LB_OUT_EN, 0x1},
- 	{OP_WR, NIG_REG_PRS_EOP_OUT_EN, 0x1},
--#define NIG_COMMON_END          235
--#define NIG_PORT0_START         235
-+#define NIG_COMMON_END          376
-+#define NIG_PORT0_START         376
- 	{OP_WR, NIG_REG_LLH0_CM_HEADER, 0x300000},
--	{OP_WR, NIG_REG_LLH0_EVENT_ID, 0x26},
-+	{OP_WR, NIG_REG_LLH0_EVENT_ID, 0x28},
- 	{OP_WR, NIG_REG_LLH0_ERROR_MASK, 0x0},
- 	{OP_WR, NIG_REG_LLH0_XCM_MASK, 0x4},
- 	{OP_WR, NIG_REG_LLH0_BRB1_NOT_MCP, 0x1},
- 	{OP_WR, NIG_REG_STATUS_INTERRUPT_PORT0, 0x0},
-+	{OP_WR_E1H, NIG_REG_LLH0_CLS_TYPE, 0x1},
- 	{OP_WR, NIG_REG_LLH0_XCM_INIT_CREDIT, 0x30},
- 	{OP_WR, NIG_REG_BRB0_PAUSE_IN_EN, 0x1},
- 	{OP_WR, NIG_REG_EGRESS_PBF0_IN_EN, 0x1},
- 	{OP_WR, NIG_REG_BRB0_OUT_EN, 0x1},
- 	{OP_WR, NIG_REG_XCM0_OUT_EN, 0x1},
--#define NIG_PORT0_END           246
--#define NIG_PORT1_START         246
-+#define NIG_PORT0_END           388
-+#define NIG_PORT1_START         388
- 	{OP_WR, NIG_REG_LLH1_CM_HEADER, 0x300000},
--	{OP_WR, NIG_REG_LLH1_EVENT_ID, 0x26},
-+	{OP_WR, NIG_REG_LLH1_EVENT_ID, 0x28},
- 	{OP_WR, NIG_REG_LLH1_ERROR_MASK, 0x0},
- 	{OP_WR, NIG_REG_LLH1_XCM_MASK, 0x4},
- 	{OP_WR, NIG_REG_LLH1_BRB1_NOT_MCP, 0x1},
- 	{OP_WR, NIG_REG_STATUS_INTERRUPT_PORT1, 0x0},
-+	{OP_WR_E1H, NIG_REG_LLH1_CLS_TYPE, 0x1},
- 	{OP_WR, NIG_REG_LLH1_XCM_INIT_CREDIT, 0x30},
- 	{OP_WR, NIG_REG_BRB1_PAUSE_IN_EN, 0x1},
- 	{OP_WR, NIG_REG_EGRESS_PBF1_IN_EN, 0x1},
- 	{OP_WR, NIG_REG_BRB1_OUT_EN, 0x1},
- 	{OP_WR, NIG_REG_XCM1_OUT_EN, 0x1},
--#define NIG_PORT1_END           257
--#define UPB_COMMON_START        257
-+#define NIG_PORT1_END           400
-+#define UPB_COMMON_START        400
- 	{OP_WR, GRCBASE_UPB + PB_REG_CONTROL, 0x20},
--#define UPB_COMMON_END          258
--#define CSDM_COMMON_START       258
--	{OP_WR, CSDM_REG_CFC_RSP_START_ADDR, 0xa11},
--	{OP_WR, CSDM_REG_CMP_COUNTER_START_ADDR, 0xa00},
--	{OP_WR, CSDM_REG_Q_COUNTER_START_ADDR, 0xa04},
-+#define UPB_COMMON_END          401
-+#define CSDM_COMMON_START       401
-+	{OP_WR_E1, CSDM_REG_CFC_RSP_START_ADDR, 0xa11},
-+	{OP_WR_E1H, CSDM_REG_CFC_RSP_START_ADDR, 0x211},
-+	{OP_WR_E1, CSDM_REG_CMP_COUNTER_START_ADDR, 0xa00},
-+	{OP_WR_E1H, CSDM_REG_CMP_COUNTER_START_ADDR, 0x200},
-+	{OP_WR_E1, CSDM_REG_Q_COUNTER_START_ADDR, 0xa04},
-+	{OP_WR_E1H, CSDM_REG_Q_COUNTER_START_ADDR, 0x204},
- 	{OP_WR, CSDM_REG_CMP_COUNTER_MAX0, 0xffff},
- 	{OP_WR, CSDM_REG_CMP_COUNTER_MAX1, 0xffff},
- 	{OP_WR, CSDM_REG_CMP_COUNTER_MAX2, 0xffff},
- 	{OP_WR, CSDM_REG_CMP_COUNTER_MAX3, 0xffff},
--	{OP_ZR, CSDM_REG_AGG_INT_EVENT_0, 0x80},
-+	{OP_WR, CSDM_REG_AGG_INT_EVENT_0, 0xc6},
-+	{OP_WR, CSDM_REG_AGG_INT_EVENT_1, 0x0},
-+	{OP_WR, CSDM_REG_AGG_INT_EVENT_2, 0x34},
-+	{OP_WR, CSDM_REG_AGG_INT_EVENT_3, 0x35},
-+	{OP_ZR, CSDM_REG_AGG_INT_EVENT_4, 0x1c},
-+	{OP_WR, CSDM_REG_AGG_INT_T_0, 0x1},
-+	{OP_ZR, CSDM_REG_AGG_INT_T_1, 0x5f},
- 	{OP_WR, CSDM_REG_ENABLE_IN1, 0x7ffffff},
- 	{OP_WR, CSDM_REG_ENABLE_IN2, 0x3f},
- 	{OP_WR, CSDM_REG_ENABLE_OUT1, 0x7ffffff},
-@@ -340,19 +542,29 @@ static const struct raw_op init_ops[] = {
- 	{OP_RD, CSDM_REG_NUM_OF_PKT_END_MSG, 0x0},
- 	{OP_RD, CSDM_REG_NUM_OF_PXP_ASYNC_REQ, 0x0},
- 	{OP_RD, CSDM_REG_NUM_OF_ACK_AFTER_PLACE, 0x0},
--	{OP_WR, CSDM_REG_TIMER_TICK, 0x3e8},
--#define CSDM_COMMON_END         285
--#define USDM_COMMON_START       285
--	{OP_WR, USDM_REG_CFC_RSP_START_ADDR, 0xa11},
--	{OP_WR, USDM_REG_CMP_COUNTER_START_ADDR, 0xa00},
--	{OP_WR, USDM_REG_Q_COUNTER_START_ADDR, 0xa04},
--	{OP_WR, USDM_REG_PCK_END_MSG_START_ADDR, 0xa21},
-+	{OP_WR_E1, CSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1},
-+	{OP_WR_ASIC, CSDM_REG_TIMER_TICK, 0x3e8},
-+	{OP_WR_EMUL, CSDM_REG_TIMER_TICK, 0x1},
-+	{OP_WR_FPGA, CSDM_REG_TIMER_TICK, 0xa},
-+#define CSDM_COMMON_END         440
-+#define USDM_COMMON_START       440
-+	{OP_WR_E1, USDM_REG_CFC_RSP_START_ADDR, 0xa11},
-+	{OP_WR_E1H, USDM_REG_CFC_RSP_START_ADDR, 0x411},
-+	{OP_WR_E1, USDM_REG_CMP_COUNTER_START_ADDR, 0xa00},
-+	{OP_WR_E1H, USDM_REG_CMP_COUNTER_START_ADDR, 0x400},
-+	{OP_WR_E1, USDM_REG_Q_COUNTER_START_ADDR, 0xa04},
-+	{OP_WR_E1H, USDM_REG_Q_COUNTER_START_ADDR, 0x404},
-+	{OP_WR_E1, USDM_REG_PCK_END_MSG_START_ADDR, 0xa21},
-+	{OP_WR_E1H, USDM_REG_PCK_END_MSG_START_ADDR, 0x421},
- 	{OP_WR, USDM_REG_CMP_COUNTER_MAX0, 0xffff},
- 	{OP_WR, USDM_REG_CMP_COUNTER_MAX1, 0xffff},
- 	{OP_WR, USDM_REG_CMP_COUNTER_MAX2, 0xffff},
- 	{OP_WR, USDM_REG_CMP_COUNTER_MAX3, 0xffff},
- 	{OP_WR, USDM_REG_AGG_INT_EVENT_0, 0x46},
--	{OP_ZR, USDM_REG_AGG_INT_EVENT_1, 0x5f},
-+	{OP_WR, USDM_REG_AGG_INT_EVENT_1, 0x5},
-+	{OP_WR, USDM_REG_AGG_INT_EVENT_2, 0x34},
-+	{OP_WR, USDM_REG_AGG_INT_EVENT_3, 0x35},
-+	{OP_ZR, USDM_REG_AGG_INT_EVENT_4, 0x5c},
- 	{OP_WR, USDM_REG_AGG_INT_MODE_0, 0x1},
- 	{OP_ZR, USDM_REG_AGG_INT_MODE_1, 0x1f},
- 	{OP_WR, USDM_REG_ENABLE_IN1, 0x7ffffff},
-@@ -374,9 +586,12 @@ static const struct raw_op init_ops[] = {
- 	{OP_RD, USDM_REG_NUM_OF_PKT_END_MSG, 0x0},
- 	{OP_RD, USDM_REG_NUM_OF_PXP_ASYNC_REQ, 0x0},
- 	{OP_RD, USDM_REG_NUM_OF_ACK_AFTER_PLACE, 0x0},
--	{OP_WR, USDM_REG_TIMER_TICK, 0x3e8},
--#define USDM_COMMON_END         317
--#define CCM_COMMON_START        317
-+	{OP_WR_E1, USDM_REG_INIT_CREDIT_PXP_CTRL, 0x1},
-+	{OP_WR_ASIC, USDM_REG_TIMER_TICK, 0x3e8},
-+	{OP_WR_EMUL, USDM_REG_TIMER_TICK, 0x1},
-+	{OP_WR_FPGA, USDM_REG_TIMER_TICK, 0xa},
-+#define USDM_COMMON_END         482
-+#define CCM_COMMON_START        482
- 	{OP_WR, CCM_REG_XX_OVFL_EVNT_ID, 0x32},
- 	{OP_WR, CCM_REG_CQM_CCM_HDR_P, 0x2150020},
- 	{OP_WR, CCM_REG_CQM_CCM_HDR_S, 0x2150020},
-@@ -401,23 +616,28 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, CCM_REG_XX_INIT_CRD, 0x3},
- 	{OP_WR, CCM_REG_XX_MSG_NUM, 0x18},
- 	{OP_ZR, CCM_REG_XX_TABLE, 0x12},
--	{OP_SW, CCM_REG_XX_DESCR_TABLE, 0x241aeb},
-+	{OP_SW_E1, CCM_REG_XX_DESCR_TABLE, 0x240238},
-+	{OP_SW_E1H, CCM_REG_XX_DESCR_TABLE, 0x240254},
- 	{OP_WR, CCM_REG_N_SM_CTX_LD_0, 0x1},
- 	{OP_WR, CCM_REG_N_SM_CTX_LD_1, 0x2},
- 	{OP_WR, CCM_REG_N_SM_CTX_LD_2, 0x8},
- 	{OP_WR, CCM_REG_N_SM_CTX_LD_3, 0x8},
- 	{OP_ZR, CCM_REG_N_SM_CTX_LD_4, 0x4},
- 	{OP_WR, CCM_REG_CCM_REG0_SZ, 0x4},
--	{OP_WR, CCM_REG_QOS_PHYS_QNUM0_0, 0x9},
--	{OP_WR, CCM_REG_QOS_PHYS_QNUM0_1, 0x29},
--	{OP_WR, CCM_REG_QOS_PHYS_QNUM1_0, 0xa},
--	{OP_WR, CCM_REG_QOS_PHYS_QNUM1_1, 0x2a},
--	{OP_ZR, CCM_REG_QOS_PHYS_QNUM2_0, 0x4},
--	{OP_WR, CCM_REG_PHYS_QNUM1_0, 0xc},
--	{OP_WR, CCM_REG_PHYS_QNUM1_1, 0x2c},
--	{OP_WR, CCM_REG_PHYS_QNUM2_0, 0xb},
--	{OP_WR, CCM_REG_PHYS_QNUM2_1, 0x2b},
--	{OP_ZR, CCM_REG_PHYS_QNUM3_0, 0x2},
-+	{OP_WR_E1, CCM_REG_QOS_PHYS_QNUM0_0, 0x9},
-+	{OP_WR_E1, CCM_REG_QOS_PHYS_QNUM0_1, 0x29},
-+	{OP_WR_E1, CCM_REG_QOS_PHYS_QNUM1_0, 0xa},
-+	{OP_WR_E1, CCM_REG_QOS_PHYS_QNUM1_1, 0x2a},
-+	{OP_WR_E1, CCM_REG_QOS_PHYS_QNUM2_0, 0x7},
-+	{OP_WR_E1, CCM_REG_QOS_PHYS_QNUM2_1, 0x27},
-+	{OP_WR_E1, CCM_REG_QOS_PHYS_QNUM3_0, 0x7},
-+	{OP_WR_E1, CCM_REG_QOS_PHYS_QNUM3_1, 0x27},
-+	{OP_WR_E1, CCM_REG_PHYS_QNUM1_0, 0xc},
-+	{OP_WR_E1, CCM_REG_PHYS_QNUM1_1, 0x2c},
-+	{OP_WR_E1, CCM_REG_PHYS_QNUM2_0, 0xc},
-+	{OP_WR_E1, CCM_REG_PHYS_QNUM2_1, 0x2c},
-+	{OP_WR_E1, CCM_REG_PHYS_QNUM3_0, 0xc},
-+	{OP_WR_E1, CCM_REG_PHYS_QNUM3_1, 0x2c},
- 	{OP_WR, CCM_REG_CCM_STORM0_IFEN, 0x1},
- 	{OP_WR, CCM_REG_CCM_STORM1_IFEN, 0x1},
- 	{OP_WR, CCM_REG_CCM_CQM_IFEN, 0x1},
-@@ -433,8 +653,80 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, CCM_REG_CDU_SM_WR_IFEN, 0x1},
- 	{OP_WR, CCM_REG_CDU_SM_RD_IFEN, 0x1},
- 	{OP_WR, CCM_REG_CCM_CFC_IFEN, 0x1},
--#define CCM_COMMON_END          373
--#define UCM_COMMON_START        373
-+#define CCM_COMMON_END          543
-+#define CCM_FUNC0_START         543
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM0_0, 0x9},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM1_0, 0xa},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM2_0, 0x7},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM3_0, 0x7},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM1_0, 0xc},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM2_0, 0xb},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM3_0, 0x7},
-+#define CCM_FUNC0_END           550
-+#define CCM_FUNC1_START         550
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM0_1, 0x29},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM1_1, 0x2a},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM2_1, 0x27},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM3_1, 0x27},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM1_1, 0x2c},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM2_1, 0x2b},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM3_1, 0x27},
-+#define CCM_FUNC1_END           557
-+#define CCM_FUNC2_START         557
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM0_0, 0x19},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM1_0, 0x1a},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM2_0, 0x17},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM3_0, 0x17},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM1_0, 0x1c},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM2_0, 0x1b},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM3_0, 0x17},
-+#define CCM_FUNC2_END           564
-+#define CCM_FUNC3_START         564
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM0_1, 0x39},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM1_1, 0x3a},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM2_1, 0x37},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM3_1, 0x37},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM1_1, 0x3c},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM2_1, 0x3b},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM3_1, 0x37},
-+#define CCM_FUNC3_END           571
-+#define CCM_FUNC4_START         571
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM0_0, 0x49},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM1_0, 0x4a},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM2_0, 0x47},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM3_0, 0x47},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM1_0, 0x4c},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM2_0, 0x4b},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM3_0, 0x47},
-+#define CCM_FUNC4_END           578
-+#define CCM_FUNC5_START         578
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM0_1, 0x69},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM1_1, 0x6a},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM2_1, 0x67},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM3_1, 0x67},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM1_1, 0x6c},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM2_1, 0x6b},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM3_1, 0x67},
-+#define CCM_FUNC5_END           585
-+#define CCM_FUNC6_START         585
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM0_0, 0x59},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM1_0, 0x5a},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM2_0, 0x57},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM3_0, 0x57},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM1_0, 0x5c},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM2_0, 0x5b},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM3_0, 0x57},
-+#define CCM_FUNC6_END           592
-+#define CCM_FUNC7_START         592
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM0_1, 0x79},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM1_1, 0x7a},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM2_1, 0x77},
-+	{OP_WR_E1H, CCM_REG_QOS_PHYS_QNUM3_1, 0x77},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM1_1, 0x7c},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM2_1, 0x7b},
-+	{OP_WR_E1H, CCM_REG_PHYS_QNUM3_1, 0x77},
-+#define CCM_FUNC7_END           599
-+#define UCM_COMMON_START        599
- 	{OP_WR, UCM_REG_XX_OVFL_EVNT_ID, 0x32},
- 	{OP_WR, UCM_REG_UQM_UCM_HDR_P, 0x2150020},
- 	{OP_WR, UCM_REG_UQM_UCM_HDR_S, 0x2150020},
-@@ -457,20 +749,23 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, UCM_REG_FIC1_INIT_CRD, 0x40},
- 	{OP_WR, UCM_REG_TM_INIT_CRD, 0x4},
- 	{OP_WR, UCM_REG_UQM_INIT_CRD, 0x20},
--	{OP_WR, UCM_REG_XX_INIT_CRD, 0xc},
--	{OP_WR, UCM_REG_XX_MSG_NUM, 0x20},
-+	{OP_WR, UCM_REG_XX_INIT_CRD, 0xe},
-+	{OP_WR, UCM_REG_XX_MSG_NUM, 0x1b},
- 	{OP_ZR, UCM_REG_XX_TABLE, 0x12},
--	{OP_SW, UCM_REG_XX_DESCR_TABLE, 0x201b0f},
--	{OP_WR, UCM_REG_N_SM_CTX_LD_0, 0xa},
-+	{OP_SW_E1, UCM_REG_XX_DESCR_TABLE, 0x1b025c},
-+	{OP_SW_E1H, UCM_REG_XX_DESCR_TABLE, 0x1b0278},
-+	{OP_WR, UCM_REG_N_SM_CTX_LD_0, 0x10},
- 	{OP_WR, UCM_REG_N_SM_CTX_LD_1, 0x7},
- 	{OP_WR, UCM_REG_N_SM_CTX_LD_2, 0xf},
- 	{OP_WR, UCM_REG_N_SM_CTX_LD_3, 0x10},
--	{OP_ZR, UCM_REG_N_SM_CTX_LD_4, 0x4},
-+	{OP_ZR_E1, UCM_REG_N_SM_CTX_LD_4, 0x4},
-+	{OP_WR_E1H, UCM_REG_N_SM_CTX_LD_4, 0xd},
-+	{OP_ZR_E1H, UCM_REG_N_SM_CTX_LD_5, 0x3},
- 	{OP_WR, UCM_REG_UCM_REG0_SZ, 0x3},
--	{OP_WR, UCM_REG_PHYS_QNUM0_0, 0xf},
--	{OP_WR, UCM_REG_PHYS_QNUM0_1, 0x2f},
--	{OP_WR, UCM_REG_PHYS_QNUM1_0, 0xe},
--	{OP_WR, UCM_REG_PHYS_QNUM1_1, 0x2e},
-+	{OP_WR_E1, UCM_REG_PHYS_QNUM0_0, 0xf},
-+	{OP_WR_E1, UCM_REG_PHYS_QNUM0_1, 0x2f},
-+	{OP_WR_E1, UCM_REG_PHYS_QNUM1_0, 0xe},
-+	{OP_WR_E1, UCM_REG_PHYS_QNUM1_1, 0x2e},
- 	{OP_WR, UCM_REG_UCM_STORM0_IFEN, 0x1},
- 	{OP_WR, UCM_REG_UCM_STORM1_IFEN, 0x1},
- 	{OP_WR, UCM_REG_UCM_UQM_IFEN, 0x1},
-@@ -488,8 +783,56 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, UCM_REG_CDU_SM_WR_IFEN, 0x1},
- 	{OP_WR, UCM_REG_CDU_SM_RD_IFEN, 0x1},
- 	{OP_WR, UCM_REG_UCM_CFC_IFEN, 0x1},
--#define UCM_COMMON_END          426
--#define USEM_COMMON_START       426
-+#define UCM_COMMON_END          655
-+#define UCM_FUNC0_START         655
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM0_0, 0xf},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM1_0, 0xe},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM2_0, 0x0},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM3_0, 0x0},
-+#define UCM_FUNC0_END           659
-+#define UCM_FUNC1_START         659
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM0_1, 0x2f},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM1_1, 0x2e},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM2_1, 0x0},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM3_1, 0x0},
-+#define UCM_FUNC1_END           663
-+#define UCM_FUNC2_START         663
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM0_0, 0x1f},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM1_0, 0x1e},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM2_0, 0x0},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM3_0, 0x0},
-+#define UCM_FUNC2_END           667
-+#define UCM_FUNC3_START         667
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM0_1, 0x3f},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM1_1, 0x3e},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM2_1, 0x0},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM3_1, 0x0},
-+#define UCM_FUNC3_END           671
-+#define UCM_FUNC4_START         671
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM0_0, 0x4f},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM1_0, 0x4e},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM2_0, 0x0},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM3_0, 0x0},
-+#define UCM_FUNC4_END           675
-+#define UCM_FUNC5_START         675
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM0_1, 0x6f},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM1_1, 0x6e},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM2_1, 0x0},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM3_1, 0x0},
-+#define UCM_FUNC5_END           679
-+#define UCM_FUNC6_START         679
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM0_0, 0x5f},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM1_0, 0x5e},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM2_0, 0x0},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM3_0, 0x0},
-+#define UCM_FUNC6_END           683
-+#define UCM_FUNC7_START         683
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM0_1, 0x7f},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM1_1, 0x7e},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM2_1, 0x0},
-+	{OP_WR_E1H, UCM_REG_PHYS_QNUM3_1, 0x0},
-+#define UCM_FUNC7_END           687
-+#define USEM_COMMON_START       687
- 	{OP_RD, USEM_REG_MSG_NUM_FIC0, 0x0},
- 	{OP_RD, USEM_REG_MSG_NUM_FIC1, 0x0},
- 	{OP_RD, USEM_REG_MSG_NUM_FOC0, 0x0},
-@@ -533,87 +876,191 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, USEM_REG_FAST_MEMORY + 0x18040, 0x4e},
- 	{OP_WR, USEM_REG_FAST_MEMORY + 0x18080, 0x10},
- 	{OP_WR, USEM_REG_FAST_MEMORY + 0x180c0, 0x20},
--	{OP_WR, USEM_REG_FAST_MEMORY + 0x18300, 0x7a120},
-+	{OP_WR_ASIC, USEM_REG_FAST_MEMORY + 0x18300, 0x7a120},
-+	{OP_WR_EMUL, USEM_REG_FAST_MEMORY + 0x18300, 0x138},
-+	{OP_WR_FPGA, USEM_REG_FAST_MEMORY + 0x18300, 0x1388},
- 	{OP_WR, USEM_REG_FAST_MEMORY + 0x183c0, 0x1f4},
--	{OP_WR, USEM_REG_FAST_MEMORY + 0x18380, 0x1dcd6500},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x5000, 0x102},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1020, 0xc8},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1000, 0x2},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1e20, 0x40},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3000, 0x400},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x2400, 0x2},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x2408, 0x2},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x2410, 0x6},
--	{OP_SW, USEM_REG_FAST_MEMORY + 0x2410 + 0x18, 0x21b2f},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x4b68, 0x2},
--	{OP_SW, USEM_REG_FAST_MEMORY + 0x4b68 + 0x8, 0x21b31},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x4b10, 0x2},
--	{OP_SW, USEM_REG_FAST_MEMORY + 0x2c30, 0x21b33},
-+	{OP_WR_ASIC, USEM_REG_FAST_MEMORY + 0x18380, 0x1dcd6500},
-+	{OP_WR_EMUL, USEM_REG_FAST_MEMORY + 0x18380, 0x4c4b4},
-+	{OP_WR_FPGA, USEM_REG_FAST_MEMORY + 0x18380, 0x4c4b40},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x5000, 0x102},
-+	{OP_WR_EMUL_E1H, USEM_REG_FAST_MEMORY + 0x11480, 0x0},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1020, 0xc8},
-+	{OP_WR_E1H, USEM_REG_FAST_MEMORY + 0x11480, 0x1},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1000, 0x2},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x2000, 0x102},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x57e8, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x8020, 0xc8},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x57d0, 0x5},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x8000, 0x2},
-+	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x57d0 + 0x14, 0x10277},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3760, 0x4},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1e20, 0x42},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3738, 0x9},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3000, 0x400},
-+	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x3738 + 0x24, 0x10293},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x2c00, 0x2},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3180, 0x42},
-+	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x2c00 + 0x8, 0x20278},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5000, 0x400},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b68, 0x2},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4000, 0x2},
-+	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x4b68 + 0x8, 0x2027a},
-+	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x4000 + 0x8, 0x20294},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b10, 0x2},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6b68, 0x2},
-+	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x2830, 0x2027c},
-+	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x6b68 + 0x8, 0x20296},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6b10, 0x2},
-+	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x74c0, 0x20298},
- 	{OP_WR, USEM_REG_FAST_MEMORY + 0x10800, 0x1000000},
--	{OP_SW, USEM_REG_FAST_MEMORY + 0x10c00, 0x101b35},
-+	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x10c00, 0x10027e},
-+	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x10c00, 0x10029a},
- 	{OP_WR, USEM_REG_FAST_MEMORY + 0x10800, 0x0},
--	{OP_SW, USEM_REG_FAST_MEMORY + 0x10c40, 0x101b45},
--	{OP_ZP, USEM_REG_INT_TABLE, 0xb41b55},
--	{OP_ZP, USEM_REG_PRAM, 0x32d01b82},
--	{OP_ZP, USEM_REG_PRAM + 0x8000, 0x32172836},
--	{OP_ZP, USEM_REG_PRAM + 0x10000, 0x1a7a34bc},
--	{OP_ZP, USEM_REG_PRAM + 0x18000, 0x5f3b5b},
--	{OP_ZP, USEM_REG_PRAM + 0x20000, 0x5f3b73},
--	{OP_ZP, USEM_REG_PRAM + 0x28000, 0x5f3b8b},
--	{OP_ZP, USEM_REG_PRAM + 0x30000, 0x5f3ba3},
--	{OP_ZP, USEM_REG_PRAM + 0x38000, 0x5f3bbb},
--#define USEM_COMMON_END         498
--#define USEM_PORT0_START        498
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1400, 0xa0},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1900, 0xa},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1950, 0x2e},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1d00, 0x24},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3000, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3100, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3200, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3300, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3400, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3500, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3600, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3700, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3800, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3900, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3a00, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3b00, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3c00, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3d00, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3e00, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3f00, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x2400, 0x2},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x4b78, 0x52},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x4e08, 0xc},
--#define USEM_PORT0_END          521
--#define USEM_PORT1_START        521
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1680, 0xa0},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1928, 0xa},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1a08, 0x2e},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x1d90, 0x24},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3080, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3180, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3280, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3380, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3480, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3580, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3680, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3780, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3880, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3980, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3a80, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3b80, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3c80, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3d80, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3e80, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x3f80, 0x20},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x2408, 0x2},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x4cc0, 0x52},
--	{OP_ZR, USEM_REG_FAST_MEMORY + 0x4e38, 0xc},
--#define USEM_PORT1_END          544
--#define CSEM_COMMON_START       544
-+	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x10c40, 0x10028e},
-+	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x10c40, 0x1002aa},
-+	{OP_ZP_E1, USEM_REG_INT_TABLE, 0xc20000},
-+	{OP_ZP_E1H, USEM_REG_INT_TABLE, 0xc40000},
-+	{OP_WR_64_E1, USEM_REG_INT_TABLE + 0x368, 0x13029e},
-+	{OP_WR_64_E1H, USEM_REG_INT_TABLE + 0x368, 0x1302ba},
-+	{OP_ZP_E1, USEM_REG_PRAM, 0x975a0000},
-+	{OP_ZP_E1H, USEM_REG_PRAM, 0x985c0000},
-+	{OP_WR_64_E1, USEM_REG_PRAM + 0x17f90, 0x500e02a0},
-+	{OP_WR_64_E1H, USEM_REG_PRAM + 0x18200, 0x4fc002bc},
-+#define USEM_COMMON_END         781
-+#define USEM_PORT0_START        781
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1400, 0xa0},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x9000, 0xa0},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1900, 0xa},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x9500, 0x28},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1950, 0x2e},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x9640, 0x34},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1d00, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3080, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1d20, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3288, 0x96},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x5440, 0x72},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5000, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3000, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5100, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3100, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5200, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3200, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5300, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3300, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5400, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3400, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5500, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3500, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5600, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3600, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5700, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3700, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5800, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3800, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5900, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3900, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5a00, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3a00, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5b00, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3b00, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5c00, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3c00, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5d00, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3d00, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5e00, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3e00, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5f00, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3f00, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6b78, 0x52},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x2c10, 0x2},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6e08, 0xc},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b78, 0x52},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4e08, 0xc},
-+#define USEM_PORT0_END          829
-+#define USEM_PORT1_START        829
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1680, 0xa0},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x9280, 0xa0},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1928, 0xa},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x95a0, 0x28},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1a08, 0x2e},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x9710, 0x34},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1d10, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3100, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1da0, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x34e0, 0x96},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x5608, 0x72},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5080, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3080, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5180, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3180, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5280, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3280, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5380, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3380, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5480, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3480, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5580, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3580, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5680, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3680, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5780, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3780, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5880, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3880, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5980, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3980, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5a80, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3a80, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5b80, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3b80, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5c80, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3c80, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5d80, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3d80, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5e80, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3e80, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5f80, 0x20},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3f80, 0x20},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6cc0, 0x52},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x2c20, 0x2},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6e38, 0xc},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4cc0, 0x52},
-+	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4e38, 0xc},
-+#define USEM_PORT1_END          877
-+#define USEM_FUNC0_START        877
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3000, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4010, 0x2},
-+#define USEM_FUNC0_END          879
-+#define USEM_FUNC1_START        879
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3010, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4020, 0x2},
-+#define USEM_FUNC1_END          881
-+#define USEM_FUNC2_START        881
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3020, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4030, 0x2},
-+#define USEM_FUNC2_END          883
-+#define USEM_FUNC3_START        883
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3030, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4040, 0x2},
-+#define USEM_FUNC3_END          885
-+#define USEM_FUNC4_START        885
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3040, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4050, 0x2},
-+#define USEM_FUNC4_END          887
-+#define USEM_FUNC5_START        887
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3050, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4060, 0x2},
-+#define USEM_FUNC5_END          889
-+#define USEM_FUNC6_START        889
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3060, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4070, 0x2},
-+#define USEM_FUNC6_END          891
-+#define USEM_FUNC7_START        891
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3070, 0x4},
-+	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4080, 0x2},
-+#define USEM_FUNC7_END          893
-+#define CSEM_COMMON_START       893
- 	{OP_RD, CSEM_REG_MSG_NUM_FIC0, 0x0},
- 	{OP_RD, CSEM_REG_MSG_NUM_FIC1, 0x0},
- 	{OP_RD, CSEM_REG_MSG_NUM_FOC0, 0x0},
-@@ -658,50 +1105,104 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, CSEM_REG_FAST_MEMORY + 0x18080, 0x30},
- 	{OP_WR, CSEM_REG_FAST_MEMORY + 0x180c0, 0xe},
- 	{OP_WR, CSEM_REG_FAST_MEMORY + 0x183c0, 0x1f4},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x5000, 0x42},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x1020, 0xc8},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x1000, 0x2},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x2000, 0xc0},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x3070, 0x80},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x4280, 0x4},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x25c0, 0x240},
--	{OP_SW, CSEM_REG_FAST_MEMORY + 0x25c0 + 0x900, 0x83bd3},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x5000, 0x42},
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x11480, 0x1},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1020, 0xc8},
-+	{OP_WR_EMUL_E1H, CSEM_REG_FAST_MEMORY + 0x11480, 0x0},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1000, 0x2},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x1000, 0x42},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x2000, 0xc0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x7020, 0xc8},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x3070, 0x80},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x7000, 0x2},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x4280, 0x4},
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x11e8, 0x0},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x25c0, 0x240},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3000, 0xc0},
-+	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x2ec8, 0x802a2},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x4070, 0x80},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x5280, 0x4},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x6280, 0x240},
-+	{OP_SW_E1H, CSEM_REG_FAST_MEMORY + 0x6b88, 0x2002be},
- 	{OP_WR, CSEM_REG_FAST_MEMORY + 0x10800, 0x13fffff},
--	{OP_SW, CSEM_REG_FAST_MEMORY + 0x10c00, 0x103bdb},
-+	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x10c00, 0x1002aa},
-+	{OP_SW_E1H, CSEM_REG_FAST_MEMORY + 0x10c00, 0x1002de},
- 	{OP_WR, CSEM_REG_FAST_MEMORY + 0x10800, 0x0},
--	{OP_SW, CSEM_REG_FAST_MEMORY + 0x10c40, 0x103beb},
--	{OP_ZP, CSEM_REG_INT_TABLE, 0x5f3bfb},
--	{OP_ZP, CSEM_REG_PRAM, 0x32423c13},
--	{OP_ZP, CSEM_REG_PRAM + 0x8000, 0xf2148a4},
--	{OP_ZP, CSEM_REG_PRAM + 0x10000, 0x5f4c6d},
--	{OP_ZP, CSEM_REG_PRAM + 0x18000, 0x5f4c85},
--	{OP_ZP, CSEM_REG_PRAM + 0x20000, 0x5f4c9d},
--	{OP_ZP, CSEM_REG_PRAM + 0x28000, 0x5f4cb5},
--	{OP_ZP, CSEM_REG_PRAM + 0x30000, 0x5f4ccd},
--	{OP_ZP, CSEM_REG_PRAM + 0x38000, 0x5f4ce5},
--#define CSEM_COMMON_END         609
--#define CSEM_PORT0_START        609
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x1400, 0xa0},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x1900, 0x10},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x1980, 0x30},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x2300, 0x2},
--	{OP_SW, CSEM_REG_FAST_MEMORY + 0x2300 + 0x8, 0x24cfd},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x3040, 0x6},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x2410, 0x30},
--#define CSEM_PORT0_END          616
--#define CSEM_PORT1_START        616
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x1680, 0xa0},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x1940, 0x10},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x1a40, 0x30},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x2310, 0x2},
--	{OP_SW, CSEM_REG_FAST_MEMORY + 0x2310 + 0x8, 0x24cff},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x3058, 0x6},
--	{OP_ZR, CSEM_REG_FAST_MEMORY + 0x24d0, 0x30},
--#define CSEM_PORT1_END          623
--#define XPB_COMMON_START        623
-+	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x10c40, 0x1002ba},
-+	{OP_SW_E1H, CSEM_REG_FAST_MEMORY + 0x10c40, 0x1002ee},
-+	{OP_ZP_E1, CSEM_REG_INT_TABLE, 0x6e0000},
-+	{OP_ZP_E1H, CSEM_REG_INT_TABLE, 0x6f0000},
-+	{OP_WR_64_E1, CSEM_REG_INT_TABLE + 0x380, 0x1002ca},
-+	{OP_WR_64_E1H, CSEM_REG_INT_TABLE + 0x380, 0x1002fe},
-+	{OP_ZP_E1, CSEM_REG_PRAM, 0x48bc0000},
-+	{OP_ZP_E1H, CSEM_REG_PRAM, 0x493d0000},
-+	{OP_WR_64_E1, CSEM_REG_PRAM + 0xb210, 0x682402cc},
-+	{OP_WR_64_E1H, CSEM_REG_PRAM + 0xb430, 0x67e00300},
-+#define CSEM_COMMON_END         970
-+#define CSEM_PORT0_START        970
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1400, 0xa0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x8000, 0xa0},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1900, 0x10},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x8500, 0x40},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1980, 0x30},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x8700, 0x3c},
-+	{OP_WR_E1, CSEM_REG_FAST_MEMORY + 0x5118, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x4040, 0x6},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x2300, 0xe},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x6040, 0x30},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x3040, 0x6},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x2410, 0x30},
-+#define CSEM_PORT0_END          982
-+#define CSEM_PORT1_START        982
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1680, 0xa0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x8280, 0xa0},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1940, 0x10},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x8600, 0x40},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1a40, 0x30},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x87f0, 0x3c},
-+	{OP_WR_E1, CSEM_REG_FAST_MEMORY + 0x511c, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x4058, 0x6},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x2338, 0xe},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x6100, 0x30},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x3058, 0x6},
-+	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x24d0, 0x30},
-+#define CSEM_PORT1_END          994
-+#define CSEM_FUNC0_START        994
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1148, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3300, 0x2},
-+#define CSEM_FUNC0_END          996
-+#define CSEM_FUNC1_START        996
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x114c, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3308, 0x2},
-+#define CSEM_FUNC1_END          998
-+#define CSEM_FUNC2_START        998
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1150, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3310, 0x2},
-+#define CSEM_FUNC2_END          1000
-+#define CSEM_FUNC3_START        1000
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1154, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3318, 0x2},
-+#define CSEM_FUNC3_END          1002
-+#define CSEM_FUNC4_START        1002
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1158, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3320, 0x2},
-+#define CSEM_FUNC4_END          1004
-+#define CSEM_FUNC5_START        1004
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x115c, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3328, 0x2},
-+#define CSEM_FUNC5_END          1006
-+#define CSEM_FUNC6_START        1006
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1160, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3330, 0x2},
-+#define CSEM_FUNC6_END          1008
-+#define CSEM_FUNC7_START        1008
-+	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1164, 0x0},
-+	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3338, 0x2},
-+#define CSEM_FUNC7_END          1010
-+#define XPB_COMMON_START        1010
- 	{OP_WR, GRCBASE_XPB + PB_REG_CONTROL, 0x20},
--#define XPB_COMMON_END          624
--#define DQ_COMMON_START         624
-+#define XPB_COMMON_END          1011
-+#define DQ_COMMON_START         1011
- 	{OP_WR, DORQ_REG_MODE_ACT, 0x2},
- 	{OP_WR, DORQ_REG_NORM_CID_OFST, 0x3},
- 	{OP_WR, DORQ_REG_OUTST_REQ, 0x4},
-@@ -720,8 +1221,8 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, DORQ_REG_DQ_FIFO_AFULL_TH, 0x76c},
- 	{OP_WR, DORQ_REG_REGN, 0x7c1004},
- 	{OP_WR, DORQ_REG_IF_EN, 0xf},
--#define DQ_COMMON_END           642
--#define TIMERS_COMMON_START     642
-+#define DQ_COMMON_END           1029
-+#define TIMERS_COMMON_START     1029
- 	{OP_ZR, TM_REG_CLIN_PRIOR0_CLIENT, 0x2},
- 	{OP_WR, TM_REG_LIN_SETCLR_FIFO_ALFULL_THR, 0x1c},
- 	{OP_WR, TM_REG_CFC_AC_CRDCNT_VAL, 0x1},
-@@ -730,8 +1231,11 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, TM_REG_CLOUT_CRDCNT1_VAL, 0x1},
- 	{OP_WR, TM_REG_CLOUT_CRDCNT2_VAL, 0x1},
- 	{OP_WR, TM_REG_EXP_CRDCNT_VAL, 0x1},
--	{OP_WR, TM_REG_PCIARB_CRDCNT_VAL, 0x2},
--	{OP_WR, TM_REG_TIMER_TICK_SIZE, 0x3d090},
-+	{OP_WR_E1, TM_REG_PCIARB_CRDCNT_VAL, 0x1},
-+	{OP_WR_E1H, TM_REG_PCIARB_CRDCNT_VAL, 0x2},
-+	{OP_WR_ASIC, TM_REG_TIMER_TICK_SIZE, 0x3d090},
-+	{OP_WR_EMUL, TM_REG_TIMER_TICK_SIZE, 0x9c},
-+	{OP_WR_FPGA, TM_REG_TIMER_TICK_SIZE, 0x9c4},
- 	{OP_WR, TM_REG_CL0_CONT_REGION, 0x8},
- 	{OP_WR, TM_REG_CL1_CONT_REGION, 0xc},
- 	{OP_WR, TM_REG_CL2_CONT_REGION, 0x10},
-@@ -741,24 +1245,37 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, TM_REG_EN_CL0_INPUT, 0x1},
- 	{OP_WR, TM_REG_EN_CL1_INPUT, 0x1},
- 	{OP_WR, TM_REG_EN_CL2_INPUT, 0x1},
--#define TIMERS_COMMON_END       661
--#define TIMERS_PORT0_START      661
-+#define TIMERS_COMMON_END       1051
-+#define TIMERS_PORT0_START      1051
- 	{OP_ZR, TM_REG_LIN0_PHY_ADDR, 0x2},
--#define TIMERS_PORT0_END        662
--#define TIMERS_PORT1_START      662
-+#define TIMERS_PORT0_END        1052
-+#define TIMERS_PORT1_START      1052
- 	{OP_ZR, TM_REG_LIN1_PHY_ADDR, 0x2},
--#define TIMERS_PORT1_END        663
--#define XSDM_COMMON_START       663
--	{OP_WR, XSDM_REG_CFC_RSP_START_ADDR, 0xa14},
--	{OP_WR, XSDM_REG_CMP_COUNTER_START_ADDR, 0xa00},
--	{OP_WR, XSDM_REG_Q_COUNTER_START_ADDR, 0xa04},
-+#define TIMERS_PORT1_END        1053
-+#define XSDM_COMMON_START       1053
-+	{OP_WR_E1, XSDM_REG_CFC_RSP_START_ADDR, 0x614},
-+	{OP_WR_E1H, XSDM_REG_CFC_RSP_START_ADDR, 0x424},
-+	{OP_WR_E1, XSDM_REG_CMP_COUNTER_START_ADDR, 0x600},
-+	{OP_WR_E1H, XSDM_REG_CMP_COUNTER_START_ADDR, 0x410},
-+	{OP_WR_E1, XSDM_REG_Q_COUNTER_START_ADDR, 0x604},
-+	{OP_WR_E1H, XSDM_REG_Q_COUNTER_START_ADDR, 0x414},
- 	{OP_WR, XSDM_REG_CMP_COUNTER_MAX0, 0xffff},
- 	{OP_WR, XSDM_REG_CMP_COUNTER_MAX1, 0xffff},
- 	{OP_WR, XSDM_REG_CMP_COUNTER_MAX2, 0xffff},
- 	{OP_WR, XSDM_REG_CMP_COUNTER_MAX3, 0xffff},
- 	{OP_WR, XSDM_REG_AGG_INT_EVENT_0, 0x20},
- 	{OP_WR, XSDM_REG_AGG_INT_EVENT_1, 0x20},
--	{OP_ZR, XSDM_REG_AGG_INT_EVENT_2, 0x5e},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_2, 0x34},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_3, 0x35},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_4, 0x23},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_5, 0x24},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_6, 0x25},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_7, 0x26},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_8, 0x27},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_9, 0x29},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_10, 0x2a},
-+	{OP_WR, XSDM_REG_AGG_INT_EVENT_11, 0x2b},
-+	{OP_ZR, XSDM_REG_AGG_INT_EVENT_12, 0x54},
- 	{OP_WR, XSDM_REG_AGG_INT_MODE_0, 0x1},
- 	{OP_ZR, XSDM_REG_AGG_INT_MODE_1, 0x1f},
- 	{OP_WR, XSDM_REG_ENABLE_IN1, 0x7ffffff},
-@@ -779,9 +1296,12 @@ static const struct raw_op init_ops[] = {
- 	{OP_RD, XSDM_REG_NUM_OF_PKT_END_MSG, 0x0},
- 	{OP_RD, XSDM_REG_NUM_OF_PXP_ASYNC_REQ, 0x0},
- 	{OP_RD, XSDM_REG_NUM_OF_ACK_AFTER_PLACE, 0x0},
--	{OP_WR, XSDM_REG_TIMER_TICK, 0x3e8},
--#define XSDM_COMMON_END         694
--#define QM_COMMON_START         694
-+	{OP_WR_E1, XSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1},
-+	{OP_WR_ASIC, XSDM_REG_TIMER_TICK, 0x3e8},
-+	{OP_WR_EMUL, XSDM_REG_TIMER_TICK, 0x1},
-+	{OP_WR_FPGA, XSDM_REG_TIMER_TICK, 0xa},
-+#define XSDM_COMMON_END         1100
-+#define QM_COMMON_START         1100
- 	{OP_WR, QM_REG_ACTCTRINITVAL_0, 0x6},
- 	{OP_WR, QM_REG_ACTCTRINITVAL_1, 0x5},
- 	{OP_WR, QM_REG_ACTCTRINITVAL_2, 0xa},
-@@ -820,13 +1340,27 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, QM_REG_WRRWEIGHTS_3, 0x1010120},
- 	{OP_ZR, QM_REG_QVOQIDX_17, 0x4},
- 	{OP_WR, QM_REG_WRRWEIGHTS_4, 0x1010101},
--	{OP_ZR, QM_REG_QVOQIDX_21, 0x4},
--	{OP_WR, QM_REG_WRRWEIGHTS_5, 0x1010101},
--	{OP_ZR, QM_REG_QVOQIDX_25, 0x4},
--	{OP_WR, QM_REG_WRRWEIGHTS_6, 0x1010101},
--	{OP_ZR, QM_REG_QVOQIDX_29, 0x3},
-+	{OP_ZR_E1, QM_REG_QVOQIDX_21, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_21, 0x0},
-+	{OP_WR_E1, QM_REG_WRRWEIGHTS_5, 0x1010101},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_22, 0x4},
-+	{OP_ZR_E1, QM_REG_QVOQIDX_25, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_23, 0x4},
-+	{OP_WR_E1, QM_REG_WRRWEIGHTS_6, 0x1010101},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_24, 0x2},
-+	{OP_ZR_E1, QM_REG_QVOQIDX_29, 0x3},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_5, 0x8012004},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_25, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_26, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_27, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_28, 0x5},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_6, 0x20081001},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_29, 0x8},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_30, 0x6},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_31, 0x7},
- 	{OP_WR, QM_REG_QVOQIDX_32, 0x1},
--	{OP_WR, QM_REG_WRRWEIGHTS_7, 0x1010101},
-+	{OP_WR_E1, QM_REG_WRRWEIGHTS_7, 0x1010101},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_7, 0x1010120},
- 	{OP_WR, QM_REG_QVOQIDX_33, 0x1},
- 	{OP_WR, QM_REG_QVOQIDX_34, 0x1},
- 	{OP_WR, QM_REG_QVOQIDX_35, 0x1},
-@@ -853,36 +1387,169 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, QM_REG_QVOQIDX_52, 0x1},
- 	{OP_WR, QM_REG_WRRWEIGHTS_12, 0x1010101},
- 	{OP_WR, QM_REG_QVOQIDX_53, 0x1},
--	{OP_WR, QM_REG_QVOQIDX_54, 0x1},
--	{OP_WR, QM_REG_QVOQIDX_55, 0x1},
--	{OP_WR, QM_REG_QVOQIDX_56, 0x1},
--	{OP_WR, QM_REG_WRRWEIGHTS_13, 0x1010101},
--	{OP_WR, QM_REG_QVOQIDX_57, 0x1},
--	{OP_WR, QM_REG_QVOQIDX_58, 0x1},
--	{OP_WR, QM_REG_QVOQIDX_59, 0x1},
--	{OP_WR, QM_REG_QVOQIDX_60, 0x1},
--	{OP_WR, QM_REG_WRRWEIGHTS_14, 0x1010101},
--	{OP_WR, QM_REG_QVOQIDX_61, 0x1},
--	{OP_WR, QM_REG_QVOQIDX_62, 0x1},
--	{OP_WR, QM_REG_QVOQIDX_63, 0x1},
--	{OP_WR, QM_REG_WRRWEIGHTS_15, 0x1010101},
--	{OP_WR, QM_REG_VOQQMASK_0_LSB, 0xffff003f},
--	{OP_ZR, QM_REG_VOQQMASK_0_MSB, 0x2},
--	{OP_WR, QM_REG_VOQQMASK_1_MSB, 0xffff003f},
--	{OP_WR, QM_REG_VOQQMASK_2_LSB, 0x100},
--	{OP_WR, QM_REG_VOQQMASK_2_MSB, 0x100},
-+	{OP_WR_E1, QM_REG_QVOQIDX_54, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_54, 0x4},
-+	{OP_WR_E1, QM_REG_QVOQIDX_55, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_55, 0x4},
-+	{OP_WR_E1, QM_REG_QVOQIDX_56, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_56, 0x2},
-+	{OP_WR_E1, QM_REG_WRRWEIGHTS_13, 0x1010101},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_13, 0x8012004},
-+	{OP_WR_E1, QM_REG_QVOQIDX_57, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_57, 0x5},
-+	{OP_WR_E1, QM_REG_QVOQIDX_58, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_58, 0x5},
-+	{OP_WR_E1, QM_REG_QVOQIDX_59, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_59, 0x5},
-+	{OP_WR_E1, QM_REG_QVOQIDX_60, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_60, 0x5},
-+	{OP_WR_E1, QM_REG_WRRWEIGHTS_14, 0x1010101},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_14, 0x20081001},
-+	{OP_WR_E1, QM_REG_QVOQIDX_61, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_61, 0x8},
-+	{OP_WR_E1, QM_REG_QVOQIDX_62, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_62, 0x6},
-+	{OP_WR_E1, QM_REG_QVOQIDX_63, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_63, 0x7},
-+	{OP_WR_E1, QM_REG_WRRWEIGHTS_15, 0x1010101},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_64, 0x0},
-+	{OP_WR_E1, QM_REG_VOQQMASK_0_LSB, 0xffff003f},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_15, 0x1010120},
-+	{OP_ZR_E1, QM_REG_VOQQMASK_0_MSB, 0x2},
-+	{OP_ZR_E1H, QM_REG_QVOQIDX_65, 0x4},
-+	{OP_WR_E1, QM_REG_VOQQMASK_1_MSB, 0xffff003f},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_16, 0x1010101},
-+	{OP_WR_E1, QM_REG_VOQQMASK_2_LSB, 0x100},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_69, 0x0},
-+	{OP_WR_E1, QM_REG_VOQQMASK_2_MSB, 0x100},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_70, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_71, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_72, 0x2},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_17, 0x8012004},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_73, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_74, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_75, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_76, 0x5},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_18, 0x20081001},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_77, 0x8},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_78, 0x6},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_79, 0x7},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_80, 0x0},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_19, 0x1010120},
-+	{OP_ZR_E1H, QM_REG_QVOQIDX_81, 0x4},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_20, 0x1010101},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_85, 0x0},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_86, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_87, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_88, 0x2},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_21, 0x8012004},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_89, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_90, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_91, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_92, 0x5},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_22, 0x20081001},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_93, 0x8},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_94, 0x6},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_95, 0x7},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_96, 0x1},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_23, 0x1010120},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_97, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_98, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_99, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_100, 0x1},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_24, 0x1010101},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_101, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_102, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_103, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_104, 0x2},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_25, 0x8012004},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_105, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_106, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_107, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_108, 0x5},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_26, 0x20081001},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_109, 0x8},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_110, 0x6},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_111, 0x7},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_112, 0x1},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_27, 0x1010120},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_113, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_114, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_115, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_116, 0x1},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_28, 0x1010101},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_117, 0x1},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_118, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_119, 0x4},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_120, 0x2},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_29, 0x8012004},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_121, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_122, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_123, 0x5},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_124, 0x5},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_30, 0x20081001},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_125, 0x8},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_126, 0x6},
-+	{OP_WR_E1H, QM_REG_QVOQIDX_127, 0x7},
-+	{OP_WR_E1H, QM_REG_WRRWEIGHTS_31, 0x1010120},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_0_LSB, 0x3f003f},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_0_MSB, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_0_LSB_EXT_A, 0x3f003f},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_0_MSB_EXT_A, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_1_LSB, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_1_MSB, 0x3f003f},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_1_LSB_EXT_A, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_1_MSB_EXT_A, 0x3f003f},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_2_LSB, 0x1000100},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_2_MSB, 0x1000100},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_2_LSB_EXT_A, 0x1000100},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_2_MSB_EXT_A, 0x1000100},
- 	{OP_ZR, QM_REG_VOQQMASK_3_LSB, 0x2},
--	{OP_WR, QM_REG_VOQQMASK_4_LSB, 0xc0},
--	{OP_WR, QM_REG_VOQQMASK_4_MSB, 0xc0},
--	{OP_WR, QM_REG_VOQQMASK_5_LSB, 0x1e00},
--	{OP_WR, QM_REG_VOQQMASK_5_MSB, 0x1e00},
--	{OP_WR, QM_REG_VOQQMASK_6_LSB, 0x4000},
--	{OP_WR, QM_REG_VOQQMASK_6_MSB, 0x4000},
--	{OP_WR, QM_REG_VOQQMASK_7_LSB, 0x8000},
--	{OP_WR, QM_REG_VOQQMASK_7_MSB, 0x8000},
--	{OP_WR, QM_REG_VOQQMASK_8_LSB, 0x2000},
--	{OP_WR, QM_REG_VOQQMASK_8_MSB, 0x2000},
--	{OP_ZR, QM_REG_VOQQMASK_9_LSB, 0x7},
-+	{OP_WR_E1, QM_REG_VOQQMASK_4_LSB, 0xc0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_3_LSB_EXT_A, 0x0},
-+	{OP_WR_E1, QM_REG_VOQQMASK_4_MSB, 0xc0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_3_MSB_EXT_A, 0x0},
-+	{OP_WR_E1, QM_REG_VOQQMASK_5_LSB, 0x1e00},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_4_LSB, 0xc000c0},
-+	{OP_WR_E1, QM_REG_VOQQMASK_5_MSB, 0x1e00},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_4_MSB, 0xc000c0},
-+	{OP_WR_E1, QM_REG_VOQQMASK_6_LSB, 0x4000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_4_LSB_EXT_A, 0xc000c0},
-+	{OP_WR_E1, QM_REG_VOQQMASK_6_MSB, 0x4000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_4_MSB_EXT_A, 0xc000c0},
-+	{OP_WR_E1, QM_REG_VOQQMASK_7_LSB, 0x8000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_5_LSB, 0x1e001e00},
-+	{OP_WR_E1, QM_REG_VOQQMASK_7_MSB, 0x8000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_5_MSB, 0x1e001e00},
-+	{OP_WR_E1, QM_REG_VOQQMASK_8_LSB, 0x2000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_5_LSB_EXT_A, 0x1e001e00},
-+	{OP_WR_E1, QM_REG_VOQQMASK_8_MSB, 0x2000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_5_MSB_EXT_A, 0x1e001e00},
-+	{OP_ZR_E1, QM_REG_VOQQMASK_9_LSB, 0x7},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_6_LSB, 0x40004000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_6_MSB, 0x40004000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_6_LSB_EXT_A, 0x40004000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_6_MSB_EXT_A, 0x40004000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_7_LSB, 0x80008000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_7_MSB, 0x80008000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_7_LSB_EXT_A, 0x80008000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_7_MSB_EXT_A, 0x80008000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_8_LSB, 0x20002000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_8_MSB, 0x20002000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_8_LSB_EXT_A, 0x20002000},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_8_MSB_EXT_A, 0x20002000},
-+	{OP_ZR_E1H, QM_REG_VOQQMASK_9_LSB, 0x2},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_9_LSB_EXT_A, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_9_MSB_EXT_A, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_10_LSB, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_10_MSB, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_10_LSB_EXT_A, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_10_MSB_EXT_A, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_11_LSB, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_11_MSB, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_11_LSB_EXT_A, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQQMASK_11_MSB_EXT_A, 0x0},
-+	{OP_WR_E1H, QM_REG_VOQPORT_0, 0x0},
- 	{OP_WR, QM_REG_VOQPORT_1, 0x1},
- 	{OP_ZR, QM_REG_VOQPORT_2, 0xa},
- 	{OP_WR, QM_REG_CMINTVOQMASK_0, 0xc08},
-@@ -893,8 +1560,12 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, QM_REG_CMINTVOQMASK_5, 0x80},
- 	{OP_WR, QM_REG_CMINTVOQMASK_6, 0x200},
- 	{OP_WR, QM_REG_CMINTVOQMASK_7, 0x0},
--	{OP_WR, QM_REG_HWAEMPTYMASK_LSB, 0xffff01ff},
--	{OP_WR, QM_REG_HWAEMPTYMASK_MSB, 0xffff01ff},
-+	{OP_WR_E1, QM_REG_HWAEMPTYMASK_LSB, 0xffff01ff},
-+	{OP_WR_E1H, QM_REG_HWAEMPTYMASK_LSB, 0x1ff01ff},
-+	{OP_WR_E1, QM_REG_HWAEMPTYMASK_MSB, 0xffff01ff},
-+	{OP_WR_E1H, QM_REG_HWAEMPTYMASK_MSB, 0x1ff01ff},
-+	{OP_WR_E1H, QM_REG_HWAEMPTYMASK_LSB_EXT_A, 0x1ff01ff},
-+	{OP_WR_E1H, QM_REG_HWAEMPTYMASK_MSB_EXT_A, 0x1ff01ff},
- 	{OP_WR, QM_REG_ENBYPVOQMASK, 0x13},
- 	{OP_WR, QM_REG_VOQCREDITAFULLTHR, 0x13f},
- 	{OP_WR, QM_REG_VOQINITCREDIT_0, 0x140},
-@@ -910,15 +1581,29 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, QM_REG_BYTECRDINITVAL, 0x8000},
- 	{OP_WR, QM_REG_BYTECRDCOST, 0x25e4},
- 	{OP_WR, QM_REG_BYTECREDITAFULLTHR, 0x7fff},
--	{OP_WR, QM_REG_ENBYTECRD_LSB, 0x7},
--	{OP_WR, QM_REG_ENBYTECRD_MSB, 0x7},
-+	{OP_WR_E1, QM_REG_ENBYTECRD_LSB, 0x7},
-+	{OP_WR_E1H, QM_REG_ENBYTECRD_LSB, 0x70007},
-+	{OP_WR_E1, QM_REG_ENBYTECRD_MSB, 0x7},
-+	{OP_WR_E1H, QM_REG_ENBYTECRD_MSB, 0x70007},
-+	{OP_WR_E1H, QM_REG_ENBYTECRD_LSB_EXT_A, 0x70007},
-+	{OP_WR_E1H, QM_REG_ENBYTECRD_MSB_EXT_A, 0x70007},
- 	{OP_WR, QM_REG_BYTECRDPORT_LSB, 0x0},
- 	{OP_WR, QM_REG_BYTECRDPORT_MSB, 0xffffffff},
--	{OP_WR, QM_REG_FUNCNUMSEL_LSB, 0x0},
--	{OP_WR, QM_REG_FUNCNUMSEL_MSB, 0xffffffff},
-+	{OP_WR_E1, QM_REG_FUNCNUMSEL_LSB, 0x0},
-+	{OP_WR_E1H, QM_REG_BYTECRDPORT_LSB_EXT_A, 0x0},
-+	{OP_WR_E1, QM_REG_FUNCNUMSEL_MSB, 0xffffffff},
-+	{OP_WR_E1H, QM_REG_BYTECRDPORT_MSB_EXT_A, 0xffffffff},
-+	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_0, 0x0},
-+	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_1, 0x2},
-+	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_2, 0x1},
-+	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_3, 0x3},
-+	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_4, 0x4},
-+	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_5, 0x6},
-+	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_6, 0x5},
-+	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_7, 0x7},
- 	{OP_WR, QM_REG_CMINTEN, 0xff},
--#define QM_COMMON_END           829
--#define PBF_COMMON_START        829
-+#define QM_COMMON_END           1400
-+#define PBF_COMMON_START        1400
- 	{OP_WR, PBF_REG_INIT, 0x1},
- 	{OP_WR, PBF_REG_INIT_P4, 0x1},
- 	{OP_WR, PBF_REG_MAC_LB_ENABLE, 0x1},
-@@ -926,20 +1611,20 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, PBF_REG_INIT_P4, 0x0},
- 	{OP_WR, PBF_REG_INIT, 0x0},
- 	{OP_WR, PBF_REG_DISABLE_NEW_TASK_PROC_P4, 0x0},
--#define PBF_COMMON_END          836
--#define PBF_PORT0_START         836
-+#define PBF_COMMON_END          1407
-+#define PBF_PORT0_START         1407
- 	{OP_WR, PBF_REG_INIT_P0, 0x1},
- 	{OP_WR, PBF_REG_MAC_IF0_ENABLE, 0x1},
- 	{OP_WR, PBF_REG_INIT_P0, 0x0},
- 	{OP_WR, PBF_REG_DISABLE_NEW_TASK_PROC_P0, 0x0},
--#define PBF_PORT0_END           840
--#define PBF_PORT1_START         840
-+#define PBF_PORT0_END           1411
-+#define PBF_PORT1_START         1411
- 	{OP_WR, PBF_REG_INIT_P1, 0x1},
- 	{OP_WR, PBF_REG_MAC_IF1_ENABLE, 0x1},
- 	{OP_WR, PBF_REG_INIT_P1, 0x0},
- 	{OP_WR, PBF_REG_DISABLE_NEW_TASK_PROC_P1, 0x0},
--#define PBF_PORT1_END           844
--#define XCM_COMMON_START        844
-+#define PBF_PORT1_END           1415
-+#define XCM_COMMON_START        1415
- 	{OP_WR, XCM_REG_XX_OVFL_EVNT_ID, 0x32},
- 	{OP_WR, XCM_REG_XQM_XCM_HDR_P, 0x3150020},
- 	{OP_WR, XCM_REG_XQM_XCM_HDR_S, 0x3150020},
-@@ -971,14 +1656,18 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, XCM_REG_TM_INIT_CRD, 0x4},
- 	{OP_WR, XCM_REG_XQM_INIT_CRD, 0x20},
- 	{OP_WR, XCM_REG_XX_INIT_CRD, 0x2},
--	{OP_WR, XCM_REG_XX_MSG_NUM, 0x1f},
-+	{OP_WR_E1, XCM_REG_XX_MSG_NUM, 0x1f},
-+	{OP_WR_E1H, XCM_REG_XX_MSG_NUM, 0x20},
- 	{OP_ZR, XCM_REG_XX_TABLE, 0x12},
--	{OP_SW, XCM_REG_XX_DESCR_TABLE, 0x1f4d01},
-+	{OP_SW_E1, XCM_REG_XX_DESCR_TABLE, 0x1f02ce},
-+	{OP_SW_E1H, XCM_REG_XX_DESCR_TABLE, 0x1f0302},
- 	{OP_WR, XCM_REG_N_SM_CTX_LD_0, 0xf},
- 	{OP_WR, XCM_REG_N_SM_CTX_LD_1, 0x7},
- 	{OP_WR, XCM_REG_N_SM_CTX_LD_2, 0xb},
- 	{OP_WR, XCM_REG_N_SM_CTX_LD_3, 0xe},
--	{OP_ZR, XCM_REG_N_SM_CTX_LD_4, 0x4},
-+	{OP_ZR_E1, XCM_REG_N_SM_CTX_LD_4, 0x4},
-+	{OP_WR_E1H, XCM_REG_N_SM_CTX_LD_4, 0xc},
-+	{OP_ZR_E1H, XCM_REG_N_SM_CTX_LD_5, 0x3},
- 	{OP_WR, XCM_REG_XCM_REG0_SZ, 0x4},
- 	{OP_WR, XCM_REG_XCM_STORM0_IFEN, 0x1},
- 	{OP_WR, XCM_REG_XCM_STORM1_IFEN, 0x1},
-@@ -1000,28 +1689,116 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, XCM_REG_CDU_SM_WR_IFEN, 0x1},
- 	{OP_WR, XCM_REG_CDU_SM_RD_IFEN, 0x1},
- 	{OP_WR, XCM_REG_XCM_CFC_IFEN, 0x1},
--#define XCM_COMMON_END          904
--#define XCM_PORT0_START         904
--	{OP_WR, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
--	{OP_WR, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
--	{OP_WR, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
--	{OP_WR, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD10, 0x0},
--	{OP_WR, XCM_REG_WU_DA_CNT_CMD00, 0x2},
--	{OP_WR, XCM_REG_WU_DA_CNT_CMD10, 0x2},
--	{OP_WR, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
--	{OP_WR, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
--#define XCM_PORT0_END           912
--#define XCM_PORT1_START         912
--	{OP_WR, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
--	{OP_WR, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
--	{OP_WR, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
--	{OP_WR, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD11, 0x0},
--	{OP_WR, XCM_REG_WU_DA_CNT_CMD01, 0x2},
--	{OP_WR, XCM_REG_WU_DA_CNT_CMD11, 0x2},
--	{OP_WR, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
--	{OP_WR, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
--#define XCM_PORT1_END           920
--#define XSEM_COMMON_START       920
-+#define XCM_COMMON_END          1479
-+#define XCM_PORT0_START         1479
-+	{OP_WR_E1, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
-+	{OP_WR_E1, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
-+	{OP_WR_E1, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
-+	{OP_WR_E1, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD10, 0x0},
-+	{OP_WR_E1, XCM_REG_WU_DA_CNT_CMD00, 0x2},
-+	{OP_WR_E1, XCM_REG_WU_DA_CNT_CMD10, 0x2},
-+	{OP_WR_E1, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
-+	{OP_WR_E1, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
-+#define XCM_PORT0_END           1487
-+#define XCM_PORT1_START         1487
-+	{OP_WR_E1, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
-+	{OP_WR_E1, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
-+	{OP_WR_E1, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
-+	{OP_WR_E1, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD11, 0x0},
-+	{OP_WR_E1, XCM_REG_WU_DA_CNT_CMD01, 0x2},
-+	{OP_WR_E1, XCM_REG_WU_DA_CNT_CMD11, 0x2},
-+	{OP_WR_E1, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
-+	{OP_WR_E1, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
-+#define XCM_PORT1_END           1495
-+#define XCM_FUNC0_START         1495
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD10, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD00, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD10, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
-+	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_0, 0x0},
-+#define XCM_FUNC0_END           1504
-+#define XCM_FUNC1_START         1504
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD11, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD01, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD11, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
-+	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_1, 0x0},
-+#define XCM_FUNC1_END           1513
-+#define XCM_FUNC2_START         1513
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD10, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD00, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD10, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
-+	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_0, 0x0},
-+#define XCM_FUNC2_END           1522
-+#define XCM_FUNC3_START         1522
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD11, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD01, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD11, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
-+	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_1, 0x0},
-+#define XCM_FUNC3_END           1531
-+#define XCM_FUNC4_START         1531
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD10, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD00, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD10, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
-+	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_0, 0x0},
-+#define XCM_FUNC4_END           1540
-+#define XCM_FUNC5_START         1540
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD11, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD01, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD11, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
-+	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_1, 0x0},
-+#define XCM_FUNC5_END           1549
-+#define XCM_FUNC6_START         1549
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD10, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD00, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD10, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
-+	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_0, 0x0},
-+#define XCM_FUNC6_END           1558
-+#define XCM_FUNC7_START         1558
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
-+	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD11, 0x0},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD01, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_CMD11, 0x2},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
-+	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
-+	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_1, 0x0},
-+#define XCM_FUNC7_END           1567
-+#define XSEM_COMMON_START       1567
- 	{OP_RD, XSEM_REG_MSG_NUM_FIC0, 0x0},
- 	{OP_RD, XSEM_REG_MSG_NUM_FIC1, 0x0},
- 	{OP_RD, XSEM_REG_MSG_NUM_FOC0, 0x0},
-@@ -1065,157 +1842,398 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x18040, 0x18},
- 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x18080, 0xc},
- 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x180c0, 0x66},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x18300, 0x7a120},
-+	{OP_WR_ASIC, XSEM_REG_FAST_MEMORY + 0x18300, 0x7a120},
-+	{OP_WR_EMUL, XSEM_REG_FAST_MEMORY + 0x18300, 0x138},
-+	{OP_WR_FPGA, XSEM_REG_FAST_MEMORY + 0x18300, 0x1388},
- 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x183c0, 0x1f4},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x18340, 0x1f4},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x18380, 0x1dcd6500},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x55d8, 0x2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5000, 0x48},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x1020, 0xc8},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x1000, 0x2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5128, 0x92},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x5378, 0x0},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x5380, 0x24d20},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x5428, 0x44d22},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x1518, 0x1},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x1830, 0x0},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x1838, 0x0},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x1820, 0x24d26},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x4ac0, 0x2},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x4ad8, 0x24d28},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x4b08, 0x4},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x1f50, 0x24d2a},
-+	{OP_WR_ASIC, XSEM_REG_FAST_MEMORY + 0x18340, 0x1f4},
-+	{OP_WR_EMUL, XSEM_REG_FAST_MEMORY + 0x18340, 0x0},
-+	{OP_WR_FPGA, XSEM_REG_FAST_MEMORY + 0x18340, 0x5},
-+	{OP_WR_EMUL, XSEM_REG_FAST_MEMORY + 0x18380, 0x4c4b4},
-+	{OP_WR_ASIC, XSEM_REG_FAST_MEMORY + 0x18380, 0x1dcd6500},
-+	{OP_WR_EMUL_E1H, XSEM_REG_FAST_MEMORY + 0x11480, 0x0},
-+	{OP_WR_FPGA, XSEM_REG_FAST_MEMORY + 0x18380, 0x4c4b40},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3d00, 0x4},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x11480, 0x1},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3000, 0x48},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x28a8, 0x4},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x1020, 0xc8},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2080, 0x48},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x1000, 0x2},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x9020, 0xc8},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3128, 0x8e},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x9000, 0x2},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x3368, 0x0},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x21a8, 0x86},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3370, 0x202ed},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2000, 0x20},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3b90, 0x402ef},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x23c8, 0x0},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1518, 0x1},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x23d0, 0x20321},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1830, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2498, 0x40323},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1838, 0x0},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x2ac8, 0x0},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x1820, 0x202f3},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x2ab8, 0x0},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4ac0, 0x2},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x3010, 0x1},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4b00, 0x4},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x4040, 0x10},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x1f50, 0x202f5},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x4000, 0x100327},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6ac0, 0x2},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6b00, 0x4},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x83b0, 0x20337},
- 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x10800, 0x0},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x10c00, 0x104d2c},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c00, 0x1002f7},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x10c00, 0x100339},
- 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x10800, 0x1000000},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x10c40, 0x84d3c},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c40, 0x80307},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x10c40, 0x80349},
- 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x10800, 0x2000000},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x10c60, 0x84d44},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x10800, 0x3000000},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x10c80, 0x84d4c},
--	{OP_ZP, XSEM_REG_INT_TABLE, 0x814d54},
--	{OP_ZP, XSEM_REG_PRAM, 0x35774d75},
--	{OP_ZP, XSEM_REG_PRAM + 0x8000, 0x36525ad3},
--	{OP_ZP, XSEM_REG_PRAM + 0x10000, 0x27266868},
--	{OP_ZP, XSEM_REG_PRAM + 0x18000, 0x5e7232},
--	{OP_ZP, XSEM_REG_PRAM + 0x20000, 0x5e724a},
--	{OP_ZP, XSEM_REG_PRAM + 0x28000, 0x5e7262},
--	{OP_ZP, XSEM_REG_PRAM + 0x30000, 0x5e727a},
--	{OP_ZP, XSEM_REG_PRAM + 0x38000, 0x5e7292},
--#define XSEM_COMMON_END         1000
--#define XSEM_PORT0_START        1000
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x1400, 0xa},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x1450, 0x6},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5388, 0xc},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x5388 + 0x30, 0x272aa},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x55e0, 0x772ac},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5600, 0x7},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x1500, 0x0},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x1508, 0x1},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3020, 0x2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3030, 0x2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3000, 0x2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3010, 0x2},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x3040, 0x0},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3048, 0xc},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x3048 + 0x30, 0x272b3},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x30b8, 0x1},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x4ac8, 0x272b5},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x4b18, 0x42},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x4d28, 0x4},
--#define XSEM_PORT0_END          1019
--#define XSEM_PORT1_START        1019
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x1428, 0xa},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x1468, 0x6},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x53c0, 0xc},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x53c0 + 0x30, 0x272b7},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x5620, 0x772b9},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5640, 0x7},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x1504, 0x0},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x150c, 0x1},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3028, 0x2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3038, 0x2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3008, 0x2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3018, 0x2},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x3044, 0x0},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x3080, 0xc},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x3080 + 0x30, 0x272c0},
--	{OP_WR, XSEM_REG_FAST_MEMORY + 0x30bc, 0x1},
--	{OP_SW, XSEM_REG_FAST_MEMORY + 0x4ad0, 0x272c2},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x4c20, 0x42},
--	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x4d38, 0x4},
--#define XSEM_PORT1_END          1038
--#define CDU_COMMON_START        1038
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c60, 0x8030f},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x10c60, 0x80351},
-+	{OP_ZP_E1, XSEM_REG_INT_TABLE, 0xab0000},
-+	{OP_ZP_E1H, XSEM_REG_INT_TABLE, 0xac0000},
-+	{OP_WR_64_E1, XSEM_REG_INT_TABLE + 0x368, 0x130317},
-+	{OP_WR_64_E1H, XSEM_REG_INT_TABLE + 0x368, 0x130359},
-+	{OP_ZP_E1, XSEM_REG_PRAM, 0xc09e0000},
-+	{OP_ZP_E1H, XSEM_REG_PRAM, 0xc3b20000},
-+	{OP_WR_64_E1, XSEM_REG_PRAM + 0x1c0c0, 0x47e80319},
-+	{OP_WR_64_E1H, XSEM_REG_PRAM + 0x1c8c0, 0x46e8035b},
-+#define XSEM_COMMON_END         1671
-+#define XSEM_PORT0_START        1671
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3ba0, 0x10},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xc000, 0xfc},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3c20, 0x1c},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x24a8, 0x10},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x1400, 0xa},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2528, 0x1c},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x1450, 0x6},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2608, 0x1c},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3378, 0xfc},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x26e8, 0x1c},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x3b58, 0x0},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x27c8, 0x1c},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3d10, 0x10031b},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xa000, 0x28},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1500, 0x0},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xa140, 0xc},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1508, 0x1},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x3000, 0x1},
-+	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5020, 0x2},
-+	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5030, 0x2},
-+	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5000, 0x2},
-+	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5010, 0x2},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x5040, 0x0},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x5208, 0x1},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x5048, 0xe},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x6ac8, 0x2035d},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x50b8, 0x1},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6b10, 0x42},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x4ac8, 0x2032b},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6d20, 0x4},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4b10, 0x42},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4d20, 0x4},
-+#define XSEM_PORT0_END          1703
-+#define XSEM_PORT1_START        1703
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3be0, 0x10},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xc3f0, 0xfc},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3c90, 0x1c},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x24e8, 0x10},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x1428, 0xa},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2598, 0x1c},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x1468, 0x6},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2678, 0x1c},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3768, 0xfc},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2758, 0x1c},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x3b5c, 0x0},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2838, 0x1c},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3d50, 0x10032d},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xa0a0, 0x28},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1504, 0x0},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xa170, 0xc},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x150c, 0x1},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x3004, 0x1},
-+	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5028, 0x2},
-+	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5038, 0x2},
-+	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5008, 0x2},
-+	{OP_ZR, XSEM_REG_FAST_MEMORY + 0x5018, 0x2},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x5044, 0x0},
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x520c, 0x1},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x5080, 0xe},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x6ad0, 0x2035f},
-+	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x50bc, 0x1},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6c18, 0x42},
-+	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x4ad0, 0x2033d},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6d30, 0x4},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4c18, 0x42},
-+	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4d30, 0x4},
-+#define XSEM_PORT1_END          1735
-+#define XSEM_FUNC0_START        1735
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7e0, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x28b8, 0x100361},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5048, 0xe},
-+#define XSEM_FUNC0_END          1738
-+#define XSEM_FUNC1_START        1738
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7e4, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x28f8, 0x100371},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5080, 0xe},
-+#define XSEM_FUNC1_END          1741
-+#define XSEM_FUNC2_START        1741
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7e8, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2938, 0x100381},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x50b8, 0xe},
-+#define XSEM_FUNC2_END          1744
-+#define XSEM_FUNC3_START        1744
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7ec, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2978, 0x100391},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x50f0, 0xe},
-+#define XSEM_FUNC3_END          1747
-+#define XSEM_FUNC4_START        1747
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7f0, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x29b8, 0x1003a1},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5128, 0xe},
-+#define XSEM_FUNC4_END          1750
-+#define XSEM_FUNC5_START        1750
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7f4, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x29f8, 0x1003b1},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5160, 0xe},
-+#define XSEM_FUNC5_END          1753
-+#define XSEM_FUNC6_START        1753
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7f8, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2a38, 0x1003c1},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5198, 0xe},
-+#define XSEM_FUNC6_END          1756
-+#define XSEM_FUNC7_START        1756
-+	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7fc, 0x0},
-+	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2a78, 0x1003d1},
-+	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x51d0, 0xe},
-+#define XSEM_FUNC7_END          1759
-+#define CDU_COMMON_START        1759
- 	{OP_WR, CDU_REG_CDU_CONTROL0, 0x1},
-+	{OP_WR_E1H, CDU_REG_MF_MODE, 0x1},
- 	{OP_WR, CDU_REG_CDU_CHK_MASK0, 0x3d000},
- 	{OP_WR, CDU_REG_CDU_CHK_MASK1, 0x3d},
--	{OP_WB, CDU_REG_L1TT, 0x20072c4},
--	{OP_WB, CDU_REG_MATT, 0x2074c4},
--	{OP_ZR, CDU_REG_MATT + 0x80, 0x20},
--#define CDU_COMMON_END          1044
--#define DMAE_COMMON_START       1044
-+	{OP_WB_E1, CDU_REG_L1TT, 0x200033f},
-+	{OP_WB_E1H, CDU_REG_L1TT, 0x20003e1},
-+	{OP_WB_E1, CDU_REG_MATT, 0x20053f},
-+	{OP_WB_E1H, CDU_REG_MATT, 0x2805e1},
-+	{OP_ZR_E1, CDU_REG_MATT + 0x80, 0x2},
-+	{OP_WB_E1, CDU_REG_MATT + 0x88, 0x6055f},
-+	{OP_ZR, CDU_REG_MATT + 0xa0, 0x18},
-+#define CDU_COMMON_END          1770
-+#define DMAE_COMMON_START       1770
-+	{OP_ZR, DMAE_REG_CMD_MEM, 0xe0},
- 	{OP_WR, DMAE_REG_CRC16C_INIT, 0x0},
- 	{OP_WR, DMAE_REG_CRC16T10_INIT, 0x1},
--	{OP_WR, DMAE_REG_PXP_REQ_INIT_CRD, 0x2},
-+	{OP_WR_E1, DMAE_REG_PXP_REQ_INIT_CRD, 0x1},
-+	{OP_WR_E1H, DMAE_REG_PXP_REQ_INIT_CRD, 0x2},
- 	{OP_WR, DMAE_REG_PCI_IFEN, 0x1},
- 	{OP_WR, DMAE_REG_GRC_IFEN, 0x1},
--#define DMAE_COMMON_END         1049
--#define PXP_COMMON_START        1049
--	{OP_SI, PXP_REG_HST_INBOUND_INT + 0x400, 0x574e4},
--	{OP_SI, PXP_REG_HST_INBOUND_INT + 0x420, 0x574e9},
--	{OP_SI, PXP_REG_HST_INBOUND_INT, 0x574ee},
--#define PXP_COMMON_END          1052
--#define CFC_COMMON_START        1052
-+#define DMAE_COMMON_END         1777
-+#define PXP_COMMON_START        1777
-+	{OP_WB_E1, PXP_REG_HST_INBOUND_INT + 0x400, 0x50565},
-+	{OP_WB_E1H, PXP_REG_HST_INBOUND_INT + 0x400, 0x50609},
-+	{OP_WB_E1, PXP_REG_HST_INBOUND_INT + 0x420, 0x5056a},
-+	{OP_WB_E1H, PXP_REG_HST_INBOUND_INT, 0x5060e},
-+	{OP_WB_E1, PXP_REG_HST_INBOUND_INT, 0x5056f},
-+#define PXP_COMMON_END          1782
-+#define CFC_COMMON_START        1782
-+	{OP_ZR_E1H, CFC_REG_LINK_LIST, 0x100},
- 	{OP_WR, CFC_REG_CONTROL0, 0x10},
- 	{OP_WR, CFC_REG_DISABLE_ON_ERROR, 0x3fff},
- 	{OP_WR, CFC_REG_LCREQ_WEIGHTS, 0x84924a},
--#define CFC_COMMON_END          1055
--#define HC_COMMON_START         1055
--	{OP_ZR, HC_REG_USTORM_ADDR_FOR_COALESCE, 0x4},
--#define HC_COMMON_END           1056
--#define HC_PORT0_START          1056
--	{OP_WR, HC_REG_CONFIG_0, 0x1080},
--	{OP_ZR, HC_REG_UC_RAM_ADDR_0, 0x2},
--	{OP_WR, HC_REG_ATTN_NUM_P0, 0x10},
--	{OP_WR, HC_REG_LEADING_EDGE_0, 0xffff},
--	{OP_WR, HC_REG_TRAILING_EDGE_0, 0xffff},
--	{OP_WR, HC_REG_AGG_INT_0, 0x0},
--	{OP_WR, HC_REG_ATTN_IDX, 0x0},
--	{OP_ZR, HC_REG_ATTN_BIT, 0x2},
--	{OP_WR, HC_REG_VQID_0, 0x2b5},
--	{OP_WR, HC_REG_PCI_CONFIG_0, 0x0},
--	{OP_ZR, HC_REG_P0_PROD_CONS, 0x4a},
--	{OP_ZR, HC_REG_PBA_COMMAND, 0x2},
--	{OP_WR, HC_REG_INT_MASK, 0x1ffff},
--	{OP_WR, HC_REG_CONFIG_0, 0x1a82},
--	{OP_ZR, HC_REG_STATISTIC_COUNTERS, 0x24},
--	{OP_ZR, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
--	{OP_ZR, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
--	{OP_ZR, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
--#define HC_PORT0_END            1074
--#define HC_PORT1_START          1074
--	{OP_WR, HC_REG_CONFIG_1, 0x1080},
--	{OP_ZR, HC_REG_UC_RAM_ADDR_1, 0x2},
--	{OP_WR, HC_REG_ATTN_NUM_P1, 0x10},
--	{OP_WR, HC_REG_LEADING_EDGE_1, 0xffff},
--	{OP_WR, HC_REG_TRAILING_EDGE_1, 0xffff},
--	{OP_WR, HC_REG_AGG_INT_1, 0x0},
--	{OP_WR, HC_REG_ATTN_IDX + 0x4, 0x0},
--	{OP_ZR, HC_REG_ATTN_BIT + 0x8, 0x2},
--	{OP_WR, HC_REG_VQID_1, 0x2b5},
--	{OP_WR, HC_REG_PCI_CONFIG_1, 0x0},
--	{OP_ZR, HC_REG_P1_PROD_CONS, 0x4a},
--	{OP_ZR, HC_REG_PBA_COMMAND + 0x8, 0x2},
--	{OP_WR, HC_REG_INT_MASK + 0x4, 0x1ffff},
--	{OP_WR, HC_REG_CONFIG_1, 0x1a82},
--	{OP_ZR, HC_REG_STATISTIC_COUNTERS + 0x90, 0x24},
--	{OP_ZR, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
--	{OP_ZR, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
--	{OP_ZR, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
--#define HC_PORT1_END            1092
--#define PXP2_COMMON_START       1092
--	{OP_WR, PXP2_REG_PGL_CONTROL0, 0xe38324},
-+#define CFC_COMMON_END          1786
-+#define HC_COMMON_START         1786
-+	{OP_ZR_E1, HC_REG_USTORM_ADDR_FOR_COALESCE, 0x4},
-+#define HC_COMMON_END           1787
-+#define HC_PORT0_START          1787
-+	{OP_WR_E1, HC_REG_CONFIG_0, 0x1080},
-+	{OP_ZR_E1, HC_REG_UC_RAM_ADDR_0, 0x2},
-+	{OP_WR_E1, HC_REG_ATTN_NUM_P0, 0x10},
-+	{OP_WR_E1, HC_REG_LEADING_EDGE_0, 0xffff},
-+	{OP_WR_E1, HC_REG_TRAILING_EDGE_0, 0xffff},
-+	{OP_WR_E1, HC_REG_AGG_INT_0, 0x0},
-+	{OP_WR_E1, HC_REG_ATTN_IDX, 0x0},
-+	{OP_ZR_E1, HC_REG_ATTN_BIT, 0x2},
-+	{OP_WR_E1, HC_REG_VQID_0, 0x2b5},
-+	{OP_WR_E1, HC_REG_PCI_CONFIG_0, 0x0},
-+	{OP_ZR_E1, HC_REG_P0_PROD_CONS, 0x4a},
-+	{OP_WR_E1, HC_REG_INT_MASK, 0x1ffff},
-+	{OP_ZR_E1, HC_REG_PBA_COMMAND, 0x2},
-+	{OP_WR_E1, HC_REG_CONFIG_0, 0x1a80},
-+	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS, 0x24},
-+	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
-+	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
-+	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
-+	{OP_ZR_E1, HC_REG_PBA_COMMAND, 0x2},
-+#define HC_PORT0_END            1806
-+#define HC_PORT1_START          1806
-+	{OP_WR_E1, HC_REG_CONFIG_1, 0x1080},
-+	{OP_ZR_E1, HC_REG_UC_RAM_ADDR_1, 0x2},
-+	{OP_WR_E1, HC_REG_ATTN_NUM_P1, 0x10},
-+	{OP_WR_E1, HC_REG_LEADING_EDGE_1, 0xffff},
-+	{OP_WR_E1, HC_REG_TRAILING_EDGE_1, 0xffff},
-+	{OP_WR_E1, HC_REG_AGG_INT_1, 0x0},
-+	{OP_WR_E1, HC_REG_ATTN_IDX + 0x4, 0x0},
-+	{OP_ZR_E1, HC_REG_ATTN_BIT + 0x8, 0x2},
-+	{OP_WR_E1, HC_REG_VQID_1, 0x2b5},
-+	{OP_WR_E1, HC_REG_PCI_CONFIG_1, 0x0},
-+	{OP_ZR_E1, HC_REG_P1_PROD_CONS, 0x4a},
-+	{OP_WR_E1, HC_REG_INT_MASK + 0x4, 0x1ffff},
-+	{OP_ZR_E1, HC_REG_PBA_COMMAND + 0x8, 0x2},
-+	{OP_WR_E1, HC_REG_CONFIG_1, 0x1a80},
-+	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x90, 0x24},
-+	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
-+	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
-+	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
-+	{OP_ZR_E1, HC_REG_PBA_COMMAND + 0x8, 0x2},
-+#define HC_PORT1_END            1825
-+#define HC_FUNC0_START          1825
-+	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1080},
-+	{OP_WR_E1H, HC_REG_FUNC_NUM_P0, 0x0},
-+	{OP_WR_E1H, HC_REG_ATTN_NUM_P0, 0x10},
-+	{OP_WR_E1H, HC_REG_ATTN_IDX, 0x0},
-+	{OP_ZR_E1H, HC_REG_ATTN_BIT, 0x2},
-+	{OP_WR_E1H, HC_REG_VQID_0, 0x2b5},
-+	{OP_WR_E1H, HC_REG_PCI_CONFIG_0, 0x0},
-+	{OP_ZR_E1H, HC_REG_P0_PROD_CONS, 0x4a},
-+	{OP_WR_E1H, HC_REG_INT_MASK, 0x1ffff},
-+	{OP_ZR_E1H, HC_REG_PBA_COMMAND, 0x2},
-+	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1a80},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS, 0x24},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
-+#define HC_FUNC0_END            1840
-+#define HC_FUNC1_START          1840
-+	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1080},
-+	{OP_WR_E1H, HC_REG_FUNC_NUM_P1, 0x1},
-+	{OP_WR_E1H, HC_REG_ATTN_NUM_P1, 0x10},
-+	{OP_WR_E1H, HC_REG_ATTN_IDX + 0x4, 0x0},
-+	{OP_ZR_E1H, HC_REG_ATTN_BIT + 0x8, 0x2},
-+	{OP_WR_E1H, HC_REG_VQID_1, 0x2b5},
-+	{OP_WR_E1H, HC_REG_PCI_CONFIG_1, 0x0},
-+	{OP_ZR_E1H, HC_REG_P1_PROD_CONS, 0x4a},
-+	{OP_WR_E1H, HC_REG_INT_MASK + 0x4, 0x1ffff},
-+	{OP_ZR_E1H, HC_REG_PBA_COMMAND + 0x8, 0x2},
-+	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1a80},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x90, 0x24},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
-+#define HC_FUNC1_END            1855
-+#define HC_FUNC2_START          1855
-+	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1080},
-+	{OP_WR_E1H, HC_REG_FUNC_NUM_P0, 0x2},
-+	{OP_WR_E1H, HC_REG_ATTN_NUM_P0, 0x10},
-+	{OP_WR_E1H, HC_REG_ATTN_IDX, 0x0},
-+	{OP_ZR_E1H, HC_REG_ATTN_BIT, 0x2},
-+	{OP_WR_E1H, HC_REG_VQID_0, 0x2b5},
-+	{OP_WR_E1H, HC_REG_PCI_CONFIG_0, 0x0},
-+	{OP_ZR_E1H, HC_REG_P0_PROD_CONS, 0x4a},
-+	{OP_WR_E1H, HC_REG_INT_MASK, 0x1ffff},
-+	{OP_ZR_E1H, HC_REG_PBA_COMMAND, 0x2},
-+	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1a80},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS, 0x24},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
-+#define HC_FUNC2_END            1870
-+#define HC_FUNC3_START          1870
-+	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1080},
-+	{OP_WR_E1H, HC_REG_FUNC_NUM_P1, 0x3},
-+	{OP_WR_E1H, HC_REG_ATTN_NUM_P1, 0x10},
-+	{OP_WR_E1H, HC_REG_ATTN_IDX + 0x4, 0x0},
-+	{OP_ZR_E1H, HC_REG_ATTN_BIT + 0x8, 0x2},
-+	{OP_WR_E1H, HC_REG_VQID_1, 0x2b5},
-+	{OP_WR_E1H, HC_REG_PCI_CONFIG_1, 0x0},
-+	{OP_ZR_E1H, HC_REG_P1_PROD_CONS, 0x4a},
-+	{OP_WR_E1H, HC_REG_INT_MASK + 0x4, 0x1ffff},
-+	{OP_ZR_E1H, HC_REG_PBA_COMMAND + 0x8, 0x2},
-+	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1a80},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x90, 0x24},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
-+#define HC_FUNC3_END            1885
-+#define HC_FUNC4_START          1885
-+	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1080},
-+	{OP_WR_E1H, HC_REG_FUNC_NUM_P0, 0x4},
-+	{OP_WR_E1H, HC_REG_ATTN_NUM_P0, 0x10},
-+	{OP_WR_E1H, HC_REG_ATTN_IDX, 0x0},
-+	{OP_ZR_E1H, HC_REG_ATTN_BIT, 0x2},
-+	{OP_WR_E1H, HC_REG_VQID_0, 0x2b5},
-+	{OP_WR_E1H, HC_REG_PCI_CONFIG_0, 0x0},
-+	{OP_ZR_E1H, HC_REG_P0_PROD_CONS, 0x4a},
-+	{OP_WR_E1H, HC_REG_INT_MASK, 0x1ffff},
-+	{OP_ZR_E1H, HC_REG_PBA_COMMAND, 0x2},
-+	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1a80},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS, 0x24},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
-+#define HC_FUNC4_END            1900
-+#define HC_FUNC5_START          1900
-+	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1080},
-+	{OP_WR_E1H, HC_REG_FUNC_NUM_P1, 0x5},
-+	{OP_WR_E1H, HC_REG_ATTN_NUM_P1, 0x10},
-+	{OP_WR_E1H, HC_REG_ATTN_IDX + 0x4, 0x0},
-+	{OP_ZR_E1H, HC_REG_ATTN_BIT + 0x8, 0x2},
-+	{OP_WR_E1H, HC_REG_VQID_1, 0x2b5},
-+	{OP_WR_E1H, HC_REG_PCI_CONFIG_1, 0x0},
-+	{OP_ZR_E1H, HC_REG_P1_PROD_CONS, 0x4a},
-+	{OP_WR_E1H, HC_REG_INT_MASK + 0x4, 0x1ffff},
-+	{OP_ZR_E1H, HC_REG_PBA_COMMAND + 0x8, 0x2},
-+	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1a80},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x90, 0x24},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
-+#define HC_FUNC5_END            1915
-+#define HC_FUNC6_START          1915
-+	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1080},
-+	{OP_WR_E1H, HC_REG_FUNC_NUM_P0, 0x6},
-+	{OP_WR_E1H, HC_REG_ATTN_NUM_P0, 0x10},
-+	{OP_WR_E1H, HC_REG_ATTN_IDX, 0x0},
-+	{OP_ZR_E1H, HC_REG_ATTN_BIT, 0x2},
-+	{OP_WR_E1H, HC_REG_VQID_0, 0x2b5},
-+	{OP_WR_E1H, HC_REG_PCI_CONFIG_0, 0x0},
-+	{OP_ZR_E1H, HC_REG_P0_PROD_CONS, 0x4a},
-+	{OP_WR_E1H, HC_REG_INT_MASK, 0x1ffff},
-+	{OP_ZR_E1H, HC_REG_PBA_COMMAND, 0x2},
-+	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1a80},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS, 0x24},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
-+#define HC_FUNC6_END            1930
-+#define HC_FUNC7_START          1930
-+	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1080},
-+	{OP_WR_E1H, HC_REG_FUNC_NUM_P1, 0x7},
-+	{OP_WR_E1H, HC_REG_ATTN_NUM_P1, 0x10},
-+	{OP_WR_E1H, HC_REG_ATTN_IDX + 0x4, 0x0},
-+	{OP_ZR_E1H, HC_REG_ATTN_BIT + 0x8, 0x2},
-+	{OP_WR_E1H, HC_REG_VQID_1, 0x2b5},
-+	{OP_WR_E1H, HC_REG_PCI_CONFIG_1, 0x0},
-+	{OP_ZR_E1H, HC_REG_P1_PROD_CONS, 0x4a},
-+	{OP_WR_E1H, HC_REG_INT_MASK + 0x4, 0x1ffff},
-+	{OP_ZR_E1H, HC_REG_PBA_COMMAND + 0x8, 0x2},
-+	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1a80},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x90, 0x24},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
-+	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
-+#define HC_FUNC7_END            1945
-+#define PXP2_COMMON_START       1945
-+	{OP_WR_E1, PXP2_REG_PGL_CONTROL0, 0xe38340},
-+	{OP_WR_E1H, PXP2_REG_RQ_DRAM_ALIGN, 0x1},
- 	{OP_WR, PXP2_REG_PGL_CONTROL1, 0x3c10},
-+	{OP_WR_E1H, PXP2_REG_RQ_ELT_DISABLE, 0x1},
-+	{OP_WR_E1H, PXP2_REG_WR_REV_MODE, 0x0},
- 	{OP_WR, PXP2_REG_PGL_INT_TSDM_0, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_TSDM_1, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_TSDM_2, 0xffffffff},
-@@ -1231,6 +2249,7 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, PXP2_REG_PGL_INT_USDM_5, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_USDM_6, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_USDM_7, 0xffffffff},
-+	{OP_WR_E1H, PXP2_REG_PGL_INT_XSDM_1, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_XSDM_2, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_XSDM_3, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_XSDM_4, 0xffffffff},
-@@ -1245,9 +2264,11 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, PXP2_REG_PGL_INT_CSDM_5, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_CSDM_6, 0xffffffff},
- 	{OP_WR, PXP2_REG_PGL_INT_CSDM_7, 0xffffffff},
--	{OP_WR, PXP2_REG_PGL_INT_XSDM_0, 0xffff5330},
--	{OP_WR, PXP2_REG_PGL_INT_XSDM_1, 0xffff5348},
--	{OP_WR, PXP2_REG_PGL_INT_USDM_0, 0xf0003000},
-+	{OP_WR_E1, PXP2_REG_PGL_INT_XSDM_0, 0xffff3330},
-+	{OP_WR_E1H, PXP2_REG_PGL_INT_XSDM_0, 0xff802000},
-+	{OP_WR_E1, PXP2_REG_PGL_INT_XSDM_1, 0xffff3340},
-+	{OP_WR_E1H, PXP2_REG_PGL_INT_USDM_0, 0xf0005000},
-+	{OP_WR_E1, PXP2_REG_PGL_INT_USDM_0, 0xf0003000},
- 	{OP_WR, PXP2_REG_RD_MAX_BLKS_VQ6, 0x8},
- 	{OP_WR, PXP2_REG_RD_MAX_BLKS_VQ9, 0x8},
- 	{OP_WR, PXP2_REG_RD_MAX_BLKS_VQ10, 0x8},
-@@ -1257,6 +2278,7 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, PXP2_REG_RD_MAX_BLKS_VQ19, 0x4},
- 	{OP_WR, PXP2_REG_RD_MAX_BLKS_VQ22, 0x0},
- 	{OP_WR, PXP2_REG_RD_START_INIT, 0x1},
-+	{OP_WR, PXP2_REG_WR_DMAE_TH, 0x3f},
- 	{OP_WR, PXP2_REG_RQ_BW_RD_ADD0, 0x40},
- 	{OP_WR, PXP2_REG_PSWRQ_BW_ADD1, 0x1808},
- 	{OP_WR, PXP2_REG_PSWRQ_BW_ADD2, 0x803},
-@@ -1321,58 +2343,102 @@ static const struct raw_op init_ops[] = {
- 	{OP_WR, PXP2_REG_PSWRQ_BW_L2, 0x1004},
- 	{OP_WR, PXP2_REG_PSWRQ_BW_RD, 0x106440},
- 	{OP_WR, PXP2_REG_PSWRQ_BW_WR, 0x106440},
-+	{OP_WR_E1H, PXP2_REG_RQ_ILT_MODE, 0x1},
- 	{OP_WR, PXP2_REG_RQ_RBC_DONE, 0x1},
--#define PXP2_COMMON_END         1200
--#define MISC_AEU_COMMON_START   1200
-+#define PXP2_COMMON_END         2061
-+#define MISC_AEU_COMMON_START   2061
- 	{OP_ZR, MISC_REG_AEU_GENERAL_ATTN_0, 0x16},
--#define MISC_AEU_COMMON_END     1201
--#define MISC_AEU_PORT0_START    1201
--	{OP_WR, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0, 0xbf5c0000},
--	{OP_WR, MISC_REG_AEU_ENABLE2_FUNC_0_OUT_0, 0xfff51fef},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_NIG_0, 0x55540000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE2_NIG_0, 0x55555555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE3_NIG_0, 0x5555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_NIG_0, 0xf0000000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_PXP_0, 0x55540000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE2_PXP_0, 0x55555555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE3_PXP_0, 0x5555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_PXP_0, 0xf0000000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_NIG_1, 0x55540000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE2_NIG_1, 0x55555555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE3_NIG_1, 0x5555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_NIG_1, 0xf0000000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_PXP_1, 0x0},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE2_PXP_1, 0x10000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE3_PXP_1, 0x5014},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_PXP_1, 0x0},
-+	{OP_WR_E1H, MISC_REG_AEU_CLR_LATCH_SIGNAL, 0xc00},
-+	{OP_WR_E1H, MISC_REG_AEU_GENERAL_MASK, 0x3},
-+#define MISC_AEU_COMMON_END     2080
-+#define MISC_AEU_PORT0_START    2080
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0, 0xbf5c0000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0, 0xff5c0000},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE2_FUNC_0_OUT_0, 0xfff51fef},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE2_FUNC_0_OUT_0, 0xfff55fff},
- 	{OP_WR, MISC_REG_AEU_ENABLE3_FUNC_0_OUT_0, 0xffff},
--	{OP_WR, MISC_REG_AEU_ENABLE4_FUNC_0_OUT_0, 0x500003e0},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE4_FUNC_0_OUT_0, 0x500003e0},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_0_OUT_0, 0xf00003e0},
- 	{OP_WR, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_1, 0x0},
- 	{OP_WR, MISC_REG_AEU_ENABLE2_FUNC_0_OUT_1, 0xa000},
- 	{OP_ZR, MISC_REG_AEU_ENABLE3_FUNC_0_OUT_1, 0x5},
- 	{OP_WR, MISC_REG_AEU_ENABLE4_FUNC_0_OUT_2, 0xfe00000},
--	{OP_ZR, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_3, 0x14},
--	{OP_WR, MISC_REG_AEU_ENABLE1_NIG_0, 0x55540000},
--	{OP_WR, MISC_REG_AEU_ENABLE2_NIG_0, 0x55555555},
--	{OP_WR, MISC_REG_AEU_ENABLE3_NIG_0, 0x5555},
--	{OP_WR, MISC_REG_AEU_ENABLE4_NIG_0, 0x0},
--	{OP_WR, MISC_REG_AEU_ENABLE1_PXP_0, 0x55540000},
--	{OP_WR, MISC_REG_AEU_ENABLE2_PXP_0, 0x55555555},
--	{OP_WR, MISC_REG_AEU_ENABLE3_PXP_0, 0x5555},
--	{OP_WR, MISC_REG_AEU_ENABLE4_PXP_0, 0x0},
--	{OP_WR, MISC_REG_AEU_INVERTER_1_FUNC_0, 0x0},
--	{OP_ZR, MISC_REG_AEU_INVERTER_2_FUNC_0, 0x3},
--	{OP_WR, MISC_REG_AEU_MASK_ATTN_FUNC_0, 0x7},
--#define MISC_AEU_PORT0_END      1221
--#define MISC_AEU_PORT1_START    1221
--	{OP_WR, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0, 0xbf5c0000},
--	{OP_WR, MISC_REG_AEU_ENABLE2_FUNC_1_OUT_0, 0xfff51fef},
-+	{OP_ZR_E1, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_3, 0x14},
-+	{OP_ZR_E1H, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_3, 0x7},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE1_NIG_0, 0x55540000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_0_OUT_4, 0x400},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE2_NIG_0, 0x55555555},
-+	{OP_ZR_E1H, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_5, 0x3},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE3_NIG_0, 0x5555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_0_OUT_5, 0x1000},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE4_NIG_0, 0x0},
-+	{OP_ZR_E1H, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_6, 0x3},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE1_PXP_0, 0x55540000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_0_OUT_6, 0x4000},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE2_PXP_0, 0x55555555},
-+	{OP_ZR_E1H, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_7, 0x3},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE3_PXP_0, 0x5555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_0_OUT_7, 0x10000},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE4_PXP_0, 0x0},
-+	{OP_ZR_E1H, MISC_REG_AEU_INVERTER_1_FUNC_0, 0x4},
-+	{OP_WR_E1, MISC_REG_AEU_INVERTER_1_FUNC_0, 0x0},
-+	{OP_ZR_E1, MISC_REG_AEU_INVERTER_2_FUNC_0, 0x3},
-+	{OP_WR_E1, MISC_REG_AEU_MASK_ATTN_FUNC_0, 0x7},
-+#define MISC_AEU_PORT0_END      2112
-+#define MISC_AEU_PORT1_START    2112
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0, 0xbf5c0000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0, 0xff5c0000},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE2_FUNC_1_OUT_0, 0xfff51fef},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE2_FUNC_1_OUT_0, 0xfff55fff},
- 	{OP_WR, MISC_REG_AEU_ENABLE3_FUNC_1_OUT_0, 0xffff},
--	{OP_WR, MISC_REG_AEU_ENABLE4_FUNC_1_OUT_0, 0x500003e0},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE4_FUNC_1_OUT_0, 0x500003e0},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_1_OUT_0, 0xf00003e0},
- 	{OP_WR, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_1, 0x0},
- 	{OP_WR, MISC_REG_AEU_ENABLE2_FUNC_1_OUT_1, 0xa000},
- 	{OP_ZR, MISC_REG_AEU_ENABLE3_FUNC_1_OUT_1, 0x5},
- 	{OP_WR, MISC_REG_AEU_ENABLE4_FUNC_1_OUT_2, 0xfe00000},
--	{OP_ZR, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_3, 0x14},
--	{OP_WR, MISC_REG_AEU_ENABLE1_NIG_1, 0x55540000},
--	{OP_WR, MISC_REG_AEU_ENABLE2_NIG_1, 0x55555555},
--	{OP_WR, MISC_REG_AEU_ENABLE3_NIG_1, 0x5555},
--	{OP_WR, MISC_REG_AEU_ENABLE4_NIG_1, 0x0},
--	{OP_WR, MISC_REG_AEU_ENABLE1_PXP_1, 0x55540000},
--	{OP_WR, MISC_REG_AEU_ENABLE2_PXP_1, 0x55555555},
--	{OP_WR, MISC_REG_AEU_ENABLE3_PXP_1, 0x5555},
--	{OP_WR, MISC_REG_AEU_ENABLE4_PXP_1, 0x0},
--	{OP_WR, MISC_REG_AEU_INVERTER_1_FUNC_1, 0x0},
--	{OP_ZR, MISC_REG_AEU_INVERTER_2_FUNC_1, 0x3},
--	{OP_WR, MISC_REG_AEU_MASK_ATTN_FUNC_1, 0x7}
--#define MISC_AEU_PORT1_END      1241
-+	{OP_ZR_E1, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_3, 0x14},
-+	{OP_ZR_E1H, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_3, 0x7},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE1_NIG_1, 0x55540000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_1_OUT_4, 0x800},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE2_NIG_1, 0x55555555},
-+	{OP_ZR_E1H, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_5, 0x3},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE3_NIG_1, 0x5555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_1_OUT_5, 0x2000},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE4_NIG_1, 0x0},
-+	{OP_ZR_E1H, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_6, 0x3},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE1_PXP_1, 0x55540000},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_1_OUT_6, 0x8000},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE2_PXP_1, 0x55555555},
-+	{OP_ZR_E1H, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_7, 0x3},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE3_PXP_1, 0x5555},
-+	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_FUNC_1_OUT_7, 0x20000},
-+	{OP_WR_E1, MISC_REG_AEU_ENABLE4_PXP_1, 0x0},
-+	{OP_ZR_E1H, MISC_REG_AEU_INVERTER_1_FUNC_1, 0x4},
-+	{OP_WR_E1, MISC_REG_AEU_INVERTER_1_FUNC_1, 0x0},
-+	{OP_ZR_E1, MISC_REG_AEU_INVERTER_2_FUNC_1, 0x3},
-+	{OP_WR_E1, MISC_REG_AEU_MASK_ATTN_FUNC_1, 0x7},
-+#define MISC_AEU_PORT1_END      2144
-+
+ /*
+- * Protocol-common statistics collected by the Tstorm (per port)
++ * Protocol-common statistics collected by the Tstorm
+  */
+ struct tstorm_common_stats {
+-	struct tstorm_per_client_stats client_statistics[MAX_T_STAT_COUNTER_ID];
+-	u32 mac_filter_discard;
+-	u32 xxoverflow_discard;
+-	u32 brb_truncate_discard;
+-	u32 reserved;
+-	struct regpair done;
++	struct tstorm_per_port_stats port_statistics;
++ struct tstorm_per_client_stats client_statistics[MAX_T_STAT_COUNTER_ID];
  };
  
--static const u32 init_data[] = {
-+static const u32 init_data_e1[] = {
- 	0x00010000, 0x000204c0, 0x00030980, 0x00040e40, 0x00051300, 0x000617c0,
- 	0x00071c80, 0x00082140, 0x00092600, 0x000a2ac0, 0x000b2f80, 0x000c3440,
- 	0x000d3900, 0x000e3dc0, 0x000f4280, 0x00104740, 0x00114c00, 0x001250c0,
-@@ -6365,4 +7431,55 @@ static const u32 init_data[] = {
- 	0xcccccccc, 0xcccccccc, 0xcccccccc, 0xcccccccc, 0x00002000
- };
- 
-+static const u32 init_data_e1h[] = {
-+};
-+
-+static const u32 tsem_int_table_data_e1[] = {
-+};
-+
-+static const u32 tsem_pram_data_e1[] = {
-+};
-+
-+static const u32 usem_int_table_data_e1[] = {
-+};
-+
-+static const u32 usem_pram_data_e1[] = {
-+};
-+
-+static const u32 csem_int_table_data_e1[] = {
-+};
-+
-+static const u32 csem_pram_data_e1[] = {
-+};
-+
-+static const u32 xsem_int_table_data_e1[] = {
-+};
-+
-+static const u32 xsem_pram_data_e1[] = {
-+};
-+
-+static const u32 tsem_int_table_data_e1h[] = {
-+};
-+
-+static const u32 tsem_pram_data_e1h[] = {
-+};
-+
-+static const u32 usem_int_table_data_e1h[] = {
-+};
-+
-+static const u32 usem_pram_data_e1h[] = {
-+};
-+
-+static const u32 csem_int_table_data_e1h[] = {
-+};
-+
-+static const u32 csem_pram_data_e1h[] = {
-+};
-+
-+static const u32 xsem_int_table_data_e1h[] = {
-+};
-+
-+static const u32 xsem_pram_data_e1h[] = {
-+};
-+
- #endif /*__BNX2X_INIT_VALUES_H__*/
+ /*
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 9d1f730..26ca847 100644
+index ba46002..20ecfcb 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -136,7 +136,6 @@ static void bnx2x_reg_wr_ind(struct bnx2x *bp, u32 addr, u32 val)
- 			       PCICFG_VENDOR_ID_OFFSET);
+@@ -495,8 +495,8 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
+ 	bnx2x_mc_assert(bp);
+ 	BNX2X_ERR("end crash dump -----------------\n");
+ 
+-	bp->stats_state = STATS_STATE_DISABLE;
+-	DP(BNX2X_MSG_STATS, "stats_state - DISABLE\n");
++	bp->stats_state = STATS_STATE_DISABLED;
++	DP(BNX2X_MSG_STATS, "stats_state - DISABLED\n");
  }
  
--#ifdef BNX2X_IND_RD
- static u32 bnx2x_reg_rd_ind(struct bnx2x *bp, u32 addr)
+ static void bnx2x_int_enable(struct bnx2x *bp)
+@@ -873,6 +873,7 @@ static void bnx2x_sp_event(struct bnx2x_fastpath *fp,
+ 	case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_OPEN):
+ 	case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_DIAG):
+ 		DP(NETIF_MSG_IFUP, "got set mac ramrod\n");
++		bp->set_mac_pending = 0;
+ 		break;
+ 
+ 	case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_CLOSING_WAIT4_HALT):
+@@ -1203,6 +1204,7 @@ static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
+ 
+ /* end of fast path */
+ 
++static void bnx2x_stats_handle(struct bnx2x *bp, enum bnx2x_stats_event event);
+ 
+ /* Link */
+ 
+@@ -1714,10 +1716,28 @@ static void bnx2x_link_attn(struct bnx2x *bp)
  {
- 	u32 val;
-@@ -148,7 +147,6 @@ static u32 bnx2x_reg_rd_ind(struct bnx2x *bp, u32 addr)
+ 	int vn;
  
- 	return val;
- }
--#endif
- 
- static const u32 dmae_reg_go_c[] = {
- 	DMAE_REG_GO_C0, DMAE_REG_GO_C1, DMAE_REG_GO_C2, DMAE_REG_GO_C3,
-@@ -168,19 +166,29 @@ static void bnx2x_post_dmae(struct bnx2x *bp, struct dmae_command *dmae,
- 	for (i = 0; i < (sizeof(struct dmae_command)/4); i++) {
- 		REG_WR(bp, cmd_offset + i*4, *(((u32 *)dmae) + i));
- 
--/*      	DP(NETIF_MSG_DMAE, "DMAE cmd[%d].%d (0x%08x) : 0x%08x\n",
--		   idx, i, cmd_offset + i*4, *(((u32 *)dmae) + i)); */
-+		DP(BNX2X_MSG_OFF, "DMAE cmd[%d].%d (0x%08x) : 0x%08x\n",
-+		   idx, i, cmd_offset + i*4, *(((u32 *)dmae) + i));
- 	}
- 	REG_WR(bp, dmae_reg_go_c[idx], 1);
- }
- 
--void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr,
--			     u32 dst_addr, u32 len32)
-+void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
-+		      u32 len32)
- {
--	struct dmae_command *dmae = &bp->dmae;
--	int port = bp->port;
-+	struct dmae_command *dmae = &bp->init_dmae;
- 	u32 *wb_comp = bnx2x_sp(bp, wb_comp);
--	int timeout = 200;
-+	int cnt = 200;
++	/* Make sure that we are synced with the current statistics */
++	bnx2x_stats_handle(bp, STATS_EVENT_STOP);
 +
-+	if (!bp->dmae_ready) {
-+		u32 *data = bnx2x_sp(bp, wb_data[0]);
+ 	bnx2x_phy_hw_lock(bp);
+ 	bnx2x_link_update(&bp->link_params, &bp->link_vars);
+ 	bnx2x_phy_hw_unlock(bp);
+ 
++	if (bp->link_vars.link_up) {
 +
-+		DP(BNX2X_MSG_OFF, "DMAE is not ready (dst_addr %08x  len32 %d)"
-+		   "  using indirect\n", dst_addr, len32);
-+		bnx2x_init_ind_wr(bp, dst_addr, data, len32);
-+		return;
++		if (bp->link_vars.mac_type == MAC_TYPE_BMAC) {
++			struct host_port_stats *pstats;
++
++			pstats = bnx2x_sp(bp, port_stats);
++			/* reset old bmac stats */
++			memset(&(pstats->mac_stx[0]), 0,
++			       sizeof(struct mac_stx));
++		}
++		if ((bp->state == BNX2X_STATE_OPEN) ||
++		    (bp->state == BNX2X_STATE_DISABLED))
++			bnx2x_stats_handle(bp, STATS_EVENT_LINK_UP);
 +	}
 +
-+	mutex_lock(&bp->dmae_mutex);
+ 	/* indicate link status */
+ 	bnx2x_link_report(bp);
  
- 	memset(dmae, 0, sizeof(struct dmae_command));
+@@ -1761,6 +1781,11 @@ static void bnx2x__link_status_update(struct bnx2x *bp)
  
-@@ -192,7 +200,7 @@ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr,
- #else
- 			DMAE_CMD_ENDIANITY_DW_SWAP |
- #endif
--			(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
-+			(bp->port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
- 	dmae->src_addr_lo = U64_LO(dma_addr);
- 	dmae->src_addr_hi = U64_HI(dma_addr);
- 	dmae->dst_addr_lo = dst_addr >> 2;
-@@ -200,48 +208,62 @@ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr,
- 	dmae->len = len32;
- 	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, wb_comp));
- 	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, wb_comp));
--	dmae->comp_val = BNX2X_WB_COMP_VAL;
-+	dmae->comp_val = DMAE_COMP_VAL;
+ 	bnx2x_link_status_update(&bp->link_params, &bp->link_vars);
  
--/*
--	DP(NETIF_MSG_DMAE, "dmae: opcode 0x%08x\n"
-+	DP(BNX2X_MSG_OFF, "dmae: opcode 0x%08x\n"
- 	   DP_LEVEL "src_addr  [%x:%08x]  len [%d *4]  "
- 		    "dst_addr [%x:%08x (%08x)]\n"
- 	   DP_LEVEL "comp_addr [%x:%08x]  comp_val 0x%08x\n",
- 	   dmae->opcode, dmae->src_addr_hi, dmae->src_addr_lo,
- 	   dmae->len, dmae->dst_addr_hi, dmae->dst_addr_lo, dst_addr,
- 	   dmae->comp_addr_hi, dmae->comp_addr_lo, dmae->comp_val);
--*/
--/*
--	DP(NETIF_MSG_DMAE, "data [0x%08x 0x%08x 0x%08x 0x%08x]\n",
-+	DP(BNX2X_MSG_OFF, "data [0x%08x 0x%08x 0x%08x 0x%08x]\n",
- 	   bp->slowpath->wb_data[0], bp->slowpath->wb_data[1],
- 	   bp->slowpath->wb_data[2], bp->slowpath->wb_data[3]);
--*/
- 
- 	*wb_comp = 0;
- 
--	bnx2x_post_dmae(bp, dmae, port * 8);
-+	bnx2x_post_dmae(bp, dmae, (bp->port)*MAX_DMAE_C_PER_PORT);
- 
- 	udelay(5);
--	/* adjust timeout for emulation/FPGA */
--	if (CHIP_REV_IS_SLOW(bp))
--		timeout *= 100;
--	while (*wb_comp != BNX2X_WB_COMP_VAL) {
--/*      	DP(NETIF_MSG_DMAE, "wb_comp 0x%08x\n", *wb_comp); */
--		udelay(5);
--		if (!timeout) {
-+
-+	while (*wb_comp != DMAE_COMP_VAL) {
-+		DP(BNX2X_MSG_OFF, "wb_comp 0x%08x\n", *wb_comp);
-+
-+		/* adjust delay for emulation/FPGA */
-+		if (CHIP_REV_IS_SLOW(bp))
-+			msleep(100);
-+		else
-+			udelay(5);
-+
-+		if (!cnt) {
- 			BNX2X_ERR("dmae timeout!\n");
- 			break;
- 		}
--		timeout--;
-+		cnt--;
- 	}
-+
-+	mutex_unlock(&bp->dmae_mutex);
- }
- 
- void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
- {
--	struct dmae_command *dmae = &bp->dmae;
--	int port = bp->port;
-+	struct dmae_command *dmae = &bp->init_dmae;
- 	u32 *wb_comp = bnx2x_sp(bp, wb_comp);
--	int timeout = 200;
-+	int cnt = 200;
-+
-+	if (!bp->dmae_ready) {
-+		u32 *data = bnx2x_sp(bp, wb_data[0]);
-+		int i;
-+
-+		DP(BNX2X_MSG_OFF, "DMAE is not ready (src_addr %08x  len32 %d)"
-+		   "  using indirect\n", src_addr, len32);
-+		for (i = 0; i < len32; i++)
-+			data[i] = bnx2x_reg_rd_ind(bp, src_addr + i*4);
-+		return;
-+	}
-+
-+	mutex_lock(&bp->dmae_mutex);
- 
- 	memset(bnx2x_sp(bp, wb_data[0]), 0, sizeof(u32) * 4);
- 	memset(dmae, 0, sizeof(struct dmae_command));
-@@ -254,7 +276,7 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
- #else
- 			DMAE_CMD_ENDIANITY_DW_SWAP |
- #endif
--			(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
-+			(bp->port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) );
- 	dmae->src_addr_lo = src_addr >> 2;
- 	dmae->src_addr_hi = 0;
- 	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, wb_data));
-@@ -262,38 +284,64 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
- 	dmae->len = len32;
- 	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, wb_comp));
- 	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, wb_comp));
--	dmae->comp_val = BNX2X_WB_COMP_VAL;
-+	dmae->comp_val = DMAE_COMP_VAL;
- 
--/*
--	DP(NETIF_MSG_DMAE, "dmae: opcode 0x%08x\n"
-+	DP(BNX2X_MSG_OFF, "dmae: opcode 0x%08x\n"
- 	   DP_LEVEL "src_addr  [%x:%08x]  len [%d *4]  "
- 		    "dst_addr [%x:%08x (%08x)]\n"
- 	   DP_LEVEL "comp_addr [%x:%08x]  comp_val 0x%08x\n",
- 	   dmae->opcode, dmae->src_addr_hi, dmae->src_addr_lo,
- 	   dmae->len, dmae->dst_addr_hi, dmae->dst_addr_lo, src_addr,
- 	   dmae->comp_addr_hi, dmae->comp_addr_lo, dmae->comp_val);
--*/
- 
- 	*wb_comp = 0;
- 
--	bnx2x_post_dmae(bp, dmae, port * 8);
-+	bnx2x_post_dmae(bp, dmae, (bp->port)*MAX_DMAE_C_PER_PORT);
- 
- 	udelay(5);
--	while (*wb_comp != BNX2X_WB_COMP_VAL) {
--		udelay(5);
--		if (!timeout) {
-+
-+	while (*wb_comp != DMAE_COMP_VAL) {
-+
-+		/* adjust delay for emulation/FPGA */
-+		if (CHIP_REV_IS_SLOW(bp))
-+			msleep(100);
-+		else
-+			udelay(5);
-+
-+		if (!cnt) {
- 			BNX2X_ERR("dmae timeout!\n");
- 			break;
- 		}
--		timeout--;
-+		cnt--;
- 	}
--/*
--	DP(NETIF_MSG_DMAE, "data [0x%08x 0x%08x 0x%08x 0x%08x]\n",
-+	DP(BNX2X_MSG_OFF, "data [0x%08x 0x%08x 0x%08x 0x%08x]\n",
- 	   bp->slowpath->wb_data[0], bp->slowpath->wb_data[1],
- 	   bp->slowpath->wb_data[2], bp->slowpath->wb_data[3]);
--*/
-+
-+	mutex_unlock(&bp->dmae_mutex);
-+}
-+
-+/* used only for slowpath so not inlined */
-+static void bnx2x_wb_wr(struct bnx2x *bp, int reg, u32 val_hi, u32 val_lo)
-+{
-+	u32 wb_write[2];
-+
-+	wb_write[0] = val_hi;
-+	wb_write[1] = val_lo;
-+	REG_WR_DMAE(bp, reg, wb_write, 2);
- }
- 
-+#ifdef USE_WB_RD
-+static u64 bnx2x_wb_rd(struct bnx2x *bp, int reg)
-+{
-+	u32 wb_data[2];
-+
-+	REG_RD_DMAE(bp, reg, wb_data, 2);
-+
-+	return (HILO_U64(wb_data[0], wb_data[1]));
-+}
-+#endif
-+
- static int bnx2x_mc_assert(struct bnx2x *bp)
- {
- 	int i, j, rc = 0;
-@@ -3437,17 +3485,12 @@ static int bnx2x_int_mem_test(struct bnx2x *bp)
- 	int count, i;
- 	u32 val = 0;
- 
--	switch (CHIP_REV(bp)) {
--	case CHIP_REV_EMUL:
--		factor = 200;
--		break;
--	case CHIP_REV_FPGA:
-+	if (CHIP_REV_IS_FPGA(bp))
- 		factor = 120;
--		break;
--	default:
-+	else if (CHIP_REV_IS_EMUL(bp))
-+		factor = 200;
++	if (bp->link_vars.link_up)
++		bnx2x_stats_handle(bp, STATS_EVENT_LINK_UP);
 +	else
- 		factor = 1;
--		break;
--	}
++		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
++
+ 	/* indicate link status */
+ 	bnx2x_link_report(bp);
+ }
+@@ -1777,6 +1802,8 @@ static void bnx2x_pmf_update(struct bnx2x *bp)
+ 	val = (0xff0f | (1 << (BP_E1HVN(bp) + 4)));
+ 	REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, val);
+ 	REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, val);
++
++	bnx2x_stats_handle(bp, STATS_EVENT_PMF);
+ }
  
- 	DP(NETIF_MSG_HW, "start part1\n");
+ /* end of Link */
+@@ -2301,6 +2328,10 @@ static void bnx2x_sp_task(struct work_struct *work)
+ 	if (status & 0x1)
+ 		bnx2x_attn_int(bp);
  
-@@ -3776,10 +3819,14 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
- 		bnx2x_init_block(bp, USDM_COMMON_START, USDM_COMMON_END);
- 		bnx2x_init_block(bp, XSDM_COMMON_START, XSDM_COMMON_END);
++	/* CStorm events: query_stats, port delete ramrod */
++	if (status & 0x2)
++		bp->stats_pending = 0;
++
+ 	bnx2x_ack_sb(bp, DEF_SB_ID, ATTENTION_ID, bp->def_att_idx,
+ 		     IGU_INT_NOP, 1);
+ 	bnx2x_ack_sb(bp, DEF_SB_ID, USTORM_ID, le16_to_cpu(bp->def_u_idx),
+@@ -2345,12 +2376,6 @@ static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
+ * Macros
+ ****************************************************************************/
  
--		bnx2x_init_fill(bp, TSTORM_INTMEM_ADDR, 0, STORM_INTMEM_SIZE);
--		bnx2x_init_fill(bp, CSTORM_INTMEM_ADDR, 0, STORM_INTMEM_SIZE);
--		bnx2x_init_fill(bp, XSTORM_INTMEM_ADDR, 0, STORM_INTMEM_SIZE);
--		bnx2x_init_fill(bp, USTORM_INTMEM_ADDR, 0, STORM_INTMEM_SIZE);
-+		bnx2x_init_fill(bp, TSTORM_INTMEM_ADDR, 0,
-+				STORM_INTMEM_SIZE_E1);
-+		bnx2x_init_fill(bp, CSTORM_INTMEM_ADDR, 0,
-+				STORM_INTMEM_SIZE_E1);
-+		bnx2x_init_fill(bp, XSTORM_INTMEM_ADDR, 0,
-+				STORM_INTMEM_SIZE_E1);
-+		bnx2x_init_fill(bp, USTORM_INTMEM_ADDR, 0,
-+				STORM_INTMEM_SIZE_E1);
+-#define UPDATE_STAT(s, t) \
+-	do { \
+-		estats->t += new->s - old->s; \
+-		old->s = new->s; \
+-	} while (0)
+-
+ /* sum[hi:lo] += add[hi:lo] */
+ #define ADD_64(s_hi, a_hi, s_lo, a_lo) \
+ 	do { \
+@@ -2361,40 +2386,39 @@ static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
+ /* difference = minuend - subtrahend */
+ #define DIFF_64(d_hi, m_hi, s_hi, d_lo, m_lo, s_lo) \
+ 	do { \
+-		if (m_lo < s_lo) {      /* underflow */ \
++		if (m_lo < s_lo) { \
++			/* underflow */ \
+ 			d_hi = m_hi - s_hi; \
+-			if (d_hi > 0) { /* we can 'loan' 1 */ \
++			if (d_hi > 0) { \
++			/* we can 'loan' 1 */ \
+ 				d_hi--; \
+ 				d_lo = m_lo + (UINT_MAX - s_lo) + 1; \
+-			} else {	/* m_hi <= s_hi */ \
++			} else { \
++			/* m_hi <= s_hi */ \
+ 				d_hi = 0; \
+ 				d_lo = 0; \
+ 			} \
+-		} else {		/* m_lo >= s_lo */ \
++		} else { \
++			/* m_lo >= s_lo */ \
+ 			if (m_hi < s_hi) { \
+ 			    d_hi = 0; \
+ 			    d_lo = 0; \
+-			} else {	/* m_hi >= s_hi */ \
++			} else { \
++			/* m_hi >= s_hi */ \
+ 			    d_hi = m_hi - s_hi; \
+ 			    d_lo = m_lo - s_lo; \
+ 			} \
+ 		} \
+ 	} while (0)
  
- 		bnx2x_init_block(bp, TSEM_COMMON_START, TSEM_COMMON_END);
- 		bnx2x_init_block(bp, USEM_COMMON_START, USEM_COMMON_END);
-@@ -3989,8 +4036,7 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
+-/* minuend -= subtrahend */
+-#define SUB_64(m_hi, s_hi, m_lo, s_lo) \
++#define UPDATE_STAT64(s, t) \
+ 	do { \
+-		DIFF_64(m_hi, m_hi, s_hi, m_lo, m_lo, s_lo); \
+-	} while (0)
+-
+-#define UPDATE_STAT64(s_hi, t_hi, s_lo, t_lo) \
+-	do { \
+-		DIFF_64(diff.hi, new->s_hi, old->s_hi, \
+-			diff.lo, new->s_lo, old->s_lo); \
+-		old->s_hi = new->s_hi; \
+-		old->s_lo = new->s_lo; \
+-		ADD_64(estats->t_hi, diff.hi, \
+-		       estats->t_lo, diff.lo); \
++		DIFF_64(diff.hi, new->s##_hi, pstats->mac_stx[0].t##_hi, \
++			diff.lo, new->s##_lo, pstats->mac_stx[0].t##_lo); \
++		pstats->mac_stx[0].t##_hi = new->s##_hi; \
++		pstats->mac_stx[0].t##_lo = new->s##_lo; \
++		ADD_64(pstats->mac_stx[1].t##_hi, diff.hi, \
++		       pstats->mac_stx[1].t##_lo, diff.lo); \
+ 	} while (0)
+ 
+ /* sum[hi:lo] += add */
+@@ -2404,16 +2428,25 @@ static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
+ 		s_hi += (s_lo < a) ? 1 : 0; \
+ 	} while (0)
+ 
+-#define UPDATE_EXTEND_STAT(s, t_hi, t_lo) \
++#define UPDATE_EXTEND_STAT(s) \
+ 	do { \
+-		ADD_EXTEND_64(estats->t_hi, estats->t_lo, new->s); \
++		ADD_EXTEND_64(pstats->mac_stx[1].s##_hi, \
++			      pstats->mac_stx[1].s##_lo, \
++			      new->s); \
+ 	} while (0)
+ 
+-#define UPDATE_EXTEND_TSTAT(s, t_hi, t_lo) \
++#define UPDATE_EXTEND_TSTAT(s, t) \
+ 	do { \
+ 		diff = le32_to_cpu(tclient->s) - old_tclient->s; \
+ 		old_tclient->s = le32_to_cpu(tclient->s); \
+-		ADD_EXTEND_64(estats->t_hi, estats->t_lo, diff); \
++		ADD_EXTEND_64(fstats->t##_hi, fstats->t##_lo, diff); \
++	} while (0)
++
++#define UPDATE_EXTEND_XSTAT(s, t) \
++	do { \
++		diff = le32_to_cpu(xclient->s) - old_xclient->s; \
++		old_xclient->s = le32_to_cpu(xclient->s); \
++		ADD_EXTEND_64(fstats->t##_hi, fstats->t##_lo, diff); \
+ 	} while (0)
+ 
+ /*
+@@ -2436,55 +2469,268 @@ static inline long bnx2x_hilo(u32 *hiref)
+  * Init service functions
+  */
+ 
+-static void bnx2x_init_mac_stats(struct bnx2x *bp)
++static void bnx2x_storm_stats_init(struct bnx2x *bp)
++{
++	int func = BP_FUNC(bp);
++
++	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(func), 1);
++	REG_WR(bp, BAR_XSTRORM_INTMEM +
++	       XSTORM_STATS_FLAGS_OFFSET(func) + 4, 0);
++
++	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(func), 1);
++	REG_WR(bp, BAR_TSTRORM_INTMEM +
++	       TSTORM_STATS_FLAGS_OFFSET(func) + 4, 0);
++
++	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(func), 0);
++	REG_WR(bp, BAR_CSTRORM_INTMEM +
++	       CSTORM_STATS_FLAGS_OFFSET(func) + 4, 0);
++
++	REG_WR(bp, BAR_XSTRORM_INTMEM +
++	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func),
++	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
++	REG_WR(bp, BAR_XSTRORM_INTMEM +
++	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func) + 4,
++	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
++
++	REG_WR(bp, BAR_TSTRORM_INTMEM +
++	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func),
++	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
++	REG_WR(bp, BAR_TSTRORM_INTMEM +
++	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func) + 4,
++	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
++}
++
++static void bnx2x_storm_stats_post(struct bnx2x *bp)
++{
++	if (!bp->stats_pending) {
++		struct eth_query_ramrod_data ramrod_data = {0};
++		int rc;
++
++		ramrod_data.drv_counter = bp->stats_counter++;
++		ramrod_data.collect_port_1b = bp->port.pmf ? 1 : 0;
++		ramrod_data.ctr_id_vector = (1 << BP_CL_ID(bp));
++
++		rc = bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_STAT_QUERY, 0,
++				   ((u32 *)&ramrod_data)[1],
++				   ((u32 *)&ramrod_data)[0], 0);
++		if (rc == 0) {
++			/* stats ramrod has it's own slot on the spq */
++			bp->spq_left++;
++			bp->stats_pending = 1;
++		}
++	}
++}
++
++static void bnx2x_stats_init(struct bnx2x *bp)
++{
++	int port = BP_PORT(bp);
++
++	bp->executer_idx = 0;
++	bp->stats_counter = 0;
++
++	/* port stats */
++	if (!BP_NOMCP(bp))
++		bp->port.port_stx = SHMEM_RD(bp, port_mb[port].port_stx);
++	else
++		bp->port.port_stx = 0;
++	DP(BNX2X_MSG_MCP, "port_stx 0x%x\n", bp->port.port_stx);
++
++	memset(&(bp->port.old_nig_stats), 0, sizeof(struct nig_stats));
++	bp->port.old_nig_stats.brb_discard =
++			REG_RD(bp, NIG_REG_STAT0_BRB_DISCARD + port*0x38);
++
++	/* function stats */
++	memset(&bp->dev->stats, 0, sizeof(struct net_device_stats));
++	memset(&bp->old_tclient, 0, sizeof(struct tstorm_per_client_stats));
++	memset(&bp->old_xclient, 0, sizeof(struct xstorm_per_client_stats));
++	memset(&bp->eth_stats, 0, sizeof(struct bnx2x_eth_stats));
++
++	bp->stats_state = STATS_STATE_DISABLED;
++	if (IS_E1HMF(bp) && bp->port.pmf && bp->port.port_stx)
++		bnx2x_stats_handle(bp, STATS_EVENT_PMF);
++}
++
++static void bnx2x_hw_stats_post(struct bnx2x *bp)
++{
++	struct dmae_command *dmae = &bp->stats_dmae;
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
++
++	*stats_comp = DMAE_COMP_VAL;
++
++	/* loader */
++	if (bp->executer_idx) {
++		int loader_idx = PMF_DMAE_C(bp);
++
++		memset(dmae, 0, sizeof(struct dmae_command));
++
++		dmae->opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
++				DMAE_CMD_C_DST_GRC | DMAE_CMD_C_ENABLE |
++				DMAE_CMD_DST_RESET |
++#ifdef __BIG_ENDIAN
++				DMAE_CMD_ENDIANITY_B_DW_SWAP |
++#else
++				DMAE_CMD_ENDIANITY_DW_SWAP |
++#endif
++				(BP_PORT(bp) ? DMAE_CMD_PORT_1 :
++					       DMAE_CMD_PORT_0) |
++				(BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT));
++		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, dmae[0]));
++		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, dmae[0]));
++		dmae->dst_addr_lo = (DMAE_REG_CMD_MEM +
++				     sizeof(struct dmae_command) *
++				     (loader_idx + 1)) >> 2;
++		dmae->dst_addr_hi = 0;
++		dmae->len = sizeof(struct dmae_command) >> 2;
++		if (CHIP_IS_E1(bp))
++			dmae->len--;
++		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx + 1] >> 2;
++		dmae->comp_addr_hi = 0;
++		dmae->comp_val = 1;
++
++		*stats_comp = 0;
++		bnx2x_post_dmae(bp, dmae, loader_idx);
++
++	} else if (bp->func_stx) {
++		*stats_comp = 0;
++		bnx2x_post_dmae(bp, dmae, INIT_DMAE_C(bp));
++	}
++}
++
++static int bnx2x_stats_comp(struct bnx2x *bp)
++{
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
++	int cnt = 10;
++
++	might_sleep();
++	while (*stats_comp != DMAE_COMP_VAL) {
++		msleep(1);
++		if (!cnt) {
++			BNX2X_ERR("timeout waiting for stats finished\n");
++			break;
++		}
++		cnt--;
++	}
++	return 1;
++}
++
++/*
++ * Statistics service functions
++ */
++
++static void bnx2x_stats_pmf_update(struct bnx2x *bp)
++{
++	struct dmae_command *dmae;
++	u32 opcode;
++	int loader_idx = PMF_DMAE_C(bp);
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
++
++	/* sanity */
++	if (!IS_E1HMF(bp) || !bp->port.pmf || !bp->port.port_stx) {
++		BNX2X_ERR("BUG!\n");
++		return;
++	}
++
++	bp->executer_idx = 0;
++
++	opcode = (DMAE_CMD_SRC_GRC | DMAE_CMD_DST_PCI |
++		  DMAE_CMD_C_ENABLE |
++		  DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
++#ifdef __BIG_ENDIAN
++		  DMAE_CMD_ENDIANITY_B_DW_SWAP |
++#else
++		  DMAE_CMD_ENDIANITY_DW_SWAP |
++#endif
++		  (BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
++		  (BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT));
++
++	dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
++	dmae->opcode = (opcode | DMAE_CMD_C_DST_GRC);
++	dmae->src_addr_lo = bp->port.port_stx >> 2;
++	dmae->src_addr_hi = 0;
++	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, port_stats));
++	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats));
++	dmae->len = DMAE_LEN32_RD_MAX;
++	dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
++	dmae->comp_addr_hi = 0;
++	dmae->comp_val = 1;
++
++	dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
++	dmae->opcode = (opcode | DMAE_CMD_C_DST_PCI);
++	dmae->src_addr_lo = (bp->port.port_stx >> 2) + DMAE_LEN32_RD_MAX;
++	dmae->src_addr_hi = 0;
++	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, port_stats)
++				   + DMAE_LEN32_RD_MAX * 4);
++	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats)
++				   + DMAE_LEN32_RD_MAX * 4);
++	dmae->len = (sizeof(struct host_port_stats) >> 2) - DMAE_LEN32_RD_MAX;
++	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_val = DMAE_COMP_VAL;
++
++	*stats_comp = 0;
++	bnx2x_hw_stats_post(bp);
++	bnx2x_stats_comp(bp);
++}
++
++static void bnx2x_port_stats_init(struct bnx2x *bp)
+ {
+ 	struct dmae_command *dmae;
+ 	int port = BP_PORT(bp);
+-	int loader_idx = port * 8;
++	int vn = BP_E1HVN(bp);
+ 	u32 opcode;
++	int loader_idx = PMF_DMAE_C(bp);
+ 	u32 mac_addr;
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
++
++	/* sanity */
++	if (!bp->link_vars.link_up || !bp->port.pmf) {
++		BNX2X_ERR("BUG!\n");
++		return;
++	}
+ 
+ 	bp->executer_idx = 0;
+-	if (bp->func_stx) {
+-		/* MCP */
+-		opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
+-			  DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
++
++	/* MCP */
++	opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
++		  DMAE_CMD_C_DST_GRC | DMAE_CMD_C_ENABLE |
++		  DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
+ #ifdef __BIG_ENDIAN
+-			  DMAE_CMD_ENDIANITY_B_DW_SWAP |
++		  DMAE_CMD_ENDIANITY_B_DW_SWAP |
+ #else
+-			  DMAE_CMD_ENDIANITY_DW_SWAP |
++		  DMAE_CMD_ENDIANITY_DW_SWAP |
  #endif
- 	/* Port DQ comes here */
- 	/* Port BRB1 comes here */
--	bnx2x_init_block(bp, func ? PRS_PORT1_START : PRS_PORT0_START,
--			     func ? PRS_PORT1_END : PRS_PORT0_END);
-+	/* Port PRS comes here */
- 	/* Port TSDM comes here */
- 	/* Port CSDM comes here */
- 	/* Port USDM comes here */
-@@ -7266,12 +7312,6 @@ static int __devinit bnx2x_init_board(struct pci_dev *pdev,
+-			  (port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
++		  (port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
++		  (vn << DMAE_CMD_E1HVN_SHIFT));
  
- 	bnx2x_get_hwinfo(bp);
+-		if (bp->link_vars.link_up)
+-			opcode |= (DMAE_CMD_C_DST_GRC | DMAE_CMD_C_ENABLE);
++	if (bp->port.port_stx) {
  
--	if (CHIP_REV(bp) == CHIP_REV_FPGA) {
--		printk(KERN_ERR PFX "FPGA detected. MCP disabled,"
--		       " will only init first device\n");
--		onefunc = 1;
--		nomcp = 1;
+ 		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
+ 		dmae->opcode = opcode;
+-		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, eth_stats) +
+-					   sizeof(u32));
+-		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, eth_stats) +
+-					   sizeof(u32));
+-		dmae->dst_addr_lo = bp->func_stx >> 2;
++		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, port_stats));
++		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats));
++		dmae->dst_addr_lo = bp->port.port_stx >> 2;
+ 		dmae->dst_addr_hi = 0;
+-		dmae->len = (offsetof(struct bnx2x_eth_stats, mac_stx_end) -
+-			     sizeof(u32)) >> 2;
+-		if (bp->link_vars.link_up) {
+-			dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+-			dmae->comp_addr_hi = 0;
+-			dmae->comp_val = 1;
+-		} else {
+-			dmae->comp_addr_lo = 0;
+-			dmae->comp_addr_hi = 0;
+-			dmae->comp_val = 0;
+-		}
++		dmae->len = sizeof(struct host_port_stats) >> 2;
++		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
++		dmae->comp_addr_hi = 0;
++		dmae->comp_val = 1;
+ 	}
+ 
+-	if (!bp->link_vars.link_up) {
+-		/* no need to collect statistics in link down */
+-		return;
++	if (bp->func_stx) {
++
++		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
++		dmae->opcode = opcode;
++		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, func_stats));
++		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, func_stats));
++		dmae->dst_addr_lo = bp->func_stx >> 2;
++		dmae->dst_addr_hi = 0;
++		dmae->len = sizeof(struct host_func_stats) >> 2;
++		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
++		dmae->comp_addr_hi = 0;
++		dmae->comp_val = 1;
+ 	}
+ 
++	/* MAC */
+ 	opcode = (DMAE_CMD_SRC_GRC | DMAE_CMD_DST_PCI |
+ 		  DMAE_CMD_C_DST_GRC | DMAE_CMD_C_ENABLE |
+ 		  DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
+@@ -2493,7 +2739,8 @@ static void bnx2x_init_mac_stats(struct bnx2x *bp)
+ #else
+ 		  DMAE_CMD_ENDIANITY_DW_SWAP |
+ #endif
+-		  (port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
++		  (port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
++		  (vn << DMAE_CMD_E1HVN_SHIFT));
+ 
+ 	if (bp->link_vars.mac_type == MAC_TYPE_BMAC) {
+ 
+@@ -2523,9 +2770,9 @@ static void bnx2x_init_mac_stats(struct bnx2x *bp)
+ 				     BIGMAC_REGISTER_RX_STAT_GR64) >> 2;
+ 		dmae->src_addr_hi = 0;
+ 		dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, mac_stats) +
+-					offsetof(struct bmac_stats, rx_gr64));
++				offsetof(struct bmac_stats, rx_stat_gr64_lo));
+ 		dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, mac_stats) +
+-					offsetof(struct bmac_stats, rx_gr64));
++				offsetof(struct bmac_stats, rx_stat_gr64_lo));
+ 		dmae->len = (8 + BIGMAC_REGISTER_RX_STAT_GRIPJ -
+ 			     BIGMAC_REGISTER_RX_STAT_GR64) >> 2;
+ 		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+@@ -2556,11 +2803,9 @@ static void bnx2x_init_mac_stats(struct bnx2x *bp)
+ 				     EMAC_REG_EMAC_RX_STAT_AC_28) >> 2;
+ 		dmae->src_addr_hi = 0;
+ 		dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, mac_stats) +
+-					   offsetof(struct emac_stats,
+-						    rx_falsecarriererrors));
++		     offsetof(struct emac_stats, rx_stat_falsecarriererrors));
+ 		dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, mac_stats) +
+-					   offsetof(struct emac_stats,
+-						    rx_falsecarriererrors));
++		     offsetof(struct emac_stats, rx_stat_falsecarriererrors));
+ 		dmae->len = 1;
+ 		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+ 		dmae->comp_addr_hi = 0;
+@@ -2573,11 +2818,9 @@ static void bnx2x_init_mac_stats(struct bnx2x *bp)
+ 				     EMAC_REG_EMAC_TX_STAT_AC) >> 2;
+ 		dmae->src_addr_hi = 0;
+ 		dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, mac_stats) +
+-					   offsetof(struct emac_stats,
+-						    tx_ifhcoutoctets));
++			offsetof(struct emac_stats, tx_stat_ifhcoutoctets));
+ 		dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, mac_stats) +
+-					   offsetof(struct emac_stats,
+-						    tx_ifhcoutoctets));
++			offsetof(struct emac_stats, tx_stat_ifhcoutoctets));
+ 		dmae->len = EMAC_REG_EMAC_TX_STAT_AC_COUNT;
+ 		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+ 		dmae->comp_addr_hi = 0;
+@@ -2594,325 +2837,328 @@ static void bnx2x_init_mac_stats(struct bnx2x *bp)
+ #else
+ 			DMAE_CMD_ENDIANITY_DW_SWAP |
+ #endif
+-			(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
++			(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
++			(vn << DMAE_CMD_E1HVN_SHIFT));
+ 	dmae->src_addr_lo = (port ? NIG_REG_STAT1_BRB_DISCARD :
+ 				    NIG_REG_STAT0_BRB_DISCARD) >> 2;
+ 	dmae->src_addr_hi = 0;
+-	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, nig));
+-	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, nig));
++	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, nig_stats));
++	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, nig_stats));
+ 	dmae->len = (sizeof(struct nig_stats) - 2*sizeof(u32)) >> 2;
+-	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, nig) +
+-				    offsetof(struct nig_stats, done));
+-	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, nig) +
+-				    offsetof(struct nig_stats, done));
+-	dmae->comp_val = 0xffffffff;
++	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_val = DMAE_COMP_VAL;
++
++	*stats_comp = 0;
+ }
+ 
+-static void bnx2x_init_stats(struct bnx2x *bp)
++static void bnx2x_func_stats_init(struct bnx2x *bp)
+ {
+-	int port = BP_PORT(bp);
+-
+-	bp->stats_state = STATS_STATE_DISABLE;
+-	bp->executer_idx = 0;
++	struct dmae_command *dmae = &bp->stats_dmae;
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
+ 
+-	bp->old_brb_discard = REG_RD(bp,
+-				     NIG_REG_STAT0_BRB_DISCARD + port*0x38);
+-
+-	memset(&bp->old_bmac, 0, sizeof(struct bmac_stats));
+-	memset(&bp->old_tclient, 0, sizeof(struct tstorm_per_client_stats));
+-	memset(&bp->dev->stats, 0, sizeof(struct net_device_stats));
+-
+-	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(port), 1);
+-	REG_WR(bp, BAR_XSTRORM_INTMEM +
+-	       XSTORM_STATS_FLAGS_OFFSET(port) + 4, 0);
+-
+-	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(port), 1);
+-	REG_WR(bp, BAR_TSTRORM_INTMEM +
+-	       TSTORM_STATS_FLAGS_OFFSET(port) + 4, 0);
++	/* sanity */
++	if (!bp->func_stx) {
++		BNX2X_ERR("BUG!\n");
++		return;
++	}
+ 
+-	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(port), 0);
+-	REG_WR(bp, BAR_CSTRORM_INTMEM +
+-	       CSTORM_STATS_FLAGS_OFFSET(port) + 4, 0);
++	bp->executer_idx = 0;
++	memset(dmae, 0, sizeof(struct dmae_command));
+ 
+-	REG_WR(bp, BAR_XSTRORM_INTMEM +
+-	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port),
+-	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
+-	REG_WR(bp, BAR_XSTRORM_INTMEM +
+-	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port) + 4,
+-	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
++	dmae->opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
++			DMAE_CMD_C_DST_PCI | DMAE_CMD_C_ENABLE |
++			DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
++#ifdef __BIG_ENDIAN
++			DMAE_CMD_ENDIANITY_B_DW_SWAP |
++#else
++			DMAE_CMD_ENDIANITY_DW_SWAP |
++#endif
++			(BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
++			(BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT));
++	dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, func_stats));
++	dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, func_stats));
++	dmae->dst_addr_lo = bp->func_stx >> 2;
++	dmae->dst_addr_hi = 0;
++	dmae->len = sizeof(struct host_func_stats) >> 2;
++	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_val = DMAE_COMP_VAL;
+ 
+-	REG_WR(bp, BAR_TSTRORM_INTMEM +
+-	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port),
+-	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
+-	REG_WR(bp, BAR_TSTRORM_INTMEM +
+-	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port) + 4,
+-	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
++	*stats_comp = 0;
+ }
+ 
+-static void bnx2x_stop_stats(struct bnx2x *bp)
++static void bnx2x_stats_start(struct bnx2x *bp)
+ {
+-	might_sleep();
+-	if (bp->stats_state != STATS_STATE_DISABLE) {
+-		int timeout = 10;
++	if (bp->port.pmf)
++		bnx2x_port_stats_init(bp);
++
++	else if (bp->func_stx)
++		bnx2x_func_stats_init(bp);
++
++	bnx2x_hw_stats_post(bp);
++	bnx2x_storm_stats_post(bp);
++}
++
++static void bnx2x_stats_pmf_start(struct bnx2x *bp)
++{
++	bnx2x_stats_comp(bp);
++	bnx2x_stats_pmf_update(bp);
++	bnx2x_stats_start(bp);
++}
++
++static void bnx2x_stats_restart(struct bnx2x *bp)
++{
++	bnx2x_stats_comp(bp);
++	bnx2x_stats_start(bp);
++}
++
++static void bnx2x_bmac_stats_update(struct bnx2x *bp)
++{
++	struct bmac_stats *new = bnx2x_sp(bp, mac_stats.bmac_stats);
++	struct host_port_stats *pstats = bnx2x_sp(bp, port_stats);
++	struct regpair diff;
++
++	UPDATE_STAT64(rx_stat_grerb, rx_stat_ifhcinbadoctets);
++	UPDATE_STAT64(rx_stat_grfcs, rx_stat_dot3statsfcserrors);
++	UPDATE_STAT64(rx_stat_grund, rx_stat_etherstatsundersizepkts);
++	UPDATE_STAT64(rx_stat_grovr, rx_stat_dot3statsframestoolong);
++	UPDATE_STAT64(rx_stat_grfrg, rx_stat_etherstatsfragments);
++	UPDATE_STAT64(rx_stat_grjbr, rx_stat_etherstatsjabbers);
++	UPDATE_STAT64(rx_stat_grxpf, rx_stat_bmac_xpf);
++	UPDATE_STAT64(rx_stat_grxcf, rx_stat_bmac_xcf);
++	UPDATE_STAT64(rx_stat_grxpf, rx_stat_xoffstateentered);
++	UPDATE_STAT64(rx_stat_grxpf, rx_stat_xoffpauseframesreceived);
++	UPDATE_STAT64(tx_stat_gtxpf, tx_stat_outxoffsent);
++	UPDATE_STAT64(tx_stat_gtxpf, tx_stat_flowcontroldone);
++	UPDATE_STAT64(tx_stat_gt64, tx_stat_etherstatspkts64octets);
++	UPDATE_STAT64(tx_stat_gt127,
++				tx_stat_etherstatspkts65octetsto127octets);
++	UPDATE_STAT64(tx_stat_gt255,
++				tx_stat_etherstatspkts128octetsto255octets);
++	UPDATE_STAT64(tx_stat_gt511,
++				tx_stat_etherstatspkts256octetsto511octets);
++	UPDATE_STAT64(tx_stat_gt1023,
++				tx_stat_etherstatspkts512octetsto1023octets);
++	UPDATE_STAT64(tx_stat_gt1518,
++				tx_stat_etherstatspkts1024octetsto1522octets);
++	UPDATE_STAT64(tx_stat_gt2047, tx_stat_bmac_2047);
++	UPDATE_STAT64(tx_stat_gt4095, tx_stat_bmac_4095);
++	UPDATE_STAT64(tx_stat_gt9216, tx_stat_bmac_9216);
++	UPDATE_STAT64(tx_stat_gt16383, tx_stat_bmac_16383);
++	UPDATE_STAT64(tx_stat_gterr,
++				tx_stat_dot3statsinternalmactransmiterrors);
++	UPDATE_STAT64(tx_stat_gtufl, tx_stat_bmac_ufl);
++}
++
++static void bnx2x_emac_stats_update(struct bnx2x *bp)
++{
++	struct emac_stats *new = bnx2x_sp(bp, mac_stats.emac_stats);
++	struct host_port_stats *pstats = bnx2x_sp(bp, port_stats);
++
++	UPDATE_EXTEND_STAT(rx_stat_ifhcinbadoctets);
++	UPDATE_EXTEND_STAT(tx_stat_ifhcoutbadoctets);
++	UPDATE_EXTEND_STAT(rx_stat_dot3statsfcserrors);
++	UPDATE_EXTEND_STAT(rx_stat_dot3statsalignmenterrors);
++	UPDATE_EXTEND_STAT(rx_stat_dot3statscarriersenseerrors);
++	UPDATE_EXTEND_STAT(rx_stat_falsecarriererrors);
++	UPDATE_EXTEND_STAT(rx_stat_etherstatsundersizepkts);
++	UPDATE_EXTEND_STAT(rx_stat_dot3statsframestoolong);
++	UPDATE_EXTEND_STAT(rx_stat_etherstatsfragments);
++	UPDATE_EXTEND_STAT(rx_stat_etherstatsjabbers);
++	UPDATE_EXTEND_STAT(rx_stat_maccontrolframesreceived);
++	UPDATE_EXTEND_STAT(rx_stat_xoffstateentered);
++	UPDATE_EXTEND_STAT(rx_stat_xonpauseframesreceived);
++	UPDATE_EXTEND_STAT(rx_stat_xoffpauseframesreceived);
++	UPDATE_EXTEND_STAT(tx_stat_outxonsent);
++	UPDATE_EXTEND_STAT(tx_stat_outxoffsent);
++	UPDATE_EXTEND_STAT(tx_stat_flowcontroldone);
++	UPDATE_EXTEND_STAT(tx_stat_etherstatscollisions);
++	UPDATE_EXTEND_STAT(tx_stat_dot3statssinglecollisionframes);
++	UPDATE_EXTEND_STAT(tx_stat_dot3statsmultiplecollisionframes);
++	UPDATE_EXTEND_STAT(tx_stat_dot3statsdeferredtransmissions);
++	UPDATE_EXTEND_STAT(tx_stat_dot3statsexcessivecollisions);
++	UPDATE_EXTEND_STAT(tx_stat_dot3statslatecollisions);
++	UPDATE_EXTEND_STAT(tx_stat_etherstatspkts64octets);
++	UPDATE_EXTEND_STAT(tx_stat_etherstatspkts65octetsto127octets);
++	UPDATE_EXTEND_STAT(tx_stat_etherstatspkts128octetsto255octets);
++	UPDATE_EXTEND_STAT(tx_stat_etherstatspkts256octetsto511octets);
++	UPDATE_EXTEND_STAT(tx_stat_etherstatspkts512octetsto1023octets);
++	UPDATE_EXTEND_STAT(tx_stat_etherstatspkts1024octetsto1522octets);
++	UPDATE_EXTEND_STAT(tx_stat_etherstatspktsover1522octets);
++	UPDATE_EXTEND_STAT(tx_stat_dot3statsinternalmactransmiterrors);
++}
++
++static int bnx2x_hw_stats_update(struct bnx2x *bp)
++{
++	struct nig_stats *new = bnx2x_sp(bp, nig_stats);
++	struct nig_stats *old = &(bp->port.old_nig_stats);
++	struct host_port_stats *pstats = bnx2x_sp(bp, port_stats);
++	struct bnx2x_eth_stats *estats = &bp->eth_stats;
++
++	if (bp->link_vars.mac_type == MAC_TYPE_BMAC)
++		bnx2x_bmac_stats_update(bp);
++
++	else if (bp->link_vars.mac_type == MAC_TYPE_EMAC)
++		bnx2x_emac_stats_update(bp);
++
++	else { /* unreached */
++		BNX2X_ERR("stats updated by dmae but no MAC active\n");
++		return -1;
++	}
+ 
+-		bp->stats_state = STATS_STATE_STOP;
+-		DP(BNX2X_MSG_STATS, "stats_state - STOP\n");
++	ADD_EXTEND_64(pstats->brb_drop_hi, pstats->brb_drop_lo,
++		      new->brb_discard - old->brb_discard);
++
++	memcpy(old, new, sizeof(struct nig_stats));
++
++	memcpy(&(estats->rx_stat_ifhcinbadoctets_hi), &(pstats->mac_stx[1]),
++	       sizeof(struct mac_stx));
++	estats->brb_drop_hi = pstats->brb_drop_hi;
++	estats->brb_drop_lo = pstats->brb_drop_lo;
++
++	estats->etherstatspktsover1522octets_hi = 0;
++	estats->etherstatspktsover1522octets_lo = 0;
++	ADD_64(estats->etherstatspktsover1522octets_hi,
++	       estats->tx_stat_etherstatspktsover1522octets_hi,
++	       estats->etherstatspktsover1522octets_lo,
++	       estats->tx_stat_etherstatspktsover1522octets_lo);
++	ADD_64(estats->etherstatspktsover1522octets_hi,
++	       estats->tx_stat_bmac_2047_hi,
++	       estats->etherstatspktsover1522octets_lo,
++	       estats->tx_stat_bmac_2047_lo);
++	ADD_64(estats->etherstatspktsover1522octets_hi,
++	       estats->tx_stat_bmac_4095_hi,
++	       estats->etherstatspktsover1522octets_lo,
++	       estats->tx_stat_bmac_4095_lo);
++	ADD_64(estats->etherstatspktsover1522octets_hi,
++	       estats->tx_stat_bmac_9216_hi,
++	       estats->etherstatspktsover1522octets_lo,
++	       estats->tx_stat_bmac_9216_lo);
++	ADD_64(estats->etherstatspktsover1522octets_hi,
++	       estats->tx_stat_bmac_16383_hi,
++	       estats->etherstatspktsover1522octets_lo,
++	       estats->tx_stat_bmac_16383_lo);
++
++	pstats->host_port_stats_start = ++pstats->host_port_stats_end;
+ 
+-		while (bp->stats_state != STATS_STATE_DISABLE) {
+-			if (!timeout) {
+-				BNX2X_ERR("timeout waiting for stats stop\n");
+-				break;
+-			}
+-			timeout--;
+-			msleep(100);
+-		}
+-	}
+-	DP(BNX2X_MSG_STATS, "stats_state - DISABLE\n");
++	return 0;
+ }
+ 
+-/*
+- * Statistics service functions
+- */
+-
+-static void bnx2x_update_bmac_stats(struct bnx2x *bp)
+-{
+-	struct regp diff;
+-	struct regp sum;
+-	struct bmac_stats *new = bnx2x_sp(bp, mac_stats.bmac);
+-	struct bmac_stats *old = &bp->old_bmac;
+-	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
+-
+-	sum.hi = 0;
+-	sum.lo = 0;
+-
+-	UPDATE_STAT64(tx_gtbyt.hi, total_bytes_transmitted_hi,
+-		      tx_gtbyt.lo, total_bytes_transmitted_lo);
+-
+-	UPDATE_STAT64(tx_gtmca.hi, total_multicast_packets_transmitted_hi,
+-		      tx_gtmca.lo, total_multicast_packets_transmitted_lo);
+-	ADD_64(sum.hi, diff.hi, sum.lo, diff.lo);
+-
+-	UPDATE_STAT64(tx_gtgca.hi, total_broadcast_packets_transmitted_hi,
+-		      tx_gtgca.lo, total_broadcast_packets_transmitted_lo);
+-	ADD_64(sum.hi, diff.hi, sum.lo, diff.lo);
+-
+-	UPDATE_STAT64(tx_gtpkt.hi, total_unicast_packets_transmitted_hi,
+-		      tx_gtpkt.lo, total_unicast_packets_transmitted_lo);
+-	SUB_64(estats->total_unicast_packets_transmitted_hi, sum.hi,
+-	       estats->total_unicast_packets_transmitted_lo, sum.lo);
+-
+-	UPDATE_STAT(tx_gtxpf.lo, pause_xoff_frames_transmitted);
+-	UPDATE_STAT(tx_gt64.lo, frames_transmitted_64_bytes);
+-	UPDATE_STAT(tx_gt127.lo, frames_transmitted_65_127_bytes);
+-	UPDATE_STAT(tx_gt255.lo, frames_transmitted_128_255_bytes);
+-	UPDATE_STAT(tx_gt511.lo, frames_transmitted_256_511_bytes);
+-	UPDATE_STAT(tx_gt1023.lo, frames_transmitted_512_1023_bytes);
+-	UPDATE_STAT(tx_gt1518.lo, frames_transmitted_1024_1522_bytes);
+-	UPDATE_STAT(tx_gt2047.lo, frames_transmitted_1523_9022_bytes);
+-	UPDATE_STAT(tx_gt4095.lo, frames_transmitted_1523_9022_bytes);
+-	UPDATE_STAT(tx_gt9216.lo, frames_transmitted_1523_9022_bytes);
+-	UPDATE_STAT(tx_gt16383.lo, frames_transmitted_1523_9022_bytes);
+-
+-	UPDATE_STAT(rx_grfcs.lo, crc_receive_errors);
+-	UPDATE_STAT(rx_grund.lo, runt_packets_received);
+-	UPDATE_STAT(rx_grovr.lo, stat_Dot3statsFramesTooLong);
+-	UPDATE_STAT(rx_grxpf.lo, pause_xoff_frames_received);
+-	UPDATE_STAT(rx_grxcf.lo, control_frames_received);
+-	/* UPDATE_STAT(rx_grxpf.lo, control_frames_received); */
+-	UPDATE_STAT(rx_grfrg.lo, error_runt_packets_received);
+-	UPDATE_STAT(rx_grjbr.lo, error_jabber_packets_received);
+-
+-	UPDATE_STAT64(rx_grerb.hi, stat_IfHCInBadOctets_hi,
+-		      rx_grerb.lo, stat_IfHCInBadOctets_lo);
+-	UPDATE_STAT64(tx_gtufl.hi, stat_IfHCOutBadOctets_hi,
+-		      tx_gtufl.lo, stat_IfHCOutBadOctets_lo);
+-	UPDATE_STAT(tx_gterr.lo, stat_Dot3statsInternalMacTransmitErrors);
+-	/* UPDATE_STAT(rx_grxpf.lo, stat_XoffStateEntered); */
+-	estats->stat_XoffStateEntered = estats->pause_xoff_frames_received;
+-}
+-
+-static void bnx2x_update_emac_stats(struct bnx2x *bp)
+-{
+-	struct emac_stats *new = bnx2x_sp(bp, mac_stats.emac);
+-	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
+-
+-	UPDATE_EXTEND_STAT(tx_ifhcoutoctets, total_bytes_transmitted_hi,
+-					     total_bytes_transmitted_lo);
+-	UPDATE_EXTEND_STAT(tx_ifhcoutucastpkts,
+-					total_unicast_packets_transmitted_hi,
+-					total_unicast_packets_transmitted_lo);
+-	UPDATE_EXTEND_STAT(tx_ifhcoutmulticastpkts,
+-				      total_multicast_packets_transmitted_hi,
+-				      total_multicast_packets_transmitted_lo);
+-	UPDATE_EXTEND_STAT(tx_ifhcoutbroadcastpkts,
+-				      total_broadcast_packets_transmitted_hi,
+-				      total_broadcast_packets_transmitted_lo);
+-
+-	estats->pause_xon_frames_transmitted += new->tx_outxonsent;
+-	estats->pause_xoff_frames_transmitted += new->tx_outxoffsent;
+-	estats->single_collision_transmit_frames +=
+-				new->tx_dot3statssinglecollisionframes;
+-	estats->multiple_collision_transmit_frames +=
+-				new->tx_dot3statsmultiplecollisionframes;
+-	estats->late_collision_frames += new->tx_dot3statslatecollisions;
+-	estats->excessive_collision_frames +=
+-				new->tx_dot3statsexcessivecollisions;
+-	estats->frames_transmitted_64_bytes += new->tx_etherstatspkts64octets;
+-	estats->frames_transmitted_65_127_bytes +=
+-				new->tx_etherstatspkts65octetsto127octets;
+-	estats->frames_transmitted_128_255_bytes +=
+-				new->tx_etherstatspkts128octetsto255octets;
+-	estats->frames_transmitted_256_511_bytes +=
+-				new->tx_etherstatspkts256octetsto511octets;
+-	estats->frames_transmitted_512_1023_bytes +=
+-				new->tx_etherstatspkts512octetsto1023octets;
+-	estats->frames_transmitted_1024_1522_bytes +=
+-				new->tx_etherstatspkts1024octetsto1522octet;
+-	estats->frames_transmitted_1523_9022_bytes +=
+-				new->tx_etherstatspktsover1522octets;
+-
+-	estats->crc_receive_errors += new->rx_dot3statsfcserrors;
+-	estats->alignment_errors += new->rx_dot3statsalignmenterrors;
+-	estats->false_carrier_detections += new->rx_falsecarriererrors;
+-	estats->runt_packets_received += new->rx_etherstatsundersizepkts;
+-	estats->stat_Dot3statsFramesTooLong += new->rx_dot3statsframestoolong;
+-	estats->pause_xon_frames_received += new->rx_xonpauseframesreceived;
+-	estats->pause_xoff_frames_received += new->rx_xoffpauseframesreceived;
+-	estats->control_frames_received += new->rx_maccontrolframesreceived;
+-	estats->error_runt_packets_received += new->rx_etherstatsfragments;
+-	estats->error_jabber_packets_received += new->rx_etherstatsjabbers;
+-
+-	UPDATE_EXTEND_STAT(rx_ifhcinbadoctets, stat_IfHCInBadOctets_hi,
+-					       stat_IfHCInBadOctets_lo);
+-	UPDATE_EXTEND_STAT(tx_ifhcoutbadoctets, stat_IfHCOutBadOctets_hi,
+-						stat_IfHCOutBadOctets_lo);
+-	estats->stat_Dot3statsInternalMacTransmitErrors +=
+-				new->tx_dot3statsinternalmactransmiterrors;
+-	estats->stat_Dot3StatsCarrierSenseErrors +=
+-				new->rx_dot3statscarriersenseerrors;
+-	estats->stat_Dot3StatsDeferredTransmissions +=
+-				new->tx_dot3statsdeferredtransmissions;
+-	estats->stat_FlowControlDone += new->tx_flowcontroldone;
+-	estats->stat_XoffStateEntered += new->rx_xoffstateentered;
+-}
+-
+-static int bnx2x_update_storm_stats(struct bnx2x *bp)
++static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ {
+ 	struct eth_stats_query *stats = bnx2x_sp(bp, fw_stats);
+-	struct tstorm_common_stats *tstats = &stats->tstorm_common;
++	int cl_id = BP_CL_ID(bp);
++	struct tstorm_per_port_stats *tport =
++				&stats->tstorm_common.port_statistics;
+ 	struct tstorm_per_client_stats *tclient =
+-						&tstats->client_statistics[0];
++			&stats->tstorm_common.client_statistics[cl_id];
+ 	struct tstorm_per_client_stats *old_tclient = &bp->old_tclient;
+-	struct xstorm_common_stats *xstats = &stats->xstorm_common;
+-	struct nig_stats *nstats = bnx2x_sp(bp, nig);
+-	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
++	struct xstorm_per_client_stats *xclient =
++			&stats->xstorm_common.client_statistics[cl_id];
++	struct xstorm_per_client_stats *old_xclient = &bp->old_xclient;
++	struct host_func_stats *fstats = bnx2x_sp(bp, func_stats);
++	struct bnx2x_eth_stats *estats = &bp->eth_stats;
+ 	u32 diff;
+ 
+-	/* are DMAE stats valid? */
+-	if (nstats->done != 0xffffffff) {
+-		DP(BNX2X_MSG_STATS, "stats not updated by dmae\n");
++	/* are storm stats valid? */
++	if ((u16)(le16_to_cpu(tclient->stats_counter) + 1) !=
++							bp->stats_counter) {
++		DP(BNX2X_MSG_STATS, "stats not updated by tstorm"
++		   "  tstorm counter (%d) != stats_counter (%d)\n",
++		   tclient->stats_counter, bp->stats_counter);
+ 		return -1;
+ 	}
+-
+-	/* are storm stats valid? */
+-	if (tstats->done.hi != 0xffffffff) {
+-		DP(BNX2X_MSG_STATS, "stats not updated by tstorm\n");
++	if ((u16)(le16_to_cpu(xclient->stats_counter) + 1) !=
++							bp->stats_counter) {
++		DP(BNX2X_MSG_STATS, "stats not updated by xstorm"
++		   "  xstorm counter (%d) != stats_counter (%d)\n",
++		   xclient->stats_counter, bp->stats_counter);
+ 		return -2;
+ 	}
+-	if (xstats->done.hi != 0xffffffff) {
+-		DP(BNX2X_MSG_STATS, "stats not updated by xstorm\n");
+-		return -3;
 -	}
  
- 	if (nomcp) {
- 		printk(KERN_ERR PFX "MCP disabled, will only"
+-	estats->total_bytes_received_hi =
+-	estats->valid_bytes_received_hi =
++	fstats->total_bytes_received_hi =
++	fstats->valid_bytes_received_hi =
+ 				le32_to_cpu(tclient->total_rcv_bytes.hi);
+-	estats->total_bytes_received_lo =
+-	estats->valid_bytes_received_lo =
++	fstats->total_bytes_received_lo =
++	fstats->valid_bytes_received_lo =
+ 				le32_to_cpu(tclient->total_rcv_bytes.lo);
+-	ADD_64(estats->total_bytes_received_hi,
++	ADD_64(fstats->total_bytes_received_hi,
+ 	       le32_to_cpu(tclient->rcv_error_bytes.hi),
+-	       estats->total_bytes_received_lo,
++	       fstats->total_bytes_received_lo,
+ 	       le32_to_cpu(tclient->rcv_error_bytes.lo));
+ 
+-	UPDATE_EXTEND_TSTAT(rcv_unicast_pkts,
+-					total_unicast_packets_received_hi,
+-					total_unicast_packets_received_lo);
++	UPDATE_EXTEND_TSTAT(rcv_unicast_pkts, total_unicast_packets_received);
+ 	UPDATE_EXTEND_TSTAT(rcv_multicast_pkts,
+-					total_multicast_packets_received_hi,
+-					total_multicast_packets_received_lo);
++				total_multicast_packets_received);
+ 	UPDATE_EXTEND_TSTAT(rcv_broadcast_pkts,
+-					total_broadcast_packets_received_hi,
+-					total_broadcast_packets_received_lo);
+-
+-	estats->frames_received_64_bytes = MAC_STX_NA;
+-	estats->frames_received_65_127_bytes = MAC_STX_NA;
+-	estats->frames_received_128_255_bytes = MAC_STX_NA;
+-	estats->frames_received_256_511_bytes = MAC_STX_NA;
+-	estats->frames_received_512_1023_bytes = MAC_STX_NA;
+-	estats->frames_received_1024_1522_bytes = MAC_STX_NA;
+-	estats->frames_received_1523_9022_bytes = MAC_STX_NA;
+-
+-	estats->x_total_sent_bytes_hi =
+-				le32_to_cpu(xstats->total_sent_bytes.hi);
+-	estats->x_total_sent_bytes_lo =
+-				le32_to_cpu(xstats->total_sent_bytes.lo);
+-	estats->x_total_sent_pkts = le32_to_cpu(xstats->total_sent_pkts);
+-
+-	estats->t_rcv_unicast_bytes_hi =
++				total_broadcast_packets_received);
++
++	fstats->total_bytes_transmitted_hi =
++				le32_to_cpu(xclient->total_sent_bytes.hi);
++	fstats->total_bytes_transmitted_lo =
++				le32_to_cpu(xclient->total_sent_bytes.lo);
++
++	UPDATE_EXTEND_XSTAT(unicast_pkts_sent,
++				total_unicast_packets_transmitted);
++	UPDATE_EXTEND_XSTAT(multicast_pkts_sent,
++				total_multicast_packets_transmitted);
++	UPDATE_EXTEND_XSTAT(broadcast_pkts_sent,
++				total_broadcast_packets_transmitted);
++
++	memcpy(estats, &(fstats->total_bytes_received_hi),
++	       sizeof(struct host_func_stats) - 2*sizeof(u32));
++
++	estats->mac_filter_discard = le32_to_cpu(tport->mac_filter_discard);
++	estats->xxoverflow_discard = le32_to_cpu(tport->xxoverflow_discard);
++	estats->brb_truncate_discard =
++				le32_to_cpu(tport->brb_truncate_discard);
++	estats->mac_discard = le32_to_cpu(tport->mac_discard);
++
++	old_tclient->rcv_unicast_bytes.hi =
+ 				le32_to_cpu(tclient->rcv_unicast_bytes.hi);
+-	estats->t_rcv_unicast_bytes_lo =
++	old_tclient->rcv_unicast_bytes.lo =
+ 				le32_to_cpu(tclient->rcv_unicast_bytes.lo);
+-	estats->t_rcv_broadcast_bytes_hi =
++	old_tclient->rcv_broadcast_bytes.hi =
+ 				le32_to_cpu(tclient->rcv_broadcast_bytes.hi);
+-	estats->t_rcv_broadcast_bytes_lo =
++	old_tclient->rcv_broadcast_bytes.lo =
+ 				le32_to_cpu(tclient->rcv_broadcast_bytes.lo);
+-	estats->t_rcv_multicast_bytes_hi =
++	old_tclient->rcv_multicast_bytes.hi =
+ 				le32_to_cpu(tclient->rcv_multicast_bytes.hi);
+-	estats->t_rcv_multicast_bytes_lo =
++	old_tclient->rcv_multicast_bytes.lo =
+ 				le32_to_cpu(tclient->rcv_multicast_bytes.lo);
+-	estats->t_total_rcv_pkt = le32_to_cpu(tclient->total_rcv_pkts);
++	old_tclient->total_rcv_pkts = le32_to_cpu(tclient->total_rcv_pkts);
+ 
+-	estats->checksum_discard = le32_to_cpu(tclient->checksum_discard);
+-	estats->packets_too_big_discard =
++	old_tclient->checksum_discard = le32_to_cpu(tclient->checksum_discard);
++	old_tclient->packets_too_big_discard =
+ 				le32_to_cpu(tclient->packets_too_big_discard);
+-	estats->jabber_packets_received = estats->packets_too_big_discard +
+-					  estats->stat_Dot3statsFramesTooLong;
+-	estats->no_buff_discard = le32_to_cpu(tclient->no_buff_discard);
+-	estats->ttl0_discard = le32_to_cpu(tclient->ttl0_discard);
+-	estats->mac_discard = le32_to_cpu(tclient->mac_discard);
+-	estats->mac_filter_discard = le32_to_cpu(tstats->mac_filter_discard);
+-	estats->xxoverflow_discard = le32_to_cpu(tstats->xxoverflow_discard);
+-	estats->brb_truncate_discard =
+-				le32_to_cpu(tstats->brb_truncate_discard);
+-
+-	estats->brb_discard += nstats->brb_discard - bp->old_brb_discard;
+-	bp->old_brb_discard = nstats->brb_discard;
+-
+-	estats->brb_packet = nstats->brb_packet;
+-	estats->brb_truncate = nstats->brb_truncate;
+-	estats->flow_ctrl_discard = nstats->flow_ctrl_discard;
+-	estats->flow_ctrl_octets = nstats->flow_ctrl_octets;
+-	estats->flow_ctrl_packet = nstats->flow_ctrl_packet;
+-	estats->mng_discard = nstats->mng_discard;
+-	estats->mng_octet_inp = nstats->mng_octet_inp;
+-	estats->mng_octet_out = nstats->mng_octet_out;
+-	estats->mng_packet_inp = nstats->mng_packet_inp;
+-	estats->mng_packet_out = nstats->mng_packet_out;
+-	estats->pbf_octets = nstats->pbf_octets;
+-	estats->pbf_packet = nstats->pbf_packet;
+-	estats->safc_inp = nstats->safc_inp;
+-
+-	xstats->done.hi = 0;
+-	tstats->done.hi = 0;
+-	nstats->done = 0;
++	estats->no_buff_discard =
++	old_tclient->no_buff_discard = le32_to_cpu(tclient->no_buff_discard);
++	old_tclient->ttl0_discard = le32_to_cpu(tclient->ttl0_discard);
++
++	old_xclient->total_sent_pkts = le32_to_cpu(xclient->total_sent_pkts);
++	old_xclient->unicast_bytes_sent.hi =
++				le32_to_cpu(xclient->unicast_bytes_sent.hi);
++	old_xclient->unicast_bytes_sent.lo =
++				le32_to_cpu(xclient->unicast_bytes_sent.lo);
++	old_xclient->multicast_bytes_sent.hi =
++				le32_to_cpu(xclient->multicast_bytes_sent.hi);
++	old_xclient->multicast_bytes_sent.lo =
++				le32_to_cpu(xclient->multicast_bytes_sent.lo);
++	old_xclient->broadcast_bytes_sent.hi =
++				le32_to_cpu(xclient->broadcast_bytes_sent.hi);
++	old_xclient->broadcast_bytes_sent.lo =
++				le32_to_cpu(xclient->broadcast_bytes_sent.lo);
++
++	fstats->host_func_stats_start = ++fstats->host_func_stats_end;
+ 
+ 	return 0;
+ }
+ 
+-static void bnx2x_update_net_stats(struct bnx2x *bp)
++static void bnx2x_net_stats_update(struct bnx2x *bp)
+ {
+-	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
++	struct tstorm_per_client_stats *old_tclient = &bp->old_tclient;
++	struct bnx2x_eth_stats *estats = &bp->eth_stats;
+ 	struct net_device_stats *nstats = &bp->dev->stats;
+ 
+ 	nstats->rx_packets =
+@@ -2929,24 +3175,31 @@ static void bnx2x_update_net_stats(struct bnx2x *bp)
+ 
+ 	nstats->tx_bytes = bnx2x_hilo(&estats->total_bytes_transmitted_hi);
+ 
+-	nstats->rx_dropped = estats->checksum_discard + estats->mac_discard;
++	nstats->rx_dropped = old_tclient->checksum_discard +
++			     estats->mac_discard;
+ 	nstats->tx_dropped = 0;
+ 
+ 	nstats->multicast =
+ 		bnx2x_hilo(&estats->total_multicast_packets_transmitted_hi);
+ 
+-	nstats->collisions = estats->single_collision_transmit_frames +
+-			     estats->multiple_collision_transmit_frames +
+-			     estats->late_collision_frames +
+-			     estats->excessive_collision_frames;
++	nstats->collisions =
++			estats->tx_stat_dot3statssinglecollisionframes_lo +
++			estats->tx_stat_dot3statsmultiplecollisionframes_lo +
++			estats->tx_stat_dot3statslatecollisions_lo +
++			estats->tx_stat_dot3statsexcessivecollisions_lo;
++
++	estats->jabber_packets_received =
++				old_tclient->packets_too_big_discard +
++				estats->rx_stat_dot3statsframestoolong_lo;
+ 
+-	nstats->rx_length_errors = estats->runt_packets_received +
+-				   estats->jabber_packets_received;
+-	nstats->rx_over_errors = estats->brb_discard +
++	nstats->rx_length_errors =
++				estats->rx_stat_etherstatsundersizepkts_lo +
++				estats->jabber_packets_received;
++	nstats->rx_over_errors = estats->brb_drop_lo +
+ 				 estats->brb_truncate_discard;
+-	nstats->rx_crc_errors = estats->crc_receive_errors;
+-	nstats->rx_frame_errors = estats->alignment_errors;
+-	nstats->rx_fifo_errors = estats->no_buff_discard;
++	nstats->rx_crc_errors = estats->rx_stat_dot3statsfcserrors_lo;
++	nstats->rx_frame_errors = estats->rx_stat_dot3statsalignmenterrors_lo;
++	nstats->rx_fifo_errors = old_tclient->no_buff_discard;
+ 	nstats->rx_missed_errors = estats->xxoverflow_discard;
+ 
+ 	nstats->rx_errors = nstats->rx_length_errors +
+@@ -2956,39 +3209,48 @@ static void bnx2x_update_net_stats(struct bnx2x *bp)
+ 			    nstats->rx_fifo_errors +
+ 			    nstats->rx_missed_errors;
+ 
+-	nstats->tx_aborted_errors = estats->late_collision_frames +
+-				    estats->excessive_collision_frames;
+-	nstats->tx_carrier_errors = estats->false_carrier_detections;
++	nstats->tx_aborted_errors =
++			estats->tx_stat_dot3statslatecollisions_lo +
++			estats->tx_stat_dot3statsexcessivecollisions_lo;
++	nstats->tx_carrier_errors = estats->rx_stat_falsecarriererrors_lo;
+ 	nstats->tx_fifo_errors = 0;
+ 	nstats->tx_heartbeat_errors = 0;
+ 	nstats->tx_window_errors = 0;
+ 
+ 	nstats->tx_errors = nstats->tx_aborted_errors +
+ 			    nstats->tx_carrier_errors;
+-
+-	estats->mac_stx_start = ++estats->mac_stx_end;
+ }
+ 
+-static void bnx2x_update_stats(struct bnx2x *bp)
++static void bnx2x_stats_update(struct bnx2x *bp)
+ {
+-	if (!bnx2x_update_storm_stats(bp)) {
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
++	int update = 0;
+ 
+-		if (bp->link_vars.mac_type == MAC_TYPE_BMAC) {
+-			bnx2x_update_bmac_stats(bp);
++	if (*stats_comp != DMAE_COMP_VAL)
++		return;
+ 
+-		} else if (bp->link_vars.mac_type == MAC_TYPE_EMAC) {
+-			bnx2x_update_emac_stats(bp);
++	if (bp->port.pmf)
++		update = (bnx2x_hw_stats_update(bp) == 0);
+ 
+-		} else { /* unreached */
+-			BNX2X_ERR("no MAC active\n");
+-			return;
+-		}
++	update |= (bnx2x_storm_stats_update(bp) == 0);
++
++	if (update)
++		bnx2x_net_stats_update(bp);
+ 
+-		bnx2x_update_net_stats(bp);
++	else {
++		if (bp->stats_pending) {
++			bp->stats_pending++;
++			if (bp->stats_pending == 3) {
++				BNX2X_ERR("stats not updated for 3 times\n");
++				bnx2x_panic();
++				return;
++			}
++		}
+ 	}
+ 
+ 	if (bp->msglevel & NETIF_MSG_TIMER) {
+-		struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
++		struct tstorm_per_client_stats *old_tclient = &bp->old_tclient;
++		struct bnx2x_eth_stats *estats = &bp->eth_stats;
+ 		struct net_device_stats *nstats = &bp->dev->stats;
+ 		int i;
+ 
+@@ -3003,17 +3265,18 @@ static void bnx2x_update_stats(struct bnx2x *bp)
+ 		       *bp->fp->rx_cons_sb, nstats->rx_packets);
+ 		printk(KERN_DEBUG "  %s (Xoff events %u)  brb drops %u\n",
+ 		       netif_queue_stopped(bp->dev)? "Xoff" : "Xon",
+-		       estats->driver_xoff, estats->brb_discard);
++		       estats->driver_xoff, estats->brb_drop_lo);
+ 		printk(KERN_DEBUG "tstats: checksum_discard %u  "
+ 			"packets_too_big_discard %u  no_buff_discard %u  "
+ 			"mac_discard %u  mac_filter_discard %u  "
+ 			"xxovrflow_discard %u  brb_truncate_discard %u  "
+ 			"ttl0_discard %u\n",
+-		       estats->checksum_discard,
+-		       estats->packets_too_big_discard,
+-		       estats->no_buff_discard, estats->mac_discard,
++		       old_tclient->checksum_discard,
++		       old_tclient->packets_too_big_discard,
++		       old_tclient->no_buff_discard, estats->mac_discard,
+ 		       estats->mac_filter_discard, estats->xxoverflow_discard,
+-		       estats->brb_truncate_discard, estats->ttl0_discard);
++		       estats->brb_truncate_discard,
++		       old_tclient->ttl0_discard);
+ 
+ 		for_each_queue(bp, i) {
+ 			printk(KERN_DEBUG "[%d]: %lu\t%lu\t%lu\n", i,
+@@ -3023,60 +3286,131 @@ static void bnx2x_update_stats(struct bnx2x *bp)
+ 		}
+ 	}
+ 
+-	if (bp->state != BNX2X_STATE_OPEN) {
+-		DP(BNX2X_MSG_STATS, "state is %x, returning\n", bp->state);
+-		return;
+-	}
+-
+-#ifdef BNX2X_STOP_ON_ERROR
+-	if (unlikely(bp->panic))
+-		return;
+-#endif
++	bnx2x_hw_stats_post(bp);
++	bnx2x_storm_stats_post(bp);
++}
+ 
+-	/* loader */
+-	if (bp->executer_idx) {
+-		struct dmae_command *dmae = &bp->dmae;
+-		int port = BP_PORT(bp);
+-		int loader_idx = port * 8;
++static void bnx2x_port_stats_stop(struct bnx2x *bp)
++{
++	struct dmae_command *dmae;
++	u32 opcode;
++	int loader_idx = PMF_DMAE_C(bp);
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
+ 
+-		memset(dmae, 0, sizeof(struct dmae_command));
++	bp->executer_idx = 0;
+ 
+-		dmae->opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
+-				DMAE_CMD_C_DST_GRC | DMAE_CMD_C_ENABLE |
+-				DMAE_CMD_DST_RESET |
++	opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
++		  DMAE_CMD_C_ENABLE |
++		  DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
+ #ifdef __BIG_ENDIAN
+-				DMAE_CMD_ENDIANITY_B_DW_SWAP |
++		  DMAE_CMD_ENDIANITY_B_DW_SWAP |
+ #else
+-				DMAE_CMD_ENDIANITY_DW_SWAP |
++		  DMAE_CMD_ENDIANITY_DW_SWAP |
+ #endif
+-				(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
+-		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, dmae[0]));
+-		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, dmae[0]));
+-		dmae->dst_addr_lo = (DMAE_REG_CMD_MEM +
+-				     sizeof(struct dmae_command) *
+-				     (loader_idx + 1)) >> 2;
++		  (BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
++		  (BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT));
++
++	if (bp->port.port_stx) {
++
++		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
++		if (bp->func_stx)
++			dmae->opcode = (opcode | DMAE_CMD_C_DST_GRC);
++		else
++			dmae->opcode = (opcode | DMAE_CMD_C_DST_PCI);
++		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, port_stats));
++		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats));
++		dmae->dst_addr_lo = bp->port.port_stx >> 2;
+ 		dmae->dst_addr_hi = 0;
+-		dmae->len = sizeof(struct dmae_command) >> 2;
+-		dmae->len--;    /* !!! for A0/1 only */
+-		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx + 1] >> 2;
+-		dmae->comp_addr_hi = 0;
+-		dmae->comp_val = 1;
++		dmae->len = sizeof(struct host_port_stats) >> 2;
++		if (bp->func_stx) {
++			dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
++			dmae->comp_addr_hi = 0;
++			dmae->comp_val = 1;
++		} else {
++			dmae->comp_addr_lo =
++				U64_LO(bnx2x_sp_mapping(bp, stats_comp));
++			dmae->comp_addr_hi =
++				U64_HI(bnx2x_sp_mapping(bp, stats_comp));
++			dmae->comp_val = DMAE_COMP_VAL;
+ 
+-		bnx2x_post_dmae(bp, dmae, loader_idx);
++			*stats_comp = 0;
++		}
+ 	}
+ 
+-	if (bp->stats_state != STATS_STATE_ENABLE) {
+-		bp->stats_state = STATS_STATE_DISABLE;
+-		return;
++	if (bp->func_stx) {
++
++		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
++		dmae->opcode = (opcode | DMAE_CMD_C_DST_PCI);
++		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, func_stats));
++		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, func_stats));
++		dmae->dst_addr_lo = bp->func_stx >> 2;
++		dmae->dst_addr_hi = 0;
++		dmae->len = sizeof(struct host_func_stats) >> 2;
++		dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
++		dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
++		dmae->comp_val = DMAE_COMP_VAL;
++
++		*stats_comp = 0;
+ 	}
++}
++
++static void bnx2x_stats_stop(struct bnx2x *bp)
++{
++	int update = 0;
++
++	bnx2x_stats_comp(bp);
++
++	if (bp->port.pmf)
++		update = (bnx2x_hw_stats_update(bp) == 0);
++
++	update |= (bnx2x_storm_stats_update(bp) == 0);
++
++	if (update) {
++		bnx2x_net_stats_update(bp);
++
++		if (bp->port.pmf)
++			bnx2x_port_stats_stop(bp);
+ 
+-	if (bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_STAT_QUERY, 0, 0, 0, 0) == 0) {
+-		/* stats ramrod has it's own slot on the spe */
+-		bp->spq_left++;
+-		bp->stat_pending = 1;
++		bnx2x_hw_stats_post(bp);
++		bnx2x_stats_comp(bp);
+ 	}
+ }
+ 
++static void bnx2x_stats_do_nothing(struct bnx2x *bp)
++{
++}
++
++static const struct {
++	void (*action)(struct bnx2x *bp);
++	enum bnx2x_stats_state next_state;
++} bnx2x_stats_stm[STATS_STATE_MAX][STATS_EVENT_MAX] = {
++/* state	event	*/
++{
++/* DISABLED	PMF	*/ {bnx2x_stats_pmf_update, STATS_STATE_DISABLED},
++/*		LINK_UP	*/ {bnx2x_stats_start,      STATS_STATE_ENABLED},
++/*		UPDATE	*/ {bnx2x_stats_do_nothing, STATS_STATE_DISABLED},
++/*		STOP	*/ {bnx2x_stats_do_nothing, STATS_STATE_DISABLED}
++},
++{
++/* ENABLED	PMF	*/ {bnx2x_stats_pmf_start,  STATS_STATE_ENABLED},
++/*		LINK_UP	*/ {bnx2x_stats_restart,    STATS_STATE_ENABLED},
++/*		UPDATE	*/ {bnx2x_stats_update,     STATS_STATE_ENABLED},
++/*		STOP	*/ {bnx2x_stats_stop,       STATS_STATE_DISABLED}
++}
++};
++
++static void bnx2x_stats_handle(struct bnx2x *bp, enum bnx2x_stats_event event)
++{
++	enum bnx2x_stats_state state = bp->stats_state;
++
++	bnx2x_stats_stm[state][event].action(bp);
++	bp->stats_state = bnx2x_stats_stm[state][event].next_state;
++
++	if ((event != STATS_EVENT_UPDATE) || (bp->msglevel & NETIF_MSG_TIMER))
++		DP(BNX2X_MSG_STATS, "state %d -> event %d -> state %d\n",
++		   state, event, bp->stats_state);
++}
++
+ static void bnx2x_timer(unsigned long data)
+ {
+ 	struct bnx2x *bp = (struct bnx2x *) data;
+@@ -3119,10 +3453,9 @@ static void bnx2x_timer(unsigned long data)
+ 		}
+ 	}
+ 
+-	if (bp->stats_state == STATS_STATE_DISABLE)
+-		goto timer_restart;
+-
+-	bnx2x_update_stats(bp);
++	if ((bp->state == BNX2X_STATE_OPEN) ||
++	    (bp->state == BNX2X_STATE_DISABLED))
++		bnx2x_stats_handle(bp, STATS_EVENT_UPDATE);
+ 
+ timer_restart:
+ 	mod_timer(&bp->timer, jiffies + bp->current_interval);
+@@ -3152,6 +3485,7 @@ static void bnx2x_init_sb(struct bnx2x *bp, int sb_id,
+ 			  struct host_status_block *sb,	dma_addr_t mapping)
+ {
+ 	int port = BP_PORT(bp);
++	int func = BP_FUNC(bp);
+ 	int index;
+ 	u64 section;
+ 
+@@ -3165,6 +3499,8 @@ static void bnx2x_init_sb(struct bnx2x *bp, int sb_id,
+ 	REG_WR(bp, BAR_USTRORM_INTMEM +
+ 	       ((USTORM_SB_HOST_SB_ADDR_OFFSET(port, sb_id)) + 4),
+ 	       U64_HI(section));
++	REG_WR8(bp, BAR_USTRORM_INTMEM + FP_USB_FUNC_OFF +
++		USTORM_SB_HOST_STATUS_BLOCK_OFFSET(port, sb_id), func);
+ 
+ 	for (index = 0; index < HC_USTORM_SB_NUM_INDICES; index++)
+ 		REG_WR16(bp, BAR_USTRORM_INTMEM +
+@@ -3336,6 +3672,8 @@ static void bnx2x_init_def_sb(struct bnx2x *bp,
+ 		REG_WR16(bp, BAR_XSTRORM_INTMEM +
+ 			 XSTORM_DEF_SB_HC_DISABLE_OFFSET(func, index), 1);
+ 
++	bp->stats_pending = 0;
++
+ 	bnx2x_ack_sb(bp, sb_id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
+ }
+ 
+@@ -3729,7 +4067,7 @@ static void bnx2x_nic_init(struct bnx2x *bp)
+ 	bnx2x_init_sp_ring(bp);
+ 	bnx2x_init_context(bp);
+ 	bnx2x_init_internal(bp);
+-	bnx2x_init_stats(bp);
++	bnx2x_storm_stats_init(bp);
+ 	bnx2x_init_ind_table(bp);
+ 	bnx2x_int_enable(bp);
+ }
+@@ -5302,6 +5640,8 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		}
+ 	}
+ 
++	bnx2x_stats_init(bp);
++
+ 	bp->state = BNX2X_STATE_OPENING_WAIT4_PORT;
+ 
+ 	/* Enable Rx interrupt handling before sending the ramrod
+@@ -5549,6 +5889,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+ 	del_timer_sync(&bp->timer);
+ 	SHMEM_WR(bp, func_mb[BP_FUNC(bp)].drv_pulse_mb,
+ 		 (DRV_PULSE_ALWAYS_ALIVE | bp->fw_drv_pulse_wr_seq));
++	bnx2x_stats_handle(bp, STATS_EVENT_STOP);
+ 
+ 	/* Wait until all fast path tasks complete */
+ 	for_each_queue(bp, i) {
+@@ -6572,7 +6913,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	   bp->port.advertising);
+ 
+ 	if (netif_running(dev)) {
+-		bnx2x_stop_stats(bp);
++		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
+ 		bnx2x_link_set(bp);
+ 	}
+ 
+@@ -6669,7 +7010,7 @@ static int bnx2x_nway_reset(struct net_device *dev)
+ 		return 0;
+ 
+ 	if (netif_running(dev)) {
+-		bnx2x_stop_stats(bp);
++		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
+ 		bnx2x_link_set(bp);
+ 	}
+ 
+@@ -7059,10 +7400,13 @@ static int bnx2x_set_eeprom(struct net_device *dev,
+ 					     bp->link_params.ext_phy_config,
+ 					     (bp->state != BNX2X_STATE_CLOSED),
+ 					     eebuf, eeprom->len);
++			if ((bp->state == BNX2X_STATE_OPEN) ||
++			    (bp->state == BNX2X_STATE_DISABLED)) {
+ 				rc |= bnx2x_link_reset(&bp->link_params,
+ 						       &bp->link_vars);
+ 				rc |= bnx2x_phy_init(&bp->link_params,
+ 						     &bp->link_vars);
++			}
+ 			bnx2x_phy_hw_unlock(bp);
+ 
+ 		} else /* Only the PMF can access the PHY */
+@@ -7204,7 +7548,7 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
+ 	   bp->link_params.req_flow_ctrl);
+ 
+ 	if (netif_running(dev)) {
+-		bnx2x_stop_stats(bp);
++		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
+ 		bnx2x_link_set(bp);
+ 	}
+ 
+@@ -7260,7 +7604,6 @@ static void bnx2x_self_test(struct net_device *dev,
+ 	}
+ 
+ 	stats_state = bp->stats_state;
+-	bnx2x_stop_stats(bp);
+ 
+ 	if (bnx2x_mc_assert(bp) != 0) {
+ 		buf[0] = 1;
+@@ -7270,46 +7613,52 @@ static void bnx2x_self_test(struct net_device *dev,
+ #ifdef BNX2X_EXTRA_DEBUG
+ 	bnx2x_panic_dump(bp);
+ #endif
+-	bp->stats_state = stats_state;
+ }
+ 
+-static struct {
++static const struct {
+ 	char string[ETH_GSTRING_LEN];
+ } bnx2x_stats_str_arr[BNX2X_NUM_STATS] = {
+-	{ "rx_bytes"},
+-	{ "rx_error_bytes"},
+-	{ "tx_bytes"},
+-	{ "tx_error_bytes"},
+-	{ "rx_ucast_packets"},
+-	{ "rx_mcast_packets"},
+-	{ "rx_bcast_packets"},
+-	{ "tx_ucast_packets"},
+-	{ "tx_mcast_packets"},
+-	{ "tx_bcast_packets"},
+-	{ "tx_mac_errors"},	/* 10 */
+-	{ "tx_carrier_errors"},
+-	{ "rx_crc_errors"},
+-	{ "rx_align_errors"},
+-	{ "tx_single_collisions"},
+-	{ "tx_multi_collisions"},
+-	{ "tx_deferred"},
+-	{ "tx_excess_collisions"},
+-	{ "tx_late_collisions"},
+-	{ "tx_total_collisions"},
+-	{ "rx_fragments"},	/* 20 */
+-	{ "rx_jabbers"},
+-	{ "rx_undersize_packets"},
+-	{ "rx_oversize_packets"},
+-	{ "rx_xon_frames"},
+-	{ "rx_xoff_frames"},
+-	{ "tx_xon_frames"},
+-	{ "tx_xoff_frames"},
+-	{ "rx_mac_ctrl_frames"},
+-	{ "rx_filtered_packets"},
+-	{ "rx_discards"},	/* 30 */
+-	{ "brb_discard"},
+-	{ "brb_truncate"},
+-	{ "xxoverflow"}
++	{ "rx_bytes" },
++	{ "rx_error_bytes" },
++	{ "tx_bytes" },
++	{ "tx_error_bytes" },
++	{ "rx_ucast_packets" },
++	{ "rx_mcast_packets" },
++	{ "rx_bcast_packets" },
++	{ "tx_ucast_packets" },
++	{ "tx_mcast_packets" },
++	{ "tx_bcast_packets" },			/* 10 */
++	{ "tx_mac_errors" },
++	{ "tx_carrier_errors" },
++	{ "rx_crc_errors" },
++	{ "rx_align_errors" },
++	{ "tx_single_collisions" },
++	{ "tx_multi_collisions" },
++	{ "tx_deferred" },
++	{ "tx_excess_collisions" },
++	{ "tx_late_collisions" },
++	{ "tx_total_collisions" },		/* 20 */
++	{ "rx_fragments" },
++	{ "rx_jabbers" },
++	{ "rx_undersize_packets" },
++	{ "rx_oversize_packets" },
++	{ "tx_64_byte_packets" },
++	{ "tx_65_to_127_byte_packets" },
++	{ "tx_128_to_255_byte_packets" },
++	{ "tx_256_to_511_byte_packets" },
++	{ "tx_512_to_1023_byte_packets" },
++	{ "tx_1024_to_1522_byte_packets" },	/* 30 */
++	{ "tx_1523_to_9022_byte_packets" },
++	{ "rx_xon_frames" },
++	{ "rx_xoff_frames" },
++	{ "tx_xon_frames" },
++	{ "tx_xoff_frames" },
++	{ "rx_mac_ctrl_frames" },
++	{ "rx_filtered_packets" },
++	{ "rx_discards" },
++	{ "rx_fw_discards" },
++	{ "brb_discard" },			/* 40 */
++	{ "brb_truncate" }
+ };
+ 
+ #define STATS_OFFSET32(offset_name) \
+@@ -7317,46 +7666,54 @@ static struct {
+ 
+ static unsigned long bnx2x_stats_offset_arr[BNX2X_NUM_STATS] = {
+ 	STATS_OFFSET32(total_bytes_received_hi),
+-	STATS_OFFSET32(stat_IfHCInBadOctets_hi),
++	STATS_OFFSET32(rx_stat_ifhcinbadoctets_hi),
+ 	STATS_OFFSET32(total_bytes_transmitted_hi),
+-	STATS_OFFSET32(stat_IfHCOutBadOctets_hi),
++	STATS_OFFSET32(tx_stat_ifhcoutbadoctets_hi),
+ 	STATS_OFFSET32(total_unicast_packets_received_hi),
+ 	STATS_OFFSET32(total_multicast_packets_received_hi),
+ 	STATS_OFFSET32(total_broadcast_packets_received_hi),
+ 	STATS_OFFSET32(total_unicast_packets_transmitted_hi),
+ 	STATS_OFFSET32(total_multicast_packets_transmitted_hi),
+-	STATS_OFFSET32(total_broadcast_packets_transmitted_hi),
+-	STATS_OFFSET32(stat_Dot3statsInternalMacTransmitErrors), /* 10 */
+-	STATS_OFFSET32(stat_Dot3StatsCarrierSenseErrors),
+-	STATS_OFFSET32(crc_receive_errors),
+-	STATS_OFFSET32(alignment_errors),
+-	STATS_OFFSET32(single_collision_transmit_frames),
+-	STATS_OFFSET32(multiple_collision_transmit_frames),
+-	STATS_OFFSET32(stat_Dot3StatsDeferredTransmissions),
+-	STATS_OFFSET32(excessive_collision_frames),
+-	STATS_OFFSET32(late_collision_frames),
+-	STATS_OFFSET32(number_of_bugs_found_in_stats_spec),
+-	STATS_OFFSET32(runt_packets_received),			/* 20 */
++	STATS_OFFSET32(total_broadcast_packets_transmitted_hi),	/* 10 */
++	STATS_OFFSET32(tx_stat_dot3statsinternalmactransmiterrors_hi),
++	STATS_OFFSET32(rx_stat_dot3statscarriersenseerrors_hi),
++	STATS_OFFSET32(rx_stat_dot3statsfcserrors_hi),
++	STATS_OFFSET32(rx_stat_dot3statsalignmenterrors_hi),
++	STATS_OFFSET32(tx_stat_dot3statssinglecollisionframes_hi),
++	STATS_OFFSET32(tx_stat_dot3statsmultiplecollisionframes_hi),
++	STATS_OFFSET32(tx_stat_dot3statsdeferredtransmissions_hi),
++	STATS_OFFSET32(tx_stat_dot3statsexcessivecollisions_hi),
++	STATS_OFFSET32(tx_stat_dot3statslatecollisions_hi),
++	STATS_OFFSET32(tx_stat_etherstatscollisions_hi),	/* 20 */
++	STATS_OFFSET32(rx_stat_etherstatsfragments_hi),
++	STATS_OFFSET32(rx_stat_etherstatsjabbers_hi),
++	STATS_OFFSET32(rx_stat_etherstatsundersizepkts_hi),
+ 	STATS_OFFSET32(jabber_packets_received),
+-	STATS_OFFSET32(error_runt_packets_received),
+-	STATS_OFFSET32(error_jabber_packets_received),
+-	STATS_OFFSET32(pause_xon_frames_received),
+-	STATS_OFFSET32(pause_xoff_frames_received),
+-	STATS_OFFSET32(pause_xon_frames_transmitted),
+-	STATS_OFFSET32(pause_xoff_frames_transmitted),
+-	STATS_OFFSET32(control_frames_received),
++	STATS_OFFSET32(tx_stat_etherstatspkts64octets_hi),
++	STATS_OFFSET32(tx_stat_etherstatspkts65octetsto127octets_hi),
++	STATS_OFFSET32(tx_stat_etherstatspkts128octetsto255octets_hi),
++	STATS_OFFSET32(tx_stat_etherstatspkts256octetsto511octets_hi),
++	STATS_OFFSET32(tx_stat_etherstatspkts512octetsto1023octets_hi),
++	STATS_OFFSET32(tx_stat_etherstatspkts1024octetsto1522octets_hi),/*30*/
++	STATS_OFFSET32(etherstatspktsover1522octets_hi),
++	STATS_OFFSET32(rx_stat_xonpauseframesreceived_hi),
++	STATS_OFFSET32(rx_stat_xoffpauseframesreceived_hi),
++	STATS_OFFSET32(tx_stat_outxonsent_hi),
++	STATS_OFFSET32(tx_stat_outxoffsent_hi),
++	STATS_OFFSET32(rx_stat_maccontrolframesreceived_hi),
+ 	STATS_OFFSET32(mac_filter_discard),
+-	STATS_OFFSET32(no_buff_discard),			/* 30 */
+-	STATS_OFFSET32(brb_discard),
+-	STATS_OFFSET32(brb_truncate_discard),
+-	STATS_OFFSET32(xxoverflow_discard)
++	STATS_OFFSET32(no_buff_discard),
++	STATS_OFFSET32(xxoverflow_discard),
++	STATS_OFFSET32(brb_drop_hi),				/* 40 */
++	STATS_OFFSET32(brb_truncate_discard)
+ };
+ 
+ static u8 bnx2x_stats_len_arr[BNX2X_NUM_STATS] = {
+-	8, 0, 8, 0, 8, 8, 8, 8, 8, 8,
+-	4, 0, 4, 4, 4, 4, 4, 4, 4, 4,
+-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+-	4, 4, 4, 4
++	8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
++	8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
++	8, 8, 8, 4, 8, 8, 8, 8, 8, 8,
++	8, 8, 8, 8, 8, 8, 4, 4, 4, 8,
++	4
+ };
+ 
+ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+@@ -7381,7 +7738,7 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
+ 				    struct ethtool_stats *stats, u64 *buf)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+-	u32 *hw_stats = (u32 *)bnx2x_sp_check(bp, eth_stats);
++	u32 *hw_stats = (u32 *)&bp->eth_stats;
+ 	int i;
+ 
+ 	for (i = 0; i < BNX2X_NUM_STATS; i++) {
+@@ -7476,7 +7833,7 @@ static struct ethtool_ops bnx2x_ethtool_ops = {
+ 	.get_strings    	= bnx2x_get_strings,
+ 	.phys_id		= bnx2x_phys_id,
+ 	.get_stats_count	= bnx2x_get_stats_count,
+-	.get_ethtool_stats      = bnx2x_get_ethtool_stats
++	.get_ethtool_stats	= bnx2x_get_ethtool_stats,
+ };
+ 
+ /* end of ethtool_ops */
+@@ -7594,7 +7951,7 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	fp = &bp->fp[fp_index];
+ 	if (unlikely(bnx2x_tx_avail(bp->fp) <
+ 					(skb_shinfo(skb)->nr_frags + 3))) {
+-		bp->slowpath->eth_stats.driver_xoff++,
++		bp->eth_stats.driver_xoff++,
+ 		netif_stop_queue(dev);
+ 		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
+ 		return NETDEV_TX_BUSY;
+@@ -7826,7 +8183,7 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3)) {
+ 		netif_stop_queue(dev);
+-		bp->slowpath->eth_stats.driver_xoff++;
++		bp->eth_stats.driver_xoff++;
+ 		if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
+ 			netif_wake_queue(dev);
+ 	}
+@@ -8155,6 +8512,7 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 		}
+ 
+ 		pci_set_master(pdev);
++		pci_save_state(pdev);
+ 	}
+ 
+ 	bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
 -- 
 1.5.5
 
