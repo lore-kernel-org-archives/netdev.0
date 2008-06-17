@@ -1,8 +1,7 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 7/12]: wext: Pass iwreq pointer down into standard/private
- handlers.
-Date: Tue, 17 Jun 2008 00:54:09 -0700 (PDT)
-Message-ID: <20080617.005409.37355710.davem@davemloft.net>
+Subject: [PATCH 6/12]: wext: Parameterize the standard/private handlers.
+Date: Tue, 17 Jun 2008 00:53:56 -0700 (PDT)
+Message-ID: <20080617.005356.50875125.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,87 +13,79 @@ Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-wext: Pass iwreq pointer down into standard/private handlers.
+wext: Parameterize the standard/private handlers.
 
-They have no need to see the object as an ifreq.
+The WEXT standard and private handlers to use are now
+arguments to wireless_process_ioctl().
 
 Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- net/wireless/wext.c |   17 ++++++++---------
- 1 files changed, 8 insertions(+), 9 deletions(-)
+ net/wireless/wext.c |   24 ++++++++++++++++--------
+ 1 files changed, 16 insertions(+), 8 deletions(-)
 
 diff --git a/net/wireless/wext.c b/net/wireless/wext.c
-index 929d241..e9c8817 100644
+index e96559e..929d241 100644
 --- a/net/wireless/wext.c
 +++ b/net/wireless/wext.c
-@@ -832,11 +832,10 @@ out:
-  * user space and kernel space.
-  */
- static int ioctl_standard_call(struct net_device *	dev,
--			       struct ifreq *		ifr,
-+			       struct iwreq		*iwr,
- 			       unsigned int		cmd,
- 			       iw_handler		handler)
- {
--	struct iwreq *				iwr = (struct iwreq *) ifr;
- 	const struct iw_ioctl_description *	descr;
- 	struct iw_request_info			info;
- 	int					ret = -EINVAL;
-@@ -984,10 +983,9 @@ out:
- 	return err;
- }
- 
--static int ioctl_private_call(struct net_device *dev, struct ifreq *ifr,
-+static int ioctl_private_call(struct net_device *dev, struct iwreq *iwr,
- 			      unsigned int cmd, iw_handler handler)
- {
--	struct iwreq *iwr = (struct iwreq *) ifr;
- 	int extra_size = 0, ret = -EINVAL;
- 	const struct iw_priv_args *descr;
- 	struct iw_request_info info;
-@@ -1015,7 +1013,7 @@ static int ioctl_private_call(struct net_device *dev, struct ifreq *ifr,
+@@ -1015,11 +1015,17 @@ static int ioctl_private_call(struct net_device *dev, struct ifreq *ifr,
  }
  
  /* ---------------------------------------------------------------- */
--typedef int (*wext_ioctl_func)(struct net_device *, struct ifreq *,
-+typedef int (*wext_ioctl_func)(struct net_device *, struct iwreq *,
- 			       unsigned int, iw_handler);
- 
++typedef int (*wext_ioctl_func)(struct net_device *, struct ifreq *,
++			       unsigned int, iw_handler);
++
  /*
-@@ -1027,6 +1025,7 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
- 				  wext_ioctl_func standard,
- 				  wext_ioctl_func private)
+  * Main IOCTl dispatcher.
+  * Check the type of IOCTL and call the appropriate wrapper...
+  */
+-static int wireless_process_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd)
++static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
++				  unsigned int cmd,
++				  wext_ioctl_func standard,
++				  wext_ioctl_func private)
  {
-+	struct iwreq *iwr = (struct iwreq *) ifr;
  	struct net_device *dev;
  	iw_handler	handler;
- 
-@@ -1041,11 +1040,11 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
+@@ -1035,12 +1041,12 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr, unsigned i
  	 * Note that 'cmd' is already filtered in dev_ioctl() with
  	 * (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST) */
  	if (cmd == SIOCGIWSTATS)
--		return standard(dev, ifr, cmd,
-+		return standard(dev, iwr, cmd,
- 				&iw_handler_get_iwstats);
+-		return ioctl_standard_call(dev, ifr, cmd,
+-					   &iw_handler_get_iwstats);
++		return standard(dev, ifr, cmd,
++				&iw_handler_get_iwstats);
  
  	if (cmd == SIOCGIWPRIV && dev->wireless_handlers)
--		return standard(dev, ifr, cmd,
-+		return standard(dev, iwr, cmd,
- 				&iw_handler_get_private);
+-		return ioctl_standard_call(dev, ifr, cmd,
+-					   &iw_handler_get_private);
++		return standard(dev, ifr, cmd,
++				&iw_handler_get_private);
  
  	/* Basic check */
-@@ -1057,9 +1056,9 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
+ 	if (!netif_device_present(dev))
+@@ -1051,9 +1057,9 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr, unsigned i
  	if (handler) {
  		/* Standard and private are not the same */
  		if (cmd < SIOCIWFIRSTPRIV)
--			return standard(dev, ifr, cmd, handler);
-+			return standard(dev, iwr, cmd, handler);
+-			return ioctl_standard_call(dev, ifr, cmd, handler);
++			return standard(dev, ifr, cmd, handler);
  		else
--			return private(dev, ifr, cmd, handler);
-+			return private(dev, iwr, cmd, handler);
+-			return ioctl_private_call(dev, ifr, cmd, handler);
++			return private(dev, ifr, cmd, handler);
  	}
  	/* Old driver API : call driver ioctl handler */
  	if (dev->do_ioctl)
+@@ -1084,7 +1090,9 @@ int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
+ 
+ 	dev_load(net, ifr->ifr_name);
+ 	rtnl_lock();
+-	ret = wireless_process_ioctl(net, ifr, cmd);
++	ret = wireless_process_ioctl(net, ifr, cmd,
++				     ioctl_standard_call,
++				     ioctl_private_call);
+ 	rtnl_unlock();
+ 	if (IW_IS_GET(cmd) && copy_to_user(arg, ifr, sizeof(struct iwreq)))
+ 		return -EFAULT;
 -- 
 1.5.5.1.308.g1fbb5
 
