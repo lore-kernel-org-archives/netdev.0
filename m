@@ -1,116 +1,54 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Thu, 19 Jun 2008 01:14:36 +0200
-Message-ID: <20080618231436.GA12886@elte.hu>
-References: <20080617083220.GA11393@elte.hu>
-	<20080617.020840.169830916.davem@davemloft.net>
-	<20080617092706.GB20621@elte.hu>
-	<20080617.022909.173003136.davem@davemloft.net>
-	<20080617093929.GA10334@elte.hu> <48595910.8000905@intel.com>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH -next] e100: fix printk format warning
+Date: Wed, 18 Jun 2008 16:24:27 -0700
+Message-ID: <9929d2390806181624g2749a7cex9b1d687c3db0d050@mail.gmail.com>
+References: <20080618140741.79e21737.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: vgusev@openvz.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, rjw@sisk.pl,
-	mcmanus@ducksong.com, ilpo.jarvinen@helsinki.fi,
-	kuznet@ms2.inr.ac.ru, David Miller <davem@davemloft.net>,
-	xemul@openvz.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Cc: netdev <netdev@vger.kernel.org>, jgarzik <jgarzik@pobox.com>,
+	jesse.brandeburg@intel.com, akpm <akpm@linux-foundation.org>
+To: "Randy Dunlap" <randy.dunlap@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.228]:45503 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753075AbYFRXYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 19:24:30 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so4873962rvb.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 16:24:27 -0700 (PDT)
+In-Reply-To: <20080618140741.79e21737.randy.dunlap@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <48595910.8000905@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 18, 2008 at 2:07 PM, Randy Dunlap <randy.dunlap@oracle.com> wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+>
+> Fix printk format warning:
+>
+> drivers/net/e100.c:1145: warning: format '%d' expects type 'int', but argument 5 has type 'size_t'
+>
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> ---
+>  drivers/net/e100.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> --- linux-next-20080618.orig/drivers/net/e100.c
+> +++ linux-next-20080618/drivers/net/e100.c
+> @@ -1142,7 +1142,7 @@ static const struct firmware *e100_reque
+>        /* Firmware should be precisely UCODE_SIZE (words) plus three bytes
+>           indicating the offsets for BUNDLESMALL, BUNDLEMAX, INTDELAY */
+>        if (fw->size != UCODE_SIZE * 4 + 3) {
+> -               DPRINTK(PROBE,ERR, "Firmware \"%s\" has wrong size %d\n",
+> +               DPRINTK(PROBE,ERR, "Firmware \"%s\" has wrong size %zu\n",
+>                        fw_name, fw->size);
+>                release_firmware(fw);
+>                return ERR_PTR(-EINVAL);
+>
 
-* Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+Ack.
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-> You only complain and do not provide a single solution to your 
-> problem. [...]
-
-i have reported the problem and even provided a fix.
-
-I have triggered an e1000/e1000e related problem that got introduced in 
-the v2.6.25 merge window - one of my testboxes came up with no 
-networking and it took me an hour to figure out why. (i wasnt 
-particularly focusing on e1000, i just happened to hit that bug in 9 
-million lines of Linux kernel code)
-
-I have reported it here, two and a half months ago:
-
-    http://lkml.org/lkml/2008/4/8/256
-
-I even showed you which commit introduced the problem and gave you a 
-oneliner fix that i tested (it solved the problem):
-
-    http://bugzilla.kernel.org/attachment.cgi?id=15704&amp;action=view
-
-You were Cc:-ed to that. (attached below again for reference) The bug 
-was added to the regression list of v2.6.25. I never expected to spend 
-more than 10 minutes on this problem once i found out what's happening - 
-we fix dozens of bugs like this per stable kernel release.
-
-I just checked latest -git, my fix is still not upstream (or any 
-equivalent solution - i really dont mind how it's solved and i'm not 
-maintaining this code).
-
-no alternative patch was sent to me - i offered to test any solution 
-back then.
-
-FYI, since i first reported it i've been hit by that problem roughly a 
-dozen times. (it happened sporadically so i forgot about it - until i 
-again had a system come up with no networking.) It caused me lost time 
-and lost work that could have been spent on better things.
-
-	Ingo
-
------------------------->
-Subject: e1000=y && e1000e=m regression fix
-From: Ingo Molnar <mingo@elte.hu>
-Date: Wed Apr 09 21:09:35 CEST 2008
-
-fix a regression from v2.6.24: do not transfer the e1000e PCI IDs from 
-e1000 to e1000e if e1000 is built-in and e1000e is a module.
-
-Built-in drivers take precedence over modules in many ways - and in this 
-case it's clear that the user intended the e1000 driver to be the 
-primary one. "Silently change behavior and break existing configs" is 
-never a good migration strategy. Most users will use distro kernels that 
-are not affected by this problem at all - nor are they affected by this 
-patch - but this problem can hit users and developers who build their 
-kernels themselves and migrate from v2.6.24 to v2.6.25.
-
-this fixes: http://bugzilla.kernel.org/show_bug.cgi?id=10427
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- drivers/net/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-x86.q/drivers/net/Kconfig
-===================================================================
---- linux-x86.q.orig/drivers/net/Kconfig
-+++ linux-x86.q/drivers/net/Kconfig
-@@ -2022,7 +2022,7 @@ config E1000E
- 	  will be called e1000e.
- 
- config E1000E_ENABLED
--	def_bool E1000E != n
-+	def_bool E1000E = y || ((E1000E != n) && (E1000 = E1000E))
- 
- config IP1000
- 	tristate "IP1000 Gigabit Ethernet support"
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+-- 
+Cheers,
+Jeff
