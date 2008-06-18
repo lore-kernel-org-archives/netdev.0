@@ -1,114 +1,89 @@
-From: Karsten Keil <kkeil@suse.de>
-Subject: Re: [PATCH] [IPv6] Do not use loopback as source address on other interfaces
-Date: Wed, 18 Jun 2008 18:11:42 +0200
-Message-ID: <20080618161142.GD25004@pingi.kke.suse.de>
-References: <20080618132312.GA25004@pingi.kke.suse.de> <20080618.223600.81071656.yoshfuji@linux-ipv6.org> <20080618140558.GB25004@pingi.kke.suse.de> <20080618.233607.20745708.yoshfuji@linux-ipv6.org>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH] firmware: convert acenic driver to request_firmware()
+Date: Wed, 18 Jun 2008 17:14:41 +0100
+Message-ID: <1213805681.26255.1312.camel@pmac.infradead.org>
+References: <1213608300.26255.665.camel@pmac.infradead.org>
+	 <4856CE43.4020706@garzik.org>
+	 <1213652749.26255.842.camel@pmac.infradead.org>
+	 <4856E50C.5050908@garzik.org>
+	 <1213699220.26255.977.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Mironov_Sergey@emc.com, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org
-To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jes Sorensen <jes@trained-monkey.org>, netdev@vger.kernel.org,
+	jaswinder@infradead.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:58477 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753446AbYFRQLs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2008 12:11:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20080618.233607.20745708.yoshfuji@linux-ipv6.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:34124 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751249AbYFRQOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 12:14:50 -0400
+In-Reply-To: <1213699220.26255.977.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 18, 2008 at 11:36:07PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
-=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> In article <20080618140558.GB25004@pingi.kke.suse.de> (at Wed, 18 Jun=
- 2008 16:05:58 +0200), Karsten Keil <kkeil@suse.de> says:
->=20
-> > On Wed, Jun 18, 2008 at 10:36:00PM +0900, YOSHIFUJI Hideaki / =E5=90=
-=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> > > In article <20080618132312.GA25004@pingi.kke.suse.de> (at Wed, 18=
- Jun 2008 15:23:12 +0200), Karsten Keil <kkeil@suse.de> says:
-> > >=20
-> > > > RFC 4291 forbit the use of the loopback address as source outsi=
-de a node
-> > > > (paragraph 2.5.3).
-> > > >=20
-> > > > The latest TAHI test release 4.0.1 does have a check for this (=
-ICMPv6 test
-> > > > v6LC.5.1.2 Part F), so it fails currently on Linux.
-> > > >=20
-> > > > Signed-off-by: Sergey Mironov <Mironov_Sergey@emc.com>
-> > > > Signed-off-by: Karsten Keil <kkeil@suse.de>
-> > >=20
-> > > I disagree this approach - too ad-hoc fix just to pass the tests.
-> > >=20
-> >=20
-> > So you would prefer a more general test in some common place (like
-> > __ip6_local_out() ) to avoid any packets with ::1 on other devices =
-as
-> > loopback ?
->=20
-> No, we should not even accept packets for ::1 from outside of the box=
-=2E
-> Something like this.
->=20
+On Tue, 2008-06-17 at 11:40 +0100, David Woodhouse wrote:
+> 
+> > IOW, the first step for each driver should be:
+> > 
+> > +     request_firmware()
+> > +     if (success)
+> > +             use externally-loaded firmware
+> > +     else
+> >               use built-in firmware
+> > 
+> > and that's it.  Nothing else [in the first patch].
+> 
+> If it were that simple, I would agree with you. In practice, it hasn't
+> turned out to be that simple. I really do think it would be
+> counter-productive for both review and testing purposes. 
+> 
+> For review because, as I said, we'd end up providing new copies of
+> certain functions in the first patch (or conditional noise in them), and
+> then ripping out the old code path in the second -- the patch which it
+> would make sense to _read_ and review would be the combined one.
+> 
+> For testing because there's quite a large chance that if something goes
+> wrong with the request_firmware() path, it'd fall back to the other path
+> and people would say "OK, that works" when it doesn't. And we both know
+> that kind of thing will still happen even if we have a bloody great
+> warning printk in the fallback case.
+> 
+> I suppose what we _could_ do is make your 'use built-in firmware' path
+> use that firmware in the _same_ form as we have it provided by
+> request_firmware(). That way, we really are testing the same code path.
+> Would that meet your approval?
+> 
+> If you look closely, you'll see that that is exactly what I've done
+> already. But without the complexity in the driver -- the driver just
+> calls request_firmware(), and the firmware is either provided from
+> within the kernel image, or from userspace.
 
-Yes I was thinking about nearly the same patch now :-)
+I believe you didn't respond to this, but just spouted the same
+complaint at another patch which was posted for review, without even
+seeming to have _looked_ at the part of that patch which really needed
+reviewing.
 
-> ---
-> ipv6: Drop packets for loopback address from outside of the box.
->=20
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->=20
-> --=20
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index e0a612b..f422f72 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -367,6 +367,12 @@ static inline int ipv6_addr_any(const struct in6=
-_addr *a)
->  		 a->s6_addr32[2] | a->s6_addr32[3] ) =3D=3D 0);=20
->  }
-> =20
-> +static inline int ipv6_addr_loopback(const struct in6_addr *a)
-> +{
-> +	return ((a->s6_addr32[0] | a->s6_addr32[1] |
-> +		 a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) =3D=3D 0);
-> +}
-> +
->  static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
->  {
->  	return ((a->s6_addr32[0] | a->s6_addr32[1] |
-> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-> index 4e5c861..17eb48b 100644
-> --- a/net/ipv6/ip6_input.c
-> +++ b/net/ipv6/ip6_input.c
-> @@ -102,6 +102,15 @@ int ipv6_rcv(struct sk_buff *skb, struct net_dev=
-ice *dev, struct packet_type *pt
->  	if (hdr->version !=3D 6)
->  		goto err;
-> =20
-> +	/*
-> +	 * RFC4291 2.5.3
-> +	 * A packet received on an interface with a destination address
-> +	 * of loopback must be dropped.
-> +	 */
-> +	if (!(dev->flags & IFF_LOOPBACK) &&
-> +	    ipv6_addr_loopback(&hdr->daddr))
-> +		goto err;
-> +
->  	skb->transport_header =3D skb->network_header + sizeof(*hdr);
->  	IP6CB(skb)->nhoff =3D offsetof(struct ipv6hdr, nexthdr);
-> =20
->=20
->=20
-> --yoshfuji
+This has needed doing for a long time, and I've finally got off my
+posterior and started working on it. If you wanted it done precisely
+your way, you could always have done it yourself. As it is, we have a
+minor disagreement about some of the details, but it still needs doing.
+And since it still seems to be me doing it and not you, I'm still doing
+it the way I believe is best.
 
---=20
-Karsten Keil
-SuSE Labs
-ISDN and VOIP development
-SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex,=
- HRB 16746 (AG Nuernberg)
+We have a bunch of other drivers to fix up to use request_firmware(),
+other than the network drivers. If you like, we can move on to those and
+let you do drivers/net your way, splitting each patch into two stages.
+I think it's pointless and counter-productive to do it that way, but if
+it's your own time you're wasting on generating that extra churn, then I
+suppose it's not _so_ counter-productive that I would argue that we
+should reject your patches. People can always run 'combinediff' on your
+two patches to get a single, reviewable patch which would match the one
+we would have sent, after all. And the harm to the testing process is
+your concern, once you're providing the patches :)
+
+OK?
+
+-- 
+dwmw2
+
