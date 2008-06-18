@@ -1,30 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/4] netxen: fix portnum for hp mezz cards
-Date: Tue, 17 Jun 2008 23:25:56 -0400
-Message-ID: <48588044.3020805@garzik.org>
-References: <> <1213595986-1929-2-git-send-email-dhananjay@netxen.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sky2: 88E8040T pci device id
+Date: Tue, 17 Jun 2008 23:26:04 -0400
+Message-ID: <4858804C.9040406@pobox.com>
+References: <20080614103215.2bceba00@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Dhananjay Phadke <dhananjay@netxen.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40526 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40534 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756559AbYFRDZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 23:25:59 -0400
-In-Reply-To: <1213595986-1929-2-git-send-email-dhananjay@netxen.com>
+	id S1756747AbYFRD0I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 23:26:08 -0400
+In-Reply-To: <20080614103215.2bceba00@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dhananjay Phadke wrote:
-> This fixes a the issue where logical port number is set incorrectly
-> for HP blade mezz cards.
+Stephen Hemminger wrote:
+> Missed one pci id for 88E8040T.
 > 
-> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
-> ---
->  drivers/net/netxen/netxen_nic_main.c |   10 ++++++++--
->  1 files changed, 8 insertions(+), 2 deletions(-)
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> 
+> --- a/drivers/net/sky2.c	2008-06-14 09:28:04.000000000 -0700
+> +++ b/drivers/net/sky2.c	2008-06-14 09:27:34.000000000 -0700
+> @@ -118,6 +118,7 @@ static const struct pci_device_id sky2_i
+>  	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4352) }, /* 88E8038 */
+>  	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4353) }, /* 88E8039 */
+>  	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4354) }, /* 88E8040 */
+> +	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4355) }, /* 88E8040T */
+>  	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4356) }, /* 88EC033 */
+>  	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4357) }, /* 88E8042 */
+>  	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x435A) }, /* 88E8048 */
 
 applied
 
