@@ -1,40 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 5/5] bonding: Allow setting max_bonds to zero
-Date: Tue, 17 Jun 2008 23:31:16 -0400
-Message-ID: <48588184.5030808@pobox.com>
-References: <12134059242107-git-send-email-fubar@us.ibm.com> <12134059253135-git-send-email-fubar@us.ibm.com> <12134059253839-git-send-email-fubar@us.ibm.com> <12134059261873-git-send-email-fubar@us.ibm.com> <12134059261828-git-send-email-fubar@us.ibm.com> <12134059271179-git-send-email-fubar@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPF Montvale machine panic when running a network-relevent
+ testing
+Date: Tue, 17 Jun 2008 20:37:03 -0700 (PDT)
+Message-ID: <20080617.203703.254889774.davem@davemloft.net>
+References: <1213345160.25608.3.camel@ymzhang>
+	<1213759663.25608.33.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Phil Oester <kernel@linuxace.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41832 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757615AbYFRDbU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 23:31:20 -0400
-In-Reply-To: <12134059271179-git-send-email-fubar@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-ia64@vger.kernel.org
+To: yanmin_zhang@linux.intel.com
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <1213759663.25608.33.camel@ymzhang>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> 	Permit bonding to function rationally if max_bonds is set to
-> zero.  This will load the module, but create no master devices (which can
-> be created via sysfs).
-> 
-> 	Requires some change to bond_create_sysfs; currently, the
-> netdev sysfs directory is determined from the first bonding device created,
-> but this is no longer possible.  Instead, an interface from net/core is
-> created to create and destroy files in net_class.
-> 
-> 	Based on a patch submitted by Phil Oester <kernel@linuxaces.com>.
-> Modified by Jay Vosburgh to fix the sysfs issue mentioned above and to
-> update the documentation.
-> 
-> Signed-off-by: Phil Oester <kernel@linuxace.com>
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-applied 1-5
-
-
+RnJvbTogIlpoYW5nLCBZYW5taW4iIDx5YW5taW5femhhbmdAbGludXguaW50ZWwuY29tPg0KRGF0
+ZTogV2VkLCAxOCBKdW4gMjAwOCAxMToyNzo0MyArMDgwMA0KDQo+IFRoaXMgaXNzdWUgaXMgY2F1
+c2VkIGJ5IHRjcCBkZWZlciBhY2NlcHQuIE1vc3RseSwgcHJvY2VzcyBjb250ZXh0IGNhbGxzIGxv
+Y2tfc29jaw0KPiB0byBhcHBseSBhIHNsZWVwaW5nIGxvY2suIEJIIChTb2Z0SVJRKSBjb250ZXh0
+IGNhbGxzIGJoX2xvY2tfc29jayhfbmVzdGVkKSB0byBqdXN0IGFwcGx5DQo+IGZvciB0aGUgc2st
+PnNrX2xvY2suc2xvY2sgd2l0aG91dCBzbGVlcGluZywgdGhlbiBkbyBhcHByb3ByaWF0ZSBwcm9j
+ZXNzaW5nIGJhc2VkIG9uDQo+IGlmIHNrLT5za19sb2NrLm93bmVkPT0wLiBUaGF0IHdvcmtzIHdl
+bGwgaWYgYm90aCBwcm9jZXNzIGNvbnRleHQgYW5kIEJIIGNvbnRleHQgb3BlcmF0ZQ0KPiB0aGUg
+c2FtZSBzayBhdCB0aGUgc2FtZSB0aW1lLiBCdXQgd2l0aCDvu790Y3AgZGVmZXIgYWNjZXB0LCBp
+dCBkb2Vzbid0LCBiZWNhdXNlDQo+IHByb2Nlc3MgY29udGV4dChmb3IgZXhhbXBsZSwgaW4gaW5l
+dF9jc2tfYWNjZXB0KSBsb2NrcyB0aGUgbGlzdGVuIHNrLCB3aGlsZSBCSA0KPiBjb250ZXh0IChp
+biB0Y3BfdjRfcmN2LCBmb3IgZXhhbXBsZSkgbG9ja3MgdGhlIGNoaWxkIHNrIGFuZCBjYWxscw0K
+PiDvu790Y3BfZGVmZXJfYWNjZXB0X2NoZWNr77u/ID0+IGluZXRfY3NrX3JlcXNrX3F1ZXVlX2Fk
+ZCA9PiByZXFza19xdWV1ZV9hZGQsIHNvIHRoZXJlIGlzIGEgcmFjZQ0KPiB0byBhY2Nlc3MgdGhl
+IGxpc3RlbiBzb2NrLg0KPiANCj4gQmVsb3cgcGF0Y2ggYWdhaW5zdCAyLjYuMjYtcmM2IGZpeGVz
+IHRoZSBpc3N1ZS4NCj4gDQo+IO+7v++7v1NpZ25lZC1vZmYtYnk6IFpoYW5nIFlhbm1pbiA8eWFu
+bWluLnpoYW5nQGludGVsLmNvbT4NCg0KV2UgcmV2ZXJ0ZWQgdGhlIGd1aWx0eSBkZWZlciBhY2Nl
+cHQgY2hhbmdlcywgcGxlYXNlIHRlc3QgTGludXMncw0KY3VycmVudCB0cmVlLg0K
