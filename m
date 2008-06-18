@@ -1,58 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Wed, 18 Jun 2008 16:19:54 +0200
-Message-ID: <4859198A.9070503@trash.net>
-References: <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>	 <48528EED.7090307@trash.net>	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>	 <485652EA.2020004@trash.net>	 <f4845fc0806161619i4dc81dcao933d95aa6e09b45e@mail.gmail.com>	 <4857A58E.6080304@trash.net> <20080617171840.GB4064@google.com>	 <485819A8.1090004@trash.net>	 <f4845fc0806171547v88ff4d3gc56e9c43a4176a14@mail.gmail.com>	 <4858CDDF.4050306@trash.net> <f4845fc0806180717x6b1a53eeo4db207dab26483c@mail.gmail.com>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: [PATCH] [IPv6] Do not use loopback as source address on other interfaces
+Date: Wed, 18 Jun 2008 16:25:47 +0200
+Message-ID: <20080618142547.GC25004@pingi.kke.suse.de>
+References: <20080618132312.GA25004@pingi.kke.suse.de> <20080618.223600.81071656.yoshfuji@linux-ipv6.org> <20080618140558.GB25004@pingi.kke.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, Vince Busam <vbusam@google.com>,
-	Ben Greear <greearb@candelatech.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0806180717x6b1a53eeo4db207dab26483c@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, kkeil@suse.de, netdev@vger.kernel.org,
+	Mironov_Sergey@emc.com, akpm@linux-foundation.org,
+	torvalds@linux-f
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.suse.de ([195.135.220.2]:45722 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751803AbYFROZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 10:25:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20080618140558.GB25004@pingi.kke.suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> On Wed, Jun 18, 2008 at 10:57 AM, Patrick McHardy <kaber@trash.net> wrote:
->>>> As I mentioned above, you usually want a MASK in combination
->>>> with flags to allow to unset them. This is best done using
->>>> a structure.
->>>>
->>> Hm, I'm not sure if I understand exactly what this struct is supposed
->>> to look like. Could you give an example?
->>>
->> struct {
->>   u32 flags;
->>   u32 mask;
->> } flags;
->>
->> and then:
->>
->> obj->flags = (obj->flags & ~flags->mask) |
->>                   (flags->flags | flags->mask);
-> 
-> Ah, I see. The second line should read "(flags->flags & flags->mask)", right?
+On Wed, Jun 18, 2008 at 04:05:58PM +0200, Karsten Keil wrote:
+> On Wed, Jun 18, 2008 at 10:36:00PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> > In article <20080618132312.GA25004@pingi.kke.suse.de> (at Wed, 18 J=
+un 2008 15:23:12 +0200), Karsten Keil <kkeil@suse.de> says:
+> >=20
+> > > RFC 4291 forbit the use of the loopback address as source outside=
+ a node
+> > > (paragraph 2.5.3).
+> > >=20
+> > > The latest TAHI test release 4.0.1 does have a check for this (IC=
+MPv6 test
+> > > v6LC.5.1.2 Part F), so it fails currently on Linux.
+> > >=20
+> > > Signed-off-by: Sergey Mironov <Mironov_Sergey@emc.com>
+> > > Signed-off-by: Karsten Keil <kkeil@suse.de>
+> >=20
+> > I disagree this approach - too ad-hoc fix just to pass the tests.
+> >=20
+>=20
+> So you would prefer a more general test in some common place (like
+> __ip6_local_out() ) to avoid any packets with ::1 on other devices as
+> loopback ?
+>=20
 
-Yes.
+I think that dropping pakets with destination ::1 in ipv6_rcv() for dev=
+ices
+!=3D loopback would be better reflect what RFC 4291 2.5.3 says.
 
-> Looking at how these "flags" are actually used in ipvsadm, I'm not
-> sure this would be needed here:
-> 
-> 1) destination conn_flags are only set to successive integer values 0,
-> 1, 2... (depending on the forwarding method), which are mutually
-> exclusive. Only internally in the kernel are other bits of this field
-> used in a flag-like fashion. So this Netlink attribute could be
-> renamed to something like *_FWD_METHOD and be a normal value field.
-
-Yes. The internal fields shouldn't be exported to userspace
-unless necessary.
-
-> 2) for the service flags, only one bit is set from userspace
-> (persistent/nonpersistent service). So this might be not too bad to
-> have as a single Netlink flag attribute.
-
-And this bit can't be unset (or if it currently can't be,
-it also wouldn't make sense to be able to unset it)?
+--=20
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex,=
+ HRB 16746 (AG Nuernberg)
