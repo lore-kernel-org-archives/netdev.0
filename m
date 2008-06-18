@@ -1,37 +1,42 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: DM9000: Remove blackfin as special case.
-Date: Wed, 18 Jun 2008 09:28:39 +0100
-Message-ID: <20080618082839.GF10351@trinity.fluff.org>
-References: <20080615233648.597885961@fluff.org.uk> <48587AAA.8080005@garzik.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: v2: [PATCH 2/3] netdevice: Fix promiscuity and allmulti overflow
+Date: Wed, 18 Jun 2008 10:44:10 +0200
+Message-ID: <4858CADA.6020807@trash.net>
+References: <48568125.4090500@cn.fujitsu.com>	<4857B542.6030703@trash.net>	<48586A04.6040800@cn.fujitsu.com> <20080617.215402.169100957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Dooks <ben-linux@fluff.org>, netdev@vger.kernel.org,
-	cooloney@kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from trinity.fluff.org ([89.145.97.151]:57835 "EHLO
-	trinity.fluff.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383AbYFRI2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 04:28:41 -0400
-Content-Disposition: inline
-In-Reply-To: <48587AAA.8080005@garzik.org>
+Received: from stinky.trash.net ([213.144.137.162]:56533 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391AbYFRIoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 04:44:15 -0400
+In-Reply-To: <20080617.215402.169100957.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 17, 2008 at 11:02:02PM -0400, Jeff Garzik wrote:
-> Ben Dooks wrote:
+David Miller wrote:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Wed, 18 Jun 2008 09:51:00 +0800
+>> Patrick McHardy said the following on 2008-6-17 20:59:
+>>> Assuming the caller does proper error handling, that printk is
+>>> not true.
+>> Yes.
+>> But currently, no caller handling this, and I think even if I make
+>> some callers to handle this, but there maybe some callers and their
+>> callers do not want to handle error condition.
+>> So I need a KERN_WARNING here.
+>> If some day, all of the caller handle the error properly, we can
+>> remove this printk.
+>>
+>> Here is v3:
+>
+> Patrick, ACK?
 
-> Is this for 2.6.26 or 2.6.27?
+Yes, thanks.
 
-This set is for application once 2.6.26 is released.
- 
-> And please CC me on net driver patches, thanks...
 
-On all, or just patches that want applying?
 
--- 
-Ben
-
-Q:      What's a light-year?
-A:      One-third less calories than a regular year.
 
