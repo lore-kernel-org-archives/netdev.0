@@ -1,161 +1,93 @@
-From: Mandeep Singh Baines <msb@google.com>
-Subject: ethtool: add support for block writing of EEPROMs
-Date: Wed, 18 Jun 2008 10:38:02 -0700
-Message-ID: <20080618173802.GA13834@google.com>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: [PATCH] [IPv6] Do not use loopback as source address on other interfaces
+Date: Wed, 18 Jun 2008 19:49:07 +0200
+Message-ID: <20080618174907.GA31937@pingi.kke.suse.de>
+References: <20080618132312.GA25004@pingi.kke.suse.de> <20080618.223600.81071656.yoshfuji@linux-ipv6.org> <20080618140558.GB25004@pingi.kke.suse.de> <20080618.233607.20745708.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nil@google.com, thockin@google.com
-To: jeff@garzik.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:29840 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752464AbYFRRjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 13:39:07 -0400
-Received: from zps76.corp.google.com (zps76.corp.google.com [172.25.146.76])
-	by smtp-out.google.com with ESMTP id m5IHd0ob031059
-	for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 18:39:01 +0100
-Received: from rv-out-0506.google.com (rvbg37.prod.google.com [10.140.83.37])
-	by zps76.corp.google.com with ESMTP id m5IHcx1r014380
-	for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 10:39:00 -0700
-Received: by rv-out-0506.google.com with SMTP id g37so6065470rvb.35
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 10:38:59 -0700 (PDT)
+Received: from mx2.suse.de ([195.135.220.15]:38209 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751810AbYFRRtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 13:49:09 -0400
+Received: from Relay2.suse.de (relay-ext.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx2.suse.de (Postfix) with ESMTP id 7B68F4599D
+	for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 19:49:08 +0200 (CEST)
 Content-Disposition: inline
+In-Reply-To: <20080618.233607.20745708.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-EEPROM write only supports byte writing. Add support for writing
-an arbitrary number of bytes at an arbitrary offset.
+Hi Yoshfuji,
 
-Signed-off-by: Mandeep Singh Baines <msb@google.com>
----
- ethtool.8 |   12 ++++++++----
- ethtool.c |   58 ++++++++++++++++++++++++++++++++++++++++++++--------------
- 2 files changed, 52 insertions(+), 18 deletions(-)
+On Wed, Jun 18, 2008 at 11:36:07PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
 
-diff --git a/ethtool.8 b/ethtool.8
-index cc6a46e..90d160a 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -144,6 +144,8 @@ ethtool \- Display or change ethernet card settings
- .IR N ]
- .RB [ offset
- .IR N ]
-+.RB [ length
-+.IR N ]
- .RB [ value
- .IR N ]
- 
-@@ -265,10 +267,12 @@ length and offset parameters allow dumping certain portions of the EEPROM.
- Default is to dump the entire EEPROM.
- .TP
- .B \-E \-\-change\-eeprom
--Changes EEPROM byte for the specified ethernet device.  offset and value
--specify which byte and it's new value.  Because of the persistent nature
--of writing to the EEPROM, a device-specific magic key must be specified
--to prevent the accidental writing to the EEPROM.
-+If value is specified, changes EEPROM byte for the specified ethernet device.
-+offset and value specify which byte and it's new value. If value is not
-+specified, stdin is read and written to the EEPROM. The length and offset
-+parameters allow writing to certain portions of the EEPROM.
-+Because of the persistent nature of writing to the EEPROM, a device-specific
-+magic key must be specified to prevent the accidental writing to the EEPROM.
- .TP
- .B \-k \-\-show\-offload
- Queries the specified ethernet device for offload information.
-diff --git a/ethtool.c b/ethtool.c
-index a668b49..3fce21c 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -163,6 +163,7 @@ static struct option {
-     { "-E", "--change-eeprom", MODE_SEEPROM, "Change bytes in device EEPROM",
- 		"		[ magic N ]\n"
- 		"		[ offset N ]\n"
-+		"		[ length N ]\n"
- 		"		[ value N ]\n" },
-     { "-r", "--negotiate", MODE_NWAY_RST, "Restart N-WAY negotation" },
-     { "-p", "--identify", MODE_PHYS_ID, "Show visible port identification (e.g. blinking)",
-@@ -264,8 +265,9 @@ static int geeprom_offset = 0;
- static int geeprom_length = -1;
- static int seeprom_changed = 0;
- static int seeprom_magic = 0;
--static int seeprom_offset = -1;
--static int seeprom_value = 0;
-+static int seeprom_length = -1;
-+static int seeprom_offset = 0;
-+static int seeprom_value = EOF;
- static enum {
- 	ONLINE=0,
- 	OFFLINE,
-@@ -300,6 +302,7 @@ static struct cmdline_info cmdline_geeprom[] = {
- static struct cmdline_info cmdline_seeprom[] = {
- 	{ "magic", CMDL_INT, &seeprom_magic, NULL },
- 	{ "offset", CMDL_INT, &seeprom_offset, NULL },
-+	{ "length", CMDL_INT, &seeprom_length, NULL },
- 	{ "value", CMDL_INT, &seeprom_value, NULL },
- };
- 
-@@ -1920,22 +1923,49 @@ static int do_geeprom(int fd, struct ifreq *ifr)
- static int do_seeprom(int fd, struct ifreq *ifr)
- {
- 	int err;
--	struct {
--		struct ethtool_eeprom eeprom;
--		u8 data;
--	} edata;
--
--	edata.eeprom.cmd = ETHTOOL_SEEPROM;
--	edata.eeprom.len = 1;
--	edata.eeprom.offset = seeprom_offset;
--	edata.eeprom.magic = seeprom_magic;
--	edata.data = seeprom_value;
--	ifr->ifr_data = (caddr_t)&edata.eeprom;
-+	struct ethtool_drvinfo drvinfo;
-+	struct ethtool_eeprom *eeprom;
-+
-+	drvinfo.cmd = ETHTOOL_GDRVINFO;
-+	ifr->ifr_data = (caddr_t)&drvinfo;
-+	err = ioctl(fd, SIOCETHTOOL, ifr);
-+	if (err < 0) {
-+		perror("Cannot get driver information");
-+		return 74;
-+	}
-+
-+	if (seeprom_value != EOF)
-+		seeprom_length = 1;
-+
-+	if (seeprom_length <= 0)
-+		seeprom_length = drvinfo.eedump_len;
-+
-+	if (drvinfo.eedump_len < seeprom_offset + seeprom_length)
-+		seeprom_length = drvinfo.eedump_len - seeprom_offset;
-+
-+	eeprom = calloc(1, sizeof(*eeprom)+seeprom_length);
-+	if (!eeprom) {
-+		perror("Cannot allocate memory for EEPROM data");
-+		return 75;
-+	}
-+
-+	eeprom->cmd = ETHTOOL_SEEPROM;
-+	eeprom->len = seeprom_length;
-+	eeprom->offset = seeprom_offset;
-+	eeprom->magic = seeprom_magic;
-+	eeprom->data[0] = seeprom_value;
-+
-+	/* Multi-byte write: read input from stdin */
-+	if (seeprom_value == EOF)
-+		eeprom->len = fread(eeprom->data, 1, eeprom->len, stdin);
-+
-+	ifr->ifr_data = (caddr_t)eeprom;
- 	err = ioctl(fd, SIOCETHTOOL, ifr);
- 	if (err < 0) {
- 		perror("Cannot set EEPROM data");
--		return 87;
-+		err = 87;
- 	}
-+	free(eeprom);
- 
- 	return err;
- }
--- 
-1.5.2.5
+Verified that this patch fix the TAHI issue and that ping6 ::1 still wo=
+rks.
+So this should go in.
 
+=2E..
+
+> ipv6: Drop packets for loopback address from outside of the box.
+>=20
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>=20
+> --=20
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index e0a612b..f422f72 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -367,6 +367,12 @@ static inline int ipv6_addr_any(const struct in6=
+_addr *a)
+>  		 a->s6_addr32[2] | a->s6_addr32[3] ) =3D=3D 0);=20
+>  }
+> =20
+> +static inline int ipv6_addr_loopback(const struct in6_addr *a)
+> +{
+> +	return ((a->s6_addr32[0] | a->s6_addr32[1] |
+> +		 a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) =3D=3D 0);
+> +}
+> +
+>  static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+>  {
+>  	return ((a->s6_addr32[0] | a->s6_addr32[1] |
+> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+> index 4e5c861..17eb48b 100644
+> --- a/net/ipv6/ip6_input.c
+> +++ b/net/ipv6/ip6_input.c
+> @@ -102,6 +102,15 @@ int ipv6_rcv(struct sk_buff *skb, struct net_dev=
+ice *dev, struct packet_type *pt
+>  	if (hdr->version !=3D 6)
+>  		goto err;
+> =20
+> +	/*
+> +	 * RFC4291 2.5.3
+> +	 * A packet received on an interface with a destination address
+> +	 * of loopback must be dropped.
+> +	 */
+> +	if (!(dev->flags & IFF_LOOPBACK) &&
+> +	    ipv6_addr_loopback(&hdr->daddr))
+> +		goto err;
+> +
+>  	skb->transport_header =3D skb->network_header + sizeof(*hdr);
+>  	IP6CB(skb)->nhoff =3D offsetof(struct ipv6hdr, nexthdr);
+> =20
+>=20
+>=20
+> --yoshfuji
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--=20
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex,=
+ HRB 16746 (AG Nuernberg)
