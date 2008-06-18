@@ -1,23 +1,24 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
+From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Thu, 19 Jun 2008 01:44:38 +0300
-Message-ID: <200806190144.39270.denys@visp.net.lb>
+Date: Thu, 19 Jun 2008 01:14:36 +0200
+Message-ID: <20080618231436.GA12886@elte.hu>
 References: <20080617083220.GA11393@elte.hu>
-	<200806190041.52532.denys@visp.net.lb>
-	<20080618220527.GA19155@elte.hu>
+	<20080617.020840.169830916.davem@davemloft.net>
+	<20080617092706.GB20621@elte.hu>
+	<20080617.022909.173003136.davem@davemloft.net>
+	<20080617093929.GA10334@elte.hu> <48595910.8000905@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: vgusev@openvz.org, "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rjw@sisk.pl, mcmanus@ducksong.com,
-	ilpo.jarvinen@helsinki.fi, kuznet@ms2.inr.ac.ru,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, xemul@openvz.org
-To: Ingo Molnar <mingo@elte.hu>
+Cc: vgusev@openvz.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, rjw@sisk.pl,
+	mcmanus@ducksong.com, ilpo.jarvinen@helsinki.fi,
+	kuznet@ms2.inr.ac.ru, David Miller <davem@davemloft.net>,
+	xemul@openvz.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080618220527.GA19155@elte.hu>
 Content-Disposition: inline
+In-Reply-To: <48595910.8000905@intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -29,77 +30,84 @@ Sender: e1000-devel-bounces@lists.sourceforge.net
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thursday 19 June 2008 01:05, Ingo Molnar wrote:
-> 
-> ok, that looks much better! i have another box with e1000, ich7:
-> 
-> 64 bytes from titan (10.0.1.14): icmp_seq=5 ttl=64 time=0.345 ms
-> 64 bytes from titan (10.0.1.14): icmp_seq=6 ttl=64 time=1.03 ms
-> 64 bytes from titan (10.0.1.14): icmp_seq=7 ttl=64 time=0.383 ms
-> 64 bytes from titan (10.0.1.14): icmp_seq=8 ttl=64 time=0.320 ms
-> 64 bytes from titan (10.0.1.14): icmp_seq=9 ttl=64 time=0.996 ms
-> 64 bytes from titan (10.0.1.14): icmp_seq=10 ttl=64 time=0.248 ms
-Maybe there is some flow-control involved?
-ethtool -S eth0 ?
 
-This is Interrupt throttling i guess in e1000. In e1000 also parameters, but available only on insmod stage
-parm:           TxIntDelay:Transmit Interrupt Delay (array of int)
-parm:           TxAbsIntDelay:Transmit Absolute Interrupt Delay (array of int)
-parm:           RxIntDelay:Receive Interrupt Delay (array of int)
-parm:           RxAbsIntDelay:Receive Absolute Interrupt Delay (array of int)
-parm:           InterruptThrottleRate:Interrupt Throttling Rate (array of int)
+* Kok, Auke <auke-jan.h.kok@intel.com> wrote:
 
+> You only complain and do not provide a single solution to your 
+> problem. [...]
 
-> well i tend not to tweak my drivers with such options because i want to 
-> experience and test what 99.9% of our users will experience in the 
-> field. The reality is that if it's not the default behavior, it's almost 
-> as if it didnt exist at all.
+i have reported the problem and even provided a fix.
 
-Each coin have two sides. On one side - low latencies(difference 1ms, it is matter anywhere?)
-, on another - performance.
+I have triggered an e1000/e1000e related problem that got introduced in 
+the v2.6.25 merge window - one of my testboxes came up with no 
+networking and it took me an hour to figure out why. (i wasnt 
+particularly focusing on e1000, i just happened to hit that bug in 9 
+million lines of Linux kernel code)
 
+I have reported it here, two and a half months ago:
 
-> 
-> but even with that tune on e1000e (on the t60, ich7) i still get rather 
-> large numbers:
-> 
-> earth4:~/s> ping eu
-> PING europe (10.0.1.15) 56(84) bytes of data.
-> 64 bytes from europe (10.0.1.15): icmp_seq=1 ttl=64 time=0.250 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=2 ttl=64 time=0.250 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=3 ttl=64 time=0.225 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=4 ttl=64 time=0.932 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=5 ttl=64 time=0.251 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=6 ttl=64 time=0.915 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=7 ttl=64 time=0.250 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=8 ttl=64 time=0.238 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=9 ttl=64 time=0.390 ms
-> 64 bytes from europe (10.0.1.15): icmp_seq=10 ttl=64 time=0.260 ms
+    http://lkml.org/lkml/2008/4/8/256
 
+I even showed you which commit introduced the problem and gave you a 
+oneliner fix that i tested (it solved the problem):
 
-Is all this hosts on same switch? Is the switch manageable or not?
-For example i am having problems with packetloss on long fiber link between two cheap Linksys switches. 
-Without flow-control  i cannot survive, and as result i have 1-2ms additional delay on load, and +-0.500ms jitter "inside" this switches (probably from switches).
+    http://bugzilla.kernel.org/attachment.cgi?id=15704&amp;action=view
 
-There is many things matter. Maybe even processor sleep latencies involved? bus latency, PCI latency, whatever. 
+You were Cc:-ed to that. (attached below again for reference) The bug 
+was added to the regression list of v2.6.25. I never expected to spend 
+more than 10 minutes on this problem once i found out what's happening - 
+we fix dozens of bugs like this per stable kernel release.
 
-Also on laptops is dynamic frequency running (Speedstep)
-with 600 Mhz PentiumM (Speedstep - ondemand)
-64 bytes from 127.0.0.1: icmp_seq=17 ttl=64 time=0.017 ms
-full speed 1.7 Ghz
-64 bytes from 127.0.0.1: icmp_seq=33 ttl=64 time=0.007 ms
+I just checked latest -git, my fix is still not upstream (or any 
+equivalent solution - i really dont mind how it's solved and i'm not 
+maintaining this code).
 
-on network also i see difference -0.030ms when i am running burnP6 (from CPUburn package).
+no alternative patch was sent to me - i offered to test any solution 
+back then.
 
+FYI, since i first reported it i've been hit by that problem roughly a 
+dozen times. (it happened sporadically so i forgot about it - until i 
+again had a system come up with no networking.) It caused me lost time 
+and lost work that could have been spent on better things.
 
+	Ingo
 
+------------------------>
+Subject: e1000=y && e1000e=m regression fix
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed Apr 09 21:09:35 CEST 2008
 
+fix a regression from v2.6.24: do not transfer the e1000e PCI IDs from 
+e1000 to e1000e if e1000 is built-in and e1000e is a module.
 
--- 
-------
-Technical Manager
-Virtual ISP S.A.L.
-Lebanon
+Built-in drivers take precedence over modules in many ways - and in this 
+case it's clear that the user intended the e1000 driver to be the 
+primary one. "Silently change behavior and break existing configs" is 
+never a good migration strategy. Most users will use distro kernels that 
+are not affected by this problem at all - nor are they affected by this 
+patch - but this problem can hit users and developers who build their 
+kernels themselves and migrate from v2.6.24 to v2.6.25.
+
+this fixes: http://bugzilla.kernel.org/show_bug.cgi?id=10427
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ drivers/net/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-x86.q/drivers/net/Kconfig
+===================================================================
+--- linux-x86.q.orig/drivers/net/Kconfig
++++ linux-x86.q/drivers/net/Kconfig
+@@ -2022,7 +2022,7 @@ config E1000E
+ 	  will be called e1000e.
+ 
+ config E1000E_ENABLED
+-	def_bool E1000E != n
++	def_bool E1000E = y || ((E1000E != n) && (E1000 = E1000E))
+ 
+ config IP1000
+ 	tristate "IP1000 Gigabit Ethernet support"
 
 -------------------------------------------------------------------------
 Check out the new SourceForge.net Marketplace.
