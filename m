@@ -1,95 +1,67 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [IPv6] Do not use loopback as source address on other
- interfaces
-Date: Wed, 18 Jun 2008 23:36:07 +0900 (JST)
-Message-ID: <20080618.233607.20745708.yoshfuji@linux-ipv6.org>
-References: <20080618132312.GA25004@pingi.kke.suse.de>
-	<20080618.223600.81071656.yoshfuji@linux-ipv6.org>
-	<20080618140558.GB25004@pingi.kke.suse.de>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
+Date: Wed, 18 Jun 2008 16:36:30 +0200
+Message-ID: <f4845fc0806180736n17967573re22f0b8860c5580d@mail.gmail.com>
+References: <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>
+	 <4857A58E.6080304@trash.net> <20080617171840.GB4064@google.com>
+	 <485819A8.1090004@trash.net>
+	 <f4845fc0806171547v88ff4d3gc56e9c43a4176a14@mail.gmail.com>
+	 <4858CDDF.4050306@trash.net>
+	 <f4845fc0806180717x6b1a53eeo4db207dab26483c@mail.gmail.com>
+	 <4859198A.9070503@trash.net>
+	 <f4845fc0806180727m1baffef7s2530f921f954584f@mail.gmail.com>
+	 <48591BFF.2060903@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mironov_Sergey@emc.com,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	yoshfuji@linux-ipv6.org
-To: kkeil@suse.de, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:59882 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751255AbYFROfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 10:35:18 -0400
-In-Reply-To: <20080618140558.GB25004@pingi.kke.suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Simon Horman" <horms@verge.net.au>,
+	"Vince Busam" <vbusam@google.com>,
+	"Ben Greear" <greearb@candelatech.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <48591BFF.2060903@trash.net>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In article <20080618140558.GB25004@pingi.kke.suse.de> (at Wed, 18 Jun 2008 16:05:58 +0200), Karsten Keil <kkeil@suse.de> says:
+On Wed, Jun 18, 2008 at 4:30 PM, Patrick McHardy <kaber@trash.net> wrote:
+> Julius Volz wrote:
+>>
+>> On Wed, Jun 18, 2008 at 4:19 PM, Patrick McHardy <kaber@trash.net> wrote:
+>>>>
+>>>> 2) for the service flags, only one bit is set from userspace
+>>>> (persistent/nonpersistent service). So this might be not too bad to
+>>>> have as a single Netlink flag attribute.
+>>>
+>>> And this bit can't be unset (or if it currently can't be,
+>>> it also wouldn't make sense to be able to unset it)?
+>>
+>> It can get unset when editing a persistent service to be
+>> non-persistent, so you would still have to include it in a change
+>> request that doesn't want to unset it. Since it's only one flag
+>> though, it didn't seem too bad to me.
+>
+> The problem is that its racy. You have to query the current
+> state before deciding whether to send it or not. And another
+> process might change it in between. An additional downside
+> is the overhead for the query itself.
 
-> On Wed, Jun 18, 2008 at 10:36:00PM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> > In article <20080618132312.GA25004@pingi.kke.suse.de> (at Wed, 18 Jun 2008 15:23:12 +0200), Karsten Keil <kkeil@suse.de> says:
-> > 
-> > > RFC 4291 forbit the use of the loopback address as source outside a node
-> > > (paragraph 2.5.3).
-> > > 
-> > > The latest TAHI test release 4.0.1 does have a check for this (ICMPv6 test
-> > > v6LC.5.1.2 Part F), so it fails currently on Linux.
-> > > 
-> > > Signed-off-by: Sergey Mironov <Mironov_Sergey@emc.com>
-> > > Signed-off-by: Karsten Keil <kkeil@suse.de>
-> > 
-> > I disagree this approach - too ad-hoc fix just to pass the tests.
-> > 
-> 
-> So you would prefer a more general test in some common place (like
-> __ip6_local_out() ) to avoid any packets with ::1 on other devices as
-> loopback ?
+Right, forgot about this issue. Although ipvsadm does no getting and
+setting based on the prior value (it only takes the value of the flag
+from the command line), there might be other userspace tools who'd
+want to use the interface differently.
 
-No, we should not even accept packets for ::1 from outside of the box.
-Something like this.
+>> An alternative (also, in case of more flags in the future) would be to
+>> put flags into a nested attribute and if this is not supplied from
+>> userspace during an edit operation, the flags will be left untouched.
+>
+> Then you can't unset them. I'd simply use the flags/mask
+> scheme.
 
----
-ipv6: Drop packets for loopback address from outside of the box.
+Ok!
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Julius
 
 -- 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index e0a612b..f422f72 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -367,6 +367,12 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
- 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
- }
- 
-+static inline int ipv6_addr_loopback(const struct in6_addr *a)
-+{
-+	return ((a->s6_addr32[0] | a->s6_addr32[1] |
-+		 a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) == 0);
-+}
-+
- static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
- {
- 	return ((a->s6_addr32[0] | a->s6_addr32[1] |
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 4e5c861..17eb48b 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -102,6 +102,15 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	if (hdr->version != 6)
- 		goto err;
- 
-+	/*
-+	 * RFC4291 2.5.3
-+	 * A packet received on an interface with a destination address
-+	 * of loopback must be dropped.
-+	 */
-+	if (!(dev->flags & IFF_LOOPBACK) &&
-+	    ipv6_addr_loopback(&hdr->daddr))
-+		goto err;
-+
- 	skb->transport_header = skb->network_header + sizeof(*hdr);
- 	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
- 
-
-
---yoshfuji
+Google Switzerland GmbH
