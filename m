@@ -1,43 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
-Date: Tue, 17 Jun 2008 19:59:08 -0400
-Message-ID: <48584FCC.4060800@garzik.org>
-References: <99863D2ED484D449811D97A4C44C9CBD7C50F7@EPEXCH2.qlogic.org><c8028d330806171018j7f129ddft3bee056e4be9b954@mail.gmail.com><485803D3.5020505@trash.net> <20080617121441.4b87ba84@extreme> <C07C40DB2364324799506DE8FF12F8D859E90D@EPEXCH1.qlogic.org> <99863D2ED484D449811D97A4C44C9CBD7C5169@EPEXCH2.qlogic.org> <48582340.7010409@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NIU - Sun Neptune 10g - Transmit timed out reset (2.6.24)
+Date: Tue, 17 Jun 2008 17:02:26 -0700 (PDT)
+Message-ID: <20080617.170226.132179445.davem@davemloft.net>
+References: <20080526.151540.191673092.davem@davemloft.net>
+	<483BA80C.4020502@krogh.cc>
+	<483CB301.40007@sun.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: John Russo <john.russo@qlogic.com>, shemminger@vyatta.com,
-	"Amar Mudrankit (Contractor - )" <amar.mudrankit@qlogic.com>,
-	netdev@vger.kernel.org, rdreier@cisco.com,
-	"Kuchimanchi, Ramachandra \(Contractor - \)"
-	<ramachandra.kuchimanchi@qlogic.com>,
-	"Poornima Kamath (Contractor - )" <poornima.kamath@qlogic.com>
-To: Patrick McHardy <kaber@trash.net>
+Cc: jesper@krogh.cc, yhlu.kernel@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Matheos.Worku@Sun.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33790 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755127AbYFQX7O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 19:59:14 -0400
-In-Reply-To: <48582340.7010409@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58254
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754343AbYFRACZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2008 20:02:25 -0400
+In-Reply-To: <483CB301.40007@sun.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Frankly, you didn't even try to fix the most obvious mistakes in your
-> interface, like duplication of existing interfaces (csum settings)
-> and very unusual behaviour (state machine triggered device registation)
-> before you started complaining (and both of these are *really* easy to
-> do).
-> 
-> That you were asked to migrate to sysfs is unfortunate. The fact is
-> though that your driver is a virtual ethernet device, not an infiniband
-> device, so it should use the proper APIs for this kind of device. Work
-> has been going on for years to provide a uniform interface to the network
-> and your interface is a move in the opposite direction.
+From: Matheos Worku <Matheos.Worku@Sun.COM>
+Date: Tue, 27 May 2008 18:18:57 -0700
 
-That's pretty much my feeling.
+> Considering that fixing the HW would take considerable time, I was 
+> wondering if the scheme we use in the nxge driver could be considered as 
+> a workaround. Since the niu driver is already doing skb_orphan as a work 
+> around, what if  already transmitted TX buffers are  reclaimed 
+> periodically, within dev->hard_start_xmit() ?  Then TX_DESC_MARK would 
+> be set if/when available TX descriptor count falls below some watermark. 
+> Disable device TX queue about the time  TX_DESC_MARK is set and enable 
+> it within TX interrupt.
 
-	Jeff
+This is still insufficient.
 
+Even if we detach the socket association, there are still resources
+held by the SKB, such as firewalling state.
 
+So you can get into situations where, for example, you can't unload
+netfilter modules, attempts just hang the system.
+
+The only workaround is to use a timer to purge the TX queue, and that's
+far from acceptable in my opinion, because of the timer maintainence
+overhead and the latency.
 
