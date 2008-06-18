@@ -1,42 +1,41 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] fs_enet: fix checkpatch.pl problems
-Date: Tue, 17 Jun 2008 23:54:01 -0400
-Message-ID: <485886D9.5070800@garzik.org>
-References: <1213743794-3537-1-git-send-email-jrigby@freescale.com> <1213743794-3537-2-git-send-email-jrigby@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows
+ with MD5SIG enabled (v2)
+Date: Tue, 17 Jun 2008 21:03:23 -0700 (PDT)
+Message-ID: <20080617.210323.220620741.davem@davemloft.net>
+References: <396556a20805301217k293e5718h6bbf02bfe0683144@europa>
+	<20080617.170718.260234361.davem@davemloft.net>
+	<396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Scott Wood <scottwood@freescale.com>, linuxppc-dev@ozlabs.org,
-	Sam Ravnborg <sam@ravnborg.org>, netdev@vger.kernel.org
-To: John Rigby <jrigby@freescale.com>
+Cc: netdev@vger.kernel.org
+To: agl@imperialviolet.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34489 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757966AbYFRDyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 23:54:16 -0400
-In-Reply-To: <1213743794-3537-2-git-send-email-jrigby@freescale.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40349
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750779AbYFREDX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 00:03:23 -0400
+In-Reply-To: <396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Rigby wrote:
-> Fixed all errors and warnings that checkpatch.pl
-> reports if this was a new submission.
-> Also changed instances of fec_t to struct fec in
-> mac-fec.c and mii-fec.c.
+From: "Adam Langley" <agl@imperialviolet.org>
+Date: Tue, 17 Jun 2008 17:45:52 -0700
+
+> How's this:
 > 
-> This is in preparation of adding MPC5121 support.
-> 
-> Signed-off-by: John Rigby <jrigby@freescale.com>
-> ---
->  drivers/net/fs_enet/fs_enet-main.c |   70 ++++++++++++++++++++---------------
->  drivers/net/fs_enet/fs_enet.h      |   15 +++++---
->  drivers/net/fs_enet/mac-fcc.c      |    7 ++--
->  drivers/net/fs_enet/mac-fec.c      |   40 ++++++++++----------
->  drivers/net/fs_enet/mac-scc.c      |   13 ++++---
->  drivers/net/fs_enet/mii-bitbang.c  |    4 +-
->  drivers/net/fs_enet/mii-fec.c      |   23 +++++++-----
->  7 files changed, 95 insertions(+), 77 deletions(-)
+> If we receive a SYN packet with MD5 + SACK + TS was assume that it's
+> from an older kernel and reply with MD5 + TS. Not including SACK means
+> that it won't send us corrupt packets and since we couldn't previously
+> do SACK with these packets anyway, we're not loosing anything.
 
-patch does not apply
+We should reject invalid packets, even those created by
+Linus, regardless of the ramifications of such.
 
+If we drop such frames, things will reset and a timeout
+based retransmission will occur.
 
+I don't see any value in trying to recognize these
+invalid frames.  We should instead just fix the part
+of Linux that emits the bogus packets to begin with.
