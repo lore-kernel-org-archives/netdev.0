@@ -1,360 +1,111 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] firmware: convert tg3 driver to request_firmware()
-Date: Wed, 18 Jun 2008 16:16:52 +0100
-Message-ID: <1213802212.26255.1271.camel@pmac.infradead.org>
-References: <1213799313.4794.20.camel@fc6.satnam>
-	 <48592192.6060501@garzik.org>
+From: Miquel van Smoorenburg <miquels@cistron.nl>
+Subject: [PATCH] tcp.c: calculate tcp_mem based on low memory instead of
+	all memory
+Date: Wed, 18 Jun 2008 17:30:45 +0200
+Message-ID: <20080618153042.GA27663@xs4all.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jaswinder Singh <jaswinder@infradead.org>,
-	kernelnewbies@nl.linux.org, kernel-janitors@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, miquels@cistron.nl
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:40307 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752230AbYFRPRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 11:17:05 -0400
-In-Reply-To: <48592192.6060501@garzik.org>
+Received: from smtp-vbr4.xs4all.nl ([194.109.24.24]:4767 "EHLO
+	smtp-vbr4.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752677AbYFRPaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 11:30:55 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-06-18 at 10:54 -0400, Jeff Garzik wrote:
-> It just makes the patch longer and more difficult to read and review 
-> with the two separate changes mushed together.  Having separate patches 
-> also means it is easier to test and validate the loadable firmware approach.
+I started upgrading a bunch of machines in my nntp server farm
+to a recent kernel- 2.6.25.x. They were running 2.6.11.12 on
+32 bits, and I upgraded them to 2.6.25.x on 64 bits.
 
-In this _particular_ case, because the big hex arrays were directly in
-tg3.c and not a header file, it might be a little easier to review the
-code changes for correctness if we post a cut-down patch which doesn't
-actually _remove_ the hex arrays, but instead just leaves them present
-but unused. That cut-down patch is below.
+All went fine until I noticed a few machines didn't have a 64
+bit capable processor, so I had to keep them on a 32 bit kernel.
+These are machines with dual xeons 3 Ghz and 8 GB of RAM.
 
-It still doesn't make sense to add a completely _new_ code path for
-loading firmware by request_firmware() though; that would just have to
-add new functions to parallel with each function touched by patch below,
-and it would be much harder to read the patch and actually see what's
-changing.
+On the 32 bit machines I keep getting the error below, and a flood
+of these on a 9600 baud serial console essentially kills the machine:
 
-This is the patch we're seeking constructive review of:
+diablo invoked oom-killer: gfp_mask=0xd0, order=0, oomkilladj=0
+Pid: 4459, comm: diablo Not tainted 2.6.25.7-rc1 #1
+ [<c0249660>] oom_kill_process+0x120/0x210
+ [<c0227ff8>] __capable+0x8/0x20
+ [<c0249898>] badness+0x128/0x1c0
+ [<c0249b1c>] out_of_memory+0x17c/0x1c0
+ [<c024bdf4>] __alloc_pages+0x254/0x350
+ [<c03b75ad>] tcp_sendmsg+0x5cd/0xb50
+ [<c0381672>] sock_aio_write+0xe2/0x100
+ [<c02681e7>] do_sync_write+0xc7/0x110
+ [<c0232f20>] autoremove_wake_function+0x0/0x50
+ [<c0268af3>] vfs_write+0x133/0x140
+ [<c0269131>] sys_write+0x41/0x70
+ [<c0202e5e>] syscall_call+0x7/0xb
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 07b3f77..a70147d 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -38,6 +38,7 @@
- #include <linux/workqueue.h>
- #include <linux/prefetch.h>
- #include <linux/dma-mapping.h>
-+#include <linux/firmware.h>
- 
- #include <net/checksum.h>
- #include <net/ip.h>
-@@ -139,6 +140,9 @@ MODULE_AUTHOR("David S. Miller (davem@redhat.com) and Jeff Garzik (jgarzik@pobox
- MODULE_DESCRIPTION("Broadcom Tigon3 ethernet driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_MODULE_VERSION);
-+MODULE_FIRMWARE("tigon/tg3.bin");
-+MODULE_FIRMWARE("tigon/tg3_tso.bin");
-+MODULE_FIRMWARE("tigon/tg3_tso5.bin");
- 
- static int tg3_debug = -1;	/* -1 == use TG3_DEF_MSG_ENABLE as value */
- module_param(tg3_debug, int, 0);
-@@ -5778,15 +5658,9 @@ static int tg3_halt_cpu(struct tg3 *tp, u32 offset)
- }
- 
- struct fw_info {
--	unsigned int text_base;
--	unsigned int text_len;
--	const u32 *text_data;
--	unsigned int rodata_base;
--	unsigned int rodata_len;
--	const u32 *rodata_data;
--	unsigned int data_base;
--	unsigned int data_len;
--	const u32 *data_data;
-+	unsigned int fw_base;
-+	unsigned int fw_len;
-+	const __be32 *fw_data;
- };
- 
- /* tp->lock is held. */
-@@ -5823,24 +5697,11 @@ static int tg3_load_firmware_cpu(struct tg3 *tp, u32 cpu_base, u32 cpu_scratch_b
- 		write_op(tp, cpu_scratch_base + i, 0);
- 	tw32(cpu_base + CPU_STATE, 0xffffffff);
- 	tw32(cpu_base + CPU_MODE, tr32(cpu_base+CPU_MODE)|CPU_MODE_HALT);
--	for (i = 0; i < (info->text_len / sizeof(u32)); i++)
--		write_op(tp, (cpu_scratch_base +
--			      (info->text_base & 0xffff) +
--			      (i * sizeof(u32))),
--			 (info->text_data ?
--			  info->text_data[i] : 0));
--	for (i = 0; i < (info->rodata_len / sizeof(u32)); i++)
--		write_op(tp, (cpu_scratch_base +
--			      (info->rodata_base & 0xffff) +
--			      (i * sizeof(u32))),
--			 (info->rodata_data ?
--			  info->rodata_data[i] : 0));
--	for (i = 0; i < (info->data_len / sizeof(u32)); i++)
-+	for (i = 0; i < (info->fw_len / sizeof(u32)); i++)
- 		write_op(tp, (cpu_scratch_base +
--			      (info->data_base & 0xffff) +
-+			      (info->fw_base & 0xffff) +
- 			      (i * sizeof(u32))),
--			 (info->data_data ?
--			  info->data_data[i] : 0));
-+			      be32_to_cpu(info->fw_data[i]));
- 
- 	err = 0;
- 
-@@ -5852,17 +5713,20 @@ out:
- static int tg3_load_5701_a0_firmware_fix(struct tg3 *tp)
+After some investigation, I found out that the values of
+/proc/sys/net/ipv4/tcp_mem are quite different between
+these two versions:
+
+2.6.11.12:
+$ cat tcp_mem 
+98304	131072	196608
+
+2.6.25:
+# cat tcp_mem 
+804672	1072896	1609344
+
+Somwehere between 2.6.11.12 and 2.6.25, the calculation method of
+the tcp_mem array was changed. Now 1609344 pages is 6.5 GB,
+and that will ofcourse never fit in x86_32's low memory ..
+
+I am not quite sure what the correct solution is here, I think
+something like the patch below.
+
+Alternatively we could use the existing calculation but limit 'limit'
+to 3/4 of (totalram_pages - totalhigh_pages) if (totalhigh_pages > 0) ?
+
+
+linux-2.6.26-tcp_mem-lowmem.patch
+
+[PATCH] tcp.c: calculate tcp_mem based on low memory instead of all memory
+
+The tcp_mem array which contains limits on the total amount of
+memory used by TCP sockets is calculated based on nr_all_pages.
+On a 32 bits x86 system, we should base this on the number of
+lowmem pages.
+
+Signed-off-by: Miquel van Smoorenburg <miquels@cistron.nl>
+
+--- linux-2.6.26-rc6.orig/net/ipv4/tcp.c	2008-06-12 23:22:24.000000000 +0200
++++ linux-2.6.26-rc6/net/ipv4/tcp.c	2008-06-16 15:04:16.000000000 +0200
+@@ -260,6 +260,8 @@
+ #include <linux/socket.h>
+ #include <linux/random.h>
+ #include <linux/bootmem.h>
++#include <linux/highmem.h>
++#include <linux/swap.h>
+ #include <linux/cache.h>
+ #include <linux/err.h>
+ #include <linux/crypto.h>
+@@ -2616,7 +2618,7 @@
+ void __init tcp_init(void)
  {
- 	struct fw_info info;
-+	const __be32 *fw_data;
- 	int err, i;
+ 	struct sk_buff *skb = NULL;
+-	unsigned long limit;
++	unsigned long nr_pages, limit;
+ 	int order, i, max_share;
  
--	info.text_base = TG3_FW_TEXT_ADDR;
--	info.text_len = TG3_FW_TEXT_LEN;
--	info.text_data = &tg3FwText[0];
--	info.rodata_base = TG3_FW_RODATA_ADDR;
--	info.rodata_len = TG3_FW_RODATA_LEN;
--	info.rodata_data = &tg3FwRodata[0];
--	info.data_base = TG3_FW_DATA_ADDR;
--	info.data_len = TG3_FW_DATA_LEN;
--	info.data_data = NULL;
-+	fw_data = (void *)tp->fw->data;
-+
-+	/* Firmware blob starts with version numbers, followed by
-+	   start address and length. We are setting complete length.
-+	   length = end_address_of_bss - start_address_of_text.
-+	   Remainder is the blob to be loaded contiguously
-+	   from start address. */
-+
-+	info.fw_base = be32_to_cpu(fw_data[1]);
-+	info.fw_len = tp->fw->size-12;
-+	info.fw_data = &fw_data[3];
- 
- 	err = tg3_load_firmware_cpu(tp, RX_CPU_BASE,
- 				    RX_CPU_SCRATCH_BASE, RX_CPU_SCRATCH_SIZE,
-@@ -5878,21 +5742,21 @@ static int tg3_load_5701_a0_firmware_fix(struct tg3 *tp)
- 
- 	/* Now startup only the RX cpu. */
- 	tw32(RX_CPU_BASE + CPU_STATE, 0xffffffff);
--	tw32_f(RX_CPU_BASE + CPU_PC,    TG3_FW_TEXT_ADDR);
-+	tw32_f(RX_CPU_BASE + CPU_PC,    info.fw_base);
- 
- 	for (i = 0; i < 5; i++) {
--		if (tr32(RX_CPU_BASE + CPU_PC) == TG3_FW_TEXT_ADDR)
-+		if (tr32(RX_CPU_BASE + CPU_PC) == info.fw_base)
- 			break;
- 		tw32(RX_CPU_BASE + CPU_STATE, 0xffffffff);
- 		tw32(RX_CPU_BASE + CPU_MODE,  CPU_MODE_HALT);
--		tw32_f(RX_CPU_BASE + CPU_PC,    TG3_FW_TEXT_ADDR);
-+		tw32_f(RX_CPU_BASE + CPU_PC,    info.fw_base);
- 		udelay(1000);
- 	}
- 	if (i >= 5) {
- 		printk(KERN_ERR PFX "tg3_load_firmware fails for %s "
- 		       "to set RX CPU PC, is %08x should be %08x\n",
- 		       tp->dev->name, tr32(RX_CPU_BASE + CPU_PC),
--		       TG3_FW_TEXT_ADDR);
-+		       info.fw_base);
- 		return -ENODEV;
- 	}
- 	tw32(RX_CPU_BASE + CPU_STATE, 0xffffffff);
-@@ -5901,41 +5765,32 @@ static int tg3_load_5701_a0_firmware_fix(struct tg3 *tp)
- 
- /* tp->lock is held. */
- static int tg3_load_tso_firmware(struct tg3 *tp)
- {
- 	struct fw_info info;
-+	const __be32 *fw_data;
- 	unsigned long cpu_base, cpu_scratch_base, cpu_scratch_size;
- 	int err, i;
- 
- 	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
- 		return 0;
- 
-+	fw_data = (void *)tp->fw->data;
-+
-+	/* Firmware blob starts with version numbers, followed by
-+	   start address and length. We are setting complete length.
-+	   length = end_address_of_bss - start_address_of_text.
-+	   Remainder is the blob to be loaded contiguously
-+	   from start address. */
-+
-+	info.fw_base = be32_to_cpu(fw_data[1]);
-+	cpu_scratch_size = tp->fw_len;
-+	info.fw_len = tp->fw->size-12;
-+	info.fw_data = &fw_data[3];
-+
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) {
--		info.text_base = TG3_TSO5_FW_TEXT_ADDR;
--		info.text_len = TG3_TSO5_FW_TEXT_LEN;
--		info.text_data = &tg3Tso5FwText[0];
--		info.rodata_base = TG3_TSO5_FW_RODATA_ADDR;
--		info.rodata_len = TG3_TSO5_FW_RODATA_LEN;
--		info.rodata_data = &tg3Tso5FwRodata[0];
--		info.data_base = TG3_TSO5_FW_DATA_ADDR;
--		info.data_len = TG3_TSO5_FW_DATA_LEN;
--		info.data_data = &tg3Tso5FwData[0];
- 		cpu_base = RX_CPU_BASE;
- 		cpu_scratch_base = NIC_SRAM_MBUF_POOL_BASE5705;
--		cpu_scratch_size = (info.text_len +
--				    info.rodata_len +
--				    info.data_len +
--				    TG3_TSO5_FW_SBSS_LEN +
--				    TG3_TSO5_FW_BSS_LEN);
- 	} else {
--		info.text_base = TG3_TSO_FW_TEXT_ADDR;
--		info.text_len = TG3_TSO_FW_TEXT_LEN;
--		info.text_data = &tg3TsoFwText[0];
--		info.rodata_base = TG3_TSO_FW_RODATA_ADDR;
--		info.rodata_len = TG3_TSO_FW_RODATA_LEN;
--		info.rodata_data = &tg3TsoFwRodata[0];
--		info.data_base = TG3_TSO_FW_DATA_ADDR;
--		info.data_len = TG3_TSO_FW_DATA_LEN;
--		info.data_data = &tg3TsoFwData[0];
- 		cpu_base = TX_CPU_BASE;
- 		cpu_scratch_base = TX_CPU_SCRATCH_BASE;
- 		cpu_scratch_size = TX_CPU_SCRATCH_SIZE;
-@@ -6455,21 +5808,21 @@ static int tg3_load_tso_firmware(struct tg3 *tp)
- 
- 	/* Now startup the cpu. */
- 	tw32(cpu_base + CPU_STATE, 0xffffffff);
--	tw32_f(cpu_base + CPU_PC,    info.text_base);
-+	tw32_f(cpu_base + CPU_PC,    info.fw_base);
- 
- 	for (i = 0; i < 5; i++) {
--		if (tr32(cpu_base + CPU_PC) == info.text_base)
-+		if (tr32(cpu_base + CPU_PC) == info.fw_base)
- 			break;
- 		tw32(cpu_base + CPU_STATE, 0xffffffff);
- 		tw32(cpu_base + CPU_MODE,  CPU_MODE_HALT);
--		tw32_f(cpu_base + CPU_PC,    info.text_base);
-+		tw32_f(cpu_base + CPU_PC,    info.fw_base);
- 		udelay(1000);
- 	}
- 	if (i >= 5) {
- 		printk(KERN_ERR PFX "tg3_load_tso_firmware fails for %s "
- 		       "to set CPU PC, is %08x should be %08x\n",
- 		       tp->dev->name, tr32(cpu_base + CPU_PC),
--		       info.text_base);
-+		       info.fw_base);
- 		return -ENODEV;
- 	}
- 	tw32(cpu_base + CPU_STATE, 0xffffffff);
-@@ -6731,11 +6084,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	else if (tp->tg3_flags2 & TG3_FLG2_TSO_CAPABLE) {
- 		int fw_len;
- 
--		fw_len = (TG3_TSO5_FW_TEXT_LEN +
--			  TG3_TSO5_FW_RODATA_LEN +
--			  TG3_TSO5_FW_DATA_LEN +
--			  TG3_TSO5_FW_SBSS_LEN +
--			  TG3_TSO5_FW_BSS_LEN);
-+		fw_len = tp->fw_len;
- 		fw_len = (fw_len + (0x80 - 1)) & ~(0x80 - 1);
- 		tw32(BUFMGR_MB_POOL_ADDR,
- 		     NIC_SRAM_MBUF_POOL_BASE5705 + fw_len);
-@@ -12706,6 +12055,8 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	struct net_device *dev;
- 	struct tg3 *tp;
- 	int err, pm_cap;
-+	const __be32 *fw_data;
-+	const char *fw_name = NULL;
- 	char str[40];
- 	u64 dma_mask, persist_dma_mask;
- 	DECLARE_MAC_BUF(mac);
-@@ -12878,8 +12229,16 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 
- 	tg3_init_bufmgr_config(tp);
- 
-+	if (tp->pci_chip_rev_id == CHIPREV_ID_5701_A0)
-+		fw_name = "tigon/tg3.bin";
-+
- 	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
- 		tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE;
-+
-+		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)
-+			fw_name = "tigon/tg3_tso5.bin";
-+		else
-+			fw_name = "tigon/tg3_tso.bin";
- 	}
- 	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 ||
-@@ -12891,6 +12250,31 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE | TG3_FLG2_TSO_BUG;
- 	}
- 
-+	if (fw_name) {
-+		err = request_firmware(&tp->fw, fw_name, &tp->pdev->dev);
-+		if (err) {
-+			printk(KERN_ERR "tg3: Failed to load firmware \"%s\"\n",
-+				fw_name);
-+			goto err_out_apeunmap;
-+		}
-+
-+		fw_data = (void *)tp->fw->data;
-+
-+	/* Firmware blob starts with version numbers, followed by
-+	   start address and length. We are setting complete length.
-+	   length = end_address_of_bss - start_address_of_text.
-+	   Remainder is the blob to be loaded contiguously
-+	   from start address. */
-+
-+		tp->fw_len = be32_to_cpu(fw_data[2]);	/* includes bss */
-+		if (tp->fw_len < (tp->fw->size-12)) {
-+			printk(KERN_ERR "tg3: bogus length %d in \"%s\"\n",
-+				tp->fw_len, fw_name);
-+			err = -EINVAL;
-+			goto err_out_apeunmap;
-+		}
-+	}
-+
- 	/* TSO is on by default on chips that support hardware TSO.
- 	 * Firmware TSO on older chips gives lower performance, so it
- 	 * is off by default, but can be enabled using ethtool.
-@@ -13017,6 +12401,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	return 0;
- 
- err_out_apeunmap:
-+	if (tp->fw)
-+		release_firmware(tp->fw);
-+
- 	if (tp->aperegs) {
- 		iounmap(tp->aperegs);
- 		tp->aperegs = NULL;
-@@ -13047,6 +12434,9 @@ static void __devexit tg3_remove_one(struct pci_dev *pdev)
- 	if (dev) {
- 		struct tg3 *tp = netdev_priv(dev);
- 
-+		if (tp->fw)
-+			release_firmware(tp->fw);
-+
- 		flush_scheduled_work();
- 		unregister_netdev(dev);
- 		if (tp->aperegs) {
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 0404f93..435ff9b 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2611,6 +2611,10 @@ struct tg3 {
- #define SST_25VF0X0_PAGE_SIZE		4098
- 
- 	struct ethtool_coalesce		coal;
-+
-+	/* firmware info */
-+	const struct firmware		*fw;
-+	u32				fw_len;
- };
- 
- #endif /* !(_T3_H) */
-
-
--- 
-dwmw2
+ 	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
+@@ -2685,8 +2687,9 @@
+ 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
+ 	 * memory, with a floor of 128 pages.
+ 	 */
+-	limit = min(nr_all_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+-	limit = (limit * (nr_all_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
++	nr_pages = totalram_pages - totalhigh_pages;
++	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
++	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+ 	limit = max(limit, 128UL);
+ 	sysctl_tcp_mem[0] = limit / 4 * 3;
+ 	sysctl_tcp_mem[1] = limit;
 
