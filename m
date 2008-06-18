@@ -1,75 +1,40 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Wed, 18 Jun 2008 22:08:06 +0200
-Message-ID: <20080618200805.GA18756@elte.hu>
-References: <20080617083220.GA11393@elte.hu>
-	<20080617.020840.169830916.davem@davemloft.net>
-	<20080617092706.GB20621@elte.hu>
-	<20080617.022909.173003136.davem@davemloft.net>
-	<20080617093929.GA10334@elte.hu> <48595910.8000905@intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
+	MTU change
+Date: Wed, 18 Jun 2008 22:10:12 +0200
+Message-ID: <20080618201012.GA4019@electric-eye.fr.zoreil.com>
+References: <20080531184615.350bac00@infradead.org> <20080603134019.df2f51d4.akpm@linux-foundation.org> <20080603215155.GA9712@electric-eye.fr.zoreil.com> <20080604215909.GA17446@electric-eye.fr.zoreil.com> <20080614212341.GA12976@electric-eye.fr.zoreil.com> <4856DA62.7080803@e-teleport.net> <20080617214538.GA6388@electric-eye.fr.zoreil.com> <48584AA4.8040801@e-teleport.net> <48593E35.1010409@e-teleport.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: vgusev@openvz.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, rjw@sisk.pl,
-	mcmanus@ducksong.com, ilpo.jarvinen@helsinki.fi,
-	kuznet@ms2.inr.ac.ru, Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, xemul@openvz.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Arjan van de Ven <arjan@infradead.org>, alan@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?unknown-8bit?B?U8OpZ3VpZXIgUsOpZ2lz?= <rseguier@e-teleport.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756449AbYFRULY@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <48595910.8000905@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+In-Reply-To: <48593E35.1010409@e-teleport.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+S=C3=A9guier R=C3=A9gis <rseguier@e-teleport.net> :
+[...]
+> This correction seems to work.
+>
+> I read somewhere pci_free_consistent (in velocity_free_dma_rings) cou=
+ldn't=20
+> be use in a spin_lock.
 
-* Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+Yup.
 
-> > Any ideas about what i should try next?
-> 
-> have you tried e1000e?
+> When I move velocity_free_rings outside the spin_lock, error desappea=
+re but=20
+> data transfert doesn't work after the mtu change.
+> When I add velocity_give_many_rx_descs all work.
 
-will try it.
+I have updated http://userweb.kernel.org/~romieu/via-velocity/2.6.26-rc=
+6/
+accordingly. Can you check whether it is fine or not ?
 
-But even it if solves the problem it's a nasty complication: given how 
-many times i have to bisect back into the times when there was only 
-e1000 around, how do i handle the transition? I have automated bisection 
-tools, etc. and i bisect very frequently.
-
-It's a real practical problem for me: if i have E1000E=y in my .config 
-and go back to an older kernel, i lose that .config setting in 'make 
-oldconfig'. Then when the bisection run happens to go back into the 
-E1000E times, 'make oldconfig' picks up E1000E with a default-off 
-setting - and things break or work differently.
-
-no other Linux driver i'm using forces me to do that and i rely on many 
-of them and i rely on proper 'make oldconfig' behavior on a daily basis. 
-Until now i was able to do automatic bisection back for _years_, to the 
-v2.6.19 times. You broke that.
-
-And that's just one driver out of thousands of Linux drivers. Imagine 
-what happened to bisectability and migration quality if every driver 
-version update was this careless about its installed base as 
-e1000/e1000e.
-
-The e1000 -> e1000e migration it was not only done in an incompetent, 
-amateurish way, you also ignored real feedback and that combined 
-together is totally lame and inacceptable behavior in my book. You 
-should not expect praise and roses from me as long as you do stupid 
-things like that.
-
-	Ingo
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+--=20
+Ueimor
