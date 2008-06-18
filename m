@@ -1,33 +1,170 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netlink circular locking dependency
-Date: Wed, 18 Jun 2008 13:42:27 +0200
-Message-ID: <4858F4A3.8060500@trash.net>
-References: <20080617134303.GC4632@ff.dom.local>	 <20080617.213012.132043917.davem@davemloft.net>	 <4858CCCE.7060404@trash.net>	 <20080618.020831.214323427.davem@davemloft.net> <1213789103.19872.0.camel@violet.holtmann.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH] Fix IOMMU overflow checking in s2io.c
+Date: Wed, 18 Jun 2008 13:58:36 +0200
+Message-ID: <20080618115836.GA18655@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
-	netdev@vger.kernel.org, mingo@elte.hu, tgraf@suug.ch
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: text/plain; charset=us-ascii
+To: jeff@garzik.org, netdev@vger.kernel.org, ram.vepa@neterion.com,
+	santosh.rastapur@neterion.com, sivakumar.subramani@neterion.com,
+	sreenivasa.honnur@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61672 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752772AbYFRLmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 07:42:31 -0400
-In-Reply-To: <1213789103.19872.0.camel@violet.holtmann.net>
+Received: from smtp-out04.alice-dsl.net ([88.44.63.6]:37898 "EHLO
+	smtp-out04.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754264AbYFRL7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 07:59:04 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marcel Holtmann wrote:
-> Hi David,
-> 
->>>> In the meantime should I apply Patrick's current patch
->>>> from this thread?
->>> I think that makes sense, the module unload race is present anyway.
->>>> If so I'd like a proper commit message and signoff, thanks!
->>> Attached the patch with a proper changelog.
->> Applied and pushed out to net-2.6, thanks a lot Patrick.
-> 
-> you could have added a Tested-by: Marcel Holtmann <marcel@holtmann.org>
+Fix IOMMU overflow checking in s2io.c
 
-My fault, I wanted to but forgot due to lack of coffee :)
+s2io has IOMMU overflow checking, but unfortunately it is wrong.
+
+It didn't use the standard macros, which meant that it only worked
+on POWER and SPARC because only those define DMA_ERROR_CODE. Convert it to 
+use the standard macros instead.
+
+I also commented two more bugs in the IOMMU handling. It assumes
+that 0 DMA addresses cannot happen, but that's not true in all IOMMU setups.
+The information if a buffer has been already mapped needs to be stored
+elsewhere.
+
+Didn't fix those because it needs careful checking of the buffer handling
+by the maintainers.
+
+Cc: ram.vepa@neterion.com
+Cc: santosh.rastapur@neterion.com
+Cc: sivakumar.subramani@neterion.com
+Cc: sreenivasa.honnur@neterion.com
+
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+
+Index: linux/drivers/net/s2io.c
+===================================================================
+--- linux.orig/drivers/net/s2io.c
++++ linux/drivers/net/s2io.c
+@@ -2625,9 +2625,7 @@ static int fill_rx_buffers(struct ring_i
+ 			rxdp1->Buffer0_ptr = pci_map_single
+ 			    (ring->pdev, skb->data, size - NET_IP_ALIGN,
+ 				PCI_DMA_FROMDEVICE);
+-			if( (rxdp1->Buffer0_ptr == 0) ||
+-				(rxdp1->Buffer0_ptr ==
+-				DMA_ERROR_CODE))
++			if(pci_dma_mapping_error(rxdp1->Buffer0_ptr))
+ 				goto pci_map_failed;
+ 
+ 			rxdp->Control_2 =
+@@ -2657,6 +2655,7 @@ static int fill_rx_buffers(struct ring_i
+ 			skb->data = (void *) (unsigned long)tmp;
+ 			skb_reset_tail_pointer(skb);
+ 
++			/* AK: check is wrong. 0 can be valid dma address */
+ 			if (!(rxdp3->Buffer0_ptr))
+ 				rxdp3->Buffer0_ptr =
+ 				   pci_map_single(ring->pdev, ba->ba_0,
+@@ -2665,8 +2664,7 @@ static int fill_rx_buffers(struct ring_i
+ 				pci_dma_sync_single_for_device(ring->pdev,
+ 				(dma_addr_t) rxdp3->Buffer0_ptr,
+ 				    BUF0_LEN, PCI_DMA_FROMDEVICE);
+-			if( (rxdp3->Buffer0_ptr == 0) ||
+-				(rxdp3->Buffer0_ptr == DMA_ERROR_CODE))
++			if (pci_dma_mapping_error(rxdp3->Buffer0_ptr))
+ 				goto pci_map_failed;
+ 
+ 			rxdp->Control_2 = SET_BUFFER0_SIZE_3(BUF0_LEN);
+@@ -2681,18 +2679,17 @@ static int fill_rx_buffers(struct ring_i
+ 				(ring->pdev, skb->data, ring->mtu + 4,
+ 						PCI_DMA_FROMDEVICE);
+ 
+-				if( (rxdp3->Buffer2_ptr == 0) ||
+-					(rxdp3->Buffer2_ptr == DMA_ERROR_CODE))
++				if (pci_dma_mapping_error(rxdp3->Buffer2_ptr))
+ 					goto pci_map_failed;
+ 
++				/* AK: check is wrong */
+ 				if (!rxdp3->Buffer1_ptr)
+ 					rxdp3->Buffer1_ptr =
+ 						pci_map_single(ring->pdev,
+ 						ba->ba_1, BUF1_LEN,
+ 						PCI_DMA_FROMDEVICE);
+ 
+-				if( (rxdp3->Buffer1_ptr == 0) ||
+-					(rxdp3->Buffer1_ptr == DMA_ERROR_CODE)) {
++				if (pci_dma_mapping_error(rxdp3->Buffer1_ptr)) {
+ 					pci_unmap_single
+ 						(ring->pdev,
+ 						(dma_addr_t)(unsigned long)
+@@ -4264,16 +4261,14 @@ static int s2io_xmit(struct sk_buff *skb
+ 		txdp->Buffer_Pointer = pci_map_single(sp->pdev,
+ 					fifo->ufo_in_band_v,
+ 					sizeof(u64), PCI_DMA_TODEVICE);
+-		if((txdp->Buffer_Pointer == 0) ||
+-			(txdp->Buffer_Pointer == DMA_ERROR_CODE))
++		if (pci_dma_mapping_error(txdp->Buffer_Pointer))
+ 			goto pci_map_failed;
+ 		txdp++;
+ 	}
+ 
+ 	txdp->Buffer_Pointer = pci_map_single
+ 	    (sp->pdev, skb->data, frg_len, PCI_DMA_TODEVICE);
+-	if((txdp->Buffer_Pointer == 0) ||
+-		(txdp->Buffer_Pointer == DMA_ERROR_CODE))
++	if (pci_dma_mapping_error(txdp->Buffer_Pointer))
+ 		goto pci_map_failed;
+ 
+ 	txdp->Host_Control = (unsigned long) skb;
+@@ -6884,10 +6879,8 @@ static int set_rxd_buffer_pointer(struct
+ 				pci_map_single( sp->pdev, (*skb)->data,
+ 					size - NET_IP_ALIGN,
+ 					PCI_DMA_FROMDEVICE);
+-			if( (rxdp1->Buffer0_ptr == 0) ||
+-				(rxdp1->Buffer0_ptr == DMA_ERROR_CODE)) {
++			if (pci_dma_mapping_error(rxdp1->Buffer0_ptr))
+ 				goto memalloc_failed;
+-			}
+ 			rxdp->Host_Control = (unsigned long) (*skb);
+ 		}
+ 	} else if ((sp->rxd_mode == RXD_MODE_3B) && (rxdp->Host_Control == 0)) {
+@@ -6913,15 +6906,12 @@ static int set_rxd_buffer_pointer(struct
+ 				pci_map_single(sp->pdev, (*skb)->data,
+ 					       dev->mtu + 4,
+ 					       PCI_DMA_FROMDEVICE);
+-			if( (rxdp3->Buffer2_ptr == 0) ||
+-				(rxdp3->Buffer2_ptr == DMA_ERROR_CODE)) {
++			if (pci_dma_mapping_error(rxdp3->Buffer2_ptr))
+ 				goto memalloc_failed;
+-			}
+ 			rxdp3->Buffer0_ptr = *temp0 =
+ 				pci_map_single( sp->pdev, ba->ba_0, BUF0_LEN,
+ 						PCI_DMA_FROMDEVICE);
+-			if( (rxdp3->Buffer0_ptr == 0) ||
+-				(rxdp3->Buffer0_ptr == DMA_ERROR_CODE)) {
++			if (pci_dma_mapping_error(rxdp3->Buffer0_ptr)) {
+ 				pci_unmap_single (sp->pdev,
+ 					(dma_addr_t)rxdp3->Buffer2_ptr,
+ 					dev->mtu + 4, PCI_DMA_FROMDEVICE);
+@@ -6933,8 +6923,7 @@ static int set_rxd_buffer_pointer(struct
+ 			rxdp3->Buffer1_ptr = *temp1 =
+ 				pci_map_single(sp->pdev, ba->ba_1, BUF1_LEN,
+ 						PCI_DMA_FROMDEVICE);
+-			if( (rxdp3->Buffer1_ptr == 0) ||
+-				(rxdp3->Buffer1_ptr == DMA_ERROR_CODE)) {
++			if (pci_dma_mapping_error(rxdp3->Buffer1_ptr)) {
+ 				pci_unmap_single (sp->pdev,
+ 					(dma_addr_t)rxdp3->Buffer0_ptr,
+ 					BUF0_LEN, PCI_DMA_FROMDEVICE);
+Index: linux/drivers/net/s2io.h
+===================================================================
+--- linux.orig/drivers/net/s2io.h
++++ linux/drivers/net/s2io.h
+@@ -75,10 +75,6 @@ static int debug_level = ERR_DBG;
+ /* DEBUG message print. */
+ #define DBG_PRINT(dbg_level, args...)  if(!(debug_level<dbg_level)) printk(args)
+ 
+-#ifndef DMA_ERROR_CODE
+-#define DMA_ERROR_CODE          (~(dma_addr_t)0x0)
+-#endif
+-
+ /* Protocol assist features of the NIC */
+ #define L3_CKSUM_OK 0xFFFF
+ #define L4_CKSUM_OK 0xFFFF
