@@ -1,72 +1,65 @@
-From: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
-Subject: [PATCH] net: sh_eth: Fix compile error sh_eth
-Date: Wed, 18 Jun 2008 18:32:09 +0900
-Message-ID: <4858D619.80403@renesas.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
+	available to userspace
+Date: Wed, 18 Jun 2008 10:40:44 +0100
+Message-ID: <20080618094044.GD23684@gerrit.erg.abdn.ac.uk>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806150158.28488.tomasz@grobelny.oswiecenia.net> <20080617111638.GA14409@gerrit.erg.abdn.ac.uk> <200806172228.06801.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: Paul Mundt <lethal@linux-sh.org>,
-	Linux-sh <linux-sh@vger.kernel.org>, jeff@garzik.org,
-	shimoda.yoshihiro@renesas.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.renesas.com ([202.234.163.13]:53123 "EHLO
-	mail06.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751702AbYFRJc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 05:32:27 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35972 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752015AbYFRJlU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 05:41:20 -0400
+Content-Disposition: inline
+In-Reply-To: <200806172228.06801.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix compile error on sh_eth and remove base address macro.
+| > In the kernel I think it is best to make it type-safe, i.e. no new
+| > parameters to already-defined policies. But I can't see how this would
+| > restrict the use.
+| > (...)
+| >
+| So we would need new policy for each new parameter, right? I somehow don't 
+| like it but it should work. You are right that this way runtime parameter 
+| discovery is not necessary. BTW, we will have a bit of a problem with naming 
+| qpolicies ;-)
+| 
+Yes, not claiming that my suggestions were very good.
 
-Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
----
- drivers/net/sh_eth.c |    4 ++--
- drivers/net/sh_eth.h |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+By the way, did you notice that the matrix was incomplete - timeout standalone
+was missing, the corrected version would look something like
 
-diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index f64d987..37f3116 100644
---- a/drivers/net/sh_eth.c
-+++ b/drivers/net/sh_eth.c
-@@ -322,7 +322,7 @@ static int sh_eth_dev_init(struct net_device *ndev)
- 	ctrl_outl((FIFO_SIZE_T | FIFO_SIZE_R), ioaddr + FDR);
- 	ctrl_outl(0, ioaddr + TFTR);
+    +-------------+--------+-------------------+------------------+
+    | Policy Name | Policy |         Presence of Parameters       |
+    |             | ID#    | DCCP_SCM_PRIORITY | DCCP_SCM_TIMEOUT |
+    +-------------+--------+-------------------+------------------+
+    | "simple     |   0    |        no         |        no        |
+    | "prio"      |   1    |       YES         |        no        |
+    | "timeout"   |   2?   |        no         |       YES        |
+    | "timed-prio"|   3?   |       YES         |       YES        |
+    +-------------+--------+-------------------+------------------+
 
--	ctrl_outl(RMCR_RST, ioaddr + RMCR);
-+	ctrl_outl(0, ioaddr + RMCR);
+There is a special trick for the aggregate "timed-prio" policy: it is
+the logical-OR of the "prio" and "timeout" policy IDs. Perhaps composite
+policy IDs could be defined in this way.
 
- 	rx_int_var = mdp->rx_int_var = DESC_I_RINT8 | DESC_I_RINT5;
- 	tx_int_var = mdp->tx_int_var = DESC_I_TINT2;
-@@ -994,7 +994,7 @@ static int sh_mdio_init(struct net_device *ndev, int id)
- 	/* Hook up MII support for ethtool */
- 	mdp->mii_bus->name = "sh_mii";
- 	mdp->mii_bus->dev = &ndev->dev;
--	mdp->mii_bus->id = id;
-+	mdp->mii_bus->id[0] = id;
 
- 	/* PHY IRQ */
- 	mdp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
-diff --git a/drivers/net/sh_eth.h b/drivers/net/sh_eth.h
-index ca2db6b..e01e1c3 100644
---- a/drivers/net/sh_eth.h
-+++ b/drivers/net/sh_eth.h
-@@ -40,8 +40,6 @@
- #define PKT_BUF_SZ		1538
+| I will for sure be working on some apps to demonstrate how the new interface 
+| can be used. But first I need to create a simple server/client transmitting 
+| G.726 encoded voice over UDP/RTP (any hints on that?)...
+| 
+Tommi Saviranta has been working on a DCCP port for SpeexComm:
+	http://tuomas.kulve.fi/projects/speexcomm/
+The port is available via SVN:
+	svn co http://tuomas.kulve.fi/svn/speexcomm
 
- /* Chip Base Address */
--#define SH_ETH0_BASE 0xA7000000
--#define SH_ETH1_BASE 0xA7000400
- #define SH_TSU_ADDR 0xA7000804
-
- /* Chip Registers */
-@@ -462,3 +460,5 @@ static void swaps(char *src, int len)
- 		*p = swab32(*p);
- #endif
- }
-+
-+#endif
--- 
-1.5.5.1
-
+Leandro Sales de Melo has developed a DCCP plugin for gstreamer and used
+it with VoIP/speex. It comes with example applications for these:
+https://garage.maemo.org/frs/?group_id=297
+https://garage.maemo.org/projects/ephone
+http://www.mail-archive.com/dccp@vger.kernel.org/msg03101.html
 
