@@ -1,28 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver updates for .27
-Date: Tue, 17 Jun 2008 21:53:44 -0700 (PDT)
-Message-ID: <20080617.215344.39733511.davem@davemloft.net>
-References: <20080618042045.GA30789@havoc.gtf.org>
+Subject: Re: v2: [PATCH 2/3] netdevice: Fix promiscuity and allmulti
+ overflow
+Date: Tue, 17 Jun 2008 21:54:02 -0700 (PDT)
+Message-ID: <20080617.215402.169100957.davem@davemloft.net>
+References: <48568125.4090500@cn.fujitsu.com>
+	<4857B542.6030703@trash.net>
+	<48586A04.6040800@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55305
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55310
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751805AbYFRExo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 00:53:44 -0400
-In-Reply-To: <20080618042045.GA30789@havoc.gtf.org>
+	by vger.kernel.org with ESMTP id S1759411AbYFREyC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 00:54:02 -0400
+In-Reply-To: <48586A04.6040800@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Wed, 18 Jun 2008 00:20:45 -0400
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Wed, 18 Jun 2008 09:51:00 +0800
 
-> Please pull from 'davem-next' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-next
+> Patrick McHardy said the following on 2008-6-17 20:59:
+> >> +            printk(KERN_ERR "%s: promiscuity touches roof, "
+> >> +                "set promiscuity failed, promiscuity feature "
+> >> +                "of device will be broken.\n", dev->name);
+> >> +            return -EOVERFLOW;
+> >> +        }
+> >> +    }
+> > 
+> > Assuming the caller does proper error handling, that printk is
+> > not true.
+> > 
 > 
-> to receive the following updates:
+> Yes.
+> But currently, no caller handling this, and I think even if I make
+> some callers to handle this, but there maybe some callers and their
+> callers do not want to handle error condition.
+> So I need a KERN_WARNING here.
+> If some day, all of the caller handle the error properly, we can
+> remove this printk.
+> 
+> Here is v3:
 
-Pulled and pushed back out ot net-next-2.6, thanks Jeff!
+Patrick, ACK?
