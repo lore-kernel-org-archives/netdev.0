@@ -1,79 +1,43 @@
-From: Didier Raboud <didier-efQUOpnRmEvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 10903] New: ssh connections hang with 2.6.26-rc5
-Date: Wed, 18 Jun 2008 13:34:06 +0200
-Message-ID: <200806181334.10654.didier@raboud.com>
-References: <bug-10903-10286@http.bugzilla.kernel.org/> <Pine.LNX.4.64.0806180152410.32420@wrl-59.cs.helsinki.fi> <1213773887.3803.158.camel@johannes.berg>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: netlink circular locking dependency
+Date: Wed, 18 Jun 2008 13:38:23 +0200
+Message-ID: <1213789103.19872.0.camel@violet.holtmann.net>
+References: <20080617134303.GC4632@ff.dom.local>
+	 <20080617.213012.132043917.davem@davemloft.net>
+	 <4858CCCE.7060404@trash.net>
+	 <20080618.020831.214323427.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1314852.cUizIlx1dO";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ilpo =?iso-8859-1?q?J=E4rvinen?= <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1213773887.3803.158.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, jarkao2@gmail.com, netdev@vger.kernel.org,
+	mingo@elte.hu, tgraf@suug.ch
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:55319 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752854AbYFRLew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 07:34:52 -0400
+In-Reply-To: <20080618.020831.214323427.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart1314852.cUizIlx1dO
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Hi David,
 
-Le mercredi 18 juin 2008 09:24:47 Johannes Berg, vous avez =C3=A9crit=C2=A0:
-> > > > > > > > http://bugzilla.kernel.org/show_bug.cgi?id=3D10903
-> > > > > > > >
-> > > > > > > >            Summary: ssh connections hang with 2.6.26-rc5
->
-> Andrew Prince reported a similar problem and said he bisected it  to
-> davem's =EF=BB=BF608961a5eca8d3c6bd07172febc27b5559408c5d ("mac80211: Use
-> skb_header_cloned() on TX path.") which made no sense to me so I marked
-> the report as 'to investigate when I have more time'.
->
-> > > and I got the attached "soft lockup".
->
-> Attached where? I can't find it in the bug either.
->
-> johannes
+> > > In the meantime should I apply Patrick's current patch
+> > > from this thread?
+> > 
+> > I think that makes sense, the module unload race is present anyway.
+> > >
+> > > If so I'd like a proper commit message and signoff, thanks!
+> > 
+> > Attached the patch with a proper changelog.
+> 
+> Applied and pushed out to net-2.6, thanks a lot Patrick.
 
-Hi,=20
+you could have added a Tested-by: Marcel Holtmann <marcel@holtmann.org>
 
-for unknown reasons, my mail doesn't appear in the mailing list archives an=
-d=20
-the big attachment has visibly been stripped.
+Regards
 
-You'll find the "soft lockup" there:
+Marcel
 
-http://raboud.homelinux.org/~didier/kernel/tcpdump_oops.jpg
 
-Regards,=20
-
-Didier
-=2D-=20
-Didier Raboud, proud Debian user.
-CH-1802 Corseaux
-didier-efQUOpnRmEvQT0dZR+AlfA@public.gmane.org
-
---nextPart1314852.cUizIlx1dO
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEABECAAYFAkhY8q8ACgkQwW1nnOmiePC7LACgh4PI3zxmk0J2HY8CbFShx8PP
-mokAnAmpInN/FS9ZwIULX2CRP7mvJs4t
-=eXTe
------END PGP SIGNATURE-----
-
---nextPart1314852.cUizIlx1dO--
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
