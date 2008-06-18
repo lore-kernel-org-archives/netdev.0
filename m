@@ -1,182 +1,107 @@
-From: =?ISO-8859-1?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
-Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
- MTU change
-Date: Wed, 18 Jun 2008 18:56:21 +0200
-Message-ID: <48593E35.1010409@e-teleport.net>
-References: <20080531184615.350bac00@infradead.org> <20080603134019.df2f51d4.akpm@linux-foundation.org> <20080603215155.GA9712@electric-eye.fr.zoreil.com> <20080604215909.GA17446@electric-eye.fr.zoreil.com> <20080614212341.GA12976@electric-eye.fr.zoreil.com> <4856DA62.7080803@e-teleport.net> <20080617214538.GA6388@electric-eye.fr.zoreil.com> <48584AA4.8040801@e-teleport.net>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: packetloss, on e1000e worse than r8169?
+Date: Wed, 18 Jun 2008 20:03:37 +0300
+Message-ID: <200806182003.37120.denys@visp.net.lb>
+References: <20080616193501.M64730@visp.net.lb> <200806180004.49272.denys@visp.net.lb> <36D9DB17C6DE9E40B059440DB8D95F52056F2823@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Arjan van de Ven <arjan@infradead.org>, alan@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric Dumazet" <dada1@cosmosbay.com>, netdev@vger.kernel.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.e-teleport.net ([213.190.83.68]:55909 "EHLO
-	mail.imsnet.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751661AbYFRQ4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2008 12:56:24 -0400
-In-Reply-To: <48584AA4.8040801@e-teleport.net>
+Received: from relay2.globalproof.net ([194.146.153.25]:52756 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396AbYFRRDh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 13:03:37 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52056F2823@orsmsx418.amr.corp.intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-S=E9guier R=E9gis a =E9crit :
-> Francois Romieu a =E9crit :
->> S=E9guier R=E9gis <rseguier@e-teleport.net> :
->> [...]
->> =20
->>> The mtu change doesn't work :
->>>
->>> Jun 16 23:22:34 apollo kernel: ------------[ cut here ]------------
->>> Jun 16 23:22:34 apollo kernel: WARNING: at=20
->>> arch/x86/kernel/pci-dma.c:482 dma_free_coherent+0x3a/0x9c()
->>> Jun 16 23:22:34 apollo kernel: Pid: 1527, comm: ip Tainted: G      =
- =20
->>> W 2.6.26-rc6EPIA_SN_VB7001 #3
->>> Jun 16 23:22:34 apollo kernel:  [<c0115fe5>] warn_on_slowpath+0x3b/=
-0x5f
->>> Jun 16 23:22:34 apollo kernel:  [<c0133940>]=20
->>> get_page_from_freelist+0x24a/0x36f
->>> Jun 16 23:22:34 apollo kernel:  [<c012d86b>] handle_IRQ_event+0x1a/=
-0x3f
->>> Jun 16 23:22:34 apollo kernel:  [<c0241193>]=20
->>> velocity_free_rd_ring+0xa5/0xb6
->>> Jun 16 23:22:34 apollo kernel:  [<c0144752>] kfree+0x6a/0x72
->>> Jun 16 23:22:34 apollo kernel:  [<c0241193>]=20
->>> velocity_free_rd_ring+0xa5/0xb6
->>> Jun 16 23:22:34 apollo kernel:  [<c0105816>]=20
->>> dma_free_coherent+0x3a/0x9c
->>> Jun 16 23:22:34 apollo kernel:  [<c02411eb>]=20
->>> velocity_free_dma_rings+0x47/0x4d
->>> Jun 16 23:22:34 apollo kernel:  [<c024225b>]=20
->>> velocity_change_mtu+0xf6/0x157
->>> Jun 16 23:22:34 apollo kernel:  [<c02856c4>] dev_set_mtu+0x2a/0x4f
->>> Jun 16 23:22:34 apollo kernel:  [<c0286642>] dev_ioctl+0x4ab/0x530
->>> Jun 16 23:22:34 apollo kernel:  [<c012e4cb>]=20
->>> handle_fasteoi_irq+0x74/0x77
->>> Jun 16 23:22:34 apollo kernel:  [<c010479b>] do_IRQ+0x50/0x60
->>> Jun 16 23:22:34 apollo kernel:  [<c027d785>] sock_ioctl+0x0/0x177
->>>    =20
->>
->> Does the patch below make a difference ?
->>
->> diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
->> index 71a5133..fa303da 100644
->> --- a/drivers/net/via-velocity.c
->> +++ b/drivers/net/via-velocity.c
->> @@ -1274,7 +1274,7 @@ static void velocity_free_rd_ring(struct=20
->> velocity_info *vptr)
->>                   PCI_DMA_FROMDEVICE);
->>          rd_info->skb_dma =3D (dma_addr_t) NULL;
->> =20
->> -        dev_kfree_skb(rd_info->skb);
->> +        dev_kfree_skb_any(rd_info->skb);
->>          rd_info->skb =3D NULL;
->>      }
->> =20
->> @@ -1336,7 +1336,7 @@ static void velocity_free_td_ring_entry(struct=
-=20
->> velocity_info *vptr,
->>                  td_info->skb_dma[i] =3D (dma_addr_t) NULL;
->>              }
->>          }
->> -        dev_kfree_skb(td_info->skb);
->> +        dev_kfree_skb_any(td_info->skb);
->>          td_info->skb =3D NULL;
->>      }
->>  }
->>  =20
-> Idem.
->
-> Jun 18 01:30:15 apollo kernel: ------------[ cut here ]------------
-> Jun 18 01:30:15 apollo kernel: WARNING: at=20
-> arch/x86/kernel/pci-dma.c:482 dma_free_coherent+0x3a/0x9c()
-> Jun 18 01:30:15 apollo kernel: Pid: 1401, comm: ip Not tainted=20
-> 2.6.26-rc6EPIA_SN_VB7001 #4
-> Jun 18 01:30:15 apollo kernel:  [<c0115fe5>] warn_on_slowpath+0x3b/0x=
-5f
-> Jun 18 01:30:15 apollo kernel:  [<c0133b19>]=20
-> __alloc_pages_internal+0xb4/0x349
-> Jun 18 01:30:15 apollo kernel:  [<c0112bfd>] hrtick_start_fair+0x67/0=
-xfd
-> Jun 18 01:30:15 apollo kernel:  [<c011414f>]=20
-> check_preempt_wakeup+0x9d/0xbb
-> Jun 18 01:30:15 apollo kernel:  [<c0144752>] kfree+0x6a/0x72
-> Jun 18 01:30:15 apollo kernel:  [<c0241193>]=20
-> velocity_free_rd_ring+0xa5/0xb6
-> Jun 18 01:30:15 apollo kernel:  [<c0105816>] dma_free_coherent+0x3a/0=
-x9c
-> Jun 18 01:30:15 apollo kernel:  [<c02411eb>]=20
-> velocity_free_dma_rings+0x47/0x4d
-> Jun 18 01:30:15 apollo kernel:  [<c024225b>]=20
-> velocity_change_mtu+0xf6/0x157
-> Jun 18 01:30:15 apollo kernel:  [<c02856c4>] dev_set_mtu+0x2a/0x4f
-> Jun 18 01:30:15 apollo kernel:  [<c0286642>] dev_ioctl+0x4ab/0x530
-> Jun 18 01:30:15 apollo kernel:  [<c013964a>] __do_fault+0x256/0x28e
-> Jun 18 01:30:15 apollo kernel:  [<c027d8d7>] sock_ioctl+0x152/0x177
-> Jun 18 01:30:15 apollo kernel:  [<c027d785>] sock_ioctl+0x0/0x177
-> Jun 18 01:30:15 apollo kernel:  [<c0150b4a>] vfs_ioctl+0x16/0x48
-> Jun 18 01:30:15 apollo kernel:  [<c0150d5a>] do_vfs_ioctl+0x1de/0x1f1
-> Jun 18 01:30:15 apollo kernel:  [<c0150dae>] sys_ioctl+0x41/0x5b
-> Jun 18 01:30:15 apollo kernel:  [<c010291d>] sysenter_past_esp+0x6a/0=
-x91
-> Jun 18 01:30:15 apollo kernel:  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> Jun 18 01:30:15 apollo kernel: ---[ end trace abc2c54f7fac91dc ]---
->
-This correction seems to work.
+On Wednesday 18 June 2008 19:50, Brandeburg, Jesse wrote:
+> Denys Fedoryshchenko wrote:
+> > After trying everything, it looks like that problem in PBS size, and
+> > as result PBA (rx fifo) size. 
+> 
+> agreed
+>  
+> > On ICH8 it is small, only 16K PBS (0x10), and RX/TX set each 8k, even
+> > i can set 0xd/0x3 it doesn't help (i didn't measure if it make less
+> 
+> just to make sure, you set PBA=0xd, correct?
+Yes
+> 
+> > packetloss). As i understand, i need to set only RX, TX calculated
+> > automatically.  Both motherboards i tried had ICH8.
+> 
+> your understanding is correct, the lower 8 bits represent rx fifo size,
+> and the tx fifo size is computed based on the result of (PBS - (lower 8
+> bits of)PBA)
+> 
+> Please note this is mostly documented in the software developers manuals
+> posted both at intel.com and e1000.sourceforge.net.  ICH8 documentation
+> is mostly covered in the chipset documentation.
+>  
+> > All other servers which i mention, and which have enough big load
+> > have: 1)Sun - PBA 48K (82546EB)
+> > 2)DP35DP - PBA 16K (ICH9)
+> > 
+> > Also ICH8 missing some features, that ICH9 supports, such as
+> > FLAG_HAS_ERT, but it looks ERT useful only for Jumbo frames. 
+> > And sure ICH8 doesn't support Jumbo frames, maybe because of limited
+> > PBS. 
+> > 
+> > Is PBS size hardware limitation of ICH8?
+> yes, working size of the FIFO is 16kB total (PBS)
+> 
+> > Is it possible i am right in my conclusions?
+> yes, client parts will not buffer as much data (generally) due to
+> smaller FIFO as the server parts, which typically have 64kB total FIFO.
+> 
+> > Probably such details in network adapters will be useful for Vyatta
+> > guys, to choose proper network adapter for their systems :-) 
+> 
+> agreed, the rule here would be don't use client parts for server class
+> workloads, unfortunately we don't control what machines certain server
+> vendors put client parts like 82573, ICH8/ICH9 in, so sometimes you have
+> a "low end" server with a client gigabit ethernet part.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-I read somewhere pci_free_consistent (in velocity_free_dma_rings)=20
-couldn't be use in a spin_lock.
-When I move velocity_free_rings outside the spin_lock, error desappeare=
-=20
-but data transfert doesn't work after the mtu change.
-When I add velocity_give_many_rx_descs all work.
+Yes, 0xd. I am using now onboard 82546GB on old Intel Xeon 3.0 Ghz, flow-control works flawlessly.
+cpu family      : 15
+model           : 4
+model name      : Intel(R) Xeon(TM) CPU 3.00GHz
+stepping        : 1
+cpu MHz         : 2992.650
+cache size      : 1024 KB                                                                                                                                    
 
-I will make some more tests.
+I have packetloss, but now it is 1.516-e06 %, which is acceptable number for me.
+I had to increase ring size, otherwise i was getting rx_no_buffer_count in stats.
+
+It is still famous  rx_missed_errors: 3616 .
+But as i reported in personal mail, before rx_missed_errors was larger than tx_deferred_ok, now it is:
+     rx_missed_errors: 3633
+     tx_deferred_ok: 19145380
+
+Now server handling 180Kpps RX, 800Mbps RX+TX, 4 VLAN.
+latest git kernel running. I will do probably soon profiling iptables on it and some other tasks to test.
+Maybe i will try also just to compare ICH9, if will have chance and way to buy it.
+
+MegaRouterXeon-KARAM ~ # mpstat 30
+Linux 2.6.26-rc6-git4-build-0029 (MegaRouterXeon-KARAM)         06/18/08
+
+20:04:02     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal   %idle    intr/s
+20:04:32     all    0.09    0.00    1.19    0.00    1.94   14.93    0.00   81.84  17775.00
+20:05:02     all    0.09    0.00    1.32    0.00    1.72   14.70    0.00   82.17  17810.23
 
 
---- drivers/net/via-velocity.c  2008-06-18 20:17:18.000000000 +0200
-+++ ../linux-2.6.26-rc6-mtu/drivers/net/via-velocity.c  2008-06-18=20
-20:28:14.000000000 +0200
-@@ -1968,6 +1968,8 @@ static int velocity_change_mtu(struct ne
-        if (dev->mtu !=3D new_mtu) {
-                struct velocity_info *tmp_vptr;
-                unsigned long flags;
-+               struct tx_info tx;
-+               struct rx_info rx;
-
-                tmp_vptr =3D kzalloc(sizeof(*tmp_vptr), GFP_KERNEL);
-                if (!tmp_vptr) {
-@@ -1989,13 +1991,16 @@ static int velocity_change_mtu(struct ne
-                netif_stop_queue(dev);
-                velocity_shutdown(vptr);
-
--               velocity_free_rings(vptr);
--
-+               rx=3Dvptr->rx;
-+               tx=3Dvptr->tx;
-                vptr->rx =3D tmp_vptr->rx;
-                vptr->tx =3D tmp_vptr->tx;
-+               tmp_vptr->rx=3Drx;
-+               tmp_vptr->tx=3Dtx;
-
-                dev->mtu =3D new_mtu;
-
-+               velocity_give_many_rx_descs(vptr);
-                velocity_init_registers(vptr, VELOCITY_INIT_COLD);
-
-                mac_enable_int(vptr->mac_regs);
-@@ -2003,6 +2008,7 @@ static int velocity_change_mtu(struct ne
-
-                spin_unlock_irqrestore(&vptr->lock, flags);
-
-+               velocity_free_rings(tmp_vptr);
- out_free_tmp_vptr_1:
-                kfree(tmp_vptr);
-        }
-
-
---=20
-R=E9gis
+-- 
+------
+Technical Manager
+Virtual ISP S.A.L.
+Lebanon
