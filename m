@@ -1,39 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] ibm_newemac: select CRC32 in Kconfig
-Date: Tue, 17 Jun 2008 23:25:47 -0400
-Message-ID: <4858803B.7020008@pobox.com>
-References: <20080617192755.575dcad4@zod.rchland.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/4] netxen: fix portnum for hp mezz cards
+Date: Tue, 17 Jun 2008 23:25:56 -0400
+Message-ID: <48588044.3020805@garzik.org>
+References: <> <1213595986-1929-2-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org
+To: Dhananjay Phadke <dhananjay@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40516 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40526 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756521AbYFRDZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 23:25:51 -0400
-In-Reply-To: <20080617192755.575dcad4@zod.rchland.ibm.com>
+	id S1756559AbYFRDZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 23:25:59 -0400
+In-Reply-To: <1213595986-1929-2-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Josh Boyer wrote:
-> The ibm_newemac driver requires ether_crc to be defined.  Apparently it is
-> possible to generate a .config without CONFIG_CRC32 set which causes the
-> following link errors if IBM_NEW_EMAC is selected:
+Dhananjay Phadke wrote:
+> This fixes a the issue where logical port number is set incorrectly
+> for HP blade mezz cards.
 > 
->   LD      .tmp_vmlinux1
-> drivers/built-in.o: In function `emac_hash_mc':
-> core.c:(.text+0x2f524): undefined reference to `crc32_le'
-> core.c:(.text+0x2f528): undefined reference to `bitrev32'
-> make: *** [.tmp_vmlinux1] Error 1
-> 
-> This patch has IBM_NEW_EMAC select CRC32 so we don't hit this error.
-> 
-> Signed-off-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 > ---
->  drivers/net/ibm_newemac/Kconfig |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
+>  drivers/net/netxen/netxen_nic_main.c |   10 ++++++++--
+>  1 files changed, 8 insertions(+), 2 deletions(-)
 
 applied
 
