@@ -1,84 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Wed, 18 Jun 2008 10:57:03 +0200
-Message-ID: <4858CDDF.4050306@trash.net>
-References: <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>	 <20080613062621.GA10474@verge.net.au>	 <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com>	 <48528EED.7090307@trash.net>	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>	 <485652EA.2020004@trash.net>	 <f4845fc0806161619i4dc81dcao933d95aa6e09b45e@mail.gmail.com>	 <4857A58E.6080304@trash.net> <20080617171840.GB4064@google.com>	 <485819A8.1090004@trash.net> <f4845fc0806171547v88ff4d3gc56e9c43a4176a14@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netlink circular locking dependency
+Date: Wed, 18 Jun 2008 02:08:31 -0700 (PDT)
+Message-ID: <20080618.020831.214323427.davem@davemloft.net>
+References: <20080617134303.GC4632@ff.dom.local>
+	<20080617.213012.132043917.davem@davemloft.net>
+	<4858CCCE.7060404@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, Vince Busam <vbusam@google.com>,
-	Ben Greear <greearb@candelatech.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0806171547v88ff4d3gc56e9c43a4176a14@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jarkao2@gmail.com, marcel@holtmann.org, netdev@vger.kernel.org,
+	mingo@elte.hu, tgraf@suug.ch
+To: kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56116
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751167AbYFRJIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 05:08:30 -0400
+In-Reply-To: <4858CCCE.7060404@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> On Tue, Jun 17, 2008 at 10:08 PM, Patrick McHardy <kaber@trash.net> wrote:
->   
->> IPVS_LIST_ELEM                  - NLA_NESTED
->>
->> for list elements of every kind. Since you can only put one
->> kind of element in the lists anyway (I think), different
->> types don't allow any increased flexibility and the LIST
->> naming is more clear in my opinion.
->>     
->
-> However, since these container attributes (for daemons, services and
-> dests) also appear as single elements outside of lists, it might be
-> better to reuse the same names inside the list?
->   
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 18 Jun 2008 10:52:30 +0200
 
-I didn't realize that. Yes, agreed.
+> David Miller wrote:
+> > In the meantime should I apply Patrick's current patch
+> > from this thread?
+> 
+> I think that makes sense, the module unload race is present anyway.
+> >
+> > If so I'd like a proper commit message and signoff, thanks!
+> 
+> Attached the patch with a proper changelog.
 
->>> IPVS_SVC_ATTR_FLAGS             - NLA_U32
->>>       
->> As I mentioned above, you usually want a MASK in combination
->> with flags to allow to unset them. This is best done using
->> a structure.
->>     
->
-> Hm, I'm not sure if I understand exactly what this struct is supposed
-> to look like. Could you give an example?
->   
-struct {
-    u32 flags;
-    u32 mask;
-} flags;
-
-and then:
-
-obj->flags = (obj->flags & ~flags->mask) |
-                    (flags->flags | flags->mask);
-
->>> IPVS_SVC_ATTR_TIMEOUT           - NLA_U32
->>> IPVS_SVC_ATTR_NETMASK           - NLA_U32
->>>       
->> Shouldn't this also be able to carry IPv6 masks?
->>     
->
-> We only need the prefix length for IPv6, for which we reused the
-> netmask field. This (only slightly) changes the semantics of the field
-> between address families. Acceptable or better have a separate field
-> for the prefix length?
->   
-I guess thats fine.
-
->>> IPVS_SVC_ATTR_NUM_DESTS         - NLA_U32
->>>       
->> Is this number related to the IPVS_ENTRY_ATTR_DESTS list?
->> If so, it shouldn't be contained as seperate attribute,
->> that just allows for potential inconsistency.
->>     
->
-> Yes, but this count is only returned from commands that do not at the
-> same time return the list of destinations, so there is no
-> inconsistency within a message. However, I'm pretty sure the count was
-> only used in the old interface to allocate enough memory for the
-> destination list, so it can probably be deleted anyways.
->   
-
-You're probably right, this looks similar to iptables.
-
+Applied and pushed out to net-2.6, thanks a lot Patrick.
