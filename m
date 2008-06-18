@@ -1,47 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [UPDATED] ixgbe: add LRO support
-Date: Wed, 18 Jun 2008 00:04:03 -0400
-Message-ID: <48588933.2060605@garzik.org>
-References: <20080613183716.9641.33945.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] udp: sk_drops handling
+Date: Tue, 17 Jun 2008 21:05:45 -0700 (PDT)
+Message-ID: <20080617.210545.114649814.davem@davemloft.net>
+References: <48582D35.40201@cosmosbay.com>
+	<48586EDB.2060809@cn.fujitsu.com>
+	<4858850D.9000501@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, randy.dunlap@oracle.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754232AbYFREEW@vger.kernel.org>
-In-Reply-To: <20080613183716.9641.33945.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52160
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751319AbYFREFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 00:05:44 -0400
+In-Reply-To: <4858850D.9000501@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
->=20
-> Support for in-kernel LRO with the ability to enable/disable via etht=
-ool
-> based on comments from Ben Hutchings and Randy Dunlap.
->=20
-> Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel=
-=2Ecom>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Signed-off-by: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> ---
->=20
->  drivers/net/Kconfig               |    3 +
->  drivers/net/ixgbe/ixgbe.h         |    9 +++
->  drivers/net/ixgbe/ixgbe_ethtool.c |   11 ++++
->  drivers/net/ixgbe/ixgbe_main.c    |  111 +++++++++++++++++++++++++++=
-+++-------
->  4 files changed, 112 insertions(+), 22 deletions(-)
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 18 Jun 2008 05:46:21 +0200
 
+> Updated patch follows.
+> 
+> Thank you
+> 
+> [PATCH]udp: sk_drops handling
+> In commits 33c732c36169d7022ad7d6eb474b0c9be43a2dc1 ([IPV4]: Add raw drops
+> counter) and a92aa318b4b369091fd80433c80e62838db8bc1c ([IPV4]: Add raw drops
+> counter),
+> Wang Chen added raw drops counter for /proc/net/raw & /proc/net/raw6
 
-I take that back.
+Typo, second commit header line is "IPV6..." not "IPV4...".
+I fixed this when committing your change to net-next-2.6.
 
-This patch has a bunch of checkpatch problems, and it doesn't even=20
-compile, so it obviously was not tested:
-
-drivers/net/ixgbe/ixgbe_main.c: In function =E2=80=98ixgbe_receive_skb=E2=
-=80=99:
-drivers/net/ixgbe/ixgbe_main.c:416: error: implicit declaration of=20
-function =E2=80=98vlan_nw_accel_receive_skb=E2=80=99
+Thanks.
