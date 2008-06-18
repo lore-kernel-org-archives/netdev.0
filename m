@@ -1,37 +1,60 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: data received but not detected
-Date: Wed, 18 Jun 2008 10:28:58 +0400
-Message-ID: <20080618062857.GA3598@2ka.mipt.ru>
-References: <1213740538.5771.192.camel@localhost.localdomain> <48583B37.5070708@candelatech.com> <1213743506.5771.220.camel@localhost.localdomain>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows
+ with MD5SIG enabled (v2)
+Date: Wed, 18 Jun 2008 02:34:46 -0400
+Message-ID: <20080618023446.aba6516c.billfink@mindspring.com>
+References: <396556a20805301217k293e5718h6bbf02bfe0683144@europa>
+	<20080617.170718.260234361.davem@davemloft.net>
+	<396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
-To: Travis Stratman <tstratman@emacinc.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Adam Langley" <agl@imperialviolet.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:51059 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752380AbYFRG3A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2008 02:29:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1213743506.5771.220.camel@localhost.localdomain>
+Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:34904 "EHLO
+	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754127AbYFRGeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 02:34:50 -0400
+In-Reply-To: <396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+On Tue, 17 Jun 2008, Adam Langley wrote:
 
-On Tue, Jun 17, 2008 at 05:58:26PM -0500, Travis Stratman (tstratman@emacinc.com) wrote:
-> I understand that there is no guarantee of anything with UDP, but it
-> seems to me that if there is a packet in the buffer (it shows up after
-> another packet comes in behind it) the system should know about it,
-> right?
+> On Tue, Jun 17, 2008 at 5:07 PM, David Miller <davem@davemloft.net> wrote:
+> > The problematic case is when all 3 of tstamps, wscale, and md5 are
+> > enabled.  To be honest, tstamps are the least valuable of the 3.  The
+> > only way to accurately fill in gaps is to have at least some SACK
+> > information, it is much harder to guestimate than RTTs.
+> 
+> So, have a population of Linux hosts out there which will send corrupt
+> packets when MD5+SACK is enabled. So we want to fix that problem all
+> at once, hopefully.
+> 
+> How's this:
+> 
+> If we receive a SYN packet with MD5 + SACK + TS was assume that it's
+> from an older kernel and reply with MD5 + TS. Not including SACK means
+> that it won't send us corrupt packets and since we couldn't previously
+> do SACK with these packets anyway, we're not loosing anything.
+> 
+> However, by default we send MD5 + SACK. If we are talking to an old
+> kernel, that means that they are sending corrupt packets if they have
+> > 2 SACK blocks (the current logic limits them to 4 I believe).
+> Hopefully this is pretty rare (and, again, better than we are
+> currently doing). It also means that we have MD5 + SACK between new
+> hosts, which is optimal.
 
-Did you run wireshark on receiver or sender?
-Check MIB stats if packet was dropped because of low mem or incorrect
-checksumm or some other problematic fields in UDP header. Sending part
-can see it perfectly correct, which will not be the issue on the
-receiver. If packet was delivered to receiving host, udp input path is
-rather simple so there are no places which can race with something and
-thus lost the packet.
+I am not particularly familiar with the TCP MD5 option, but in googling
+around I found the following at the end of Section 2.2 Transmission,
+of RFC 4808, "TCP-MD5 Key Change", dated March 2007:
 
--- 
-	Evgeniy Polyakov
+    "Note that there is an ambiguity when an acknowledgment is received
+    for a segment transmitted with two different keys.  The TCP Timestamp
+    option [RFC1323] can be used for disambiguation."
+
+This would seem to imply, that at least in some scenarios, it would be
+advisable to have TS enabled in conjunction with MD5.
+
+						-Bill
