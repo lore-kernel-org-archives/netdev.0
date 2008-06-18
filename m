@@ -1,206 +1,231 @@
-From: John Rigby <jrigby@freescale.com>
-Subject: [PATCH 1/2][Rev4] fs_enet: change fec_t to struct fec
-Date: Wed, 18 Jun 2008 09:15:53 -0600
-Message-ID: <1213802154-28968-2-git-send-email-jrigby@freescale.com>
-References: <1213802154-28968-1-git-send-email-jrigby@freescale.com>
-Cc: netdev@vger.kernel.org, John Rigby <jrigby@freescale.com>
-To: Scott Wood <scottwood@freescale.com>, linuxppc-dev@ozlabs.org,
-	jeff@garzik.org, Sam Ravnborg <sam@ravnborg.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-next-2.6] TCP: de-bloat a bit with factoring NET_INC_STATS_BH
+ out
+Date: Wed, 18 Jun 2008 20:03:01 +0400
+Message-ID: <485931B5.2020509@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:35029 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752528AbYFRPwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 11:52:19 -0400
-In-Reply-To: <1213802154-28968-1-git-send-email-jrigby@freescale.com>
+Received: from sacred.ru ([62.205.161.221]:33277 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750984AbYFRQFa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 12:05:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is in preparation of adding support for
-MPC5121 FEC.  The 5121 patch needs to add a different
-struct fec because it has a different register layout.
+There are some places in TCP that select one MIB index to
+bump snmp statistics like this:
 
-This patch allows the 5121 patch to not include a typedef
-fec_t which checkpatch complains about.
+	if (<something>)
+		NET_INC_STATS_BH(<some_id>);
+	else if (<something_else>)
+		NET_INC_STATS_BH(<some_other_id>);
+	...
+	else
+		NET_INC_STATS_BH(<default_id>);
 
-Signed-off-by: John Rigby <jrigby@freescale.com>
+or in a more tricky but still similar way.
+
+On the other hand, this NET_INC_STATS_BH is a camouflaged
+increment of percpu variable, which is not that small.
+
+Factoring those cases out de-bloats 235 bytes on non-preemptible
+i386 config and drives parts of the code into 80 columns.
+
+add/remove: 0/0 grow/shrink: 0/7 up/down: 0/-235 (-235)
+function                                     old     new   delta
+tcp_fastretrans_alert                       1437    1424     -13
+tcp_dsack_set                                137     124     -13
+tcp_xmit_retransmit_queue                    690     676     -14
+tcp_try_undo_recovery                        283     265     -18
+tcp_sacktag_write_queue                     1550    1515     -35
+tcp_update_reordering                        162     106     -56
+tcp_retransmit_timer                         990     904     -86
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
 ---
- drivers/net/fs_enet/mac-fec.c |   30 +++++++++++++++---------------
- drivers/net/fs_enet/mii-fec.c |    8 ++++----
- 2 files changed, 19 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-index 8a311d1..053b360 100644
---- a/drivers/net/fs_enet/mac-fec.c
-+++ b/drivers/net/fs_enet/mac-fec.c
-@@ -83,7 +83,7 @@
-  */
- #define FEC_RESET_DELAY		50
- 
--static int whack_reset(fec_t __iomem *fecp)
-+static int whack_reset(struct fec __iomem *fecp)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index de30e70..d6ea970 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -947,17 +947,21 @@ static void tcp_update_reordering(struct sock *sk, const int metric,
  {
- 	int i;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	if (metric > tp->reordering) {
++		int mib_idx;
++
+ 		tp->reordering = min(TCP_MAX_REORDERING, metric);
  
-@@ -189,7 +189,7 @@ static void cleanup_data(struct net_device *dev)
- static void set_promiscuous_mode(struct net_device *dev)
+ 		/* This exciting event is worth to be remembered. 8) */
+ 		if (ts)
+-			NET_INC_STATS_BH(LINUX_MIB_TCPTSREORDER);
++			mib_idx = LINUX_MIB_TCPTSREORDER;
+ 		else if (tcp_is_reno(tp))
+-			NET_INC_STATS_BH(LINUX_MIB_TCPRENOREORDER);
++			mib_idx = LINUX_MIB_TCPRENOREORDER;
+ 		else if (tcp_is_fack(tp))
+-			NET_INC_STATS_BH(LINUX_MIB_TCPFACKREORDER);
++			mib_idx = LINUX_MIB_TCPFACKREORDER;
+ 		else
+-			NET_INC_STATS_BH(LINUX_MIB_TCPSACKREORDER);
++			mib_idx = LINUX_MIB_TCPSACKREORDER;
++
++		NET_INC_STATS_BH(mib_idx);
+ #if FASTRETRANS_DEBUG > 1
+ 		printk(KERN_DEBUG "Disorder%d %d %u f%u s%u rr%d\n",
+ 		       tp->rx_opt.sack_ok, inet_csk(sk)->icsk_ca_state,
+@@ -1456,18 +1460,22 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
+ 		if (!tcp_is_sackblock_valid(tp, dup_sack,
+ 					    sp[used_sacks].start_seq,
+ 					    sp[used_sacks].end_seq)) {
++			int mib_idx;
++
+ 			if (dup_sack) {
+ 				if (!tp->undo_marker)
+-					NET_INC_STATS_BH(LINUX_MIB_TCPDSACKIGNOREDNOUNDO);
++					mib_idx = LINUX_MIB_TCPDSACKIGNOREDNOUNDO;
+ 				else
+-					NET_INC_STATS_BH(LINUX_MIB_TCPDSACKIGNOREDOLD);
++					mib_idx = LINUX_MIB_TCPDSACKIGNOREDOLD;
+ 			} else {
+ 				/* Don't count olds caused by ACK reordering */
+ 				if ((TCP_SKB_CB(ack_skb)->ack_seq != tp->snd_una) &&
+ 				    !after(sp[used_sacks].end_seq, tp->snd_una))
+ 					continue;
+-				NET_INC_STATS_BH(LINUX_MIB_TCPSACKDISCARD);
++				mib_idx = LINUX_MIB_TCPSACKDISCARD;
+ 			}
++
++			NET_INC_STATS_BH(mib_idx);
+ 			if (i == 0)
+ 				first_sack_index = -1;
+ 			continue;
+@@ -2380,15 +2388,19 @@ static int tcp_try_undo_recovery(struct sock *sk)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+ 	if (tcp_may_undo(tp)) {
++		int mib_idx;
++
+ 		/* Happy end! We did not retransmit anything
+ 		 * or our original transmission succeeded.
+ 		 */
+ 		DBGUNDO(sk, inet_csk(sk)->icsk_ca_state == TCP_CA_Loss ? "loss" : "retrans");
+ 		tcp_undo_cwr(sk, 1);
+ 		if (inet_csk(sk)->icsk_ca_state == TCP_CA_Loss)
+-			NET_INC_STATS_BH(LINUX_MIB_TCPLOSSUNDO);
++			mib_idx = LINUX_MIB_TCPLOSSUNDO;
+ 		else
+-			NET_INC_STATS_BH(LINUX_MIB_TCPFULLUNDO);
++			mib_idx = LINUX_MIB_TCPFULLUNDO;
++
++		NET_INC_STATS_BH(mib_idx);
+ 		tp->undo_marker = 0;
+ 	}
+ 	if (tp->snd_una == tp->high_seq && tcp_is_reno(tp)) {
+@@ -2560,7 +2572,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
+ 	int is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
+ 	int do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
+ 				    (tcp_fackets_out(tp) > tp->reordering));
+-	int fast_rexmit = 0;
++	int fast_rexmit = 0, mib_idx;
+ 
+ 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
+ 		tp->sacked_out = 0;
+@@ -2683,9 +2695,11 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
+ 		/* Otherwise enter Recovery state */
+ 
+ 		if (tcp_is_reno(tp))
+-			NET_INC_STATS_BH(LINUX_MIB_TCPRENORECOVERY);
++			mib_idx = LINUX_MIB_TCPRENORECOVERY;
+ 		else
+-			NET_INC_STATS_BH(LINUX_MIB_TCPSACKRECOVERY);
++			mib_idx = LINUX_MIB_TCPSACKRECOVERY;
++
++		NET_INC_STATS_BH(mib_idx);
+ 
+ 		tp->high_seq = tp->snd_nxt;
+ 		tp->prior_ssthresh = 0;
+@@ -3700,10 +3714,14 @@ static inline int tcp_sack_extend(struct tcp_sack_block *sp, u32 seq,
+ static void tcp_dsack_set(struct tcp_sock *tp, u32 seq, u32 end_seq)
  {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
+ 	if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
++		int mib_idx;
++
+ 		if (before(seq, tp->rcv_nxt))
+-			NET_INC_STATS_BH(LINUX_MIB_TCPDSACKOLDSENT);
++			mib_idx = LINUX_MIB_TCPDSACKOLDSENT;
+ 		else
+-			NET_INC_STATS_BH(LINUX_MIB_TCPDSACKOFOSENT);
++			mib_idx = LINUX_MIB_TCPDSACKOFOSENT;
++
++		NET_INC_STATS_BH(mib_idx);
  
- 	FS(fecp, r_cntrl, FEC_RCNTRL_PROM);
- }
-@@ -237,7 +237,7 @@ static void set_multicast_one(struct net_device *dev, const u8 *mac)
- static void set_multicast_finish(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
+ 		tp->rx_opt.dsack = 1;
+ 		tp->duplicate_sack[0].start_seq = seq;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8f83ab4..edef2af 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1985,14 +1985,17 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
  
- 	/* if all multi or too many multicasts; just enable all */
- 	if ((dev->flags & IFF_ALLMULTI) != 0 ||
-@@ -271,7 +271,7 @@ static void restart(struct net_device *dev)
- 	u32 cptr;
- #endif
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
- 	const struct fs_platform_info *fpi = fep->fpi;
- 	dma_addr_t rx_bd_base_phys, tx_bd_base_phys;
- 	int r;
-@@ -399,7 +399,7 @@ static void stop(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
- 	const struct fs_platform_info *fpi = fep->fpi;
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
+ 			if (sacked & TCPCB_LOST) {
+ 				if (!(sacked & (TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))) {
++					int mib_idx;
++
+ 					if (tcp_retransmit_skb(sk, skb)) {
+ 						tp->retransmit_skb_hint = NULL;
+ 						return;
+ 					}
+ 					if (icsk->icsk_ca_state != TCP_CA_Loss)
+-						NET_INC_STATS_BH(LINUX_MIB_TCPFASTRETRANS);
++						mib_idx = LINUX_MIB_TCPFASTRETRANS;
+ 					else
+-						NET_INC_STATS_BH(LINUX_MIB_TCPSLOWSTARTRETRANS);
++						mib_idx = LINUX_MIB_TCPSLOWSTARTRETRANS;
++					NET_INC_STATS_BH(mib_idx);
  
- 	struct fec_info* feci= fep->phydev->bus->priv;
+ 					if (skb == tcp_write_queue_head(sk))
+ 						inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 3e358cb..6a480d1 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -326,24 +326,27 @@ static void tcp_retransmit_timer(struct sock *sk)
+ 		goto out;
  
-@@ -461,7 +461,7 @@ static void post_free_irq(struct net_device *dev, int irq)
- static void napi_clear_rx_event(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
+ 	if (icsk->icsk_retransmits == 0) {
++		int mib_idx;
++
+ 		if (icsk->icsk_ca_state == TCP_CA_Disorder ||
+ 		    icsk->icsk_ca_state == TCP_CA_Recovery) {
+ 			if (tcp_is_sack(tp)) {
+ 				if (icsk->icsk_ca_state == TCP_CA_Recovery)
+-					NET_INC_STATS_BH(LINUX_MIB_TCPSACKRECOVERYFAIL);
++					mib_idx = LINUX_MIB_TCPSACKRECOVERYFAIL;
+ 				else
+-					NET_INC_STATS_BH(LINUX_MIB_TCPSACKFAILURES);
++					mib_idx = LINUX_MIB_TCPSACKFAILURES;
+ 			} else {
+ 				if (icsk->icsk_ca_state == TCP_CA_Recovery)
+-					NET_INC_STATS_BH(LINUX_MIB_TCPRENORECOVERYFAIL);
++					mib_idx = LINUX_MIB_TCPRENORECOVERYFAIL;
+ 				else
+-					NET_INC_STATS_BH(LINUX_MIB_TCPRENOFAILURES);
++					mib_idx = LINUX_MIB_TCPRENOFAILURES;
+ 			}
+ 		} else if (icsk->icsk_ca_state == TCP_CA_Loss) {
+-			NET_INC_STATS_BH(LINUX_MIB_TCPLOSSFAILURES);
++			mib_idx = LINUX_MIB_TCPLOSSFAILURES;
+ 		} else {
+-			NET_INC_STATS_BH(LINUX_MIB_TCPTIMEOUTS);
++			mib_idx = LINUX_MIB_TCPTIMEOUTS;
+ 		}
++		NET_INC_STATS_BH(mib_idx);
+ 	}
  
- 	FW(fecp, ievent, FEC_NAPI_RX_EVENT_MSK);
- }
-@@ -469,7 +469,7 @@ static void napi_clear_rx_event(struct net_device *dev)
- static void napi_enable_rx(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
- 
- 	FS(fecp, imask, FEC_NAPI_RX_EVENT_MSK);
- }
-@@ -477,7 +477,7 @@ static void napi_enable_rx(struct net_device *dev)
- static void napi_disable_rx(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
- 
- 	FC(fecp, imask, FEC_NAPI_RX_EVENT_MSK);
- }
-@@ -485,7 +485,7 @@ static void napi_disable_rx(struct net_device *dev)
- static void rx_bd_done(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
- 
- 	FW(fecp, r_des_active, 0x01000000);
- }
-@@ -493,7 +493,7 @@ static void rx_bd_done(struct net_device *dev)
- static void tx_kickstart(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
- 
- 	FW(fecp, x_des_active, 0x01000000);
- }
-@@ -501,7 +501,7 @@ static void tx_kickstart(struct net_device *dev)
- static u32 get_int_events(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
- 
- 	return FR(fecp, ievent) & FR(fecp, imask);
- }
-@@ -509,7 +509,7 @@ static u32 get_int_events(struct net_device *dev)
- static void clear_int_events(struct net_device *dev, u32 int_events)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	fec_t __iomem *fecp = fep->fec.fecp;
-+	struct fec __iomem *fecp = fep->fec.fecp;
- 
- 	FW(fecp, ievent, int_events);
- }
-@@ -524,17 +524,17 @@ static int get_regs(struct net_device *dev, void *p, int *sizep)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
- 
--	if (*sizep < sizeof(fec_t))
-+	if (*sizep < sizeof(struct fec))
- 		return -EINVAL;
- 
--	memcpy_fromio(p, fep->fec.fecp, sizeof(fec_t));
-+	memcpy_fromio(p, fep->fec.fecp, sizeof(struct fec));
- 
- 	return 0;
- }
- 
- static int get_regs_len(struct net_device *dev)
- {
--	return sizeof(fec_t);
-+	return sizeof(struct fec);
- }
- 
- static void tx_restart(struct net_device *dev)
-diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
-index f0014cf..83fe5e9 100644
---- a/drivers/net/fs_enet/mii-fec.c
-+++ b/drivers/net/fs_enet/mii-fec.c
-@@ -70,7 +70,7 @@ static int match_has_phy (struct device *dev, void* data)
- static int fs_mii_fec_init(struct fec_info* fec, struct fs_mii_fec_platform_info *fmpi)
- {
- 	struct resource *r;
--	fec_t __iomem *fecp;
-+	struct fec __iomem *fecp;
- 	char* name = "fsl-cpm-fec";
- 
- 	/* we need fec in order to be useful */
-@@ -85,7 +85,7 @@ static int fs_mii_fec_init(struct fec_info* fec, struct fs_mii_fec_platform_info
- 
- 	r = platform_get_resource_byname(fec_pdev, IORESOURCE_MEM, "regs");
- 
--	fec->fecp = fecp = ioremap(r->start,sizeof(fec_t));
-+	fec->fecp = fecp = ioremap(r->start,sizeof(struct fec));
- 	fec->mii_speed = fmpi->mii_speed;
- 
- 	setbits32(&fecp->fec_r_cntrl, FEC_RCNTRL_MII_MODE);	/* MII enable */
-@@ -100,7 +100,7 @@ static int fs_mii_fec_init(struct fec_info* fec, struct fs_mii_fec_platform_info
- static int fs_enet_fec_mii_read(struct mii_bus *bus , int phy_id, int location)
- {
- 	struct fec_info* fec = bus->priv;
--	fec_t __iomem *fecp = fec->fecp;
-+	struct fec __iomem *fecp = fec->fecp;
- 	int i, ret = -1;
- 
- 	if ((in_be32(&fecp->fec_r_cntrl) & FEC_RCNTRL_MII_MODE) == 0)
-@@ -124,7 +124,7 @@ static int fs_enet_fec_mii_read(struct mii_bus *bus , int phy_id, int location)
- static int fs_enet_fec_mii_write(struct mii_bus *bus, int phy_id, int location, u16 val)
- {
- 	struct fec_info* fec = bus->priv;
--	fec_t __iomem *fecp = fec->fecp;
-+	struct fec __iomem *fecp = fec->fecp;
- 	int i;
- 
- 	/* this must never happen */
--- 
-1.5.6.rc0.46.gd2b3
-
+ 	if (tcp_use_frto(sk)) {
