@@ -1,114 +1,74 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 3/3] netdevice: order of synchronization of IFF_PROMISC
- and IFF_ALLMULTI
-Date: Tue, 17 Jun 2008 22:52:04 -0400
-Message-ID: <48587854.8050400@pobox.com>
-References: <48562F9A.5030509@cn.fujitsu.com> <485631FF.7040509@trash.net> <485634D1.2010603@cn.fujitsu.com> <48563A7F.50309@trash.net> <485716A1.8030401@cn.fujitsu.com> <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: DM9000: Remove blackfin as special case.
+Date: Tue, 17 Jun 2008 23:02:02 -0400
+Message-ID: <48587AAA.8080005@garzik.org>
+References: <20080615233648.597885961@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, cooloney@kernel.org
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38702 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48427 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755785AbYFRCwW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 22:52:22 -0400
-In-Reply-To: <48587295.40705@cn.fujitsu.com>
+	id S1753862AbYFRDCG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 23:02:06 -0400
+In-Reply-To: <20080615233648.597885961@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-> Patrick McHardy said the following on 2008-6-17 21:06:
->> Wang Chen wrote:
->>> Patrick McHardy said the following on 2008-6-16 18:03:
->>>> Wang Chen wrote:
->>>>> And about the comment, I copy it from dev_change_flags() and think
->>>>> it seems suit for here.
->>>>> Did I misunderstand this comment?
->>>> I think it refers to broken behaviour by drivers that set
->>>> IFF_PROMISC themselves when asked to disable multicast
->>>> filtering by setting IFF_ALLMULTI. This would cause the
->>>> test for changed flags in dev_set_promiscuity to return zero
->>>> and not program the device for promiscous mode properly.
->>>>
->>> Do you mean things like that in do_mc32_set_multicast_list()?
->> Yes.
->>
->>>> There are a few examples of this in the tree. But calling
->>>> dev_set_promiscuity() before dev_set_allmulti() only helps
->>>> in the dev_change_flags() case since its the only function
->>>> that might change both flags at once. In all other cases it
->>>> depends on the caller.
->>>>
->>>> So for the dev_change_flags() case VLAN already uses the
->>>> "proper" ordering, the other cases might be broken with
->>>> or without your patch.
->>>>
->>> Is there any other case might be broken?
->> If that ordering is really required, yes:
->>
->> - ip link set dev eth0 allmulticast on
->>
->> <sets allmulticast *and* promisous with broken driver>
->>
->> - ip link set dev eth0 promisc on
->>
->> <no change>
->>
->> So the only thing fixed by this workaround is of both are
->> enabled in a single command - something that doesn't even
->> make much sense since promisc will receive all multicast
->> frames anyway.
->>
->>>> I'd suggest to fix the drivers instead, perhaps start by
->>>> adding a warning to dev_change_flags() that is triggered
->>>> by the driver changing the flags itself.
->>>>
->>> In some driver's code of *_set_multicast_list(), IFF_PROMISC
->>> will be set if IFF_ALLMULTI is set.
->>> And there is comment about the necessity for setting IFF_PROMISC.
->>> /*
->>>  *    We must make the kernel realise we had to move
->>>  *    into promisc mode or we start all out war on
->>>  *    the cable. If it was a promisc request the
->>>  *    flag is already set. If not we assert it.
->>>  */
->>> So, I doubt about fixing the drivers.
->>
->> I have no idea what this comment is trying to say. Drivers
->> shouldn't change dev->flags.
->>
+Ben Dooks wrote:
+> The first part of remove the DEFAULT_TRIGGER should
+> be relatively easy to fixup in whatever blackfin archs
+> still use this.
 > 
-> Yes.
-> Maybe we should ask the authors about why they let driver to
-> change the dev->flags.
-> Fox example, about 3c527.
-> Alan,
-> Can you explain why do_mc32_set_multicast_list() change flag
-> to IFF_PROMISC when IFF_ALLMULTI is set?
+> The otherbits, I would recommend the relevant blackfin
+> IO headers should deal with defining the six functions to
+> the relevant blackfin implementation.
 > 
-> Jeff,
-> Any suggestion about this?
-> netdevice uses promiscuity as refcnt, and if driver set IFF_PROMISC
-> but don't change promiscuity will break the refcnt.
+> I would have sent this directly to the blackfin list, but
+> it is marked as subscribers only.
+> 
+> CC: Bryan Wu <cooloney@kernel.org>
+> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+> 
+> Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
+> ===================================================================
+> --- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-16 00:31:57.000000000 +0100
+> +++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-16 00:32:17.000000000 +0100
+> @@ -47,18 +47,6 @@
+>  #define CARDNAME	"dm9000"
+>  #define DRV_VERSION	"1.31"
+>  
+> -#ifdef CONFIG_BLACKFIN
+> -#define readsb	insb
+> -#define readsw	insw
+> -#define readsl	insl
+> -#define writesb	outsb
+> -#define writesw	outsw
+> -#define writesl	outsl
+> -#define DEFAULT_TRIGGER IRQF_TRIGGER_HIGH
+> -#else
+> -#define DEFAULT_TRIGGER (0)
+> -#endif
+> -
+>  /*
+>   * Transmit timeout, default 5 seconds.
+>   */
+> @@ -1012,10 +1000,8 @@ dm9000_open(struct net_device *dev)
+>  	/* If there is no IRQ type specified, default to something that
+>  	 * may work, and tell the user that this is a problem */
+>  
+> -	if (irqflags == IRQF_TRIGGER_NONE) {
+> +	if (irqflags == IRQF_TRIGGER_NONE)
+>  		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
+> -		irqflags = DEFAULT_TRIGGER;
 
-Drivers should not be setting IFF_* flags in set_multicast_list().
+Is this for 2.6.26 or 2.6.27?
 
-The normal logic is that a driver interprets the request implied in 
-set_multicast_list ("promisc, all-multi, or select multi?"), and then 
-programs the hardware based on that.
-
-On some hardware, IFF_ALLMULTI requires that the hardware receive all 
-packets (promisc).  Even for that case, the driver should -not- be 
-setting the IFF_PROMISC flag.  It should be aware of its own hardware 
-programming state through some other method.
+And please CC me on net driver patches, thanks...
 
 	Jeff
-
 
 
 
