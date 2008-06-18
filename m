@@ -1,35 +1,65 @@
-From: "Jean-Philippe RAMES" <jprames@ags-backup.com>
-Subject: RE: Traffic Control - Burst 4096Mb ?!
-Date: Wed, 18 Jun 2008 13:08:51 +0200
-Message-ID: <BD53B6560CD66B4AA230BBB09CD2C8F346DB97@ags-exch.ags-intranet.net>
-References: <BD53B6560CD66B4AA230BBB09CD2C8F3244275@ags-exch.ags-intranet.net> <BD53B6560CD66B4AA230BBB09CD2C8F346DB91@ags-exch.ags-intranet.net> <4858E2CE.5020605@trash.net> <BD53B6560CD66B4AA230BBB09CD2C8F346DB94@ags-exch.ags-intranet.net> <4858E43B.2080008@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fwd: [ofa-general] FW: QLogic vNIC Kernel Submission
+Date: Wed, 18 Jun 2008 13:19:22 +0200
+Message-ID: <4858EF3A.7080500@trash.net>
+References: <99863D2ED484D449811D97A4C44C9CBD7C50F7@EPEXCH2.qlogic.org> <c8028d330806171018j7f129ddft3bee056e4be9b954@mail.gmail.com> <4858E6E2.8050609@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, netdev@vger.kernel.org,
+	rdreier@cisco.com,
+	Ramachandra K <ramachandra.kuchimanchi@qlogic.com>,
+	poornima.kamath@qlogic.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.ags-backup.com ([195.101.79.129]:28147 "EHLO
-	exchange.ags-backup.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752363AbYFRLJd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 07:09:33 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <4858E43B.2080008@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:60958 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752659AbYFRLTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 07:19:25 -0400
+In-Reply-To: <4858E6E2.8050609@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks I going to try.
+Jeff Garzik wrote:
+> Amar Mudrankit wrote:
+>> ---------- Forwarded message ----------
+>> From: John Russo <john.russo@qlogic.com>
+>> Date: Tue, Jun 17, 2008 at 6:36 PM
+>> Subject: [ofa-general] FW: QLogic vNIC Kernel Submission
+>> To: general@lists.openfabrics.org
+>>
+>>
+>> It looks as if my original email was "scrubbed" before it made the
+>> mailing list so I am resending it...
+>>
+>> QLogic has been attempting to submit our virtual NIC (vNIC) driver to
+>> the Linux kernel for several months.  We have made changes to the code
+>> based on the feedback we have received over four rounds of
+>> submissions. Among the feedback we received during this process was a
+>> request to alter our code to use a single value per file for
+>> configuration of our driver through sysfs interface.  After spending
+>> much time and effort to complete this change to our design we
+>> re-submitted the driver only to receive a response suggesting that we
+>> change once again from this interface to a different API interface
+>> called rtnl_link.  Needless to say I am very frustrated with this
+>> process. This new API interface would require substantial changes to
+>> our code.
+>>
+>> QLogic has met the initial request to move to a single valued sysfs
+>> interface and I would hope that this new request will be waived and
+>> will not be a roadblock to inclusion of our driver to the kernel.
+> 
+> One option is to get the base driver into the tree, sans sysfs 
+> interface, and wait for the netlink interface.
+> 
+> As Patrick noted, it is very important to -not- just throw new user 
+> interfaces into the tree, because that essentially sets them in stone at 
+> that point, needing to be supported as an Application Binary Interface 
+> (ABI).
+> 
+> The other stuff, like duplication of existing interfaces and strange 
+> FSM-based netdev registration, are problems that could be worked out 
+> in-tree, I suppose.
 
-
------Message d'origine-----
-De=A0: Patrick McHardy [mailto:kaber@trash.net]=20
-Envoy=E9=A0: mercredi 18 juin 2008 12:32
-=C0=A0: Jean-Philippe RAMES
-Cc=A0: netdev@vger.kernel.org
-Objet=A0: Re: Traffic Control - Burst 4096Mb ?!
-
-Jean-Philippe RAMES wrote:
-> iproute2-ss070313
-
-That version is known to have integer overflows. Any more
-revent version should fix it.
+That sounds fine to me. The duplication is even going away
+automatically with removal of the sysfs interface.
