@@ -1,70 +1,90 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: Re: [PATCH net-next-2.6] ipv6: minor cleanup in net/ipv6/tcp_ipv6.c [RESEND ].
-Date: Wed, 18 Jun 2008 10:02:30 +0300
-Message-ID: <eb3ff54b0806180002r3db43549h825ae1e307418223@mail.gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [Bugme-new] [Bug 10903] New: ssh connections hang with
+	2.6.26-rc5
+Date: Wed, 18 Jun 2008 09:24:47 +0200
+Message-ID: <1213773887.3803.158.camel@johannes.berg>
+References: <bug-10903-10286@http.bugzilla.kernel.org/>
+	 <200806151537.11986.didier@raboud.com>
+	 <Pine.LNX.4.64.0806161542290.16829@wrl-59.cs.helsinki.fi>
+	 <200806172359.33768.didier@raboud.com>
+	 <Pine.LNX.4.64.0806180152410.32420@wrl-59.cs.helsinki.fi>
+	 (sfid-20080618_010511_957319_521A8B46)
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_47790_2089684.1213772550491"
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:16315 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759626AbYFRHCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 03:02:33 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so137777wfd.4
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 00:02:30 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-------=_Part_47790_2089684.1213772550491
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-Hi,
-Sorry, resending with  Signed-off-by:
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-7sktSxpeauONlM1NWqLR"
+Cc: Didier Raboud <didier-efQUOpnRmEvQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.64.0806180152410.32420-x/A8LOkYjdVsRR2hCrRKtT03IgOmwywn@public.gmane.org> (sfid-20080618_010511_957319_521A8B46)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
- In net/ipv6/tcp_ipv6.c:
-
-  - Remove unneeded tcp_v6_send_check() declaration.
-
-Regards,
-Rami Rosen
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+--=-7sktSxpeauONlM1NWqLR
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
 
+> > > > > > > http://bugzilla.kernel.org/show_bug.cgi?id=3D10903
+> > > > > > >
+> > > > > > >            Summary: ssh connections hang with 2.6.26-rc5
 
+Andrew Prince reported a similar problem and said he bisected it  to
+davem's =EF=BB=BF608961a5eca8d3c6bd07172febc27b5559408c5d ("mac80211: Use
+skb_header_cloned() on TX path.") which made no sense to me so I marked
+the report as 'to investigate when I have more time'.
 
-On Wed, Jun 18, 2008 at 9:01 AM, David Miller <davem@davemloft.net> wrote:
-> From: "Rami Rosen" <ramirose@gmail.com>
-> Date: Wed, 18 Jun 2008 08:54:52 +0300
->
->> Hi,
->> Certainly!
->>
->> In net/ipv6/tcp_ipv6.c:
->>
->>  - Remove unneeded tcp_v6_send_check() declaration.
->
-> No signoff.
->
+> > > You probably run it under X, no? Please switch beforehand to some oth=
+er vt
+> > > (a textual one) then (Ctrl-Alt-Fn, where n < 6) and then log in and
+> > > running that command there and see if you get some output into screen
+> > > there. If you see something (e.g., a sudden OOPS message or some othe=
+r
+> > > warning printed) when it locks up, the easiest things is to take a sh=
+ot
+> > > with a digicam (or write it down somewhere else) and send that shot (=
+or
+> > > those details) to us please.
+> >=20
+> > I tried the following in vt1 (under the new 2.6.26-rc6 with kdm stopped=
+):
+> >=20
+> > # tcpdump -i wlan0 -w /tmp/tcpdump.wlan0
+> >=20
+> > and I got the attached "soft lockup".
 
-------=_Part_47790_2089684.1213772550491
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fhlkpysg0
-Content-Disposition: attachment; filename=patch.txt
+Attached where? I can't find it in the bug either.
 
-ZGlmZiAtLWdpdCBhL25ldC9pcHY2L3RjcF9pcHY2LmMgYi9uZXQvaXB2Ni90Y3BfaXB2Ni5jCmlu
-ZGV4IGRhZWZjMTguLjA5YmUwOWMgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3RjcF9pcHY2LmMKKysr
-IGIvbmV0L2lwdjYvdGNwX2lwdjYuYwpAQCAtNzAsOCArNzAsNiBAQAogCiBzdGF0aWMgdm9pZAl0
-Y3BfdjZfc2VuZF9yZXNldChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpOwog
-c3RhdGljIHZvaWQJdGNwX3Y2X3JlcXNrX3NlbmRfYWNrKHN0cnVjdCBza19idWZmICpza2IsIHN0
-cnVjdCByZXF1ZXN0X3NvY2sgKnJlcSk7Ci1zdGF0aWMgdm9pZAl0Y3BfdjZfc2VuZF9jaGVjayhz
-dHJ1Y3Qgc29jayAqc2ssIGludCBsZW4sCi0JCQkJICBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKIAog
-c3RhdGljIGludAl0Y3BfdjZfZG9fcmN2KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYg
-KnNrYik7CiAK
-------=_Part_47790_2089684.1213772550491--
+johannes
+
+--=-7sktSxpeauONlM1NWqLR
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJIWLg7AAoJEKVg1VMiehFYPR8QAIgTQdxg/0sN1U0Lc6eX3z95
+wf6Ivd8Je250gmreg4FzJrOiSB7fkmMvhyJL24HZ6+rQC/yz5zfHeeHSuKAVybtm
+AfGhln31or1GYHm452+0AiTNZdK9BExtPExeRWEkl+cXQScY/Ye9k4Fcqyn99nQ2
+x6WHOnvFCCM3kun2WYJVn0ilTNN7b3EuYTYNgB/kCX9YJwfp53KUl+MMno0cZrS5
+M0qYgWKC8so3oV0npjFE/3uStXys1ACEKBUGGYMdnj+6bQAKk96JgH8mI3Di5m7R
+wwKFEYbiX3y31WpDa4NjAiqGGj0q6xhf8JtJYo0a74dKNpol6Nbrq3SVSXvf1xfm
+vhn4fpOzOtyt6XZ387oETvNuI3x0TBSSHvhtHYEJ6aZwYe6h0tYvqrwRcn89YONr
+V6U1XEgqd2weLshjJkQ2PDZMNnbdz31ujdXQmpn7rlRy/YWYfJ2hkn2SotlVa+Cf
+xqg3wVAK4MkQh9076mehCcxV4E34a0x2mp4Rsu/XAac5Z862CIJfgaMA5k1dTUPw
+sGr4t8c954RUUqmmOUa1iW/9QF0wAj2B+mMwhy8B+oXlcuzS/UCpz1ZZ2G2BmNMq
+NmjmgG/MWtVG32BMKRPJGAFUaXJFpuhRdFxV6OCHXONWHTI3Xm0ZisRwopgmGsws
+IU7OIE00MyH3hlqmovtQ
+=i9Ez
+-----END PGP SIGNATURE-----
+
+--=-7sktSxpeauONlM1NWqLR--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
