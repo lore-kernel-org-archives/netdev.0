@@ -1,55 +1,102 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] udp: sk_drops handling
-Date: Wed, 18 Jun 2008 10:11:39 +0800
-Message-ID: <48586EDB.2060809@cn.fujitsu.com>
-References: <48582D35.40201@cosmosbay.com>
+Subject: Re: [PATCH 3/3] netdevice: order of synchronization of IFF_PROMISC
+ and IFF_ALLMULTI
+Date: Wed, 18 Jun 2008 10:27:33 +0800
+Message-ID: <48587295.40705@cn.fujitsu.com>
+References: <48562F9A.5030509@cn.fujitsu.com> <485631FF.7040509@trash.net> <485634D1.2010603@cn.fujitsu.com> <48563A7F.50309@trash.net> <485716A1.8030401@cn.fujitsu.com> <4857B6DC.5020805@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+	NETDEV <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>, Jeff Garzik <jgarzik@pobox.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56283 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:53558 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1759565AbYFRCPd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 22:15:33 -0400
-In-Reply-To: <48582D35.40201@cosmosbay.com>
+	id S1759544AbYFRCbf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 22:31:35 -0400
+In-Reply-To: <4857B6DC.5020805@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet said the following on 2008-6-18 5:31:
-> In commits 33c732c36169d7022ad7d6eb474b0c9be43a2dc1 ([IPV4]: Add raw drops
-> counter) and a92aa318b4b369091fd80433c80e62838db8bc1c ([IPV4]: Add raw
-> drops
-> counter),
-> Wang Chen added raw drops counter for /proc/net/raw & /proc/net/raw6
+Patrick McHardy said the following on 2008-6-17 21:06:
+> Wang Chen wrote:
+>> Patrick McHardy said the following on 2008-6-16 18:03:
+>>> Wang Chen wrote:
+>>>> And about the comment, I copy it from dev_change_flags() and think
+>>>> it seems suit for here.
+>>>> Did I misunderstand this comment?
+>>> I think it refers to broken behaviour by drivers that set
+>>> IFF_PROMISC themselves when asked to disable multicast
+>>> filtering by setting IFF_ALLMULTI. This would cause the
+>>> test for changed flags in dev_set_promiscuity to return zero
+>>> and not program the device for promiscous mode properly.
+>>>
+>>
+>> Do you mean things like that in do_mc32_set_multicast_list()?
 > 
-> This patch adds this capability to UDP sockets too (/proc/net/udp &
-> /proc/net/udp6).
+> Yes.
 > 
-> This means that 'RcvbufErrors' errors found in /proc/net/snmp can be also
-> be examined for each udp socket.
+>>> There are a few examples of this in the tree. But calling
+>>> dev_set_promiscuity() before dev_set_allmulti() only helps
+>>> in the dev_change_flags() case since its the only function
+>>> that might change both flags at once. In all other cases it
+>>> depends on the caller.
+>>>
+>>> So for the dev_change_flags() case VLAN already uses the
+>>> "proper" ordering, the other cases might be broken with
+>>> or without your patch.
+>>>
+>>
+>> Is there any other case might be broken?
 > 
-> # grep Udp: /proc/net/snmp
-> Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors
-> Udp: 23971006 75 899420 16390693 146348 0
+> If that ordering is really required, yes:
 > 
-> # cat /proc/net/udp
->  sl  local_address rem_address   st tx_queue rx_queue tr tm->when
-> retrnsmt  ---
-> uid  timeout inode ref pointer drops
->  75: 00000000:02CB 00000000:0000 07 00000000:00000000 00:00000000
-> 00000000  ---
->   0        0 2358 2 ffff81082a538c80 0
-> 111: 00000000:006F 00000000:0000 07 00000000:00000000 00:00000000
-> 00000000  ---
->   0        0 2286 2 ffff81042dd35c80 146348
+> - ip link set dev eth0 allmulticast on
 > 
-> In this example, only port 111 (0x006F) was flooded by messages that
-> user program
-> could not read fast enough. 146348 messages were lost.
+> <sets allmulticast *and* promisous with broken driver>
+> 
+> - ip link set dev eth0 promisc on
+> 
+> <no change>
+> 
+> So the only thing fixed by this workaround is of both are
+> enabled in a single command - something that doesn't even
+> make much sense since promisc will receive all multicast
+> frames anyway.
+> 
+>>> I'd suggest to fix the drivers instead, perhaps start by
+>>> adding a warning to dev_change_flags() that is triggered
+>>> by the driver changing the flags itself.
+>>>
+>>
+>> In some driver's code of *_set_multicast_list(), IFF_PROMISC
+>> will be set if IFF_ALLMULTI is set.
+>> And there is comment about the necessity for setting IFF_PROMISC.
+>> /*
+>>  *    We must make the kernel realise we had to move
+>>  *    into promisc mode or we start all out war on
+>>  *    the cable. If it was a promisc request the
+>>  *    flag is already set. If not we assert it.
+>>  */
+>> So, I doubt about fixing the drivers.
+> 
+> 
+> I have no idea what this comment is trying to say. Drivers
+> shouldn't change dev->flags.
 > 
 
-How about other place, such as, rxrpc_data_ready() also inc UDP_MIB_INERRORS.
+Yes.
+Maybe we should ask the authors about why they let driver to
+change the dev->flags.
+Fox example, about 3c527.
+Alan,
+Can you explain why do_mc32_set_multicast_list() change flag
+to IFF_PROMISC when IFF_ALLMULTI is set?
+
+Jeff,
+Any suggestion about this?
+netdevice uses promiscuity as refcnt, and if driver set IFF_PROMISC
+but don't change promiscuity will break the refcnt.
 
