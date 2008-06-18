@@ -1,42 +1,120 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows
- with MD5SIG enabled (v2)
-Date: Wed, 18 Jun 2008 01:52:06 -0700 (PDT)
-Message-ID: <20080618.015206.22767411.davem@davemloft.net>
-References: <20080617.170718.260234361.davem@davemloft.net>
-	<396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
-	<20080618023446.aba6516c.billfink@mindspring.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netlink circular locking dependency
+Date: Wed, 18 Jun 2008 10:52:30 +0200
+Message-ID: <4858CCCE.7060404@trash.net>
+References: <20080617132410.GB4632@ff.dom.local>	<4857BBB6.6010709@trash.net>	<20080617134303.GC4632@ff.dom.local> <20080617.213012.132043917.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: agl@imperialviolet.org, netdev@vger.kernel.org
-To: billfink@mindspring.com
+Content-Type: multipart/mixed;
+ boundary="------------000302020400030404010301"
+Cc: jarkao2@gmail.com, marcel@holtmann.org, netdev@vger.kernel.org,
+	mingo@elte.hu, tgraf@suug.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40212
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751270AbYFRIwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 04:52:07 -0400
-In-Reply-To: <20080618023446.aba6516c.billfink@mindspring.com>
+Received: from stinky.trash.net ([213.144.137.162]:56732 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398AbYFRIwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 04:52:38 -0400
+In-Reply-To: <20080617.213012.132043917.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bill Fink <billfink@mindspring.com>
-Date: Wed, 18 Jun 2008 02:34:46 -0400
+This is a multi-part message in MIME format.
+--------------000302020400030404010301
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> I am not particularly familiar with the TCP MD5 option, but in googling
-> around I found the following at the end of Section 2.2 Transmission,
-> of RFC 4808, "TCP-MD5 Key Change", dated March 2007:
-> 
->     "Note that there is an ambiguity when an acknowledgment is received
->     for a segment transmitted with two different keys.  The TCP Timestamp
->     option [RFC1323] can be used for disambiguation."
-> 
-> This would seem to imply, that at least in some scenarios, it would be
-> advisable to have TS enabled in conjunction with MD5.
+David Miller wrote:
+> In the meantime should I apply Patrick's current patch
+> from this thread?
 
-That does change the situation a bit, yes.
+I think that makes sense, the module unload race is present anyway.
+>
+> If so I'd like a proper commit message and signoff, thanks!
 
-It's pretty easy, depending upon the timestamp resolution, to
-end up with the original transmit and the retransmit having
-the same timetsamp value.  So this suggestion in the RFC is
-I think not a complete solution.
+Attached the patch with a proper changelog.
+
+
+
+
+
+
+--------------000302020400030404010301
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+netlink: genl: fix circular locking
+
+genetlink has a circular locking dependency when dumping the registered
+families:
+
+- dump start:
+genl_rcv()            : take genl_mutex
+genl_rcv_msg()        : call netlink_dump_start() while holding genl_mutex
+netlink_dump_start(),
+netlink_dump()        : take nlk->cb_mutex
+ctrl_dumpfamily()     : try to detect this case and not take genl_mutex a
+                        second time
+
+- dump continuance:
+netlink_rcv()         : call netlink_dump
+netlink_dump          : take nlk->cb_mutex
+ctrl_dumpfamily()     : take genl_mutex
+
+Register genl_lock as callback mutex with netlink to fix this. This slightly
+widens an already existing module unload race, the genl ops used during the
+dump might go away when the module is unloaded. Thomas Graf is working on a
+seperate fix for this.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f5aa23c..3e1191c 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -444,8 +444,11 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		if (ops->dumpit == NULL)
+ 			return -EOPNOTSUPP;
+ 
+-		return netlink_dump_start(genl_sock, skb, nlh,
+-					  ops->dumpit, ops->done);
++		genl_unlock();
++		err = netlink_dump_start(genl_sock, skb, nlh,
++					 ops->dumpit, ops->done);
++		genl_lock();
++		return err;
+ 	}
+ 
+ 	if (ops->doit == NULL)
+@@ -603,9 +606,6 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int chains_to_skip = cb->args[0];
+ 	int fams_to_skip = cb->args[1];
+ 
+-	if (chains_to_skip != 0)
+-		genl_lock();
+-
+ 	for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
+ 		if (i < chains_to_skip)
+ 			continue;
+@@ -623,9 +623,6 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	}
+ 
+ errout:
+-	if (chains_to_skip != 0)
+-		genl_unlock();
+-
+ 	cb->args[0] = i;
+ 	cb->args[1] = n;
+ 
+@@ -770,7 +767,7 @@ static int __init genl_init(void)
+ 
+ 	/* we'll bump the group number right afterwards */
+ 	genl_sock = netlink_kernel_create(&init_net, NETLINK_GENERIC, 0,
+-					  genl_rcv, NULL, THIS_MODULE);
++					  genl_rcv, &genl_mutex, THIS_MODULE);
+ 	if (genl_sock == NULL)
+ 		panic("GENL: Cannot initialize generic netlink\n");
+ 
+
+--------------000302020400030404010301--
