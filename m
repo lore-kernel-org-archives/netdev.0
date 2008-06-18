@@ -1,60 +1,63 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows
- with MD5SIG enabled (v2)
-Date: Wed, 18 Jun 2008 02:34:46 -0400
-Message-ID: <20080618023446.aba6516c.billfink@mindspring.com>
-References: <396556a20805301217k293e5718h6bbf02bfe0683144@europa>
-	<20080617.170718.260234361.davem@davemloft.net>
-	<396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [RFC][PATCH] IPv6:Remove options header when setsockopt's optlen
+ is 0
+Date: Wed, 18 Jun 2008 14:42:05 +0800
+Message-ID: <4858AE3D.6070101@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Adam Langley" <agl@imperialviolet.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: =?GB2312?B?WU9TSElGVUpJIEhpZGVha2kgLyC8qszZ06LD9w==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:34904 "EHLO
-	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754127AbYFRGeu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 02:34:50 -0400
-In-Reply-To: <396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:57567 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1759566AbYFRGnL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 02:43:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Jun 2008, Adam Langley wrote:
+Remove the sticky Hop-by-Hop options header by calling setsockopt() for IPV6_HOPOPTS
+with a zero option length, per RFC3542.
 
-> On Tue, Jun 17, 2008 at 5:07 PM, David Miller <davem@davemloft.net> wrote:
-> > The problematic case is when all 3 of tstamps, wscale, and md5 are
-> > enabled.  To be honest, tstamps are the least valuable of the 3.  The
-> > only way to accurately fill in gaps is to have at least some SACK
-> > information, it is much harder to guestimate than RTTs.
-> 
-> So, have a population of Linux hosts out there which will send corrupt
-> packets when MD5+SACK is enabled. So we want to fix that problem all
-> at once, hopefully.
-> 
-> How's this:
-> 
-> If we receive a SYN packet with MD5 + SACK + TS was assume that it's
-> from an older kernel and reply with MD5 + TS. Not including SACK means
-> that it won't send us corrupt packets and since we couldn't previously
-> do SACK with these packets anyway, we're not loosing anything.
-> 
-> However, by default we send MD5 + SACK. If we are talking to an old
-> kernel, that means that they are sending corrupt packets if they have
-> > 2 SACK blocks (the current logic limits them to 4 I believe).
-> Hopefully this is pretty rare (and, again, better than we are
-> currently doing). It also means that we have MD5 + SACK between new
-> hosts, which is optimal.
+Routing header and Destination options header does the same as Hop-by-Hop options header. 
 
-I am not particularly familiar with the TCP MD5 option, but in googling
-around I found the following at the end of Section 2.2 Transmission,
-of RFC 4808, "TCP-MD5 Key Change", dated March 2007:
 
-    "Note that there is an ambiguity when an acknowledgment is received
-    for a segment transmitted with two different keys.  The TCP Timestamp
-    option [RFC1323] can be used for disambiguation."
+Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
+---
+ net/ipv6/ipv6_sockglue.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
-This would seem to imply, that at least in some scenarios, it would be
-advisable to have TS enabled in conjunction with MD5.
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index c042ce1..86e28a7 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -345,18 +345,21 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 	case IPV6_DSTOPTS:
+ 	{
+ 		struct ipv6_txoptions *opt;
++
++		/* remove any sticky options header with a zero option
++		 * length, per RFC3542.
++		 */
+ 		if (optlen == 0)
+ 			optval = NULL;
++		else if (optlen < sizeof(struct ipv6_opt_hdr) ||
++			 optlen & 0x7 || optlen > 8 * 255)
++			goto e_inval;
+ 
+ 		/* hop-by-hop / destination options are privileged option */
+ 		retv = -EPERM;
+ 		if (optname != IPV6_RTHDR && !capable(CAP_NET_RAW))
+ 			break;
+ 
+-		if (optlen < sizeof(struct ipv6_opt_hdr) ||
+-		    optlen & 0x7 || optlen > 8 * 255)
+-			goto e_inval;
+-
+ 		opt = ipv6_renew_options(sk, np->opt, optname,
+ 					 (struct ipv6_opt_hdr __user *)optval,
+ 					 optlen);
 
-						-Bill
+
+
