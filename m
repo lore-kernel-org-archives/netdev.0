@@ -1,79 +1,64 @@
-From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
-Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs Documentation
-Date: Wed, 18 Jun 2008 18:02:28 +0530
-Message-ID: <71d336490806180532g4ea7067akc157581cb1fa946d@mail.gmail.com>
-References: <20080610205633.11186.45499.stgit@dale>
-	 <20080610210918.11186.64253.stgit@dale> <484F751F.7030407@trash.net>
-	 <c8028d330806120813q6363c3cemb4aa03ceff6547d1@mail.gmail.com>
-	 <48513E4E.4040601@trash.net>
-	 <f8ca0a150806141103r56f0530br6b5e78943ac1c92d@mail.gmail.com>
-	 <20080614190358.GU22807@obsidianresearch.com>
-	 <48562A41.7000304@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs
+	Documentation
+Date: Wed, 18 Jun 2008 14:38:00 +0200
+Message-ID: <485901A8.8060705@trash.net>
+References: <20080610205633.11186.45499.stgit@dale>	
+	<20080610210918.11186.64253.stgit@dale>
+	<484F751F.7030407@trash.net>	
+	<c8028d330806120813q6363c3cemb4aa03ceff6547d1@mail.gmail.com>	
+	<48513E4E.4040601@trash.net>	
+	<f8ca0a150806141103r56f0530br6b5e78943ac1c92d@mail.gmail.com>	
+	<20080614190358.GU22807@obsidianresearch.com>	
+	<48562A41.7000304@trash.net>
+	<71d336490806180532g4ea7067akc157581cb1fa946d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Jason Gunthorpe" <jgunthorpe@obsidianresearch.com>,
-	"Amar Mudrankit" <amar.mudrankit@qlogic.com>,
-	netdev@vger.kernel.org, general@lists.openfabrics.org,
-	rdreier@cisco.com, poornima.kamath@qlogic.com
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:43179 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753959AbYFRMc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 08:32:29 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so303yxl.1
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 05:32:28 -0700 (PDT)
-In-Reply-To: <48562A41.7000304@trash.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Amar Mudrankit <amar.mudrankit@qlogic.com>, netdev@vger.kernel.org,
+	rdreier@cisco.com, general@lists.openfabrics.org,
+	poornima.kamath@qlogic.com
+To: Ramachandra K <ramachandra.kuchimanchi@qlogic.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <71d336490806180532g4ea7067akc157581cb1fa946d@mail.gmail.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 16, 2008 at 2:24 PM, Patrick McHardy <kaber@trash.net> wrote:
-> Jason Gunthorpe wrote:
->>
->> On Sat, Jun 14, 2008 at 11:03:08AM -0700, Roland Dreier wrote:
->>>>
->>>> We have linkstate/operstate for this. How is a user supposed
->>>> to configure the network device when it appears at a more or
->>>> less random time from his perspective?
->>
->>
->>>
->>> Well, keep in mind that this driver is for an ethernet virtual NIC
->>> that is actually
->>> remote across another network (an InfiniBand fabric) -- so these devices
->>> can actually appear or disappear at random times by their nature.  It's a
->>> similar issue to, say, a USB ethernet adapter presents -- there's no sane
->>> way
->>> to have operstate set for a device that hasn't been attached yet.
->>
->> I think that is only a fair analogy if the VNIC used some kind of
->> hot-plug auto discovery procedure like USB does. As soon as you
->> require the administrator to run a command to bind a device to a VNIC
->> GID you are much more like a tunnel device and the ethernet device
->> should exist from the moment the administator creates it up until the
->> administator destroys it. The state of the connection to the VNIC
->> should be reflected in some way other than device presence.
->
-> Fully agreed.
+Ramachandra K wrote:
+> Is your suggestion that the netdevice needs to be registered as soon
+> as we get parameters from userspace even if that netdevice stays
+> inactive until we finish all of our communication with the QLogic EVIC
+> gateway device over the IB network ?
 
-Is your suggestion that the netdevice needs to be registered as soon
-as we get parameters from userspace even if that netdevice stays
-inactive until we finish all of our communication with the QLogic EVIC
-gateway device over the IB network ?
+Yes, it should be created as soon as the administrator
+issues the command to do so.
 
-Currently we register netdevice only after we have made sure that we
-can connect to the EVIC and that there are enough resources on the
-EVIC to support this virtual ethernet interface. But if we register
-the netdevice
-without making sure that we can reach the EVIC and that it has resources,
-there is a possibility that we register a netdevice that can never
-become active.
+> Currently we register netdevice only after we have made sure that we
+> can connect to the EVIC and that there are enough resources on the
+> EVIC to support this virtual ethernet interface. But if we register
+> the netdevice
+> without making sure that we can reach the EVIC and that it has resources,
+> there is a possibility that we register a netdevice that can never
+> become active.
 
-Isn't our current behavior analogous to an ethernet driver not
-registering a netdev if it
-can't properly initialize its hardware ?
+Thats similar to a ethernet device that never has a cable
+plugged in. You should register the device with its carrier
+turned off, then change the carrier state once the connection
+has been established.
 
-Regards,
-Ram
+> Isn't our current behavior analogous to an ethernet driver not
+> registering a netdev if it
+> can't properly initialize its hardware ?
+
+No, hardware probing is done automatically, while with your
+device the administrator explicitly asks to create the device.
+The expected behaviour is that the device exists once the
+command finishes without returning an error.
