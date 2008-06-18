@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Killing sk->sk_callback_lock
-Date: Wed, 18 Jun 2008 14:56:52 -0700 (PDT)
-Message-ID: <20080618.145652.193031154.davem@davemloft.net>
-References: <4857F579020000B30004963C@lucius.provo.novell.com>
-	<4858E838020000C7000397CF@lucius.provo.novell.com>
+Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows
+ with MD5SIG enabled (v2)
+Date: Wed, 18 Jun 2008 15:01:04 -0700 (PDT)
+Message-ID: <20080618.150104.147203818.davem@davemloft.net>
+References: <20080618023446.aba6516c.billfink@mindspring.com>
+	<20080618.015206.22767411.davem@davemloft.net>
+	<396556a20806181239q30024b8bv551f76a890befb0e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, GHaskins@novell.com,
-	chuck.lever@oracle.com, netdev@vger.kernel.org
-To: pmullaney@novell.com
+Cc: billfink@mindspring.com, netdev@vger.kernel.org
+To: agl@imperialviolet.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50859
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39196
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753909AbYFRV4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 17:56:52 -0400
-In-Reply-To: <4858E838020000C7000397CF@lucius.provo.novell.com>
+	by vger.kernel.org with ESMTP id S1754065AbYFRWBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 18:01:04 -0400
+In-Reply-To: <396556a20806181239q30024b8bv551f76a890befb0e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Patrick Mullaney" <pmullaney@novell.com>
-Date: Wed, 18 Jun 2008 10:49:28 -0600
+From: "Adam Langley" <agl@imperialviolet.org>
+Date: Wed, 18 Jun 2008 12:39:03 -0700
 
-> I will give it a shot - I still have reservations about changing the
-> socket structures - at first glance, it seems like sock and socket will
-> have to change.
+> On Wed, Jun 18, 2008 at 1:52 AM, David Miller <davem@davemloft.net> wrote:
+> > It's pretty easy, depending upon the timestamp resolution, to
+> > end up with the original transmit and the retransmit having
+> > the same timetsamp value.  So this suggestion in the RFC is
+> > I think not a complete solution.
+> 
+> I happen to have just (unintentionally) simulated this, i.e. a
+> situation where MD5 signed packets with SACKs were dropped by the
+> receiving host. The transmitting host keeps sending packets with SACKs
+> and they keep getting dropped: the connection stalled.
 
-If you work against net-next-2.6 everything setting sk->sk_sleep is
-compartmentalized into a small number of code locations.  So such work
-ought to be trivial.
+The retransmit timeout timer has to fire eventually, and when
+that happens we should clear all of our SACK state.
+
+I'm not denying your observations, I'm just stating what ought
+to be happening.
