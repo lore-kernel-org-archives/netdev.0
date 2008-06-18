@@ -1,74 +1,59 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: DM9000: Remove blackfin as special case.
-Date: Tue, 17 Jun 2008 23:02:02 -0400
-Message-ID: <48587AAA.8080005@garzik.org>
-References: <20080615233648.597885961@fluff.org.uk>
+Subject: Re: Pull request for mv643xx_eth 'for-2.6.27' branch
+Date: Tue, 17 Jun 2008 23:24:30 -0400
+Message-ID: <48587FEE.9030603@garzik.org>
+References: <20080606113747.GA7778@xi.wantstofly.org> <48508F0B.1040201@garzik.org> <20080612065028.GA22490@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cooloney@kernel.org
-To: Ben Dooks <ben-linux@fluff.org>
+Cc: dale@farnsworth.org, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48427 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40508 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753862AbYFRDCG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 23:02:06 -0400
-In-Reply-To: <20080615233648.597885961@fluff.org.uk>
+	id S1756360AbYFRDYi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 23:24:38 -0400
+In-Reply-To: <20080612065028.GA22490@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Dooks wrote:
-> The first part of remove the DEFAULT_TRIGGER should
-> be relatively easy to fixup in whatever blackfin archs
-> still use this.
+Lennert Buytenhek wrote:
+> On Wed, Jun 11, 2008 at 10:50:51PM -0400, Jeff Garzik wrote:
 > 
-> The otherbits, I would recommend the relevant blackfin
-> IO headers should deal with defining the six functions to
-> the relevant blackfin implementation.
+>>> Please pull the following mv643xx_eth patches for 2.6.27.  (They
+>>> were all ACKed by Dale, and I've agreed to take over mv643xx_eth
+>>> maintainership from him.)
+>>>
+>>>
+>>> thanks,
+>>> Lennert
+>>>
+>>>
+>>>
+>>> The following changes since commit 
+>>> 39b945a37bac2b692773a470890c8ba301485b15:
+>>>  Linus Torvalds (1):
+>>>        Merge master.kernel.org:/home/rmk/linux-2.6-arm
+>>>
+>>> are available in the git repository at:
+>>>
+>>>  git://git.marvell.com/mv643xx_eth.git for-2.6.27
+>> this pulls in a metric boatload of stuff into net-next, so I cannot pull
+>> it :(
 > 
-> I would have sent this directly to the blackfin list, but
-> it is marked as subscribers only.
+> I've rebased the changes onto net-next-2.6.  Does this work
+> better for you?
 > 
-> CC: Bryan Wu <cooloney@kernel.org>
-> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 > 
-> Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
-> ===================================================================
-> --- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-16 00:31:57.000000000 +0100
-> +++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-16 00:32:17.000000000 +0100
-> @@ -47,18 +47,6 @@
->  #define CARDNAME	"dm9000"
->  #define DRV_VERSION	"1.31"
->  
-> -#ifdef CONFIG_BLACKFIN
-> -#define readsb	insb
-> -#define readsw	insw
-> -#define readsl	insl
-> -#define writesb	outsb
-> -#define writesw	outsw
-> -#define writesl	outsl
-> -#define DEFAULT_TRIGGER IRQF_TRIGGER_HIGH
-> -#else
-> -#define DEFAULT_TRIGGER (0)
-> -#endif
-> -
->  /*
->   * Transmit timeout, default 5 seconds.
->   */
-> @@ -1012,10 +1000,8 @@ dm9000_open(struct net_device *dev)
->  	/* If there is no IRQ type specified, default to something that
->  	 * may work, and tell the user that this is a problem */
->  
-> -	if (irqflags == IRQF_TRIGGER_NONE) {
-> +	if (irqflags == IRQF_TRIGGER_NONE)
->  		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
-> -		irqflags = DEFAULT_TRIGGER;
+> 
+> The following changes since commit d4c3c0753594adaafbcb77a086f013f1d847b3f0:
+>   Adrian Bunk (1):
+>         irda: remove CVS keywords
+> 
+> are available in the git repository at:
+> 
+>   git://git.marvell.com/mv643xx_eth.git for-2.6.27
 
-Is this for 2.6.26 or 2.6.27?
-
-And please CC me on net driver patches, thanks...
-
-	Jeff
-
+pulled, thanks!
 
 
