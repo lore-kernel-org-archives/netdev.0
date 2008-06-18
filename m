@@ -1,118 +1,114 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [RESEND] [PATCH] tcp: fix for splice receive when used with software LRO
-Date: Wed, 18 Jun 2008 19:07:16 +0300
-Message-ID: <200806181907.16584.opurdila@ixiacom.com>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: [PATCH] [IPv6] Do not use loopback as source address on other interfaces
+Date: Wed, 18 Jun 2008 18:11:42 +0200
+Message-ID: <20080618161142.GD25004@pingi.kke.suse.de>
+References: <20080618132312.GA25004@pingi.kke.suse.de> <20080618.223600.81071656.yoshfuji@linux-ipv6.org> <20080618140558.GB25004@pingi.kke.suse.de> <20080618.233607.20745708.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_0KTWIC5MzgFXvGy"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Mironov_Sergey@emc.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3277 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750838AbYFRQIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 12:08:49 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:58477 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753446AbYFRQLs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 12:11:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20080618.233607.20745708.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_0KTWIC5MzgFXvGy
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Wed, Jun 18, 2008 at 11:36:07PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <20080618140558.GB25004@pingi.kke.suse.de> (at Wed, 18 Jun=
+ 2008 16:05:58 +0200), Karsten Keil <kkeil@suse.de> says:
+>=20
+> > On Wed, Jun 18, 2008 at 10:36:00PM +0900, YOSHIFUJI Hideaki / =E5=90=
+=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> > > In article <20080618132312.GA25004@pingi.kke.suse.de> (at Wed, 18=
+ Jun 2008 15:23:12 +0200), Karsten Keil <kkeil@suse.de> says:
+> > >=20
+> > > > RFC 4291 forbit the use of the loopback address as source outsi=
+de a node
+> > > > (paragraph 2.5.3).
+> > > >=20
+> > > > The latest TAHI test release 4.0.1 does have a check for this (=
+ICMPv6 test
+> > > > v6LC.5.1.2 Part F), so it fails currently on Linux.
+> > > >=20
+> > > > Signed-off-by: Sergey Mironov <Mironov_Sergey@emc.com>
+> > > > Signed-off-by: Karsten Keil <kkeil@suse.de>
+> > >=20
+> > > I disagree this approach - too ad-hoc fix just to pass the tests.
+> > >=20
+> >=20
+> > So you would prefer a more general test in some common place (like
+> > __ip6_local_out() ) to avoid any packets with ::1 on other devices =
+as
+> > loopback ?
+>=20
+> No, we should not even accept packets for ::1 from outside of the box=
+=2E
+> Something like this.
+>=20
 
+Yes I was thinking about nearly the same patch now :-)
 
-This is a resend of "[PATCH] Fix frag list handling in TCP splice receive",  
-modified to conform to the new commit header line rules.The commit message 
-has also been edited, and hopefully it is more clear now.
+> ---
+> ipv6: Drop packets for loopback address from outside of the box.
+>=20
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>=20
+> --=20
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index e0a612b..f422f72 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -367,6 +367,12 @@ static inline int ipv6_addr_any(const struct in6=
+_addr *a)
+>  		 a->s6_addr32[2] | a->s6_addr32[3] ) =3D=3D 0);=20
+>  }
+> =20
+> +static inline int ipv6_addr_loopback(const struct in6_addr *a)
+> +{
+> +	return ((a->s6_addr32[0] | a->s6_addr32[1] |
+> +		 a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) =3D=3D 0);
+> +}
+> +
+>  static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+>  {
+>  	return ((a->s6_addr32[0] | a->s6_addr32[1] |
+> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+> index 4e5c861..17eb48b 100644
+> --- a/net/ipv6/ip6_input.c
+> +++ b/net/ipv6/ip6_input.c
+> @@ -102,6 +102,15 @@ int ipv6_rcv(struct sk_buff *skb, struct net_dev=
+ice *dev, struct packet_type *pt
+>  	if (hdr->version !=3D 6)
+>  		goto err;
+> =20
+> +	/*
+> +	 * RFC4291 2.5.3
+> +	 * A packet received on an interface with a destination address
+> +	 * of loopback must be dropped.
+> +	 */
+> +	if (!(dev->flags & IFF_LOOPBACK) &&
+> +	    ipv6_addr_loopback(&hdr->daddr))
+> +		goto err;
+> +
+>  	skb->transport_header =3D skb->network_header + sizeof(*hdr);
+>  	IP6CB(skb)->nhoff =3D offsetof(struct ipv6hdr, nexthdr);
+> =20
+>=20
+>=20
+> --yoshfuji
 
-It fixes an infinite loop problem, in tcp_read_splice, that I can easily 
-reproduce on my setup with a simple splice test program on the receive side. 
-
-AFAICS, this problem should affect all setups which use software LRO and TCP 
-splice receive. Did anybody tried this combination?
-
-Thanks,
-tavi
-
---Boundary-00=_0KTWIC5MzgFXvGy
-Content-Type: text/plain;
-  name="[PATCH] tcp: fix for splice receive when used with software LRO"
-Content-Transfer-Encoding: 7bit
-
-commit 7c1ca9b811e2d38b8a6b5ea02b8211bf7df4e4ab
-Author: Octavian Purdila <opurdila@ixiacom.com>
-Date:   Wed Jun 18 18:24:06 2008 +0300
-
-    tcp: fix for splice receive when used with software LRO
-    
-    If an skb has nr_frags set to zero but its frag_list is not empty (as
-    it can happen if software LRO is enabled), and a previous
-    tcp_read_sock has consumed the linear part of the skb, then
-    __skb_splice_bits:
-    
-    (a) incorrectly reports an error and
-    
-    (b) forgets to update the offset to account for the linear part
-    
-    Any of the two problems will cause the subsequent __skb_splice_bits
-    call (the one that handles the frag_list skbs) to either skip data,
-    or, if the unadjusted offset is greater then the size of the next skb
-    in the frag_list, make tcp_splice_read loop forever.
-    
-    Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 874790b..27cb0d3 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1198,12 +1198,14 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
- {
- 	unsigned int nr_pages = spd->nr_pages;
- 	unsigned int poff, plen, len, toff, tlen;
--	int headlen, seg;
-+	int headlen, seg, error = 0;
- 
- 	toff = *offset;
- 	tlen = *total_len;
--	if (!tlen)
-+	if (!tlen) {
-+		error = 1;
- 		goto err;
-+	}
- 
- 	/*
- 	 * if the offset is greater than the linear part, go directly to
-@@ -1245,7 +1247,8 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
- 		 * just jump directly to update and return, no point
- 		 * in going over fragments when the output is full.
- 		 */
--		if (spd_fill_page(spd, virt_to_page(p), plen, poff, skb))
-+		error = spd_fill_page(spd, virt_to_page(p), plen, poff, skb);
-+		if (error)
- 			goto done;
- 
- 		tlen -= plen;
-@@ -1278,7 +1281,8 @@ map_frag:
- 		if (!plen)
- 			break;
- 
--		if (spd_fill_page(spd, f->page, plen, poff, skb))
-+		error = spd_fill_page(spd, f->page, plen, poff, skb);
-+		if (error)
- 			break;
- 
- 		tlen -= plen;
-@@ -1291,7 +1295,10 @@ done:
- 		return 0;
- 	}
- err:
--	return 1;
-+	/* update the offset to reflect the linear part skip, if any */
-+	if (!error)
-+		*offset = toff;
-+	return error;
- }
- 
- /*
-
---Boundary-00=_0KTWIC5MzgFXvGy--
+--=20
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex,=
+ HRB 16746 (AG Nuernberg)
