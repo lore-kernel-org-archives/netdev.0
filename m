@@ -1,43 +1,48 @@
 From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] e100: fix printk format warning
-Date: Wed, 18 Jun 2008 14:07:41 -0700
-Message-ID: <20080618140741.79e21737.randy.dunlap@oracle.com>
+Subject: [PATCH -next] bluetooth/hci_bcsp: fix bitrev Kconfig
+Date: Wed, 18 Jun 2008 14:06:12 -0700
+Message-ID: <20080618140612.5384f97c.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, akpm <akpm@linux-foundation.org>
+Cc: akpm <akpm@linux-foundation.org>, marcel@holtmann.org,
+	maxk@qualcomm.com, davem@davemloft.net
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:12022 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbYFRVIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 17:08:23 -0400
+Received: from rgminet01.oracle.com ([148.87.113.118]:55001 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751709AbYFRVJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 17:09:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Fix printk format warning:
+Fix bluetooth hci_bcsp Kconfig to avoid build errors:
 
-drivers/net/e100.c:1145: warning: format '%d' expects type 'int', but argument 5 has type 'size_t'
+drivers/built-in.o: In function `bcsp_prepare_pkt':
+hci_bcsp.c:(.text+0x7e9ac): undefined reference to `bitrev16'
+drivers/built-in.o: In function `bcsp_recv':
+hci_bcsp.c:(.text+0x7f276): undefined reference to `bitrev16'
+hci_bcsp.c:(.text+0x7f293): undefined reference to `bitrev16'
+make[1]: *** [.tmp_vmlinux1] Error 1
 
 Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
- drivers/net/e100.c |    2 +-
+ drivers/bluetooth/Kconfig |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
---- linux-next-20080618.orig/drivers/net/e100.c
-+++ linux-next-20080618/drivers/net/e100.c
-@@ -1142,7 +1142,7 @@ static const struct firmware *e100_reque
- 	/* Firmware should be precisely UCODE_SIZE (words) plus three bytes
- 	   indicating the offsets for BUNDLESMALL, BUNDLEMAX, INTDELAY */
- 	if (fw->size != UCODE_SIZE * 4 + 3) {
--		DPRINTK(PROBE,ERR, "Firmware \"%s\" has wrong size %d\n",
-+		DPRINTK(PROBE,ERR, "Firmware \"%s\" has wrong size %zu\n",
- 			fw_name, fw->size);
- 		release_firmware(fw);
- 		return ERR_PTR(-EINVAL);
+--- linux-next-20080618.orig/drivers/bluetooth/Kconfig
++++ linux-next-20080618/drivers/bluetooth/Kconfig
+@@ -71,7 +71,7 @@ config BT_HCIUART_H4
+ config BT_HCIUART_BCSP
+ 	bool "BCSP protocol support"
+ 	depends on BT_HCIUART
+-	select CONFIG_BITREVERSE
++	select BITREVERSE
+ 	help
+ 	  BCSP (BlueCore Serial Protocol) is serial protocol for communication 
+ 	  between Bluetooth device and host. This protocol is required for non
 
 
 ---
