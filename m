@@ -1,94 +1,79 @@
-From: Laurent Pinchart <laurentp@cse-semaphore.com>
-Subject: Re: [PATCH 2/2] fs_enet: MDIO on GPIO support
-Date: Wed, 18 Jun 2008 16:48:38 +0200
-Message-ID: <200806181648.40874.laurentp@cse-semaphore.com>
-References: <200805261152.37636.laurentp@cse-semaphore.com> <200806161057.03158.laurentp@cse-semaphore.com> <20080616163400.GA13996@loki.buserror.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] firmware: convert tg3 driver to request_firmware()
+Date: Wed, 18 Jun 2008 10:54:10 -0400
+Message-ID: <48592192.6060501@garzik.org>
+References: <1213799313.4794.20.camel@fc6.satnam>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart15768872.T64x67KeTE";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com,
-	vbordug@ru.mvista.com, pantelis.antoniou@gmail.com
-To: Scott Wood <scottwood@freescale.com>
+Cc: kernelnewbies@nl.linux.org, kernel-janitors@vger.kernel.org,
+	dwmw2@infradead.org, David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>
+To: Jaswinder Singh <jaswinder@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:63699 "EHLO
-	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750804AbYFROss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 10:48:48 -0400
-In-Reply-To: <20080616163400.GA13996@loki.buserror.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:56139 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751365AbYFROyT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 10:54:19 -0400
+In-Reply-To: <1213799313.4794.20.camel@fc6.satnam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart15768872.T64x67KeTE
-Content-Type: text/plain;
-  charset="ansi_x3.4-1968"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Jaswinder Singh wrote:
+> Firmware blob is big-endian starts with version numbers, 
+> followed by start address and length. 
+> length = end_address_of_bss - start_address_of_text.
+> Remainder is the blob to be loaded contiguously from start address.
+> 
+> Signed-off-by: Jaswinder Singh <jaswinder@infradead.org>
+> --
+> drivers/net/Kconfig              |    8
+> drivers/net/tg3.c                |  782 ++++-----------------------------------
+> drivers/net/tg3.h                |    4
+> firmware/Makefile                |    2
+> firmware/WHENCE                  |   19
+> firmware/tigon/tg3.bin.ihex      |  175 ++++++++
+> firmware/tigon/tg3_tso.bin.ihex  |  446 ++++++++++++++++++++++
+> firmware/tigon/tg3_tso5.bin.ihex |  252 ++++++++++++
+> 8 files changed, 992 insertions(+), 696 deletions(-)
+> create mode 100644 firmware/tigon/tg3.bin.ihex
+> create mode 100644 firmware/tigon/tg3_tso.bin.ihex
+> create mode 100644 firmware/tigon/tg3_tso5.bin.ihex
 
-Hi Scott,
+Sigh, this has the same problems as the last patch.
 
-On Monday 16 June 2008 18:34, Scott Wood wrote:
-> On Mon, Jun 16, 2008 at 10:57:02AM +0200, Laurent Pinchart wrote:
-> > On Monday 26 May 2008 11:53, Laurent Pinchart wrote:
-> > > Port the fs_enet driver to support the MDIO on GPIO driver for PHY
-> > > access in addition to the mii-bitbang driver.
-> >=20
-> > Now that 1/2 has been applied by Jeff, could this one make it to=20
-> > powerpc-next ?
->=20
-> This patch should probably go through Jeff as well...
+* the Kconfig for the firmware should default to 'Y', to make it harder 
+for users to create a non-working driver.
 
-Jeff, what's your opinion on this ?
+* request_firmware() capability is clearly and obviously a separate 
+logical change, and should not be included in the same patch as firmware 
+separation.
 
-> Acked-by: Scott Wood <scottwood@freescale.com>
->=20
-> > > -	data =3D of_get_property(phynode, "reg", &len);
-> > > -	if (!data || len !=3D 4)
-> > > -		goto out_put_mdio;
-> > > +	bus_id =3D of_get_gpio(mdionode, 0);
-> > > +	if (bus_id < 0) {
-> > > +		struct resource res;
-> > > +		ret =3D of_address_to_resource(mdionode, 0, &res);
-> > > +		if (ret)
-> > > +			goto out_put_mdio;
-> > > +		bus_id =3D res.start;
-> > > +	}
-> > > =20
-> > > -	snprintf(fpi->bus_id, 16, "%x:%02x", res.start, *data);
-> > > +	snprintf(fpi->bus_id, 16, "%x:%02x", bus_id, *data);
->=20
-> It'd be nice if this sort of thing could be moved to phylib, so the latter
-> could simply be passed a device node (in addition to current mechanisms f=
-or
-> the benefit of unfortunate device-tree-less architectures).
+It just makes the patch longer and more difficult to read and review 
+with the two separate changes mushed together.  Having separate patches 
+also means it is easier to test and validate the loadable firmware approach.
 
-Adding a phy_connect_of that would move the above logic to phy_device.c=20
-shouldn't be too difficult. Would that be enough ? The mdio bus code would=
-=20
-still use the bus id to identify phy devices in mdiobus_register.
+* the firmware should live in the same dir as the driver, just like it 
+has for its entire lifetime until now.  It's silly to create a driver 
+hierarchy in firmware/ that parallels the rest of the tree
 
-=2D-=20
-Laurent Pinchart
-CSE Semaphore Belgium
+* fedora-rawhide, debian-unstable, and similar targets must already be 
+prepped for firmware installs (both from the kernel and via external 
+firmware packages like ipw2200-firmware).
 
-Chaussee de Bruxelles, 732A
-B-1410 Waterloo
-Belgium
+* all net driver patches should get copied to netdev@vger.kernel.org, 
+which is where networking changes are discussed
 
-T +32 (2) 387 42 59
-=46 +32 (2) 387 42 75
 
---nextPart15768872.T64x67KeTE
-Content-Type: application/pgp-signature
+This patch should not create ANY operational differences for users. 
+Requiring additional steps such as "make firmware_install" in order for 
+the user to achieve the same working driver as they had in the last 
+kernel is an example of such a [script-breaking] operational difference.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
+We have to make it tough for users to screw this up.  It's too easy to 
+create a non-working driver, with request_firmware()...   as existing 
+distro support for firmwares has already proven in the field.
 
-iD4DBQBIWSBI8y9gWxC9vpcRAjJjAJYj2A6iRgUP6xEnBSRgUzgkrrwnAJ9yPftV
-sB/8c1haLgkl4Z+vFSrimQ==
-=3RPN
------END PGP SIGNATURE-----
+	Jeff
 
---nextPart15768872.T64x67KeTE--
+
