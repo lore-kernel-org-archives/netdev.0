@@ -1,41 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix corrupt TCP packets when options space overflows
- with MD5SIG enabled (v2)
-Date: Tue, 17 Jun 2008 21:03:23 -0700 (PDT)
-Message-ID: <20080617.210323.220620741.davem@davemloft.net>
-References: <396556a20805301217k293e5718h6bbf02bfe0683144@europa>
-	<20080617.170718.260234361.davem@davemloft.net>
-	<396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [UPDATED] ixgbe: add LRO support
+Date: Wed, 18 Jun 2008 00:04:03 -0400
+Message-ID: <48588933.2060605@garzik.org>
+References: <20080613183716.9641.33945.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: agl@imperialviolet.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40349
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750779AbYFREDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 00:03:23 -0400
-In-Reply-To: <396556a20806171745k63bb3516s5971593ecf216bc4@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, randy.dunlap@oracle.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754232AbYFREEW@vger.kernel.org>
+In-Reply-To: <20080613183716.9641.33945.stgit@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Adam Langley" <agl@imperialviolet.org>
-Date: Tue, 17 Jun 2008 17:45:52 -0700
+Jeff Kirsher wrote:
+> From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+>=20
+> Support for in-kernel LRO with the ability to enable/disable via etht=
+ool
+> based on comments from Ben Hutchings and Randy Dunlap.
+>=20
+> Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel=
+=2Ecom>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> ---
+>=20
+>  drivers/net/Kconfig               |    3 +
+>  drivers/net/ixgbe/ixgbe.h         |    9 +++
+>  drivers/net/ixgbe/ixgbe_ethtool.c |   11 ++++
+>  drivers/net/ixgbe/ixgbe_main.c    |  111 +++++++++++++++++++++++++++=
++++-------
+>  4 files changed, 112 insertions(+), 22 deletions(-)
 
-> How's this:
-> 
-> If we receive a SYN packet with MD5 + SACK + TS was assume that it's
-> from an older kernel and reply with MD5 + TS. Not including SACK means
-> that it won't send us corrupt packets and since we couldn't previously
-> do SACK with these packets anyway, we're not loosing anything.
 
-We should reject invalid packets, even those created by
-Linus, regardless of the ramifications of such.
+I take that back.
 
-If we drop such frames, things will reset and a timeout
-based retransmission will occur.
+This patch has a bunch of checkpatch problems, and it doesn't even=20
+compile, so it obviously was not tested:
 
-I don't see any value in trying to recognize these
-invalid frames.  We should instead just fix the part
-of Linux that emits the bogus packets to begin with.
+drivers/net/ixgbe/ixgbe_main.c: In function =E2=80=98ixgbe_receive_skb=E2=
+=80=99:
+drivers/net/ixgbe/ixgbe_main.c:416: error: implicit declaration of=20
+function =E2=80=98vlan_nw_accel_receive_skb=E2=80=99
