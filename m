@@ -1,46 +1,44 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH 3/3] netdevice: order of synchronization of IFF_PROMISC
- and IFF_ALLMULTI
-Date: Wed, 18 Jun 2008 11:22:31 +0800
-Message-ID: <48587F77.1030705@cn.fujitsu.com>
-References: <48562F9A.5030509@cn.fujitsu.com> <485631FF.7040509@trash.net> <485634D1.2010603@cn.fujitsu.com> <48563A7F.50309@trash.net> <485716A1.8030401@cn.fujitsu.com> <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com> <48587854.8050400@pobox.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RESEND #3/patch 2.6.26-rc6] net/enc28j60: low power mode
+Date: Tue, 17 Jun 2008 23:26:27 -0400
+Message-ID: <48588063.4020304@garzik.org>
+References: <200806122138.06674.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org,
+	Claudio Lanconelli <lanconelli.claudio@eptar.com>,
+	lkml <linux-kernel@vger.kernel.org>
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:58264 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757603AbYFRD0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2008 23:26:25 -0400
-In-Reply-To: <48587854.8050400@pobox.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:40551 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758108AbYFRD0a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2008 23:26:30 -0400
+In-Reply-To: <200806122138.06674.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik said the following on 2008-6-18 10:52:
-> Wang Chen wrote:
->> Jeff,
->> Any suggestion about this?
->> netdevice uses promiscuity as refcnt, and if driver set IFF_PROMISC
->> but don't change promiscuity will break the refcnt.
+David Brownell wrote:
+> Keep enc28j60 chips in low-power mode when they're not in use.
+> At typically 120 mA, these chips run hot even when idle; this
+> low power mode cuts that power usage by a factor of around 100.
 > 
-> Drivers should not be setting IFF_* flags in set_multicast_list().
+> This version provides a generic routine to poll a register until
+> its masked value equals some value ... e.g. bit set or cleared.
+> It's basically what the previous wait_phy_ready() did, but this
+> version is generalized to support the handshaking needed to
+> enter and exit low power mode.
 > 
-> The normal logic is that a driver interprets the request implied in
-> set_multicast_list ("promisc, all-multi, or select multi?"), and then
-> programs the hardware based on that.
+> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+> Signed-off-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+> ---
+> Previously sent:  18-May, 19-February; there were several
+> previous iterations too ...
 > 
-> On some hardware, IFF_ALLMULTI requires that the hardware receive all
-> packets (promisc).  Even for that case, the driver should -not- be
-> setting the IFF_PROMISC flag.  It should be aware of its own hardware
-> programming state through some other method.
-> 
+>  drivers/net/enc28j60.c |   82 ++++++++++++++++++++++++++++++++++---------------
+>  1 file changed, 58 insertions(+), 24 deletions(-)
 
-OK. Roger that.
-If Alan does not oppose it, I will send patches to these drivers later.
-Thank you :-)
+applied
+
 
