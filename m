@@ -1,170 +1,79 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH] Fix IOMMU overflow checking in s2io.c
-Date: Wed, 18 Jun 2008 13:58:36 +0200
-Message-ID: <20080618115836.GA18655@basil.nowhere.org>
+From: "Ramachandra K" <ramachandra.kuchimanchi@qlogic.com>
+Subject: Re: [ofa-general] Re: [PATCH v4 14/14] QLogic VNIC: sysfs Documentation
+Date: Wed, 18 Jun 2008 18:02:28 +0530
+Message-ID: <71d336490806180532g4ea7067akc157581cb1fa946d@mail.gmail.com>
+References: <20080610205633.11186.45499.stgit@dale>
+	 <20080610210918.11186.64253.stgit@dale> <484F751F.7030407@trash.net>
+	 <c8028d330806120813q6363c3cemb4aa03ceff6547d1@mail.gmail.com>
+	 <48513E4E.4040601@trash.net>
+	 <f8ca0a150806141103r56f0530br6b5e78943ac1c92d@mail.gmail.com>
+	 <20080614190358.GU22807@obsidianresearch.com>
+	 <48562A41.7000304@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: jeff@garzik.org, netdev@vger.kernel.org, ram.vepa@neterion.com,
-	santosh.rastapur@neterion.com, sivakumar.subramani@neterion.com,
-	sreenivasa.honnur@neterion.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Jason Gunthorpe" <jgunthorpe@obsidianresearch.com>,
+	"Amar Mudrankit" <amar.mudrankit@qlogic.com>,
+	netdev@vger.kernel.org, general@lists.openfabrics.org,
+	rdreier@cisco.com, poornima.kamath@qlogic.com
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out04.alice-dsl.net ([88.44.63.6]:37898 "EHLO
-	smtp-out04.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754264AbYFRL7E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 07:59:04 -0400
+Received: from yx-out-2324.google.com ([74.125.44.28]:43179 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753959AbYFRMc3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 08:32:29 -0400
+Received: by yx-out-2324.google.com with SMTP id 31so303yxl.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 05:32:28 -0700 (PDT)
+In-Reply-To: <48562A41.7000304@trash.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix IOMMU overflow checking in s2io.c
+On Mon, Jun 16, 2008 at 2:24 PM, Patrick McHardy <kaber@trash.net> wrote:
+> Jason Gunthorpe wrote:
+>>
+>> On Sat, Jun 14, 2008 at 11:03:08AM -0700, Roland Dreier wrote:
+>>>>
+>>>> We have linkstate/operstate for this. How is a user supposed
+>>>> to configure the network device when it appears at a more or
+>>>> less random time from his perspective?
+>>
+>>
+>>>
+>>> Well, keep in mind that this driver is for an ethernet virtual NIC
+>>> that is actually
+>>> remote across another network (an InfiniBand fabric) -- so these devices
+>>> can actually appear or disappear at random times by their nature.  It's a
+>>> similar issue to, say, a USB ethernet adapter presents -- there's no sane
+>>> way
+>>> to have operstate set for a device that hasn't been attached yet.
+>>
+>> I think that is only a fair analogy if the VNIC used some kind of
+>> hot-plug auto discovery procedure like USB does. As soon as you
+>> require the administrator to run a command to bind a device to a VNIC
+>> GID you are much more like a tunnel device and the ethernet device
+>> should exist from the moment the administator creates it up until the
+>> administator destroys it. The state of the connection to the VNIC
+>> should be reflected in some way other than device presence.
+>
+> Fully agreed.
 
-s2io has IOMMU overflow checking, but unfortunately it is wrong.
+Is your suggestion that the netdevice needs to be registered as soon
+as we get parameters from userspace even if that netdevice stays
+inactive until we finish all of our communication with the QLogic EVIC
+gateway device over the IB network ?
 
-It didn't use the standard macros, which meant that it only worked
-on POWER and SPARC because only those define DMA_ERROR_CODE. Convert it to 
-use the standard macros instead.
+Currently we register netdevice only after we have made sure that we
+can connect to the EVIC and that there are enough resources on the
+EVIC to support this virtual ethernet interface. But if we register
+the netdevice
+without making sure that we can reach the EVIC and that it has resources,
+there is a possibility that we register a netdevice that can never
+become active.
 
-I also commented two more bugs in the IOMMU handling. It assumes
-that 0 DMA addresses cannot happen, but that's not true in all IOMMU setups.
-The information if a buffer has been already mapped needs to be stored
-elsewhere.
+Isn't our current behavior analogous to an ethernet driver not
+registering a netdev if it
+can't properly initialize its hardware ?
 
-Didn't fix those because it needs careful checking of the buffer handling
-by the maintainers.
-
-Cc: ram.vepa@neterion.com
-Cc: santosh.rastapur@neterion.com
-Cc: sivakumar.subramani@neterion.com
-Cc: sreenivasa.honnur@neterion.com
-
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
-
-Index: linux/drivers/net/s2io.c
-===================================================================
---- linux.orig/drivers/net/s2io.c
-+++ linux/drivers/net/s2io.c
-@@ -2625,9 +2625,7 @@ static int fill_rx_buffers(struct ring_i
- 			rxdp1->Buffer0_ptr = pci_map_single
- 			    (ring->pdev, skb->data, size - NET_IP_ALIGN,
- 				PCI_DMA_FROMDEVICE);
--			if( (rxdp1->Buffer0_ptr == 0) ||
--				(rxdp1->Buffer0_ptr ==
--				DMA_ERROR_CODE))
-+			if(pci_dma_mapping_error(rxdp1->Buffer0_ptr))
- 				goto pci_map_failed;
- 
- 			rxdp->Control_2 =
-@@ -2657,6 +2655,7 @@ static int fill_rx_buffers(struct ring_i
- 			skb->data = (void *) (unsigned long)tmp;
- 			skb_reset_tail_pointer(skb);
- 
-+			/* AK: check is wrong. 0 can be valid dma address */
- 			if (!(rxdp3->Buffer0_ptr))
- 				rxdp3->Buffer0_ptr =
- 				   pci_map_single(ring->pdev, ba->ba_0,
-@@ -2665,8 +2664,7 @@ static int fill_rx_buffers(struct ring_i
- 				pci_dma_sync_single_for_device(ring->pdev,
- 				(dma_addr_t) rxdp3->Buffer0_ptr,
- 				    BUF0_LEN, PCI_DMA_FROMDEVICE);
--			if( (rxdp3->Buffer0_ptr == 0) ||
--				(rxdp3->Buffer0_ptr == DMA_ERROR_CODE))
-+			if (pci_dma_mapping_error(rxdp3->Buffer0_ptr))
- 				goto pci_map_failed;
- 
- 			rxdp->Control_2 = SET_BUFFER0_SIZE_3(BUF0_LEN);
-@@ -2681,18 +2679,17 @@ static int fill_rx_buffers(struct ring_i
- 				(ring->pdev, skb->data, ring->mtu + 4,
- 						PCI_DMA_FROMDEVICE);
- 
--				if( (rxdp3->Buffer2_ptr == 0) ||
--					(rxdp3->Buffer2_ptr == DMA_ERROR_CODE))
-+				if (pci_dma_mapping_error(rxdp3->Buffer2_ptr))
- 					goto pci_map_failed;
- 
-+				/* AK: check is wrong */
- 				if (!rxdp3->Buffer1_ptr)
- 					rxdp3->Buffer1_ptr =
- 						pci_map_single(ring->pdev,
- 						ba->ba_1, BUF1_LEN,
- 						PCI_DMA_FROMDEVICE);
- 
--				if( (rxdp3->Buffer1_ptr == 0) ||
--					(rxdp3->Buffer1_ptr == DMA_ERROR_CODE)) {
-+				if (pci_dma_mapping_error(rxdp3->Buffer1_ptr)) {
- 					pci_unmap_single
- 						(ring->pdev,
- 						(dma_addr_t)(unsigned long)
-@@ -4264,16 +4261,14 @@ static int s2io_xmit(struct sk_buff *skb
- 		txdp->Buffer_Pointer = pci_map_single(sp->pdev,
- 					fifo->ufo_in_band_v,
- 					sizeof(u64), PCI_DMA_TODEVICE);
--		if((txdp->Buffer_Pointer == 0) ||
--			(txdp->Buffer_Pointer == DMA_ERROR_CODE))
-+		if (pci_dma_mapping_error(txdp->Buffer_Pointer))
- 			goto pci_map_failed;
- 		txdp++;
- 	}
- 
- 	txdp->Buffer_Pointer = pci_map_single
- 	    (sp->pdev, skb->data, frg_len, PCI_DMA_TODEVICE);
--	if((txdp->Buffer_Pointer == 0) ||
--		(txdp->Buffer_Pointer == DMA_ERROR_CODE))
-+	if (pci_dma_mapping_error(txdp->Buffer_Pointer))
- 		goto pci_map_failed;
- 
- 	txdp->Host_Control = (unsigned long) skb;
-@@ -6884,10 +6879,8 @@ static int set_rxd_buffer_pointer(struct
- 				pci_map_single( sp->pdev, (*skb)->data,
- 					size - NET_IP_ALIGN,
- 					PCI_DMA_FROMDEVICE);
--			if( (rxdp1->Buffer0_ptr == 0) ||
--				(rxdp1->Buffer0_ptr == DMA_ERROR_CODE)) {
-+			if (pci_dma_mapping_error(rxdp1->Buffer0_ptr))
- 				goto memalloc_failed;
--			}
- 			rxdp->Host_Control = (unsigned long) (*skb);
- 		}
- 	} else if ((sp->rxd_mode == RXD_MODE_3B) && (rxdp->Host_Control == 0)) {
-@@ -6913,15 +6906,12 @@ static int set_rxd_buffer_pointer(struct
- 				pci_map_single(sp->pdev, (*skb)->data,
- 					       dev->mtu + 4,
- 					       PCI_DMA_FROMDEVICE);
--			if( (rxdp3->Buffer2_ptr == 0) ||
--				(rxdp3->Buffer2_ptr == DMA_ERROR_CODE)) {
-+			if (pci_dma_mapping_error(rxdp3->Buffer2_ptr))
- 				goto memalloc_failed;
--			}
- 			rxdp3->Buffer0_ptr = *temp0 =
- 				pci_map_single( sp->pdev, ba->ba_0, BUF0_LEN,
- 						PCI_DMA_FROMDEVICE);
--			if( (rxdp3->Buffer0_ptr == 0) ||
--				(rxdp3->Buffer0_ptr == DMA_ERROR_CODE)) {
-+			if (pci_dma_mapping_error(rxdp3->Buffer0_ptr)) {
- 				pci_unmap_single (sp->pdev,
- 					(dma_addr_t)rxdp3->Buffer2_ptr,
- 					dev->mtu + 4, PCI_DMA_FROMDEVICE);
-@@ -6933,8 +6923,7 @@ static int set_rxd_buffer_pointer(struct
- 			rxdp3->Buffer1_ptr = *temp1 =
- 				pci_map_single(sp->pdev, ba->ba_1, BUF1_LEN,
- 						PCI_DMA_FROMDEVICE);
--			if( (rxdp3->Buffer1_ptr == 0) ||
--				(rxdp3->Buffer1_ptr == DMA_ERROR_CODE)) {
-+			if (pci_dma_mapping_error(rxdp3->Buffer1_ptr)) {
- 				pci_unmap_single (sp->pdev,
- 					(dma_addr_t)rxdp3->Buffer0_ptr,
- 					BUF0_LEN, PCI_DMA_FROMDEVICE);
-Index: linux/drivers/net/s2io.h
-===================================================================
---- linux.orig/drivers/net/s2io.h
-+++ linux/drivers/net/s2io.h
-@@ -75,10 +75,6 @@ static int debug_level = ERR_DBG;
- /* DEBUG message print. */
- #define DBG_PRINT(dbg_level, args...)  if(!(debug_level<dbg_level)) printk(args)
- 
--#ifndef DMA_ERROR_CODE
--#define DMA_ERROR_CODE          (~(dma_addr_t)0x0)
--#endif
--
- /* Protocol assist features of the NIC */
- #define L3_CKSUM_OK 0xFFFF
- #define L4_CKSUM_OK 0xFFFF
+Regards,
+Ram
