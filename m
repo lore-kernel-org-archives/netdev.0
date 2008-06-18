@@ -1,128 +1,56 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [TCP]: TCP_DEFER_ACCEPT causes leak sockets
-Date: Thu, 19 Jun 2008 00:05:27 +0200
-Message-ID: <20080618220527.GA19155@elte.hu>
-References: <20080617083220.GA11393@elte.hu> <20080618200805.GA18756@elte.hu>
-	<20080618213230.GA17821@elte.hu>
-	<200806190041.52532.denys@visp.net.lb>
+From: =?ISO-8859-1?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
+Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
+ MTU change
+Date: Thu, 19 Jun 2008 00:09:08 +0200
+Message-ID: <48598784.40306@e-teleport.net>
+References: <20080531184615.350bac00@infradead.org> <20080603134019.df2f51d4.akpm@linux-foundation.org> <20080603215155.GA9712@electric-eye.fr.zoreil.com> <20080604215909.GA17446@electric-eye.fr.zoreil.com> <20080614212341.GA12976@electric-eye.fr.zoreil.com> <4856DA62.7080803@e-teleport.net> <20080617214538.GA6388@electric-eye.fr.zoreil.com> <48584AA4.8040801@e-teleport.net> <48593E35.1010409@e-teleport.net> <20080618201012.GA4019@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: vgusev@openvz.org, "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rjw@sisk.pl, mcmanus@ducksong.com,
-	ilpo.jarvinen@helsinki.fi, kuznet@ms2.inr.ac.ru,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, xemul@openvz.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <200806190041.52532.denys@visp.net.lb>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Arjan van de Ven <arjan@infradead.org>, alan@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.e-teleport.net ([213.190.83.68]:57163 "EHLO
+	mail.imsnet.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754145AbYFRWJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 18:09:16 -0400
+In-Reply-To: <20080618201012.GA4019@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=46rancois Romieu a =E9crit :
+> S=E9guier R=E9gis <rseguier@e-teleport.net> :
+> [...]
+>  =20
+>> This correction seems to work.
+>>
+>> I read somewhere pci_free_consistent (in velocity_free_dma_rings) co=
+uldn't=20
+>> be use in a spin_lock.
+>>    =20
+>
+> Yup.
+>
+>  =20
+>> When I move velocity_free_rings outside the spin_lock, error desappe=
+are but=20
+>> data transfert doesn't work after the mtu change.
+>> When I add velocity_give_many_rx_descs all work.
+>>    =20
+>
+> I have updated http://userweb.kernel.org/~romieu/via-velocity/2.6.26-=
+rc6/
+> accordingly. Can you check whether it is fine or not ?
+>
+>  =20
+Patch 0001 doesn't work,
 
-* Denys Fedoryshchenko <denys@visp.net.lb> wrote:
+if I don't make a mistake skb->len is not modified in skb_pad{,to}when=20
+the padding is applied. In this case, we need to attribute ETH_ZLEN to =
+len.
 
-> > * Ingo Molnar <mingo@elte.hu> wrote:
-> > with e1000e i get:
-> > 
-> >  64 bytes from europe (10.0.1.15): icmp_seq=1 ttl=64 time=0.212 ms
-> >  64 bytes from europe (10.0.1.15): icmp_seq=2 ttl=64 time=0.372 ms
-> >  64 bytes from europe (10.0.1.15): icmp_seq=3 ttl=64 time=0.815 ms
-> >  64 bytes from europe (10.0.1.15): icmp_seq=4 ttl=64 time=0.961 ms
-> >  64 bytes from europe (10.0.1.15): icmp_seq=5 ttl=64 time=0.201 ms
-> >  64 bytes from europe (10.0.1.15): icmp_seq=6 ttl=64 time=0.788 ms
-> > 
-> > TCP latencies are fine too - ssh feels snappy again.
-> > 
-> > it still does not have nearly as good latencies as say forcedeth though:
-> > 
-> >  64 bytes from mercury (10.0.1.13): icmp_seq=1 ttl=64 time=0.076 ms
-> >  64 bytes from mercury (10.0.1.13): icmp_seq=2 ttl=64 time=0.085 ms
-> >  64 bytes from mercury (10.0.1.13): icmp_seq=3 ttl=64 time=0.045 ms
-> >  64 bytes from mercury (10.0.1.13): icmp_seq=4 ttl=64 time=0.053 ms
-> > 
-> > that's 10 times better packet latencies.
-> > 
-> > and even an ancient Realtek RTL-8139 over 10 megabit Ethernet (!) has 
-> > better latencies than the e1000e over 1000 megabit:
-> > 
-> >  64 bytes from pluto (10.0.1.10): icmp_seq=2 ttl=64 time=0.309 ms
-> >  64 bytes from pluto (10.0.1.10): icmp_seq=3 ttl=64 time=0.333 ms
-> >  64 bytes from pluto (10.0.1.10): icmp_seq=4 ttl=64 time=0.329 ms
-> >  64 bytes from pluto (10.0.1.10): icmp_seq=5 ttl=64 time=0.311 ms
-> >  64 bytes from pluto (10.0.1.10): icmp_seq=6 ttl=64 time=0.302 ms
-> > 
-> > is it done intentionally perhaps? I dont think it makes much sense to 
-> > delay rx/tx processing on a completely idle box for such a long time.
-> Idle box, ICH8 chipset, e1000e, latest git.
-> 
-> MegaRouterCore-KARAM ~ # ping 192.168.20.26
-> PING 192.168.20.26 (192.168.20.26) 56(84) bytes of data.
-> 64 bytes from 192.168.20.26: icmp_seq=1 ttl=64 time=0.109 ms
-> 64 bytes from 192.168.20.26: icmp_seq=2 ttl=64 time=0.134 ms
-> 64 bytes from 192.168.20.26: icmp_seq=3 ttl=64 time=0.120 ms
-> 64 bytes from 192.168.20.26: icmp_seq=4 ttl=64 time=0.117 ms
-> 64 bytes from 192.168.20.26: icmp_seq=5 ttl=64 time=0.117 ms
-> 64 bytes from 192.168.20.26: icmp_seq=6 ttl=64 time=0.113 ms
-
-ok, that looks much better! i have another box with e1000, ich7:
-
-64 bytes from titan (10.0.1.14): icmp_seq=5 ttl=64 time=0.345 ms
-64 bytes from titan (10.0.1.14): icmp_seq=6 ttl=64 time=1.03 ms
-64 bytes from titan (10.0.1.14): icmp_seq=7 ttl=64 time=0.383 ms
-64 bytes from titan (10.0.1.14): icmp_seq=8 ttl=64 time=0.320 ms
-64 bytes from titan (10.0.1.14): icmp_seq=9 ttl=64 time=0.996 ms
-64 bytes from titan (10.0.1.14): icmp_seq=10 ttl=64 time=0.248 ms
-
-> Disabling interrupt moderation
-> MegaRouterCore-KARAM ~ # ethtool -C eth0 rx-usecs 0
-> MegaRouterCore-KARAM ~ # ping 192.168.20.26
-> PING 192.168.20.26 (192.168.20.26) 56(84) bytes of data.
-> 64 bytes from 192.168.20.26: icmp_seq=1 ttl=64 time=0.072 ms
-> 64 bytes from 192.168.20.26: icmp_seq=2 ttl=64 time=0.091 ms
-> 64 bytes from 192.168.20.26: icmp_seq=3 ttl=64 time=0.066 ms
-> 64 bytes from 192.168.20.26: icmp_seq=4 ttl=64 time=0.065 ms
-> 64 bytes from 192.168.20.26: icmp_seq=5 ttl=64 time=0.077 ms
-> 64 bytes from 192.168.20.26: icmp_seq=6 ttl=64 time=0.073 ms
-> 
-> Maybe try the same?
-> ethtool -C eth0 rx-usecs 0
-
-well i tend not to tweak my drivers with such options because i want to 
-experience and test what 99.9% of our users will experience in the 
-field. The reality is that if it's not the default behavior, it's almost 
-as if it didnt exist at all.
-
-but even with that tune on e1000e (on the t60, ich7) i still get rather 
-large numbers:
-
-earth4:~/s> ping eu
-PING europe (10.0.1.15) 56(84) bytes of data.
-64 bytes from europe (10.0.1.15): icmp_seq=1 ttl=64 time=0.250 ms
-64 bytes from europe (10.0.1.15): icmp_seq=2 ttl=64 time=0.250 ms
-64 bytes from europe (10.0.1.15): icmp_seq=3 ttl=64 time=0.225 ms
-64 bytes from europe (10.0.1.15): icmp_seq=4 ttl=64 time=0.932 ms
-64 bytes from europe (10.0.1.15): icmp_seq=5 ttl=64 time=0.251 ms
-64 bytes from europe (10.0.1.15): icmp_seq=6 ttl=64 time=0.915 ms
-64 bytes from europe (10.0.1.15): icmp_seq=7 ttl=64 time=0.250 ms
-64 bytes from europe (10.0.1.15): icmp_seq=8 ttl=64 time=0.238 ms
-64 bytes from europe (10.0.1.15): icmp_seq=9 ttl=64 time=0.390 ms
-64 bytes from europe (10.0.1.15): icmp_seq=10 ttl=64 time=0.260 ms
-
-	Ingo
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+--=20
+R=E9gis
