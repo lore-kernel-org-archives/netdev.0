@@ -1,68 +1,61 @@
-From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
-Subject: Re: [PATCH] fs_enet: restore promiscuous and multicast settings in restart()
-Date: Wed, 18 Jun 2008 22:45:57 +0400
-Message-ID: <8496f91a0806181145w62d57a7fua767c8036f2261aa@mail.gmail.com>
-References: <200806181707.17739.laurentp@cse-semaphore.com>
-Reply-To: matvejchikov@gmail.com
+From: =?ISO-8859-1?Q?Anders_Grafstr=F6m?= <grfstrm@users.sourceforge.net>
+Subject: Re: [PATCH] Fix e100 on systems that have cache
+	incoherent DMA
+Date: Wed, 18 Jun 2008 20:54:20 +0200
+Message-ID: <485959DC.80902@users.sourceforge.net>
+References: <20071108181741.8648.61629.stgit@localhost.localdomain>
+	<474DBDA6.50705@roinet.com> <474DBFCE.8010101@intel.com>
+	<474DC0F3.8070604@garzik.org> <474DC68D.9020003@roinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	pantelis.antoniou@gmail.com, vbordug@ru.mvista.com
-To: "Laurent Pinchart" <laurentp@cse-semaphore.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:39144 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753806AbYFRSp6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 14:45:58 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so70509yxl.1
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2008 11:45:57 -0700 (PDT)
-In-Reply-To: <200806181707.17739.laurentp@cse-semaphore.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com, miltonm@bga.com,
+	akpm@linux-foundation.org
+To: David Acker <dacker@roinet.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <474DC68D.9020003@roinet.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-I'm glad that you have corrected it. Half a year ago I pointed out
-that there was such a mistake:
-http://patchwork.ozlabs.org/linuxppc/patch?id=10700
+>>> David Acker wrote:
+>>>> What is the status of this patch?
+>>>
+>>> Jeff merged it in netdev-2.6#upstream so it is queued for 2.6.25.
 
-Thanks.
+The e100 driver broke in 2.6.25 on the ixp4xx based platform I'm using.
+This patch seems to be the cause.
 
-2008/6/18 Laurent Pinchart <laurentp@cse-semaphore.com>:
-> The restart() function is called when the link state changes and resets
-> multicast and promiscous settings. This patch restores those settings at the
-> end of restart().
->
-> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-> ---
->  drivers/net/fs_enet/mac-fcc.c     |    3 +++
->  2 files changed, 4 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
-> index ce40cf9..1a95cf1 100644
-> --- a/drivers/net/fs_enet/mac-fcc.c
-> +++ b/drivers/net/fs_enet/mac-fcc.c
-> @@ -464,6 +464,9 @@ static void restart(struct net_device *dev)
->                C32(fccp, fcc_fpsmr, FCC_PSMR_FDE | FCC_PSMR_LPB);
->
->        S32(fccp, fcc_gfmr, FCC_GFMR_ENR | FCC_GFMR_ENT);
-> +
-> +       /* Restore multicast and promiscous settings */
-> +       set_multicast_list(dev);
->  }
->
->  static void stop(struct net_device *dev)
-> --
-> 1.5.0
->
-> --
-> Laurent Pinchart
-> CSE Semaphore Belgium
->
-> Chaussee de Bruxelles, 732A
-> B-1410 Waterloo
-> Belgium
->
-> T +32 (2) 387 42 59
-> F +32 (2) 387 42 75
->
+It appears to work again with pci_dma_sync_single_for_device() restored.
+So I'm wondering if the patch below would be valid and correct?
+
+Anders
+
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index f3cba5e..1037b13 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -1803,6 +1803,8 @@ static int e100_rx_alloc_skb(struct nic *nic, struct rx *rx)
+  	if (rx->prev->skb) {
+  		struct rfd *prev_rfd = (struct rfd *)rx->prev->skb->data;
+  		put_unaligned_le32(rx->dma_addr, &prev_rfd->link);
++		pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr,
++			sizeof(struct rfd), PCI_DMA_TODEVICE);
+  	}
+
+  	return 0;
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://sourceforge.net/services/buy/index.php
