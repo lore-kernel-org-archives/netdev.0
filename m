@@ -1,37 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [IPv6] Do not use loopback as source address on other
- interfaces
-Date: Wed, 18 Jun 2008 22:36:00 +0900 (JST)
-Message-ID: <20080618.223600.81071656.yoshfuji@linux-ipv6.org>
-References: <20080618132312.GA25004@pingi.kke.suse.de>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: [PATCH] [IPv6] Do not use loopback as source address on other interfaces
+Date: Wed, 18 Jun 2008 16:05:58 +0200
+Message-ID: <20080618140558.GB25004@pingi.kke.suse.de>
+References: <20080618132312.GA25004@pingi.kke.suse.de> <20080618.223600.81071656.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mironov_Sergey@emc.com,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	yoshfuji@linux-ipv6.org
-To: kkeil@suse.de
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kkeil@suse.de, netdev@vger.kernel.org, Mironov_Sergey@emc.com,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:59876 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754025AbYFRNfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2008 09:35:10 -0400
-In-Reply-To: <20080618132312.GA25004@pingi.kke.suse.de>
+Received: from ns2.suse.de ([195.135.220.15]:49909 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752093AbYFROGB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2008 10:06:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20080618.223600.81071656.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080618132312.GA25004@pingi.kke.suse.de> (at Wed, 18 Jun 2008 15:23:12 +0200), Karsten Keil <kkeil@suse.de> says:
+On Wed, Jun 18, 2008 at 10:36:00PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <20080618132312.GA25004@pingi.kke.suse.de> (at Wed, 18 Jun=
+ 2008 15:23:12 +0200), Karsten Keil <kkeil@suse.de> says:
+>=20
+> > RFC 4291 forbit the use of the loopback address as source outside a=
+ node
+> > (paragraph 2.5.3).
+> >=20
+> > The latest TAHI test release 4.0.1 does have a check for this (ICMP=
+v6 test
+> > v6LC.5.1.2 Part F), so it fails currently on Linux.
+> >=20
+> > Signed-off-by: Sergey Mironov <Mironov_Sergey@emc.com>
+> > Signed-off-by: Karsten Keil <kkeil@suse.de>
+>=20
+> I disagree this approach - too ad-hoc fix just to pass the tests.
+>=20
 
-> RFC 4291 forbit the use of the loopback address as source outside a node
-> (paragraph 2.5.3).
-> 
-> The latest TAHI test release 4.0.1 does have a check for this (ICMPv6 test
-> v6LC.5.1.2 Part F), so it fails currently on Linux.
-> 
-> Signed-off-by: Sergey Mironov <Mironov_Sergey@emc.com>
-> Signed-off-by: Karsten Keil <kkeil@suse.de>
+So you would prefer a more general test in some common place (like
+__ip6_local_out() ) to avoid any packets with ::1 on other devices as
+loopback ?
 
-I disagree this approach - too ad-hoc fix just to pass the tests.
-
---yoshfuji
+--=20
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex,=
+ HRB 16746 (AG Nuernberg)
