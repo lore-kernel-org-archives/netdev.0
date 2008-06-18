@@ -1,41 +1,61 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH] [Rev2] MPC5121 FEC support
-Date: Wed, 18 Jun 2008 07:00:53 +0200
-Message-ID: <20080618050053.GA19359@uranus.ravnborg.org>
-References: <1213729717-26688-1-git-send-email-jrigby@freescale.com> <48581188.90102@freescale.com> <20080617195739.GB13147@uranus.ravnborg.org> <485818AA.8090701@freescale.com> <20080617210055.GA13468@uranus.ravnborg.org> <485828B0.4010101@freescale.com> <Pine.LNX.4.64.0806171648300.7584@t2.domain.actdsltmp>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: IPF Montvale machine panic when running a network-relevent
+	testing
+Date: Wed, 18 Jun 2008 13:12:02 +0800
+Message-ID: <1213765922.25608.36.camel@ymzhang>
+References: <1213345160.25608.3.camel@ymzhang>
+	 <1213759663.25608.33.camel@ymzhang>
+	 <20080617.203703.254889774.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Wood <scottwood@freescale.com>,
-	John Rigby <jrigby@freescale.com>, linuxppc-dev@ozlabs.org,
-	jeff@garzik.org, netdev@vger.kernel.org
-To: Trent Piepho <tpiepho@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:46711 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752886AbYFRFAL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2008 01:00:11 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0806171648300.7584@t2.domain.actdsltmp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-ia64@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <20080617.203703.254889774.davem@davemloft.net>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> >
-> >I'm not sure I understand what you're looking for, but I don't see 
-> >anything wrong with something like this (apart from missing help text):
-> >
-> >config FS_ENET
-> >	 bool
-> >	 select MII
-> >	 select PHYLIB
-> >
-> >config FS_ENET_HAS_SCC
-> >	 bool "Freescale CPM SCC Ethernet"
-> >	 depends on CPM1 || CPM2
-> >	 select FS_ENET
-> 
-> What prevents me from turning on FS_ENET_HAS_SCC without MII or PHYLIB?
-Nothing.
-But if set FS_ENET_HAS_SCC to 'y' then kconfig will select FS_ENET
-which again will select MII and PHYLIB.
 
-	Sam
+On Tue, 2008-06-17 at 20:37 -0700, David Miller wrote:
+> From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+> Date: Wed, 18 Jun 2008 11:27:43 +0800
+>=20
+> > This issue is caused by tcp defer accept. Mostly, process context c=
+alls lock_sock
+> > to apply a sleeping lock. BH (SoftIRQ) context calls bh_lock_sock(_=
+nested) to just apply
+> > for the sk->sk_lock.slock without sleeping, then do appropriate pro=
+cessing based on
+> > if sk->sk_lock.owned=3D=3D0. That works well if both process contex=
+t and BH context operate
+> > the same sk at the same time. But with =EF=BB=BFtcp defer accept, i=
+t doesn't, because
+> > process context(for example, in inet_csk_accept) locks the listen s=
+k, while BH
+> > context (in tcp_v4_rcv, for example) locks the child sk and calls
+> > =EF=BB=BFtcp_defer_accept_check=EF=BB=BF =3D> inet_csk_reqsk_queue_=
+add =3D> reqsk_queue_add, so there is a race
+> > to access the listen sock.
+> >=20
+> > Below patch against 2.6.26-rc6 fixes the issue.
+> >=20
+> > =EF=BB=BF=EF=BB=BFSigned-off-by: Zhang Yanmin <yanmin.zhang@intel.c=
+om>
+>=20
+> We reverted the guilty defer accept changes, please test Linus's
+> current tree.
+I happened to download git tree on June 16th, which includes the revert=
+ing patch.
+
+I confirm it fixes the hang issue.
+
+-yanmin
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-ia64" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
