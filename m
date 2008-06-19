@@ -1,233 +1,70 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/3]: tg3: Extract TX packet queueing core into
- __tg3_xmit_one().
-Date: Thu, 19 Jun 2008 04:10:18 -0700 (PDT)
-Message-ID: <20080619.041018.36590512.davem@davemloft.net>
+Subject: [PATCH 0/3]: TX backlog management in-driver...
+Date: Thu, 19 Jun 2008 04:10:11 -0700 (PDT)
+Message-ID: <20080619.041011.193691281.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: vinay@linux.vnet.ibm.com, krkumar2@in.ibm.com, mchan@broadcom.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59329
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33949
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756892AbYFSLKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 07:10:19 -0400
+	by vger.kernel.org with ESMTP id S1756735AbYFSLKM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 07:10:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-tg3: Extract TX packet queueing core into __tg3_xmit_one().
+This is an experimental set of patches which demonstrate the kind of
+changes we can make to more fluently handle TX queueing inside the
+drivers.
 
-So that we can queue packets from multiple locations and
-let the top level logic tell the hardware that new TX packets
-are queued, pull the core logic of putting SKBs on the TX
-ring into a seperate function.
+The idea is that once a driver does things this way, we can basically
+shut off all of the mid-layer driver queue handling and locking (using
+some feature bit or function pointers), and this furthermore opens up
+the doors for multiqueue TX infrastructure and support.
 
-Now, all that tg3_start_xmit() does is check invariants (queue has
-enough space) and when __tg3_xmit_one() actually does queue the frame
-it hits the HW TX producer index, updates tp->tx_entry, and updates
-dev->trans_start.
+I've converted tg3 simply because that's the driver for hardware I
+feel the most comfortable hacking and which a decent number of people
+have access to.  These patches are against net-next-2.6
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/tg3.c |  120 ++++++++++++++++++++++++++++++----------------------
- 1 files changed, 69 insertions(+), 51 deletions(-)
+If people are looking for an area to contribute, right now what is
+really useful is coding up a similar set of patches for other popular
+drivers.  I would suggest e1000/e1000e, r8169, bnx2, bnx2x,
+ixgb/ixgbe.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 51b5f1c..53963da 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4685,23 +4685,21 @@ static void tg3_set_txd(struct tg3 *tp, int entry,
- 	txd->vlan_tag = vlan_tag << TXD_VLAN_TAG_SHIFT;
- }
- 
--static int tg3_start_xmit(struct sk_buff *, struct net_device *);
-+static u32 __tg3_xmit_one(struct tg3 *tp, struct net_device *dev,
-+			  struct sk_buff *skb, u32 tx_entry);
- 
- /* Use GSO to workaround a rare TSO bug that may be triggered when the
-  * TSO header is greater than 80 bytes.
-  */
--static int tg3_tso_bug(struct tg3 *tp, struct sk_buff *skb)
-+static u32 tg3_tso_bug(struct tg3 *tp, struct net_device *dev,
-+		       struct sk_buff *skb, u32 tx_entry)
- {
- 	struct sk_buff *segs, *nskb;
-+	u32 entry = tx_entry;
- 
- 	/* Estimate the number of fragments in the worst case */
--	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->gso_segs * 3))) {
--		netif_stop_queue(tp->dev);
--		if (tg3_tx_avail(tp) <= (skb_shinfo(skb)->gso_segs * 3))
--			return NETDEV_TX_BUSY;
--
--		netif_wake_queue(tp->dev);
--	}
-+	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->gso_segs * 3)))
-+		goto tg3_tso_bug_end;
- 
- 	segs = skb_gso_segment(skb, tp->dev->features & ~NETIF_F_TSO);
- 	if (IS_ERR(segs))
-@@ -4711,62 +4709,49 @@ static int tg3_tso_bug(struct tg3 *tp, struct sk_buff *skb)
- 		nskb = segs;
- 		segs = segs->next;
- 		nskb->next = NULL;
--		tg3_start_xmit(nskb, tp->dev);
-+		entry = __tg3_xmit_one(tp, dev, nskb, entry);
- 	} while (segs);
- 
- tg3_tso_bug_end:
- 	dev_kfree_skb(skb);
- 
--	return NETDEV_TX_OK;
-+	return entry;
- }
- 
--static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+/* Transmit one SKB, return the final TX descriptor slot used.
-+ * No errors may be returned.  If something occurs which prevents
-+ * sending this packet, it will be dropped.
-+ *
-+ * All necessary locking is made by the caller.
-+ */
-+static u32 __tg3_xmit_one(struct tg3 *tp, struct net_device *dev,
-+			  struct sk_buff *skb, u32 tx_entry)
- {
--	struct tg3 *tp = netdev_priv(dev);
--	dma_addr_t mapping;
--	u32 len, entry, base_flags, mss;
-+	u32 entry = tx_entry, base_flags = 0, len, mss;
- 	int would_hit_hwbug;
-+	dma_addr_t mapping;
- 
--	len = skb_headlen(skb);
--
--	/* We are running in BH disabled context with netif_tx_lock
--	 * and TX reclaim runs via tp->napi.poll inside of a software
--	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
--	 * no IRQ context deadlocks to worry about either.  Rejoice!
--	 */
--	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
--		if (!netif_queue_stopped(dev)) {
--			netif_stop_queue(dev);
--
--			/* This is a hard error, log it. */
--			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
--			       "queue awake!\n", dev->name);
--		}
--		return NETDEV_TX_BUSY;
--	}
--
--	entry = tp->tx_prod;
--	base_flags = 0;
- 	if (skb->ip_summed == CHECKSUM_PARTIAL)
- 		base_flags |= TXD_FLAG_TCPUDP_CSUM;
--	mss = 0;
-+
- 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
--		struct iphdr *iph;
- 		int tcp_opt_len, ip_tcp_len, hdr_len;
-+		struct iphdr *iph;
- 
- 		if (skb_header_cloned(skb) &&
- 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
- 			dev_kfree_skb(skb);
--			goto out_unlock;
-+			goto out;
- 		}
- 
- 		tcp_opt_len = tcp_optlen(skb);
- 		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
- 
- 		hdr_len = ip_tcp_len + tcp_opt_len;
-+
- 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
- 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
--			return (tg3_tso_bug(tp, skb));
-+			return tg3_tso_bug(tp, dev, skb, entry);
- 
- 		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
- 			       TXD_FLAG_CPU_POST_DMA);
-@@ -4806,6 +4791,8 @@ static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			       (vlan_tx_tag_get(skb) << 16));
- #endif
- 
-+	len = skb_headlen(skb);
-+
- 	/* Queue skb data, a.k.a. the main skb fragment. */
- 	mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
- 
-@@ -4869,26 +4856,57 @@ static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		 * failure, silently drop this packet.
- 		 */
- 		if (tigon3_dma_hwbug_workaround(tp, skb, last_plus_one,
--						&start, base_flags, mss))
--			goto out_unlock;
-+						&start, base_flags, mss)) {
-+			entry = tx_entry;
-+			goto out;
-+		}
- 
- 		entry = start;
- 	}
- 
--	/* Packets are ready, update Tx producer idx local and on card. */
--	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
-+out:
-+	return entry;
-+}
- 
--	tp->tx_prod = entry;
--	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
--		netif_stop_queue(dev);
--		if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
--			netif_wake_queue(tp->dev);
-+static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct tg3 *tp = netdev_priv(dev);
-+	u32 entry;
-+
-+	/* We are running in BH disabled context with netif_tx_lock
-+	 * and TX reclaim runs via tp->napi.poll inside of a software
-+	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
-+	 * no IRQ context deadlocks to worry about either.  Rejoice!
-+	 */
-+	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
-+		if (!netif_queue_stopped(dev)) {
-+			netif_stop_queue(dev);
-+
-+			/* This is a hard error, log it. */
-+			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
-+			       "queue awake!\n", dev->name);
-+		}
-+		return NETDEV_TX_BUSY;
- 	}
- 
--out_unlock:
--    	mmiowb();
-+	entry = __tg3_xmit_one(tp, dev, skb, tp->tx_prod);
-+
-+	if (entry != tp->tx_prod) {
-+		/* Packets are ready, update Tx producer idx local
-+		 * and on card.
-+		 */
-+		tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW),
-+			     entry);
- 
--	dev->trans_start = jiffies;
-+		tp->tx_prod = entry;
-+		if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
-+			netif_stop_queue(dev);
-+			if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
-+				netif_wake_queue(tp->dev);
-+		}
-+		mmiowb();
-+		dev->trans_start = jiffies;
-+	}
- 
- 	return NETDEV_TX_OK;
- }
--- 
-1.5.6.rc3.21.g8c6b5
+Personally I plan on doing an NIU patch set simply because it is a
+heavily multiqueued device on which I can perform real experiments
+once we get further along with this.
 
+This driver work is useful no matter how we decide to actually
+proceed.  For example, if we have put the batching logic into the
+mid-layer, these driver transformations are still going to be needed
+and used.
+
+The main idea is to seperate the code that queues up packets into the
+chip's TX ring, from the higher level code that does things like
+set the new producer index in the hardware and update ->trans_start.
+
+For example, if you look at these 3 tg3 patches, the first two look
+large and scary but they are just refactoring code blocks into
+seperate functions.  The third patch is the simplest to read but
+was the hardest to get working because there are all sorts of details
+to get right :-)
+
+There are some aspects of the third patch I am still unhappy with and
+one known problem.  For one thing there is a race between TX completion
+handling and the ->hard_start_xmit() code.  I simply don't think the
+unlocked skb_queue_empty() test is safe in tg3_tx().
+
+Secondly, it is possible for ->hard_start_xmit() to queue up packets
+before the TX backlog list is handled by tg3_tx().  I'm still thinking
+about how to resolve that reordering bug.
+
+Anyways even though this isn't %100 perfect I'm posting it to get the
+ball rolling since people have been poking me a lot lately.  Oh well,
+that's what I get for writing so much slide-ware :)
+
+After a little bit (say, once we have 2 or 3 drivers in pretty decent
+shape) I'll open up a GIT tree to track this work.
