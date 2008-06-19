@@ -1,67 +1,55 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH] RFKILL: fix input layer initialisation
-Date: Thu, 19 Jun 2008 20:49:54 +0200
-Message-ID: <200806192049.54798.IvDoorn@gmail.com>
-References: <20080619112841.GA12051@doriath.ww600.siemens.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 0/2] Disable forwarding of LRO skbs [2nd try]
+Date: Thu, 19 Jun 2008 19:44:56 +0100
+Message-ID: <cover.1213898165.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dmitry Baryshkov <dbaryshkov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Kieran Mansley <kmansley@solarflare.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:52604 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751993AbYFSSdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 14:33:00 -0400
-Received: by py-out-1112.google.com with SMTP id p76so376414pyb.10
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 11:33:00 -0700 (PDT)
-In-Reply-To: <20080619112841.GA12051@doriath.ww600.siemens.net>
+Received: from smarthost03.mail.mbr-roch.zen.net.uk ([212.23.3.142]:48973 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752984AbYFSSpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 14:45:04 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 19 June 2008, Dmitry Baryshkov wrote:
-> Initialise correctly last fields, so tasks can be actually executed
-> 
-> Also move rfkill-input initialisation to subsys level so that it's
-> available before generic drivers probing occurs.
-> 
-> Signed-off-by: Dmitry Baryshkov <dbaryshkov@gmail.com>
-> ---
->  net/rfkill/rfkill-input.c |    7 ++++++-
->  1 files changed, 6 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/rfkill/rfkill-input.c b/net/rfkill/rfkill-input.c
-> index e4b051d..e4540fc 100644
-> --- a/net/rfkill/rfkill-input.c
-> +++ b/net/rfkill/rfkill-input.c
-> @@ -181,6 +181,11 @@ static struct input_handler rfkill_handler = {
->  
->  static int __init rfkill_handler_init(void)
->  {
-> +	unsigned long last_run = jiffies - msecs_to_jiffies(500);
-> +	rfkill_wlan.last = last_run;
-> +	rfkill_bt.last = last_run;
-> +	rfkill_uwb.last = last_run;
-> +	rfkill_wimax.last = last_run;
+[Re-sent with the correct Message-ID, previously eaten by mutt.]
 
-I'm not really fan of this approach
-Can't this not be done someway in the DEFINE_RFKILL_TASK macro
-where the entire structure is initialized?
-That way it will automatically be set for all new rfkill task structures later.
+Large Receive Offload (LRO) destroys packet headers that should be
+preserved when forwarding.  Currently it also triggers a BUG() or WARN()
+in skb_gso_segment().  We should disable it wherever forwarding is
+enabled, and discard LRO skbs with a warning if it is turned back on.
 
->  	return input_register_handler(&rfkill_handler);
->  }
->  
-> @@ -190,5 +195,5 @@ static void __exit rfkill_handler_exit(void)
->  	flush_scheduled_work();
->  }
->  
-> -module_init(rfkill_handler_init);
-> +subsys_initcall(rfkill_handler_init);
->  module_exit(rfkill_handler_exit);
+Since the previous version of these patches, I have:
+- Tightened the test for LRO'd skbs, so it should not catch skbs from
+  VM guests that want GSO
+- Made the test an inline function, with the warning a separate extern
+  function
+- Rebased against net-next-2.6
 
-This sounds good.
+Ben.
 
-Ivo
+Ben Hutchings (2):
+  net: Disable LRO on devices that are forwarding
+  net: Discard and warn about LRO'd skbs received for forwarding
+
+ include/linux/netdevice.h |    1 +
+ include/linux/skbuff.h    |   14 ++++++++++++++
+ net/bridge/br_forward.c   |    2 +-
+ net/bridge/br_if.c        |    1 +
+ net/core/dev.c            |   24 ++++++++++++++++++++++++
+ net/core/skbuff.c         |    8 ++++++++
+ net/ipv4/devinet.c        |   21 ++++++++++++++++-----
+ net/ipv4/ip_forward.c     |    3 +++
+ net/ipv6/addrconf.c       |    6 ++++++
+ net/ipv6/ip6_output.c     |    3 +++
+ 10 files changed, 77 insertions(+), 6 deletions(-)
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
