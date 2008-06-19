@@ -1,39 +1,43 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [PATCH 2/2] net: Discard and warn about LRO'd skbs received for forwarding
-Date: Thu, 19 Jun 2008 15:29:05 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5205732065@orsmsx418.amr.corp.intel.com>
-References: <cover.1213898165.git.bhutchings@solarflare.com><20080619180833.GU5350@solarflare.com> <20080619145015.3ec2307c@extreme>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/4] e1000: various bug fixes for older hardware
+Date: Thu, 19 Jun 2008 15:33:46 -0700
+Message-ID: <9929d2390806191533p70caab37ub3084562ec7fda91@mail.gmail.com>
+References: <20080619211827.GB22981@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>,
-	"Kieran Mansley" <kmansley@solarflare.com>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>
-To: "Stephen Hemminger" <shemminger@vyatta.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com
+To: "Andy Gospodarek" <andy@greyhouse.net>,
+	"Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:29221 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752638AbYFSW3I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 18:29:08 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080619145015.3ec2307c@extreme>
+Received: from wa-out-1112.google.com ([209.85.146.177]:11915 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752866AbYFSWdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 18:33:47 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so714588waf.23
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 15:33:46 -0700 (PDT)
+In-Reply-To: <20080619211827.GB22981@gospo.rdu.redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Thu, 19 Jun 2008 19:08:34 +0100
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
-> 
->> Add skb_warn_if_lro() to test whether an skb was received with LRO
->> and warn if so. 
->> 
->> Change br_forward(), ip_forward() and ip6_forward() to call it) and
->> discard the skb if it returns true.
-> 
-> Actually shouldn't ip forwarding work because of refragmentation?
+On Thu, Jun 19, 2008 at 2:18 PM, Andy Gospodarek <andy@greyhouse.net> wrote:
+>
+> These are 4 separate e1000 fixes that I've been collecting for a bit.
+> Of course most of this hardware is pretty old, but there are still a ton
+> of people using it, so it's good to get these fixes in place.
+>
+> They are not dependent on each other, so feel free to comment on them
+> individually if you like.
+>
+> None of these currently appear in the e1000 sourceforge driver, so they
+> will need to be added there by someone if they want them.
+>
 
-Yes, it should, but in practice it runs out of fragment handling space
-and throughput drops to 10kB/s or something horrible like that, AFAIR.
+Ack
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+
+-- 
+Cheers,
+Jeff
