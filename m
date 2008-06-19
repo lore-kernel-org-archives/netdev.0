@@ -1,29 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Gentle Guide to the Network Stack
-Date: Thu, 19 Jun 2008 04:11:46 -0700 (PDT)
-Message-ID: <20080619.041146.08784493.davem@davemloft.net>
-References: <200806171105.23069.okir@lst.de>
-	<d0383f90806190401n2c54bc5cl4e72dd65f6c64517@mail.gmail.com>
+From: Eric Miao <eric.y.miao@gmail.com>
+Subject: [PATCH 8/8] pxa: make littleton to use the smc91x platform data
+Date: Thu, 19 Jun 2008 19:11:50 +0800
+Message-ID: <485A3EF6.9030602@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: okir@lst.de, netdev@vger.kernel.org
-To: ianbrn@gmail.com
+Cc: Nicolas Pitre <nico@cam.org>, Magnus Damm <magnus.damm@gmail.com>
+To: linux-netdev <netdev@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59355
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756953AbYFSLLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 07:11:46 -0400
-In-Reply-To: <d0383f90806190401n2c54bc5cl4e72dd65f6c64517@mail.gmail.com>
+Received: from rv-out-0506.google.com ([209.85.198.225]:3208 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757087AbYFSLL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 07:11:59 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so5103124rvb.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 04:11:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ian Brown" <ianbrn@gmail.com>
-Date: Thu, 19 Jun 2008 14:01:07 +0300
 
-> I grepped for:
-> struct sockalloc and  struct sock_alloc under the kernel tree (git 2.6
-> netdev tree)
-> and could not find such a thing.
+Signed-off-by: Eric Miao <eric.miao@marvell.com>
+---
+ arch/arm/mach-pxa/littleton.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-He meant "struct socket_alloc"
+diff --git a/arch/arm/mach-pxa/littleton.c b/arch/arm/mach-pxa/littleton.c
+index 9a4f51d..7931e53 100644
+--- a/arch/arm/mach-pxa/littleton.c
++++ b/arch/arm/mach-pxa/littleton.c
+@@ -20,6 +20,7 @@
+ #include <linux/delay.h>
+ #include <linux/platform_device.h>
+ #include <linux/clk.h>
++#include <linux/smc91x.h>
+ 
+ #include <asm/types.h>
+ #include <asm/setup.h>
+@@ -106,11 +107,18 @@ static struct resource smc91x_resources[] = {
+ 	}
+ };
+ 
++static struct smc91x_platdata littleton_smc91x_info = {
++	.flags	= SMC91X_USE_8BIT | SMC91X_USE_16BIT | SMC91X_NOWAIT,
++};
++
+ static struct platform_device smc91x_device = {
+ 	.name		= "smc91x",
+ 	.id		= 0,
+ 	.num_resources	= ARRAY_SIZE(smc91x_resources),
+ 	.resource	= smc91x_resources,
++	.dev		= {
++		.platform_data = &littleton_smc91x_info,
++	},
+ };
+ 
+ #if defined(CONFIG_FB_PXA) || defined(CONFIG_FB_PXA_MODULE)
+-- 
+1.5.4.3
+
