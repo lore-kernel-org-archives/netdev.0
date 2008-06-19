@@ -1,51 +1,49 @@
-From: Moni Shoua <monis@Voltaire.COM>
-Subject: [PATCH]  net/bonding: Don't destroy bonding master wehn unensalving
- with a sysfs command
-Date: Thu, 19 Jun 2008 18:01:37 +0300
-Message-ID: <485A74D1.10900@Voltaire.COM>
+From: "Karen Xie" <kxie@chelsio.com>
+Subject: RE: [Security] [PATCH 0/3 2.6.27] cxgb3i: Add iSCSI driver
+Date: Thu, 19 Jun 2008 08:45:43 -0700
+Message-ID: <8A71B368A89016469F72CD08050AD33402F43B5E@maui.asicdesigners.com>
+References: <8A71B368A89016469F72CD08050AD334D71285@maui.asicdesigners.com> <8A71B368A89016469F72CD08050AD334D7128B@maui.asicdesigners.com> <20080619065212.GA9107@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Olga Stern <olgas@voltaire.com>,
-	Or Gerlitz <ogerlitz@voltaire.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <michaelc@cs.wisc.edu>, "Divy Le Ray" <divy@chelsio.com>,
+	<netdev@vger.kernel.org>, <security@kernel.org>,
+	<open-iscsi@googlegroups.com>, <linux-kernel@vger.kernel.org>,
+	<linux-scsi@vger.kernel.org>
+To: "Greg KH" <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:45579 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750753AbYFSPBp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jun 2008 11:01:45 -0400
+Received: from stargate.chelsio.com ([12.22.49.110]:24061 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751608AbYFSPqr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 11:46:47 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Greg,
 
-It is wrong to destroy a bonding  master from a context that uses the sysfs of
- that bond. When last IPoIB slave is unenslaved from by writing to a sysfs
- file (for bond0 this would be /sys/class/net/bond0/bonding/slaves) the driver
- tries to destroy the bond. This is wrong and can lead to a lockup or a crash.
- This fix lets the bonding master stay and relies on the user to destroy the
- bonding master if necessary (i.e. before module ib_ipoib is unloaded)
+We'd like to export security_inet_conn_established() from
+security/security.c.
 
-This patch affects only bonds of IPoIB slaves. Ethernet slaves stay unaffected.
-Signed-off-by: Moni Shoua <monis@voltaire.com>
----
- drivers/net/bonding/bond_sysfs.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+Thanks.
+Karen
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 08f3d39..f66f590 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -351,9 +351,6 @@ static ssize_t bonding_store_slaves(struct device *d,
- 		if (dev) {
- 			printk(KERN_INFO DRV_NAME ": %s: Removing slave %s\n",
- 				bond->dev->name, dev->name);
--			if (bond->setup_by_slave)
--				res = bond_release_and_destroy(bond->dev, dev);
--			else
- 				res = bond_release(bond->dev, dev);
- 			if (res) {
- 				ret = res;
--- 
-1.5.5
+-----Original Message-----
+From: Greg KH [mailto:greg@kroah.com] 
+Sent: Wednesday, June 18, 2008 11:52 PM
+To: Karen Xie
+Cc: michaelc@cs.wisc.edu; Divy Le Ray; netdev@vger.kernel.org;
+security@kernel.org; open-iscsi@googlegroups.com;
+linux-kernel@vger.kernel.org; linux-scsi@vger.kernel.org
+Subject: Re: [Security] [PATCH 0/3 2.6.27] cxgb3i: Add iSCSI driver
 
+On Wed, Jun 18, 2008 at 10:10:00PM -0700, Karen Xie wrote:
+> 
+> Please review the iSCSI drivers for Chelsio CXGB3 (S3XX) devices.  
+
+Is there some reason you send this to security@kernel.org?
+
+confused,
+
+greg k-h
