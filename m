@@ -1,128 +1,73 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 6/12] benet: beclib functions
-Date: Thu, 19 Jun 2008 06:33:58 -0400
-Message-ID: <20080619103358.GF17697@infradead.org>
-References: <20080612104312.54c39928@mailhost.serverengines.com>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: Re: Gentle Guide to the Network Stack
+Date: Thu, 19 Jun 2008 14:01:07 +0300
+Message-ID: <d0383f90806190401n2c54bc5cl4e72dd65f6c64517@mail.gmail.com>
+References: <200806171105.23069.okir@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Subbu Seetharaman <subbus@serverengines.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Olaf Kirch" <okir@lst.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:36648 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755580AbYFSKeA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 06:34:00 -0400
+Received: from fg-out-1718.google.com ([72.14.220.152]:40296 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755961AbYFSLBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 07:01:11 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so358161fgg.17
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 04:01:07 -0700 (PDT)
+In-Reply-To: <200806171105.23069.okir@lst.de>
 Content-Disposition: inline
-In-Reply-To: <20080612104312.54c39928@mailhost.serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +void be_chip_destroy(struct be_chip_object *chip)
-> +{
-> +	ASSERT(chip->ref_count == 0);
-> +
-> +	memset(chip, 0, sizeof(*chip));
-> +	TRACE(DL_INFO, "destroying chip %p", chip);
-> +}
+Hi,
+- This Linux network stack paper is a good and blessed initiative, and
+may be certailnly
+helpful to developers.
+
+  I hope to see more of it in th future !
+
+question:
+What do you mean by :
+"current kernels allocate these in as single entity named struct sockalloc,"
+chapter 6 (page 19).
+
+I grepped for:
+struct sockalloc and  struct sock_alloc under the kernel tree (git 2.6
+netdev tree)
+and could not find such a thing.
+
+Regards,
+Ian
 
 
-Again memset on destory is a very bad idea.
 
-> +}
-> +
-> +/*
-> +    This routine removes serialization done by ChipObjectLock.
-> +
-> +    ChipObject      - The chip object to drop the lock for.
-> +
-> +    IRQL < DISPATCH_LEVEL
-> +*/
-> +void be_chip_unlock(struct be_chip_object *chip_object)
-> +{
-> +	spin_unlock_irqrestore(&chip_object->lock.lock, chip_object->lock.irql);
-> +}
 
-Please kill these locking wrappers.
-
-> +BESTATUS be_chip_object_create(struct be_chip_object *chip)
-> +{
-> +	BESTATUS status = 0;
-> +	bool chip_created = FALSE;
-> +
-> +	status = be_chip_create(chip);
-> +	if (status != BE_SUCCESS)
-> +		goto Error;
-> +
-> +	chip_created = TRUE;
-> +
-> +Error:
-> +	if (status != BE_SUCCESS) {
-> +
-> +		/* Cleanup everything in case of failure. */
-> +
-> +		if (chip_created)
-> +			be_chip_destroy(chip);
-> +
-> +	}
-> +
-> +	return status;
-
-I'd rather write this as:
-
-int be_chip_object_create(struct be_chip_object *chip)
-{
-	int error error = be_chip_create(chip);
-	if (error)
-		be_chip_destroy(chip);
-
-	return error;
-}
-
-But then again I still don't get the point of this wrapper at all.
-
-Same for various other functions in this file.
-
-> +void _be_function_lock(struct be_function_object *pfob)
-> +{
-> +	spin_lock_irqsave(&pfob->lock.lock, pfob->lock.irql);
-> +}
-> +
-> +void _be_function_unlock(struct be_function_object *pfob)
-> +{
-> +	spin_unlock_irqrestore(&pfob->lock.lock, pfob->lock.irql);
-> +}
-> +
-> +u32 be_function_get_function_number(struct be_function_object *pfob)
-> +{
-> +	return pfob->pci_function_number;
-> +}
-> +
-> +u32 be_function_get_function_type(struct be_function_object *pfob)
-> +{
-> +	return pfob->type;
-> +}
-> +
-> +u32 be_function_get_pd_number(struct be_function_object *pfob)
-> +{
-> +
-> +	/* only PD0 supported in Linux drivers */
-> +	return 0;
-> +}
-> +
-> +bool be_function_is_vm(struct be_function_object *pfob)
-> +{
-> +	return be_function_get_pd_number(pfob) > 0;
-> +}
-
-Another set of really useless wrappers.
-
-> +BESTATUS be_initialize_library(void)
-> +{
-> +	SA_TRACE(DL_NOTE, "Built on " __DATE__ " " __TIME__);
-> +
-> +	sa_trace_set_debug_level_string(DL_HW, "hw");
-> +
-> +	return BE_SUCCESS;
-
-Another unneeded wrapper.
-
+On Tue, Jun 17, 2008 at 12:05 PM, Olaf Kirch <okir@lst.de> wrote:
+> Hi all,
+>
+> I started putting together a paper on the Linux network stack,
+> focusing on how things fit together, and help relative beginners
+> understand the machinery, rather than giving a full-blown highly
+> detailed cross reference (which would be outdated more quickly
+> than you can re-run latex anyway :-)
+> I intend to release it under the GPL or GNU FDL or similar license -
+> I haven't fully made up my mind yet on what works best.
+>
+> You can find the first couple of pages at
+> http://oss.oracle.com/~okir/network/paper.pdf
+>
+> I'd be very interested in general feedback on the approach taken,
+> the level of detail and such. In case I missed the fact that
+> someone else is currently doing the same, please let me know, too.
+>
+> Cheers,
+> Olaf
+> --
+> Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
+> okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
