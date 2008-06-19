@@ -1,73 +1,121 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: Re: Gentle Guide to the Network Stack
-Date: Thu, 19 Jun 2008 14:01:07 +0300
-Message-ID: <d0383f90806190401n2c54bc5cl4e72dd65f6c64517@mail.gmail.com>
-References: <200806171105.23069.okir@lst.de>
+From: Eric Miao <eric.y.miao@gmail.com>
+Subject: [PATCH 1/8] smc91x: remove unused code enclosed by #ifdef CONFIG_ISA
+ .. #endif
+Date: Thu, 19 Jun 2008 19:03:15 +0800
+Message-ID: <485A3CF3.4000102@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Olaf Kirch" <okir@lst.de>
+Cc: Nicolas Pitre <nico@cam.org>, Magnus Damm <magnus.damm@gmail.com>
+To: linux-netdev <netdev@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:40296 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755961AbYFSLBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 07:01:11 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so358161fgg.17
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 04:01:07 -0700 (PDT)
-In-Reply-To: <200806171105.23069.okir@lst.de>
-Content-Disposition: inline
+Received: from ti-out-0910.google.com ([209.85.142.185]:42485 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756675AbYFSLD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 07:03:26 -0400
+Received: by ti-out-0910.google.com with SMTP id b6so319197tic.23
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 04:03:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-- This Linux network stack paper is a good and blessed initiative, and
-may be certailnly
-helpful to developers.
 
-  I hope to see more of it in th future !
+Apparently, the code enclosed by #ifdef CONFIG_ISA .. #endif are no longer
+used, remove them from the driver to avoid confusion.
 
-question:
-What do you mean by :
-"current kernels allocate these in as single entity named struct sockalloc,"
-chapter 6 (page 19).
+Signed-off-by: Eric Miao <eric.miao@marvell.com>
+---
+ drivers/net/smc91x.c |   38 --------------------------------------
+ drivers/net/smc91x.h |   13 -------------
+ 2 files changed, 0 insertions(+), 51 deletions(-)
 
-I grepped for:
-struct sockalloc and  struct sock_alloc under the kernel tree (git 2.6
-netdev tree)
-and could not find such a thing.
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index a188e33..d471308 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -23,8 +23,6 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  *
+  * Arguments:
+- * 	io	= for the base address
+- *	irq	= for the IRQ
+  *	nowait	= 0 for normal wait states, 1 eliminates additional wait states
+  *
+  * original author:
+@@ -90,33 +88,6 @@ static const char version[] =
+ 
+ #include "smc91x.h"
+ 
+-#ifdef CONFIG_ISA
+-/*
+- * the LAN91C111 can be at any of the following port addresses.  To change,
+- * for a slightly different card, you can add it to the array.  Keep in
+- * mind that the array must end in zero.
+- */
+-static unsigned int smc_portlist[] __initdata = {
+-	0x200, 0x220, 0x240, 0x260, 0x280, 0x2A0, 0x2C0, 0x2E0,
+-	0x300, 0x320, 0x340, 0x360, 0x380, 0x3A0, 0x3C0, 0x3E0, 0
+-};
+-
+-#ifndef SMC_IOADDR
+-# define SMC_IOADDR		-1
+-#endif
+-static unsigned long io = SMC_IOADDR;
+-module_param(io, ulong, 0400);
+-MODULE_PARM_DESC(io, "I/O base address");
+-
+-#ifndef SMC_IRQ
+-# define SMC_IRQ		-1
+-#endif
+-static int irq = SMC_IRQ;
+-module_param(irq, int, 0400);
+-MODULE_PARM_DESC(irq, "IRQ number");
+-
+-#endif  /* CONFIG_ISA */
+-
+ #ifndef SMC_NOWAIT
+ # define SMC_NOWAIT		0
+ #endif
+@@ -2315,15 +2286,6 @@ static struct platform_driver smc_driver = {
+ 
+ static int __init smc_init(void)
+ {
+-#ifdef MODULE
+-#ifdef CONFIG_ISA
+-	if (io == -1)
+-		printk(KERN_WARNING
+-			"%s: You shouldn't use auto-probing with insmod!\n",
+-			CARDNAME);
+-#endif
+-#endif
+-
+ 	return platform_driver_register(&smc_driver);
+ }
+ 
+diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+index 69e97a1..97a3c52 100644
+--- a/drivers/net/smc91x.h
++++ b/drivers/net/smc91x.h
+@@ -279,19 +279,6 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
+ 
+ #define SMC_IRQ_FLAGS		(0)
+ 
+-#elif	defined(CONFIG_ISA)
+-
+-#define SMC_CAN_USE_8BIT	1
+-#define SMC_CAN_USE_16BIT	1
+-#define SMC_CAN_USE_32BIT	0
+-
+-#define SMC_inb(a, r)		inb((a) + (r))
+-#define SMC_inw(a, r)		inw((a) + (r))
+-#define SMC_outb(v, a, r)	outb(v, (a) + (r))
+-#define SMC_outw(v, a, r)	outw(v, (a) + (r))
+-#define SMC_insw(a, r, p, l)	insw((a) + (r), p, l)
+-#define SMC_outsw(a, r, p, l)	outsw((a) + (r), p, l)
+-
+ #elif   defined(CONFIG_M32R)
+ 
+ #define SMC_CAN_USE_8BIT	0
+-- 
+1.5.4.3
 
-Regards,
-Ian
-
-
-
-
-On Tue, Jun 17, 2008 at 12:05 PM, Olaf Kirch <okir@lst.de> wrote:
-> Hi all,
->
-> I started putting together a paper on the Linux network stack,
-> focusing on how things fit together, and help relative beginners
-> understand the machinery, rather than giving a full-blown highly
-> detailed cross reference (which would be outdated more quickly
-> than you can re-run latex anyway :-)
-> I intend to release it under the GPL or GNU FDL or similar license -
-> I haven't fully made up my mind yet on what works best.
->
-> You can find the first couple of pages at
-> http://oss.oracle.com/~okir/network/paper.pdf
->
-> I'd be very interested in general feedback on the approach taken,
-> the level of detail and such. In case I missed the fact that
-> someone else is currently doing the same, please let me know, too.
->
-> Cheers,
-> Olaf
-> --
-> Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
-> okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
