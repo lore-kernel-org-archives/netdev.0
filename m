@@ -1,55 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: net-2.6 merged into net-next-2.6
-Date: Fri, 20 Jun 2008 09:18:21 +1000
-Message-ID: <20080620091821.b189625d.sfr@canb.auug.org.au>
-References: <20080619.160659.181429565.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: Disable LRO on devices that are forwarding
+Date: Thu, 19 Jun 2008 16:21:45 -0700 (PDT)
+Message-ID: <20080619.162145.212568056.davem@davemloft.net>
+References: <cover.1213898165.git.bhutchings@solarflare.com>
+	<20080619180735.GT5350@solarflare.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__20_Jun_2008_09_18_21_+1000_3pU4UQWqumfqoFyk"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	kmansley@solarflare.com, herbert@gondor.apana.org.au,
+	shemminger@vyatta.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:34424 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750714AbYFSXS2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jun 2008 19:18:28 -0400
-In-Reply-To: <20080619.160659.181429565.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45960
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752017AbYFSXVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 19:21:46 -0400
+In-Reply-To: <20080619180735.GT5350@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__20_Jun_2008_09_18_21_+1000_3pU4UQWqumfqoFyk
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 19 Jun 2008 19:07:36 +0100
 
-Hi Dave,
+> Large Receive Offload (LRO) is only appropriate for packets that are
+> destined for the host, and should be disabled if received packets may be
+> forwarded.  It can also confuse the GSO on output.
+> 
+> Add dev_disable_lro() function which uses the appropriate ethtool ops to
+> disable LRO if enabled.
+> 
+> Add calls to dev_disable_lro() in br_add_if() and functions that enable
+> IPv4 and IPv6 forwarding.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-On Thu, 19 Jun 2008 16:06:59 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> I've done this merge to address the merge conflict created
-> by the skb_header_cloned() revert made to net/mac80211/tx.c
->=20
-> It is possible I screwed this up, so wireless folks should
-> take a look and send me any fixups.
-
-Thanks, noted.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Fri__20_Jun_2008_09_18_21_+1000_3pU4UQWqumfqoFyk
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkha6T0ACgkQTgG2atn1QN8hfwCgmuNDk4qFDYSEjIarFSnr8erw
-J1QAn06AeZIuR3NyIQm4ZwGHg2/mJ7rZ
-=zdIr
------END PGP SIGNATURE-----
-
---Signature=_Fri__20_Jun_2008_09_18_21_+1000_3pU4UQWqumfqoFyk--
+Looks good, applied to net-next-2.6
