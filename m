@@ -1,33 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC][PATCH] IPv6:Remove options header when setsockopt's
- optlen is 0
-Date: Thu, 19 Jun 2008 16:52:18 +0900 (JST)
-Message-ID: <20080619.165218.40446264.yoshfuji@linux-ipv6.org>
-References: <4858AE3D.6070101@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Multiple TX queue implementation and Batching
+Date: Thu, 19 Jun 2008 02:10:39 -0700 (PDT)
+Message-ID: <20080619.021039.193704469.davem@davemloft.net>
+References: <OF50454112.AA19F7EA-ON6525746D.002A115D-6525746D.002AD61A@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: shanwei@cn.fujitsu.com, davem@davemloft.net
+To: krkumar2@in.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:59898 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752834AbYFSHv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 03:51:26 -0400
-In-Reply-To: <4858AE3D.6070101@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47302
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753370AbYFSJKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 05:10:39 -0400
+In-Reply-To: <OF50454112.AA19F7EA-ON6525746D.002A115D-6525746D.002AD61A@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <4858AE3D.6070101@cn.fujitsu.com> (at Wed, 18 Jun 2008 14:42:05 +0800), Shan Wei <shanwei@cn.fujitsu.com> says:
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Date: Thu, 19 Jun 2008 13:17:53 +0530
 
-> Remove the sticky Hop-by-Hop options header by calling setsockopt() for IPV6_HOPOPTS
-> with a zero option length, per RFC3542.
+> Would it be possible to get a sneak preview of your multiple tx queue
+> implementation (along with a complete re-write of the entire tx path)?
 > 
-> Routing header and Destination options header does the same as Hop-by-Hop options header. 
-> 
-> 
-> Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> I would like to see if batching would make sense with the new design,
+> or becomes redundant (or something to be done entirely at the drivers).
 
---yoshfuji
+Right now I'm just hacking drivers in preparation for this, so
+that the transmit queueing is seperated from the location
+in the driver where this actually occurs.
+
+I'll post a set of tg3 driver patches once I'm done debugging
+things.
