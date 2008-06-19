@@ -1,132 +1,59 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 2/2] net: Discard and warn about LRO'd skbs received for forwarding
-Date: Thu, 19 Jun 2008 19:08:34 +0100
-Message-ID: <20080619180833.GU5350@solarflare.com>
-References: <cover.1213898165.git.bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 11/15]bnx2x: Add TPA, Broadcoms HW LRO
+Date: Thu, 19 Jun 2008 19:20:11 +0100
+Message-ID: <20080619182010.GW5350@solarflare.com>
+References: <1213714166.5817.181.camel@lb-tlvb-eliezer> <20080617150539.GJ5350@solarflare.com> <20080617151704.GK5350@solarflare.com> <20080617.161640.256235010.davem@davemloft.net> <1213897363.19376.1.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Kieran Mansley <kmansley@solarflare.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mchan@broadcom.com, vladz@broadcom.com
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.mbr-roch.zen.net.uk ([212.23.3.142]:55514 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752835AbYFSSIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 14:08:39 -0400
+Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:51601 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753886AbYFSSUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 14:20:18 -0400
 Content-Disposition: inline
-In-Reply-To: <cover.1213898165.git.bhutchings@solarflare.com>
+In-Reply-To: <1213897363.19376.1.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add skb_warn_if_lro() to test whether an skb was received with LRO and
-warn if so.
+Eilon Greenstein wrote:
+> 
+> On Tue, 2008-06-17 at 16:16 -0700, David Miller wrote:
+> > From: Ben Hutchings <bhutchings@solarflare.com>
+> > Date: Tue, 17 Jun 2008 16:17:06 +0100
+> > 
+> > > Ben Hutchings wrote:
+> > > > Eilon Greenstein wrote:
+> > > > > The TPA stands for Transparent Packet Aggregation. When enabled, the FW
+> > > > > aggregate in-order TCP packets according to the 4-tuple match and sends
+> > > > > 1 big packet to the driver. This packet is stored on an SGL in which
+> > > > > each SGE is 1 page. The FW also implements a timeout algorithm and it
+> > > > > honors all TCP flag, including the push flag as a trigger to halt
+> > > > > aggregation.
+> > > > [...]
+> > > > 
+> > > > LRO is not compatible with forwarding and will currently trigger a BUG() or
+> > > > WARN() if used on packets that are then forwarded.
+> > > 
+> > > Actually, since this implementation doesn't set gso_size in LRO'd skbs, it
+> > > will confuse TCP in interesting ways instead.  You need to set gso_size to
+> > > the largest segment size seen in the packets that were aggregated.
+> > 
+> > Eilon, please sort this out, thanks.
+> Just to make sure that we are working in the right direction: we will
+> add the ethtool support and the gso_size, but until Ben's patch will be
+> in place, we will still fail in the same way any other LRO driver will
+> fail in forwarding.
+> If this is the case, I will send another patch with the ethtool and
+> gso_size soon.
 
-Change br_forward(), ip_forward() and ip6_forward() to call it) and
-discard the skb if it returns true.
+I just posted a new version of the no-LRO-with-forwarding patches.  It
+might be worth testing your ethtool flags code against them, though it
+should just work if you clear and set NETIF_F_LRO appropriately.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- include/linux/skbuff.h  |   14 ++++++++++++++
- net/bridge/br_forward.c |    2 +-
- net/core/skbuff.c       |    8 ++++++++
- net/ipv4/ip_forward.c   |    3 +++
- net/ipv6/ip6_output.c   |    3 +++
- 5 files changed, 29 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 299ec4b..2220b9e 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1702,6 +1702,20 @@ static inline int skb_is_gso_v6(const struct sk_buff *skb)
- 	return skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6;
- }
- 
-+extern void __skb_warn_lro_forwarding(const struct sk_buff *skb);
-+
-+static inline bool skb_warn_if_lro(const struct sk_buff *skb)
-+{
-+	/* LRO sets gso_size but not gso_type, whereas if GSO is really
-+	 * wanted then gso_type will be set. */
-+	struct skb_shared_info *shinfo = skb_shinfo(skb);
-+	if (shinfo->gso_size != 0 && unlikely(shinfo->gso_type == 0)) {
-+		__skb_warn_lro_forwarding(skb);
-+		return true;
-+	}
-+	return false;
-+}
-+
- static inline void skb_forward_csum(struct sk_buff *skb)
- {
- 	/* Unfortunately we don't support this one.  Any brave souls? */
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 5126457..bdd9cce 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -89,7 +89,7 @@ void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
- /* called with rcu_read_lock */
- void br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
- {
--	if (should_deliver(to, skb)) {
-+	if (!skb_warn_if_lro(skb) && should_deliver(to, skb)) {
- 		__br_forward(to, skb);
- 		return;
- 	}
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3e18f85..2df012b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2583,6 +2583,13 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off)
- 	return true;
- }
- 
-+void __skb_warn_lro_forwarding(const struct sk_buff *skb)
-+{
-+	if (net_ratelimit())
-+		pr_warning("%s: received packets cannot be forwarded"
-+			   " while LRO is enabled\n", skb->dev->name);
-+}
-+
- EXPORT_SYMBOL(___pskb_trim);
- EXPORT_SYMBOL(__kfree_skb);
- EXPORT_SYMBOL(kfree_skb);
-@@ -2616,6 +2623,7 @@ EXPORT_SYMBOL(skb_seq_read);
- EXPORT_SYMBOL(skb_abort_seq_read);
- EXPORT_SYMBOL(skb_find_text);
- EXPORT_SYMBOL(skb_append_datato_frags);
-+EXPORT_SYMBOL(__skb_warn_lro_forwarding);
- 
- EXPORT_SYMBOL_GPL(skb_to_sgvec);
- EXPORT_SYMBOL_GPL(skb_cow_data);
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 37d36a3..da14725 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -56,6 +56,9 @@ int ip_forward(struct sk_buff *skb)
- 	struct rtable *rt;	/* Route we use */
- 	struct ip_options * opt	= &(IPCB(skb)->opt);
- 
-+	if (skb_warn_if_lro(skb))
-+		goto drop;
-+
- 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_FWD, skb))
- 		goto drop;
- 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 40a2813..fd7cd1b 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -407,6 +407,9 @@ int ip6_forward(struct sk_buff *skb)
- 	if (ipv6_devconf.forwarding == 0)
- 		goto error;
- 
-+	if (skb_warn_if_lro(skb))
-+		goto drop;
-+
- 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_FWD, skb)) {
- 		IP6_INC_STATS(ip6_dst_idev(dst), IPSTATS_MIB_INDISCARDS);
- 		goto drop;
+Ben.
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
