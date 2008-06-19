@@ -1,89 +1,128 @@
 From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 5/12] benet: beclib header files
-Date: Thu, 19 Jun 2008 06:29:19 -0400
-Message-ID: <20080619102919.GE17697@infradead.org>
-References: <20080612104218.0625d526@mailhost.serverengines.com>
+Subject: Re: [PATCH 6/12] benet: beclib functions
+Date: Thu, 19 Jun 2008 06:33:58 -0400
+Message-ID: <20080619103358.GF17697@infradead.org>
+References: <20080612104312.54c39928@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: jeff@garzik.org, netdev@vger.kernel.org
 To: Subbu Seetharaman <subbus@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:56816 "EHLO
+Received: from bombadil.infradead.org ([18.85.46.34]:36648 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755108AbYFSK3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 06:29:21 -0400
+	with ESMTP id S1755580AbYFSKeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 06:34:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20080612104218.0625d526@mailhost.serverengines.com>
+In-Reply-To: <20080612104312.54c39928@mailhost.serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +/*
-> +    Locking structure for beklib.
-> +*/
-> +struct be_lock {
-> +	spinlock_t lock;
-> +	unsigned long irql;
-
-Please just use spinlock_t directly.
-
-> +static inline void be_lock_wrb_post(struct be_function_object *pfob)
+> +void be_chip_destroy(struct be_chip_object *chip)
 > +{
-> +	spin_lock_irqsave(&pfob->post_lock, pfob->post_irq);
-> +}
-
-Please no such locking wrappers.  The flags argument should always be
-local to the function calling the locking function and never be stored
-in structs, btw.
-
-> +static inline SA_STATUS sa_dev_create(struct sa_dev_bar_locations *bars,
-> +		u32 num_bars, void *os_handle, struct sa_dev *dev)
-> +{
-> +	ASSERT(dev);
-> +	ASSERT(bars);
+> +	ASSERT(chip->ref_count == 0);
 > +
-> +	/* Zero the struct */
-> +	memset(dev, 0, sizeof(*dev));
-> +
-> +	/* Copy the bar info */
-> +	dev->num_bars = num_bars;
-> +	memcpy(dev->bars, bars, sizeof(struct sa_dev_bar_locations) * num_bars);
-> +
-> +	return SA_SUCCESS;
-
-Just inline this into the caller.
-
-> +}
-> +static inline void sa_dev_destroy(struct sa_dev *dev)
-> +{
-> +	memset(dev, 0, sizeof(*dev));
+> +	memset(chip, 0, sizeof(*chip));
+> +	TRACE(DL_INFO, "destroying chip %p", chip);
 > +}
 
-Doing a memset on "destroy" is a very bad idea - it'll defeat the slab
-posioning feature to find dangling pointers.
 
-> +static inline void sa_dev_stall(struct sa_dev *dev, u32 us_to_stall)
-> +{
-> +	udelay(us_to_stall);
+Again memset on destory is a very bad idea.
+
 > +}
-
-Just use udelay directly.
-
-> +    Each .c file in beclib includes this "precompiled header" file.
-> +    It should ONLY be included by beclib files.
-> +    Clients of beclib should include "beclib.h" instead.
-> +*/
-> +#ifndef __pch_h__
-> +#define __pch_h__
 > +
 > +/*
-> + * -----------------------------------------------------------------------
-> + *    Our custom includes
-> + * -----------------------------------------------------------------------
-> + */
+> +    This routine removes serialization done by ChipObjectLock.
 > +
-> +#include "beclib_ll.h"
-> +#include "beclib_private_ll.h"
-> +#include "bestatus.h"
+> +    ChipObject      - The chip object to drop the lock for.
+> +
+> +    IRQL < DISPATCH_LEVEL
+> +*/
+> +void be_chip_unlock(struct be_chip_object *chip_object)
+> +{
+> +	spin_unlock_irqrestore(&chip_object->lock.lock, chip_object->lock.irql);
+> +}
 
-Just use the headers directly where needed.
+Please kill these locking wrappers.
+
+> +BESTATUS be_chip_object_create(struct be_chip_object *chip)
+> +{
+> +	BESTATUS status = 0;
+> +	bool chip_created = FALSE;
+> +
+> +	status = be_chip_create(chip);
+> +	if (status != BE_SUCCESS)
+> +		goto Error;
+> +
+> +	chip_created = TRUE;
+> +
+> +Error:
+> +	if (status != BE_SUCCESS) {
+> +
+> +		/* Cleanup everything in case of failure. */
+> +
+> +		if (chip_created)
+> +			be_chip_destroy(chip);
+> +
+> +	}
+> +
+> +	return status;
+
+I'd rather write this as:
+
+int be_chip_object_create(struct be_chip_object *chip)
+{
+	int error error = be_chip_create(chip);
+	if (error)
+		be_chip_destroy(chip);
+
+	return error;
+}
+
+But then again I still don't get the point of this wrapper at all.
+
+Same for various other functions in this file.
+
+> +void _be_function_lock(struct be_function_object *pfob)
+> +{
+> +	spin_lock_irqsave(&pfob->lock.lock, pfob->lock.irql);
+> +}
+> +
+> +void _be_function_unlock(struct be_function_object *pfob)
+> +{
+> +	spin_unlock_irqrestore(&pfob->lock.lock, pfob->lock.irql);
+> +}
+> +
+> +u32 be_function_get_function_number(struct be_function_object *pfob)
+> +{
+> +	return pfob->pci_function_number;
+> +}
+> +
+> +u32 be_function_get_function_type(struct be_function_object *pfob)
+> +{
+> +	return pfob->type;
+> +}
+> +
+> +u32 be_function_get_pd_number(struct be_function_object *pfob)
+> +{
+> +
+> +	/* only PD0 supported in Linux drivers */
+> +	return 0;
+> +}
+> +
+> +bool be_function_is_vm(struct be_function_object *pfob)
+> +{
+> +	return be_function_get_pd_number(pfob) > 0;
+> +}
+
+Another set of really useless wrappers.
+
+> +BESTATUS be_initialize_library(void)
+> +{
+> +	SA_TRACE(DL_NOTE, "Built on " __DATE__ " " __TIME__);
+> +
+> +	sa_trace_set_debug_level_string(DL_HW, "hw");
+> +
+> +	return BE_SUCCESS;
+
+Another unneeded wrapper.
 
