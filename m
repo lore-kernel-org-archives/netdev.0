@@ -1,60 +1,78 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 11/15]bnx2x: Add TPA, Broadcoms HW LRO
-Date: Thu, 19 Jun 2008 19:20:11 +0100
-Message-ID: <20080619182010.GW5350@solarflare.com>
-References: <1213714166.5817.181.camel@lb-tlvb-eliezer> <20080617150539.GJ5350@solarflare.com> <20080617151704.GK5350@solarflare.com> <20080617.161640.256235010.davem@davemloft.net> <1213897363.19376.1.camel@lb-tlvb-eliezer>
+From: Vitaly Bordug <vbordug@ru.mvista.com>
+Subject: Re: [PATCH] fs_enet: restore promiscuous and multicast settings in
+ restart()
+Date: Thu, 19 Jun 2008 22:20:42 +0400
+Message-ID: <20080619222042.2910e284@vitb.ru.mvista.com>
+References: <200806181707.17739.laurentp@cse-semaphore.com>
+	<8496f91a0806181145w62d57a7fua767c8036f2261aa@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mchan@broadcom.com, vladz@broadcom.com
-To: Eilon Greenstein <eilong@broadcom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Laurent Pinchart" <laurentp@cse-semaphore.com>,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	pantelis.antoniou@gmail.com
+To: matvejchikov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:51601 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753886AbYFSSUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 14:20:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1213897363.19376.1.camel@lb-tlvb-eliezer>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:23327 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753897AbYFSSUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 14:20:38 -0400
+In-Reply-To: <8496f91a0806181145w62d57a7fua767c8036f2261aa@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eilon Greenstein wrote:
+On Wed, 18 Jun 2008 22:45:57 +0400
+"Matvejchikov Ilya" <matvejchikov@gmail.com> wrote:
+
+> I'm glad that you have corrected it. Half a year ago I pointed out
+> that there was such a mistake:
+> http://patchwork.ozlabs.org/linuxppc/patch?id=10700
 > 
-> On Tue, 2008-06-17 at 16:16 -0700, David Miller wrote:
-> > From: Ben Hutchings <bhutchings@solarflare.com>
-> > Date: Tue, 17 Jun 2008 16:17:06 +0100
-> > 
-> > > Ben Hutchings wrote:
-> > > > Eilon Greenstein wrote:
-> > > > > The TPA stands for Transparent Packet Aggregation. When enabled, the FW
-> > > > > aggregate in-order TCP packets according to the 4-tuple match and sends
-> > > > > 1 big packet to the driver. This packet is stored on an SGL in which
-> > > > > each SGE is 1 page. The FW also implements a timeout algorithm and it
-> > > > > honors all TCP flag, including the push flag as a trigger to halt
-> > > > > aggregation.
-> > > > [...]
-> > > > 
-> > > > LRO is not compatible with forwarding and will currently trigger a BUG() or
-> > > > WARN() if used on packets that are then forwarded.
-> > > 
-> > > Actually, since this implementation doesn't set gso_size in LRO'd skbs, it
-> > > will confuse TCP in interesting ways instead.  You need to set gso_size to
-> > > the largest segment size seen in the packets that were aggregated.
-> > 
-> > Eilon, please sort this out, thanks.
-> Just to make sure that we are working in the right direction: we will
-> add the ethtool support and the gso_size, but until Ben's patch will be
-> in place, we will still fail in the same way any other LRO driver will
-> fail in forwarding.
-> If this is the case, I will send another patch with the ethtool and
-> gso_size soon.
+You've used -embedded ML, and patch wasn't noticed... I can add your S-O-B line if that will make you fill better :) 
 
-I just posted a new version of the no-LRO-with-forwarding patches.  It
-might be worth testing your ethtool flags code against them, though it
-should just work if you clear and set NETIF_F_LRO appropriately.
+-Vitaly
+> Thanks.
+> 
+> 2008/6/18 Laurent Pinchart <laurentp@cse-semaphore.com>:
+> > The restart() function is called when the link state changes and resets
+> > multicast and promiscous settings. This patch restores those settings at the
+> > end of restart().
+> >
+> > Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
+> > ---
+> >  drivers/net/fs_enet/mac-fcc.c     |    3 +++
+> >  2 files changed, 4 insertions(+), 1 deletions(-)
+> >
+> > diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
+> > index ce40cf9..1a95cf1 100644
+> > --- a/drivers/net/fs_enet/mac-fcc.c
+> > +++ b/drivers/net/fs_enet/mac-fcc.c
+> > @@ -464,6 +464,9 @@ static void restart(struct net_device *dev)
+> >                C32(fccp, fcc_fpsmr, FCC_PSMR_FDE | FCC_PSMR_LPB);
+> >
+> >        S32(fccp, fcc_gfmr, FCC_GFMR_ENR | FCC_GFMR_ENT);
+> > +
+> > +       /* Restore multicast and promiscous settings */
+> > +       set_multicast_list(dev);
+> >  }
+> >
+> >  static void stop(struct net_device *dev)
+> > --
+> > 1.5.0
+> >
+> > --
+> > Laurent Pinchart
+> > CSE Semaphore Belgium
+> >
+> > Chaussee de Bruxelles, 732A
+> > B-1410 Waterloo
+> > Belgium
+> >
+> > T +32 (2) 387 42 59
+> > F +32 (2) 387 42 75
+> >
 
-Ben.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Sincerely, 
+Vitaly
