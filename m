@@ -1,78 +1,67 @@
-From: Vitaly Bordug <vbordug@ru.mvista.com>
-Subject: Re: [PATCH] fs_enet: restore promiscuous and multicast settings in
- restart()
-Date: Thu, 19 Jun 2008 22:20:42 +0400
-Message-ID: <20080619222042.2910e284@vitb.ru.mvista.com>
-References: <200806181707.17739.laurentp@cse-semaphore.com>
-	<8496f91a0806181145w62d57a7fua767c8036f2261aa@mail.gmail.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH] RFKILL: fix input layer initialisation
+Date: Thu, 19 Jun 2008 20:49:54 +0200
+Message-ID: <200806192049.54798.IvDoorn@gmail.com>
+References: <20080619112841.GA12051@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Laurent Pinchart" <laurentp@cse-semaphore.com>,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	pantelis.antoniou@gmail.com
-To: matvejchikov@gmail.com
+Cc: netdev@vger.kernel.org
+To: Dmitry Baryshkov <dbaryshkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:23327 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753897AbYFSSUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 14:20:38 -0400
-In-Reply-To: <8496f91a0806181145w62d57a7fua767c8036f2261aa@mail.gmail.com>
+Received: from py-out-1112.google.com ([64.233.166.183]:52604 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751993AbYFSSdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 14:33:00 -0400
+Received: by py-out-1112.google.com with SMTP id p76so376414pyb.10
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 11:33:00 -0700 (PDT)
+In-Reply-To: <20080619112841.GA12051@doriath.ww600.siemens.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Jun 2008 22:45:57 +0400
-"Matvejchikov Ilya" <matvejchikov@gmail.com> wrote:
-
-> I'm glad that you have corrected it. Half a year ago I pointed out
-> that there was such a mistake:
-> http://patchwork.ozlabs.org/linuxppc/patch?id=10700
+On Thursday 19 June 2008, Dmitry Baryshkov wrote:
+> Initialise correctly last fields, so tasks can be actually executed
 > 
-You've used -embedded ML, and patch wasn't noticed... I can add your S-O-B line if that will make you fill better :) 
-
--Vitaly
-> Thanks.
+> Also move rfkill-input initialisation to subsys level so that it's
+> available before generic drivers probing occurs.
 > 
-> 2008/6/18 Laurent Pinchart <laurentp@cse-semaphore.com>:
-> > The restart() function is called when the link state changes and resets
-> > multicast and promiscous settings. This patch restores those settings at the
-> > end of restart().
-> >
-> > Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-> > ---
-> >  drivers/net/fs_enet/mac-fcc.c     |    3 +++
-> >  2 files changed, 4 insertions(+), 1 deletions(-)
-> >
-> > diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
-> > index ce40cf9..1a95cf1 100644
-> > --- a/drivers/net/fs_enet/mac-fcc.c
-> > +++ b/drivers/net/fs_enet/mac-fcc.c
-> > @@ -464,6 +464,9 @@ static void restart(struct net_device *dev)
-> >                C32(fccp, fcc_fpsmr, FCC_PSMR_FDE | FCC_PSMR_LPB);
-> >
-> >        S32(fccp, fcc_gfmr, FCC_GFMR_ENR | FCC_GFMR_ENT);
-> > +
-> > +       /* Restore multicast and promiscous settings */
-> > +       set_multicast_list(dev);
-> >  }
-> >
-> >  static void stop(struct net_device *dev)
-> > --
-> > 1.5.0
-> >
-> > --
-> > Laurent Pinchart
-> > CSE Semaphore Belgium
-> >
-> > Chaussee de Bruxelles, 732A
-> > B-1410 Waterloo
-> > Belgium
-> >
-> > T +32 (2) 387 42 59
-> > F +32 (2) 387 42 75
-> >
+> Signed-off-by: Dmitry Baryshkov <dbaryshkov@gmail.com>
+> ---
+>  net/rfkill/rfkill-input.c |    7 ++++++-
+>  1 files changed, 6 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/rfkill/rfkill-input.c b/net/rfkill/rfkill-input.c
+> index e4b051d..e4540fc 100644
+> --- a/net/rfkill/rfkill-input.c
+> +++ b/net/rfkill/rfkill-input.c
+> @@ -181,6 +181,11 @@ static struct input_handler rfkill_handler = {
+>  
+>  static int __init rfkill_handler_init(void)
+>  {
+> +	unsigned long last_run = jiffies - msecs_to_jiffies(500);
+> +	rfkill_wlan.last = last_run;
+> +	rfkill_bt.last = last_run;
+> +	rfkill_uwb.last = last_run;
+> +	rfkill_wimax.last = last_run;
 
+I'm not really fan of this approach
+Can't this not be done someway in the DEFINE_RFKILL_TASK macro
+where the entire structure is initialized?
+That way it will automatically be set for all new rfkill task structures later.
 
--- 
-Sincerely, 
-Vitaly
+>  	return input_register_handler(&rfkill_handler);
+>  }
+>  
+> @@ -190,5 +195,5 @@ static void __exit rfkill_handler_exit(void)
+>  	flush_scheduled_work();
+>  }
+>  
+> -module_init(rfkill_handler_init);
+> +subsys_initcall(rfkill_handler_init);
+>  module_exit(rfkill_handler_exit);
+
+This sounds good.
+
+Ivo
