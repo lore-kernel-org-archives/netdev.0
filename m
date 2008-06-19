@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: Discard and warn about LRO'd skbs received
- for forwarding
-Date: Thu, 19 Jun 2008 16:27:27 -0700 (PDT)
-Message-ID: <20080619.162727.153692540.davem@davemloft.net>
-References: <cover.1213898165.git.bhutchings@solarflare.com>
-	<20080619180833.GU5350@solarflare.com>
+Subject: Re: [RFC][PATCH] IPv6:Remove options header when setsockopt's
+ optlen is 0
+Date: Thu, 19 Jun 2008 16:30:26 -0700 (PDT)
+Message-ID: <20080619.163026.163287819.davem@davemloft.net>
+References: <4858AE3D.6070101@cn.fujitsu.com>
+	<20080619.165218.40446264.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	kmansley@solarflare.com, herbert@gondor.apana.org.au,
-	shemminger@vyatta.com
-To: bhutchings@solarflare.com
+Cc: shanwei@cn.fujitsu.com, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58754
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40759
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752811AbYFSX12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 19:27:28 -0400
-In-Reply-To: <20080619180833.GU5350@solarflare.com>
+	by vger.kernel.org with ESMTP id S1754145AbYFSXa0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 19:30:26 -0400
+In-Reply-To: <20080619.165218.40446264.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 19 Jun 2008 19:08:34 +0100
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 19 Jun 2008 16:52:18 +0900 (JST)
 
-> Add skb_warn_if_lro() to test whether an skb was received with LRO and
-> warn if so.
+> In article <4858AE3D.6070101@cn.fujitsu.com> (at Wed, 18 Jun 2008 14:42:05 +0800), Shan Wei <shanwei@cn.fujitsu.com> says:
 > 
-> Change br_forward(), ip_forward() and ip6_forward() to call it) and
-> discard the skb if it returns true.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> > Remove the sticky Hop-by-Hop options header by calling setsockopt() for IPV6_HOPOPTS
+> > with a zero option length, per RFC3542.
+> > 
+> > Routing header and Destination options header does the same as Hop-by-Hop options header. 
+> > 
+> > 
+> > Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Also applied to net-next-2.6
-
-Thanks again Ben.
+Applied to net-2.6, thanks!
