@@ -1,55 +1,43 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH] cpmac: use #ifdef CONFIG_NETDEVICES_MULTIQUEUE to wrap mq
- feature
-Date: Thu, 19 Jun 2008 11:20:45 +0800
-Message-ID: <4859D08D.4030503@cn.fujitsu.com>
+From: "Karen Xie" <kxie@chelsio.com>
+Subject: [PATCH 0/3 2.6.27] cxgb3i: Add iSCSI driver
+Date: Wed, 18 Jun 2008 22:10:00 -0700
+Message-ID: <8A71B368A89016469F72CD08050AD334D7128B@maui.asicdesigners.com>
+References: <8A71B368A89016469F72CD08050AD334D71285@maui.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jgarzik@pobox.com>, NETDEV <netdev@vger.kernel.org>,
-	Eugene Konev <ejka@imfi.kspu.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62488 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756128AbYFSDYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2008 23:24:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
+	<open-iscsi@googlegroups.com>, <linux-kernel@vger.kernel.org>,
+	<security@kernel.org>
+To: <michaelc@cs.wisc.edu>, "Divy Le Ray" <divy@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-netdev->features |= NETIF_F_MULTI_QUEUE should wrapped by
-#ifdef CONFIG_NETDEVICES_MULTIQUEUE.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- drivers/net/cpmac.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+Please review the iSCSI drivers for Chelsio CXGB3 (S3XX) devices.  
 
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index 7f3f62e..9172dec 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -1152,7 +1152,11 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
- 		}
- 	}
- 
-+#ifdef CONFIG_NETDEVICES_MULTIQUEUE
- 	dev = alloc_etherdev_mq(sizeof(*priv), CPMAC_QUEUES);
-+#else
-+	dev = alloc_etherdev(sizeof(*priv));
-+#endif
- 
- 	if (!dev) {
- 		printk(KERN_ERR "cpmac: Unable to allocate net_device\n");
-@@ -1179,7 +1183,9 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
- 	dev->set_multicast_list = cpmac_set_multicast_list;
- 	dev->tx_timeout         = cpmac_tx_timeout;
- 	dev->ethtool_ops        = &cpmac_ethtool_ops;
-+#ifdef CONFIG_NETDEVICES_MULTIQUEUE
- 	dev->features |= NETIF_F_MULTI_QUEUE;
-+#endif
- 
- 	netif_napi_add(dev, &priv->napi, cpmac_poll, 64);
- 
--- 
-1.5.3.4
+Here is a brief description of the patch series:
+- added iscsi support to cxgb3 driver
+- added pdu digest offload and payload direct-placement support to open-iscsi
+- the cxgb3i iscsi driver
+
+Thanks.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
