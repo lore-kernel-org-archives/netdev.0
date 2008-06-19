@@ -1,86 +1,40 @@
-From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
-Subject: Re: [PATCH] fs_enet: restore promiscuous and multicast settings in restart()
-Date: Thu, 19 Jun 2008 23:41:33 +0400
-Message-ID: <8496f91a0806191241v14c8a054s93f5a352bff68c62@mail.gmail.com>
-References: <200806181707.17739.laurentp@cse-semaphore.com>
-	 <8496f91a0806181145w62d57a7fua767c8036f2261aa@mail.gmail.com>
-	 <20080619222042.2910e284@vitb.ru.mvista.com>
-Reply-To: matvejchikov@gmail.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
+	MTU change
+Date: Thu, 19 Jun 2008 22:43:12 +0200
+Message-ID: <20080619204312.GA2160@electric-eye.fr.zoreil.com>
+References: <20080603134019.df2f51d4.akpm@linux-foundation.org> <20080603215155.GA9712@electric-eye.fr.zoreil.com> <20080604215909.GA17446@electric-eye.fr.zoreil.com> <20080614212341.GA12976@electric-eye.fr.zoreil.com> <4856DA62.7080803@e-teleport.net> <20080617214538.GA6388@electric-eye.fr.zoreil.com> <48584AA4.8040801@e-teleport.net> <48593E35.1010409@e-teleport.net> <20080618201012.GA4019@electric-eye.fr.zoreil.com> <48598784.40306@e-teleport.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Laurent Pinchart" <laurentp@cse-semaphore.com>,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	pantelis.antoniou@gmail.com
-To: "Vitaly Bordug" <vbordug@ru.mvista.com>
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Arjan van de Ven <arjan@infradead.org>, alan@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?unknown-8bit?B?U8OpZ3VpZXIgUsOpZ2lz?= <rseguier@e-teleport.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:16429 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750712AbYFSTle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 15:41:34 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so207226yxl.1
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 12:41:33 -0700 (PDT)
-In-Reply-To: <20080619222042.2910e284@vitb.ru.mvista.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39585 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750918AbYFSUnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 16:43:41 -0400
 Content-Disposition: inline
+In-Reply-To: <48598784.40306@e-teleport.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes, please. =)
+S=C3=A9guier R=C3=A9gis <rseguier@e-teleport.net> :
+>> I have updated http://userweb.kernel.org/~romieu/via-velocity/2.6.26=
+-rc6/
+[...]
+> Patch 0001 doesn't work,
+>
+> if I don't make a mistake skb->len is not modified in skb_pad{,to}whe=
+n the=20
+> padding is applied. In this case, we need to attribute ETH_ZLEN to le=
+n.
 
-2008/6/19 Vitaly Bordug <vbordug@ru.mvista.com>:
-> On Wed, 18 Jun 2008 22:45:57 +0400
-> "Matvejchikov Ilya" <matvejchikov@gmail.com> wrote:
->
->> I'm glad that you have corrected it. Half a year ago I pointed out
->> that there was such a mistake:
->> http://patchwork.ozlabs.org/linuxppc/patch?id=10700
->>
-> You've used -embedded ML, and patch wasn't noticed... I can add your S-O-B line if that will make you fill better :)
->
-> -Vitaly
->> Thanks.
->>
->> 2008/6/18 Laurent Pinchart <laurentp@cse-semaphore.com>:
->> > The restart() function is called when the link state changes and resets
->> > multicast and promiscous settings. This patch restores those settings at the
->> > end of restart().
->> >
->> > Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
->> > ---
->> >  drivers/net/fs_enet/mac-fcc.c     |    3 +++
->> >  2 files changed, 4 insertions(+), 1 deletions(-)
->> >
->> > diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
->> > index ce40cf9..1a95cf1 100644
->> > --- a/drivers/net/fs_enet/mac-fcc.c
->> > +++ b/drivers/net/fs_enet/mac-fcc.c
->> > @@ -464,6 +464,9 @@ static void restart(struct net_device *dev)
->> >                C32(fccp, fcc_fpsmr, FCC_PSMR_FDE | FCC_PSMR_LPB);
->> >
->> >        S32(fccp, fcc_gfmr, FCC_GFMR_ENR | FCC_GFMR_ENT);
->> > +
->> > +       /* Restore multicast and promiscous settings */
->> > +       set_multicast_list(dev);
->> >  }
->> >
->> >  static void stop(struct net_device *dev)
->> > --
->> > 1.5.0
->> >
->> > --
->> > Laurent Pinchart
->> > CSE Semaphore Belgium
->> >
->> > Chaussee de Bruxelles, 732A
->> > B-1410 Waterloo
->> > Belgium
->> >
->> > T +32 (2) 387 42 59
->> > F +32 (2) 387 42 75
->> >
->
->
-> --
-> Sincerely,
-> Vitaly
->
+Yes, that's what the driver did beforehand.
+
+The updated serie is at the usual place. Does it perform better ?
+
+--=20
+Ueimor
