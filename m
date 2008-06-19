@@ -1,49 +1,85 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: [PATCH 6/8]  pxa: make lubbock to use smc91x platform data
-Date: Thu, 19 Jun 2008 12:53:49 -0400 (EDT)
-Message-ID: <alpine.LFD.1.10.0806191243400.2982@xanadu.home>
-References: <485A3E4A.6070706@gmail.com>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: Re: [PATCH] ax25.h unsigned long type for ax25 timers
+Date: Thu, 19 Jun 2008 18:28:46 +0200
+Message-ID: <485A893E.4080405@free.fr>
+References: <200806171504.38702.bpidoux@free.fr> <20080617.223050.266166325.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Eric Miao <eric.y.miao@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:52557 "EHLO
-	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751240AbYFSQy0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 12:54:26 -0400
-Received: from xanadu.home ([66.131.194.97]) by VL-MH-MR002.ip.videotron.ca
- (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
- with ESMTP id <0K2P00F01YXP8UT0@VL-MH-MR002.ip.videotron.ca> for
- netdev@vger.kernel.org; Thu, 19 Jun 2008 12:53:49 -0400 (EDT)
-In-reply-to: <485A3E4A.6070706@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ralf@linux-mips.org, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20080617.223050.266166325.davem@davemloft.net>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Jun 2008, Eric Miao wrote:
+David,
 
-> 
-> Signed-off-by: Eric Miao <eric.miao@marvell.com>
+Unfortunately I don't quite understand exactly why a structure in user=20
+space cannot be changed.
+But this means that I have to make some effort to learn a bit more abou=
+t=20
+the kernel structure and userspace.
+However, thank you for your explanation about how to fix the discrepanc=
+y=20
+between both timer structures.
+I will try to dig out more information on this subject.
 
-This (and 7/8 and 8/8) are a bit unfortunate.  Maybe not as visible on 
-Lubbock which has a SMC91C94 which can do 10mbps only, but the others 
-will have poorer performances because of those patches.  Did you compare 
-performances, let's say with netperf, before and after those patches are 
-applied?
+Bernard Pidoux, f6bvp
+=20
 
-I understand your goal of wanting to have a single kernel image that 
-dynamically can select the right bus access method for all the concerned 
-platforms.  But I think you'll see that the runtime overhead has a 
-significant impact on network throughput and CPU usage.
+David Miller a =E9crit :
+> From: Bernard Pidoux <bpidoux@free.fr>
+> Date: Tue, 17 Jun 2008 15:04:38 +0200
+>
+>  =20
+>> In linux/include/linux/ax25.h
+>> ax25_info_struct timers types remain unsigned
+>>
+>> struct ax25_info_struct {
+>> 	unsigned int	n2, n2count;
+>> 	unsigned int	t1, t1timer;
+>> 	unsigned int	t2, t2timer;
+>> 	unsigned int	t3, t3timer;
+>> 	unsigned int	idle, idletimer;
+>>         .....
+>> };
+>>
+>> while in linux/include/net/ax25.h timers are unsigned long according
+>> to kernel 2.6 timers.
+>>
+>> typedef struct ax25_cb {
+>>         .....
+>>         struct timer_list       t1timer, t2timer, t3timer, idletimer=
+;
+>>         unsigned long           t1, t2, t3, idle, rtt;
+>>         ....
+>>
+>> Although ax25_info_struct is not much used it is refered at least
+>> into libax25 and xfbb BBS application program.
+>>
+>> It seems thus reasonable to make the change.
+>>
+>> Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+>>    =20
+>
+> Unfortunately this datastructure is exported to userspace,
+> and therefore we cannot change the structure layout without
+> breaking userspace.
+>
+> We cannot, as a result, make this change.
+>
+> The only way to fix this is to make a new fixed structure, and add ne=
+w
+> ax25 calls that accept this new structure.
+>
+>
+>  =20
 
-I think that some other solution should be explored such that when only 
-one machine type (or machine types with the same bus config) is 
-configured then the compile time optimizations should remain.  Something 
-based on the machine_is_lubbock(), machine_is_Mainstone(), and so on, 
-which becomes constants with the right kernel configuration.
-
-
-Nicolas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
