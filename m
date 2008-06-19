@@ -1,8 +1,10 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 0/2] Disable forwarding of LRO skbs [2nd try]
-Date: Thu, 19 Jun 2008 14:50:09 -0700
-Message-ID: <20080619145009.5b24f028@extreme>
+Subject: Re: [PATCH 2/2] net: Discard and warn about LRO'd skbs received for
+ forwarding
+Date: Thu, 19 Jun 2008 14:50:15 -0700
+Message-ID: <20080619145015.3ec2307c@extreme>
 References: <cover.1213898165.git.bhutchings@solarflare.com>
+	<20080619180833.GU5350@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,32 +14,21 @@ Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:42946 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:42955 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751598AbYFSVuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jun 2008 17:50:16 -0400
-In-Reply-To: <cover.1213898165.git.bhutchings@solarflare.com>
+	id S1754832AbYFSVuR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jun 2008 17:50:17 -0400
+In-Reply-To: <20080619180833.GU5350@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Jun 2008 19:44:56 +0100
+On Thu, 19 Jun 2008 19:08:34 +0100
 Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-> [Re-sent with the correct Message-ID, previously eaten by mutt.]
+> Add skb_warn_if_lro() to test whether an skb was received with LRO and
+> warn if so.
 > 
-> Large Receive Offload (LRO) destroys packet headers that should be
-> preserved when forwarding.  Currently it also triggers a BUG() or WARN()
-> in skb_gso_segment().  We should disable it wherever forwarding is
-> enabled, and discard LRO skbs with a warning if it is turned back on.
-> 
-> Since the previous version of these patches, I have:
-> - Tightened the test for LRO'd skbs, so it should not catch skbs from
->   VM guests that want GSO
-> - Made the test an inline function, with the warning a separate extern
->   function
-> - Rebased against net-next-2.6
-> 
+> Change br_forward(), ip_forward() and ip6_forward() to call it) and
+> discard the skb if it returns true.
 
-I like that it covers both cases and looks clean. If anyone ever gets
-around to rewriting the network device driver chapter in the linux
-kernel book(s) this should be covered in more detail.
+Actually shouldn't ip forwarding work because of refragmentation?
