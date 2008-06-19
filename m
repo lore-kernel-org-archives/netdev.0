@@ -1,81 +1,39 @@
-From: Dmitry <dbaryshkov@gmail.com>
-Subject: Re: [PATCH] RFKILL: fix input layer initialisation
-Date: Fri, 20 Jun 2008 02:28:20 +0400
-Message-ID: <bc64b4640806191528g67ec856av7caf886e8e7c1975@mail.gmail.com>
-References: <20080619112841.GA12051@doriath.ww600.siemens.net>
-	 <200806192049.54798.IvDoorn@gmail.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [PATCH 2/2] net: Discard and warn about LRO'd skbs received for forwarding
+Date: Thu, 19 Jun 2008 15:29:05 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5205732065@orsmsx418.amr.corp.intel.com>
+References: <cover.1213898165.git.bhutchings@solarflare.com><20080619180833.GU5350@solarflare.com> <20080619145015.3ec2307c@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Ivo van Doorn" <ivdoorn@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>,
+	"Kieran Mansley" <kmansley@solarflare.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
+To: "Stephen Hemminger" <shemminger@vyatta.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.232]:12153 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375AbYFSW2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 18:28:21 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so5384913rvb.1
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 15:28:20 -0700 (PDT)
-In-Reply-To: <200806192049.54798.IvDoorn@gmail.com>
-Content-Disposition: inline
+Received: from mga01.intel.com ([192.55.52.88]:29221 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752638AbYFSW3I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 18:29:08 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080619145015.3ec2307c@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Stephen Hemminger wrote:
+> On Thu, 19 Jun 2008 19:08:34 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+>> Add skb_warn_if_lro() to test whether an skb was received with LRO
+>> and warn if so. 
+>> 
+>> Change br_forward(), ip_forward() and ip6_forward() to call it) and
+>> discard the skb if it returns true.
+> 
+> Actually shouldn't ip forwarding work because of refragmentation?
 
-2008/6/19 Ivo van Doorn <ivdoorn@gmail.com>:
-> On Thursday 19 June 2008, Dmitry Baryshkov wrote:
->> Initialise correctly last fields, so tasks can be actually executed
->>
->> Also move rfkill-input initialisation to subsys level so that it's
->> available before generic drivers probing occurs.
->>
->> Signed-off-by: Dmitry Baryshkov <dbaryshkov@gmail.com>
->> ---
->>  net/rfkill/rfkill-input.c |    7 ++++++-
->>  1 files changed, 6 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/rfkill/rfkill-input.c b/net/rfkill/rfkill-input.c
->> index e4b051d..e4540fc 100644
->> --- a/net/rfkill/rfkill-input.c
->> +++ b/net/rfkill/rfkill-input.c
->> @@ -181,6 +181,11 @@ static struct input_handler rfkill_handler = {
->>
->>  static int __init rfkill_handler_init(void)
->>  {
->> +     unsigned long last_run = jiffies - msecs_to_jiffies(500);
->> +     rfkill_wlan.last = last_run;
->> +     rfkill_bt.last = last_run;
->> +     rfkill_uwb.last = last_run;
->> +     rfkill_wimax.last = last_run;
->
-> I'm not really fan of this approach
-> Can't this not be done someway in the DEFINE_RFKILL_TASK macro
-> where the entire structure is initialized?
-> That way it will automatically be set for all new rfkill task structures later.
-
-IMHO it can't. the jiffies - mset_to_jiffies isn't a constant
-initialiser; gcc won't permit such a thing
-
->
->>       return input_register_handler(&rfkill_handler);
->>  }
->>
->> @@ -190,5 +195,5 @@ static void __exit rfkill_handler_exit(void)
->>       flush_scheduled_work();
->>  }
->>
->> -module_init(rfkill_handler_init);
->> +subsys_initcall(rfkill_handler_init);
->>  module_exit(rfkill_handler_exit);
->
-> This sounds good.
->
-> Ivo
->
-
-
-
--- 
-With best wishes
-Dmitry
+Yes, it should, but in practice it runs out of fragment handling space
+and throughput drops to 10kB/s or something horrible like that, AFAIR.
