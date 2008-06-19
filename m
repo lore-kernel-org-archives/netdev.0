@@ -1,85 +1,59 @@
-From: Bernard Pidoux <bpidoux@free.fr>
-Subject: Re: [PATCH] ax25.h unsigned long type for ax25 timers
-Date: Thu, 19 Jun 2008 18:28:46 +0200
-Message-ID: <485A893E.4080405@free.fr>
-References: <200806171504.38702.bpidoux@free.fr> <20080617.223050.266166325.davem@davemloft.net>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH net-next 11/15]bnx2x: Add TPA, Broadcoms HW LRO
+Date: Thu, 19 Jun 2008 20:42:43 +0300
+Message-ID: <1213897363.19376.1.camel@lb-tlvb-eliezer>
+References: <1213714166.5817.181.camel@lb-tlvb-eliezer>
+ <20080617150539.GJ5350@solarflare.com>
+ <20080617151704.GK5350@solarflare.com>
+ <20080617.161640.256235010.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ralf@linux-mips.org, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20080617.223050.266166325.davem@davemloft.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	mchan@broadcom.com, vladz@broadcom.com
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4395 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751171AbYFSRmx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jun 2008 13:42:53 -0400
+In-Reply-To: <20080617.161640.256235010.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
 
-Unfortunately I don't quite understand exactly why a structure in user=20
-space cannot be changed.
-But this means that I have to make some effort to learn a bit more abou=
-t=20
-the kernel structure and userspace.
-However, thank you for your explanation about how to fix the discrepanc=
-y=20
-between both timer structures.
-I will try to dig out more information on this subject.
+On Tue, 2008-06-17 at 16:16 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Tue, 17 Jun 2008 16:17:06 +0100
+> 
+> > Ben Hutchings wrote:
+> > > Eilon Greenstein wrote:
+> > > > The TPA stands for Transparent Packet Aggregation. When enabled, the FW
+> > > > aggregate in-order TCP packets according to the 4-tuple match and sends
+> > > > 1 big packet to the driver. This packet is stored on an SGL in which
+> > > > each SGE is 1 page. The FW also implements a timeout algorithm and it
+> > > > honors all TCP flag, including the push flag as a trigger to halt
+> > > > aggregation.
+> > > [...]
+> > > 
+> > > LRO is not compatible with forwarding and will currently trigger a BUG() or
+> > > WARN() if used on packets that are then forwarded.
+> > 
+> > Actually, since this implementation doesn't set gso_size in LRO'd skbs, it
+> > will confuse TCP in interesting ways instead.  You need to set gso_size to
+> > the largest segment size seen in the packets that were aggregated.
+> 
+> Eilon, please sort this out, thanks.
+Just to make sure that we are working in the right direction: we will
+add the ethtool support and the gso_size, but until Ben's patch will be
+in place, we will still fail in the same way any other LRO driver will
+fail in forwarding.
+If this is the case, I will send another patch with the ethtool and
+gso_size soon.
 
-Bernard Pidoux, f6bvp
-=20
+Please confirm,
+Eilon
 
-David Miller a =E9crit :
-> From: Bernard Pidoux <bpidoux@free.fr>
-> Date: Tue, 17 Jun 2008 15:04:38 +0200
->
->  =20
->> In linux/include/linux/ax25.h
->> ax25_info_struct timers types remain unsigned
->>
->> struct ax25_info_struct {
->> 	unsigned int	n2, n2count;
->> 	unsigned int	t1, t1timer;
->> 	unsigned int	t2, t2timer;
->> 	unsigned int	t3, t3timer;
->> 	unsigned int	idle, idletimer;
->>         .....
->> };
->>
->> while in linux/include/net/ax25.h timers are unsigned long according
->> to kernel 2.6 timers.
->>
->> typedef struct ax25_cb {
->>         .....
->>         struct timer_list       t1timer, t2timer, t3timer, idletimer=
-;
->>         unsigned long           t1, t2, t3, idle, rtt;
->>         ....
->>
->> Although ax25_info_struct is not much used it is refered at least
->> into libax25 and xfbb BBS application program.
->>
->> It seems thus reasonable to make the change.
->>
->> Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
->>    =20
->
-> Unfortunately this datastructure is exported to userspace,
-> and therefore we cannot change the structure layout without
-> breaking userspace.
->
-> We cannot, as a result, make this change.
->
-> The only way to fix this is to make a new fixed structure, and add ne=
-w
-> ax25 calls that accept this new structure.
->
->
->  =20
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
