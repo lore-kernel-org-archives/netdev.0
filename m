@@ -1,124 +1,48 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] RTT metrics scaling
-Date: Fri, 20 Jun 2008 16:22:34 -0700
-Message-ID: <20080620162234.1c2103ee@extreme>
+From: "Michal Ostrowski" <mostrows@gmail.com>
+Subject: Re: [PATCH] pppoe: warning fix
+Date: Fri, 20 Jun 2008 18:41:44 -0500
+Message-ID: <e6d1cecd0806201641y602ca494o7730302357664f06@mail.gmail.com>
+References: <20080620161912.56f4b557@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "Michal Ostrowski" <mostrows@earthlink.net>, netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:53558 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756684AbYFTXWg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2008 19:22:36 -0400
+Received: from fk-out-0910.google.com ([209.85.128.190]:33583 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755216AbYFTXlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 19:41:46 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so1449539fkq.5
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 16:41:44 -0700 (PDT)
+In-Reply-To: <20080620161912.56f4b557@extreme>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the metrics (RTT, RTTVAR and RTAX_RTO_MIN) are stored in kernel
-units (jiffies) and this leaks out through the netlink API to user space
-where the units for jiffies are unknown.
+Acked-by: Michal Ostrowski <mostrows@earthlink.net>
 
-This patches changes the kernel to convert to/from milliseconds. This changes
-the ABI, but milliseconds seemed like the most natural unit for these parameters.
 
-This patch is for comment only, just to show how it would be implemented.
-I will update it after testing more.
 
---- a/include/net/dst.h	2008-06-20 15:34:00.000000000 -0700
-+++ b/include/net/dst.h	2008-06-20 15:50:20.000000000 -0700
-@@ -128,6 +128,18 @@ static inline u32 dst_mtu(const struct d
- 	return mtu;
- }
- 
-+/* RTT metrics are stored in milliseconds for user ABI, but used as jiffies */
-+static inline unsigned long dst_metric_rtt(const struct dst_entry *dst, int metric)
-+{
-+	return msecs_to_jiffies(dst_metric(dst, metric));
-+}
-+
-+static inline void set_dst_metric_rtt(struct dst_entry *dst, int metric,
-+				      unsigned long rtt)
-+{
-+	dst->metrics[metric-1] = jiffies_to_msecs(rtt);
-+}
-+
- static inline u32
- dst_allfrag(const struct dst_entry *dst)
- {
---- a/net/ipv4/tcp_input.c	2008-06-20 15:41:40.000000000 -0700
-+++ b/net/ipv4/tcp_input.c	2008-06-20 15:48:31.000000000 -0700
-@@ -602,7 +602,7 @@ static u32 tcp_rto_min(struct sock *sk)
- 	u32 rto_min = TCP_RTO_MIN;
- 
- 	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
--		rto_min = dst_metric(dst, RTAX_RTO_MIN);
-+		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
- 	return rto_min;
- }
- 
-@@ -740,18 +740,15 @@ void tcp_update_metrics(struct sock *sk)
- 			return;
- 		}
- 
--		m = dst_metric(dst, RTAX_RTT) - tp->srtt;
-+		m = dst_metric_rtt(dst, RTAX_RTT) - tp->srtt;
- 
- 		/* If newly calculated rtt larger than stored one,
- 		 * store new one. Otherwise, use EWMA. Remember,
- 		 * rtt overestimation is always better than underestimation.
- 		 */
--		if (!(dst_metric_locked(dst, RTAX_RTT))) {
--			if (m <= 0)
--				dst->metrics[RTAX_RTT - 1] = tp->srtt;
--			else
--				dst->metrics[RTAX_RTT - 1] -= (m >> 3);
--		}
-+		if (!(dst_metric_locked(dst, RTAX_RTT)))
-+			set_dst_metric_rtt(dst, RTAX_RTT,
-+					   m <= 0 ? tp->srtt : (m >>3));
- 
- 		if (!(dst_metric_locked(dst, RTAX_RTTVAR))) {
- 			if (m < 0)
-@@ -762,11 +759,10 @@ void tcp_update_metrics(struct sock *sk)
- 			if (m < tp->mdev)
- 				m = tp->mdev;
- 
--			if (m >= dst_metric(dst, RTAX_RTTVAR))
--				dst->metrics[RTAX_RTTVAR - 1] = m;
--			else
--				dst->metrics[RTAX_RTTVAR-1] -=
--					(dst_metric(dst, RTAX_RTTVAR) - m)>>2;
-+			set_dst_metric(dst, RTAX_RTTVAR,
-+				       (m >= dst_metric_rtt(dst, RTAX_RTTVAR))
-+				       ? m
-+				       : (dst_metric(dst, RTAX_RTTVAR) - m)>>2);
- 		}
- 
- 		if (tp->snd_ssthresh >= 0xFFFF) {
-@@ -897,7 +893,7 @@ static void tcp_init_metrics(struct sock
- 	if (dst_metric(dst, RTAX_RTT) == 0)
- 		goto reset;
- 
--	if (!tp->srtt && dst_metric(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
-+	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
- 		goto reset;
- 
- 	/* Initial rtt is determined from SYN,SYN-ACK.
-@@ -914,12 +910,12 @@ static void tcp_init_metrics(struct sock
- 	 * to low value, and then abruptly stops to do it and starts to delay
- 	 * ACKs, wait for troubles.
- 	 */
--	if (dst_metric(dst, RTAX_RTT) > tp->srtt) {
--		tp->srtt = dst_metric(dst, RTAX_RTT);
-+	if (dst_metric_rtt(dst, RTAX_RTT) > tp->srtt) {
-+		tp->srtt = dst_metric_rtt(dst, RTAX_RTT);
- 		tp->rtt_seq = tp->snd_nxt;
- 	}
--	if (dst_metric(dst, RTAX_RTTVAR) > tp->mdev) {
--		tp->mdev = dst_metric(dst, RTAX_RTTVAR);
-+	if (dst_metric_rtt(dst, RTAX_RTTVAR) > tp->mdev) {
-+		tp->mdev = dst_metric_rtt(dst, RTAX_RTTVAR);
- 		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
- 	}
- 	tcp_set_rto(sk);
+On Fri, Jun 20, 2008 at 6:19 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> Fix warning:
+> drivers/net/pppoe.c: In function 'pppoe_recvmsg':
+> drivers/net/pppoe.c:945: warning: comparison of distinct pointer types lacks a cast
+> because skb->len is unsigned int and total_len is size_t
+>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+>
+> --- a/drivers/net/pppoe.c       2008-06-20 15:56:46.000000000 -0700
+> +++ b/drivers/net/pppoe.c       2008-06-20 15:57:04.000000000 -0700
+> @@ -942,7 +942,7 @@ static int pppoe_recvmsg(struct kiocb *i
+>        m->msg_namelen = 0;
+>
+>        if (skb) {
+> -               total_len = min(total_len, skb->len);
+> +               total_len = min_t(size_t, total_len, skb->len);
+>                error = skb_copy_datagram_iovec(skb, 0, m->msg_iov, total_len);
+>                if (error == 0)
+>                        error = total_len;
+>
