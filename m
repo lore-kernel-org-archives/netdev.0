@@ -1,129 +1,71 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH] iproute2: add support for IFLA_NET_NS_PID in ip link
-Date: Fri, 20 Jun 2008 11:07:35 +0200
-Message-ID: <20080620090734.144305411@theryb.frec.bull.fr>
-References: <20080620090725.818393362@theryb.frec.bull.fr>
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Eric Miao <eric.y.miao@gmail.com>
+Subject: Re: [PATCH 5/8] smc91x: add SMC91X_IO_SHIFT* macros and make SMC_IO_SHIFT
+ a variable
+Date: Fri, 20 Jun 2008 17:19:23 +0800
+Message-ID: <485B761B.9010706@gmail.com>
+References: <485A3E0B.1080505@gmail.com> <alpine.LFD.1.10.0806191223390.2982@xanadu.home> <485B2850.5050004@gmail.com> <20080620072939.GA1479@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: Eric Miao <eric.y.miao@gmail.com>, Nicolas Pitre <nico@cam.org>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-arm-kernel <linux-arm-kernel@lists.a
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:51596 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751593AbYFTJLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 05:11:38 -0400
+Received: from rv-out-0506.google.com ([209.85.198.234]:58602 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751548AbYFTJTg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 05:19:36 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so5581959rvb.1
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 02:19:35 -0700 (PDT)
+In-Reply-To: <20080620072939.GA1479@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+Sascha Hauer wrote:
+> Your numbers look like a very bad overall performance. I remember we got
+> nearly 100Mbit/s on a pxa system with the smsc connected in 32bit mode.
+> While this project was performance critical I'm often in the situation
+> that I just expect the smsc driver to work without looking at the
+> ifdeffery in the header file.
+> Shouldn't it be possible to make access macros optional for those who
+> want performance and use functions as the default case?
+> 
 
-I resend you this patch once more. This time I updated the documentation
-too (may be that was the reason why you didn't take it before?). 
+This isn't a serious performance test. I just want to give myself a
+rough feeling of the degrade level in a casual way.
 
-Please tell me if there are other things missing in this patch
-It applies on iproute2 git tree.
+Using a centralized function will be the ultimate solution to handle
+difference between platforms, that requires another bunch of patches.
+And there are also some exceptions like mainstone, which uses its own
+SMC_outw() to workaround something buggy in hardware.
 
-Regards,
-Benjamin
+To have this driver supporting so many platforms at run-time is really
+a head-scratching work, and may eventually introduce some trade-offs :-/
 
-Description:
-------------
+> 
+>> So I'm thinking that the overhead may not be so significant as expected,
+>> 1. control register accesses are rare compared to data register
+>> 2. data register access is usually fixed at one address and enclosed in
+>>    a loop, which the compiler may well optimize
+>>
+>>> And this is very important to have the lowest overhead possible with 
+>>> this chip that can do 100mbps on platforms with a CPU clock almost as 
+>>> slow.
+>>>
+>> Indeed, the overhead will be magnified on a system with slow CPU clock,
+>> maybe I should spend some time to have a test also. However, arguably,
+>> the smc91x chips are usually used as a debug ethernet on most (if not
+>> all) platforms, I don't think a serious design will deploy such a chip
+>> for performance critical application, though.
+> 
+> Not anymore probably, but we seem to tun into the same problem with the
+> current smc911x driver aswell
 
-This patch adds support for the IFLA_NET_NS_PID type. It is used to 
-move network devices between network namespaces.
+Indeed.
 
-The syntax is: 
-ip link set DEVICE netns PID
+> 
+> Sascha
+> 
+> 
 
-PID is the pid of a process in the target network namespace.
-
-(Daniel Lezcano is the original author). 
-
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
----
- doc/ip-cref.tex |    4 ++++
- ip/iplink.c     |    9 +++++++++
- man/man8/ip.8   |   10 +++++++++-
- 3 files changed, 22 insertions(+), 1 deletion(-)
-
-Index: iproute2/doc/ip-cref.tex
-===================================================================
---- iproute2.orig/doc/ip-cref.tex
-+++ iproute2/doc/ip-cref.tex
-@@ -294,6 +294,10 @@ broadcast address will break networking.
- Do not use it, if you do not understand what this operation really does.
- \end{NB}
- 
-+\item \verb|netns PID|
-+
-+--- move the device to the network namespace associated with the process PID.
-+
- \end{itemize}
- 
- \vskip 1mm
-Index: iproute2/ip/iplink.c
-===================================================================
---- iproute2.orig/ip/iplink.c
-+++ iproute2/ip/iplink.c
-@@ -49,6 +49,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "	                     name NEWNAME |\n");
- 	fprintf(stderr, "	                     address LLADDR | broadcast LLADDR |\n");
- 	fprintf(stderr, "	                     mtu MTU }\n");
-+	fprintf(stderr, "	                     netns PID }\n");
- 	fprintf(stderr, "       ip link show [ DEVICE ]\n");
- 	exit(-1);
- }
-@@ -156,6 +157,7 @@ int iplink_parse(int argc, char **argv, 
- 	char abuf[32];
- 	int qlen = -1;
- 	int mtu = -1;
-+	int netns = -1;
- 
- 	ret = argc;
- 
-@@ -197,6 +199,13 @@ int iplink_parse(int argc, char **argv, 
- 			if (get_integer(&mtu, *argv, 0))
- 				invarg("Invalid \"mtu\" value\n", *argv);
- 			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
-+                } else if (strcmp(*argv, "netns") == 0) {
-+                        NEXT_ARG();
-+                        if (netns != -1)
-+                                duparg("netns", *argv);
-+                        if (get_integer(&netns, *argv, 0))
-+                                invarg("Invalid \"netns\" value\n", *argv);
-+                        addattr_l(&req->n, sizeof(*req), IFLA_NET_NS_PID, &netns, 4);
- 		} else if (strcmp(*argv, "multicast") == 0) {
- 			NEXT_ARG();
- 			req->i.ifi_change |= IFF_MULTICAST;
-Index: iproute2/man/man8/ip.8
-===================================================================
---- iproute2.orig/man/man8/ip.8
-+++ iproute2/man/man8/ip.8
-@@ -50,7 +50,10 @@ ip \- show / manipulate routing, devices
- .IR LLADDR " |"
- .br
- .B  mtu
--.IR MTU " }"
-+.IR MTU " |"
-+.br
-+.B  netns
-+.IR PID " }"
- 
- .ti -8
- .B ip link show
-@@ -873,6 +876,11 @@ change the link layer broadcast address 
- the interface is
- .IR "POINTOPOINT" .
- 
-+.TP
-+.BI netns " PID"
-+move the device to the network namespace associated with the process
-+.IR "PID" .
-+
- .PP
- .B Warning:
- If multiple parameter changes are requested,
-
--- 
