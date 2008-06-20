@@ -1,303 +1,231 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 5/8] smc91x: add SMC91X_IO_SHIFT* macros and make
-	SMC_IO_SHIFT a variable
-Date: Fri, 20 Jun 2008 09:29:40 +0200
-Message-ID: <20080620072939.GA1479@pengutronix.de>
-References: <485A3E0B.1080505@gmail.com> <alpine.LFD.1.10.0806191223390.2982@xanadu.home> <485B2850.5050004@gmail.com>
+From: "Subbu Seetharaman" <subbus@serverengines.com>
+Subject: Re: [PATCH 4/12] benet: beclib (h/w access lib) header files
+Date: Fri, 20 Jun 2008 01:11:09 -0700
+Message-ID: <20080620081109.958a5d6f@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Pitre <nico@cam.org>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>
-To: Eric Miao <eric.y.miao@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: "Christoph Hellwig" <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.extern.pengutronix.de ([83.236.181.26]:38533 "EHLO
-	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751163AbYFTH3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 03:29:43 -0400
-Content-Disposition: inline
-In-Reply-To: <485B2850.5050004@gmail.com>
+Received: from mail142.messagelabs.com ([216.82.249.99]:12492 "EHLO
+	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751709AbYFTILM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 04:11:12 -0400
+In-Reply-To: 20080619102432.GD17697@infradead.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 20, 2008 at 11:47:28AM +0800, Eric Miao wrote:
-> Nicolas Pitre wrote:
-> > On Thu, 19 Jun 2008, Eric Miao wrote:
-> > 
-> >> SMC_IO_SHIFT is currently hardcoded, which makes some platforms (e.g.
-> >> Lubbock) unable to use the newly introduced platform data. This patch
-> >> introduces SMC91X_IO_SHIFT* macros and make SMC_IO_SHIFT a variable.
-> >>
-> >> Signed-off-by: Eric Miao <eric.miao@marvell.com>
-> > 
-> > NAK.
-> > 
-> > The very point of those macros is actually to optimize the IO accesses 
-> > as much as possible at compile time.  By introducing a variable element 
-> > in the definition of those macros (for when the driver is configured 
-> > with constant params for those macros of course) you add a significant 
-> > overhead to every access to the hardware, including when transferring 
-> > data in and out of the chip.
-> > 
-> 
-> Contrary to expected, the result shows a slight decrease on zylonite,
-> PXA310@624MHz, result shown as below:
-> 
-> (by a simple measurement with "proc/uptime" and tftp)
-> 
-> with SMC_IO_SHIFT being a variable
-> 
-> trial 1: 2062776 bytes in (179.77 - 177.72 = 2.05) seconds = 1,006,232 Bps
-> trial 2: 2062776 bytes in (183.00 - 180.95 = 2.05) seconds = 1,006,232 Bps
-> trial 3: 2062776 bytes in (261.48 - 259.42 = 2.06) seconds = 1,001,347 Bps
-> 
-> with SMC_IO_SHIFT being a constant
-> 
-> trial 1: 2062776 bytes in (41.07 - 39.04 = 2.03) seconds = 1,016,145 Bps
-> trial 2: 2062776 bytes in (97.19 - 95.16 = 2.03) seconds = 1,016,145 Bps
-> trial 3: 2062776 bytes in (159.81 - 157.78 = 2.03) seconds = 1,016,145 Bps
-> 
-> The statistics were stable during the test, so I generally think it's
-> typical.
-> 
-> On lubbock, PXA255@200MHz, however, the result shows a slight increase:
-> 
-> with SMC_IO_SHIFT being a variable
-> 
-> trial 1: 2062776 bytes in (49.42 - 42.20 = 7.22) seconds = 285,703 Bps
-> trial 2: 2062776 bytes in (60.27 - 53.07 = 7.20) seconds = 286,497 Bps
-> trial 3: 2062776 bytes in (141.04 - 133.84 = 7.20) seconds = 286,497 Bps
-> 
-> with SMC_IO_SHIFT being a constant
-> 
-> trial 1: 2062776 bytes in (58.93 - 51.62 = 7.31) seconds = 282,185 Bps
-> trial 2: 2062776 bytes in (69.26 - 61.95 = 7.31) seconds = 282,185 Bps
-> trial 3: 2062776 bytes in (151.58 - 144.27 = 7.31) seconds = 282,185 Bps
+Christoph,
 
-Your numbers look like a very bad overall performance. I remember we got
-nearly 100Mbit/s on a pxa system with the smsc connected in 32bit mode.
-While this project was performance critical I'm often in the situation
-that I just expect the smsc driver to work without looking at the
-ifdeffery in the header file.
-Shouldn't it be possible to make access macros optional for those who
-want performance and use functions as the default case?
+All the stubs and wrappers will be removed.
+We will also use the native Linux mechanism
+where ever you have pointed out and
+make beclib it's own module. 
+
+Can you point to the bitmask infrastructure 
+in Linux that you are referring to below ?
+If they can eliminate or simplify the
+amap macros we will do that.
+
+Thanks.
+
+Subbu
+
+> +static inline u32
+> +amap_get(void *ptr, u32 dw_offset, u32 mask, u32 offset)
+> +{
+> +	u32 *dw = (u32 *)ptr;
+> +	return mask & (*(dw + dw_offset) >> offset);
+> +}
+> +#define AMAP_GET_BITS_PTR(_struct_, _register_, _structPtr_)		\
+> +	amap_get(_structPtr_, AMAP_WORD_OFFSET(_struct_, _register_),	\
+> +		AMAP_BIT_MASK(_struct_, _register_),			\
+> +			AMAP_BIT_OFFSET(_struct_, _register_))		\
+
+Why do you need all this infrastructure?  Any reason the regular
+bitmasks in Linux are not enough?
 
 
-> 
-> So I'm thinking that the overhead may not be so significant as expected,
-> 1. control register accesses are rare compared to data register
-> 2. data register access is usually fixed at one address and enclosed in
->    a loop, which the compiler may well optimize
-> 
-> > And this is very important to have the lowest overhead possible with 
-> > this chip that can do 100mbps on platforms with a CPU clock almost as 
-> > slow.
-> > 
-> 
-> Indeed, the overhead will be magnified on a system with slow CPU clock,
-> maybe I should spend some time to have a test also. However, arguably,
-> the smc91x chips are usually used as a debug ethernet on most (if not
-> all) platforms, I don't think a serious design will deploy such a chip
-> for performance critical application, though.
-
-Not anymore probably, but we seem to tun into the same problem with the
-current smc911x driver aswell
-
-Sascha
 
 
-> 
-> > 
-> > 
-> >> ---
-> >>  drivers/net/smc91x.c   |   25 ++++++++++++++-----------
-> >>  drivers/net/smc91x.h   |   18 ++++++++++--------
-> >>  include/linux/smc91x.h |    6 ++++++
-> >>  3 files changed, 30 insertions(+), 19 deletions(-)
-> >>
-> >> diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-> >> index caa0308..85eceab 100644
-> >> --- a/drivers/net/smc91x.c
-> >> +++ b/drivers/net/smc91x.c
-> >> @@ -105,6 +105,8 @@ MODULE_PARM_DESC(watchdog, "transmit timeout in milliseconds");
-> >>  MODULE_LICENSE("GPL");
-> >>  MODULE_ALIAS("platform:smc91x");
-> >>  
-> >> +int smc_io_shift = SMC_IO_SHIFT;
-> >> +
-> >>  /*
-> >>   * The internal workings of the driver.  If you are changing anything
-> >>   * here with the SMC stuff, you should have the datasheet and know
-> >> @@ -1794,8 +1796,8 @@ static int __init smc_probe(struct net_device *dev, void __iomem *ioaddr,
-> >>  	 */
-> >>  	SMC_SELECT_BANK(lp, 1);
-> >>  	val = SMC_GET_BASE(lp);
-> >> -	val = ((val & 0x1F00) >> 3) << SMC_IO_SHIFT;
-> >> -	if (((unsigned int)ioaddr & (0x3e0 << SMC_IO_SHIFT)) != val) {
-> >> +	val = ((val & 0x1F00) >> 3) << smc_io_shift;
-> >> +	if (((unsigned int)ioaddr & (0x3e0 << smc_io_shift)) != val) {
-> >>  		printk("%s: IOADDR %p doesn't match configuration (%x).\n",
-> >>  			CARDNAME, ioaddr, val);
-> >>  	}
-> >> @@ -1994,9 +1996,9 @@ static int smc_enable_device(struct platform_device *pdev)
-> >>  	 * since a reset causes the IRQ line become active.
-> >>  	 */
-> >>  	local_irq_save(flags);
-> >> -	ecor = readb(addr + (ECOR << SMC_IO_SHIFT)) & ~ECOR_RESET;
-> >> -	writeb(ecor | ECOR_RESET, addr + (ECOR << SMC_IO_SHIFT));
-> >> -	readb(addr + (ECOR << SMC_IO_SHIFT));
-> >> +	ecor = readb(addr + (ECOR << smc_io_shift)) & ~ECOR_RESET;
-> >> +	writeb(ecor | ECOR_RESET, addr + (ECOR << smc_io_shift));
-> >> +	readb(addr + (ECOR << smc_io_shift));
-> >>  
-> >>  	/*
-> >>  	 * Wait 100us for the chip to reset.
-> >> @@ -2008,16 +2010,16 @@ static int smc_enable_device(struct platform_device *pdev)
-> >>  	 * reset is asserted, even if the reset bit is cleared in the
-> >>  	 * same write.  Must clear reset first, then enable the device.
-> >>  	 */
-> >> -	writeb(ecor, addr + (ECOR << SMC_IO_SHIFT));
-> >> -	writeb(ecor | ECOR_ENABLE, addr + (ECOR << SMC_IO_SHIFT));
-> >> +	writeb(ecor, addr + (ECOR << smc_io_shift));
-> >> +	writeb(ecor | ECOR_ENABLE, addr + (ECOR << smc_io_shift));
-> >>  
-> >>  	/*
-> >>  	 * Set the appropriate byte/word mode.
-> >>  	 */
-> >> -	ecsr = readb(addr + (ECSR << SMC_IO_SHIFT)) & ~ECSR_IOIS8;
-> >> +	ecsr = readb(addr + (ECSR << smc_io_shift)) & ~ECSR_IOIS8;
-> >>  	if (!SMC_16BIT(lp))
-> >>  		ecsr |= ECSR_IOIS8;
-> >> -	writeb(ecsr, addr + (ECSR << SMC_IO_SHIFT));
-> >> +	writeb(ecsr, addr + (ECSR << smc_io_shift));
-> >>  	local_irq_restore(flags);
-> >>  
-> >>  	iounmap(addr);
-> >> @@ -2136,9 +2138,10 @@ static int smc_drv_probe(struct platform_device *pdev)
-> >>  
-> >>  	lp = netdev_priv(ndev);
-> >>  
-> >> -	if (pd)
-> >> +	if (pd) {
-> >>  		memcpy(&lp->cfg, pd, sizeof(lp->cfg));
-> >> -	else {
-> >> +		smc_io_shift = SMC91X_IO_SHIFT(lp->cfg.flags);
-> >> +	} else {
-> >>  		lp->cfg.flags |= (SMC_CAN_USE_8BIT)  ? SMC91X_USE_8BIT  : 0;
-> >>  		lp->cfg.flags |= (SMC_CAN_USE_16BIT) ? SMC91X_USE_16BIT : 0;
-> >>  		lp->cfg.flags |= (SMC_CAN_USE_32BIT) ? SMC91X_USE_32BIT : 0;
-> >> diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
-> >> index 6a90400..3ce1ca4 100644
-> >> --- a/drivers/net/smc91x.h
-> >> +++ b/drivers/net/smc91x.h
-> >> @@ -610,6 +610,8 @@ smc_pxa_dma_irq(int dma, void *dummy)
-> >>  #define SMC_outsl(a, r, p, l)		BUG()
-> >>  #endif
-> >>  
-> >> +extern int smc_io_shift;
-> >> +
-> >>  #if ! SMC_CAN_USE_16BIT
-> >>  
-> >>  /*
-> >> @@ -620,13 +622,13 @@ smc_pxa_dma_irq(int dma, void *dummy)
-> >>  	do {								\
-> >>  		unsigned int __val16 = (x);				\
-> >>  		SMC_outb( __val16, ioaddr, reg );			\
-> >> -		SMC_outb( __val16 >> 8, ioaddr, reg + (1 << SMC_IO_SHIFT));\
-> >> +		SMC_outb( __val16 >> 8, ioaddr, reg + (1 << smc_io_shift));\
-> >>  	} while (0)
-> >>  #define SMC_inw(ioaddr, reg)						\
-> >>  	({								\
-> >>  		unsigned int __val16;					\
-> >>  		__val16 =  SMC_inb( ioaddr, reg );			\
-> >> -		__val16 |= SMC_inb( ioaddr, reg + (1 << SMC_IO_SHIFT)) << 8; \
-> >> +		__val16 |= SMC_inb( ioaddr, reg + (1 << smc_io_shift)) << 8; \
-> >>  		__val16;						\
-> >>  	})
-> >>  
-> >> @@ -670,7 +672,7 @@ smc_pxa_dma_irq(int dma, void *dummy)
-> >>  
-> >>  
-> >>  /* Because of bank switching, the LAN91x uses only 16 I/O ports */
-> >> -#define SMC_IO_EXTENT	(16 << SMC_IO_SHIFT)
-> >> +#define SMC_IO_EXTENT	(16 << smc_io_shift)
-> >>  #define SMC_DATA_EXTENT (4)
-> >>  
-> >>  /*
-> >> @@ -680,7 +682,7 @@ smc_pxa_dma_irq(int dma, void *dummy)
-> >>   .		xx 		= bank number
-> >>   .		yyyy yyyy	= 0x33, for identification purposes.
-> >>  */
-> >> -#define BANK_SELECT		(14 << SMC_IO_SHIFT)
-> >> +#define BANK_SELECT		(14 << smc_io_shift)
-> >>  
-> >>  
-> >>  // Transmit Control Register
-> >> @@ -1033,7 +1035,7 @@ static const char * chip_ids[ 16 ] =  {
-> >>  #define ECSR_PWRDWN		0x04
-> >>  #define ECSR_INT		0x02
-> >>  
-> >> -#define ATTRIB_SIZE		((64*1024) << SMC_IO_SHIFT)
-> >> +#define ATTRIB_SIZE		((64*1024) << smc_io_shift)
-> >>  
-> >>  
-> >>  /*
-> >> @@ -1058,10 +1060,10 @@ static const char * chip_ids[ 16 ] =  {
-> >>  				CARDNAME, __b );			\
-> >>  			BUG();						\
-> >>  		}							\
-> >> -		reg<<SMC_IO_SHIFT;					\
-> >> +		reg<<smc_io_shift;					\
-> >>  	})
-> >>  #else
-> >> -#define SMC_REG(lp, reg, bank)	(reg<<SMC_IO_SHIFT)
-> >> +#define SMC_REG(lp, reg, bank)	(reg<<smc_io_shift)
-> >>  #endif
-> >>  
-> >>  /*
-> >> @@ -1136,7 +1138,7 @@ static const char * chip_ids[ 16 ] =  {
-> >>  #define SMC_SELECT_BANK(lp, x)					\
-> >>  	do {								\
-> >>  		if (SMC_MUST_ALIGN_WRITE(lp))				\
-> >> -			SMC_outl((x)<<16, ioaddr, 12<<SMC_IO_SHIFT);	\
-> >> +			SMC_outl((x)<<16, ioaddr, 12<<smc_io_shift);	\
-> >>  		else							\
-> >>  			SMC_outw(x, ioaddr, BANK_SELECT);		\
-> >>  	} while (0)
-> >> diff --git a/include/linux/smc91x.h b/include/linux/smc91x.h
-> >> index 90434db..f77ebe1 100644
-> >> --- a/include/linux/smc91x.h
-> >> +++ b/include/linux/smc91x.h
-> >> @@ -7,6 +7,12 @@
-> >>  
-> >>  #define SMC91X_NOWAIT		(1 << 3)
-> >>  
-> >> +#define SMC91X_IO_SHIFT_0	(0 << 4)
-> >> +#define SMC91X_IO_SHIFT_1	(1 << 4)
-> >> +#define SMC91X_IO_SHIFT_2	(2 << 4)
-> >> +#define SMC91X_IO_SHIFT_3	(3 << 4)
-> >> +#define SMC91X_IO_SHIFT(x)	(((x) >> 4) & 0x3)
-> >> +
-> >>  struct smc91x_platdata {
-> >>  	unsigned long flags;
-> >>  };
-> >> -- 
-> >> 1.5.4.3
-> >>
-> > 
-> > 
-> > Nicolas
-> 
-> 
-> -------------------------------------------------------------------
-> List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-> FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-> Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
-> 
 
--- 
-Pengutronix e.K. - Linux Solutions for Science and Industry
------------------------------------------------------------
-Kontakt-Informationen finden Sie im Header dieser Mail oder
-auf der Webseite -> http://www.pengutronix.de/impressum/ <-
+----- Original Message -----
+From: Christoph Hellwig [mailto:hch@infradead.org]
+To: Subbu Seetharaman [mailto:subbus@serverengines.com]
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+Sent: Thu, 19 Jun 2008 03:24:32 -0700
+Subject: Re: [PATCH 4/12] benet: beclib (h/w access lib) header files
+
+
+> +#define TRUE	(1)
+> +#define FALSE	(0)
+
+Please use the standard true/false as provided by the kernel headers.
+
+> +#if !defined(SG_PACK)
+> +#define SG_PACK __attribute__ ((packed))
+> +#endif
+
+Please use __packed
+
+> +/*
+> + *---------   Assert related --------
+> + * a way to force  compilation error
+> + */
+> +
+> +#define SA_C_ASSERT(_expression_)       {				\
+> +	struct __COMPILE_TIME_ASSERT__ {				\
+> +		u8 __COMPILE_TIME_ASSERT__[(_expression_)?1: -1];	\
+> +	};								\
+> +}
+
+Please use BUG_ON.
+
+> +#define SA_COMPILETIME_NAMED_TYPEDEF_ASSERT(_name_, _expression_)	\
+> +	struct _name_##_COMPILE_TIME_ASSERT_ {				\
+> +		u8 _name##_COMPILE_TIME_ASSERT_[(_expression_)?1: -1];	\
+> +	};
+
+Please use BUILD_BUG_ON.
+
+> +static inline u32 sa_required_bits(u32 x)
+
+
+> + * Returns the log base 2 for a number, always rounding down.
+> + * sa_log2 example input->output
+> + * 0->4294967295, 1->0, 2->1, 3->1, 4->2, 5->2, 6->2, 7->2, 8->3, 9->3
+> + */
+> +static inline u32 sa_log2(u32 x)
+> +{
+> +	return sa_required_bits(x) - 1;
+
+Please take a look at include/linux/log2.h
+
+> + * Status code datatype
+> + */
+> +typedef int SA_STATUS, *PSA_STATUS;
+
+Please kill this and just use normal errno values.
+
+> +#define SA_PTR_TO_INT(_p_) ((size_t)(_p_))
+> +#define SA_PTR_TO_U32(_p_) ((u32)SA_PTR_TO_INT(_p_))
+> +#define SA_PTR_TO_U64(_p_) ((u64)SA_PTR_TO_INT(_p_))
+> +
+> +#define SA_PTR_TO_INT(_p_) ((size_t)(_p_))
+> +#define SA_U64_TO_PTR(_u_) ((void *)(size_t)(_u_))
+> +#define SA_U32_TO_PTR(_u_) ((void *)(size_t)(_u_))
+
+These warnings are there for a reason, and having the casts spelled
+out where they are required is a good warnings sign.
+
+> +#define SA_PAGE_OFFSET(_addr_) (SA_PTR_TO_INT(_addr_) & (PAGE_SIZE-1))
+
+Should be lower case and without that sa prefix.
+
+> +/* Returns byte offset of field within given struct type. */
+> +#define SA_FIELD_OFFSET(_type_, _field_)              \
+> +	(SA_PTR_TO_U32((u8 *)&(((struct _type_ *)0)->_field_)))
+> +
+> +/* Returns byte size of given field with a structure. */
+> +#define SA_SIZEOF_FIELD(_type_, _field_)  \
+> +	sizeof(((struct _type_ *)0)->_field_)
+> +
+> +/* Returns the number of items in the field array. */
+> +#define SA_NUMBER_OF_FIELD(_type_, _field_)				\
+> +	(SA_SIZEOF_FIELD(_type_, _field_) / 				\
+> +			sizeof((((struct _type_ *)0)->_field_[0])))
+> +
+
+Please use the kernel.h helpers.
+
+> +/* descriptor for a physically contiguous  memory region */
+> +struct sa_sgl {
+> +	u32 length;
+> +	void *va;
+> +	u64 pa;
+> +} ;
+
+What do you actually needs this an the helpers for?  It seems a rather
+odd data structure because linux scatter/gather lists are page-based.
+
+> +/*-----------  amap bit filed get / set macros and functions -----*/
+> +/*
+> + * Structures defined in the map header files (under fw/amap/) with names
+> + * in the format BE_<name>_AMAP are pseudo structures with members
+> + * of type BE_BIT. These structures are templates that are used in
+> + * conjuntion with the structures with names in the format
+> + * <name>_AMAP to calculate the bit masks and bit offsets to get or set
+> + * bit fields in structures. The structures <name>_AMAP are arrays
+> + * of 32 bits words and have the correct size.  The following macros
+> + * provide convenient ways to get and set the various members
+> + * in the structures without using strucctures with bit fields.
+> + * Always use the macros AMAP_GET_BITS_PTR and AMAP_SET_BITS_PTR
+> + * macros to extract and set various members.
+> + */
+> +/* Each bit is 1 byte in array maps. */
+> +typedef u8 AMAP_BIT, BE_BIT;
+
+Please just u8 instead of these ugly typedefs.
+
+> +static inline u32
+> +amap_get(void *ptr, u32 dw_offset, u32 mask, u32 offset)
+> +{
+> +	u32 *dw = (u32 *)ptr;
+> +	return mask & (*(dw + dw_offset) >> offset);
+> +}
+> +#define AMAP_GET_BITS_PTR(_struct_, _register_, _structPtr_)		\
+> +	amap_get(_structPtr_, AMAP_WORD_OFFSET(_struct_, _register_),	\
+> +		AMAP_BIT_MASK(_struct_, _register_),			\
+> +			AMAP_BIT_OFFSET(_struct_, _register_))		\
+
+Why do you need all this infrastructure?  Any reason the regular
+bitmasks in Linux are not enough?
+
+
+> +#if !defined(BE_CONFIG)
+> +#define BE_CONFIG 0
+> +#define CONFIG0
+> +#endif
+
+What's the reasons for this?
+
+> +/* Callback types.  Deprecate most of these. */
+> +typedef void (*MCC_WRB_CQE_CALLBACK) (void *context,
+> +				BESTATUS status,
+> +				struct MCC_WRB_AMAP *optional_wrb);
+> +typedef void (*MCC_ASYNC_EVENT_CALLBACK) (void *context,
+> +				u32 event_code,
+> +				void *event);
+> +
+> +typedef BESTATUS(*EQ_CALLBACK) (struct be_function_object *,
+> +				struct be_eq_object *, void *context);
+> +typedef BESTATUS(*CQ_CALLBACK) (struct be_function_object *,
+> +				struct be_cq_object *, void *context);
+
+Lowercase, please.
+
+> +/* --- BE_FUNCTION_ENUM --- */
+> +#define BE_FUNCTION_TYPE_ISCSI          (0)
+> +#define BE_FUNCTION_TYPE_NETWORK        (1)
+> +#define BE_FUNCTION_TYPE_ARM            (2)
+> +
+> +enum BE_FUNCTION_ENUM {
+> +	ENUM_BE_FUNCTION_TYPE_ISCSI = 0x0UL,
+> +	ENUM_BE_FUNCTION_TYPE_NETWORK = 0x1UL,
+> +	ENUM_BE_FUNCTION_TYPE_ARM = 0x2UL
+> +} ;
+
+Why is this done twice?  Also the enum as every type name should be
+lower cased.
+
+
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
