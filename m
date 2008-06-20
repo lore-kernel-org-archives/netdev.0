@@ -1,277 +1,139 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 3/3]: tg3: Manage TX backlog in-driver.
-Date: Fri, 20 Jun 2008 16:18:35 +0530
-Message-ID: <OFD7CC7687.E0D15399-ON6525746E.0038A920-6525746E.003B6162@in.ibm.com>
-References: <20080619.041024.116139711.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RESEND] [PATCH] tcp: fix for splice receive when used with
+	software LRO
+Date: Fri, 20 Jun 2008 11:01:58 +0000
+Message-ID: <20080620110158.GA4299@ff.dom.local>
+References: <485B4ADE.8070102@domat.com.pl> <20080620063706.GA4009@ff.dom.local> <200806201309.35272.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: mchan@broadcom.com, netdev@vger.kernel.org,
-	vinay@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp02.in.ibm.com ([59.145.155.2]:39676 "EHLO
-	e28esmtp02.in.ibm.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752001AbYFTKtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 06:49:39 -0400
-Received: from d28relay04.in.ibm.com (d28relay04.in.ibm.com [9.184.220.61])
-	by e28esmtp02.in.ibm.com (8.13.1/8.13.1) with ESMTP id m5KAnAOM005719
-	for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 16:19:10 +0530
-Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
-	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m5KAmqME1179706
-	for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 16:18:52 +0530
-Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
-	by d28av02.in.ibm.com (8.13.1/8.13.3) with ESMTP id m5KAnAkA012027
-	for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 16:19:10 +0530
-In-Reply-To: <20080619.041024.116139711.davem@davemloft.net>
+Received: from wr-out-0506.google.com ([64.233.184.235]:16268 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010AbYFTK5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 06:57:41 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so896714wri.5
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 03:57:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <200806201309.35272.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Great, and this looks cool for batching too :)
+On Fri, Jun 20, 2008 at 01:09:35PM +0300, Octavian Purdila wrote:
+> On Friday 20 June 2008, Jarek Poplawski wrote:
+> 
+> > This patch looks fine to me, but I wonder if, btw., this place can't
+> > be optimized a bit, so why can't we simply:
+> >
+> > 	if (spd_fill_page(spd, f->page, plen, poff, skb))
+> > 		goto err;
+> >
+> > in both cases, since nothing more can't be filled after this?
+> 
+> Yes, you are right. Here is the patch with your suggestions in place, tested. 
 
-Couple of comments:
 
-1. The modified drivers has a backlog of upto tx_queue_len skbs
-    compared to unmodified drivers which had tx_queue_len+q->limit.
-    Won't this result in a performance hit since packet drops will
-    take place earlier?
+Hmm... Of course, this patch looks fine too, but since I didn't
+expect you respond so fast with a patch, I "forgot" to add a "if so"
+question (sorry for this and for breaking this thread!):
 
-2. __tg3_xmit_backlog() should check for not running too long. This
-    also means calling netif_schedule() if tx_backlog is !empty, to
-    avoid rotting packets in the backlog queue.
+If so, can't we make it all simpler now, without this new "error"
+variable, and simply skipping this: "if (spd->nr_pages - nr_pages)"
+test under "done:", so, doing this block unconditional or maybe (I
+didn't check this enough) changing this test a little to catch there
+this offset update for frag_list?
+
+> 
+> BTW, I have another trivial fix and a RFC related to tcp splice read that I've 
+> sent a while ago. Should I resend them as well? 
+
+Since this was quite a while ago, I guess you could. And, btw. maybe
+try to Cc David Miller.
 
 Thanks,
+Jarek P.
 
-- KK
-
-David Miller <davem@davemloft.net> wrote on 06/19/2008 04:40:24 PM:
-
->
-> tg3: Manage TX backlog in-driver.
->
-> We no longer stop and wake the generic device queue.
-> Instead we manage the backlog inside of the driver,
-> and the mid-layer thinks that the device can always
-> receive packets.
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/tg3.c |  124
-+++++++++++++++++++++++++++++++++--------------------
->  drivers/net/tg3.h |    1 +
->  2 files changed, 78 insertions(+), 47 deletions(-)
->
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index 53963da..db960f8 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -3821,11 +3821,65 @@ static void tg3_tx_recover(struct tg3 *tp)
->     spin_unlock(&tp->lock);
->  }
->
-> +static inline u32 __tg3_tx_avail(struct tg3 *tp, u32 prod)
-> +{
-> +   return (tp->tx_pending -
-> +      ((prod - tp->tx_cons) & (TG3_TX_RING_SIZE - 1)));
-> +}
-> +
->  static inline u32 tg3_tx_avail(struct tg3 *tp)
+> 
+> Thanks,
+> tavi
+> commit b4671a70a6d70cdf11537a5231193271b06a3efa
+> Author: Octavian Purdila <opurdila@ixiacom.com>
+> Date:   Fri Jun 20 12:49:24 2008 +0300
+> 
+>     tcp: fix for splice receive when used with software LRO
+>     
+>     If an skb has nr_frags set to zero but its frag_list is not empty (as
+>     it can happen if software LRO is enabled), and a previous
+>     tcp_read_sock has consumed the linear part of the skb, then
+>     __skb_splice_bits:
+>     
+>     (a) incorrectly reports an error and
+>     
+>     (b) forgets to update the offset to account for the linear part
+>     
+>     Any of the two problems will cause the subsequent __skb_splice_bits
+>     call (the one that handles the frag_list skbs) to either skip data,
+>     or, if the unadjusted offset is greater then the size of the next skb
+>     in the frag_list, make tcp_splice_read loop forever.
+>     
+>     Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 25fa74d..4262006 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -1198,12 +1198,14 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
 >  {
->     smp_mb();
-> -   return (tp->tx_pending -
-> -      ((tp->tx_prod - tp->tx_cons) & (TG3_TX_RING_SIZE - 1)));
-> +   return __tg3_tx_avail(tp, tp->tx_prod);
-> +}
-> +
-> +/* Return true if the TX ring has enough space to queue SKB.  */
-> +static bool __tg3_tx_has_space(struct tg3 *tp, u32 prod, struct sk_buff
-*skb)
-> +{
-> +   int chunks = skb_shinfo(skb)->nr_frags + 1;
-> +   if (__tg3_tx_avail(tp, prod) <= chunks)
-> +      return false;
-> +   return true;
-> +}
-> +
-> +static bool tg3_tx_has_space(struct tg3 *tp, struct sk_buff *skb)
-> +{
-> +   return __tg3_tx_has_space(tp, tp->tx_prod, skb);
-> +}
-> +
-> +/* Tell the chip that N is the current TX producer index.  */
-> +static void __tg3_tx_hit(struct tg3 *tp, u32 n)
-> +{
-> +   if (unlikely(n == tp->tx_prod))
-> +      return;
-> +   tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), n);
-> +   tp->tx_prod = n;
-> +   mmiowb();
-> +   tp->dev->trans_start = jiffies;
-> +}
-> +
-> +static u32 __tg3_xmit_one(struct tg3 *tp, struct net_device *dev,
-> +           struct sk_buff *skb, u32 tx_entry);
-> +
-> +/* Queue as many backlogged TX packets as possible.  Invoked
-> + * under tx_lock.
-> + */
-> +static void __tg3_xmit_backlog(struct tg3 *tp)
-> +{
-> +   struct sk_buff *skb;
-> +   u32 entry;
-> +
-> +   if (unlikely(skb_queue_empty(&tp->tx_backlog)))
-> +      return;
-> +
-> +   entry = tp->tx_prod;
-> +   while ((skb = skb_peek(&tp->tx_backlog)) != NULL) {
-> +      if (!__tg3_tx_has_space(tp, entry, skb))
-> +         break;
-> +      __skb_unlink(skb, &tp->tx_backlog);
-> +      entry = __tg3_xmit_one(tp, tp->dev, skb, entry);
-> +   }
-> +   __tg3_tx_hit(tp, entry);
+>  	unsigned int nr_pages = spd->nr_pages;
+>  	unsigned int poff, plen, len, toff, tlen;
+> -	int headlen, seg;
+> +	int headlen, seg, error = 0;
+>  
+>  	toff = *offset;
+>  	tlen = *total_len;
+> -	if (!tlen)
+> +	if (!tlen) {
+> +		error = 1;
+>  		goto err;
+> +	}
+>  
+>  	/*
+>  	 * if the offset is greater than the linear part, go directly to
+> @@ -1245,8 +1247,9 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+>  		 * just jump directly to update and return, no point
+>  		 * in going over fragments when the output is full.
+>  		 */
+> -		if (spd_fill_page(spd, virt_to_page(p), plen, poff, skb))
+> -			goto done;
+> +		error = spd_fill_page(spd, virt_to_page(p), plen, poff, skb);
+> +		if (error)
+> +			goto err;
+>  
+>  		tlen -= plen;
+>  	}
+> @@ -1275,8 +1278,9 @@ map_frag:
+>  		if (!plen)
+>  			break;
+>  
+> -		if (spd_fill_page(spd, f->page, plen, poff, skb))
+> -			break;
+> +		error = spd_fill_page(spd, f->page, plen, poff, skb);
+> +		if (error)
+> +			goto err;
+>  
+>  		tlen -= plen;
+>  	}
+> @@ -1288,7 +1292,10 @@ done:
+>  		return 0;
+>  	}
+>  err:
+> -	return 1;
+> +	/* update the offset to reflect the linear part skip, if any */
+> +	if (!error)
+> +		*offset = toff;
+> +	return error;
 >  }
->
->  /* Tigon3 never reports partial packet sends.  So we do not
-> @@ -3880,18 +3934,16 @@ static void tg3_tx(struct tg3 *tp)
->     tp->tx_cons = sw_idx;
->
->     /* Need to make the tx_cons update visible to tg3_start_xmit()
-> -    * before checking for netif_queue_stopped().  Without the
-> -    * memory barrier, there is a small possibility that tg3_start_xmit()
-> +    * before checking the TX backlog.  Without the memory
-> +    * barrier, there is a small possibility that tg3_start_xmit()
->      * will miss it and cause the queue to be stopped forever.
->      */
->     smp_mb();
->
-> -   if (unlikely(netif_queue_stopped(tp->dev) &&
-> -           (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))) {
-> +   if (!skb_queue_empty(&tp->tx_backlog) &&
-> +       (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))) {
->        netif_tx_lock(tp->dev);
-> -      if (netif_queue_stopped(tp->dev) &&
-> -          (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))
-> -         netif_wake_queue(tp->dev);
-> +      __tg3_xmit_backlog(tp);
->        netif_tx_unlock(tp->dev);
->     }
->  }
-> @@ -4685,9 +4737,6 @@ static void tg3_set_txd(struct tg3 *tp, int entry,
->     txd->vlan_tag = vlan_tag << TXD_VLAN_TAG_SHIFT;
->  }
->
-> -static u32 __tg3_xmit_one(struct tg3 *tp, struct net_device *dev,
-> -           struct sk_buff *skb, u32 tx_entry);
-> -
->  /* Use GSO to workaround a rare TSO bug that may be triggered when the
->   * TSO header is greater than 80 bytes.
->   */
-> @@ -4868,44 +4917,22 @@ out:
->     return entry;
->  }
->
-> +static void __tg3_tx_queue_backlog(struct tg3 *tp, struct sk_buff *skb)
-> +{
-> +   if (skb_queue_len(&tp->tx_backlog) < tp->dev->tx_queue_len)
-> +      __skb_queue_tail(&tp->tx_backlog, skb);
-> +   else
-> +      dev_kfree_skb(skb);
-> +}
-> +
->  static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  {
->     struct tg3 *tp = netdev_priv(dev);
-> -   u32 entry;
->
-> -   /* We are running in BH disabled context with netif_tx_lock
-> -    * and TX reclaim runs via tp->napi.poll inside of a software
-> -    * interrupt.  Furthermore, IRQ processing runs lockless so we have
-> -    * no IRQ context deadlocks to worry about either.  Rejoice!
-> -    */
-> -   if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
-> -      if (!netif_queue_stopped(dev)) {
-> -         netif_stop_queue(dev);
-> -
-> -         /* This is a hard error, log it. */
-> -         printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
-> -                "queue awake!\n", dev->name);
-> -      }
-> -      return NETDEV_TX_BUSY;
-> -   }
-> -
-> -   entry = __tg3_xmit_one(tp, dev, skb, tp->tx_prod);
-> -
-> -   if (entry != tp->tx_prod) {
-> -      /* Packets are ready, update Tx producer idx local
-> -       * and on card.
-> -       */
-> -      tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW),
-> -              entry);
-> -
-> -      tp->tx_prod = entry;
-> -      if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
-> -         netif_stop_queue(dev);
-> -         if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
-> -            netif_wake_queue(tp->dev);
-> -      }
-> -      mmiowb();
-> -      dev->trans_start = jiffies;
-> +   if (unlikely(!tg3_tx_has_space(tp, skb))) {
-> +      __tg3_tx_queue_backlog(tp, skb);
-> +   } else {
-> +      __tg3_tx_hit(tp, __tg3_xmit_one(tp, dev, skb, tp->tx_prod));
->     }
->
->     return NETDEV_TX_OK;
-> @@ -4979,6 +5006,7 @@ static int tg3_change_mtu(struct net_device *dev,
-int new_mtu)
->  static void tg3_free_rings(struct tg3 *tp)
->  {
->     struct ring_info *rxp;
-> +   struct sk_buff *skb;
->     int i;
->
->     for (i = 0; i < TG3_RX_RING_SIZE; i++) {
-> @@ -5009,7 +5037,6 @@ static void tg3_free_rings(struct tg3 *tp)
->
->     for (i = 0; i < TG3_TX_RING_SIZE; ) {
->        struct tx_ring_info *txp;
-> -      struct sk_buff *skb;
->        int j;
->
->        txp = &tp->tx_buffers[i];
-> @@ -5039,6 +5066,8 @@ static void tg3_free_rings(struct tg3 *tp)
->
->        dev_kfree_skb_any(skb);
->     }
-> +   while ((skb = __skb_dequeue(&tp->tx_backlog)) != NULL)
-> +      dev_kfree_skb_any(skb);
->  }
->
->  /* Initialize tx/rx rings for packet processing.
-> @@ -13228,6 +13257,7 @@ static int __devinit tg3_init_one(struct pci_dev
-*pdev,
->     spin_lock_init(&tp->lock);
->     spin_lock_init(&tp->indirect_lock);
->     INIT_WORK(&tp->reset_task, tg3_reset_task);
-> +   skb_queue_head_init(&tp->tx_backlog);
->
->     tp->regs = ioremap_nocache(tg3reg_base, tg3reg_len);
->     if (!tp->regs) {
-> diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-> index c89ca40..d396c87 100644
-> --- a/drivers/net/tg3.h
-> +++ b/drivers/net/tg3.h
-> @@ -2391,6 +2391,7 @@ struct tg3 {
->     u32            tx_prod;
->     u32            tx_cons;
->     u32            tx_pending;
-> +   struct sk_buff_head      tx_backlog;
->
->     struct tg3_tx_buffer_desc   *tx_ring;
->     struct tx_ring_info      *tx_buffers;
-> --
-> 1.5.6.rc3.21.g8c6b5
->
+>  
+>  /*
 
