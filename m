@@ -1,31 +1,277 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] net: via-velocity.c fix sleep-with-spinlock bug during
-	MTU change
-Date: Fri, 20 Jun 2008 12:39:10 +0200
-Message-ID: <20080620103910.GA21227@electric-eye.fr.zoreil.com>
-References: <20080604215909.GA17446@electric-eye.fr.zoreil.com> <20080614212341.GA12976@electric-eye.fr.zoreil.com> <4856DA62.7080803@e-teleport.net> <20080617214538.GA6388@electric-eye.fr.zoreil.com> <48584AA4.8040801@e-teleport.net> <48593E35.1010409@e-teleport.net> <20080618201012.GA4019@electric-eye.fr.zoreil.com> <48598784.40306@e-teleport.net> <20080619204312.GA2160@electric-eye.fr.zoreil.com> <485B8542.7060204@e-teleport.net>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 3/3]: tg3: Manage TX backlog in-driver.
+Date: Fri, 20 Jun 2008 16:18:35 +0530
+Message-ID: <OFD7CC7687.E0D15399-ON6525746E.0038A920-6525746E.003B6162@in.ibm.com>
+References: <20080619.041024.116139711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=unknown-8bit
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Arjan van de Ven <arjan@infradead.org>, alan@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?unknown-8bit?B?U8OpZ3VpZXIgUsOpZ2lz?= <rseguier@e-teleport.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755618AbYFTKkN@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <485B8542.7060204@e-teleport.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: mchan@broadcom.com, netdev@vger.kernel.org,
+	vinay@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp02.in.ibm.com ([59.145.155.2]:39676 "EHLO
+	e28esmtp02.in.ibm.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752001AbYFTKtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 06:49:39 -0400
+Received: from d28relay04.in.ibm.com (d28relay04.in.ibm.com [9.184.220.61])
+	by e28esmtp02.in.ibm.com (8.13.1/8.13.1) with ESMTP id m5KAnAOM005719
+	for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 16:19:10 +0530
+Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
+	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m5KAmqME1179706
+	for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 16:18:52 +0530
+Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
+	by d28av02.in.ibm.com (8.13.1/8.13.3) with ESMTP id m5KAnAkA012027
+	for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 16:19:10 +0530
+In-Reply-To: <20080619.041024.116139711.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-S=C3=A9guier R=C3=A9gis <rseguier@e-teleport.net> :
-[...]
-> But if I generate a paquet with a size more than around 3825, the dri=
-ver=20
-> don't send it and no paquet is send after, work again after an interf=
-ace=20
-> down/up and until no paquet > 3825.
+Great, and this looks cool for batching too :)
 
-Does it qualify as a regression ?
+Couple of comments:
 
---=20
-Ueimor
+1. The modified drivers has a backlog of upto tx_queue_len skbs
+    compared to unmodified drivers which had tx_queue_len+q->limit.
+    Won't this result in a performance hit since packet drops will
+    take place earlier?
+
+2. __tg3_xmit_backlog() should check for not running too long. This
+    also means calling netif_schedule() if tx_backlog is !empty, to
+    avoid rotting packets in the backlog queue.
+
+Thanks,
+
+- KK
+
+David Miller <davem@davemloft.net> wrote on 06/19/2008 04:40:24 PM:
+
+>
+> tg3: Manage TX backlog in-driver.
+>
+> We no longer stop and wake the generic device queue.
+> Instead we manage the backlog inside of the driver,
+> and the mid-layer thinks that the device can always
+> receive packets.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/tg3.c |  124
++++++++++++++++++++++++++++++++++--------------------
+>  drivers/net/tg3.h |    1 +
+>  2 files changed, 78 insertions(+), 47 deletions(-)
+>
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index 53963da..db960f8 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -3821,11 +3821,65 @@ static void tg3_tx_recover(struct tg3 *tp)
+>     spin_unlock(&tp->lock);
+>  }
+>
+> +static inline u32 __tg3_tx_avail(struct tg3 *tp, u32 prod)
+> +{
+> +   return (tp->tx_pending -
+> +      ((prod - tp->tx_cons) & (TG3_TX_RING_SIZE - 1)));
+> +}
+> +
+>  static inline u32 tg3_tx_avail(struct tg3 *tp)
+>  {
+>     smp_mb();
+> -   return (tp->tx_pending -
+> -      ((tp->tx_prod - tp->tx_cons) & (TG3_TX_RING_SIZE - 1)));
+> +   return __tg3_tx_avail(tp, tp->tx_prod);
+> +}
+> +
+> +/* Return true if the TX ring has enough space to queue SKB.  */
+> +static bool __tg3_tx_has_space(struct tg3 *tp, u32 prod, struct sk_buff
+*skb)
+> +{
+> +   int chunks = skb_shinfo(skb)->nr_frags + 1;
+> +   if (__tg3_tx_avail(tp, prod) <= chunks)
+> +      return false;
+> +   return true;
+> +}
+> +
+> +static bool tg3_tx_has_space(struct tg3 *tp, struct sk_buff *skb)
+> +{
+> +   return __tg3_tx_has_space(tp, tp->tx_prod, skb);
+> +}
+> +
+> +/* Tell the chip that N is the current TX producer index.  */
+> +static void __tg3_tx_hit(struct tg3 *tp, u32 n)
+> +{
+> +   if (unlikely(n == tp->tx_prod))
+> +      return;
+> +   tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), n);
+> +   tp->tx_prod = n;
+> +   mmiowb();
+> +   tp->dev->trans_start = jiffies;
+> +}
+> +
+> +static u32 __tg3_xmit_one(struct tg3 *tp, struct net_device *dev,
+> +           struct sk_buff *skb, u32 tx_entry);
+> +
+> +/* Queue as many backlogged TX packets as possible.  Invoked
+> + * under tx_lock.
+> + */
+> +static void __tg3_xmit_backlog(struct tg3 *tp)
+> +{
+> +   struct sk_buff *skb;
+> +   u32 entry;
+> +
+> +   if (unlikely(skb_queue_empty(&tp->tx_backlog)))
+> +      return;
+> +
+> +   entry = tp->tx_prod;
+> +   while ((skb = skb_peek(&tp->tx_backlog)) != NULL) {
+> +      if (!__tg3_tx_has_space(tp, entry, skb))
+> +         break;
+> +      __skb_unlink(skb, &tp->tx_backlog);
+> +      entry = __tg3_xmit_one(tp, tp->dev, skb, entry);
+> +   }
+> +   __tg3_tx_hit(tp, entry);
+>  }
+>
+>  /* Tigon3 never reports partial packet sends.  So we do not
+> @@ -3880,18 +3934,16 @@ static void tg3_tx(struct tg3 *tp)
+>     tp->tx_cons = sw_idx;
+>
+>     /* Need to make the tx_cons update visible to tg3_start_xmit()
+> -    * before checking for netif_queue_stopped().  Without the
+> -    * memory barrier, there is a small possibility that tg3_start_xmit()
+> +    * before checking the TX backlog.  Without the memory
+> +    * barrier, there is a small possibility that tg3_start_xmit()
+>      * will miss it and cause the queue to be stopped forever.
+>      */
+>     smp_mb();
+>
+> -   if (unlikely(netif_queue_stopped(tp->dev) &&
+> -           (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))) {
+> +   if (!skb_queue_empty(&tp->tx_backlog) &&
+> +       (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))) {
+>        netif_tx_lock(tp->dev);
+> -      if (netif_queue_stopped(tp->dev) &&
+> -          (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))
+> -         netif_wake_queue(tp->dev);
+> +      __tg3_xmit_backlog(tp);
+>        netif_tx_unlock(tp->dev);
+>     }
+>  }
+> @@ -4685,9 +4737,6 @@ static void tg3_set_txd(struct tg3 *tp, int entry,
+>     txd->vlan_tag = vlan_tag << TXD_VLAN_TAG_SHIFT;
+>  }
+>
+> -static u32 __tg3_xmit_one(struct tg3 *tp, struct net_device *dev,
+> -           struct sk_buff *skb, u32 tx_entry);
+> -
+>  /* Use GSO to workaround a rare TSO bug that may be triggered when the
+>   * TSO header is greater than 80 bytes.
+>   */
+> @@ -4868,44 +4917,22 @@ out:
+>     return entry;
+>  }
+>
+> +static void __tg3_tx_queue_backlog(struct tg3 *tp, struct sk_buff *skb)
+> +{
+> +   if (skb_queue_len(&tp->tx_backlog) < tp->dev->tx_queue_len)
+> +      __skb_queue_tail(&tp->tx_backlog, skb);
+> +   else
+> +      dev_kfree_skb(skb);
+> +}
+> +
+>  static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  {
+>     struct tg3 *tp = netdev_priv(dev);
+> -   u32 entry;
+>
+> -   /* We are running in BH disabled context with netif_tx_lock
+> -    * and TX reclaim runs via tp->napi.poll inside of a software
+> -    * interrupt.  Furthermore, IRQ processing runs lockless so we have
+> -    * no IRQ context deadlocks to worry about either.  Rejoice!
+> -    */
+> -   if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
+> -      if (!netif_queue_stopped(dev)) {
+> -         netif_stop_queue(dev);
+> -
+> -         /* This is a hard error, log it. */
+> -         printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
+> -                "queue awake!\n", dev->name);
+> -      }
+> -      return NETDEV_TX_BUSY;
+> -   }
+> -
+> -   entry = __tg3_xmit_one(tp, dev, skb, tp->tx_prod);
+> -
+> -   if (entry != tp->tx_prod) {
+> -      /* Packets are ready, update Tx producer idx local
+> -       * and on card.
+> -       */
+> -      tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW),
+> -              entry);
+> -
+> -      tp->tx_prod = entry;
+> -      if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
+> -         netif_stop_queue(dev);
+> -         if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
+> -            netif_wake_queue(tp->dev);
+> -      }
+> -      mmiowb();
+> -      dev->trans_start = jiffies;
+> +   if (unlikely(!tg3_tx_has_space(tp, skb))) {
+> +      __tg3_tx_queue_backlog(tp, skb);
+> +   } else {
+> +      __tg3_tx_hit(tp, __tg3_xmit_one(tp, dev, skb, tp->tx_prod));
+>     }
+>
+>     return NETDEV_TX_OK;
+> @@ -4979,6 +5006,7 @@ static int tg3_change_mtu(struct net_device *dev,
+int new_mtu)
+>  static void tg3_free_rings(struct tg3 *tp)
+>  {
+>     struct ring_info *rxp;
+> +   struct sk_buff *skb;
+>     int i;
+>
+>     for (i = 0; i < TG3_RX_RING_SIZE; i++) {
+> @@ -5009,7 +5037,6 @@ static void tg3_free_rings(struct tg3 *tp)
+>
+>     for (i = 0; i < TG3_TX_RING_SIZE; ) {
+>        struct tx_ring_info *txp;
+> -      struct sk_buff *skb;
+>        int j;
+>
+>        txp = &tp->tx_buffers[i];
+> @@ -5039,6 +5066,8 @@ static void tg3_free_rings(struct tg3 *tp)
+>
+>        dev_kfree_skb_any(skb);
+>     }
+> +   while ((skb = __skb_dequeue(&tp->tx_backlog)) != NULL)
+> +      dev_kfree_skb_any(skb);
+>  }
+>
+>  /* Initialize tx/rx rings for packet processing.
+> @@ -13228,6 +13257,7 @@ static int __devinit tg3_init_one(struct pci_dev
+*pdev,
+>     spin_lock_init(&tp->lock);
+>     spin_lock_init(&tp->indirect_lock);
+>     INIT_WORK(&tp->reset_task, tg3_reset_task);
+> +   skb_queue_head_init(&tp->tx_backlog);
+>
+>     tp->regs = ioremap_nocache(tg3reg_base, tg3reg_len);
+>     if (!tp->regs) {
+> diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+> index c89ca40..d396c87 100644
+> --- a/drivers/net/tg3.h
+> +++ b/drivers/net/tg3.h
+> @@ -2391,6 +2391,7 @@ struct tg3 {
+>     u32            tx_prod;
+>     u32            tx_cons;
+>     u32            tx_pending;
+> +   struct sk_buff_head      tx_backlog;
+>
+>     struct tg3_tx_buffer_desc   *tx_ring;
+>     struct tx_ring_info      *tx_buffers;
+> --
+> 1.5.6.rc3.21.g8c6b5
+>
+
