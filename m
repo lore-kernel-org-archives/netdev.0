@@ -1,66 +1,75 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH net-next 8/8] 8021q: Check return of dev_set_promiscuity/allmulti
-Date: Fri, 20 Jun 2008 08:55:59 +0800
-Message-ID: <485B001F.1070407@cn.fujitsu.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next 3/8] bridge: Check return of
+ dev_set_promiscuity
+Date: Thu, 19 Jun 2008 18:18:19 -0700
+Message-ID: <20080619181819.15b2cc9d@extreme>
+References: <485AFFE4.4000300@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49984 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754424AbYFTBAC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jun 2008 21:00:02 -0400
+Received: from mail.vyatta.com ([216.93.170.194]:52837 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750885AbYFTBSV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jun 2008 21:18:21 -0400
+In-Reply-To: <485AFFE4.4000300@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dev_set_promiscuity/allmulti might overflow.
-Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
-dev_set_promiscuity/allmulti return error number if overflow happened.
+On Fri, 20 Jun 2008 08:55:00 +0800
+Wang Chen <wangchen@cn.fujitsu.com> wrote:
 
-Here, we check all positive increment for promiscuity and allmulti
-to get error return.
+> dev_set_promiscuity/allmulti might overflow.
+> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
+> dev_set_promiscuity/allmulti return error number if overflow happened.
+> 
+> Here, we check the positive increment for promiscuity to get error return.
+> 
+> BTW, I have to add a function to handle cleanup for br_sysfs_addif().
+> I know Stephen has removed br_sysfs_removeif() to keep kobjects in use
+> even if not using sysfs.
+> But here we have a new br_sysfs_removeif() which only cleanup the sysfs
+> and doesn't touch kobjects.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- net/8021q/vlan_dev.c |   19 +++++++++++++++----
- 1 files changed, 15 insertions(+), 4 deletions(-)
+Not that hard way please. Instead just rearrange the order of setup to avoid having to
+do the things that are harder to unwind. Sysfs calls seem to be more fragile/error
+prone than the simple counters.
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 5d055c2..1f2669b 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -547,12 +547,23 @@ static int vlan_dev_open(struct net_device *dev)
- 	}
- 	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
+Like this (untested)
+
+--- a/net/bridge/br_if.c	2008-06-19 18:09:59.000000000 -0700
++++ b/net/bridge/br_if.c	2008-06-19 18:16:44.000000000 -0700
+@@ -373,6 +373,10 @@ int br_add_if(struct net_bridge *br, str
+ 	if (IS_ERR(p))
+ 		return PTR_ERR(p);
  
--	if (dev->flags & IFF_ALLMULTI)
--		dev_set_allmulti(real_dev, 1);
--	if (dev->flags & IFF_PROMISC)
--		dev_set_promiscuity(real_dev, 1);
-+	if (dev->flags & IFF_ALLMULTI) {
-+		err = dev_set_allmulti(real_dev, 1);
-+		if (err < 0)
-+			goto out;
-+	}
-+	if (dev->flags & IFF_PROMISC) {
-+		err = dev_set_promiscuity(real_dev, 1);
-+		if (err < 0)
-+			goto out;
-+	}
- 
- 	return 0;
++	err = dev_set_promiscuity(dev, 1);
++	if (err)
++		goto put_kobj;
 +
-+out:
-+	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
-+		dev_unicast_delete(real_dev, dev->dev_addr, dev->addr_len);
-+	return err;
- }
+ 	err = kobject_init_and_add(&p->kobj, &brport_ktype, &(dev->dev.kobj),
+ 				   SYSFS_BRIDGE_PORT_ATTR);
+ 	if (err)
+@@ -387,7 +391,6 @@ int br_add_if(struct net_bridge *br, str
+ 		goto err2;
  
- static int vlan_dev_stop(struct net_device *dev)
--- 
-1.5.3.4
-
-
-
+ 	rcu_assign_pointer(dev->br_port, p);
+-	dev_set_promiscuity(dev, 1);
+ 
+ 	list_add_rcu(&p->list, &br->port_list);
+ 
+@@ -416,6 +419,8 @@ err0:
+ 	kobject_put(&p->kobj);
+ 
+ put_back:
++	dev_set_promiscuity(dev, -1);
++put_dev:
+ 	dev_put(dev);
+ 	return err;
+ }
