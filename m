@@ -1,19 +1,19 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH net-next 3/8] bridge: Check return of dev_set_promiscuity
-Date: Fri, 20 Jun 2008 08:55:00 +0800
-Message-ID: <485AFFE4.4000300@cn.fujitsu.com>
+Subject: [PATCH net-next 2/8] bonding: Check return of dev_set_promiscuity/allmulti
+Date: Fri, 20 Jun 2008 08:54:42 +0800
+Message-ID: <485AFFD2.4090304@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	NETDEV <netdev@vger.kernel.org>,
+Cc: Jeff Garzik <jgarzik@pobox.com>, NETDEV <netdev@vger.kernel.org>,
+	Jay Vosburgh <fubar@us.ibm.com>,
 	Patrick McHardy <kaber@trash.net>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63162 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:53577 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754433AbYFTA6y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jun 2008 20:58:54 -0400
+	id S1754299AbYFTA6u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jun 2008 20:58:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,94 +21,152 @@ dev_set_promiscuity/allmulti might overflow.
 Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
 dev_set_promiscuity/allmulti return error number if overflow happened.
 
-Here, we check the positive increment for promiscuity to get error return.
-
-BTW, I have to add a function to handle cleanup for br_sysfs_addif().
-I know Stephen has removed br_sysfs_removeif() to keep kobjects in use
-even if not using sysfs.
-But here we have a new br_sysfs_removeif() which only cleanup the sysfs
-and doesn't touch kobjects.
+In bond_alb and bond_main, we check all positive increment for promiscuity
+and allmulti to get error return.
+But there are still two problems left.
+1. Some callers want quiet handle.
+2. If there are multi slaves, it's hard to tell which slaves increment
+   promisc/allmulti successfully and which failed.
+So I left these problems to be FIXME.
+Fortunately, the overflow is very rare case.
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
- net/bridge/br_if.c       |    7 ++++++-
- net/bridge/br_private.h  |    2 ++
- net/bridge/br_sysfs_if.c |   17 +++++++++++++++++
- 3 files changed, 25 insertions(+), 1 deletions(-)
+ drivers/net/bonding/bond_alb.c  |    7 ++++-
+ drivers/net/bonding/bond_main.c |   41 +++++++++++++++++++++++++++++++-------
+ 2 files changed, 38 insertions(+), 10 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index c2397f5..49dd433 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -389,7 +389,10 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 		goto err2;
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 5a67372..26d49d8 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -419,8 +419,11 @@ static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
+ 	}
  
- 	rcu_assign_pointer(dev->br_port, p);
--	dev_set_promiscuity(dev, 1);
-+	/* If promiscuity overflow, return error */
-+	err = dev_set_promiscuity(dev, 1);
-+	if (err)
-+		goto err3;
+ 	if (!bond->alb_info.primary_is_promisc) {
+-		bond->alb_info.primary_is_promisc = 1;
+-		dev_set_promiscuity(bond->curr_active_slave->dev, 1);
++		/* dev_set_promiscuity might overflow, check it here */
++		if (!dev_set_promiscuity(bond->curr_active_slave->dev, 1))
++			bond->alb_info.primary_is_promisc = 1;
++		else
++			bond->alb_info.primary_is_promisc = 0;
+ 	}
  
- 	list_add_rcu(&p->list, &br->port_list);
- 
-@@ -409,6 +412,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	kobject_uevent(&p->kobj, KOBJ_ADD);
- 
- 	return 0;
-+err3:
-+	br_sysfs_removeif(p);
- err2:
- 	br_fdb_delete_by_port(br, p, 1);
- err1:
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index c11b554..c1bbfea 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -250,6 +250,7 @@ extern void br_ifinfo_notify(int event, struct net_bridge_port *port);
- /* br_sysfs_if.c */
- extern struct sysfs_ops brport_sysfs_ops;
- extern int br_sysfs_addif(struct net_bridge_port *p);
-+extern void br_sysfs_removeif(struct net_bridge_port *p);
- 
- /* br_sysfs_br.c */
- extern int br_sysfs_addbr(struct net_device *dev);
-@@ -258,6 +259,7 @@ extern void br_sysfs_delbr(struct net_device *dev);
- #else
- 
- #define br_sysfs_addif(p)	(0)
-+#define br_sysfs_removeif(p)	do { } while (0)
- #define br_sysfs_addbr(dev)	(0)
- #define br_sysfs_delbr(dev)	do { } while(0)
- #endif /* CONFIG_SYSFS */
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index 02b2d50..7f80462 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -233,3 +233,20 @@ int br_sysfs_addif(struct net_bridge_port *p)
- out2:
- 	return err;
+ 	bond->alb_info.rlb_promisc_timeout_counter = 0;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 50a40e4..f5e5550 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -762,39 +762,49 @@ static struct dev_mc_list *bond_mc_list_find_dmi(struct dev_mc_list *dmi, struct
+ /*
+  * Push the promiscuity flag down to appropriate slaves
+  */
+-static void bond_set_promiscuity(struct bonding *bond, int inc)
++static int bond_set_promiscuity(struct bonding *bond, int inc)
+ {
++	int err = 0;
+ 	if (USES_PRIMARY(bond->params.mode)) {
+ 		/* write lock already acquired */
+ 		if (bond->curr_active_slave) {
+-			dev_set_promiscuity(bond->curr_active_slave->dev, inc);
++			err = dev_set_promiscuity(bond->curr_active_slave->dev,
++						  inc);
+ 		}
+ 	} else {
+ 		struct slave *slave;
+ 		int i;
+ 		bond_for_each_slave(bond, slave, i) {
+-			dev_set_promiscuity(slave->dev, inc);
++			err = dev_set_promiscuity(slave->dev, inc);
++			if (err)
++				return err;
+ 		}
+ 	}
++	return err;
  }
-+
-+/*
-+ * Remove sysfs entries of ethernet device added to a bridge.
-+ * Revert all the things be done by br_sysfs_addif().
-+ */
-+void br_sysfs_removeif(struct net_bridge_port *p)
-+{
-+	struct net_bridge *br = p->br;
-+	struct brport_attribute **a;
-+
-+	sysfs_remove_link(&p->kobj, p->dev->name);
-+
-+	for (a = brport_attrs; *a; ++a)
-+		sysfs_remove_file(&p->kobj, &((*a)->attr));
-+
-+	sysfs_remove_link(&br->dev->dev.kobj, SYSFS_BRIDGE_PORT_LINK);
-+}
+ 
+ /*
+  * Push the allmulti flag down to all slaves
+  */
+-static void bond_set_allmulti(struct bonding *bond, int inc)
++static int bond_set_allmulti(struct bonding *bond, int inc)
+ {
++	int err = 0;
+ 	if (USES_PRIMARY(bond->params.mode)) {
+ 		/* write lock already acquired */
+ 		if (bond->curr_active_slave) {
+-			dev_set_allmulti(bond->curr_active_slave->dev, inc);
++			err = dev_set_allmulti(bond->curr_active_slave->dev,
++					       inc);
+ 		}
+ 	} else {
+ 		struct slave *slave;
+ 		int i;
+ 		bond_for_each_slave(bond, slave, i) {
+-			dev_set_allmulti(slave->dev, inc);
++			err = dev_set_allmulti(slave->dev, inc);
++			if (err)
++				return err;
+ 		}
+ 	}
++	return err;
+ }
+ 
+ /*
+@@ -955,6 +965,9 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active, struct
+ 	}
+ 
+ 	if (new_active) {
++		/* FIXME: promiscuity and allmulti might overflow,
++		 * but bond_mc_swap's caller likes quiet handle.
++		 */
+ 		if (bond->dev->flags & IFF_PROMISC) {
+ 			dev_set_promiscuity(new_active->dev, 1);
+ 		}
+@@ -1456,12 +1469,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	if (!USES_PRIMARY(bond->params.mode)) {
+ 		/* set promiscuity level to new slave */
+ 		if (bond_dev->flags & IFF_PROMISC) {
+-			dev_set_promiscuity(slave_dev, 1);
++			res = dev_set_promiscuity(slave_dev, 1);
++			if (res)
++				goto err_close;
+ 		}
+ 
+ 		/* set allmulti level to new slave */
+ 		if (bond_dev->flags & IFF_ALLMULTI) {
+-			dev_set_allmulti(slave_dev, 1);
++			res = dev_set_allmulti(slave_dev, 1);
++			if (res)
++				goto err_close;
+ 		}
+ 
+ 		netif_tx_lock_bh(bond_dev);
+@@ -3933,6 +3950,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
+ 	 * Do promisc before checking multicast_mode
+ 	 */
+ 	if ((bond_dev->flags & IFF_PROMISC) && !(bond->flags & IFF_PROMISC)) {
++		/*
++		 * FIXME: If bond has multi slaves, how to handle the error
++		 * when one of the slaves encounters promiscuity overflow.
++		 */
+ 		bond_set_promiscuity(bond, 1);
+ 	}
+ 
+@@ -3942,6 +3963,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
+ 
+ 	/* set allmulti flag to slaves */
+ 	if ((bond_dev->flags & IFF_ALLMULTI) && !(bond->flags & IFF_ALLMULTI)) {
++		/*
++		 * FIXME: If bond has multi slaves, how to handle the error
++		 * when one of the slaves encounters allmulti overflow.
++		 */
+ 		bond_set_allmulti(bond, 1);
+ 	}
+ 
 -- 
 1.5.3.4
-
 
 
 
