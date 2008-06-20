@@ -1,68 +1,83 @@
-From: Travis Stratman <tstratman@emacinc.com>
-Subject: Re: data received but not detected
-Date: Fri, 20 Jun 2008 16:06:12 -0500
-Message-ID: <1213995972.9245.202.camel@localhost.localdomain>
-References: <48583B37.5070708@candelatech.com>
-	 <1213743506.5771.220.camel@localhost.localdomain>
-	 <20080618062857.GA3598@2ka.mipt.ru>
-	 <1213917029.9245.86.camel@localhost.localdomain>
-	 <20080620060219.GA22784@2ka.mipt.ru>
-	 <1213981859.9245.133.camel@localhost.localdomain>
-	 <20080620172513.GA16673@2ka.mipt.ru>
-	 <1213983664.9245.150.camel@localhost.localdomain>
-	 <20080620175440.GA12197@2ka.mipt.ru>
-	 <1213985826.9245.169.camel@localhost.localdomain>
-	 <20080620182333.GA9342@2ka.mipt.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RESEND] [PATCH] tcp: fix for splice receive when used with software
+ LRO
+Date: Fri, 20 Jun 2008 23:57:20 +0200
+Message-ID: <485C27C0.9070005@gmail.com>
+References: <485B4ADE.8070102@domat.com.pl> <20080620063706.GA4009@ff.dom.local> <200806201309.35272.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.emacinc.com ([63.245.244.68]:54427 "EHLO mail.emacinc.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752433AbYFTVIb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2008 17:08:31 -0400
-In-Reply-To: <20080620182333.GA9342@2ka.mipt.ru>
+Received: from rv-out-0506.google.com ([209.85.198.236]:40928 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205AbYFTV5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 17:57:37 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so5838476rvb.1
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 14:57:37 -0700 (PDT)
+In-Reply-To: <200806201309.35272.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-06-20 at 22:23 +0400, Evgeniy Polyakov wrote:
-> On Fri, Jun 20, 2008 at 01:17:06PM -0500, Travis Stratman (tstratman@emacinc.com) wrote:
-> > Let me clarify this again... I see the packet being sent at the expected
-> > time from the sender on the tcpdump. The packet does not show up in
-> > tcpdump or in the application on the receive side. When some other data
-> > is received by the receiver (i.e. ARP), the missing packet shows up in
-> > the tcpdump and in the application at the same time. So the delay shows
-> > up in the tcpdump as well. It seems to me that everything is pointing to
-> > the packet being in the DMA buffer but the controller driver not knowing
-> > anything about it.
+Octavian Purdila wrote, On 06/20/2008 12:09 PM:
+
+> On Friday 20 June 2008, Jarek Poplawski wrote:
 > 
-> Argh. Ok, then please check that napi polling is called and rx interrupt
-> happen for the driver.
+>> This patch looks fine to me, but I wonder if, btw., this place can't
+>> be optimized a bit, so why can't we simply:
+>>
+>> 	if (spd_fill_page(spd, f->page, plen, poff, skb))
+>> 		goto err;
+>>
+>> in both cases, since nothing more can't be filled after this?
+> 
+> Yes, you are right. Here is the patch with your suggestions in place, tested. 
+> 
+> BTW, I have another trivial fix and a RFC related to tcp splice read that I've 
+> sent a while ago. Should I resend them as well? 
+> 
+> Thanks,
+> tavi
+> 
 
-This is what I have been focusing on. I'm still trying to figure out a
-good way to see if the interrupt is triggered for a specific packet
-because I have no way of determining which packet it will freeze on and
-if I put any prints in the interrupt handler or poll function it slows
-things down enough that the problem disappears.
+> commit b4671a70a6d70cdf11537a5231193271b06a3efa
+> Author: Octavian Purdila <opurdila@ixiacom.com>
+> Date:   Fri Jun 20 12:49:24 2008 +0300
+> 
+>     tcp: fix for splice receive when used with software LRO
+>     
+>     If an skb has nr_frags set to zero but its frag_list is not empty (as
+>     it can happen if software LRO is enabled), and a previous
+>     tcp_read_sock has consumed the linear part of the skb, then
+>     __skb_splice_bits:
+>     
+>     (a) incorrectly reports an error and
+>     
+>     (b) forgets to update the offset to account for the linear part
+>     
+>     Any of the two problems will cause the subsequent __skb_splice_bits
+>     call (the one that handles the frag_list skbs) to either skip data,
+>     or, if the unadjusted offset is greater then the size of the next skb
+>     in the frag_list, make tcp_splice_read loop forever.
+>     
+>     Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 25fa74d..4262006 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -1198,12 +1198,14 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+>  
 
-In the meantime I was testing why the FIONREAD ioctl made such a big
-difference and I found that if I insert a usleep(1) between the two
-receive calls, the problem does not occur. During my testing before I
-had put a usleep() between the send calls, which fixed the issue for me
-and led me to assume that an IRQ was being missed if the packets come in
-too close to each other.
-
-The fact that inserting a sleep between the two receive calls fixes the
-issue makes this seem less like a driver issue. The only hypothesis that
-I have bee able to come up with so far is that calling recv() somehow
-masks the interrupts momentarily so that if the packet comes in at
-exactly the same time as the recv or poll() is called, the system does
-not know anything about it, to the point that it does not even show on
-the packet trace. I have no idea how this could happen at this point.
+Octavian, since these readability changes later in this thread are quite
+substantial, my proposal is to separate them from this bug fix. I'll need
+more time to check them, but they are probably rather for net-next, while
+the bug fix could probably make to current. If you agree with this try to
+resend this once more as a new thread with David in To or Cc (and maybe
+re-diff this to more current tree). You can add my ack below if you like.
 
 Thanks,
+Jarek P.
 
-Travis
-
+Acked-by: Jarek Poplawski <jarkao2@gmail.com>
