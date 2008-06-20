@@ -1,55 +1,81 @@
-From: Travis Stratman <tstratman@emacinc.com>
-Subject: Re: data received but not detected
-Date: Fri, 20 Jun 2008 12:41:04 -0500
-Message-ID: <1213983664.9245.150.camel@localhost.localdomain>
-References: <1213740538.5771.192.camel@localhost.localdomain>
-	 <48583B37.5070708@candelatech.com>
-	 <1213743506.5771.220.camel@localhost.localdomain>
-	 <20080618062857.GA3598@2ka.mipt.ru>
-	 <1213917029.9245.86.camel@localhost.localdomain>
-	 <20080620060219.GA22784@2ka.mipt.ru>
-	 <1213981859.9245.133.camel@localhost.localdomain>
-	 <20080620172513.GA16673@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next 4/8] bridge: sysfs cleanup
+Date: Fri, 20 Jun 2008 10:44:11 -0700
+Message-ID: <20080620104411.0fcff2e0@extreme>
+References: <485AFFF3.6070802@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.emacinc.com ([63.245.244.68]:56315 "EHLO mail.emacinc.com"
+Received: from mail.vyatta.com ([216.93.170.194]:36671 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752531AbYFTRnV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2008 13:43:21 -0400
-In-Reply-To: <20080620172513.GA16673@2ka.mipt.ru>
+	id S1759277AbYFTRoR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jun 2008 13:44:17 -0400
+In-Reply-To: <485AFFF3.6070802@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-06-20 at 21:25 +0400, Evgeniy Polyakov wrote:
-> On Fri, Jun 20, 2008 at 12:10:59PM -0500, Travis Stratman (tstratman@emacinc.com) wrote:
-> > Initially the application was just using a blocking recvfrom() call. I
-> > changed to poll() and non-blocking recvfrom (MSG_DONTWAIT) today, and
-> > poll() always times out when the lockup occurs. I also tried using an
+On Fri, 20 Jun 2008 08:55:15 +0800
+Wang Chen <wangchen@cn.fujitsu.com> wrote:
+
+> When I am doing this series of patch, I notice that bridge's sysfs are
+> not cleanuped after failure and bridge delete.
 > 
-> Can you confirm that IPSTATS_MIB_INRECEIVES MIB does not increase when
-> packets are sent to the frozen machine, but userspace does not receive
-> it?
+> Here is the patch for it.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> ---
+>  net/bridge/br_if.c       |    2 ++
+>  net/bridge/br_sysfs_if.c |    9 ++++++++-
+>  2 files changed, 10 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index 49dd433..4b730fa 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -161,6 +161,7 @@ static void del_br(struct net_bridge *br)
+>  	struct net_bridge_port *p, *n;
+>  
+>  	list_for_each_entry_safe(p, n, &br->port_list, list) {
+> +		br_sysfs_removeif(p);
+>  		del_nbp(p);
+>  	}
+>  
+> @@ -435,6 +436,7 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+>  	if (!p || p->br != br)
+>  		return -EINVAL;
+>  
+> +	br_sysfs_removeif(p);
+>  	del_nbp(p);
+>  
+>  	spin_lock_bh(&br->lock);
+> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+> index 7f80462..9e9d17c 100644
+> --- a/net/bridge/br_sysfs_if.c
+> +++ b/net/bridge/br_sysfs_if.c
+> @@ -226,10 +226,17 @@ int br_sysfs_addif(struct net_bridge_port *p)
+>  	for (a = brport_attrs; *a; ++a) {
+>  		err = sysfs_create_file(&p->kobj, &((*a)->attr));
+>  		if (err)
+> -			goto out2;
+> +			goto out1;
+>  	}
+>  
+>  	err = sysfs_create_link(br->ifobj, &p->kobj, p->dev->name);
+> +	if (err)
+> +		goto out1;
+> +	return 0;
+> +out1:
+> +	for (a = brport_attrs; *a; ++a)
+> +		sysfs_remove_file(&p->kobj, &((*a)->attr));
+> +	sysfs_remove_link(&br->dev->dev.kobj, SYSFS_BRIDGE_PORT_LINK);
+>  out2:
+>  	return err;
+>  }
 
-I will come up with a way to test for this in the application.
-
-> Please also clarify this bit again: you see packets in tcpdump running
-> on receiving (frozen) host, but do not see them in userspace? After this
-> freeze happend system recvmsg/poll calls do not respond until some
-> activity on NIC happend? I.e. recv/poll 'unfreeze' only when something
-> is received (arp, icmp reply) or after sending too?
-
-I see the packets being sent in tcpdump from the sending application,
-but they don't show up in the receiving side until something else comes
-in behind them. For example if you look at the client and server trace
-that I sent yesterday side by side you will see how the timings line up.
-The same packets are shown in each trace. Data needs to be received by
-the board to unlock it, sending does not seem to have any effect.
-
-I appreciate the help.
-
--Travis
-
+This is unneeded since the bridge port kobject is deleted when removed
+or in case of error and kobject_del calls sysfs_remove_dir.
