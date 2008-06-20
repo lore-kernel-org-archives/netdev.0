@@ -1,43 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: Separate TSO setup logic.
-Date: Thu, 19 Jun 2008 20:07:02 -0700 (PDT)
-Message-ID: <20080619.200702.122382220.davem@davemloft.net>
-References: <1213931088-8013-1-git-send-email-mchan@broadcom.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH net-next 5/8] ipv6: Check return of dev_set_allmulti
+Date: Fri, 20 Jun 2008 11:06:54 +0800
+Message-ID: <485B1ECE.7080106@cn.fujitsu.com>
+References: <485AFFFB.5040901@cn.fujitsu.com> <20080619.190911.117307969.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
-To: mchan@broadcom.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48708
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752294AbYFTDHE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 23:07:04 -0400
-In-Reply-To: <1213931088-8013-1-git-send-email-mchan@broadcom.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:60406 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751304AbYFTDKw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jun 2008 23:10:52 -0400
+In-Reply-To: <20080619.190911.117307969.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 19 Jun 2008 20:04:48 -0700
+David Miller said the following on 2008-6-20 10:09:
+> Please delete comment.
 
-> David, this goes on top of the 3rd patch to manage TX backlog.
-> 
-> tg3: Separate TSO setup logic.
-> 
-> Different TG3 chips require slightly different ways of setting up the
-> TX descriptor and different initial values for some IP/TCP header
-> fields.  It is cleaner to have dedicated TSO setup methods for the
-> different chips and to call the proper one using a function pointer.
-> The missing logic for TG3_FLG2_HW_TSO_2 has also been added.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+allmulti might overflow.
+Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
+dev_set_promiscuity/allmulti return error number if overflow happened.
 
-Thanks for doing this work michael.
+Here, we check the positive increment for allmulti to get error return.
 
-If we put this at the end, it means we have a point in the series
-where things are broken, and this makes "git bisect" unusable which
-we try to avoid.
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ net/ipv6/ip6mr.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-Therefore I'll try to integrate this work into my first patch.
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 1479618..3e2d964 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -603,6 +603,7 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
+ 	int vifi = vifc->mif6c_mifi;
+ 	struct mif_device *v = &vif6_table[vifi];
+ 	struct net_device *dev;
++	int err;
+ 
+ 	/* Is vif busy ? */
+ 	if (MIF_EXISTS(vifi))
+@@ -632,7 +633,9 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
+ 		return -EINVAL;
+ 	}
+ 
+-	dev_set_allmulti(dev, 1);
++	err = dev_set_allmulti(dev, 1);
++	if (err)
++		return err;
+ 
+ 	/*
+ 	 *	Fill in the VIF structures
+-- 
+1.5.3.4
 
-Thanks again.
