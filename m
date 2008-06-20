@@ -1,139 +1,69 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RESEND] [PATCH] tcp: fix for splice receive when used with
-	software LRO
-Date: Fri, 20 Jun 2008 11:01:58 +0000
-Message-ID: <20080620110158.GA4299@ff.dom.local>
-References: <485B4ADE.8070102@domat.com.pl> <20080620063706.GA4009@ff.dom.local> <200806201309.35272.opurdila@ixiacom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/2] net: Disable LRO on devices that are forwarding
+Date: Fri, 20 Jun 2008 12:11:41 +0100
+Message-ID: <20080620111139.GB29360@solarflare.com>
+References: <cover.1213898165.git.bhutchings@solarflare.com> <20080619180735.GT5350@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Kieran Mansley <kmansley@solarflare.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.235]:16268 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752010AbYFTK5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 06:57:41 -0400
-Received: by wr-out-0506.google.com with SMTP id 69so896714wri.5
-        for <netdev@vger.kernel.org>; Fri, 20 Jun 2008 03:57:40 -0700 (PDT)
+Received: from smarthost01.mail.mbr-roch.zen.net.uk ([212.23.3.140]:60592 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752073AbYFTLLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 07:11:48 -0400
 Content-Disposition: inline
-In-Reply-To: <200806201309.35272.opurdila@ixiacom.com>
+In-Reply-To: <20080619180735.GT5350@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 20, 2008 at 01:09:35PM +0300, Octavian Purdila wrote:
-> On Friday 20 June 2008, Jarek Poplawski wrote:
-> 
-> > This patch looks fine to me, but I wonder if, btw., this place can't
-> > be optimized a bit, so why can't we simply:
-> >
-> > 	if (spd_fill_page(spd, f->page, plen, poff, skb))
-> > 		goto err;
-> >
-> > in both cases, since nothing more can't be filled after this?
-> 
-> Yes, you are right. Here is the patch with your suggestions in place, tested. 
-
-
-Hmm... Of course, this patch looks fine too, but since I didn't
-expect you respond so fast with a patch, I "forgot" to add a "if so"
-question (sorry for this and for breaking this thread!):
-
-If so, can't we make it all simpler now, without this new "error"
-variable, and simply skipping this: "if (spd->nr_pages - nr_pages)"
-test under "done:", so, doing this block unconditional or maybe (I
-didn't check this enough) changing this test a little to catch there
-this offset update for frag_list?
-
-> 
-> BTW, I have another trivial fix and a RFC related to tcp splice read that I've 
-> sent a while ago. Should I resend them as well? 
-
-Since this was quite a while ago, I guess you could. And, btw. maybe
-try to Cc David Miller.
-
-Thanks,
-Jarek P.
-
-> 
-> Thanks,
-> tavi
-> commit b4671a70a6d70cdf11537a5231193271b06a3efa
-> Author: Octavian Purdila <opurdila@ixiacom.com>
-> Date:   Fri Jun 20 12:49:24 2008 +0300
-> 
->     tcp: fix for splice receive when used with software LRO
->     
->     If an skb has nr_frags set to zero but its frag_list is not empty (as
->     it can happen if software LRO is enabled), and a previous
->     tcp_read_sock has consumed the linear part of the skb, then
->     __skb_splice_bits:
->     
->     (a) incorrectly reports an error and
->     
->     (b) forgets to update the offset to account for the linear part
->     
->     Any of the two problems will cause the subsequent __skb_splice_bits
->     call (the one that handles the frag_list skbs) to either skip data,
->     or, if the unadjusted offset is greater then the size of the next skb
->     in the frag_list, make tcp_splice_read loop forever.
->     
->     Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 25fa74d..4262006 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -1198,12 +1198,14 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
->  {
->  	unsigned int nr_pages = spd->nr_pages;
->  	unsigned int poff, plen, len, toff, tlen;
-> -	int headlen, seg;
-> +	int headlen, seg, error = 0;
->  
->  	toff = *offset;
->  	tlen = *total_len;
-> -	if (!tlen)
-> +	if (!tlen) {
-> +		error = 1;
->  		goto err;
-> +	}
->  
->  	/*
->  	 * if the offset is greater than the linear part, go directly to
-> @@ -1245,8 +1247,9 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
->  		 * just jump directly to update and return, no point
->  		 * in going over fragments when the output is full.
->  		 */
-> -		if (spd_fill_page(spd, virt_to_page(p), plen, poff, skb))
-> -			goto done;
-> +		error = spd_fill_page(spd, virt_to_page(p), plen, poff, skb);
-> +		if (error)
-> +			goto err;
->  
->  		tlen -= plen;
->  	}
-> @@ -1275,8 +1278,9 @@ map_frag:
->  		if (!plen)
->  			break;
->  
-> -		if (spd_fill_page(spd, f->page, plen, poff, skb))
-> -			break;
-> +		error = spd_fill_page(spd, f->page, plen, poff, skb);
-> +		if (error)
-> +			goto err;
->  
->  		tlen -= plen;
->  	}
-> @@ -1288,7 +1292,10 @@ done:
->  		return 0;
->  	}
->  err:
-> -	return 1;
-> +	/* update the offset to reflect the linear part skip, if any */
-> +	if (!error)
-> +		*offset = toff;
-> +	return error;
+Ben Hutchings wrote:
+[...]
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index a495f71..f6944ec 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+[...]
+> @@ -1123,6 +1124,29 @@ int dev_close(struct net_device *dev)
 >  }
 >  
->  /*
+>  
+> +/**
+> + *	dev_disable_lro - disable Large Receive Offload on a device
+> + *	@dev: device
+> + *
+> + *	Disable Large Receive Offload (LRO) on a net device.  Must be
+> + *	called under RTNL.  This is needed if received packets may be
+> + *	forwarded to another interface.
+> + */
+> +void dev_disable_lro(struct net_device *dev)
+> +{
+> +	if (dev->ethtool_ops && dev->ethtool_ops->get_flags &&
+> +	    dev->ethtool_ops->set_flags) {
+> +		u32 flags = dev->ethtool_ops->get_flags(dev);
+> +		if (flags & ETH_FLAG_LRO) {
+> +			flags &= ~ETH_FLAG_LRO;
+> +			dev->ethtool_ops->set_flags(dev, flags);
+> +		}
+> +	}
+> +	WARN_ON(dev->features & NETIF_F_LRO);
+> +}
+> +EXPORT_SYMBOL(dev_disable_lro);
+[...]
 
+Of course, this doesn't work where the device that's about to start
+forwarding is a VLAN device, bonding device or other device depending on
+the physical device which is doing LRO.
+
+It might be worth separating out the offload control ops from ethtool ops
+since they could usefully be applied to other device types... particularly
+here.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
