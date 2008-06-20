@@ -1,45 +1,129 @@
-From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-Subject: [PATCH] Prevent from potential dead lock for inet_listen_lock
-Date: Fri, 20 Jun 2008 17:08:20 +0800
-Message-ID: <485B7384.1090204@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: [PATCH] iproute2: add support for IFLA_NET_NS_PID in ip link
+Date: Fri, 20 Jun 2008 11:07:35 +0200
+Message-ID: <20080620090734.144305411@theryb.frec.bull.fr>
+References: <20080620090725.818393362@theryb.frec.bull.fr>
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62629 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751548AbYFTJK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2008 05:10:58 -0400
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:51596 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751593AbYFTJLi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 05:11:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hashinfo->lhash_lock might be acquired by write_lock() in softirq, 
-so using read_lock() here isn't safe, just substitudes by read_lock_bh().
+Hi Stephen,
 
-Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+I resend you this patch once more. This time I updated the documentation
+too (may be that was the reason why you didn't take it before?). 
+
+Please tell me if there are other things missing in this patch
+It applies on iproute2 git tree.
+
+Regards,
+Benjamin
+
+Description:
+------------
+
+This patch adds support for the IFLA_NET_NS_PID type. It is used to 
+move network devices between network namespaces.
+
+The syntax is: 
+ip link set DEVICE netns PID
+
+PID is the pid of a process in the target network namespace.
+
+(Daniel Lezcano is the original author). 
+
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- include/net/inet_hashtables.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ doc/ip-cref.tex |    4 ++++
+ ip/iplink.c     |    9 +++++++++
+ man/man8/ip.8   |   10 +++++++++-
+ 3 files changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 97dc35a..2818c8a 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -254,9 +254,9 @@ extern void inet_listen_wlock(struct inet_hashinfo *hashinfo);
- static inline void inet_listen_lock(struct inet_hashinfo *hashinfo)
- {
- 	/* read_lock synchronizes to candidates to writers */
--	read_lock(&hashinfo->lhash_lock);
-+	read_lock_bh(&hashinfo->lhash_lock);
- 	atomic_inc(&hashinfo->lhash_users);
--	read_unlock(&hashinfo->lhash_lock);
-+	read_unlock_bh(&hashinfo->lhash_lock);
- }
+Index: iproute2/doc/ip-cref.tex
+===================================================================
+--- iproute2.orig/doc/ip-cref.tex
++++ iproute2/doc/ip-cref.tex
+@@ -294,6 +294,10 @@ broadcast address will break networking.
+ Do not use it, if you do not understand what this operation really does.
+ \end{NB}
  
- static inline void inet_listen_unlock(struct inet_hashinfo *hashinfo)
++\item \verb|netns PID|
++
++--- move the device to the network namespace associated with the process PID.
++
+ \end{itemize}
+ 
+ \vskip 1mm
+Index: iproute2/ip/iplink.c
+===================================================================
+--- iproute2.orig/ip/iplink.c
++++ iproute2/ip/iplink.c
+@@ -49,6 +49,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "	                     name NEWNAME |\n");
+ 	fprintf(stderr, "	                     address LLADDR | broadcast LLADDR |\n");
+ 	fprintf(stderr, "	                     mtu MTU }\n");
++	fprintf(stderr, "	                     netns PID }\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE ]\n");
+ 	exit(-1);
+ }
+@@ -156,6 +157,7 @@ int iplink_parse(int argc, char **argv, 
+ 	char abuf[32];
+ 	int qlen = -1;
+ 	int mtu = -1;
++	int netns = -1;
+ 
+ 	ret = argc;
+ 
+@@ -197,6 +199,13 @@ int iplink_parse(int argc, char **argv, 
+ 			if (get_integer(&mtu, *argv, 0))
+ 				invarg("Invalid \"mtu\" value\n", *argv);
+ 			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
++                } else if (strcmp(*argv, "netns") == 0) {
++                        NEXT_ARG();
++                        if (netns != -1)
++                                duparg("netns", *argv);
++                        if (get_integer(&netns, *argv, 0))
++                                invarg("Invalid \"netns\" value\n", *argv);
++                        addattr_l(&req->n, sizeof(*req), IFLA_NET_NS_PID, &netns, 4);
+ 		} else if (strcmp(*argv, "multicast") == 0) {
+ 			NEXT_ARG();
+ 			req->i.ifi_change |= IFF_MULTICAST;
+Index: iproute2/man/man8/ip.8
+===================================================================
+--- iproute2.orig/man/man8/ip.8
++++ iproute2/man/man8/ip.8
+@@ -50,7 +50,10 @@ ip \- show / manipulate routing, devices
+ .IR LLADDR " |"
+ .br
+ .B  mtu
+-.IR MTU " }"
++.IR MTU " |"
++.br
++.B  netns
++.IR PID " }"
+ 
+ .ti -8
+ .B ip link show
+@@ -873,6 +876,11 @@ change the link layer broadcast address 
+ the interface is
+ .IR "POINTOPOINT" .
+ 
++.TP
++.BI netns " PID"
++move the device to the network namespace associated with the process
++.IR "PID" .
++
+ .PP
+ .B Warning:
+ If multiple parameter changes are requested,
+
 -- 
-1.5.3
-
-
-
