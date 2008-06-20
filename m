@@ -1,81 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next 4/8] bridge: sysfs cleanup
-Date: Fri, 20 Jun 2008 10:44:11 -0700
-Message-ID: <20080620104411.0fcff2e0@extreme>
-References: <485AFFF3.6070802@cn.fujitsu.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] fs_enet: restore promiscuous and multicast settings in
+ restart()
+Date: Fri, 20 Jun 2008 13:50:13 -0400
+Message-ID: <20080620135013.36fbafa7.billfink@mindspring.com>
+References: <200806181707.17739.laurentp@cse-semaphore.com>
+	<20080619230128.def96ee0.billfink@mindspring.com>
+	<200806201025.28768.laurentp@cse-semaphore.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	pantelis.antoniou@gmail.com, vbordug@ru.mvista.com
+To: Laurent Pinchart <laurentp@cse-semaphore.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:36671 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759277AbYFTRoR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2008 13:44:17 -0400
-In-Reply-To: <485AFFF3.6070802@cn.fujitsu.com>
+Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:59289 "EHLO
+	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752646AbYFTRuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 13:50:16 -0400
+In-Reply-To: <200806201025.28768.laurentp@cse-semaphore.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Jun 2008 08:55:15 +0800
-Wang Chen <wangchen@cn.fujitsu.com> wrote:
+On Fri, 20 Jun 2008, Laurent Pinchart wrote:
 
-> When I am doing this series of patch, I notice that bridge's sysfs are
-> not cleanuped after failure and bridge delete.
+> On Friday 20 June 2008 05:01, Bill Fink wrote:
+> > On Wed, 18 Jun 2008, Laurent Pinchart wrote:
+> > 
+> > > The restart() function is called when the link state changes and resets
+> > > multicast and promiscous settings. This patch restores those settings at 
+> the
+> > > end of restart().
+> > > 
+> > > Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
+> > > ---
+> > >  drivers/net/fs_enet/mac-fcc.c     |    3 +++
+> > >  2 files changed, 4 insertions(+), 1 deletions(-)
+> > 
+> > Is the whole patch here?  The above says 2 files changed and 5 lines
+> > changed, but what's included here is only 1 file and 3 line changes.
 > 
-> Here is the patch for it.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-> ---
->  net/bridge/br_if.c       |    2 ++
->  net/bridge/br_sysfs_if.c |    9 ++++++++-
->  2 files changed, 10 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index 49dd433..4b730fa 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -161,6 +161,7 @@ static void del_br(struct net_bridge *br)
->  	struct net_bridge_port *p, *n;
->  
->  	list_for_each_entry_safe(p, n, &br->port_list, list) {
-> +		br_sysfs_removeif(p);
->  		del_nbp(p);
->  	}
->  
-> @@ -435,6 +436,7 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
->  	if (!p || p->br != br)
->  		return -EINVAL;
->  
-> +	br_sysfs_removeif(p);
->  	del_nbp(p);
->  
->  	spin_lock_bh(&br->lock);
-> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-> index 7f80462..9e9d17c 100644
-> --- a/net/bridge/br_sysfs_if.c
-> +++ b/net/bridge/br_sysfs_if.c
-> @@ -226,10 +226,17 @@ int br_sysfs_addif(struct net_bridge_port *p)
->  	for (a = brport_attrs; *a; ++a) {
->  		err = sysfs_create_file(&p->kobj, &((*a)->attr));
->  		if (err)
-> -			goto out2;
-> +			goto out1;
->  	}
->  
->  	err = sysfs_create_link(br->ifobj, &p->kobj, p->dev->name);
-> +	if (err)
-> +		goto out1;
-> +	return 0;
-> +out1:
-> +	for (a = brport_attrs; *a; ++a)
-> +		sysfs_remove_file(&p->kobj, &((*a)->attr));
-> +	sysfs_remove_link(&br->dev->dev.kobj, SYSFS_BRIDGE_PORT_LINK);
->  out2:
->  	return err;
->  }
+> Yes it is. I've hand-removed a completely unrelated change that I had 
+> committed to my git tree in the same go (back when I wasn't very familiar 
+> with git). Do I need to resubmit ?
 
-This is unneeded since the bridge port kobject is deleted when removed
-or in case of error and kobject_del calls sysfs_remove_dir.
+I can't answer that.  I just wanted to make sure part of the patch
+wasn't accidentally left out.
+
+						-Bill
