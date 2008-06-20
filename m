@@ -1,57 +1,52 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [patch] fix 3c515.c:(.text+0x57200): undefined reference to
-	`pnp_get_resource'
-Date: Fri, 20 Jun 2008 11:33:16 +0200
-Message-ID: <20080620093316.GA19003@elte.hu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next 7/8] macvlan: Check return of dev_set_allmulti
+Date: Fri, 20 Jun 2008 11:45:22 +0200
+Message-ID: <485B7C32.8080605@trash.net>
+References: <485B0011.7060601@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, Jeff Garzik <jgarzik@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:53321 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751346AbYFTJdb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2008 05:33:31 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:58168 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751491AbYFTJp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 05:45:27 -0400
+In-Reply-To: <485B0011.7060601@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 2538003ce2ea0b936d273692bc4e51c5b52fe70d
-Author: Ingo Molnar <mingo@elte.hu>
-Date:   Fri Jun 20 11:29:31 2008 +0200
+Wang Chen wrote:
+> allmulti might overflow.
+> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
+> dev_set_promiscuity/allmulti return error number if overflow happened.
+> 
+> Here, we check the positive increment for allmulti to get error return.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> ---
+>  drivers/net/macvlan.c |    9 +++++++--
+>  1 files changed, 7 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index c36a03a..b0ed18f 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -190,8 +190,13 @@ static int macvlan_open(struct net_device *dev)
+>  	err = dev_unicast_add(lowerdev, dev->dev_addr, ETH_ALEN);
+>  	if (err < 0)
+>  		return err;
+> -	if (dev->flags & IFF_ALLMULTI)
+> -		dev_set_allmulti(lowerdev, 1);
+> +	if (dev->flags & IFF_ALLMULTI) {
+> +		err = dev_set_allmulti(lowerdev, 1);
+> +		if (err < 0) {
+> +			dev_unicast_delete(lowerdev, dev->dev_addr, ETH_ALEN);
+> +			return err;
+> +		}
+> +	}
 
-    fix 3c515.c:(.text+0x57200): undefined reference to `pnp_get_resource'
-    
-    -tip testing found the following build failure:
-    
-      drivers/built-in.o: In function `corkscrew_setup':
-      3c515.c:(.text+0x57200): undefined reference to `pnp_get_resource'
-    
-    which happens if 3c515.c is build without CONFIG_PNP:
-    
-      http://redhat.com/~mingo/misc/config-Fri_Jun_20_10_02_43_CEST_2008.bad
-    
-    the reason is pnp_irq() use outside of its __ISAPNP__ section.
-    
-    corkscrew_setup() always called with NULL in the !__ISAPNP__ case, but
-    also check this condition to make sure.
-    
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
-
-diff --git a/drivers/net/3c515.c b/drivers/net/3c515.c
-index 105a8c7..09dd063 100644
---- a/drivers/net/3c515.c
-+++ b/drivers/net/3c515.c
-@@ -573,7 +573,12 @@ static int corkscrew_setup(struct net_device *dev, int ioaddr,
- 	DECLARE_MAC_BUF(mac);
- 
- 	if (idev) {
-+#ifdef __ISAPNP__
- 		irq = pnp_irq(idev, 0);
-+#else
-+		/* Can not happen - in the !PNP case we always pass in NULL */
-+		BUG_ON(1);
-+#endif
- 		vp->dev = &idev->dev;
- 	} else {
- 		irq = inw(ioaddr + 0x2002) & 15;
+Please change this to use gotos for rollback on error.
