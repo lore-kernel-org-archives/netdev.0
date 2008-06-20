@@ -1,51 +1,47 @@
-From: Eric Miao <eric.y.miao@gmail.com>
-Subject: Re: [PATCH 6/8]  pxa: make lubbock to use smc91x platform data
-Date: Fri, 20 Jun 2008 09:23:07 +0800
-Message-ID: <485B067B.1080207@gmail.com>
-References: <485A3E4A.6070706@gmail.com> <alpine.LFD.1.10.0806191243400.2982@xanadu.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/8] af_packet: Check return of
+ dev_set_promiscuity/allmulti
+Date: Thu, 19 Jun 2008 19:05:22 -0700 (PDT)
+Message-ID: <20080619.190522.237900335.davem@davemloft.net>
+References: <485AFFC8.2040701@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Nicolas Pitre <nico@cam.org>
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.234]:51385 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475AbYFTBXP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 21:23:15 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so5446297rvb.1
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 18:23:14 -0700 (PDT)
-In-Reply-To: <alpine.LFD.1.10.0806191243400.2982@xanadu.home>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33987
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750830AbYFTCFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 22:05:22 -0400
+In-Reply-To: <485AFFC8.2040701@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas Pitre wrote:
-> On Thu, 19 Jun 2008, Eric Miao wrote:
-> 
->> Signed-off-by: Eric Miao <eric.miao@marvell.com>
-> 
-> This (and 7/8 and 8/8) are a bit unfortunate.  Maybe not as visible on 
-> Lubbock which has a SMC91C94 which can do 10mbps only, but the others 
-> will have poorer performances because of those patches.  Did you compare 
-> performances, let's say with netperf, before and after those patches are 
-> applied?
-> 
-> I understand your goal of wanting to have a single kernel image that 
-> dynamically can select the right bus access method for all the concerned 
-> platforms.  But I think you'll see that the runtime overhead has a 
-> significant impact on network throughput and CPU usage.
-> 
-> I think that some other solution should be explored such that when only 
-> one machine type (or machine types with the same bus config) is 
-> configured then the compile time optimizations should remain.  Something 
-> based on the machine_is_lubbock(), machine_is_Mainstone(), and so on, 
-> which becomes constants with the right kernel configuration.
-> 
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Fri, 20 Jun 2008 08:54:32 +0800
 
-OK, I know your concern. Let's see if we can work this out in another way.
+> @@ -1245,7 +1247,8 @@ static int packet_mc_add(struct sock *sk, struct packet_mreq_max *mreq)
+>  	i->count = 1;
+>  	i->next = po->mclist;
+>  	po->mclist = i;
+> -	packet_dev_mc(dev, i, +1);
+> +	/* Positive increment should be checked for overflow --WCN */
+> +	err = packet_dev_mc(dev, i, 1);
+>  
 
-> 
-> Nicolas
+Please don't add these little signatures to comments.  That might have
+been useful to do 10 years ago when we didn't use proper source
+control, but now we do and anyone interested can do a "git blame"
+to see who added that comment and why.
+
+Also, this comment doesn't really add any information.  We check
+error return values simply because errors can happen, that's just
+a straight fact.  If packet_dev_mc() and it's sub calls can error
+for other reasons this comment is only telling part of the story
+and as a result becomes inaccurate.
+
+Therefore, I'd like to ask that you not add this comment, it doesn't
+really help anything.  This kind of information can go into the
+commit log message.  That's where "why" information tends to belong.
 
