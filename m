@@ -1,60 +1,68 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies available to userspace
-Date: Fri, 20 Jun 2008 23:03:37 +0200
-Message-ID: <200806202303.37924.tomasz@grobelny.oswiecenia.net>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806182246.15433.tomasz@grobelny.oswiecenia.net> <20080619070501.GA7268@gerrit.erg.abdn.ac.uk>
+From: Travis Stratman <tstratman@emacinc.com>
+Subject: Re: data received but not detected
+Date: Fri, 20 Jun 2008 16:06:12 -0500
+Message-ID: <1213995972.9245.202.camel@localhost.localdomain>
+References: <48583B37.5070708@candelatech.com>
+	 <1213743506.5771.220.camel@localhost.localdomain>
+	 <20080618062857.GA3598@2ka.mipt.ru>
+	 <1213917029.9245.86.camel@localhost.localdomain>
+	 <20080620060219.GA22784@2ka.mipt.ru>
+	 <1213981859.9245.133.camel@localhost.localdomain>
+	 <20080620172513.GA16673@2ka.mipt.ru>
+	 <1213983664.9245.150.camel@localhost.localdomain>
+	 <20080620175440.GA12197@2ka.mipt.ru>
+	 <1213985826.9245.169.camel@localhost.localdomain>
+	 <20080620182333.GA9342@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, acme@redhat.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:2577 "EHLO poczta.oswiecenia.net"
+Received: from mail.emacinc.com ([63.245.244.68]:54427 "EHLO mail.emacinc.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751354AbYFTVED convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2008 17:04:03 -0400
-In-Reply-To: <20080619070501.GA7268@gerrit.erg.abdn.ac.uk>
-Content-Disposition: inline
+	id S1752433AbYFTVIb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jun 2008 17:08:31 -0400
+In-Reply-To: <20080620182333.GA9342@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dnia Thursday 19 of June 2008, Gerrit Renker napisa=B3:
-> But such a bottom-up approach would not necessarily make sense, since
-> likely the policy will do a bit more work than just reacting to the
-> parameters it uses, which leads to the next point.
->
-Agreed.
+On Fri, 2008-06-20 at 22:23 +0400, Evgeniy Polyakov wrote:
+> On Fri, Jun 20, 2008 at 01:17:06PM -0500, Travis Stratman (tstratman@emacinc.com) wrote:
+> > Let me clarify this again... I see the packet being sent at the expected
+> > time from the sender on the tcpdump. The packet does not show up in
+> > tcpdump or in the application on the receive side. When some other data
+> > is received by the receiver (i.e. ARP), the missing packet shows up in
+> > the tcpdump and in the application at the same time. So the delay shows
+> > up in the tcpdump as well. It seems to me that everything is pointing to
+> > the packet being in the DMA buffer but the controller driver not knowing
+> > anything about it.
+> 
+> Argh. Ok, then please check that napi polling is called and rx interrupt
+> happen for the driver.
 
-> | Could be nice, but what happens if we have two policies with the sa=
-me set
-> | of supported parameters? How do we differentiate them? In the above=
-: how
-> | do we diffrentiate between simple policy (which doesn't have any
-> | parameters ever) and prio policy with no parameters (just because w=
-e
-> | don't need to provide any for one particular case)?
->
-> We could still encode the parameters in the policy ID, by splitting t=
-he
-> bitmask, e.g. the low 24 bits to encode parameters, and the high 8 bi=
-ts
-> to encode the policies using the same combination of parameters.
->
-Yes, technically we could do it this way. Encoding accepted parameters =
-in=20
-policy ID would provide applications with means to check whether certai=
-n=20
-parameters are supported. But should we mix two IMO distinct concepts (=
-policy=20
-behaviour and accepted parameters) in one bitfield? I'd rather have the=
-m=20
-separated.
+This is what I have been focusing on. I'm still trying to figure out a
+good way to see if the interrupt is triggered for a specific packet
+because I have no way of determining which packet it will freeze on and
+if I put any prints in the interrupt handler or poll function it slows
+things down enough that the problem disappears.
 
-Keeping policy IDs as they are and using a bitfield for just parameters=
- could=20
-be a nice idea. It would certainly  simplify checking which parameters =
-are=20
-supported - just a simple & and =3D=3D would suffice.
---=20
-Regards,
-Tomasz Grobelny
+In the meantime I was testing why the FIONREAD ioctl made such a big
+difference and I found that if I insert a usleep(1) between the two
+receive calls, the problem does not occur. During my testing before I
+had put a usleep() between the send calls, which fixed the issue for me
+and led me to assume that an IRQ was being missed if the packets come in
+too close to each other.
+
+The fact that inserting a sleep between the two receive calls fixes the
+issue makes this seem less like a driver issue. The only hypothesis that
+I have bee able to come up with so far is that calling recv() somehow
+masks the interrupts momentarily so that if the packet comes in at
+exactly the same time as the recv or poll() is called, the system does
+not know anything about it, to the point that it does not even show on
+the packet trace. I have no idea how this could happen at this point.
+
+Thanks,
+
+Travis
+
