@@ -1,159 +1,229 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH 2/3] e1000e: make ioport free
-Date: Fri, 20 Jun 2008 11:57:02 +0900
-Message-ID: <485B1C7E.90203@jp.fujitsu.com>
-References: <485B1B8E.1060108@jp.fujitsu.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH net-next 2/8] bonding: Check return of dev_set_promiscuity/allmulti
+Date: Fri, 20 Jun 2008 10:56:07 +0800
+Message-ID: <485B1C47.2060503@cn.fujitsu.com>
+References: <485AFFD2.4090304@cn.fujitsu.com> <20080619.190724.264140435.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>,
-	auke-jan.h.kok@intel.com
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, fubar@us.ibm.com,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:37009 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751966AbYFTC5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 22:57:15 -0400
-In-Reply-To: <485B1B8E.1060108@jp.fujitsu.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:57600 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751993AbYFTDAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jun 2008 23:00:09 -0400
+In-Reply-To: <20080619.190724.264140435.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes e1000e driver ioport-free.
-This corrects behavior in probe function so as not to request ioport
-resources as long as they are not really needed.
+David Miller said the following on 2008-6-20 10:07:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Fri, 20 Jun 2008 08:54:42 +0800
+> 
+>> @@ -419,8 +419,11 @@ static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
+>>  	}
+>>  
+>>  	if (!bond->alb_info.primary_is_promisc) {
+>> -		bond->alb_info.primary_is_promisc = 1;
+>> -		dev_set_promiscuity(bond->curr_active_slave->dev, 1);
+>> +		/* dev_set_promiscuity might overflow, check it here */
+>> +		if (!dev_set_promiscuity(bond->curr_active_slave->dev, 1))
+> 
+> Like the first patch, please don't add such comments.
+> 
+>> @@ -955,6 +965,9 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active, struct
+>>  	}
+>>  
+>>  	if (new_active) {
+>> +		/* FIXME: promiscuity and allmulti might overflow,
+>> +		 * but bond_mc_swap's caller likes quiet handle.
+>> +		 */
+>>  		if (bond->dev->flags & IFF_PROMISC) {
+>>  			dev_set_promiscuity(new_active->dev, 1);
+>>  		}
+> 
+> Please reword this comment.  The issue is that this code path has no
+> mechanism to signal errors upstream.  It isn't about a specific type
+> of error condition in particular, it's about error handling capabilites
+> in general.
+> 
+>> @@ -3933,6 +3950,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
+>>  	 * Do promisc before checking multicast_mode
+>>  	 */
+>>  	if ((bond_dev->flags & IFF_PROMISC) && !(bond->flags & IFF_PROMISC)) {
+>> +		/*
+>> +		 * FIXME: If bond has multi slaves, how to handle the error
+>> +		 * when one of the slaves encounters promiscuity overflow.
+>> +		 */
+>>  		bond_set_promiscuity(bond, 1);
+>>  	}
+>>  
+> 
+> Remove specific reference to promiscuity overflow, these are generic error
+> handling issues here regardless of the types of errors that the down
+> calls could encounter.
+> 
+>> @@ -3942,6 +3963,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
+>>  
+>>  	/* set allmulti flag to slaves */
+>>  	if ((bond_dev->flags & IFF_ALLMULTI) && !(bond->flags & IFF_ALLMULTI)) {
+>> +		/*
+>> +		 * FIXME: If bond has multi slaves, how to handle the error
+>> +		 * when one of the slaves encounters allmulti overflow.
+>> +		 */
+>>  		bond_set_allmulti(bond, 1);
+>>  	}
+> 
+> Likewise.
+> 
 
-Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+dev_set_promiscuity/allmulti might overflow.
+Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
+dev_set_promiscuity/allmulti return error number if overflow happened.
+
+In bond_alb and bond_main, we check all positive increment for promiscuity
+and allmulti to get error return.
+But there are still two problems left.
+1. Some code path has no mechanism to signal errors upstream.
+2. If there are multi slaves, it's hard to tell which slaves increment
+   promisc/allmulti successfully and which failed.
+So I left these problems to be FIXME.
+Fortunately, the overflow is very rare case.
+
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
- drivers/net/e1000e/e1000.h  |    4 +++
- drivers/net/e1000e/netdev.c |   48 ++++++++++++++++++++++++++++++++++++++------
- 2 files changed, 46 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_alb.c  |    6 ++++--
+ drivers/net/bonding/bond_main.c |   39 +++++++++++++++++++++++++++++++--------
+ 2 files changed, 35 insertions(+), 10 deletions(-)
 
-Index: linux-2.6.25.7/drivers/net/e1000e/e1000.h
-===================================================================
---- linux-2.6.25.7.orig/drivers/net/e1000e/e1000.h
-+++ linux-2.6.25.7/drivers/net/e1000e/e1000.h
-@@ -266,6 +266,10 @@ struct e1000_adapter {
- 	unsigned long led_status;
-
- 	unsigned int flags;
-+
-+	/* for ioport free */
-+	int bars;
-+	int need_ioport;
- };
-
- struct e1000_info {
-Index: linux-2.6.25.7/drivers/net/e1000e/netdev.c
-===================================================================
---- linux-2.6.25.7.orig/drivers/net/e1000e/netdev.c
-+++ linux-2.6.25.7/drivers/net/e1000e/netdev.c
-@@ -3523,7 +3523,11 @@ static int e1000_resume(struct pci_dev *
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
- 	e1000e_disable_l1aspm(pdev);
--	err = pci_enable_device(pdev);
-+
-+	if (adapter->need_ioport)
-+		err = pci_enable_device(pdev);
-+	else
-+		err = pci_enable_device_mem(pdev);
- 	if (err) {
- 		dev_err(&pdev->dev,
- 			"Cannot enable PCI device from suspend\n");
-@@ -3622,9 +3626,14 @@ static pci_ers_result_t e1000_io_slot_re
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
-+	int err;
-
- 	e1000e_disable_l1aspm(pdev);
--	if (pci_enable_device(pdev)) {
-+	if (adapter->need_ioport)
-+		err = pci_enable_device(pdev);
-+	else
-+		err = pci_enable_device_mem(pdev);
-+	if (err) {
- 		dev_err(&pdev->dev,
- 			"Cannot re-enable PCI device after reset.\n");
- 		return PCI_ERS_RESULT_DISCONNECT;
-@@ -3700,6 +3709,21 @@ static void e1000_print_device_info(stru
- }
-
- /**
-+ * e1000e_is_need_ioport - determine if an adapter needs ioport resources or not
-+ * @pdev: PCI device information struct
-+ *
-+ * Returns true if an adapters needs ioport resources
-+ **/
-+static int e1000e_is_need_ioport(struct pci_dev *pdev)
-+{
-+	switch (pdev->device) {
-+	/* Currently there are no adapters that need ioport resources */
-+	default:
-+		return false;
-+	}
-+}
-+
-+/**
-  * e1000_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-  * @ent: entry in e1000_pci_tbl
-@@ -3724,9 +3748,19 @@ static int __devinit e1000_probe(struct
- 	int i, err, pci_using_dac;
- 	u16 eeprom_data = 0;
- 	u16 eeprom_apme_mask = E1000_EEPROM_APME;
-+	int bars, need_ioport;
-
- 	e1000e_disable_l1aspm(pdev);
--	err = pci_enable_device(pdev);
-+
-+	/* do not allocate ioport bars when not needed */
-+	need_ioport = e1000e_is_need_ioport(pdev);
-+	if (need_ioport) {
-+		bars = pci_select_bars(pdev, IORESOURCE_MEM | IORESOURCE_IO);
-+		err = pci_enable_device(pdev);
-+	} else {
-+		bars = pci_select_bars(pdev, IORESOURCE_MEM);
-+		err = pci_enable_device_mem(pdev);
-+	}
- 	if (err)
- 		return err;
-
-@@ -3749,7 +3783,7 @@ static int __devinit e1000_probe(struct
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 5a67372..b211486 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -419,8 +419,10 @@ static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
+ 	}
+ 
+ 	if (!bond->alb_info.primary_is_promisc) {
+-		bond->alb_info.primary_is_promisc = 1;
+-		dev_set_promiscuity(bond->curr_active_slave->dev, 1);
++		if (!dev_set_promiscuity(bond->curr_active_slave->dev, 1))
++			bond->alb_info.primary_is_promisc = 1;
++		else
++			bond->alb_info.primary_is_promisc = 0;
+ 	}
+ 
+ 	bond->alb_info.rlb_promisc_timeout_counter = 0;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 50a40e4..fa3a06d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -762,39 +762,49 @@ static struct dev_mc_list *bond_mc_list_find_dmi(struct dev_mc_list *dmi, struct
+ /*
+  * Push the promiscuity flag down to appropriate slaves
+  */
+-static void bond_set_promiscuity(struct bonding *bond, int inc)
++static int bond_set_promiscuity(struct bonding *bond, int inc)
+ {
++	int err = 0;
+ 	if (USES_PRIMARY(bond->params.mode)) {
+ 		/* write lock already acquired */
+ 		if (bond->curr_active_slave) {
+-			dev_set_promiscuity(bond->curr_active_slave->dev, inc);
++			err = dev_set_promiscuity(bond->curr_active_slave->dev,
++						  inc);
+ 		}
+ 	} else {
+ 		struct slave *slave;
+ 		int i;
+ 		bond_for_each_slave(bond, slave, i) {
+-			dev_set_promiscuity(slave->dev, inc);
++			err = dev_set_promiscuity(slave->dev, inc);
++			if (err)
++				return err;
  		}
  	}
-
--	err = pci_request_regions(pdev, e1000e_driver_name);
-+	err = pci_request_selected_regions(pdev, bars, e1000e_driver_name);
- 	if (err)
- 		goto err_pci_reg;
-
-@@ -3773,6 +3807,8 @@ static int __devinit e1000_probe(struct
- 	adapter->hw.adapter = adapter;
- 	adapter->hw.mac.type = ei->mac;
- 	adapter->msg_enable = (1 << NETIF_MSG_DRV | NETIF_MSG_PROBE) - 1;
-+	adapter->bars = bars;
-+	adapter->need_ioport = need_ioport;
-
- 	mmio_start = pci_resource_start(pdev, 0);
- 	mmio_len = pci_resource_len(pdev, 0);
-@@ -4001,7 +4037,7 @@ err_sw_init:
- err_ioremap:
- 	free_netdev(netdev);
- err_alloc_etherdev:
--	pci_release_regions(pdev);
-+	pci_release_selected_regions(pdev, bars);
- err_pci_reg:
- err_dma:
- 	pci_disable_device(pdev);
-@@ -4045,7 +4081,7 @@ static void __devexit e1000_remove(struc
- 	iounmap(adapter->hw.hw_addr);
- 	if (adapter->hw.flash_address)
- 		iounmap(adapter->hw.flash_address);
--	pci_release_regions(pdev);
-+	pci_release_selected_regions(pdev, adapter->bars);
-
- 	free_netdev(netdev);
-
-
++	return err;
+ }
+ 
+ /*
+  * Push the allmulti flag down to all slaves
+  */
+-static void bond_set_allmulti(struct bonding *bond, int inc)
++static int bond_set_allmulti(struct bonding *bond, int inc)
+ {
++	int err = 0;
+ 	if (USES_PRIMARY(bond->params.mode)) {
+ 		/* write lock already acquired */
+ 		if (bond->curr_active_slave) {
+-			dev_set_allmulti(bond->curr_active_slave->dev, inc);
++			err = dev_set_allmulti(bond->curr_active_slave->dev,
++					       inc);
+ 		}
+ 	} else {
+ 		struct slave *slave;
+ 		int i;
+ 		bond_for_each_slave(bond, slave, i) {
+-			dev_set_allmulti(slave->dev, inc);
++			err = dev_set_allmulti(slave->dev, inc);
++			if (err)
++				return err;
+ 		}
+ 	}
++	return err;
+ }
+ 
+ /*
+@@ -955,6 +965,7 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active, struct
+ 	}
+ 
+ 	if (new_active) {
++		/* FIXME: Signal errors upstream. */
+ 		if (bond->dev->flags & IFF_PROMISC) {
+ 			dev_set_promiscuity(new_active->dev, 1);
+ 		}
+@@ -1456,12 +1467,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	if (!USES_PRIMARY(bond->params.mode)) {
+ 		/* set promiscuity level to new slave */
+ 		if (bond_dev->flags & IFF_PROMISC) {
+-			dev_set_promiscuity(slave_dev, 1);
++			res = dev_set_promiscuity(slave_dev, 1);
++			if (res)
++				goto err_close;
+ 		}
+ 
+ 		/* set allmulti level to new slave */
+ 		if (bond_dev->flags & IFF_ALLMULTI) {
+-			dev_set_allmulti(slave_dev, 1);
++			res = dev_set_allmulti(slave_dev, 1);
++			if (res)
++				goto err_close;
+ 		}
+ 
+ 		netif_tx_lock_bh(bond_dev);
+@@ -3933,6 +3948,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
+ 	 * Do promisc before checking multicast_mode
+ 	 */
+ 	if ((bond_dev->flags & IFF_PROMISC) && !(bond->flags & IFF_PROMISC)) {
++		/*
++		 * FIXME: Need to handle the error when one of the multi-slaves
++		 * encounters error.
++		 */
+ 		bond_set_promiscuity(bond, 1);
+ 	}
+ 
+@@ -3942,6 +3961,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
+ 
+ 	/* set allmulti flag to slaves */
+ 	if ((bond_dev->flags & IFF_ALLMULTI) && !(bond->flags & IFF_ALLMULTI)) {
++		/*
++		 * FIXME: Need to handle the error when one of the multi-slaves
++		 * encounters error.
++		 */
+ 		bond_set_allmulti(bond, 1);
+ 	}
+ 
+-- 
+1.5.3.4
 
