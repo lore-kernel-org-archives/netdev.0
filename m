@@ -1,274 +1,136 @@
-From: Eric Miao <eric.y.miao@gmail.com>
-Subject: Re: [PATCH 5/8] smc91x: add SMC91X_IO_SHIFT* macros and make SMC_IO_SHIFT
- a variable
-Date: Fri, 20 Jun 2008 11:47:28 +0800
-Message-ID: <485B2850.5050004@gmail.com>
-References: <485A3E0B.1080505@gmail.com> <alpine.LFD.1.10.0806191223390.2982@xanadu.home>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH net-next 4/8] bridge: sysfs cleanup
+Date: Fri, 20 Jun 2008 12:48:44 +0800
+Message-ID: <485B36AC.60206@cn.fujitsu.com>
+References: <485AFFF3.6070802@cn.fujitsu.com> <20080619181945.2b242e4d@extreme> <485B133E.9080307@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Nicolas Pitre <nico@cam.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:64464 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbYFTDrj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2008 23:47:39 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so5487815rvb.1
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2008 20:47:39 -0700 (PDT)
-In-Reply-To: <alpine.LFD.1.10.0806191223390.2982@xanadu.home>
+Received: from cn.fujitsu.com ([222.73.24.84]:63423 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751945AbYFTEwu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jun 2008 00:52:50 -0400
+In-Reply-To: <485B133E.9080307@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas Pitre wrote:
-> On Thu, 19 Jun 2008, Eric Miao wrote:
-> 
->> SMC_IO_SHIFT is currently hardcoded, which makes some platforms (e.g.
->> Lubbock) unable to use the newly introduced platform data. This patch
->> introduces SMC91X_IO_SHIFT* macros and make SMC_IO_SHIFT a variable.
+Wang Chen said the following on 2008-6-20 10:17:
+> Stephen Hemminger said the following on 2008-6-20 9:19:
+>> On Fri, 20 Jun 2008 08:55:15 +0800
+>> Wang Chen <wangchen@cn.fujitsu.com> wrote:
 >>
->> Signed-off-by: Eric Miao <eric.miao@marvell.com>
-> 
-> NAK.
-> 
-> The very point of those macros is actually to optimize the IO accesses 
-> as much as possible at compile time.  By introducing a variable element 
-> in the definition of those macros (for when the driver is configured 
-> with constant params for those macros of course) you add a significant 
-> overhead to every access to the hardware, including when transferring 
-> data in and out of the chip.
-> 
-
-Contrary to expected, the result shows a slight decrease on zylonite,
-PXA310@624MHz, result shown as below:
-
-(by a simple measurement with "proc/uptime" and tftp)
-
-with SMC_IO_SHIFT being a variable
-
-trial 1: 2062776 bytes in (179.77 - 177.72 = 2.05) seconds = 1,006,232 Bps
-trial 2: 2062776 bytes in (183.00 - 180.95 = 2.05) seconds = 1,006,232 Bps
-trial 3: 2062776 bytes in (261.48 - 259.42 = 2.06) seconds = 1,001,347 Bps
-
-with SMC_IO_SHIFT being a constant
-
-trial 1: 2062776 bytes in (41.07 - 39.04 = 2.03) seconds = 1,016,145 Bps
-trial 2: 2062776 bytes in (97.19 - 95.16 = 2.03) seconds = 1,016,145 Bps
-trial 3: 2062776 bytes in (159.81 - 157.78 = 2.03) seconds = 1,016,145 Bps
-
-The statistics were stable during the test, so I generally think it's
-typical.
-
-On lubbock, PXA255@200MHz, however, the result shows a slight increase:
-
-with SMC_IO_SHIFT being a variable
-
-trial 1: 2062776 bytes in (49.42 - 42.20 = 7.22) seconds = 285,703 Bps
-trial 2: 2062776 bytes in (60.27 - 53.07 = 7.20) seconds = 286,497 Bps
-trial 3: 2062776 bytes in (141.04 - 133.84 = 7.20) seconds = 286,497 Bps
-
-with SMC_IO_SHIFT being a constant
-
-trial 1: 2062776 bytes in (58.93 - 51.62 = 7.31) seconds = 282,185 Bps
-trial 2: 2062776 bytes in (69.26 - 61.95 = 7.31) seconds = 282,185 Bps
-trial 3: 2062776 bytes in (151.58 - 144.27 = 7.31) seconds = 282,185 Bps
-
-So I'm thinking that the overhead may not be so significant as expected,
-1. control register accesses are rare compared to data register
-2. data register access is usually fixed at one address and enclosed in
-   a loop, which the compiler may well optimize
-
-> And this is very important to have the lowest overhead possible with 
-> this chip that can do 100mbps on platforms with a CPU clock almost as 
-> slow.
-> 
-
-Indeed, the overhead will be magnified on a system with slow CPU clock,
-maybe I should spend some time to have a test also. However, arguably,
-the smc91x chips are usually used as a debug ethernet on most (if not
-all) platforms, I don't think a serious design will deploy such a chip
-for performance critical application, though.
-
-> 
-> 
->> ---
->>  drivers/net/smc91x.c   |   25 ++++++++++++++-----------
->>  drivers/net/smc91x.h   |   18 ++++++++++--------
->>  include/linux/smc91x.h |    6 ++++++
->>  3 files changed, 30 insertions(+), 19 deletions(-)
->>
->> diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
->> index caa0308..85eceab 100644
->> --- a/drivers/net/smc91x.c
->> +++ b/drivers/net/smc91x.c
->> @@ -105,6 +105,8 @@ MODULE_PARM_DESC(watchdog, "transmit timeout in milliseconds");
->>  MODULE_LICENSE("GPL");
->>  MODULE_ALIAS("platform:smc91x");
->>  
->> +int smc_io_shift = SMC_IO_SHIFT;
->> +
->>  /*
->>   * The internal workings of the driver.  If you are changing anything
->>   * here with the SMC stuff, you should have the datasheet and know
->> @@ -1794,8 +1796,8 @@ static int __init smc_probe(struct net_device *dev, void __iomem *ioaddr,
->>  	 */
->>  	SMC_SELECT_BANK(lp, 1);
->>  	val = SMC_GET_BASE(lp);
->> -	val = ((val & 0x1F00) >> 3) << SMC_IO_SHIFT;
->> -	if (((unsigned int)ioaddr & (0x3e0 << SMC_IO_SHIFT)) != val) {
->> +	val = ((val & 0x1F00) >> 3) << smc_io_shift;
->> +	if (((unsigned int)ioaddr & (0x3e0 << smc_io_shift)) != val) {
->>  		printk("%s: IOADDR %p doesn't match configuration (%x).\n",
->>  			CARDNAME, ioaddr, val);
->>  	}
->> @@ -1994,9 +1996,9 @@ static int smc_enable_device(struct platform_device *pdev)
->>  	 * since a reset causes the IRQ line become active.
->>  	 */
->>  	local_irq_save(flags);
->> -	ecor = readb(addr + (ECOR << SMC_IO_SHIFT)) & ~ECOR_RESET;
->> -	writeb(ecor | ECOR_RESET, addr + (ECOR << SMC_IO_SHIFT));
->> -	readb(addr + (ECOR << SMC_IO_SHIFT));
->> +	ecor = readb(addr + (ECOR << smc_io_shift)) & ~ECOR_RESET;
->> +	writeb(ecor | ECOR_RESET, addr + (ECOR << smc_io_shift));
->> +	readb(addr + (ECOR << smc_io_shift));
->>  
->>  	/*
->>  	 * Wait 100us for the chip to reset.
->> @@ -2008,16 +2010,16 @@ static int smc_enable_device(struct platform_device *pdev)
->>  	 * reset is asserted, even if the reset bit is cleared in the
->>  	 * same write.  Must clear reset first, then enable the device.
->>  	 */
->> -	writeb(ecor, addr + (ECOR << SMC_IO_SHIFT));
->> -	writeb(ecor | ECOR_ENABLE, addr + (ECOR << SMC_IO_SHIFT));
->> +	writeb(ecor, addr + (ECOR << smc_io_shift));
->> +	writeb(ecor | ECOR_ENABLE, addr + (ECOR << smc_io_shift));
->>  
->>  	/*
->>  	 * Set the appropriate byte/word mode.
->>  	 */
->> -	ecsr = readb(addr + (ECSR << SMC_IO_SHIFT)) & ~ECSR_IOIS8;
->> +	ecsr = readb(addr + (ECSR << smc_io_shift)) & ~ECSR_IOIS8;
->>  	if (!SMC_16BIT(lp))
->>  		ecsr |= ECSR_IOIS8;
->> -	writeb(ecsr, addr + (ECSR << SMC_IO_SHIFT));
->> +	writeb(ecsr, addr + (ECSR << smc_io_shift));
->>  	local_irq_restore(flags);
->>  
->>  	iounmap(addr);
->> @@ -2136,9 +2138,10 @@ static int smc_drv_probe(struct platform_device *pdev)
->>  
->>  	lp = netdev_priv(ndev);
->>  
->> -	if (pd)
->> +	if (pd) {
->>  		memcpy(&lp->cfg, pd, sizeof(lp->cfg));
->> -	else {
->> +		smc_io_shift = SMC91X_IO_SHIFT(lp->cfg.flags);
->> +	} else {
->>  		lp->cfg.flags |= (SMC_CAN_USE_8BIT)  ? SMC91X_USE_8BIT  : 0;
->>  		lp->cfg.flags |= (SMC_CAN_USE_16BIT) ? SMC91X_USE_16BIT : 0;
->>  		lp->cfg.flags |= (SMC_CAN_USE_32BIT) ? SMC91X_USE_32BIT : 0;
->> diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
->> index 6a90400..3ce1ca4 100644
->> --- a/drivers/net/smc91x.h
->> +++ b/drivers/net/smc91x.h
->> @@ -610,6 +610,8 @@ smc_pxa_dma_irq(int dma, void *dummy)
->>  #define SMC_outsl(a, r, p, l)		BUG()
->>  #endif
->>  
->> +extern int smc_io_shift;
->> +
->>  #if ! SMC_CAN_USE_16BIT
->>  
->>  /*
->> @@ -620,13 +622,13 @@ smc_pxa_dma_irq(int dma, void *dummy)
->>  	do {								\
->>  		unsigned int __val16 = (x);				\
->>  		SMC_outb( __val16, ioaddr, reg );			\
->> -		SMC_outb( __val16 >> 8, ioaddr, reg + (1 << SMC_IO_SHIFT));\
->> +		SMC_outb( __val16 >> 8, ioaddr, reg + (1 << smc_io_shift));\
->>  	} while (0)
->>  #define SMC_inw(ioaddr, reg)						\
->>  	({								\
->>  		unsigned int __val16;					\
->>  		__val16 =  SMC_inb( ioaddr, reg );			\
->> -		__val16 |= SMC_inb( ioaddr, reg + (1 << SMC_IO_SHIFT)) << 8; \
->> +		__val16 |= SMC_inb( ioaddr, reg + (1 << smc_io_shift)) << 8; \
->>  		__val16;						\
->>  	})
->>  
->> @@ -670,7 +672,7 @@ smc_pxa_dma_irq(int dma, void *dummy)
->>  
->>  
->>  /* Because of bank switching, the LAN91x uses only 16 I/O ports */
->> -#define SMC_IO_EXTENT	(16 << SMC_IO_SHIFT)
->> +#define SMC_IO_EXTENT	(16 << smc_io_shift)
->>  #define SMC_DATA_EXTENT (4)
->>  
->>  /*
->> @@ -680,7 +682,7 @@ smc_pxa_dma_irq(int dma, void *dummy)
->>   .		xx 		= bank number
->>   .		yyyy yyyy	= 0x33, for identification purposes.
->>  */
->> -#define BANK_SELECT		(14 << SMC_IO_SHIFT)
->> +#define BANK_SELECT		(14 << smc_io_shift)
->>  
->>  
->>  // Transmit Control Register
->> @@ -1033,7 +1035,7 @@ static const char * chip_ids[ 16 ] =  {
->>  #define ECSR_PWRDWN		0x04
->>  #define ECSR_INT		0x02
->>  
->> -#define ATTRIB_SIZE		((64*1024) << SMC_IO_SHIFT)
->> +#define ATTRIB_SIZE		((64*1024) << smc_io_shift)
->>  
->>  
->>  /*
->> @@ -1058,10 +1060,10 @@ static const char * chip_ids[ 16 ] =  {
->>  				CARDNAME, __b );			\
->>  			BUG();						\
->>  		}							\
->> -		reg<<SMC_IO_SHIFT;					\
->> +		reg<<smc_io_shift;					\
->>  	})
->>  #else
->> -#define SMC_REG(lp, reg, bank)	(reg<<SMC_IO_SHIFT)
->> +#define SMC_REG(lp, reg, bank)	(reg<<smc_io_shift)
->>  #endif
->>  
->>  /*
->> @@ -1136,7 +1138,7 @@ static const char * chip_ids[ 16 ] =  {
->>  #define SMC_SELECT_BANK(lp, x)					\
->>  	do {								\
->>  		if (SMC_MUST_ALIGN_WRITE(lp))				\
->> -			SMC_outl((x)<<16, ioaddr, 12<<SMC_IO_SHIFT);	\
->> +			SMC_outl((x)<<16, ioaddr, 12<<smc_io_shift);	\
->>  		else							\
->>  			SMC_outw(x, ioaddr, BANK_SELECT);		\
->>  	} while (0)
->> diff --git a/include/linux/smc91x.h b/include/linux/smc91x.h
->> index 90434db..f77ebe1 100644
->> --- a/include/linux/smc91x.h
->> +++ b/include/linux/smc91x.h
->> @@ -7,6 +7,12 @@
->>  
->>  #define SMC91X_NOWAIT		(1 << 3)
->>  
->> +#define SMC91X_IO_SHIFT_0	(0 << 4)
->> +#define SMC91X_IO_SHIFT_1	(1 << 4)
->> +#define SMC91X_IO_SHIFT_2	(2 << 4)
->> +#define SMC91X_IO_SHIFT_3	(3 << 4)
->> +#define SMC91X_IO_SHIFT(x)	(((x) >> 4) & 0x3)
->> +
->>  struct smc91x_platdata {
->>  	unsigned long flags;
->>  };
->> -- 
->> 1.5.4.3
+>>> When I am doing this series of patch, I notice that bridge's sysfs are
+>>> not cleanuped after failure and bridge delete.
+>>>
+>>> Here is the patch for it.
+>>>
+>>> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+>> Let me look at this, I don't think it used to be a problem before the
+>> conversion from class_device to just device model.
 >>
 > 
+> But, sysfs_create_link/file will leave some junk after failing.
+> Don't we care about that?
 > 
-> Nicolas
+
+Stephen, since I changed PATCH 3/8, I have to resend a new one for
+4/8.
+But, about whether this fix is needed, we can talk.
+
+---
+Do sysfs cleanup after failure and bridge deleting.
+
+---
+ net/bridge/br_if.c       |    2 ++
+ net/bridge/br_private.h  |    2 ++
+ net/bridge/br_sysfs_if.c |   26 +++++++++++++++++++++++++-
+ 3 files changed, 29 insertions(+), 1 deletions(-)
+
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 805dbb7..5d22d23 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -161,6 +161,7 @@ static void del_br(struct net_bridge *br)
+ 	struct net_bridge_port *p, *n;
+ 
+ 	list_for_each_entry_safe(p, n, &br->port_list, list) {
++		br_sysfs_removeif(p);
+ 		del_nbp(p);
+ 	}
+ 
+@@ -434,6 +435,7 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+ 	if (!p || p->br != br)
+ 		return -EINVAL;
+ 
++	br_sysfs_removeif(p);
+ 	del_nbp(p);
+ 
+ 	spin_lock_bh(&br->lock);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index c11b554..c1bbfea 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -250,6 +250,7 @@ extern void br_ifinfo_notify(int event, struct net_bridge_port *port);
+ /* br_sysfs_if.c */
+ extern struct sysfs_ops brport_sysfs_ops;
+ extern int br_sysfs_addif(struct net_bridge_port *p);
++extern void br_sysfs_removeif(struct net_bridge_port *p);
+ 
+ /* br_sysfs_br.c */
+ extern int br_sysfs_addbr(struct net_device *dev);
+@@ -258,6 +259,7 @@ extern void br_sysfs_delbr(struct net_device *dev);
+ #else
+ 
+ #define br_sysfs_addif(p)	(0)
++#define br_sysfs_removeif(p)	do { } while (0)
+ #define br_sysfs_addbr(dev)	(0)
+ #define br_sysfs_delbr(dev)	do { } while(0)
+ #endif /* CONFIG_SYSFS */
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index 02b2d50..9e9d17c 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -226,10 +226,34 @@ int br_sysfs_addif(struct net_bridge_port *p)
+ 	for (a = brport_attrs; *a; ++a) {
+ 		err = sysfs_create_file(&p->kobj, &((*a)->attr));
+ 		if (err)
+-			goto out2;
++			goto out1;
+ 	}
+ 
+ 	err = sysfs_create_link(br->ifobj, &p->kobj, p->dev->name);
++	if (err)
++		goto out1;
++	return 0;
++out1:
++	for (a = brport_attrs; *a; ++a)
++		sysfs_remove_file(&p->kobj, &((*a)->attr));
++	sysfs_remove_link(&br->dev->dev.kobj, SYSFS_BRIDGE_PORT_LINK);
+ out2:
+ 	return err;
+ }
++
++/*
++ * Remove sysfs entries of ethernet device added to a bridge.
++ * Revert all the things be done by br_sysfs_addif().
++ */
++void br_sysfs_removeif(struct net_bridge_port *p)
++{
++	struct net_bridge *br = p->br;
++	struct brport_attribute **a;
++
++	sysfs_remove_link(&p->kobj, p->dev->name);
++
++	for (a = brport_attrs; *a; ++a)
++		sysfs_remove_file(&p->kobj, &((*a)->attr));
++
++	sysfs_remove_link(&br->dev->dev.kobj, SYSFS_BRIDGE_PORT_LINK);
++}
+-- 
+1.5.3.4
 
