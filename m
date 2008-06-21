@@ -1,58 +1,75 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Add/Delete IPv6 addresses and netlink
-Date: Fri, 20 Jun 2008 22:25:18 -0700
-Message-ID: <485C90BE.60301@candelatech.com>
-References: <48571470.7010307@candelatech.com> <20080617121821.GC20815@postel.suug.ch> <4857DC95.8000709@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Fri, 20 Jun 2008 22:46:49 -0700 (PDT)
+Message-ID: <20080620.224649.260163965.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([66.165.47.212]:36186 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750913AbYFUFZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 01:25:25 -0400
-In-Reply-To: <4857DC95.8000709@candelatech.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48712
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750985AbYFUFqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 01:46:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Greear wrote:
->
-> I'm using the 8139too driver.  I notice that it shows full link
-> speed (100-FD) when the NIC is admin down.   Maybe that is causing it 
-> to not
-> go through an expected state change?
->
-> I'll work on doing this same test with a vanilla kernel but on this 
-> hardware just in case I've
-> screwed something up somewhere...
-I just re-did this test on the latest FC8 kernel and the same problem 
-appears.
 
-ip link set eth1 down; ip -6 addr flush dev eth1;
-Nothing to flush.
-ip -6 addr add 2000::9:2/112 scope global dev eth1
-ip link set eth1 up
-ip -6 addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2000::9:2/112 scope global tentative
-       valid_lft forever preferred_lft forever
-    inet6 fe80::203:2dff:fe04:65b1/64 scope link
-       valid_lft forever preferred_lft forever
-uname -a
-Linux lanforge-65-AF 2.6.25.4-10.fc8 #1 SMP Thu May 22 23:34:09 EDT 2008 
-i686 i686 i386 GNU/Linux
+Several small fixes:
 
-I wonder if it's something to do with the 8139too driver.  Can anyone 
-else with that NIC
-confirm?
+1) SCTP length overflow fix.
 
-Thanks,
-Ben
+2) Dying network namespaces can be processed erroneously by
+   input packets, fix from Eric W. Biederman.
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
+3) Prevent and warn about dead loops in mac80211 layer, from
+   Johannes Berg.
 
+4) IPV6 socket option handling fix from Shan Wei.
 
+5) pppoe build warning fix from Stephen Hemminger
+
+6) Conformance tests show that ipv6 erroneously accepts external
+   packets with a source loopback address.  Reported by Karsten
+   Keil and final fix by YOSHIFUJI Hideaki.
+
+Please pull, thanks a lot!
+
+The following changes since commit 6d1a3fb567a728d31474636e167c324702a0c38b:
+  Patrick McHardy (1):
+        netlink: genl: fix circular locking
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+David S. Miller (1):
+      sctp: Make sure N * sizeof(union sctp_addr) does not overflow.
+
+Eric W. Biederman (1):
+      netns: Don't receive new packets in a dead network namespace.
+
+Johannes Berg (1):
+      mac80211: detect driver tx bugs
+
+Shan Wei (1):
+      ipv6: Remove options header when setsockopt's optlen is 0
+
+Stephen Hemminger (1):
+      pppoe: warning fix
+
+YOSHIFUJI Hideaki (1):
+      ipv6: Drop packets for loopback address from outside of the box.
+
+ drivers/net/pppoe.c         |    2 +-
+ include/net/ipv6.h          |    6 ++++++
+ include/net/net_namespace.h |   11 +++++++++++
+ net/core/dev.c              |    4 ++++
+ net/core/net_namespace.c    |    3 +++
+ net/ipv6/ip6_input.c        |    9 +++++++++
+ net/ipv6/ipv6_sockglue.c    |   11 +++++++----
+ net/mac80211/tx.c           |    9 ++++++++-
+ net/sctp/socket.c           |    4 +++-
+ 9 files changed, 52 insertions(+), 7 deletions(-)
