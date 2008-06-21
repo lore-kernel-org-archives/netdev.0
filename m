@@ -1,27 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pppoe: warning fix
-Date: Fri, 20 Jun 2008 21:58:17 -0700 (PDT)
-Message-ID: <20080620.215817.181759645.davem@davemloft.net>
-References: <20080620161912.56f4b557@extreme>
+Subject: [PATCH]: SCTP length validation.
+Date: Fri, 20 Jun 2008 22:12:05 -0700 (PDT)
+Message-ID: <20080620.221205.183623344.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: mostrows@earthlink.net, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, vladislav.yasevich@hp.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57847
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40237
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750949AbYFUE6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 00:58:18 -0400
-In-Reply-To: <20080620161912.56f4b557@extreme>
+	by vger.kernel.org with ESMTP id S1750913AbYFUFMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 01:12:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHNoZW1taW5nZXJAdnlhdHRhLmNvbT4NCkRhdGU6IEZy
-aSwgMjAgSnVuIDIwMDggMTY6MTk6MTIgLTA3MDANCg0KPiBGaXggd2FybmluZzoNCj4gZHJpdmVy
-cy9uZXQvcHBwb2UuYzogSW4gZnVuY3Rpb24g4oCYcHBwb2VfcmVjdm1zZ+KAmToNCj4gZHJpdmVy
-cy9uZXQvcHBwb2UuYzo5NDU6IHdhcm5pbmc6IGNvbXBhcmlzb24gb2YgZGlzdGluY3QgcG9pbnRl
-ciB0eXBlcyBsYWNrcyBhIGNhc3QNCj4gYmVjYXVzZSBza2ItPmxlbiBpcyB1bnNpZ25lZCBpbnQg
-YW5kIHRvdGFsX2xlbiBpcyBzaXplX3QNCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFN0ZXBoZW4gSGVt
-bWluZ2VyIDxzaGVtbWluZ2VyQHZ5YXR0YS5jb20+DQoNCkFwcGxpZWQsIHRoYW5rcyBTdGVwaGVu
-Lg0K
+
+I just checked in the following SCTP bug fix to net-2.6 and will make
+sure it gets into -stable as well.
+
+sctp: Make sure N * sizeof(union sctp_addr) does not overflow.
+
+As noticed by Gabriel Campana, the kmalloc() length arg
+passed in by sctp_getsockopt_local_addrs_old() can overflow
+if ->addr_num is large enough.
+
+Therefore, enforce an appropriate limit.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/sctp/socket.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index e7e3baf..0dbcde6 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4401,7 +4401,9 @@ static int sctp_getsockopt_local_addrs_old(struct sock *sk, int len,
+ 	if (copy_from_user(&getaddrs, optval, len))
+ 		return -EFAULT;
+ 
+-	if (getaddrs.addr_num <= 0) return -EINVAL;
++	if (getaddrs.addr_num <= 0 ||
++	    getaddrs.addr_num >= (INT_MAX / sizeof(union sctp_addr)))
++		return -EINVAL;
+ 	/*
+ 	 *  For UDP-style sockets, id specifies the association to query.
+ 	 *  If the id field is set to the value '0' then the locally bound
+-- 
+1.5.6
+
