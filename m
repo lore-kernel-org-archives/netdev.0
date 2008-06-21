@@ -1,108 +1,44 @@
 From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATH] tcp: fix for splice receive when used with software LRO
-Date: Sat, 21 Jun 2008 13:19:42 +0300
-Message-ID: <200806211319.42558.opurdila@ixiacom.com>
+Subject: Re: [RESEND] [PATCH] tcp: fix for splice receive when used with software LRO
+Date: Sat, 21 Jun 2008 13:32:15 +0300
+Message-ID: <200806211332.15944.opurdila@ixiacom.com>
+References: <485B4ADE.8070102@domat.com.pl> <200806210340.48479.opurdila@ixiacom.com> <20080621083900.GA2488@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_+WNXIQRBrj1NFSh"
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:4190 "EHLO
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:4055 "EHLO
 	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755841AbYFUKV7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 06:21:59 -0400
+	with ESMTP id S1751950AbYFUKdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 06:33:49 -0400
+In-Reply-To: <20080621083900.GA2488@ami.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_+WNXIQRBrj1NFSh
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Saturday 21 June 2008, Jarek Poplawski wrote:
+
+>
+> Hmm..., I hope my ack will not hinder too much...
+>
+
+No, it actually helped making this a better patch and me learning a great 
+deal.
 
 
-Hi David,
+> PS: I see this other "readability" patch seems to change even more, so
+> I'll really need some free time to figure this out.
+>
 
-Please apply to net-2.6.
+Sure, no hurry. To be honest this is a rewrite which I started to see if I 
+understand the tcp read splice path properly. It ended up being cleaner than 
+the original code so I thought I should share this - but of course being the 
+one who wrote it I am completely biased on that assessment. So if it is not 
+obviously more "readable" to someone else, than its probably not worth 
+spending too much time on it  since we already have working / tested code :)
 
 Thanks,
 tavi
-
---Boundary-00=_+WNXIQRBrj1NFSh
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="z"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="z"
-
-commit 41f5beb8a6e12e0c2588aee82ba68c46baf9d5f2
-Author: Octavian Purdila <opurdila@ixiacom.com>
-Date:   Sat Jun 21 03:17:10 2008 +0300
-
-    tcp: fix for splice receive when used with software LRO
-    
-    If an skb has nr_frags set to zero but its frag_list is not empty (as
-    it can happen if software LRO is enabled), and a previous
-    tcp_read_sock has consumed the linear part of the skb, then
-    __skb_splice_bits:
-    
-    (a) incorrectly reports an error and
-    
-    (b) forgets to update the offset to account for the linear part
-    
-    Any of the two problems will cause the subsequent __skb_splice_bits
-    call (the one that handles the frag_list skbs) to either skip data,
-    or, if the unadjusted offset is greater then the size of the next skb
-    in the frag_list, make tcp_splice_read loop forever.
-    
-    Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-    Acked-by: Jarek Poplawski <jarkao2@gmail.com>
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 1e556d3..d912982 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1290,7 +1290,6 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
- 			     unsigned int *total_len,
- 			     struct splice_pipe_desc *spd)
- {
--	unsigned int nr_pages = spd->nr_pages;
- 	unsigned int poff, plen, len, toff, tlen;
- 	int headlen, seg;
- 
-@@ -1340,7 +1339,7 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
- 		 * in going over fragments when the output is full.
- 		 */
- 		if (spd_fill_page(spd, virt_to_page(p), plen, poff, skb))
--			goto done;
-+			goto err;
- 
- 		tlen -= plen;
- 	}
-@@ -1370,17 +1369,15 @@ map_frag:
- 			break;
- 
- 		if (spd_fill_page(spd, f->page, plen, poff, skb))
--			break;
-+			goto err;
- 
- 		tlen -= plen;
- 	}
- 
--done:
--	if (spd->nr_pages - nr_pages) {
--		*offset = 0;
--		*total_len = tlen;
--		return 0;
--	}
-+	*offset = toff;
-+	*total_len = tlen;
-+
-+	return 0;
- err:
- 	return 1;
- }
-
---Boundary-00=_+WNXIQRBrj1NFSh--
