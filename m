@@ -1,52 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: SCTP length validation.
-Date: Fri, 20 Jun 2008 22:12:05 -0700 (PDT)
-Message-ID: <20080620.221205.183623344.davem@davemloft.net>
+Subject: Re: [PATCH] netns: Don't receive new packets in a dead network
+ namespace.
+Date: Fri, 20 Jun 2008 22:17:26 -0700 (PDT)
+Message-ID: <20080620.221726.82764674.davem@davemloft.net>
+References: <20080620204943.GA5068@martell.zuzino.mipt.ru>
+	<m1k5gjej5q.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, vladislav.yasevich@hp.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, den@openvz.org, xemul@openvz.org,
+	dlezcano@fr.ibm.com, benjamin.thery@bull.net, adobriyan@gmail.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40237
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46668
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750913AbYFUFMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 01:12:05 -0400
+	by vger.kernel.org with ESMTP id S1751122AbYFUFR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 01:17:26 -0400
+In-Reply-To: <m1k5gjej5q.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 20 Jun 2008 17:17:05 -0700
 
-I just checked in the following SCTP bug fix to net-2.6 and will make
-sure it gets into -stable as well.
+> Alexey Dobriyan <adobriyan@gmail.com> writes:
+> > Subject: ICMP sockets destruction vs ICMP packets oops
+ ...
+> Receiving packets while we are cleaning up a network namespace is a
+> racy proposition. It is possible when the packet arrives that we have
+> removed some but not all of the state we need to fully process it.  We
+> have the choice of either playing wack-a-mole with the cleanup routines
+> or simply dropping packets when we don't have a network namespace to
+> handle them.
+> 
+> Since the check looks inexpensive in netif_receive_skb let's just
+> drop the incoming packets.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-sctp: Make sure N * sizeof(union sctp_addr) does not overflow.
+Because of Alexey's positive test report, and the fact that it
+looks OK to me, I'm adding this to net-2.6
 
-As noticed by Gabriel Campana, the kmalloc() length arg
-passed in by sctp_getsockopt_local_addrs_old() can overflow
-if ->addr_num is large enough.
-
-Therefore, enforce an appropriate limit.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/sctp/socket.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index e7e3baf..0dbcde6 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4401,7 +4401,9 @@ static int sctp_getsockopt_local_addrs_old(struct sock *sk, int len,
- 	if (copy_from_user(&getaddrs, optval, len))
- 		return -EFAULT;
- 
--	if (getaddrs.addr_num <= 0) return -EINVAL;
-+	if (getaddrs.addr_num <= 0 ||
-+	    getaddrs.addr_num >= (INT_MAX / sizeof(union sctp_addr)))
-+		return -EINVAL;
- 	/*
- 	 *  For UDP-style sockets, id specifies the association to query.
- 	 *  If the id field is set to the value '0' then the locally bound
--- 
-1.5.6
-
+Thanks.
