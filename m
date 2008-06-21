@@ -1,61 +1,110 @@
 From: Joonwoo Park <joonwpark81@gmail.com>
-Subject: [PATCH 5/8] textsearch: fix finite state machine textsearch for handling case insensitive searching
-Date: Sat, 21 Jun 2008 00:54:15 -0700
-Message-ID: <1214034855-1358-1-git-send-email-joonwpark81@gmail.com>
+Subject: [PATCH 4/8] textsearch: fix Knuth-Morris-Pratt for case insensitive searching
+Date: Sat, 21 Jun 2008 00:54:11 -0700
+Message-ID: <1214034851-1338-1-git-send-email-joonwpark81@gmail.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	netfilter-devel <netfilter-devel@vger.kernel.org>,
 	Joonwoo Park <joonwpark81@gmail.com>
 To: Thomas Graf <tgraf@suug.ch>, Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.224]:57421 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432AbYFUHyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 03:54:32 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so6015109rvb.1
-        for <netdev@vger.kernel.org>; Sat, 21 Jun 2008 00:54:32 -0700 (PDT)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <>
 References: <>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For fsm text search, handle case insensitive parameter as -EINVAL.
+Fix Knuth-Morris-Pratt algorithm to have capability of case insensitive
+searching
 
 Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
 ---
- lib/ts_fsm.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ lib/ts_kmp.c |   28 ++++++++++++++++++++--------
+ 1 files changed, 20 insertions(+), 8 deletions(-)
 
-diff --git a/lib/ts_fsm.c b/lib/ts_fsm.c
-index af575b6..88edffe 100644
---- a/lib/ts_fsm.c
-+++ b/lib/ts_fsm.c
-@@ -257,7 +257,7 @@ found_match:
+diff --git a/lib/ts_kmp.c b/lib/ts_kmp.c
+index 3ced628..fb55d6c 100644
+--- a/lib/ts_kmp.c
++++ b/lib/ts_kmp.c
+@@ -33,6 +33,7 @@
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/string.h>
++#include <linux/ctype.h>
+ #include <linux/textsearch.h>
+ 
+ struct ts_kmp
+@@ -47,6 +48,7 @@ static unsigned int kmp_find(struct ts_config *conf, struct ts_state *state)
+ 	struct ts_kmp *kmp = ts_config_priv(conf);
+ 	unsigned int i, q = 0, text_len, consumed = state->offset;
+ 	const u8 *text;
++	const int icase = conf->icase;
+ 
+ 	for (;;) {
+ 		text_len = conf->get_next_block(consumed, &text, conf, state);
+@@ -55,9 +57,11 @@ static unsigned int kmp_find(struct ts_config *conf, struct ts_state *state)
+ 			break;
+ 
+ 		for (i = 0; i < text_len; i++) {
+-			while (q > 0 && kmp->pattern[q] != text[i])
++			while (q > 0 && kmp->pattern[q]
++			    != (icase ? toupper(text[i]) : text[i]))
+ 				q = kmp->prefix_tbl[q - 1];
+-			if (kmp->pattern[q] == text[i])
++			if (kmp->pattern[q]
++			    == (icase ? toupper(text[i]) : text[i]))
+ 				q++;
+ 			if (unlikely(q == kmp->pattern_len)) {
+ 				state->offset = consumed + i + 1;
+@@ -72,24 +76,27 @@ static unsigned int kmp_find(struct ts_config *conf, struct ts_state *state)
  }
  
- static struct ts_config *fsm_init(const void *pattern, unsigned int len,
--				     gfp_t gfp_mask)
-+				    u8 icase, gfp_t gfp_mask)
+ static inline void compute_prefix_tbl(const u8 *pattern, unsigned int len,
+-				      unsigned int *prefix_tbl)
++				      unsigned int *prefix_tbl, u8 icase)
  {
- 	int i, err = -EINVAL;
+ 	unsigned int k, q;
+ 
+ 	for (k = 0, q = 1; q < len; q++) {
+-		while (k > 0 && pattern[k] != pattern[q])
++		while (k > 0 && (icase ? toupper(pattern[k]) : pattern[k])
++		    != (icase ? toupper(pattern[q]) : pattern[q]))
+ 			k = prefix_tbl[k-1];
+-		if (pattern[k] == pattern[q])
++		if ((icase ? toupper(pattern[k]) : pattern[k])
++		    == (icase ? toupper(pattern[q]) : pattern[q]))
+ 			k++;
+ 		prefix_tbl[q] = k;
+ 	}
+ }
+ 
+ static struct ts_config *kmp_init(const void *pattern, unsigned int len,
+-				  gfp_t gfp_mask)
++				  u8 icase, gfp_t gfp_mask)
+ {
  	struct ts_config *conf;
-@@ -269,6 +269,9 @@ static struct ts_config *fsm_init(const void *pattern, unsigned int len,
- 	if (len  % sizeof(struct ts_fsm_token) || ntokens < 1)
- 		goto errout;
+ 	struct ts_kmp *kmp;
++	int i;
+ 	unsigned int prefix_tbl_len = len * sizeof(unsigned int);
+ 	size_t priv_size = sizeof(*kmp) + len + prefix_tbl_len;
  
-+	if (icase)
-+		goto errout;
-+
- 	for (i = 0; i < ntokens; i++) {
- 		struct ts_fsm_token *t = &tokens[i];
- 
-@@ -284,6 +287,7 @@ static struct ts_config *fsm_init(const void *pattern, unsigned int len,
+@@ -97,11 +104,16 @@ static struct ts_config *kmp_init(const void *pattern, unsigned int len,
  	if (IS_ERR(conf))
  		return conf;
  
 +	conf->icase = icase;
- 	fsm = ts_config_priv(conf);
- 	fsm->ntokens = ntokens;
- 	memcpy(fsm->tokens, pattern, len);
+ 	kmp = ts_config_priv(conf);
+ 	kmp->pattern_len = len;
+-	compute_prefix_tbl(pattern, len, kmp->prefix_tbl);
++	compute_prefix_tbl(pattern, len, kmp->prefix_tbl, icase);
+ 	kmp->pattern = (u8 *) kmp->prefix_tbl + prefix_tbl_len;
+-	memcpy(kmp->pattern, pattern, len);
++	if (icase)
++		for (i = 0; i < len; i++)
++			kmp->pattern[i] = toupper(((u8 *)pattern)[i]);
++	else
++		memcpy(kmp->pattern, pattern, len);
+ 
+ 	return conf;
+ }
 -- 
 1.5.4.3
 
