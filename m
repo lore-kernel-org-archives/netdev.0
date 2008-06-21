@@ -1,89 +1,53 @@
-From: Joe Eykholt <jeykholt@cisco.com>
-Subject: Re: [PATCH net-next 2/8] bonding: Check return of dev_set_promiscuity/allmulti
-Date: Sat, 21 Jun 2008 11:19:26 -0700
-Message-ID: <485D462E.3060003@cisco.com>
-References: <485AFFD2.4090304@cn.fujitsu.com> <20080619.190724.264140435.davem@davemloft.net>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 0/3] e1000,e1000e,igb: make ioport free for adapters that
+ need NO ioport resources
+Date: Sat, 21 Jun 2008 11:19:28 -0700
+Message-ID: <485D4630.1090007@intel.com>
+References: <485B1B8E.1060108@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: wangchen@cn.fujitsu.com, jgarzik@pobox.com, netdev@vger.kernel.org,
-	fubar@us.ibm.com, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>,
+	auke-jan.h.kok@intel.com,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3.cisco.com ([171.71.176.72]:26440 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365AbYFUSTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 14:19:38 -0400
-In-Reply-To: <20080619.190724.264140435.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:46036 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751730AbYFUSVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jun 2008 14:21:23 -0400
+In-Reply-To: <485B1B8E.1060108@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Wang Chen <wangchen@cn.fujitsu.com>
-> Date: Fri, 20 Jun 2008 08:54:42 +0800
+Taku Izumi wrote:
+> Hi all,
 > 
->> @@ -419,8 +419,11 @@ static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
->>  	}
->>  
->>  	if (!bond->alb_info.primary_is_promisc) {
->> -		bond->alb_info.primary_is_promisc = 1;
->> -		dev_set_promiscuity(bond->curr_active_slave->dev, 1);
->> +		/* dev_set_promiscuity might overflow, check it here */
->> +		if (!dev_set_promiscuity(bond->curr_active_slave->dev, 1))
+> Only a few Intel Gigabit Adapters need ioport resources for workaround,
+> but most do not need them. Most adapters work properly without them.
+> In the case where ioport resources are not assigned to adapters, this can
+> happen on the large system, drivers' probe function fails like the following,
+> and adapters can not be used as a result.
 > 
-> Like the first patch, please don't add such comments.
+>  e1000e 0002:22:00.0: device not available because of BAR 2 [0:1f] collisions
+>  e1000e: probe of 0002:22:00.0 failed with error -22
 > 
->> @@ -955,6 +965,9 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active, struct
->>  	}
->>  
->>  	if (new_active) {
->> +		/* FIXME: promiscuity and allmulti might overflow,
->> +		 * but bond_mc_swap's caller likes quiet handle.
->> +		 */
->>  		if (bond->dev->flags & IFF_PROMISC) {
->>  			dev_set_promiscuity(new_active->dev, 1);
->>  		}
+> These patches corrects behavior in probe function so as not to request ioport
+> resources as long as they are not really needed. These are based on the
+> ioport-free patch of e1000 driver from Auke Kok and Tomohiro Kusumi.
 > 
-> Please reword this comment.  The issue is that this code path has no
-> mechanism to signal errors upstream.  It isn't about a specific type
-> of error condition in particular, it's about error handling capabilites
-> in general.
+> * [PATCH 1/3] e1000: make ioport free
+> * [PATCH 2/3] e1000e: make ioport free
+> * [PATCH 3/3] igb: make ioport free
 
-If netdev->promiscuity overflows, shouldn't there be a WARN_ON or BUG_ON
-that catches that?  Either someone forgot to clean up, or much less likely,
-the counter needs to be widened.  It isn't necessarily the current caller's
-fault, but some indication of the problem is better than nothing.
+I think patch 2 and 3 are way too large since igb and e1000e can be totally ioport
+free at all times. There is no need to keep compatibility code for ioport in those
+drivers as it's unlikely that this will ever be needed.
 
->> @@ -3933,6 +3950,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
->>  	 * Do promisc before checking multicast_mode
->>  	 */
->>  	if ((bond_dev->flags & IFF_PROMISC) && !(bond->flags & IFF_PROMISC)) {
->> +		/*
->> +		 * FIXME: If bond has multi slaves, how to handle the error
->> +		 * when one of the slaves encounters promiscuity overflow.
->> +		 */
->>  		bond_set_promiscuity(bond, 1);
->>  	}
->>  
-> 
-> Remove specific reference to promiscuity overflow, these are generic error
-> handling issues here regardless of the types of errors that the down
-> calls could encounter.
-> 
->> @@ -3942,6 +3963,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
->>  
->>  	/* set allmulti flag to slaves */
->>  	if ((bond_dev->flags & IFF_ALLMULTI) && !(bond->flags & IFF_ALLMULTI)) {
->> +		/*
->> +		 * FIXME: If bond has multi slaves, how to handle the error
->> +		 * when one of the slaves encounters allmulti overflow.
->> +		 */
->>  		bond_set_allmulti(bond, 1);
->>  	}
-> 
-> Likewise.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So, perhaps you can remove the ioport code from those 2 drivers (e1000e/igb)
+completely and resubmit to Jeff Kirsher?
 
+Cheers,
+
+Auke
