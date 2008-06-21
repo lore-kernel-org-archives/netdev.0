@@ -1,44 +1,39 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [RESEND] [PATCH] tcp: fix for splice receive when used with software LRO
-Date: Sat, 21 Jun 2008 13:32:15 +0300
-Message-ID: <200806211332.15944.opurdila@ixiacom.com>
-References: <485B4ADE.8070102@domat.com.pl> <200806210340.48479.opurdila@ixiacom.com> <20080621083900.GA2488@ami.dom.local>
+From: Josip Rodin <joy@entuzijast.net>
+Subject: Re: bnx2_poll panicking kernel
+Date: Sat, 21 Jun 2008 13:18:42 +0200
+Message-ID: <20080621111842.GA32667@orion.carnet.hr>
+References: <20080616140454.GD5350@solarflare.com> <1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com> <20080616191354.GA11760@orion.carnet.hr> <20080616213821.GA8844@orion.carnet.hr> <20080616214829.GA9334@orion.carnet.hr> <1213659908.18055.26.camel@dell> <20080617223708.GA30292@orion.carnet.hr> <1213742842.5199.8.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>, mirrors@debian.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:4055 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751950AbYFUKdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 06:33:49 -0400
-In-Reply-To: <20080621083900.GA2488@ami.dom.local>
+Received: from orion.CARNet.hr ([161.53.160.90]:47256 "EHLO orion.carnet.hr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750790AbYFULSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jun 2008 07:18:46 -0400
 Content-Disposition: inline
+In-Reply-To: <1213742842.5199.8.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 21 June 2008, Jarek Poplawski wrote:
+On Tue, Jun 17, 2008 at 03:47:22PM -0700, Michael Chan wrote:
+> On Wed, 2008-06-18 at 00:37 +0200, Josip Rodin wrote:
+> > After applying this patch, two rsync runs went through without any problem,
+> > yay.
+> > 
+> > Yet, there were no alerts from the new printk in the patch...?
+> 
+> Please keep monitoring the printks during future rsyncs with those HTB
+> rules.  May be we're just lucky and not hitting the problem this time.
 
->
-> Hmm..., I hope my ack will not hinder too much...
->
+Still nothing after four days. I'm starting to wonder...
 
-No, it actually helped making this a better patch and me learning a great 
-deal.
+The only thing that I did that was slightly out of the ordinary was that
+I applied your patch, ran make modules and then modules_install, and then
+modprobe -r bnx2, modprobe bnx2; IOW I didn't reboot the whole kernel or
+reinitialize HTB. Should I try to do any of that?
 
-
-> PS: I see this other "readability" patch seems to change even more, so
-> I'll really need some free time to figure this out.
->
-
-Sure, no hurry. To be honest this is a rewrite which I started to see if I 
-understand the tcp read splice path properly. It ended up being cleaner than 
-the original code so I thought I should share this - but of course being the 
-one who wrote it I am completely biased on that assessment. So if it is not 
-obviously more "readable" to someone else, than its probably not worth 
-spending too much time on it  since we already have working / tested code :)
-
-Thanks,
-tavi
+-- 
+     2. That which causes joy or happiness.
