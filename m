@@ -1,51 +1,62 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: bnx2_poll panicking kernel
-Date: Sat, 21 Jun 2008 11:34:06 -0400
-Message-ID: <20080621113406.5f89ae8d.billfink@mindspring.com>
-References: <20080616140454.GD5350@solarflare.com>
-	<1551EAE59135BE47B544934E30FC4FC002AABD77@nt-irva-0751.brcm.ad.broadcom.com>
-	<20080616191354.GA11760@orion.carnet.hr>
-	<20080616213821.GA8844@orion.carnet.hr>
-	<20080616214829.GA9334@orion.carnet.hr>
-	<1213659908.18055.26.camel@dell>
-	<20080617223708.GA30292@orion.carnet.hr>
-	<1213742842.5199.8.camel@dell>
-	<20080621111842.GA32667@orion.carnet.hr>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH]: SCTP length validation.
+Date: Sat, 21 Jun 2008 11:55:19 -0400
+Message-ID: <485D2467.7020300@hp.com>
+References: <20080620.221205.183623344.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>, mirrors@debian.org
-To: Josip Rodin <joy@entuzijast.net>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:35324 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750941AbYFUPeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 11:34:16 -0400
-In-Reply-To: <20080621111842.GA32667@orion.carnet.hr>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:7930 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355AbYFUP4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 11:56:16 -0400
+In-Reply-To: <20080620.221205.183623344.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 21 Jun 2008, Josip Rodin wrote:
-
-> On Tue, Jun 17, 2008 at 03:47:22PM -0700, Michael Chan wrote:
-> > On Wed, 2008-06-18 at 00:37 +0200, Josip Rodin wrote:
-> > > After applying this patch, two rsync runs went through without any problem,
-> > > yay.
-> > > 
-> > > Yet, there were no alerts from the new printk in the patch...?
-> > 
-> > Please keep monitoring the printks during future rsyncs with those HTB
-> > rules.  May be we're just lucky and not hitting the problem this time.
+David Miller wrote:
+> I just checked in the following SCTP bug fix to net-2.6 and will make
+> sure it gets into -stable as well.
 > 
-> Still nothing after four days. I'm starting to wonder...
+> sctp: Make sure N * sizeof(union sctp_addr) does not overflow.
 > 
-> The only thing that I did that was slightly out of the ordinary was that
-> I applied your patch, ran make modules and then modules_install, and then
-> modprobe -r bnx2, modprobe bnx2; IOW I didn't reboot the whole kernel or
-> reinitialize HTB. Should I try to do any of that?
+> As noticed by Gabriel Campana, the kmalloc() length arg
+> passed in by sctp_getsockopt_local_addrs_old() can overflow
+> if ->addr_num is large enough.
+> 
+> Therefore, enforce an appropriate limit.
 
-Wouldn't the "modprobe -r bnx2" destroy the HTB info for that device?
+Hi David
 
-						-Bill
+The same vulnerability also exists in sctp_getsockopt_peer_addrs_old().
+It's a bit more difficult to trigger since there is a dependency on
+the peer being multihomed as well, but it's still possible to cause the
+overwrite.
+
+-vlad
+
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/sctp/socket.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index e7e3baf..0dbcde6 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4401,7 +4401,9 @@ static int sctp_getsockopt_local_addrs_old(struct sock *sk, int len,
+>  	if (copy_from_user(&getaddrs, optval, len))
+>  		return -EFAULT;
+>  
+> -	if (getaddrs.addr_num <= 0) return -EINVAL;
+> +	if (getaddrs.addr_num <= 0 ||
+> +	    getaddrs.addr_num >= (INT_MAX / sizeof(union sctp_addr)))
+> +		return -EINVAL;
+>  	/*
+>  	 *  For UDP-style sockets, id specifies the association to query.
+>  	 *  If the id field is set to the value '0' then the locally bound
+
