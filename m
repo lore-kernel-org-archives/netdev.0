@@ -1,51 +1,50 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/8] textsearch: fix textsearch for case insensitive searching
-Date: Sat, 21 Jun 2008 10:21:10 +0200
-Message-ID: <485CB9F6.6050601@trash.net>
-References: <> <1214034838-1270-1-git-send-email-joonwpark81@gmail.com>
+Subject: Re: [PATCH 3/8] textsearch: fix Boyer-Moore algorithm for case insensitive
+ searching
+Date: Sat, 21 Jun 2008 10:25:08 +0200
+Message-ID: <485CBAE4.4030307@trash.net>
+References: <> <1214034845-1316-1-git-send-email-joonwpark81@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
 To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1214034838-1270-1-git-send-email-joonwpark81@gmail.com>
+In-Reply-To: <1214034845-1316-1-git-send-email-joonwpark81@gmail.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Joonwoo Park wrote:
-> The function textsearch_prepare has new parameter to support case
-> insensitive searching.
-> 
-> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
-> ---
->  include/linux/textsearch.h          |    6 ++++--
->  lib/textsearch.c                    |    6 ++++--
->  net/netfilter/nf_conntrack_amanda.c |    2 +-
->  net/netfilter/xt_string.c           |    2 +-
->  net/sched/em_text.c                 |    2 +-
->  5 files changed, 11 insertions(+), 7 deletions(-)
-> 
-> diff --git a/include/linux/textsearch.h b/include/linux/textsearch.h
-> index 6f371f2..b6897f3 100644
-> --- a/include/linux/textsearch.h
-> +++ b/include/linux/textsearch.h
-> @@ -39,7 +39,7 @@ struct ts_state
->  struct ts_ops
+> @@ -75,7 +77,9 @@ static unsigned int bm_find(struct ts_config *conf, struct ts_state *state)
+>  			DEBUGP("Searching in position %d (%c)\n", 
+>  				shift, text[shift]);
+>  			for (i = 0; i < bm->patlen; i++) 
+> -			     if (text[shift-i] != bm->pattern[bm->patlen-1-i])
+> +				if ((icase ? toupper(text[shift-i])
+> +				    : text[shift-i])
+> +					!= bm->pattern[bm->patlen-1-i])
+>  				     goto next;
+>  
+>  			/* London calling... */
+> @@ -111,14 +115,18 @@ static int subpattern(u8 *pattern, int i, int j, int g)
+>  	return ret;
+>  }
+>  
+> -static void compute_prefix_tbl(struct ts_bm *bm)
+> +static void compute_prefix_tbl(struct ts_bm *bm, u8 icase)
 >  {
->  	const char		*name;
-> -	struct ts_config *	(*init)(const void *, unsigned int, gfp_t);
-> +	struct ts_config *	(*init)(const void *, unsigned int, u8, gfp_t);
+>  	int i, j, g;
+>  
+>  	for (i = 0; i < ASIZE; i++)
+>  		bm->bad_shift[i] = bm->patlen;
+> -	for (i = 0; i < bm->patlen - 1; i++)
+> +	for (i = 0; i < bm->patlen - 1; i++) {
+>  		bm->bad_shift[bm->pattern[i]] = bm->patlen - 1 - i;
+> +		if (icase)
+> +			bm->bad_shift[tolower(bm->pattern[i])]
+> +			    = bm->patlen - 1 - i;
+> +	}
 
-
-This looks fine to me, although a generic flags argument
-would prevent changing all users again next time someone
-wants to add a feature. But I'll leave that decision to
-Thomas.
-
-Thomas, since there are some netfilter patches that depend
-on the textsearch patches, do you want me to apply those as
-well (haven't reviewed them yet though)?
+You use toupper() above and tolower() here, is that correct?
