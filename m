@@ -1,40 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: /proc/net/tcp rto,ato values not scaled properly
-Date: Fri, 20 Jun 2008 22:19:06 -0700 (PDT)
-Message-ID: <20080620.221906.98088315.davem@davemloft.net>
-References: <20080620115603.5c494cab@extreme>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Add/Delete IPv6 addresses and netlink
+Date: Fri, 20 Jun 2008 22:25:18 -0700
+Message-ID: <485C90BE.60301@candelatech.com>
+References: <48571470.7010307@candelatech.com> <20080617121821.GC20815@postel.suug.ch> <4857DC95.8000709@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: NetDev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46676
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751144AbYFUFTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 01:19:07 -0400
-In-Reply-To: <20080620115603.5c494cab@extreme>
+Received: from mail.candelatech.com ([66.165.47.212]:36186 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbYFUFZZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 01:25:25 -0400
+In-Reply-To: <4857DC95.8000709@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 20 Jun 2008 11:56:03 -0700
+Ben Greear wrote:
+>
+> I'm using the 8139too driver.  I notice that it shows full link
+> speed (100-FD) when the NIC is admin down.   Maybe that is causing it 
+> to not
+> go through an expected state change?
+>
+> I'll work on doing this same test with a vanilla kernel but on this 
+> hardware just in case I've
+> screwed something up somewhere...
+I just re-did this test on the latest FC8 kernel and the same problem 
+appears.
 
-> I found another case where we are sending information to userspace
-> in the wrong HZ scale.  This should have been fixed back in 2.5 :-(
-> 
-> This means an ABI change but as it stands there is no way for an application
-> like ss to get the right value.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+ip link set eth1 down; ip -6 addr flush dev eth1;
+Nothing to flush.
+ip -6 addr add 2000::9:2/112 scope global dev eth1
+ip link set eth1 up
+ip -6 addr show dev eth1
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+    inet6 2000::9:2/112 scope global tentative
+       valid_lft forever preferred_lft forever
+    inet6 fe80::203:2dff:fe04:65b1/64 scope link
+       valid_lft forever preferred_lft forever
+uname -a
+Linux lanforge-65-AF 2.6.25.4-10.fc8 #1 SMP Thu May 22 23:34:09 EDT 2008 
+i686 i686 i386 GNU/Linux
 
-Please fix these warnings and resubmit:
+I wonder if it's something to do with the 8139too driver.  Can anyone 
+else with that NIC
+confirm?
 
-net/ipv4/tcp_ipv4.c: In function 'get_tcp4_sock':
-net/ipv4/tcp_ipv4.c:2311: warning: format '%u' expects type 'unsigned int', but argument 19 has type 'clock_t'
-net/ipv4/tcp_ipv4.c:2311: warning: format '%u' expects type 'unsigned int', but argument 20 has type 'clock_t'
-net/ipv6/tcp_ipv6.c: In function 'get_tcp6_sock':
-net/ipv6/tcp_ipv6.c:2059: warning: format '%u' expects type 'unsigned int', but argument 25 has type 'clock_t'
-net/ipv6/tcp_ipv6.c:2059: warning: format '%u' expects type 'unsigned int', but argument 26 has type 'clock_t'
+Thanks,
+Ben
 
-Thanks!
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
