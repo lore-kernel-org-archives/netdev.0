@@ -1,31 +1,108 @@
-From: "Mark Ryden" <markryde@gmail.com>
-Subject: Re: [PATCH] pppoe: warning fix
-Date: Sat, 21 Jun 2008 12:26:57 +0300
-Message-ID: <dac45060806210226r6cd63ef8na10a92eedf8d1506@mail.gmail.com>
-References: <20080620161912.56f4b557@extreme>
-	 <20080620.215817.181759645.davem@davemloft.net>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [PATH] tcp: fix for splice receive when used with software LRO
+Date: Sat, 21 Jun 2008 13:19:42 +0300
+Message-ID: <200806211319.42558.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mostrows@earthlink.net,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_+WNXIQRBrj1NFSh"
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.226]:45706 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265AbYFUJ06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 05:26:58 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so6039481rvb.1
-        for <netdev@vger.kernel.org>; Sat, 21 Jun 2008 02:26:57 -0700 (PDT)
-In-Reply-To: <20080620.215817.181759645.davem@davemloft.net>
-Content-Disposition: inline
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:4190 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755841AbYFUKV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 06:21:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-David, it seemed that your reply has no text inside !
+--Boundary-00=_+WNXIQRBrj1NFSh
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-MR
 
-On Sat, Jun 21, 2008 at 7:58 AM, David Miller <davem@davemloft.net> wrote:
->
+Hi David,
+
+Please apply to net-2.6.
+
+Thanks,
+tavi
+
+--Boundary-00=_+WNXIQRBrj1NFSh
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="z"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="z"
+
+commit 41f5beb8a6e12e0c2588aee82ba68c46baf9d5f2
+Author: Octavian Purdila <opurdila@ixiacom.com>
+Date:   Sat Jun 21 03:17:10 2008 +0300
+
+    tcp: fix for splice receive when used with software LRO
+    
+    If an skb has nr_frags set to zero but its frag_list is not empty (as
+    it can happen if software LRO is enabled), and a previous
+    tcp_read_sock has consumed the linear part of the skb, then
+    __skb_splice_bits:
+    
+    (a) incorrectly reports an error and
+    
+    (b) forgets to update the offset to account for the linear part
+    
+    Any of the two problems will cause the subsequent __skb_splice_bits
+    call (the one that handles the frag_list skbs) to either skip data,
+    or, if the unadjusted offset is greater then the size of the next skb
+    in the frag_list, make tcp_splice_read loop forever.
+    
+    Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+    Acked-by: Jarek Poplawski <jarkao2@gmail.com>
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 1e556d3..d912982 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1290,7 +1290,6 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+ 			     unsigned int *total_len,
+ 			     struct splice_pipe_desc *spd)
+ {
+-	unsigned int nr_pages = spd->nr_pages;
+ 	unsigned int poff, plen, len, toff, tlen;
+ 	int headlen, seg;
+ 
+@@ -1340,7 +1339,7 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+ 		 * in going over fragments when the output is full.
+ 		 */
+ 		if (spd_fill_page(spd, virt_to_page(p), plen, poff, skb))
+-			goto done;
++			goto err;
+ 
+ 		tlen -= plen;
+ 	}
+@@ -1370,17 +1369,15 @@ map_frag:
+ 			break;
+ 
+ 		if (spd_fill_page(spd, f->page, plen, poff, skb))
+-			break;
++			goto err;
+ 
+ 		tlen -= plen;
+ 	}
+ 
+-done:
+-	if (spd->nr_pages - nr_pages) {
+-		*offset = 0;
+-		*total_len = tlen;
+-		return 0;
+-	}
++	*offset = toff;
++	*total_len = tlen;
++
++	return 0;
+ err:
+ 	return 1;
+ }
+
+--Boundary-00=_+WNXIQRBrj1NFSh--
