@@ -1,28 +1,41 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: [PATCH 0/8] textsearch: case insensitive pattern matching for netfilter
-Date: Sat, 21 Jun 2008 00:54:55 -0700
-Message-ID: <b25c3fa70806210054o74a46068ifa3b396662080265@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, "Thomas Graf" <tgraf@suug.ch>,
-	"Pablo Neira Ayuso" <pablo@netfilter.org>,
-	"David Miller" <davem@davemloft.net>
-To: "Patrick McHardy" <kaber@trash.net>
+From: Joonwoo Park <joonwpark81@gmail.com>
+Subject: [PATCH 7/8] textsearch: convert kmalloc + memset to kzalloc
+Date: Sat, 21 Jun 2008 00:54:21 -0700
+Message-ID: <1214034861-1398-1-git-send-email-joonwpark81@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	Joonwoo Park <joonwpark81@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <>
+References: <>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Convert kmalloc + memset to kzalloc for alloc_ts_config
 
-This patchset aim at supporting case insensitive text search for netfilter
-string extension.
-It contains fixing of Boyer-Moore algorithm and Knuth-Morris-Pratt algorithm.
-Also this includes bug fixing of Boyer-Moore algorithm.
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+---
+ include/linux/textsearch.h |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Please consider applying this patchset.
+diff --git a/include/linux/textsearch.h b/include/linux/textsearch.h
+index b6897f3..4341406 100644
+--- a/include/linux/textsearch.h
++++ b/include/linux/textsearch.h
+@@ -164,11 +164,10 @@ static inline struct ts_config *alloc_ts_config(size_t payload,
+ {
+ 	struct ts_config *conf;
+ 
+-	conf = kmalloc(TS_PRIV_ALIGN(sizeof(*conf)) + payload, gfp_mask);
++	conf = kzalloc(TS_PRIV_ALIGN(sizeof(*conf)) + payload, gfp_mask);
+ 	if (conf == NULL)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	memset(conf, 0, TS_PRIV_ALIGN(sizeof(*conf)) + payload);
+ 	return conf;
+ }
+ 
+-- 
+1.5.4.3
 
-Thanks,
-Joonwoo
