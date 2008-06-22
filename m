@@ -1,7 +1,8 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 09/25] netns ct: get proper netns from netdevice
-Date: Sun, 22 Jun 2008 05:08:21 +0400
-Message-ID: <20080622010821.GJ5392@martell.zuzino.mipt.ru>
+Subject: [PATCH 10/25] netns ct: fix ip_route_me_harder() for REEJCT, NAT
+	et al
+Date: Sun, 22 Jun 2008 05:09:20 +0400
+Message-ID: <20080622010920.GK5392@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -13,55 +14,60 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Get netns from skb->dev on input, from skb->dst->dev on output to know
-where to create or search for conntrack.
+ip_route_me_harder() is called on output codepaths:
+1) IPVS: honestly, not sure, it can be called during forwarding
+2) IPv4 REJECT: refreshing comment re skb->dst is valid
+	and assigment of skb->dst right before call :^)
+3) NAT: called in LOCAL_OUT hook
+4) iptable_mangle: LOCAL_OUT hook
+5) nf_ip_reroute(): LOCAL_OUT hook (no clue about queueing packets to luserspace)
 
-Is there some documentation re which device accessible from skb is valid
-at which point?
+P.S.: IPv6 version is also called by mangling code on input, what's the story
+      behind this discrepancy?
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/netfilter/nf_conntrack_core.c |   12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
+ net/ipv4/netfilter.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -29,7 +29,7 @@
- #include <linux/netdevice.h>
- #include <linux/socket.h>
- #include <linux/mm.h>
--
-+#include <net/dst.h>
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_l3proto.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
-@@ -615,6 +615,8 @@ resolve_normal_ct(struct sk_buff *skb,
- 		  int *set_reply,
- 		  enum ip_conntrack_info *ctinfo)
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -12,6 +12,7 @@
+ /* route_me_harder function, used by iptable_nat, iptable_mangle + ip_queue */
+ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
  {
-+	struct net_device *dev;
-+	struct net *net;
- 	struct nf_conntrack_tuple tuple;
- 	struct nf_conntrack_tuple_hash *h;
- 	struct nf_conn *ct;
-@@ -626,10 +628,14 @@ resolve_normal_ct(struct sk_buff *skb,
- 		return NULL;
- 	}
++	struct net *net = dev_net(skb->dst->dev);
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct rtable *rt;
+ 	struct flowi fl = {};
+@@ -19,7 +20,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
+ 	unsigned int hh_len;
+ 	unsigned int type;
  
-+	dev = skb->dev;
-+	if (!dev)
-+		dev = skb->dst->dev;
-+	net = dev_net(dev);
- 	/* look for tuple match */
--	h = nf_conntrack_find_get(&init_net, &tuple);
-+	h = nf_conntrack_find_get(net, &tuple);
- 	if (!h) {
--		h = init_conntrack(&init_net, &tuple, l3proto, l4proto, skb, dataoff);
-+		h = init_conntrack(net, &tuple, l3proto, l4proto, skb, dataoff);
- 		if (!h)
- 			return NULL;
- 		if (IS_ERR(h))
+-	type = inet_addr_type(&init_net, iph->saddr);
++	type = inet_addr_type(net, iph->saddr);
+ 	if (addr_type == RTN_UNSPEC)
+ 		addr_type = type;
+ 
+@@ -33,7 +34,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
+ 		fl.nl_u.ip4_u.tos = RT_TOS(iph->tos);
+ 		fl.oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
+ 		fl.mark = skb->mark;
+-		if (ip_route_output_key(&init_net, &rt, &fl) != 0)
++		if (ip_route_output_key(net, &rt, &fl) != 0)
+ 			return -1;
+ 
+ 		/* Drop old route. */
+@@ -43,7 +44,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
+ 		/* non-local src, find valid iif to satisfy
+ 		 * rp-filter when calling ip_route_input. */
+ 		fl.nl_u.ip4_u.daddr = iph->saddr;
+-		if (ip_route_output_key(&init_net, &rt, &fl) != 0)
++		if (ip_route_output_key(net, &rt, &fl) != 0)
+ 			return -1;
+ 
+ 		odst = skb->dst;
 -- 
 1.5.4.5
 
