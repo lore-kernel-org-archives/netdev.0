@@ -1,38 +1,52 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: RFC: always enable MAC80211_RC_PID?
-Date: Sun, 22 Jun 2008 20:34:10 +0530
-Message-ID: <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com>
-References: <20080622125553.GB22539@cs181133002.pp.htv.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: SCTP length validation.
+Date: Sun, 22 Jun 2008 12:32:32 -0700 (PDT)
+Message-ID: <20080622.123232.71141502.davem@davemloft.net>
+References: <20080620.221205.183623344.davem@davemloft.net>
+	<485D2467.7020300@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Adrian Bunk" <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080622125553.GB22539-Aar9JVdAhcRoA3hw4S0G5QR5/fbUUdgG@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: vladislav.yasevich@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45770
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753995AbYFVTcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2008 15:32:32 -0400
+In-Reply-To: <485D2467.7020300@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 22, 2008 at 6:25 PM, Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org> wrote:
-> After the scheduled removal of MAC80211_RC_SIMPLE only
-> MAC80211_RC_DEFAULT_PID and MAC80211_RC_DEFAULT_NONE are
-> left as choices.
->
-> Does MAC80211_RC_DEFAULT_NONE have any userbase serious enough to
-> justify all the constructs made for this case or could we simply
-> always enable MAC80211_RC_PID?
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Sat, 21 Jun 2008 11:55:19 -0400
 
-You can currently only get away living without it if you are just
-using iwl3945 or iwl4965 as they provide their own rate control
-algorithms. In the future if other vendor drivers are added with their
-own rate control algorithm this list grows. Disabling PID will save
-you some space only on some embedded platforms. Although currently its
-not evident people would do this I do see this being a reasonable
-option to keep around for later.
+> The same vulnerability also exists in sctp_getsockopt_peer_addrs_old().
+> It's a bit more difficult to trigger since there is a dependency on
+> the peer being multihomed as well, but it's still possible to cause the
+> overwrite.
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I can't see how that's possible.  This case looks harmless to
+me.
+
+The kernel side accesses are perfectly protected.  The kernel
+will only access the actual address list stored via:
+
+	list_for_each_entry(from, &asoc->peer.transport_addr_list,
+				transports) {
+ ...
+		cnt ++;
+		if (cnt >= getaddrs.addr_num) break;
+	}
+	getaddrs.addr_num = cnt;
+
+Copies are only made to userspace, and the given ->addr_num only
+serves as an early break-out from that loop.  I mean, take a look,
+those lines in the above are the only aaccesses made to the user's
+provided addr_num value.
+
+There is no possibility to use strange ->addr_num values
+in order to read or write kernel memory outside of the
+intended bounds.
+
+I don't even see any value to adding new checks here.
