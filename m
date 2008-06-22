@@ -1,67 +1,35 @@
-From: WANG Cong <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch] net/sched/sch_generic.c: fix an error pointer
-Date: Sat, 21 Jun 2008 20:55:26 +0100
-Message-ID: <20080621195526.GA25715@hack.netcabo.pt>
-References: <20080619153714.5614d5be@hack> <20080619.161108.23678497.davem@davemloft.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 00/25] Conntracking and NAT in netns
+Date: Sun, 22 Jun 2008 04:59:16 +0400
+Message-ID: <20080622005916.GA5392@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: wcong@critical-links.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.245]:28245 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752222AbYFUT55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 15:57:57 -0400
-Received: by an-out-0708.google.com with SMTP id d40so412900and.103
-        for <netdev@vger.kernel.org>; Sat, 21 Jun 2008 12:57:57 -0700 (PDT)
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	den@openvz.org, xemul@openvz.org, ebiederm@xmission.com,
+	benjamin.thery@bull.net, dlezcano@fr.ibm.com
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20080619.161108.23678497.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 19, 2008 at 04:11:08PM -0700, David Miller wrote:
->From: WANG Cong <wcong@critical-links.com>
->Date: Thu, 19 Jun 2008 15:37:14 +0100
->
->> ERR_PTR() ususally encodes an negative errno, not positive.
->> 
->> Note, in the following patch, 'err' is initialized as:
->> 
->> int err = -ENOBUFS;
->> 
->> Signed-off-by: WANG Cong <wcong@critical-links.com>
->
->Patch is whitespace corruped and line wrapped by your
->email client.
->
->Please fix this and resubmit, thank you.
+Hi, patchbomb below makes significant parts of connection tracking and
+NAT code usable in netns and independent from other netns.
 
-I am very sorry for this. Resend it with mutt. :-)
+Status is that it is lightly tested but more or less works, I used it on
+a box which provides NAT for another with all netdevices moved to netns,
+routing and iptables rules set up and rules flushed in init_net.
 
---------------->
+So far so good.
 
-ERR_PTR() ususally encodes an negative errno, not positive.
+Weak points:
+a) races during netns destruction or conntrack modules unload
+   (see more in patches)
+b) grabbing netns from skb->dev or skb->dst->dev
+   these places should be checked with extreme scrunity :-\
+c) some stuff not converted (pptp, h323) -- it's like 10 minutes to make
+   a patch and full day to setup and test it :^)
+d) IPv6 conntracking wasn't tested.
+e) ordering probably should be redone (or it shouldn't since netfilter
+   is banned in netns as is, so nobody will care)
 
-Note, in the following patch, 'err' is initialized as:
-
-int err = -ENOBUFS;
-
-Signed-off-by: WANG Cong <wcong@critical-links.com>
-Cc: David Miller <davem@davemloft.net>
-Cc:  Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-
----
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index d355e5e..13afa72 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -468,7 +468,7 @@ struct Qdisc *qdisc_alloc(struct net_device *dev, struct Qdisc_ops *ops)
- 
- 	return sch;
- errout:
--	return ERR_PTR(-err);
-+	return ERR_PTR(err);
- }
- 
- struct Qdisc * qdisc_create_dflt(struct net_device *dev, struct Qdisc_ops *ops,
