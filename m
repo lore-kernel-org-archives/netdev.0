@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 00/25] Conntracking and NAT in netns
-Date: Sun, 22 Jun 2008 04:59:16 +0400
-Message-ID: <20080622005916.GA5392@martell.zuzino.mipt.ru>
+Subject: [PATCH 02/25] netns ct: export netns list
+Date: Sun, 22 Jun 2008 05:00:39 +0400
+Message-ID: <20080622010039.GC5392@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -13,23 +13,27 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, patchbomb below makes significant parts of connection tracking and
-NAT code usable in netns and independent from other netns.
+Connection tracking code will use it for
+a) nuking expectations and helpers when module is removed, and
+b) removing conntracks when L3 protocol conntrack module is removed
 
-Status is that it is lightly tested but more or less works, I used it on
-a box which provides NAT for another with all netdevices moved to netns,
-routing and iptables rules set up and rules flushed in init_net.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-So far so good.
+ net/core/net_namespace.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Weak points:
-a) races during netns destruction or conntrack modules unload
-   (see more in patches)
-b) grabbing netns from skb->dev or skb->dst->dev
-   these places should be checked with extreme scrunity :-\
-c) some stuff not converted (pptp, h323) -- it's like 10 minutes to make
-   a patch and full day to setup and test it :^)
-d) IPv6 conntracking wasn't tested.
-e) ordering probably should be redone (or it shouldn't since netfilter
-   is banned in netns as is, so nobody will care)
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -18,6 +18,7 @@ static struct list_head *first_device = &pernet_list;
+ static DEFINE_MUTEX(net_mutex);
+ 
+ LIST_HEAD(net_namespace_list);
++EXPORT_SYMBOL_GPL(net_namespace_list);
+ 
+ struct net init_net;
+ EXPORT_SYMBOL(init_net);
+-- 
+1.5.4.5
+
 
