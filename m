@@ -1,191 +1,76 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 24/25] netns ct: make per-netns some sysctls
-Date: Sun, 22 Jun 2008 05:21:32 +0400
-Message-ID: <20080622012132.GZ5392@martell.zuzino.mipt.ru>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: data received but not detected
+Date: Sun, 22 Jun 2008 10:16:14 +0100
+Message-ID: <485E185E.1090807@katalix.com>
+References: <1213740538.5771.192.camel@localhost.localdomain>	 <48583B37.5070708@candelatech.com>	 <1213743506.5771.220.camel@localhost.localdomain>	 <48584CAD.6010509@candelatech.com> <1213915992.9245.71.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	den@openvz.org, xemul@openvz.org, ebiederm@xmission.com,
-	benjamin.thery@bull.net, dlezcano@fr.ibm.com
-To: kaber@trash.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Travis Stratman <tstratman@emacinc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:8740 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751986AbYFVBZp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2008 21:25:45 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so245896ugf.16
-        for <netdev@vger.kernel.org>; Sat, 21 Jun 2008 18:25:44 -0700 (PDT)
-Content-Disposition: inline
+Received: from s36.avahost.net ([74.53.95.194]:33061 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751326AbYFVJQU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Jun 2008 05:16:20 -0400
+In-Reply-To: <1213915992.9245.71.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net.nf_conntrack_max
-net.nf_conntrack_count
-net.nf_conntrack_expect_max
+Travis Stratman wrote:
+> I was able to do some more extensive testing today with the macb (atmel
+> Eternet MAC controller) driver and noticed that the
+> netif_rx_schedule_prep function is returning false at times in the
+> interrupt handler. In the code below, the printk shows up during heavy
+> traffic, though it only happens a handful of times. (The else block is
+> code that I have added to the driver while debugging).
+> 
+> if (status & MACB_RX_INT_FLAGS) {
+>     if (netif_rx_schedule_prep(dev)) {
+>     /*
+>      * There's no point taking any more interrupts
+>      * until we have processed the buffers
+>      */
+>         macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
+>         dev_dbg(&bp->pdev->dev, "scheduling RX softirq\n");
+>         __netif_rx_schedule(dev);
+>     } else {
+>         printk(KERN_ERR "%s: Driver bug: interrupt while in polling mode\n", dev->name);
+>         /* disable interrupts */
+>         macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
+>     }
+> }
+> 
+>>From what I can tell of this function, it should only return false if
+> polling is already enabled for the interface (though I haven't looked
+> much deeper than the inline for netif_rx_schedule_prep()).
+> 
+> I went through the poll function, and actually rewrote the whole thing
+> according to the guidelines in the NAPI documentation, and I can't see
+> anyway for it to get out of poll with interrupts enabled without first
+> removing itself from the polling list.
+> 
+> Can someone who knows more about this give me some more insight into
+> what might be happening here? I can post the poll function or a patch to
+> macb.c if it would be helpful.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+I looked at macb.c and can see that it uses napi only for rx work, 
+leaving tx interrupts enabled at all times. The interrupt handler reads 
+the device interrupt status when a tx interrupt happens and may find rx 
+bits also set. As a result, your netif_rx_schedule_prep() will sometimes 
+return false because napi might be already scheduled. The code you have 
+above (i.e. the "driver bug" case) is wrong.
 
- include/net/netns/conntrack.h           |    5 ++
- net/netfilter/nf_conntrack_standalone.c |   78 +++++++++++++++++++++-----------
- 2 files changed, 57 insertions(+), 26 deletions(-)
+The napi code in the in-tree version looks suspect because it seems to 
+enable rx interrupts unconditionally regardless of whether napi rx 
+processing is complete.
 
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -4,6 +4,8 @@
- #include <linux/list.h>
- #include <asm/atomic.h>
- 
-+struct ctl_table_header;
-+
- struct netns_ct {
- 	atomic_t		count;
- 	int			max;
-@@ -14,5 +16,8 @@ struct netns_ct {
- 	struct hlist_head	*expect_hash;
- 	int			expect_vmalloc;
- 	struct hlist_head	unconfirmed;
-+#ifdef CONFIG_SYSCTL
-+	struct ctl_table_header	*sysctl_header;
-+#endif
- };
- #endif
---- a/net/netfilter/nf_conntrack_standalone.c
-+++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -338,8 +338,6 @@ EXPORT_SYMBOL_GPL(nf_conntrack_checksum);
- static int log_invalid_proto_min = 0;
- static int log_invalid_proto_max = 255;
- 
--static struct ctl_table_header *nf_ct_sysctl_header;
--
- static ctl_table nf_ct_sysctl_table[] = {
- 	{
- 		.ctl_name	= NET_NF_CONNTRACK_MAX,
-@@ -422,29 +420,65 @@ static struct ctl_path nf_ct_path[] = {
- 
- EXPORT_SYMBOL_GPL(nf_ct_log_invalid);
- 
--static int nf_conntrack_standalone_init_sysctl(void)
-+static int nf_conntrack_standalone_init_sysctl(struct net *net)
- {
--	nf_ct_sysctl_header =
--		register_sysctl_paths(nf_ct_path, nf_ct_netfilter_table);
--	if (nf_ct_sysctl_header == NULL) {
-+	struct ctl_table *table_nf, *table_ct;
-+
-+	table_nf = nf_ct_netfilter_table;
-+	table_ct = nf_ct_sysctl_table;
-+	if (net != &init_net) {
-+		table_nf = kmemdup(table_nf, sizeof(nf_ct_netfilter_table),
-+				   GFP_KERNEL);
-+		if (!table_nf)
-+			goto out_kmemdup_nf;
-+		table_ct = kmemdup(table_ct, sizeof(nf_ct_sysctl_table),
-+				   GFP_KERNEL);
-+		if (!table_ct)
-+			goto out_kmemdup_ct;
-+
-+		table_nf[0].child = table_ct;
-+		table_ct[0].data = &net->ct.max;
-+		table_ct[1].data = &net->ct.count;
-+		table_ct[5].data = &net->ct.expect_max;
-+		table_nf[1].data = &net->ct.max;
-+	}
-+	net->ct.sysctl_header =
-+		register_net_sysctl_table(net, nf_ct_path, table_nf);
-+	if (net->ct.sysctl_header == NULL) {
- 		printk("nf_conntrack: can't register to sysctl.\n");
--		return -ENOMEM;
-+		goto out_register;
- 	}
- 	return 0;
- 
-+out_register:
-+	if (net != &init_net)
-+		kfree(table_ct);
-+out_kmemdup_ct:
-+	if (net != &init_net)
-+		kfree(table_nf);
-+out_kmemdup_nf:
-+	return -ENOMEM;
- }
- 
--static void nf_conntrack_standalone_fini_sysctl(void)
-+static void nf_conntrack_standalone_fini_sysctl(struct net *net)
- {
--	unregister_sysctl_table(nf_ct_sysctl_header);
-+	struct ctl_table *table_nf, *table_ct;
-+
-+	table_nf = net->ct.sysctl_header->ctl_table_arg;
-+	table_ct = table_nf->child;
-+	unregister_net_sysctl_table(net->ct.sysctl_header);
-+	if (net != &init_net) {
-+		kfree(table_ct);
-+		kfree(table_nf);
-+	}
- }
- #else
--static int nf_conntrack_standalone_init_sysctl(void)
-+static int nf_conntrack_standalone_init_sysctl(struct net *net)
- {
- 	return 0;
- }
- 
--static void nf_conntrack_standalone_fini_sysctl(void)
-+static void nf_conntrack_standalone_fini_sysctl(struct net *net)
- {
- }
- #endif /* CONFIG_SYSCTL */
-@@ -459,8 +493,13 @@ static int nf_conntrack_net_init(struct net *net)
- 	ret = nf_conntrack_standalone_init_proc(net);
- 	if (ret < 0)
- 		goto out_proc;
-+	ret = nf_conntrack_standalone_init_sysctl(net);
-+	if (ret < 0)
-+		goto out_sysctl;
- 	return 0;
- 
-+out_sysctl:
-+	nf_conntrack_standalone_fini_proc(net);
- out_proc:
- 	nf_conntrack_cleanup(net);
- out_init:
-@@ -469,6 +508,7 @@ out_init:
- 
- static void nf_conntrack_net_exit(struct net *net)
- {
-+	nf_conntrack_standalone_fini_sysctl(net);
- 	nf_conntrack_standalone_fini_proc(net);
- 	nf_conntrack_cleanup(net);
- }
-@@ -480,25 +520,11 @@ static struct pernet_operations nf_conntrack_net_ops = {
- 
- static int __init nf_conntrack_standalone_init(void)
- {
--	int ret;
--
--	ret = register_pernet_subsys(&nf_conntrack_net_ops);
--	if (ret < 0)
--		goto out;
--	ret = nf_conntrack_standalone_init_sysctl();
--	if (ret < 0)
--		goto out_sysctl;
--	return 0;
--
--out_sysctl:
--	unregister_pernet_subsys(&nf_conntrack_net_ops);
--out:
--	return ret;
-+	return register_pernet_subsys(&nf_conntrack_net_ops);
- }
- 
- static void __exit nf_conntrack_standalone_fini(void)
- {
--	nf_conntrack_standalone_fini_sysctl();
- 	unregister_pernet_subsys(&nf_conntrack_net_ops);
- }
- 
+It might help to post a patch here showing all of your changes.
+
+
 -- 
-1.5.4.5
-
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
