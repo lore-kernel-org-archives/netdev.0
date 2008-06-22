@@ -1,51 +1,55 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 00/25] Conntracking and NAT in netns
-Date: Mon, 23 Jun 2008 01:54:21 +0400
-Message-ID: <20080622215420.GA4076@martell.zuzino.mipt.ru>
-References: <20080622005916.GA5392@martell.zuzino.mipt.ru> <485EC724.1030005@fr.ibm.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [RESEND PATCH 1/3] e1000e: set CONFIG_E1000E=y in x86 defconfigs
+Date: Sun, 22 Jun 2008 15:20:15 -0700
+Message-ID: <20080622221916.5907.79563.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, den@openvz.org, xemul@openvz.org,
-	ebiederm@xmission.com, benjamin.thery@bull.net
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:9782 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756577AbYFVV6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2008 17:58:30 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so381326ugf.16
-        for <netdev@vger.kernel.org>; Sun, 22 Jun 2008 14:58:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <485EC724.1030005@fr.ibm.com>
+Received: from mga14.intel.com ([143.182.124.37]:25011 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753658AbYFVWUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Jun 2008 18:20:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 22, 2008 at 11:41:56PM +0200, Daniel Lezcano wrote:
-> Alexey Dobriyan wrote:
->> Hi, patchbomb below makes significant parts of connection tracking and
->> NAT code usable in netns and independent from other netns.
->> Status is that it is lightly tested but more or less works, I used it on
->> a box which provides NAT for another with all netdevices moved to netns,
->> routing and iptables rules set up and rules flushed in init_net.
->> So far so good.
->> Weak points:
->> a) races during netns destruction or conntrack modules unload
->>    (see more in patches)
->> b) grabbing netns from skb->dev or skb->dst->dev
->>    these places should be checked with extreme scrunity :-\
->> c) some stuff not converted (pptp, h323) -- it's like 10 minutes to make
->>    a patch and full day to setup and test it :^)
->> d) IPv6 conntracking wasn't tested.
->> e) ordering probably should be redone (or it shouldn't since netfilter
->>    is banned in netns as is, so nobody will care)
->
-> You describe this patchset as no finished and there is a patch to not be 
-> applied, shall I assume it is a RFC ?
+From: Auke Kok <auke-jan.h.kok@intel.com>
 
-Well, more or less. It's something like 90% similar to final thing
-unless somebody will find some serious issue.
+This adds to the already default CONFIG_E1000=y in these files.
 
-Patch to not be applied (yet) is for people wanting to try these patches
-and not waste time fixing "iptables doesn't work" problem.
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ arch/x86/configs/i386_defconfig   |    1 +
+ arch/x86/configs/x86_64_defconfig |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/arch/x86/configs/i386_defconfig b/arch/x86/configs/i386_defconfig
+index ad7ddaa..b738c78 100644
+--- a/arch/x86/configs/i386_defconfig
++++ b/arch/x86/configs/i386_defconfig
+@@ -814,6 +814,7 @@ CONFIG_NETDEV_1000=y
+ CONFIG_E1000=y
+ # CONFIG_E1000_NAPI is not set
+ # CONFIG_E1000_DISABLE_PACKET_SPLIT is not set
++CONFIG_E1000E=y
+ # CONFIG_NS83820 is not set
+ # CONFIG_HAMACHI is not set
+ # CONFIG_YELLOWFIN is not set
+diff --git a/arch/x86/configs/x86_64_defconfig b/arch/x86/configs/x86_64_defconfig
+index 2d6f5b2..0fb202e 100644
+--- a/arch/x86/configs/x86_64_defconfig
++++ b/arch/x86/configs/x86_64_defconfig
+@@ -740,6 +740,7 @@ CONFIG_NETDEV_1000=y
+ CONFIG_E1000=y
+ # CONFIG_E1000_NAPI is not set
+ # CONFIG_E1000_DISABLE_PACKET_SPLIT is not set
++CONFIG_E1000E=y
+ # CONFIG_NS83820 is not set
+ # CONFIG_HAMACHI is not set
+ # CONFIG_YELLOWFIN is not set
 
