@@ -1,239 +1,202 @@
-From: Pekka J Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [RFC/PATCH] ipg: add jumbo frame support kconfig option
-Date: Sun, 22 Jun 2008 12:23:21 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0806221220540.27261@sbz-30.cs.Helsinki.FI>
-References: <200806201037.46687.Bircoph@list.ru>
- <84144f020806200412s5e0225eblbb2001ca139e7fdc@mail.gmail.com>
- <20080620084131.3313abe8@speedy>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 05/25] netns ct: per-netns conntrack count
+Date: Sun, 22 Jun 2008 05:09:38 -0700
+Message-ID: <20080622120938.GC22569@linux.vnet.ibm.com>
+References: <20080622010411.GF5392@martell.zuzino.mipt.ru>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Savchenko <Bircoph@list.ru>, linux-kernel@vger.kernel.org,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	shemminger@vyatta.com, Jeff Garzik <jeff@garzik.org>,
-	sorbica@icplus.com.tw, Jesse Huang <jesse@icplus.com.tw>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:44203 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751144AbYFVJXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2008 05:23:23 -0400
-In-Reply-To: <20080620084131.3313abe8@speedy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, den@openvz.org, xemul@openvz.org,
+	ebiederm@xmission.com, benjamin.thery@bull.net, dlezcano@fr.ibm.com
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080622010411.GF5392@martell.zuzino.mipt.ru>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Jun 2008, Stephen Hemminger wrote:
-> The code should enable/disable anything it needs based on the MTU size
-> in the change_mtu call. If the driver needs to reallocate buffers, change receiver
-> settings, make sacrifices to deities, or phone home that is the place to do it.
-> In other words no compile or config option fro MTU settings please.
+On Sun, Jun 22, 2008 at 05:04:11AM +0400, Alexey Dobriyan wrote:
+> proc and sysctl are stubbed to init_net's value, that's for later.
+> 
+> Note: conntracks are recycled RCU-way, netns as well.
+> During destruction, conntrack count of netns is decremented.
+> I'm not sure it's not racy and it will not decrement in freed netns
+> since conntrack doesn't pin netns (and pinning it is out of question).
+> Probably, decrement should be moved earlier.
 
-Right, so how about something like this instead? Andrew, can you test the 
-following patch? You need all the other patches from the previous series 
-modulo the last patch. Thanks!
+Can't say that I fully understand the contract reference-counting scheme,
+but some comments below on the off-chance that they are helpful.
 
-		Pekka
+						Thanx, Paul
 
-Subject: [PATCH] ipg: run-time configurable jumbo frame support
-From: Pekka Enberg <penberg@cs.helsinki.fi>
+> FWIW, I haven't seen this race (if it exists at all). But my cloning
+> proggie sucks big way, so don't count on me. :^)
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> ---
+> 
+>  include/net/netfilter/nf_conntrack.h                  |    1 -
+>  include/net/netns/conntrack.h                         |    3 +++
+>  net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c        |    2 +-
+>  net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |    2 +-
+>  net/netfilter/nf_conntrack_core.c                     |   18 ++++++++----------
+>  net/netfilter/nf_conntrack_standalone.c               |    4 ++--
+>  6 files changed, 15 insertions(+), 15 deletions(-)
+> 
+> --- a/include/net/netfilter/nf_conntrack.h
+> +++ b/include/net/netfilter/nf_conntrack.h
+> @@ -291,7 +291,6 @@ static inline int nf_ct_is_untracked(const struct sk_buff *skb)
+>  extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
+>  extern unsigned int nf_conntrack_htable_size;
+>  extern int nf_conntrack_checksum;
+> -extern atomic_t nf_conntrack_count;
+>  extern int nf_conntrack_max;
+> 
+>  DECLARE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
+> --- a/include/net/netns/conntrack.h
+> +++ b/include/net/netns/conntrack.h
+> @@ -1,6 +1,9 @@
+>  #ifndef __NETNS_CONNTRACK_H
+>  #define __NETNS_CONNTRACK_H
+> 
+> +#include <asm/atomic.h>
+> +
+>  struct netns_ct {
+> +	atomic_t	count;
+>  };
+>  #endif
+> --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+> +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+> @@ -254,7 +254,7 @@ static ctl_table ip_ct_sysctl_table[] = {
+>  	{
+>  		.ctl_name	= NET_IPV4_NF_CONNTRACK_COUNT,
+>  		.procname	= "ip_conntrack_count",
+> -		.data		= &nf_conntrack_count,
+> +		.data		= &init_net.ct.count,
+>  		.maxlen		= sizeof(int),
+>  		.mode		= 0444,
+>  		.proc_handler	= &proc_dointvec,
+> --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> @@ -326,7 +326,7 @@ static void ct_cpu_seq_stop(struct seq_file *seq, void *v)
+> 
+>  static int ct_cpu_seq_show(struct seq_file *seq, void *v)
+>  {
+> -	unsigned int nr_conntracks = atomic_read(&nf_conntrack_count);
+> +	unsigned int nr_conntracks = atomic_read(&init_net.ct.count);
+>  	const struct ip_conntrack_stat *st = v;
+> 
+>  	if (v == SEQ_START_TOKEN) {
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -43,10 +43,6 @@
+>  DEFINE_SPINLOCK(nf_conntrack_lock);
+>  EXPORT_SYMBOL_GPL(nf_conntrack_lock);
+> 
+> -/* nf_conntrack_standalone needs this */
+> -atomic_t nf_conntrack_count = ATOMIC_INIT(0);
+> -EXPORT_SYMBOL_GPL(nf_conntrack_count);
+> -
+>  unsigned int nf_conntrack_htable_size __read_mostly;
+>  EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
+> 
+> @@ -475,13 +471,13 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
+>  	}
+> 
+>  	/* We don't want any race condition at early drop stage */
+> -	atomic_inc(&nf_conntrack_count);
+> +	atomic_inc(&net->ct.count);
+> 
+>  	if (nf_conntrack_max &&
+> -	    unlikely(atomic_read(&nf_conntrack_count) > nf_conntrack_max)) {
+> +	    unlikely(atomic_read(&net->ct.count) > nf_conntrack_max)) {
+>  		unsigned int hash = hash_conntrack(orig);
+>  		if (!early_drop(hash)) {
+> -			atomic_dec(&nf_conntrack_count);
+> +			atomic_dec(&net->ct.count);
+>  			if (net_ratelimit())
+>  				printk(KERN_WARNING
+>  				       "nf_conntrack: table full, dropping"
+> @@ -493,7 +489,7 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
+>  	ct = kmem_cache_zalloc(nf_conntrack_cachep, GFP_ATOMIC);
+>  	if (ct == NULL) {
+>  		pr_debug("nf_conntrack_alloc: Can't alloc conntrack.\n");
+> -		atomic_dec(&nf_conntrack_count);
+> +		atomic_dec(&net->ct.count);
+>  		return ERR_PTR(-ENOMEM);
+>  	}
+> 
+> @@ -514,10 +510,11 @@ EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
+>  static void nf_conntrack_free_rcu(struct rcu_head *head)
+>  {
+>  	struct nf_conn *ct = container_of(head, struct nf_conn, rcu);
+> +	struct net *net = ct_net(ct);
+> 
+>  	nf_ct_ext_free(ct);
+>  	kmem_cache_free(nf_conntrack_cachep, ct);
+> -	atomic_dec(&nf_conntrack_count);
+> +	atomic_dec(&net->ct.count);
 
-Make jumbo frame support configurable via ifconfig mtu option as suggested by
-Stephen Hemminger.
+This would ensure that the reference count for net->ct remained non-zero
+until all readers were done referencing the struct nf_conn.
 
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
----
- drivers/net/ipg.c |   42 ++++++++++++++++++++------
- drivers/net/ipg.h |   85 ------------------------------------------------------
- 2 files changed, 32 insertions(+), 95 deletions(-)
+However, this assumes that something else detects that this reference
+count has become zero, and further that there is no possibility of two
+tasks discovering this simultaneously.  The usual way to do this is to
+periodically check the reference count for equality to zero under a
+lock, and to either (1) forbid additional references when the counter
+is zero or (2) require that references be gained under some (usually
+global) lock.
 
-Index: linux-2.6/drivers/net/ipg.c
-===================================================================
---- linux-2.6.orig/drivers/net/ipg.c	2008-06-22 11:55:53.000000000 +0300
-+++ linux-2.6/drivers/net/ipg.c	2008-06-22 12:15:45.000000000 +0300
-@@ -42,7 +42,6 @@
- #define ipg_r16(reg)		ioread16(ioaddr + (reg))
- #define ipg_r8(reg)		ioread8(ioaddr + (reg))
- 
--#define JUMBO_FRAME_4k_ONLY
- enum {
- 	netdev_io_size = 128
- };
-@@ -55,6 +54,14 @@
- MODULE_LICENSE("GPL");
- 
- /*
-+ * Defaults
-+ */
-+#define IPG_MAX_RXFRAME_SIZE	0x0600
-+#define IPG_RXFRAG_SIZE		0x0600
-+#define IPG_RXSUPPORT_SIZE	0x0600
-+#define IPG_IS_JUMBO		false
-+
-+/*
-  * Variable record -- index by leading revision/length
-  * Revision/Length(=N*4), Address1, Data1, Address2, Data2,...,AddressN,DataN
-  */
-@@ -1805,9 +1812,6 @@
- 	sp->jumbo.current_size = 0;
- 	sp->jumbo.skb = NULL;
- 
--	if (IPG_TXFRAG_SIZE)
--		dev->mtu = IPG_TXFRAG_SIZE;
--
- 	/* Enable transmit and receive operation of the IPG. */
- 	ipg_w32((ipg_r32(MAC_CTRL) | IPG_MC_RX_ENABLE | IPG_MC_TX_ENABLE) &
- 		 IPG_MC_RSVD_MASK, MAC_CTRL);
-@@ -2116,6 +2120,7 @@
- static int ipg_nic_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct ipg_nic_private *sp = netdev_priv(dev);
-+	int err;
- 
- 	/* Function to accomodate changes to Maximum Transfer Unit
- 	 * (or MTU) of IPG NIC. Cannot use default function since
-@@ -2124,16 +2129,33 @@
- 
- 	IPG_DEBUG_MSG("_nic_change_mtu\n");
- 
--	/* Check that the new MTU value is between 68 (14 byte header, 46
--	 * byte payload, 4 byte FCS) and IPG_MAX_RXFRAME_SIZE, which
--	 * corresponds to the MAXFRAMESIZE register in the IPG.
-+	/*
-+	 * Check that the new MTU value is between 68 (14 byte header, 46 byte
-+	 * payload, 4 byte FCS) and 10 KB, which is the largest supported MTU.
- 	 */
--	if ((new_mtu < 68) || (new_mtu > sp->max_rxframe_size))
-+	if (new_mtu < 68 || new_mtu > 10240)
- 		return -EINVAL;
- 
-+	err = ipg_nic_stop(dev);
-+	if (err)
-+		return err;
-+
- 	dev->mtu = new_mtu;
- 
--	return 0;
-+	sp->max_rxframe_size = new_mtu;
-+
-+	sp->rxfrag_size = new_mtu;
-+	if (sp->rxfrag_size > 4088)
-+		sp->rxfrag_size = 4088;
-+
-+	sp->rxsupport_size = sp->max_rxframe_size;
-+
-+	if (new_mtu > 0x0600)
-+		sp->is_jumbo = true;
-+	else
-+		sp->is_jumbo = false;
-+
-+	return ipg_nic_open(dev);
- }
- 
- static int ipg_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-@@ -2238,7 +2260,7 @@
- 	spin_lock_init(&sp->lock);
- 	mutex_init(&sp->mii_mutex);
- 
--	sp->is_jumbo = IPG_JUMBO;
-+	sp->is_jumbo = IPG_IS_JUMBO;
- 	sp->rxfrag_size = IPG_RXFRAG_SIZE;
- 	sp->rxsupport_size = IPG_RXSUPPORT_SIZE;
- 	sp->max_rxframe_size = IPG_MAX_RXFRAME_SIZE;
-Index: linux-2.6/drivers/net/ipg.h
-===================================================================
---- linux-2.6.orig/drivers/net/ipg.h	2008-06-22 11:55:53.000000000 +0300
-+++ linux-2.6/drivers/net/ipg.h	2008-06-22 11:55:54.000000000 +0300
-@@ -536,91 +536,6 @@
-  */
- #define		IPG_FRAMESBETWEENTXDMACOMPLETES 0x1
- 
--#ifdef JUMBO_FRAME
--# define IPG_JUMBO true
--#else
--# define IPG_JUMBO false
--#endif
--
--#ifdef JUMBO_FRAME
--
--# ifdef JUMBO_FRAME_SIZE_2K
--# define JUMBO_FRAME_SIZE 2048
--# define __IPG_RXFRAG_SIZE 2048
--# else
--#  ifdef JUMBO_FRAME_SIZE_3K
--#  define JUMBO_FRAME_SIZE 3072
--#  define __IPG_RXFRAG_SIZE 3072
--#  else
--#   ifdef JUMBO_FRAME_SIZE_4K
--#   define JUMBO_FRAME_SIZE 4096
--#   define __IPG_RXFRAG_SIZE 4088
--#   else
--#    ifdef JUMBO_FRAME_SIZE_5K
--#    define JUMBO_FRAME_SIZE 5120
--#    define __IPG_RXFRAG_SIZE 4088
--#    else
--#     ifdef JUMBO_FRAME_SIZE_6K
--#     define JUMBO_FRAME_SIZE 6144
--#     define __IPG_RXFRAG_SIZE 4088
--#     else
--#      ifdef JUMBO_FRAME_SIZE_7K
--#      define JUMBO_FRAME_SIZE 7168
--#      define __IPG_RXFRAG_SIZE 4088
--#      else
--#       ifdef JUMBO_FRAME_SIZE_8K
--#       define JUMBO_FRAME_SIZE 8192
--#       define __IPG_RXFRAG_SIZE 4088
--#       else
--#        ifdef JUMBO_FRAME_SIZE_9K
--#        define JUMBO_FRAME_SIZE 9216
--#        define __IPG_RXFRAG_SIZE 4088
--#        else
--#         ifdef JUMBO_FRAME_SIZE_10K
--#         define JUMBO_FRAME_SIZE 10240
--#         define __IPG_RXFRAG_SIZE 4088
--#         else
--#         define JUMBO_FRAME_SIZE 4096
--#         endif
--#        endif
--#       endif
--#      endif
--#     endif
--#    endif
--#   endif
--#  endif
--# endif
--#endif
--
--/* Size of allocated received buffers. Nominally 0x0600.
-- * Define larger if expecting jumbo frames.
-- */
--#ifdef JUMBO_FRAME
--/* IPG_TXFRAG_SIZE must <= 0x2b00, or TX will crash */
--#define		IPG_TXFRAG_SIZE		JUMBO_FRAME_SIZE
--#else
--#define		IPG_TXFRAG_SIZE		0 /* use default MTU */
--#endif
--
--/* Size of allocated received buffers. Nominally 0x0600.
-- * Define larger if expecting jumbo frames.
-- */
--#ifdef JUMBO_FRAME
--/* 4088 = 4096 - 8 */
--#define		IPG_RXFRAG_SIZE		__IPG_RXFRAG_SIZE
--#define     IPG_RXSUPPORT_SIZE   IPG_MAX_RXFRAME_SIZE
--#else
--#define		IPG_RXFRAG_SIZE		0x0600
--#define     IPG_RXSUPPORT_SIZE   IPG_RXFRAG_SIZE
--#endif
--
--/* IPG_MAX_RXFRAME_SIZE <= IPG_RXFRAG_SIZE */
--#ifdef JUMBO_FRAME
--#define		IPG_MAX_RXFRAME_SIZE		JUMBO_FRAME_SIZE
--#else
--#define		IPG_MAX_RXFRAME_SIZE		0x0600
--#endif
--
- #define		IPG_RFDLIST_LENGTH		0x100
- 
- /* Maximum number of RFDs to process per interrupt.
+If net->ct.count is instead a strictly statistical counter, then no
+matter either way.
+
+>  }
+> 
+>  void nf_conntrack_free(struct nf_conn *ct)
+> @@ -1015,7 +1012,7 @@ void nf_conntrack_cleanup(struct net *net)
+>  	nf_ct_event_cache_flush();
+>   i_see_dead_people:
+>  	nf_conntrack_flush();
+> -	if (atomic_read(&nf_conntrack_count) != 0) {
+> +	if (atomic_read(&net->ct.count) != 0) {
+>  		schedule();
+>  		goto i_see_dead_people;
+>  	}
+> @@ -1141,6 +1138,7 @@ int nf_conntrack_init(struct net *net)
+>  		 * entries. */
+>  		max_factor = 4;
+>  	}
+> +	atomic_set(&net->ct.count, 0);
+>  	nf_conntrack_hash = nf_ct_alloc_hashtable(&nf_conntrack_htable_size,
+>  						  &nf_conntrack_vmalloc);
+>  	if (!nf_conntrack_hash) {
+> --- a/net/netfilter/nf_conntrack_standalone.c
+> +++ b/net/netfilter/nf_conntrack_standalone.c
+> @@ -238,7 +238,7 @@ static void ct_cpu_seq_stop(struct seq_file *seq, void *v)
+> 
+>  static int ct_cpu_seq_show(struct seq_file *seq, void *v)
+>  {
+> -	unsigned int nr_conntracks = atomic_read(&nf_conntrack_count);
+> +	unsigned int nr_conntracks = atomic_read(&init_net.ct.count);
+>  	const struct ip_conntrack_stat *st = v;
+> 
+>  	if (v == SEQ_START_TOKEN) {
+> @@ -349,7 +349,7 @@ static ctl_table nf_ct_sysctl_table[] = {
+>  	{
+>  		.ctl_name	= NET_NF_CONNTRACK_COUNT,
+>  		.procname	= "nf_conntrack_count",
+> -		.data		= &nf_conntrack_count,
+> +		.data		= &init_net.ct.count,
+>  		.maxlen		= sizeof(int),
+>  		.mode		= 0444,
+>  		.proc_handler	= &proc_dointvec,
+> -- 
+> 1.5.4.5
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
