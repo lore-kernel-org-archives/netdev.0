@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 22/25] netns ct: per-netns nf_conntrack_max
-Date: Sun, 22 Jun 2008 05:19:23 +0400
-Message-ID: <20080622011923.GX5392@martell.zuzino.mipt.ru>
+Subject: netns ct: per-netns nf_expect_max
+Date: Sun, 22 Jun 2008 05:19:53 +0400
+Message-ID: <20080622011953.GY5392@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -16,101 +16,70 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- include/net/netfilter/nf_conntrack.h           |    1 -
- include/net/netns/conntrack.h                  |    3 ++-
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    2 +-
- net/netfilter/nf_conntrack_core.c              |   12 ++++--------
- net/netfilter/nf_conntrack_standalone.c        |    4 ++--
- 5 files changed, 9 insertions(+), 13 deletions(-)
+ include/net/netfilter/nf_conntrack_expect.h |    1 -
+ include/net/netns/conntrack.h               |    1 +
+ net/netfilter/nf_conntrack_expect.c         |    6 ++----
+ net/netfilter/nf_conntrack_standalone.c     |    2 +-
+ 4 files changed, 4 insertions(+), 6 deletions(-)
 
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -291,7 +291,6 @@ static inline int nf_ct_is_untracked(const struct sk_buff *skb)
- extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
- extern unsigned int nf_conntrack_htable_size;
- extern int nf_conntrack_checksum;
--extern int nf_conntrack_max;
+--- a/include/net/netfilter/nf_conntrack_expect.h
++++ b/include/net/netfilter/nf_conntrack_expect.h
+@@ -7,7 +7,6 @@
+ #include <net/netfilter/nf_conntrack.h>
  
- DECLARE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
- #define NF_CT_STAT_INC(count) (__get_cpu_var(nf_conntrack_stat).count++)
+ extern unsigned int nf_ct_expect_hsize;
+-extern unsigned int nf_ct_expect_max;
+ 
+ struct nf_conntrack_expect
+ {
 --- a/include/net/netns/conntrack.h
 +++ b/include/net/netns/conntrack.h
-@@ -5,7 +5,8 @@
- #include <asm/atomic.h>
- 
- struct netns_ct {
--	atomic_t	count;
-+	atomic_t		count;
-+	int			max;
+@@ -10,6 +10,7 @@ struct netns_ct {
  	struct hlist_head	*hash;
  	int			hash_vmalloc;
  	unsigned int		expect_count;
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -246,7 +246,7 @@ static ctl_table ip_ct_sysctl_table[] = {
- 	{
- 		.ctl_name	= NET_IPV4_NF_CONNTRACK_MAX,
- 		.procname	= "ip_conntrack_max",
--		.data		= &nf_conntrack_max,
-+		.data		= &init_net.ct.max,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec,
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -46,9 +46,6 @@ EXPORT_SYMBOL_GPL(nf_conntrack_lock);
- unsigned int nf_conntrack_htable_size __read_mostly;
- EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
++	unsigned int		expect_max;
+ 	struct hlist_head	*expect_hash;
+ 	int			expect_vmalloc;
+ 	struct hlist_head	unconfirmed;
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -32,7 +32,6 @@ unsigned int nf_ct_expect_hsize __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_ct_expect_hsize);
  
--int nf_conntrack_max __read_mostly;
--EXPORT_SYMBOL_GPL(nf_conntrack_max);
--
- struct nf_conn nf_conntrack_untracked __read_mostly;
- EXPORT_SYMBOL_GPL(nf_conntrack_untracked);
+ static unsigned int nf_ct_expect_hash_rnd __read_mostly;
+-unsigned int nf_ct_expect_max __read_mostly;
+ static int nf_ct_expect_hash_rnd_initted __read_mostly;
  
-@@ -473,8 +470,8 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
- 	/* We don't want any race condition at early drop stage */
- 	atomic_inc(&net->ct.count);
- 
--	if (nf_conntrack_max &&
--	    unlikely(atomic_read(&net->ct.count) > nf_conntrack_max)) {
-+	if (net->ct.max &&
-+	    unlikely(atomic_read(&net->ct.count) > net->ct.max)) {
- 		unsigned int hash = hash_conntrack(orig);
- 		if (!early_drop(net, hash)) {
- 			atomic_dec(&net->ct.count);
-@@ -1160,12 +1157,11 @@ int nf_conntrack_init(struct net *net)
+ static struct kmem_cache *nf_ct_expect_cachep __read_mostly;
+@@ -404,7 +403,7 @@ int nf_ct_expect_related(struct nf_conntrack_expect *expect)
+ 		}
  	}
- 	INIT_HLIST_HEAD(&net->ct.unconfirmed);
  
-+	net->ct.max = max_factor * nf_conntrack_htable_size;
- 	if (net == &init_net) {
--		nf_conntrack_max = max_factor * nf_conntrack_htable_size;
+-	if (net->ct.expect_count >= nf_ct_expect_max) {
++	if (net->ct.expect_count >= net->ct.expect_max) {
+ 		if (net_ratelimit())
+ 			printk(KERN_WARNING
+ 			       "nf_conntrack: expectation table full\n");
+@@ -569,9 +568,8 @@ int nf_conntrack_expect_init(struct net *net)
+ 			if (!nf_ct_expect_hsize)
+ 				nf_ct_expect_hsize = 1;
+ 		}
+-		nf_ct_expect_max = nf_ct_expect_hsize * 4;
+ 	}
 -
- 		printk("nf_conntrack version %s (%u buckets, %d max)\n",
- 			NF_CONNTRACK_VERSION, nf_conntrack_htable_size,
--			nf_conntrack_max);
-+			net->ct.max);
- 
- 		nf_conntrack_cachep = kmem_cache_create("nf_conntrack",
- 						sizeof(struct nf_conn),
++	net->ct.expect_max = nf_ct_expect_hsize * 4;
+ 	net->ct.expect_count = 0;
+ 	net->ct.expect_hash = nf_ct_alloc_hashtable(&nf_ct_expect_hsize,
+ 						  &net->ct.expect_vmalloc);
 --- a/net/netfilter/nf_conntrack_standalone.c
 +++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -344,7 +344,7 @@ static ctl_table nf_ct_sysctl_table[] = {
+@@ -387,7 +387,7 @@ static ctl_table nf_ct_sysctl_table[] = {
  	{
- 		.ctl_name	= NET_NF_CONNTRACK_MAX,
- 		.procname	= "nf_conntrack_max",
--		.data		= &nf_conntrack_max,
-+		.data		= &init_net.ct.max,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec,
-@@ -407,7 +407,7 @@ static ctl_table nf_ct_netfilter_table[] = {
- 	{
- 		.ctl_name	= NET_NF_CONNTRACK_MAX,
- 		.procname	= "nf_conntrack_max",
--		.data		= &nf_conntrack_max,
-+		.data		= &init_net.ct.max,
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_expect_max",
+-		.data		= &nf_ct_expect_max,
++		.data		= &init_net.ct.expect_max,
  		.maxlen		= sizeof(int),
  		.mode		= 0644,
  		.proc_handler	= &proc_dointvec,
