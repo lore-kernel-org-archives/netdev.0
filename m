@@ -1,17 +1,18 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [patch v2 01/11] DM9000: Remove the 2 resources probe scheme.
-Date: Sun, 22 Jun 2008 21:16:46 +0100
-Message-ID: <20080622201904.535586386@fluff.org.uk>
+Subject: [patch v2 02/11] DM9000: Fixup blackfin after removing 2 resource usage
+Date: Sun, 22 Jun 2008 21:16:47 +0100
+Message-ID: <20080622201904.747948172@fluff.org.uk>
 References: <20080622201645.041001353@fluff.org.uk>
-Cc: jeff@garzik.org, Ben Dooks <ben-linux@fluff.org>,
+Cc: jeff@garzik.org, Bryan Wu <cooloney@kernel.org>,
+	Ben Dooks <ben-linux@fluff.org>,
 	Laurent Pinchart <laurentp@cse-semaphore.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:56673 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:56678 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753749AbYFVUTI (ORCPT
+	with ESMTP id S1754808AbYFVUTI (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2008 16:19:08 -0400
-Content-Disposition: inline; filename=thirdparty/dm9000-remove-2resources.patch
+Content-Disposition: inline; filename=thirdparty/dm9000-fixup-blackfin.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,146 +21,75 @@ From: Laurent Pinchart <laurentp@cse-semaphore.com>
 The dm9000 driver accepts either 2 or 3 resources to describe the platform
 devices. The 2 resources case abuses the ioresource mechanism by passing
 ioremap()ed memory through the platform device resources. This patch removes
-that case and converts boards that were using it to the 3 resources scheme.
+converts boards that were using it to the 3 resources scheme.
 
+CC: Bryan Wu <cooloney@kernel.org>
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
----
 
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index 6bc8924..fca7831 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -528,7 +528,6 @@ dm9000_probe(struct platform_device *pdev)
- 	struct board_info *db;	/* Point a board information structure */
- 	struct net_device *ndev;
- 	const unsigned char *mac_src;
--	unsigned long base;
- 	int ret = 0;
- 	int iosize;
- 	int i;
-@@ -561,78 +560,61 @@ dm9000_probe(struct platform_device *pdev)
- 	if (pdev->num_resources < 2) {
- 		ret = -ENODEV;
- 		goto out;
--	} else if (pdev->num_resources == 2) {
--		base = pdev->resource[0].start;
--
--		if (!request_mem_region(base, 4, ndev->name)) {
--			ret = -EBUSY;
--			goto out;
--		}
--
--		ndev->base_addr = base;
--		ndev->irq = pdev->resource[1].start;
--		db->io_addr = (void __iomem *)base;
--		db->io_data = (void __iomem *)(base + 4);
-+	}
- 
--		/* ensure at least we have a default set of IO routines */
--		dm9000_set_io(db, 2);
-+	db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+	db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
- 
--	} else {
--		db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--		db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
--		db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
--
--		if (db->addr_res == NULL || db->data_res == NULL ||
--		    db->irq_res == NULL) {
--			dev_err(db->dev, "insufficient resources\n");
--			ret = -ENOENT;
--			goto out;
--		}
-+	if (db->addr_res == NULL || db->data_res == NULL ||
-+	    db->irq_res == NULL) {
-+		dev_err(db->dev, "insufficient resources\n");
-+		ret = -ENOENT;
-+		goto out;
-+	}
- 
--		i = res_size(db->addr_res);
--		db->addr_req = request_mem_region(db->addr_res->start, i,
--						  pdev->name);
-+	iosize = res_size(db->addr_res);
-+	db->addr_req = request_mem_region(db->addr_res->start, iosize,
-+					  pdev->name);
- 
--		if (db->addr_req == NULL) {
--			dev_err(db->dev, "cannot claim address reg area\n");
--			ret = -EIO;
--			goto out;
--		}
--
--		db->io_addr = ioremap(db->addr_res->start, i);
-+	if (db->addr_req == NULL) {
-+		dev_err(db->dev, "cannot claim address reg area\n");
-+		ret = -EIO;
-+		goto out;
-+	}
- 
--		if (db->io_addr == NULL) {
--			dev_err(db->dev, "failed to ioremap address reg\n");
--			ret = -EINVAL;
--			goto out;
--		}
-+	db->io_addr = ioremap(db->addr_res->start, iosize);
- 
--		iosize = res_size(db->data_res);
--		db->data_req = request_mem_region(db->data_res->start, iosize,
--						  pdev->name);
-+	if (db->io_addr == NULL) {
-+		dev_err(db->dev, "failed to ioremap address reg\n");
-+		ret = -EINVAL;
-+		goto out;
-+	}
- 
--		if (db->data_req == NULL) {
--			dev_err(db->dev, "cannot claim data reg area\n");
--			ret = -EIO;
--			goto out;
--		}
-+	iosize = res_size(db->data_res);
-+	db->data_req = request_mem_region(db->data_res->start, iosize,
-+					  pdev->name);
- 
--		db->io_data = ioremap(db->data_res->start, iosize);
-+	if (db->data_req == NULL) {
-+		dev_err(db->dev, "cannot claim data reg area\n");
-+		ret = -EIO;
-+		goto out;
-+	}
- 
--		if (db->io_data == NULL) {
--			dev_err(db->dev,"failed to ioremap data reg\n");
--			ret = -EINVAL;
--			goto out;
--		}
-+	db->io_data = ioremap(db->data_res->start, iosize);
- 
--		/* fill in parameters for net-dev structure */
-+	if (db->io_data == NULL) {
-+		dev_err(db->dev,"failed to ioremap data reg\n");
-+		ret = -EINVAL;
-+		goto out;
-+	}
- 
--		ndev->base_addr = (unsigned long)db->io_addr;
--		ndev->irq	= db->irq_res->start;
-+	/* fill in parameters for net-dev structure */
-+	ndev->base_addr = (unsigned long)db->io_addr;
-+	ndev->irq	= db->irq_res->start;
- 
--		/* ensure at least we have a default set of IO routines */
--		dm9000_set_io(db, iosize);
--	}
-+	/* ensure at least we have a default set of IO routines */
-+	dm9000_set_io(db, iosize);
- 
- 	/* check to see if anything is being over-ridden */
- 	if (pdata != NULL) {
+diff --git a/arch/blackfin/mach-bf527/boards/ezkit.c b/arch/blackfin/mach-bf527/boards/ezkit.c
+index 5958eec..689b69c 100644
+--- a/arch/blackfin/mach-bf527/boards/ezkit.c
++++ b/arch/blackfin/mach-bf527/boards/ezkit.c
+@@ -323,10 +323,15 @@ static struct platform_device smc91x_device = {
+ static struct resource dm9000_resources[] = {
+ 	[0] = {
+ 		.start	= 0x203FB800,
+-		.end	= 0x203FB800 + 8,
++		.end	= 0x203FB800 + 1,
+ 		.flags	= IORESOURCE_MEM,
+ 	},
+ 	[1] = {
++		.start	= 0x203FB800 + 4,
++		.end	= 0x203FB800 + 5,
++		.flags	= IORESOURCE_MEM,
++	},
++	[2] = {
+ 		.start	= IRQ_PF9,
+ 		.end	= IRQ_PF9,
+ 		.flags	= (IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE),
+diff --git a/arch/blackfin/mach-bf533/boards/H8606.c b/arch/blackfin/mach-bf533/boards/H8606.c
+index 7cc4864..4103a97 100644
+--- a/arch/blackfin/mach-bf533/boards/H8606.c
++++ b/arch/blackfin/mach-bf533/boards/H8606.c
+@@ -65,10 +65,15 @@ static struct platform_device rtc_device = {
+ static struct resource dm9000_resources[] = {
+ 	[0] = {
+ 		.start	= 0x20300000,
+-		.end	= 0x20300000 + 8,
++		.end	= 0x20300000 + 1,
+ 		.flags	= IORESOURCE_MEM,
+ 	},
+ 	[1] = {
++		.start	= 0x20300000 + 4,
++		.end	= 0x20300000 + 5,
++		.flags	= IORESOURCE_MEM,
++	},
++	[2] = {
+ 		.start	= IRQ_PF10,
+ 		.end	= IRQ_PF10,
+ 		.flags	= (IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE),
+diff --git a/arch/blackfin/mach-bf537/boards/generic_board.c b/arch/blackfin/mach-bf537/boards/generic_board.c
+index 7d25082..01b63e2 100644
+--- a/arch/blackfin/mach-bf537/boards/generic_board.c
++++ b/arch/blackfin/mach-bf537/boards/generic_board.c
+@@ -166,10 +166,15 @@ static struct platform_device smc91x_device = {
+ static struct resource dm9000_resources[] = {
+ 	[0] = {
+ 		.start	= 0x203FB800,
+-		.end	= 0x203FB800 + 8,
++		.end	= 0x203FB800 + 1,
+ 		.flags	= IORESOURCE_MEM,
+ 	},
+ 	[1] = {
++		.start	= 0x203FB800 + 4,
++		.end	= 0x203FB800 + 5,
++		.flags	= IORESOURCE_MEM,
++	},
++	[2] = {
+ 		.start	= IRQ_PF9,
+ 		.end	= IRQ_PF9,
+ 		.flags	= (IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE),
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
