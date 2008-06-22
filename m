@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 15/25] netns ct: per-netns ip_conntrack et al
-Date: Sun, 22 Jun 2008 05:13:53 +0400
-Message-ID: <20080622011353.GP5392@martell.zuzino.mipt.ru>
+Subject: [PATCH 16/25] netns ct: undo helper in all netns
+Date: Sun, 22 Jun 2008 05:14:28 +0400
+Message-ID: <20080622011428.GQ5392@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -13,188 +13,84 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Same here, statistics is shown for all netns.
+When conntrack helper is unregistered, unhelp in every netns.
+This for sure needs proper locking, but haven't looked closely.
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |   59 ++++++++++++------
- 1 file changed, 40 insertions(+), 19 deletions(-)
+ net/netfilter/nf_conntrack_helper.c |   40 +++++++++++++++++++++---------------
+ 1 file changed, 24 insertions(+), 16 deletions(-)
 
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-@@ -33,18 +33,20 @@ seq_print_counters(struct seq_file *s,
- #endif
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -122,29 +122,18 @@ int nf_conntrack_helper_register(struct nf_conntrack_helper *me)
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_helper_register);
  
- struct ct_iter_state {
-+	struct seq_net_private p;
- 	unsigned int bucket;
- };
- 
- static struct hlist_node *ct_get_first(struct seq_file *seq)
+-void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
++static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
++					     struct net *net)
  {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_iter_state *st = seq->private;
- 	struct hlist_node *n;
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conntrack_expect *exp;
+ 	const struct hlist_node *n, *next;
+ 	unsigned int i;
  
- 	for (st->bucket = 0;
- 	     st->bucket < nf_conntrack_htable_size;
- 	     st->bucket++) {
--		n = rcu_dereference(init_net.ct.hash[st->bucket].first);
-+		n = rcu_dereference(net->ct.hash[st->bucket].first);
- 		if (n)
- 			return n;
+-	mutex_lock(&nf_ct_helper_mutex);
+-	hlist_del_rcu(&me->hnode);
+-	nf_ct_helper_count--;
+-	mutex_unlock(&nf_ct_helper_mutex);
+-
+-	/* Make sure every nothing is still using the helper unless its a
+-	 * connection in the hash.
+-	 */
+-	synchronize_rcu();
+-
+-	spin_lock_bh(&nf_conntrack_lock);
+-
+ 	/* Get rid of expectations */
+ 	for (i = 0; i < nf_ct_expect_hsize; i++) {
+ 		hlist_for_each_entry_safe(exp, n, next,
+-					  &init_net.ct.expect_hash[i], hnode) {
++					  &net->ct.expect_hash[i], hnode) {
+ 			struct nf_conn_help *help = nfct_help(exp->master);
+ 			if ((help->helper == me || exp->helper == me) &&
+ 			    del_timer(&exp->timeout)) {
+@@ -155,12 +144,31 @@ void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
  	}
-@@ -54,13 +56,14 @@ static struct hlist_node *ct_get_first(struct seq_file *seq)
- static struct hlist_node *ct_get_next(struct seq_file *seq,
- 				      struct hlist_node *head)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_iter_state *st = seq->private;
  
- 	head = rcu_dereference(head->next);
- 	while (head == NULL) {
- 		if (++st->bucket >= nf_conntrack_htable_size)
- 			return NULL;
--		head = rcu_dereference(init_net.ct.hash[st->bucket].first);
-+		head = rcu_dereference(net->ct.hash[st->bucket].first);
+ 	/* Get rid of expecteds, set helpers to NULL. */
+-	hlist_for_each_entry(h, n, &init_net.ct.unconfirmed, hnode)
++	hlist_for_each_entry(h, n, &net->ct.unconfirmed, hnode)
+ 		unhelp(h, me);
+ 	for (i = 0; i < nf_conntrack_htable_size; i++) {
+-		hlist_for_each_entry(h, n, &init_net.ct.hash[i], hnode)
++		hlist_for_each_entry(h, n, &net->ct.hash[i], hnode)
+ 			unhelp(h, me);
  	}
- 	return head;
- }
-@@ -170,8 +173,8 @@ static const struct seq_operations ct_seq_ops = {
- 
- static int ct_open(struct inode *inode, struct file *file)
- {
--	return seq_open_private(file, &ct_seq_ops,
--			sizeof(struct ct_iter_state));
-+	return seq_open_net(inode, file, &ct_seq_ops,
-+			    sizeof(struct ct_iter_state));
- }
- 
- static const struct file_operations ct_file_ops = {
-@@ -179,21 +182,23 @@ static const struct file_operations ct_file_ops = {
- 	.open    = ct_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
- 
- /* expects */
- struct ct_expect_iter_state {
-+	struct seq_net_private p;
- 	unsigned int bucket;
- };
- 
- static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_expect_iter_state *st = seq->private;
- 	struct hlist_node *n;
- 
- 	for (st->bucket = 0; st->bucket < nf_ct_expect_hsize; st->bucket++) {
--		n = rcu_dereference(init_net.ct.expect_hash[st->bucket].first);
-+		n = rcu_dereference(net->ct.expect_hash[st->bucket].first);
- 		if (n)
- 			return n;
- 	}
-@@ -203,13 +208,14 @@ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
- static struct hlist_node *ct_expect_get_next(struct seq_file *seq,
- 					     struct hlist_node *head)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_expect_iter_state *st = seq->private;
- 
- 	head = rcu_dereference(head->next);
- 	while (head == NULL) {
- 		if (++st->bucket >= nf_ct_expect_hsize)
- 			return NULL;
--		head = rcu_dereference(init_net.ct.expect_hash[st->bucket].first);
-+		head = rcu_dereference(net->ct.expect_hash[st->bucket].first);
- 	}
- 	return head;
- }
-@@ -277,8 +283,8 @@ static const struct seq_operations exp_seq_ops = {
- 
- static int exp_open(struct inode *inode, struct file *file)
- {
--	return seq_open_private(file, &exp_seq_ops,
--			sizeof(struct ct_expect_iter_state));
-+	return seq_open_net(inode, file, &exp_seq_ops,
-+			    sizeof(struct ct_expect_iter_state));
- }
- 
- static const struct file_operations ip_exp_file_ops = {
-@@ -286,7 +292,7 @@ static const struct file_operations ip_exp_file_ops = {
- 	.open    = exp_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
- 
- static void *ct_cpu_seq_start(struct seq_file *seq, loff_t *pos)
-@@ -377,36 +383,51 @@ static const struct file_operations ct_cpu_seq_fops = {
- 	.release = seq_release,
- };
- 
--int __init nf_conntrack_ipv4_compat_init(void)
-+static int __net_init ip_conntrack_net_init(struct net *net)
- {
- 	struct proc_dir_entry *proc, *proc_exp, *proc_stat;
- 
--	proc = proc_net_fops_create(&init_net, "ip_conntrack", 0440, &ct_file_ops);
-+	proc = proc_net_fops_create(net, "ip_conntrack", 0440, &ct_file_ops);
- 	if (!proc)
- 		goto err1;
- 
--	proc_exp = proc_net_fops_create(&init_net, "ip_conntrack_expect", 0440,
-+	proc_exp = proc_net_fops_create(net, "ip_conntrack_expect", 0440,
- 					&ip_exp_file_ops);
- 	if (!proc_exp)
- 		goto err2;
- 
- 	proc_stat = proc_create("ip_conntrack", S_IRUGO,
--				init_net.proc_net_stat, &ct_cpu_seq_fops);
-+				net->proc_net_stat, &ct_cpu_seq_fops);
- 	if (!proc_stat)
- 		goto err3;
- 	return 0;
- 
- err3:
--	proc_net_remove(&init_net, "ip_conntrack_expect");
-+	proc_net_remove(net, "ip_conntrack_expect");
- err2:
--	proc_net_remove(&init_net, "ip_conntrack");
-+	proc_net_remove(net, "ip_conntrack");
- err1:
- 	return -ENOMEM;
- }
- 
-+static void __net_exit ip_conntrack_net_exit(struct net *net)
-+{
-+	remove_proc_entry("ip_conntrack", net->proc_net_stat);
-+	proc_net_remove(net, "ip_conntrack_expect");
-+	proc_net_remove(net, "ip_conntrack");
 +}
 +
-+static struct pernet_operations ip_conntrack_net_ops = {
-+	.init = ip_conntrack_net_init,
-+	.exit = ip_conntrack_net_exit,
-+};
-+
-+int __init nf_conntrack_ipv4_compat_init(void)
++void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
 +{
-+	return register_pernet_subsys(&ip_conntrack_net_ops);
-+}
++	struct net *net;
 +
- void __exit nf_conntrack_ipv4_compat_fini(void)
- {
--	remove_proc_entry("ip_conntrack", init_net.proc_net_stat);
--	proc_net_remove(&init_net, "ip_conntrack_expect");
--	proc_net_remove(&init_net, "ip_conntrack");
-+	unregister_pernet_subsys(&ip_conntrack_net_ops);
++	mutex_lock(&nf_ct_helper_mutex);
++	hlist_del_rcu(&me->hnode);
++	nf_ct_helper_count--;
++	mutex_unlock(&nf_ct_helper_mutex);
++
++	/* Make sure every nothing is still using the helper unless its a
++	 * connection in the hash.
++	 */
++	synchronize_rcu();
++
++	spin_lock_bh(&nf_conntrack_lock);
++	for_each_net(net)
++		__nf_conntrack_helper_unregister(me, net);
+ 	spin_unlock_bh(&nf_conntrack_lock);
  }
+ EXPORT_SYMBOL_GPL(nf_conntrack_helper_unregister);
 -- 
 1.5.4.5
 
