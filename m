@@ -1,52 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: SCTP length validation.
-Date: Sun, 22 Jun 2008 12:32:32 -0700 (PDT)
-Message-ID: <20080622.123232.71141502.davem@davemloft.net>
-References: <20080620.221205.183623344.davem@davemloft.net>
-	<485D2467.7020300@hp.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: vladislav.yasevich@hp.com
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: [patch v2 06/11] DM9000: Use NSR to determine link-status on internal PHY
+Date: Sun, 22 Jun 2008 21:16:51 +0100
+Message-ID: <20080622201905.634022675@fluff.org.uk>
+References: <20080622201645.041001353@fluff.org.uk>
+Cc: jeff@garzik.org, Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45770
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753995AbYFVTcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2008 15:32:32 -0400
-In-Reply-To: <485D2467.7020300@hp.com>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:56674 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753886AbYFVUTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2008 16:19:08 -0400
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-linkstatus1.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Sat, 21 Jun 2008 11:55:19 -0400
+The DM9000_NSR register contains a copy of the internal PHY's
+link status which we can use to determine if the link is up
+or down. This eliminates the more costly (and sleeping) PHY
+read when using the DM9000's own PHY.
 
-> The same vulnerability also exists in sctp_getsockopt_peer_addrs_old().
-> It's a bit more difficult to trigger since there is a dependency on
-> the peer being multihomed as well, but it's still possible to cause the
-> overwrite.
+Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-I can't see how that's possible.  This case looks harmless to
-me.
+Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
+===================================================================
+--- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-15 23:31:41.000000000 +0100
++++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-15 23:38:55.000000000 +0100
+@@ -473,7 +473,14 @@ static int dm9000_nway_reset(struct net_
+ static u32 dm9000_get_link(struct net_device *dev)
+ {
+ 	board_info_t *dm = to_dm9000_board(dev);
+-	return mii_link_ok(&dm->mii);
++	u32 ret;
++
++	if (dm->flags & DM9000_PLATF_EXT_PHY)
++		ret = mii_link_ok(&dm->mii);
++	else
++		ret = dm9000_read_locked(dm, DM9000_NSR) & NSR_LINKST ? 1 : 0;
++
++	return ret;
+ }
+ 
+ #define DM_EEPROM_MAGIC		(0x444D394B)
 
-The kernel side accesses are perfectly protected.  The kernel
-will only access the actual address list stored via:
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
 
-	list_for_each_entry(from, &asoc->peer.transport_addr_list,
-				transports) {
- ...
-		cnt ++;
-		if (cnt >= getaddrs.addr_num) break;
-	}
-	getaddrs.addr_num = cnt;
-
-Copies are only made to userspace, and the given ->addr_num only
-serves as an early break-out from that loop.  I mean, take a look,
-those lines in the above are the only aaccesses made to the user's
-provided addr_num value.
-
-There is no possibility to use strange ->addr_num values
-in order to read or write kernel memory outside of the
-intended bounds.
-
-I don't even see any value to adding new checks here.
+  'a smiley only costs 4 bytes'
