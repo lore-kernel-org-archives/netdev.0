@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 14/25] netns ct: per-netns /proc/net/nf_conntrack_expect
-Date: Sun, 22 Jun 2008 05:13:12 +0400
-Message-ID: <20080622011312.GO5392@martell.zuzino.mipt.ru>
+Subject: [PATCH 15/25] netns ct: per-netns ip_conntrack et al
+Date: Sun, 22 Jun 2008 05:13:53 +0400
+Message-ID: <20080622011353.GP5392@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -13,17 +13,74 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Same here, statistics is shown for all netns.
+
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/netfilter/nf_conntrack_expect.c |   32 +++++++++++++++++---------------
- 1 file changed, 17 insertions(+), 15 deletions(-)
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |   59 ++++++++++++------
+ 1 file changed, 40 insertions(+), 19 deletions(-)
 
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -423,16 +423,18 @@ EXPORT_SYMBOL_GPL(nf_ct_expect_related);
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -33,18 +33,20 @@ seq_print_counters(struct seq_file *s,
+ #endif
  
- #ifdef CONFIG_PROC_FS
+ struct ct_iter_state {
++	struct seq_net_private p;
+ 	unsigned int bucket;
+ };
+ 
+ static struct hlist_node *ct_get_first(struct seq_file *seq)
+ {
++	struct net *net = seq_file_net(seq);
+ 	struct ct_iter_state *st = seq->private;
+ 	struct hlist_node *n;
+ 
+ 	for (st->bucket = 0;
+ 	     st->bucket < nf_conntrack_htable_size;
+ 	     st->bucket++) {
+-		n = rcu_dereference(init_net.ct.hash[st->bucket].first);
++		n = rcu_dereference(net->ct.hash[st->bucket].first);
+ 		if (n)
+ 			return n;
+ 	}
+@@ -54,13 +56,14 @@ static struct hlist_node *ct_get_first(struct seq_file *seq)
+ static struct hlist_node *ct_get_next(struct seq_file *seq,
+ 				      struct hlist_node *head)
+ {
++	struct net *net = seq_file_net(seq);
+ 	struct ct_iter_state *st = seq->private;
+ 
+ 	head = rcu_dereference(head->next);
+ 	while (head == NULL) {
+ 		if (++st->bucket >= nf_conntrack_htable_size)
+ 			return NULL;
+-		head = rcu_dereference(init_net.ct.hash[st->bucket].first);
++		head = rcu_dereference(net->ct.hash[st->bucket].first);
+ 	}
+ 	return head;
+ }
+@@ -170,8 +173,8 @@ static const struct seq_operations ct_seq_ops = {
+ 
+ static int ct_open(struct inode *inode, struct file *file)
+ {
+-	return seq_open_private(file, &ct_seq_ops,
+-			sizeof(struct ct_iter_state));
++	return seq_open_net(inode, file, &ct_seq_ops,
++			    sizeof(struct ct_iter_state));
+ }
+ 
+ static const struct file_operations ct_file_ops = {
+@@ -179,21 +182,23 @@ static const struct file_operations ct_file_ops = {
+ 	.open    = ct_open,
+ 	.read    = seq_read,
+ 	.llseek  = seq_lseek,
+-	.release = seq_release_private,
++	.release = seq_release_net,
+ };
+ 
+ /* expects */
  struct ct_expect_iter_state {
 +	struct seq_net_private p;
  	unsigned int bucket;
@@ -41,7 +98,7 @@ Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
  		if (n)
  			return n;
  	}
-@@ -442,13 +444,14 @@ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
+@@ -203,13 +208,14 @@ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
  static struct hlist_node *ct_expect_get_next(struct seq_file *seq,
  					     struct hlist_node *head)
  {
@@ -57,76 +114,86 @@ Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
  	}
  	return head;
  }
-@@ -522,7 +525,7 @@ static const struct seq_operations exp_seq_ops = {
+@@ -277,8 +283,8 @@ static const struct seq_operations exp_seq_ops = {
  
  static int exp_open(struct inode *inode, struct file *file)
  {
 -	return seq_open_private(file, &exp_seq_ops,
+-			sizeof(struct ct_expect_iter_state));
 +	return seq_open_net(inode, file, &exp_seq_ops,
- 			sizeof(struct ct_expect_iter_state));
++			    sizeof(struct ct_expect_iter_state));
  }
  
-@@ -531,26 +534,26 @@ static const struct file_operations exp_file_ops = {
+ static const struct file_operations ip_exp_file_ops = {
+@@ -286,7 +292,7 @@ static const struct file_operations ip_exp_file_ops = {
  	.open    = exp_open,
  	.read    = seq_read,
  	.llseek  = seq_lseek,
 -	.release = seq_release_private,
 +	.release = seq_release_net,
  };
- #endif /* CONFIG_PROC_FS */
  
--static int exp_proc_init(void)
-+static int exp_proc_init(struct net *net)
+ static void *ct_cpu_seq_start(struct seq_file *seq, loff_t *pos)
+@@ -377,36 +383,51 @@ static const struct file_operations ct_cpu_seq_fops = {
+ 	.release = seq_release,
+ };
+ 
+-int __init nf_conntrack_ipv4_compat_init(void)
++static int __net_init ip_conntrack_net_init(struct net *net)
  {
- #ifdef CONFIG_PROC_FS
- 	struct proc_dir_entry *proc;
+ 	struct proc_dir_entry *proc, *proc_exp, *proc_stat;
  
--	proc = proc_net_fops_create(&init_net, "nf_conntrack_expect", 0440, &exp_file_ops);
-+	proc = proc_net_fops_create(net, "nf_conntrack_expect", 0440, &exp_file_ops);
+-	proc = proc_net_fops_create(&init_net, "ip_conntrack", 0440, &ct_file_ops);
++	proc = proc_net_fops_create(net, "ip_conntrack", 0440, &ct_file_ops);
  	if (!proc)
- 		return -ENOMEM;
- #endif /* CONFIG_PROC_FS */
- 	return 0;
- }
+ 		goto err1;
  
--static void exp_proc_remove(void)
-+static void exp_proc_remove(struct net *net)
- {
- #ifdef CONFIG_PROC_FS
--	proc_net_remove(&init_net, "nf_conntrack_expect");
-+	proc_net_remove(net, "nf_conntrack_expect");
- #endif /* CONFIG_PROC_FS */
- }
+-	proc_exp = proc_net_fops_create(&init_net, "ip_conntrack_expect", 0440,
++	proc_exp = proc_net_fops_create(net, "ip_conntrack_expect", 0440,
+ 					&ip_exp_file_ops);
+ 	if (!proc_exp)
+ 		goto err2;
  
-@@ -581,12 +584,12 @@ int nf_conntrack_expect_init(struct net *net)
- 					0, 0, NULL);
- 		if (!nf_ct_expect_cachep)
- 			goto err2;
--
--		err = exp_proc_init();
--		if (err < 0)
--			goto err3;
- 	}
- 
-+	err = exp_proc_init(net);
-+	if (err < 0)
-+		goto err3;
-+
+ 	proc_stat = proc_create("ip_conntrack", S_IRUGO,
+-				init_net.proc_net_stat, &ct_cpu_seq_fops);
++				net->proc_net_stat, &ct_cpu_seq_fops);
+ 	if (!proc_stat)
+ 		goto err3;
  	return 0;
  
  err3:
-@@ -601,10 +604,9 @@ err1:
+-	proc_net_remove(&init_net, "ip_conntrack_expect");
++	proc_net_remove(net, "ip_conntrack_expect");
+ err2:
+-	proc_net_remove(&init_net, "ip_conntrack");
++	proc_net_remove(net, "ip_conntrack");
+ err1:
+ 	return -ENOMEM;
+ }
  
- void nf_conntrack_expect_fini(struct net *net)
++static void __net_exit ip_conntrack_net_exit(struct net *net)
++{
++	remove_proc_entry("ip_conntrack", net->proc_net_stat);
++	proc_net_remove(net, "ip_conntrack_expect");
++	proc_net_remove(net, "ip_conntrack");
++}
++
++static struct pernet_operations ip_conntrack_net_ops = {
++	.init = ip_conntrack_net_init,
++	.exit = ip_conntrack_net_exit,
++};
++
++int __init nf_conntrack_ipv4_compat_init(void)
++{
++	return register_pernet_subsys(&ip_conntrack_net_ops);
++}
++
+ void __exit nf_conntrack_ipv4_compat_fini(void)
  {
--	if (net == &init_net) {
--		exp_proc_remove();
-+	exp_proc_remove(net);
-+	if (net == &init_net)
- 		kmem_cache_destroy(nf_ct_expect_cachep);
--	}
- 	nf_ct_free_hashtable(net->ct.expect_hash, net->ct.expect_vmalloc,
- 			     nf_ct_expect_hsize);
+-	remove_proc_entry("ip_conntrack", init_net.proc_net_stat);
+-	proc_net_remove(&init_net, "ip_conntrack_expect");
+-	proc_net_remove(&init_net, "ip_conntrack");
++	unregister_pernet_subsys(&ip_conntrack_net_ops);
  }
 -- 
 1.5.4.5
