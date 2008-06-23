@@ -1,53 +1,60 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [PATCH] RFKILL: fix input layer initialisation
-Date: Mon, 23 Jun 2008 11:24:53 -0400
-Message-ID: <20080623112226.ZZRA012@mailhub.coreip.homeip.net>
-References: <20080619112841.GA12051@doriath.ww600.siemens.net> <20080623091714.ZZRA012@mailhub.coreip.homeip.net> <20080623144024.GD8606@doriath.ww600.siemens.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH]: SCTP length validation.
+Date: Mon, 23 Jun 2008 11:59:43 -0400
+Message-ID: <485FC86F.4090808@hp.com>
+References: <20080620.221205.183623344.davem@davemloft.net>	<485D2467.7020300@hp.com> <20080622.123232.71141502.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, IvDoorn@gmail.com, hmh@hmh.eng.br
-To: Dmitry Baryshkov <dbaryshkov@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.238]:37026 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756313AbYFWPY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 11:24:58 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so7111527rvb.1
-        for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 08:24:57 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080623144024.GD8606@doriath.ww600.siemens.net>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:8719 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754562AbYFWQAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 12:00:10 -0400
+In-Reply-To: <20080622.123232.71141502.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 23, 2008 at 06:40:24PM +0400, Dmitry Baryshkov wrote:
-> On Mon, Jun 23, 2008 at 09:22:39AM -0400, Dmitry Torokhov wrote:
-> > Hi Dmitry,
-> > 
-> > On Thu, Jun 19, 2008 at 03:28:41PM +0400, Dmitry Baryshkov wrote:
-> > > Initialise correctly last fields, so tasks can be actually executed
-> > > 
-> > > Also move rfkill-input initialisation to subsys level so that it's
-> > > available before generic drivers probing occurs.
-> > > 
-> > 
-> > Rfkill-input is an implementation of default policy of handling
-> > wifi-related key presses, it is not mandatory and should not be
-> > required for a driver to operate, it may even not be present in the
-> > kernel and therefore module_init is the appropriate time for its
-> > initialization. We don't expect user to start pushing WIFI buttons
-> > while system just starting to boot up, do we?
+David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Sat, 21 Jun 2008 11:55:19 -0400
 > 
-> I do toggle the KEY_BLUETOOTH from the kernel driver early.
-> The preliminary patch can be found at
-> http://permalink.gmane.org/gmane.linux.ports.arm.kernel/43136
+>> The same vulnerability also exists in sctp_getsockopt_peer_addrs_old().
+>> It's a bit more difficult to trigger since there is a dependency on
+>> the peer being multihomed as well, but it's still possible to cause the
+>> overwrite.
 > 
-> The idea was to drive the bluetooth chip attached to the UART from the
-> uart pm hook.
+> I can't see how that's possible.  This case looks harmless to
+> me.
+> 
+> The kernel side accesses are perfectly protected.  The kernel
+> will only access the actual address list stored via:
+> 
+> 	list_for_each_entry(from, &asoc->peer.transport_addr_list,
+> 				transports) {
+>  ...
+> 		cnt ++;
+> 		if (cnt >= getaddrs.addr_num) break;
+> 	}
+> 	getaddrs.addr_num = cnt;
+> 
+> Copies are only made to userspace, and the given ->addr_num only
+> serves as an early break-out from that loop.  I mean, take a look,
+> those lines in the above are the only aaccesses made to the user's
+> provided addr_num value.
+> 
+> There is no possibility to use strange ->addr_num values
+> in order to read or write kernel memory outside of the
+> intended bounds.
+> 
+> I don't even see any value to adding new checks here.
 > 
 
-Is there an actual button there? If not you should not create input
-device. You probably need to talk to Henrique (CCed) about how
-properly integrate rfkill support.
+You are right.  I didn't look far enough.  Since there is no kmalloc(),
+the overflow of kernel memory is not possible, and copy_to_user should
+take care of any overflows of the user memory.
 
--- 
-Dmitry
+-vlad
+
