@@ -1,69 +1,46 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [2.6 patch] remove CONFIG_NET_SCH_RR
-Date: Mon, 23 Jun 2008 22:40:51 +0300
-Message-ID: <20080623194051.GA1885@cs181140183.pp.htv.fi>
-References: <20080623174702.GD4756@cs181140183.pp.htv.fi> <D5C1322C3E673F459512FB59E0DDC3290549C885@orsmsx414.amr.corp.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] IRDA: Fix genlmsg_put() return value check.
+Date: Mon, 23 Jun 2008 21:43:31 +0200
+Message-ID: <485FFCE3.2050800@trash.net>
+References: <1214248629-6208-1-git-send-email-juliusv@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Robert P. J. Day" <rpjday@crashcourse.ca>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, samuel@sortiz.org, netdev@vger.kernel.org
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:36119 "EHLO smtp4.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755246AbYFWTmr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2008 15:42:47 -0400
-Content-Disposition: inline
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290549C885@orsmsx414.amr.corp.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:60324 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752377AbYFWTng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:43:36 -0400
+In-Reply-To: <1214248629-6208-1-git-send-email-juliusv@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 23, 2008 at 11:31:30AM -0700, Waskiewicz Jr, Peter P wrote:
-> >Commit d62733c8e437fdb58325617c4b3331769ba82d70
-> >([SCHED]: Qdisc changes and sch_rr added for multiqueue)
-> >added a NET_SCH_RR option that was unused since the code
-> >went unconditionally into sch_prio.
+Julius Volz wrote:
+> Fix an incorrect return value check of genlmsg_put() in irda_nl_get_mode().
+> genlmsg_put() does not use ERR_PTR() to encode return values, it just
+> returns NULL on error.
 > 
-> I don't agree we should remove this option, purely for the fact that
-> there isn't any way a user would know the qdisc existed without reading
-> the code.
+> Signed-off-by: Julius Volz <juliusv@google.com>
+> ---
+>  net/irda/irnetlink.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/irda/irnetlink.c b/net/irda/irnetlink.c
+> index 9e1fb82..ea11cb4 100644
+> --- a/net/irda/irnetlink.c
+> +++ b/net/irda/irnetlink.c
+> @@ -101,8 +101,8 @@ static int irda_nl_get_mode(struct sk_buff *skb, struct genl_info *info)
+>  
+>  	hdr = genlmsg_put(msg, info->snd_pid, info->snd_seq,
+>  			  &irda_nl_family, 0,  IRDA_NL_CMD_GET_MODE);
+> -	if (IS_ERR(hdr)) {
+> -		ret = PTR_ERR(hdr);
+> +	if (hdr == NULL) {
+> +		ret = -ENOMEM;
+>  		goto err_out;
+>  	}
 
-Most users of the kernel will anyway use a distribution kernel, and 
-therefore never see it.
-
-If the problem is a lack of any user documentation then kconfig is wrong 
-place to attack that.
-
-> I'd rather see a change to sch_prio.c to correctly wrap the
-> RR code, which I should have done in the first place.  My hurdle is when
-> the module is selected, NET_SCH_RR isn't defined to be used as an #ifdef
-> check in the code. Only when it's selected to be built-in is the symbol
-> defined.  If I can get around that, I'll generate a patch to properly
-> wrap sch_prio.c code.  I know I'm missing something silly, so any
-> guidance is appreciated.
-
-In this case NET_SCH_RR is not a module but a feature inside 
-NET_SCH_PRIO, and that can be expressed as follows:
-
-config NET_SCH_RR
-        bool "Multi Band Round Robin Queuing (RR)"
-        depends on NET_SCH_PRIO
-
-But I doubt making these #ifdef's makes much sense.
-
-IMHO the best you can do is to add a note about RR to the NET_SCH_PRIO 
-help text.
-
-> -PJ Waskiewicz
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Good catch, but the correct return value for insufficient
+space in the skb is -ENOSPC.
