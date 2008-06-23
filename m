@@ -1,46 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] IRDA: Fix genlmsg_put() return value check.
-Date: Mon, 23 Jun 2008 21:43:31 +0200
-Message-ID: <485FFCE3.2050800@trash.net>
-References: <1214248629-6208-1-git-send-email-juliusv@google.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [2.6 patch] remove CONFIG_NET_SCH_RR
+Date: Mon, 23 Jun 2008 12:59:41 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329054E47C9@orsmsx414.amr.corp.intel.com>
+References: <20080623174702.GD4756@cs181140183.pp.htv.fi> <D5C1322C3E673F459512FB59E0DDC3290549C885@orsmsx414.amr.corp.intel.com> <20080623194051.GA1885@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, samuel@sortiz.org, netdev@vger.kernel.org
-To: Julius Volz <juliusv@google.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Robert P. J. Day" <rpjday@crashcourse.ca>
+To: "Adrian Bunk" <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60324 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752377AbYFWTng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:43:36 -0400
-In-Reply-To: <1214248629-6208-1-git-send-email-juliusv@google.com>
+Received: from mga01.intel.com ([192.55.52.88]:39285 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754419AbYFWT7p convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:59:45 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080623194051.GA1885@cs181140183.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> Fix an incorrect return value check of genlmsg_put() in irda_nl_get_mode().
-> genlmsg_put() does not use ERR_PTR() to encode return values, it just
-> returns NULL on error.
-> 
-> Signed-off-by: Julius Volz <juliusv@google.com>
-> ---
->  net/irda/irnetlink.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/irda/irnetlink.c b/net/irda/irnetlink.c
-> index 9e1fb82..ea11cb4 100644
-> --- a/net/irda/irnetlink.c
-> +++ b/net/irda/irnetlink.c
-> @@ -101,8 +101,8 @@ static int irda_nl_get_mode(struct sk_buff *skb, struct genl_info *info)
->  
->  	hdr = genlmsg_put(msg, info->snd_pid, info->snd_seq,
->  			  &irda_nl_family, 0,  IRDA_NL_CMD_GET_MODE);
-> -	if (IS_ERR(hdr)) {
-> -		ret = PTR_ERR(hdr);
-> +	if (hdr == NULL) {
-> +		ret = -ENOMEM;
->  		goto err_out;
->  	}
+>But I doubt making these #ifdef's makes much sense.
+>
+>IMHO the best you can do is to add a note about RR to the NET_SCH_PRIO 
+>help text.
 
-Good catch, but the correct return value for insufficient
-space in the skb is -ENOSPC.
+Agreed.  I can generate a change to the help text to prio for it.
+
+Thanks Adrian,
+
+-PJ Waskiewicz
