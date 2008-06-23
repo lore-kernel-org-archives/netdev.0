@@ -1,38 +1,45 @@
-From: Josip Rodin <joy@entuzijast.net>
-Subject: Re: bnx2_poll panicking kernel
-Date: Mon, 23 Jun 2008 23:36:57 +0200
-Message-ID: <20080623213657.GA26447@orion.carnet.hr>
-References: <20080621113406.5f89ae8d.billfink@mindspring.com> <C27F8246C663564A84BB7AB343977242019B6FEC8E@IRVEXCHCCR01.corp.ad.broadcom.com> <20080623180439.GA18829@orion.carnet.hr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: SCTP length validation.
+Date: Mon, 23 Jun 2008 14:42:07 -0700 (PDT)
+Message-ID: <20080623.144207.89110071.davem@davemloft.net>
+References: <485D2467.7020300@hp.com>
+	<20080622.123232.71141502.davem@davemloft.net>
+	<485FC86F.4090808@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Bill Fink' <billfink@mindspring.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	"mirrors@debian.org" <mirrors@debian.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orion.CARNet.hr ([161.53.160.90]:55420 "EHLO orion.carnet.hr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752948AbYFWVhD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2008 17:37:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20080623180439.GA18829@orion.carnet.hr>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58044
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753193AbYFWVmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 17:42:07 -0400
+In-Reply-To: <485FC86F.4090808@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 23, 2008 at 08:04:39PM +0200, Josip Rodin wrote:
-> Oh, duh, yes, I'm a moron. It's back on now, sorry about that.
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Mon, 23 Jun 2008 11:59:43 -0400
 
-There we go, I got the debugging messages:
+> David Miller wrote:
+> > From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> > Date: Sat, 21 Jun 2008 11:55:19 -0400
+> > 
+> >> The same vulnerability also exists in sctp_getsockopt_peer_addrs_old().
+> >> It's a bit more difficult to trigger since there is a dependency on
+> >> the peer being multihomed as well, but it's still possible to cause the
+> >> overwrite.
+> > 
+> > I can't see how that's possible.  This case looks harmless to
+> > me.
+> > 
+> > The kernel side accesses are perfectly protected.  The kernel
+> > will only access the actual address list stored via:
+ ...
+> 
+> You are right.  I didn't look far enough.  Since there is no kmalloc(),
+> the overflow of kernel memory is not possible, and copy_to_user should
+> take care of any overflows of the user memory.
 
-[...]
-Jun 23 19:53:18 arrakis kernel: HTB: quantum of class 10100 is big. Consider r2q change.
-Jun 23 22:57:55 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 4
-Jun 23 22:58:32 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 2
-Jun 23 22:59:02 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 3
-Jun 23 22:59:23 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 9
-Jun 23 22:59:36 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 3
-Jun 23 23:08:19 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 3
-
--- 
-     2. That which causes joy or happiness.
+Thanks for double-checking my analysis Vlad.
