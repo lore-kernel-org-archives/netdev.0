@@ -1,49 +1,74 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/8] textsearch: fix Boyer-Moore algorithm for case insensitive
- searching
-Date: Mon, 23 Jun 2008 13:33:39 +0200
-Message-ID: <485F8A13.90808@trash.net>
-References: <1214034845-1316-1-git-send-email-joonwpark81@gmail.com>	 <485CBAE4.4030307@trash.net> <b25c3fa70806210217w48658acewc2f987414bd312c3@mail.gmail.com>
+From: Pekka J Enberg <penberg@cs.helsinki.fi>
+Subject: [PATCH 01/08] ipg: fix jumbo frame compilation
+Date: Mon, 23 Jun 2008 14:34:29 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0806231434050.23716@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>
-To: Joonwoo Park <joonwpark81@gmail.com>
+Cc: sorbica@icplus.com.tw, jesse@icplus.com.tw, Bircoph@list.ru,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46087 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752541AbYFWLdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 07:33:43 -0400
-In-Reply-To: <b25c3fa70806210217w48658acewc2f987414bd312c3@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41699 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754632AbYFWLeb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 07:34:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joonwoo Park wrote:
-> 2008/6/21 Patrick McHardy <kaber@trash.net>:
->>> +static void compute_prefix_tbl(struct ts_bm *bm, u8 icase)
->>>  {
->>>        int i, j, g;
->>>          for (i = 0; i < ASIZE; i++)
->>>                bm->bad_shift[i] = bm->patlen;
->>> -       for (i = 0; i < bm->patlen - 1; i++)
->>> +       for (i = 0; i < bm->patlen - 1; i++) {
->>>                bm->bad_shift[bm->pattern[i]] = bm->patlen - 1 - i;
->>> +               if (icase)
->>> +                       bm->bad_shift[tolower(bm->pattern[i])]
->>> +                           = bm->patlen - 1 - i;
->>> +       }
->> You use toupper() above and tolower() here, is that correct?
->>
-> 
-> It should be, bm->pattern's characters are all upper case since It was
-> altered before.
-> So we should use toupper() for target string character to compare.
-> And to ignore case, we should prepare one more bad_shift array
-> calculation, opposite tolower() should be used for it.
+From: Pekka Enberg <penberg@cs.helsinki.fi>
 
-OK thanks. I'll wait for an ACK from Thomas before applying
-them though.
+Make jumbo frame support compile again. It was broken by the cleanup series
+before the merge because the code is hidden under JUMBO_FRAME #ifdef.
 
+Tested-by: Andrew Savchenko <Bircoph@list.ru>
+Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+---
+ drivers/net/ipg.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+Index: linux-2.6/drivers/net/ipg.c
+===================================================================
+--- linux-2.6.orig/drivers/net/ipg.c
++++ linux-2.6/drivers/net/ipg.c
+@@ -1271,7 +1271,7 @@ static void ipg_nic_rx_with_end(struct n
+ 
+ 			framelen = le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFRAMELEN;
+ 
+-			endframeLen = framelen - jumbo->current_size;
++			endframelen = framelen - jumbo->current_size;
+ 			/*
+ 			if (framelen > IPG_RXFRAG_SIZE)
+ 				framelen=IPG_RXFRAG_SIZE;
+@@ -1279,8 +1279,8 @@ static void ipg_nic_rx_with_end(struct n
+ 			if (framelen > IPG_RXSUPPORT_SIZE)
+ 				dev_kfree_skb_irq(jumbo->skb);
+ 			else {
+-				memcpy(skb_put(jumbo->skb, endframeLen),
+-				       skb->data, endframeLen);
++				memcpy(skb_put(jumbo->skb, endframelen),
++				       skb->data, endframelen);
+ 
+ 				jumbo->skb->protocol =
+ 				    eth_type_trans(jumbo->skb, dev);
+@@ -1352,16 +1352,16 @@ static int ipg_nic_rx(struct net_device 
+ 
+ 		switch (ipg_nic_rx_check_frame_type(dev)) {
+ 		case FRAME_WITH_START_WITH_END:
+-			ipg_nic_rx_with_start_and_end(dev, tp, rxfd, entry);
++			ipg_nic_rx_with_start_and_end(dev, sp, rxfd, entry);
+ 			break;
+ 		case FRAME_WITH_START:
+-			ipg_nic_rx_with_start(dev, tp, rxfd, entry);
++			ipg_nic_rx_with_start(dev, sp, rxfd, entry);
+ 			break;
+ 		case FRAME_WITH_END:
+-			ipg_nic_rx_with_end(dev, tp, rxfd, entry);
++			ipg_nic_rx_with_end(dev, sp, rxfd, entry);
+ 			break;
+ 		case FRAME_NO_START_NO_END:
+-			ipg_nic_rx_no_start_no_end(dev, tp, rxfd, entry);
++			ipg_nic_rx_no_start_no_end(dev, sp, rxfd, entry);
+ 			break;
+ 		}
+ 	}
