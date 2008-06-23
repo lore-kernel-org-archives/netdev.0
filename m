@@ -1,64 +1,49 @@
-From: "Bryan Wu" <cooloney@kernel.org>
-Subject: Re: [patch v2 02/11] DM9000: Fixup blackfin after removing 2 resource usage
-Date: Mon, 23 Jun 2008 17:56:08 +0800
-Message-ID: <386072610806230256h14679adcwb1e4e27a06539f1a@mail.gmail.com>
-References: <20080622201645.041001353@fluff.org.uk>
-	 <20080622201904.747948172@fluff.org.uk>
-	 <20080622203530.GB4050@solarflare.com>
-	 <20080623092407.GD26276@fluff.org.uk>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/25] Conntracking and NAT in netns
+Date: Mon, 23 Jun 2008 11:57:56 +0200
+Message-ID: <485F73A4.8030108@trash.net>
+References: <20080622005916.GA5392@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org, jeff@garzik.org,
-	"Laurent Pinchart" <laurentp@cse-semaphore.com>
-To: "Ben Dooks" <ben-linux@fluff.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:2978 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750942AbYFWJ4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 05:56:09 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1955793wfd.4
-        for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 02:56:08 -0700 (PDT)
-In-Reply-To: <20080623092407.GD26276@fluff.org.uk>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	den@openvz.org, xemul@openvz.org, ebiederm@xmission.com,
+	benjamin.thery@bull.net, dlezcano@fr.ibm.com
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080622005916.GA5392@martell.zuzino.mipt.ru>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 23, 2008 at 5:24 PM, Ben Dooks <ben-linux@fluff.org> wrote:
-> On Sun, Jun 22, 2008 at 09:35:32PM +0100, Ben Hutchings wrote:
->> Ben Dooks wrote:
->> > From: Laurent Pinchart <laurentp@cse-semaphore.com>
->> >
->> > The dm9000 driver accepts either 2 or 3 resources to describe the platform
->> > devices. The 2 resources case abuses the ioresource mechanism by passing
->> > ioremap()ed memory through the platform device resources. This patch removes
->> > converts boards that were using it to the 3 resources scheme.
->> [...]
->>
->> This needs to be applied before the previous patch, otherwise there's
->> a point where these boards are broken.
->
-> There may be a small overlap, but I'd much rather fix the abuse than
-> actually leave it in there much longer. The fixup patch has been cc'd
-> to the blackfin maintainer, so any breakage will be minimal (and will
-> also be clearly marked, it isn't as if the driver will just fail to
-> work; there is a clear error being printed and it will gracefully
-> exit).
->
-> --
+Alexey Dobriyan wrote:
+> Hi, patchbomb below makes significant parts of connection tracking and
+> NAT code usable in netns and independent from other netns.
+> 
+> Status is that it is lightly tested but more or less works, I used it on
+> a box which provides NAT for another with all netdevices moved to netns,
+> routing and iptables rules set up and rules flushed in init_net.
 
-I agree with Ben Hunchings here.
+OK, I assume "Do not apply" applies to all patches then.
 
-Because this patch depends on previous patches in this series, could
-you please merge this patch set as a whole DM9000 series?
-If I merge this patch from Blackfin subsystem, there will be some
-breakage before other DM9000 patches are merged.
-So please merge this Blackfin fixup patch with other DM9000 patches together.
+> So far so good.
+> 
+> Weak points:
+> a) races during netns destruction or conntrack modules unload
+>    (see more in patches)
+> b) grabbing netns from skb->dev or skb->dst->dev
+>    these places should be checked with extreme scrunity :-\
 
-And This patch is OK for Blackfin change.
+Will do.
 
-Acked-by: Bryan Wu <cooloney@kernel.org>
+> c) some stuff not converted (pptp, h323) -- it's like 10 minutes to make
+>    a patch and full day to setup and test it :^)
+> d) IPv6 conntracking wasn't tested.
+ >
+> e) ordering probably should be redone (or it shouldn't since netfilter
+>    is banned in netns as is, so nobody will care)
 
-Thanks
--Bryan
+I think its most important that its bisectable for the non-ns
+case. So thats OK.
+
+
+
