@@ -1,22 +1,23 @@
 From: Stefan Roese <sr@denx.de>
-Subject: [PATCH] ibm_newemac: Fixes entry of short packets
-Date: Mon, 23 Jun 2008 14:55:05 +0200
-Message-ID: <1214225705-25850-1-git-send-email-sr@denx.de>
+Subject: [PATCH] ibm_newemac: Fixes memory leak in ibm_newemac ethernet driver
+Date: Mon, 23 Jun 2008 14:55:12 +0200
+Message-ID: <1214225712-25882-1-git-send-email-sr@denx.de>
 Cc: benh@kernel.crashing.org, Sathya Narayanan <sathyan@teamf1.com>
 To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:56104 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.171]:49677 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753673AbYFWMzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 08:55:14 -0400
+	with ESMTP id S1754072AbYFWMzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 08:55:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sathya Narayanan <sathyan@teamf1.com>
 
-Short packets has to be discarded by the driver. So this patch addresses the
-issue of discarding the short packets of size lesser then ethernet header
-size.
+This patch addresses the memory leak happenning in drivers transmit queue
+under heavy load condition. Once the transmit queue becomes full, driver
+does an automatic wrapup of queue. During which the untransmitted SKB's are
+lost without getting freed up.
 
 Signed-off-by: Sathya Narayanan <sathyan@teamf1.com>
 Signed-off-by: Stefan Roese <sr@denx.de>
@@ -25,23 +26,23 @@ Signed-off-by: Stefan Roese <sr@denx.de>
  1 files changed, 7 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-index 6dfc2c9..aa407b2 100644
+index aa407b2..ee868b6 100644
 --- a/drivers/net/ibm_newemac/core.c
 +++ b/drivers/net/ibm_newemac/core.c
-@@ -1652,6 +1652,13 @@ static int emac_poll_rx(void *param, int budget)
+@@ -1328,6 +1328,13 @@ static int emac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
  
- 		skb_put(skb, len);
- 	push_packet:
-+		if (skb->len < ETH_HLEN) {
-+			dev_kfree_skb(skb);
-+			printk(KERN_WARNING "%s: short packets dropped\n",
-+			       dev->ndev->name);
-+			++dev->estats.rx_dropped_stack;
-+			goto next;
-+		}
- 		skb->dev = dev->ndev;
- 		skb->protocol = eth_type_trans(skb, dev->ndev);
- 		emac_rx_csum(dev, skb, ctrl);
+ 	DBG2(dev, "xmit(%u) %d" NL, len, slot);
+ 
++	if (dev->tx_skb[slot] && dev->tx_desc[slot].data_ptr) {
++		dev_kfree_skb(dev->tx_skb[slot]);
++		dev->tx_skb[slot] = NULL;
++		dev->tx_cnt--;
++		++dev->estats.tx_dropped;
++	}
++
+ 	dev->tx_skb[slot] = skb;
+ 	dev->tx_desc[slot].data_ptr = dma_map_single(&dev->ofdev->dev,
+ 						     skb->data, len,
 -- 
 1.5.6
 
