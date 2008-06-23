@@ -1,64 +1,37 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] NET_SCHED: restore HZ value to /proc/net/psched
-Date: Mon, 23 Jun 2008 21:36:08 +0200
-Message-ID: <485FFB28.7070503@trash.net>
-References: <20080623111320.7ddb72b9@extreme>
+Subject: Re: [PATCH] hfsc: add link layer overhead adaption
+Date: Mon, 23 Jun 2008 21:37:37 +0200
+Message-ID: <485FFB81.5000804@trash.net>
+References: <20080623102514.15821.13979.stgit@fate.lan>	<485F81B2.7000107@trash.net> <20080623142417.9gxuu3y9r4084s4c@hayate.ip6>	<485F889E.1050901@trash.net> <20080623221522.jqh110t8o4cgss4o@hayate.ip6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60170 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:60194 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754475AbYFWTgN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:36:13 -0400
-In-Reply-To: <20080623111320.7ddb72b9@extreme>
+	with ESMTP id S1752245AbYFWThl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:37:41 -0400
+In-Reply-To: <20080623221522.jqh110t8o4cgss4o@hayate.ip6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> Some changes back in  2.6.22 broke a number of
-> other places where the iproute2 utilities depended on kernel HZ
-> value. The use of HZ was a bad original ABI design choice; the
-> question is how to fix the impacts.
+Jussi Kivilinna wrote:
+> Quoting Patrick McHardy <kaber@trash.net>:
 > 
-> During 2.6.22 development, the psched clock was converted over
-> to use high resolution timers, and one of the changes was to the
-> return value of /proc/net/psched. This file is used by utilities
-> to determine conversion between time and jiffies.
-> It would be better to go back to the original format
-> output where the fourth field was the kernel HZ.
+>>>
+>>> So would it be better if I add 'length table' to kernel&userspace  
+>>> and use it instead?
+>>
+>> Yes, I even posted an unfinished patch for this one or two years
+>> ago, in response to the overhead calculation patches for HTB etc.
+>>
+>> I can't find it right now, but haven't tried too hard. It was
+>> called qdisc STABs (for size tables), you should be able to find
+>> it in the archives.
 > 
-> The motivation for the change was to make the HTB burst size
-> default smaller because the kernel clock resolution was better.  
-> But the change broke the use of jiffies by dst_metrics.
-> 
-> With this revert all the metric RTT values will work again.
-> The only use of hz in htb is to set the buffer and ceiling buffer default,
-> and having the old value would cause a slightly larger value. Note: the comment
-> in q_htb is incorrect, the value calculated is the default not the
-> minimum.  As an example if HTB rate is 1mbit, then the default buffer
-> would be come 11500 (with 100 HZ) vs 1500 (with 2.6.25).
-> 
-> This effectively reverts commit 4361cb17f0df5491fe6e2c3ae1defc98e9a64a79
-> I am not 100% convinced this is the best or only solution.
+> Well, my LTAB didn't end up being exactly same your earlier STAB, but I 
+> renamed LTAB to STAB as it sounds better. Hope you don't mind :]
 
-Me neither. As you've mentioned yourself, the fact that
-the interfaces use kernel HZ as unit is a bug, and the use
-of /proc/net/psched is another bug (one that isn't present
-for *that* long I should add, the iproute git history
-unfortunately only contains one huge patch which includes
-this change).
-
-IMO qdiscs shouldn't be punished for bugs in other code
-and the main problem would still remain. Two alternative
-approaches:
-
-- just fix the interface (something we've done multiple
-   times, even after 2.6 was released).
-
-- add a new proc file to get the value of kernel HZ (the
-   fix needs a kernel change anyway, this would additionally
-   require a new iproute version).
-
+Not at all :) Did you already post that patch?
