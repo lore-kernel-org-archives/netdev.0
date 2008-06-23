@@ -1,85 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: tc regression?
-Date: Mon, 23 Jun 2008 15:59:18 +0200
-Message-ID: <485FAC36.4040706@trash.net>
-References: <485FA55A.4070107@bigtelecom.ru> <485FAAF1.6060304@trash.net>
+From: Dmitry Baryshkov <dbaryshkov@gmail.com>
+Subject: Re: [PATCH] RFKILL: fix input layer initialisation
+Date: Mon, 23 Jun 2008 18:40:24 +0400
+Message-ID: <20080623144024.GD8606@doriath.ww600.siemens.net>
+References: <20080619112841.GA12051@doriath.ww600.siemens.net> <20080623091714.ZZRA012@mailhub.coreip.homeip.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020009060706010006060802"
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, IvDoorn@gmail.com
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51556 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751756AbYFWN7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 09:59:23 -0400
-In-Reply-To: <485FAAF1.6060304@trash.net>
+Received: from fk-out-0910.google.com ([209.85.128.191]:57160 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755757AbYFWOkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 10:40:35 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so2351073fkq.5
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 07:40:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080623091714.ZZRA012@mailhub.coreip.homeip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020009060706010006060802
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Patrick McHardy wrote:
-> Badalian Vyacheslav wrote:
->> Hello all.
->>
->> Ditrib: Gentoo (i hope its not gentoo bug...)
->>
->> I try update package to "sys-apps/iproute2-2.6.25.20080417" and see 
->> that filter can't del filter...
->>
->> # tc filter show dev eth1 | grep 4:29:d1
->> filter parent 1: protocol ip pref 5 u32 fh 4:29:d1 order 209 key ht 4 
->> bkt 29 flowid 1:b7aa
->>
->> # tc filter del dev eth1 parent 1: pref 5 handle 4:29:d1 u32
->> RTNETLINK answers: Invalid argument
->> We have an error talking to the kernel
->>
->> after rollback to package"sys-apps/iproute2-2.6.24.20080108" all 
->> deleted normal...
+On Mon, Jun 23, 2008 at 09:22:39AM -0400, Dmitry Torokhov wrote:
+> Hi Dmitry,
 > 
-> The current iproute version uses "protocol all" by default
-> if its not specified. This is actually only useful for creating
-> new filters, on deletion an unset protocol is treated as wildcard.
+> On Thu, Jun 19, 2008 at 03:28:41PM +0400, Dmitry Baryshkov wrote:
+> > Initialise correctly last fields, so tasks can be actually executed
+> > 
+> > Also move rfkill-input initialisation to subsys level so that it's
+> > available before generic drivers probing occurs.
+> > 
 > 
-> Does this patch fix it?
+> Rfkill-input is an implementation of default policy of handling
+> wifi-related key presses, it is not mandatory and should not be
+> required for a driver to operate, it may even not be present in the
+> kernel and therefore module_init is the appropriate time for its
+> initialization. We don't expect user to start pushing WIFI buttons
+> while system just starting to boot up, do we?
 
-Oops, buggy patch. This one should work.
+I do toggle the KEY_BLUETOOTH from the kernel driver early.
+The preliminary patch can be found at
+http://permalink.gmane.org/gmane.linux.ports.arm.kernel/43136
+
+The idea was to drive the bluetooth chip attached to the UART from the
+uart pm hook.
 
 
---------------020009060706010006060802
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+-- 
+With best wishes
+Dmitry
 
-diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-index db44dec..880b887 100644
---- a/tc/tc_filter.c
-+++ b/tc/tc_filter.c
-@@ -54,7 +54,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
- 	} req;
- 	struct filter_util *q = NULL;
- 	__u32 prio = 0;
--	__u32 protocol = ETH_P_ALL;
-+	__u32 protocol = 0;
- 	int protocol_set = 0;
- 	char *fhandle = NULL;
- 	char  d[16];
-@@ -72,6 +72,9 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
- 	req.n.nlmsg_type = cmd;
- 	req.t.tcm_family = AF_UNSPEC;
- 
-+	if (cmd == RTM_NEWTFILTER && flags & NLM_F_CREATE)
-+		protocol = ETH_P_ALL;
-+
- 	while (argc > 0) {
- 		if (strcmp(*argv, "dev") == 0) {
- 			NEXT_ARG();
-
---------------020009060706010006060802--
