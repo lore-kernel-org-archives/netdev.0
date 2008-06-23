@@ -1,8 +1,9 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 09/25] netns ct: get proper netns from netdevice
-Date: Mon, 23 Jun 2008 12:35:00 +0200
-Message-ID: <485F7C54.5070506@trash.net>
-References: <20080622010821.GJ5392@martell.zuzino.mipt.ru>
+Subject: Re: [PATCH 10/25] netns ct: fix ip_route_me_harder() for REEJCT,
+ NAT	et al
+Date: Mon, 23 Jun 2008 12:40:35 +0200
+Message-ID: <485F7DA3.2010700@trash.net>
+References: <20080622010920.GK5392@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,34 +11,27 @@ Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	den@openvz.org, xemul@openvz.org, ebiederm@xmission.com,
 	benjamin.thery@bull.net, dlezcano@fr.ibm.com
 To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44546 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249AbYFWKfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 06:35:09 -0400
-In-Reply-To: <20080622010821.GJ5392@martell.zuzino.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080622010920.GK5392@martell.zuzino.mipt.ru>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Alexey Dobriyan wrote:
-> Get netns from skb->dev on input, from skb->dst->dev on output to know
-> where to create or search for conntrack.
-> 
-> Is there some documentation re which device accessible from skb is valid
-> at which point?
+> ip_route_me_harder() is called on output codepaths:
+> 1) IPVS: honestly, not sure, it can be called during forwarding
+> 2) IPv4 REJECT: refreshing comment re skb->dst is valid
+> 	and assigment of skb->dst right before call :^)
+> 3) NAT: called in LOCAL_OUT hook
+> 4) iptable_mangle: LOCAL_OUT hook
+> 5) nf_ip_reroute(): LOCAL_OUT hook (no clue about queueing packets to luserspace)
 
-For netfilter hooks, skb->dev points to the input device in
-PREROUTING, INPUT, FORWARD, to the output device in POSTROUTING
-and is invalid in OUTPUT.
+skb->dst->dev seems OK in all these cases.
 
-> @@ -626,10 +628,14 @@ resolve_normal_ct(struct sk_buff *skb,
->  		return NULL;
->  	}
->  
-> +	dev = skb->dev;
-> +	if (!dev)
-> +		dev = skb->dst->dev;
-> +	net = dev_net(dev);
+> P.S.: IPv6 version is also called by mangling code on input, what's the story
+>       behind this discrepancy?
 
-Maybe just pass it though nf_conntrack_in from the hook functions,
-those get the devices as arguments.
+That looks wrong, I think the reason for this bug is that
+IPv6 originally didn't support routing rules, so the call
+was #ifdef 0'ed, then enabled without checking the hooks.
+I'll queue up a fix.
+
