@@ -1,99 +1,64 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [RESEND] [PATCH] tcp: fix for splice receive when used with software LRO
-Date: Mon, 23 Jun 2008 12:50:30 +0300
-Message-ID: <200806231250.31087.opurdila@ixiacom.com>
-References: <485B4ADE.8070102@domat.com.pl> <200806202344.12771.opurdila@ixiacom.com> <20080622210747.GA17472@ami.dom.local>
+From: "Bryan Wu" <cooloney@kernel.org>
+Subject: Re: [patch v2 02/11] DM9000: Fixup blackfin after removing 2 resource usage
+Date: Mon, 23 Jun 2008 17:56:08 +0800
+Message-ID: <386072610806230256h14679adcwb1e4e27a06539f1a@mail.gmail.com>
+References: <20080622201645.041001353@fluff.org.uk>
+	 <20080622201904.747948172@fluff.org.uk>
+	 <20080622203530.GB4050@solarflare.com>
+	 <20080623092407.GD26276@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org, jeff@garzik.org,
+	"Laurent Pinchart" <laurentp@cse-semaphore.com>
+To: "Ben Dooks" <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1851 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751274AbYFWJwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 05:52:11 -0400
-In-Reply-To: <20080622210747.GA17472@ami.dom.local>
+Received: from wf-out-1314.google.com ([209.85.200.169]:2978 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750942AbYFWJ4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 05:56:09 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so1955793wfd.4
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 02:56:08 -0700 (PDT)
+In-Reply-To: <20080623092407.GD26276@fluff.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 23 June 2008, Jarek Poplawski wrote:
+On Mon, Jun 23, 2008 at 5:24 PM, Ben Dooks <ben-linux@fluff.org> wrote:
+> On Sun, Jun 22, 2008 at 09:35:32PM +0100, Ben Hutchings wrote:
+>> Ben Dooks wrote:
+>> > From: Laurent Pinchart <laurentp@cse-semaphore.com>
+>> >
+>> > The dm9000 driver accepts either 2 or 3 resources to describe the platform
+>> > devices. The 2 resources case abuses the ioresource mechanism by passing
+>> > ioremap()ed memory through the platform device resources. This patch removes
+>> > converts boards that were using it to the 3 resources scheme.
+>> [...]
+>>
+>> This needs to be applied before the previous patch, otherwise there's
+>> a point where these boards are broken.
 >
-> IMHO it's really more readable, and probably should be sometimes faster
-> if these divisions are optimized by a compiler. So, since the work is
-> done anyway, you could try to submit this - you got nothing to lose.
-
-Cool, thanks for reviewing it.
-
-> But, I think it's better to separate the change of functionality (a
-> recursive processing of frag_list) to another patch (if there is a
-> practical reason for this).
+> There may be a small overlap, but I'd much rather fix the abuse than
+> actually leave it in there much longer. The fixup patch has been cc'd
+> to the blackfin maintainer, so any breakage will be minimal (and will
+> also be clearly marked, it isn't as if the driver will just fail to
+> work; there is a clear error being printed and it will gracefully
+> exit).
 >
+> --
 
-Yes, it makes sense, I'll remove the recursion from this patch. 
+I agree with Ben Hunchings here.
 
-About the recursion: don't know if it makes a difference from a functional 
-perspective (I don't think that we can have frag_lists in frag_lists), but 
-I've noticed that skb_copy_bits does recurse. Any idea why?
+Because this patch depends on previous patches in this series, could
+you please merge this patch set as a whole DM9000 series?
+If I merge this patch from Blackfin subsystem, there will be some
+breakage before other DM9000 patches are merged.
+So please merge this Blackfin fixup patch with other DM9000 patches together.
 
+And This patch is OK for Blackfin change.
 
-> static inline void __segment_seek(struct page **page, int *poff, int *plen,
-> 				  int off)
->
-> //?? unsigned ints (especially *poff for "/,%" optimization)?
+Acked-by: Bryan Wu <cooloney@kernel.org>
 
-Ack, will fix.
-
-
-> static inline int __splice_segment(struct page *page, unsigned int poff,
-> 				   unsigned int plen, unsigned int *off,
-> 				   unsigned int *len, struct sk_buff *skb,
-> 				   struct splice_pipe_desc *spd)
-> {
-> //??	if (!*len)
-> //??		return 1;
-
-Ack, will fix.
-
-> 	/* skip this segment if already processed */
-> 	if (*off >= plen) {
-> 		*off -= plen;
-> 		return 0;
-> 	}
->
-> 	/* ignore any bits we already processed */
-> 	if (*off) {
-> 		__segment_seek(&page, &poff, &plen, *off);
-> 		*off = 0;
-> 	}
->
-> 	do {
-> 		unsigned int flen = min(*len, plen);
->
-> //?? needed for a linear region?:
-> //??		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
->
-
-Oops, missed that, thanks for catching it.
-
->
-> //?? The original comment with fixed "Returns..." (unless changed to void)?
->
-
-Will add the comment back, since removing the recursions will make it correct 
-again and will need the return type to decide if we go into the frag list or 
-not, up in skb_splice_bits.
-
->
-> //?? I'm not sure this recursion is really needed here, so I'd prefer
-> //?? to move this back to skb_splice_bits() for now, and maybe to
-> //?? propose this change as a separate patch giving the reasons for this.
-
-Ack.
-
-Thanks,
-tavi
-
-
+Thanks
+-Bryan
