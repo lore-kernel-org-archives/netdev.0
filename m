@@ -1,45 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] remove CONFIG_NET_SCH_RR
-Date: Mon, 23 Jun 2008 14:52:31 -0700 (PDT)
-Message-ID: <20080623.145231.223738833.davem@davemloft.net>
-References: <20080623174702.GD4756@cs181140183.pp.htv.fi>
-	<D5C1322C3E673F459512FB59E0DDC3290549C885@orsmsx414.amr.corp.intel.com>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: Re: [PATCH] hfsc: add link layer overhead adaption
+Date: Tue, 24 Jun 2008 01:29:25 +0300
+Message-ID: <20080624012925.qs57iw0wg0wkcoog@hayate.ip6>
+References: <20080623102514.15821.13979.stgit@fate.lan>
+	<485F81B2.7000107@trash.net> <20080623142417.9gxuu3y9r4084s4c@hayate.ip6>
+	<485F889E.1050901@trash.net> <20080623221522.jqh110t8o4cgss4o@hayate.ip6>
+	<485FFB81.5000804@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset=UTF-8;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, kaber@trash.net, netdev@vger.kernel.org,
-	rpjday@crashcourse.ca
-To: peter.p.waskiewicz.jr@intel.com
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58373
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750766AbYFWVwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 17:52:31 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290549C885@orsmsx414.amr.corp.intel.com>
+Received: from smtp2.dnainternet.fi ([87.94.96.112]:35051 "EHLO
+	smtp2.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751935AbYFWW31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 18:29:27 -0400
+In-Reply-To: <485FFB81.5000804@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Mon, 23 Jun 2008 11:31:30 -0700
+>> Well, my LTAB didn't end up being exactly same your earlier STAB,   
+>> but I renamed LTAB to STAB as it sounds better. Hope you don't mind  
+>>  :]
+>
+> Not at all :) Did you already post that patch?
 
-> >Commit d62733c8e437fdb58325617c4b3331769ba82d70
-> >([SCHED]: Qdisc changes and sch_rr added for multiqueue)
-> >added a NET_SCH_RR option that was unused since the code
-> >went unconditionally into sch_prio.
-> 
-> I don't agree we should remove this option, purely for the fact that
-> there isn't any way a user would know the qdisc existed without reading
-> the code.
+Need to do some more testing, I'll post patch(es) tomorrow.
 
-That's not how config options work.
 
-We add features and facilities all the time that lack CONFIG
-option entries.
-
-And frankly, I plan on removing the RR scheduler in the TX
-multiqueue bits I'm doing.
-
-But even if I didn't plan this, we should remove these unused
-CONFIG variables, because that is our tree wide policy.  We
-don't use them as dinky knobs for documentation.
 
