@@ -1,39 +1,49 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [PATCH] RFKILL: fix input layer initialisation
-Date: Mon, 23 Jun 2008 09:22:39 -0400
-Message-ID: <20080623091714.ZZRA012@mailhub.coreip.homeip.net>
-References: <20080619112841.GA12051@doriath.ww600.siemens.net>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: tc regression?
+Date: Mon, 23 Jun 2008 17:30:02 +0400
+Message-ID: <485FA55A.4070107@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, IvDoorn@gmail.com
-To: Dmitry Baryshkov <dbaryshkov@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.243]:39429 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753665AbYFWNWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 09:22:43 -0400
-Received: by hs-out-0708.google.com with SMTP id 4so278093hsl.5
-        for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 06:22:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080619112841.GA12051@doriath.ww600.siemens.net>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:58912 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751680AbYFWNhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 09:37:47 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 91E90A6C3D1
+	for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 17:30:10 +0400 (MSD)
+Received: from mail.bigtelecom.ru ([127.0.0.1])
+	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id UAxoisow740l for <netdev@vger.kernel.org>;
+	Mon, 23 Jun 2008 17:30:03 +0400 (MSD)
+Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 80251A6C221
+	for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 17:30:02 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dmitry,
+Hello all.
 
-On Thu, Jun 19, 2008 at 03:28:41PM +0400, Dmitry Baryshkov wrote:
-> Initialise correctly last fields, so tasks can be actually executed
-> 
-> Also move rfkill-input initialisation to subsys level so that it's
-> available before generic drivers probing occurs.
-> 
+Ditrib: Gentoo (i hope its not gentoo bug...)
 
-Rfkill-input is an implementation of default policy of handling
-wifi-related key presses, it is not mandatory and should not be
-required for a driver to operate, it may even not be present in the
-kernel and therefore module_init is the appropriate time for its
-initialization. We don't expect user to start pushing WIFI buttons
-while system just starting to boot up, do we?
+I try update package to "sys-apps/iproute2-2.6.25.20080417" and see that 
+filter can't del filter...
 
--- 
-Dmitry
+# tc filter show dev eth1 | grep 4:29:d1
+filter parent 1: protocol ip pref 5 u32 fh 4:29:d1 order 209 key ht 4 
+bkt 29 flowid 1:b7aa
+
+# tc filter del dev eth1 parent 1: pref 5 handle 4:29:d1 u32
+RTNETLINK answers: Invalid argument
+We have an error talking to the kernel
+
+after rollback to package"sys-apps/iproute2-2.6.24.20080108" all deleted 
+normal...
+
+kernel 2.4.24
+
+Thanks!
+
+P.S. not any critical for me... only "for intresting" report =)
