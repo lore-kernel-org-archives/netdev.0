@@ -1,47 +1,51 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] cleanup netfilter_ipv6.h userspace header
-Date: Mon, 23 Jun 2008 20:48:59 +0300
-Message-ID: <20080623174859.GJ4756@cs181140183.pp.htv.fi>
+Subject: [2.6 patch] netdevice.h: don't export MAX_HEADER to userspace
+Date: Mon, 23 Jun 2008 20:49:06 +0300
+Message-ID: <20080623174906.GK4756@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:57977 "EHLO smtp4.pp.htv.fi"
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:57986 "EHLO smtp4.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761534AbYFWRuz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2008 13:50:55 -0400
+	id S1761569AbYFWRvD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2008 13:51:03 -0400
+Received: from cs181140183.pp.htv.fi (cs181140183.pp.htv.fi [82.181.140.183])
+	by smtp4.pp.htv.fi (Postfix) with ESMTP id ACCFA5BC002
+	for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 20:51:01 +0300 (EEST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel functions are not for userspace.
+Due to the CONFIG_'s the value is anyway not correct in userspace.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
 
- include/linux/netfilter_ipv6.h |    4 ++++
+ include/linux/netdevice.h |    4 ++++
  1 file changed, 4 insertions(+)
 
-88393f0873c19cf54c79388dd02c92a2ce7991c2 diff --git a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
-index 3475a65..427969d 100644
---- a/include/linux/netfilter_ipv6.h
-+++ b/include/linux/netfilter_ipv6.h
-@@ -69,6 +69,8 @@ enum nf_ip6_hook_priorities {
- 	NF_IP6_PRI_LAST = INT_MAX,
- };
+2ac2f37cf11560e4ac858549a250ef473aed544d diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f27fd20..25f8710 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -88,6 +88,8 @@ struct wireless_dev;
+ #define NETDEV_TX_BUSY 1	/* driver tx path was busy*/
+ #define NETDEV_TX_LOCKED -1	/* driver tx lock was already taken */
  
 +#ifdef  __KERNEL__
 +
- #ifdef CONFIG_NETFILTER
- extern int ip6_route_me_harder(struct sk_buff *skb);
- extern __sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
-@@ -81,4 +83,6 @@ static inline int ipv6_netfilter_init(void) { return 0; }
- static inline void ipv6_netfilter_fini(void) { return; }
- #endif /* CONFIG_NETFILTER */
+ /*
+  *	Compute the worst case header length according to the protocols
+  *	used.
+@@ -114,6 +116,8 @@ struct wireless_dev;
+ #define MAX_HEADER (LL_MAX_HEADER + 48)
+ #endif
  
-+#endif /* __KERNEL__ */
++#endif  /*  __KERNEL__  */
 +
- #endif /*__LINUX_IP6_NETFILTER_H*/
+ struct net_device_subqueue
+ {
+ 	/* Give a control state for each queue.  This struct may contain
 
