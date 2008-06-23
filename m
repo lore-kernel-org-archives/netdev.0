@@ -1,35 +1,30 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/8] textsearch: fix textsearch for case insensitive searching
-Date: Tue, 24 Jun 2008 01:22:24 +0200
-Message-ID: <20080623232224.GG20815@postel.suug.ch>
-References: <1214034838-1270-1-git-send-email-joonwpark81@gmail.com> <485CB9F6.6050601@trash.net>
+Subject: Re: [PATCH 0/8] textsearch: case insensitive pattern matching for netfilter
+Date: Tue, 24 Jun 2008 01:27:56 +0200
+Message-ID: <20080623232756.GH20815@postel.suug.ch>
+References: <b25c3fa70806210054o74a46068ifa3b396662080265@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Joonwoo Park <joonwpark81@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
+Cc: Patrick McHardy <kaber@trash.net>,
 	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:60796 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751495AbYFWXWG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2008 19:22:06 -0400
+	netdev <netdev@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>
+To: Joonwoo Park <joonwpark81@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <485CB9F6.6050601@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <b25c3fa70806210054o74a46068ifa3b396662080265@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <kaber@trash.net> 2008-06-21 10:21
-> This looks fine to me, although a generic flags argument
-> would prevent changing all users again next time someone
-> wants to add a feature. But I'll leave that decision to
-> Thomas.
+* Joonwoo Park <joonwpark81@gmail.com> 2008-06-21 00:54
+> This patchset aim at supporting case insensitive text search for netfilter
+> string extension.
+> It contains fixing of Boyer-Moore algorithm and Knuth-Morris-Pratt algorithm.
+> Also this includes bug fixing of Boyer-Moore algorithm.
 
-I agree, I'd favour a general flag for this as well.
+All patches look good, except that a general flags field in ts_config
+would make features like this easier to add going forward.
 
-> Thomas, since there are some netfilter patches that depend
-> on the textsearch patches, do you want me to apply those as
-> well (haven't reviewed them yet though)?
-
-Sure.
+It should be noted that this may slow down the algorithms noticeable for
+very large strings such as skb data buffers.
