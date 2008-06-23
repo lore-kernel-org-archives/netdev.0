@@ -1,42 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [2.6 patch] remove CONFIG_NET_SCH_RR
-Date: Mon, 23 Jun 2008 21:18:35 +0200
-Message-ID: <485FF70B.6010001@trash.net>
-References: <20080623174702.GD4756@cs181140183.pp.htv.fi> <D5C1322C3E673F459512FB59E0DDC3290549C885@orsmsx414.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Robert P. J. Day" <rpjday@crashcourse.ca>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+From: Julius Volz <juliusv@google.com>
+Subject: [PATCH] Netlink: Fix some doc comments in net/netlink/attr.c
+Date: Mon, 23 Jun 2008 21:19:11 +0200
+Message-ID: <1214248751-6498-1-git-send-email-juliusv@google.com>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org,
+	Julius Volz <juliusv@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59771 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753909AbYFWTSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:18:40 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290549C885@orsmsx414.amr.corp.intel.com>
+Received: from smtp-out.google.com ([216.239.33.17]:48825 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757333AbYFWTT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:19:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Waskiewicz Jr, Peter P wrote:
->> Commit d62733c8e437fdb58325617c4b3331769ba82d70
->> ([SCHED]: Qdisc changes and sch_rr added for multiqueue)
->> added a NET_SCH_RR option that was unused since the code
->> went unconditionally into sch_prio.
-> 
-> I don't agree we should remove this option, purely for the fact that
-> there isn't any way a user would know the qdisc existed without reading
-> the code.  I'd rather see a change to sch_prio.c to correctly wrap the
-> RR code, which I should have done in the first place.  My hurdle is when
-> the module is selected, NET_SCH_RR isn't defined to be used as an #ifdef
-> check in the code.  Only when it's selected to be built-in is the symbol
-> defined.  If I can get around that, I'll generate a patch to properly
-> wrap sch_prio.c code.  I know I'm missing something silly, so any
-> guidance is appreciated.
+Fix some doc comments to match function and attribute names in
+net/netlink/attr.c.
 
-For modular selected options, the name is <name>_MODULE (so
-CONFIG_NET_SCH_RR_MODULE in this case).
+Signed-off-by: Julius Volz <juliusv@google.com>
+---
+ net/netlink/attr.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-I tend to agree with Adrian though, this option doesn't
-provide any value.
+diff --git a/net/netlink/attr.c b/net/netlink/attr.c
+index 47bbf45..2d106cf 100644
+--- a/net/netlink/attr.c
++++ b/net/netlink/attr.c
+@@ -132,6 +132,7 @@ errout:
+  * @maxtype: maximum attribute type to be expected
+  * @head: head of attribute stream
+  * @len: length of attribute stream
++ * @policy: validation policy
+  *
+  * Parses a stream of attributes and stores a pointer to each attribute in
+  * the tb array accessable via the attribute type. Attributes with a type
+@@ -194,7 +195,7 @@ struct nlattr *nla_find(struct nlattr *head, int len, int attrtype)
+ /**
+  * nla_strlcpy - Copy string attribute payload into a sized buffer
+  * @dst: where to copy the string to
+- * @src: attribute to copy the string from
++ * @nla: attribute to copy the string from
+  * @dstsize: size of destination buffer
+  *
+  * Copies at most dstsize - 1 bytes into the destination buffer.
+@@ -340,9 +341,9 @@ struct nlattr *nla_reserve(struct sk_buff *skb, int attrtype, int attrlen)
+ }
+ 
+ /**
+- * nla_reserve - reserve room for attribute without header
++ * nla_reserve_nohdr - reserve room for attribute without header
+  * @skb: socket buffer to reserve room on
+- * @len: length of attribute payload
++ * @attrlen: length of attribute payload
+  *
+  * Reserves room for attribute payload without a header.
+  *
+-- 
+1.5.3.6
+
