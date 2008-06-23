@@ -1,44 +1,75 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: stuck tcp connections 2.6.26-rc7
-Date: Sun, 22 Jun 2008 20:59:27 -0700
-Message-ID: <20080622205927.301501e7.akpm@linux-foundation.org>
-References: <dd18b0c30806221109t2ff73f9ai52f6716748648a79@mail.gmail.com>
+From: Joe Eykholt <jre@nuovasystems.com>
+Subject: Re: [PATCH net-next 2/8] bonding: Check return of dev_set_promiscuity/allmulti
+Date: Sun, 22 Jun 2008 20:55:05 -0700
+Message-ID: <485F1E99.3020406@nuovasystems.com>
+References: <485AFFD2.4090304@cn.fujitsu.com> <20080619.190724.264140435.davem@davemloft.net> <485D462E.3060003@cisco.com> <485EFE06.7040104@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: "Justin Mattock" <justinmattock@gmail.com>
+Cc: Joe Eykholt <jeykholt@cisco.com>,
+	David Miller <davem@davemloft.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, fubar@us.ibm.com, kaber@trash.net
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49778 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752991AbYFWD73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2008 23:59:29 -0400
-In-Reply-To: <dd18b0c30806221109t2ff73f9ai52f6716748648a79@mail.gmail.com>
+Received: from nuova-ex1.nuovasystems.com ([67.91.200.196]:26765 "EHLO
+	nuova-ex1.nuovasystems.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750764AbYFWEKS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 00:10:18 -0400
+In-Reply-To: <485EFE06.7040104@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 22 Jun 2008 18:09:16 +0000 "Justin Mattock" <justinmattock@gmail.com> wrote:
+Wang Chen wrote:
+> Joe Eykholt said the following on 2008-6-22 2:19:
+>> David Miller wrote:
+>>> From: Wang Chen <wangchen@cn.fujitsu.com>
+>>> Date: Fri, 20 Jun 2008 08:54:42 +0800
+>>>
+>>>> @@ -419,8 +419,11 @@ static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
+>>>>  	}
+>>>>  
+>>>>  	if (!bond->alb_info.primary_is_promisc) {
+>>>> -		bond->alb_info.primary_is_promisc = 1;
+>>>> -		dev_set_promiscuity(bond->curr_active_slave->dev, 1);
+>>>> +		/* dev_set_promiscuity might overflow, check it here */
+>>>> +		if (!dev_set_promiscuity(bond->curr_active_slave->dev, 1))
+>>> Like the first patch, please don't add such comments.
+>>>
+>>>> @@ -955,6 +965,9 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active, struct
+>>>>  	}
+>>>>  
+>>>>  	if (new_active) {
+>>>> +		/* FIXME: promiscuity and allmulti might overflow,
+>>>> +		 * but bond_mc_swap's caller likes quiet handle.
+>>>> +		 */
+>>>>  		if (bond->dev->flags & IFF_PROMISC) {
+>>>>  			dev_set_promiscuity(new_active->dev, 1);
+>>>>  		}
+>>> Please reword this comment.  The issue is that this code path has no
+>>> mechanism to signal errors upstream.  It isn't about a specific type
+>>> of error condition in particular, it's about error handling capabilites
+>>> in general.
+>> If netdev->promiscuity overflows, shouldn't there be a WARN_ON or BUG_ON
+>> that catches that?  Either someone forgot to clean up, or much less likely,
+>> the counter needs to be widened.  It isn't necessarily the current caller's
+>> fault, but some indication of the problem is better than nothing.
+>>
+> 
+> If promiscuity overflows, dev_set_promiscuity will printk(KERN_WARNING) now.
+> Compare to that, WARN_ON has more information about modules info and dump stack.
+> But I think printk has enough information to indicate the problem and we
+> don't need WARN_ON.
+> How do you think?
 
-> Hello; I too am experiencing internet connectivity problems, for  a
-> while I thought
-> It was due to low bandwidth(or being ddos attacked) but yesterday I
-> noticed with watch netstat -ntu
-> send-Q was stuck on a number; the connection would not go to TIME_WAIT
-> resulting in music to pause, and t.v. to freeze.
-> In my experiences running xmms streaming music is fine, no problems,
-> but as soon as
-> you watch something with flash player the stream start's getting
-> really bad. In the past with older kernel's
-> I usually can watch t.v.(with flash) and stream music at the same time
-> without any trouble.
-> lately I've been Running the kernel in No forced Preemption with a
-> time frequency at 100. having the kernel set in this mode really shows
-> the connection problems, but if I change the preemption to another,
-> and bump up the timer frequency the poor internet connection is not as
-> bad(or stuck tcp) but still prevalent. more pops in the music, and
-> sudden internet loss for around five seconds, then goes back
-> So from over here streaming music has no problems from what I can see,
-> but as soon as I watch media, it becomes a mess.
+I agree, printk is enough.  If it is reproducible, the cause can be 
+determined.  I didn't check to see there was a printk there.
 
-(cc netdev)
+	Thanks,
+	Joe
+
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
