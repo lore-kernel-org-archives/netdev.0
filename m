@@ -1,40 +1,57 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [2.6 patch] remove CONFIG_NET_SCH_RR
-Date: Mon, 23 Jun 2008 11:31:30 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290549C885@orsmsx414.amr.corp.intel.com>
-References: <20080623174702.GD4756@cs181140183.pp.htv.fi>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	"Robert P. J. Day" <rpjday@crashcourse.ca>
-To: "Adrian Bunk" <bunk@kernel.org>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH V2] ibm_newemac:  Fixes kernel crashes when speed of cable connected changes
+Date: Mon, 23 Jun 2008 20:36:02 +0200
+Message-ID: <1214246162-25293-1-git-send-email-sr@denx.de>
+Cc: benh@kernel.crashing.org, Sathya Narayanan <sathyan@teamf1.com>
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:16405 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758486AbYFWSbg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 14:31:36 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080623174702.GD4756@cs181140183.pp.htv.fi>
+Received: from moutng.kundenserver.de ([212.227.126.179]:55361 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752837AbYFWSgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 14:36:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Commit d62733c8e437fdb58325617c4b3331769ba82d70
->([SCHED]: Qdisc changes and sch_rr added for multiqueue)
->added a NET_SCH_RR option that was unused since the code
->went unconditionally into sch_prio.
+From: Sathya Narayanan <sathyan@teamf1.com>
 
-I don't agree we should remove this option, purely for the fact that
-there isn't any way a user would know the qdisc existed without reading
-the code.  I'd rather see a change to sch_prio.c to correctly wrap the
-RR code, which I should have done in the first place.  My hurdle is when
-the module is selected, NET_SCH_RR isn't defined to be used as an #ifdef
-check in the code.  Only when it's selected to be built-in is the symbol
-defined.  If I can get around that, I'll generate a patch to properly
-wrap sch_prio.c code.  I know I'm missing something silly, so any
-guidance is appreciated.
+The descriptor pointers were not initialized to NIL values, so it was
+poiniting to some random addresses which was completely invalid. This
+fix takes care of initializing the descriptor to NIL values and clearing
+the valid descriptors on clean ring operation.
 
--PJ Waskiewicz
+Signed-off-by: Sathya Narayanan <sathyan@teamf1.com>
+Signed-off-by: Stefan Roese <sr@denx.de>
+---
+Changed since V1:
+- Fixed off-by-one error in for loops
+
+ drivers/net/ibm_newemac/core.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index 5d2108c..6dfc2c9 100644
+--- a/drivers/net/ibm_newemac/core.c
++++ b/drivers/net/ibm_newemac/core.c
+@@ -1025,7 +1025,7 @@ static void emac_clean_tx_ring(struct emac_instance *dev)
+ 	int i;
+ 
+ 	for (i = 0; i < NUM_TX_BUFF; ++i) {
+-		if (dev->tx_skb[i]) {
++		if (dev->tx_skb[i] && dev->tx_desc[i].data_ptr) {
+ 			dev_kfree_skb(dev->tx_skb[i]);
+ 			dev->tx_skb[i] = NULL;
+ 			if (dev->tx_desc[i].ctrl & MAL_TX_CTRL_READY)
+@@ -2719,6 +2719,10 @@ static int __devinit emac_probe(struct of_device *ofdev,
+ 	/* Clean rings */
+ 	memset(dev->tx_desc, 0, NUM_TX_BUFF * sizeof(struct mal_descriptor));
+ 	memset(dev->rx_desc, 0, NUM_RX_BUFF * sizeof(struct mal_descriptor));
++	for (i = 0; i < NUM_TX_BUFF; i++)
++		dev->tx_skb[i] = NULL;
++	for (i = 0; i < NUM_RX_BUFF; i++)
++		dev->rx_skb[i] = NULL;
+ 
+ 	/* Attach to ZMII, if needed */
+ 	if (emac_has_feature(dev, EMAC_FTR_HAS_ZMII) &&
+-- 
+1.5.6
+
