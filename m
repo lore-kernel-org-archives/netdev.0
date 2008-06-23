@@ -1,35 +1,45 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [RESEND PATCH 1/3] e1000e: set CONFIG_E1000E=y in x86
-	defconfigs
-Date: Mon, 23 Jun 2008 13:26:18 +0200
-Message-ID: <20080623112618.GC7485@elte.hu>
-References: <20080622221916.5907.79563.stgit@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] hfsc: add link layer overhead adaption
+Date: Mon, 23 Jun 2008 13:27:26 +0200
+Message-ID: <485F889E.1050901@trash.net>
+References: <20080623102514.15821.13979.stgit@fate.lan>	<485F81B2.7000107@trash.net> <20080623142417.9gxuu3y9r4084s4c@hayate.ip6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757090AbYFWL0v@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080622221916.5907.79563.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:45958 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305AbYFWL1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 07:27:30 -0400
+In-Reply-To: <20080623142417.9gxuu3y9r4084s4c@hayate.ip6>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-* Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-
-> From: Auke Kok <auke-jan.h.kok@intel.com>
+Jussi Kivilinna wrote:
+> Quoting Patrick McHardy <kaber@trash.net>:
+>>
+>> This looks like an abuse of rate tables, which usually convert
+>> packet sizes to transmission times. You undo that above using
+>> expensive calculations.
+>>
+>> I think this should be done by performing the length calculation
+>> in the kernel directly.
 > 
-> This adds to the already default CONFIG_E1000=y in these files.
+> Yes, it's abuse, and actually table is created using false rate (rate = 
+> PSCHED_TICKS_PER_SEC) so div_u64 is avoided. Div_u64 is there just in 
+> case something goes wrong in userspace. Using rate table allows 
+> changes/updates to link layer emulation with only userspace updates 
+> avoiding, but maybe abuse of rate table isn't right way to do this after 
+> all.
 > 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
-> 
->  arch/x86/configs/i386_defconfig   |    1 +
->  arch/x86/configs/x86_64_defconfig |    1 +
+> So would it be better if I add 'length table' to kernel&userspace and 
+> use it instead?
 
-that is not an e1000 patch but an arch/x86 defconfig patch. NAK on this 
-route of patch propagation.
+Yes, I even posted an unfinished patch for this one or two years
+ago, in response to the overhead calculation patches for HTB etc.
 
-	Ingo
+I can't find it right now, but haven't tried too hard. It was
+called qdisc STABs (for size tables), you should be able to find
+it in the archives.
