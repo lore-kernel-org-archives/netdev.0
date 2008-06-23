@@ -1,48 +1,39 @@
-From: Stefan Roese <sr@denx.de>
-Subject: [PATCH] ibm_newemac: Fixes memory leak in ibm_newemac ethernet driver
-Date: Mon, 23 Jun 2008 14:55:12 +0200
-Message-ID: <1214225712-25882-1-git-send-email-sr@denx.de>
-Cc: benh@kernel.crashing.org, Sathya Narayanan <sathyan@teamf1.com>
-To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: [PATCH] RFKILL: fix input layer initialisation
+Date: Mon, 23 Jun 2008 09:22:39 -0400
+Message-ID: <20080623091714.ZZRA012@mailhub.coreip.homeip.net>
+References: <20080619112841.GA12051@doriath.ww600.siemens.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, IvDoorn@gmail.com
+To: Dmitry Baryshkov <dbaryshkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:49677 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754072AbYFWMzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 08:55:18 -0400
+Received: from hs-out-0708.google.com ([64.233.178.243]:39429 "EHLO
+	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753665AbYFWNWn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 09:22:43 -0400
+Received: by hs-out-0708.google.com with SMTP id 4so278093hsl.5
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 06:22:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080619112841.GA12051@doriath.ww600.siemens.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Narayanan <sathyan@teamf1.com>
+Hi Dmitry,
 
-This patch addresses the memory leak happenning in drivers transmit queue
-under heavy load condition. Once the transmit queue becomes full, driver
-does an automatic wrapup of queue. During which the untransmitted SKB's are
-lost without getting freed up.
+On Thu, Jun 19, 2008 at 03:28:41PM +0400, Dmitry Baryshkov wrote:
+> Initialise correctly last fields, so tasks can be actually executed
+> 
+> Also move rfkill-input initialisation to subsys level so that it's
+> available before generic drivers probing occurs.
+> 
 
-Signed-off-by: Sathya Narayanan <sathyan@teamf1.com>
-Signed-off-by: Stefan Roese <sr@denx.de>
----
- drivers/net/ibm_newemac/core.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+Rfkill-input is an implementation of default policy of handling
+wifi-related key presses, it is not mandatory and should not be
+required for a driver to operate, it may even not be present in the
+kernel and therefore module_init is the appropriate time for its
+initialization. We don't expect user to start pushing WIFI buttons
+while system just starting to boot up, do we?
 
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-index aa407b2..ee868b6 100644
---- a/drivers/net/ibm_newemac/core.c
-+++ b/drivers/net/ibm_newemac/core.c
-@@ -1328,6 +1328,13 @@ static int emac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 
- 	DBG2(dev, "xmit(%u) %d" NL, len, slot);
- 
-+	if (dev->tx_skb[slot] && dev->tx_desc[slot].data_ptr) {
-+		dev_kfree_skb(dev->tx_skb[slot]);
-+		dev->tx_skb[slot] = NULL;
-+		dev->tx_cnt--;
-+		++dev->estats.tx_dropped;
-+	}
-+
- 	dev->tx_skb[slot] = skb;
- 	dev->tx_desc[slot].data_ptr = dma_map_single(&dev->ofdev->dev,
- 						     skb->data, len,
 -- 
-1.5.6
-
+Dmitry
